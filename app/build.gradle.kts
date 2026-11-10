@@ -13,6 +13,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -68,6 +69,9 @@ dependencies {
     implementation(libs.bouncycastle.bcprov.jdk18on)
     implementation(libs.sparrowwallet.hummingbird)
 
+    // Password strength estimation for the vault's App Password policy.
+    implementation(libs.zxcvbn)
+
     // QR generation and scanning.
     implementation(libs.zxing.core)
     implementation(libs.androidx.camera.core)
@@ -78,4 +82,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
+
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }
