@@ -1,0 +1,34 @@
+{
+  "_comment": "Token gaps for USDT, USDC, DAI, XAUT, USDP and PAXG on major chains. A row in accepted is added to the candidates only when its official source names the contract; verify_onchain.py must then pass it. Rows in not_added are listed in sources.md and never written to the registry.",
+  "accepted": [
+    {"chainId": 42161, "symbol": "USDT", "name": "Tether USD", "contract": "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9", "decimals": 6,
+     "source": "https://docs.usdt0.to/technical-documentation/deployments", "quote": "Arbitrum One | 42161 | Token | 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"},
+    {"chainId": 137, "symbol": "USDT", "name": "Tether USD", "contract": "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", "decimals": 6,
+     "source": "https://docs.usdt0.to/technical-documentation/deployments", "quote": "Polygon PoS | 137 | Token | 0xc2132D05D31c914a87C6611C10748AEb04B58e8F"},
+    {"chainId": 42161, "symbol": "XAUT0", "name": "Tether Gold (XAUT0)", "contract": "0x40461291347e1ecbb09499f3371d3f17f10d7159", "decimals": 6,
+     "source": "https://docs.usdt0.to/api/deployments", "quote": "xaut0.native: Arbitrum One, chainId 42161, Token 0x40461291347e1eCbb09499F3371D3f17f10d7159 (Arbiscan page also cited by a third-party listing)"},
+    {"chainId": 137, "symbol": "XAUT0", "name": "Tether Gold (XAUT0)", "contract": "0xf1815bd50389c46847f0bda824ec8da914045d14", "decimals": 6,
+     "source": "https://docs.usdt0.to/api/deployments", "quote": "xaut0.native: Polygon, chainId 137, Token 0xF1815bd50389c46847f0Bda824eC8da914045D14"},
+    {"chainId": 43114, "symbol": "XAUT0", "name": "Tether Gold (XAUT0)", "contract": "0x2775d5105276781b4b85ba6ea6a6653beed1dd32", "decimals": 6,
+     "source": "https://docs.usdt0.to/api/deployments", "quote": "xaut0.native: Avalanche, chainId 43114, Token 0x2775d5105276781B4b85bA6eA6a6653bEeD1dd32"},
+    {"chainId": 56, "symbol": "XAUT", "name": "Tether Gold", "contract": "0x21caef8a43163eea865baee23b9c2e327696a3bf", "decimals": 6,
+     "source": "https://tether.to/en/supported-protocols/", "quote": "BNB Smart Chain | XAU₮ | 0x21cAef8A43163Eea865baeE23b9C2E327696A3bf (same address in the USDT0 API as BNB Chain)"}
+  ],
+  "not_added": [
+    {"chainId": 56, "symbol": "USDT", "contract": "0x55d398326f99059ff775485246999027b3197955",
+     "reason": "No official source names this contract. Tether's supported-protocols page lists no USD₮ on BNB Smart Chain; the USDT0 deployments page has no BSC entry. Aggregators (CoinGecko, Coinranking, Bitquery) list this Binance-Peg address with conflicting labels. Add only after an official Binance or BNB Chain source names it."},
+    {"chainId": 43114, "symbol": "DAI", "contract": "0xd586e7f844cea2f87f50152665bcbc2c279d8d70",
+     "reason": "Avalanche's official bridged-token article names DAI.e but gives no address. The address comes from aggregators and a lending dashboard. Not added."},
+    {"chainId": 42161, "symbol": "PAXG", "contract": "0xfeb4dfc8c4cf7ed305bb08065d08ec6ee6728429",
+     "reason": "Only third-party DEX sites give this address. Paxos's own pages read in this run do not list contract addresses (docs.paxos.com welcome page, paxos.com/paxgold)."},
+    {"chainId": 137, "symbol": "PAXG", "contract": "0x553d3d295e0f695b9228246232edf400ed3560b5",
+     "reason": "Only a third-party analytics page URL shows this address; the address text was not read from it. Paxos's own pages do not list it. Not added."},
+    {"chainId": 1, "symbol": "USDP", "contract": "0x8e870d67f660d95d5be530380d0ec0bd388289e1",
+     "reason": "Already in the candidates from two sources; Paxos's USDP page says 'Available on Ethereum and Solana', so there is no EVM gap beyond Ethereum. Not a gap."}
+  ],
+  "notes": [
+    "XAUT on Ethereum (0x68749665ff8d2d112fa859aa293f07a622782f38) is already in the candidates; Tether's supported-protocols page and the USDT0 API both name it.",
+    "Monad (143) and Ink (57073) XAUT0 entries appear in the USDT0 API output read via WebFetch, but the Monad address there also appears as the Optimism USDT0 token on the deployments page, so the summary is inconsistent. Neither is added until read directly from the raw JSON.",
+    "XAUT0 entries on Celo, Conflux eSpace, HyperEVM, Plasma, Stable and Tempo appear in the same API output but are not added in this run (not requested and not individually checked)."
+  ]
+}
