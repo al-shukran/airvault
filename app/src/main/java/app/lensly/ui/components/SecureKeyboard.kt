@@ -71,8 +71,9 @@ private const val SYMBOLS_BOTTOM = "!?_'\"/\\:;"
 /**
  * In-app keyboard for secret entry. Keys are handled here, so the password never reaches the
  * system IME (no suggestions, no IME logging, no clipboard). There are no key-press popups and no
- * haptics, so nothing differs per key and nothing shows which key was pressed. A pressed key only
- * darkens its own background.
+ * every key gives the same haptic tap on press (see [rememberKeyHaptics]) and no sound, so nothing
+ * differs per key and nothing shows which key was pressed. A pressed key only darkens its own
+ * background.
  *
  * Keys are rounded rectangles that share the full width of the screen. Every row is weighted, so
  * the keys stretch to the available width at any phone size. The letter rows follow the usual
@@ -206,6 +207,7 @@ private fun Key(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val haptics = rememberKeyHaptics()
     val fill = if (pressed && enabled) lerp(background, Color.Black, PRESSED_DARKEN) else background
 
     Box(
@@ -214,6 +216,7 @@ private fun Key(
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .clip(KEY_SHAPE)
             .background(fill, KEY_SHAPE)
+            .tapHaptic(haptics, enabled)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,

@@ -5,6 +5,8 @@
 
     <!-- Offline vault: no INTERNET permission is requested on purpose. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Key-press haptics (KeyHaptics). Vibration only, no sound. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- androidx.core merges ACCESS_NETWORK_STATE by default; the app never inspects connectivity. -->
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE"

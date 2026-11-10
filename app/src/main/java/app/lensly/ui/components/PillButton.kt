@@ -24,12 +24,14 @@ fun PillButton(
     accent: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
+    val haptics = rememberKeyHaptics()
     val shape = RoundedCornerShape(percent = 50)
     Box(
         modifier = modifier
             .height(56.dp)
             .clip(shape)
             .background(if (accent) colors.primary else colors.surfaceVariant)
+            .tapHaptic(haptics)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 28.dp),
         contentAlignment = Alignment.Center,

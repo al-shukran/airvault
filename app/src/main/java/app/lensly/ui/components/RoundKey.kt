@@ -32,6 +32,7 @@ fun RoundKey(
     variant: RoundKeyVariant = RoundKeyVariant.Normal,
 ) {
     val colors = MaterialTheme.colorScheme
+    val haptics = rememberKeyHaptics()
     val background: Color = when (variant) {
         RoundKeyVariant.Normal -> colors.surfaceVariant
         RoundKeyVariant.Accent -> colors.primary
@@ -45,6 +46,7 @@ fun RoundKey(
             .clip(CircleShape)
             .background(background)
             .then(if (borderColor != null) Modifier.border(1.dp, borderColor, CircleShape) else Modifier)
+            .tapHaptic(haptics)
             .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
