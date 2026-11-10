@@ -22,8 +22,8 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslyAccent
 
-/** Minimum password length, shown to the user as "12+ characters". */
-const val MIN_PASSWORD_LENGTH = 12
+/** Minimum password length, shown to the user as "8+ characters". */
+const val MIN_PASSWORD_LENGTH = 8
 
 /** The two entry steps of password creation. */
 enum class CreateStep { Enter, Confirm }
