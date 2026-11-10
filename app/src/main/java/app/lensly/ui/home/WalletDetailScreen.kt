@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.app.WalletMeta
+import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.wallet.DotText
@@ -135,6 +136,9 @@ private fun AccountRow(index: Int, address: String) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 WalletEyebrow("Account ${index + 1}")
                 Spacer(Modifier.width(12.dp))
+                // Every address shows the Ethereum logo, whichever compatible chain it is used on.
+                AddressIcon(size = 16.dp)
+                Spacer(Modifier.width(8.dp))
                 Text(
                     text = shortAddress(address),
                     style = MaterialTheme.typography.bodyLarge,

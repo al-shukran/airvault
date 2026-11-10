@@ -20,6 +20,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
 import app.lensly.app.export.PairingExport
+import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.navigation.leaveHidden
@@ -108,6 +109,8 @@ private fun PairWalletContent(wallet: WalletMeta, onDone: () -> Unit) {
         subtitle = chosen.instruction,
         parts = parts,
         onDone = onDone,
+        // The paired account is an Ethereum account, so it carries the Ethereum logo.
+        subtitleLeading = { AddressIcon(size = 16.dp) },
     )
 }
 
