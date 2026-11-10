@@ -72,6 +72,7 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.HOME) { HiddenBackdrop { HomeRoute(navController, holder) } }
     composable(HiddenRoute.WALLET_START) { HiddenBackdrop { WalletStartRoute(navController) } }
     createRoutes(navController)
+    importRoutes(navController, holder)
     composable(HiddenRoute.RESTORE) { HiddenBackdrop { RestoreRoute(navController) } }
     composable(HiddenRoute.PASSPHRASE) { HiddenBackdrop { PassphraseRoute(navController) } }
     composable(HiddenRoute.NAME) { HiddenBackdrop { NameRoute(navController, holder) } }
@@ -310,11 +311,14 @@ private fun PassphraseRoute(navController: NavHostController) {
     )
 }
 
-/** Names the wallet, then saves it and opens its detail. The suggested name counts the wallets already saved. */
+/**
+ * Names the wallet, then saves it and opens its detail. The suggested name counts the wallets already saved. An imported
+ * key keeps its name in the draft and goes on to its write-down, which saves the wallet.
+ */
 @Composable
 private fun NameRoute(navController: NavHostController, holder: VaultHolder) {
     val draft = draftOf(navController)
-    RequireDraft(navController, ready = draft.words.isNotEmpty())
+    RequireDraft(navController, ready = draft.words.isNotEmpty() || draft.singleKey != null)
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
     val suggested by produceState<String?>(initialValue = null, session) {
@@ -343,7 +347,10 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder) {
             }
         },
         onDone = {
-            if (!saving && draft.words.isNotEmpty()) {
+            if (!saving && draft.singleKey != null) {
+                draft.setName(name.trim().ifEmpty { suggested ?: "WALLET" })
+                navController.navigate(HiddenRoute.KEY_BACKUP)
+            } else if (!saving && draft.words.isNotEmpty()) {
                 saving = true
                 scope.launch {
                     whileUnlocked(navController, holder) {

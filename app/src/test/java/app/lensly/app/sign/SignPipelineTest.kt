@@ -24,6 +24,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
 import org.web3j.crypto.Hash
+import org.web3j.crypto.Keys
 import org.web3j.crypto.RawTransaction
 import org.web3j.crypto.Sign
 import org.web3j.crypto.TransactionEncoder
@@ -50,6 +51,15 @@ private val WALLET by lazy { HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "
 
 /** Two accounts, so index 1 is valid and index 2 is not. */
 private val VIEW by lazy { WalletView(WALLET.masterFingerprint, accountCount = 2) { WALLET.address(it) } }
+
+/** The well-known test key of the Single Key tests. It has never held funds, and no other fixture uses it. */
+private val SINGLE_KEY: ByteArray =
+    Numeric.hexStringToByteArray("4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318")
+private const val SINGLE_KEY_ADDRESS = "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+private const val SINGLE_KEY_ADDRESS_HEX = "2c7536e3605d9c16a7a3d7b1898e529396a65c23"
+private val SINGLE_KEY_BYTES: ByteArray = Numeric.hexStringToByteArray(SINGLE_KEY_ADDRESS)
+private val SINGLE_KEY_VIEW by lazy { WalletView.singleKey(SINGLE_KEY_ADDRESS) }
+private val ART_BYTES: ByteArray = Numeric.hexStringToByteArray(ART_ADDRESS)
 
 private val REGISTRY = Registry(
     networks = listOf(
@@ -555,6 +565,62 @@ class SignPipelineTest {
         assertIs<Prepared.Refused>(prepared(requestCbor(ByteArray(EthSignRequest.MAX_SIGN_DATA_BYTES + 1))))
     }
 
+    @Test
+    fun aSingleKeyTransactionIsSignedByItsKeyAndRecoversItsAddress() {
+        val tx = eip1559Tx()
+        val ready = assertIs<Prepared.Ready>(
+            pipeline.prepare(requestCbor(tx, fingerprint = null, address = SINGLE_KEY_BYTES), SINGLE_KEY_VIEW),
+        )
+        assertEquals(SINGLE_KEY_ADDRESS, ready.review.fromAddress)
+        assertEquals("ACCOUNT 1", ready.review.fromAccountLabel)
+
+        val response = signResponse(ready, key = SINGLE_KEY.copyOf())
+
+        assertContentEquals(REQUEST_ID, response.requestId)
+        val v = response.signature[64].toInt()
+        assertTrue(v == 0 || v == 1, "v must be a recovery id, was $v")
+        assertEquals(SINGLE_KEY_ADDRESS_HEX, recovered(Hash.sha3(tx), response.signature, v))
+    }
+
+    @Test
+    fun aSingleKeyPersonalMessageIsSignedByItsKeyAndRecoversItsAddress() {
+        val message = "Sign in to Lensly".toByteArray(Charsets.UTF_8)
+        val ready = assertIs<Prepared.Ready>(
+            pipeline.prepare(
+                requestCbor(message, dataType = 3, fingerprint = null, address = SINGLE_KEY_BYTES),
+                SINGLE_KEY_VIEW,
+            ),
+        )
+
+        val response = signResponse(ready, key = SINGLE_KEY.copyOf())
+
+        val v = response.signature[64].toInt() and 0xFF
+        assertTrue(v == 27 || v == 28, "v must be 27 or 28, was $v")
+        val publicKey = Sign.signedPrefixedMessageToKey(
+            message,
+            Sign.SignatureData(v.toByte(), response.signature.copyOfRange(0, 32), response.signature.copyOfRange(32, 64)),
+        )
+        assertEquals(SINGLE_KEY_ADDRESS_HEX, EvmFixtures.normalize(Keys.getAddress(publicKey)))
+    }
+
+    @Test
+    fun aSingleKeyRequestMustNameItsAddress() {
+        val reason = assertIs<Prepared.Refused>(
+            pipeline.prepare(requestCbor(eip1559Tx(), fingerprint = null), SINGLE_KEY_VIEW),
+        ).reason
+
+        assertEquals("The request does not say which address to sign with", reason)
+    }
+
+    @Test
+    fun aSingleKeyRequestForAnotherAddressIsRefused() {
+        val reason = assertIs<Prepared.Refused>(
+            pipeline.prepare(requestCbor(eip1559Tx(), fingerprint = null, address = ART_BYTES), SINGLE_KEY_VIEW),
+        ).reason
+
+        assertEquals("This request is for a different address", reason)
+    }
+
     private fun prepared(cbor: ByteArray): Prepared = pipeline.prepare(cbor, VIEW)
 
     private fun ready(cbor: ByteArray): Prepared.Ready = assertIs<Prepared.Ready>(prepared(cbor))
@@ -564,9 +630,11 @@ class SignPipelineTest {
     /** The fields of the ur:eth-signature that answers a signed request. */
     private class Response(val requestId: ByteArray, val signature: ByteArray)
 
-    /** Signs [ready] with the account key from the wallet, then reads back the single eth-signature frame. */
-    private fun signResponse(ready: Prepared.Ready): Response {
-        val key = WALLET.privateKey(ready.accountIndex)
+    /**
+     * Signs [ready] with [key], which defaults to the account key from the wallet, then reads back the single eth-signature
+     * frame.
+     */
+    private fun signResponse(ready: Prepared.Ready, key: ByteArray = WALLET.privateKey(ready.accountIndex)): Response {
         val frames = pipeline.sign(ready, key)
         assertTrue(key.all { it == 0.toByte() }, "the private key must be zeroed after signing")
 

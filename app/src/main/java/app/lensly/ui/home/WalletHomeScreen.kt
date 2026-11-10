@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.PillChip
@@ -173,7 +174,11 @@ private fun WalletRow(wallet: WalletMeta, onClick: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (wallet.deviceGenerated) PillChip(text = "Device-generated")
-                PillChip(text = "Master ${wallet.masterFingerprintHex.uppercase()}")
+                if (wallet.kind == WalletKind.SINGLE_KEY) {
+                    PillChip(text = "Single key")
+                } else {
+                    PillChip(text = "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}")
+                }
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
