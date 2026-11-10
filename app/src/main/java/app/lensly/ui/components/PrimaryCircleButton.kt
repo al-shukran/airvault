@@ -24,11 +24,13 @@ fun PrimaryCircleButton(
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
 ) {
+    val haptics = rememberKeyHaptics()
     Box(
         modifier = modifier
             .size(80.dp)
             .clip(CircleShape)
             .background(LenslyOnSurface)
+            .tapHaptic(haptics)
             .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
