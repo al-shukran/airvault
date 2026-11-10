@@ -1,0 +1,30 @@
+<!--
+    Generated from tokens/cbeth.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF0052FF"
+        android:pathData="M12 20.16c2.16 0 4.24-0.86 5.77-2.4 1.53-1.52 2.39-3.6 2.39-5.76 0-2.16-0.86-4.24-2.4-5.77-1.52-1.53-3.6-2.39-5.76-2.39-2.16 0-4.24 0.86-5.77 2.4C4.7 7.75 3.84 9.83 3.84 12c0 2.16 0.86 4.24 2.4 5.77 1.52 1.53 3.6 2.39 5.76 2.39ZM21 12c0 2.39-0.95 4.68-2.64 6.36C16.68 20.06 14.4 21 12 21s-4.68-0.95-6.36-2.64C3.94 16.68 3 14.4 3 12s0.95-4.68 2.64-6.36C7.32 3.94 9.6 3 12 3s4.68 0.95 6.36 2.64C20.06 7.32 21 9.6 21 12Z"/>
+    <path
+        android:fillColor="#990052FF"
+        android:pathData="M12 5.25v4.78l3.94 1.8L12 5.26Z"/>
+    <path
+        android:fillColor="#FF0052FF"
+        android:pathData="M12 5.25l-3.94 6.59 3.94-1.8V5.25Z"/>
+    <path
+        android:fillColor="#990052FF"
+        android:pathData="M12 14.94v3.25l3.94-5.6L12 14.94Z"/>
+    <path
+        android:fillColor="#FF0052FF"
+        android:pathData="M12 18.19v-3.25l-3.94-2.35L12 18.2Z"/>
+    <path
+        android:fillColor="#330052FF"
+        android:pathData="M12 14.19l3.94-2.35-3.94-1.8v4.15Z"/>
+    <path
+        android:fillColor="#990052FF"
+        android:pathData="M8.06 11.84L12 14.19v-4.16l-3.94 1.8Z"/>
+</vector>

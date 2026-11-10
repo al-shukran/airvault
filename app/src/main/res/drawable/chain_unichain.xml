@@ -1,0 +1,12 @@
+<!--
+    Generated from chains/unichain.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFF50DB4"
+        android:pathData="M21 11.83c-4.88 0-8.83-3.96-8.83-8.83h-0.34v8.83H3v0.34c4.88 0 8.83 3.96 8.83 8.83h0.34v-8.83H21v-0.34Z"/>
+</vector>

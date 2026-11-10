@@ -1,0 +1,15 @@
+<!--
+    Generated from chains/lisk.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF0C152E"
+        android:pathData="M10.41 5.65l1.53-2.61c0.03-0.05 0.1-0.05 0.1 0l7.57 12.93c0.01 0.03 0 0.05-0.01 0.08l-4.36 4.9-0.05 0.02h-3.54c-0.06 0-0.09-0.06-0.05-0.1l2.36-2.67 2.22-2.48c0.03-0.02 0.03-0.05 0.01-0.08l-5.78-9.92c-0.01-0.01-0.01-0.04 0-0.07Z"/>
+    <path
+        android:fillColor="#FF0C152E"
+        android:pathData="M12.68 18.32l-2.35 2.64-0.02 0.02L10.28 21H8.8c-0.02 0-0.04-0.01-0.05-0.03l-4.36-4.9v-0.03V16l5.43-9.32c0.02-0.04 0.1-0.04 0.12 0l1.51 2.61c0.02 0.02 0.02 0.04 0 0.07l-3.66 6.3c-0.02 0.02 0 0.05 0 0.07L10 18.2l0.05 0.03h2.59c0.06 0 0.1 0.06 0.05 0.1Z"/>
+</vector>

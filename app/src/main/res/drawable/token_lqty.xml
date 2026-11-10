@@ -1,0 +1,19 @@
+<!--
+    Generated from tokens/lqty.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF2EB6EA"
+        android:pathData="M10.64 19.64c4.21 0 7.63-3.42 7.63-7.64s-3.42-7.64-7.63-7.64C6.42 4.36 3 7.78 3 12s3.42 7.64 7.64 7.64Z"/>
+    <path
+        android:fillColor="#FF1542CD"
+        android:pathData="M10.67 19.63C3.01 19.63 0 9.64 6.76 5.43c-0.8 8.35 3.47 8.53 7.45 8.35 6.65-0.31 6.66 5.85 6.66 5.85h-10.2Z"/>
+    <path
+        android:fillColor="#FF745DDF"
+        android:fillType="evenOdd"
+        android:pathData="M17.87 14.46c-1.16 2.96-3.88 5.08-7.23 5.17h0.23H21s-0.14-3.63-3.13-5.17Z"/>
+</vector>

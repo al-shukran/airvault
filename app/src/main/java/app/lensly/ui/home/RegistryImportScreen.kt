@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,8 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.update.RegistryPackage
 import app.lensly.core.registry.update.RegistryUpdateException
+import app.lensly.ui.components.ChainIcon
+import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.wallet.DotText
@@ -28,15 +33,15 @@ import app.lensly.ui.wallet.WalletScaffold
 sealed interface ImportState {
     data object Idle : ImportState
     data object Checking : ImportState
-    data class Installed(val sequence: Long, val networks: List<String>, val tokens: List<String>) : ImportState
+    data class Installed(val sequence: Long, val networks: List<NetworkEntry>, val tokens: List<TokenEntry>) : ImportState
     data class Refused(val reason: String) : ImportState
 }
 
-/** The state for an accepted package: its sequence and the names of what it added. */
+/** The state for an accepted package: its sequence and the networks and tokens it added. */
 fun importedState(pkg: RegistryPackage): ImportState.Installed = ImportState.Installed(
     sequence = pkg.sequence,
-    networks = pkg.networks.map { "${it.name} · chain ${it.chainId}" },
-    tokens = pkg.tokens.map { "${it.symbol} · chain ${it.chainId}" },
+    networks = pkg.networks,
+    tokens = pkg.tokens,
 )
 
 /** The reason to show for a refused package. Anything that is not a [RegistryUpdateException] is a read or storage error. */
@@ -134,8 +139,8 @@ private fun InstalledResult(state: ImportState.Installed) {
         color = LenslyOnSurface,
     )
     Spacer(Modifier.height(12.dp))
-    NameList(label = "Networks", names = state.networks)
-    NameList(label = "Tokens", names = state.tokens)
+    NetworkList(networks = state.networks)
+    TokenList(tokens = state.tokens)
 }
 
 @Composable
@@ -150,16 +155,41 @@ private fun RefusedResult(state: ImportState.Refused) {
 }
 
 @Composable
-private fun NameList(label: String, names: List<String>) {
-    if (names.isEmpty()) return
+private fun NetworkList(networks: List<NetworkEntry>) {
+    if (networks.isEmpty()) return
     Column(modifier = Modifier.padding(bottom = 12.dp)) {
-        WalletEyebrow(label)
-        names.forEach { name ->
-            Text(
-                text = name,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LenslyOnSurface,
-            )
+        WalletEyebrow("Networks")
+        networks.forEach { network ->
+            LogoLine(text = "${network.name} · chain ${network.chainId}") {
+                ChainIcon(network = network, size = 20.dp)
+            }
         }
+    }
+}
+
+@Composable
+private fun TokenList(tokens: List<TokenEntry>) {
+    if (tokens.isEmpty()) return
+    Column(modifier = Modifier.padding(bottom = 12.dp)) {
+        WalletEyebrow("Tokens")
+        tokens.forEach { token ->
+            LogoLine(text = "${token.symbol} · chain ${token.chainId}") {
+                TokenIcon(token = token, size = 20.dp)
+            }
+        }
+    }
+}
+
+/** One catalog entry: its logo, then its label. */
+@Composable
+private fun LogoLine(text: String, logo: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        logo()
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = LenslyOnSurface,
+        )
     }
 }

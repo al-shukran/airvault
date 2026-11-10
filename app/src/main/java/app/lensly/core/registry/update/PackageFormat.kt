@@ -136,6 +136,7 @@ internal object PackageFormat {
             requirePrintable("chain ${network.chainId} name", network.name)
             requirePrintable("chain ${network.chainId} nativeSymbol", network.nativeSymbol)
             network.explorerName?.let { requirePrintable("chain ${network.chainId} explorerName", it) }
+            network.icon?.let { requirePrintable("chain ${network.chainId} icon", it) }
         }
         for (token in dto.tokens) {
             if (token.chainId <= 0) {
@@ -153,13 +154,17 @@ internal object PackageFormat {
             }
             requirePrintable("token ${token.contract} symbol", token.symbol)
             requirePrintable("token ${token.contract} name", token.name)
+            token.icon?.let { requirePrintable("token ${token.contract} icon", it) }
         }
         val networks = dto.networks.map {
             NetworkEntry(
                 it.chainId, it.name, it.nativeSymbol, it.nativeDecimals, it.feeModel, it.explorerName, it.testnet,
+                icon = it.icon,
             )
         }
-        val tokens = dto.tokens.map { TokenEntry(it.chainId, it.contract, it.symbol, it.name, it.decimals) }
+        val tokens = dto.tokens.map {
+            TokenEntry(it.chainId, it.contract, it.symbol, it.name, it.decimals, icon = it.icon)
+        }
         return RegistryPackage(
             sequence = dto.sequence,
             createdAt = dto.createdAt,
@@ -188,6 +193,8 @@ internal object PackageFormat {
         val feeModel: FeeModel,
         val explorerName: String?,
         val testnet: Boolean,
+        /** Optional. Packages signed before logos existed omit it. */
+        val icon: String? = null,
     )
 
     @Serializable
@@ -197,6 +204,8 @@ internal object PackageFormat {
         val symbol: String,
         val name: String,
         val decimals: Int,
+        /** Optional. Packages signed before logos existed omit it. */
+        val icon: String? = null,
     )
 
     @Serializable

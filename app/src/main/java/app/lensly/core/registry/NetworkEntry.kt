@@ -12,6 +12,8 @@ data class NetworkEntry(
     val feeModel: FeeModel,
     val explorerName: String?,
     val testnet: Boolean,
+    /** Name of the chain logo drawable, such as "chain_base" (see RegistryIcons.kt). Null shows the Ethereum logo. */
+    val icon: String? = null,
 ) {
     init {
         require(chainId > 0) { "chainId must be positive: $chainId" }

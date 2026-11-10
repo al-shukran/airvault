@@ -1,0 +1,36 @@
+<!--
+    Generated from chains/x-layer.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#80FFFFFF"
+        android:pathData="M17.82 14.34v4.67h1.28c0.17 0 0.3-0.14 0.3-0.3v-4.06c0-0.17-0.13-0.3-0.3-0.3h-1.28Z"/>
+    <path
+        android:fillColor="#80FFFFFF"
+        android:pathData="M17.82 4.99v4.67h1.28c0.17 0 0.3-0.14 0.3-0.31V5.3c0-0.17-0.13-0.31-0.3-0.31h-1.28Z"/>
+    <path
+        android:fillColor="#4DFFFFFF"
+        android:pathData="M20.2 4.99v4.67h0.49c0.17 0 0.3-0.14 0.3-0.31V5.3c0-0.17-0.13-0.31-0.3-0.31H20.2Z"/>
+    <path
+        android:fillColor="#4DFFFFFF"
+        android:pathData="M20.21 14.34v4.67h0.48c0.17 0 0.31-0.14 0.31-0.3v-4.06c0-0.17-0.14-0.3-0.31-0.3H20.2Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12.03 9.67H8c-0.18 0-0.31 0.14-0.31 0.3v4c0 0.18 0.13 0.32 0.3 0.32h4.04c0.17 0 0.3-0.14 0.3-0.31v-4c0-0.17-0.13-0.31-0.3-0.31Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7.36 4.99H3.31C3.14 4.99 3 5.13 3 5.29v4.06c0 0.17 0.14 0.3 0.31 0.3h4.05c0.17 0 0.31-0.13 0.31-0.3V5.3c0-0.17-0.14-0.31-0.3-0.31Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16.7 4.99h-4.04c-0.18 0-0.32 0.14-0.32 0.3v4.06c0 0.17 0.14 0.3 0.32 0.3h4.05c0.17 0 0.3-0.13 0.3-0.3V5.3c0-0.17-0.13-0.31-0.3-0.31Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7.36 14.33H3.31C3.14 14.33 3 14.47 3 14.64v4.05C3 18.86 3.14 19 3.31 19h4.05c0.17 0 0.31-0.14 0.31-0.3v-4.06c0-0.17-0.14-0.3-0.3-0.3Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16.7 14.33h-4.04c-0.18 0-0.32 0.14-0.32 0.31v4.05c0 0.17 0.14 0.31 0.32 0.31h4.05c0.17 0 0.3-0.14 0.3-0.3v-4.06c0-0.17-0.13-0.3-0.3-0.3Z"/>
+</vector>

@@ -1,0 +1,13 @@
+<!--
+    Generated from tokens/grt.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF6F4CFF"
+        android:fillType="evenOdd"
+        android:pathData="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9 4.03 9 9 9ZM8.06 10.87c0 1.87 1.52 3.38 3.38 3.38 1.86 0 3.37-1.51 3.37-3.38 0-1.86-1.51-3.37-3.37-3.37s-3.38 1.51-3.38 3.38Zm1.13 0c0-1.24 1-2.25 2.25-2.25 1.24 0 2.25 1.01 2.25 2.26 0 1.24-1.01 2.24-2.25 2.24s-2.25-1-2.25-2.24Zm5.46 4.34l-2.25 2.25c-0.11 0.11-0.26 0.16-0.4 0.16s-0.29-0.05-0.4-0.16c-0.22-0.22-0.22-0.58 0-0.8l2.25-2.25c0.22-0.21 0.58-0.21 0.8 0 0.22 0.22 0.22 0.58 0 0.8Zm0.05-7.15c0-0.37 0.3-0.67 0.68-0.67 0.37 0 0.67 0.3 0.67 0.67 0 0.37-0.3 0.68-0.68 0.68-0.37 0-0.67-0.3-0.67-0.68Z"/>
+</vector>

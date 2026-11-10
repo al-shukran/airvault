@@ -1,0 +1,12 @@
+<!--
+    Generated from tokens/sand.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF00AEEF"
+        android:pathData="M19.31 8.62H13.7V6.94H10.3v3.37h7.24L19.31 12v7.15L17.55 21H6.51l-1.82-1.85v-3.78h5.62v2.25h3.38V13.7H6.47L4.68 12V4.85L6.5 3h11.04l1.76 1.85v3.77Z"/>
+</vector>

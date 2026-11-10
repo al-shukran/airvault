@@ -13,6 +13,8 @@ data class TokenEntry(
     val symbol: String,
     val name: String,
     val decimals: Int,
+    /** Name of the token logo drawable, such as "token_usdc" (see RegistryIcons.kt). Null shows the unknown-token icon. */
+    val icon: String? = null,
 ) {
     init {
         require(CONTRACT_PATTERN.matches(contract)) {

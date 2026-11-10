@@ -1,0 +1,46 @@
+<!--
+    Generated from tokens/rpl.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M12 20.34c4.64 0 8.4-3.76 8.4-8.4 0-4.64-3.76-8.4-8.4-8.4-4.64 0-8.4 3.76-8.4 8.4 0 4.64 3.76 8.4 8.4 8.4Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="4.45"
+                android:startY="18.03"
+                android:endX="21"
+                android:endY="5.85">
+                <item
+                    android:color="#FFFB9533"
+                    android:offset="0"/>
+                <item
+                    android:color="#FFFEBA67"
+                    android:offset="0.26"/>
+                <item
+                    android:color="#FFFF9976"
+                    android:offset="0.75"/>
+                <item
+                    android:color="#FFFF6350"
+                    android:offset="1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#FFFF7534"
+        android:fillType="evenOdd"
+        android:pathData="M12 20.46c4.67 0 8.46-3.79 8.46-8.46 0-4.67-3.79-8.46-8.46-8.46-4.67 0-8.46 3.79-8.46 8.46 0 4.67 3.79 8.46 8.46 8.46Zm0-0.52c4.39 0 7.94-3.55 7.94-7.94 0-4.38-3.55-7.94-7.94-7.94-4.39 0-7.94 3.56-7.94 7.94 0 4.39 3.55 7.94 7.94 7.94Z"/>
+    <path
+        android:fillColor="#FFFFD58D"
+        android:fillType="evenOdd"
+        android:pathData="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9 4.03 9 9 9Zm0-0.53c4.68 0 8.47-3.8 8.47-8.47 0-4.68-3.8-8.47-8.47-8.47-4.68 0-8.47 3.8-8.47 8.47 0 4.68 3.8 8.47 8.47 8.47Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M9.66 11.17L8.79 12.2l1.22 0.46c0.01 0.46 0.12 0.65 0.18 0.69l-0.46 0.42 0.46 0.48 0.45-0.48c0.26 0.1 0.53 0.13 0.8 0.1l0.42 1.24 1.07-0.97 0.27-1.2c2.47-2.24 2.75-4.04 2.58-4.66-2.2-0.15-4.15 1.65-4.86 2.57l-1.26 0.32Zm0.05 3.51l-3.67 3.39-0.39-0.42 3.67-3.39 0.39 0.42Zm-1.18 0.08l-3 2.75-0.4-0.42 3.02-2.75 0.38 0.42Zm1.1 1.05l-3.04 2.8-0.4-0.43 3.05-2.79 0.38 0.42Zm3.27-4.07c0.19 0 0.37-0.08 0.5-0.2 0.13-0.14 0.2-0.32 0.2-0.5 0-0.2-0.07-0.38-0.2-0.51s-0.31-0.2-0.5-0.2-0.37 0.07-0.5 0.2-0.2 0.31-0.2 0.5 0.07 0.37 0.2 0.5 0.31 0.2 0.5 0.2Z"/>
+</vector>

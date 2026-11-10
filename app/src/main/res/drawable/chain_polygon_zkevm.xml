@@ -1,0 +1,31 @@
+<!--
+    Generated from chains/polygon-zkevm.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M16.36 15.22l4.27-2.44c0.23-0.13 0.37-0.37 0.37-0.63V7.28c0-0.25-0.14-0.5-0.37-0.62l-4.27-2.44c-0.22-0.13-0.5-0.13-0.73 0l-4.27 2.44C11.14 6.79 11 7.03 11 7.28v8.7L8 17.7l-3-1.71v-3.42l3-1.7 1.98 1.12V9.7L8.37 8.78C8.26 8.72 8.13 8.68 8 8.68s-0.25 0.04-0.36 0.1l-4.27 2.44C3.14 11.35 3 11.59 3 11.85v4.87c0 0.25 0.14 0.5 0.37 0.62l4.27 2.44c0.22 0.13 0.5 0.13 0.73 0l4.27-2.44c0.22-0.13 0.36-0.37 0.36-0.62v-8.7l0.06-0.04L16 6.31 19 8v3.42l-3 1.7-1.98-1.12v2.3l1.61 0.9c0.23 0.13 0.5 0.13 0.73 0Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="2.94"
+                android:startY="17.19"
+                android:endX="20.12"
+                android:endY="7.1">
+                <item
+                    android:color="#FFA726C1"
+                    android:offset="0"/>
+                <item
+                    android:color="#FF803BDF"
+                    android:offset="0.88"/>
+                <item
+                    android:color="#FF7B3FE4"
+                    android:offset="1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

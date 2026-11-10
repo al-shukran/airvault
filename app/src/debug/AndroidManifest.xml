@@ -25,7 +25,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Wallet screen harness for on-device checks. Pass the string extra "screen" with one of: start, choice, skip, dice, coins, result, words, confirm, passphrase, restore, name. -->
+        <!-- Wallet screen harness for on-device checks. Pass the string extra "screen" with one of: start, choice, skip, dice, coins, result, words, confirm, passphrase, restore, name, icons. -->
         <activity
             android:name=".ui.wallet.WalletPreviewActivity"
             android:exported="true"
@@ -38,7 +38,7 @@
             </intent-filter>
         </activity>
 
-        <!-- QR and signing harness for on-device checks. Pass the string extra "screen": show1, show12, scan, review or refused. -->
+        <!-- QR and signing harness for on-device checks. Pass the string extra "screen": show1, show12, scan, review, review-token or refused. -->
         <activity
             android:name=".ui.qr.QrPreviewActivity"
             android:exported="true"

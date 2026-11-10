@@ -1,0 +1,12 @@
+<!--
+    Generated from tokens/gho.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFC9B4F9"
+        android:pathData="M14.72 12h3.49L21 16.8v3H10.36C6.3 19.8 3 16.43 3 12.28v-0.56C3 7.56 6.3 4.2 10.36 4.2h4.47l1.73 3h-5.84C9.47 7.22 8.27 7.73 7.4 8.63c-0.88 0.9-1.36 2.1-1.35 3.36 0 2.64 2.1 4.81 4.68 4.81h6.8l-2.8-4.8ZM11.4 9.9c0 0.4-0.16 0.78-0.44 1.06S10.3 11.4 9.9 11.4s-0.78-0.16-1.06-0.44S8.4 10.3 8.4 9.9s0.16-0.78 0.44-1.06S9.5 8.4 9.9 8.4s0.78 0.16 1.06 0.44S11.4 9.5 11.4 9.9Zm0 4.2c0 0.4-0.16 0.78-0.44 1.06S10.3 15.6 9.9 15.6s-0.78-0.16-1.06-0.44S8.4 14.5 8.4 14.1s0.16-0.78 0.44-1.06S9.5 12.6 9.9 12.6s0.78 0.16 1.06 0.44 0.44 0.66 0.44 1.06Z"/>
+</vector>

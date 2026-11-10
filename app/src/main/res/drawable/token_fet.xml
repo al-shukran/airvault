@@ -1,0 +1,28 @@
+<!--
+    Generated from tokens/fet.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M3 3h2.25v2.25H3V3Zm5.62 0h2.26v2.25H8.62V3Zm0 5.62h2.26v2.25H8.62V8.62ZM14.25 3h2.25v2.25h-2.25V3Zm5.62 0.56H21V4.7h-1.13V3.56Zm0 5.63H21v1.12h-1.13V9.2Zm-5.06 0h1.13v1.12H14.8V9.2Zm0 5.62h1.13v1.13H14.8V14.8Zm-5.62 0h1.12v1.13H9.2V14.8Zm-5.63 5.06H4.7V21H3.56v-1.13Zm5.63 0h1.12V21H9.2v-1.13Zm5.62 0h1.13V21H14.8v-1.13Zm5.06 0H21V21h-1.13v-1.13Zm0-5.06H21v1.13h-1.13V14.8ZM3 8.62h2.25v2.25H3V8.62Zm0 5.63h2.25v2.25H3v-2.25Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="6.35"
+                android:startY="6.12"
+                android:endX="24.91"
+                android:endY="27.43">
+                <item
+                    android:color="#FF1A1E21"
+                    android:offset="0"/>
+                <item
+                    android:color="#FF06060A"
+                    android:offset="1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

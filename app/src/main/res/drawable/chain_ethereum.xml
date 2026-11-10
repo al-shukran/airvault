@@ -1,0 +1,35 @@
+<!--
+    Generated from chains/ethereum.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF8FFCF3"
+        android:pathData="M12 3v6.65l5.62 2.52L12 3Z"/>
+    <path
+        android:fillColor="#FFCABCF8"
+        android:pathData="M12 3l-5.63 9.17L12 9.65V3Z"/>
+    <path
+        android:fillColor="#FFCBA7F5"
+        android:pathData="M12 16.48V21l5.62-7.78L12 16.48Z"/>
+    <path
+        android:fillColor="#FF74A0F3"
+        android:pathData="M12 21v-4.52l-5.63-3.26L12 21Z"/>
+    <path
+        android:fillColor="#FFCBA7F5"
+        android:pathData="M12 15.43l5.62-3.26L12 9.65v5.78Z"/>
+    <path
+        android:fillColor="#FF74A0F3"
+        android:pathData="M6.38 12.17L12 15.43V9.65l-5.63 2.52Z"/>
+    <path
+        android:fillColor="#FF202699"
+        android:fillType="evenOdd"
+        android:pathData="M12 15.43l-5.63-3.26L12 3l5.62 9.17L12 15.43ZM6.75 11.9l5.16-8.4v6.1l-5.16 2.3Zm-0.08 0.23l5.24-2.33v5.37l-5.24-3.04ZM12.1 9.8v5.37l5.23-3.04L12.1 9.8Zm0-0.2l5.16 2.3-5.16-8.4v6.1Z"/>
+    <path
+        android:fillColor="#FF202699"
+        android:fillType="evenOdd"
+        android:pathData="M12 16.4l-5.63-3.19L12 21l5.62-7.79-5.62 3.2Zm-5-2.63l4.9 2.8v4L7 13.77Zm5.09 2.8v4l4.9-6.8-4.9 2.8Z"/>
+</vector>

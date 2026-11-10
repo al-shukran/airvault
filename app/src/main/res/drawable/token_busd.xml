@@ -1,0 +1,12 @@
+<!--
+    Generated from tokens/busd.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1dp"
+    android:height="1dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFF0B90B"
+        android:pathData="M15.4 5.8a0.33 0.33 0 0 1 0.47 0L18 7.95a0.33 0.33 0 0 1 0 0.46l-9.63 9.65a0.33 0.33 0 0 1-0.47 0L5.77 15.9a0.33 0.33 0 0 1 0-0.46z m3.9 3.86a0.33 0.33 0 0 1 0.47 0l2.13 2.13a0.33 0.33 0 0 1 0 0.47l-9.62 9.64a0.33 0.33 0 0 1-0.47 0l-2.14-2.13a0.33 0.33 0 0 1-0.07-0.36 0.3 0.3 0 0 1 0.07-0.1zM14.33 4.7a0.33 0.33 0 0 0 0-0.46L12.19 2.1a0.33 0.33 0 0 0-0.46 0L5.85 7.98a0.33 0.33 0 0 0 0 0.46l2.13 2.14a0.33 0.33 0 0 0 0.47 0z m-7.55 7.57a0.33 0.33 0 0 0 0-0.46L4.65 9.65a0.33 0.33 0 0 0-0.47 0L2.1 11.75a0.33 0.33 0 0 0 0 0.47l2.14 2.13a0.33 0.33 0 0 0 0.46 0z"/>
+</vector>

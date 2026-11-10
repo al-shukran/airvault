@@ -1,0 +1,12 @@
+<!--
+    Generated from tokens/usdt.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF009393"
+        android:pathData="M12 19.2l-9-8.88L6.43 4.8h11.14L21 10.32l-9 8.88Zm0.9-8.1V10c1.62 0.08 3.13 0.4 3.6 0.8-0.54 0.48-2.5 0.83-4.5 0.83s-3.96-0.35-4.5-0.82c0.46-0.41 1.98-0.72 3.6-0.81v1.1h1.8Zm-5.4-0.3v0.66c0.46 0.41 1.98 0.72 3.6 0.81v2.43h1.8v-2.43c1.62-0.08 3.14-0.4 3.6-0.8v-1.32c-0.46-0.41-1.98-0.73-3.6-0.81V8.4h2.7V7.05H8.4V8.4h2.7v0.94c-1.62 0.08-3.14 0.4-3.6 0.8v0.66Z"/>
+</vector>

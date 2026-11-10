@@ -1,0 +1,16 @@
+<!--
+    Generated from chains/fantom.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF26B6EA"
+        android:fillType="evenOdd"
+        android:pathData="M11.97 3L6.6 6.05v11.81L11.97 21l5.43-3.14V6.05L11.97 3ZM12 3.9L7.95 6.33 12 8.69l4.05-2.36L12 3.9ZM7.5 7.05v4.05l3.6-2.02-3.6-2.03Zm4.95 2.92v4.05l3.6-2.01-3.6-2.04Zm4.05-2.92v4.05l-3.6-2.02 3.6-2.03Zm-4.95 2.92v4.05l-3.6-2.01 3.6-2.04ZM7.5 12.7v4.7l4.5 2.7 4.5-2.7v-4.7L12 15.15 7.5 12.7Z"/>
+    <path
+        android:fillColor="#FF26B6EA"
+        android:pathData="M4.35 18.84v-2.79h0.9v2.34l2.25 1.16v1l-3.15-1.71Zm15.3-13.68v2.79h-0.9V5.61L16.5 4.45v-1l3.15 1.71Z"/>
+</vector>
