@@ -8,12 +8,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavBackStackEntry
@@ -29,10 +31,12 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
 import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.vault.VaultSession
+import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.flow.PairWalletRoute
 import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.gate.PasswordBuffer
+import app.lensly.ui.home.BulkGenerateScreen
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SoonScreen
@@ -51,6 +55,7 @@ import app.lensly.ui.wallet.WalletNameScreen
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -70,6 +75,9 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.NAME) { HiddenBackdrop { NameRoute(navController, holder) } }
     composable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DetailRoute(navController, holder, entry.walletId()) }
+    }
+    composable(HiddenRoute.BULK, arguments = walletIdArguments()) { entry ->
+        HiddenBackdrop { BulkRoute(navController, holder, entry.walletId()) }
     }
     composable(HiddenRoute.EXPORT, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { PairWalletRoute(navController, holder, entry.walletId()) }
@@ -398,8 +406,78 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
                 }
             }
         },
+        onBulkGenerate = { navController.navigate(HiddenRoute.bulk(walletId)) },
         onPair = { navController.navigate(HiddenRoute.export(walletId)) },
         onSign = { navController.navigate(HiddenRoute.scan(walletId)) },
+    )
+}
+
+/**
+ * The bulk screen of one wallet. GENERATE runs [WalletStore.addAccounts] off the main thread, and its progress is
+ * shown. A finished run returns to the wallet, which reloads its accounts. A run that fails, or that finds the wallet
+ * changed meanwhile, saves nothing, and the screen says so. Back is held while a run derives, so the owner waits.
+ */
+@Composable
+private fun BulkRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    val scope = rememberCoroutineScope()
+    var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
+    var digits by rememberSaveable { mutableStateOf("") }
+    var running by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    val derivedCount = remember { MutableStateFlow(0) }
+    val derived by derivedCount.collectAsState()
+
+    LaunchedEffect(walletId) {
+        whileUnlocked(navController, holder) {
+            wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
+        }
+    }
+    val shown = wallet ?: return
+
+    BackHandler(enabled = running) {}
+    BulkGenerateScreen(
+        existingAccounts = shown.accountCount,
+        digits = digits,
+        running = running,
+        derived = derived,
+        failure = failure,
+        onDigit = { digit -> if (!running) digits = BulkPolicy.appendDigit(digits, digit) },
+        onBackspace = { if (!running) digits = digits.dropLast(1) },
+        onPreset = { preset -> if (!running) digits = preset.toString() },
+        onGenerate = generate@{
+            val count = (BulkPolicy.checkCount(digits.toIntOrNull()) as? BulkPolicy.CountCheck.Valid)?.count
+            if (running || count == null) return@generate
+            running = true
+            failure = null
+            derivedCount.value = 0
+            scope.launch {
+                whileUnlocked(navController, holder) {
+                    val saved = try {
+                        withContext(Dispatchers.IO) {
+                            WalletStore(session).addAccounts(walletId, count) { derivedCount.value = it }
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: IllegalStateException) {
+                        // A closed session or a damaged vault. whileUnlocked returns the owner to the camera.
+                        throw e
+                    } catch (e: Exception) {
+                        running = false
+                        failure = "Run failed. Nothing was saved"
+                        return@whileUnlocked
+                    }
+                    running = false
+                    if (saved == null) {
+                        failure = "Wallet changed. Nothing was saved"
+                    } else {
+                        navController.popBackStack()
+                    }
+                }
+            }
+        },
+        onBack = { navController.popBackStack() },
+        onLock = { leaveHidden(navController, holder) },
     )
 }
 
