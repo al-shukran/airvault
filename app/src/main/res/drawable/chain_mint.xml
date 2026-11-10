@@ -1,0 +1,21 @@
+<!--
+    Generated from chains/mint.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF30BF54"
+        android:pathData="M3 3c4.97 0 9 4.03 9 9-4.97 0-9-4.03-9-9Z"/>
+    <path
+        android:fillColor="#FF30BF54"
+        android:pathData="M21 21c-4.97 0-9-4.03-9-9 4.97 0 9 4.03 9 9Z"/>
+    <path
+        android:fillColor="#FF30BF54"
+        android:pathData="M12 12c0-2.49 2.01-4.5 4.5-4.5 0 2.49-2.01 4.5-4.5 4.5Z"/>
+    <path
+        android:fillColor="#FF30BF54"
+        android:pathData="M12 12c0 2.49-2.01 4.5-4.5 4.5 0-2.49 2.01-4.5 4.5-4.5Z"/>
+</vector>

@@ -1,0 +1,13 @@
+<!--
+    Generated from tokens/dai.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFDC134"
+        android:fillType="evenOdd"
+        android:pathData="M11.67 3.87H4.74V9.1H3v2.32h1.74v1.16H3v2.32h1.74v5.23h6.93c3.49 0 6.46-2.17 7.63-5.23H21v-2.32h-1.18c0.02-0.39 0.02-0.77 0-1.16H21V9.1h-1.7c-1.17-3.06-4.15-5.23-7.63-5.23Zm5.81 8.71c0.04-0.39 0.04-0.77 0-1.16H7.06v1.16H17.5ZM7.06 14.9v2.9h4.49c2.2 0 4.14-1.16 5.16-2.9H7.06Zm0-5.8h9.66c-1.03-1.74-2.96-2.9-5.17-2.9H7.06v2.9Z"/>
+</vector>

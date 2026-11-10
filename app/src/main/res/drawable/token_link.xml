@@ -1,0 +1,12 @@
+<!--
+    Generated from tokens/link.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF2E61DE"
+        android:pathData="M12 3l7.23 4.33v8.77L10.97 21v-1.23l-6.19-3.7-0.01-8.69L12 3Zm0 14.98l5.17-3.05V8.5L12 5.4 6.83 8.55v6.35l5.18 3.08Z"/>
+</vector>

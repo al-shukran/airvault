@@ -1,0 +1,15 @@
+<!--
+    Generated from chains/linea.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17.63 21H3.48V5.92h3.24v12.16h10.91V21Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17.63 8.84c1.6 0 2.9-1.3 2.9-2.92 0-1.61-1.3-2.92-2.9-2.92-1.6 0-2.89 1.3-2.89 2.92 0 1.61 1.3 2.92 2.9 2.92Z"/>
+</vector>

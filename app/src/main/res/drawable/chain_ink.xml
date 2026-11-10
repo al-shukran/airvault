@@ -1,0 +1,13 @@
+<!--
+    Generated from chains/ink.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF7757E2"
+        android:fillType="evenOdd"
+        android:pathData="M21 12c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9 9-4.03 9-9Zm-7.72 6.74c0 0.6-0.5 1.1-1.2 1.12H12 12C7.65 19.85 4.14 16.34 4.14 12S7.66 4.14 12 4.14h0.07c0.8 0.02 1.21 0.51 1.21 1.12 0 0.63-0.54 1.08-1.13 1.08-0.58 0-0.6 0-1.16 0.05-0.56 0.04-1.14 0.5-1.14 1.12 0 0.62 0.5 1.12 1.14 1.12h4.94c0.62 0 1.13 0.5 1.13 1.13 0 0.61-0.5 1.12-1.13 1.12H8.32c-0.63 0-1.14 0.5-1.14 1.12 0 0.62 0.51 1.12 1.14 1.12h3.83c0.63 0 1.13 0.5 1.13 1.13 0 0.62-0.5 1.12-1.13 1.12H11c-0.63 0-1.14 0.5-1.14 1.12 0 0.62 0.52 1.07 1.14 1.12l0.13 0.01 0.45 0.03h0.6c0.63 0 1.11 0.47 1.11 1.09Z"/>
+</vector>

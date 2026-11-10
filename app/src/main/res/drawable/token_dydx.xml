@@ -1,0 +1,49 @@
+<!--
+    Generated from tokens/dydx.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16.15 3L3.65 21h3.83L20.05 3h-3.9Z"/>
+    <path
+        android:pathData="M7.89 3l3.67 5.3-1.92 2.9L3.96 3H7.9Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="10.32"
+                android:startY="5.47"
+                android:endX="21.95"
+                android:endY="19.47">
+                <item
+                    android:color="#FFFFFFFF"
+                    android:offset="0"/>
+                <item
+                    android:color="#8CFFFFFF"
+                    android:offset="1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M16.52 21l-4.08-5.87 1.92-2.8 6 8.67h-3.84Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="17.4"
+                android:startY="19.64"
+                android:endX="10.89"
+                android:endY="10.9">
+                <item
+                    android:color="#FF6966FF"
+                    android:offset="0"/>
+                <item
+                    android:color="#5C6966FF"
+                    android:offset="1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

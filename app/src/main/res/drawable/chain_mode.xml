@@ -1,0 +1,12 @@
+<!--
+    Generated from chains/mode.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFDFFE00"
+        android:pathData="M20.98 19.96h-3.5v-7.93l1.4-4.53-1-0.36-4.55 12.82h-2.67L6.1 7.14l-1 0.36 1.41 4.53v7.94H3V4.03h5.23l3.24 9.12v2.68h1.06v-2.68l3.24-9.12H21v15.93h-0.02Z"/>
+</vector>

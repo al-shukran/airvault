@@ -1,0 +1,18 @@
+<!--
+    Generated from tokens/pendle.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M19.2 10.2c0 3.98-3.22 7.2-7.2 7.2s-7.2-3.22-7.2-7.2S8.02 3 12 3s7.2 3.22 7.2 7.2Z"/>
+    <path
+        android:fillColor="#FF152E51"
+        android:pathData="M8.76 21c2.19 0 3.96-1.77 3.96-3.96s-1.77-3.96-3.96-3.96-3.96 1.77-3.96 3.96S6.57 21 8.76 21Z"/>
+    <path
+        android:fillColor="#FF152E51"
+        android:pathData="M8.33 4v10.02H9.2V3.56C8.9 3.7 8.6 3.84 8.33 4.01Z"/>
+</vector>
