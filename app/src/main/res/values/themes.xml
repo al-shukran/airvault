@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark-only: there is intentionally no values-night or light variant. -->
+    <style name="Theme.Lensly" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/lensly_black</item>
+        <item name="android:colorBackground">@color/lensly_black</item>
+        <item name="android:statusBarColor">@color/lensly_black</item>
+        <item name="android:navigationBarColor">@color/lensly_black</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>
