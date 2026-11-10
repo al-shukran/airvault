@@ -83,6 +83,31 @@ class VaultTest {
     }
 
     @Test
+    fun blockedAttemptSpendsTheSameKdfTimeAsARealCheck() {
+        runBlocking {
+            // A costly KDF makes the difference easy to measure. Without the fix, a blocked attempt returns in microseconds.
+            val costly = Vault(context, clock, KdfParams(memoryKiB = 64 * 1024, iterations = 3))
+            costly.create(PASSWORD.toCharArray())
+
+            val realCheckMs = elapsedMs { assertRejected(costly.unlock(WRONG.toCharArray())) }
+            assertEquals(1, costly.failureCountForTesting())
+            val blockedMs = elapsedMs { assertRejected(costly.unlock(PASSWORD.toCharArray())) }
+            assertEquals(1, costly.failureCountForTesting())
+
+            assertTrue(
+                "A blocked attempt took $blockedMs ms, but a real check took $realCheckMs ms.",
+                blockedMs * 2 >= realCheckMs,
+            )
+        }
+    }
+
+    private suspend fun elapsedMs(block: suspend () -> Unit): Long {
+        val started = System.nanoTime()
+        block()
+        return (System.nanoTime() - started) / 1_000_000L
+    }
+
+    @Test
     fun rekeyReplacesThePasswordAndKeepsRecordsReadable() {
         runBlocking {
             vault.create(PASSWORD.toCharArray())
