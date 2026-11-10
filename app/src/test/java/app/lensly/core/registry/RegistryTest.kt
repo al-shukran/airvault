@@ -42,7 +42,7 @@ class RegistryTest {
             registry.networks().map { it.chainId },
         )
         assertTrue(registry.networks().none { it.testnet })
-        assertEquals(247, registry.tokens().size)
+        assertEquals(249, registry.tokens().size)
         assertNull(registry.network(10143L))
         assertNull(registry.network(11155111L))
         assertNull(registry.token(11155111L, SEPOLIA_USDC))
@@ -113,7 +113,7 @@ class RegistryTest {
         val registry = RegistryLoader.load(fileReader(MAIN, DEBUG))
 
         assertEquals(57, registry.networks().size)
-        assertEquals(248, registry.tokens().size)
+        assertEquals(250, registry.tokens().size)
         assertTrue(assertNotNull(registry.network(10143L)).testnet)
         assertTrue(assertNotNull(registry.network(11155111L)).testnet)
         assertEquals("USDC", assertNotNull(registry.token(11155111L, SEPOLIA_USDC)).symbol)

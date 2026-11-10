@@ -188,8 +188,7 @@ def build_networks(chains, existing, manual, chain_keys, feemodel):
     manual_ids = set()
     for m in manual:
         cid = m["chainId"]
-        if cid in rows:
-            raise SystemExit(f"manual network {cid} is already in the set")
+        # A manual entry is the source of truth for its chain, including one already shipped as a baseline row.
         rows[cid] = {f: m[f] for f in NETWORK_FIELDS}
         manual_ids.add(cid)
         notes["manual"].append(f"{m['name']} ({cid}): from manual-networks.json")

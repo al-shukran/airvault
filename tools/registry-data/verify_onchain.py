@@ -17,6 +17,8 @@ Rules:
            review        symbol() differs from the declared symbol. Kept, flagged, never auto-rejected.
            rename        symbol() differs only by a fold (case, non-alphanumerics, U+20AE TUGRIK SIGN as T), so the
                          on-chain symbol is written to --out-tokens and noted.
+           bridged       the chain labels the token as a bridged copy (Avalanche SYMBOL.e, Binance-Peg ETH on
+                         chain 56). The on-chain symbol and a "bridged" name are written; see bridge_label().
 
 Writes a Markdown report (default: verify-report.md next to this script). Downloaded chain data is
 parsed as JSON only, never executed. Requests are paced per host, retried with backoff, and time out.
@@ -303,10 +305,39 @@ def verify_token(row, urls, gap):
     elif fold(sym) == fold(row["symbol"]) or (fold(row["symbol"]), fold(sym)) in SAME_ASSET_RENAMES:
         out["status"] = "rename"
         out["note"] += f"on-chain symbol '{sym}' is the same asset as declared '{row['symbol']}'; on-chain used"
+    elif bridge_label(row, sym):
+        out["status"] = "bridged"
+        out["out_name"] = bridge_label(row, sym)
+        out["note"] += (f"chain labels this token '{sym}': a bridged asset, shipped with the on-chain symbol "
+                        f"and the name '{out['out_name']}'")
     else:
         out["status"] = "review"
         out["note"] += f"symbol mismatch: declared '{row['symbol']}', on-chain '{sym}'"
     return out
+
+
+# Avalanche bridged tokens: the contract reports "<SYMBOL>.e" and the token is the bridged copy of the asset.
+# Shipped with the on-chain symbol and a name that says it is bridged, so a signing review never shows a
+# bridged token as the native asset.
+AVALANCHE_BRIDGED_NAMES = {
+    "1INCH": "1inch", "AAVE": "Aave", "COMP": "Compound", "GRT": "The Graph", "LINK": "Chainlink",
+    "MKR": "Maker", "SNX": "Synthetix", "SUSHI": "SushiSwap", "WETH": "Wrapped Ether", "YFI": "yearn.finance",
+}
+
+
+def bridge_label(row, sym):
+    """The name to ship for a token that the chain itself labels as bridged, or None.
+
+    Rule 1: on Avalanche (43114), a declared SYMBOL whose contract reports SYMBOL.e is the Avalanche Bridge copy:
+            name "<asset name> (Avalanche Bridge)".
+    Rule 2: on BNB Smart Chain (56), the declared WETH whose contract reports ETH is Binance Pegged ETH.
+    """
+    if row["chainId"] == 43114 and row["symbol"] in AVALANCHE_BRIDGED_NAMES:
+        if sym.casefold() == (row["symbol"] + ".e").casefold():
+            return f"{AVALANCHE_BRIDGED_NAMES[row['symbol']]} (Avalanche Bridge)"
+    if row["chainId"] == 56 and row["symbol"] == "WETH" and sym.casefold() == "eth":
+        return "Binance Pegged ETH"
+    return None
 
 
 def md_cell(text):
@@ -363,7 +394,16 @@ def main(argv=None):
     ap.add_argument("--out-networks", type=Path, help="write accepted networks here")
     ap.add_argument("--out-tokens", type=Path, help="write accepted tokens here")
     ap.add_argument("--gap", type=float, default=MIN_GAP_S, help="minimum seconds between requests to one host")
+    ap.add_argument("--only", help="check only these tokens, as chainId:contract,chainId:contract,...; the networks "
+                                   "checked are just the chains they use")
+    ap.add_argument("--merge-base", type=Path,
+                    help="with --only: write the accepted checks into this tokens JSON, keeping every other row of "
+                         "it as already verified. Rows of the checked keys are replaced or dropped; new rows are added")
     args = ap.parse_args(argv)
+    if args.only and args.out_networks:
+        ap.error("--only checks a subset of chains, so it cannot write --out-networks")
+    if args.merge_base and not args.only:
+        ap.error("--merge-base is used with --only")
 
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     chains = {c["chainId"]: c for c in load_chains(args.chains)}
@@ -374,6 +414,18 @@ def main(argv=None):
         m["chainId"] = cid
     networks = json.loads(args.networks.read_text(encoding="utf-8"))["networks"]
     tokens = json.loads(args.tokens.read_text(encoding="utf-8"))["tokens"]
+    if args.only:
+        wanted = []
+        for item in args.only.split(","):
+            cid, _, contract = item.strip().partition(":")
+            wanted.append((int(cid), contract.lower()))
+        by_key = {(t["chainId"], t["contract"].lower()): t for t in tokens}
+        missing = [w for w in wanted if w not in by_key]
+        if missing:
+            raise SystemExit(f"--only names tokens not in {args.tokens}: {missing}")
+        tokens = [by_key[w] for w in wanted]
+        used = {t["chainId"] for t in tokens}
+        networks = [n for n in networks if n["chainId"] in used]
 
     net_results = []
     net_urls = {}
@@ -410,6 +462,10 @@ def main(argv=None):
         print(f"token {t['chainId']:>10} {t['symbol']:<10} {res['status']}", file=sys.stderr)
 
     write_report(args.report, net_results, tok_results, started, len(networks), len(tokens))
+    if args.only:
+        note = ("> Partial re-check (`--only`): only the listed changed entries were checked on chain in this run. "
+                "Every other token keeps the result of the full run recorded in the git history of this file.\n\n")
+        args.report.write_text(note + args.report.read_text(encoding="utf-8"), encoding="utf-8")
 
     if args.out_networks:
         keep = [dict(n) for n in networks if n["chainId"] in accepted_networks]
@@ -419,12 +475,20 @@ def main(argv=None):
         keep = []
         for t in tokens:
             r = by_key.get((t["chainId"], t["contract"]))
-            if r is None or r["status"] not in ("ok", "rename", "review"):
+            if r is None or r["status"] not in ("ok", "rename", "review", "bridged"):
                 continue
             row = dict(t)
             if r["status"] == "rename":
                 row["symbol"] = r["onchain_symbol"]
+            if r["status"] == "bridged":
+                row["symbol"] = r["onchain_symbol"]
+                row["name"] = r["out_name"]
             keep.append(row)
+        if args.merge_base:
+            base = json.loads(args.merge_base.read_text(encoding="utf-8"))["tokens"]
+            checked = {(t["chainId"], t["contract"].lower()) for t in tokens}
+            kept = [b for b in base if (b["chainId"], b["contract"].lower()) not in checked]
+            keep = sorted(kept + keep, key=lambda r: r["chainId"])  # stable: base order kept within a chain
         write_rows(args.out_tokens, "tokens", keep)
     return 0
 
