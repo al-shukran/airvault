@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Build the debug APK, then install and launch it on every authorized adb device.
+# Build the debug APK, then install and launch it on the target devices.
+# Default target is the emulator only; the physical phone belongs to the owner.
+# Override with DEVICES="serial1 serial2" or DEVICES=all.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,9 +17,13 @@ COMPONENT="app.lensly/.MainActivity"
 
 ./gradlew :app:assembleDebug
 
-devices="$(adb devices | awk 'NR > 1 && $2 == "device" { print $1 }')"
+attached="$(adb devices | awk 'NR > 1 && $2 == "device" { print $1 }')"
+case "${DEVICES:-emulator-5554}" in
+    all) devices="$attached" ;;
+    *) devices="$(for d in ${DEVICES:-emulator-5554}; do echo "$attached" | grep -qx "$d" && echo "$d"; done)" ;;
+esac
 if [ -z "$devices" ]; then
-    echo "deploy: no authorized devices attached (see 'adb devices')" >&2
+    echo "deploy: target device(s) not attached: ${DEVICES:-emulator-5554} (see 'adb devices')" >&2
     exit 1
 fi
 
