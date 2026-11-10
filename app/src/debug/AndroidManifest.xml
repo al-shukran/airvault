@@ -28,6 +28,19 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- QR and signing harness for on-device checks. Pass the string extra "screen": show1, show12, scan, review or refused. -->
+        <activity
+            android:name=".ui.qr.QrPreviewActivity"
+            android:exported="true"
+            android:label="QR preview"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.Lensly">
+            <intent-filter>
+                <action android:name="app.lensly.action.QR_PREVIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>
