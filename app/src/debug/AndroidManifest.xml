@@ -15,6 +15,19 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Wallet screen harness for on-device checks. Pass the string extra "screen" with one of: start, choice, skip, dice, coins, result, words, confirm, passphrase, restore, name. -->
+        <activity
+            android:name=".ui.wallet.WalletPreviewActivity"
+            android:exported="true"
+            android:label="Wallet preview"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.Lensly">
+            <intent-filter>
+                <action android:name="app.lensly.action.WALLET_PREVIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>
