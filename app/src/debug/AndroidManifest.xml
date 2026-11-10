@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only manifest: merged into the debug variant only, never into release. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Gate screen harness for on-device checks. Pass the string extra "screen" with value create or unlock. -->
+        <activity
+            android:name=".ui.gate.GatePreviewActivity"
+            android:exported="true"
+            android:label="Gate preview"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.Lensly">
+            <intent-filter>
+                <action android:name="app.lensly.action.GATE_PREVIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
