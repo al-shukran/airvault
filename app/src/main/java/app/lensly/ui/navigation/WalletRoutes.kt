@@ -23,6 +23,8 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.ui.flow.PairWalletRoute
+import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.SoonScreen
 import app.lensly.ui.home.WalletDetailScreen
@@ -57,11 +59,11 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DetailRoute(navController, holder, entry.walletId()) }
     }
-    composable(HiddenRoute.EXPORT, arguments = walletIdArguments()) {
-        HiddenBackdrop { SoonScreen(onBack = { navController.popBackStack() }) }
+    composable(HiddenRoute.EXPORT, arguments = walletIdArguments()) { entry ->
+        HiddenBackdrop { PairWalletRoute(navController, holder, entry.walletId()) }
     }
-    composable(HiddenRoute.SCAN, arguments = walletIdArguments()) {
-        HiddenBackdrop { SoonScreen(onBack = { navController.popBackStack() }) }
+    composable(HiddenRoute.SCAN, arguments = walletIdArguments()) { entry ->
+        HiddenBackdrop { SignWalletRoute(navController, holder, entry.walletId()) }
     }
 }
 
