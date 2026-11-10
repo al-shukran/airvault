@@ -358,9 +358,10 @@ private const val MAX_PREVIEW_PREFIX = 8
 @Composable
 private fun NamePreview() {
     val context = LocalContext.current
-    var name by remember { mutableStateOf(DEFAULT_WALLET_NAME) }
+    var name by remember { mutableStateOf("") }
     WalletNameScreen(
         name = name,
+        placeholder = DEFAULT_WALLET_NAME,
         onKey = { c ->
             if (name.length < WALLET_NAME_MAX_LENGTH) name += c
         },

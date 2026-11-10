@@ -20,9 +20,20 @@ const val WALLET_NAME_MAX_LENGTH = 24
 /** Name suggested before the owner types one. */
 const val DEFAULT_WALLET_NAME = "WALLET 1"
 
+/** Name used when the owner confirms without typing one and no suggestion has loaded yet. */
+private const val FALLBACK_WALLET_NAME = "WALLET"
+
+/**
+ * The name a wallet is saved under. [typed] is only what the owner typed, so the suggestion never mixes
+ * into it. Blank input (empty or whitespace only) falls back to [suggested].
+ */
+fun effectiveWalletName(typed: String, suggested: String?): String =
+    typed.trim().ifEmpty { suggested ?: FALLBACK_WALLET_NAME }
+
 /**
  * Last step of the wallet flow: name the wallet. The caller owns [name] and enforces
- * [WALLET_NAME_MAX_LENGTH]. Taps go through [SecureKeyboard], and DONE finishes the flow.
+ * [WALLET_NAME_MAX_LENGTH]. [placeholder] is shown muted while [name] is empty and is not part of the name.
+ * Taps go through [SecureKeyboard], and DONE finishes the flow.
  */
 @Composable
 fun WalletNameScreen(
@@ -31,6 +42,7 @@ fun WalletNameScreen(
     onBackspace: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
+    placeholder: String? = null,
 ) {
     WalletScaffold(
         modifier = modifier,
@@ -58,7 +70,7 @@ fun WalletNameScreen(
         ) {
             if (name.isEmpty()) {
                 Text(
-                    text = "No name",
+                    text = placeholder ?: "No name",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

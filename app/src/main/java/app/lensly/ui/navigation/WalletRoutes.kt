@@ -54,6 +54,7 @@ import app.lensly.ui.wallet.RestoreEntryScreen
 import app.lensly.ui.wallet.RestoreState
 import app.lensly.ui.wallet.WALLET_NAME_MAX_LENGTH
 import app.lensly.ui.wallet.WalletNameScreen
+import app.lensly.ui.wallet.effectiveWalletName
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -325,36 +326,26 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder) {
         value = withContext(Dispatchers.IO) { "WALLET ${WalletStore(session).list().size + 1}" }
     }
     var name by remember { mutableStateOf("") }
-    var typed by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
-
-    LaunchedEffect(suggested) {
-        if (!typed) name = suggested.orEmpty()
-    }
 
     WalletNameScreen(
         name = name,
+        placeholder = suggested,
         onKey = { c ->
-            if (!saving && name.length < WALLET_NAME_MAX_LENGTH) {
-                name += c
-                typed = true
-            }
+            if (!saving && name.length < WALLET_NAME_MAX_LENGTH) name += c
         },
         onBackspace = {
-            if (!saving) {
-                name = name.dropLast(1)
-                typed = true
-            }
+            if (!saving && name.isNotEmpty()) name = name.dropLast(1)
         },
         onDone = {
             if (!saving && draft.singleKey != null) {
-                draft.setName(name.trim().ifEmpty { suggested ?: "WALLET" })
+                draft.setName(effectiveWalletName(name, suggested))
                 navController.navigate(HiddenRoute.KEY_BACKUP)
             } else if (!saving && draft.words.isNotEmpty()) {
                 saving = true
                 scope.launch {
                     whileUnlocked(navController, holder) {
-                        val finalName = name.trim().ifEmpty { suggested ?: "WALLET" }
+                        val finalName = effectiveWalletName(name, suggested)
                         val walletId = withContext(Dispatchers.IO) {
                             WalletStore(session).create(
                                 name = finalName,
