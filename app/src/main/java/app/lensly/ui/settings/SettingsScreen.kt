@@ -39,14 +39,15 @@ data class CatalogCounts(val networks: Int, val tokens: Int)
  * The Settings screen of the vault, a LazyColumn of sections in the Nothing style of the wallet screens: Entry, Bulk
  * generation, Catalog and About. LOCK stays in the header.
  *
- * [bulkCap] is null until the saved setting has been read, and its options are off until then. [catalog] is null
- * while the counts are read. [onBulkCap] saves the new cap. The hidden entry gesture is read-only, because the
- * detector has one fixed gesture.
+ * [bulkCap] is null until the saved setting has been read, and its options are off until then. [onBulkCap] saves the
+ * new cap. [onChangePassword] opens the App Password change. [catalog] is null while the counts are read. The hidden
+ * entry gesture is read-only, because the detector has one fixed gesture.
  */
 @Composable
 fun SettingsScreen(
     bulkCap: BulkCap?,
     onBulkCap: (BulkCap) -> Unit,
+    onChangePassword: () -> Unit,
     catalog: CatalogCounts?,
     onUpdateCatalog: () -> Unit,
     versionName: String,
@@ -73,6 +74,13 @@ fun SettingsScreen(
                     title = "Hidden entry gesture",
                     body = "Two-finger double-tap on the viewfinder, then hold both fingers.",
                     note = "This version has one gesture. Choosing another is not available yet.",
+                )
+            }
+            item {
+                ActionBlock(
+                    title = "Change App Password",
+                    body = "Enter the current password, then the new one twice. Your wallets stay as they are.",
+                    onClick = onChangePassword,
                 )
             }
 
