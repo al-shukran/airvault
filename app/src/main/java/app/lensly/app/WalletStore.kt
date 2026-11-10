@@ -2,6 +2,8 @@ package app.lensly.app
 
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountXpub
+import app.lensly.core.wallet.BulkPolicy
+import app.lensly.core.wallet.BulkRun
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import java.io.ByteArrayInputStream
@@ -120,6 +122,43 @@ class WalletStore(private val session: VaultSession) {
         val updated = current.copy(accountCount = current.accountCount + 1)
         session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
         updated
+    }
+
+    /**
+     * A Bulk Run: adds [count] accounts after the ones wallet [id] already has, and returns the updated metadata.
+     *
+     * Every new account is derived before anything is saved, so the saved count never covers an account that cannot
+     * be derived. The count is then written with the same META record write as [addAccount], under the session's lock.
+     * If the account count changed while the run was deriving, nothing is saved and the result is null.
+     * [onProgress] receives the number of accounts derived so far. Derivation is slow for large counts, so call this
+     * off the main thread.
+     *
+     * @throws IllegalArgumentException if [count] is outside 1 to [BulkPolicy.DEFAULT_CAP], or the wallet is missing.
+     */
+    fun addAccounts(id: String, count: Int, onProgress: (Int) -> Unit = {}): WalletMeta? {
+        require(BulkPolicy.checkCount(count) is BulkPolicy.CountCheck.Valid) {
+            "A Bulk Run makes 1 to ${BulkPolicy.DEFAULT_CAP} accounts."
+        }
+        val start = requireNotNull(meta(id)) { "No wallet $id." }.accountCount
+        val indices = BulkPolicy.indexRange(start, count)
+        val secret = requireNotNull(secret(id)) { "No wallet $id." }
+        val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
+        try {
+            // The addresses are not kept. A failure in any of them stops the run here, before anything is saved.
+            BulkRun.addresses(HdWallet(seed), indices, onProgress)
+        } finally {
+            seed.fill(0)
+        }
+        return synchronized(session) {
+            val current = requireNotNull(meta(id)) { "No wallet $id." }
+            if (current.accountCount != start) {
+                null
+            } else {
+                val updated = current.copy(accountCount = start + count)
+                session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
+                updated
+            }
+        }
     }
 
     /** Addresses of accounts 1 to [count] of wallet [id], in account order. Derived from the secret. */

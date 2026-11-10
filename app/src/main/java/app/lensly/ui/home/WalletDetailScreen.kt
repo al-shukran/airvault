@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,6 +37,9 @@ import app.lensly.ui.wallet.WalletScaffold
 /**
  * One wallet: its name in the dot-matrix face, its accounts, and its actions. Each account shows a shortened
  * address. Tapping the row shows the full address in groups of four. [addresses] is null while they are derived.
+ *
+ * The accounts are a LazyColumn, so a wallet with hundreds of accounts composes only the rows on screen. The header
+ * scrolls with the list, and the Pair and Sign actions stay pinned under it.
  */
 @Composable
 fun WalletDetailScreen(
@@ -43,12 +48,14 @@ fun WalletDetailScreen(
     onBack: () -> Unit,
     onLock: () -> Unit,
     onAddAccount: () -> Unit,
+    onBulkGenerate: () -> Unit,
     onPair: () -> Unit,
     onSign: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     WalletScaffold(
         modifier = modifier,
+        scrollable = false,
         footer = {
             Row(
                 modifier = Modifier
@@ -71,54 +78,72 @@ fun WalletDetailScreen(
             }
         },
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            WalletPill(
-                text = "Back",
-                onClick = onBack,
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
-            )
-            Spacer(Modifier.weight(1f))
-            WalletPill(
-                text = "Lock",
-                onClick = onLock,
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
-            )
-        }
-        Spacer(Modifier.height(20.dp))
-        WalletEyebrow(if (wallet.deviceGenerated) "Device-generated wallet" else "Wallet")
-        Spacer(Modifier.height(8.dp))
-        DotText(text = wallet.name.uppercase(), fontSize = 40.sp)
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PillChip(text = "Master ${wallet.masterFingerprintHex.uppercase()}")
-        }
-        Spacer(Modifier.height(24.dp))
-        WalletEyebrow("Accounts")
-        Spacer(Modifier.height(4.dp))
-        if (addresses == null) {
-            Text(
-                text = "Deriving addresses…",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            addresses.forEachIndexed { index, address ->
-                AccountRow(index = index, address = address)
+        LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        WalletPill(
+                            text = "Back",
+                            onClick = onBack,
+                            style = WalletPillStyle.Outline,
+                            size = WalletPillSize.Compact,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        WalletPill(
+                            text = "Lock",
+                            onClick = onLock,
+                            style = WalletPillStyle.Outline,
+                            size = WalletPillSize.Compact,
+                        )
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    WalletEyebrow(if (wallet.deviceGenerated) "Device-generated wallet" else "Wallet")
+                    Spacer(Modifier.height(8.dp))
+                    DotText(text = wallet.name.uppercase(), fontSize = 40.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PillChip(text = "Master ${wallet.masterFingerprintHex.uppercase()}")
+                    }
+                    Spacer(Modifier.height(24.dp))
+                    WalletEyebrow("Accounts")
+                    Spacer(Modifier.height(4.dp))
+                }
+            }
+            if (addresses == null) {
+                item {
+                    Text(
+                        text = "Deriving addresses…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                itemsIndexed(addresses, key = { _, address -> address }) { index, address ->
+                    AccountRow(index = index, address = address)
+                }
+            }
+            item {
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    WalletPill(
+                        text = "+ Account",
+                        onClick = onAddAccount,
+                        modifier = Modifier.weight(1f),
+                        style = WalletPillStyle.Secondary,
+                    )
+                    WalletPill(
+                        text = "Bulk generate",
+                        onClick = onBulkGenerate,
+                        modifier = Modifier.weight(1f),
+                        style = WalletPillStyle.Secondary,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
             }
         }
-        Spacer(Modifier.height(16.dp))
-        WalletPill(
-            text = "+ Account",
-            onClick = onAddAccount,
-            modifier = Modifier.fillMaxWidth(),
-            style = WalletPillStyle.Secondary,
-        )
-        Spacer(Modifier.height(8.dp))
     }
 }
 

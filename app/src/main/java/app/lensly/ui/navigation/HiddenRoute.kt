@@ -14,6 +14,7 @@ internal object HiddenRoute {
     // Wallets.
     const val HOME = "home"
     const val DETAIL = "detail/{walletId}"
+    const val BULK = "bulk/{walletId}"
     const val EXPORT = "export/{walletId}"
     const val SCAN = "scan/{walletId}"
 
@@ -36,6 +37,8 @@ internal object HiddenRoute {
     const val WALLET_ID_ARG = "walletId"
 
     fun detail(walletId: String): String = "detail/$walletId"
+
+    fun bulk(walletId: String): String = "bulk/$walletId"
 
     fun export(walletId: String): String = "export/$walletId"
 
