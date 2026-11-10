@@ -4,12 +4,14 @@ import java.io.File
 
 /**
  * On-disk layout under `noBackupFilesDir/vault/`:
- * `header.bin`, `vault.key`, `failures.bin`, `failures.bak`, and `wallets/<id>/` holding `pwk.bin` and the records.
+ * `header.bin`, `vault.key`, `failures.bin`, `failures.bak`, `vault-records/` (records that belong to the vault as a
+ * whole, such as settings), and `wallets/<id>/` holding `pwk.bin` and the records.
  */
 internal class VaultLayout(val root: File) {
     val header = File(root, "header.bin")
     val vaultKey = File(root, "vault.key")
     val wallets = File(root, "wallets")
+    val vaultRecords = File(root, "vault-records")
 
     /** A vault exists once both the header and the wrapped vault key have been written. */
     fun exists(): Boolean = header.isFile && vaultKey.isFile
