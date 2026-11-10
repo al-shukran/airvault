@@ -2,7 +2,6 @@ package app.lensly
 
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import app.lensly.ui.applySecureWindow
 import app.lensly.ui.navigation.LenslyNavHost
 import app.lensly.ui.theme.LenslyTheme
 
@@ -18,11 +18,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Vault screens must never appear in screenshots, screen recordings or the recents thumbnail.
-        // Debug builds skip it so development screenshots work; release builds always set it.
-        if (!BuildConfig.DEBUG) {
-            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        }
+        applySecureWindow()
 
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
