@@ -36,4 +36,12 @@ class Registry internal constructor(
     fun networks(): List<NetworkEntry> = networkList
 
     fun tokens(): List<TokenEntry> = tokenList
+
+    /**
+     * This registry plus [additionalNetworks] and [additionalTokens], used to merge an installed package.
+     * Throws IllegalArgumentException when an addition reuses a chain ID or token already present, so baked
+     * entries are never replaced.
+     */
+    fun withAdditions(additionalNetworks: List<NetworkEntry>, additionalTokens: List<TokenEntry>): Registry =
+        Registry(networkList + additionalNetworks, tokenList + additionalTokens)
 }
