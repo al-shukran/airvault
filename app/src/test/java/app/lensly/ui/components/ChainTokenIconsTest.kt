@@ -29,6 +29,16 @@ class ChainTokenIconsTest {
     }
 
     @Test
+    fun everyChainLogoOnABackdropIsInTheIconMap() {
+        assertEquals(emptySet<String>(), chainIconsNeedingBackdrop - chainIconDrawables.keys)
+    }
+
+    @Test
+    fun everyTokenLogoOnABackdropIsInTheIconMap() {
+        assertEquals(emptySet<String>(), tokenIconsNeedingBackdrop - tokenIconDrawables.keys)
+    }
+
+    @Test
     fun theShippedCatalogNamesLogosForItsNetworksAndTokens() {
         assertTrue(registry.networks().count { it.icon != null } >= 7)
         assertTrue(registry.tokens().count { it.icon != null } >= 10)

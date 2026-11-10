@@ -10,3 +10,6 @@ val LenslyOutline = Color(0xFF3A3A3A)
 val LenslyOnSurface = Color(0xFFFFFFFF)
 val LenslyMuted = Color(0xFF8E8E93)
 val LenslyAccent = Color(0xFFD71921)
+
+/** The light disc behind a dark logo that would vanish on black. Neutral grey, so it adds no hue to the brand colour. */
+val LenslyLogoBackdrop = Color(0xFFE6E6E6)
