@@ -1,6 +1,10 @@
 package app.lensly.ui.navigation
 
+import android.content.Context
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -11,6 +15,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -18,17 +23,23 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
+import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
+import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.flow.PairWalletRoute
 import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.gate.PasswordBuffer
+import app.lensly.ui.home.ImportState
+import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SoonScreen
 import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHomeScreen
+import app.lensly.ui.home.importedState
+import app.lensly.ui.home.refusalReason
 import app.lensly.ui.wallet.Bip39Autocomplete
 import app.lensly.ui.wallet.PassphraseScreen
 import app.lensly.ui.wallet.PassphraseState
@@ -37,6 +48,7 @@ import app.lensly.ui.wallet.RestoreEntryScreen
 import app.lensly.ui.wallet.RestoreState
 import app.lensly.ui.wallet.WALLET_NAME_MAX_LENGTH
 import app.lensly.ui.wallet.WalletNameScreen
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -65,6 +77,7 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.SCAN, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { SignWalletRoute(navController, holder, entry.walletId()) }
     }
+    composable(HiddenRoute.CATALOG) { HiddenBackdrop { RegistryImportRoute(navController, holder) } }
 }
 
 private fun walletIdArguments() = listOf(navArgument(HiddenRoute.WALLET_ID_ARG) { type = NavType.StringType })
@@ -92,7 +105,53 @@ private fun HomeRoute(navController: NavHostController, holder: VaultHolder) {
         onOpen = { walletId -> navController.navigate(HiddenRoute.detail(walletId)) },
         onAdd = { navController.navigate(HiddenRoute.WALLET_START) },
         onLock = { leaveHidden(navController, holder) },
+        onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
         debugNotice = debugNotice,
+    )
+}
+
+/**
+ * The catalog import. The owner picks a file with the system picker, which needs no permission and works offline. The
+ * bytes are read with a size cap, checked against the release key and the baked catalog, and stored by
+ * [RegistryHolder]. Reading and checking run off the main thread, and the sign flow sees an accepted package at once.
+ */
+@Composable
+private fun RegistryImportRoute(navController: NavHostController, holder: VaultHolder) {
+    rememberOpenSession(navController, holder) ?: return
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var state by remember { mutableStateOf<ImportState>(ImportState.Idle) }
+    val chooseFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        PickerStop.disarm()
+        if (uri != null) {
+            state = ImportState.Checking
+            scope.launch {
+                state = withContext(Dispatchers.IO) { importPackage(context, uri) }
+            }
+        }
+    }
+
+    RegistryImportScreen(
+        state = state,
+        onChooseFile = {
+            PickerStop.arm()
+            chooseFile.launch(arrayOf("*/*"))
+        },
+        onBack = { navController.popBackStack() },
+        onLock = { leaveHidden(navController, holder) },
+    )
+}
+
+/** Reads and installs the file at [uri]. Every failure becomes a refusal, so the screen always has a reason to show. */
+private fun importPackage(context: Context, uri: Uri): ImportState {
+    val outcome = runCatching {
+        val bytes = context.contentResolver.openInputStream(uri)?.use { RegistryUpdate.readPackage(it) }
+            ?: throw IOException("the file could not be opened")
+        RegistryHolder.install(context, bytes).getOrThrow()
+    }
+    return outcome.fold(
+        onSuccess = { importedState(it) },
+        onFailure = { ImportState.Refused(refusalReason(it)) },
     )
 }
 

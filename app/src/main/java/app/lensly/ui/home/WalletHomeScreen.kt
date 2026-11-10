@@ -49,8 +49,9 @@ import app.lensly.ui.wallet.WalletWarningChip
 
 /**
  * The wallet list, in the style of the contacts list: a dot-matrix headline, one row per wallet, and a red add
- * button. [onOpen] receives the wallet id. [onLock] locks the vault and leaves the hidden area. [debugNotice], when
- * set, shows a warning chip, for example that the keystore is software-only.
+ * button. [onOpen] receives the wallet id. [onLock] locks the vault and leaves the hidden area. [onUpdateCatalog]
+ * opens the import of a signed registry package. [debugNotice], when set, shows a warning chip, for example that the
+ * keystore is software-only.
  */
 @Composable
 fun WalletHomeScreen(
@@ -58,6 +59,7 @@ fun WalletHomeScreen(
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
     onLock: () -> Unit,
+    onUpdateCatalog: () -> Unit,
     modifier: Modifier = Modifier,
     debugNotice: String? = null,
 ) {
@@ -106,6 +108,16 @@ fun WalletHomeScreen(
                 }
             }
         }
+        WalletPill(
+            text = "Update catalog",
+            onClick = onUpdateCatalog,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(start = WALLET_GUTTER, bottom = 16.dp),
+            style = WalletPillStyle.Outline,
+            size = WalletPillSize.Compact,
+        )
         AddWalletButton(
             onClick = onAdd,
             modifier = Modifier

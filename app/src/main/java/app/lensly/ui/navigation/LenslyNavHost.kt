@@ -121,6 +121,8 @@ private fun ReturnToCameraWhenBackgrounded(navController: NavHostController, hol
         val observer = LifecycleEventObserver { _, event ->
             val rotating = context.findActivity()?.isChangingConfigurations == true
             if (event == Lifecycle.Event.ON_STOP && !rotating) {
+                // The document picker stops the app once on purpose. Its stop does not lock the vault.
+                if (PickerStop.takeStop()) return@LifecycleEventObserver
                 leaveHidden(navController, holder)
             }
         }
