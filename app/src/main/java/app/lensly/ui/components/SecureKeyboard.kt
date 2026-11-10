@@ -80,9 +80,10 @@ private const val SYMBOLS_BOTTOM = "!?_'\"/\\:;"
  * phone grid: the `asdf` row is inset by half a key on each side, and the bottom row of letters has
  * shift and backspace at 1.5 key widths. The bottom row is `123`, `,`, SPACE, `.` and done.
  *
- * Shift is a toggle between lower and upper case on the letters page. The `123` key switches to the
- * digits and symbols page, and `ABC` returns to letters. Once a password is held by the caller, the
- * caller decides what [onDone] means (next step, submit, or unlock).
+ * Shift is one-shot: a tap makes only the next letter uppercase, and then shift turns itself off. A
+ * second tap on shift turns it off early. There is no caps lock (see [OneShotShift]). The `123` key
+ * switches to the digits and symbols page, and `ABC` returns to letters. Once a password is held by
+ * the caller, the caller decides what [onDone] means (next step, submit, or unlock).
  */
 @Composable
 fun SecureKeyboard(
@@ -93,7 +94,7 @@ fun SecureKeyboard(
     enabled: Boolean = true,
 ) {
     var page by rememberSaveable { mutableStateOf(KeyboardPage.Letters) }
-    var shifted by rememberSaveable { mutableStateOf(false) }
+    val shift = rememberSaveable(saver = OneShotShiftSaver) { OneShotShift() }
     val lettersPage = page == KeyboardPage.Letters
 
     Column(
@@ -103,38 +104,48 @@ fun SecureKeyboard(
             .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(ROW_GAP),
     ) {
+        // Every character key goes through shift.type, and only a letter spends shift. A letter's
+        // label is cased at composition, but its tap reads shift when it fires, so a Shift and a
+        // letter tapped in the same frame still use the current case.
         if (lettersPage) {
             KeyRow {
-                // The label is cased at composition, but the tap reads `shifted` when it fires, so a
-                // Shift and a letter tapped in the same frame still use the current case.
                 for (base in LETTERS_TOP) {
-                    val c = base.cased(shifted)
-                    CharKey(c, Modifier.weight(1f), enabled) { onKey(base.cased(shifted)) }
+                    CharKey(shift.labelFor(base), Modifier.weight(1f), enabled) {
+                        onKey(shift.type(base))
+                    }
                 }
             }
             KeyRow(inset = true) {
                 for (base in LETTERS_MIDDLE) {
-                    val c = base.cased(shifted)
-                    CharKey(c, Modifier.weight(1f), enabled) { onKey(base.cased(shifted)) }
+                    CharKey(shift.labelFor(base), Modifier.weight(1f), enabled) {
+                        onKey(shift.type(base))
+                    }
                 }
             }
             KeyRow {
-                ShiftKey(Modifier.weight(1.5f), shifted, enabled) { shifted = !shifted }
+                ShiftKey(Modifier.weight(1.5f), shift.isArmed, enabled) { shift.tapShift() }
                 for (base in LETTERS_BOTTOM) {
-                    val c = base.cased(shifted)
-                    CharKey(c, Modifier.weight(1f), enabled) { onKey(base.cased(shifted)) }
+                    CharKey(shift.labelFor(base), Modifier.weight(1f), enabled) {
+                        onKey(shift.type(base))
+                    }
                 }
                 BackspaceKey(Modifier.weight(1.5f), enabled, onBackspace)
             }
         } else {
             KeyRow {
-                for (c in SYMBOLS_TOP) CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+                for (c in SYMBOLS_TOP) {
+                    CharKey(c, Modifier.weight(1f), enabled) { onKey(shift.type(c)) }
+                }
             }
             KeyRow {
-                for (c in SYMBOLS_MIDDLE) CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+                for (c in SYMBOLS_MIDDLE) {
+                    CharKey(c, Modifier.weight(1f), enabled) { onKey(shift.type(c)) }
+                }
             }
             KeyRow {
-                for (c in SYMBOLS_BOTTOM) CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+                for (c in SYMBOLS_BOTTOM) {
+                    CharKey(c, Modifier.weight(1f), enabled) { onKey(shift.type(c)) }
+                }
                 BackspaceKey(Modifier.weight(1.5f), enabled, onBackspace)
             }
         }
@@ -153,12 +164,12 @@ fun SecureKeyboard(
                     color = LenslyOnSurface,
                 )
             }
-            CharKey(',', Modifier.weight(1f), enabled) { onKey(',') }
+            CharKey(',', Modifier.weight(1f), enabled) { onKey(shift.type(',')) }
             Key(
                 description = "Space",
                 background = LenslySurfaceHigh,
                 enabled = enabled,
-                onClick = { onKey(' ') },
+                onClick = { onKey(shift.type(' ')) },
                 modifier = Modifier.weight(5f),
             ) {
                 Text(
@@ -167,13 +178,11 @@ fun SecureKeyboard(
                     color = LenslyOnSurface,
                 )
             }
-            CharKey('.', Modifier.weight(1f), enabled) { onKey('.') }
+            CharKey('.', Modifier.weight(1f), enabled) { onKey(shift.type('.')) }
             DoneKey(Modifier.weight(1.5f), enabled, onDone)
         }
     }
 }
-
-private fun Char.cased(shifted: Boolean): Char = if (shifted) uppercaseChar() else this
 
 /**
  * A row of weighted keys with [ROW_PADDING] on each side. With [inset], the row gets a half-key
