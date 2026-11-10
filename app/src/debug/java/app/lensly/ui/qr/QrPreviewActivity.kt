@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import app.lensly.ui.applySecureWindow
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TxReviewScreen
@@ -42,6 +43,7 @@ class QrPreviewActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applySecureWindow()
         screen.value = screenFrom(intent)
 
         enableEdgeToEdge(
