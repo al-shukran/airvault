@@ -58,8 +58,8 @@ import kotlinx.coroutines.withContext
 private const val MAX_WORD_LETTERS = 8
 
 /**
- * The wallet routes of the hidden graph: the list, the start screen, restore, the shared passphrase and name
- * screens, a wallet's detail, and placeholders for pair and sign. Create is still a placeholder.
+ * The wallet routes of the hidden graph: the list, the start screen, restore, the catalog import, the shared
+ * passphrase and name screens, a wallet's detail, and the pair and sign flows. The create flow is in [createRoutes].
  */
 internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, holder: VaultHolder) {
     composable(HiddenRoute.HOME) { HiddenBackdrop { HomeRoute(navController, holder) } }

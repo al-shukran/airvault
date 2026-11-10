@@ -1,6 +1,12 @@
 package app.lensly.ui.sign
 
 /**
+ * The [TxReview.function] of a personal message. A message has no recipient, amount, nonce or fee, and its text is
+ * the only parameter, so the review screen shows the message instead of those facts.
+ */
+const val SIGN_MESSAGE_FUNCTION = "Sign message"
+
+/**
  * Everything the review screen shows about one transaction before the user decides.
  *
  * [amount] is already formatted for display, for example "0.0100". [fee] holds label and value
