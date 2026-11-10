@@ -43,6 +43,7 @@ internal val chainIconDrawables: Map<String, Int> = mapOf(
     "chain_metis_andromeda" to R.drawable.chain_metis_andromeda,
     "chain_mint" to R.drawable.chain_mint,
     "chain_mode" to R.drawable.chain_mode,
+    "chain_monad" to R.drawable.chain_monad,
     "chain_moonbeam" to R.drawable.chain_moonbeam,
     "chain_moonriver" to R.drawable.chain_moonriver,
     "chain_okex" to R.drawable.chain_okex,
