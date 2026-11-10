@@ -3,6 +3,7 @@ package app.lensly.core.registry.update
 import app.lensly.core.registry.Registry
 import app.lensly.core.vault.writeAtomically
 import java.io.File
+import java.io.InputStream
 
 /**
  * Offline catalog updates. A registry package adds networks and tokens to the baked-in catalog. It can never
@@ -35,6 +36,18 @@ object RegistryUpdate {
             checkAgainstBaked(pkg, baked)
             pkg
         }
+
+    /**
+     * Reads a whole package from [input]. A stream longer than [PackageFormat.MAX_BYTES] is refused as
+     * [RegistryUpdateException.Malformed] after one byte past the cap, so an oversized file is never buffered.
+     */
+    fun readPackage(input: InputStream): ByteArray {
+        val bytes = input.readNBytes(PackageFormat.MAX_BYTES + 1)
+        if (bytes.size > PackageFormat.MAX_BYTES) {
+            throw RegistryUpdateException.Malformed("larger than ${PackageFormat.MAX_BYTES} bytes")
+        }
+        return bytes
+    }
 
     /**
      * Stores [bytes] as the installed package in [dir] when they verify and their sequence is higher than the

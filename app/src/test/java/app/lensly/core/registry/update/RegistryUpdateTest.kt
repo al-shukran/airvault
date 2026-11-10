@@ -5,6 +5,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import java.io.File
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -317,5 +318,19 @@ class RegistryUpdateTest {
         val replacement = NetworkEntry(1L, "Imposter", "ETH", 18, FeeModel.L1, null, false)
 
         assertFailsWith<IllegalArgumentException> { bakedRegistry().withAdditions(listOf(replacement), emptyList()) }
+    }
+
+    @Test
+    fun readPackageReturnsAFileExactlyAtTheCap() {
+        val bytes = ByteArray(PackageFormat.MAX_BYTES) { 7 }
+
+        assertContentEquals(bytes, RegistryUpdate.readPackage(bytes.inputStream()))
+    }
+
+    @Test
+    fun readPackageRefusesAFileOneByteOverTheCap() {
+        val bytes = ByteArray(PackageFormat.MAX_BYTES + 1) { 7 }
+
+        assertIs<RegistryUpdateException.Malformed>(failure(runCatching { RegistryUpdate.readPackage(bytes.inputStream()) }))
     }
 }
