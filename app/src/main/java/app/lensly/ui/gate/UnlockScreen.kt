@@ -90,7 +90,7 @@ private val PROGRESS_SLOT_HEIGHT = 12.dp
  * wraps around, so it never stalls.
  */
 @Composable
-private fun DotProgress(modifier: Modifier = Modifier) {
+internal fun DotProgress(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "unlock-progress")
     val phase by transition.animateFloat(
         initialValue = 0f,

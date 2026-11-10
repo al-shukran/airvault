@@ -50,7 +50,8 @@ class VaultException(message: String, cause: Throwable? = null) : IllegalStateEx
  * 2. Hardware: a non-exportable Keystore AES-256-GCM key (`lensly.vault.hw`) wraps the Vault Key.
  *
  * [unlock] rate-limits password checks with [FailureDelay]. While a delay runs, [unlock] returns
- * [UnlockResult.Rejected] without running Argon2.
+ * [UnlockResult.Rejected] without checking the password. It still spends the same Argon2 time as a real check,
+ * so the delay cannot be seen from timing.
  *
  * Argon2 runs on [Dispatchers.Default]. File and Keystore work runs on [Dispatchers.IO]. The password arrays
  * passed to [create], [unlock] and [rekey] are zeroed before those calls return.
@@ -85,7 +86,8 @@ class Vault internal constructor(
      * Unlocks the vault with [password].
      *
      * Returns [UnlockResult.Rejected] for a wrong password, and for any attempt made during a failure delay.
-     * A delay attempt does not run Argon2 and does not add to the failure count.
+     * A delay attempt does not check the password and does not add to the failure count, but it spends the
+     * same Argon2 time as a real check.
      *
      * @throws VaultException if the password is correct but the stored state is damaged or the hardware key is gone.
      */
@@ -176,8 +178,12 @@ class Vault internal constructor(
             val header = VaultHeader.decode(layout.header.readBytes())
             val store = failureStore()
             val state = store.load(clock)
-            // During a delay the check is refused before Argon2 runs. It counts as neither a pass nor a failure.
-            if (FailureDelay(header.createdAtWallMs).isBlocked(state, clock)) return UnlockResult.Rejected
+            // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still
+            // runs once, on a fixed input, so a refused attempt takes as long as a real one.
+            if (FailureDelay(header.createdAtWallMs).isBlocked(state, clock)) {
+                spendKdfTime(header)
+                return UnlockResult.Rejected
+            }
 
             val kSw = withContext(Dispatchers.Default) { Argon2Kdf.derive(password, header.salt, header.kdf) }
             try {
@@ -264,6 +270,20 @@ class Vault internal constructor(
         val elapsedMs = (System.nanoTime() - started) / 1_000_000L
         Arrays.fill(out, 0)
         elapsedMs
+    }
+
+    /**
+     * One derivation with the vault's own parameters and salt, on a fixed input that is not secret. The result is
+     * discarded. Runs on [Dispatchers.Default].
+     */
+    private suspend fun spendKdfTime(header: VaultHeader) {
+        val fixedInput = CALIBRATION_PASSWORD.toCharArray()
+        try {
+            val out = withContext(Dispatchers.Default) { Argon2Kdf.derive(fixedInput, header.salt, header.kdf) }
+            Arrays.fill(out, 0)
+        } finally {
+            Arrays.fill(fixedInput, '\u0000')
+        }
     }
 
     private fun failureStore(): FailureStore = FailureStore(layout.root, VaultKeystore.failureMacKey())

@@ -52,7 +52,8 @@ private fun PolicyError.message(): String = when (this) {
  * the system IME never sees the password.
  *
  * [onSubmit] is the keyboard's done key. The caller checks the policy for the current step and
- * updates [state]; the screen does no checking itself.
+ * updates [state]; the screen does no checking itself. While [busy] (the vault is being created) the
+ * keyboard is disabled and a progress row shows in the error slot.
  */
 @Composable
 fun CreatePasswordScreen(
@@ -61,6 +62,7 @@ fun CreatePasswordScreen(
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
+    busy: Boolean = false,
 ) {
     val confirming = state.step == CreateStep.Confirm
     val colors = MaterialTheme.colorScheme
@@ -96,13 +98,17 @@ fun CreatePasswordScreen(
                 .height(ERROR_HEIGHT),
             contentAlignment = Alignment.TopCenter,
         ) {
-            state.error?.let { error ->
-                Text(
-                    text = error.message(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = LenslyAccent,
-                    textAlign = TextAlign.Center,
-                )
+            if (busy) {
+                DotProgress(modifier = Modifier.padding(top = 15.dp))
+            } else {
+                state.error?.let { error ->
+                    Text(
+                        text = error.message(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = LenslyAccent,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
 
@@ -112,6 +118,7 @@ fun CreatePasswordScreen(
             onKey = onKey,
             onBackspace = onBackspace,
             onDone = onSubmit,
+            enabled = !busy,
         )
     }
 }
