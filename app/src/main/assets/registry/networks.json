@@ -7,6 +7,6 @@
     {"chainId": 137, "name": "Polygon PoS", "nativeSymbol": "POL", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "PolygonScan", "testnet": false, "icon": "chain_polygon"},
     {"chainId": 56, "name": "BNB Smart Chain", "nativeSymbol": "BNB", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "BscScan", "testnet": false, "icon": "chain_binance_smart_chain"},
     {"chainId": 43114, "name": "Avalanche C-Chain", "nativeSymbol": "AVAX", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "Snowtrace", "testnet": false, "icon": "chain_avalanche"},
-    {"chainId": 143, "name": "Monad", "nativeSymbol": "MON", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "MonadVision", "testnet": false, "icon": null}
+    {"chainId": 143, "name": "Monad", "nativeSymbol": "MON", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "MonadVision", "testnet": false, "icon": "chain_monad"}
   ]
 }

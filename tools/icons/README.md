@@ -7,7 +7,7 @@
 
 | Input | Contents | License |
 | --- | --- | --- |
-| `chains/*.svg` | 61 chain logos from web3icons | MIT, see [ATTRIBUTION-chains.md](ATTRIBUTION-chains.md) |
+| `chains/*.svg` | 62 chain logos from web3icons | MIT, see [ATTRIBUTION-chains.md](ATTRIBUTION-chains.md) |
 | `tokens/*.svg` | 67 token logos from web3icons and Iconify | MIT, see [ATTRIBUTION-tokens.md](ATTRIBUTION-tokens.md) |
 | `assets/lensly.svg` | The Lensly logo, used for the launcher icon and the logo | Lensly project asset |
 

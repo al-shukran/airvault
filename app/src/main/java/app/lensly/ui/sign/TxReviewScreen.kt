@@ -153,6 +153,8 @@ fun TxReviewScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
+                        // A testnet can share its logo with a mainnet, so the logo alone does not say which it is.
+                        if (review.network?.testnet == true) PillChip(text = "Testnet")
                         PillChip(text = "Chain ${review.chainId}")
                     }
                 }
