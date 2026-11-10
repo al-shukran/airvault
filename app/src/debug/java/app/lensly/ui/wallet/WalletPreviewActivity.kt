@@ -145,6 +145,7 @@ private fun StartPreview() {
     WalletStartScreen(
         onCreate = { toast(context, "Preview: create") },
         onRestore = { toast(context, "Preview: restore") },
+        onImportKey = { toast(context, "Preview: import key") },
     )
 }
 

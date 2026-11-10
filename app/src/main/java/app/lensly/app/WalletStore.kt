@@ -1,11 +1,13 @@
 package app.lensly.app
 
 import app.lensly.core.vault.VaultSession
+import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.BulkRun
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.core.wallet.PrivateKey
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -13,35 +15,67 @@ import java.io.DataOutputStream
 import java.io.IOException
 import java.util.Arrays
 
-/** Public facts about one wallet. None of them can spend funds. */
+/**
+ * What a wallet's secret is. A Mnemonic wallet holds a 24-word Mnemonic and an optional Passphrase, and every account
+ * derives from them. A Single Key wallet holds one imported private key. It has exactly one account, and no derivation
+ * path.
+ */
+enum class WalletKind(val wire: Int) {
+    MNEMONIC(0),
+    SINGLE_KEY(1);
+
+    companion object {
+        /** The kind stored as [wire] in a record. An unknown value is refused. */
+        fun fromWire(wire: Int): WalletKind = entries.firstOrNull { it.wire == wire }
+            ?: throw IllegalArgumentException("Unknown wallet kind.")
+    }
+}
+
+/**
+ * Public facts about one wallet. None of them can spend funds.
+ *
+ * A Mnemonic wallet has a master fingerprint and an account public key. A Single Key wallet has neither, and both are null.
+ */
 data class WalletMeta(
     val id: String,
     val name: String,
     val createdAtMs: Long,
     val deviceGenerated: Boolean,
     val accountCount: Int,
-    /** Master fingerprint as 8 lowercase hex characters. */
-    val masterFingerprintHex: String,
-    /** Public account data for m/44'/60'/0'. Enough to derive addresses without the secret. */
-    val accountXpub: AccountXpub,
+    /** Master fingerprint as 8 lowercase hex characters. Null for a Single Key, which has no master key. */
+    val masterFingerprintHex: String?,
+    /** Public account data for m/44'/60'/0'. Enough to derive addresses without the secret. Null for a Single Key. */
+    val accountXpub: AccountXpub?,
+    /** The kind of secret the wallet holds. A record written before kinds existed is a Mnemonic wallet. */
+    val kind: WalletKind = WalletKind.MNEMONIC,
 )
 
-/** The secret part of a wallet: its 24 words, and its optional BIP39 passphrase (null when there is none). */
-class WalletSecret(val words: List<String>, val passphrase: String?)
+/** The secret part of a wallet, as it is stored. */
+sealed interface WalletSecret {
+    /**
+     * The 24 words, and the BIP39 passphrase (null when there is none). The words and the passphrase are Strings, which
+     * cannot be zeroed. They are dropped as soon as the wallet has been used.
+     */
+    class Mnemonic(val words: List<String>, val passphrase: String?) : WalletSecret
+
+    /** The 32-byte private key. The caller zeroes it once it has been used. */
+    class SingleKey(val privateKey: ByteArray) : WalletSecret
+}
 
 /**
  * Wallets kept in an open [VaultSession]. Each wallet has two records. Both use DataOutputStream and
  * DataInputStream behind a version byte. Neither is JSON.
  *
- * - `meta`, version 1: name (UTF), created-at ms (long), device-generated (boolean), account count (int),
- *   master fingerprint hex (UTF), account public key and chain code (each an int length, then bytes),
- *   parent fingerprint (int).
- * - `secret`, version 1: word count (byte), each word (UTF), has-passphrase (boolean), then the passphrase
- *   (UTF) when present.
+ * - `meta`, version 2: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int).
+ *   A Mnemonic wallet then has master fingerprint hex (UTF), account public key and chain code (each an int length,
+ *   then bytes), and parent fingerprint (int). A Single Key wallet has nothing more.
+ *   Version 1 is the same record without the kind byte. It is always a Mnemonic wallet, and it still loads.
+ * - `secret`, version 1 for a Mnemonic wallet: word count (byte), each word (UTF), has-passphrase (boolean), then the
+ *   passphrase (UTF) when present. Version 2 for a Single Key wallet: the 32-byte private key.
  *
  * Encoded bytes are zeroed after they are written or parsed, including the internal buffer of the stream
  * that produced them. The Strings for the words and the passphrase cannot be zeroed. They are dropped as soon
- * as the wallet has been used.
+ * as the wallet has been used. The private key of a Single Key secret is the caller's to zero.
  *
  * Every call does file or crypto work, so none of them belongs on the main thread.
  */
@@ -114,11 +148,46 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
+     * Saves a new Single Key wallet with its one account, and returns its id. [privateKey] is read here and not zeroed, so
+     * the caller keeps its copy. The secret is written first and the metadata last, as in [create].
+     *
+     * @throws IllegalArgumentException if [privateKey] is not a valid key (see [PrivateKey.isValid]).
+     */
+    fun createSingleKey(name: String, privateKey: ByteArray, nowMs: Long): String {
+        require(PrivateKey.isValid(privateKey)) { "Not a valid private key." }
+        val id = session.createWallet()
+        try {
+            val secret = WalletRecords.encodeSingleKeySecret(privateKey)
+            try {
+                session.putRecord(id, WalletRecords.SECRET, secret)
+            } finally {
+                secret.fill(0)
+            }
+            val meta = WalletMeta(
+                id = id,
+                name = name,
+                createdAtMs = nowMs,
+                deviceGenerated = false,
+                accountCount = 1,
+                masterFingerprintHex = null,
+                accountXpub = null,
+                kind = WalletKind.SINGLE_KEY,
+            )
+            session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
+        } catch (e: Throwable) {
+            session.deleteWallet(id)
+            throw e
+        }
+        return id
+    }
+
+    /**
      * Adds the next account of wallet [id] and returns the updated metadata. It runs under the session's lock,
-     * so two quick taps cannot claim the same index.
+     * so two quick taps cannot claim the same index. A Single Key wallet has one account and refuses this.
      */
     fun addAccount(id: String): WalletMeta = synchronized(session) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
+        require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_ONE_ACCOUNT }
         val updated = current.copy(accountCount = current.accountCount + 1)
         session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
         updated
@@ -133,15 +202,17 @@ class WalletStore(private val session: VaultSession) {
      * [onProgress] receives the number of accounts derived so far. Derivation is slow for large counts, so call this
      * off the main thread. [cap] is the owner's configured Bulk Cap, which the caller reads from [SettingsStore].
      *
-     * @throws IllegalArgumentException if [count] is outside 1 to [cap], or the wallet is missing.
+     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, or it is a Single Key wallet.
      */
     fun addAccounts(id: String, count: Int, cap: Int, onProgress: (Int) -> Unit = {}): WalletMeta? {
         require(BulkPolicy.checkCount(count, cap) is BulkPolicy.CountCheck.Valid) {
             "A Bulk Run makes 1 to $cap accounts."
         }
-        val start = requireNotNull(meta(id)) { "No wallet $id." }.accountCount
+        val before = requireNotNull(meta(id)) { "No wallet $id." }
+        require(before.kind == WalletKind.MNEMONIC) { SINGLE_KEY_ONE_ACCOUNT }
+        val start = before.accountCount
         val indices = BulkPolicy.indexRange(start, count)
-        val secret = requireNotNull(secret(id)) { "No wallet $id." }
+        val secret = mnemonicSecret(id)
         val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
         try {
             // The addresses are not kept. A failure in any of them stops the run here, before anything is saved.
@@ -161,17 +232,39 @@ class WalletStore(private val session: VaultSession) {
         }
     }
 
-    /** Addresses of accounts 1 to [count] of wallet [id], in account order. Derived from the secret. */
+    /**
+     * Addresses of wallet [id], in account order, derived from the secret. A Mnemonic wallet gives the accounts 0 to
+     * [count] - 1. A Single Key wallet has one account, so [count] must be 1, and the list holds the key's address.
+     */
     fun addresses(id: String, count: Int): List<String> {
-        val secret = requireNotNull(secret(id)) { "No wallet $id." }
-        val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
-        try {
-            val wallet = HdWallet(seed)
-            return (0 until count).map { index -> wallet.address(index) }
-        } finally {
-            seed.fill(0)
+        return when (val secret = requireNotNull(secret(id)) { "No wallet $id." }) {
+            is WalletSecret.Mnemonic -> {
+                val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
+                try {
+                    val wallet = HdWallet(seed)
+                    (0 until count).map { index -> wallet.address(index) }
+                } finally {
+                    seed.fill(0)
+                }
+            }
+            is WalletSecret.SingleKey -> try {
+                require(count == 1) { SINGLE_KEY_ONE_ACCOUNT }
+                listOf(AccountAddresses.addressOfPrivateKey(secret.privateKey))
+            } finally {
+                secret.privateKey.fill(0)
+            }
         }
     }
+
+    /** The Mnemonic secret of wallet [id]. A Single Key secret is zeroed and refused, so the caller never holds a key here. */
+    private fun mnemonicSecret(id: String): WalletSecret.Mnemonic =
+        when (val secret = requireNotNull(secret(id)) { "No wallet $id." }) {
+            is WalletSecret.Mnemonic -> secret
+            is WalletSecret.SingleKey -> {
+                secret.privateKey.fill(0)
+                throw IllegalArgumentException(SINGLE_KEY_ONE_ACCOUNT)
+            }
+        }
 
     private class Identity(val fingerprintHex: String, val xpub: AccountXpub)
 
@@ -184,6 +277,10 @@ class WalletStore(private val session: VaultSession) {
             seed.fill(0)
         }
     }
+
+    private companion object {
+        const val SINGLE_KEY_ONE_ACCOUNT = "A Single Key wallet has exactly one account and cannot generate more."
+    }
 }
 
 /** Binary encodings of the two wallet records. See [WalletStore] for the layout. */
@@ -191,47 +288,81 @@ internal object WalletRecords {
     const val META = "meta"
     const val SECRET = "secret"
 
-    private const val VERSION = 1
+    /** The meta version written before wallet kinds. It has no kind byte, and it is always a Mnemonic wallet. */
+    private const val META_VERSION_WITHOUT_KIND = 1
+    private const val META_VERSION = 2
+
+    /** The secret version of a Mnemonic wallet. It is the only secret layout before Single Keys. */
+    private const val MNEMONIC_SECRET_VERSION = 1
+    private const val SINGLE_KEY_SECRET_VERSION = 2
     private const val MAX_WORDS = 24
     private const val MAX_FIELD_BYTES = 1024
 
     fun encodeMeta(meta: WalletMeta): ByteArray = writeBytes { out ->
-        out.writeByte(VERSION)
+        out.writeByte(META_VERSION)
+        out.writeByte(meta.kind.wire)
         out.writeUTF(meta.name)
         out.writeLong(meta.createdAtMs)
         out.writeBoolean(meta.deviceGenerated)
         out.writeInt(meta.accountCount)
-        out.writeUTF(meta.masterFingerprintHex)
-        writeField(out, meta.accountXpub.publicKey)
-        writeField(out, meta.accountXpub.chainCode)
-        out.writeInt(meta.accountXpub.parentFingerprint)
+        when (meta.kind) {
+            WalletKind.MNEMONIC -> {
+                val xpub = requireNotNull(meta.accountXpub) { "A Mnemonic wallet needs its account public key." }
+                out.writeUTF(requireNotNull(meta.masterFingerprintHex) { "A Mnemonic wallet needs its fingerprint." })
+                writeField(out, xpub.publicKey)
+                writeField(out, xpub.chainCode)
+                out.writeInt(xpub.parentFingerprint)
+            }
+            WalletKind.SINGLE_KEY -> require(
+                meta.accountCount == 1 && meta.accountXpub == null && meta.masterFingerprintHex == null,
+            ) { "A Single Key wallet has one account and no account public key." }
+        }
     }
 
     fun decodeMeta(id: String, bytes: ByteArray): WalletMeta = readBytes(bytes) { input ->
-        requireVersion(input)
+        val kind = when (val version = input.readUnsignedByte()) {
+            META_VERSION_WITHOUT_KIND -> WalletKind.MNEMONIC
+            META_VERSION -> WalletKind.fromWire(input.readUnsignedByte())
+            else -> throw IllegalArgumentException("Unknown record version $version.")
+        }
         val name = input.readUTF()
         val createdAtMs = input.readLong()
         val deviceGenerated = input.readBoolean()
         val accountCount = input.readInt()
-        val fingerprintHex = input.readUTF()
-        val publicKey = readField(input)
-        val chainCode = readField(input)
-        val parentFingerprint = input.readInt()
-        WalletMeta(
-            id = id,
-            name = name,
-            createdAtMs = createdAtMs,
-            deviceGenerated = deviceGenerated,
-            accountCount = accountCount,
-            masterFingerprintHex = fingerprintHex,
-            accountXpub = AccountXpub(publicKey, chainCode, parentFingerprint),
-        )
+        when (kind) {
+            WalletKind.MNEMONIC -> {
+                val fingerprintHex = input.readUTF()
+                val publicKey = readField(input)
+                val chainCode = readField(input)
+                val parentFingerprint = input.readInt()
+                WalletMeta(
+                    id = id,
+                    name = name,
+                    createdAtMs = createdAtMs,
+                    deviceGenerated = deviceGenerated,
+                    accountCount = accountCount,
+                    masterFingerprintHex = fingerprintHex,
+                    accountXpub = AccountXpub(publicKey, chainCode, parentFingerprint),
+                    kind = kind,
+                )
+            }
+            WalletKind.SINGLE_KEY -> WalletMeta(
+                id = id,
+                name = name,
+                createdAtMs = createdAtMs,
+                deviceGenerated = deviceGenerated,
+                accountCount = accountCount,
+                masterFingerprintHex = null,
+                accountXpub = null,
+                kind = kind,
+            )
+        }
     }
 
     fun encodeSecret(words: List<String>, passphrase: String?): ByteArray {
         require(words.size in 1..MAX_WORDS) { "A wallet holds 1 to $MAX_WORDS words." }
         return writeBytes { out ->
-            out.writeByte(VERSION)
+            out.writeByte(MNEMONIC_SECRET_VERSION)
             out.writeByte(words.size)
             words.forEach { out.writeUTF(it) }
             out.writeBoolean(passphrase != null)
@@ -239,13 +370,33 @@ internal object WalletRecords {
         }
     }
 
+    fun encodeSingleKeySecret(privateKey: ByteArray): ByteArray {
+        require(privateKey.size == PrivateKey.BYTES) { "A private key is ${PrivateKey.BYTES} bytes." }
+        return writeBytes { out ->
+            out.writeByte(SINGLE_KEY_SECRET_VERSION)
+            out.write(privateKey)
+        }
+    }
+
     fun decodeSecret(bytes: ByteArray): WalletSecret = readBytes(bytes) { input ->
-        requireVersion(input)
-        val count = input.readUnsignedByte()
-        require(count in 1..MAX_WORDS) { "Word count out of range." }
-        val words = List(count) { input.readUTF() }
-        val passphrase = if (input.readBoolean()) input.readUTF() else null
-        WalletSecret(words, passphrase)
+        when (val version = input.readUnsignedByte()) {
+            MNEMONIC_SECRET_VERSION -> {
+                val count = input.readUnsignedByte()
+                require(count in 1..MAX_WORDS) { "Word count out of range." }
+                val words = List(count) { input.readUTF() }
+                val passphrase = if (input.readBoolean()) input.readUTF() else null
+                WalletSecret.Mnemonic(words, passphrase)
+            }
+            SINGLE_KEY_SECRET_VERSION -> {
+                val key = ByteArray(PrivateKey.BYTES).also { input.readFully(it) }
+                if (!PrivateKey.isValid(key)) {
+                    key.fill(0)
+                    throw IllegalArgumentException("Stored private key is out of range.")
+                }
+                WalletSecret.SingleKey(key)
+            }
+            else -> throw IllegalArgumentException("Unknown record version $version.")
+        }
     }
 
     /** Runs [write] on a fresh stream and returns a copy of its bytes. The stream's own buffer is zeroed too. */
@@ -271,10 +422,6 @@ internal object WalletRecords {
         val size = input.readInt()
         require(size in 0..MAX_FIELD_BYTES) { "Field size out of range." }
         return ByteArray(size).also { input.readFully(it) }
-    }
-
-    private fun requireVersion(input: DataInputStream) {
-        require(input.readUnsignedByte() == VERSION) { "Unknown record version." }
     }
 
     /** A ByteArrayOutputStream that can zero its buffer, since toByteArray() leaves a copy of the data behind. */

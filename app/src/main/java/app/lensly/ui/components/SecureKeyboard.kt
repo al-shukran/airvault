@@ -184,6 +184,60 @@ fun SecureKeyboard(
     }
 }
 
+/** The digit row of [SecureHexKeyboard]. With [HEX_LETTER_ROW] it holds every hex digit. */
+internal const val HEX_DIGIT_ROW = "1234567890"
+
+/** The letter row of [SecureHexKeyboard]: the letters a to f, and x, which is the second character of a 0x prefix. */
+internal const val HEX_LETTER_ROW = "abcdefx"
+
+/**
+ * In-app keyboard for hex secrets, such as a private key. It holds the digits, the letters a to f, and x for a leading
+ * 0x, and it has no page to switch to, so a 64-digit key is typed on one screen. As in [SecureKeyboard], the keys are
+ * handled here, so no system IME opens. The caller decides what [onDone] means.
+ */
+@Composable
+fun SecureHexKeyboard(
+    onKey: (Char) -> Unit,
+    onBackspace: () -> Unit,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(ROW_GAP),
+    ) {
+        KeyRow {
+            for (c in HEX_DIGIT_ROW) {
+                CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+            }
+        }
+        // Seven keys sit centred under the ten above them, with a space of 1.5 keys on each side.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = ROW_PADDING),
+            horizontalArrangement = Arrangement.spacedBy(KEY_GAP),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.weight(1.5f))
+            for (c in HEX_LETTER_ROW) {
+                CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+            }
+            Spacer(Modifier.weight(1.5f))
+        }
+        KeyRow {
+            Spacer(Modifier.weight(2f))
+            BackspaceKey(Modifier.weight(3f), enabled, onBackspace)
+            DoneKey(Modifier.weight(3f), enabled, onDone)
+            Spacer(Modifier.weight(2f))
+        }
+    }
+}
+
 /**
  * A row of weighted keys with [ROW_PADDING] on each side. With [inset], the row gets a half-key
  * spacer on each side, which centers a nine-key row under the ten-key row above it.

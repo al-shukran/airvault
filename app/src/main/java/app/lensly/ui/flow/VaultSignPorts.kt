@@ -3,6 +3,8 @@ package app.lensly.ui.flow
 import android.content.Context
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
+import app.lensly.app.WalletKind
+import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.SignPipeline
@@ -30,21 +32,41 @@ internal class VaultSignPorts(
 
     override suspend fun prepare(request: EthSignRequest): Prepared = withContext(Dispatchers.IO) {
         val meta = readWallet { WalletStore(it).meta(walletId) }
-        val wallet = WalletView(
-            masterFingerprint = meta.masterFingerprintHex.toLong(16).toInt(),
-            accountCount = meta.accountCount,
-            addressAt = { index -> AccountAddresses.addressAt(meta.accountXpub, index) },
-        )
+        val wallet = when (meta.kind) {
+            WalletKind.MNEMONIC -> {
+                val xpub = requireNotNull(meta.accountXpub) { "A Mnemonic wallet has an account public key." }
+                WalletView(
+                    masterFingerprint = requireNotNull(meta.masterFingerprintHex).toLong(16).toInt(),
+                    accountCount = meta.accountCount,
+                    addressAt = { index -> AccountAddresses.addressAt(xpub, index) },
+                )
+            }
+            // The address is the only public fact a Single Key has, so the key is read once, for its address.
+            WalletKind.SINGLE_KEY -> WalletView.singleKey(
+                address = readWallet { WalletStore(it).addresses(walletId, 1).single() },
+            )
+        }
         SignPipeline(RegistryHolder.get(context)).prepare(request, wallet)
     }
 
     override suspend fun privateKey(accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
-        val secret = readWallet { WalletStore(it).secret(walletId) }
-        val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
-        try {
-            HdWallet(seed).privateKey(accountIndex)
-        } finally {
-            seed.fill(0)
+        when (val secret = readWallet { WalletStore(it).secret(walletId) }) {
+            is WalletSecret.Mnemonic -> {
+                val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
+                try {
+                    HdWallet(seed).privateKey(accountIndex)
+                } finally {
+                    seed.fill(0)
+                }
+            }
+            is WalletSecret.SingleKey -> {
+                // The one account of a Single Key is the key itself. The caller zeroes the array it gets back.
+                if (accountIndex != 0) {
+                    secret.privateKey.fill(0)
+                    throw IllegalArgumentException("A Single Key wallet has one account.")
+                }
+                secret.privateKey
+            }
         }
     }
 

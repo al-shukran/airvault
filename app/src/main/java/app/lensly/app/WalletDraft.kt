@@ -7,8 +7,9 @@ import app.lensly.core.wallet.toHex
 import java.security.SecureRandom
 
 /**
- * The wallet being created or restored, before it is saved. During a ceremony it holds the device's 256 bits,
- * and [wipe] zeroes them. The words and the passphrase are kept only until the wallet is saved or the flow is left.
+ * The wallet being created, restored or imported, before it is saved. During a ceremony it holds the device's 256 bits,
+ * and [wipe] zeroes them. The words and the passphrase are kept only until the wallet is saved or the flow is left. An
+ * imported private key is held the same way, and so is its name.
  */
 class WalletDraft {
     private var deviceEntropy: ByteArray? = null
@@ -78,7 +79,25 @@ class WalletDraft {
         passphrase = value
     }
 
-    /** Zeroes the device entropy and drops everything else. */
+    /** The private key of a Single Key import, checked and not yet saved. Null when no import is running. */
+    var singleKey: ByteArray? = null
+        private set
+
+    /** The name of an imported wallet, given before its write-down. Empty until it is set. */
+    var name: String = ""
+        private set
+
+    /** Takes ownership of [key], which [wipe] zeroes. A key held before is zeroed first. */
+    fun setSingleKey(key: ByteArray) {
+        singleKey?.fill(0)
+        singleKey = key
+    }
+
+    fun setName(value: String) {
+        name = value
+    }
+
+    /** Zeroes the device entropy and the imported key, and drops everything else. */
     fun wipe() {
         deviceEntropy?.fill(0)
         deviceEntropy = null
@@ -87,6 +106,9 @@ class WalletDraft {
         words = emptyList()
         deviceGenerated = false
         passphrase = null
+        singleKey?.fill(0)
+        singleKey = null
+        name = ""
     }
 }
 

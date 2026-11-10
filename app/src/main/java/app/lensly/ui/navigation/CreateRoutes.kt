@@ -36,7 +36,10 @@ internal fun NavGraphBuilder.createRoutes(navController: NavHostController) {
     composable(HiddenRoute.CONFIRM) { HiddenBackdrop { ConfirmRoute(navController) } }
 }
 
-/** The start screen. Create begins a ceremony with fresh device randomness, and restore is the restore flow. */
+/**
+ * The start screen. Create begins a ceremony with fresh device randomness, restore is the restore flow, and import takes
+ * one private key instead of 24 words.
+ */
 @Composable
 internal fun WalletStartRoute(navController: NavHostController) {
     val draft = draftOf(navController)
@@ -46,6 +49,7 @@ internal fun WalletStartRoute(navController: NavHostController) {
             navController.navigate(HiddenRoute.CEREMONY_CHOICE)
         },
         onRestore = { navController.navigate(HiddenRoute.RESTORE) },
+        onImportKey = { navController.navigate(HiddenRoute.IMPORT_KEY) },
     )
 }
 

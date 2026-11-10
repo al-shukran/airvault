@@ -63,6 +63,11 @@ class SignPipeline(private val registry: Registry) {
             is EthSignRequest.Result.Rejected -> Prepared.Refused(decoded.reason)
         }
 
+    /**
+     * Checks [request] against [wallet]. A Mnemonic wallet's request names its master fingerprint and an account path,
+     * m/44'/60'/0'/0/i. A Single Key wallet has neither, so its request must name the wallet's address, and only that
+     * address signs. The derivation path is not read for a Single Key.
+     */
     fun prepare(request: EthSignRequest, wallet: WalletView): Prepared {
         // The size check comes before any decoding of the payload.
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) {
@@ -70,18 +75,30 @@ class SignPipeline(private val registry: Registry) {
         }
         if (request.dataType == DataType.TYPED_DATA) return Prepared.Refused("Typed data not supported yet")
 
-        val sourceFingerprint = request.sourceFingerprint
-            ?: return Prepared.Refused("The request does not say which wallet it is for")
-        if (sourceFingerprint != wallet.masterFingerprint) {
-            return Prepared.Refused("This request is for a different wallet")
-        }
+        val masterFingerprint = wallet.masterFingerprint
+        val index: Int
+        val address: String
+        if (masterFingerprint == null) {
+            val requestedAddress = request.address
+                ?: return Prepared.Refused("The request does not say which address to sign with")
+            index = 0
+            address = wallet.addressAt(index)
+            if (!sameAddress(requestedAddress, address)) return Prepared.Refused("This request is for a different address")
+        } else {
+            val sourceFingerprint = request.sourceFingerprint
+                ?: return Prepared.Refused("The request does not say which wallet it is for")
+            if (sourceFingerprint != masterFingerprint) {
+                return Prepared.Refused("This request is for a different wallet")
+            }
 
-        val index = accountIndexOf(request.derivationPath)
-        if (index == null || index >= wallet.accountCount) return Prepared.Refused("Unknown account")
-        val address = wallet.addressAt(index)
-        val requestedAddress = request.address
-        if (requestedAddress != null && !sameAddress(requestedAddress, address)) {
-            return Prepared.Refused("This request is for a different address")
+            val accountIndex = accountIndexOf(request.derivationPath)
+            if (accountIndex == null || accountIndex >= wallet.accountCount) return Prepared.Refused("Unknown account")
+            index = accountIndex
+            address = wallet.addressAt(index)
+            val requestedAddress = request.address
+            if (requestedAddress != null && !sameAddress(requestedAddress, address)) {
+                return Prepared.Refused("This request is for a different address")
+            }
         }
 
         val chainId = request.chainId ?: return Prepared.Refused("The request does not name a network")

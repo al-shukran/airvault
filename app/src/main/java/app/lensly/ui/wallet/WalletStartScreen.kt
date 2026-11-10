@@ -12,13 +12,14 @@ import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.PillChip
 
 /**
- * First screen of the wallet flow: create a new wallet, or restore one from its 24 words. The caller
- * decides what each choice starts.
+ * First screen of the wallet flow: create a new wallet, restore one from its 24 words, or import a single private key.
+ * The caller decides what each choice starts.
  */
 @Composable
 fun WalletStartScreen(
     onCreate: () -> Unit,
     onRestore: () -> Unit,
+    onImportKey: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     WalletScaffold(modifier = modifier) {
@@ -40,6 +41,13 @@ fun WalletStartScreen(
         WalletPill(
             text = "Restore",
             onClick = onRestore,
+            modifier = Modifier.fillMaxWidth(),
+            size = WalletPillSize.Large,
+        )
+        Spacer(Modifier.height(16.dp))
+        WalletPill(
+            text = "Import private key",
+            onClick = onImportKey,
             modifier = Modifier.fillMaxWidth(),
             size = WalletPillSize.Large,
         )
