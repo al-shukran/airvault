@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
+import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
 import app.lensly.app.export.PairingExport
@@ -31,6 +32,7 @@ import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillSize
 import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.wallet.WalletScaffold
+import app.lensly.ui.wallet.WalletWarningChip
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -88,7 +90,51 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
         }
     }
     val shown = wallet ?: return
-    PairWalletContent(wallet = shown, onDone = { navController.popBackStack() })
+    if (shown.kind == WalletKind.SINGLE_KEY) {
+        SingleKeyPairScreen(onBack = { navController.popBackStack() })
+    } else {
+        PairWalletContent(wallet = shown, onDone = { navController.popBackStack() })
+    }
+}
+
+/**
+ * PAIR WALLET for a Single Key. Pairing hands an online wallet an account's extended public key and derivation path. A
+ * single key has neither, so it cannot be paired, and no QR code is shown. Signing does not need pairing: SIGN reads a
+ * request that names the wallet's address.
+ */
+@Composable
+internal fun SingleKeyPairScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    WalletScaffold(
+        modifier = modifier,
+        footer = {
+            WalletPill(
+                text = "Back",
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Outline,
+            )
+        },
+    ) {
+        Spacer(Modifier.height(24.dp))
+        WalletEyebrow("Pair with an online wallet")
+        Spacer(Modifier.height(12.dp))
+        DotHeadline(text = "PAIR WALLET")
+        Spacer(Modifier.height(16.dp))
+        WalletWarningChip(text = "Cannot be paired")
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = "This wallet can't be paired. Pairing shares an account's extended public key and derivation path, " +
+                "and a single key has neither. An online wallet that pairs by extended public key cannot watch it.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "To sign with this key, open SIGN on this wallet and scan a request that names its address.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable

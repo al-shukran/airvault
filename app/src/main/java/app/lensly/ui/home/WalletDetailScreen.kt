@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.PillChip
@@ -34,6 +35,10 @@ import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillSize
 import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.wallet.WalletScaffold
+
+/** Why a Single Key wallet offers no add or generate action. The sentence is the spec's wording. */
+internal const val SINGLE_KEY_ONE_ACCOUNT =
+    "A Wallet built on a Single Key has exactly one Account and cannot generate more."
 
 /**
  * One wallet: its name in the dot-matrix face, its accounts, and its actions. Each account shows a shortened
@@ -106,7 +111,11 @@ fun WalletDetailScreen(
                     DotText(text = wallet.name.uppercase(), fontSize = 40.sp)
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PillChip(text = "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}")
+                        if (wallet.kind == WalletKind.SINGLE_KEY) {
+                            PillChip(text = "Single key")
+                        } else {
+                            PillChip(text = "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}")
+                        }
                     }
                     Spacer(Modifier.height(24.dp))
                     WalletEyebrow("Accounts")
@@ -128,19 +137,28 @@ fun WalletDetailScreen(
             }
             item {
                 Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    WalletPill(
-                        text = "+ Account",
-                        onClick = onAddAccount,
-                        modifier = Modifier.weight(1f),
-                        style = WalletPillStyle.Secondary,
+                if (wallet.kind == WalletKind.SINGLE_KEY) {
+                    // A Single Key has one account, so there is nothing to add and nothing to generate.
+                    Text(
+                        text = SINGLE_KEY_ONE_ACCOUNT,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    WalletPill(
-                        text = "Bulk generate",
-                        onClick = onBulkGenerate,
-                        modifier = Modifier.weight(1f),
-                        style = WalletPillStyle.Secondary,
-                    )
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        WalletPill(
+                            text = "+ Account",
+                            onClick = onAddAccount,
+                            modifier = Modifier.weight(1f),
+                            style = WalletPillStyle.Secondary,
+                        )
+                        WalletPill(
+                            text = "Bulk generate",
+                            onClick = onBulkGenerate,
+                            modifier = Modifier.weight(1f),
+                            style = WalletPillStyle.Secondary,
+                        )
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
             }
