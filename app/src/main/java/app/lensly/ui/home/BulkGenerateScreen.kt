@@ -12,7 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.BulkPolicy
+import app.lensly.core.wallet.formatAccounts
 import app.lensly.ui.components.NumericKeypad
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.wallet.DotText
@@ -25,13 +27,14 @@ import app.lensly.ui.wallet.WalletScaffold
 
 /**
  * The bulk screen of one wallet. The owner types a Count on the [NumericKeypad] or taps a preset. A Count above the
- * Bulk Cap, or below 1, is refused on screen, and GENERATE stays off for it. While a run derives, the screen shows its
- * progress and takes no input. [existingAccounts] is the wallet's account count now, so the screen can name the
- * accounts the run adds. [failure] says why the last run saved nothing, when it failed.
+ * configured [cap] (the owner's Bulk Cap), or below 1, is refused on screen, and GENERATE stays off for it. While a run
+ * derives, the screen shows its progress and takes no input. [existingAccounts] is the wallet's account count now, so
+ * the screen can name the accounts the run adds. [failure] says why the last run saved nothing, when it failed.
  */
 @Composable
 fun BulkGenerateScreen(
     existingAccounts: Int,
+    cap: BulkCap,
     digits: String,
     running: Boolean,
     derived: Int,
@@ -44,7 +47,7 @@ fun BulkGenerateScreen(
     onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val check = BulkPolicy.checkCount(digits.toIntOrNull())
+    val check = BulkPolicy.checkCount(digits.toIntOrNull(), cap.accounts)
     val count = (check as? BulkPolicy.CountCheck.Valid)?.count
     WalletScaffold(
         modifier = modifier,
@@ -81,7 +84,7 @@ fun BulkGenerateScreen(
         Spacer(Modifier.height(8.dp))
         DotText(text = digits.ifEmpty { "—" }, fontSize = 48.sp)
         Spacer(Modifier.height(4.dp))
-        WalletEyebrow("Accounts, up to ${BulkPolicy.DEFAULT_CAP} per run")
+        WalletEyebrow("Accounts, up to ${cap.label} per run")
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (preset in BulkPolicy.PRESETS) {
@@ -124,5 +127,5 @@ private fun addsLabel(range: IntRange): String {
 private fun refusal(check: BulkPolicy.CountCheck): String? = when (check) {
     BulkPolicy.CountCheck.Missing, is BulkPolicy.CountCheck.Valid -> null
     BulkPolicy.CountCheck.TooFew -> "At least 1 account"
-    is BulkPolicy.CountCheck.TooMany -> "Above the Bulk Cap of ${check.cap}"
+    is BulkPolicy.CountCheck.TooMany -> "Above the Bulk Cap of ${formatAccounts(check.cap)}"
 }

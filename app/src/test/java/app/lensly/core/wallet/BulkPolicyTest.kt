@@ -8,8 +8,22 @@ import org.junit.Test
 class BulkPolicyTest {
 
     @Test
-    fun theBulkCapDefaultsToOneHundred() {
-        assertEquals(100, BulkPolicy.DEFAULT_CAP)
+    fun theBulkCapDefaultsToOneHundredAndOffersOneThousand() {
+        assertEquals(100, BulkCap.DEFAULT.accounts)
+        assertEquals(listOf(100, 1_000), BulkCap.entries.map { it.accounts })
+    }
+
+    @Test
+    fun aCapIsFoundByItsAccountCount() {
+        assertEquals(BulkCap.THOUSAND, BulkCap.fromAccounts(1_000))
+        assertEquals(null, BulkCap.fromAccounts(500))
+    }
+
+    @Test
+    fun capsAreShownWithThousandsSeparators() {
+        assertEquals("100", BulkCap.HUNDRED.label)
+        assertEquals("1,000", BulkCap.THOUSAND.label)
+        assertEquals("10,000", formatAccounts(10_000))
     }
 
     @Test
@@ -18,34 +32,45 @@ class BulkPolicyTest {
     }
 
     @Test
-    fun everyPresetIsAValidCount() {
-        for (preset in BulkPolicy.PRESETS) {
-            assertEquals(CountCheck.Valid(preset), BulkPolicy.checkCount(preset), "preset $preset")
+    fun everyPresetIsAValidCountUnderEveryBulkCap() {
+        for (cap in BulkCap.entries) {
+            for (preset in BulkPolicy.PRESETS) {
+                assertEquals(CountCheck.Valid(preset), BulkPolicy.checkCount(preset, cap.accounts), "preset $preset")
+            }
         }
     }
 
     @Test
     fun aCountFromOneUpToTheCapIsValid() {
-        assertEquals(CountCheck.Valid(1), BulkPolicy.checkCount(1))
-        assertEquals(CountCheck.Valid(100), BulkPolicy.checkCount(100))
+        assertEquals(CountCheck.Valid(1), BulkPolicy.checkCount(1, cap = 100))
         assertEquals(CountCheck.Valid(100), BulkPolicy.checkCount(100, cap = 100))
+        assertEquals(CountCheck.Valid(20), BulkPolicy.checkCount(20, cap = 20))
     }
 
     @Test
     fun aCountAboveTheCapIsRefused() {
-        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkCount(101))
+        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkCount(101, cap = 100))
         assertEquals(CountCheck.TooMany(20), BulkPolicy.checkCount(21, cap = 20))
     }
 
     @Test
+    fun theConfiguredCapDecidesWhatIsRefused() {
+        // The same Count is refused under the 100 cap and accepted under the 1,000 cap.
+        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkCount(150, cap = 100))
+        assertEquals(CountCheck.Valid(150), BulkPolicy.checkCount(150, cap = 1_000))
+        assertEquals(CountCheck.Valid(1_000), BulkPolicy.checkCount(1_000, cap = 1_000))
+        assertEquals(CountCheck.TooMany(1_000), BulkPolicy.checkCount(1_001, cap = 1_000))
+    }
+
+    @Test
     fun aCountBelowOneIsRefused() {
-        assertEquals(CountCheck.TooFew, BulkPolicy.checkCount(0))
-        assertEquals(CountCheck.TooFew, BulkPolicy.checkCount(-5))
+        assertEquals(CountCheck.TooFew, BulkPolicy.checkCount(0, cap = 100))
+        assertEquals(CountCheck.TooFew, BulkPolicy.checkCount(-5, cap = 100))
     }
 
     @Test
     fun noTypedCountIsMissingNotRefused() {
-        assertEquals(CountCheck.Missing, BulkPolicy.checkCount(null))
+        assertEquals(CountCheck.Missing, BulkPolicy.checkCount(null, cap = 100))
     }
 
     @Test

@@ -131,13 +131,13 @@ class WalletStore(private val session: VaultSession) {
      * be derived. The count is then written with the same META record write as [addAccount], under the session's lock.
      * If the account count changed while the run was deriving, nothing is saved and the result is null.
      * [onProgress] receives the number of accounts derived so far. Derivation is slow for large counts, so call this
-     * off the main thread.
+     * off the main thread. [cap] is the owner's configured Bulk Cap, which the caller reads from [SettingsStore].
      *
-     * @throws IllegalArgumentException if [count] is outside 1 to [BulkPolicy.DEFAULT_CAP], or the wallet is missing.
+     * @throws IllegalArgumentException if [count] is outside 1 to [cap], or the wallet is missing.
      */
-    fun addAccounts(id: String, count: Int, onProgress: (Int) -> Unit = {}): WalletMeta? {
-        require(BulkPolicy.checkCount(count) is BulkPolicy.CountCheck.Valid) {
-            "A Bulk Run makes 1 to ${BulkPolicy.DEFAULT_CAP} accounts."
+    fun addAccounts(id: String, count: Int, cap: Int, onProgress: (Int) -> Unit = {}): WalletMeta? {
+        require(BulkPolicy.checkCount(count, cap) is BulkPolicy.CountCheck.Valid) {
+            "A Bulk Run makes 1 to $cap accounts."
         }
         val start = requireNotNull(meta(id)) { "No wallet $id." }.accountCount
         val indices = BulkPolicy.indexRange(start, count)

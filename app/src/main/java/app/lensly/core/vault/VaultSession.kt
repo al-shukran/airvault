@@ -104,6 +104,34 @@ class VaultSession internal constructor(
         }
     }
 
+    /**
+     * Stores [bytes] as the vault record [name], replacing any earlier value. A vault record belongs to the vault,
+     * not to a wallet, so it holds no wallet data: a setting, for example. It is encrypted under the Vault Key itself,
+     * with its own AAD. [Vault.rekey] keeps the Vault Key, so the record stays readable after a password change,
+     * and [Vault.wipe] removes it.
+     *
+     * @throws IllegalArgumentException if the name is invalid.
+     */
+    fun putVaultRecord(name: String, bytes: ByteArray): Unit = synchronized(this) {
+        val key = requireOpen()
+        requireRecordName(name)
+        layout.vaultRecords.mkdirs()
+        writeAtomically(vaultRecordFile(name), encodeBlob(Aead.seal(key, vaultRecordAad(name), bytes)))
+    }
+
+    /** The vault record [name], or null if it has never been stored. */
+    fun getVaultRecord(name: String): ByteArray? = synchronized(this) {
+        val key = requireOpen()
+        requireRecordName(name)
+        val file = vaultRecordFile(name)
+        if (!file.isFile) return@synchronized null
+        try {
+            Aead.open(key, vaultRecordAad(name), decodeBlob(file.readBytes()))
+        } catch (e: AEADBadTagException) {
+            throw VaultException("Vault record '$name' failed authentication.", e)
+        }
+    }
+
     /** Zeroes the Vault Key. Any later call on this session throws [IllegalStateException]. */
     fun close() {
         synchronized(this) {
@@ -121,6 +149,8 @@ class VaultSession internal constructor(
 
     private fun recordFile(walletId: String, name: String): File =
         File(layout.walletDir(walletId), "$name.bin")
+
+    private fun vaultRecordFile(name: String): File = File(layout.vaultRecords, "$name.bin")
 
     /** Returns the Per-Wallet Key, or null if the wallet has no key file. The caller zeroes the result. */
     private fun unwrapWalletKey(vaultKey: ByteArray, walletId: String): ByteArray? {
@@ -160,5 +190,9 @@ class VaultSession internal constructor(
 
         fun recordAad(walletId: String, name: String): ByteArray =
             (walletId + "\u0000" + name).toByteArray(StandardCharsets.UTF_8)
+
+        /** A UUID never starts with "vault-record", so these AADs cannot collide with a wallet record's. */
+        fun vaultRecordAad(name: String): ByteArray =
+            ("vault-record\u0000" + name).toByteArray(StandardCharsets.UTF_8)
     }
 }

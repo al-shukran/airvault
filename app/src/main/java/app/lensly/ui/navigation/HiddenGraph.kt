@@ -53,6 +53,7 @@ internal fun NavGraphBuilder.hiddenGraph(navController: NavHostController, holde
             }
         }
         walletRoutes(navController, holder)
+        settingsRoutes(navController, holder)
     }
 }
 
@@ -284,7 +285,7 @@ private suspend fun unlockWith(holder: VaultHolder, password: CharArray): GateOu
     }
 }
 
-private fun PolicyReason.toPolicyError(): PolicyError = when (this) {
+internal fun PolicyReason.toPolicyError(): PolicyError = when (this) {
     PolicyReason.TOO_SHORT -> PolicyError.TooShort
     PolicyReason.WEAK_SCORE, PolicyReason.LOW_ENTROPY -> PolicyError.TooWeak
 }

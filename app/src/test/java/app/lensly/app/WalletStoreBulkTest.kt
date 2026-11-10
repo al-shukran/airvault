@@ -2,7 +2,7 @@ package app.lensly.app
 
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
-import app.lensly.core.wallet.BulkPolicy
+import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertEquals
@@ -21,6 +21,7 @@ class WalletStoreBulkTest {
     val tmp = TemporaryFolder()
 
     private val words = List(23) { "abandon" } + "art"
+    private val cap = BulkCap.DEFAULT.accounts
     private lateinit var session: VaultSession
     private lateinit var store: WalletStore
 
@@ -47,7 +48,7 @@ class WalletStoreBulkTest {
     fun aRunRaisesTheAccountCountByItsCount() {
         val id = newWallet()
 
-        val updated = assertNotNull(store.addAccounts(id, 10))
+        val updated = assertNotNull(store.addAccounts(id, 10, cap))
 
         assertEquals(11, updated.accountCount)
         assertEquals(11, store.meta(id)?.accountCount)
@@ -56,7 +57,7 @@ class WalletStoreBulkTest {
     @Test
     fun theSavedAccountsEqualSingleAccountDerivation() {
         val id = newWallet()
-        store.addAccounts(id, 20)
+        store.addAccounts(id, 20, cap)
 
         val single = HdWallet(Mnemonic.toSeed(words))
         assertEquals((0..20).map { single.address(it) }, store.addresses(id, 21))
@@ -69,7 +70,7 @@ class WalletStoreBulkTest {
         store.addAccount(id)
 
         // One account from creation, two single accounts, then a run of three: six accounts in all.
-        val updated = assertNotNull(store.addAccounts(id, 3))
+        val updated = assertNotNull(store.addAccounts(id, 3, cap))
 
         assertEquals(6, updated.accountCount)
         val single = HdWallet(Mnemonic.toSeed(words))
@@ -81,7 +82,7 @@ class WalletStoreBulkTest {
         val id = newWallet()
         val reported = mutableListOf<Int>()
 
-        store.addAccounts(id, 4) { reported += it }
+        store.addAccounts(id, 4, cap) { reported += it }
 
         assertEquals(listOf(1, 2, 3, 4), reported)
     }
@@ -90,16 +91,36 @@ class WalletStoreBulkTest {
     fun aCountAboveTheCapSavesNothing() {
         val id = newWallet()
 
-        assertFailsWith<IllegalArgumentException> { store.addAccounts(id, BulkPolicy.DEFAULT_CAP + 1) }
+        assertFailsWith<IllegalArgumentException> { store.addAccounts(id, cap + 1, cap) }
 
         assertEquals(1, store.meta(id)?.accountCount)
+    }
+
+    @Test
+    fun aRunAboveAHundredIsRefusedWhileTheCapIsAHundred() {
+        val id = newWallet()
+
+        assertFailsWith<IllegalArgumentException> { store.addAccounts(id, 101, cap = 100) }
+
+        assertEquals(1, store.meta(id)?.accountCount)
+    }
+
+    @Test
+    fun aRunOfAHundredAndFiftyIsSavedUnderTheThousandCap() {
+        val id = newWallet()
+
+        val updated = assertNotNull(store.addAccounts(id, 150, cap = BulkCap.THOUSAND.accounts))
+
+        assertEquals(151, updated.accountCount)
+        val single = HdWallet(Mnemonic.toSeed(words))
+        assertEquals((0..150).map { single.address(it) }, store.addresses(id, 151))
     }
 
     @Test
     fun aCountBelowOneSavesNothing() {
         val id = newWallet()
 
-        assertFailsWith<IllegalArgumentException> { store.addAccounts(id, 0) }
+        assertFailsWith<IllegalArgumentException> { store.addAccounts(id, 0, cap) }
 
         assertEquals(1, store.meta(id)?.accountCount)
     }
@@ -107,7 +128,7 @@ class WalletStoreBulkTest {
     @Test
     fun aRunForAWalletThatDoesNotExistIsRefused() {
         assertFailsWith<IllegalArgumentException> {
-            store.addAccounts("11111111-2222-3333-4444-555555555555", 1)
+            store.addAccounts("11111111-2222-3333-4444-555555555555", 1, cap)
         }
     }
 
@@ -116,7 +137,7 @@ class WalletStoreBulkTest {
         val id = newWallet()
 
         // A single account is added in the middle of the run, so the run's start index is stale.
-        val saved = store.addAccounts(id, 5) { derived -> if (derived == 2) store.addAccount(id) }
+        val saved = store.addAccounts(id, 5, cap) { derived -> if (derived == 2) store.addAccount(id) }
 
         assertNull(saved)
         assertEquals(2, store.meta(id)?.accountCount)
