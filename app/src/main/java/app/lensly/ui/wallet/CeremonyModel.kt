@@ -1,20 +1,12 @@
 package app.lensly.ui.wallet
 
-/** Dice rolls the owner enters in a dice ceremony. Each roll gives about 2.6 bits. */
-const val DICE_ROLL_COUNT = 50
-
-/** Coin flips the owner enters in a coin ceremony. Each flip gives exactly one bit. */
-const val COIN_FLIP_COUNT = 128
-
 /** How the owner adds their own randomness to the device's committed randomness. */
 enum class EntropyMode(
     /** Every symbol the entry pad records in this mode. */
     val symbols: String,
-    /** Number of symbols the ceremony asks for by default. */
-    val defaultCount: Int,
 ) {
-    Dice(symbols = "123456", defaultCount = DICE_ROLL_COUNT),
-    Coins(symbols = "HT", defaultCount = COIN_FLIP_COUNT);
+    Dice(symbols = "123456"),
+    Coins(symbols = "HT");
 
     /** True when [symbol] is a face this mode can record. */
     fun accepts(symbol: Char): Boolean = symbols.indexOf(symbol) >= 0
