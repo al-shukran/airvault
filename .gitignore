@@ -1,0 +1,9 @@
+.*
+!.gitignore
+!.github
+!.vscode
+!.editorconfig
+
+local.properties
+**/build/
+*.iml
