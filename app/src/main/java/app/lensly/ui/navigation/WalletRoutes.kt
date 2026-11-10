@@ -26,11 +26,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
 import app.lensly.app.RegistryHolder
+import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
 import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.vault.VaultSession
+import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.flow.PairWalletRoute
@@ -422,6 +424,7 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
+    var bulkCap by remember(walletId) { mutableStateOf<BulkCap?>(null) }
     var digits by rememberSaveable { mutableStateOf("") }
     var running by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
@@ -431,13 +434,17 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
             wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
+            // The Bulk Cap the owner set in Settings. The screen and the run both use this value.
+            bulkCap = withContext(Dispatchers.IO) { SettingsStore(session).load().bulkCap }
         }
     }
     val shown = wallet ?: return
+    val cap = bulkCap ?: return
 
     BackHandler(enabled = running) {}
     BulkGenerateScreen(
         existingAccounts = shown.accountCount,
+        cap = cap,
         digits = digits,
         running = running,
         derived = derived,
@@ -446,7 +453,8 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
         onBackspace = { if (!running) digits = digits.dropLast(1) },
         onPreset = { preset -> if (!running) digits = preset.toString() },
         onGenerate = generate@{
-            val count = (BulkPolicy.checkCount(digits.toIntOrNull()) as? BulkPolicy.CountCheck.Valid)?.count
+            val check = BulkPolicy.checkCount(digits.toIntOrNull(), cap.accounts)
+            val count = (check as? BulkPolicy.CountCheck.Valid)?.count
             if (running || count == null) return@generate
             running = true
             failure = null
@@ -455,7 +463,7 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
                 whileUnlocked(navController, holder) {
                     val saved = try {
                         withContext(Dispatchers.IO) {
-                            WalletStore(session).addAccounts(walletId, count) { derivedCount.value = it }
+                            WalletStore(session).addAccounts(walletId, count, cap.accounts) { derivedCount.value = it }
                         }
                     } catch (e: CancellationException) {
                         throw e
