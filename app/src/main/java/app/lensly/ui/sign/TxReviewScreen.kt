@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -56,6 +57,9 @@ import app.lensly.ui.theme.SpaceMonoFamily
  * A personal message ([SIGN_MESSAGE_FUNCTION]) has no recipient, amount, nonce or fee. Its review
  * shows the message text in a monospace block instead of those facts.
  *
+ * A review outside the registry ([TxReview.needsRegistryConfirmation]) opens with a solid warning
+ * block, and APPROVE also needs the "I CHECKED THE CHAIN ID / CONTRACT" check to be ON.
+ *
  * REJECT is always enabled.
  */
 @Composable
@@ -80,6 +84,8 @@ fun TxReviewScreen(
     LaunchedEffect(atEnd, fits) {
         if (atEnd || fits) everyFactShown = true
     }
+    // The check of the chain ID and contract. Only a review outside the registry asks for it. It resets with the review.
+    var registryChecked by remember(review) { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -100,25 +106,38 @@ fun TxReviewScreen(
                 .verticalScroll(scroll),
         ) {
             Column(modifier = Modifier.fillMaxWidth().onSizeChanged { contentPx = it.height }) {
+                if (review.needsRegistryConfirmation) {
+                    RegistryWarning()
+                    Spacer(Modifier.height(12.dp))
+                }
                 review.warnings.forEach { warning ->
                     WarningCard(text = warning)
                     Spacer(Modifier.height(8.dp))
                 }
                 if (!isMessage) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // The native coin shows its chain's logo. A token shows its own logo.
+                        // The native coin shows its chain's logo. A token shows its logo, or the unknown-token icon.
                         if (review.tokenContract == null) {
                             ChainIcon(network = review.network, size = 32.dp)
                         } else {
                             TokenIcon(token = review.token, size = 32.dp)
                         }
                         Spacer(Modifier.width(12.dp))
+                        // An amount in raw base units is set smaller, so a long integer stays on one line.
                         Text(
                             text = "${review.amount} ${review.symbol}",
-                            style = MaterialTheme.typography.displaySmall,
+                            style = if (review.amountNote == null) {
+                                MaterialTheme.typography.displaySmall
+                            } else {
+                                MaterialTheme.typography.headlineSmall
+                            },
                             color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.weight(1f),
                         )
+                    }
+                    review.amountNote?.let { note ->
+                        Spacer(Modifier.height(4.dp))
+                        MutedText(note)
                     }
                     Spacer(Modifier.height(8.dp))
                 }
@@ -151,6 +170,15 @@ fun TxReviewScreen(
                     }
                 }
                 review.tokenContract?.let { contract ->
+                    if (review.token == null) {
+                        FactRow(label = "Token") {
+                            Text(
+                                text = UNKNOWN_TOKEN_NAME,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
                     FactRow(label = "Token contract") {
                         AddressText(address = contract)
                     }
@@ -222,6 +250,10 @@ fun TxReviewScreen(
             )
             Spacer(Modifier.height(8.dp))
         }
+        if (review.needsRegistryConfirmation) {
+            RegistryCheckRow(checked = registryChecked, onCheckedChange = { registryChecked = it })
+            Spacer(Modifier.height(12.dp))
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -238,7 +270,7 @@ fun TxReviewScreen(
                 text = "Approve",
                 onClick = onApprove,
                 filled = true,
-                enabled = everyFactShown,
+                enabled = review.canApprove(everyFactShown, registryChecked),
                 modifier = Modifier.weight(1f),
             )
         }
@@ -265,6 +297,74 @@ private fun WarningCard(text: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+/**
+ * The first thing on a review whose chain or token is outside the registry. A solid accent block, so it cannot be
+ * missed, with its title in the dot-matrix face.
+ */
+@Composable
+private fun RegistryWarning() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(LenslyAccent)
+            .padding(16.dp),
+    ) {
+        Text(
+            text = "NOT IN LENSLY'S REGISTRY",
+            style = MaterialTheme.typography.headlineSmall,
+            color = LenslyOnSurface,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Lensly cannot confirm this network or token, so check the chain ID and contract " +
+                "against a trusted source.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = LenslyOnSurface,
+        )
+    }
+}
+
+/**
+ * The explicit check for a review outside the registry. It sits above the buttons, outside the scroll, so it stays in
+ * view, and APPROVE is disabled until it is ON. A red outline means the check is still owed.
+ */
+@Composable
+private fun RegistryCheckRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val pill = RoundedCornerShape(percent = 50)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(pill)
+            .border(1.dp, if (checked) LenslyOnSurface else LenslyAccent, pill)
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .padding(start = 20.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "I CHECKED THE CHAIN ID / CONTRACT",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(12.dp))
+        Box(
+            modifier = Modifier
+                .clip(pill)
+                .background(if (checked) LenslyOnSurface else Color.Transparent)
+                .border(1.dp, if (checked) LenslyOnSurface else LenslyAccent, pill)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+        ) {
+            Text(
+                text = if (checked) "ON" else "OFF",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (checked) LenslyBlack else LenslyAccent,
+            )
+        }
     }
 }
 

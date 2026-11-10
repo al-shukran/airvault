@@ -10,6 +10,7 @@ import app.lensly.core.registry.Erc20Call
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
+import app.lensly.core.registry.TokenEntry
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.EthSignatureEncoder
@@ -17,6 +18,11 @@ import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
+import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
+import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
+import app.lensly.ui.sign.UNKNOWN_UNIT
+import app.lensly.ui.sign.assumedAmountNote
+import app.lensly.ui.sign.unknownFeeNote
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import java.nio.ByteBuffer
@@ -38,6 +44,9 @@ sealed interface Prepared {
  * Checks a scanned eth-sign-request against the wallet and the registry, builds the review the user confirms, and
  * signs only after that confirmation. A failed check returns [Prepared.Refused] with a plain reason and nothing is
  * signed.
+ *
+ * A chain or token outside the registry is not refused. Its review shows it as unknown, with raw base units and a
+ * warning, and [TxReview.needsRegistryConfirmation] is set. A call that cannot be decoded is still refused.
  */
 class SignPipeline(private val registry: Registry) {
 
@@ -76,8 +85,8 @@ class SignPipeline(private val registry: Registry) {
         }
 
         val chainId = request.chainId ?: return Prepared.Refused("The request does not name a network")
-        val network = registry.network(chainId) ?: return Prepared.Refused("Unknown network $chainId")
-        val target = Target(request, chainId, network, index, address)
+        // A chain outside the registry has no network. It is reviewed as an unknown chain, with a warning, not refused.
+        val target = Target(request, chainId, registry.network(chainId), index, address)
 
         return if (request.dataType == DataType.PERSONAL_MESSAGE) message(target) else transaction(target)
     }
@@ -129,7 +138,7 @@ class SignPipeline(private val registry: Registry) {
         val network = target.network
         // Fields that depend on what the transaction does are set below, in each branch.
         val base = TxReview(
-            networkName = network.name,
+            networkName = network?.name ?: UNKNOWN_CHAIN_NAME,
             chainId = target.chainId,
             fromAccountLabel = target.label,
             fromAddress = target.address,
@@ -140,7 +149,7 @@ class SignPipeline(private val registry: Registry) {
             function = "",
             params = emptyList(),
             fee = feeLines(tx, network),
-            feeNote = if (network.feeModel == FeeModel.L2_ROLLUP) L2_FEE_NOTE else null,
+            feeNote = feeNote(tx, network),
             warnings = emptyList(),
             nonce = tx.nonce.toLong(),
             txType = if (tx.type == TxType.EIP1559) "EIP-1559" else "Legacy",
@@ -151,30 +160,36 @@ class SignPipeline(private val registry: Registry) {
         val review = if (calldata.isEmpty()) {
             base.copy(
                 toAddress = to,
-                amount = Amounts.format(tx.value, network.nativeDecimals),
-                symbol = network.nativeSymbol,
+                amount = nativeAmount(tx.value, network),
+                symbol = nativeUnit(network),
+                amountNote = if (network == null) assumedAmountNote(tx.value) else null,
                 function = "Native transfer",
             )
         } else {
-            val token = registry.token(target.chainId, to) ?: return Prepared.Refused("Unregistered token or contract")
+            // An undecodable call is refused for any contract, so it is decoded before the token lookup.
             val call = Erc20Call.decode(calldata) ?: return Prepared.Refused("Unknown contract call")
             if (tx.value.signum() != 0) return Prepared.Refused("Token calls must not send native currency")
+            // A contract outside the registry is an unknown token. Its decimals are not known, so its amounts stay raw.
+            val token = registry.token(target.chainId, to)
+            val amountNote = if (token == null) UNKNOWN_DECIMALS_NOTE else null
             when (call) {
                 is Erc20Call.Transfer -> base.copy(
                     token = token,
                     toAddress = checksum(call.to),
-                    amount = Amounts.format(call.amount, token.decimals),
-                    symbol = token.symbol,
+                    amount = tokenAmount(call.amount, token),
+                    symbol = token?.symbol ?: UNKNOWN_UNIT,
+                    amountNote = amountNote,
                     tokenContract = to,
                     function = "Token transfer",
                 )
                 is Erc20Call.Approve -> {
-                    val allowance = Amounts.format(call.amount, token.decimals)
+                    val allowance = tokenAmount(call.amount, token)
                     base.copy(
                         token = token,
                         toAddress = checksum(call.spender),
                         amount = allowance,
-                        symbol = token.symbol,
+                        symbol = token?.symbol ?: UNKNOWN_UNIT,
+                        amountNote = amountNote,
                         tokenContract = to,
                         function = "Token approval",
                         params = listOf("spender" to checksum(call.spender), "amount" to allowance),
@@ -188,7 +203,7 @@ class SignPipeline(private val registry: Registry) {
 
     private fun message(target: Target): Prepared.Ready {
         val review = TxReview(
-            networkName = target.network.name,
+            networkName = target.network?.name ?: UNKNOWN_CHAIN_NAME,
             chainId = target.chainId,
             fromAccountLabel = target.label,
             fromAddress = target.address,
@@ -208,17 +223,18 @@ class SignPipeline(private val registry: Registry) {
         return Prepared.Ready(review, target.request, target.index)
     }
 
-    /** The fee rows of the review. Values are exact: wei converted to native units, and gas prices in gwei. */
-    private fun feeLines(tx: UnsignedTx, network: NetworkEntry): List<Pair<String, String>> {
-        val symbol = network.nativeSymbol
-        val decimals = network.nativeDecimals
+    /**
+     * The fee rows of the review. Values are exact: wei converted to native units, and gas prices in gwei. On an
+     * unknown chain the fee stays in base units, because its coin is not known.
+     */
+    private fun feeLines(tx: UnsignedTx, network: NetworkEntry?): List<Pair<String, String>> {
         return when (tx.type) {
             TxType.LEGACY_EIP155 -> {
                 val gasPrice = checkNotNull(tx.gasPrice)
                 listOf(
                     "Gas limit" to tx.gasLimit.toString(),
                     "Gas price" to gwei(gasPrice),
-                    "Max fee" to "${Amounts.format(tx.gasLimit * gasPrice, decimals)} $symbol",
+                    "Max fee" to "${nativeAmount(tx.gasLimit * gasPrice, network)} ${nativeUnit(network)}",
                 )
             }
             TxType.EIP1559 -> {
@@ -227,10 +243,17 @@ class SignPipeline(private val registry: Registry) {
                     "Gas limit" to tx.gasLimit.toString(),
                     "Max fee per gas" to gwei(maxFee),
                     "Max priority fee" to gwei(checkNotNull(tx.maxPriorityFeePerGas)),
-                    "Max fee" to "${Amounts.format(tx.gasLimit * maxFee, decimals)} $symbol",
+                    "Max fee" to "${nativeAmount(tx.gasLimit * maxFee, network)} ${nativeUnit(network)}",
                 )
             }
         }
+    }
+
+    /** The note under the fee. A rollup gets the L2 caveat. An unknown chain gets the assumed value and a caveat. */
+    private fun feeNote(tx: UnsignedTx, network: NetworkEntry?): String? = when {
+        network == null -> unknownFeeNote(maxFeeWei(tx))
+        network.feeModel == FeeModel.L2_ROLLUP -> L2_FEE_NOTE
+        else -> null
     }
 
     /** The message as UTF-8 text when every character is printable, otherwise as 0x-prefixed hex. */
@@ -239,11 +262,14 @@ class SignPipeline(private val registry: Registry) {
         return if (text != null && text.all(::isPrintable)) text else "0x" + bytes.toHex()
     }
 
-    /** A request that passed the wallet, account, address and network checks. */
+    /**
+     * A request that passed the wallet, account and address checks. [network] is null when the chain is not in the
+     * registry.
+     */
     private class Target(
         val request: EthSignRequest,
         val chainId: Long,
-        val network: NetworkEntry,
+        val network: NetworkEntry?,
         val index: Int,
         val address: String,
     ) {
@@ -264,6 +290,20 @@ class SignPipeline(private val registry: Registry) {
         )
 
         fun gwei(wei: BigInteger): String = "${Amounts.format(wei, GWEI_DECIMALS)} gwei"
+
+        /** The most the sender can pay for execution: gas limit times gas price, or times the max fee per gas. */
+        fun maxFeeWei(tx: UnsignedTx): BigInteger = tx.gasLimit * checkNotNull(tx.gasPrice ?: tx.maxFeePerGas)
+
+        /** A native amount in the network's coin. An unknown network has no known coin, so it stays in base units. */
+        fun nativeAmount(wei: BigInteger, network: NetworkEntry?): String =
+            if (network == null) wei.toString() else Amounts.format(wei, network.nativeDecimals)
+
+        /** The unit of a native amount: the coin's symbol, or [UNKNOWN_UNIT] for an unknown network. */
+        fun nativeUnit(network: NetworkEntry?): String = network?.nativeSymbol ?: UNKNOWN_UNIT
+
+        /** A token amount in the token's decimals. An unknown token has no known decimals, so its amount stays raw. */
+        fun tokenAmount(raw: BigInteger, token: TokenEntry?): String =
+            if (token == null) raw.toString() else Amounts.format(raw, token.decimals)
 
         /** i when [path] is exactly m/44'/60'/0'/0/i, otherwise null. */
         fun accountIndexOf(path: List<PathStep>): Int? {
