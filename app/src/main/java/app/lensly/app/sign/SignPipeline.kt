@@ -15,6 +15,7 @@ import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.EthSignatureEncoder
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
+import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
@@ -192,7 +193,7 @@ class SignPipeline(private val registry: Registry) {
             amount = "",
             symbol = "",
             tokenContract = null,
-            function = "Sign message",
+            function = SIGN_MESSAGE_FUNCTION,
             params = listOf("message" to messageText(target.request.signData)),
             fee = emptyList(),
             feeNote = null,

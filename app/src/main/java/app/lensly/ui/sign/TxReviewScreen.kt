@@ -42,11 +42,15 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.SpaceMonoFamily
 
 /**
  * Transaction review. Every fact is in one scrollable list, and APPROVE stays disabled until the
  * user has scrolled to the end, so no fact can be skipped. A list that fits on screen counts as
  * read. Warnings sit at the top in red outlined cards.
+ *
+ * A personal message ([SIGN_MESSAGE_FUNCTION]) has no recipient, amount, nonce or fee. Its review
+ * shows the message text in a monospace block instead of those facts.
  *
  * REJECT is always enabled.
  */
@@ -58,6 +62,7 @@ fun TxReviewScreen(
     modifier: Modifier = Modifier,
 ) {
     val scroll = rememberScrollState()
+    val isMessage = review.function == SIGN_MESSAGE_FUNCTION
     var viewportPx by remember { mutableIntStateOf(0) }
     var contentPx by remember { mutableIntStateOf(0) }
     val atEnd by remember {
@@ -95,12 +100,14 @@ fun TxReviewScreen(
                     WarningCard(text = warning)
                     Spacer(Modifier.height(8.dp))
                 }
-                Text(
-                    text = "${review.amount} ${review.symbol}",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Spacer(Modifier.height(8.dp))
+                if (!isMessage) {
+                    Text(
+                        text = "${review.amount} ${review.symbol}",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
 
                 FactRow(label = "Network") {
                     Row(
@@ -123,8 +130,10 @@ fun TxReviewScreen(
                     )
                     AddressText(address = review.fromAddress)
                 }
-                FactRow(label = "To") {
-                    AddressText(address = review.toAddress)
+                if (!isMessage) {
+                    FactRow(label = "To") {
+                        AddressText(address = review.toAddress)
+                    }
                 }
                 review.tokenContract?.let { contract ->
                     FactRow(label = "Token contract") {
@@ -138,37 +147,45 @@ fun TxReviewScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
-                FactRow(label = "Parameters") {
-                    if (review.params.isEmpty()) {
-                        MutedText("None")
-                    } else {
-                        review.params.forEach { (name, value) ->
-                            LabelledValue(label = name, value = value)
+                if (isMessage) {
+                    FactRow(label = "Message") {
+                        MessageBlock(text = review.params.firstOrNull()?.second.orEmpty())
+                    }
+                } else {
+                    FactRow(label = "Parameters") {
+                        if (review.params.isEmpty()) {
+                            MutedText("None")
+                        } else {
+                            review.params.forEach { (name, value) ->
+                                LabelledValue(label = name, value = value)
+                            }
                         }
                     }
-                }
-                FactRow(label = "Fee breakdown") {
-                    review.fee.forEach { (name, value) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            MutedText(name.uppercase())
-                            Text(
-                                text = value,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
+                    FactRow(label = "Fee breakdown") {
+                        review.fee.forEach { (name, value) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                MutedText(name.uppercase())
+                                Text(
+                                    text = value,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
+                        review.feeNote?.let { note -> MutedText(note) }
                     }
-                    review.feeNote?.let { note -> MutedText(note) }
                 }
-                FactRow(label = "Nonce") {
-                    Text(
-                        text = review.nonce.toString(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                if (!isMessage) {
+                    FactRow(label = "Nonce") {
+                        Text(
+                            text = review.nonce.toString(),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                 }
                 FactRow(label = "Type") {
                     Text(
@@ -261,6 +278,28 @@ private fun AddressText(address: String) {
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface,
     )
+}
+
+/**
+ * The text of a message in the monospace face on a raised block, so each character can be checked by eye. Long
+ * lines wrap inside the block.
+ */
+@Composable
+private fun MessageBlock(text: String) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(12.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
 }
 
 @Composable
