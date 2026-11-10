@@ -53,6 +53,7 @@ internal fun NavGraphBuilder.hiddenGraph(navController: NavHostController, holde
             }
         }
         walletRoutes(navController, holder)
+        settingsRoutes(navController, holder)
     }
 }
 

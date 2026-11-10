@@ -21,6 +21,9 @@ internal object HiddenRoute {
     // Catalog: installs a signed registry package from removable storage.
     const val CATALOG = "catalog"
 
+    // Settings: the Bulk Cap, the catalog summary and the About notices. Reached from the wallet list.
+    const val SETTINGS = "settings"
+
     // Create and restore flows. The passphrase and name routes are shared by both.
     const val WALLET_START = "wallet/start"
     const val CEREMONY_CHOICE = "wallet/choice"

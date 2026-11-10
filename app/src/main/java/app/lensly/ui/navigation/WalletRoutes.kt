@@ -114,6 +114,7 @@ private fun HomeRoute(navController: NavHostController, holder: VaultHolder) {
         wallets = wallets,
         onOpen = { walletId -> navController.navigate(HiddenRoute.detail(walletId)) },
         onAdd = { navController.navigate(HiddenRoute.WALLET_START) },
+        onSettings = { navController.navigate(HiddenRoute.SETTINGS) },
         onLock = { leaveHidden(navController, holder) },
         onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
         debugNotice = debugNotice,
@@ -494,7 +495,7 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
  * takes over again.
  */
 @Composable
-private fun rememberOpenSession(navController: NavHostController, holder: VaultHolder): VaultSession? {
+internal fun rememberOpenSession(navController: NavHostController, holder: VaultHolder): VaultSession? {
     val session = holder.openSession()
     LaunchedEffect(session == null) {
         if (session == null) navController.openHidden(HiddenRoute.GATE)
@@ -514,7 +515,7 @@ internal fun RequireDraft(navController: NavHostController, ready: Boolean) {
 }
 
 /** Runs [block]. If the vault was locked while it ran, the owner is returned to the camera. Cancellation passes through. */
-private suspend fun whileUnlocked(
+internal suspend fun whileUnlocked(
     navController: NavHostController,
     holder: VaultHolder,
     block: suspend () -> Unit,
