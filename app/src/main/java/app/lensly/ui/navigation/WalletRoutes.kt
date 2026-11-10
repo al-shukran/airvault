@@ -35,7 +35,6 @@ import app.lensly.ui.wallet.RestoreEntryScreen
 import app.lensly.ui.wallet.RestoreState
 import app.lensly.ui.wallet.WALLET_NAME_MAX_LENGTH
 import app.lensly.ui.wallet.WalletNameScreen
-import app.lensly.ui.wallet.WalletStartScreen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -50,14 +49,8 @@ private const val MAX_WORD_LETTERS = 8
  */
 internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, holder: VaultHolder) {
     composable(HiddenRoute.HOME) { HiddenBackdrop { HomeRoute(navController, holder) } }
-    composable(HiddenRoute.WALLET_START) {
-        HiddenBackdrop {
-            WalletStartScreen(
-                onCreate = { navController.navigate(HiddenRoute.SOON) },
-                onRestore = { navController.navigate(HiddenRoute.RESTORE) },
-            )
-        }
-    }
+    composable(HiddenRoute.WALLET_START) { HiddenBackdrop { WalletStartRoute(navController) } }
+    createRoutes(navController)
     composable(HiddenRoute.RESTORE) { HiddenBackdrop { RestoreRoute(navController) } }
     composable(HiddenRoute.PASSPHRASE) { HiddenBackdrop { PassphraseRoute(navController) } }
     composable(HiddenRoute.NAME) { HiddenBackdrop { NameRoute(navController, holder) } }
@@ -68,9 +61,6 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
         HiddenBackdrop { SoonScreen(onBack = { navController.popBackStack() }) }
     }
     composable(HiddenRoute.SCAN, arguments = walletIdArguments()) {
-        HiddenBackdrop { SoonScreen(onBack = { navController.popBackStack() }) }
-    }
-    composable(HiddenRoute.SOON) {
         HiddenBackdrop { SoonScreen(onBack = { navController.popBackStack() }) }
     }
 }
@@ -370,7 +360,7 @@ private fun rememberOpenSession(navController: NavHostController, holder: VaultH
  * owner goes back to the start of the flow.
  */
 @Composable
-private fun RequireDraft(navController: NavHostController, ready: Boolean) {
+internal fun RequireDraft(navController: NavHostController, ready: Boolean) {
     LaunchedEffect(ready) {
         if (!ready) navController.openHidden(HiddenRoute.WALLET_START)
     }
