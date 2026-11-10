@@ -1,0 +1,46 @@
+<!--
+    Generated from chains/telos.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillType="evenOdd"
+        android:pathData="M12 18c3.31 0 6-2.69 6-6s-2.69-6-6-6-6 2.69-6 6 2.69 6 6 6Zm0 3c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9 4.03 9 9 9Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="0"
+                android:centerY="0"
+                android:gradientRadius="1">
+                <item
+                    android:color="#FF42A0B9"
+                    android:offset="0.15"/>
+                <item
+                    android:color="#FF70C38D"
+                    android:offset="0.25"/>
+                <item
+                    android:color="#FF6FC68F"
+                    android:offset="0.34"/>
+                <item
+                    android:color="#FF3B74CE"
+                    android:offset="0.49"/>
+                <item
+                    android:color="#FF954494"
+                    android:offset="0.66"/>
+                <item
+                    android:color="#FF9A4290"
+                    android:offset="0.76"/>
+                <item
+                    android:color="#FF7256AB"
+                    android:offset="0.87"/>
+                <item
+                    android:color="#FF3D7DC7"
+                    android:offset="1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

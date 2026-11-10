@@ -1,0 +1,15 @@
+<!--
+    Generated from chains/soneium.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M13.15 16.87c-0.83 0.2-1.7 0.18-2.51-0.05-0.82-0.23-1.57-0.67-2.18-1.27-0.8-0.77-1.31-1.78-1.45-2.88-0.15-1.1 0.1-2.21 0.67-3.15C8.06 8.9 8.5 8.34 9.04 7.84l4.7-4.67c-2.26-0.45-4.61 0-6.56 1.23-1.95 1.24-3.35 3.18-3.91 5.42-0.56 2.25-0.24 4.62 0.9 6.63 1.14 2.01 3.01 3.5 5.22 4.17l3.76-3.75Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10.84 7.14c0.83-0.2 1.7-0.19 2.52 0.04 0.82 0.24 1.56 0.67 2.17 1.28 1.64 1.64 1.96 4.09 0.78 6.02-0.38 0.61-0.84 1.18-1.36 1.68l-4.71 4.66c2.27 0.46 4.62 0.02 6.58-1.22 1.95-1.23 3.35-3.18 3.91-5.43 0.56-2.24 0.24-4.62-0.9-6.63-1.15-2.01-3.03-3.5-5.24-4.17l-3.75 3.77Z"/>
+</vector>

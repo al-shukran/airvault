@@ -144,6 +144,7 @@ class SignPipeline(private val registry: Registry) {
             warnings = emptyList(),
             nonce = tx.nonce.toLong(),
             txType = if (tx.type == TxType.EIP1559) "EIP-1559" else "Legacy",
+            network = network,
         )
 
         val calldata = Numeric.hexStringToByteArray(tx.data)
@@ -160,6 +161,7 @@ class SignPipeline(private val registry: Registry) {
             if (tx.value.signum() != 0) return Prepared.Refused("Token calls must not send native currency")
             when (call) {
                 is Erc20Call.Transfer -> base.copy(
+                    token = token,
                     toAddress = checksum(call.to),
                     amount = Amounts.format(call.amount, token.decimals),
                     symbol = token.symbol,
@@ -169,6 +171,7 @@ class SignPipeline(private val registry: Registry) {
                 is Erc20Call.Approve -> {
                     val allowance = Amounts.format(call.amount, token.decimals)
                     base.copy(
+                        token = token,
                         toAddress = checksum(call.spender),
                         amount = allowance,
                         symbol = token.symbol,
@@ -200,6 +203,7 @@ class SignPipeline(private val registry: Registry) {
             warnings = emptyList(),
             nonce = 0L,
             txType = "Personal message",
+            network = target.network,
         )
         return Prepared.Ready(review, target.request, target.index)
     }

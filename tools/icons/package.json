@@ -1,0 +1,13 @@
+{
+  "name": "lensly-icon-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Converts chain, token and app logo SVGs into Android VectorDrawables for Lensly.",
+  "scripts": {
+    "convert": "node convert.mjs"
+  },
+  "dependencies": {
+    "svg2vectordrawable": "2.9.1"
+  }
+}

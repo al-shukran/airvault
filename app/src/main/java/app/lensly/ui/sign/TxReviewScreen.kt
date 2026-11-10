@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -37,8 +38,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.AddressIcon
+import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
@@ -101,11 +105,21 @@ fun TxReviewScreen(
                     Spacer(Modifier.height(8.dp))
                 }
                 if (!isMessage) {
-                    Text(
-                        text = "${review.amount} ${review.symbol}",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // The native coin shows its chain's logo. A token shows its own logo.
+                        if (review.tokenContract == null) {
+                            ChainIcon(network = review.network, size = 32.dp)
+                        } else {
+                            TokenIcon(token = review.token, size = 32.dp)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = "${review.amount} ${review.symbol}",
+                            style = MaterialTheme.typography.displaySmall,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                 }
 
@@ -114,6 +128,7 @@ fun TxReviewScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        ChainIcon(network = review.network, size = 20.dp)
                         Text(
                             text = review.networkName,
                             style = MaterialTheme.typography.bodyLarge,
@@ -271,13 +286,19 @@ private fun FactRow(
     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
 }
 
+/** An address with the Ethereum logo beside it. Every address shows that logo, whichever chain it is used on. */
 @Composable
 private fun AddressText(address: String) {
-    Text(
-        text = groupAddress(address),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        AddressIcon(size = 16.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = groupAddress(address),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+    }
 }
 
 /**
@@ -306,11 +327,17 @@ private fun MessageBlock(text: String) {
 private fun LabelledValue(label: String, value: String) {
     Column(modifier = Modifier.padding(bottom = 8.dp)) {
         MutedText(label.uppercase())
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isEvmAddress(value)) {
+                AddressIcon(size = 16.dp)
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 

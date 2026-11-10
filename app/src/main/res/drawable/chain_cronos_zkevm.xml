@@ -1,0 +1,15 @@
+<!--
+    Generated from chains/cronos-zkevm.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF051221"
+        android:pathData="M12 3L4.12 7.5v9L12 21l7.88-4.5v-9L12 3Zm5.54 12.17L12 18.33l-5.54-3.16V8.83L12 5.67l5.54 3.16v6.34Z"/>
+    <path
+        android:fillColor="#FF051221"
+        android:pathData="M15.68 14.1L12 16.2l-3.68-2.1V9.9L12 7.8l3.68 2.1-1.53 0.88L12 9.55l-2.15 1.23v2.45L12 14.45l2.15-1.22 1.53 0.87Z"/>
+</vector>

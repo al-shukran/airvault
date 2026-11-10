@@ -19,6 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import app.lensly.core.registry.FeeModel
+import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.applySecureWindow
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReview
@@ -30,12 +33,12 @@ import app.lensly.ui.theme.LenslyTheme
  * Debug-only harness that hosts the QR and signing screens with fake data, so they can be checked
  * on a device without the vault.
  *
- * Launch with the "screen" string extra set to one of show1, show12, scan, review or refused:
+ * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-token or refused:
  *   adb shell am start -n app.lensly/app.lensly.ui.qr.QrPreviewActivity --es screen show12
  *
  * show1 and show12 animate one or twelve fake UR parts. scan opens the live camera and writes each
- * decoded text into the status line (and to logcat under the tag [TAG]). review and refused show
- * the signing screens with sample data.
+ * decoded text into the status line (and to logcat under the tag [TAG]). review shows a native transfer,
+ * review-token a token transfer, and refused a refusal, all with sample data.
  */
 class QrPreviewActivity : ComponentActivity() {
 
@@ -62,7 +65,8 @@ class QrPreviewActivity : ComponentActivity() {
                     when (current) {
                         SCREEN_SHOW12 -> ShowPreview(title = "SIGNATURE", parts = sampleTwelveParts(), onDone = ::finish)
                         SCREEN_SCAN -> ScanPreview(onFinish = ::finish)
-                        SCREEN_REVIEW -> ReviewPreview()
+                        SCREEN_REVIEW -> ReviewPreview(sampleReview)
+                        SCREEN_REVIEW_TOKEN -> ReviewPreview(sampleTokenReview)
                         SCREEN_REFUSED -> SignRefusedScreen(
                             reason = "Chain ID mismatch. The request targets chain 1, but this vault is set to chain 10143.",
                             onDone = ::finish,
@@ -84,6 +88,7 @@ class QrPreviewActivity : ComponentActivity() {
             SCREEN_SHOW12 -> SCREEN_SHOW12
             SCREEN_SCAN -> SCREEN_SCAN
             SCREEN_REVIEW -> SCREEN_REVIEW
+            SCREEN_REVIEW_TOKEN -> SCREEN_REVIEW_TOKEN
             SCREEN_REFUSED -> SCREEN_REFUSED
             else -> SCREEN_SHOW1
         }
@@ -95,6 +100,7 @@ class QrPreviewActivity : ComponentActivity() {
         const val SCREEN_SHOW12 = "show12"
         const val SCREEN_SCAN = "scan"
         const val SCREEN_REVIEW = "review"
+        const val SCREEN_REVIEW_TOKEN = "review-token"
         const val SCREEN_REFUSED = "refused"
     }
 }
@@ -125,10 +131,10 @@ private fun ScanPreview(onFinish: () -> Unit) {
 }
 
 @Composable
-private fun ReviewPreview() {
+private fun ReviewPreview(review: TxReview) {
     val context = LocalContext.current
     TxReviewScreen(
-        review = sampleReview,
+        review = review,
         onApprove = { Toast.makeText(context, "Preview: approved", Toast.LENGTH_SHORT).show() },
         onReject = { Toast.makeText(context, "Preview: rejected", Toast.LENGTH_SHORT).show() },
     )
@@ -146,6 +152,17 @@ private fun sampleTwelveParts(): List<String> {
     }
 }
 
+/** Monad has no logo, so the review shows the Ethereum logo for it, as for any network without one. */
+private val monadTestnet = NetworkEntry(
+    chainId = 10143L,
+    name = "Monad Testnet",
+    nativeSymbol = "MON",
+    feeModel = FeeModel.L1,
+    explorerName = "MonadVision",
+    testnet = true,
+)
+
+/** A native MON transfer. The amount row shows the chain logo, because MON is the native coin. */
 private val sampleReview = TxReview(
     networkName = "Monad Testnet",
     chainId = 10143L,
@@ -167,4 +184,44 @@ private val sampleReview = TxReview(
     warnings = listOf("This address has never received a transaction on this network."),
     nonce = 42L,
     txType = "EIP-1559 (type 2)",
+    network = monadTestnet,
+)
+
+/** A USDC transfer on Base. The network row shows the Base logo, and the amount row shows the USDC logo. */
+private val sampleTokenReview = TxReview(
+    networkName = "Base",
+    chainId = 8453L,
+    fromAccountLabel = "Main account",
+    fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+    toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
+    amount = "25.00",
+    symbol = "USDC",
+    tokenContract = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    function = "Token transfer",
+    params = emptyList(),
+    fee = listOf(
+        "Gas limit" to "65000",
+        "Max fee" to "0.00013 ETH",
+    ),
+    feeNote = "L1 data fee is not computable offline; total may be higher",
+    warnings = emptyList(),
+    nonce = 7L,
+    txType = "EIP-1559",
+    network = NetworkEntry(
+        chainId = 8453L,
+        name = "Base",
+        nativeSymbol = "ETH",
+        feeModel = FeeModel.L2_ROLLUP,
+        explorerName = "Basescan",
+        testnet = false,
+        icon = "chain_base",
+    ),
+    token = TokenEntry(
+        chainId = 8453L,
+        contract = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        symbol = "USDC",
+        name = "USD Coin",
+        decimals = 6,
+        icon = "token_usdc",
+    ),
 )

@@ -1,0 +1,61 @@
+<!--
+    Generated from assets/lensly.svg (launcher background) by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <path
+        android:pathData="M1076.97-52.96H-52.96v1129.93h1129.93V-52.96Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="-52.96"
+                android:startY="-52.96"
+                android:endX="1076.97"
+                android:endY="1076.97">
+                <item
+                    android:color="#FFFFD43B"
+                    android:offset="0"/>
+                <item
+                    android:color="#FFFF6B35"
+                    android:offset="0.28"/>
+                <item
+                    android:color="#FFF72585"
+                    android:offset="0.53"/>
+                <item
+                    android:color="#FF7138FF"
+                    android:offset="0.76"/>
+                <item
+                    android:color="#FF00C8E8"
+                    android:offset="1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#FFFF3D8E"
+        android:fillAlpha="0.22"
+        android:pathData="M-86.07 520.83C68.41 358.99 222.9 325.88 377.38 421.52c154.48 95.63 301.6 47.81 441.38-143.45 139.77-191.27 253.79-158.16 342.07 99.3v728.29H-86.07V520.83Z"/>
+    <path
+        android:fillColor="#FF1526E8"
+        android:fillAlpha="0.32"
+        android:pathData="M-75.04 829.8c176.56-125.06 342.07-139.78 496.56-44.14C576 881.29 719.45 855.54 851.86 708.4c132.41-147.12 228.05-110.34 286.9 110.35v286.9H-75.04V829.79Z"/>
+    <path
+        android:fillColor="#FFFFF38A"
+        android:fillAlpha="0.2"
+        android:pathData="M145.66 355.31c115.78 0 209.65-93.87 209.65-209.66C355.31 29.88 261.44-64 145.65-64 29.88-64-64 29.87-64 145.66c0 115.78 93.87 209.65 209.66 209.65Z"/>
+    <path
+        android:fillAlpha="0.28"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeAlpha="0.28"
+        android:strokeWidth="17.66"
+        android:pathData="M81.4 125.59l246.93-75.5c16.32-4.98 33.6 4.2 38.58 20.52l52.91 173.06c4.99 16.32-4.2 33.59-20.51 38.58l-246.93 75.49c-16.31 4.99-33.59-4.2-38.58-20.51L60.9 164.17c-5-16.32 4.19-33.6 20.5-38.58Z"/>
+    <path
+        android:fillAlpha="0.28"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeAlpha="0.28"
+        android:strokeWidth="17.66"
+        android:pathData="M715.73 596.58l203.6 66.15c16.22 5.28 25.1 22.7 19.83 38.94l-45.7 140.62c-5.27 16.23-22.7 25.11-38.93 19.84l-203.59-66.15c-16.23-5.28-25.1-22.7-19.83-38.94l45.69-140.62c5.27-16.23 22.7-25.11 38.93-19.84Z"/>
+</vector>

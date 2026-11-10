@@ -1,0 +1,12 @@
+<!--
+    Generated from chains/kava.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFF564F"
+        android:pathData="M7.76 21V3H4.93v18h2.83Zm7.78 0l-6.37-9 6.37-9h3.53l-6.36 9 6.36 9h-3.53Z"/>
+</vector>

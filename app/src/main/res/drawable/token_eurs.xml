@@ -1,0 +1,31 @@
+<!--
+    Generated from tokens/eurs.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M18.44 18.29C20.08 16.61 21 14.35 21 12c0-2.87-1.35-5.43-3.45-7.08l-1.6 0.06c-2.38 0.27-4.48 1.65-5.52 3.64h8.88l-1.12 2.25H9.76l-0.01 0.05c-0.1 0.87-0.1 1.34 0 2.15v0.05h7.31l-1.12 2.26H10.6c0.93 1.33 2.48 2.22 4.25 2.53 1.53 0.26 2.78 0.35 3.58 0.38Zm-2.6 1.85C14.63 20.71 13.32 21 12 21c-4.97 0-9-4.03-9-9s4.03-9 9-9c0.7 0 1.39 0.08 2.04 0.23-1.38 0.32-2.66 0.98-3.72 1.92C9.26 6.1 8.45 7.3 7.97 8.62h-1.6l-1.12 2.25H7.5c-0.07 0.91-0.06 1.4 0 2.26H6.37l-1.12 2.24h2.88c1.3 2.63 4.3 4.38 6.73 4.67 0.35 0.04 0.67 0.08 0.97 0.1Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="20.39"
+                android:startY="4.12"
+                android:endX="3.94"
+                android:endY="19.01">
+                <item
+                    android:color="#FFB030EC"
+                    android:offset="0"/>
+                <item
+                    android:color="#FF2B7FEF"
+                    android:offset="0.46"/>
+                <item
+                    android:color="#FF15BCFF"
+                    android:offset="1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

@@ -1,0 +1,28 @@
+<!--
+    Generated from tokens/matic.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M7.42 8.91c0.17-0.1 0.36-0.15 0.56-0.15 0.2 0 0.4 0.05 0.57 0.15l2.59 1.55 1.75 1 2.6 1.55c0.33 0.2 0.76 0.2 1.13 0l2.06-1.2c0.33-0.2 0.73-0.58 0.73-0.98V8.45c0-0.4-0.37-0.78-0.74-0.98L16.65 6.3c-0.17-0.1-0.37-0.15-0.57-0.15-0.2 0-0.39 0.05-0.56 0.15L13.5 7.47c-0.33 0.2-0.43 0.57-0.43 0.98v1.54l-1.59-1.04V7.4c0-0.4-0.1-0.78 0.27-0.98l3.75-2.2c0.17-0.1 0.36-0.16 0.56-0.16 0.2 0 0.4 0.05 0.57 0.15l3.81 2.21c0.18 0.1 0.32 0.24 0.42 0.41C20.95 7.01 21 7.2 21 7.4v4.47c0 0.4-0.2 0.77-0.57 0.98l-3.81 2.2c-0.34 0.2-0.77 0.2-1.13 0l-2.6-1.5-1.75-1.04L8.54 11c-0.17-0.1-0.36-0.15-0.56-0.15-0.2 0-0.4 0.05-0.56 0.15l-2.03 1.17c-0.33 0.2-0.8 0.57-0.8 0.98v2.38c0 0.4 0.44 0.77 0.8 0.97l2.03 1.21c0.33 0.2 0.76 0.2 1.13 0l2.02-1.17c0.33-0.2 0.9-0.58 0.9-0.98v-1.54l1.59 1.04v1.54c0 0.4-0.36 0.78-0.73 0.98l-3.82 2.2C8.18 20 7.74 20 7.38 19.79l-3.82-2.2c-0.17-0.1-0.3-0.25-0.4-0.42C3.06 16.99 3 16.8 3 16.6v-4.46c0-0.4 0.2-0.78 0.57-0.98l3.85-2.25Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="3"
+                android:startY="4.06"
+                android:endX="18.76"
+                android:endY="21.92">
+                <item
+                    android:color="#FF8F34C2"
+                    android:offset="0"/>
+                <item
+                    android:color="#FF7442DB"
+                    android:offset="1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

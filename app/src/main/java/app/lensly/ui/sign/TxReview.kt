@@ -1,5 +1,8 @@
 package app.lensly.ui.sign
 
+import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.TokenEntry
+
 /**
  * The [TxReview.function] of a personal message. A message has no recipient, amount, nonce or fee, and its text is
  * the only parameter, so the review screen shows the message instead of those facts.
@@ -29,4 +32,8 @@ data class TxReview(
     val warnings: List<String>,
     val nonce: Long,
     val txType: String,
+    /** The network the review is for. It supplies the chain logo. Null when the chain is not in the registry. */
+    val network: NetworkEntry? = null,
+    /** The token that is moved or approved. It supplies the token logo. Null for a native transfer and a message. */
+    val token: TokenEntry? = null,
 )

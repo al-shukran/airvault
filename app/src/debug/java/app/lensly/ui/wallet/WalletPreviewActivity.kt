@@ -37,6 +37,7 @@ private const val SCREEN_CONFIRM = "confirm"
 private const val SCREEN_PASSPHRASE = "passphrase"
 private const val SCREEN_RESTORE = "restore"
 private const val SCREEN_NAME = "name"
+private const val SCREEN_ICONS = "icons"
 private val SCREENS = setOf(
     SCREEN_START,
     SCREEN_CHOICE,
@@ -49,6 +50,7 @@ private val SCREENS = setOf(
     SCREEN_PASSPHRASE,
     SCREEN_RESTORE,
     SCREEN_NAME,
+    SCREEN_ICONS,
 )
 
 /**
@@ -58,8 +60,8 @@ private val SCREENS = setOf(
  * Launch with:
  *   adb shell am start -n app.lensly/app.lensly.ui.wallet.WalletPreviewActivity --es screen words
  *
- * Screens: start, choice, skip, dice, coins, result, words, confirm, passphrase, restore, name. Unknown
- * values show start. Every input screen is interactive. The fake data is a fixed commitment and mixed
+ * Screens: start, choice, skip, dice, coins, result, words, confirm, passphrase, restore, name, icons. Unknown
+ * values show start. The icons screen lists every logo and icon in a grid. Every input screen is interactive. The fake data is a fixed commitment and mixed
  * hash, plus a valid 24-word phrase generated from fixed bytes.
  */
 class WalletPreviewActivity : ComponentActivity() {
@@ -128,6 +130,7 @@ private fun PreviewHost(screen: String) {
         SCREEN_PASSPHRASE -> PassphrasePreview()
         SCREEN_RESTORE -> RestorePreview()
         SCREEN_NAME -> NamePreview()
+        SCREEN_ICONS -> IconsPreview()
         else -> StartPreview()
     }
 }

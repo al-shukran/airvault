@@ -38,20 +38,13 @@ class RegistryImportStateTest {
     }
 
     @Test
-    fun anAcceptedPackageNamesWhatItAdded() {
-        val pkg = RegistryPackage(
-            sequence = 1,
-            createdAt = "2026-11-10",
-            networks = listOf(NetworkEntry(59144L, "Linea", "ETH", 18, FeeModel.L2_ROLLUP, "Lineascan", false)),
-            tokens = listOf(TokenEntry(59144L, "0x176211869ca2b568f2a7d4ee941e073a821ee1ff", "USDC", "USD Coin", 6)),
-        )
+    fun anAcceptedPackageListsWhatItAdded() {
+        val linea = NetworkEntry(59144L, "Linea", "ETH", 18, FeeModel.L2_ROLLUP, "Lineascan", false)
+        val usdc = TokenEntry(59144L, "0x176211869ca2b568f2a7d4ee941e073a821ee1ff", "USDC", "USD Coin", 6)
+        val pkg = RegistryPackage(sequence = 1, createdAt = "2026-11-10", networks = listOf(linea), tokens = listOf(usdc))
 
         assertEquals(
-            ImportState.Installed(
-                sequence = 1,
-                networks = listOf("Linea · chain 59144"),
-                tokens = listOf("USDC · chain 59144"),
-            ),
+            ImportState.Installed(sequence = 1, networks = listOf(linea), tokens = listOf(usdc)),
             importedState(pkg),
         )
     }

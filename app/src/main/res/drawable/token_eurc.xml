@@ -1,0 +1,30 @@
+<!--
+    Generated from tokens/eurc.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF0B53BF"
+        android:pathData="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9 4.03 9 9 9Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FF0B53BF"
+        android:strokeWidth="0.03"
+        android:strokeMiterLimit="10"
+        android:pathData="M13.91 14.14c-0.4 0.16-0.82 0.25-1.23 0.25-0.81 0-1.58-0.35-1.95-1.18h1.8l0.34-0.84h-2.34L10.5 12c0-0.13 0-0.25 0.02-0.37h2.64l0.35-0.84h-2.79c0.37-0.83 1.14-1.18 1.95-1.18 0.41 0 0.84 0.09 1.23 0.25L14.27 9c-0.48-0.25-1.03-0.37-1.57-0.37-1.32 0-2.65 0.73-3.13 2.16H8.7v0.84h0.7C9.37 11.75 9.37 11.87 9.37 12l0.01 0.37H8.7v0.84h0.87c0.48 1.43 1.81 2.17 3.13 2.17 0.54 0 1.09-0.13 1.57-0.38l-0.36-0.86Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FF0B53BF"
+        android:strokeWidth="0.03"
+        android:strokeMiterLimit="10"
+        android:pathData="M6.38 12c0-2.55 1.69-4.7 4-5.4V5.46C7.43 6.17 5.25 8.83 5.25 12s2.18 5.83 5.13 6.55V17.4c-2.31-0.69-4-2.84-4-5.39Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FF0B53BF"
+        android:strokeWidth="0.03"
+        android:strokeMiterLimit="10"
+        android:pathData="M13.62 5.45V6.6c2.31 0.7 4 2.84 4 5.39s-1.69 4.7-4 5.4v1.15c2.95-0.72 5.13-3.38 5.13-6.55s-2.18-5.83-5.13-6.55Z"/>
+</vector>

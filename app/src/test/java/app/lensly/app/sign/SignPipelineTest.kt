@@ -104,6 +104,8 @@ class SignPipelineTest {
         assertTrue(review.warnings.isEmpty())
         assertEquals(MONAD_TESTNET, review.chainId)
         assertEquals("Monad Testnet", review.networkName)
+        assertEquals(REGISTRY.network(MONAD_TESTNET), review.network)
+        assertNull(review.token)
         assertEquals(7L, review.nonce)
         assertEquals("EIP-1559", review.txType)
         assertNull(review.feeNote)
@@ -155,6 +157,8 @@ class SignPipelineTest {
         assertEquals(RECIPIENT, review.toAddress)
         assertEquals(USDC_ETHEREUM, review.tokenContract)
         assertTrue(review.params.isEmpty())
+        assertEquals(REGISTRY.network(ETHEREUM), review.network)
+        assertEquals(REGISTRY.token(ETHEREUM, USDC_ETHEREUM), review.token)
     }
 
     @Test

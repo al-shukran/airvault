@@ -1,0 +1,18 @@
+<!--
+    Generated from chains/apechain.svg by tools/icons/convert.mjs. Do not edit by hand.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group>
+        <path
+            android:strokeColor="#FF0054FA"
+            android:strokeWidth="2.26"
+            android:pathData="M20.78 5.03H3.22c-0.09 0-0.16 0.07-0.16 0.16v13.4c0 0.08 0.07 0.15 0.16 0.15h17.56c0.1 0 0.17-0.07 0.17-0.16V5.18c0-0.08-0.08-0.15-0.17-0.15Z"/>
+        <path
+            android:fillColor="#FF0054FA"
+            android:pathData="M7.2 8.18H8.6l0.92 7.63h-1.2l-0.14-1.66H7.55l-0.13 1.66H6.27L7.2 8.18Zm0.56 3.4l-0.13 1.56h0.48l-0.13-1.57-0.1-1.32H7.85l-0.1 1.32Zm4.3 4.23h-1.23V8.18h1.61c0.88 0 1.42 0.52 1.42 1.44v1.88c0 0.92-0.54 1.44-1.42 1.44h-0.38v2.87Zm0.01-3.8h0.27c0.2 0 0.29-0.18 0.29-0.5V9.61c0-0.34-0.08-0.52-0.29-0.52h-0.27v2.92Zm3.2 3.8V8.18h2.4V9.2H16.5v2.26h1.04v1.01H16.5v2.34h1.16v1.01h-2.39Z"/>
+    </group>
+</vector>
