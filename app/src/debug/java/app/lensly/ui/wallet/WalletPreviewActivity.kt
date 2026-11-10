@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.ui.applySecureWindow
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyTheme
@@ -67,6 +68,7 @@ class WalletPreviewActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applySecureWindow()
         screen.value = screenFrom(intent)
 
         enableEdgeToEdge(
