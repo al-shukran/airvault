@@ -17,6 +17,9 @@ internal object HiddenRoute {
     const val EXPORT = "export/{walletId}"
     const val SCAN = "scan/{walletId}"
 
+    // Catalog: installs a signed registry package from removable storage.
+    const val CATALOG = "catalog"
+
     // Create and restore flows. The passphrase and name routes are shared by both.
     const val WALLET_START = "wallet/start"
     const val CEREMONY_CHOICE = "wallet/choice"

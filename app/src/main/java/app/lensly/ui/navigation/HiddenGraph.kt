@@ -79,6 +79,30 @@ internal fun leaveHidden(navController: NavHostController, holder: VaultHolder) 
     }
 }
 
+/**
+ * The system document picker runs in its own activity, so this app stops while it is open. [arm] is called before a
+ * picker launch, and the next stop it causes does not lock the vault, or the import could never finish. [takeStop]
+ * is consulted on every stop and disarms at once, so any later stop locks as usual. [disarm] runs when the picker
+ * returns, in case its stop was never seen.
+ */
+internal object PickerStop {
+    private var armed = false
+
+    @Synchronized
+    fun arm() {
+        armed = true
+    }
+
+    @Synchronized
+    fun disarm() {
+        armed = false
+    }
+
+    /** True once after [arm], for the stop that the picker causes. */
+    @Synchronized
+    fun takeStop(): Boolean = armed.also { armed = false }
+}
+
 /** Moves within the hidden graph. The gate and password screens behind the new screen are removed. */
 internal fun NavHostController.openHidden(route: String) {
     navigate(route) {
