@@ -26,19 +26,27 @@ import app.lensly.ui.applySecureWindow
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TxReviewScreen
+import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
+import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
+import app.lensly.ui.sign.UNKNOWN_UNIT
+import app.lensly.ui.sign.assumedAmountNote
+import app.lensly.ui.sign.unknownFeeNote
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyTheme
+import java.math.BigInteger
 
 /**
  * Debug-only harness that hosts the QR and signing screens with fake data, so they can be checked
  * on a device without the vault.
  *
- * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-token or refused:
+ * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-token,
+ * review-unknown-chain, review-unknown-token or refused:
  *   adb shell am start -n app.lensly/app.lensly.ui.qr.QrPreviewActivity --es screen show12
  *
  * show1 and show12 animate one or twelve fake UR parts. scan opens the live camera and writes each
  * decoded text into the status line (and to logcat under the tag [TAG]). review shows a native transfer,
- * review-token a token transfer, and refused a refusal, all with sample data.
+ * review-token a token transfer, review-unknown-chain a native transfer on a chain outside the registry,
+ * review-unknown-token a transfer of a token outside the registry, and refused a refusal, all with sample data.
  */
 class QrPreviewActivity : ComponentActivity() {
 
@@ -67,6 +75,8 @@ class QrPreviewActivity : ComponentActivity() {
                         SCREEN_SCAN -> ScanPreview(onFinish = ::finish)
                         SCREEN_REVIEW -> ReviewPreview(sampleReview)
                         SCREEN_REVIEW_TOKEN -> ReviewPreview(sampleTokenReview)
+                        SCREEN_REVIEW_UNKNOWN_CHAIN -> ReviewPreview(sampleUnknownChainReview)
+                        SCREEN_REVIEW_UNKNOWN_TOKEN -> ReviewPreview(sampleUnknownTokenReview)
                         SCREEN_REFUSED -> SignRefusedScreen(
                             reason = "Chain ID mismatch. The request targets chain 1, but this vault is set to chain 10143.",
                             onDone = ::finish,
@@ -89,6 +99,8 @@ class QrPreviewActivity : ComponentActivity() {
             SCREEN_SCAN -> SCREEN_SCAN
             SCREEN_REVIEW -> SCREEN_REVIEW
             SCREEN_REVIEW_TOKEN -> SCREEN_REVIEW_TOKEN
+            SCREEN_REVIEW_UNKNOWN_CHAIN -> SCREEN_REVIEW_UNKNOWN_CHAIN
+            SCREEN_REVIEW_UNKNOWN_TOKEN -> SCREEN_REVIEW_UNKNOWN_TOKEN
             SCREEN_REFUSED -> SCREEN_REFUSED
             else -> SCREEN_SHOW1
         }
@@ -101,6 +113,8 @@ class QrPreviewActivity : ComponentActivity() {
         const val SCREEN_SCAN = "scan"
         const val SCREEN_REVIEW = "review"
         const val SCREEN_REVIEW_TOKEN = "review-token"
+        const val SCREEN_REVIEW_UNKNOWN_CHAIN = "review-unknown-chain"
+        const val SCREEN_REVIEW_UNKNOWN_TOKEN = "review-unknown-token"
         const val SCREEN_REFUSED = "refused"
     }
 }
@@ -224,4 +238,69 @@ private val sampleTokenReview = TxReview(
         decimals = 6,
         icon = "token_usdc",
     ),
+)
+
+/**
+ * A native transfer on a chain outside the registry. The network row shows the Ethereum logo, the amount is in base
+ * units with its 18-decimal reading marked as an assumption, and the registry warning sits above it.
+ */
+private val sampleUnknownChainReview = TxReview(
+    networkName = UNKNOWN_CHAIN_NAME,
+    chainId = 999_999L,
+    fromAccountLabel = "ACCOUNT 1",
+    fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+    toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
+    amount = "1000000000000000000",
+    symbol = UNKNOWN_UNIT,
+    tokenContract = null,
+    function = "Native transfer",
+    params = emptyList(),
+    fee = listOf(
+        "Gas limit" to "21000",
+        "Max fee per gas" to "30 gwei",
+        "Max priority fee" to "1.5 gwei",
+        "Max fee" to "630000000000000 base units",
+    ),
+    feeNote = unknownFeeNote(BigInteger.valueOf(630_000_000_000_000L)),
+    warnings = emptyList(),
+    nonce = 42L,
+    txType = "EIP-1559",
+    network = null,
+    amountNote = assumedAmountNote(BigInteger.TEN.pow(18)),
+)
+
+/**
+ * A transfer of a token outside the registry, on Base. The token row shows the unknown-token icon and the raw amount in
+ * base units, and says the decimals are unknown.
+ */
+private val sampleUnknownTokenReview = TxReview(
+    networkName = "Base",
+    chainId = 8453L,
+    fromAccountLabel = "ACCOUNT 1",
+    fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+    toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
+    amount = "25000000",
+    symbol = UNKNOWN_UNIT,
+    tokenContract = "0x1111111111111111111111111111111111111111",
+    function = "Token transfer",
+    params = emptyList(),
+    fee = listOf(
+        "Gas limit" to "65000",
+        "Max fee" to "0.00013 ETH",
+    ),
+    feeNote = "L1 data fee is not computable offline; total may be higher",
+    warnings = emptyList(),
+    nonce = 7L,
+    txType = "EIP-1559",
+    network = NetworkEntry(
+        chainId = 8453L,
+        name = "Base",
+        nativeSymbol = "ETH",
+        feeModel = FeeModel.L2_ROLLUP,
+        explorerName = "Basescan",
+        testnet = false,
+        icon = "chain_base",
+    ),
+    token = null,
+    amountNote = UNKNOWN_DECIMALS_NOTE,
 )

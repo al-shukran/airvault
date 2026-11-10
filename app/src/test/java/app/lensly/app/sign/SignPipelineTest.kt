@@ -17,6 +17,7 @@ import java.math.BigInteger
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -31,7 +32,7 @@ import org.web3j.utils.Numeric
 private const val MONAD_TESTNET = 10143L
 private const val ETHEREUM = 1L
 private const val BASE = 8453L
-private const val UNKNOWN_CHAIN = 999L
+private const val UNKNOWN_CHAIN = 999_999L
 
 private const val ART_ADDRESS = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
 private const val RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
@@ -262,6 +263,36 @@ class SignPipelineTest {
     }
 
     @Test
+    fun signedUnknownChainEip1559TransferRecoversToAccountZero() {
+        val signData = eip1559Tx(chainId = UNKNOWN_CHAIN)
+        val response = signResponse(ready(requestCbor(signData, chainId = UNKNOWN_CHAIN)))
+
+        assertEquals(65, response.signature.size)
+        val v = response.signature[64].toInt()
+        assertTrue(v == 0 || v == 1, "v must be a recovery id, was $v")
+        assertEquals(
+            EvmFixtures.normalize(ART_ADDRESS),
+            recovered(Hash.sha3(signData), response.signature, v),
+        )
+    }
+
+    @Test
+    fun signedUnknownChainLegacyTransferRecoversToAccountZero() {
+        val signData = legacyTx(chainId = UNKNOWN_CHAIN)
+        val response = signResponse(ready(requestCbor(signData, dataType = 1, chainId = UNKNOWN_CHAIN)))
+
+        // v = 999999 * 2 + 35 + recId is 2000033 or 2000034, which needs three bytes.
+        assertEquals(67, response.signature.size)
+        val v = BigInteger(1, response.signature.copyOfRange(64, 67)).toLong()
+        val recId = (v - (UNKNOWN_CHAIN * 2 + 35)).toInt()
+        assertTrue(recId == 0 || recId == 1, "unexpected v $v")
+        assertEquals(
+            EvmFixtures.normalize(ART_ADDRESS),
+            recovered(Hash.sha3(signData), response.signature, recId),
+        )
+    }
+
+    @Test
     fun signRefusesARequestWithoutAnIdAndStillZeroesTheKey() {
         val signable = ready(requestCbor(eip1559Tx(), requestId = null))
         val key = WALLET.privateKey(0)
@@ -277,6 +308,13 @@ class SignPipelineTest {
     }
 
     @Test
+    fun typedDataWithAnUnknownDomainChainIsRefusedToo() {
+        // The domain names chain 999999, which is not in the registry. Typed data is refused before any chain check.
+        val typed = "{\"types\":{},\"domain\":{\"chainId\":999999},\"message\":{}}".toByteArray(Charsets.UTF_8)
+        assertEquals("Typed data not supported yet", refusal(requestCbor(typed, dataType = 2, chainId = UNKNOWN_CHAIN)))
+    }
+
+    @Test
     fun requestForAnotherWalletIsRefused() {
         val otherWallet = WALLET.masterFingerprint xor 1
         assertEquals(
@@ -286,9 +324,107 @@ class SignPipelineTest {
     }
 
     @Test
-    fun unknownNetworkIsRefused() {
-        val tx = eip1559Tx(chainId = UNKNOWN_CHAIN)
-        assertEquals("Unknown network 999", refusal(requestCbor(tx, chainId = UNKNOWN_CHAIN)))
+    fun unknownChainNativeTransferIsReviewedWithAWarning() {
+        val tx = eip1559Tx(chainId = UNKNOWN_CHAIN, value = BigInteger.TEN.pow(18))
+        val review = ready(requestCbor(tx, chainId = UNKNOWN_CHAIN)).review
+
+        assertEquals("Unknown Chain", review.networkName)
+        assertEquals(UNKNOWN_CHAIN, review.chainId)
+        assertNull(review.network)
+        assertEquals("1000000000000000000 base units", "${review.amount} ${review.symbol}")
+        assertEquals("≈ 1.0 if 18 decimals (assumption, not verified)", review.amountNote)
+        assertEquals("Native transfer", review.function)
+        assertEquals(RECIPIENT, review.toAddress)
+        assertNull(review.tokenContract)
+        assertNull(review.token)
+        assertTrue(review.warnings.isEmpty())
+        assertTrue(review.needsRegistryConfirmation)
+        assertEquals(
+            listOf(
+                "Gas limit" to "21000",
+                "Max fee per gas" to "30 gwei",
+                "Max priority fee" to "1.5 gwei",
+                "Max fee" to "630000000000000 base units",
+            ),
+            review.fee,
+        )
+        assertEquals(
+            "≈ 0.00063 if 18 decimals (assumption, not verified). " +
+                "The fee model is unknown, so the total may be higher.",
+            review.feeNote,
+        )
+    }
+
+    @Test
+    fun unknownChainLegacyTransferShowsItsFeeInBaseUnits() {
+        val review = ready(requestCbor(legacyTx(chainId = UNKNOWN_CHAIN), dataType = 1, chainId = UNKNOWN_CHAIN)).review
+
+        assertEquals("Legacy", review.txType)
+        assertEquals(
+            listOf("Gas limit" to "60000", "Gas price" to "20 gwei", "Max fee" to "1200000000000000 base units"),
+            review.fee,
+        )
+        assertTrue(review.needsRegistryConfirmation)
+    }
+
+    @Test
+    fun unknownChainPersonalMessageIsReviewedWithAWarning() {
+        val review = ready(
+            requestCbor("Sign in to Lensly".toByteArray(Charsets.UTF_8), dataType = 3, chainId = UNKNOWN_CHAIN),
+        ).review
+
+        assertEquals("Unknown Chain", review.networkName)
+        assertEquals(UNKNOWN_CHAIN, review.chainId)
+        assertNull(review.network)
+        assertEquals("Sign message", review.function)
+        assertEquals(listOf("message" to "Sign in to Lensly"), review.params)
+        assertTrue(review.needsRegistryConfirmation)
+    }
+
+    @Test
+    fun unknownChainAndUnknownTokenAreWarnedTogether() {
+        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.valueOf(42))
+        val tx = eip1559Tx(chainId = UNKNOWN_CHAIN, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
+        val review = ready(requestCbor(tx, chainId = UNKNOWN_CHAIN)).review
+
+        assertEquals("Unknown Chain", review.networkName)
+        assertNull(review.network)
+        assertEquals("Token transfer", review.function)
+        assertNull(review.token)
+        assertEquals(UNREGISTERED, review.tokenContract)
+        assertEquals("42 base units", "${review.amount} ${review.symbol}")
+        assertEquals("Decimals unknown: raw integer amount, not verified", review.amountNote)
+        assertTrue(review.needsRegistryConfirmation)
+    }
+
+    @Test
+    fun knownChainsAndTokensAreReviewedWithoutAWarning() {
+        val usdcTransfer = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.valueOf(1_500_000))
+        val usdcApproval = erc20Call(SELECTOR_APPROVE, RECIPIENT, Erc20Call.MAX_UINT256)
+        val reviews = listOf(
+            ready(requestCbor(eip1559Tx())).review,
+            ready(requestCbor(eip1559Tx(chainId = BASE), chainId = BASE)).review,
+            ready(requestCbor(legacyTx(), dataType = 1)).review,
+            ready(
+                requestCbor(
+                    eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = usdcTransfer),
+                    chainId = ETHEREUM,
+                ),
+            ).review,
+            ready(
+                requestCbor(
+                    eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = usdcApproval),
+                    chainId = ETHEREUM,
+                ),
+            ).review,
+            ready(requestCbor("Sign in to Lensly".toByteArray(Charsets.UTF_8), dataType = 3)).review,
+        )
+        reviews.forEach { review ->
+            val label = "${review.function} on ${review.networkName}"
+            assertFalse(review.needsRegistryConfirmation, label)
+            assertNull(review.amountNote, label)
+        }
+        assertEquals(listOf("UNLIMITED APPROVAL"), reviews[4].warnings)
     }
 
     @Test
@@ -312,11 +448,64 @@ class SignPipelineTest {
     }
 
     @Test
-    fun unregisteredTokenContractIsRefused() {
-        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+    fun unknownTokenTransferOnAKnownChainIsReviewedWithAWarning() {
+        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.valueOf(1_500_000))
         val tx = eip1559Tx(chainId = ETHEREUM, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
+        val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
 
-        assertEquals("Unregistered token or contract", refusal(requestCbor(tx, chainId = ETHEREUM)))
+        assertEquals("Token transfer", review.function)
+        assertEquals("Ethereum", review.networkName)
+        assertEquals(REGISTRY.network(ETHEREUM), review.network)
+        assertNull(review.token)
+        assertEquals(UNREGISTERED, review.tokenContract)
+        assertEquals("1500000 base units", "${review.amount} ${review.symbol}")
+        assertEquals("Decimals unknown: raw integer amount, not verified", review.amountNote)
+        assertEquals(RECIPIENT, review.toAddress)
+        assertTrue(review.warnings.isEmpty())
+        assertTrue(review.needsRegistryConfirmation)
+    }
+
+    @Test
+    fun unknownTokenApprovalKeepsTheUnlimitedWarning() {
+        val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, Erc20Call.MAX_UINT256)
+        val tx = eip1559Tx(chainId = ETHEREUM, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
+        val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
+
+        assertEquals("Token approval", review.function)
+        assertEquals(listOf("UNLIMITED APPROVAL"), review.warnings)
+        assertEquals(listOf("spender", "amount"), review.params.map { it.first })
+        assertEquals(Erc20Call.MAX_UINT256.toString(), review.params.last().second)
+        assertNull(review.token)
+        assertTrue(review.needsRegistryConfirmation)
+    }
+
+    @Test
+    fun unknownCalldataIsRefusedOnAnUnknownTokenAndOnAnUnknownChain() {
+        val data = erc20Call(SELECTOR_BALANCE_OF, RECIPIENT, BigInteger.ZERO)
+        val onUnknownToken = eip1559Tx(chainId = ETHEREUM, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
+        val onUnknownChain = eip1559Tx(chainId = UNKNOWN_CHAIN, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
+
+        assertEquals("Unknown contract call", refusal(requestCbor(onUnknownToken, chainId = ETHEREUM)))
+        assertEquals("Unknown contract call", refusal(requestCbor(onUnknownChain, chainId = UNKNOWN_CHAIN)))
+    }
+
+    @Test
+    fun contractCreationIsStillRefusedOnAnUnknownChain() {
+        val deploy = TransactionEncoder.encode(
+            RawTransaction.createContractTransaction(
+                BigInteger.ZERO,
+                BigInteger.valueOf(1_000_000_000L),
+                BigInteger.valueOf(100_000),
+                BigInteger.ZERO,
+                "0x6080",
+            ),
+            UNKNOWN_CHAIN,
+        )
+
+        assertEquals(
+            "Contract creation is not supported",
+            refusal(requestCbor(deploy, dataType = 1, chainId = UNKNOWN_CHAIN)),
+        )
     }
 
     @Test
