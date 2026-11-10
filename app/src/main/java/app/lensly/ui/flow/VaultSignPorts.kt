@@ -3,6 +3,7 @@ package app.lensly.ui.flow
 import android.content.Context
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
+import app.lensly.app.WalletKind
 import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.Prepared
@@ -31,12 +32,20 @@ internal class VaultSignPorts(
 
     override suspend fun prepare(request: EthSignRequest): Prepared = withContext(Dispatchers.IO) {
         val meta = readWallet { WalletStore(it).meta(walletId) }
-        val xpub = requireNotNull(meta.accountXpub) { "A Mnemonic wallet has an account public key." }
-        val wallet = WalletView(
-            masterFingerprint = requireNotNull(meta.masterFingerprintHex).toLong(16).toInt(),
-            accountCount = meta.accountCount,
-            addressAt = { index -> AccountAddresses.addressAt(xpub, index) },
-        )
+        val wallet = when (meta.kind) {
+            WalletKind.MNEMONIC -> {
+                val xpub = requireNotNull(meta.accountXpub) { "A Mnemonic wallet has an account public key." }
+                WalletView(
+                    masterFingerprint = requireNotNull(meta.masterFingerprintHex).toLong(16).toInt(),
+                    accountCount = meta.accountCount,
+                    addressAt = { index -> AccountAddresses.addressAt(xpub, index) },
+                )
+            }
+            // The address is the only public fact a Single Key has, so the key is read once, for its address.
+            WalletKind.SINGLE_KEY -> WalletView.singleKey(
+                address = readWallet { WalletStore(it).addresses(walletId, 1).single() },
+            )
+        }
         SignPipeline(RegistryHolder.get(context)).prepare(request, wallet)
     }
 
