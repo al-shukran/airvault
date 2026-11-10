@@ -3,6 +3,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
+        <!--
+            singleTop lets an am start of MainActivity with the debugHidden extra reach a running MainActivity
+            through onNewIntent. With the standard launch mode, the platform does not deliver the intent,
+            so the debug hook would never run. Debug builds only.
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:launchMode="singleTop" />
+
         <!-- Gate screen harness for on-device checks. Pass the string extra "screen" with value create or unlock. -->
         <activity
             android:name=".ui.gate.GatePreviewActivity"
