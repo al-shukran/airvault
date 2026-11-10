@@ -7,7 +7,6 @@ import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
 import java.io.File
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
 
@@ -45,29 +44,39 @@ class ChainTokenIconsTest {
     }
 
     @Test
-    fun aNetworkWithALogoShowsItsLogo() {
-        assertEquals(R.drawable.chain_base, chainIconRes(registry.network(8453L)))
+    fun aNetworkWithALogoShowsItsLogoOnABackdropWhenNeeded() {
+        assertEquals(logo(R.drawable.chain_base, backdrop = true), chainIconSpec(registry.network(8453L)))
+        assertEquals(logo(R.drawable.chain_polygon, backdrop = true), chainIconSpec(registry.network(137L)))
+        assertEquals(logo(R.drawable.chain_arbitrum_one), chainIconSpec(registry.network(42161L)))
     }
 
     @Test
-    fun monadHasNoLogoSoItShowsTheEthereumLogo() {
-        assertNull(registry.network(143L)?.icon)
-        assertEquals(R.drawable.chain_ethereum, chainIconRes(registry.network(143L)))
+    fun monadMainnetAndTestnetShowTheMonadLogo() {
+        assertEquals(logo(R.drawable.chain_monad), chainIconSpec(registry.network(143L)))
+        assertEquals(logo(R.drawable.chain_monad), chainIconSpec(registry.network(10143L)))
     }
 
     @Test
     fun aNullNetworkShowsTheEthereumLogo() {
-        assertEquals(R.drawable.chain_ethereum, chainIconRes(null))
+        assertEquals(logo(R.drawable.chain_ethereum), chainIconSpec(null))
     }
 
     @Test
-    fun aNetworkWithoutALogoShowsTheEthereumLogo() {
-        assertEquals(R.drawable.chain_ethereum, chainIconRes(network(icon = null)))
+    fun aKnownNetworkWithoutALogoShowsAMonogramNotTheEthereumLogo() {
+        assertEquals(ChainIconSpec.Monogram("M"), chainIconSpec(network(icon = null, name = "Monad Testnet")))
     }
 
     @Test
-    fun aNetworkWhoseLogoNameIsUnknownShowsTheEthereumLogo() {
-        assertEquals(R.drawable.chain_ethereum, chainIconRes(network(icon = "chain_not_shipped")))
+    fun aKnownNetworkWhoseLogoNameIsUnknownShowsAMonogramNotTheEthereumLogo() {
+        assertEquals(ChainIconSpec.Monogram("B"), chainIconSpec(network(icon = "chain_not_shipped")))
+    }
+
+    @Test
+    fun aMonogramIsTheFirstLetterOfTheNetworkName() {
+        assertEquals("M", monogramOf("Monad Testnet"))
+        assertEquals("0", monogramOf("0G Galileo"))
+        assertEquals("T", monogramOf("(Test) chain"))
+        assertEquals("?", monogramOf(" "))
     }
 
     @Test
@@ -90,9 +99,11 @@ class ChainTokenIconsTest {
         assertEquals(R.drawable.ic_unknown_token, tokenIconRes(token(icon = "token_not_shipped")))
     }
 
-    private fun network(icon: String?) = NetworkEntry(
+    private fun logo(res: Int, backdrop: Boolean = false) = ChainIconSpec.Logo(res, backdrop)
+
+    private fun network(icon: String?, name: String = "Base") = NetworkEntry(
         chainId = 8453L,
-        name = "Base",
+        name = name,
         nativeSymbol = "ETH",
         feeModel = FeeModel.L2_ROLLUP,
         explorerName = "Basescan",

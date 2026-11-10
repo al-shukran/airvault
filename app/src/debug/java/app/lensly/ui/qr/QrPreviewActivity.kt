@@ -166,7 +166,7 @@ private fun sampleTwelveParts(): List<String> {
     }
 }
 
-/** Monad has no logo, so the review shows the Ethereum logo for it, as for any network without one. */
+/** Monad Testnet shows the Monad logo, as in the debug catalog, and a TESTNET pill beside its name. */
 private val monadTestnet = NetworkEntry(
     chainId = 10143L,
     name = "Monad Testnet",
@@ -174,6 +174,7 @@ private val monadTestnet = NetworkEntry(
     feeModel = FeeModel.L1,
     explorerName = "MonadVision",
     testnet = true,
+    icon = "chain_monad",
 )
 
 /** A native MON transfer. The amount row shows the chain logo, because MON is the native coin. */
