@@ -67,11 +67,11 @@ class RegistryUpdateTest {
         assertEquals(1L, installed.sequence)
         assertTrue(File(dir, RegistryUpdate.INSTALLED_FILE).isFile)
         val merged = RegistryUpdate.withInstalled(baked, dir, keys)
-        assertEquals("Linea", assertNotNull(merged.network(59144L)).name)
-        assertEquals("USDC", assertNotNull(merged.token(59144L, USDC_LINEA)).symbol)
+        assertEquals("Linea", assertNotNull(merged.network(4242L)).name)
+        assertEquals("USDC", assertNotNull(merged.token(4242L, USDC_LINEA)).symbol)
         assertEquals(baked.networks().size + 1, merged.networks().size)
         assertEquals(baked.tokens().size + 1, merged.tokens().size)
-        assertNull(baked.network(59144L))
+        assertNull(baked.network(4242L))
     }
 
     @Test
@@ -188,7 +188,7 @@ class RegistryUpdateTest {
                 tokens = token.replace("0x176211869ca2b568f2a7d4ee941e073a821ee1ff", "0x176211869CA2B568F2A7D4EE941E073A821EE1FF"),
             ),
             "short token contract" to TestPackages.payload(tokens = token.replace("ee1ff", "ee1")),
-            "chainId zero" to TestPackages.payload(networks = network.replace("\"chainId\":59144", "\"chainId\":0")),
+            "chainId zero" to TestPackages.payload(networks = network.replace("\"chainId\":4242", "\"chainId\":0")),
             "nativeDecimals above 36" to TestPackages.payload(
                 networks = network.replace("\"nativeDecimals\":18", "\"nativeDecimals\":37"),
             ),
@@ -259,7 +259,15 @@ class RegistryUpdateTest {
 
     @Test
     fun committedSampleVerifiesAgainstTheBakedKey() {
-        val pkg = RegistryUpdate.verify(File(SAMPLE).readBytes(), BAKED_KEYS, bakedRegistry()).getOrThrow()
+        // The committed sample adds Linea (59144), which the app now ships. Verify it against a catalog without
+        // that chain, so the check still covers the signature and the package format.
+        val bakedWithoutSampleChain = bakedRegistry().let { baked ->
+            Registry(
+                baked.networks().filter { it.chainId != 59144L },
+                baked.tokens().filter { it.chainId != 59144L },
+            )
+        }
+        val pkg = RegistryUpdate.verify(File(SAMPLE).readBytes(), BAKED_KEYS, bakedWithoutSampleChain).getOrThrow()
 
         assertEquals(listOf(59144L), pkg.networks.map { it.chainId })
         assertEquals("Linea", pkg.networks.single().name)
@@ -298,11 +306,11 @@ class RegistryUpdateTest {
     fun installedPackageThatNoLongerFitsTheBakedCatalogIsIgnored() {
         val dir = registryDir()
         RegistryUpdate.install(TestPackages.signed(TestPackages.payload()), keys, bakedRegistry(), dir).getOrThrow()
-        // An app update that bakes chain 59144 after the package was installed.
+        // An app update that bakes chain 4242 after the package was installed.
         val bakedWithLinea = RegistryLoader.load(
             fakeReader(
                 RegistryLoader.NETWORKS_PATH to
-                    """{"networks":[{"chainId":59144,"name":"Linea","nativeSymbol":"ETH","feeModel":"L2_ROLLUP","explorerName":"Lineascan","testnet":false}]}""",
+                    """{"networks":[{"chainId":4242,"name":"Linea","nativeSymbol":"ETH","feeModel":"L2_ROLLUP","explorerName":"Lineascan","testnet":false}]}""",
                 RegistryLoader.TOKENS_PATH to """{"tokens":[]}""",
             ),
         )
