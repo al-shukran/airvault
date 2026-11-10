@@ -105,22 +105,24 @@ fun SecureKeyboard(
     ) {
         if (lettersPage) {
             KeyRow {
+                // The label is cased at composition, but the tap reads `shifted` when it fires, so a
+                // Shift and a letter tapped in the same frame still use the current case.
                 for (base in LETTERS_TOP) {
                     val c = base.cased(shifted)
-                    CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+                    CharKey(c, Modifier.weight(1f), enabled) { onKey(base.cased(shifted)) }
                 }
             }
             KeyRow(inset = true) {
                 for (base in LETTERS_MIDDLE) {
                     val c = base.cased(shifted)
-                    CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+                    CharKey(c, Modifier.weight(1f), enabled) { onKey(base.cased(shifted)) }
                 }
             }
             KeyRow {
                 ShiftKey(Modifier.weight(1.5f), shifted, enabled) { shifted = !shifted }
                 for (base in LETTERS_BOTTOM) {
                     val c = base.cased(shifted)
-                    CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+                    CharKey(c, Modifier.weight(1f), enabled) { onKey(base.cased(shifted)) }
                 }
                 BackspaceKey(Modifier.weight(1.5f), enabled, onBackspace)
             }
