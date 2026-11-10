@@ -187,16 +187,14 @@ private fun WordsPreview() {
 @Composable
 private fun EntropyPreview(mode: EntropyMode) {
     val context = LocalContext.current
-    val target = mode.defaultCount
     val prefill = if (mode == EntropyMode.Dice) 23 else 41
     var entered by remember(mode) { mutableStateOf(fakeEntries(mode, prefill)) }
     DiceEntryScreen(
         mode = mode,
         entered = entered,
-        targetCount = target,
-        onSymbol = { symbol ->
-            if (entered.length < target) entered += symbol
-        },
+        minimumCount = EntropyTargets.minimumFor(mode),
+        fullStrengthCount = EntropyTargets.fullStrengthFor(mode),
+        onSymbol = { symbol -> entered += symbol },
         onBackspace = { entered = entered.dropLast(1) },
         onDone = { toast(context, "Preview: ${entered.length} entries") },
     )

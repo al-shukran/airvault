@@ -22,14 +22,6 @@ class CeremonyModelTest {
     }
 
     @Test
-    fun defaultCountsMatchTheCeremony() {
-        assertEquals(50, EntropyMode.Dice.defaultCount)
-        assertEquals(128, EntropyMode.Coins.defaultCount)
-        assertEquals(DICE_ROLL_COUNT, EntropyMode.Dice.defaultCount)
-        assertEquals(COIN_FLIP_COUNT, EntropyMode.Coins.defaultCount)
-    }
-
-    @Test
     fun formatHexLinesGroupsByFourWithFourGroupsPerLine() {
         val hex = "0123456789abcdef".repeat(4)
         assertEquals(List(4) { "0123 4567 89AB CDEF" }, formatHexLines(hex))

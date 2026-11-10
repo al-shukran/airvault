@@ -1,6 +1,7 @@
 package app.lensly.ui.wallet
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +11,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,27 +21,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.RoundKey
 import app.lensly.ui.theme.LenslyOnSurface
+import kotlin.math.roundToInt
 
 /** How many of the newest entries the dot-matrix strip shows. */
-private const val RECENT_ENTRIES = 12
+private const val RECENT_ENTRIES = 20
 
 /**
  * Dice or coin entry for the seed ceremony. The owner taps one face at a time. [entered] is the full
- * record so far, and [onSymbol] is called with one more face. Taps stop at [targetCount], and DONE
- * only enables once the target is reached.
+ * record so far, and [onSymbol] is called with one more face. Taps are never refused for reaching a
+ * count; only [EntropyTargets.MAX_SYMBOLS] stops them. DONE enables at [minimumCount], and
+ * [fullStrengthCount] is where the entry reaches its full 256 bits.
  */
 @Composable
 fun DiceEntryScreen(
     mode: EntropyMode,
     entered: String,
-    targetCount: Int,
+    minimumCount: Int,
+    fullStrengthCount: Int,
     onSymbol: (Char) -> Unit,
     onBackspace: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val complete = entered.length >= targetCount
-    val fraction = if (targetCount > 0) entered.length.toFloat() / targetCount else 0f
+    val progress = entropyProgress(mode, entered.length, minimumCount, fullStrengthCount)
+    val complete = entered.length >= minimumCount
+    val atCap = entered.length >= EntropyTargets.MAX_SYMBOLS
     val unit = if (mode == EntropyMode.Dice) "rolls" else "flips"
     WalletScaffold(
         modifier = modifier,
@@ -68,7 +75,9 @@ fun DiceEntryScreen(
         Spacer(Modifier.height(24.dp))
         WalletEyebrow(if (mode == EntropyMode.Dice) "Roll the dice" else "Flip the coins")
         Spacer(Modifier.height(8.dp))
-        DotText(text = "${entered.length} / $targetCount", fontSize = 40.sp)
+        DotText(text = "${entered.length}", fontSize = 40.sp)
+        Spacer(Modifier.height(4.dp))
+        DotText(text = "${progress.bits.roundToInt()} BITS", fontSize = 20.sp)
         Spacer(Modifier.height(8.dp))
         Box(
             modifier = Modifier
@@ -77,18 +86,46 @@ fun DiceEntryScreen(
             contentAlignment = Alignment.CenterStart,
         ) {
             if (entered.isNotEmpty()) {
-                DotText(
-                    text = entered.takeLast(RECENT_ENTRIES).toList().joinToString(" "),
-                    fontSize = 24.sp,
-                )
+                DotText(text = recentStrip(entered), fontSize = 20.sp)
             }
         }
         Spacer(Modifier.height(12.dp))
-        CountBar(fraction = fraction)
+        CountBar(fraction = progress.fraction)
         Spacer(Modifier.height(8.dp))
-        WalletEyebrow(if (complete) "Complete. Tap done." else "Enter $targetCount $unit")
+        when (progress.status) {
+            EntropyStatus.BelowMinimum -> WalletEyebrow("At least $minimumCount $unit")
+            EntropyStatus.MinimumReached ->
+                WalletEyebrow("Minimum reached · keep going for $FULL_STRENGTH_BITS bits")
+            EntropyStatus.FullStrength -> {
+                FullStrengthChip()
+                Spacer(Modifier.height(8.dp))
+                WalletEyebrow("You may continue or tap done")
+            }
+        }
         Spacer(Modifier.height(32.dp))
-        KeyPad(mode = mode, complete = complete, onSymbol = onSymbol)
+        KeyPad(mode = mode, atCap = atCap, onSymbol = onSymbol)
+    }
+}
+
+/** The newest [RECENT_ENTRIES] entries, with a leading ellipsis when older entries are hidden. */
+private fun recentStrip(entered: String): String {
+    val tail = entered.takeLast(RECENT_ENTRIES)
+    return if (entered.length > RECENT_ENTRIES) "…$tail" else tail
+}
+
+/** Outlined chip shown once the entry reaches full strength. */
+@Composable
+private fun FullStrengthChip() {
+    Box(
+        modifier = Modifier
+            .border(1.dp, LenslyOnSurface, RoundedCornerShape(percent = 50))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(
+            text = "FULL $FULL_STRENGTH_BITS-BIT",
+            style = MaterialTheme.typography.labelSmall,
+            color = LenslyOnSurface,
+        )
     }
 }
 
@@ -96,7 +133,7 @@ fun DiceEntryScreen(
 @Composable
 private fun KeyPad(
     mode: EntropyMode,
-    complete: Boolean,
+    atCap: Boolean,
     onSymbol: (Char) -> Unit,
 ) {
     Column(
@@ -111,7 +148,7 @@ private fun KeyPad(
                         label = symbol.toString(),
                         sublabel = coinSublabel(mode, symbol),
                         onClick = {
-                            if (!complete && mode.accepts(symbol)) onSymbol(symbol)
+                            if (!atCap && mode.accepts(symbol)) onSymbol(symbol)
                         },
                     )
                 }
