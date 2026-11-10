@@ -30,8 +30,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.R
+import app.lensly.ui.components.BackdropLogo
 import app.lensly.ui.components.chainIconDrawables
+import app.lensly.ui.components.chainIconsNeedingBackdrop
 import app.lensly.ui.components.tokenIconDrawables
+import app.lensly.ui.components.tokenIconsNeedingBackdrop
 import app.lensly.ui.theme.LenslyBlack
 
 /**
@@ -51,11 +54,11 @@ internal fun IconsPreview() {
     ) {
         section("CHAINS")
         items(chainIconDrawables.entries.sortedBy { it.key }) { entry ->
-            IconCell(resource = entry.value, label = entry.key)
+            IconCell(resource = entry.value, label = entry.key, backdrop = entry.key in chainIconsNeedingBackdrop)
         }
         section("TOKENS")
         items(tokenIconDrawables.entries.sortedBy { it.key }) { entry ->
-            IconCell(resource = entry.value, label = entry.key)
+            IconCell(resource = entry.value, label = entry.key, backdrop = entry.key in tokenIconsNeedingBackdrop)
         }
         section("APP AND FALLBACK")
         item { IconCell(resource = R.drawable.ic_unknown_token, label = "ic_unknown_token") }
@@ -75,15 +78,15 @@ private fun LazyGridScope.section(title: String) {
 }
 
 @Composable
-private fun IconCell(resource: Int, label: String) {
+private fun IconCell(resource: Int, label: String, backdrop: Boolean = false) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Image(
+        BackdropLogo(
             painter = painterResource(resource),
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
+            size = 48.dp,
+            backdrop = backdrop,
         )
         Spacer(Modifier.height(6.dp))
         Text(
