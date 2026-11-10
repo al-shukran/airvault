@@ -1,0 +1,12 @@
+{
+  "networks": [
+    {"chainId": 1, "name": "Ethereum", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "Etherscan", "testnet": false},
+    {"chainId": 42161, "name": "Arbitrum One", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L2_ROLLUP", "explorerName": "Arbiscan", "testnet": false},
+    {"chainId": 10, "name": "Optimism", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L2_ROLLUP", "explorerName": "Optimistic Etherscan", "testnet": false},
+    {"chainId": 8453, "name": "Base", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L2_ROLLUP", "explorerName": "Basescan", "testnet": false},
+    {"chainId": 137, "name": "Polygon PoS", "nativeSymbol": "POL", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "PolygonScan", "testnet": false},
+    {"chainId": 56, "name": "BNB Smart Chain", "nativeSymbol": "BNB", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "BscScan", "testnet": false},
+    {"chainId": 43114, "name": "Avalanche C-Chain", "nativeSymbol": "AVAX", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "Snowtrace", "testnet": false},
+    {"chainId": 143, "name": "Monad", "nativeSymbol": "MON", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "MonadVision", "testnet": false}
+  ]
+}

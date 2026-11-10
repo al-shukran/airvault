@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -59,6 +60,9 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.coroutines.android)
+
+    // Baked-in network and token catalogs (registry/*.json assets).
+    implementation(libs.kotlinx.serialization.json)
 
     // Crypto and wallet encoding.
     implementation(libs.web3j.core) {

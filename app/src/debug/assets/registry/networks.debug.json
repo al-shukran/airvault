@@ -1,0 +1,6 @@
+{
+  "networks": [
+    {"chainId": 10143, "name": "Monad Testnet", "nativeSymbol": "MON", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "MonadVision", "testnet": true},
+    {"chainId": 11155111, "name": "Ethereum Sepolia", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "Etherscan", "testnet": true}
+  ]
+}
