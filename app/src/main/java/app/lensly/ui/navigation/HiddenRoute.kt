@@ -38,6 +38,10 @@ internal object HiddenRoute {
     const val PASSPHRASE = "wallet/passphrase"
     const val NAME = "wallet/name"
 
+    // Single Key import: the typed key with its address check, then the write-down that ends the flow.
+    const val IMPORT_KEY = "wallet/import-key"
+    const val KEY_BACKUP = "wallet/key-backup"
+
     const val WALLET_ID_ARG = "walletId"
 
     fun detail(walletId: String): String = "detail/$walletId"
