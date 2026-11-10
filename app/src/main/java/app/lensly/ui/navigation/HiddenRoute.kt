@@ -17,9 +17,6 @@ internal object HiddenRoute {
     const val EXPORT = "export/{walletId}"
     const val SCAN = "scan/{walletId}"
 
-    /** Placeholder for a screen that is not built yet. It shows "SOON" and goes back. */
-    const val SOON = "soon"
-
     // Create and restore flows. The passphrase and name routes are shared by both.
     const val WALLET_START = "wallet/start"
     const val CEREMONY_CHOICE = "wallet/choice"
