@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "sequence": 1,
+  "createdAt": "2026-11-10",
+  "networks": [
+    {
+      "chainId": 59144,
+      "name": "Linea",
+      "nativeSymbol": "ETH",
+      "nativeDecimals": 18,
+      "feeModel": "L2_ROLLUP",
+      "explorerName": "Lineascan",
+      "testnet": false
+    }
+  ],
+  "tokens": [
+    {
+      "chainId": 59144,
+      "contract": "0x176211869ca2b568f2a7d4ee941e073a821ee1ff",
+      "symbol": "USDC",
+      "name": "USDC",
+      "decimals": 6
+    }
+  ]
+}
