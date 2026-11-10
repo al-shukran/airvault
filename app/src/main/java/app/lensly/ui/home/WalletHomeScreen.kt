@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -49,15 +50,16 @@ import app.lensly.ui.wallet.WalletWarningChip
 
 /**
  * The wallet list, in the style of the contacts list: a dot-matrix headline, one row per wallet, and a red add
- * button. [onOpen] receives the wallet id. [onLock] locks the vault and leaves the hidden area. [onUpdateCatalog]
- * opens the import of a signed registry package. [debugNotice], when set, shows a warning chip, for example that the
- * keystore is software-only.
+ * button. [onOpen] receives the wallet id. [onSettings] opens the Settings screen. [onLock] locks the vault and leaves
+ * the hidden area. [onUpdateCatalog] opens the import of a signed registry package. [debugNotice], when set, shows a
+ * warning chip, for example that the keystore is software-only.
  */
 @Composable
 fun WalletHomeScreen(
     wallets: List<WalletMeta>,
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
+    onSettings: () -> Unit,
     onLock: () -> Unit,
     onUpdateCatalog: () -> Unit,
     modifier: Modifier = Modifier,
@@ -78,6 +80,13 @@ fun WalletHomeScreen(
             ) {
                 WalletEyebrow("Offline vault")
                 Spacer(Modifier.weight(1f))
+                WalletPill(
+                    text = "Settings",
+                    onClick = onSettings,
+                    style = WalletPillStyle.Outline,
+                    size = WalletPillSize.Compact,
+                )
+                Spacer(Modifier.width(8.dp))
                 WalletPill(
                     text = "Lock",
                     onClick = onLock,

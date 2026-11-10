@@ -1,0 +1,144 @@
+package app.lensly.app
+
+import app.lensly.core.vault.VaultLayout
+import app.lensly.core.vault.VaultSession
+import app.lensly.core.wallet.BulkCap
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
+import java.io.File
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+
+class SettingsStoreTest {
+
+    @get:Rule
+    val tmp = TemporaryFolder()
+
+    private val vaultKey = ByteArray(32) { (it * 5 + 3).toByte() }
+    private val words = List(23) { "abandon" } + "art"
+
+    // A session zeroes the key array it is given when it closes, so each session gets its own copy.
+    private fun open(): VaultSession = VaultSession(VaultLayout(tmp.root), vaultKey.copyOf())
+
+    /** The settings record as the store writes it, with a chosen version and account count. */
+    private fun record(version: Int, accounts: Int): ByteArray {
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(version)
+            out.writeInt(accounts)
+        }
+        return buffer.toByteArray()
+    }
+
+    @Test
+    fun aVaultWithNoSavedSettingsReadsTheDefaultBulkCap() {
+        val session = open()
+
+        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
+        session.close()
+    }
+
+    @Test
+    fun aSavedBulkCapIsReadBackAfterTheVaultReopens() {
+        val first = open()
+        SettingsStore(first).save(AppSettings(bulkCap = BulkCap.THOUSAND))
+        first.close()
+
+        val reopened = open()
+        assertEquals(BulkCap.THOUSAND, SettingsStore(reopened).load().bulkCap)
+        reopened.close()
+    }
+
+    @Test
+    fun theLastSavedBulkCapWins() {
+        val session = open()
+        val store = SettingsStore(session)
+        store.save(AppSettings(BulkCap.THOUSAND))
+        store.save(AppSettings(BulkCap.HUNDRED))
+
+        assertEquals(BulkCap.HUNDRED, store.load().bulkCap)
+        session.close()
+    }
+
+    @Test
+    fun everyOfferedBulkCapRoundTrips() {
+        for (cap in BulkCap.entries) {
+            val session = open()
+            SettingsStore(session).save(AppSettings(cap))
+            assertEquals(cap, SettingsStore(session).load().bulkCap)
+            session.close()
+        }
+    }
+
+    @Test
+    fun aCapTheAppDoesNotOfferReadsAsTheDefault() {
+        val session = open()
+        session.putVaultRecord("settings", record(version = 1, accounts = 500))
+
+        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
+        session.close()
+    }
+
+    @Test
+    fun anUnknownSettingsVersionReadsAsTheDefault() {
+        val session = open()
+        session.putVaultRecord("settings", record(version = 2, accounts = 1_000))
+
+        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
+        session.close()
+    }
+
+    @Test
+    fun aTruncatedSettingsRecordReadsAsTheDefault() {
+        val session = open()
+        // Version 1, then no account count.
+        session.putVaultRecord("settings", byteArrayOf(1, 0))
+
+        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
+        session.close()
+    }
+
+    @Test
+    fun aDamagedSettingsRecordReadsAsTheDefault() {
+        val session = open()
+        SettingsStore(session).save(AppSettings(BulkCap.THOUSAND))
+        val file = File(tmp.root, "vault-records/settings.bin")
+        val bytes = file.readBytes()
+        bytes[bytes.size - 1] = (bytes[bytes.size - 1].toInt() xor 1).toByte()
+        file.writeBytes(bytes)
+
+        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
+        session.close()
+    }
+
+    @Test
+    fun aClosedSessionStillThrowsWhenSettingsAreLoaded() {
+        // The fallback to the default covers damaged records only. A closed session is a bug and still throws.
+        val session = open()
+        session.close()
+
+        assertFailsWith<IllegalStateException> { SettingsStore(session).load() }
+    }
+
+    @Test
+    fun theBulkRunEnforcesTheSavedCap() {
+        // The bulk run reads the cap from the saved setting, as the bulk screen does, and not from a constant.
+        val session = open()
+        val wallets = WalletStore(session)
+        val id = wallets.create(name = "Test", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+
+        SettingsStore(session).save(AppSettings(BulkCap.HUNDRED))
+        val hundred = SettingsStore(session).load().bulkCap.accounts
+        assertFailsWith<IllegalArgumentException> { wallets.addAccounts(id, 101, hundred) }
+        assertEquals(1, wallets.meta(id)?.accountCount)
+
+        SettingsStore(session).save(AppSettings(BulkCap.THOUSAND))
+        val thousand = SettingsStore(session).load().bulkCap.accounts
+        assertEquals(102, assertNotNull(wallets.addAccounts(id, 101, thousand)).accountCount)
+        session.close()
+    }
+}

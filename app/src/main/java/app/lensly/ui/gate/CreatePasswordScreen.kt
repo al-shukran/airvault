@@ -41,7 +41,7 @@ data class CreatePasswordState(
     val error: PolicyError? = null,
 )
 
-private fun PolicyError.message(): String = when (this) {
+internal fun PolicyError.message(): String = when (this) {
     PolicyError.TooShort -> "NEEDS $MIN_PASSWORD_LENGTH+ CHARACTERS"
     PolicyError.TooWeak -> "TOO EASY TO GUESS. ADD VARIETY."
     PolicyError.Mismatch -> "DOES NOT MATCH. TRY AGAIN."

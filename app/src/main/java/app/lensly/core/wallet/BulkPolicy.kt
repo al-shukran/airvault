@@ -2,21 +2,14 @@ package app.lensly.core.wallet
 
 /**
  * The rules of a Bulk Run: the Count a run may ask for, the Bulk Cap that bounds it, the presets, and the index range
- * that the new accounts take. Nothing here touches keys or storage, so every rule is tested on the JVM.
+ * that the new accounts take. The cap is the owner's setting ([BulkCap]), so every check takes it as an argument.
+ * Nothing here touches keys or storage, so every rule is tested on the JVM.
  */
 object BulkPolicy {
-    /**
-     * The most accounts one Bulk Run may create. A Count above it is refused. There is no uncapped run.
-     *
-     * TODO: The owner is meant to set the Bulk Cap in the Vault Area (100, 1,000, or chunked mode). That Settings
-     * screen does not exist yet, so this constant is the only Cap. Make it a stored setting when Settings lands.
-     */
-    const val DEFAULT_CAP = 100
-
-    /** The Counts one tap away on the bulk screen. Each one is at most [DEFAULT_CAP]. */
+    /** The Counts one tap away on the bulk screen. Each one is at most 100, so it fits every [BulkCap]. */
     val PRESETS: List<Int> = listOf(10, 20, 50)
 
-    /** The most digits a typed Count takes. Four digits reach 9999, which is far above any Cap in use. */
+    /** The most digits a typed Count takes. Four digits reach 9999, which is above the largest [BulkCap]. */
     const val MAX_DIGITS = 4
 
     /** The outcome of [checkCount]. */
@@ -34,8 +27,8 @@ object BulkPolicy {
         data class Valid(val count: Int) : CountCheck
     }
 
-    /** Checks a typed [count] against 1 and [cap]. Null means that no Count has been typed. */
-    fun checkCount(count: Int?, cap: Int = DEFAULT_CAP): CountCheck = when {
+    /** Checks a typed [count] against 1 and the configured [cap]. Null means that no Count has been typed. */
+    fun checkCount(count: Int?, cap: Int): CountCheck = when {
         count == null -> CountCheck.Missing
         count < 1 -> CountCheck.TooFew
         count > cap -> CountCheck.TooMany(cap)
