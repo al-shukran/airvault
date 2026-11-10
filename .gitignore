@@ -10,3 +10,7 @@ local.properties
 .gradle/
 .kotlin/
 .idea/
+
+# Throwaway test-wallet backup; never commit
+seed.md
+*.key
