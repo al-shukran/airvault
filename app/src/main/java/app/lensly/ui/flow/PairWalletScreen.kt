@@ -57,8 +57,10 @@ internal enum class PairFormat(val label: String, val instruction: String) {
  * "Lensly" when it has no name. Public data only. The fingerprint is stored as hex, so it is read as an unsigned value.
  */
 internal fun pairingParts(wallet: WalletMeta): List<String> = PairingExport.urParts(
-    xpub = wallet.accountXpub,
-    masterFingerprint = wallet.masterFingerprintHex.toLong(16).toInt(),
+    xpub = requireNotNull(wallet.accountXpub) { "Only a Mnemonic wallet has an account public key." },
+    masterFingerprint = requireNotNull(wallet.masterFingerprintHex) { "Only a Mnemonic wallet has a fingerprint." }
+        .toLong(16)
+        .toInt(),
     name = wallet.name.ifBlank { DEFAULT_PAIR_NAME },
 )
 

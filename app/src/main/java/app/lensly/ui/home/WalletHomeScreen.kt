@@ -173,7 +173,7 @@ private fun WalletRow(wallet: WalletMeta, onClick: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (wallet.deviceGenerated) PillChip(text = "Device-generated")
-                PillChip(text = "Master ${wallet.masterFingerprintHex.uppercase()}")
+                PillChip(text = "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}")
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)

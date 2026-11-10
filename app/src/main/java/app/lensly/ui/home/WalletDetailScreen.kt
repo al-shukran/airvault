@@ -106,7 +106,7 @@ fun WalletDetailScreen(
                     DotText(text = wallet.name.uppercase(), fontSize = 40.sp)
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PillChip(text = "Master ${wallet.masterFingerprintHex.uppercase()}")
+                        PillChip(text = "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}")
                     }
                     Spacer(Modifier.height(24.dp))
                     WalletEyebrow("Accounts")
