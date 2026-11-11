@@ -6,6 +6,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.bouncycastle.crypto.digests.KeccakDigest
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
@@ -18,6 +19,26 @@ data class PackageDto(
     val createdAt: String,
     val networks: List<NetworkDto>,
     val tokens: List<TokenDto>,
+    /** Optional. A package made before the whitelist existed has none, and the app then has an empty whitelist. */
+    val whitelist: List<WhitelistDto> = emptyList(),
+)
+
+/** One contract call the whitelist approves. [selector] must be the Keccak-256 selector of [signature]. */
+@Serializable
+data class WhitelistDto(
+    val chainId: Long,
+    val contract: String,
+    val selector: String,
+    val signature: String,
+    val meaning: String,
+    val proxy: ProxyDto? = null,
+)
+
+/** The implementation a whitelisted proxy is bound to: its address, its code hash, or both. */
+@Serializable
+data class ProxyDto(
+    val implementationAddress: String? = null,
+    val implementationCodeHash: String? = null,
 )
 
 @Serializable
@@ -47,7 +68,8 @@ enum class FeeModel { L1, L2_ROLLUP }
  * Builds, checks and signs registry packages. The app reader is `core/registry/update`; the two must agree.
  *
  * File: `LRP1` | u32 big-endian payload length | payload | 64-byte Ed25519 signature.
- * Payload: canonical JSON (sorted keys, no whitespace, entries sorted by chain ID and then contract).
+ * Payload: canonical JSON (sorted keys, no whitespace, entries sorted by chain ID and then contract). The `whitelist` key
+ * is written only when the package has whitelist entries, so a package without one keeps the bytes it had before.
  * Signed message: `LENSLY-REGISTRY-v1\n` followed by the payload bytes.
  */
 internal object Pack {
@@ -59,8 +81,12 @@ internal object Pack {
     private const val HEADER_BYTES = 8
     private const val SIGNATURE_BYTES = 64
     private const val MAX_TEXT = 64
+    private const val MAX_MEANING = 240
     private const val MAX_DECIMALS = 36
     private val CONTRACT = Regex("0x[0-9a-f]{40}")
+    private val SELECTOR = Regex("0x[0-9a-f]{8}")
+    private val CODE_HASH = Regex("0x[0-9a-f]{64}")
+    private val SIGNATURE = Regex("[A-Za-z_][A-Za-z0-9_]*\\((?:[a-z0-9\\[\\]]+(?:,[a-z0-9\\[\\]]+)*)?\\)")
     private val json = Json
 
     /** Builds a signed package from entries JSON. The same entries and seed always give the same bytes. */
@@ -87,14 +113,30 @@ internal object Pack {
 
     /** Canonical payload bytes for [content]. Entries are sorted here, so the order in the source never matters. */
     fun canonicalPayload(content: PackageDto): ByteArray = CanonicalJson.write(
-        mapOf(
-            "formatVersion" to content.formatVersion,
-            "sequence" to content.sequence,
-            "createdAt" to content.createdAt,
-            "networks" to content.networks.sortedBy { it.chainId }.map(::networkMap),
-            "tokens" to content.tokens.sortedWith(compareBy<TokenDto>({ it.chainId }, { it.contract })).map(::tokenMap),
-        ),
+        buildMap {
+            put("formatVersion", content.formatVersion)
+            put("sequence", content.sequence)
+            put("createdAt", content.createdAt)
+            put("networks", content.networks.sortedBy { it.chainId }.map(::networkMap))
+            put("tokens", content.tokens.sortedWith(compareBy<TokenDto>({ it.chainId }, { it.contract })).map(::tokenMap))
+            if (content.whitelist.isNotEmpty()) {
+                put("whitelist", content.whitelist.sortedWith(WHITELIST_ORDER).map(::whitelistMap))
+            }
+        },
     ).toByteArray(StandardCharsets.UTF_8)
+
+    private val WHITELIST_ORDER = compareBy<WhitelistDto>({ it.chainId }, { it.contract }, { it.selector })
+
+    private fun whitelistMap(entry: WhitelistDto): Map<String, Any?> = mapOf(
+        "chainId" to entry.chainId,
+        "contract" to entry.contract,
+        "meaning" to entry.meaning,
+        "proxy" to entry.proxy?.let {
+            mapOf("implementationAddress" to it.implementationAddress, "implementationCodeHash" to it.implementationCodeHash)
+        },
+        "selector" to entry.selector,
+        "signature" to entry.signature,
+    )
 
     private fun networkMap(network: NetworkDto): Map<String, Any?> = mapOf(
         "chainId" to network.chainId,
@@ -150,15 +192,47 @@ internal object Pack {
                 "token ${token.contract} decimals must be 0 to $MAX_DECIMALS"
             }
         }
+        val approvals = content.whitelist.map { Triple(it.chainId, it.contract, it.selector) }
+        require(approvals.distinct().size == approvals.size) {
+            "a whitelist entry appears more than once (same chainId, contract and selector)"
+        }
+        for (entry in content.whitelist) {
+            require(entry.chainId > 0) { "whitelist chainId must be positive: ${entry.chainId}" }
+            require(CONTRACT.matches(entry.contract)) {
+                "whitelist contract must be 0x followed by 40 lowercase hex digits: ${entry.contract}"
+            }
+            require(SIGNATURE.matches(entry.signature)) {
+                "whitelist signature must look like name(type,type): ${entry.signature}"
+            }
+            require(SELECTOR.matches(entry.selector) && entry.selector == selectorOf(entry.signature)) {
+                "whitelist selector ${entry.selector} is not the Keccak-256 selector of ${entry.signature}"
+            }
+            requireText("whitelist ${entry.signature} meaning", entry.meaning, MAX_MEANING)
+            entry.proxy?.let { proxy ->
+                require(proxy.implementationAddress != null || proxy.implementationCodeHash != null) {
+                    "whitelist ${entry.signature}: a proxy names its implementation, its code hash, or both"
+                }
+                proxy.implementationAddress?.let {
+                    require(CONTRACT.matches(it)) {
+                        "implementation address must be 0x followed by 40 lowercase hex digits: $it"
+                    }
+                }
+                proxy.implementationCodeHash?.let {
+                    require(CODE_HASH.matches(it)) {
+                        "implementation code hash must be 0x followed by 64 lowercase hex digits"
+                    }
+                }
+            }
+        }
     }
 
-    /** Non-blank, at most [MAX_TEXT] characters, and no control or format characters (no spoofing marks). */
-    private fun requireText(what: String, value: String) {
+    /** Non-blank, at most [max] characters, and no control or format characters (no spoofing marks). */
+    private fun requireText(what: String, value: String, max: Int = MAX_TEXT) {
         require(
             value.isNotBlank() &&
-                value.length <= MAX_TEXT &&
+                value.length <= max &&
                 value.none { it.category == CharCategory.CONTROL || it.category == CharCategory.FORMAT },
-        ) { "$what must be 1 to $MAX_TEXT printable characters" }
+        ) { "$what must be 1 to $max printable characters" }
     }
 
     private fun encode(payload: ByteArray, seed: ByteArray): ByteArray {
@@ -191,6 +265,16 @@ internal object Pack {
         require(verifier.verifySignature(signature)) { "signature does not verify with this public key" }
         return payload
     }
+}
+
+/** The Function Selector of [signature]: the first four bytes of its Keccak-256 hash, as 0x and 8 lowercase hex digits. */
+internal fun selectorOf(signature: String): String {
+    val input = signature.toByteArray(StandardCharsets.US_ASCII)
+    val digest = KeccakDigest(256)
+    digest.update(input, 0, input.size)
+    val hash = ByteArray(32)
+    digest.doFinal(hash, 0)
+    return "0x" + hash.copyOf(4).toHex()
 }
 
 internal fun ByteArray.toHex(): String = joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }

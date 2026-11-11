@@ -1,10 +1,12 @@
 package app.lensly.tools.registrypack
 
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -124,5 +126,61 @@ class PackTest {
         )
         assertFails { generateKeys(dir) }
         assertTrue(Files.exists(dir.resolve("release.key")))
+    }
+
+    private val whitelistJson = File("samples/example-whitelist-entries.json").readText()
+    private val whitelistSource = json.decodeFromString<PackageDto>(whitelistJson)
+
+    @Test
+    fun whitelistRoundTripsThroughTheSignedPackage() {
+        val (bytes, content) = Pack.build(whitelistJson, seed)
+
+        assertEquals(whitelistSource, content)
+        assertEquals(whitelistSource, Pack.verify(bytes, publicKey))
+        assertEquals(2, whitelistSource.whitelist.size)
+    }
+
+    @Test
+    fun aPackageWithoutAWhitelistKeepsItsOldPayloadBytes() {
+        val payload = String(Pack.canonicalPayload(source), StandardCharsets.UTF_8)
+
+        assertFalse(payload.contains("whitelist"))
+    }
+
+    @Test
+    fun tamperedWhitelistByteFailsVerification() {
+        val bytes = Pack.build(whitelistJson, seed).first
+        val at = String(bytes, StandardCharsets.ISO_8859_1).indexOf("swapExactTokensForTokens")
+        bytes[at] = (bytes[at] + 1).toByte()
+
+        assertFails { Pack.verify(bytes, publicKey) }
+    }
+
+    @Test
+    fun invalidWhitelistEntriesAreRefused() {
+        val entry = whitelistSource.whitelist.first()
+        val proxy = whitelistSource.whitelist.last()
+        val cases = mapOf(
+            "selector of another signature" to whitelistSource.copy(whitelist = listOf(entry.copy(selector = "0x095ea7b3"))),
+            "uppercase whitelist contract" to whitelistSource.copy(
+                whitelist = listOf(entry.copy(contract = "0x" + "AB".repeat(20))),
+            ),
+            "short selector" to whitelistSource.copy(whitelist = listOf(entry.copy(selector = "0x38ed"))),
+            "signature without parameter list" to whitelistSource.copy(whitelist = listOf(entry.copy(signature = "swap"))),
+            "blank meaning" to whitelistSource.copy(whitelist = listOf(entry.copy(meaning = " "))),
+            "meaning over 240 characters" to whitelistSource.copy(whitelist = listOf(entry.copy(meaning = "x".repeat(241)))),
+            "bidi control in meaning" to whitelistSource.copy(whitelist = listOf(entry.copy(meaning = "Swap‮ tokens"))),
+            "proxy naming nothing" to whitelistSource.copy(whitelist = listOf(proxy.copy(proxy = ProxyDto()))),
+            "proxy code hash too short" to whitelistSource.copy(
+                whitelist = listOf(proxy.copy(proxy = ProxyDto(implementationCodeHash = "0x1234"))),
+            ),
+            "whitelist chainId zero" to whitelistSource.copy(whitelist = listOf(entry.copy(chainId = 0))),
+            "repeated whitelist entry" to whitelistSource.copy(whitelist = listOf(entry, entry.copy(meaning = "Again"))),
+        )
+        for ((label, content) in cases) {
+            assertFailsWith<IllegalArgumentException>(label) {
+                Pack.build(json.encodeToString(PackageDto.serializer(), content), seed)
+            }
+        }
     }
 }
