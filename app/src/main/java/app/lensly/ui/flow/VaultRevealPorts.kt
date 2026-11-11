@@ -3,6 +3,7 @@ package app.lensly.ui.flow
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
+import app.lensly.core.wallet.Mnemonic
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +25,10 @@ internal class VaultRevealPorts(
         val session = holder.openSession() ?: return@withContext SecretLoad.Locked
         try {
             when (val secret = WalletStore(session).secret(walletId)) {
-                is WalletSecret.Mnemonic -> SecretLoad.Loaded(RevealedSecret.ofMnemonic(secret.words, secret.passphrase))
+                is WalletSecret.Mnemonic -> SecretLoad.Loaded(
+                    // The words are copied into the RevealedSecret, then the buffers they came from are wiped.
+                    Mnemonic.of(secret.words).use { RevealedSecret.ofMnemonic(it, secret.passphrase) },
+                )
                 is WalletSecret.SingleKey -> SecretLoad.Loaded(RevealedSecret.ofKey(secret.privateKey))
                 null -> SecretLoad.Unavailable
             }

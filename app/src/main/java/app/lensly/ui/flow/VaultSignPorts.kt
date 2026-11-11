@@ -49,7 +49,7 @@ internal class VaultSignPorts(
     override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
         when (val secret = readWallet { WalletStore(it).secret(walletId) }) {
             is WalletSecret.Mnemonic -> {
-                val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
+                val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
                 try {
                     HdWallet(seed).privateKey(accountIndex)
                 } finally {
