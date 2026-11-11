@@ -721,4 +721,21 @@ class FailureStoreTest {
         assertEquals(1, keys.failureMacKeyCount())
         assertEquals(next, open(dir).load(clock))
     }
+
+    @Test
+    fun aWriteThatFailsDuringACheckStillBlocksTheAttempt() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        open(dir).initialize(clock)
+        val failed = open(dir).recordFailure(open(dir).load(clock), clock)
+        clock.advance(4_000)
+
+        // The boot count is reported, so the check saves the time served, and the storage refuses the write.
+        val refusing = FailureStore(dir, keys, { 7 }, write = { _, _ -> throw IOException("no space left on the device") })
+        val check = refusing.checkDelay(clock, FakeClock.START_WALL)
+        assertTrue(check.blocked)
+
+        // Nothing was written, so the copies still hold the state from before the check.
+        assertEquals(failed, open(dir).load(clock))
+    }
 }

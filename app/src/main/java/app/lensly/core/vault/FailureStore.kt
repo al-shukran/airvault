@@ -178,14 +178,16 @@ internal class FailureStore(
 
     /**
      * Saves the time the running wait has served, as of [clock] now. A device that reports no boot count saves nothing, because
-     * a reboot cannot be told from a moved clock on it, so the wait is measured as it was. A Keystore that refuses the key leaves
-     * the state as it was loaded, which still blocks the attempt.
+     * a reboot cannot be told from a moved clock on it, so the wait is measured as it was. A Keystore or storage error leaves the
+     * state as it was loaded, which still blocks the attempt, so the check never fails because of this save.
      */
     private fun recordWaitServed(state: FailureState, clock: Clock): FailureState {
         if (currentBootCount() == null) return state
         return try {
             save(state.copy(seq = state.seq + 1), clock)
         } catch (e: VaultException) {
+            state
+        } catch (e: IOException) {
             state
         }
     }
