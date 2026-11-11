@@ -45,10 +45,11 @@ fun effectiveWalletName(typed: String, suggested: String?): String =
     typed.trim().ifEmpty { suggested ?: FALLBACK_WALLET_NAME }
 
 /**
- * The name screen. It names a new wallet, and it renames a wallet or an account. The caller owns [name] and enforces
- * [DISPLAY_NAME_MAX_LENGTH]. [placeholder] is shown muted while [name] is empty and is not part of the name. When
- * [onReset] is set, a pill labelled [resetLabel] is shown under the field. Taps go through [SecureKeyboard], and DONE
- * finishes the flow.
+ * The name screen. It names a new wallet, and it renames a wallet, an account, or several accounts. The caller owns [name]
+ * and enforces [maxLength], which is [DISPLAY_NAME_MAX_LENGTH] unless a batch name is shorter. [placeholder] is shown muted
+ * while [name] is empty and is not part of the name. When [onReset] is set, a pill labelled [resetLabel] is shown under the
+ * field. [title] and [emptyHelp] replace the default title and the empty-input helper when they are set. Taps go through
+ * [SecureKeyboard], and DONE finishes the flow.
  *
  * Under the field, a counter shows the length. Empty input says what DONE will use, and a full field says it is full.
  */
@@ -62,11 +63,14 @@ fun WalletNameScreen(
     placeholder: String? = null,
     onReset: (() -> Unit)? = null,
     resetLabel: String = "Reset",
+    title: String? = null,
+    maxLength: Int = DISPLAY_NAME_MAX_LENGTH,
+    emptyHelp: String? = null,
 ) {
-    val full = name.length >= DISPLAY_NAME_MAX_LENGTH
+    val full = name.length >= maxLength
     val helperColor = if (full) LenslyWarning else MaterialTheme.colorScheme.onSurfaceVariant
     LenslyScreen(
-        title = if (onReset != null) "Account name" else "Wallet name",
+        title = title ?: if (onReset != null) "Account name" else "Wallet name",
         modifier = modifier,
         scrollable = false,
         bottomAction = {
@@ -96,8 +100,8 @@ fun WalletNameScreen(
             Text(
                 text = when {
                     full -> "Name is full"
-                    name.isEmpty() -> "Leave empty to use ${placeholder ?: "the suggested name"}"
-                    else -> "Up to $DISPLAY_NAME_MAX_LENGTH characters"
+                    name.isEmpty() -> emptyHelp ?: "Leave empty to use ${placeholder ?: "the suggested name"}"
+                    else -> "Up to $maxLength characters"
                 }.uppercase(),
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.labelMedium,
@@ -107,7 +111,7 @@ fun WalletNameScreen(
             )
             Spacer(Modifier.width(LenslySpacing.xs))
             Text(
-                text = "${name.length}/$DISPLAY_NAME_MAX_LENGTH",
+                text = "${name.length}/$maxLength",
                 style = MaterialTheme.typography.labelMedium,
                 color = helperColor,
             )

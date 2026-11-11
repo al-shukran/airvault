@@ -20,9 +20,10 @@ internal object HiddenRoute {
 
     // Show Secret: the App Password again, a warning, then the secret. Reached from the wallet detail.
     const val SHOW_SECRET = "secret/{walletId}"
-    // Renames: a wallet's Display Name, and one account's. Both use the shared name screen.
+    // Renames: a wallet's Display Name, one account's, and a batch of accounts'. All use the shared name screen.
     const val RENAME_WALLET = "rename-wallet/{walletId}"
     const val RENAME_ACCOUNT = "rename-account/{walletId}/{index}"
+    const val RENAME_ACCOUNTS = "rename-accounts/{walletId}/{indices}"
 
     // Catalog: installs a signed registry package from removable storage.
     const val CATALOG = "catalog"
@@ -52,6 +53,7 @@ internal object HiddenRoute {
 
     const val WALLET_ID_ARG = "walletId"
     const val ACCOUNT_INDEX_ARG = "index"
+    const val ACCOUNT_INDICES_ARG = "indices"
 
     fun detail(walletId: String): String = "detail/$walletId"
 
@@ -65,4 +67,8 @@ internal object HiddenRoute {
     fun renameWallet(walletId: String): String = "rename-wallet/$walletId"
 
     fun renameAccount(walletId: String, index: Int): String = "rename-account/$walletId/$index"
+
+    /** The accounts as a comma-separated list of indices, for example "1,3,4". */
+    fun renameAccounts(walletId: String, indices: Collection<Int>): String =
+        "rename-accounts/$walletId/${indices.joinToString(",")}"
 }

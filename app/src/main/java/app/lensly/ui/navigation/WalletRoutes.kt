@@ -475,6 +475,19 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
         onRenameWallet = { navController.navigate(HiddenRoute.renameWallet(walletId)) },
         onRenameAccount = { index -> navController.navigate(HiddenRoute.renameAccount(walletId, index)) },
+        onRenameAccounts = { indices -> navController.navigate(HiddenRoute.renameAccounts(walletId, indices)) },
+        onResetAccountNames = { indices ->
+            scope.launch {
+                whileUnlocked(navController, holder) {
+                    // One write removes the selected names. The names are read again, so the rows show the Auto-Names.
+                    accountNames = withContext(Dispatchers.IO) {
+                        val store = WalletStore(session)
+                        store.resetAccountNames(walletId, indices)
+                        store.accountNames(walletId, shown.accountCount)
+                    }
+                }
+            }
+        },
     )
 }
 
