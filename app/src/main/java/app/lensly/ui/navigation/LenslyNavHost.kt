@@ -40,7 +40,7 @@ object LenslyRoute {
 }
 
 /** Idle time in the hidden area after which the vault locks and the owner returns to the camera. */
-private const val INACTIVITY_LOCK_MS = 2 * 60 * 1000L
+internal const val INACTIVITY_LOCK_MS = 2 * 60 * 1000L
 
 /**
  * The app's navigation. It opens on the camera. The hidden area is entered by the viewfinder gesture, and it is
@@ -88,13 +88,17 @@ fun LenslyNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
  * records every touch, so the countdown restarts with each one.
  */
 @Composable
-private fun InactivityLock(navController: NavHostController, holder: VaultHolder): Modifier {
+internal fun InactivityLock(
+    navController: NavHostController,
+    holder: VaultHolder,
+    lockDelayMs: Long = INACTIVITY_LOCK_MS,
+): Modifier {
     val entry by navController.currentBackStackEntryAsState()
     val inHidden = entry?.destination.inHiddenGraph()
     var touches by remember { mutableIntStateOf(0) }
     LaunchedEffect(inHidden, touches) {
         if (inHidden) {
-            delay(INACTIVITY_LOCK_MS)
+            delay(lockDelayMs)
             leaveHidden(navController, holder)
         }
     }
@@ -121,7 +125,7 @@ private fun OpenHiddenOnDebugLaunch(navController: NavHostController, request: I
  * reopens on the camera. Configuration changes such as rotation also stop the activity, so they are excluded.
  */
 @Composable
-private fun ReturnToCameraWhenBackgrounded(navController: NavHostController, holder: VaultHolder) {
+internal fun ReturnToCameraWhenBackgrounded(navController: NavHostController, holder: VaultHolder) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     DisposableEffect(lifecycleOwner, navController) {
