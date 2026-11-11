@@ -1,5 +1,6 @@
 package app.lensly.e2e
 
+import android.graphics.Rect
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -7,7 +8,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -49,6 +49,9 @@ import app.lensly.ui.sign.TxReviewScreen
 import app.lensly.ui.theme.LenslyTheme
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -65,6 +68,7 @@ import org.junit.runner.RunWith
 import org.web3j.crypto.RawTransaction
 import org.web3j.crypto.TransactionEncoder
 import org.web3j.utils.Numeric
+import zxingcpp.BarcodeReader
 
 private const val PASSWORD = "TEST_ONLY_vk7m2qzt"
 
@@ -127,9 +131,18 @@ class WalletSignFlowTest {
         holder.adopt(wallet.session, holder.unlockEpoch())
         val flow = SignFlow(VaultSignPorts(context, holder, wallet.id))
 
+        val probe = BarcodeReader(
+            BarcodeReader.Options().apply { formats = setOf(BarcodeReader.Format.QR_CODE) },
+        )
+        val probeBitmap = qrBitmap(request.parts.first())
+        val probeResults = probe.read(probeBitmap, Rect(0, 0, probeBitmap.width, probeBitmap.height))
+        assertEquals("the fixture frame must be a scannable QR code", 1, probeResults.size)
+        assertEquals(request.parts.first(), probeResults.single().text)
+
         compose.setContent {
             LenslyTheme {
-                SignHost(flow = flow, frameSource = FixtureFrameSource(request.parts))
+                val source = remember { FixtureFrameSource(request.parts) }
+                SignHost(flow = flow, frameSource = source)
             }
         }
 
@@ -145,7 +158,7 @@ class WalletSignFlowTest {
 
         // The screen: an unknown chain warns, and APPROVE waits for the scroll and the explicit check.
         compose.onNodeWithText("NOT IN LENSLY'S REGISTRY").assertExists()
-        compose.onNodeWithText("Chain $UNKNOWN_CHAIN_ID").assertExists()
+        compose.onNodeWithText("CHAIN $UNKNOWN_CHAIN_ID").assertExists()
         compose.onNodeWithText("Native transfer").assertExists()
         compose.onNodeWithText(ACCOUNT_LABEL).assertExists()
 
@@ -330,8 +343,9 @@ class WalletSignFlowTest {
                         compose.onNodeWithContentDescription("Letters").performClick()
                         onLetters = true
                     }
+                    // Shift cases every letter key at composition, so the key to press is the capital itself.
                     compose.onNodeWithContentDescription("Shift").performClick()
-                    compose.onNodeWithContentDescription(c.lowercaseChar().toString()).performClick()
+                    compose.onNodeWithContentDescription(c.toString()).performClick()
                 }
                 else -> {
                     if (!onLetters) {
@@ -366,11 +380,18 @@ class WalletSignFlowTest {
 /**
  * The sign route's steps, hosted without navigation. It is the same mapping as `SignWalletRoute`, with the frame source
  * passed in and no back stack, so the test drives the real flow and the real screens.
+ *
+ * It runs the flow's calls on the real main dispatcher, as the route's `viewModelScope` does. A Compose test rule installs
+ * a test dispatcher for composition coroutines, which would queue them until the test drove the clock; the flow must not
+ * depend on that.
  */
 @Composable
 private fun SignHost(flow: SignFlow, frameSource: FrameSource) {
     val step by flow.state.collectAsState()
-    val scope = rememberCoroutineScope()
+    val scope = remember(flow) { CoroutineScope(Dispatchers.Main.immediate) }
+    DisposableEffect(flow) {
+        onDispose { scope.cancel() }
+    }
     when (val shown = step) {
         is SignStep.Scanning -> ScanScreen(
             title = "SIGN REQUEST",
