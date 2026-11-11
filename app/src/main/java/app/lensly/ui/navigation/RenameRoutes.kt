@@ -17,7 +17,7 @@ import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
-import app.lensly.app.defaultAccountLabel
+import app.lensly.app.autoAccountName
 import app.lensly.ui.wallet.WalletNameScreen
 import app.lensly.ui.wallet.effectiveWalletName
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +89,7 @@ private fun RenameAccountRoute(navController: NavHostController, holder: VaultHo
     val scope = rememberCoroutineScope()
     var loaded by remember(walletId, index) { mutableStateOf(false) }
     var customName by remember(walletId, index) { mutableStateOf<String?>(null) }
+    var defaultLabel by remember(walletId, index) { mutableStateOf("") }
     LaunchedEffect(walletId, index) {
         whileUnlocked(navController, holder) {
             val store = WalletStore(session)
@@ -97,13 +98,13 @@ private fun RenameAccountRoute(navController: NavHostController, holder: VaultHo
                 navController.popBackStack()
                 return@whileUnlocked
             }
+            defaultLabel = autoAccountName(meta.autoNameBase, index)
             customName = withContext(Dispatchers.IO) { store.accountName(walletId, index) }
             loaded = true
         }
     }
     if (!loaded) return
 
-    val defaultLabel = defaultAccountLabel(index)
     var name by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
 

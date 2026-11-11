@@ -11,10 +11,11 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.web3j.utils.Numeric
 
 /**
- * Display Names of wallets and accounts: the default names, the names the owner gives, and their survival across a lock.
- * Reopening the vault with the same key is the unlock that follows a lock.
+ * Display Names and Auto-Names of wallets and accounts: the names a wallet gives its accounts at creation, the names the
+ * owner gives, and their survival across a lock. Reopening the vault with the same key is the unlock that follows a lock.
  */
 class WalletNamesTest {
 
@@ -22,6 +23,8 @@ class WalletNamesTest {
     val tmp = TemporaryFolder()
 
     private val words = List(23) { "abandon" } + "art"
+    private val key: ByteArray =
+        Numeric.hexStringToByteArray("4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318")
     private lateinit var session: VaultSession
     private lateinit var store: WalletStore
 
@@ -51,14 +54,24 @@ class WalletNamesTest {
         store.create(name = "Seed", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
 
     @Test
-    fun aNewWalletHasDefaultAccountNamesAndNoAccountRecords() {
+    fun aNewWalletNamesItsAccountsFromItsNameAtCreation() {
         val id = newWallet()
+        val meta = assertNotNull(store.meta(id))
 
-        assertEquals("Seed", store.meta(id)?.name)
+        assertEquals("Seed", meta.name)
+        assertEquals("Seed", meta.autoNameBase)
+        assertEquals("Seed 0", autoAccountName(meta.autoNameBase, 0))
         assertNull(store.accountName(id, 0))
         assertEquals(emptyMap(), store.accountNames(id, 1))
         assertNull(session.getRecord(id, WalletRecords.accountRecord(0)))
-        assertEquals("Account 1", defaultAccountLabel(0))
+    }
+
+    @Test
+    fun aSingleKeyWalletNamesItsAccountFromItsNameAtCreation() {
+        val id = store.createSingleKey(name = "Imported", privateKey = key, nowMs = 5L)
+
+        assertEquals("Imported", assertNotNull(store.meta(id)).autoNameBase)
+        assertEquals("Imported 0", autoAccountName(assertNotNull(store.meta(id)).autoNameBase, 0))
     }
 
     @Test
@@ -75,7 +88,33 @@ class WalletNamesTest {
     }
 
     @Test
-    fun aRenamedAccountKeepsItsNameAfterALockAndTheOtherAccountsKeepTheirDefault() {
+    fun renamingTheWalletKeepsTheAutoNamesAfterALock() {
+        val id = newWallet()
+        store.addAccount(id)
+
+        store.renameWallet(id, "Vault")
+        val meta = assertNotNull(reopen().meta(id))
+
+        assertEquals("Vault", meta.name)
+        assertEquals("Seed", meta.autoNameBase)
+        assertEquals("Seed 1", autoAccountName(meta.autoNameBase, 1))
+    }
+
+    @Test
+    fun aWalletWithoutABaseNameUsesItsCurrentNameUntilItIsRenamed() {
+        val id = newWallet()
+        session.deleteRecord(id, WalletRecords.BASE_NAME)
+        assertEquals("Seed", assertNotNull(store.meta(id)).autoNameBase)
+
+        store.renameWallet(id, "Vault")
+        val meta = assertNotNull(reopen().meta(id))
+
+        assertEquals("Vault", meta.name)
+        assertEquals("Seed", meta.autoNameBase)
+    }
+
+    @Test
+    fun aRenamedAccountKeepsItsNameAfterALockAndTheOtherAccountsKeepTheirAutoName() {
         val id = newWallet()
         store.addAccount(id)
 
@@ -112,7 +151,7 @@ class WalletNamesTest {
     }
 
     @Test
-    fun resetReturnsAnAccountToItsDefaultNameAfterALock() {
+    fun resetReturnsAnAccountToItsAutoNameAfterALock() {
         val id = newWallet()
         store.renameAccount(id, 0, "Main")
 
@@ -144,7 +183,7 @@ class WalletNamesTest {
     }
 
     @Test
-    fun aDamagedNameRecordShowsTheDefaultName() {
+    fun aDamagedNameRecordShowsTheAutoName() {
         val id = newWallet()
         session.putRecord(id, WalletRecords.accountRecord(0), byteArrayOf(9, 0, 1, 'x'.code.toByte()))
 
@@ -152,7 +191,7 @@ class WalletNamesTest {
     }
 
     @Test
-    fun anAccountNameRecordRoundTrips() {
-        assertEquals("Rent", WalletRecords.decodeAccountName(WalletRecords.encodeAccountName("Rent")))
+    fun aNameRecordRoundTrips() {
+        assertEquals("Rent", WalletRecords.decodeName(WalletRecords.encodeName("Rent")))
     }
 }

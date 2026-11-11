@@ -56,9 +56,9 @@ class DisplayNameTest {
     }
 
     @Test
-    fun anAccountWithoutACustomNameIsNumberedFromOne() {
-        assertEquals("Account 1", defaultAccountLabel(0))
-        assertEquals("Account 2", defaultAccountLabel(1))
-        assertEquals("Account 1000", defaultAccountLabel(999))
+    fun anAutoNameIsTheCreationNameAndTheIndexFromZero() {
+        assertEquals("Seed Wallet 0", autoAccountName("Seed Wallet", 0))
+        assertEquals("Seed Wallet 1", autoAccountName("Seed Wallet", 1))
+        assertEquals("WALLET 1 999", autoAccountName("WALLET 1", 999))
     }
 }

@@ -456,6 +456,7 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
     BackHandler(enabled = running) {}
     BulkGenerateScreen(
         existingAccounts = shown.accountCount,
+        autoNameBase = shown.autoNameBase,
         cap = cap,
         digits = digits,
         running = running,

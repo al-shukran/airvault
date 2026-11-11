@@ -1,6 +1,6 @@
 package app.lensly.app.sign
 
-import app.lensly.app.defaultAccountLabel
+import app.lensly.app.autoAccountName
 import app.lensly.app.export.partsOf
 import app.lensly.core.evm.MessageSigner
 import app.lensly.core.evm.TxSigner
@@ -104,7 +104,7 @@ class SignPipeline(private val registry: Registry) {
 
         val chainId = request.chainId ?: return Prepared.Refused("The request does not name a network")
         // A chain outside the registry has no network. It is reviewed as an unknown chain, with a warning, not refused.
-        val label = (wallet.accountNames[index] ?: defaultAccountLabel(index)).uppercase()
+        val label = (wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)).uppercase()
         val target = Target(request, chainId, registry.network(chainId), index, address, label)
 
         return if (request.dataType == DataType.PERSONAL_MESSAGE) message(target) else transaction(target)
@@ -291,7 +291,7 @@ class SignPipeline(private val registry: Registry) {
         val network: NetworkEntry?,
         val index: Int,
         val address: String,
-        /** The FROM label of the review: the account's Display Name in capitals, or "ACCOUNT N" while it has none. */
+        /** The FROM label of the review: the account's Display Name in capitals, or its Auto-Name while it has none. */
         val label: String,
     )
 

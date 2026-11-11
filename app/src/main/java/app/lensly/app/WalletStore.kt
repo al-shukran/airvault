@@ -48,6 +48,11 @@ data class WalletMeta(
     val accountXpub: AccountXpub?,
     /** The kind of secret the wallet holds. A record written before kinds existed is a Mnemonic wallet. */
     val kind: WalletKind = WalletKind.MNEMONIC,
+    /**
+     * The wallet's name at creation, which its accounts' Auto-Names are built from. [WalletStore.meta] reads it from its own
+     * record. A wallet that has none, because it was written before this existed, uses its current name.
+     */
+    val autoNameBase: String = name,
 )
 
 /** The secret part of a wallet, as it is stored. */
@@ -63,7 +68,7 @@ sealed interface WalletSecret {
 }
 
 /**
- * Wallets kept in an open [VaultSession]. Each wallet has two records, and each renamed account has one more. All of them
+ * Wallets kept in an open [VaultSession]. Each wallet has a meta and a secret record and a base-name record, and each renamed account has one more. All of them
  * use DataOutputStream and DataInputStream behind a version byte. None is JSON.
  *
  * - `meta`, version 2: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int).
@@ -73,7 +78,10 @@ sealed interface WalletSecret {
  * - `secret`, version 1 for a Mnemonic wallet: word count (byte), each word (UTF), has-passphrase (boolean), then the
  *   passphrase (UTF) when present. Version 2 for a Single Key wallet: the 32-byte private key.
  * - `account-<index>`, version 1: the Display Name of one renamed account (UTF). Only a renamed account has one, so an
- *   account that keeps its default label costs no record. Renaming writes it, and a reset removes it.
+ *   account that keeps its Auto-Name costs no record. Renaming writes it, and a reset removes it.
+ * - `base-name`, version 1: the wallet's name at creation (UTF), which its accounts' Auto-Names are built from. It is
+ *   written once, at creation, and before the first rename of a wallet that has none. A wallet without one uses its
+ *   current name.
  *
  * Encoded bytes are zeroed after they are written or parsed, including the internal buffer of the stream
  * that produced them. The Strings for the words and the passphrase cannot be zeroed. They are dropped as soon
@@ -92,7 +100,8 @@ class WalletStore(private val session: VaultSession) {
     fun meta(id: String): WalletMeta? {
         val bytes = session.getRecord(id, WalletRecords.META) ?: return null
         return try {
-            WalletRecords.decodeMeta(id, bytes)
+            val meta = WalletRecords.decodeMeta(id, bytes)
+            meta.copy(autoNameBase = storedBaseName(id) ?: meta.name)
         } catch (e: IOException) {
             null
         } catch (e: IllegalArgumentException) {
@@ -141,6 +150,7 @@ class WalletStore(private val session: VaultSession) {
                 masterFingerprintHex = identity.fingerprintHex,
                 accountXpub = identity.xpub,
             )
+            session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(name))
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
         } catch (e: Throwable) {
             session.deleteWallet(id)
@@ -175,6 +185,7 @@ class WalletStore(private val session: VaultSession) {
                 accountXpub = null,
                 kind = WalletKind.SINGLE_KEY,
             )
+            session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(name))
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
         } catch (e: Throwable) {
             session.deleteWallet(id)
@@ -268,20 +279,36 @@ class WalletStore(private val session: VaultSession) {
         val clean = displayNameOf(name)
         return synchronized(session) {
             val current = requireNotNull(meta(id)) { "No wallet $id." }
+            // A wallet with no base name takes its current name as the base before the rename, so its Auto-Names stay put.
+            if (session.getRecord(id, WalletRecords.BASE_NAME) == null) {
+                session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(current.autoNameBase))
+            }
             val updated = current.copy(name = clean)
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
             updated
         }
     }
 
+    /** The name the wallet had at creation, from its record, or null if it has no readable record. */
+    private fun storedBaseName(id: String): String? {
+        val bytes = session.getRecord(id, WalletRecords.BASE_NAME) ?: return null
+        return try {
+            WalletRecords.decodeName(bytes)
+        } catch (e: IOException) {
+            null
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
     /**
-     * The Display Name of account [index] of wallet [id], or null when the account keeps its default label. A record that
-     * cannot be read counts as no name, so the account shows its default label.
+     * The Display Name of account [index] of wallet [id], or null when the account keeps its Auto-Name. A record that
+     * cannot be read counts as no name, so the account shows its Auto-Name.
      */
     fun accountName(id: String, index: Int): String? {
         val bytes = session.getRecord(id, WalletRecords.accountRecord(index)) ?: return null
         return try {
-            WalletRecords.decodeAccountName(bytes)
+            WalletRecords.decodeName(bytes)
         } catch (e: IOException) {
             null
         } catch (e: IllegalArgumentException) {
@@ -303,7 +330,7 @@ class WalletStore(private val session: VaultSession) {
         val clean = displayNameOf(name)
         synchronized(session) {
             requireAccount(id, index)
-            session.putRecord(id, WalletRecords.accountRecord(index), WalletRecords.encodeAccountName(clean))
+            session.putRecord(id, WalletRecords.accountRecord(index), WalletRecords.encodeName(clean))
         }
     }
 
@@ -357,6 +384,9 @@ internal object WalletRecords {
     const val META = "meta"
     const val SECRET = "secret"
 
+    /** The record that holds the wallet's name at creation, which its Auto-Names are built from. */
+    const val BASE_NAME = "base-name"
+
     /** The meta version written before wallet kinds. It has no kind byte, and it is always a Mnemonic wallet. */
     private const val META_VERSION_WITHOUT_KIND = 1
     private const val META_VERSION = 2
@@ -364,7 +394,7 @@ internal object WalletRecords {
     /** The secret version of a Mnemonic wallet. It is the only secret layout before Single Keys. */
     private const val MNEMONIC_SECRET_VERSION = 1
     private const val SINGLE_KEY_SECRET_VERSION = 2
-    private const val ACCOUNT_NAME_VERSION = 1
+    private const val NAME_VERSION = 1
     private const val MAX_WORDS = 24
     private const val MAX_FIELD_BYTES = 1024
 
@@ -374,15 +404,15 @@ internal object WalletRecords {
         return "account-$index"
     }
 
-    /** An Account Profile record: the version byte, then the Display Name (UTF). */
-    fun encodeAccountName(name: String): ByteArray = writeBytes { out ->
-        out.writeByte(ACCOUNT_NAME_VERSION)
+    /** A name record, of an account or of the wallet's base name: the version byte, then the name (UTF). */
+    fun encodeName(name: String): ByteArray = writeBytes { out ->
+        out.writeByte(NAME_VERSION)
         out.writeUTF(name)
     }
 
-    fun decodeAccountName(bytes: ByteArray): String = readBytes(bytes) { input ->
+    fun decodeName(bytes: ByteArray): String = readBytes(bytes) { input ->
         when (val version = input.readUnsignedByte()) {
-            ACCOUNT_NAME_VERSION -> displayNameOf(input.readUTF())
+            NAME_VERSION -> displayNameOf(input.readUTF())
             else -> throw IllegalArgumentException("Unknown record version $version.")
         }
     }

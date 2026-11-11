@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
-import app.lensly.app.defaultAccountLabel
+import app.lensly.app.autoAccountName
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.theme.LenslyOnSurface
@@ -152,9 +152,8 @@ fun WalletDetailScreen(
             } else {
                 itemsIndexed(addresses, key = { _, address -> address }) { index, address ->
                     AccountRow(
-                        index = index,
                         address = address,
-                        name = accountNames[index],
+                        label = accountNames[index] ?: autoAccountName(wallet.autoNameBase, index),
                         onRename = { onRenameAccount(index) },
                     )
                 }
@@ -199,7 +198,7 @@ fun WalletDetailScreen(
 }
 
 @Composable
-private fun AccountRow(index: Int, address: String, name: String?, onRename: () -> Unit) {
+private fun AccountRow(address: String, label: String, onRename: () -> Unit) {
     var expanded by rememberSaveable(address) { mutableStateOf(false) }
     Column {
         Column(
@@ -212,9 +211,9 @@ private fun AccountRow(index: Int, address: String, name: String?, onRename: () 
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // The Display Name, or the default label while the account has none. A long name is cut short.
+                // The Display Name, or the Auto-Name while the account has none. A long name is cut short.
                 WalletEyebrow(
-                    text = name ?: defaultAccountLabel(index),
+                    text = label,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

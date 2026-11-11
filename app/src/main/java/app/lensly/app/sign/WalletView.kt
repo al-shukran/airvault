@@ -10,18 +10,21 @@ package app.lensly.app.sign
 class WalletView(
     val masterFingerprint: Int?,
     val accountCount: Int,
-    /** The Display Name of each account that has one, by account index. An account missing here keeps its default label. */
+    /** The wallet's name at creation. An account without a Display Name is labelled from it, as in "Seed Wallet 0". */
+    val autoNameBase: String,
+    /** The Display Name of each account that has one, by account index. An account missing here keeps its Auto-Name. */
     val accountNames: Map<Int, String> = emptyMap(),
     val addressAt: (Int) -> String,
 ) {
     companion object {
         /**
          * The view of a Single Key wallet, whose one account is the address of its key. [accountName] is its Display Name,
-         * or null while the account keeps its default label.
+         * or null while the account keeps its Auto-Name from [autoNameBase].
          */
-        fun singleKey(address: String, accountName: String? = null): WalletView = WalletView(
+        fun singleKey(address: String, autoNameBase: String, accountName: String? = null): WalletView = WalletView(
             masterFingerprint = null,
             accountCount = 1,
+            autoNameBase = autoNameBase,
             accountNames = if (accountName == null) emptyMap() else mapOf(0 to accountName),
             addressAt = { address },
         )

@@ -23,7 +23,8 @@ fun displayNameOf(raw: String): String {
 }
 
 /**
- * The label of an account with no custom name. The first account is "Account 1", as the list has always numbered them.
- * An account keeps this label until it is renamed.
+ * The Auto-Name of account [index] of a wallet whose name at creation was [baseName]: that name, a space, and the index
+ * counted from 0, as in "Seed Wallet 0". An account without a Display Name shows it, and renaming the wallet never changes
+ * it.
  */
-fun defaultAccountLabel(index: Int): String = "Account ${index + 1}"
+fun autoAccountName(baseName: String, index: Int): String = "$baseName $index"
