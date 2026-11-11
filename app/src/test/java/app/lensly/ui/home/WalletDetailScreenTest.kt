@@ -52,6 +52,7 @@ class WalletDetailScreenTest {
         var exported: List<Int> = emptyList()
         var edited = -1
         var revealed = false
+        var historyOpened = false
 
         /** Derives the address of the account the list does not have yet, as the route does after the count changes. */
         fun deriveNext() {
@@ -82,6 +83,7 @@ class WalletDetailScreenTest {
             onAddAccount = { route.count += 1 },
             onBulkGenerate = {},
             onShowSecret = { route.revealed = true },
+            onHistory = { route.historyOpened = true },
             onEditWallet = {},
             onEditAccount = { route.edited = it },
             onExportAccounts = { route.exported = it },
@@ -189,7 +191,23 @@ class WalletDetailScreenTest {
         compose.onNodeWithText("Edit wallet profile").assertIsDisplayed()
         compose.onNodeWithText("Generate accounts").assertIsDisplayed()
         compose.onNodeWithText("Select accounts").assertIsDisplayed()
+        compose.onNodeWithText("History").assertIsDisplayed()
         compose.onNodeWithText("Delete wallet").assertIsDisplayed()
+    }
+
+    @Test
+    fun theHistoryOptionOpensTheHistoryOfTheWallet() {
+        val route = Route(accounts = 1)
+        compose.setContent {
+            LenslyTheme {
+                Detail(route, rememberLazyListState())
+            }
+        }
+
+        compose.onNodeWithContentDescription("Wallet options").performClick()
+        compose.onNodeWithText("History").performClick()
+        compose.waitForIdle()
+        assertTrue(route.historyOpened)
     }
 
     @Test

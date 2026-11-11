@@ -45,15 +45,16 @@ private val BAR_HEIGHT = 64.dp
 private val SCAN_SIZE = 72.dp
 
 /**
- * The action dock at the foot of Home: a floating bar with Pair at one end and Wallets at the other, and the Scan button in
- * the middle, which rises above the bar in the accent colour. [onPair] opens the pairing wizard, [onScan] starts a scan to sign,
- * and [onWallets] opens the list of every wallet.
+ * The action dock at the foot of Home: a floating bar with Pair and Activity at one end and Wallets at the other, and the Scan
+ * button in the middle, which rises above the bar in the accent colour. [onPair] opens the pairing wizard, [onScan] starts a scan
+ * to sign, [onActivity] opens the Review Records of every wallet, and [onWallets] opens the list of every wallet.
  */
 @Composable
 internal fun ActionDock(
     onPair: () -> Unit,
     onScan: () -> Unit,
     onWallets: () -> Unit,
+    onActivity: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxWidth().height(DOCK_HEIGHT)) {
@@ -68,8 +69,14 @@ internal fun ActionDock(
                 .padding(horizontal = LenslySpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DockItem(icon = LenslyIcons.QrCode, label = "Pair", onClick = onPair, modifier = Modifier.weight(1f))
-            // The gap the scan button rises into.
+            DockItem(icon = LenslyIcons.QrCode, label = "Pair", onClick = onPair, modifier = Modifier.weight(0.5f))
+            DockItem(
+                icon = LenslyIcons.History,
+                label = "Activity",
+                onClick = onActivity,
+                modifier = Modifier.weight(0.5f),
+            )
+            // The gap the scan button rises into, kept at the centre of the bar by equal weights on either side.
             Spacer(Modifier.width(SCAN_SIZE + LenslySpacing.md))
             DockItem(icon = LenslyIcons.Wallets, label = "Wallets", onClick = onWallets, modifier = Modifier.weight(1f))
         }

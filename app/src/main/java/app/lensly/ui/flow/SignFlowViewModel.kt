@@ -25,7 +25,11 @@ class SignFlowViewModel(private val flow: SignFlow) : ViewModel() {
         viewModelScope.launch { flow.confirm(password) }
     }
 
-    fun back() = flow.back()
+    fun back() {
+        viewModelScope.launch { flow.back() }
+    }
 
-    fun leave() = flow.leave()
+    fun leave() {
+        viewModelScope.launch { flow.leave() }
+    }
 }
