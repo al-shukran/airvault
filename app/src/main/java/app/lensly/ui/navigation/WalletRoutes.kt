@@ -505,8 +505,8 @@ private fun saveMnemonicWallet(
 }
 
 /**
- * One wallet: its name, its accounts, and the actions. Accounts are derived from the secret each time the count
- * changes, and "+ ACCOUNT" saves the new count before the list is shown again.
+ * One wallet: its name, its accounts, and the actions. When the count changes, only the accounts the list does not have
+ * yet are derived, so the rows already shown keep their addresses. "+ ACCOUNT" saves the new count first.
  */
 @Composable
 private fun DetailRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
@@ -535,14 +535,16 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     val current = wallet
     LaunchedEffect(walletId, current?.accountCount) {
         if (current != null) {
-            addresses = null
             whileUnlocked(navController, holder) {
                 // The profiles come first, so a row never shows a default name or look that a profile replaces.
                 profiles = withContext(Dispatchers.IO) {
                     WalletStore(session).accountProfiles(walletId, current.accountCount)
                 }
+                // Only the accounts the list does not have yet are derived. The rows already shown keep their addresses.
+                val known = addresses.orEmpty()
                 addresses = withContext(Dispatchers.IO) {
-                    WalletStore(session).addresses(walletId, current.accountCount)
+                    val store = WalletStore(session)
+                    known + (known.size until current.accountCount).map { index -> store.accountAddress(walletId, index) }
                 }
             }
         }
@@ -565,8 +567,6 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
             }
         },
         onBulkGenerate = { navController.navigate(HiddenRoute.bulk(walletId)) },
-        onPair = { navController.navigate(HiddenRoute.export(walletId)) },
-        onSign = { navController.navigate(HiddenRoute.scan(walletId)) },
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
         onEditWallet = { navController.navigate(HiddenRoute.editWallet(walletId)) },
         onEditAccount = { index -> navController.navigate(HiddenRoute.editAccount(walletId, index)) },
