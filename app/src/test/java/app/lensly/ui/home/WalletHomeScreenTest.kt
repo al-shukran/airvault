@@ -246,6 +246,7 @@ class WalletHomeScreenTest {
         }
         settle()
 
+        compose.onNodeWithText("READINESS").assertExists()
         compose.onNodeWithText("3 networks").performClick()
         settle()
         assertEquals(HiddenRoute.NETWORKS, nav.currentBackStackEntry?.destination?.route)

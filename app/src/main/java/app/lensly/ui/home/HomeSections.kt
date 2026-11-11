@@ -220,25 +220,43 @@ internal fun ReadinessStrip(
     onCatalog: () -> Unit,
     onLockout: () -> Unit,
 ) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-        verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-    ) {
-        ReadinessChip(text = countOf(readiness.networkCount, "network", "networks"), onClick = onNetworks)
-        ReadinessChip(text = countOf(readiness.tokenCount, "token", "tokens"), onClick = onTokens)
-        ReadinessChip(
-            text = readiness.catalogVersion?.let { "Catalog $it" } ?: "Catalog",
-            onClick = onCatalog,
-        )
-        ReadinessChip(
-            text = readiness.lockout?.let { "Lockout $it" } ?: "Lockout",
-            onClick = onLockout,
-        )
-    }}
+    Column(modifier = Modifier.fillMaxWidth()) {
+        WalletEyebrow("Readiness")
+        Spacer(Modifier.height(LenslySpacing.xs))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
+            verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
+        ) {
+            ReadinessChip(
+                text = countOf(readiness.networkCount, "network", "networks"),
+                ready = readiness.networkCount > 0,
+                onClick = onNetworks,
+            )
+            ReadinessChip(
+                text = countOf(readiness.tokenCount, "token", "tokens"),
+                ready = readiness.tokenCount > 0,
+                onClick = onTokens,
+            )
+            ReadinessChip(
+                text = readiness.catalogVersion?.let { "Catalog $it" } ?: "Catalog",
+                ready = readiness.catalogVersion != null,
+                onClick = onCatalog,
+            )
+            ReadinessChip(
+                text = readiness.lockout?.let { "Lockout $it" } ?: "Lockout",
+                ready = readiness.lockout != null,
+                onClick = onLockout,
+            )
+        }
+    }
+}
 
-/** One small outlined chip that opens a settings screen. */
+/** The status dot of a chip, at the accent when its setting is in place. */
+private val CHIP_DOT = 6.dp
+
+/** One small outlined chip that opens a settings screen, with [ready] shown as a filled dot. */
 @Composable
-private fun ReadinessChip(text: String, onClick: () -> Unit) {
+private fun ReadinessChip(text: String, ready: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .height(40.dp)
@@ -248,12 +266,21 @@ private fun ReadinessChip(text: String, onClick: () -> Unit) {
             .padding(horizontal = LenslySpacing.sm),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = LenslyOnSurface,
-            maxLines = 1,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(CHIP_DOT)
+                    .clip(CircleShape)
+                    .background(if (ready) LenslyAccent else LenslyMuted),
+            )
+            Spacer(Modifier.width(LenslySpacing.xs))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                color = LenslyOnSurface,
+                maxLines = 1,
+            )
+        }
     }
 }
 

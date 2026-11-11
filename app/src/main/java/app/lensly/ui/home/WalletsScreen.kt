@@ -17,7 +17,7 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
 
 /**
- * The Wallets list, reached from the See all link on Home or from the dock: every wallet as a compact card, in the same order
+ * The Wallets list, reached from the dock's Wallets item: every wallet as a compact card, in the same order
  * as Home, with the add tile after the last one. A long press opens the same context sheet as on Home. [wallets] is null until
  * the list has been read.
  */

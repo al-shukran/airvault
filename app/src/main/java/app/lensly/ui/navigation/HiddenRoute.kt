@@ -15,7 +15,7 @@ internal object HiddenRoute {
 
     // Wallets.
     const val HOME = "home"
-    // Every wallet as a card, reached from the See all link on Home or from the dock.
+    // Every wallet as a card, reached from the dock's Wallets item.
     const val WALLETS = "wallets"
     // Pairing wizard, from the dock. It starts at the wallet step, or at the app step when there is only one wallet.
     const val PAIR = "pair"
