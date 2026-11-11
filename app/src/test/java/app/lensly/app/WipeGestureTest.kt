@@ -1,10 +1,7 @@
-package app.lensly.ui.flow
+package app.lensly.app
 
 import android.content.Context
 import android.content.SharedPreferences
-import app.lensly.app.EntryGestureHolder
-import app.lensly.app.EntryGestureStore
-import app.lensly.app.VaultHolder
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.DuressResult
 import app.lensly.core.vault.FakeClock
@@ -15,6 +12,8 @@ import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.camera.EntryGesture
+import app.lensly.ui.flow.ShredOutcome
+import app.lensly.ui.flow.WipeVaultPorts
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
@@ -95,7 +94,7 @@ class WipeGestureTest {
     private fun unlocked(password: String): VaultSession {
         val result = runBlocking { vault.unlock(password.toCharArray()) }
         assertTrue(result is UnlockResult.Unlocked, "Expected Unlocked but was $result")
-        return (result as UnlockResult.Unlocked).session
+        return result.session
     }
 
     private fun adopt(session: VaultSession) {

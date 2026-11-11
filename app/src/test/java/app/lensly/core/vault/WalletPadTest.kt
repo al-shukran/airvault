@@ -127,7 +127,7 @@ class WalletPadTest {
     private fun unlock(password: String = APP): VaultSession {
         val result = runBlocking { vault.unlock(password.toCharArray()) }
         assertTrue(result is UnlockResult.Unlocked, "Expected Unlocked but was $result")
-        return (result as UnlockResult.Unlocked).session
+        return result.session
     }
 
     private fun folderCount(): Int = layout.wallets.listFiles()?.count { it.isDirectory } ?: 0
