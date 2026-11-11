@@ -13,12 +13,20 @@ private val LenslyDarkColors = darkColorScheme(
     onBackground = LenslyOnSurface,
     surface = LenslySurface,
     onSurface = LenslyOnSurface,
+    surfaceDim = LenslyBlack,
+    surfaceContainerLowest = LenslyBlack,
+    surfaceContainerLow = LenslySurfaceLow,
+    surfaceContainer = LenslySurfaceContainer,
+    surfaceContainerHigh = LenslySurfaceHigh,
+    surfaceContainerHighest = LenslySurfaceHighest,
     surfaceVariant = LenslySurfaceHigh,
     onSurfaceVariant = LenslyMuted,
+    secondaryContainer = LenslySurfaceHigh,
+    onSecondaryContainer = LenslyOnSurface,
     outline = LenslyOutline,
     outlineVariant = LenslyOutline,
-    error = LenslyAccent,
-    onError = LenslyOnSurface,
+    error = LenslyError,
+    onError = LenslyBlack,
 )
 
 /**
@@ -30,6 +38,7 @@ fun LenslyTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = LenslyDarkColors,
         typography = LenslyTypography,
+        shapes = LenslyShapes,
         content = content,
     )
 }

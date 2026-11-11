@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslyAccent

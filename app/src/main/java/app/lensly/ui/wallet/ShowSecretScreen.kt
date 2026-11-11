@@ -16,10 +16,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.flow.RevealPart
 import app.lensly.ui.flow.RevealStep
-import app.lensly.ui.gate.DotProgress
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.SpaceMonoFamily

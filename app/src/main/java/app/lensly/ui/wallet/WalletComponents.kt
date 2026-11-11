@@ -36,6 +36,7 @@ import app.lensly.ui.theme.DotoFamily
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.SpaceMonoFamily
 
 private const val DISABLED_ALPHA = 0.4f
 private val ERROR_HEIGHT = 24.dp
@@ -225,7 +226,7 @@ internal fun HashLines(hex: String, modifier: Modifier = Modifier) {
         for (line in formatHexLines(hex)) {
             Text(
                 text = line,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
                 color = LenslyOnSurface,
             )
         }

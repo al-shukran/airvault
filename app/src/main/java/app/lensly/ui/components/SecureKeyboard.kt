@@ -47,6 +47,7 @@ import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySurfaceHigh
+import app.lensly.ui.theme.SpaceMonoFamily
 
 private enum class KeyboardPage { Letters, Symbols }
 
@@ -311,7 +312,7 @@ private fun CharKey(
     ) {
         Text(
             text = label.toString(),
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = LETTER_TEXT_SIZE),
+            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = SpaceMonoFamily, fontSize = LETTER_TEXT_SIZE),
             color = LenslyOnSurface,
         )
     }
