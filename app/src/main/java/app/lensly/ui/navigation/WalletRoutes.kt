@@ -18,6 +18,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -30,13 +31,15 @@ import app.lensly.app.AccountProfile
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.RegistryHolder
 import app.lensly.app.ReviewHistory
+import app.lensly.app.SaveState
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
-import app.lensly.app.WalletDraft
+import app.lensly.app.WalletDraftViewModel
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
 import app.lensly.app.WalletStore
+import app.lensly.app.WalletWriter
 import app.lensly.app.export.AccountExport
 import app.lensly.app.export.AccountExportView
 import app.lensly.app.sign.ReviewRecord
@@ -73,7 +76,6 @@ import app.lensly.ui.wallet.WalletNameScreen
 import app.lensly.ui.wallet.effectiveWalletName
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -150,7 +152,8 @@ private fun HomeRoute(
     holder: VaultHolder,
     entry: NavBackStackEntry,
 ) {
-    val draft = draftOf(navController, entry)
+    val model = draftModelOf(navController, entry)
+    val draft = model.draft
     val session = rememberOpenSession(navController, holder) ?: return
     val debugNotice = remember { debugKeystoreNotice(holder) }
     val listing = rememberWalletListing(navController, holder, session)
@@ -159,7 +162,10 @@ private fun HomeRoute(
     val notice by hidden.savedStateHandle.getStateFlow<String?>(HiddenRoute.PAIRED_NOTICE, null).collectAsState()
 
     // The draft only lives while a create or restore flow runs. Arriving here ends the flow.
-    LaunchedEffect(Unit) { draft.wipe() }
+    LaunchedEffect(Unit) {
+        draft.wipe()
+        model.clearSaveState()
+    }
 
     BackHandler { leaveHidden(navController, holder) }
     WalletHomeScreen(
@@ -419,15 +425,22 @@ private fun PassphraseRoute(navController: NavHostController, entry: NavBackStac
  */
 @Composable
 private fun NameRoute(navController: NavHostController, holder: VaultHolder, entry: NavBackStackEntry) {
-    val draft = draftOf(navController, entry)
-    RequireDraft(navController, ready = draft.words.isNotEmpty() || draft.singleKey != null)
+    val model = draftModelOf(navController, entry)
+    val draft = model.draft
+    val save by model.saveState.collectAsState()
+    // A saved draft is wiped, so the screen stays ready through its save until the flow ends.
+    RequireDraft(
+        navController,
+        ready = save is SaveState.Saved || draft.words.isNotEmpty() || draft.singleKey != null,
+    )
     val session = rememberOpenSession(navController, holder) ?: return
-    val scope = rememberCoroutineScope()
     val suggested by produceState<String?>(initialValue = null, session) {
         value = withContext(Dispatchers.IO) { "WALLET ${WalletStore(session).list().size + 1}" }
     }
     var name by remember { mutableStateOf("") }
-    var saving by remember { mutableStateOf(false) }
+    val saving = save == SaveState.Saving
+    BackHandler(enabled = saving) {}
+    FollowSave(navController, holder, save)
 
     WalletNameScreen(
         name = name,
@@ -448,8 +461,7 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
                     draft.setName(finalName)
                     navController.navigate(HiddenRoute.PASSPHRASE_BACKUP)
                 } else {
-                    saving = true
-                    saveMnemonicWallet(navController, holder, session, draft, scope, finalName)
+                    model.save(finalName, walletWriter(session))
                 }
             }
         },
@@ -466,54 +478,62 @@ private fun PassphraseBackupRoute(
     holder: VaultHolder,
     entry: NavBackStackEntry,
 ) {
-    val draft = draftOf(navController, entry)
-    RequireDraft(navController, ready = draft.words.isNotEmpty() && PassphraseGate.needsWriteDown(draft.passphrase))
+    val model = draftModelOf(navController, entry)
+    val draft = model.draft
+    val save by model.saveState.collectAsState()
+    val draftReady = draft.words.isNotEmpty() && PassphraseGate.needsWriteDown(draft.passphrase)
+    RequireDraft(navController, ready = save is SaveState.Saved || draftReady)
     val session = rememberOpenSession(navController, holder) ?: return
-    val scope = rememberCoroutineScope()
     var writtenDown by remember { mutableStateOf(false) }
-    var saving by remember { mutableStateOf(false) }
+    val saving = save == SaveState.Saving
+    BackHandler(enabled = saving) {}
+    FollowSave(navController, holder, save)
 
     PassphraseBackupScreen(
         writtenDown = writtenDown,
         onWrittenDownChange = { writtenDown = it },
         onCreate = {
             if (!saving && PassphraseGate.canSave(draft.passphrase, writtenDown)) {
-                saving = true
-                saveMnemonicWallet(navController, holder, session, draft, scope, draft.name)
+                model.save(draft.name, walletWriter(session))
             }
         },
     )
 }
 
 /**
- * Saves the draft's Mnemonic wallet under [name], wipes the draft, and opens the wallet's detail. The passphrase is
- * read from the draft before it is wiped.
+ * Acts on the outcome of a save. A saved wallet opens its detail, and a vault that closed during the write returns the
+ * owner to the camera. The outcome stays in the model until the flow ends, so a screen that is composed again after a
+ * rotation still acts on it.
  */
-private fun saveMnemonicWallet(
-    navController: NavHostController,
-    holder: VaultHolder,
-    session: VaultSession,
-    draft: WalletDraft,
-    scope: CoroutineScope,
-    name: String,
-) {
-    scope.launch {
-        whileUnlocked(navController, holder) {
-            val walletId = withContext(Dispatchers.IO) {
-                WalletStore(session).create(
-                    name = name,
-                    deviceGenerated = draft.deviceGenerated,
-                    words = draft.words,
-                    passphrase = draft.passphrase,
-                    nowMs = System.currentTimeMillis(),
-                )
-            }
-            draft.wipe()
-            navController.navigate(HiddenRoute.detail(walletId)) {
+@Composable
+private fun FollowSave(navController: NavHostController, holder: VaultHolder, state: SaveState) {
+    LaunchedEffect(state) {
+        when (state) {
+            is SaveState.Saved -> navController.navigate(HiddenRoute.detail(state.walletId)) {
                 popUpTo(HiddenRoute.HOME) { inclusive = false }
             }
+            SaveState.Locked -> leaveHidden(navController, holder)
+            SaveState.Idle, SaveState.Saving, SaveState.Failed -> Unit
         }
     }
+}
+
+/** The ViewModel that holds the draft of the hidden graph. It is resolved as [draftOf] resolves the draft. */
+@Composable
+private fun draftModelOf(navController: NavHostController, entry: NavBackStackEntry): WalletDraftViewModel {
+    val owner = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
+    return viewModel<WalletDraftViewModel>(viewModelStoreOwner = owner)
+}
+
+/** The writer of a draft's save: a new Mnemonic wallet with one account, in [session]. */
+private fun walletWriter(session: VaultSession): WalletWriter = { name, deviceGenerated, words, passphrase ->
+    WalletStore(session).create(
+        name = name,
+        deviceGenerated = deviceGenerated,
+        words = words,
+        passphrase = passphrase,
+        nowMs = System.currentTimeMillis(),
+    )
 }
 
 /**
