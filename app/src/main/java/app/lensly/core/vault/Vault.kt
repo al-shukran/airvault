@@ -239,7 +239,9 @@ class Vault internal constructor(
      */
     suspend fun removeDuress(session: VaultSession): Unit =
         withContext(Dispatchers.IO) {
-            mutex.withLock { if (session.isDecoy) removeOwnDecoyLocked(session) else removeDuressLocked(session) }
+            mutex.withLock {
+                if (session.isDecoy) removeOwnDecoyLocked(session, keepEmptyDecoy = false) else removeDuressLocked(session)
+            }
         }
 
     /**
@@ -251,9 +253,10 @@ class Vault internal constructor(
     }
 
     /**
-     * Deletes only the Decoy Vault, from a decoy session: its slot becomes random bytes of the same size again, and its
-     * wallets and records go. The real vault's slot, wallets and records are never touched, so the App Password still
-     * opens it. The Duress Password opens nothing afterwards, exactly as a real wipe leaves no vault behind.
+     * Deletes only the Decoy Vault's contents, from a decoy session: its wallets and records go, and its slot stays under
+     * the same Duress Password. The real vault's slot, wallets and records are never touched, so the App Password still
+     * opens it. The Duress Password keeps working, but it opens an empty Decoy Vault, so a refused password never reveals
+     * that a decoy existed.
      *
      * The decoy's folders stay, refilled with random bytes, so the store's folder count and file shape do not change.
      *
@@ -261,7 +264,7 @@ class Vault internal constructor(
      */
     fun wipeDecoy(session: VaultSession) {
         require(session.isDecoy) { "Only a decoy session can wipe the Decoy Vault." }
-        removeOwnDecoyLocked(session)
+        removeOwnDecoyLocked(session, keepEmptyDecoy = true)
     }
 
     /** The Keystore capabilities recorded when the vault was created. Without a vault, the device is probed. */
@@ -641,15 +644,22 @@ class Vault internal constructor(
         }
     }
 
-    /** A decoy session removes only its own decoy: its slot goes random, and its wallets and records are deleted. */
-    private fun removeOwnDecoyLocked(session: VaultSession) {
+    /**
+     * A decoy session removes only its own decoy: its wallets and records are deleted. With [keepEmptyDecoy] the slot stays
+     * under the Duress Password, so that password opens a fresh empty decoy. Otherwise the slot goes random, so it opens
+     * nothing.
+     */
+    private fun removeOwnDecoyLocked(session: VaultSession, keepEmptyDecoy: Boolean) {
         check(layout.exists()) { "There is no vault to change." }
         val decoyKey = session.copyOfVaultKey()
         try {
             val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
             val decoy = decoySlotOf(contents, decoyKey)
+            // Keeping the slot leaves the Duress Password working, and only the decoy's files go. A wipe looks like a real
+            // wipe, but unlocking with the same password lands in an empty vault rather than a refusal that names a decoy.
+            val decoySlot = if (keepEmptyDecoy) contents.slots[decoy] else VaultKeyFile.randomSlot(random)
             try {
-                commitKeyFile(listOf(contents.slots[1 - decoy], VaultKeyFile.randomSlot(random))) { true }
+                commitKeyFile(listOf(contents.slots[1 - decoy], decoySlot)) { true }
             } catch (e: IOException) {
                 throw VaultException("The vault key file could not be changed.", e)
             }
