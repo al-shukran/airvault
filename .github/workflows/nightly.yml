@@ -5,9 +5,9 @@ on:
     - cron: '17 3 * * *'       # 03:17 UTC daily
   workflow_dispatch:
 
+# Least privilege at the top. Only `report` can write, and only to issues.
 permissions:
   contents: read
-  issues: write
 
 jobs:
   full:
@@ -38,35 +38,12 @@ jobs:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: ./gradlew test lintDebug verifyRoborazziDebug dependencyCheckAnalyze --continue
 
-      # Guideline 2.5: one open nightly-failure issue, updated while the run stays red, so
-      # repeated failures comment on the same issue instead of opening a new one every night.
-      - name: Open or update issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          n=$(gh issue list --repo "$GITHUB_REPOSITORY" -l nightly-failure -s open \
-                --json number -q '.[0].number')
-          if [ -n "$n" ]; then
-            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" \
-              --body "Still failing: $RUN_URL"
-          else
-            gh issue create --repo "$GITHUB_REPOSITORY" \
-              -t "Nightly failed $(date -u +%F)" -l nightly-failure \
-              -b "Run: $RUN_URL"
-          fi
-
   fuzz:
     # Guideline 2.5: fuzzing is its own job. One matrix leg per Jazzer target, so a crash in one
     # target does not hide the other three. fuzz-nightly.sh keeps the 15 minutes per target from
     # the @FuzzTest annotation; the timeout below covers one target plus a cold build.
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      issues: write # the failure step opens or comments on the nightly-failure issue
     strategy:
       fail-fast: false
       matrix:
@@ -90,31 +67,10 @@ jobs:
       - name: Fuzz ${{ matrix.target }}
         run: ./scripts/ci/fuzz-nightly.sh "${{ matrix.target }}"
 
-      - name: Open or update issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          n=$(gh issue list --repo "$GITHUB_REPOSITORY" -l nightly-failure -s open \
-                --json number -q '.[0].number')
-          if [ -n "$n" ]; then
-            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" \
-              --body "Still failing: $RUN_URL"
-          else
-            gh issue create --repo "$GITHUB_REPOSITORY" \
-              -t "Nightly failed $(date -u +%F)" -l nightly-failure \
-              -b "Run: $RUN_URL"
-          fi
-
   instrumented:
     # Guideline 1.3 on an emulator, separate from the host-only gates in `full`.
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -139,32 +95,11 @@ jobs:
             ./gradlew :app:connectedDebugAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.notPackage=app.lensly.benchmark
 
-      - name: Open or update issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          n=$(gh issue list --repo "$GITHUB_REPOSITORY" -l nightly-failure -s open \
-                --json number -q '.[0].number')
-          if [ -n "$n" ]; then
-            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" \
-              --body "Still failing: $RUN_URL"
-          else
-            gh issue create --repo "$GITHUB_REPOSITORY" \
-              -t "Nightly failed $(date -u +%F)" -l nightly-failure \
-              -b "Run: $RUN_URL"
-          fi
-
   e2e:
     # Guideline 1.6: the wallet sign flow on an emulator, separate from `instrumented` so one
     # error report names the layer.
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -187,33 +122,12 @@ jobs:
             ./gradlew :app:connectedDebugAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.class=app.lensly.e2e.WalletSignFlowTest
 
-      - name: Open or update issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          n=$(gh issue list --repo "$GITHUB_REPOSITORY" -l nightly-failure -s open \
-                --json number -q '.[0].number')
-          if [ -n "$n" ]; then
-            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" \
-              --body "Still failing: $RUN_URL"
-          else
-            gh issue create --repo "$GITHUB_REPOSITORY" \
-              -t "Nightly failed $(date -u +%F)" -l nightly-failure \
-              -b "Run: $RUN_URL"
-          fi
-
   benchmark:
     # Guideline 1.7: emulator numbers are trend data only. The 10% gate needs the reference
-    # device and is run by hand (scripts/ci/benchmark-gate.sh --reference-device); nothing here
-    # claims a gate verdict. :benchmark (macrobenchmark) stays deferred; see its README.
+    # device and runs there through /run-perf; nothing here claims a gate verdict.
+    # :benchmark (macrobenchmark) stays deferred; see its README.
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -240,20 +154,45 @@ jobs:
       - name: Confirm trend-only
         run: echo "Emulator results are trend data; the 10% gate runs on the reference device only."
 
-      - name: Open or update issue
-        if: failure()
+  report:
+    # Guideline 2.5: exactly one issue or comment per run. The per-job steps it replaces could
+    # race and open one issue per failing job; this job reads the needs results instead.
+    needs: [full, fuzz, instrumented, e2e, benchmark]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the nightly-failure issue
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FULL: ${{ needs.full.result }}
+          FUZZ: ${{ needs.fuzz.result }}
+          INSTRUMENTED: ${{ needs.instrumented.result }}
+          E2E: ${{ needs.e2e.result }}
+          BENCHMARK: ${{ needs.benchmark.result }}
         run: |
           set -euo pipefail
+          failed=""
+          for entry in "full=$FULL" "fuzz=$FUZZ" "instrumented=$INSTRUMENTED" \
+                       "e2e=$E2E" "benchmark=$BENCHMARK"; do
+            case "${entry#*=}" in
+              failure | cancelled) failed="$failed ${entry%%=*}" ;;
+            esac
+          done
+          failed="${failed# }"
+          [ -n "$failed" ] || failed="unknown"
+          body="Run: $RUN_URL
+          Failed jobs: $failed"
           n=$(gh issue list --repo "$GITHUB_REPOSITORY" -l nightly-failure -s open \
                 --json number -q '.[0].number')
           if [ -n "$n" ]; then
-            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" \
-              --body "Still failing: $RUN_URL"
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "$body"
           else
             gh issue create --repo "$GITHUB_REPOSITORY" \
               -t "Nightly failed $(date -u +%F)" -l nightly-failure \
-              -b "Run: $RUN_URL"
+              -b "$body"
           fi

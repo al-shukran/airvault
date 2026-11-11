@@ -201,21 +201,12 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew test lintDebug verifyRoborazziDebug dependencyCheckAnalyze --continue
-      - name: Open or update issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          n=$(gh issue list -l nightly-failure -s open --json number -q '.[0].number')
-          if [ -n "$n" ]; then
-            gh issue comment "$n" --body "Still failing: $RUN_URL"
-          else
-            gh issue create -t "Nightly failed $(date -u +%F)" -l nightly-failure -b "Run: $RUN_URL"
-          fi
+  # A single report job (needs: every job, if: failure()) opens or comments on the
+  # nightly-failure issue once, listing the failed jobs. .github/workflows/nightly.yml
+  # holds the gh commands; no job copies them.
 ```
 
-Create the `nightly-failure` label once. Device and fuzz jobs are added to this file as separate jobs with the same failure step.
+Create the `nightly-failure` label once. Device and fuzz jobs are added to this file as separate jobs. Instead of a copy of the issue step in each job, one `report` job takes `needs` on every job, runs `if: failure()`, and opens or comments once with the run URL and the list of failed jobs, so parallel failures cannot open several issues.
 
 ### 2.6 Comment-triggered runs
 
@@ -255,7 +246,7 @@ jobs:
           script: scripts/ci/run-extended.sh ${{ steps.gate.outputs.kind }}
 ```
 
-Commands: `/run-instrumented`, `/run-e2e`, `/run-screenshot-testing`, `/run-perf` (emulator trend data only; the 10% benchmark gate runs by hand on the reference device), `/run-security`, `/run-fuzz`. The gate runs before PR code is checked out, so fork code never runs with secrets unless a collaborator with write access triggers it. The script posts the result and run link back to the PR.
+Commands: `/run-instrumented`, `/run-e2e`, `/run-screenshot-testing`, `/run-perf` (self-hosted reference device, label `android-ref`; the 10% benchmark gate needs that phone), `/run-security`, `/run-fuzz` (60 seconds of real fuzzing per target). The gate runs before PR code is checked out, so fork code never runs with secrets unless a collaborator with write access triggers it. The script posts the result and run link back to the PR.
 
 ### 2.7 Test type, trigger, expected duration
 

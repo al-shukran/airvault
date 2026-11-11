@@ -5,9 +5,9 @@
 #   instrumented       1.3  :app:connectedDebugAndroidTest
 #   e2e                1.6  :app:connectedDebugAndroidTest -P...class=app.lensly.e2e.WalletSignFlowTest
 #   screenshot-testing 1.5  :app:verifyRoborazziDebug
-#   perf               1.7  :app:connectedBenchmarkAndroidTest (emulator: trend data, not the gate)
+#   perf               1.7  :app:connectedBenchmarkAndroidTest (reference device, self-hosted runner)
 #   security           1.8  :app:lintDebug then check-manifest.sh
-#   fuzz               1.8  :app:testDebugUnitTest replayed against the fuzz targets
+#   fuzz               1.8  scripts/ci/fuzz-nightly.sh --seconds 60 (real fuzzing, all four targets)
 #
 # Layers that have not landed yet print "not configured yet" and exit 0, so the script is
 # usable locally before those stages exist. With CI=true the same case exits 1, so a
@@ -67,9 +67,9 @@ case "$kind" in
     perf)
         grep -q 'benchmark' "$ROOT/app/build.gradle.kts" ||
             not_configured "benchmark build type and :app:connectedBenchmarkAndroidTest (guideline 1.7)"
-        # Trend data, not the reference-device gate; androidx.benchmark aborts on an emulator without this.
-        ./gradlew :app:connectedBenchmarkAndroidTest \
-            -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
+        # Runs on the self-hosted reference device (comment-run.yml), so no emulator suppression is needed
+        # and the numbers can be judged against the committed baseline.
+        ./gradlew :app:connectedBenchmarkAndroidTest
         # Macrobenchmarks live in their own com.android.test module: they launch the installed app instead of running
         # inside it. Same device, same benchmark variant, so they run in the same pass.
         if [ -d "$ROOT/benchmark" ]; then
@@ -77,11 +77,10 @@ case "$kind" in
         else
             echo "run-extended: no benchmark module, skipping the macrobenchmark (guideline 1.7)" >&2
         fi
-        # /run-perf starts an emulator, so its numbers are trend data (guideline 1.7). The 10% gate
-        # only judges the reference device: the caller names the result file and asks for that with
-        # BENCHMARK_REFERENCE_DEVICE=1, which is a person running it on the phone, never a PR comment.
+        # AGP's result path moves between versions, so the caller names the result file. The runner is the
+        # reference device, so the gate judges it; without a result file the gate makes no verdict.
         if [ -n "${BENCHMARK_RESULT:-}" ]; then
-            "$ROOT/scripts/ci/benchmark-gate.sh" "$BENCHMARK_RESULT"
+            "$ROOT/scripts/ci/benchmark-gate.sh" --reference-device "$BENCHMARK_RESULT"
         else
             echo "run-extended: set BENCHMARK_RESULT=<benchmarkData.json> to compare this run against the baseline" >&2
         fi
@@ -94,7 +93,8 @@ case "$kind" in
         targets="$(find "$ROOT/app/src/test/java" -name '*Fuzz*.kt' 2>/dev/null || true)"
         [ -n "$targets" ] ||
             not_configured "Jazzer fuzz targets under app/src/test (guideline 1.8)"
-        ./gradlew :app:testDebugUnitTest --tests 'app.lensly.*Fuzz*'
+        # Real fuzzing, not a seed replay: 60 seconds per target through the same script the nightly run uses.
+        "$ROOT/scripts/ci/fuzz-nightly.sh" --seconds 60
         ;;
     *)
         echo "run-extended: unknown kind: $kind" >&2

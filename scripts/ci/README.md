@@ -40,28 +40,37 @@ Fails if the merged debug manifest declares `INTERNET` or `ACCESS_NETWORK_STATE`
 
 `instrumented`, `e2e`, `screenshot-testing`, `perf`, `security`, `fuzz`. Layers that have not landed yet print "not configured yet" and exit 0 locally; set `CI=true` to make that case fail.
 
+Where each kind runs (`comment-run.yml`): `screenshot-testing`, `security` and `fuzz` on `ubuntu-latest`; `instrumented` and `e2e` on an emulator; `perf` on the self-hosted reference device (`[self-hosted, android-ref]`), because the 10% benchmark gate only judges that phone.
+
 ```bash
 scripts/ci/run-extended.sh security   # lintDebug, then check-manifest.sh
 CI=true scripts/ci/run-extended.sh e2e
 ```
 
+`fuzz` is real fuzzing, not a replay: it calls `fuzz-nightly.sh --seconds 60`, so each of the four targets fuzzes for 60 seconds. `perf` runs the microbenchmarks on the reference device and applies the gate when `BENCHMARK_RESULT` names the result file.
+
 ## Nightly fuzz — `fuzz-nightly.sh`
 
-Fuzzes each Jazzer target for 15 minutes, one Gradle invocation per target (`JAZZER_FUZZ=1`, which Jazzer's JUnit integration reads). `--list` prints the targets. Pass one target to fuzz only that one; the nightly workflow runs one matrix leg per target.
+Fuzzes each Jazzer target for 15 minutes, one Gradle invocation per target (`JAZZER_FUZZ=1`, which Jazzer's JUnit integration reads). `--list` prints the targets. Pass one target to fuzz only that one; the nightly workflow runs one matrix leg per target. `--seconds N` caps each target at N seconds.
 
 ```bash
 scripts/ci/fuzz-nightly.sh          # all four targets, about an hour
 scripts/ci/fuzz-nightly.sh app.lensly.fuzz.CborFuzzTest   # one target, 15 minutes
+scripts/ci/fuzz-nightly.sh --seconds 60                   # /run-fuzz: four minutes in total
 scripts/ci/fuzz-nightly.sh --list
 ```
 
-Duration is not a flag: each `@FuzzTest` carries `maxDuration = "15m"`, which Jazzer passes to libFuzzer as `-max_total_time=900`. The JUnit integration has no `-Djazzer.max_total_time` property.
+Duration comes from each `@FuzzTest` annotation: `maxDuration = "15m"`, which Jazzer passes to libFuzzer as `-max_total_time=900`. `--seconds` passes `-PfuzzMaxSeconds=N`; `app/build.gradle.kts` turns that into the `jazzer.internal.arg.0` JUnit configuration parameter, and Jazzer appends it after the annotation value, so the shorter cap wins.
 
 **PR lane.** The same targets run with no environment variable, as ordinary JUnit tests: Jazzer replays the committed seeds. `@FuzzTest` is a JUnit 5 `@ParameterizedTest`, so the unit-test JVM runs both engines — Jupiter for the fuzz targets, Vintage for every existing JUnit 4 test.
 
 **Seeds.** `app/src/test/resources/fuzz-seeds/<target>/` holds valid and malformed inputs, named in that directory's `index.txt`; the tests read them through `@MethodSource`. A crash a nightly run finds lands in `app/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/`, which the regression run replays as soon as the file is committed.
 
-`instrumented` skips `app.lensly.benchmark`: those classes need `AndroidBenchmarkRunner`, which only the `benchmark` build type gets. `perf` runs `:app:connectedBenchmarkAndroidTest`; set `BENCHMARK_RESULT=<benchmarkData.json>` to make it compare that run against the reference baseline.
+`instrumented` skips `app.lensly.benchmark`: those classes need `AndroidBenchmarkRunner`, which only the `benchmark` build type gets. `perf` runs `:app:connectedBenchmarkAndroidTest` on the reference device; set `BENCHMARK_RESULT=<benchmarkData.json>` to make it compare that run against the baseline.
+
+## Nightly and comment runs — one report each
+
+`nightly.yml` runs `full`, `fuzz`, `instrumented`, `e2e` and `benchmark` as separate jobs. A single `report` job (`needs` them all, `if: failure()`) opens or updates the `nightly-failure` issue once, listing which jobs failed; parallel jobs cannot open four issues. In `comment-run.yml`, a read-only `gate` job authorizes the comment before any PR code is checked out, the run jobs have `contents: read`, and one `report` job posts the result comment.
 
 ## Macrobenchmarks — `:benchmark`
 
