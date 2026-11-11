@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -187,6 +188,39 @@ class WalletHomeScreenTest {
     }
 
     @Test
+    fun theVaultCardShowsTheSessionTotalsAndNeverWhenNothingSigned() {
+        compose.setContent {
+            LenslyTheme {
+                home(wallets = wallets(2), records = emptyList(), catalogDate = "2026-11-10")
+            }
+        }
+        settle()
+
+        compose.onNodeWithTag(HOME_VAULT_CARD_TAG).assertExists()
+        compose.onAllNodesWithText("ACCOUNTS").assertCountEquals(1)
+        compose.onNodeWithText("Never").assertExists()
+        compose.onNodeWithText("2026-11-10").assertExists()
+    }
+
+    @Test
+    fun theVaultCardShowsHowLongAgoTheLastRecordWasSigned() {
+        val now = 1_700_000_000_000L
+        compose.setContent {
+            LenslyTheme {
+                home(
+                    wallets = wallets(2),
+                    records = listOf(review(walletId = "w1", atMs = now - 2 * MINUTE, amount = "0.02 MON")),
+                    nowMs = now,
+                )
+            }
+        }
+        settle()
+
+        compose.onNodeWithText("2m ago").assertExists()
+        compose.onNodeWithText("Never").assertDoesNotExist()
+    }
+
+    @Test
     fun readinessChipsOpenTheirSettingsScreens() {
         lateinit var nav: NavHostController
         compose.setContent {
@@ -240,6 +274,7 @@ class WalletHomeScreenTest {
         wallets: List<WalletMeta>,
         records: List<WalletReviewRecord>? = emptyList(),
         readiness: HomeReadiness = HomeReadiness(),
+        catalogDate: String? = null,
         nowMs: Long = 1_700_000_000_000L,
         onNetworks: () -> Unit = {},
         onTokens: () -> Unit = {},
@@ -259,6 +294,7 @@ class WalletHomeScreenTest {
             onScan = {},
             records = records,
             readiness = readiness,
+            catalogDate = catalogDate,
             onNetworks = onNetworks,
             onTokens = onTokens,
             onCatalog = onCatalog,

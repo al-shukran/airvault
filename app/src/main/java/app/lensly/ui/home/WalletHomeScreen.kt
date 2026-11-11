@@ -62,7 +62,8 @@ private val NOTICE_BOTTOM = 100.dp
  * state, which appears when there are no wallets at all.
  *
  * [wallets] is null until the list has been read. [records] is null until the records have been read; an empty list means the
- * vault has none. [readiness] is the catalog and lockout summary for the chips. [debugNotice], when set, shows a warning, for
+ * vault has none. [readiness] is the catalog and lockout summary for the chips, and [catalogDate] is the date of the installed
+ * catalog package, or null when the vault runs on the built-in one. [debugNotice], when set, shows a warning, for
  * example that the keystore is software-only. [notice], when set, shows a short confirmation such as "Wallet paired", and
  * [onNoticeShown] is called once it has appeared, so the caller can forget it.
  */
@@ -87,6 +88,7 @@ fun WalletHomeScreen(
     onRestore: () -> Unit = {},
     records: List<WalletReviewRecord>? = null,
     readiness: HomeReadiness = HomeReadiness(),
+    catalogDate: String? = null,
     onNetworks: () -> Unit = {},
     onTokens: () -> Unit = {},
     onCatalog: () -> Unit = {},
@@ -146,6 +148,15 @@ fun WalletHomeScreen(
                                 onTokens = onTokens,
                                 onCatalog = onCatalog,
                                 onLockout = onLockout,
+                            )
+                        }
+                        Spacer(Modifier.height(LenslySpacing.lg))
+                        Gutter {
+                            VaultSummaryCard(
+                                wallets = wallets,
+                                lastSignedAtMs = records.orEmpty().maxByOrNull { it.record.atMs }?.record?.atMs,
+                                catalogDate = catalogDate,
+                                nowMs = nowMs,
                             )
                         }
                     }

@@ -207,7 +207,8 @@ class HomeScreensScreenshotTest {
             onScan = {},
             debugNotice = debugNotice,
             records = records,
-            readiness = HomeReadiness(networkCount = 3, tokenCount = 2, lockout = "Default"),
+            readiness = HomeReadiness(networkCount = 3, tokenCount = 2, catalogVersion = "7", lockout = "Default"),
+            catalogDate = "2026-11-10",
             nowMs = nowMs,
         )
     }

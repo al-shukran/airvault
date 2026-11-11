@@ -161,6 +161,7 @@ private fun HomeRoute(
     val listing = rememberWalletListing(navController, holder, session)
     var records by remember { mutableStateOf<List<WalletReviewRecord>?>(null) }
     var readiness by remember { mutableStateOf(HomeReadiness()) }
+    var catalogDate by remember { mutableStateOf<String?>(null) }
     // The readiness chips read again each time Home is shown, so a new catalog package and a saved lockout show.
     val current by navController.currentBackStackEntryAsState()
     LaunchedEffect(session) {
@@ -178,6 +179,7 @@ private fun HomeRoute(
             catalogVersion = installed?.sequence?.toString(),
             lockout = lockout.label,
         )
+        catalogDate = installed?.createdAt
     }
     // The graph's entry carries the pairing confirmation. It is resolved once, as draftOf does, because the graph may pop.
     val hidden = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
@@ -203,6 +205,7 @@ private fun HomeRoute(
         onActivity = { navController.navigate(HiddenRoute.activity()) },
         records = records,
         readiness = readiness,
+        catalogDate = catalogDate,
         onNetworks = { navController.navigate(HiddenRoute.NETWORKS) },
         onTokens = { navController.navigate(HiddenRoute.TOKENS) },
         onCatalog = { navController.navigate(HiddenRoute.CATALOG) },

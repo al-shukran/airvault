@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -56,14 +57,19 @@ import app.lensly.ui.theme.LenslyMuted
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyPillShape
+import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySuccess
+import app.lensly.ui.theme.LenslySurfaceContainer
 import app.lensly.ui.theme.LenslySurfaceHigh
 import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lensly.ui.wallet.WalletEyebrow
 
 /** The test tag of one recent activity row, so a test can count how many Home shows. */
 internal const val HOME_ACTIVITY_ROW_TAG = "home-activity-row"
+
+/** The test tag of the Vault summary card, so a test can find it under the readiness chips. */
+internal const val HOME_VAULT_CARD_TAG = "home-vault-card"
 
 /** The width of one wallet in the Home carousel. It is shorter than the card on the Wallets list. */
 private val PEEK_CARD_WIDTH = 216.dp
@@ -247,6 +253,73 @@ private fun ReadinessChip(text: String, onClick: () -> Unit) {
             style = MaterialTheme.typography.labelSmall,
             color = LenslyOnSurface,
             maxLines = 1,
+        )
+    }
+}
+
+/**
+ * The vault at a glance, under the readiness chips: how many wallets and accounts it holds, when it last signed, and the date
+ * of the catalog in use. Everything comes from what this session has already read, so a decoy session shows only its own data.
+ */
+@Composable
+internal fun VaultSummaryCard(
+    wallets: List<WalletMeta>,
+    lastSignedAtMs: Long?,
+    catalogDate: String?,
+    nowMs: Long,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(LenslyRadius.xl))
+            .background(LenslySurfaceContainer)
+            .border(1.dp, LenslyOutline, RoundedCornerShape(LenslyRadius.xl))
+            .padding(LenslySpacing.md)
+            .testTag(HOME_VAULT_CARD_TAG),
+    ) {
+        WalletEyebrow("Vault")
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            SummaryFact(
+                label = "Wallets",
+                value = wallets.size.toString(),
+                modifier = Modifier.weight(1f),
+            )
+            SummaryFact(
+                label = "Accounts",
+                value = wallets.sumOf { it.accountCount }.toString(),
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            SummaryFact(
+                label = "Last signed",
+                value = lastSignedAtMs?.let { relativeTime(it, nowMs) } ?: "Never",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryFact(
+                label = "Catalog",
+                value = catalogDate ?: "Built in",
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** One fact of the Vault card: its small label, then its value in the mono face. */
+@Composable
+private fun SummaryFact(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        WalletEyebrow(label)
+        Spacer(Modifier.height(LenslySpacing.xxs))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            color = LenslyOnSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
