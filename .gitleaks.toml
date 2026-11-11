@@ -1,0 +1,11 @@
+# Gitleaks config for the PR fast lane (docs/testing/guideline.md 1.8 and 3).
+# Keep the default rule set; allowlist only the published test vectors.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Published test vectors: public material only (guideline 1.8)"
+paths = [
+  '''app/src/test/resources/vectors/.*''',
+]
