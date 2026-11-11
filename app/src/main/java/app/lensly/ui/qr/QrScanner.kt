@@ -3,15 +3,9 @@ package app.lensly.ui.qr
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.util.Size
+import android.graphics.Rect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.Preview
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
-import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -54,7 +48,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import app.lensly.ui.camera.CameraFrameSource
 import app.lensly.ui.camera.CameraIcons
+import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.camera.openAppSettings
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.theme.LenslyBlack
@@ -63,8 +59,6 @@ import app.lensly.ui.theme.LenslySpacing
 import java.util.concurrent.Executors
 import zxingcpp.BarcodeReader
 
-/** Analysis frames are requested at about 720p. Smaller frames decode faster and keep latency low. */
-private val ANALYSIS_SIZE = Size(1280, 720)
 private val VIEWFINDER_CORNER = 24.dp
 private val VIEWFINDER_STROKE = 2.dp
 private const val VIEWFINDER_FRACTION = 0.7f
@@ -80,14 +74,20 @@ private const val SCRIM_ALPHA = 0.6f
  *
  * If the camera permission is missing, the composable asks for it. If it is refused, the
  * composable says so and offers OPEN SETTINGS, which still works after a permanent refusal.
+ *
+ * [frameSource] replaces the camera with any other frame producer, such as generated fixtures in a test. With a source,
+ * no permission is asked for and no preview is drawn; the frames still go through the same decoder.
  */
 @Composable
 fun QrScanner(
     onText: (String) -> Unit,
     modifier: Modifier = Modifier,
+    frameSource: FrameSource? = null,
 ) {
     val context = LocalContext.current
-    var granted by remember { mutableStateOf(context.hasCameraPermission()) }
+    var granted by remember(frameSource) {
+        mutableStateOf(frameSource != null || context.hasCameraPermission())
+    }
     var refused by rememberSaveable { mutableStateOf(false) }
     val requestPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -96,16 +96,20 @@ fun QrScanner(
         refused = !result
     }
 
-    LaunchedEffect(Unit) {
-        if (!granted) requestPermission.launch(Manifest.permission.CAMERA)
+    LaunchedEffect(frameSource) {
+        if (frameSource == null && !granted) requestPermission.launch(Manifest.permission.CAMERA)
     }
 
     Box(
         modifier = modifier.background(LenslyBlack),
         contentAlignment = Alignment.Center,
     ) {
-        if (granted) {
-            CameraDecoder(onText = onText, modifier = Modifier.fillMaxSize())
+        if (frameSource != null || granted) {
+            if (frameSource != null) {
+                FrameDecoder(frameSource = frameSource, onText = onText)
+            } else {
+                CameraDecoder(onText = onText, modifier = Modifier.fillMaxSize())
+            }
             ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else {
             ScanPermissionPrompt(
@@ -139,83 +143,60 @@ private fun CameraDecoder(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val latestOnText = rememberUpdatedState(onText)
     val previewView = remember {
         PreviewView(context).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             scaleType = PreviewView.ScaleType.FILL_CENTER
         }
     }
-
-    DisposableEffect(lifecycleOwner) {
-        val analysisExecutor = Executors.newSingleThreadExecutor()
-        val mainExecutor = ContextCompat.getMainExecutor(context)
-        val providerFuture = ProcessCameraProvider.getInstance(context)
-        var provider: ProcessCameraProvider? = null
-        var analysis: ImageAnalysis? = null
-        var disposed = false
-
-        providerFuture.addListener({
-            // The listener can run after the composable left, so do nothing in that case.
-            if (disposed) return@addListener
-            val cameraProvider = providerFuture.get()
-            provider = cameraProvider
-
-            val reader = BarcodeReader(
-                BarcodeReader.Options().apply {
-                    formats = setOf(BarcodeReader.Format.QR_CODE)
-                    tryHarder = false
-                },
-            )
-            val deduper = ConsecutiveDeduper()
-            val preview = Preview.Builder().build().also {
-                it.surfaceProvider = previewView.surfaceProvider
-            }
-            val imageAnalysis = ImageAnalysis.Builder()
-                .setResolutionSelector(
-                    ResolutionSelector.Builder()
-                        .setResolutionStrategy(
-                            ResolutionStrategy(
-                                ANALYSIS_SIZE,
-                                ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
-                            ),
-                        )
-                        .build(),
-                )
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-            imageAnalysis.setAnalyzer(analysisExecutor) { image ->
-                try {
-                    val text = reader.read(image).firstNotNullOfOrNull { result ->
-                        result.text?.takeIf { it.isNotEmpty() && result.error == null }
-                    }
-                    if (text != null && deduper.accept(text)) {
-                        mainExecutor.execute { latestOnText.value(text) }
-                    }
-                } finally {
-                    image.close()
-                }
-            }
-            analysis = imageAnalysis
-
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                lifecycleOwner,
-                CameraSelector.DEFAULT_BACK_CAMERA,
-                preview,
-                imageAnalysis,
-            )
-        }, mainExecutor)
-
-        onDispose {
-            disposed = true
-            analysis?.clearAnalyzer()
-            provider?.unbindAll()
-            analysisExecutor.shutdown()
-        }
+    val source = remember(lifecycleOwner, previewView) {
+        CameraFrameSource(context, lifecycleOwner, previewView)
     }
 
+    FrameDecoder(frameSource = source, onText = onText)
     AndroidView(factory = { previewView }, modifier = modifier)
+}
+
+/**
+ * Decodes every frame [frameSource] emits. The conversion and the decoding run off the main thread, and a new text is
+ * reported on the main thread, once. The camera and a test source share this one path, so a test checks the decoder the
+ * app ships.
+ */
+@Composable
+private fun FrameDecoder(
+    frameSource: FrameSource,
+    onText: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val latestOnText = rememberUpdatedState(onText)
+
+    DisposableEffect(frameSource) {
+        val decoderExecutor = Executors.newSingleThreadExecutor()
+        val mainExecutor = ContextCompat.getMainExecutor(context)
+        val reader = BarcodeReader(
+            BarcodeReader.Options().apply {
+                formats = setOf(BarcodeReader.Format.QR_CODE)
+                tryHarder = false
+            },
+        )
+        val deduper = ConsecutiveDeduper()
+        val handle = frameSource.start { bitmap ->
+            decoderExecutor.execute {
+                val text = reader.read(bitmap, Rect(0, 0, bitmap.width, bitmap.height))
+                    .firstNotNullOfOrNull { result ->
+                        result.text?.takeIf { it.isNotEmpty() && result.error == null }
+                    }
+                if (text != null && deduper.accept(text)) {
+                    mainExecutor.execute { latestOnText.value(text) }
+                }
+            }
+        }
+
+        onDispose {
+            handle.stop()
+            decoderExecutor.shutdown()
+        }
+    }
 }
 
 /** Dims the frame outside a centred square with rounded corners, and outlines the square. */
