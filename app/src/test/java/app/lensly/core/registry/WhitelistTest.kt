@@ -93,6 +93,13 @@ class WhitelistEntryTest {
     }
 
     @Test
+    fun aProxyBindingBelongsToAnUpgradeableEntry() {
+        val proxy = ProxyBinding(implementationAddress = IMPLEMENTATION)
+
+        assertFailsWith<IllegalArgumentException> { swap().copy(proxy = proxy) }
+    }
+
+    @Test
     fun everyPolicyCodeReadsBackAsItsPolicyAndAnUnknownCodeReadsAsNone() {
         for (policy in ProxyPolicy.entries) assertEquals(policy, ProxyPolicy.ofCode(policy.code))
         assertNull(ProxyPolicy.ofCode(9))

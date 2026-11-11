@@ -250,6 +250,9 @@ internal object Pack {
             require(!entry.upgradeable || entry.proxy != null) {
                 "whitelist ${entry.signature}: an upgradeable entry must name its proxy binding"
             }
+            require(entry.upgradeable || entry.proxy == null) {
+                "whitelist ${entry.signature}: a proxy binding belongs to an upgradeable entry"
+            }
             entry.proxy?.let { proxy ->
                 require(proxy.implementationAddress != null || proxy.implementationCodeHash != null) {
                     "whitelist ${entry.signature}: a proxy names its implementation, its code hash, or both"

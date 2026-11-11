@@ -187,6 +187,9 @@ class PackTest {
             "upgradeable without a proxy" to whitelistSource.copy(
                 whitelist = listOf(entry.copy(upgradeable = true, proxy = null)),
             ),
+            "proxy on an entry that is not upgradeable" to whitelistSource.copy(
+                whitelist = listOf(proxy.copy(upgradeable = false)),
+            ),
         )
         for ((label, content) in cases) {
             assertFailsWith<IllegalArgumentException>(label) {

@@ -72,6 +72,7 @@ data class WhitelistEntry(
             require(param.type == types[index]) { "param ${param.name} must be ${types[index]} in $signature" }
         }
         if (upgradeable) require(proxy != null) { "an upgradeable entry must name its proxy binding" }
+        if (proxy != null) require(upgradeable) { "a proxy binding belongs to an upgradeable entry" }
     }
 
     companion object {
