@@ -37,6 +37,7 @@ import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 
@@ -122,7 +123,7 @@ internal fun CopiedCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit, l
         Box(
             modifier = Modifier
                 .size(24.dp)
-                .border(1.dp, if (checked) LenslyOnSurface else MaterialTheme.colorScheme.outline, box)
+                .border(1.dp, if (checked) LenslyOnSurface else LenslyOutlineInteractive, box)
                 .background(if (checked) LenslyOnSurface else Color.Transparent, box),
             contentAlignment = Alignment.Center,
         ) {

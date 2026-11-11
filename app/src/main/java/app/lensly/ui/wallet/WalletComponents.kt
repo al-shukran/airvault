@@ -38,9 +38,10 @@ import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.DotoFamily
-import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
+import app.lensly.ui.theme.LenslyError
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslyWarning
 import app.lensly.ui.theme.SpaceMonoFamily
 
 private const val DISABLED_ALPHA = 0.4f
@@ -178,19 +179,19 @@ internal fun WalletEyebrow(
     )
 }
 
-/** Outlined warning chip in the accent red. Use it for risks that must not be missed. */
+/** Outlined warning chip in the warning amber. Use it for risks that must not be missed. */
 @Composable
 internal fun WalletWarningChip(text: String, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(percent = 50)
     Box(
         modifier = modifier
-            .border(1.dp, LenslyAccent, shape)
+            .border(1.dp, LenslyWarning, shape)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(
             text = text.uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = LenslyAccent,
+            color = LenslyWarning,
         )
     }
 }
@@ -211,7 +212,7 @@ internal fun WalletError(message: String?, modifier: Modifier = Modifier) {
             Text(
                 text = message.uppercase(),
                 style = MaterialTheme.typography.labelMedium,
-                color = LenslyAccent,
+                color = LenslyError,
                 textAlign = TextAlign.Center,
             )
         }

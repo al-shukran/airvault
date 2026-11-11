@@ -3,6 +3,7 @@ package app.lensly.ui.qr
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +56,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.lensly.ui.camera.CameraIcons
+import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.camera.openAppSettings
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.theme.LenslyBlack
@@ -80,13 +82,19 @@ private const val SCRIM_ALPHA = 0.6f
  *
  * If the camera permission is missing, the composable asks for it. If it is refused, the
  * composable says so and offers OPEN SETTINGS, which still works after a permanent refusal.
+ *
+ * [frameSource] is the only thing that bypasses the camera: a test passes a source of generated frames, and then no
+ * permission is asked for and no preview is drawn. It is null everywhere in the app, which runs the camera path exactly
+ * as it did before the seam existed.
  */
 @Composable
 fun QrScanner(
     onText: (String) -> Unit,
     modifier: Modifier = Modifier,
+    frameSource: FrameSource? = null,
 ) {
     val context = LocalContext.current
+    val injected = frameSource
     var granted by remember { mutableStateOf(context.hasCameraPermission()) }
     var refused by rememberSaveable { mutableStateOf(false) }
     val requestPermission = rememberLauncherForActivityResult(
@@ -97,14 +105,17 @@ fun QrScanner(
     }
 
     LaunchedEffect(Unit) {
-        if (!granted) requestPermission.launch(Manifest.permission.CAMERA)
+        if (injected == null && !granted) requestPermission.launch(Manifest.permission.CAMERA)
     }
 
     Box(
         modifier = modifier.background(LenslyBlack),
         contentAlignment = Alignment.Center,
     ) {
-        if (granted) {
+        if (injected != null) {
+            FixtureDecoder(frameSource = injected, onText = onText)
+            ViewfinderOverlay(modifier = Modifier.fillMaxSize())
+        } else if (granted) {
             CameraDecoder(onText = onText, modifier = Modifier.fillMaxSize())
             ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else {
@@ -318,3 +329,44 @@ internal fun ScanPermissionPrompt(
 private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
         PackageManager.PERMISSION_GRANTED
+
+/**
+ * Decodes every frame [frameSource] emits. This runs only when a source is passed in, so the production path with no
+ * source never enters it. The reader options are the camera path's, and a text is reported once, on the main thread.
+ */
+@Composable
+private fun FixtureDecoder(
+    frameSource: FrameSource,
+    onText: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val latestOnText = rememberUpdatedState(onText)
+
+    DisposableEffect(frameSource) {
+        val decoderExecutor = Executors.newSingleThreadExecutor()
+        val mainExecutor = ContextCompat.getMainExecutor(context)
+        val reader = BarcodeReader(
+            BarcodeReader.Options().apply {
+                formats = setOf(BarcodeReader.Format.QR_CODE)
+                tryHarder = false
+            },
+        )
+        val deduper = ConsecutiveDeduper()
+        val handle = frameSource.start { bitmap ->
+            decoderExecutor.execute {
+                val text = reader.read(bitmap, Rect(0, 0, bitmap.width, bitmap.height))
+                    .firstNotNullOfOrNull { result ->
+                        result.text?.takeIf { it.isNotEmpty() && result.error == null }
+                    }
+                if (text != null && deduper.accept(text)) {
+                    mainExecutor.execute { latestOnText.value(text) }
+                }
+            }
+        }
+
+        onDispose {
+            handle.stop()
+            decoderExecutor.shutdown()
+        }
+    }
+}
