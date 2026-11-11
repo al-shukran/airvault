@@ -29,6 +29,7 @@ import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.RegistryHolder
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
+import app.lensly.app.WalletDraft
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
 import app.lensly.core.registry.update.RegistryUpdate
@@ -48,6 +49,8 @@ import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.home.importedState
 import app.lensly.ui.home.refusalReason
 import app.lensly.ui.wallet.Bip39Autocomplete
+import app.lensly.ui.wallet.PassphraseBackupScreen
+import app.lensly.ui.wallet.PassphraseGate
 import app.lensly.ui.wallet.PassphraseScreen
 import app.lensly.ui.wallet.PassphraseState
 import app.lensly.ui.wallet.PassphraseStep
@@ -57,6 +60,7 @@ import app.lensly.ui.wallet.WalletNameScreen
 import app.lensly.ui.wallet.effectiveWalletName
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -77,6 +81,7 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.RESTORE) { HiddenBackdrop { RestoreRoute(navController) } }
     composable(HiddenRoute.PASSPHRASE) { HiddenBackdrop { PassphraseRoute(navController) } }
     composable(HiddenRoute.NAME) { HiddenBackdrop { NameRoute(navController, holder) } }
+    composable(HiddenRoute.PASSPHRASE_BACKUP) { HiddenBackdrop { PassphraseBackupRoute(navController, holder) } }
     composable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DetailRoute(navController, holder, entry.walletId()) }
     }
@@ -297,7 +302,7 @@ private fun PassphraseRoute(navController: NavHostController) {
                 PassphraseStep.Confirm -> {
                     val second = buffer.toCharArray()
                     val expected = first
-                    val matches = expected != null && expected.contentEquals(second)
+                    val matches = PassphraseGate.matches(expected, second)
                     second.fill('\u0000')
                     if (expected != null && matches) {
                         val text = String(expected)
@@ -318,7 +323,8 @@ private fun PassphraseRoute(navController: NavHostController) {
 
 /**
  * Names the wallet, then saves it and opens its detail. The suggested name counts the wallets already saved. An imported
- * key keeps its name in the draft and goes on to its write-down, which saves the wallet.
+ * key, and a wallet with a passphrase, keep their name in the draft and go on to their write-down, which saves the
+ * wallet.
  */
 @Composable
 private fun NameRoute(navController: NavHostController, holder: VaultHolder) {
@@ -346,28 +352,73 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder) {
                 draft.setName(effectiveWalletName(name, suggested))
                 navController.navigate(HiddenRoute.KEY_BACKUP)
             } else if (!saving && draft.words.isNotEmpty()) {
-                saving = true
-                scope.launch {
-                    whileUnlocked(navController, holder) {
-                        val finalName = effectiveWalletName(name, suggested)
-                        val walletId = withContext(Dispatchers.IO) {
-                            WalletStore(session).create(
-                                name = finalName,
-                                deviceGenerated = draft.deviceGenerated,
-                                words = draft.words,
-                                passphrase = draft.passphrase,
-                                nowMs = System.currentTimeMillis(),
-                            )
-                        }
-                        draft.wipe()
-                        navController.navigate(HiddenRoute.detail(walletId)) {
-                            popUpTo(HiddenRoute.HOME) { inclusive = false }
-                        }
-                    }
+                val finalName = effectiveWalletName(name, suggested)
+                if (PassphraseGate.needsWriteDown(draft.passphrase)) {
+                    draft.setName(finalName)
+                    navController.navigate(HiddenRoute.PASSPHRASE_BACKUP)
+                } else {
+                    saving = true
+                    saveMnemonicWallet(navController, holder, session, draft, scope, finalName)
                 }
             }
         },
     )
+}
+
+/**
+ * The write-down of a wallet with a passphrase, the last step before it is saved. CREATE WALLET stays off until the
+ * owner confirms the passphrase is written down. Then the wallet is saved from the draft, and its detail opens.
+ */
+@Composable
+private fun PassphraseBackupRoute(navController: NavHostController, holder: VaultHolder) {
+    val draft = draftOf(navController)
+    RequireDraft(navController, ready = draft.words.isNotEmpty() && PassphraseGate.needsWriteDown(draft.passphrase))
+    val session = rememberOpenSession(navController, holder) ?: return
+    val scope = rememberCoroutineScope()
+    var writtenDown by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+
+    PassphraseBackupScreen(
+        writtenDown = writtenDown,
+        onWrittenDownChange = { writtenDown = it },
+        onCreate = {
+            if (!saving && PassphraseGate.canSave(draft.passphrase, writtenDown)) {
+                saving = true
+                saveMnemonicWallet(navController, holder, session, draft, scope, draft.name)
+            }
+        },
+    )
+}
+
+/**
+ * Saves the draft's Mnemonic wallet under [name], wipes the draft, and opens the wallet's detail. The passphrase is
+ * read from the draft before it is wiped.
+ */
+private fun saveMnemonicWallet(
+    navController: NavHostController,
+    holder: VaultHolder,
+    session: VaultSession,
+    draft: WalletDraft,
+    scope: CoroutineScope,
+    name: String,
+) {
+    scope.launch {
+        whileUnlocked(navController, holder) {
+            val walletId = withContext(Dispatchers.IO) {
+                WalletStore(session).create(
+                    name = name,
+                    deviceGenerated = draft.deviceGenerated,
+                    words = draft.words,
+                    passphrase = draft.passphrase,
+                    nowMs = System.currentTimeMillis(),
+                )
+            }
+            draft.wipe()
+            navController.navigate(HiddenRoute.detail(walletId)) {
+                popUpTo(HiddenRoute.HOME) { inclusive = false }
+            }
+        }
+    }
 }
 
 /**
