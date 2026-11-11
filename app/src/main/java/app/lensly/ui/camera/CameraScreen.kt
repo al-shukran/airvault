@@ -102,6 +102,12 @@ private const val VIDEO_NOT_SAVED = "Video not saved. Try again."
 /** How often the recording timer redraws, in milliseconds. */
 private const val TIMER_TICK_MS = 250L
 
+/** How long the notice about a lens switch during a recording stays, in milliseconds. */
+private const val FLIP_HINT_MS = 2000L
+
+/** What the notice under the top bar says when the camera switch is pressed during a recording. */
+private const val FLIP_HINT_TEXT = "Can't switch camera while recording"
+
 /** The white wash over the preview when a photo is saved: its peak opacity and how long it takes to fade. */
 private const val SHUTTER_FLASH_ALPHA = 0.7f
 private const val SHUTTER_FLASH_MS = 220
@@ -195,6 +201,9 @@ private fun CameraViewfinder(
     // When the recording in progress started, or null when none is. Its timer runs while it is set.
     var recordingSince by remember { mutableStateOf<Long?>(null) }
     var elapsedMs by remember { mutableLongStateOf(0L) }
+    // Each ignored lens switch restarts the brief notice, so a second press shows it again for the full time.
+    var flipHints by remember { mutableIntStateOf(0) }
+    var showFlipHint by remember { mutableStateOf(false) }
     val microphoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     // Leaving the camera ends a recording, so its file is closed and kept rather than left open.
@@ -242,6 +251,14 @@ private fun CameraViewfinder(
             showCaptureFailure = true
             delay(CAPTURE_NOTICE_MS)
             showCaptureFailure = false
+        }
+    }
+
+    LaunchedEffect(flipHints) {
+        if (flipHints > 0) {
+            showFlipHint = true
+            delay(FLIP_HINT_MS)
+            showFlipHint = false
         }
     }
 
@@ -349,6 +366,7 @@ private fun CameraViewfinder(
                 videoAvailable = videoSupported,
                 recording = recordingSince != null,
                 elapsedMs = elapsedMs,
+                flipHint = showFlipHint,
                 onShutter = onShutter,
                 onFlip = {
                     // Switching lenses rebinds the camera, which would cut a recording short, so the lens waits for the
@@ -359,6 +377,8 @@ private fun CameraViewfinder(
                         } else {
                             CameraSelector.LENS_FACING_FRONT
                         }
+                    } else {
+                        flipHints++
                     }
                     touch.onModeSwitch(SystemClock.uptimeMillis())
                 },
@@ -398,6 +418,7 @@ internal fun ViewfinderOverlay(
     videoAvailable: Boolean = true,
     recording: Boolean = false,
     elapsedMs: Long = 0L,
+    flipHint: Boolean = false,
     onViewfinderBounds: (Rect) -> Unit = {},
     onControlPlaced: (EntryRegion, LayoutCoordinates) -> Unit = { _, _ -> },
 ) {
@@ -414,6 +435,9 @@ internal fun ViewfinderOverlay(
         )
         if (showCaptureFailure) {
             CaptureFailedBanner(message = captureFailureText)
+        }
+        if (flipHint) {
+            CameraHint(message = FLIP_HINT_TEXT)
         }
         Spacer(
             modifier = Modifier
@@ -453,6 +477,23 @@ internal fun CaptureFailedBanner(message: String, modifier: Modifier = Modifier)
             .background(LenslyBlack),
     ) {
         InlineBanner(message = message, tone = BannerTone.Error)
+    }
+}
+
+/**
+ * A brief notice under the top bar for a press the camera cannot act on, such as the lens switch during a recording. It
+ * lives inside the camera UI, not in a system toast. It sits on black, so it reads over any preview.
+ */
+@Composable
+internal fun CameraHint(message: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs)
+            .clip(RoundedCornerShape(LenslyRadius.md))
+            .background(LenslyBlack),
+    ) {
+        InlineBanner(message = message, tone = BannerTone.Info)
     }
 }
 
