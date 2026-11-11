@@ -32,6 +32,11 @@ jobs:
       - name: Unit tests and debug build
         run: ./gradlew :app:testDebugUnitTest :app:assembleDebug :tools:registry-pack:test
 
+      # Compares screenshots with the committed goldens in app/src/test/screenshots. Re-record locally with
+      # :app:recordRoborazziDebug when a change is intended.
+      - name: Screenshot goldens
+        run: ./gradlew :app:verifyRoborazziDebug
+
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
