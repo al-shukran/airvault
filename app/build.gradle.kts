@@ -202,6 +202,10 @@ dependencies {
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.test.uiautomator)
 
+    // Accessibility Test Framework (guideline 1.9). The spike in app.lensly.a11y.AccessibilityTest uses it on
+    // Compose screens; docs/testing/accessibility.md records what it does and does not see.
+    androidTestImplementation(libs.androidx.test.espresso.accessibility)
+
     // Microbenchmarks (guideline 1.7). They run only on the benchmark build type, through the runner set above.
     androidTestImplementation(libs.androidx.benchmark.junit4)
     // benchmark-macro-junit4 is in the catalog but not used here: macrobenchmarks need a separate
