@@ -21,6 +21,7 @@ import app.lensly.app.DecoyVault
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
+import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.DuressResult
 import app.lensly.core.vault.PasswordPolicy
@@ -51,6 +52,7 @@ internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, ho
     composable(HiddenRoute.DURESS) { HiddenBackdrop { ChangePasswordRoute(navController, holder, duress = true) } }
     composable(HiddenRoute.DURESS_REMOVE) { HiddenBackdrop { RemoveDuressRoute(navController, holder) } }
     composable(HiddenRoute.FAILURE_CAP) { HiddenBackdrop { FailureCapRoute(navController, holder) } }
+    composable(HiddenRoute.PROXY_POLICY) { HiddenBackdrop { ProxyPolicyRoute(navController, holder) } }
     composable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
     entryGestureRoutes(navController, holder)
     catalogRoutes(navController, holder)
@@ -69,18 +71,20 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
     var settings by remember { mutableStateOf<AppSettings?>(null) }
     var catalog by remember { mutableStateOf<Catalog?>(null) }
     var failureCap by remember { mutableStateOf<FailureCapChoice?>(null) }
+    var proxyPolicy by remember { mutableStateOf<ProxyPolicy?>(null) }
 
     LaunchedEffect(session) {
         whileUnlocked(navController, holder) {
             settings = withContext(Dispatchers.IO) { SettingsStore(session).load() }
         }
     }
-    // Read again each time the screen is shown, so a package installed from Update catalog shows, and a lockout saved on
-    // its screen shows.
+    // Read again each time the screen is shown, so a package installed from Update catalog shows, and a lockout or a proxy
+    // policy saved on its screen shows.
     val entry by navController.currentBackStackEntryAsState()
     LaunchedEffect(entry) {
         catalog = readCatalog(context)
         failureCap = readFailureCap(holder)
+        proxyPolicy = readProxyPolicy(holder)
     }
 
     SettingsScreen(
@@ -88,8 +92,10 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         onBulkCap = { cap ->
             scope.launch {
                 whileUnlocked(navController, holder) {
-                    val next = AppSettings(bulkCap = cap)
-                    withContext(Dispatchers.IO) { SettingsStore(session).save(next) }
+                    // Only the cap changes, so the saved Proxy Policy is kept.
+                    val next = withContext(Dispatchers.IO) {
+                        SettingsStore(session).let { store -> store.load().copy(bulkCap = cap).also(store::save) }
+                    }
                     settings = next
                 }
             }
@@ -102,6 +108,9 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         catalog = catalog,
         onNetworks = { navController.navigate(HiddenRoute.NETWORKS) },
         onTokens = { navController.navigate(HiddenRoute.TOKENS) },
+        onApprovedContracts = { navController.navigate(HiddenRoute.APPROVED_CONTRACTS) },
+        proxyPolicy = proxyPolicy,
+        onProxyPolicy = { navController.navigate(HiddenRoute.PROXY_POLICY) },
         onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
         onWipe = { navController.navigate(HiddenRoute.WIPE) },
         onDuressPassword = { navController.navigate(HiddenRoute.DURESS) },

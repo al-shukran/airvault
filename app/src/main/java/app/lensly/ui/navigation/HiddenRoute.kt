@@ -59,6 +59,10 @@ internal object HiddenRoute {
     const val DURESS_REMOVE = "settings/duress/remove"
     // Failure Delay cap: a choice, a warning below 10 s, then the App Password. Reached from Settings.
     const val FAILURE_CAP = "settings/failure-cap"
+    // Approved contracts: the signed whitelist, grouped by network. Read only, reached from Settings.
+    const val APPROVED_CONTRACTS = "settings/approved"
+    // Proxy policy: a choice of how whitelisted proxies are handled, then the App Password. Reached from Settings.
+    const val PROXY_POLICY = "settings/proxy-policy"
     // Wipe: the App Password again, a warning with its confirmation, then every file. Reached from Settings.
     const val WIPE = "settings/wipe"
     // Hidden entry gesture: the four gestures to choose from, then the change to one of them. Reached from Settings.

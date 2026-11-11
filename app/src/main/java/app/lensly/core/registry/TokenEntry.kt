@@ -2,7 +2,8 @@ package app.lensly.core.registry
 
 import kotlinx.serialization.Serializable
 
-private val CONTRACT_PATTERN = Regex("0x[0-9a-f]{40}")
+/** A lowercase 0x-prefixed 20-byte address, as the registry stores every contract and implementation address. */
+internal val CONTRACT_PATTERN = Regex("0x[0-9a-f]{40}")
 
 /** One ERC-20 token the vault will display and transfer. Decimals come only from here. */
 @Serializable

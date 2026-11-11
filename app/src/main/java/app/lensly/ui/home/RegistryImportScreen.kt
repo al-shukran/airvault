@@ -135,7 +135,8 @@ fun RegistryImportScreen(
         )
         Spacer(Modifier.height(LenslySpacing.xs))
         Text(
-            text = "A package adds networks and tokens. It cannot change or remove the built-in catalog.",
+            text = "A package adds networks and tokens, and sets the approved contracts. It cannot change or remove the " +
+                "built-in networks and tokens.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

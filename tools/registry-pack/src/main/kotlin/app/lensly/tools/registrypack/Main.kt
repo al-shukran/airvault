@@ -74,7 +74,7 @@ private fun verify(options: Options, out: PrintStream) {
 
 private fun summary(content: PackageDto): String =
     "sequence ${content.sequence}, created ${content.createdAt}, " +
-        "${content.networks.size} network(s), ${content.tokens.size} token(s)"
+        "${content.networks.size} network(s), ${content.tokens.size} token(s), ${content.whitelist.size} whitelist entry(ies)"
 
 /** Writes a new private seed (`release.key`, mode 600) and its public key (`release.pub`). Never overwrites. */
 internal fun generateKeys(dir: Path): ByteArray {

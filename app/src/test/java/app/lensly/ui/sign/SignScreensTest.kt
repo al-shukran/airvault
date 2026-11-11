@@ -21,8 +21,10 @@ import app.lensly.app.ProfileColour
 import app.lensly.app.ProfileIcon
 import app.lensly.app.VisualIdentity
 import app.lensly.app.sign.UndecodedCall
+import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
@@ -46,6 +48,47 @@ private const val LONG_ORIGIN = "dapp.example.invalid/a/very/long/origin/path/th
 private const val UNLIMITED = "Unlimited approval: this contract can spend all your USDC"
 private const val BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 private const val MAX_UINT256_DECIMAL = "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+private const val IMPLEMENTATION = "0x7777777777777777777777777777777777777777"
+private const val APPROVED_MEANING = "Swap an exact amount along the route in the call"
+private const val UPGRADE_WARNING = "The implementation could have been upgraded since it was approved, and Lensly cannot check " +
+    "it offline. The implementation it was approved with is shown below."
+
+/** Three calldata words of a whitelisted swap: two uint words, and the recipient word. */
+private val SWAP_WORDS = listOf(
+    "0".repeat(63) + "1",
+    "0".repeat(63) + "a",
+    "0".repeat(24) + "f278cf59f82edcf871d630f28ecc8056f25c1cdb",
+)
+
+/** A call Lensly cannot decode that the whitelist approves: the approved meaning, the whole call, and the proxy if it has one. */
+private fun whitelistedReview(proxy: ProxyBinding? = null) = approvalReview(origin = null).copy(
+    function = "swapExactTokensForTokens",
+    toAddress = BASE_USDC,
+    amount = "",
+    symbol = "",
+    tokenContract = null,
+    token = null,
+    params = listOf(
+        "amountIn (uint256)" to "1",
+        "amountOutMin (uint256)" to "10",
+        "to (address)" to "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+    ),
+    signature = null,
+    warnings = emptyList(),
+    whitelisted = WhitelistedCall(
+        signature = "swapExactTokensForTokens(uint256,uint256,address)",
+        meaning = APPROVED_MEANING,
+        call = UndecodedCall(
+            target = BASE_USDC,
+            networkName = BASE.name,
+            chainId = BASE.chainId,
+            value = "0 ETH",
+            selector = "6e17e9f6",
+            words = SWAP_WORDS,
+            proxy = proxy,
+        ),
+    ),
+)
 
 private val BASE = NetworkEntry(
     chainId = 8453L,
@@ -169,6 +212,47 @@ class TxReviewScreenTest {
     }
 
     @Test
+    fun aWhitelistedCallOpensWithItsApprovedMeaningAndShowsEveryFactAndWord() {
+        compose.setContent { LenslyTheme { TxReviewScreen(review = whitelistedReview(), onApprove = {}, onReject = {}) } }
+
+        compose.onNodeWithText("WHITELISTED CONTRACT CALL").assertExists()
+        compose.onNodeWithText(
+            "Lensly cannot decode this call itself. It is on your signed whitelist with the meaning below. " +
+                "Sign only if this is what you intend.",
+        ).assertExists()
+        compose.onNodeWithText(APPROVED_MEANING).assertExists()
+        compose.onNodeWithText("swapExactTokensForTokens(uint256,uint256,address)").assertExists()
+        compose.onNodeWithText(groupAddress(BASE_USDC)).assertExists()
+        compose.onNodeWithText("0x6e17e9f6").assertExists()
+        compose.onNodeWithText("0 ETH").assertExists()
+        compose.onNodeWithText("PARAMETERS").assertExists()
+        compose.onNodeWithText("AMOUNTIN (UINT256)").assertExists()
+        compose.onNodeWithText("10").assertExists()
+        // The raw words live in the folded section, so they are shown only when it opens.
+        compose.onNodeWithText("Raw calldata").performClick()
+        SWAP_WORDS.forEachIndexed { index, word ->
+            compose.onNodeWithText("WORD ${index + 1}").assertExists()
+            compose.onNodeWithText("0x" + groupHex(word)).assertExists()
+        }
+        compose.onNodeWithText("I CHECKED THIS IS WHAT I INTEND").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aProxyUnderWarnAndConfirmShowsItsRedWarningAndASecondCheck() {
+        val proxy = ProxyBinding(implementationAddress = IMPLEMENTATION)
+        compose.setContent {
+            LenslyTheme { TxReviewScreen(review = whitelistedReview(proxy), onApprove = {}, onReject = {}) }
+        }
+
+        compose.onNodeWithText(UPGRADE_WARNING).assertExists()
+        compose.onNodeWithText("APPROVED IMPLEMENTATION").assertExists()
+        compose.onNodeWithText(groupAddress(IMPLEMENTATION)).assertExists()
+        compose.onNodeWithText("I CHECKED THIS IS WHAT I INTEND").assertExists()
+        compose.onNodeWithText("I ACCEPT THE IMPLEMENTATION CANNOT BE CHECKED").assertExists()
+    }
+
+    @Test
     fun anUnlimitedApprovalWarningIsShownInFull() {
         compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
@@ -254,6 +338,27 @@ class RefusalScreensTest {
             compose.onNodeWithText("WORD ${index + 1}").assertExists()
             compose.onNodeWithText("0x" + groupHex(word)).assertExists()
         }
+    }
+
+    @Test
+    fun aRefusedProxyShowsTheImplementationItIsBoundTo() {
+        val call = UndecodedCall(
+            target = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            networkName = "Ethereum",
+            chainId = 1L,
+            value = "0 ETH",
+            selector = "7acb7757",
+            words = words,
+            proxy = ProxyBinding(implementationAddress = IMPLEMENTATION),
+        )
+        compose.setContent {
+            LenslyTheme {
+                SignRefusedScreen(reason = "This contract is an upgradeable proxy.", onDone = {}, call = call)
+            }
+        }
+
+        compose.onNodeWithText("APPROVED IMPLEMENTATION").assertExists()
+        compose.onNodeWithText(groupAddress(IMPLEMENTATION)).assertExists()
     }
 
     @Test

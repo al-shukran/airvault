@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
@@ -93,12 +94,67 @@ class SettingsStoreTest {
         session.close()
     }
 
+    /** The settings record as version 2 writes it: the account count, then the Proxy Policy code. */
+    private fun recordV2(accounts: Int, policyCode: Int): ByteArray {
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(2)
+            out.writeInt(accounts)
+            out.writeByte(policyCode)
+        }
+        return buffer.toByteArray()
+    }
+
     @Test
     fun anUnknownSettingsVersionReadsAsTheDefault() {
         val session = open()
-        session.putVaultRecord("settings", record(version = 2, accounts = 1_000))
+        session.putVaultRecord("settings", record(version = 3, accounts = 1_000))
 
         assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
+        session.close()
+    }
+
+    @Test
+    fun aSavedProxyPolicyIsReadBackAfterTheVaultReopens() {
+        val first = open()
+        SettingsStore(first).save(AppSettings(BulkCap.TWENTY, ProxyPolicy.WARN_AND_CONFIRM))
+        first.close()
+
+        val reopened = open()
+        assertEquals(ProxyPolicy.WARN_AND_CONFIRM, SettingsStore(reopened).load().proxyPolicy)
+        assertEquals(BulkCap.TWENTY, SettingsStore(reopened).load().bulkCap)
+        reopened.close()
+    }
+
+    @Test
+    fun everyProxyPolicyRoundTrips() {
+        val session = open()
+        for (policy in ProxyPolicy.entries) {
+            SettingsStore(session).save(AppSettings(proxyPolicy = policy))
+            assertEquals(policy, SettingsStore(session).load().proxyPolicy)
+        }
+        session.close()
+    }
+
+    @Test
+    fun aVersionOneRecordReadsWithTheDefaultProxyPolicy() {
+        val session = open()
+        session.putVaultRecord("settings", record(version = 1, accounts = BulkCap.TWENTY.accounts))
+
+        val loaded = SettingsStore(session).load()
+        assertEquals(BulkCap.TWENTY, loaded.bulkCap)
+        assertEquals(ProxyPolicy.DEFAULT, loaded.proxyPolicy)
+        session.close()
+    }
+
+    @Test
+    fun anUnknownProxyPolicyCodeReadsAsTheDefault() {
+        val session = open()
+        session.putVaultRecord("settings", recordV2(accounts = BulkCap.TWENTY.accounts, policyCode = 9))
+
+        val loaded = SettingsStore(session).load()
+        assertEquals(BulkCap.TWENTY, loaded.bulkCap)
+        assertEquals(ProxyPolicy.DEFAULT, loaded.proxyPolicy)
         session.close()
     }
 

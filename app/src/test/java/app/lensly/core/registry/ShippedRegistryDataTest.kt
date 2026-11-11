@@ -14,15 +14,44 @@ import org.junit.Test
 class ShippedRegistryDataTest {
     private val networksText = File(MAIN, "registry/networks.json").readText()
     private val tokensText = File(MAIN, "registry/tokens.json").readText()
+    private val whitelistText = File(MAIN, "registry/whitelist.json").readText()
     private val debugNetworksText = File(DEBUG, "registry/networks.debug.json").readText()
     private val debugTokensText = File(DEBUG, "registry/tokens.debug.json").readText()
+    private val debugWhitelistText = File(DEBUG, "registry/whitelist.debug.json").readText()
 
     private val registry: Registry = RegistryLoader.load { path ->
         when (path) {
             RegistryLoader.NETWORKS_PATH -> networksText
             RegistryLoader.TOKENS_PATH -> tokensText
+            RegistryLoader.WHITELIST_PATH -> whitelistText
             else -> null
         }
+    }
+
+    @Test
+    fun theShippedWhitelistApprovesNoCallSoOnlyAnOfflineUpdateCanAddOne() {
+        assertTrue(registry.whitelistEntries().isEmpty(), "whitelist.json must ship empty")
+    }
+
+    @Test
+    fun theDebugWhitelistApprovesOnlyCallsOnDebugTestnets() {
+        val debug = RegistryLoader.load { path ->
+            when (path) {
+                RegistryLoader.NETWORKS_PATH -> networksText
+                RegistryLoader.TOKENS_PATH -> tokensText
+                RegistryLoader.WHITELIST_PATH -> whitelistText
+                RegistryLoader.NETWORKS_DEBUG_PATH -> debugNetworksText
+                RegistryLoader.TOKENS_DEBUG_PATH -> debugTokensText
+                RegistryLoader.WHITELIST_DEBUG_PATH -> debugWhitelistText
+                else -> null
+            }
+        }
+
+        assertTrue(debug.whitelistEntries().isNotEmpty(), "the debug overlay should carry a test entry")
+        assertTrue(
+            debug.whitelistEntries().all { debug.network(it.chainId)?.testnet == true },
+            "a debug whitelist entry is on a chain that is not a debug testnet",
+        )
     }
 
     @Test
@@ -84,6 +113,7 @@ class ShippedRegistryDataTest {
             when (path) {
                 RegistryLoader.NETWORKS_PATH -> networksText
                 RegistryLoader.TOKENS_PATH -> tokensText
+                RegistryLoader.WHITELIST_PATH -> whitelistText
                 RegistryLoader.NETWORKS_DEBUG_PATH -> debugNetworksText
                 RegistryLoader.TOKENS_DEBUG_PATH -> debugTokensText
                 else -> null

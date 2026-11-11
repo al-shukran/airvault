@@ -8,15 +8,19 @@ import kotlinx.serialization.json.Json
 /**
  * Builds a [Registry] from the baked-in JSON catalogs.
  *
- * The main catalogs are required. The debug overlays are optional: they exist only in the debug
- * source set, so release builds never see a testnet entry. An overlay entry replaces a main entry
- * with the same chain ID (networks) or chain ID and contract (tokens), and otherwise adds to it.
+ * The main networks and tokens are required. The whitelist and the debug overlays are optional: a build without a whitelist
+ * approves no contract call, which is the safe reading of a missing list. The debug overlays exist only in the debug source
+ * set, so release builds never see a testnet entry. An overlay entry replaces a main entry with the same chain ID (networks)
+ * or chain ID and contract (tokens), and otherwise adds to it. A whitelist overlay only adds entries, and a repeated whitelist
+ * entry is refused.
  */
 object RegistryLoader {
     const val NETWORKS_PATH = "registry/networks.json"
     const val TOKENS_PATH = "registry/tokens.json"
+    const val WHITELIST_PATH = "registry/whitelist.json"
     const val NETWORKS_DEBUG_PATH = "registry/networks.debug.json"
     const val TOKENS_DEBUG_PATH = "registry/tokens.debug.json"
+    const val WHITELIST_DEBUG_PATH = "registry/whitelist.debug.json"
 
     /** [readAsset] returns the UTF-8 text at a published asset path, or null when the asset is absent. */
     fun load(readAsset: (String) -> String?): Registry {
@@ -28,14 +32,20 @@ object RegistryLoader {
             TOKENS_PATH,
             checkNotNull(readAsset(TOKENS_PATH)) { "missing asset $TOKENS_PATH" },
         )
+        val whitelistFile = readAsset(WHITELIST_PATH)?.let { parseWhitelist(WHITELIST_PATH, it) }
+        val whitelist = whitelistFile?.whitelist.orEmpty()
         val networkOverlay = readAsset(NETWORKS_DEBUG_PATH)
             ?.let { parseNetworks(NETWORKS_DEBUG_PATH, it) }.orEmpty()
         val tokenOverlay = readAsset(TOKENS_DEBUG_PATH)
             ?.let { parseTokens(TOKENS_DEBUG_PATH, it) }.orEmpty()
+        val whitelistOverlay = readAsset(WHITELIST_DEBUG_PATH)
+            ?.let { parseWhitelist(WHITELIST_DEBUG_PATH, it).whitelist }.orEmpty()
 
         return Registry(
             networks = (networks + networkOverlay).associateBy { it.chainId }.values.toList(),
             tokens = (tokens + tokenOverlay).associateBy { it.chainId to it.contract }.values.toList(),
+            whitelist = whitelist + whitelistOverlay,
+            catalogSequence = whitelistFile?.sequence ?: 0L,
         )
     }
 
@@ -65,6 +75,13 @@ object RegistryLoader {
         }
         return entries
     }
+
+    private fun parseWhitelist(path: String, text: String): WhitelistFile =
+        json.decodeFromString<WhitelistFile>(text).also {
+            require(it.whitelist.map { entry -> Triple(entry.chainId, entry.contract, entry.selector) }.toSet().size == it.whitelist.size) {
+                "duplicate whitelist entry in $path"
+            }
+        }
 }
 
 @Serializable
@@ -72,3 +89,10 @@ private class NetworksFile(val networks: List<NetworkEntry>)
 
 @Serializable
 private class TokensFile(val tokens: List<TokenEntry>)
+
+@Serializable
+private class WhitelistFile(
+    /** The catalog sequence of the build's whitelist, so an installed package can be compared with it. */
+    val sequence: Long = 0,
+    val whitelist: List<WhitelistEntry>,
+)

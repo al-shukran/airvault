@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "sequence": 2,
+  "createdAt": "2026-11-11",
+  "networks": [],
+  "tokens": [],
+  "whitelist": [
+    {
+      "chainId": 1,
+      "contract": "0x5555555555555555555555555555555555555555",
+      "selector": "0x6e17e9f6",
+      "signature": "swapExactTokensForTokens(uint256,uint256,address)",
+      "meaning": "Swap an exact amount of one token for at least a minimum amount of another. Illustrative sample, not a real contract.",
+      "proxy": null,
+      "params": [
+        {"name": "amountIn", "type": "uint256", "tokenRef": true},
+        {"name": "amountOutMin", "type": "uint256"},
+        {"name": "to", "type": "address"}
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x6666666666666666666666666666666666666666",
+      "selector": "0x7acb7757",
+      "signature": "stake(uint256,address)",
+      "meaning": "Stake an amount for a recipient in a proxy-fronted pool. Illustrative sample, not a real contract.",
+      "proxy": {
+        "implementationAddress": "0x7777777777777777777777777777777777777777",
+        "implementationCodeHash": null
+      },
+      "params": [
+        {"name": "amount", "type": "uint256", "tokenRef": true},
+        {"name": "recipient", "type": "address"}
+      ],
+      "upgradeable": true
+    }
+  ]
+}

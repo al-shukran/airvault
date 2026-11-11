@@ -7,11 +7,16 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.ProxyBinding
+import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,7 +34,39 @@ class SettingsScreenTest {
     private val network = NetworkEntry(chainId = 1L, name = "Alpha Chain", nativeSymbol = "ETH", feeModel = FeeModel.L1, explorerName = null, testnet = false)
     private val token = TokenEntry(chainId = 1L, contract = "0x" + "a".repeat(40), symbol = "AAA", name = "Alpha Token", decimals = 18)
 
-    private fun show(onNetworks: () -> Unit = {}, onTokens: () -> Unit = {}) {
+    private val approvals = listOf(
+        WhitelistEntry(
+            chainId = 1L,
+            contract = "0x" + "5".repeat(40),
+            selector = "0x6e17e9f6",
+            signature = "swapExactTokensForTokens(uint256,uint256,address)",
+            meaning = "Swap",
+            params = listOf(
+                WhitelistParam("amountIn", "uint256"),
+                WhitelistParam("amountOutMin", "uint256"),
+                WhitelistParam("to", "address"),
+            ),
+            upgradeable = false,
+        ),
+        WhitelistEntry(
+            chainId = 1L,
+            contract = "0x" + "6".repeat(40),
+            selector = "0x7acb7757",
+            signature = "stake(uint256,address)",
+            meaning = "Stake",
+            proxy = ProxyBinding("0x" + "7".repeat(40)),
+            params = listOf(WhitelistParam("amount", "uint256"), WhitelistParam("recipient", "address")),
+            upgradeable = true,
+        ),
+    )
+
+    private fun show(
+        onNetworks: () -> Unit = {},
+        onTokens: () -> Unit = {},
+        proxyPolicy: ProxyPolicy? = ProxyPolicy.DEFAULT,
+        onProxyPolicy: () -> Unit = {},
+        installedUpdateUnverified: Boolean = false,
+    ) {
         compose.setContent {
             LenslyTheme {
                 SettingsScreen(
@@ -38,9 +75,16 @@ class SettingsScreenTest {
                     onChangePassword = {},
                     failureDelayCap = FailureCapChoice.ONE_MINUTE,
                     onFailureDelayCap = {},
-                    catalog = Catalog(networks = listOf(network), tokens = listOf(token, token.copy(symbol = "BBB"))),
+                    catalog = Catalog(
+                        networks = listOf(network),
+                        tokens = listOf(token, token.copy(symbol = "BBB")),
+                        whitelist = approvals,
+                        installedUpdateUnverified = installedUpdateUnverified,
+                    ),
                     onNetworks = onNetworks,
                     onTokens = onTokens,
+                    proxyPolicy = proxyPolicy,
+                    onProxyPolicy = onProxyPolicy,
                     onUpdateCatalog = {},
                     onWipe = {},
                     versionName = "1.0",
@@ -50,6 +94,38 @@ class SettingsScreenTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun theApprovedContractsRowCountsTheWhitelistUnderItsOwnSection() {
+        show()
+
+        compose.onNodeWithText("WHITELIST").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("2 approved calls").assertExists()
+    }
+
+    @Test
+    fun theProxyPolicyRowNamesTheSavedPolicyAndMarksTheDefault() {
+        show(proxyPolicy = ProxyPolicy.DEFAULT)
+
+        compose.onNodeWithText("Bind to implementation (default)").assertExists()
+    }
+
+    @Test
+    fun theProxyPolicyRowShowsAChangedPolicyWithoutTheDefaultMark() {
+        show(proxyPolicy = ProxyPolicy.WARN_AND_CONFIRM)
+
+        compose.onNodeWithText("Warn and confirm").assertExists()
+    }
+
+    @Test
+    fun theProxyPolicyRowOpensTheChoice() {
+        var opened = false
+        show(onProxyPolicy = { opened = true })
+
+        compose.onNodeWithText("Proxy policy").performScrollTo().performClick()
+
+        assertTrue(opened)
     }
 
     @Test
@@ -93,5 +169,14 @@ class SettingsScreenTest {
         show()
 
         compose.onNodeWithText("LOCKOUT").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun anInstalledUpdateThatCouldNotBeVerifiedSaysTheBuiltInCatalogIsInUse() {
+        show(installedUpdateUnverified = true)
+
+        compose.onNodeWithText("Installed update could not be verified; using the built-in catalog")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 }

@@ -1,9 +1,13 @@
 package app.lensly.ui.sign
 
+import app.lensly.app.sign.UndecodedCall
+import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.TokenEntry
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -66,10 +70,45 @@ class TxReviewTest {
         val known = review(base, tokenContract = usdc, token = token)
         val unknown = review(network = null, tokenContract = null, token = null)
 
-        assertTrue(known.canApprove(everyFactShown = true, registryChecked = false))
-        assertFalse(known.canApprove(everyFactShown = false, registryChecked = false))
-        assertFalse(unknown.canApprove(everyFactShown = true, registryChecked = false))
-        assertTrue(unknown.canApprove(everyFactShown = true, registryChecked = true))
-        assertFalse(unknown.canApprove(everyFactShown = false, registryChecked = true))
+        assertTrue(known.canApprove(everyFactShown = true, checked = emptySet()))
+        assertFalse(known.canApprove(everyFactShown = false, checked = emptySet()))
+        assertFalse(unknown.canApprove(everyFactShown = true, checked = emptySet()))
+        assertTrue(unknown.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.REGISTRY)))
+        assertFalse(unknown.canApprove(everyFactShown = false, checked = setOf(ReviewCheck.REGISTRY)))
+    }
+
+    /** A whitelisted call on Base, with its contract and selector as the pipeline builds them. */
+    private fun whitelisted(proxy: ProxyBinding?) = review(base, tokenContract = null, token = null).copy(
+        whitelisted = WhitelistedCall(
+            signature = "approveAndDeposit(uint256,address)",
+            meaning = "Deposit into the pool",
+            call = UndecodedCall(
+                target = usdc,
+                networkName = "Base",
+                chainId = 8453L,
+                value = "0 ETH",
+                selector = "7acb7757",
+                words = listOf("00".repeat(32)),
+                proxy = proxy,
+            ),
+        ),
+    )
+
+    @Test
+    fun aWhitelistedCallWaitsForItsOwnCheckBeforeItSigns() {
+        val call = whitelisted(proxy = null)
+
+        assertEquals(listOf(ReviewCheck.WHITELIST), call.requiredChecks)
+        assertFalse(call.canApprove(everyFactShown = true, checked = emptySet()))
+        assertTrue(call.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.WHITELIST)))
+    }
+
+    @Test
+    fun aProxyUnderWarnAndConfirmNeedsASecondCheck() {
+        val proxy = whitelisted(proxy = ProxyBinding(implementationAddress = "0x7777777777777777777777777777777777777777"))
+
+        assertEquals(listOf(ReviewCheck.WHITELIST, ReviewCheck.UPGRADE), proxy.requiredChecks)
+        assertFalse(proxy.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.WHITELIST)))
+        assertTrue(proxy.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.WHITELIST, ReviewCheck.UPGRADE)))
     }
 }
