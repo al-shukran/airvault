@@ -3,6 +3,7 @@ package app.lensly.ui.wallet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -19,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -32,6 +34,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.ui.components.pressFeedback
+import app.lensly.ui.components.rememberKeyHaptics
+import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.DotoFamily
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
@@ -84,9 +89,13 @@ internal fun WalletPill(
         WalletPillSize.Regular -> MaterialTheme.typography.labelLarge
         WalletPillSize.Large -> MaterialTheme.typography.titleMedium
     }
+    val haptics = rememberKeyHaptics()
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
             .height(height)
+            // Disabled dimming is the alpha below, so press feedback never dims a second time.
+            .pressFeedback(interaction, enabled = true)
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .clip(shape)
             .background(background, shape)
@@ -94,7 +103,14 @@ internal fun WalletPill(
                 if (style == WalletPillStyle.Outline) Modifier.border(1.dp, colors.outline, shape)
                 else Modifier,
             )
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .tapHaptic(haptics, enabled)
+            .clickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .padding(horizontal = horizontal),
         contentAlignment = Alignment.Center,
     ) {

@@ -25,9 +25,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lensly.core.wallet.Mnemonic
-import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
+import app.lensly.ui.theme.LenslyError
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslyOutline
+import app.lensly.ui.theme.LenslyRadius
+import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LenslySurfaceContainer
 
 /**
  * UI state for [RestoreEntryScreen]. [words] are the committed words, where index 0 is word #1.
@@ -44,7 +51,13 @@ data class RestoreState(
     val invalidChecksum: Boolean = false,
 )
 
+private const val TITLE = "Restore wallet"
 private const val SLOTS_PER_ROW = 3
+private val SLOT_HEIGHT = 40.dp
+private val SLOT_GAP = 8.dp
+private val INPUT_HEIGHT = 56.dp
+private val HELPER_HEIGHT = 20.dp
+private val SUGGESTION_HEIGHT = 56.dp
 
 /**
  * Restore flow: the owner types word #1 to #24 through [SecureKeyboard], and the screen lists
@@ -65,58 +78,80 @@ fun RestoreEntryScreen(
 ) {
     val count = Mnemonic.WORD_COUNT
     val complete = state.words.size >= count
-    WalletScaffold(
+    val current = minOf(state.activeIndex + 1, count)
+    // A prefix that no BIP39 word starts with can never become a word, so the field says so at once.
+    val noMatch = state.prefix.isNotEmpty() && state.suggestions.isEmpty()
+    LenslyScreen(
+        title = TITLE,
         modifier = modifier,
         scrollable = false,
-        footer = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                SuggestionRow(suggestions = state.suggestions, onPick = onPickSuggestion)
-                SecureKeyboard(
-                    onKey = onKey,
-                    onBackspace = onBackspace,
-                    onDone = onSubmit,
+        bottomAction = {
+            if (complete) {
+                WalletPill(
+                    text = "Check words",
+                    onClick = onSubmit,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = WalletPillStyle.Primary,
                 )
+            } else {
+                SuggestionRow(suggestions = state.suggestions, onPick = onPickSuggestion)
             }
+            Spacer(Modifier.height(LenslySpacing.sm))
+            SecureKeyboard(
+                onKey = onKey,
+                onBackspace = onBackspace,
+                onDone = onSubmit,
+            )
         },
     ) {
-        Spacer(Modifier.height(16.dp))
-        WalletEyebrow("Word ${minOf(state.activeIndex + 1, count)} of $count")
-        Spacer(Modifier.height(8.dp))
-        DotHeadline(text = "RESTORE")
-        Spacer(Modifier.height(12.dp))
+        WalletEyebrow("Word $current of $count")
+        Spacer(Modifier.height(LenslySpacing.xs))
+        StepSegments(count = count, filled = state.words.size)
+        Spacer(Modifier.height(LenslySpacing.md))
+        PrefixField(
+            prefix = state.prefix,
+            placeholder = if (complete) "All $count words entered" else "Type word $current",
+            invalid = noMatch,
+        )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp),
+                .height(HELPER_HEIGHT),
             contentAlignment = Alignment.CenterStart,
         ) {
-            if (state.prefix.isEmpty()) {
-                Text(
-                    text = "Type word ${minOf(state.activeIndex + 1, count)}",
+            when {
+                noMatch -> Text(
+                    text = "No word starts with these letters",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = LenslyError,
+                )
+                state.prefix.isNotEmpty() -> Text(
+                    text = "Tap a suggestion, or press space",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            } else {
-                Text(
-                    text = state.prefix.uppercase(),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = LenslyOnSurface,
-                )
             }
         }
-        WalletError(message = if (state.invalidChecksum) "Invalid checksum" else null)
-        Spacer(Modifier.height(8.dp))
+        if (state.invalidChecksum) {
+            Spacer(Modifier.height(LenslySpacing.xs))
+            InlineBanner(
+                title = "Invalid checksum",
+                message = "These 24 words do not form a valid phrase. Check each word, in order.",
+                tone = BannerTone.Error,
+            )
+        }
+        Spacer(Modifier.height(LenslySpacing.sm))
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(SLOT_GAP),
         ) {
             (0 until count).chunked(SLOTS_PER_ROW).forEach { row ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SLOT_GAP),
                 ) {
                     row.forEach { index ->
                         WordSlot(
@@ -128,18 +163,38 @@ fun RestoreEntryScreen(
                     }
                 }
             }
-            if (complete) {
-                WalletPill(
-                    text = "Check words",
-                    onClick = onSubmit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    style = WalletPillStyle.Primary,
-                )
-            }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(LenslySpacing.xs))
+    }
+}
+
+/** The word being typed. It shows a caret after the letters, and turns red when no BIP39 word matches them. */
+@Composable
+private fun PrefixField(prefix: String, placeholder: String, invalid: Boolean) {
+    val shape = RoundedCornerShape(LenslyRadius.lg)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(INPUT_HEIGHT)
+            .clip(shape)
+            .background(LenslySurfaceContainer, shape)
+            .border(1.dp, if (invalid) LenslyError else LenslyOutline, shape)
+            .padding(horizontal = LenslySpacing.md),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        if (prefix.isEmpty()) {
+            Text(
+                text = placeholder.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text(
+                text = "${prefix.uppercase()}_",
+                style = MaterialTheme.typography.titleLarge,
+                color = if (invalid) LenslyError else LenslyOnSurface,
+            )
+        }
     }
 }
 
@@ -152,9 +207,8 @@ private fun SuggestionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .height(SUGGESTION_HEIGHT),
+        horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         suggestions.forEach { word ->
@@ -171,7 +225,8 @@ private fun SuggestionRow(
 
 /**
  * One of the 24 slots. A filled slot shows its number and word, and tapping it edits that word. The
- * active slot has a white outline. An empty slot shows only its number.
+ * active slot has a white outline. An empty slot shows only its number. Every slot is the same width, and the
+ * number sits in a fixed-width column, so the words line up down the grid.
  */
 @Composable
 private fun WordSlot(
@@ -186,7 +241,7 @@ private fun WordSlot(
     val shape = RoundedCornerShape(percent = 50)
     Box(
         modifier = modifier
-            .height(36.dp)
+            .height(SLOT_HEIGHT)
             .clip(shape)
             .background(if (filled) colors.surfaceVariant else Color.Transparent, shape)
             .border(1.dp, if (active) LenslyOnSurface else colors.outline, shape)
@@ -194,20 +249,21 @@ private fun WordSlot(
                 if (filled) Modifier.clickable(role = Role.Button) { onEdit(index) }
                 else Modifier,
             )
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = LenslySpacing.xs),
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "%02d".format(index + 1),
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.onSurfaceVariant,
-            )
+            Box(modifier = Modifier.width(SLOT_NUMBER_WIDTH)) {
+                Text(
+                    text = "%02d".format(index + 1),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
             if (filled) {
-                Spacer(Modifier.width(6.dp))
                 Text(
                     text = state.words[index].uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.titleSmall,
                     color = colors.onSurface,
                     maxLines = 1,
                 )
@@ -215,3 +271,5 @@ private fun WordSlot(
         }
     }
 }
+
+private val SLOT_NUMBER_WIDTH = 20.dp
