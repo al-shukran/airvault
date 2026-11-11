@@ -24,6 +24,13 @@ class MnemonicWipeTest {
             }
         }
 
+    /** The seed buffer itself, so the test can tell it apart from the words and entropy. */
+    private fun seedOf(mnemonic: Mnemonic): ByteArray =
+        Mnemonic::class.java.getDeclaredField("seed").run {
+            isAccessible = true
+            get(mnemonic) as ByteArray
+        }
+
     private fun allZero(buffer: Any): Boolean = when (buffer) {
         is ByteArray -> buffer.all { it == 0.toByte() }
         is CharArray -> buffer.all { it == '\u0000' }
@@ -34,10 +41,20 @@ class MnemonicWipeTest {
     fun wipeZeroesEveryOwnedBuffer() {
         val mnemonic = Mnemonic.fromEntropy(ByteArray(Mnemonic.ENTROPY_BYTES) { (it * 7 + 3).toByte() })
         val buffers = buffersOf(mnemonic)
+        val seedBuffer = seedOf(mnemonic)
         assertEquals(3, buffers.size, "the words, entropy and seed buffers")
         assertFalse(buffers.all(::allZero), "buffers hold data before the wipe")
+        assertTrue(seedBuffer.all { it == 0.toByte() }, "the seed is empty before it is derived")
+        val seed = mnemonic.deriveSeed("TREZOR")
+        try {
+            assertFalse(seed.all { it == 0.toByte() }, "the derived seed is non-zero")
+            assertFalse(seedBuffer.all { it == 0.toByte() }, "the owned seed buffer holds the derived seed")
+        } finally {
+            seed.fill(0)
+        }
         mnemonic.wipe()
         assertTrue(buffers.all(::allZero), "every buffer is zeroed by the wipe")
+        assertTrue(seedBuffer.all { it == 0.toByte() }, "the derived seed is zeroed by the wipe")
     }
 
     @Test
