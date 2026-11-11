@@ -106,14 +106,14 @@ class WalletStoreBulkTest {
     }
 
     @Test
-    fun aRunOfAHundredAndFiftyIsSavedUnderTheThousandCap() {
+    fun aRunOfAHundredIsSavedUnderTheHundredCap() {
         val id = newWallet()
 
-        val updated = assertNotNull(store.addAccounts(id, 150, cap = BulkCap.THOUSAND.accounts))
+        val updated = assertNotNull(store.addAccounts(id, 100, cap = BulkCap.HUNDRED.accounts))
 
-        assertEquals(151, updated.accountCount)
+        assertEquals(101, updated.accountCount)
         val single = HdWallet(Mnemonic.toSeed(words))
-        assertEquals((0..150).map { single.address(it) }, store.addresses(id, 151))
+        assertEquals((0..100).map { single.address(it) }, store.addresses(id, 101))
     }
 
     @Test
