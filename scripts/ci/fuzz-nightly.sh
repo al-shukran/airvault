@@ -10,10 +10,23 @@
 #
 # A crash is written under app/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/, which the regression
 # run replays as soon as the file is committed.
+#
+# Usage: scripts/ci/fuzz-nightly.sh [--list] [target]
+#   no target  fuzzes all four, one Gradle invocation each (about an hour)
+#   target     fuzzes that one target only; the nightly workflow uses one matrix job per target
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+
+usage() {
+    cat >&2 <<'EOF'
+usage: scripts/ci/fuzz-nightly.sh [--list] [target]
+
+  --list   print the four target class names and exit
+  target   fuzz only this class (default: all four)
+EOF
+}
 
 targets=(
     app.lensly.fuzz.UrScannerFuzzTest
@@ -22,14 +35,30 @@ targets=(
     app.lensly.fuzz.UnsignedTxFuzzTest
 )
 
-if [ "${1:-}" = "--list" ]; then
+if [ "${1:-}" = "--list" ] && [ "$#" -eq 1 ]; then
     printf '%s\n' "${targets[@]}"
     exit 0
 fi
 
-if [ "$#" -ne 0 ]; then
-    echo "usage: scripts/ci/fuzz-nightly.sh [--list]" >&2
+if [ "$#" -gt 1 ]; then
+    usage
     exit 2
+fi
+
+if [ "$#" -eq 1 ]; then
+    selected="$1"
+    found=false
+    for target in "${targets[@]}"; do
+        if [ "$target" = "$selected" ]; then
+            found=true
+        fi
+    done
+    if [ "$found" != true ]; then
+        echo "fuzz-nightly: unknown target: $selected" >&2
+        usage
+        exit 2
+    fi
+    targets=("$selected")
 fi
 
 status=0

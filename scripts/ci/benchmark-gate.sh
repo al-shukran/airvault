@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 # Compare an AndroidX Benchmark result against the committed reference-device baseline (docs/testing/guideline.md 1.7).
 #
+#   scripts/ci/benchmark-gate.sh --reference-device <benchmark-result.json>
 #   scripts/ci/benchmark-gate.sh [--record] <benchmark-result.json>
 #
 # Fails when the median of a benchmark is more than BENCHMARK_MAX_REGRESSION_PCT (default 10) percent above the
 # baseline, or when a benchmark in the result has no baseline entry.
 #
+# The gate only judges numbers from the reference device. Without --reference-device (or
+# BENCHMARK_REFERENCE_DEVICE=1) it reports that it made no verdict and exits 0, because an emulator run is trend
+# data: an emulator number must never fail or pass the 10% gate (guideline 1.7).
+#
 # --record rewrites app/src/androidTest/benchmark-baselines/baselines.json from the result file. Recording belongs to a
 # person on the reference device, so it refuses to run with CI=true.
 #
-# When baselines.json does not exist yet (no reference-device run has happened), the gate prints how to record one and,
-# locally, exits 0. With CI=true it fails closed, so CI can never pass by silently having no baseline.
+# On the reference device a missing baselines.json fails closed: the gate cannot judge anything without one.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -18,15 +22,21 @@ BASELINE_DIR="${BENCHMARK_BASELINE_DIR:-$ROOT/app/src/androidTest/benchmark-base
 BASELINE="$BASELINE_DIR/baselines.json"
 MAX_PCT="${BENCHMARK_MAX_REGRESSION_PCT:-10}"
 
+# BENCHMARK_REFERENCE_DEVICE=1 is the same switch in environment form, so a wrapper can set it once.
+reference=false
+[ "${BENCHMARK_REFERENCE_DEVICE:-}" = "1" ] && reference=true
+
 usage() {
     cat >&2 <<'EOF'
-usage: scripts/ci/benchmark-gate.sh [--record] <benchmark-result.json>
+usage: scripts/ci/benchmark-gate.sh [--record] [--reference-device] <benchmark-result.json>
 
-  --record   write the baseline file from this result (reference device only; refuses CI=true)
+  --record             write the baseline file from this result (reference device only; refuses CI=true)
+  --reference-device   this run came from the reference device, so enforce the gate
 
 env:
   BENCHMARK_MAX_REGRESSION_PCT  allowed regression, default 10
   BENCHMARK_BASELINE_DIR        baseline directory, default app/src/androidTest/benchmark-baselines
+  BENCHMARK_REFERENCE_DEVICE    set to 1 for the same effect as --reference-device
 EOF
 }
 
@@ -35,6 +45,7 @@ result=""
 for arg in "$@"; do
     case "$arg" in
         --record) record=true ;;
+        --reference-device) reference=true ;;
         -h|--help) usage; exit 0 ;;
         -*) echo "benchmark-gate: unknown option: $arg" >&2; usage; exit 2 ;;
         *)
@@ -109,15 +120,20 @@ if [ "$record" = true ]; then
     exit 0
 fi
 
-if [ ! -f "$BASELINE" ]; then
-    echo "benchmark-gate: no baseline yet at $BASELINE" >&2
-    echo "benchmark-gate: record one on the reference device: scripts/ci/benchmark-gate.sh --record <result.json>" >&2
-    if [ "${CI:-}" = "true" ]; then
-        echo "benchmark-gate: CI=true, so a missing baseline fails instead of skipping" >&2
-        exit 1
-    fi
-    echo "benchmark-gate: exiting 0 locally" >&2
+# An emulator or any other non-reference run cannot decide the 10% gate (guideline 1.7). Say so
+# instead of printing ok, so trend data is never mistaken for a gate pass.
+if [ "$reference" != true ]; then
+    echo "benchmark-gate: no verdict: this run did not come from the reference device" >&2
+    echo "benchmark-gate: emulator numbers are trend data; enforce only with --reference-device" >&2
+    echo "benchmark-gate: (or BENCHMARK_REFERENCE_DEVICE=1) on the reference device" >&2
     exit 0
+fi
+
+if [ ! -f "$BASELINE" ]; then
+    echo "benchmark-gate: error: no baseline at $BASELINE" >&2
+    echo "benchmark-gate: record one on the reference device: scripts/ci/benchmark-gate.sh --record <result.json>" >&2
+    echo "benchmark-gate: on the reference device a missing baseline fails closed" >&2
+    exit 1
 fi
 
 lines="$(benchmarks "$result")"

@@ -5,7 +5,7 @@
 #   instrumented       1.3  :app:connectedDebugAndroidTest
 #   e2e                1.6  :app:connectedDebugAndroidTest -P...class=app.lensly.e2e.WalletSignFlowTest
 #   screenshot-testing 1.5  :app:verifyRoborazziDebug
-#   perf               1.7  :app:connectedBenchmarkAndroidTest
+#   perf               1.7  :app:connectedBenchmarkAndroidTest (emulator: trend data, not the gate)
 #   security           1.8  :app:lintDebug then check-manifest.sh
 #   fuzz               1.8  :app:testDebugUnitTest replayed against the fuzz targets
 #
@@ -13,9 +13,9 @@
 # usable locally before those stages exist. With CI=true the same case exits 1, so a
 # scheduled or comment-triggered run can never pass by silently skipping.
 #
-# Not wired here: the nightly Jazzer run (15 min per target) and gitleaks; those arrive with
-# their own stages (checklist 4 and 7). OWASP dependencyCheckAnalyze is deliberately absent too:
-# guideline 1.8 keeps it nightly, and the nightly workflow already runs it.
+# Not wired here: the nightly Jazzer run (15 min per target, scripts/ci/fuzz-nightly.sh) and
+# gitleaks; the nightly workflow runs fuzzing as its own job. OWASP dependencyCheckAnalyze is
+# deliberately absent too: guideline 1.8 keeps it nightly, and the nightly workflow runs it.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -75,12 +75,13 @@ case "$kind" in
         else
             echo "run-extended: no benchmark module, skipping the macrobenchmark (guideline 1.7)" >&2
         fi
-        # AGP's result path moves between versions, so the caller names the result file. Without it the gate is not
-        # run here; the nightly job passes BENCHMARK_RESULT after pulling the JSON off the device.
+        # /run-perf starts an emulator, so its numbers are trend data (guideline 1.7). The 10% gate
+        # only judges the reference device: the caller names the result file and asks for that with
+        # BENCHMARK_REFERENCE_DEVICE=1, which is a person running it on the phone, never a PR comment.
         if [ -n "${BENCHMARK_RESULT:-}" ]; then
             "$ROOT/scripts/ci/benchmark-gate.sh" "$BENCHMARK_RESULT"
         else
-            echo "run-extended: set BENCHMARK_RESULT=<benchmarkData.json> to compare against the reference baseline" >&2
+            echo "run-extended: set BENCHMARK_RESULT=<benchmarkData.json> to compare this run against the baseline" >&2
         fi
         ;;
     security)

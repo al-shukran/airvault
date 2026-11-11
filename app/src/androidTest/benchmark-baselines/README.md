@@ -21,19 +21,20 @@ scripts/ci/benchmark-gate.sh --record app/build/outputs/androidTest-results/benc
 person on the reference device, never by a CI job. The recorded `device` and `date` are copied from the result file
 and the record time.
 
-## Checking a run
+## Checking a run (reference device only)
 
 ```bash
 ./gradlew :app:connectedBenchmarkAndroidTest
-scripts/ci/benchmark-gate.sh app/build/outputs/androidTest-results/benchmark/<run>/benchmarkData.json
+scripts/ci/benchmark-gate.sh --reference-device app/build/outputs/androidTest-results/benchmark/<run>/benchmarkData.json
 ```
 
 The gate fails when the median of any benchmark is more than `BENCHMARK_MAX_REGRESSION_PCT` (default 10) percent
 above the baseline. Improvements are reported and do not fail. A benchmark that is in the result file but not in the
 baseline fails the gate, so a new benchmark cannot slip in unmeasured.
 
-When `baselines.json` is missing the gate fails closed only under `CI=true`; locally it prints how to record one and
-exits 0.
+The gate only judges the reference device. Without `--reference-device` (or `BENCHMARK_REFERENCE_DEVICE=1`) it prints
+"no verdict" and exits 0: an emulator number must never pass or fail the 10% gate. On the reference device a missing
+`baselines.json` fails closed.
 
 ## Emulator numbers
 

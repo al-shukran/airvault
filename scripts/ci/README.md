@@ -7,7 +7,7 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 | Partition | Selector |
 |---|---|
 | `core-wallet` | `app.lensly.core.wallet.*` |
-| `core-ur-evm` | `app.lensly.core.ur.*` and `app.lensly.core.evm.*` |
+| `core-ur-evm` | `app.lensly.core.ur.*` and `app.lensly.core.evm.*`, plus `app.lensly.fuzz.*` |
 | `core-parse` | `app.lensly.core.parse.*` |
 | `core-vault` | `app.lensly.core.vault.*` |
 | `core-registry` | `app.lensly.core.registry.*` and `app.lensly.core.registry.update.*` |
@@ -15,8 +15,13 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 | `app` | `app.lensly.app.*` and `app.lensly.SmokeTest` |
 | `registry-pack` | `:tools:registry-pack:test` |
 | `manifest` | `check-manifest.sh` |
+| `ci` | `bash -n` on every script, then `check-test-network.sh` (no Gradle) |
 
 `core-parse`, `app` and `registry-pack` are not in the guideline 2.2 table: tests already live in those packages, so leaving them out would run nothing for changes there.
+
+`core-ur-evm` also replays the Jazzer fuzz targets (`app.lensly.fuzz.*`): they cover UR/CBOR, the eth-sign request and the unsigned (RLP) transaction decoder. The PR lane runs them as ordinary JUnit tests, so committed seeds are replayed on every change to that partition.
+
+`ci` covers CI's own files (`scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml`). It needs no Gradle: it syntax-checks every script under `scripts/` and runs the test-network guard, so a workflow or script edit no longer merges without a check.
 
 Each partition is one `./gradlew :app:testDebugUnitTest --tests ...` call; repeated `--tests` filters are ORed. Gradle's `*` matches across dots, so `registry.*` already reaches `registry.update`; the explicit second filter is belt-and-braces. Unknown names print usage and exit 2.
 
@@ -29,7 +34,7 @@ scripts/ci/run-partition.sh core-wallet
 
 ## Manifest guard — `check-manifest.sh`
 
-Fails if the merged debug manifest declares `INTERNET` or `ACCESS_NETWORK_STATE`, or if `android:allowBackup` is not `"false"`. It reuses the intermediate at `app/build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml` and runs `:app:processDebugMainManifest` only when that file is missing.
+Fails if the merged debug manifest declares `INTERNET` or `ACCESS_NETWORK_STATE`, or if `android:allowBackup` is not `"false"`. It always runs `:app:processDebugMainManifest` first, then reads the intermediate at `app/build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml`. The task always runs because reusing whatever is in `app/build` can check a manifest built from older inputs and pass a change it never saw.
 
 ## Extended kinds — `run-extended.sh <kind>`
 
@@ -42,10 +47,11 @@ CI=true scripts/ci/run-extended.sh e2e
 
 ## Nightly fuzz — `fuzz-nightly.sh`
 
-Fuzzes each Jazzer target for 15 minutes, one Gradle invocation per target (`JAZZER_FUZZ=1`, which Jazzer's JUnit integration reads). `--list` prints the targets.
+Fuzzes each Jazzer target for 15 minutes, one Gradle invocation per target (`JAZZER_FUZZ=1`, which Jazzer's JUnit integration reads). `--list` prints the targets. Pass one target to fuzz only that one; the nightly workflow runs one matrix leg per target.
 
 ```bash
 scripts/ci/fuzz-nightly.sh          # all four targets, about an hour
+scripts/ci/fuzz-nightly.sh app.lensly.fuzz.CborFuzzTest   # one target, 15 minutes
 scripts/ci/fuzz-nightly.sh --list
 ```
 
@@ -81,6 +87,6 @@ scripts/ci/benchmark-gate.sh benchmark/build/outputs/androidTest-results/benchma
 Emulator numbers are trend data only. Only a physical reference device records a baseline, and it needs the app's
 `benchmark` variant installed, which `connectedBenchmarkAndroidTest` does for you.
 
-## Benchmark gate — `benchmark-gate.sh [--record] <result.json>`
+## Benchmark gate — `benchmark-gate.sh [--record] [--reference-device] <result.json>`
 
-Compares an AndroidX Benchmark result against `app/src/androidTest/benchmark-baselines/baselines.json` and fails above `BENCHMARK_MAX_REGRESSION_PCT` (default 10) or when a result has no baseline entry. `--record` writes the baseline and refuses `CI=true`. A missing baseline file fails under `CI=true` and exits 0 locally. No baseline numbers are committed yet; see the README in the baseline directory for how to record them on the reference device.
+Compares an AndroidX Benchmark result against `app/src/androidTest/benchmark-baselines/baselines.json` and fails above `BENCHMARK_MAX_REGRESSION_PCT` (default 10) or when a result has no baseline entry. The gate only judges the reference device: without `--reference-device` (or `BENCHMARK_REFERENCE_DEVICE=1`) it reports that it made no verdict and exits 0, because an emulator run is trend data. On the reference device a missing baseline fails closed. `--record` writes the baseline and refuses `CI=true`. No baseline numbers are committed yet; see the README in the baseline directory for how to record them on the reference device.

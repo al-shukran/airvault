@@ -99,11 +99,12 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 | Partition | Triggers (paths) | Selector |
 |---|---|---|
 | `core-wallet` | `core/wallet/**`, its tests, `vectors/bip39/**`, `vectors/bip32/**` | `app.lensly.core.wallet.*` |
-| `core-ur-evm` | `core/ur/**`, its tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**` | `app.lensly.core.ur.*` (add `core.evm.*` when it lands) |
+| `core-ur-evm` | `core/ur/**`, its tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**`, `fuzz/**`, `fuzz-seeds/**` | `app.lensly.core.ur.*` (add `core.evm.*` when it lands) and `app.lensly.fuzz.*` |
 | `core-vault` | `core/vault/**`, its tests | `app.lensly.core.vault.*` |
 | `core-registry` | `core/registry/**` (reserved) | `app.lensly.core.registry.*` |
 | `ui` | `ui/**`, its tests, `res/values/strings.xml` | `app.lensly.ui.*` |
 | `manifest` | `app/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts` | `check-manifest.sh` |
+| `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml` | `bash -n` on every script, then `check-test-network.sh` |
 
 Build paths (`build.gradle.kts`, `gradle.properties`, `settings.gradle.kts`, `gradle/**`) trigger every unit partition. This is the one exception to "touched code only", because build changes can affect any package. Owner to confirm.
 
@@ -254,7 +255,7 @@ jobs:
           script: scripts/ci/run-extended.sh ${{ steps.gate.outputs.kind }}
 ```
 
-Commands: `/run-instrumented`, `/run-e2e`, `/run-screenshot-testing`, `/run-perf` (self-hosted device, label `android-ref`), `/run-security`, `/run-fuzz`. The gate runs before PR code is checked out, so fork code never runs with secrets unless a collaborator with write access triggers it. The script posts the result and run link back to the PR.
+Commands: `/run-instrumented`, `/run-e2e`, `/run-screenshot-testing`, `/run-perf` (emulator trend data only; the 10% benchmark gate runs by hand on the reference device), `/run-security`, `/run-fuzz`. The gate runs before PR code is checked out, so fork code never runs with secrets unless a collaborator with write access triggers it. The script posts the result and run link back to the PR.
 
 ### 2.7 Test type, trigger, expected duration
 
