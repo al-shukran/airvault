@@ -55,6 +55,30 @@ Duration is not a flag: each `@FuzzTest` carries `maxDuration = "15m"`, which Ja
 
 `instrumented` skips `app.lensly.benchmark`: those classes need `AndroidBenchmarkRunner`, which only the `benchmark` build type gets. `perf` runs `:app:connectedBenchmarkAndroidTest`; set `BENCHMARK_RESULT=<benchmarkData.json>` to make it compare that run against the reference baseline.
 
+## Macrobenchmarks — `:benchmark`
+
+Cold start of `app.lensly.MainActivity` through `StartupTimingMetric` (guideline 1.7). Macrobenchmarks launch the
+installed app and measure it from the outside, so they live in their own `com.android.test` module that targets
+`:app`'s `benchmark` variant. Nothing in `:app` depends on it, so the PR lanes (`:app:testDebugUnitTest`,
+`:app:assembleDebug`, `:app:verifyRoborazziDebug`) never configure or build it.
+
+```bash
+./gradlew :benchmark:connectedBenchmarkAndroidTest   # needs a device or emulator
+./gradlew :benchmark:assembleBenchmark               # compiles the test APK, no device needed
+```
+
+Five iterations, `CompilationMode.None`, so every run measures the same bytecode. Changing the compilation mode,
+iterations or startup mode invalidates a recorded baseline. Results are written under
+`benchmark/build/outputs/androidTest-results/benchmark/<run>/benchmarkData.json`; the same
+`benchmark-gate.sh` applies, with no baseline numbers invented for it:
+
+```bash
+scripts/ci/benchmark-gate.sh benchmark/build/outputs/androidTest-results/benchmark/<run>/benchmarkData.json
+```
+
+Emulator numbers are trend data only. Only a physical reference device records a baseline, and it needs the app's
+`benchmark` variant installed, which `connectedBenchmarkAndroidTest` does for you.
+
 ## Benchmark gate — `benchmark-gate.sh [--record] <result.json>`
 
 Compares an AndroidX Benchmark result against `app/src/androidTest/benchmark-baselines/baselines.json` and fails above `BENCHMARK_MAX_REGRESSION_PCT` (default 10) or when a result has no baseline entry. `--record` writes the baseline and refuses `CI=true`. A missing baseline file fails under `CI=true` and exits 0 locally. No baseline numbers are committed yet; see the README in the baseline directory for how to record them on the reference device.

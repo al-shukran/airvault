@@ -67,6 +67,13 @@ case "$kind" in
         grep -q 'benchmark' "$ROOT/app/build.gradle.kts" ||
             not_configured "benchmark build type and :app:connectedBenchmarkAndroidTest (guideline 1.7)"
         ./gradlew :app:connectedBenchmarkAndroidTest
+        # Macrobenchmarks live in their own com.android.test module: they launch the installed app instead of running
+        # inside it. Same device, same benchmark variant, so they run in the same pass.
+        if [ -d "$ROOT/benchmark" ]; then
+            ./gradlew :benchmark:connectedBenchmarkAndroidTest
+        else
+            echo "run-extended: no benchmark module, skipping the macrobenchmark (guideline 1.7)" >&2
+        fi
         # AGP's result path moves between versions, so the caller names the result file. Without it the gate is not
         # run here; the nightly job passes BENCHMARK_RESULT after pulling the JSON off the device.
         if [ -n "${BENCHMARK_RESULT:-}" ]; then
