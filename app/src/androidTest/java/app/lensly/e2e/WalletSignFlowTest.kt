@@ -2,13 +2,7 @@ package app.lensly.e2e
 
 import android.graphics.Rect
 import androidx.activity.ComponentActivity
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollAction
@@ -20,6 +14,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.lensly.app.VaultHolder
@@ -36,24 +34,13 @@ import app.lensly.core.vault.RealClock
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultSession
-import app.lensly.ui.camera.FrameSource
-import app.lensly.ui.flow.ConfirmPasswordScreen
-import app.lensly.ui.flow.SignFlow
+import app.lensly.ui.flow.SignFlowViewModel
 import app.lensly.ui.flow.SignStep
-import app.lensly.ui.flow.VaultSignPorts
-import app.lensly.ui.gate.PasswordBuffer
-import app.lensly.ui.qr.ScanScreen
-import app.lensly.ui.qr.ShowQrScreen
-import app.lensly.ui.sign.SignRefusedScreen
-import app.lensly.ui.sign.TxReviewScreen
+import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.theme.LenslyTheme
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -91,11 +78,13 @@ private val ONE_CENT_WEI: BigInteger = BigInteger.TEN.pow(16)
 
 /**
  * The wallet signing flow, end to end, on a device: a wallet is created in the vault, its pairing export is checked, an
- * `eth-sign-request` built for that wallet is fed to the scanner through [FrameSource], the review is read and approved with
- * the App Password, and the `eth-signature` that comes back is checked against the request.
+ * `eth-sign-request` built for that wallet is fed to the scanner through the real [SignWalletRoute], the review is read
+ * and approved with the App Password, and the `eth-signature` that comes back is checked against the request.
  *
- * The CameraX source is replaced by QR images generated in the test, so the run needs no camera and no CAMERA permission.
- * Everything else is production code: the wallet store, the sign flow, the decoder, and every screen.
+ * The route is the production one: its own navigation, its own `SignFlowViewModel`, its own `VaultSignPorts`, and its own
+ * screen mapping. The only thing injected is the `FrameSource` at the scan screen, so the CameraX source is replaced by
+ * QR images generated in the test. Everything else is production code, and a broken mapping from a step to a screen now
+ * fails this test instead of passing it.
  *
  * The wallet is made through the public vault and wallet APIs rather than the create ceremony. The ceremony screens have
  * their own tests, and driving it here would add eight screens of taps before the part this test is about. The request is
@@ -132,7 +121,6 @@ class WalletSignFlowTest {
 
         val holder = VaultHolder(vault)
         holder.adopt(wallet.session, holder.unlockEpoch())
-        val flow = SignFlow(VaultSignPorts(context, holder, wallet.id))
 
         val probe = BarcodeReader(
             BarcodeReader.Options().apply { formats = setOf(BarcodeReader.Format.QR_CODE) },
@@ -142,12 +130,25 @@ class WalletSignFlowTest {
         assertEquals("the fixture frame must be a scannable QR code", 1, probeResults.size)
         assertEquals(request.parts.first(), probeResults.single().text)
 
+        // The route makes its own view model. Reading it back under the route's own key only observes the step the real
+        // screens are on; nothing is injected but the frame source. A route that stopped making this view model would
+        // build the factory below instead, and the error in it would fail the run.
+        var signFlow: SignFlowViewModel? = null
         compose.setContent {
             LenslyTheme {
+                val navController = rememberNavController()
                 val source = remember { FixtureFrameSource(request.parts) }
-                SignHost(flow = flow, frameSource = source)
+                SignWalletRoute(navController, holder, wallet.id, frameSource = source)
+                val created: SignFlowViewModel = viewModel(
+                    key = wallet.id,
+                    factory = viewModelFactory {
+                        initializer { throw AssertionError("the route did not make its sign view model") }
+                    },
+                )
+                signFlow = created
             }
         }
+        val flow = requireNotNull(signFlow) { "the route did not make its sign view model" }
 
         // The injected frames are decoded by the real scanner. A refusal fails the run with its reason, so a broken app
         // cannot pass by timing out.
@@ -187,7 +188,7 @@ class WalletSignFlowTest {
     }
 
     /** Waits for a state that [accept] takes, with the step the flow is on if it never comes. */
-    private fun awaitStep(flow: SignFlow, what: String, accept: (SignStep) -> Boolean): SignStep =
+    private fun awaitStep(flow: SignFlowViewModel, what: String, accept: (SignStep) -> Boolean): SignStep =
         runBlocking {
             try {
                 withTimeout(STEP_TIMEOUT_MS) { flow.state.first(accept) }
@@ -401,82 +402,4 @@ class WalletSignFlowTest {
         /** A full swipe per screen, with room to spare, before the review must have reached its end. */
         const val MAX_SWIPES = 6
     }
-}
-
-/**
- * The sign route's steps, hosted without navigation. It is the same mapping as `SignWalletRoute`, with the frame source
- * passed in and no back stack, so the test drives the real flow and the real screens.
- *
- * It runs the flow's calls on the real main dispatcher, as the route's `viewModelScope` does. A Compose test rule installs
- * a test dispatcher for composition coroutines, which would queue them until the test drove the clock; the flow must not
- * depend on that.
- */
-@Composable
-private fun SignHost(flow: SignFlow, frameSource: FrameSource) {
-    val step by flow.state.collectAsState()
-    val scope = remember(flow) { CoroutineScope(Dispatchers.Main.immediate) }
-    DisposableEffect(flow) {
-        onDispose { scope.cancel() }
-    }
-    when (val shown = step) {
-        is SignStep.Scanning -> ScanScreen(
-            title = "SIGN REQUEST",
-            progress = shown.progress,
-            statusText = shown.status,
-            onText = { text -> scope.launch { flow.onScanned(text) } },
-            onCancel = flow::leave,
-            frameSource = frameSource,
-        )
-        is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, onDone = flow::leave)
-        is SignStep.Review -> TxReviewScreen(
-            review = shown.ready.review,
-            onApprove = flow::approve,
-            onReject = flow::leave,
-        )
-        is SignStep.Confirming -> ConfirmPasswordStep(busy = shown.busy) { password ->
-            scope.launch { flow.confirm(password) }
-        }
-        is SignStep.Signature -> ShowQrScreen(
-            title = "SIGNATURE",
-            subtitle = "Scan this with your online wallet",
-            parts = shown.parts,
-            onDone = flow::leave,
-        )
-        SignStep.Closed -> Unit
-    }
-}
-
-/**
- * The App Password step, as `ConfirmPasswordRoute` wires it: the typed characters live in a buffer that is cleared on every
- * submit, and the screen sees only the count.
- */
-@Composable
-private fun ConfirmPasswordStep(busy: Boolean, onConfirm: (CharArray) -> Unit) {
-    val buffer = remember { PasswordBuffer() }
-    var length by remember { mutableIntStateOf(0) }
-    DisposableEffect(Unit) {
-        onDispose { buffer.clear() }
-    }
-
-    ConfirmPasswordScreen(
-        length = length,
-        busy = busy,
-        onKey = { c ->
-            if (!busy && buffer.append(c)) length = buffer.length
-        },
-        onBackspace = {
-            if (!busy) {
-                buffer.backspace()
-                length = buffer.length
-            }
-        },
-        onSubmit = {
-            if (!busy && !buffer.isEmpty()) {
-                val password = buffer.toCharArray()
-                buffer.clear()
-                length = 0
-                onConfirm(password)
-            }
-        },
-    )
 }
