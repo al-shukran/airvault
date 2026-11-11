@@ -42,12 +42,13 @@ internal object ProfileIcons {
         )
     }
 
-    /** Two coins, one behind the other. */
+    /** Three coins stacked one on another, seen from the side. */
     val Coins: ImageVector by lazy {
         outline(
             "Coins",
-            "M4 14.5a4 4 0 0 1 8 0a4 4 0 0 1 -8 0z",
-            "M11 9.5a4 4 0 0 1 8 0a4 4 0 0 1 -2.5 3.7",
+            "M4 16a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2-2z",
+            "M4 11.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2-2z",
+            "M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2-2z",
         )
     }
 
@@ -125,12 +126,14 @@ internal object ProfileIcons {
         )
     }
 
-    /** A purse with a handle. */
+    /** A clasp purse: a frame across the top with two clasp knobs, over a body that tapers to its base. */
     val Purse: ImageVector by lazy {
         outline(
             "Purse",
-            "M4 10h16l-1.5 9H5.5z",
-            "M9 10V7.5a3 3 0 0 1 6 0V10",
+            "M4 10h16",
+            "M4 10v3.2L5.6 19a2.4 2.4 0 0 0 2.3 1.7h8.2a2.4 2.4 0 0 0 2.3-1.7L20 13.2V10",
+            "M8.8 10a1.2 1.2 0 0 1 2.4 0a1.2 1.2 0 0 1 -2.4 0z",
+            "M12.8 10a1.2 1.2 0 0 1 2.4 0a1.2 1.2 0 0 1 -2.4 0z",
         )
     }
 
