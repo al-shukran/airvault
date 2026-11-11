@@ -35,6 +35,8 @@ internal object HiddenRoute {
     // Settings: the Bulk Cap, the catalog summary and the About notices. Reached from the wallet list.
     const val SETTINGS = "settings"
     const val CHANGE_PASSWORD = "settings/password"
+    // Failure Delay cap: a choice, a warning below 10 s, then the App Password. Reached from Settings.
+    const val FAILURE_CAP = "settings/failure-cap"
     // Wipe: the App Password again, a warning with its confirmation, then every file. Reached from Settings.
     const val WIPE = "settings/wipe"
 
