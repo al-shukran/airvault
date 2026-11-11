@@ -11,7 +11,7 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 | `core-parse` | `app.lensly.core.parse.*` |
 | `core-vault` | `app.lensly.core.vault.*` |
 | `core-registry` | `app.lensly.core.registry.*` and `app.lensly.core.registry.update.*` |
-| `ui` | `app.lensly.ui.*` |
+| `ui` | `app.lensly.ui.*` minus the pixel tests (see below) |
 | `app` | `app.lensly.app.*` and `app.lensly.SmokeTest` |
 | `registry-pack` | `:tools:registry-pack:test` |
 | `manifest` | `check-manifest.sh` |
@@ -19,6 +19,8 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 `core-parse`, `app` and `registry-pack` are not in the guideline 2.2 table: tests already live in those packages, so leaving them out would run nothing for changes there.
 
 Each partition is one `./gradlew :app:testDebugUnitTest --tests ...` call; repeated `--tests` filters are ORed. Gradle's `*` matches across dots, so `registry.*` already reaches `registry.update`; the explicit second filter is belt-and-braces. Unknown names print usage and exit 2.
+
+The `ui` partition passes `-PprLane`, which makes `app/build.gradle.kts` exclude `app.lensly.ui.screenshot.*`. Those 100 Roborazzi pixel tests take the partition past the 3-minute cap (guideline 2.1), so they are night-only: the nightly workflow runs `./gradlew ... verifyRoborazziDebug` against the committed goldens (guideline 2.7). Adding `-PprLane` to a local run reproduces the PR lane; leave it off to run everything.
 
 ```bash
 scripts/ci/run-partition.sh core-wallet
