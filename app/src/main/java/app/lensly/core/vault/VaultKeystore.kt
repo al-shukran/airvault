@@ -6,7 +6,6 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
-import android.util.Log
 import app.lensly.BuildConfig
 import java.security.GeneralSecurityException
 import java.security.KeyStore
@@ -35,7 +34,6 @@ internal object VaultKeystore {
     private const val LEGACY_FAILURE_MAC_ALIAS = FAILURE_MAC_PREFIX
     private const val PROBE_ALIAS = "lensly.vault.probe"
     private const val PROVIDER = "AndroidKeyStore"
-    private const val TAG = "LenslyVault"
 
     /** Replaces the hardware wrapping key. Tries StrongBox first and falls back to the TEE. */
     fun createHardwareKey(): SecretKey {
@@ -54,11 +52,14 @@ internal object VaultKeystore {
     fun createFailureMacKey(seq: Long): SecretKey {
         val alias = failureMacAlias(seq)
         delete(alias)
-        val key = withStrongBoxFallback { generateHmac(alias, strongBox = it) }
-        val level = securityLevel(key)
-        // The security level is not secret. It shows whether the Delay State rests on hardware.
-        Log.i(TAG, "Delay State MAC key at security level $level")
-        if (KeystorePolicy.verdict(isHardwareBacked(level), BuildConfig.DEBUG) == KeystoreVerdict.Refused) {
+        val key = try {
+            generateHmac(alias, strongBox = true)
+        } catch (e: StrongBoxUnavailableException) {
+            generateHmac(alias, strongBox = false)
+        } catch (e: ProviderException) {
+            if (e.cause is StrongBoxUnavailableException) generateHmac(alias, strongBox = false) else throw e
+        }
+        if (KeystorePolicy.verdict(isHardwareBacked(securityLevel(key)), BuildConfig.DEBUG, deviceIsEmulator()) == KeystoreVerdict.Refused) {
             delete(alias)
             throw GeneralSecurityException("The Delay State MAC key is not hardware-backed.")
         }
@@ -128,16 +129,13 @@ internal object VaultKeystore {
         if (store.containsAlias(alias)) store.deleteEntry(alias)
     }
 
-    /** Generates a key in StrongBox when the device has one, and in the TEE otherwise. */
-    private inline fun withStrongBoxFallback(generate: (strongBox: Boolean) -> SecretKey): SecretKey = try {
-        generate(true)
+    private fun generateAes(alias: String): SecretKey = try {
+        generateAes(alias, strongBox = true)
     } catch (e: StrongBoxUnavailableException) {
-        generate(false)
+        generateAes(alias, strongBox = false)
     } catch (e: ProviderException) {
-        if (e.cause is StrongBoxUnavailableException) generate(false) else throw e
+        if (e.cause is StrongBoxUnavailableException) generateAes(alias, strongBox = false) else throw e
     }
-
-    private fun generateAes(alias: String): SecretKey = withStrongBoxFallback { generateAes(alias, strongBox = it) }
 
     private fun generateAes(alias: String, strongBox: Boolean): SecretKey {
         val spec = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)

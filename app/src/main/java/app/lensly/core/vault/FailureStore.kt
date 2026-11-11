@@ -3,7 +3,9 @@ package app.lensly.core.vault
 import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
+import java.security.GeneralSecurityException
 import java.security.MessageDigest
+import java.security.ProviderException
 import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Mac
 import javax.crypto.SecretKey
@@ -34,7 +36,8 @@ import javax.crypto.SecretKey
  * Assumptions and residual risk:
  * - A deleted Keystore key cannot be brought back. This class cannot prove it. It rests on KeyMint: the StrongBox guarantee
  *   the owner accepted, and whatever the TEE provides. The public SDK offers no rollback-resistance flag for app keys, so the
- *   app cannot request the guarantee. It records the key's security level instead; that level is logged when a key is made.
+ *   app cannot request the guarantee. A Delay State key that is not hardware-backed is refused in a release build instead (see
+ *   [VaultKeystore.createFailureMacKey]).
  * - Crash window: between writing the new pair and deleting the previous key, the previous key still exists. If power is cut
  *   there and an attacker restores the copies from before the save, the previous state verifies again until the next load
  *   deletes its key. That is one step of rollback per interrupted save.
@@ -45,7 +48,6 @@ import javax.crypto.SecretKey
 internal class FailureStore(
     private val dir: File,
     private val keys: KeystoreBackend,
-    private val readBootCount: () -> Int? = { null },
     private val readBootCount: () -> Int? = { null },
     private val write: (File, ByteArray) -> Unit = ::writeAtomically,
 ) {
@@ -118,7 +120,8 @@ internal class FailureStore(
             try {
                 save(reset, clock)
             } catch (retry: VaultException) {
-                saveWithoutNewKey(reset, clock)
+                // The reset keeps the key that is already on disk, so its sequence number does not change this time.
+                saveWithoutNewKey(previous.copy(failures = 0), clock)
             }
         }
     }
@@ -217,8 +220,8 @@ internal class FailureStore(
         val key = keystore(STATE_UNAVAILABLE) { keys.failureMacKey(stamped.seq) }
             ?: throw VaultException(STATE_UNAVAILABLE)
         val bytes = encode(stamped, key)
-        writeAtomically(primary, bytes)
-        writeAtomically(backup, bytes)
+        write(primary, bytes)
+        write(backup, bytes)
         SEQ_SEEN[seenKey] = stamped.seq
         return stamped
     }
@@ -350,4 +353,16 @@ internal class FailureStore(
             PENDING_DELETE.remove(dir.absolutePath)
         }
     }
+}
+
+/**
+ * Runs a Keystore call. The Keystore's own errors become a [VaultException] with [message], so the app treats them as damage
+ * and never as a crash.
+ */
+private inline fun <T> keystore(message: String, block: () -> T): T = try {
+    block()
+} catch (e: GeneralSecurityException) {
+    throw VaultException(message, e)
+} catch (e: ProviderException) {
+    throw VaultException(message, e)
 }

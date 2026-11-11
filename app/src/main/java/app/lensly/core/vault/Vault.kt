@@ -265,17 +265,6 @@ class Vault internal constructor(
     /** The failure count as currently stored. For tests only. */
     internal fun failureCountForTesting(): Int = failureStore().load(clock).failures
 
-    /**
-     * True on an emulator, through the same check the secure-window rule uses. JVM tests have no device values, so a
-     * missing one counts as a real device.
-     */
-    private fun deviceIsEmulator(): Boolean {
-        val hardware = Build.HARDWARE ?: return false
-        val product = Build.PRODUCT ?: return false
-        val fingerprint = Build.FINGERPRINT ?: return false
-        return isEmulator(hardware, product, fingerprint)
-    }
-
     private suspend fun createLocked(password: CharArray): CreateResult {
         try {
             if (backupAllowed) return CreateResult.BackupAllowed
@@ -305,7 +294,13 @@ class Vault internal constructor(
                     val realSlot = sealSlot(softKey, hardwareKey, vaultKey, VaultRole.REAL)
                     val decoySlot = VaultKeyFile.randomSlot(random)
                     layout.root.mkdirs()
-                    if (!createFailureState()) return CreateResult.DeviceUnsupported
+                    if (!createFailureState()) {
+                        // The hardware key was made a moment ago, and the directory may hold the first Delay State copies.
+                        // Both go, so a refused creation leaves nothing behind.
+                        keystoreOrNull { keys.deleteAll() }
+                        layout.root.deleteRecursively()
+                        return CreateResult.DeviceUnsupported
+                    }
                     writeAtomically(layout.vaultKey, VaultKeyFile.encode(listOf(realSlot, decoySlot), random))
                     // The header goes last. Its presence is what makes exists() true, so a crash earlier leaves no vault.
                     val header = VaultHeader(
@@ -825,25 +820,21 @@ class Vault internal constructor(
         } catch (e: ProviderException) {
             null
         }
-    }
-}
 
-/**
- * Runs a Keystore call. The Keystore's own errors become a [VaultException] with [message], so the app treats them as damage
- * and never as a crash.
- */
-internal inline fun <T> keystore(message: String, block: () -> T): T = try {
-    block()
-} catch (e: GeneralSecurityException) {
-    throw VaultException(message, e)
-} catch (e: ProviderException) {
-    throw VaultException(message, e)
+        inline fun <T> keystore(message: String, block: () -> T): T = try {
+            block()
+        } catch (e: GeneralSecurityException) {
+            throw VaultException(message, e)
+        } catch (e: ProviderException) {
+            throw VaultException(message, e)
+        }
+    }
 }
 
 /**
  * `Settings.Global.BOOT_COUNT`, or null when the device does not report it. The count goes up by one at each reboot, so the
  * Failure Delay can tell a reboot, where the monotonic clock restarted, from a wall clock that moved. A root user can edit the
- * count; a count that does not match the one recorded with the state only restarts the wait from boot, so the edit cannot
+ * count; a count that does not match the one recorded with the state only continues the wait from boot, so the edit cannot
  * shorten it.
  */
 private fun bootCountOf(context: Context): Int? = try {
@@ -854,6 +845,17 @@ private fun bootCountOf(context: Context): Int? = try {
     null
 } catch (e: IllegalArgumentException) {
     null
+}
+
+/**
+ * True on an emulator, through the same check the secure-window rule uses. JVM tests have no device values, so a
+ * missing one counts as a real device.
+ */
+internal fun deviceIsEmulator(): Boolean {
+    val hardware = Build.HARDWARE ?: return false
+    val product = Build.PRODUCT ?: return false
+    val fingerprint = Build.FINGERPRINT ?: return false
+    return isEmulator(hardware, product, fingerprint)
 }
 
 /**

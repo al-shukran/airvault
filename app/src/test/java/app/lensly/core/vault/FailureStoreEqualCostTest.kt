@@ -1,7 +1,6 @@
 package app.lensly.core.vault
 
 import java.io.File
-import javax.crypto.spec.SecretKeySpec
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -15,7 +14,8 @@ class FailureStoreEqualCostTest {
     @get:Rule
     val tmp = TemporaryFolder()
 
-    private val macKey = SecretKeySpec(ByteArray(32) { (it * 11 + 3).toByte() }, "HmacSHA256")
+    private val failureKeys = MemoryKeystore()
+    private val successKeys = MemoryKeystore()
 
     private class Counter {
         var writes = 0
@@ -31,15 +31,15 @@ class FailureStoreEqualCostTest {
         val clock = FakeClock()
         val failure = Counter()
         val success = Counter()
-        val failureStore = FailureStore(File(tmp.root, "failure"), macKey, failure::write)
-        val successStore = FailureStore(File(tmp.root, "success"), macKey, success::write)
+        val failureStore = FailureStore(File(tmp.root, "failure"), failureKeys, write = failure::write)
+        val successStore = FailureStore(File(tmp.root, "success"), successKeys, write = success::write)
         failureStore.initialize(clock)
         successStore.initialize(clock)
         failure.writes = 0
         success.writes = 0
 
         failureStore.recordFailure(failureStore.load(clock), clock)
-        successStore.recordSuccess(successStore.load(clock))
+        successStore.recordSuccess(successStore.load(clock), clock)
 
         assertEquals(2, failure.writes, "one failure writes the primary and the backup copy")
         assertEquals(failure.writes, success.writes, "a passing check must cost the same storage work as a failure")
