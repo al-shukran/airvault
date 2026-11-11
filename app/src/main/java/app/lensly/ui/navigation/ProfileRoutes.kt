@@ -103,7 +103,7 @@ private fun EditAccountRoute(navController: NavHostController, holder: VaultHold
         onPickGroup = { group -> draft = draft.withGroup(group) },
         onResetName = { draft = draft.resetName() },
         onResetStyle = { draft = draft.resetStyle(generatedIdentity(index)) },
-        onDone = {
+        onSave = {
             if (!saving) {
                 saving = true
                 val profile = draft.toProfile(generatedIdentity(index))
@@ -163,7 +163,7 @@ private fun EditWalletRoute(navController: NavHostController, holder: VaultHolde
         onPickIcon = { icon -> draft = draft.withIcon(icon) },
         onRemoveGroup = { group -> draft = draft.removeGroup(group) },
         onResetStyle = { draft = draft.resetStyle(generatedIdentity(current.position)) },
-        onDone = {
+        onSave = {
             if (!saving) {
                 saving = true
                 val name = draft.nameToSave(current.currentName)
@@ -230,7 +230,7 @@ private fun StyleAccountsRoute(navController: NavHostController, holder: VaultHo
         onPickIcon = { icon -> edits = edits.pickIcon(icon) },
         onClear = { field -> edits = edits.clear(field) },
         onResetStyle = { applyChanges(listOf(StyleChange.Reset)) },
-        onDone = {
+        onSave = {
             if (!saving) {
                 val changes = edits.changes()
                 if (changes.isEmpty()) navController.popBackStack() else applyChanges(changes)
