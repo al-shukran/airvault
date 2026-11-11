@@ -36,7 +36,9 @@ import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.gate.UnavailableScreen
 import app.lensly.ui.gate.UnlockScreen
 import app.lensly.ui.theme.LenslyBlack
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The hidden area: a nested graph that opens on the gate. The gate sends the owner to the screen that fits the
@@ -127,7 +129,9 @@ private fun GateRoute(navController: NavHostController, holder: VaultHolder) {
         val next = when {
             holder.openSession() != null -> HiddenRoute.HOME
             holder.vault.exists() -> HiddenRoute.UNLOCK
-            else -> HiddenRoute.CREATE_PASSWORD
+            // A device that may not hold a vault is told so before the owner types a password for nothing.
+            withContext(Dispatchers.IO) { holder.vault.canCreate() } -> HiddenRoute.CREATE_PASSWORD
+            else -> HiddenRoute.UNAVAILABLE
         }
         navController.navigate(next) {
             popUpTo(HiddenRoute.GATE) { inclusive = true }

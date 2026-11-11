@@ -1,5 +1,6 @@
 package app.lensly.core.evm
 
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.DataType
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
@@ -68,7 +69,7 @@ data class UnsignedTx(
                 nonce = unsignedOf(fields[0]),
                 to = addressOf(fields[3]),
                 value = unsignedOf(fields[4]),
-                data = hexOf(bytesOf(fields[5])),
+                data = calldataOf(fields[5]),
                 gasLimit = unsignedOf(fields[2]),
                 gasPrice = unsignedOf(fields[1]),
                 maxPriorityFeePerGas = null,
@@ -90,7 +91,7 @@ data class UnsignedTx(
                 nonce = unsignedOf(fields[1]),
                 to = addressOf(fields[5]),
                 value = unsignedOf(fields[6]),
-                data = hexOf(bytesOf(fields[7])),
+                data = calldataOf(fields[7]),
                 gasLimit = unsignedOf(fields[4]),
                 gasPrice = null,
                 maxPriorityFeePerGas = unsignedOf(fields[2]),
@@ -122,6 +123,15 @@ data class UnsignedTx(
                 20 -> Keys.toChecksumAddress(bytes.toHex())
                 else -> malformedTx("to must be 20 bytes, or empty for contract creation")
             }
+        }
+
+        /** The calldata as 0x-prefixed hex. Calldata longer than [ParserLimits.MAX_CALLDATA_BYTES] is refused. */
+        private fun calldataOf(item: Rlp): String {
+            val bytes = bytesOf(item)
+            if (bytes.size > ParserLimits.MAX_CALLDATA_BYTES) {
+                malformedTx("calldata is larger than ${ParserLimits.MAX_CALLDATA_BYTES} bytes")
+            }
+            return hexOf(bytes)
         }
 
         private fun isZero(item: Rlp): Boolean = item is Rlp.Str && item.bytes.isEmpty()

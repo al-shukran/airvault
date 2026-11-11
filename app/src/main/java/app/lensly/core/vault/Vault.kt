@@ -1,6 +1,7 @@
 package app.lensly.core.vault
 
 import android.content.Context
+import app.lensly.BuildConfig
 import java.io.File
 import java.security.GeneralSecurityException
 import java.security.MessageDigest
@@ -21,7 +22,10 @@ sealed interface CreateResult {
     /** The password failed [PasswordPolicy]. Nothing was written. */
     data class PolicyRejected(val reason: PolicyReason) : CreateResult
 
-    /** The device's Keystore could not create the vault's keys. Nothing was written. */
+    /**
+     * The device's Keystore could not create the vault's keys, or its key is software-only in a release build. Nothing
+     * was written.
+     */
     data object DeviceUnsupported : CreateResult
 }
 
@@ -74,8 +78,16 @@ class Vault internal constructor(
     fun exists(): Boolean = layout.exists()
 
     /**
+     * True when this device may create a vault, under [KeystorePolicy]. The answer comes from the same probe as
+     * [deviceSecurity], so it is meaningful only while no vault exists.
+     */
+    fun canCreate(): Boolean =
+        KeystorePolicy.verdict(deviceSecurity().hardwareBacked, BuildConfig.DEBUG) != KeystoreVerdict.Refused
+
+    /**
      * Creates a vault protected by [password], which must pass [PasswordPolicy].
      * Argon2 parameters are calibrated for this device, unless the vault was built with fixed test parameters.
+     * In a release build the vault key must be hardware-backed, or the result is [CreateResult.DeviceUnsupported].
      *
      * @throws IllegalStateException if a vault already exists. Call [wipe] first.
      */
@@ -135,6 +147,15 @@ class Vault internal constructor(
             val macKey = keystoreOrNull { VaultKeystore.createFailureMacKey() }
                 ?: return CreateResult.DeviceUnsupported
             val securityLevel = keystoreOrNull { VaultKeystore.securityLevel(hardwareKey) } ?: UNKNOWN_SECURITY_LEVEL
+            val verdict = KeystorePolicy.verdict(
+                hardwareBacked = VaultKeystore.isHardwareBacked(securityLevel),
+                isDebugBuild = BuildConfig.DEBUG,
+            )
+            if (verdict == KeystoreVerdict.Refused) {
+                // Nothing else has been written yet, so the keys just made are removed and no vault is created.
+                keystoreOrNull { VaultKeystore.deleteAll() }
+                return CreateResult.DeviceUnsupported
+            }
 
             val salt = ByteArray(VaultHeader.SALT_BYTES).also { random.nextBytes(it) }
             val vaultKey = ByteArray(VAULT_KEY_BYTES).also { random.nextBytes(it) }

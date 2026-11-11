@@ -1,8 +1,11 @@
 package app.lensly.core.ur
 
+import app.lensly.core.parse.DecodeBudget
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.wallet.toHex
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import org.junit.Test
 import org.web3j.utils.Numeric
 
@@ -58,5 +61,25 @@ class CborTest {
             Cbor.decode(Numeric.hexStringToByteArray("81".repeat(9) + "00"))
         }
         Cbor.decode(Numeric.hexStringToByteArray("81".repeat(8) + "00"))
+    }
+
+    @Test
+    fun refusesMoreItemsThanTheCountLimitWithAReason() {
+        // An array header plus 255 items is exactly the limit; one more item is refused.
+        Cbor.decode(Cbor.encode(Cbor.Arr(List(ParserLimits.MAX_CBOR_ITEMS - 1) { Cbor.Uint(0) })))
+        val error = assertFailsWith<MalformedPayloadException> {
+            Cbor.decode(Cbor.encode(Cbor.Arr(List(ParserLimits.MAX_CBOR_ITEMS) { Cbor.Uint(0) })))
+        }
+        assertEquals("CBOR has more than ${ParserLimits.MAX_CBOR_ITEMS} items", error.message)
+    }
+
+    @Test
+    fun stopsWhenTheDecodeBudgetIsSpent() {
+        // Each clock read advances ten units, so the budget of 100 runs out after about ten items.
+        var now = 0L
+        val budget = DecodeBudget("CBOR", ParserLimits.MAX_CBOR_ITEMS, maxNanos = 100) { now += 10; now }
+        val payload = Cbor.encode(Cbor.Arr(List(20) { Cbor.Uint(it.toLong()) }))
+        val error = assertFailsWith<MalformedPayloadException> { Cbor.decode(payload, budget) }
+        assertTrue(error.message!!.contains("time budget"), error.message)
     }
 }

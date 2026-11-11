@@ -1,5 +1,6 @@
 package app.lensly.core.ur
 
+import app.lensly.core.parse.ParserLimits
 import com.sparrowwallet.hummingbird.UR
 
 /** What the wallet wants signed, as key 3 of an eth-sign-request. */
@@ -50,7 +51,7 @@ class EthSignRequest(
         const val UR_TYPE = "eth-sign-request"
 
         /** Largest signData accepted: 64 KiB. */
-        const val MAX_SIGN_DATA_BYTES = 64 * 1024
+        const val MAX_SIGN_DATA_BYTES = ParserLimits.MAX_SIGN_DATA_BYTES
 
         // The other fields are small, so the whole payload has a fixed headroom above the sign data.
         private const val MAX_PAYLOAD_BYTES = MAX_SIGN_DATA_BYTES + 4096
