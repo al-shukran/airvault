@@ -14,9 +14,12 @@ usage: scripts/ci/run-partition.sh <partition>
 partitions:
   core-wallet    :app:testDebugUnitTest --tests 'app.lensly.core.wallet.*'
   core-ur-evm    :app:testDebugUnitTest --tests 'app.lensly.core.ur.*' --tests 'app.lensly.core.evm.*'
+  core-parse     :app:testDebugUnitTest --tests 'app.lensly.core.parse.*'
   core-vault     :app:testDebugUnitTest --tests 'app.lensly.core.vault.*'
   core-registry  :app:testDebugUnitTest --tests 'app.lensly.core.registry.*' --tests 'app.lensly.core.registry.update.*'
   ui             :app:testDebugUnitTest --tests 'app.lensly.ui.*'
+  app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
+  registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
 EOF
 }
@@ -38,6 +41,10 @@ case "$partition" in
             --tests 'app.lensly.core.ur.*' \
             --tests 'app.lensly.core.evm.*'
         ;;
+    core-parse)
+        # Parsing untrusted payloads (DecodeBudget). Paired with core-ur-evm in the workflow.
+        ./gradlew :app:testDebugUnitTest --tests 'app.lensly.core.parse.*'
+        ;;
     core-vault)
         ./gradlew :app:testDebugUnitTest --tests 'app.lensly.core.vault.*'
         ;;
@@ -50,6 +57,15 @@ case "$partition" in
         ;;
     ui)
         ./gradlew :app:testDebugUnitTest --tests 'app.lensly.ui.*'
+        ;;
+    app)
+        # Wallet stores, settings, export and sign pipelines, plus the module smoke test.
+        ./gradlew :app:testDebugUnitTest \
+            --tests 'app.lensly.app.*' \
+            --tests 'app.lensly.SmokeTest'
+        ;;
+    registry-pack)
+        ./gradlew :tools:registry-pack:test
         ;;
     manifest)
         exec "$ROOT/scripts/ci/check-manifest.sh"

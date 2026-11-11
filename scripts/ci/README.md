@@ -8,10 +8,15 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 |---|---|
 | `core-wallet` | `app.lensly.core.wallet.*` |
 | `core-ur-evm` | `app.lensly.core.ur.*` and `app.lensly.core.evm.*` |
+| `core-parse` | `app.lensly.core.parse.*` |
 | `core-vault` | `app.lensly.core.vault.*` |
 | `core-registry` | `app.lensly.core.registry.*` and `app.lensly.core.registry.update.*` |
 | `ui` | `app.lensly.ui.*` |
+| `app` | `app.lensly.app.*` and `app.lensly.SmokeTest` |
+| `registry-pack` | `:tools:registry-pack:test` |
 | `manifest` | `check-manifest.sh` |
+
+`core-parse`, `app` and `registry-pack` are not in the guideline 2.2 table: tests already live in those packages, so leaving them out would run nothing for changes there.
 
 Each partition is one `./gradlew :app:testDebugUnitTest --tests ...` call; repeated `--tests` filters are ORed. Gradle's `*` matches across dots, so `registry.*` already reaches `registry.update`; the explicit second filter is belt-and-braces. Unknown names print usage and exit 2.
 
