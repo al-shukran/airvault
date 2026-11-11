@@ -4,8 +4,11 @@ import app.lensly.core.evm.EvmFixtures
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.ProxyBinding
+import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
@@ -13,6 +16,7 @@ import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.ui.sign.ReviewCheck
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -58,6 +62,29 @@ private const val KEY_ID = "wallet-single-key"
 private const val ORIGIN = "metamask"
 private const val UNLIMITED_USDC = "Unlimited approval: this contract can spend all your USDC"
 private const val UNLIMITED_UNKNOWN = "Unlimited approval: this contract can spend all your tokens of this contract"
+
+// A whitelisted call Lensly cannot decode: the swap selector is not one ContractCall knows. The proxy is a stake on another contract.
+private const val SWAP_SELECTOR = "38ed1739"
+private const val STAKE_SELECTOR = "7acb7757"
+private const val WHITELISTED = "0x5555555555555555555555555555555555555555"
+private const val PROXY = "0x6666666666666666666666666666666666666666"
+private const val IMPLEMENTATION = "0x7777777777777777777777777777777777777777"
+private const val SWAP_SIGNATURE = "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"
+private const val SWAP_MEANING = "Swap an exact amount of one token for another, along the route in the call."
+private const val STAKE_SIGNATURE = "stake(uint256,address)"
+private const val BOUND_PROXY_REASON = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is " +
+    "still the approved version, so your Proxy Policy refuses it."
+private const val ANY_PROXY_REASON = "This contract is an upgradeable proxy, and your Proxy Policy refuses every proxy."
+private val SWAP_ENTRY = WhitelistEntry(ETHEREUM, WHITELISTED, "0x$SWAP_SELECTOR", SWAP_SIGNATURE, SWAP_MEANING)
+private val PROXY_BINDING = ProxyBinding(implementationAddress = IMPLEMENTATION)
+private val PROXY_ENTRY = WhitelistEntry(
+    ETHEREUM,
+    PROXY,
+    "0x$STAKE_SELECTOR",
+    STAKE_SIGNATURE,
+    "Stake for a recipient",
+    PROXY_BINDING,
+)
 
 /** Two accounts, so index 1 is valid and index 2 is not. */
 private val VIEW by lazy {
@@ -115,6 +142,9 @@ private val REGISTRY = Registry(
         TokenEntry(ETHEREUM, USDC_ETHEREUM.lowercase(), "USDC", "USD Coin", 6),
     ),
 )
+
+/** The registry with the test whitelist: a plain approved call on Ethereum, and an approved proxy on Ethereum. */
+private val GUARDED: Registry = REGISTRY.withWhitelist(listOf(SWAP_ENTRY, PROXY_ENTRY))
 
 class SignPipelineTest {
 
@@ -332,6 +362,104 @@ class SignPipelineTest {
             ),
             call.words,
         )
+    }
+
+    private fun swapData(): String = "0x" + SWAP_SELECTOR + uintWord(BigInteger.ONE) + uintWord(BigInteger.TEN) +
+        addressWord(RECIPIENT)
+
+    private fun swapTx(chainId: Long, to: String, value: BigInteger = BigInteger.ZERO): ByteArray =
+        eip1559Tx(chainId = chainId, to = to, value = value, data = swapData())
+
+    private fun stakeTx(): ByteArray = eip1559Tx(
+        chainId = ETHEREUM,
+        to = PROXY,
+        value = BigInteger.ZERO,
+        data = "0x" + STAKE_SELECTOR + uintWord(BigInteger.TEN) + addressWord(RECIPIENT),
+    )
+
+    private fun guarded(cbor: ByteArray, policy: ProxyPolicy = ProxyPolicy.DEFAULT): Prepared =
+        SignPipeline(GUARDED, policy).prepare(cbor, VIEW)
+
+    @Test
+    fun aWhitelistedDecodeGapIsReviewedWithItsApprovedMeaningAndEveryWord() {
+        val ready = assertIs<Prepared.Ready>(guarded(requestCbor(swapTx(ETHEREUM, WHITELISTED), chainId = ETHEREUM)))
+        val whitelisted = assertNotNull(ready.review.whitelisted)
+
+        assertEquals(SWAP_SIGNATURE, whitelisted.signature)
+        assertEquals(SWAP_MEANING, whitelisted.meaning)
+        assertEquals("swapExactTokensForTokens", ready.review.function)
+        assertEquals(WHITELISTED, ready.review.toAddress)
+        assertEquals("Ethereum", ready.review.networkName)
+        assertEquals(emptyList(), ready.review.params)
+        assertEquals(listOf(ReviewCheck.WHITELIST), ready.review.requiredChecks)
+        assertFalse(ready.review.needsRegistryConfirmation)
+        assertEquals(SWAP_SELECTOR, whitelisted.call.selector)
+        assertEquals(listOf(uintWord(BigInteger.ONE), uintWord(BigInteger.TEN), addressWord(RECIPIENT)), whitelisted.call.words)
+        assertNull(whitelisted.call.proxy)
+    }
+
+    @Test
+    fun theValueOfAWhitelistedCallIsShownInTheNetworkCoin() {
+        val tx = swapTx(ETHEREUM, WHITELISTED, BigInteger.TEN.pow(16))
+        val ready = assertIs<Prepared.Ready>(guarded(requestCbor(tx, chainId = ETHEREUM)))
+
+        assertEquals("0.01 ETH", ready.review.whitelisted?.call?.value)
+    }
+
+    @Test
+    fun theSameSelectorOnAnotherContractOrChainIsStillRefused() {
+        val onOtherContract = requestCbor(swapTx(ETHEREUM, UNREGISTERED), chainId = ETHEREUM)
+        val onOtherChain = requestCbor(swapTx(BASE, WHITELISTED), chainId = BASE)
+
+        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(guarded(onOtherContract)).reason)
+        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(guarded(onOtherChain)).reason)
+    }
+
+    @Test
+    fun aWhitelistedContractWithAnotherSelectorIsStillRefused() {
+        val data = callOf(SELECTOR_BALANCE_OF, addressWord(RECIPIENT))
+        val tx = eip1559Tx(chainId = ETHEREUM, to = WHITELISTED, value = BigInteger.ZERO, data = data)
+
+        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(guarded(requestCbor(tx, chainId = ETHEREUM))).reason)
+    }
+
+    @Test
+    fun aWhitelistedProxyIsRefusedUnderBindToImplementationAndNamesTheImplementation() {
+        val refused = assertIs<Prepared.Refused>(guarded(requestCbor(stakeTx(), chainId = ETHEREUM)))
+
+        assertEquals(BOUND_PROXY_REASON, refused.reason)
+        assertEquals(STAKE_SELECTOR, refused.call?.selector)
+        assertEquals(ProxyBinding(implementationAddress = IMPLEMENTATION), refused.call?.proxy)
+    }
+
+    @Test
+    fun aWhitelistedProxyIsRefusedUnderRefuseAllProxies() {
+        val refused = assertIs<Prepared.Refused>(
+            guarded(requestCbor(stakeTx(), chainId = ETHEREUM), ProxyPolicy.REFUSE_ALL_PROXIES),
+        )
+
+        assertEquals(ANY_PROXY_REASON, refused.reason)
+        assertEquals(ProxyBinding(implementationAddress = IMPLEMENTATION), refused.call?.proxy)
+    }
+
+    @Test
+    fun aWhitelistedProxyUnderWarnAndConfirmIsReviewedWithASecondCheck() {
+        val ready = assertIs<Prepared.Ready>(
+            guarded(requestCbor(stakeTx(), chainId = ETHEREUM), ProxyPolicy.WARN_AND_CONFIRM),
+        )
+
+        assertEquals(listOf(ReviewCheck.WHITELIST, ReviewCheck.UPGRADE), ready.review.requiredChecks)
+        assertEquals("Stake for a recipient", ready.review.whitelisted?.meaning)
+        assertEquals(ProxyBinding(implementationAddress = IMPLEMENTATION), ready.review.whitelisted?.call?.proxy)
+    }
+
+    @Test
+    fun aWhitelistedCallThatIsNotAProxyIsReviewedUnderEveryPolicy() {
+        for (policy in ProxyPolicy.entries) {
+            val prepared = guarded(requestCbor(swapTx(ETHEREUM, WHITELISTED), chainId = ETHEREUM), policy)
+
+            assertIs<Prepared.Ready>(prepared)
+        }
     }
 
     @Test
