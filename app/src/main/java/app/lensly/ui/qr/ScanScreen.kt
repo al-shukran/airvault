@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
@@ -33,6 +34,9 @@ import kotlin.math.roundToInt
  *
  * [progress] is a fraction from 0 to 1, or null when the payload is a single code. [statusText] is free text, such as
  * the hint, the last decoded payload, or why a code was not accepted. It is announced to TalkBack when it changes.
+ *
+ * [frameSource] is passed to [QrScanner]. Leave it null on a device: the camera feeds the scanner, and the permission
+ * gate is unchanged. A test passes its own source of generated frames instead.
  */
 @Composable
 fun ScanScreen(
@@ -42,6 +46,7 @@ fun ScanScreen(
     onText: (String) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    frameSource: FrameSource? = null,
 ) {
     ScanFrame(
         title = title,
@@ -50,7 +55,7 @@ fun ScanScreen(
         onCancel = onCancel,
         modifier = modifier,
     ) { viewportModifier ->
-        QrScanner(onText = onText, modifier = viewportModifier)
+        QrScanner(onText = onText, modifier = viewportModifier, frameSource = frameSource)
     }
 }
 
