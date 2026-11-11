@@ -1,5 +1,7 @@
 package app.lensly.ui.navigation
 
+import app.lensly.ui.camera.EntryGesture
+
 /**
  * Routes inside the hidden graph, whose own route is [LenslyRoute.HIDDEN]. Wallet ids are UUIDs, so the routes
  * with a `{walletId}` argument cannot match the fixed ones.
@@ -35,6 +37,10 @@ internal object HiddenRoute {
     const val CHANGE_PASSWORD = "settings/password"
     // Wipe: the App Password again, a warning with its confirmation, then every file. Reached from Settings.
     const val WIPE = "settings/wipe"
+    // Hidden entry gesture: the four gestures to choose from, then the change to one of them. Reached from Settings.
+    const val ENTRY_GESTURE = "settings/gesture"
+    const val ENTRY_GESTURE_CHANGE = "settings/gesture/change/{gestureId}"
+    const val GESTURE_ID_ARG = "gestureId"
 
     // Create and restore flows. The passphrase and name routes are shared by both.
     const val WALLET_START = "wallet/start"
@@ -77,4 +83,6 @@ internal object HiddenRoute {
     /** The accounts as a comma-separated list of indices, for example "1,3,4". */
     fun renameAccounts(walletId: String, indices: Collection<Int>): String =
         "rename-accounts/$walletId/${indices.joinToString(",")}"
+
+    fun entryGestureChange(gesture: EntryGesture): String = "settings/gesture/change/${gesture.storedId}"
 }

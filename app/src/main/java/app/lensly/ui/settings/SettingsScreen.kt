@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.lensly.core.wallet.BulkCap
+import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
@@ -46,13 +47,15 @@ data class CatalogCounts(val networks: Int, val tokens: Int)
  *
  * [bulkCap] is null until the saved setting has been read, and its options are off until then. [onBulkCap] saves the
  * new cap. [onChangePassword] opens the App Password change, and [onWipe] opens the wipe. [catalog] is null while the
- * counts are read. The hidden entry gesture is read-only, because the detector has one fixed gesture.
+ * counts are read. [entryGesture] is the gesture the camera uses now, and [onEntryGesture] opens the choice of another.
  */
 @Composable
 fun SettingsScreen(
     bulkCap: BulkCap?,
     onBulkCap: (BulkCap) -> Unit,
     onChangePassword: () -> Unit,
+    entryGesture: EntryGesture = EntryGesture.DEFAULT,
+    onEntryGesture: () -> Unit = {},
     catalog: CatalogCounts?,
     onUpdateCatalog: () -> Unit,
     onWipe: () -> Unit,
@@ -74,8 +77,8 @@ fun SettingsScreen(
         SettingsSection("Entry") {
             SettingsRow(
                 title = "Hidden entry gesture",
-                description = "Two-finger double-tap on the viewfinder, then hold both fingers.\n" +
-                    "This version has one gesture. Choosing another is not available yet.",
+                description = entryGesture.title,
+                onClick = onEntryGesture,
             )
             SettingsRow(
                 title = "Change App Password",
@@ -121,7 +124,7 @@ fun SettingsScreen(
 
 /** One section: a muted label, then its rows. Every section starts the same distance below the one before. */
 @Composable
-private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xl)) {
         WalletEyebrow(title)
         Spacer(Modifier.height(LenslySpacing.xs))
@@ -143,7 +146,7 @@ private fun SettingsItem(content: @Composable ColumnScope.() -> Unit) {
  * arrow and presses like a button. A [loading] row shows a progress mark in place of the arrow.
  */
 @Composable
-private fun SettingsRow(
+internal fun SettingsRow(
     title: String,
     description: String? = null,
     onClick: (() -> Unit)? = null,
