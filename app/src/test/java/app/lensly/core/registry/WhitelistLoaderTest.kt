@@ -10,9 +10,16 @@ import org.junit.Test
 private const val CONTRACT = "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
 private const val OTHER_CONTRACT = "0x6666666666666666666666666666666666666666"
 
-/** A JSON whitelist entry: the Signature, its selector and the approved meaning, as the assets hold them. */
+/** A JSON whitelist entry: the Signature, its selector, the approved meaning, and one param per argument. */
 private fun whitelistJson(chainId: Long, contract: String, signature: String, selector: String, meaning: String) =
-    """{"chainId":$chainId,"contract":"$contract","selector":"$selector","signature":"$signature","meaning":"$meaning"}"""
+    """{"chainId":$chainId,"contract":"$contract","selector":"$selector","signature":"$signature","meaning":"$meaning",""" +
+        """"upgradeable":false,"params":${paramsJson(signature)}}"""
+
+/** The params of [signature], named arg0, arg1 and so on, each with the type the signature gives it. */
+private fun paramsJson(signature: String): String =
+    signature.substringAfter('(').substringBefore(')').split(',').filter { it.isNotEmpty() }
+        .mapIndexed { index, type -> """{"name":"arg$index","type":"$type"}""" }
+        .joinToString(prefix = "[", postfix = "]")
 
 /**
  * The whitelist as [RegistryLoader] reads it from the baked assets and the debug overlay: which entries a build approves,
@@ -35,10 +42,11 @@ class WhitelistLoaderTest {
         val registry = RegistryLoader.load(
             fakeReader(
                 RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-                RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+                RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
                 RegistryLoader.WHITELIST_PATH to """
                     {"whitelist":[{"chainId":1,"contract":"$CONTRACT","selector":"$TRANSFER_SELECTOR",
                     "signature":"$TRANSFER_SIGNATURE","meaning":"Send a fixed amount of the token",
+                    "params":${paramsJson(TRANSFER_SIGNATURE)},"upgradeable":true,
                     "proxy":{"implementationAddress":"$IMPLEMENTATION"}}]}
                 """.trimIndent(),
             ),
@@ -67,7 +75,7 @@ class WhitelistLoaderTest {
         val registry = RegistryLoader.load(
             fakeReader(
                 RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-                RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+                RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
             ),
         )
 
@@ -80,7 +88,7 @@ class WhitelistLoaderTest {
         val registry = RegistryLoader.load(
             fakeReader(
                 RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-                RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+                RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
                 RegistryLoader.NETWORKS_DEBUG_PATH to NETWORKS_DEBUG,
                 RegistryLoader.WHITELIST_DEBUG_PATH to DEBUG_WHITELIST,
             ),
@@ -96,7 +104,7 @@ class WhitelistLoaderTest {
             RegistryLoader.load(
                 fakeReader(
                     RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-                    RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+                    RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
                     RegistryLoader.WHITELIST_PATH to
                         """{"whitelist":[${whitelistJson(SEPOLIA, CONTRACT, TRANSFER_SIGNATURE, TRANSFER_SELECTOR, "Nowhere")}]}""",
                 ),
@@ -112,7 +120,7 @@ class WhitelistLoaderTest {
             RegistryLoader.load(
                 fakeReader(
                     RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-                    RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+                    RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
                     RegistryLoader.WHITELIST_PATH to """{"whitelist":[$entry,$entry]}""",
                 ),
             )
@@ -127,7 +135,7 @@ class WhitelistLoaderTest {
             RegistryLoader.load(
                 fakeReader(
                     RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-                    RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+                    RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
                     RegistryLoader.WHITELIST_PATH to """{"whitelist":[$shared]}""",
                     RegistryLoader.WHITELIST_DEBUG_PATH to """{"whitelist":[$shared]}""",
                 ),
@@ -143,7 +151,7 @@ class WhitelistLoaderTest {
             RegistryLoader.load(
                 fakeReader(
                     RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-                    RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+                    RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
                     RegistryLoader.WHITELIST_PATH to """{"whitelist":[$mislabelled]}""",
                 ),
             )
@@ -156,7 +164,7 @@ class WhitelistLoaderTest {
             RegistryLoader.load(
                 fakeReader(
                     RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-                    RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+                    RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
                     RegistryLoader.WHITELIST_PATH to """{"whitelist":[{"chainId":1}]}""",
                 ),
             )
@@ -168,7 +176,7 @@ class WhitelistLoaderTest {
         val registry = RegistryLoader.load(
             fakeReader(
                 RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-                RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+                RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
                 RegistryLoader.WHITELIST_PATH to """
                     {"whitelist":[
                       ${whitelistJson(1L, OTHER_CONTRACT, BALANCE_SIGNATURE, BALANCE_SELECTOR, "Read a balance")},
@@ -189,7 +197,7 @@ class WhitelistLoaderTest {
     private fun release(): Registry = RegistryLoader.load(
         fakeReader(
             RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-            RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+            RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
             RegistryLoader.WHITELIST_PATH to RELEASE_WHITELIST,
         ),
     )
@@ -198,7 +206,7 @@ class WhitelistLoaderTest {
     private fun debug(): Registry = RegistryLoader.load(
         fakeReader(
             RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
-            RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
+            RegistryLoader.TOKENS_PATH to ASSETS_MAIN,
             RegistryLoader.WHITELIST_PATH to RELEASE_WHITELIST,
             RegistryLoader.NETWORKS_DEBUG_PATH to NETWORKS_DEBUG,
             RegistryLoader.WHITELIST_DEBUG_PATH to DEBUG_WHITELIST,
@@ -219,7 +227,7 @@ class WhitelistLoaderTest {
             {"networks":[{"chainId":1,"name":"Ethereum","nativeSymbol":"ETH","feeModel":"L1","explorerName":"Etherscan","testnet":false}]}
         """.trimIndent()
 
-        val TOKENS_MAIN = """{"tokens":[]}"""
+        val ASSETS_MAIN = """{"tokens":[]}"""
 
         val NETWORKS_DEBUG = """
             {"networks":[{"chainId":11155111,"name":"Ethereum Sepolia","nativeSymbol":"ETH","feeModel":"L1","explorerName":"Etherscan","testnet":true}]}
