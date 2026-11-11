@@ -28,3 +28,17 @@ fun displayNameOf(raw: String): String {
  * it.
  */
 fun autoAccountName(baseName: String, index: Int): String = "$baseName $index"
+
+/**
+ * The longest base name a batch rename of accounts [indices] can give. Each account gets "<base> <index>", which must still
+ * be a Display Name, so the base gives up one character for the space and the digits of the largest index.
+ */
+fun batchBaseMaxLength(indices: Collection<Int>): Int =
+    DISPLAY_NAME_MAX_LENGTH - 1 - (indices.maxOrNull() ?: 0).toString().length
+
+/**
+ * True when [base] can name accounts [indices] in a batch rename: 1 to [batchBaseMaxLength] characters, with no control
+ * character. The caller trims it first. The spec sets no batch format, so each account is named as its Auto-Name would be.
+ */
+fun isValidBatchBase(base: String, indices: Collection<Int>): Boolean =
+    base.length in 1..batchBaseMaxLength(indices) && base.none { it.isISOControl() }

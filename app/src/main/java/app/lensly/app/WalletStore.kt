@@ -347,9 +347,59 @@ class WalletStore(private val session: VaultSession) {
         }
     }
 
+    /**
+     * Batch Rename: gives each account in [indices] of wallet [id] the Display Name "<[base]> <index>", built as an Auto-Name
+     * is, in one atomic write. The other accounts keep what they had. [base] is trimmed first.
+     *
+     * @throws IllegalArgumentException if [indices] is empty, [base] is not a valid batch base for them (see
+     * [isValidBatchBase]), or an index is not an account of the wallet. Nothing is saved then.
+     */
+    fun renameAccounts(id: String, indices: Collection<Int>, base: String) {
+        val accounts = selectedAccounts(indices)
+        val clean = base.trim()
+        require(isValidBatchBase(clean, accounts)) {
+            "A batch name is 1 to ${batchBaseMaxLength(accounts)} characters, with no control character."
+        }
+        synchronized(session) {
+            requireAccounts(id, accounts)
+            val puts = accounts.associate { index ->
+                WalletRecords.accountRecord(index) to WalletRecords.encodeName(autoAccountName(clean, index))
+            }
+            session.putRecords(id, puts, deletes = emptyList())
+        }
+    }
+
+    /**
+     * Batch reset: gives each account in [indices] of wallet [id] its Auto-Name back. Their records are removed in one atomic
+     * write, and the other accounts keep what they had.
+     *
+     * @throws IllegalArgumentException if [indices] is empty or an index is not an account of the wallet. Nothing is removed then.
+     */
+    fun resetAccountNames(id: String, indices: Collection<Int>) {
+        val accounts = selectedAccounts(indices)
+        synchronized(session) {
+            requireAccounts(id, accounts)
+            session.putRecords(id, puts = emptyMap(), deletes = accounts.map { WalletRecords.accountRecord(it) })
+        }
+    }
+
     private fun requireAccount(id: String, index: Int) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(index in 0 until current.accountCount) { "Wallet $id has no account $index." }
+    }
+
+    /** Every account of wallet [id] in [accounts] must exist. */
+    private fun requireAccounts(id: String, accounts: List<Int>) {
+        val current = requireNotNull(meta(id)) { "No wallet $id." }
+        accounts.forEach { index ->
+            require(index in 0 until current.accountCount) { "Wallet $id has no account $index." }
+        }
+    }
+
+    /** The distinct account indices of a selection, in order. An empty selection is refused. */
+    private fun selectedAccounts(indices: Collection<Int>): List<Int> {
+        require(indices.isNotEmpty()) { "Select at least one account." }
+        return indices.toSortedSet().toList()
     }
 
     /** The Mnemonic secret of wallet [id]. A Single Key secret is zeroed and refused, so the caller never holds a key here. */
