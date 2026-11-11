@@ -113,7 +113,8 @@ jobs:
               - 'settings.gradle.kts'
 
       # Guideline 1.8: dependency review runs on PRs touching dependency files. Kept in its
-      # own step so the filter name never reaches the partition matrix.
+      # own step so the filter name never reaches the partition matrix. The graph it diffs
+      # against is submitted by dependency-graph.yml on pushes to the long-lived branches.
       - id: deps
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
@@ -123,6 +124,7 @@ jobs:
               - 'app/build.gradle.kts'
               - 'tools/*/build.gradle.kts'
               - 'gradle/libs.versions.toml'
+              - 'gradle/wrapper/**'
               - 'gradle.properties'
               - 'settings.gradle.kts'
 
@@ -171,6 +173,7 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: false # no pull-requests: write
 
   dependency_review:
+    # Snapshot comes from dependency-graph.yml, which submits on pushes to master and phase-1-5.
     needs: changes
     if: needs.changes.outputs.dependencies == 'true'
     runs-on: ubuntu-latest
