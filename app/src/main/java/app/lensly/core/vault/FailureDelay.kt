@@ -6,6 +6,7 @@ package app.lensly.core.vault
  * [seq] grows on every write, so an older copy of the file can be recognised as a rollback.
  * The two `lastFailure` readings are the wall-clock and monotonic times at the most recent failure.
  * [capMs] is the Failure Delay cap the owner chose, or null for Default, which is the spec default.
+ * [bootCount] is `Settings.Global.BOOT_COUNT` when the state was written, or null when the device did not report it.
  */
 internal data class FailureState(
     val seq: Long,
@@ -13,6 +14,7 @@ internal data class FailureState(
     val lastFailureWallMs: Long,
     val lastFailureElapsedMs: Long,
     val capMs: Long? = null,
+    val bootCount: Int? = null,
 )
 
 /**
@@ -47,10 +49,13 @@ internal class FailureDelay(
         return minOf(cap, BASE_DELAY_MS shl exponent)
     }
 
-    /** True while the delay that follows [state]'s last failure has not yet run out. */
-    fun isBlocked(state: FailureState, clock: Clock): Boolean {
+    /**
+     * True while the delay that follows [state]'s last failure has not yet run out. [bootCount] is the device's current
+     * `Settings.Global.BOOT_COUNT`, or null when it could not be read.
+     */
+    fun isBlocked(state: FailureState, clock: Clock, bootCount: Int? = null): Boolean {
         val delay = delayFor(state.failures, clock.wallMillis())
-        return delay > 0 && elapsedSinceFailure(state, clock) < delay
+        return delay > 0 && elapsedSinceFailure(state, clock, bootCount) < delay
     }
 
     companion object {
@@ -77,16 +82,25 @@ internal class FailureDelay(
          * Milliseconds elapsed since the failure recorded in [state]. It is never more than the real time that has passed, so
          * the wait ends only after the delay has really run.
          *
-         * Within one boot the result is the smaller of the monotonic and wall readings, so a wall clock moved forward cannot
-         * shorten the delay. The monotonic clock goes back only at a reboot. After one, the wait restarts from boot: the result
-         * is the monotonic reading, and the wall clock is not used, because the user can change it. A negative result means the
-         * wall clock moved backwards, which [FailureStore] treats as tampering.
+         * [bootCount] is the device's current `Settings.Global.BOOT_COUNT`, or null when it could not be read.
+         * - Same boot count: the result is the smaller of the monotonic and wall readings, so a wall clock moved forward
+         *   cannot shorten the delay.
+         * - A different boot count means the device rebooted, and the monotonic clock restarted with it. The time since boot
+         *   is then the true lower bound of the time since the failure, so it is the result, and the wall clock is not used.
+         *   Moving the wall clock forward or back therefore cannot end the wait early. A count that a root user edits goes
+         *   the same way, and can only make the wait longer.
+         * - No boot count on either side: the monotonic clock is used alone when it went back, which is the reboot it can see.
          *
-         * The boot count is deliberately not used. It sits in the Settings database, which a root user or a flash edit can
-         * change. A changed count with no reboot would make the time since boot look longer than the real time since the failure.
+         * A negative result means the wall clock moved backwards within one boot, which [FailureStore] treats as tampering.
          */
-        fun elapsedSinceFailure(state: FailureState, clock: Clock): Long {
+        fun elapsedSinceFailure(state: FailureState, clock: Clock, bootCount: Int? = null): Long {
             val monotonicNow = clock.elapsedMillis()
+            val storedBootCount = state.bootCount
+            if (storedBootCount != null && bootCount != null) {
+                if (bootCount != storedBootCount) return monotonicNow
+                val wallElapsed = clock.wallMillis() - state.lastFailureWallMs
+                return minOf(monotonicNow - state.lastFailureElapsedMs, wallElapsed)
+            }
             if (monotonicNow < state.lastFailureElapsedMs) return monotonicNow
             val wallElapsed = clock.wallMillis() - state.lastFailureWallMs
             return minOf(monotonicNow - state.lastFailureElapsedMs, wallElapsed)

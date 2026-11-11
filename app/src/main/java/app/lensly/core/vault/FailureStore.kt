@@ -23,6 +23,10 @@ import javax.crypto.SecretKey
  * detection. It lives here rather than in the encrypted vault settings, because the delay applies before the vault can be
  * unlocked.
  *
+ * The boot count (`Settings.Global.BOOT_COUNT`, or the marker for "not reported") is in the same payload. A later load compares
+ * it with the device's current count, so a reboot, which restarts the monotonic clock, still measures the wait from where the
+ * state left it and never shortens it (see [FailureDelay.elapsedSinceFailure]).
+ *
  * Copies written before per-save keys (layout versions 1 and 2) verify under the one legacy key. [load] settles such a pair
  * by saving it again under a new sequence number, which deletes the legacy key. The pending delay is kept.
  *
@@ -40,6 +44,7 @@ import javax.crypto.SecretKey
 internal class FailureStore(
     private val dir: File,
     private val keys: KeystoreBackend,
+    private val readBootCount: () -> Int? = { null },
 ) {
     private val primary = File(dir, PRIMARY_FILE_NAME)
     private val backup = File(dir, BACKUP_FILE_NAME)
@@ -47,6 +52,9 @@ internal class FailureStore(
 
     /** A copy that verified. [legacy] is true for a layout written before per-save keys. */
     private class Copy(val state: FailureState, val legacy: Boolean)
+
+    /** The device's current `Settings.Global.BOOT_COUNT`, or null when it could not be read. */
+    fun currentBootCount(): Int? = readBootCount()
 
     /** Loads the stored state, or returns the cap-locking state if the copies look tampered. */
     fun load(clock: Clock): FailureState {
@@ -107,7 +115,7 @@ internal class FailureStore(
     }
 
     private fun wallMovedBack(state: FailureState, clock: Clock): Boolean =
-        state.failures > 0 && FailureDelay.elapsedSinceFailure(state, clock) < 0
+        state.failures > 0 && FailureDelay.elapsedSinceFailure(state, clock, readBootCount()) < 0
 
     private fun lockAsTampered(clock: Clock, highestSeq: Long, verified: List<FailureState>): FailureState =
         // Saving writes both copies, so a copy that was damaged is repaired here.
@@ -135,17 +143,19 @@ internal class FailureStore(
 
     /**
      * Writes [state] under a new key for its sequence number, then deletes every other Delay State key. The keys of earlier
-     * states go only after both copies carry the new one, so a crash leaves at least one key for each copy.
+     * states go only after both copies carry the new one, so a crash leaves at least one key for each copy. The boot count is
+     * recorded with the state, so a later load can tell a reboot from a wall clock that moved.
      */
     private fun save(state: FailureState): FailureState {
         dir.mkdirs()
-        val key = keystore(STATE_UNAVAILABLE) { keys.createFailureMacKey(state.seq) }
-        val bytes = encode(state, key)
+        val stamped = state.copy(bootCount = readBootCount())
+        val key = keystore(STATE_UNAVAILABLE) { keys.createFailureMacKey(stamped.seq) }
+        val bytes = encode(stamped, key)
         writeAtomically(primary, bytes)
         writeAtomically(backup, bytes)
-        SEQ_SEEN[seenKey] = state.seq
-        keystore(STATE_UNAVAILABLE) { keys.deleteFailureMacKeysExcept(state.seq) }
-        return state
+        SEQ_SEEN[seenKey] = stamped.seq
+        keystore(STATE_UNAVAILABLE) { keys.deleteFailureMacKeysExcept(stamped.seq) }
+        return stamped
     }
 
     /** The copy at [file] if it verifies under its own key, or null. A missing or unreadable file is not a copy. */
@@ -159,7 +169,8 @@ internal class FailureStore(
         val version = bytes[MAGIC.size]
         val payloadSize = when (version) {
             VERSION_1 -> PAYLOAD_SIZE_V1
-            VERSION_2, VERSION -> PAYLOAD_SIZE
+            VERSION_2 -> PAYLOAD_SIZE_V2
+            VERSION -> PAYLOAD_SIZE
             else -> return null
         }
         if (bytes.size != payloadSize + MAC_SIZE) return null
@@ -190,8 +201,10 @@ internal class FailureStore(
             in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS -> stored
             else -> return null
         }
+        // Version 2 is the layout from before the boot count, so it has none.
+        val bootCount = if (version == VERSION_2) null else bootCountOf(buffer.getInt())
         return Copy(
-            FailureState(seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs),
+            FailureState(seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs, bootCount),
             legacy = version != VERSION,
         )
     }
@@ -205,6 +218,7 @@ internal class FailureStore(
             .putLong(state.lastFailureWallMs)
             .putLong(state.lastFailureElapsedMs)
             .putLong(state.capMs ?: NO_CAP_ON_DISK)
+            .putInt(state.bootCount ?: NO_BOOT_COUNT)
             .array()
         return payload + keystore(STATE_UNAVAILABLE) { macOf(key, payload) }
     }
@@ -230,7 +244,7 @@ internal class FailureStore(
 
         /**
          * Version 1 has no cap. Version 2 adds the cap, and both use the legacy key. Version 3 has the same fields as version 2,
-         * and it is MAC'd under the key for its sequence number.
+         * plus the boot count, and it is MAC'd under the key for its sequence number.
          */
         private const val VERSION_1: Byte = 1
         private const val VERSION_2: Byte = 2
@@ -239,14 +253,23 @@ internal class FailureStore(
         /** The cap on disk when the owner chose Default. Zero is outside the offered range, so it cannot be a real cap. */
         private const val NO_CAP_ON_DISK = 0L
 
+        /** The boot count on disk when the device did not report one. A real count is never negative. */
+        private const val NO_BOOT_COUNT = -1
+
         /** magic (4) + version (1) + seq (8) + failures (4) + wall (8) + elapsed (8). */
         private const val PAYLOAD_SIZE_V1 = 4 + 1 + 8 + 4 + 8 + 8
 
         /** Version 1 payload plus the cap (8). */
-        private const val PAYLOAD_SIZE = PAYLOAD_SIZE_V1 + 8
+        private const val PAYLOAD_SIZE_V2 = PAYLOAD_SIZE_V1 + 8
+
+        /** Version 2 payload plus the boot count (4). */
+        private const val PAYLOAD_SIZE = PAYLOAD_SIZE_V2 + 4
         private const val MAC_SIZE = 32
 
         private const val STATE_UNAVAILABLE = "The Failure Delay state could not be read or written through the Keystore."
+
+        /** The boot count read from the record, or null for the marker this app writes when it had none. */
+        private fun bootCountOf(stored: Int): Int? = if (stored == NO_BOOT_COUNT) null else stored
 
         /** Highest sequence number this process has written, keyed by vault directory. */
         private val SEQ_SEEN = ConcurrentHashMap<String, Long>()
