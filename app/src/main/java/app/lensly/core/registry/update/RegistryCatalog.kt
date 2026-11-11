@@ -19,6 +19,9 @@ class RegistryCatalog(
     @Synchronized
     fun current(): Registry = merged
 
+    /** The installed package that is merged into [current], or null while the built-in catalog is all there is. */
+    fun installed(): RegistryPackage? = RegistryUpdate.installedPackage(baked, dir, trustedPublicKeys)
+
     /**
      * Installs [bytes] as [RegistryUpdate.install] does, checking them against the baked catalog. On success the
      * merged view is rebuilt before this returns. On failure the current view is unchanged.

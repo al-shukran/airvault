@@ -26,6 +26,13 @@ object RegistryHolder {
     fun get(context: Context): Registry = catalogOf(context).current()
 
     /**
+     * The installed package that [get] merges in, so its sequence is the catalog's version. Null while the built-in catalog is
+     * all there is. The first call reads the assets, so call this off the main thread.
+     */
+    @Synchronized
+    fun installed(context: Context): RegistryPackage? = catalogOf(context).installed()
+
+    /**
      * Verifies [bytes] and stores them as the installed package. An accepted package is in effect for the next [get].
      * Call this off the main thread: it reads and writes storage.
      */
