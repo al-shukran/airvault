@@ -3,6 +3,7 @@ package app.lensly.core.wallet
 import app.lensly.core.wallet.BulkPolicy.CountCheck
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import org.junit.Test
 
 class BulkPolicyTest {
@@ -60,6 +61,27 @@ class BulkPolicyTest {
         assertEquals(CountCheck.Valid(150), BulkPolicy.checkCount(150, cap = 1_000))
         assertEquals(CountCheck.Valid(1_000), BulkPolicy.checkCount(1_000, cap = 1_000))
         assertEquals(CountCheck.TooMany(1_000), BulkPolicy.checkCount(1_001, cap = 1_000))
+    }
+
+    @Test
+    fun aHundredCapRefusesOneHundredAndOneAndAllowsOneHundred() {
+        val cap = BulkCap.HUNDRED.accounts
+        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkCount(101, cap))
+        assertEquals(CountCheck.Valid(100), BulkPolicy.checkCount(100, cap))
+    }
+
+    @Test
+    fun aThousandCapAllowsOneThousandAndRefusesOneThousandAndOne() {
+        val cap = BulkCap.THOUSAND.accounts
+        assertEquals(CountCheck.Valid(1_000), BulkPolicy.checkCount(1_000, cap))
+        assertEquals(CountCheck.TooMany(1_000), BulkPolicy.checkCount(1_001, cap))
+    }
+
+    @Test
+    fun aTypedCountCanReachTheLargestCap() {
+        assertEquals("1000", BulkPolicy.appendDigit("100", '0'))
+        assertEquals(CountCheck.Valid(1_000), BulkPolicy.checkCount("1000".toInt(), BulkCap.THOUSAND.accounts))
+        assertTrue(BulkPolicy.MAX_DIGITS >= BulkCap.THOUSAND.accounts.toString().length)
     }
 
     @Test
