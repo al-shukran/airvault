@@ -21,11 +21,12 @@ object QrMatrix {
     /**
      * Encodes [text] as a QR code with error correction L and a one-module margin.
      *
-     * The text is uppercased first. Uppercase input stays in ZXing's alphanumeric mode, which uses
-     * about 30% fewer bits per character than byte mode, so each animated part carries more data.
+     * The text is uppercased first, unless [keepCase] is set. Uppercase input stays in ZXing's alphanumeric mode, which
+     * uses about 30% fewer bits per character than byte mode, so each animated part carries more data. [keepCase] is
+     * for text that must scan back as written, such as a checksummed address, whose letter case is its checksum.
      */
-    fun encode(text: String): BitMatrix = QRCodeWriter().encode(
-        text.uppercase(),
+    fun encode(text: String, keepCase: Boolean = false): BitMatrix = QRCodeWriter().encode(
+        if (keepCase) text else text.uppercase(),
         BarcodeFormat.QR_CODE,
         0,
         0,

@@ -15,6 +15,12 @@ import org.junit.Test
 
 private val WALLET by lazy { HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art")) }
 
+/** The whole-wallet pairing frame of the BIP39 test vector "abandon x23 art", named "Lensly". */
+private const val EXPECTED_WHOLE_WALLET_UR =
+    "UR:CRYPTO-HDKEY/ONAXHDCLAXIYTBAADTCMKEKGNECPAAUYSKLSIYVTROJKURRDOYSWBKRKPAAYFHEYGHHHVDIEVYAAHDCXLE" +
+        "KGQZVEDRGEZELEZCFRSTGRLECFLATNAXKIMTLTFHHYCHAEGLUYKSTYSTFSPKJKAMTAADDYOEADLNCSDWYKCSFNYKAEYKAOCYGHENT" +
+        "SDKAYCYTDKPIMOEASIYGSIHJTJKJZKKTYLRFWGS"
+
 class PairingExportTest {
 
     @Test
@@ -33,6 +39,12 @@ class PairingExportTest {
         assertEquals(listOf(true, true, true), key.origin.components.map { (it as IndexPathComponent).isHardened })
         assertEquals("Lensly", key.name)
         assertNull(key.children)
+    }
+
+    @Test
+    fun wholeWalletFrameKeepsItsBytes() {
+        // Regression pin: the whole-wallet pairing that Rabby and MetaMask were verified with must not change.
+        assertEquals(EXPECTED_WHOLE_WALLET_UR, PairingExport.urParts(WALLET).single())
     }
 
     @Test

@@ -31,13 +31,17 @@ import app.lensly.app.RegistryHolder
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletDraft
+import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
+import app.lensly.app.export.AccountExport
 import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.ui.flow.AccountExportScreen
+import app.lensly.ui.flow.AccountExportView
 import app.lensly.ui.flow.PairWalletRoute
 import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.gate.PasswordBuffer
@@ -91,6 +95,12 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     }
     composable(HiddenRoute.EXPORT, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { PairWalletRoute(navController, holder, entry.walletId()) }
+    }
+    composable(
+        HiddenRoute.EXPORT_ACCOUNT,
+        arguments = walletIdArguments() + navArgument(HiddenRoute.ACCOUNT_INDEX_ARG) { type = NavType.IntType },
+    ) { entry ->
+        HiddenBackdrop { ExportAccountRoute(navController, holder, entry.walletId(), entry.accountIndex()) }
     }
     composable(HiddenRoute.SCAN, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { SignWalletRoute(navController, holder, entry.walletId()) }
@@ -478,6 +488,7 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
         onRenameWallet = { navController.navigate(HiddenRoute.renameWallet(walletId)) },
         onRenameAccount = { index -> navController.navigate(HiddenRoute.renameAccount(walletId, index)) },
+        onExportAccount = { index -> navController.navigate(HiddenRoute.exportAccount(walletId, index)) },
         onRenameAccounts = { indices -> navController.navigate(HiddenRoute.renameAccounts(walletId, indices)) },
         onResetAccountNames = { indices ->
             scope.launch {
@@ -492,6 +503,38 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
             }
         },
         onDeleteWallet = { navController.navigate(HiddenRoute.deleteWallet(walletId)) },
+    )
+}
+
+/**
+ * EXPORT of account [index] of wallet [walletId]: its address as a code. A Mnemonic account's address comes from its
+ * public account key, and a Single Key's from its key. An index the wallet does not have goes back to the wallet.
+ */
+@Composable
+private fun ExportAccountRoute(navController: NavHostController, holder: VaultHolder, walletId: String, index: Int) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    var shown by remember(walletId, index) { mutableStateOf<AccountExportView?>(null) }
+    LaunchedEffect(walletId, index) {
+        whileUnlocked(navController, holder) {
+            val store = WalletStore(session)
+            val meta = withContext(Dispatchers.IO) { store.meta(walletId) }
+            if (meta == null || index !in 0 until meta.accountCount) {
+                navController.popBackStack()
+                return@whileUnlocked
+            }
+            val address = withContext(Dispatchers.IO) { store.accountAddress(walletId, index) }
+            shown = AccountExportView(
+                address = address,
+                derivationPath = if (meta.kind == WalletKind.MNEMONIC) AccountExport.derivationPath(index) else null,
+            )
+        }
+    }
+    val current = shown ?: return
+    AccountExportScreen(
+        address = current.address,
+        derivationPath = current.derivationPath,
+        onDone = { navController.popBackStack() },
+        onBack = { navController.popBackStack() },
     )
 }
 

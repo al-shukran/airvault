@@ -40,7 +40,8 @@ private val CARD_PAPER = Color.White
  *
  * With more than one part, the parts cycle every [frameMillis] and a "PART 3 OF 12" chip sits
  * under the card. Each part is encoded and rendered once per [parts] value and kept in memory.
- * The screen stays awake while this composable is shown.
+ * The screen stays awake while this composable is shown. [keepCase] encodes the parts as written, see
+ * [QrMatrix.encode].
  *
  * Throws [com.google.zxing.WriterException] if a part does not fit in a QR code.
  */
@@ -49,9 +50,10 @@ fun AnimatedQr(
     parts: List<String>,
     modifier: Modifier = Modifier,
     frameMillis: Long = 200,
+    keepCase: Boolean = false,
 ) {
-    val frames: List<ImageBitmap> = remember(parts) {
-        parts.map { part -> QrMatrix.toPixels(QrMatrix.encode(part)).toImageBitmap() }
+    val frames: List<ImageBitmap> = remember(parts, keepCase) {
+        parts.map { part -> QrMatrix.toPixels(QrMatrix.encode(part, keepCase)).toImageBitmap() }
     }
     var index by remember(parts) { mutableIntStateOf(0) }
 

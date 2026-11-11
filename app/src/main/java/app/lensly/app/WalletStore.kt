@@ -270,6 +270,21 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
+     * The address of account [index] of wallet [id]. A Mnemonic wallet derives it from the public account key, so the
+     * secret is not read. A Single Key wallet has one account, and its address comes from its key.
+     *
+     * @throws IllegalArgumentException if the wallet does not exist or has no account [index].
+     */
+    fun accountAddress(id: String, index: Int): String {
+        val meta = requireNotNull(meta(id)) { "No wallet $id." }
+        require(index in 0 until meta.accountCount) { "No account $index in wallet $id." }
+        return when (meta.kind) {
+            WalletKind.MNEMONIC -> AccountAddresses.addressAt(requireNotNull(meta.accountXpub), index)
+            WalletKind.SINGLE_KEY -> addresses(id, count = 1).single()
+        }
+    }
+
+    /**
      * Renames wallet [id] to [name], trimmed, and returns the updated metadata. Only the META record changes, so the
      * secret, the account public key and every account keep what they were. Account names are not rewritten.
      *

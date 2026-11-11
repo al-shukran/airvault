@@ -16,6 +16,8 @@ internal object HiddenRoute {
     const val DETAIL = "detail/{walletId}"
     const val BULK = "bulk/{walletId}"
     const val EXPORT = "export/{walletId}"
+    // Export of one account: its address as a code, reached from the account row of the wallet detail.
+    const val EXPORT_ACCOUNT = "export-account/{walletId}/{index}"
     const val SCAN = "scan/{walletId}"
 
     // Show Secret: the App Password again, a warning, then the secret. Reached from the wallet detail.
@@ -64,6 +66,8 @@ internal object HiddenRoute {
     fun bulk(walletId: String): String = "bulk/$walletId"
 
     fun export(walletId: String): String = "export/$walletId"
+
+    fun exportAccount(walletId: String, index: Int): String = "export-account/$walletId/$index"
 
     fun scan(walletId: String): String = "scan/$walletId"
 

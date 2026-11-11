@@ -1,5 +1,6 @@
 package app.lensly.ui.screenshot
 
+import app.lensly.ui.flow.AccountExportScreen
 import app.lensly.ui.flow.ConfirmPasswordScreen
 import app.lensly.ui.flow.PairChooserScreen
 import app.lensly.ui.flow.PairLoading
@@ -43,5 +44,25 @@ class FlowScreenshotTest {
     @Test
     fun pairLoading() = compose.snapshot("pair_wallet_loading") {
         PairLoading(label = "Preparing code", onBack = {})
+    }
+
+    @Test
+    fun accountExport() = compose.snapshot("account_export_screen") {
+        AccountExportScreen(
+            address = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            derivationPath = "m/44'/60'/0'/0/0",
+            onDone = {},
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun accountExportSingleKey() = compose.snapshot("account_export_single_key") {
+        AccountExportScreen(
+            address = "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23",
+            derivationPath = null,
+            onDone = {},
+            onBack = {},
+        )
     }
 }
