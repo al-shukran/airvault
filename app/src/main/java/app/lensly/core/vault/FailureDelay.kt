@@ -4,7 +4,8 @@ package app.lensly.core.vault
  * Failure bookkeeping as persisted by [FailureStore].
  *
  * [seq] grows on every write, so an older copy of the file can be recognised as a rollback.
- * The two `lastFailure` readings are the wall-clock and monotonic times at the most recent failure.
+ * The two `lastFailure` readings are the wall-clock and monotonic times at the most recent failure, moved onto the clocks of the
+ * boot in which each save is made, so the time since them is the wait served (see [FailureStore]).
  * [capMs] is the Failure Delay cap the owner chose, or null for Default, which is the spec default.
  * [bootCount] is `Settings.Global.BOOT_COUNT` when the state was written, or null when the device did not report it.
  * [elapsedAtSave] is how much of the delay had run when the state was written, so a reboot continues the wait.

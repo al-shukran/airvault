@@ -256,10 +256,11 @@ class FailureStoreTest {
         var state = store.load(clock)
         repeat(4) { state = store.recordFailure(state, clock) }
 
-        // Ten seconds of the 60 s wait run before the device reboots, and the next save records that much.
+        // Ten seconds into the 60 s wait, the next check is made the way an unlock makes it. That check saves the time served.
         clock.advance(10_000)
-        state = store.recordCap(state, FailureDelay.DEFAULT_CAP_MS, clock)
-        assertEquals(10_000L, state.elapsedAtSave)
+        val check = store.checkDelay(clock, FakeClock.START_WALL)
+        assertTrue(check.blocked)
+        assertEquals(10_000L, open(dir) { bootCount }.load(clock).elapsedAtSave)
 
         // The device reboots one boot later, five seconds into the new boot, with the wall clock moved forward an hour.
         FailureStore.forget(dir)

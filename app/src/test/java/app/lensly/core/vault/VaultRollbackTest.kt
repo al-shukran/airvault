@@ -134,6 +134,30 @@ class VaultRollbackTest {
         assertEquals(0, vault.failureCountForTesting())
     }
 
+    @Test
+    fun aCheckMadeDuringTheWaitIsRememberedAcrossAReboot() {
+        createVault()
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        // One failure: a 10 s wait.
+        assertRejected(attempt(WRONG))
+
+        // Four seconds into the wait, an attempt is checked, and the 4 s served are saved with the state.
+        clock.advance(4_000)
+        assertRejected(attempt(APP))
+
+        // The device reboots with the wall clock moved forward an hour. This boot is three seconds old, and the 4 s served before
+        // the reboot still count: 7 s of the 10 s wait have run, so 3 s are left.
+        bootCount = 8
+        clock.elapsed = 3_000L
+        clock.wall += FailureDelay.MAX_CAP_MS
+        restart()
+        assertRejected(attempt(APP))
+        clock.advance(2_999)
+        assertRejected(attempt(APP))
+        clock.advance(1)
+        unlocked(attempt(APP)).close()
+    }
+
     private fun createVault() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
     }

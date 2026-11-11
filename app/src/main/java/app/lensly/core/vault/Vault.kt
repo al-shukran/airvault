@@ -415,13 +415,15 @@ class Vault internal constructor(
         if (!layout.exists()) return null
         val header = VaultHeader.decode(layout.header.readBytes())
         val store = failureStore()
-        val state = store.load(clock)
+        // The Failure Delay check. While the wait runs, the time it has served is saved, so a reboot continues the wait.
+        val check = store.checkDelay(clock, header.createdAtWallMs)
         // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still runs
         // once, on a fixed input, so a refused attempt takes as long as a real one.
-        if (FailureDelay(header.createdAtWallMs, FailureDelay.configuredCapFor(state)).isBlocked(state, clock, store.currentBootCount())) {
+        if (check.blocked) {
             spendKdfTime(header)
             return null
         }
+        val state = check.state
 
         val softKey = withContext(Dispatchers.Default) { Argon2Kdf.derive(password, header.salt, header.kdf) }
         var handedOver = false

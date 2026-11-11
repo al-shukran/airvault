@@ -28,7 +28,9 @@ import javax.crypto.SecretKey
  *
  * The boot count (`Settings.Global.BOOT_COUNT`, or the marker for "not reported") is in the same payload. A later load compares
  * it with the device's current count, so a reboot, which restarts the monotonic clock, still measures the wait from where the
- * state left it and never shortens it (see [FailureDelay.elapsedSinceFailure]).
+ * state left it and never shortens it (see [FailureDelay.elapsedSinceFailure]). Each check made while the wait runs saves the
+ * time served so far (see [checkDelay]). The time served is remembered as of the last check before the reboot. Time between that
+ * check and the reboot is not counted, so the wait can run longer than it should, but never shorter.
  *
  * Copies written before per-save keys (layout versions 1 and 2) verify under the one legacy key. [load] settles such a pair
  * by saving it again under a new sequence number, which deletes the legacy key. The pending delay is kept.
@@ -100,6 +102,9 @@ internal class FailureStore(
                 failures = minOf(previous.failures + 1, MAX_FAILURES),
                 lastFailureWallMs = clock.wallMillis(),
                 lastFailureElapsedMs = clock.elapsedMillis(),
+                // A new wait has served nothing, whatever the state it follows. The save takes this boot's count and reads 0.
+                bootCount = null,
+                elapsedAtSave = 0L,
             ),
             clock,
         )
@@ -135,6 +140,35 @@ internal class FailureStore(
             require(capMs in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS) { "cap must be between 1 s and 1 h" }
         }
         return save(previous.copy(seq = previous.seq + 1, capMs = capMs), clock)
+    }
+
+    /** What [checkDelay] found: the state as it was loaded, and whether the Failure Delay blocks the attempt. */
+    class DelayCheck(val state: FailureState, val blocked: Boolean)
+
+    /**
+     * The Failure Delay check made before each password attempt, and the only such check. [vaultCreatedWallMs] is when the vault
+     * was made, which sets the learning-period cap. While the wait runs, the attempt is blocked, and the time the wait has served
+     * is saved, so that a reboot continues it (see the class doc).
+     */
+    fun checkDelay(clock: Clock, vaultCreatedWallMs: Long): DelayCheck {
+        val state = load(clock)
+        val blocked = FailureDelay(vaultCreatedWallMs, FailureDelay.configuredCapFor(state)).isBlocked(state, clock, currentBootCount())
+        if (!blocked) return DelayCheck(state, blocked = false)
+        return DelayCheck(recordWaitServed(state, clock), blocked = true)
+    }
+
+    /**
+     * Saves the time the running wait has served, as of [clock] now. A device that reports no boot count saves nothing, because
+     * a reboot cannot be told from a moved clock on it, so the wait is measured as it was. A Keystore that refuses the key leaves
+     * the state as it was loaded, which still blocks the attempt.
+     */
+    private fun recordWaitServed(state: FailureState, clock: Clock): FailureState {
+        if (currentBootCount() == null) return state
+        return try {
+            save(state.copy(seq = state.seq + 1), clock)
+        } catch (e: VaultException) {
+            state
+        }
     }
 
     private fun wallMovedBack(state: FailureState, clock: Clock): Boolean =
@@ -200,14 +234,20 @@ internal class FailureStore(
     }
 
     /**
-     * [state] with the readings that are only known now: the device's boot count, and how much of the delay had run when the
-     * state is written. A later load compares the boot count and continues the wait from that reading. The reading is never
-     * below zero, because a wall clock that went back must not shorten the wait after a reboot.
+     * [state] with the readings that are only known now: the device's boot count, and how much of the wait had run when the state
+     * is written. The failure readings move onto this boot's clocks, so a later check in this boot measures from the same point,
+     * and after a reboot the wait continues from the served time. The served time is never below zero, because a wall clock that
+     * went back must not shorten the wait.
      */
     private fun stamped(state: FailureState, clock: Clock): FailureState {
         val bootCount = readBootCount()
-        val elapsed = if (state.failures == 0) 0L else FailureDelay.elapsedSinceFailure(state, clock, bootCount)
-        return state.copy(bootCount = bootCount, elapsedAtSave = maxOf(0L, elapsed))
+        val served = if (state.failures == 0) 0L else maxOf(0L, FailureDelay.elapsedSinceFailure(state, clock, bootCount))
+        return state.copy(
+            bootCount = bootCount,
+            elapsedAtSave = served,
+            lastFailureWallMs = clock.wallMillis() - served,
+            lastFailureElapsedMs = clock.elapsedMillis() - served,
+        )
     }
 
     /**
