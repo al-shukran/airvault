@@ -51,6 +51,14 @@ CI=true scripts/ci/run-extended.sh e2e
 
 `fuzz` is real fuzzing, not a replay: it calls `fuzz-nightly.sh --seconds 60`, so each of the four targets fuzzes for 60 seconds. `perf` runs the microbenchmarks on the reference device and applies the gate when `BENCHMARK_RESULT` names the result file.
 
+## CodeQL — `/run-codeql`
+
+`/run-codeql` as the whole text of a pull request comment runs a full CodeQL analysis of the pull request head with all four languages (`actions`, `javascript-typescript`, `python`, `java-kotlin`), and reports as the check `codeql / on demand`. Expect 6 to 8 minutes; `java-kotlin` is the long leg because it compiles `:app` and `:tools:registry-pack` first.
+
+It is a separate workflow (`codeql-command.yml` → `codeql.yml`), not a command in `comment-run.yml`: the comment must be exactly `/run-codeql`, and the gate denies anyone without repository write access. The command only works once the workflow exists on the default branch, because GitHub reads `issue_comment` workflows from the default branch and not from the pull request the comment is on. It is not a required check and does not block a merge, and it never runs on `pull_request`.
+
+`codeql.yml` also runs the same four languages on a daily schedule (04:23 UTC) and writes the result into one open issue labelled `codeql`, rather than into the pull request path. No local wrapper exists for it: the CodeQL CLI is not installed locally, so `run-extended.sh` has no `codeql` kind.
+
 ## Nightly fuzz — `fuzz-nightly.sh`
 
 Fuzzes each Jazzer target for 15 minutes, one Gradle invocation per target (`JAZZER_FUZZ=1`, which Jazzer's JUnit integration reads). `--list` prints the targets. Pass one target to fuzz only that one; the nightly workflow runs one matrix leg per target. `--seconds N` caps each target at N seconds.
