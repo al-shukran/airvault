@@ -47,6 +47,17 @@ class ProfilesTest {
     }
 
     @Test
+    fun aGeneratedIdentityIsTheOneTheFirstBuildGaveAtEveryPositionUpToTwoHundred() {
+        for (position in 0..200) {
+            val expected = VisualIdentity(
+                ProfileColour.entries[position % 8],
+                ProfileIcon.entries[(position / 8) % 12],
+            )
+            assertEquals(expected, generatedIdentity(position), "position $position")
+        }
+    }
+
+    @Test
     fun aNegativePositionHasNoIdentity() {
         assertFailsWith<IllegalArgumentException> { generatedIdentity(-1) }
     }
@@ -62,8 +73,8 @@ class ProfilesTest {
 
     @Test
     fun thePaletteAndTheIconSetHaveTheirSizesAndUniqueCodes() {
-        assertEquals(8, ProfileColour.entries.size)
-        assertEquals(12, ProfileIcon.entries.size)
+        assertEquals(16, ProfileColour.entries.size)
+        assertEquals(60, ProfileIcon.entries.size)
         assertEquals(ProfileColour.entries.size, ProfileColour.entries.map { it.wire }.toSet().size)
         assertEquals(ProfileIcon.entries.size, ProfileIcon.entries.map { it.wire }.toSet().size)
         assertEquals(ProfileColour.BLUE, ProfileColour.fromWire(ProfileColour.BLUE.wire))
@@ -76,6 +87,12 @@ class ProfilesTest {
         assertNull(ProfileColour.fromWire(99))
         assertNull(ProfileIcon.fromWire(0))
         assertNull(ProfileIcon.fromWire(99))
+    }
+
+    @Test
+    fun theStoredCodeForTheOldPadlockNowReadsAsTheLantern() {
+        assertEquals(28, ProfileIcon.LANTERN.wire)
+        assertEquals(ProfileIcon.LANTERN, ProfileIcon.fromWire(28))
     }
 
     @Test

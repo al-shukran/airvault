@@ -12,7 +12,15 @@ enum class ProfileColour(val wire: Int) {
     TEAL(5),
     BLUE(6),
     VIOLET(7),
-    PINK(8);
+    PINK(8),
+    LIME(9),
+    MINT(10),
+    CYAN(11),
+    INDIGO(12),
+    MAGENTA(13),
+    APRICOT(14),
+    ROSE(15),
+    PLUM(16);
 
     companion object {
         /** The colour stored as [wire], or null for a code this build does not know, which reads as the default. */
@@ -21,8 +29,9 @@ enum class ProfileColour(val wire: Int) {
 }
 
 /**
- * The fixed set of Visual Identity icons. Each is a simple glyph from the Material core set, so the app needs no icon
- * library beyond the one it has. A record stores [wire], as for [ProfileColour].
+ * The fixed set of Visual Identity icons. The first twelve are simple glyphs from the Material core set; the rest are drawn
+ * in the app, so it needs no icon library beyond the one it has. A record stores [wire], as for [ProfileColour]. The list
+ * only grows: a wire written by an older build keeps its icon.
  */
 enum class ProfileIcon(val wire: Int) {
     STAR(1),
@@ -36,7 +45,56 @@ enum class ProfileIcon(val wire: Int) {
     BELL(9),
     CART(10),
     CALENDAR(11),
-    PHONE(12);
+    PHONE(12),
+    COIN(13),
+    COINS(14),
+    VAULT(15),
+    BANK(16),
+    CARD(17),
+    BANKNOTE(18),
+    CHART_UP(19),
+    PIE_CHART(20),
+    RECEIPT(21),
+    PURSE(22),
+    SCALE(23),
+    TAG(24),
+    GEM(25),
+    ROCKET(26),
+    SHIELD(27),
+    /** Wire 28 stays, so a profile that stored it still loads; it is the lantern now, not the padlock it once was. */
+    LANTERN(28),
+    LINK(29),
+    NODE(30),
+    CUBE(31),
+    SPARK(32),
+    SWAP(33),
+    CHIP(34),
+    GLOBE(35),
+    WAVES(36),
+    LEAF(37),
+    TREE(38),
+    FLOWER(39),
+    SUN(40),
+    MOON(41),
+    FLAME(42),
+    DROP(43),
+    BOOK(44),
+    COFFEE(45),
+    BRIEFCASE(46),
+    LAMP(47),
+    BED(48),
+    DICE(49),
+    MUSIC(50),
+    PLANE(51),
+    CAR(52),
+    GIFT(53),
+    CAMERA(54),
+    TROPHY(55),
+    BICYCLE(56),
+    TENT(57),
+    BALL(58),
+    HEADPHONES(59),
+    TICKET(60);
 
     companion object {
         /** The icon stored as [wire], or null for a code this build does not know, which reads as the default. */
@@ -48,17 +106,29 @@ enum class ProfileIcon(val wire: Int) {
 data class VisualIdentity(val colour: ProfileColour, val icon: ProfileIcon)
 
 /**
- * The Visual Identity generated for the entry at [position] of its list, counted from 0. Colours cycle through the palette,
- * and the icon advances once per full cycle of colours. So the first 96 positions, which is every colour with every icon,
- * all differ, and fifty entries look different at a glance.
+ * The number of colours a generated identity cycles through: the first eight of the palette. The palette has grown since the
+ * first build, but an account that was never styled must keep the look it already had, so the generated identity still uses
+ * only these. Nothing here changes when the palette grows.
+ */
+const val GENERATED_COLOURS = 8
+
+/**
+ * The number of icons a generated identity cycles through: the first twelve of the icon set. Kept for the same reason as
+ * [GENERATED_COLOURS]: an unstyled account must not change look when the icon set grows.
+ */
+const val GENERATED_ICONS = 12
+
+/**
+ * The Visual Identity generated for the entry at [position] of its list, counted from 0. Colours cycle through the first
+ * [GENERATED_COLOURS] of the palette, and the icon advances through the first [GENERATED_ICONS] once per full cycle of
+ * colours. So the first 96 positions, which is every one of those colours with every one of those icons, all differ, and
+ * fifty entries look different at a glance.
  */
 fun generatedIdentity(position: Int): VisualIdentity {
     require(position >= 0) { "A position is never negative." }
-    val colours = ProfileColour.entries
-    val icons = ProfileIcon.entries
     return VisualIdentity(
-        colour = colours[position % colours.size],
-        icon = icons[(position / colours.size) % icons.size],
+        colour = ProfileColour.entries[position % GENERATED_COLOURS],
+        icon = ProfileIcon.entries[(position / GENERATED_COLOURS) % GENERATED_ICONS],
     )
 }
 

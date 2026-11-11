@@ -16,6 +16,11 @@ import app.lensly.ui.theme.LenslySurfaceLow
 
 private const val RING_COUNT = 6
 
+// The palette only ever grows, and the first eight colours are the ones the art was first drawn from. A seed picks its glow
+// hues from those eight alone, so a wallet that existed before the palette grew keeps exactly the art it had; the newer
+// colours are reached only by choosing them explicitly.
+private const val SEED_PALETTE_SIZE = 8
+
 // SplitMix64 constants, as signed Longs.
 private const val GOLDEN_GAMMA = -0x61c8864680b583ebL
 private const val MIX_ONE = -0x40a7b892e31b1a47L
@@ -33,10 +38,7 @@ fun WalletArt(seed: String, colour: ProfileColour?, modifier: Modifier = Modifie
 
 private fun DrawScope.drawWalletArt(seed: String, colour: ProfileColour?) {
     val random = ArtRandom(seed)
-    val palette = ProfileColour.entries
-    val first = colour ?: palette[random.pick(palette.size)]
-    val second = palette[random.pick(palette.size)]
-    val third = palette[random.pick(palette.size)]
+    val (first, second, third) = seedHues(random, colour)
     val w = size.width
     val h = size.height
     val reach = maxOf(w, h)
@@ -55,6 +57,16 @@ private fun DrawScope.drawWalletArt(seed: String, colour: ProfileColour?) {
     }
 }
 
+/** The three glow hues: the profile [colour] when it has one, then two the seed picks from the seed palette. */
+internal fun seedHues(random: ArtRandom, colour: ProfileColour?): List<ProfileColour> {
+    val palette = ProfileColour.entries.take(SEED_PALETTE_SIZE)
+    return listOf(
+        colour ?: palette[random.pick(palette.size)],
+        palette[random.pick(palette.size)],
+        palette[random.pick(palette.size)],
+    )
+}
+
 /** A soft round glow: the colour at [alpha] at its centre, fading to nothing at [radius]. */
 private fun DrawScope.glow(colour: Color, alpha: Float, centre: Offset, radius: Float) {
     drawRect(
@@ -67,7 +79,7 @@ private fun DrawScope.glow(colour: Color, alpha: Float, centre: Offset, radius: 
 }
 
 /** A SplitMix64 stream seeded from a string, so the same seed always gives the same values in the same order. */
-private class ArtRandom(seed: String) {
+internal class ArtRandom(seed: String) {
     private var state = seed.hashCode().toLong()
 
     private fun nextBits(): Long {
