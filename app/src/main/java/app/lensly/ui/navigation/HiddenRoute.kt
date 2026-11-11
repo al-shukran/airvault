@@ -18,6 +18,9 @@ internal object HiddenRoute {
     const val EXPORT = "export/{walletId}"
     const val SCAN = "scan/{walletId}"
 
+    // Show Secret: the App Password again, a warning, then the secret. Reached from the wallet detail.
+    const val SHOW_SECRET = "secret/{walletId}"
+
     // Catalog: installs a signed registry package from removable storage.
     const val CATALOG = "catalog"
 
@@ -51,4 +54,6 @@ internal object HiddenRoute {
     fun export(walletId: String): String = "export/$walletId"
 
     fun scan(walletId: String): String = "scan/$walletId"
+
+    fun showSecret(walletId: String): String = "secret/$walletId"
 }

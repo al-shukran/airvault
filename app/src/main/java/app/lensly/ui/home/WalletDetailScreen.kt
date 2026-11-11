@@ -57,6 +57,7 @@ fun WalletDetailScreen(
     onBulkGenerate: () -> Unit,
     onPair: () -> Unit,
     onSign: () -> Unit,
+    onShowSecret: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     WalletScaffold(
@@ -160,6 +161,14 @@ fun WalletDetailScreen(
                         )
                     }
                 }
+                // Both kinds of wallet can show their secret, so this sits after the account actions.
+                Spacer(Modifier.height(12.dp))
+                WalletPill(
+                    text = "Show secret",
+                    onClick = onShowSecret,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = WalletPillStyle.Secondary,
+                )
                 Spacer(Modifier.height(8.dp))
             }
         }
