@@ -26,9 +26,11 @@ internal object HiddenRoute {
     const val SHOW_SECRET = "secret/{walletId}"
     // Delete Wallet: the App Password again, a warning with its confirmation, then the shred. Reached from the wallet detail.
     const val DELETE_WALLET = "delete/{walletId}"
-    // Renames: a wallet's Display Name, one account's, and a batch of accounts'. All use the shared name screen.
-    const val RENAME_WALLET = "rename-wallet/{walletId}"
-    const val RENAME_ACCOUNT = "rename-account/{walletId}/{index}"
+    // Profiles: a wallet's name, colour, icon, label and groups, one account's, and the style of a batch of accounts.
+    const val EDIT_WALLET = "edit-wallet/{walletId}"
+    const val EDIT_ACCOUNT = "edit-account/{walletId}/{index}"
+    const val STYLE_ACCOUNTS = "style-accounts/{walletId}/{indices}"
+    // Renames: a batch of accounts' Display Names, on the shared name screen.
     const val RENAME_ACCOUNTS = "rename-accounts/{walletId}/{indices}"
 
     // Catalog: installs a signed registry package from removable storage.
@@ -82,9 +84,14 @@ internal object HiddenRoute {
     fun showSecret(walletId: String): String = "secret/$walletId"
 
     fun deleteWallet(walletId: String): String = "delete/$walletId"
-    fun renameWallet(walletId: String): String = "rename-wallet/$walletId"
 
-    fun renameAccount(walletId: String, index: Int): String = "rename-account/$walletId/$index"
+    fun editWallet(walletId: String): String = "edit-wallet/$walletId"
+
+    fun editAccount(walletId: String, index: Int): String = "edit-account/$walletId/$index"
+
+    /** The style route of the accounts in [indices], as the same comma-separated list that the batch rename uses. */
+    fun styleAccounts(walletId: String, indices: Collection<Int>): String =
+        "style-accounts/$walletId/${indices.joinToString(",")}"
 
     /** The accounts as a comma-separated list of indices, for example "1,3,4". */
     fun renameAccounts(walletId: String, indices: Collection<Int>): String =
