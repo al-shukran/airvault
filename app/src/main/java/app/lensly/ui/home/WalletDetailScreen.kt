@@ -29,8 +29,16 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.autoAccountName
 import app.lensly.ui.components.AddressIcon
+import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.DotProgress
+import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.rememberKeyHaptics
+import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.SpaceMonoFamily
 import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
@@ -67,6 +75,7 @@ fun WalletDetailScreen(
     onRenameAccount: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = rememberKeyHaptics()
     WalletScaffold(
         modifier = modifier,
         scrollable = false,
@@ -74,20 +83,19 @@ fun WalletDetailScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(bottom = LenslySpacing.md),
+                horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
             ) {
-                WalletPill(
+                PillButton(
                     text = "Pair wallet",
                     onClick = onPair,
                     modifier = Modifier.weight(1f),
-                    style = WalletPillStyle.Secondary,
                 )
-                WalletPill(
+                PillButton(
                     text = "Sign",
                     onClick = onSign,
                     modifier = Modifier.weight(1f),
-                    style = WalletPillStyle.Primary,
+                    accent = true,
                 )
             }
         },
@@ -96,12 +104,15 @@ fun WalletDetailScreen(
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = LenslySpacing.xs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         WalletPill(
                             text = "Back",
                             onClick = onBack,
+                            modifier = Modifier.tapHaptic(haptics),
                             style = WalletPillStyle.Outline,
                             size = WalletPillSize.Compact,
                         )
@@ -109,18 +120,19 @@ fun WalletDetailScreen(
                         WalletPill(
                             text = "Lock",
                             onClick = onLock,
+                            modifier = Modifier.tapHaptic(haptics),
                             style = WalletPillStyle.Outline,
                             size = WalletPillSize.Compact,
                         )
                     }
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(LenslySpacing.lg))
                     WalletEyebrow(if (wallet.deviceGenerated) "Device-generated wallet" else "Wallet")
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(LenslySpacing.xs))
                     DotText(text = wallet.name.uppercase(), fontSize = 40.sp)
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(LenslySpacing.sm))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (wallet.kind == WalletKind.SINGLE_KEY) {
@@ -136,18 +148,28 @@ fun WalletDetailScreen(
                             size = WalletPillSize.Compact,
                         )
                     }
-                    Spacer(Modifier.height(24.dp))
-                    WalletEyebrow("Accounts")
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(LenslySpacing.lg))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        WalletEyebrow("Accounts")
+                        Spacer(Modifier.weight(1f))
+                        WalletEyebrow("${wallet.accountCount}")
+                    }
+                    Spacer(Modifier.height(LenslySpacing.xxs))
                 }
             }
             if (addresses == null) {
                 item {
-                    Text(
-                        text = "Deriving addresses…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(
+                        modifier = Modifier.padding(vertical = LenslySpacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        DotProgress(description = "Deriving addresses")
+                        Spacer(Modifier.width(LenslySpacing.sm))
+                        WalletEyebrow("Deriving addresses")
+                    }
                 }
             } else {
                 itemsIndexed(addresses, key = { _, address -> address }) { index, address ->
@@ -159,44 +181,42 @@ fun WalletDetailScreen(
                 }
             }
             item {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(LenslySpacing.lg))
                 if (wallet.kind == WalletKind.SINGLE_KEY) {
                     // A Single Key has one account, so there is nothing to add and nothing to generate.
-                    Text(
-                        text = SINGLE_KEY_ONE_ACCOUNT,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    InlineBanner(message = SINGLE_KEY_ONE_ACCOUNT, tone = BannerTone.Info)
                 } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        WalletPill(
-                            text = "+ Account",
-                            onClick = onAddAccount,
-                            modifier = Modifier.weight(1f),
-                            style = WalletPillStyle.Secondary,
-                        )
-                        WalletPill(
-                            text = "Bulk generate",
-                            onClick = onBulkGenerate,
-                            modifier = Modifier.weight(1f),
-                            style = WalletPillStyle.Secondary,
-                        )
-                    }
+                    // Full width, so each label stays on one line.
+                    PillButton(
+                        text = "+ Account",
+                        onClick = onAddAccount,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(LenslySpacing.sm))
+                    PillButton(
+                        text = "Bulk generate",
+                        onClick = onBulkGenerate,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
                 // Both kinds of wallet can show their secret, so this sits after the account actions.
-                Spacer(Modifier.height(12.dp))
-                WalletPill(
+                Spacer(Modifier.height(LenslySpacing.sm))
+                PillButton(
                     text = "Show secret",
                     onClick = onShowSecret,
                     modifier = Modifier.fillMaxWidth(),
-                    style = WalletPillStyle.Secondary,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(LenslySpacing.xs))
             }
         }
     }
 }
 
+/**
+ * One account row: its Display Name, or its Auto-Name, in the primary text, then its short address in the mono face.
+ * The row expands to show the full address. Its Rename pill sits at the end. The rows are in a list, so they play no
+ * haptic.
+ */
 @Composable
 private fun AccountRow(address: String, label: String, onRename: () -> Unit) {
     var expanded by rememberSaveable(address) { mutableStateOf(false) }
@@ -205,29 +225,34 @@ private fun AccountRow(address: String, label: String, onRename: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(role = Role.Button) { expanded = !expanded }
-                .padding(vertical = 12.dp),
+                .padding(vertical = LenslySpacing.sm),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // The Display Name, or the Auto-Name while the account has none. A long name is cut short.
-                WalletEyebrow(
-                    text = label,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.width(12.dp))
-                // Every address shows the Ethereum logo, whichever compatible chain it is used on.
-                AddressIcon(size = 16.dp)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = shortAddress(address),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = LenslyOnSurface,
-                )
-                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    // The Display Name, or the Auto-Name while the account has none. A long name is cut short.
+                    Text(
+                        text = label.uppercase(),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = LenslyOnSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(LenslySpacing.xxs))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Every address shows the Ethereum logo, whichever compatible chain it is used on.
+                        AddressIcon(size = 16.dp)
+                        Spacer(Modifier.width(LenslySpacing.xs))
+                        Text(
+                            text = shortAddress(address),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(LenslySpacing.sm))
                 WalletPill(
                     text = "Rename",
                     onClick = onRename,
@@ -236,10 +261,10 @@ private fun AccountRow(address: String, label: String, onRename: () -> Unit) {
                 )
             }
             if (expanded) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(LenslySpacing.sm))
                 Text(
                     text = groupedAddress(address),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
                     color = LenslyOnSurface,
                 )
             }
