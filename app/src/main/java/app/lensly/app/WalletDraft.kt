@@ -22,9 +22,11 @@ class WalletDraft {
     var mixedHashHex: String = ""
         private set
 
+    /** The 24 words of the wallet, in buffers [wipe] zeroes. Null until they exist. */
+    private var mnemonic: Mnemonic? = null
+
     /** The 24 words of the wallet. Empty until they exist. */
-    var words: List<String> = emptyList()
-        private set
+    val words: List<String> get() = mnemonic ?: emptyList()
 
     /** True when the words come from the device's randomness alone, because the owner skipped the ceremony. */
     var deviceGenerated: Boolean = false
@@ -54,7 +56,7 @@ class WalletDraft {
         val mixed = EntropyMixer.mix(entropy, input)
         try {
             mixedHashHex = mixed.toHex()
-            words = Mnemonic.fromEntropy(mixed)
+            replaceMnemonic(Mnemonic.fromEntropy(mixed))
             deviceGenerated = false
         } finally {
             mixed.fill(0)
@@ -64,7 +66,7 @@ class WalletDraft {
     /** Skips the ceremony. The words then come from the device's randomness alone. */
     fun skipCeremony() {
         val entropy = checkNotNull(deviceEntropy) { "No ceremony is running." }
-        words = Mnemonic.fromEntropy(entropy)
+        replaceMnemonic(Mnemonic.fromEntropy(entropy))
         deviceGenerated = true
         mixedHashHex = ""
     }
@@ -72,7 +74,13 @@ class WalletDraft {
     /** Restore: the owner typed these words. */
     fun setTypedWords(typed: List<String>) {
         wipe()
-        words = typed
+        replaceMnemonic(Mnemonic.of(typed))
+    }
+
+    /** Replaces the words, zeroing the buffers of the previous ones. */
+    private fun replaceMnemonic(next: Mnemonic) {
+        mnemonic?.wipe()
+        mnemonic = next
     }
 
     fun setPassphrase(value: String?) {
@@ -97,13 +105,14 @@ class WalletDraft {
         name = value
     }
 
-    /** Zeroes the device entropy and the imported key, and drops everything else. */
+    /** Zeroes the device entropy, the words and the imported key, and drops everything else. */
     fun wipe() {
         deviceEntropy?.fill(0)
         deviceEntropy = null
         commitmentHex = ""
         mixedHashHex = ""
-        words = emptyList()
+        mnemonic?.wipe()
+        mnemonic = null
         deviceGenerated = false
         passphrase = null
         singleKey?.fill(0)
