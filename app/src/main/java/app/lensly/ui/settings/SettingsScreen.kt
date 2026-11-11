@@ -1,17 +1,21 @@
 package app.lensly.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.HorizontalDivider
@@ -22,34 +26,48 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.camera.EntryGesture
+import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
+import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
 
-/** How many networks and tokens the catalog holds: the built-in entries plus any installed package. */
-data class CatalogCounts(val networks: Int, val tokens: Int)
+/** The networks and tokens the catalog holds: the built-in entries plus any installed package. */
+data class Catalog(val networks: List<NetworkEntry>, val tokens: List<TokenEntry>)
+
+/** The count with its noun in the right form, such as "1 network" or "12 networks". */
+private fun Int.countOf(one: String, many: String): String = "$this ${if (this == 1) one else many}"
+
+/** The size of an icon in a catalog row's preview, and how many a preview shows. */
+private val PREVIEW_ICON_SIZE: Dp = 28.dp
+private const val PREVIEW_ICONS = 4
 
 /**
- * The Settings screen of the vault: Entry, Bulk generation, Catalog and About, one row style throughout. LOCK sits under
- * the title, beside the offline label.
+ * The Settings screen of the vault: Entry, Bulk generation, the wrong password lockout, the catalog and About, one row style
+ * throughout. LOCK sits under the title, beside the offline label.
  *
  * [bulkCap] is null until the saved setting has been read, and its options are off until then. [onBulkCap] saves the
  * new cap. [onChangePassword] opens the App Password change, and [onWipe] opens the wipe. [failureDelayCap] is the saved
- * Failure Delay cap, null while it is read, and [onFailureDelayCap] opens the screen that changes it. [catalog] is null
- * while the counts are read. [entryGesture] is the gesture the camera uses now, and [onEntryGesture] opens the choice of
- * another.
+ * wrong password lockout, null while it is read, and [onFailureDelayCap] opens the screen that changes it. [catalog] is null
+ * while it is read, and [onNetworks] and [onTokens] open the lists. [entryGesture] is the gesture the camera uses now, and
+ * [onEntryGesture] opens the choice of another.
  */
 @Composable
 fun SettingsScreen(
@@ -60,7 +78,9 @@ fun SettingsScreen(
     onEntryGesture: () -> Unit = {},
     failureDelayCap: FailureCapChoice?,
     onFailureDelayCap: () -> Unit,
-    catalog: CatalogCounts?,
+    catalog: Catalog?,
+    onNetworks: () -> Unit,
+    onTokens: () -> Unit,
     onUpdateCatalog: () -> Unit,
     onWipe: () -> Unit,
     onDuressPassword: () -> Unit = {},
@@ -108,12 +128,12 @@ fun SettingsScreen(
             BulkCapItem(bulkCap = bulkCap, onBulkCap = onBulkCap)
         }
 
-        SettingsSection("Failure delay") {
+        SettingsSection("Lockout") {
             SettingsRow(
-                title = "Failure Delay cap",
+                title = "Wrong password lockout",
                 description = failureDelayCap?.let {
-                    "Now: ${it.label}. The longest wait after a failed App Password check."
-                } ?: "Reading the saved cap…",
+                    "${it.summary}. The longest wait after a wrong App Password."
+                } ?: "Reading the saved lockout…",
                 onClick = onFailureDelayCap,
                 loading = failureDelayCap == null,
             )
@@ -121,15 +141,23 @@ fun SettingsScreen(
 
         SettingsSection("Catalog") {
             SettingsRow(
+                title = "Networks",
+                description = catalog?.let { it.networks.size.countOf("network", "networks") } ?: "Reading the catalog…",
+                onClick = onNetworks,
+                loading = catalog == null,
+                preview = { IconStack(items = catalog?.networks.orEmpty()) { ChainIcon(network = it, size = PREVIEW_ICON_SIZE) } },
+            )
+            SettingsRow(
+                title = "Tokens",
+                description = catalog?.let { it.tokens.size.countOf("token", "tokens") } ?: "Reading the catalog…",
+                onClick = onTokens,
+                loading = catalog == null,
+                preview = { IconStack(items = catalog?.tokens.orEmpty()) { TokenIcon(token = it, size = PREVIEW_ICON_SIZE) } },
+            )
+            SettingsRow(
                 title = "Update catalog",
                 description = "Install a signed package from removable storage. It adds networks and tokens.",
                 onClick = onUpdateCatalog,
-            )
-            SettingsRow(
-                title = "Networks and tokens",
-                description = catalog?.let { "${it.networks} networks · ${it.tokens} tokens" }
-                    ?: "Reading the catalog…",
-                loading = catalog == null,
             )
         }
 
@@ -171,7 +199,8 @@ private fun SettingsItem(content: @Composable ColumnScope.() -> Unit) {
 
 /**
  * The one row style of Settings: a title, an optional description, and a trailing mark. A row with [onClick] shows an
- * arrow and presses like a button. A [loading] row shows a progress mark in place of the arrow.
+ * arrow and presses like a button. A [loading] row shows a progress mark in place of the arrow and the [preview]. A [preview]
+ * sits between the text and the arrow.
  */
 @Composable
 internal fun SettingsRow(
@@ -179,6 +208,7 @@ internal fun SettingsRow(
     description: String? = null,
     onClick: (() -> Unit)? = null,
     loading: Boolean = false,
+    preview: (@Composable () -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val haptics = rememberKeyHaptics()
@@ -213,14 +243,44 @@ internal fun SettingsRow(
             if (loading) {
                 Spacer(Modifier.width(LenslySpacing.sm))
                 DotProgress(description = "Loading $title")
-            } else if (onClick != null) {
-                Spacer(Modifier.width(LenslySpacing.sm))
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
+            } else {
+                if (preview != null) {
+                    Spacer(Modifier.width(LenslySpacing.sm))
+                    preview()
+                }
+                if (onClick != null) {
+                    Spacer(Modifier.width(LenslySpacing.sm))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The first few [items] as icons that overlap, the first at the left. Each icon sits on a black disc, so the edge of the one in
+ * front shows against the one behind it.
+ */
+@Composable
+private fun <T> IconStack(items: List<T>, icon: @Composable (T) -> Unit) {
+    val shown = items.take(PREVIEW_ICONS)
+    val step = PREVIEW_ICON_SIZE * 0.6f
+    Box(modifier = Modifier.width(PREVIEW_ICON_SIZE + step * (shown.size - 1).coerceAtLeast(0).toFloat())) {
+        shown.forEachIndexed { index, item ->
+            Box(
+                modifier = Modifier
+                    .offset(x = step * index.toFloat())
+                    .size(PREVIEW_ICON_SIZE)
+                    .clip(CircleShape)
+                    .background(LenslyBlack),
+                contentAlignment = Alignment.Center,
+            ) {
+                icon(item)
             }
         }
     }
