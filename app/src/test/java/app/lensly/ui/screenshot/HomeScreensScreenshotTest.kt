@@ -38,6 +38,9 @@ private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 3_600_000L
 private const val DAY_MS = 86_400_000L
 
+/** The fixed clock of the Home goldens: 14 November 2023, 22:13 UTC. */
+private const val HOME_NOW_MS = 1_700_000_000_000L
+
 /**
  * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice), the Wallets list (five),
  * wallet detail (deriving, accounts, adding an account, Single Key), bulk generate (empty, ready, refused, running, failed),
@@ -57,9 +60,14 @@ class HomeScreensScreenshotTest {
 
     @Test
     fun homeWithTwoWallets() {
-        val now = System.currentTimeMillis()
+        // The clock is fixed, so the golden's "5m ago" and "2h ago" never drift.
         compose.snapshot("home_two_wallets", settleMs = SETTLE_MS) {
-            home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, records = sampleRecords(now), nowMs = now)
+            home(
+                wallets = sampleWallets().take(2),
+                profiles = sampleHomeProfiles,
+                records = sampleRecords(HOME_NOW_MS),
+                nowMs = HOME_NOW_MS,
+            )
         }
     }
 
@@ -183,7 +191,7 @@ class HomeScreensScreenshotTest {
         profiles: Map<String, WalletProfile> = emptyMap(),
         debugNotice: String? = null,
         records: List<WalletReviewRecord> = emptyList(),
-        nowMs: Long = 1_700_000_000_000L,
+        nowMs: Long = HOME_NOW_MS,
     ) {
         WalletHomeScreen(
             wallets = wallets,
