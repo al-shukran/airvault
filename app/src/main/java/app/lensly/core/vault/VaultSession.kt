@@ -98,6 +98,54 @@ class VaultSession internal constructor(
     }
 
     /**
+     * Applies several record changes to wallet [walletId] as one write: each record in [puts] is stored, and each name in
+     * [deletes] is removed. The session lock is held throughout, and nothing is written unless every name is valid and
+     * every record seals. If a file cannot be written part way, the files already changed are put back, so either all of
+     * the changes land or none does. A crash in the middle of the writes can still leave some of them, since a
+     * filesystem commits one file at a time.
+     *
+     * @throws IllegalArgumentException if the id or a name is malformed or reserved, a name is both put and deleted, or the
+     * wallet does not exist.
+     */
+    fun putRecords(walletId: String, puts: Map<String, ByteArray>, deletes: Collection<String>): Unit = synchronized(this) {
+        val key = requireOpen()
+        requireWalletId(walletId)
+        (puts.keys + deletes).forEach { requireRecordName(it) }
+        require(puts.keys.none { it in deletes }) { "A record cannot be stored and removed in one write." }
+        val walletKey = unwrapWalletKey(key, walletId)
+            ?: throw IllegalArgumentException("No wallet with id $walletId.")
+        // Every record is sealed before any file changes, so a failure here writes nothing.
+        val sealed = try {
+            puts.map { (name, bytes) ->
+                recordFile(walletId, name) to encodeBlob(Aead.seal(walletKey, recordAad(walletId, name), bytes))
+            }
+        } finally {
+            Arrays.fill(walletKey, 0)
+        }
+        val targets = (sealed.map { it.first } + deletes.map { recordFile(walletId, it) }).distinct()
+        // What each target holds now, so a failed write can put it back. Null means the record does not exist.
+        val before = targets.associateWith { file -> if (file.isFile) file.readBytes() else null }
+        try {
+            sealed.forEach { (file, blob) -> writeAtomically(file, blob) }
+            deletes.forEach { name -> Files.deleteIfExists(recordFile(walletId, name).toPath()) }
+        } catch (e: Throwable) {
+            restore(before, e)
+            throw e
+        }
+    }
+
+    /** Puts back what [before] recorded for each file. A file that could not be put back is added to [failure]. */
+    private fun restore(before: Map<File, ByteArray?>, failure: Throwable) {
+        before.forEach { (file, bytes) ->
+            try {
+                if (bytes == null) Files.deleteIfExists(file.toPath()) else writeAtomically(file, bytes)
+            } catch (e: Throwable) {
+                failure.addSuppressed(e)
+            }
+        }
+    }
+
+    /**
      * Crypto-shreds a wallet: removes its wrapped Per-Wallet Key first, then its record files.
      * Does nothing if the wallet does not exist.
      */

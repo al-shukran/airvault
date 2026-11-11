@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,6 +58,10 @@ internal const val SINGLE_KEY_ONE_ACCOUNT =
  * while they are derived. [accountNames] holds the names of the renamed accounts, by index. RENAME, on the wallet and on
  * each account, opens the name screen.
  *
+ * SELECT on a Mnemonic wallet turns each account row into a checkbox. The selected accounts can then be renamed in one
+ * flow, through [onRenameAccounts], or reset to their Auto-Names, through [onResetAccountNames]. Both get the selected
+ * indices in order. The selection clears once a reset has been sent, and leaving the screen clears it too.
+ *
  * The accounts are a LazyColumn, so a wallet with hundreds of accounts composes only the rows on screen. The header
  * scrolls with the list, and the Pair and Sign actions stay pinned under it.
  */
@@ -73,9 +79,13 @@ fun WalletDetailScreen(
     onShowSecret: () -> Unit,
     onRenameWallet: () -> Unit,
     onRenameAccount: (Int) -> Unit,
+    onRenameAccounts: (List<Int>) -> Unit,
+    onResetAccountNames: (List<Int>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberKeyHaptics()
+    var selecting by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(emptySet<Int>()) }
     WalletScaffold(
         modifier = modifier,
         scrollable = false,
@@ -155,9 +165,61 @@ fun WalletDetailScreen(
                     ) {
                         WalletEyebrow("Accounts")
                         Spacer(Modifier.weight(1f))
+                        if (wallet.kind == WalletKind.MNEMONIC && addresses != null) {
+                            WalletPill(
+                                text = if (selecting) "Done" else "Select",
+                                onClick = {
+                                    selecting = !selecting
+                                    selected = emptySet()
+                                },
+                                modifier = Modifier.tapHaptic(haptics),
+                                style = WalletPillStyle.Outline,
+                                size = WalletPillSize.Compact,
+                            )
+                            Spacer(Modifier.width(LenslySpacing.xs))
+                        }
                         WalletEyebrow("${wallet.accountCount}")
                     }
                     Spacer(Modifier.height(LenslySpacing.xxs))
+                    if (selecting) {
+                        Spacer(Modifier.height(LenslySpacing.xs))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            WalletEyebrow("${selected.size} selected")
+                            Spacer(Modifier.weight(1f))
+                            WalletPill(
+                                text = "Select all",
+                                onClick = { selected = (0 until wallet.accountCount).toSet() },
+                                modifier = Modifier.tapHaptic(haptics),
+                                style = WalletPillStyle.Outline,
+                                size = WalletPillSize.Compact,
+                            )
+                        }
+                        Spacer(Modifier.height(LenslySpacing.sm))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = LenslySpacing.xs),
+                            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
+                        ) {
+                            PillButton(
+                                text = "Rename",
+                                onClick = { onRenameAccounts(selected.sorted()) },
+                                modifier = Modifier.weight(1f),
+                                enabled = selected.isNotEmpty(),
+                            )
+                            PillButton(
+                                text = "Reset names",
+                                onClick = {
+                                    onResetAccountNames(selected.sorted())
+                                    selecting = false
+                                    selected = emptySet()
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = selected.isNotEmpty(),
+                            )
+                        }
+                    }
                 }
             }
             if (addresses == null) {
@@ -177,6 +239,9 @@ fun WalletDetailScreen(
                         address = address,
                         label = accountNames[index] ?: autoAccountName(wallet.autoNameBase, index),
                         onRename = { onRenameAccount(index) },
+                        selecting = selecting,
+                        selected = index in selected,
+                        onToggle = { selected = if (index in selected) selected - index else selected + index },
                     )
                 }
             }
@@ -214,23 +279,38 @@ fun WalletDetailScreen(
 
 /**
  * One account row: its Display Name, or its Auto-Name, in the primary text, then its short address in the mono face.
- * The row expands to show the full address. Its Rename pill sits at the end. The rows are in a list, so they play no
- * haptic.
+ * The row expands to show the full address. Its Rename pill sits at the end. While [selecting], the row shows a checkbox
+ * instead, [selected] gives its state, and a tap calls [onToggle] rather than expanding the row. The rows are in a list,
+ * so they play no haptic.
  */
 @Composable
-private fun AccountRow(address: String, label: String, onRename: () -> Unit) {
+private fun AccountRow(
+    address: String,
+    label: String,
+    onRename: () -> Unit,
+    selecting: Boolean = false,
+    selected: Boolean = false,
+    onToggle: () -> Unit = {},
+) {
     var expanded by rememberSaveable(address) { mutableStateOf(false) }
     Column {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(role = Role.Button) { expanded = !expanded }
+                .clickable(role = if (selecting) Role.Checkbox else Role.Button) {
+                    if (selecting) onToggle() else expanded = !expanded
+                }
                 .padding(vertical = LenslySpacing.sm),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (selecting) {
+                    // The row takes the tap, so the checkbox itself has no handler.
+                    Checkbox(checked = selected, onCheckedChange = null)
+                    Spacer(Modifier.width(LenslySpacing.sm))
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     // The Display Name, or the Auto-Name while the account has none. A long name is cut short.
                     Text(
@@ -252,15 +332,17 @@ private fun AccountRow(address: String, label: String, onRename: () -> Unit) {
                         )
                     }
                 }
-                Spacer(Modifier.width(LenslySpacing.sm))
-                WalletPill(
-                    text = "Rename",
-                    onClick = onRename,
-                    style = WalletPillStyle.Outline,
-                    size = WalletPillSize.Compact,
-                )
+                if (!selecting) {
+                    Spacer(Modifier.width(LenslySpacing.sm))
+                    WalletPill(
+                        text = "Rename",
+                        onClick = onRename,
+                        style = WalletPillStyle.Outline,
+                        size = WalletPillSize.Compact,
+                    )
+                }
             }
-            if (expanded) {
+            if (expanded && !selecting) {
                 Spacer(Modifier.height(LenslySpacing.sm))
                 Text(
                     text = groupedAddress(address),
