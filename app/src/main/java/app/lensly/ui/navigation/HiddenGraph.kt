@@ -116,7 +116,9 @@ internal fun NavHostController.openHidden(route: String) {
 /** The draft shared by every screen of the hidden graph. It is scoped to the graph, so rotation keeps it. */
 @Composable
 internal fun draftOf(navController: NavHostController): WalletDraft {
-    val owner = navController.getBackStackEntry(LenslyRoute.HIDDEN)
+    val owner = remember(navController.currentBackStackEntry) {
+        navController.getBackStackEntry(LenslyRoute.HIDDEN)
+    }
     return viewModel<WalletDraftViewModel>(viewModelStoreOwner = owner).draft
 }
 
