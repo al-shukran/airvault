@@ -3,6 +3,7 @@ package app.lensly.ui.flow
 import app.lensly.app.sign.Prepared
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.UrScanner
+import app.lensly.core.ur.urPartRefusal
 import app.lensly.core.wallet.AccountAddresses
 import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -94,6 +95,11 @@ class SignFlow(private val ports: SignFlowPorts) {
         gate.withLock {
             if (current.value !is SignStep.Scanning) return
             val started = epoch
+            val refusal = urPartRefusal(text)
+            if (refusal != null) {
+                current.value = SignStep.Refused(refusal)
+                return
+            }
             if (!scanner.receive(text)) {
                 current.value = scanning(NOT_PART)
                 return

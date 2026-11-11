@@ -1,5 +1,6 @@
 package app.lensly.core.evm
 
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.DataType
 import java.math.BigInteger
 import kotlin.test.assertEquals
@@ -151,6 +152,31 @@ class UnsignedTxTest {
             UnsignedTx.decode(TxSamples.eip1559Payload(base.replaced(0, EvmFixtures.uint(0))), DataType.TYPED_TRANSACTION),
         )
     }
+
+    @Test
+    fun acceptsCalldataAtTheLimitAndRefusesOneByteMore() {
+        val atLimit = calldataTx(ByteArray(ParserLimits.MAX_CALLDATA_BYTES))
+        assertEquals(
+            "0x" + "00".repeat(ParserLimits.MAX_CALLDATA_BYTES),
+            okTx(UnsignedTx.decode(atLimit, DataType.TRANSACTION)).data,
+        )
+
+        val overLimit = calldataTx(ByteArray(ParserLimits.MAX_CALLDATA_BYTES + 1))
+        val rejected = assertIs<UnsignedTx.Result.Rejected>(UnsignedTx.decode(overLimit, DataType.TRANSACTION))
+        assertEquals("calldata is larger than ${ParserLimits.MAX_CALLDATA_BYTES} bytes", rejected.reason)
+    }
+
+    @Test
+    fun refusesEip1559CalldataPastTheLimit() {
+        val oversized = ByteArray(ParserLimits.MAX_CALLDATA_BYTES + 1)
+        val payload = TxSamples.eip1559Payload(TxSamples.eip1559Fields().replaced(7, EvmFixtures.rlpString(oversized)))
+        val rejected = assertIs<UnsignedTx.Result.Rejected>(UnsignedTx.decode(payload, DataType.TYPED_TRANSACTION))
+        assertEquals("calldata is larger than ${ParserLimits.MAX_CALLDATA_BYTES} bytes", rejected.reason)
+    }
+
+    /** An unsigned legacy payload whose calldata is [data]. */
+    private fun calldataTx(data: ByteArray): ByteArray =
+        TxSamples.legacy(fields = TxSamples.legacyFields().replaced(5, EvmFixtures.rlpString(data)))
 
     private fun okTx(result: UnsignedTx.Result): UnsignedTx = assertIs<UnsignedTx.Result.Ok>(result).tx
 

@@ -1,5 +1,6 @@
 package app.lensly.core.ur
 
+import app.lensly.core.parse.ParserLimits
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -53,5 +54,40 @@ class UrScannerTest {
         }
         assertNotNull(scanner.result())
         assertEquals(1.0, scanner.progress, 0.0)
+    }
+
+    @Test
+    fun refusesAPartThatDeclaresMoreThanTheLimitOfParts() {
+        val declared = "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/aa"
+        assertEquals("The request has more than ${ParserLimits.MAX_UR_PARTS} parts.", urPartRefusal(declared))
+        assertFalse(UrScanner().receive(declared))
+    }
+
+    @Test
+    fun aPartDeclaringAnAbsurdCountIsRefusedBeforeTheDecoderBuildsItsIndexes() {
+        // The decoder keeps one index per declared part, so these must never reach it.
+        for (absurd in listOf("ur:eth-sign-request/1-2147483647/aa", "ur:eth-sign-request/1-99999999999999999999/aa")) {
+            assertNotNull(urPartRefusal(absurd), absurd)
+            assertFalse(UrScanner().receive(absurd), absurd)
+        }
+    }
+
+    @Test
+    fun acceptsPartsAtTheCountLimitAndTheRealVectors() {
+        assertNull(urPartRefusal("ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS}/aa"))
+        assertNull(urPartRefusal(KeystoneVectors.ur("eth-sign-request-origin.txt")))
+    }
+
+    @Test
+    fun refusesAPartLongerThanTheCharacterLimit() {
+        val long = "ur:eth-sign-request/1-2/" + "a".repeat(ParserLimits.MAX_UR_PART_CHARS)
+        assertEquals("A code is longer than ${ParserLimits.MAX_UR_PART_CHARS} characters.", urPartRefusal(long))
+        assertFalse(UrScanner().receive(long))
+    }
+
+    @Test
+    fun leavesTextThatIsNotAUrPartToTheDecoder() {
+        assertNull(urPartRefusal("https://example.com/" + "a".repeat(5000)))
+        assertFalse(UrScanner().receive("https://example.com/" + "a".repeat(5000)))
     }
 }

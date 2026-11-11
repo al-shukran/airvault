@@ -4,6 +4,7 @@ import app.lensly.app.export.PairingExport
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
@@ -187,6 +188,17 @@ class SignFlowTest {
         val flow = SignFlow(FakePorts())
         runBlocking { flow.onScanned("https://example.com") }
         assertEquals(null, assertIs<SignStep.Scanning>(flow.state.value).progress)
+    }
+
+    @Test
+    fun aPartThatDeclaresTooManyPartsIsRefusedWithItsReason() {
+        val flow = SignFlow(FakePorts())
+        val declared = "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/aa"
+        runBlocking { flow.onScanned(declared) }
+        assertEquals(
+            "The request has more than ${ParserLimits.MAX_UR_PARTS} parts.",
+            assertIs<SignStep.Refused>(flow.state.value).reason,
+        )
     }
 
     @Test

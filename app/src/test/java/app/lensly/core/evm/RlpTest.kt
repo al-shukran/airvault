@@ -1,5 +1,7 @@
 package app.lensly.core.evm
 
+import app.lensly.core.parse.DecodeBudget
+import app.lensly.core.parse.ParserLimits
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -53,5 +55,32 @@ class RlpTest {
         Rlp.decode(nested(8))
         val error = assertFailsWith<MalformedTxException> { Rlp.decode(nested(9)) }
         assertTrue(error.message!!.contains("nested"), error.message)
+    }
+
+    @Test
+    fun refusesInputLargerThanTheSizeLimit() {
+        // The size is checked before anything is parsed, so the content does not matter.
+        val oversized = ByteArray(ParserLimits.MAX_SIGN_DATA_BYTES + 1)
+        val error = assertFailsWith<MalformedTxException> { Rlp.decode(oversized) }
+        assertEquals("RLP is larger than ${ParserLimits.MAX_SIGN_DATA_BYTES} bytes", error.message)
+    }
+
+    @Test
+    fun refusesMoreItemsThanTheCountLimit() {
+        // A list header plus MAX_RLP_ITEMS single-byte items is exactly the limit; one more item is refused.
+        val atLimit = EvmFixtures.rlpList(List(ParserLimits.MAX_RLP_ITEMS - 1) { EvmFixtures.uint(1) })
+        Rlp.decode(atLimit)
+        val overLimit = EvmFixtures.rlpList(List(ParserLimits.MAX_RLP_ITEMS) { EvmFixtures.uint(1) })
+        val error = assertFailsWith<MalformedTxException> { Rlp.decode(overLimit) }
+        assertEquals("RLP has more than ${ParserLimits.MAX_RLP_ITEMS} items", error.message)
+    }
+
+    @Test
+    fun stopsWhenTheDecodeBudgetIsSpent() {
+        var now = 0L
+        val budget = DecodeBudget("RLP", ParserLimits.MAX_RLP_ITEMS, maxNanos = 100) { now += 10; now }
+        val payload = EvmFixtures.rlpList(List(20) { EvmFixtures.uint(1) })
+        val error = assertFailsWith<MalformedTxException> { Rlp.decode(payload, budget) }
+        assertTrue(error.message!!.contains("time budget"), error.message)
     }
 }

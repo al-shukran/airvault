@@ -1,5 +1,7 @@
 package app.lensly.core.ur
 
+import app.lensly.core.parse.DecodeBudget
+import app.lensly.core.parse.ParserLimits
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -15,8 +17,9 @@ internal fun malformed(reason: String): Nothing = throw MalformedPayloadExceptio
  * The CBOR subset that Lensly's UR types use.
  *
  * Decoding is strict. Indefinite lengths, floats, simple values other than booleans, negative integers,
- * integers of 2^63 or more, and nesting deeper than [MAX_DEPTH] are rejected. Every declared length is
- * checked against the bytes that remain before anything is allocated.
+ * integers of 2^63 or more, and nesting deeper than [ParserLimits.MAX_CBOR_DEPTH] are rejected. A payload with more
+ * than [ParserLimits.MAX_CBOR_ITEMS] items, or one that runs past its decode budget, is rejected too. Every declared
+ * length is checked against the bytes that remain before anything is allocated.
  */
 internal sealed class Cbor {
     class Uint(val value: Long) : Cbor() {
@@ -33,11 +36,12 @@ internal sealed class Cbor {
     class Tagged(val tag: Long, val value: Cbor) : Cbor()
 
     companion object {
-        private const val MAX_DEPTH = 8
-
         /** Decodes exactly one item that fills all of [bytes]. Throws [MalformedPayloadException] otherwise. */
-        fun decode(bytes: ByteArray): Cbor {
-            val reader = Reader(bytes)
+        fun decode(
+            bytes: ByteArray,
+            budget: DecodeBudget = DecodeBudget("CBOR", ParserLimits.MAX_CBOR_ITEMS),
+        ): Cbor {
+            val reader = Reader(bytes, budget)
             val item = reader.read(0)
             if (reader.position != bytes.size) malformed("trailing bytes after CBOR item")
             return item
@@ -120,7 +124,7 @@ internal sealed class Cbor {
         private const val SIMPLE_TRUE = 0xF5
     }
 
-    private class Reader(private val bytes: ByteArray) {
+    private class Reader(private val bytes: ByteArray, private val budget: DecodeBudget) {
         var position = 0
             private set
 
@@ -160,7 +164,8 @@ internal sealed class Cbor {
         }
 
         fun read(depth: Int): Cbor {
-            if (depth > MAX_DEPTH) malformed("CBOR nested deeper than $MAX_DEPTH")
+            budget.charge()?.let { malformed(it) }
+            if (depth > ParserLimits.MAX_CBOR_DEPTH) malformed("CBOR nested deeper than ${ParserLimits.MAX_CBOR_DEPTH}")
             val initial = byte()
             val major = initial ushr 5
             val info = initial and 0x1F
