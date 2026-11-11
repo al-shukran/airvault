@@ -102,9 +102,12 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 | `core-ur-evm` | `core/ur/**`, its tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**`, `fuzz/**`, `fuzz-seeds/**` | `app.lensly.core.ur.*` (add `core.evm.*` when it lands) and `app.lensly.fuzz.*` |
 | `core-vault` | `core/vault/**`, its tests | `app.lensly.core.vault.*` |
 | `core-registry` | `core/registry/**` (reserved) | `app.lensly.core.registry.*` |
-| `ui` | `ui/**`, its tests, `res/values/strings.xml` | `app.lensly.ui.*` |
+| `ui-a` | `ui/**`, its tests, `res/values/strings.xml` (same paths as `ui-b`) | `app.lensly.ui.{camera,settings,wallet,qr,navigation,a11y,theme,screenshot}.*` (`screenshot` is excluded by `-PprLane`) |
+| `ui-b` | same as `ui-a` | `app.lensly.ui.{flow,components,home,sign,gate,profile}.*` and `app.lensly.ui.SecureWindowTest` |
 | `manifest` | `app/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts` | `check-manifest.sh` |
-| `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml` | `bash -n` on every script, then `check-test-network.sh` |
+| `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml` | `bash -n` on every script, `check-ui-partitions.sh`, then `check-test-network.sh` |
+
+The `ui` tests split in two so each half stays under the 3-minute cap. Every `ui` subpackage, and any test class directly in `app.lensly.ui`, must be listed in exactly one of `ui-a` or `ui-b`; `check-ui-partitions.sh` fails the `ci` partition otherwise.
 
 Build paths (`build.gradle.kts`, `gradle.properties`, `settings.gradle.kts`, `gradle/**`) trigger every unit partition. This is the one exception to "touched code only", because build changes can affect any package. Owner to confirm.
 
@@ -255,7 +258,7 @@ Durations are estimates, to be measured in Phase 1.5.
 | Test type | Trigger | Expected wall clock |
 |---|---|---|
 | Unit `core/*` | PR fast lane, partition paths | 1 to 2 min warm |
-| Integration and UI (Robolectric) | PR fast lane, `ui` partition | up to 3 min warm; split or move if over |
+| Integration and UI (Robolectric) | PR fast lane, `ui-a` and `ui-b` partitions | up to 3 min warm each; split or move if over |
 | Manifest guard | PR fast lane, manifest and dependency paths | about 1 min |
 | Secrets scan, dependency review | PR fast lane, changed files | under 30 s |
 | Screenshot (Roborazzi verify) | nightly 03:17 UTC; `/run-screenshot-testing` | 5 to 10 min |
@@ -302,7 +305,7 @@ Where the shipped build differs from the text above:
 
 - **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The app still targets Java 17.
 - **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
-- **`ui` and pixels:** the `ui` partition passes `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly via `verifyRoborazziDebug`.
+- **`ui` and pixels:** the `ui-a` and `ui-b` partitions pass `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly via `verifyRoborazziDebug`.
 - **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and `dependency_review` in `pr-fast.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/heyaibi/lensly/settings/security_analysis.
 - **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
 - **Fuzz isolation:** Jazzer and Robolectric cannot share a JVM. Running a fuzz target first corrupts the Robolectric sandbox, and later Robolectric tests fail with `NoClassDefFoundError: JazzerInternal`. The fuzz tests therefore sit behind `-PfuzzLane`, which `run-partition.sh`, `fuzz-nightly.sh` and `nightly.yml` each pass in a separate Gradle invocation.

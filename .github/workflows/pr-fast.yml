@@ -85,7 +85,17 @@ jobs:
               - 'gradle/**'
               - 'gradle.properties'
               - 'settings.gradle.kts'
-            ui:
+            # The ui tests run as two partitions (ui-a, ui-b) with the same paths, so each change runs both.
+            ui-a:
+              - 'app/src/main/java/app/lensly/ui/**'
+              - 'app/src/test/java/app/lensly/ui/**'
+              - 'app/src/main/res/values/strings.xml'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            ui-b:
               - 'app/src/main/java/app/lensly/ui/**'
               - 'app/src/test/java/app/lensly/ui/**'
               - 'app/src/main/res/values/strings.xml'
