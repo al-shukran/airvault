@@ -2,8 +2,21 @@ package app.lensly.ui.sign
 
 import app.lensly.app.VisualIdentity
 import app.lensly.app.generatedIdentity
+import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
+
+/** A fact the owner ticks before signing, because the review cannot prove it on its own. */
+enum class ReviewCheck {
+    /** The chain ID and the contract are outside the registry, and the owner has checked them. */
+    REGISTRY,
+
+    /** The call is on the signed whitelist, and the owner has read its approved meaning. */
+    WHITELIST,
+
+    /** The call goes to a whitelisted proxy under Warn and confirm, and the owner accepts that its code cannot be checked. */
+    UPGRADE,
+}
 
 /**
  * The [TxReview.function] of a personal message. A message has no recipient, amount, nonce or fee, and its text is
@@ -74,6 +87,8 @@ data class TxReview(
     val accountIdentity: VisualIdentity = generatedIdentity(0),
     /** The origin the request names, such as the wallet's site, or null when the request names none. */
     val origin: String? = null,
+    /** The whitelisted call this review is for, or null for a call Lensly decodes. */
+    val whitelisted: WhitelistedCall? = null,
 ) {
     /**
      * True when the chain or the token is outside the registry. Such a review carries the registry warning, and APPROVE
@@ -83,7 +98,15 @@ data class TxReview(
     val needsRegistryConfirmation: Boolean
         get() = network == null || (tokenContract != null && token == null)
 
-    /** True when the hold-to-sign control may run: every fact has been seen and, outside the registry, the check is ticked. */
-    fun canApprove(everyFactShown: Boolean, registryChecked: Boolean): Boolean =
-        everyFactShown && (!needsRegistryConfirmation || registryChecked)
+    /** The checks the owner ticks before signing, in the order the screen shows them. */
+    val requiredChecks: List<ReviewCheck>
+        get() = listOfNotNull(
+            ReviewCheck.REGISTRY.takeIf { needsRegistryConfirmation },
+            ReviewCheck.WHITELIST.takeIf { whitelisted != null },
+            ReviewCheck.UPGRADE.takeIf { whitelisted?.call?.proxy != null },
+        )
+
+    /** True when the hold-to-sign control may run: every fact has been seen and every required check is ticked. */
+    fun canApprove(everyFactShown: Boolean, checked: Set<ReviewCheck>): Boolean =
+        everyFactShown && checked.containsAll(requiredChecks)
 }
