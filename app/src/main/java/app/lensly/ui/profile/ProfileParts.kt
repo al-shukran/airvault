@@ -19,18 +19,16 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -104,20 +102,23 @@ internal fun ProfileColour.swatch(): Color = when (this) {
     ProfileColour.PLUM -> ProfilePlum
 }
 
-/** The glyph of an icon: the twelve of the Material core set, and the drawn ones for the rest. */
+/**
+ * The glyph of an icon: the twelve of the Material core set, in their outlined style so they match the drawn ones, and the
+ * drawn ones for the rest.
+ */
 internal fun ProfileIcon.glyph(): ImageVector = when (this) {
-    ProfileIcon.STAR -> Icons.Filled.Star
-    ProfileIcon.HEART -> Icons.Filled.Favorite
-    ProfileIcon.HOME -> Icons.Filled.Home
-    ProfileIcon.PERSON -> Icons.Filled.Person
-    ProfileIcon.PIN -> Icons.Filled.Place
-    ProfileIcon.WRENCH -> Icons.Filled.Build
-    ProfileIcon.SEND -> Icons.AutoMirrored.Filled.Send
-    ProfileIcon.THUMB_UP -> Icons.Filled.ThumbUp
-    ProfileIcon.BELL -> Icons.Filled.Notifications
-    ProfileIcon.CART -> Icons.Filled.ShoppingCart
-    ProfileIcon.CALENDAR -> Icons.Filled.DateRange
-    ProfileIcon.PHONE -> Icons.Filled.Phone
+    ProfileIcon.STAR -> ProfileIcons.Star
+    ProfileIcon.HEART -> ProfileIcons.Heart
+    ProfileIcon.HOME -> Icons.Outlined.Home
+    ProfileIcon.PERSON -> Icons.Outlined.Person
+    ProfileIcon.PIN -> Icons.Outlined.Place
+    ProfileIcon.WRENCH -> Icons.Outlined.Build
+    ProfileIcon.SEND -> Icons.AutoMirrored.Outlined.Send
+    ProfileIcon.THUMB_UP -> Icons.Outlined.ThumbUp
+    ProfileIcon.BELL -> Icons.Outlined.Notifications
+    ProfileIcon.CART -> Icons.Outlined.ShoppingCart
+    ProfileIcon.CALENDAR -> Icons.Outlined.DateRange
+    ProfileIcon.PHONE -> Icons.Outlined.Phone
     ProfileIcon.COIN -> ProfileIcons.Coin
     ProfileIcon.COINS -> ProfileIcons.Coins
     ProfileIcon.VAULT -> ProfileIcons.Vault
