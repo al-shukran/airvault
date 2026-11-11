@@ -19,7 +19,7 @@ import org.robolectric.annotation.GraphicsMode
  */
 private const val SWAP_CONTRACT = "0x5555555555555555555555555555555555555555"
 private const val IMPLEMENTATION = "0x7777777777777777777777777777777777777777"
-private const val SWAP_SIGNATURE = "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"
+private const val SWAP_SIGNATURE = "swapExactTokensForTokens(uint256,uint256,address)"
 
 /** A call Lensly cannot decode that the whitelist approves, on the sample network. [proxy] is set for a proxy under Warn and confirm. */
 private fun whitelistedSample(proxy: ProxyBinding? = null) = sampleNativeReview.copy(
@@ -27,6 +27,11 @@ private fun whitelistedSample(proxy: ProxyBinding? = null) = sampleNativeReview.
     toAddress = SWAP_CONTRACT,
     amount = "",
     symbol = "",
+    params = listOf(
+        "amountIn (uint256)" to "1",
+        "amountOutMin (uint256)" to "10",
+        "to (address)" to "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+    ),
     warnings = emptyList(),
     whitelisted = WhitelistedCall(
         signature = SWAP_SIGNATURE,
@@ -36,7 +41,7 @@ private fun whitelistedSample(proxy: ProxyBinding? = null) = sampleNativeReview.
             networkName = "Monad Testnet",
             chainId = 10143L,
             value = "0 MON",
-            selector = "38ed1739",
+            selector = "6e17e9f6",
             words = listOf(
                 "0".repeat(63) + "1",
                 "0".repeat(63) + "a",

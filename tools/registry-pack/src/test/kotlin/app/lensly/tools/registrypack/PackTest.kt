@@ -176,6 +176,17 @@ class PackTest {
             ),
             "whitelist chainId zero" to whitelistSource.copy(whitelist = listOf(entry.copy(chainId = 0))),
             "repeated whitelist entry" to whitelistSource.copy(whitelist = listOf(entry, entry.copy(meaning = "Again"))),
+            "dynamic param type" to whitelistSource.copy(
+                whitelist = listOf(entry.copy(params = entry.params.dropLast(1) + ParamDto("to", "address[]"))),
+            ),
+            "param type of another type" to whitelistSource.copy(
+                whitelist = listOf(entry.copy(params = entry.params.mapIndexed { index, param ->
+                    if (index == 0) param.copy(type = "address") else param
+                })),
+            ),
+            "upgradeable without a proxy" to whitelistSource.copy(
+                whitelist = listOf(entry.copy(upgradeable = true, proxy = null)),
+            ),
         )
         for ((label, content) in cases) {
             assertFailsWith<IllegalArgumentException>(label) {

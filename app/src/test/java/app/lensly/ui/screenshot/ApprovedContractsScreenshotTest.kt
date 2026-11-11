@@ -5,6 +5,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.WhitelistParam
 import app.lensly.ui.settings.ApprovedContractsScreen
 import org.junit.Rule
 import org.junit.Test
@@ -35,9 +36,15 @@ class ApprovedContractsScreenshotTest {
         WhitelistEntry(
             chainId = 1L,
             contract = "0x" + "5".repeat(40),
-            selector = "0x38ed1739",
-            signature = "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+            selector = "0x6e17e9f6",
+            signature = "swapExactTokensForTokens(uint256,uint256,address)",
             meaning = "Swap an exact amount of one token for another, along the route in the call.",
+            params = listOf(
+                WhitelistParam("amountIn", "uint256"),
+                WhitelistParam("amountOutMin", "uint256"),
+                WhitelistParam("to", "address"),
+            ),
+            upgradeable = false,
         ),
         WhitelistEntry(
             chainId = 1L,
@@ -46,6 +53,8 @@ class ApprovedContractsScreenshotTest {
             signature = "stake(uint256,address)",
             meaning = "Stake an amount for a recipient in a proxy-fronted pool.",
             proxy = ProxyBinding(implementationAddress = "0x" + "7".repeat(40)),
+            params = listOf(WhitelistParam("amount", "uint256"), WhitelistParam("recipient", "address")),
+            upgradeable = true,
         ),
     )
 

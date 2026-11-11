@@ -5,6 +5,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.WhitelistParam
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.StandardCharsets
@@ -179,12 +180,14 @@ internal object PackageFormat {
         val whitelist = dto.whitelist.map { record ->
             try {
                 WhitelistEntry(
-                    record.chainId,
-                    record.contract,
-                    record.selector,
-                    record.signature,
-                    record.meaning,
-                    record.proxy?.let { ProxyBinding(it.implementationAddress, it.implementationCodeHash) },
+                    chainId = record.chainId,
+                    contract = record.contract,
+                    selector = record.selector,
+                    signature = record.signature,
+                    meaning = record.meaning,
+                    proxy = record.proxy?.let { ProxyBinding(it.implementationAddress, it.implementationCodeHash) },
+                    params = record.params.map { WhitelistParam(it.name, it.type, it.tokenRef) },
+                    upgradeable = record.upgradeable,
                 )
             } catch (e: IllegalArgumentException) {
                 throw RegistryUpdateException.InvalidEntry("whitelist ${record.signature}: ${e.message}")
@@ -245,6 +248,15 @@ internal object PackageFormat {
         val signature: String,
         val meaning: String,
         val proxy: ProxyRecord? = null,
+        val params: List<ParamRecord>,
+        val upgradeable: Boolean,
+    )
+
+    @Serializable
+    private class ParamRecord(
+        val name: String,
+        val type: String,
+        val tokenRef: Boolean = false,
     )
 
     @Serializable

@@ -32,6 +32,18 @@ data class WhitelistDto(
     val signature: String,
     val meaning: String,
     val proxy: ProxyDto? = null,
+    /** The arguments of the call, in signature order. Their count and types must equal the signature's. */
+    val params: List<ParamDto>,
+    /** True when the target is an upgradeable proxy, which must then name its [proxy] binding. */
+    val upgradeable: Boolean,
+)
+
+/** One static argument of a whitelisted call: its name, its static ABI type, and whether it is a token amount. */
+@Serializable
+data class ParamDto(
+    val name: String,
+    val type: String,
+    val tokenRef: Boolean = false,
 )
 
 /** The implementation a whitelisted proxy is bound to: its address, its code hash, or both. */
@@ -87,7 +99,17 @@ internal object Pack {
     private val SELECTOR = Regex("0x[0-9a-f]{8}")
     private val CODE_HASH = Regex("0x[0-9a-f]{64}")
     private val SIGNATURE = Regex("[A-Za-z_][A-Za-z0-9_]*\\((?:[a-z0-9\\[\\]]+(?:,[a-z0-9\\[\\]]+)*)?\\)")
+    private val INTEGER_TYPES = (8..256 step 8).flatMap { listOf("uint$it", "int$it") }.toSet()
+    private val BYTES_TYPES = (1..32).map { "bytes$it" }.toSet()
     private val json = Json
+
+    /** The ABI types of [signature], in order. */
+    private fun signatureTypes(signature: String): List<String> =
+        signature.substringAfter('(').substringBefore(')').split(',').filter { it.isNotEmpty() }
+
+    /** True for an ABI type whose value is one 32-byte word. */
+    private fun isStaticType(type: String): Boolean =
+        type == "address" || type == "bool" || type in INTEGER_TYPES || type in BYTES_TYPES
 
     /** Builds a signed package from entries JSON. The same entries and seed always give the same bytes. */
     fun build(entriesJson: String, seed: ByteArray): Pair<ByteArray, PackageDto> {
@@ -131,11 +153,15 @@ internal object Pack {
         "chainId" to entry.chainId,
         "contract" to entry.contract,
         "meaning" to entry.meaning,
+        "params" to entry.params.map {
+            mapOf("name" to it.name, "tokenRef" to it.tokenRef, "type" to it.type)
+        },
         "proxy" to entry.proxy?.let {
             mapOf("implementationAddress" to it.implementationAddress, "implementationCodeHash" to it.implementationCodeHash)
         },
         "selector" to entry.selector,
         "signature" to entry.signature,
+        "upgradeable" to entry.upgradeable,
     )
 
     private fun networkMap(network: NetworkDto): Map<String, Any?> = mapOf(
@@ -208,6 +234,22 @@ internal object Pack {
                 "whitelist selector ${entry.selector} is not the Keccak-256 selector of ${entry.signature}"
             }
             requireText("whitelist ${entry.signature} meaning", entry.meaning, MAX_MEANING)
+            val types = signatureTypes(entry.signature)
+            require(entry.params.size == types.size) {
+                "whitelist ${entry.signature}: params must name every argument"
+            }
+            entry.params.forEachIndexed { index, param ->
+                requireText("whitelist ${entry.signature} param name", param.name)
+                require(param.type == types[index]) {
+                    "whitelist ${entry.signature}: param ${param.name} must be ${types[index]}"
+                }
+                require(isStaticType(param.type)) {
+                    "whitelist ${entry.signature}: param type must be a static ABI type: ${param.type}"
+                }
+            }
+            require(!entry.upgradeable || entry.proxy != null) {
+                "whitelist ${entry.signature}: an upgradeable entry must name its proxy binding"
+            }
             entry.proxy?.let { proxy ->
                 require(proxy.implementationAddress != null || proxy.implementationCodeHash != null) {
                     "whitelist ${entry.signature}: a proxy names its implementation, its code hash, or both"

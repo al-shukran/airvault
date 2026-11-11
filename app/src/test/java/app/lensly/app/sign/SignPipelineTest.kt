@@ -9,6 +9,7 @@ import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
@@ -51,6 +52,7 @@ private const val SELECTOR_INCREASE_ALLOWANCE = "39509351"
 private const val SELECTOR_SET_APPROVAL_FOR_ALL = "a22cb465"
 private const val SELECTOR_SAFE_TRANSFER_FROM = "42842e0e"
 private const val SELECTOR_BALANCE_OF = "70a08231"
+private const val PULL_SELECTOR = "0x4d0392a8"
 private const val L2_NOTE = "L1 data fee is not computable offline; total may be higher"
 
 private val REQUEST_ID = Numeric.hexStringToByteArray("9b1deb4d3b7d4bad9bdd2b0d7b3dcb6d")
@@ -58,32 +60,49 @@ private val ONE_CENT_OF_MON: BigInteger = BigInteger.TEN.pow(16)
 private val WALLET by lazy { HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art")) }
 
 private const val WALLET_ID = "wallet-mnemonic"
-private const val KEY_ID = "wallet-single-key"
+private const val IMPORTED_ID = "wallet-single-key"
 private const val ORIGIN = "metamask"
 private const val UNLIMITED_USDC = "Unlimited approval: this contract can spend all your USDC"
 private const val UNLIMITED_UNKNOWN = "Unlimited approval: this contract can spend all your tokens of this contract"
 
 // A whitelisted call Lensly cannot decode: the swap selector is not one ContractCall knows. The proxy is a stake on another contract.
-private const val SWAP_SELECTOR = "38ed1739"
+private const val SWAP_SELECTOR = "6e17e9f6"
 private const val STAKE_SELECTOR = "7acb7757"
 private const val WHITELISTED = "0x5555555555555555555555555555555555555555"
 private const val PROXY = "0x6666666666666666666666666666666666666666"
 private const val IMPLEMENTATION = "0x7777777777777777777777777777777777777777"
-private const val SWAP_SIGNATURE = "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"
+private const val SWAP_SIGNATURE = "swapExactTokensForTokens(uint256,uint256,address)"
 private const val SWAP_MEANING = "Swap an exact amount of one token for another, along the route in the call."
 private const val STAKE_SIGNATURE = "stake(uint256,address)"
 private const val BOUND_PROXY_REASON = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is " +
     "still the approved version, so your Proxy Policy refuses it."
 private const val ANY_PROXY_REASON = "This contract is an upgradeable proxy, and your Proxy Policy refuses every proxy."
-private val SWAP_ENTRY = WhitelistEntry(ETHEREUM, WHITELISTED, "0x$SWAP_SELECTOR", SWAP_SIGNATURE, SWAP_MEANING)
+private val SWAP_ENTRY = WhitelistEntry(
+    chainId = ETHEREUM,
+    contract = WHITELISTED,
+    selector = "0x$SWAP_SELECTOR",
+    signature = SWAP_SIGNATURE,
+    meaning = SWAP_MEANING,
+    params = listOf(
+        WhitelistParam("amountIn", "uint256", tokenRef = true),
+        WhitelistParam("amountOutMin", "uint256"),
+        WhitelistParam("to", "address"),
+    ),
+    upgradeable = false,
+)
 private val PROXY_BINDING = ProxyBinding(implementationAddress = IMPLEMENTATION)
 private val PROXY_ENTRY = WhitelistEntry(
-    ETHEREUM,
-    PROXY,
-    "0x$STAKE_SELECTOR",
-    STAKE_SIGNATURE,
-    "Stake for a recipient",
-    PROXY_BINDING,
+    chainId = ETHEREUM,
+    contract = PROXY,
+    selector = "0x$STAKE_SELECTOR",
+    signature = STAKE_SIGNATURE,
+    meaning = "Stake for a recipient",
+    proxy = PROXY_BINDING,
+    params = listOf(
+        WhitelistParam("amount", "uint256", tokenRef = true),
+        WhitelistParam("recipient", "address"),
+    ),
+    upgradeable = true,
 )
 
 /** Two accounts, so index 1 is valid and index 2 is not. */
@@ -98,13 +117,13 @@ private val VIEW by lazy {
 }
 
 /** The well-known test key of the Single Key tests. It has never held funds, and no other fixture uses it. */
-private val SINGLE_KEY: ByteArray =
+private val IMPORTED_PRIVATE: ByteArray =
     Numeric.hexStringToByteArray("4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318")
-private const val SINGLE_KEY_ADDRESS = "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
-private const val SINGLE_KEY_ADDRESS_HEX = "2c7536e3605d9c16a7a3d7b1898e529396a65c23"
-private val SINGLE_KEY_BYTES: ByteArray = Numeric.hexStringToByteArray(SINGLE_KEY_ADDRESS)
-private val SINGLE_KEY_VIEW by lazy {
-    WalletView.singleKey(id = KEY_ID, address = SINGLE_KEY_ADDRESS, autoNameBase = "Imported")
+private const val IMPORTED_ADDRESS = "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+private const val IMPORTED_ADDRESS_HEX = "2c7536e3605d9c16a7a3d7b1898e529396a65c23"
+private val IMPORTED_BYTES: ByteArray = Numeric.hexStringToByteArray(IMPORTED_ADDRESS)
+private val IMPORTED_VIEW by lazy {
+    WalletView.singleKey(id = IMPORTED_ID, address = IMPORTED_ADDRESS, autoNameBase = "Imported")
 }
 private val ART_BYTES: ByteArray = Numeric.hexStringToByteArray(ART_ADDRESS)
 
@@ -390,12 +409,40 @@ class SignPipelineTest {
         assertEquals("swapExactTokensForTokens", ready.review.function)
         assertEquals(WHITELISTED, ready.review.toAddress)
         assertEquals("Ethereum", ready.review.networkName)
-        assertEquals(emptyList(), ready.review.params)
+        assertEquals(
+            listOf(
+                "amountIn (uint256)" to "1",
+                "amountOutMin (uint256)" to "10",
+                "to (address)" to RECIPIENT,
+            ),
+            ready.review.params,
+        )
         assertEquals(listOf(ReviewCheck.WHITELIST), ready.review.requiredChecks)
         assertFalse(ready.review.needsRegistryConfirmation)
         assertEquals(SWAP_SELECTOR, whitelisted.call.selector)
         assertEquals(listOf(uintWord(BigInteger.ONE), uintWord(BigInteger.TEN), addressWord(RECIPIENT)), whitelisted.call.words)
         assertNull(whitelisted.call.proxy)
+    }
+
+    @Test
+    fun aWhitelistedTokenAmountIsAlsoShownInTheTokensDecimals() {
+        val entry = WhitelistEntry(
+            chainId = ETHEREUM,
+            contract = USDC_ETHEREUM.lowercase(),
+            selector = PULL_SELECTOR,
+            signature = "pull(uint256)",
+            meaning = "Pull an amount of the token",
+            params = listOf(WhitelistParam("amount", "uint256", tokenRef = true)),
+            upgradeable = false,
+        )
+        val data = "0x" + PULL_SELECTOR.removePrefix("0x") + uintWord(BigInteger.valueOf(1_500_000))
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+
+        val ready = assertIs<Prepared.Ready>(
+            SignPipeline(REGISTRY.withWhitelist(listOf(entry))).prepare(requestCbor(tx, chainId = ETHEREUM), VIEW),
+        )
+
+        assertEquals(listOf("amount (uint256)" to "1500000 (1.5 USDC)"), ready.review.params)
     }
 
     @Test
@@ -910,17 +957,17 @@ class SignPipelineTest {
     fun aSingleKeyTransactionIsSignedByItsKeyAndRecoversItsAddress() {
         val tx = eip1559Tx()
         val ready = assertIs<Prepared.Ready>(
-            pipeline.prepare(requestCbor(tx, fingerprint = null, address = SINGLE_KEY_BYTES), SINGLE_KEY_VIEW),
+            pipeline.prepare(requestCbor(tx, fingerprint = null, address = IMPORTED_BYTES), IMPORTED_VIEW),
         )
-        assertEquals(SINGLE_KEY_ADDRESS, ready.review.fromAddress)
+        assertEquals(IMPORTED_ADDRESS, ready.review.fromAddress)
         assertEquals("IMPORTED 0", ready.review.fromAccountLabel)
 
-        val response = signResponse(ready, key = SINGLE_KEY.copyOf())
+        val response = signResponse(ready, key = IMPORTED_PRIVATE.copyOf())
 
         assertContentEquals(REQUEST_ID, response.requestId)
         val v = response.signature[64].toInt()
         assertTrue(v == 0 || v == 1, "v must be a recovery id, was $v")
-        assertEquals(SINGLE_KEY_ADDRESS_HEX, recovered(Hash.sha3(tx), response.signature, v))
+        assertEquals(IMPORTED_ADDRESS_HEX, recovered(Hash.sha3(tx), response.signature, v))
     }
 
     @Test
@@ -928,12 +975,12 @@ class SignPipelineTest {
         val message = "Sign in to Lensly".toByteArray(Charsets.UTF_8)
         val ready = assertIs<Prepared.Ready>(
             pipeline.prepare(
-                requestCbor(message, dataType = 3, fingerprint = null, address = SINGLE_KEY_BYTES),
-                SINGLE_KEY_VIEW,
+                requestCbor(message, dataType = 3, fingerprint = null, address = IMPORTED_BYTES),
+                IMPORTED_VIEW,
             ),
         )
 
-        val response = signResponse(ready, key = SINGLE_KEY.copyOf())
+        val response = signResponse(ready, key = IMPORTED_PRIVATE.copyOf())
 
         val v = response.signature[64].toInt() and 0xFF
         assertTrue(v == 27 || v == 28, "v must be 27 or 28, was $v")
@@ -941,13 +988,13 @@ class SignPipelineTest {
             message,
             Sign.SignatureData(v.toByte(), response.signature.copyOfRange(0, 32), response.signature.copyOfRange(32, 64)),
         )
-        assertEquals(SINGLE_KEY_ADDRESS_HEX, EvmFixtures.normalize(Keys.getAddress(publicKey)))
+        assertEquals(IMPORTED_ADDRESS_HEX, EvmFixtures.normalize(Keys.getAddress(publicKey)))
     }
 
     @Test
     fun aSingleKeyRequestMustNameItsAddress() {
         val reason = assertIs<Prepared.Refused>(
-            pipeline.prepare(requestCbor(eip1559Tx(), fingerprint = null), SINGLE_KEY_VIEW),
+            pipeline.prepare(requestCbor(eip1559Tx(), fingerprint = null), IMPORTED_VIEW),
         ).reason
 
         assertEquals("The request does not say which address to sign with", reason)
@@ -956,7 +1003,7 @@ class SignPipelineTest {
     @Test
     fun aSingleKeyRequestForAnotherAddressIsRefused() {
         val reason = assertIs<Prepared.Refused>(
-            pipeline.prepare(requestCbor(eip1559Tx(), fingerprint = null, address = ART_BYTES), SINGLE_KEY_VIEW),
+            pipeline.prepare(requestCbor(eip1559Tx(), fingerprint = null, address = ART_BYTES), IMPORTED_VIEW),
         ).reason
 
         assertEquals("This request is for a different address", reason)

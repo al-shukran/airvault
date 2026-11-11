@@ -4,6 +4,7 @@ import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.WhitelistParam
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -18,9 +19,9 @@ import org.junit.rules.TemporaryFolder
 /** Paths are relative to :app, the working directory for unit tests. */
 private const val MAIN = "src/main/assets"
 private const val TEST_CONTRACT = "0x5555555555555555555555555555555555555555"
-private const val SWAP_SELECTOR = "0x38ed1739"
+private const val SWAP_SELECTOR = "0x6e17e9f6"
 private const val APPROVE_SELECTOR = "0x095ea7b3"
-private const val PROXY_ENTRY = """{"chainId":4242,"contract":"0x6666666666666666666666666666666666666666","meaning":"Stake for a recipient","proxy":{"implementationAddress":"0x7777777777777777777777777777777777777777","implementationCodeHash":null},"selector":"0x7acb7757","signature":"stake(uint256,address)"}"""
+private const val PROXY_ENTRY = """{"chainId":4242,"contract":"0x6666666666666666666666666666666666666666","meaning":"Stake for a recipient","params":[{"name":"amount","type":"uint256","tokenRef":true},{"name":"recipient","type":"address"}],"proxy":{"implementationAddress":"0x7777777777777777777777777777777777777777","implementationCodeHash":null},"selector":"0x7acb7757","signature":"stake(uint256,address)","upgradeable":true}"""
 
 private fun failure(result: Result<*>): Throwable = assertNotNull(result.exceptionOrNull())
 
@@ -43,7 +44,7 @@ class WhitelistPackageTest {
 
         val merged = RegistryUpdate.withInstalled(baked, dir, keys)
         val entry = assertNotNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
-        assertEquals("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)", entry.signature)
+        assertEquals("swapExactTokensForTokens(uint256,uint256,address)", entry.signature)
         assertEquals("Swap tokens on the test route", entry.meaning)
         assertNull(merged.whitelist(4242L, TEST_CONTRACT, APPROVE_SELECTOR))
         assertNull(baked.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
@@ -51,7 +52,15 @@ class WhitelistPackageTest {
 
     @Test
     fun aPackageReplacesTheWhitelistOfTheBuildAsAWhole() {
-        val approvedInBuild = WhitelistEntry(1L, TEST_CONTRACT, APPROVE_SELECTOR, "approve(address,uint256)", "Build approval")
+        val approvedInBuild = WhitelistEntry(
+            chainId = 1L,
+            contract = TEST_CONTRACT,
+            selector = APPROVE_SELECTOR,
+            signature = "approve(address,uint256)",
+            meaning = "Build approval",
+            params = listOf(WhitelistParam("spender", "address"), WhitelistParam("value", "uint256")),
+            upgradeable = false,
+        )
         val build = baked.withWhitelist(listOf(approvedInBuild))
         val dir = dir()
 

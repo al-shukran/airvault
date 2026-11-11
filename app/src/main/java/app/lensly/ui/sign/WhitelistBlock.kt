@@ -1,6 +1,7 @@
 package app.lensly.ui.sign
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,9 +13,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.ui.components.BannerTone
@@ -103,15 +109,36 @@ internal fun WhitelistedCallBlock(whitelisted: WhitelistedCall) {
         FactRow(label = "Selector") {
             MonoText(text = "0x${call.selector}")
         }
-        FactRow(label = "Calldata") {
-            if (call.words.isEmpty()) {
-                MutedText("None")
-            } else {
-                call.words.forEachIndexed { index, word ->
-                    MutedText("WORD ${index + 1}")
-                    MonoText(text = "0x${groupHex(word)}")
-                    Spacer(Modifier.height(LenslySpacing.xs))
-                }
+        RawCalldata(words = call.words)
+    }
+}
+
+/**
+ * The calldata after the selector, folded away by default. Every 32-byte word is shown in full hex when opened, so the raw
+ * bytes behind the parameters above stay available without crowding the review.
+ */
+@Composable
+private fun RawCalldata(words: List<String>) {
+    var open by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = { open = !open })
+            .padding(vertical = LenslySpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MutedText("Raw calldata")
+        Spacer(Modifier.weight(1f))
+        MutedText(if (open) "HIDE" else "SHOW")
+    }
+    if (open) {
+        if (words.isEmpty()) {
+            MutedText("None")
+        } else {
+            words.forEachIndexed { index, word ->
+                MutedText("WORD ${index + 1}")
+                MonoText(text = "0x${groupHex(word)}")
+                Spacer(Modifier.height(LenslySpacing.xs))
             }
         }
     }

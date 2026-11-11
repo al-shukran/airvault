@@ -18,7 +18,7 @@ internal object TestPackages {
     const val LINEA_USDC =
         """{"chainId":4242,"contract":"0x176211869ca2b568f2a7d4ee941e073a821ee1ff","decimals":6,"name":"USDC","symbol":"USDC"}"""
     const val LINEA_SWAP =
-        """{"chainId":4242,"contract":"0x5555555555555555555555555555555555555555","meaning":"Swap tokens on the test route","proxy":null,"selector":"0x38ed1739","signature":"swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"}"""
+        """{"chainId":4242,"contract":"0x5555555555555555555555555555555555555555","meaning":"Swap tokens on the test route","params":[{"name":"amountIn","type":"uint256","tokenRef":true},{"name":"amountOutMin","type":"uint256"},{"name":"to","type":"address"}],"proxy":null,"selector":"0x6e17e9f6","signature":"swapExactTokensForTokens(uint256,uint256,address)","upgradeable":false}"""
 
     /**
      * A payload holding [networks] and [tokens], which are already JSON text. A whitelist, also JSON text, is added only when

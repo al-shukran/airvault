@@ -7,6 +7,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.WhitelistParam
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.sign.groupAddress
 import app.lensly.ui.theme.LenslyTheme
@@ -37,9 +38,15 @@ class ApprovedContractsScreenTest {
     private val swap = WhitelistEntry(
         chainId = 1L,
         contract = contract,
-        selector = "0x38ed1739",
-        signature = "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+        selector = "0x6e17e9f6",
+        signature = "swapExactTokensForTokens(uint256,uint256,address)",
         meaning = "Swap an exact amount along the route",
+        params = listOf(
+            WhitelistParam("amountIn", "uint256"),
+            WhitelistParam("amountOutMin", "uint256"),
+            WhitelistParam("to", "address"),
+        ),
+        upgradeable = false,
     )
     private val proxy = WhitelistEntry(
         chainId = 1L,
@@ -48,6 +55,8 @@ class ApprovedContractsScreenTest {
         signature = "stake(uint256,address)",
         meaning = "Stake for a recipient",
         proxy = ProxyBinding(implementationAddress = "0x" + "7".repeat(40)),
+        params = listOf(WhitelistParam("amount", "uint256"), WhitelistParam("recipient", "address")),
+        upgradeable = true,
     )
 
     private fun show(entries: List<WhitelistEntry>, onUpdateCatalog: () -> Unit = {}) {
@@ -90,8 +99,8 @@ class ApprovedContractsScreenTest {
         show(listOf(swap))
 
         compose.onNodeWithText("Ethereum").assertExists()
-        compose.onNodeWithText("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)").assertExists()
-        compose.onNodeWithText("0x38ed1739").assertExists()
+        compose.onNodeWithText("swapExactTokensForTokens(uint256,uint256,address)").assertExists()
+        compose.onNodeWithText("0x6e17e9f6").assertExists()
         compose.onNodeWithText("Swap an exact amount along the route").assertExists()
         compose.onNodeWithText(groupAddress(contract)).assertExists()
     }

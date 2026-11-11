@@ -7,8 +7,8 @@ import org.junit.Test
 
 private const val TRANSFER_SIGNATURE = "transfer(address,uint256)"
 private const val TRANSFER_SELECTOR = "0xa9059cbb"
-private const val SWAP_SIGNATURE = "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"
-private const val SWAP_SELECTOR = "0x38ed1739"
+private const val SWAP_SIGNATURE = "swapExactTokensForTokens(uint256,uint256,address)"
+private const val SWAP_SELECTOR = "0x6e17e9f6"
 private const val APPROVE_SELECTOR = "0x095ea7b3"
 private const val CONTRACT = "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
 private const val IMPLEMENTATION = "0x7777777777777777777777777777777777777777"
@@ -23,6 +23,12 @@ private fun swap(chainId: Long = 1L, contract: String = CONTRACT) = WhitelistEnt
     selector = SWAP_SELECTOR,
     signature = SWAP_SIGNATURE,
     meaning = "Swap an exact amount along the route",
+    params = listOf(
+        WhitelistParam("amountIn", "uint256", tokenRef = true),
+        WhitelistParam("amountOutMin", "uint256"),
+        WhitelistParam("to", "address"),
+    ),
+    upgradeable = false,
 )
 
 /** The whitelist as the signed package and the build hold it: the signature, its selector, and the meaning. */
@@ -56,6 +62,29 @@ class WhitelistEntryTest {
     @Test
     fun aMeaningMustSayWhatTheCallDoes() {
         assertFailsWith<IllegalArgumentException> { swap().copy(meaning = " ") }
+    }
+
+    @Test
+    fun theParamsMustNameEveryArgumentWithItsSignatureType() {
+        assertFailsWith<IllegalArgumentException> { swap().copy(params = swap().params.dropLast(1)) }
+        assertFailsWith<IllegalArgumentException> {
+            swap().copy(params = swap().params.dropLast(1) + WhitelistParam("to", "uint256"))
+        }
+    }
+
+    @Test
+    fun aDynamicParamTypeIsRefused() {
+        for (type in listOf("bytes", "string", "address[]", "uint256[]", "(address,uint256)")) {
+            assertFailsWith<IllegalArgumentException>(type) { WhitelistParam("route", type) }
+        }
+    }
+
+    @Test
+    fun anUpgradeableEntryMustNameItsProxy() {
+        val proxy = ProxyBinding(implementationAddress = IMPLEMENTATION)
+
+        assertEquals(proxy, swap().copy(upgradeable = true, proxy = proxy).proxy)
+        assertFailsWith<IllegalArgumentException> { swap().copy(upgradeable = true) }
     }
 
     @Test

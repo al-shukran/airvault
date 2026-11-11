@@ -8,10 +8,16 @@
     {
       "chainId": 1,
       "contract": "0x5555555555555555555555555555555555555555",
-      "selector": "0x38ed1739",
-      "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-      "meaning": "Swap an exact amount of one token for at least a minimum amount of another, along the route in the call. Illustrative sample, not a real contract.",
-      "proxy": null
+      "selector": "0x6e17e9f6",
+      "signature": "swapExactTokensForTokens(uint256,uint256,address)",
+      "meaning": "Swap an exact amount of one token for at least a minimum amount of another. Illustrative sample, not a real contract.",
+      "proxy": null,
+      "params": [
+        {"name": "amountIn", "type": "uint256", "tokenRef": true},
+        {"name": "amountOutMin", "type": "uint256"},
+        {"name": "to", "type": "address"}
+      ],
+      "upgradeable": false
     },
     {
       "chainId": 1,
@@ -22,7 +28,12 @@
       "proxy": {
         "implementationAddress": "0x7777777777777777777777777777777777777777",
         "implementationCodeHash": null
-      }
+      },
+      "params": [
+        {"name": "amount", "type": "uint256", "tokenRef": true},
+        {"name": "recipient", "type": "address"}
+      ],
+      "upgradeable": true
     }
   ]
 }

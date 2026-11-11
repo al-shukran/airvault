@@ -68,18 +68,22 @@ private fun whitelistedReview(proxy: ProxyBinding? = null) = approvalReview(orig
     symbol = "",
     tokenContract = null,
     token = null,
-    params = emptyList(),
+    params = listOf(
+        "amountIn (uint256)" to "1",
+        "amountOutMin (uint256)" to "10",
+        "to (address)" to "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+    ),
     signature = null,
     warnings = emptyList(),
     whitelisted = WhitelistedCall(
-        signature = "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+        signature = "swapExactTokensForTokens(uint256,uint256,address)",
         meaning = APPROVED_MEANING,
         call = UndecodedCall(
             target = BASE_USDC,
             networkName = BASE.name,
             chainId = BASE.chainId,
             value = "0 ETH",
-            selector = "38ed1739",
+            selector = "6e17e9f6",
             words = SWAP_WORDS,
             proxy = proxy,
         ),
@@ -217,15 +221,19 @@ class TxReviewScreenTest {
                 "Sign only if this is what you intend.",
         ).assertExists()
         compose.onNodeWithText(APPROVED_MEANING).assertExists()
-        compose.onNodeWithText("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)").assertExists()
+        compose.onNodeWithText("swapExactTokensForTokens(uint256,uint256,address)").assertExists()
         compose.onNodeWithText(groupAddress(BASE_USDC)).assertExists()
-        compose.onNodeWithText("0x38ed1739").assertExists()
+        compose.onNodeWithText("0x6e17e9f6").assertExists()
         compose.onNodeWithText("0 ETH").assertExists()
+        compose.onNodeWithText("PARAMETERS").assertExists()
+        compose.onNodeWithText("AMOUNTIN (UINT256)").assertExists()
+        compose.onNodeWithText("10").assertExists()
+        // The raw words live in the folded section, so they are shown only when it opens.
+        compose.onNodeWithText("Raw calldata").performClick()
         SWAP_WORDS.forEachIndexed { index, word ->
             compose.onNodeWithText("WORD ${index + 1}").assertExists()
             compose.onNodeWithText("0x" + groupHex(word)).assertExists()
         }
-        compose.onNodeWithText("PARAMETERS").assertDoesNotExist()
         compose.onNodeWithText("I CHECKED THIS IS WHAT I INTEND").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
     }

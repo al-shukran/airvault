@@ -182,15 +182,12 @@ fun TxReviewScreen(
                     if (isMessage) {
                         MessageFacts(review)
                     } else {
-                        // A whitelisted call is not decoded, so its parameters are its calldata words, shown in the block above.
-                        if (review.whitelisted == null) {
-                            FactRow(label = "Parameters") {
-                                if (review.params.isEmpty()) {
-                                    MutedText("None")
-                                } else {
-                                    review.params.forEach { (name, value) ->
-                                        LabelledValue(label = name, value = value)
-                                    }
+                        FactRow(label = "Parameters") {
+                            if (review.params.isEmpty()) {
+                                MutedText("None")
+                            } else {
+                                review.params.forEach { (name, value) ->
+                                    LabelledValue(label = name, value = value)
                                 }
                             }
                         }
