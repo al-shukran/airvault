@@ -113,6 +113,7 @@ private fun UndecodedCallDetails(call: UndecodedCall) {
     FactRow(label = "Selector") {
         MonoText(text = "0x${call.selector}")
     }
+    call.proxy?.let { ProxyFacts(it) }
     FactRow(label = "Calldata") {
         Column(
             modifier = Modifier

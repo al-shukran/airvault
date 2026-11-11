@@ -10,8 +10,11 @@ import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.ProxyBinding
+import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.EthSignatureEncoder
@@ -56,7 +59,7 @@ sealed interface Prepared {
 /**
  * A contract call Lensly cannot decode, as its refusal shows it: the contract, the network, the native value, the selector,
  * and the calldata after the selector in 32-byte words. Hex has no 0x prefix. The last word is shorter when the calldata does
- * not end on a word boundary.
+ * not end on a word boundary. [proxy] is the implementation a whitelisted proxy is bound to, and null for any other call.
  */
 data class UndecodedCall(
     val target: String,
@@ -65,6 +68,17 @@ data class UndecodedCall(
     val value: String,
     val selector: String,
     val words: List<String>,
+    val proxy: ProxyBinding? = null,
+)
+
+/**
+ * A call Lensly cannot decode that the signed whitelist approves. [signature] and [meaning] are the approved facts, and [call]
+ * is the whole call. The review shows all of it before the owner confirms.
+ */
+data class WhitelistedCall(
+    val signature: String,
+    val meaning: String,
+    val call: UndecodedCall,
 )
 
 /**
@@ -73,9 +87,13 @@ data class UndecodedCall(
  * signed.
  *
  * A chain or token outside the registry is not refused. Its review shows it as unknown, with raw base units and a
- * warning, and [TxReview.needsRegistryConfirmation] is set. A call that cannot be decoded is still refused.
+ * warning, and [TxReview.needsRegistryConfirmation] is set. A call that cannot be decoded is refused unless the signed
+ * whitelist approves its contract and selector. [proxyPolicy] decides what a whitelisted proxy gets.
  */
-class SignPipeline(private val registry: Registry) {
+class SignPipeline(
+    private val registry: Registry,
+    private val proxyPolicy: ProxyPolicy = ProxyPolicy.DEFAULT,
+) {
 
     fun prepare(urCbor: ByteArray, wallet: WalletView): Prepared =
         when (val decoded = EthSignRequest.decode(urCbor)) {
@@ -184,13 +202,45 @@ class SignPipeline(private val registry: Registry) {
         val review = if (calldata.isEmpty()) {
             nativeReview(target, to, tx.value)
         } else {
-            // An undecodable call is refused for any contract, so it is decoded before the token lookup.
-            val call = ContractCall.decode(calldata)
-                ?: return Prepared.Refused(UNKNOWN_CALL, undecodedCall(target, to, tx.value, calldata))
+            // An undecodable call is a Decode Gap, so it is decided by the whitelist before the token lookup.
+            val call = ContractCall.decode(calldata) ?: return decodeGap(target, tx, to, calldata)
             if (tx.value.signum() != 0) return Prepared.Refused("Token calls must not send native currency")
             // A contract outside the registry is an unknown token. Its decimals are not known, so its amounts stay raw.
             callReview(target, call, to, registry.token(target.chainId, to))
         }
+        return ready(target, review, tx)
+    }
+
+    /**
+     * A Decode Gap: calldata Lensly cannot decode. It is refused unless its contract and Function Selector are on the signed
+     * whitelist. A whitelisted proxy is refused under Bind to implementation and under Refuse all proxies. Under Warn and
+     * confirm it is reviewed with its approved meaning, and the review carries the proxy binding.
+     */
+    private fun decodeGap(target: Target, tx: UnsignedTx, contract: String, calldata: ByteArray): Prepared {
+        val entry = whitelistEntry(target, contract, calldata)
+        val call = undecodedCall(target, contract, tx.value, calldata, proxy = entry?.proxy)
+        if (entry == null) return Prepared.Refused(UNKNOWN_CALL, call)
+        if (entry.proxy != null && proxyPolicy == ProxyPolicy.BIND_TO_IMPLEMENTATION) {
+            return Prepared.Refused(BOUND_PROXY_REFUSAL, call)
+        }
+        if (entry.proxy != null && proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) {
+            return Prepared.Refused(ANY_PROXY_REFUSAL, call)
+        }
+        val review = target.review(
+            function = entry.signature.substringBefore('('),
+            toAddress = checksum(contract),
+        ).copy(whitelisted = WhitelistedCall(entry.signature, entry.meaning, call))
+        return ready(target, review, tx)
+    }
+
+    /** The whitelist entry for [contract] and the selector of [calldata] on the target's chain, or null when there is none. */
+    private fun whitelistEntry(target: Target, contract: String, calldata: ByteArray): WhitelistEntry? {
+        if (calldata.size < SELECTOR_BYTES) return null
+        return registry.whitelist(target.chainId, contract, "0x" + calldata.copyOfRange(0, SELECTOR_BYTES).toHex())
+    }
+
+    /** The review with the fee, nonce and transaction type of [tx] added, ready for the owner to confirm. */
+    private fun ready(target: Target, review: TxReview, tx: UnsignedTx): Prepared.Ready {
         val network = target.network
         return Prepared.Ready(
             review.copy(
@@ -199,7 +249,7 @@ class SignPipeline(private val registry: Registry) {
                 nonce = tx.nonce.toLong(),
                 txType = if (tx.type == TxType.EIP1559) "EIP-1559" else "Legacy",
             ),
-            request,
+            target.request,
             target.index,
             target.walletId,
         )
@@ -324,8 +374,17 @@ class SignPipeline(private val registry: Registry) {
         }
     }
 
-    /** What the refusal of an undecodable call shows: its contract, network, native value, selector and calldata words. */
-    private fun undecodedCall(target: Target, contract: String, value: BigInteger, calldata: ByteArray): UndecodedCall =
+    /**
+     * What a refusal or a whitelisted review of an undecodable call shows: its contract, network, native value, selector and
+     * calldata words, and the proxy binding when the contract is a whitelisted proxy.
+     */
+    private fun undecodedCall(
+        target: Target,
+        contract: String,
+        value: BigInteger,
+        calldata: ByteArray,
+        proxy: ProxyBinding?,
+    ): UndecodedCall =
         UndecodedCall(
             target = checksum(contract),
             networkName = target.network?.name ?: UNKNOWN_CHAIN_NAME,
@@ -335,6 +394,7 @@ class SignPipeline(private val registry: Registry) {
             words = (SELECTOR_BYTES until calldata.size step WORD_BYTES).map { start ->
                 calldata.copyOfRange(start, minOf(start + WORD_BYTES, calldata.size)).toHex()
             },
+            proxy = proxy,
         )
 
     private fun message(target: Target): Prepared.Ready {
@@ -454,6 +514,9 @@ class SignPipeline(private val registry: Registry) {
     private companion object {
         const val L2_FEE_NOTE = "L1 data fee is not computable offline; total may be higher"
         const val UNKNOWN_CALL = "Unknown contract call"
+        const val BOUND_PROXY_REFUSAL = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is " +
+            "still the approved version, so your Proxy Policy refuses it."
+        const val ANY_PROXY_REFUSAL = "This contract is an upgradeable proxy, and your Proxy Policy refuses every proxy."
         const val GWEI_DECIMALS = 9
         const val ACCOUNT_PATH_LENGTH = 5
         const val SELECTOR_BYTES = 4

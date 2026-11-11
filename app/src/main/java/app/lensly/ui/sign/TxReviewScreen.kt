@@ -65,7 +65,9 @@ import app.lensly.ui.theme.SpaceMonoFamily
  * monospace block, with its size, instead of those facts. The message is part of the list, so the scroll covers it.
  *
  * A review outside the registry ([TxReview.needsRegistryConfirmation]) opens with a solid warning block, and signing also
- * needs the "I CHECKED THE CHAIN ID / CONTRACT" check to be ON. The line above the buttons says what is still missing.
+ * needs the "I CHECKED THE CHAIN ID / CONTRACT" check to be ON. A whitelisted call ([TxReview.whitelisted]) opens with its
+ * approved meaning and every fact of the call, and signing needs its own check; a proxy under Warn and confirm needs a second.
+ * The line above the buttons says what is still missing.
  *
  * REJECT is always enabled. Nothing is ellipsized: every value on this screen is shown in full, and wraps when it must.
  */
@@ -91,18 +93,22 @@ fun TxReviewScreen(
     LaunchedEffect(atEnd, fits) {
         if (atEnd || fits) everyFactShown = true
     }
-    // The check of the chain ID and contract. Only a review outside the registry asks for it. It resets with the review.
-    var registryChecked by remember(review) { mutableStateOf(false) }
-    val approvable = review.canApprove(everyFactShown, registryChecked)
+    // The checks the review asks for, such as the chain ID and contract outside the registry. They reset with the review.
+    var checked by remember(review) { mutableStateOf(emptySet<ReviewCheck>()) }
+    val approvable = review.canApprove(everyFactShown, checked)
 
     LenslyScreen(
         title = "Review",
         modifier = modifier,
         scrollable = false,
         bottomAction = {
-            ReviewHint(text = reviewHint(review, everyFactShown, registryChecked))
-            if (review.needsRegistryConfirmation) {
-                RegistryCheckRow(checked = registryChecked, onCheckedChange = { registryChecked = it })
+            ReviewHint(text = reviewHint(review, everyFactShown, checked))
+            review.requiredChecks.forEach { check ->
+                CheckRow(
+                    label = check.label,
+                    checked = check in checked,
+                    onCheckedChange = { on -> checked = if (on) checked + check else checked - check },
+                )
                 Spacer(Modifier.height(LenslySpacing.sm))
             }
             Row(
@@ -126,6 +132,10 @@ fun TxReviewScreen(
                         RegistryWarning()
                         Spacer(Modifier.height(LenslySpacing.sm))
                     }
+                    review.whitelisted?.let { whitelisted ->
+                        WhitelistedCallBlock(whitelisted)
+                        Spacer(Modifier.height(LenslySpacing.sm))
+                    }
                     review.warnings.forEach { warning ->
                         InlineBanner(message = warning, tone = BannerTone.Error, title = "Warning")
                         Spacer(Modifier.height(LenslySpacing.xs))
@@ -137,7 +147,8 @@ fun TxReviewScreen(
 
                     SigningHeader(review)
 
-                    if (!isMessage && review.toAddress.isNotEmpty()) {
+                    // A whitelisted call names its contract in the block above, so the recipient row would repeat it.
+                    if (!isMessage && review.whitelisted == null && review.toAddress.isNotEmpty()) {
                         FactRow(label = "To") {
                             AddressText(address = review.toAddress)
                         }
@@ -171,12 +182,15 @@ fun TxReviewScreen(
                     if (isMessage) {
                         MessageFacts(review)
                     } else {
-                        FactRow(label = "Parameters") {
-                            if (review.params.isEmpty()) {
-                                MutedText("None")
-                            } else {
-                                review.params.forEach { (name, value) ->
-                                    LabelledValue(label = name, value = value)
+                        // A whitelisted call is not decoded, so its parameters are its calldata words, shown in the block above.
+                        if (review.whitelisted == null) {
+                            FactRow(label = "Parameters") {
+                                if (review.params.isEmpty()) {
+                                    MutedText("None")
+                                } else {
+                                    review.params.forEach { (name, value) ->
+                                        LabelledValue(label = name, value = value)
+                                    }
                                 }
                             }
                         }
@@ -233,11 +247,23 @@ private fun ScrollFade(modifier: Modifier) {
  * The line above the buttons. It names what still stands between the owner and signing, and holds its height when there
  * is nothing to say, so the buttons do not move.
  */
-private fun reviewHint(review: TxReview, everyFactShown: Boolean, registryChecked: Boolean): String? = when {
-    !everyFactShown -> "Scroll to the end to review everything"
-    review.needsRegistryConfirmation && !registryChecked -> "Tick the check below to sign"
-    else -> null
+private fun reviewHint(review: TxReview, everyFactShown: Boolean, checked: Set<ReviewCheck>): String? {
+    val owed = review.requiredChecks.count { it !in checked }
+    return when {
+        !everyFactShown -> "Scroll to the end to review everything"
+        owed == 1 -> "Tick the check below to sign"
+        owed > 1 -> "Tick the checks below to sign"
+        else -> null
+    }
 }
+
+/** The text on the row of a check. */
+private val ReviewCheck.label: String
+    get() = when (this) {
+        ReviewCheck.REGISTRY -> "I CHECKED THE CHAIN ID / CONTRACT"
+        ReviewCheck.WHITELIST -> "I CHECKED THIS IS WHAT I INTEND"
+        ReviewCheck.UPGRADE -> "I ACCEPT THE IMPLEMENTATION CANNOT BE CHECKED"
+    }
 
 @Composable
 private fun ReviewHint(text: String?) {
@@ -388,11 +414,12 @@ private fun RegistryWarning() {
 }
 
 /**
- * The explicit check for a review outside the registry. It sits above the buttons, outside the scroll, so it stays in
- * view, and the hold-to-sign control is disabled until it is ON. A red outline means the check is still owed.
+ * An explicit check the review asks for, such as the chain ID and contract of a review outside the registry. It sits above the
+ * buttons, outside the scroll, so it stays in view, and the hold-to-sign control is disabled until it is ON. A red outline
+ * means the check is still owed.
  */
 @Composable
-private fun RegistryCheckRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun CheckRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val haptics = rememberKeyHaptics()
     val pill = RoundedCornerShape(percent = 50)
     val owed = if (checked) LenslyOnSurface else LenslyError
@@ -408,7 +435,7 @@ private fun RegistryCheckRow(checked: Boolean, onCheckedChange: (Boolean) -> Uni
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "I CHECKED THE CHAIN ID / CONTRACT",
+            text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),

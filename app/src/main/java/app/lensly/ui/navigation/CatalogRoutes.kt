@@ -9,21 +9,38 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
+import app.lensly.ui.settings.ApprovedContractsScreen
 import app.lensly.ui.settings.Catalog
 import app.lensly.ui.settings.NetworksScreen
 import app.lensly.ui.settings.TokensScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** The Networks and Tokens lists, in the hidden graph, from Settings. */
+/** The Networks, Tokens and Approved contracts lists, in the hidden graph, from Settings. */
 internal fun NavGraphBuilder.catalogRoutes(navController: NavHostController, holder: VaultHolder) {
     composable(HiddenRoute.NETWORKS) { HiddenBackdrop { NetworksRoute(navController, holder) } }
     composable(HiddenRoute.TOKENS) { HiddenBackdrop { TokensRoute(navController, holder) } }
+    composable(HiddenRoute.APPROVED_CONTRACTS) { HiddenBackdrop { ApprovedContractsRoute(navController, holder) } }
 }
 
-/** The networks and tokens the catalog holds. The first read loads the assets, so it runs off the main thread. */
+/** The networks, tokens and whitelist the catalog holds. The first read loads the assets, so it runs off the main thread. */
 internal suspend fun readCatalog(context: Context): Catalog = withContext(Dispatchers.IO) {
-    RegistryHolder.get(context).let { Catalog(networks = it.networks(), tokens = it.tokens()) }
+    RegistryHolder.get(context).let {
+        Catalog(networks = it.networks(), tokens = it.tokens(), whitelist = it.whitelistEntries())
+    }
+}
+
+@Composable
+private fun ApprovedContractsRoute(navController: NavHostController, holder: VaultHolder) {
+    rememberOpenSession(navController, holder) ?: return
+    val catalog = rememberCatalog() ?: return
+    ApprovedContractsScreen(
+        entries = catalog.whitelist,
+        networks = catalog.networks,
+        onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
+        onBack = { navController.popBackStack() },
+        onLock = { leaveHidden(navController, holder) },
+    )
 }
 
 @Composable
