@@ -26,10 +26,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Test
+import org.web3j.crypto.RawTransaction
+import org.web3j.crypto.TransactionEncoder
 import org.web3j.utils.Numeric
+import java.math.BigInteger
 
 private const val MONAD_TESTNET = 10143L
 private const val ART_ADDRESS = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
+private const val RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
+private const val WALLET_ID = "wallet-mnemonic"
+private const val OTHER_ID = "wallet-other"
 private const val FRAGMENT = 200
 private val REQUEST_ID = Numeric.hexStringToByteArray("9b1deb4d3b7d4bad9bdd2b0d7b3dcb6d")
 private val WALLET by lazy { HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art")) }
@@ -50,28 +56,44 @@ private val REGISTRY = Registry(
     tokens = emptyList(),
 )
 
+/** The vault's wallet, as the pipeline sees it. Two accounts. Its fingerprint is the test wallet's. */
+private val VIEW by lazy {
+    WalletView(
+        id = WALLET_ID,
+        masterFingerprint = WALLET.masterFingerprint,
+        accountCount = 2,
+        autoNameBase = "Seed Wallet",
+        addressAt = { AccountAddresses.addressAt(XPUB, it) },
+    )
+}
+
 /**
  * Fakes for the app's side of the flow. The pipeline and the key derivation are real: the key comes from the
- * "abandon ... art" wallet, and [keyFor] can hand out a different one.
+ * "abandon ... art" wallet, and [keyFor] can hand out a different one. [wallets] is what the vault holds.
  */
 private class FakePorts(
+    private val wallets: List<WalletView> = listOf(VIEW),
     private val passwordCheck: suspend (CharArray) -> PasswordCheck = { PasswordCheck.Accepted },
     private val keyFor: (Int) -> ByteArray = { WALLET.privateKey(it) },
     private val unreadable: Boolean = false,
 ) : SignFlowPorts {
     private val pipeline = SignPipeline(REGISTRY)
-    private val view = WalletView(WALLET.masterFingerprint, accountCount = 2, autoNameBase = "Seed Wallet") {
-        AccountAddresses.addressAt(XPUB, it)
-    }
 
     val keysHandedOut = mutableListOf<ByteArray>()
+    val keyWalletIds = mutableListOf<String>()
     var keyRequests = 0
     var signCalls = 0
 
-    override suspend fun prepare(request: EthSignRequest): Prepared = pipeline.prepare(request, view)
+    override suspend fun wallets(): List<WalletView> = wallets
 
-    override suspend fun privateKey(accountIndex: Int): ByteArray {
+    override suspend fun prepare(walletId: String, request: EthSignRequest): Prepared {
+        val view = wallets.firstOrNull { it.id == walletId } ?: throw WalletUnavailable()
+        return pipeline.prepare(request, view)
+    }
+
+    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray {
         keyRequests++
+        keyWalletIds += walletId
         if (unreadable) throw WalletUnavailable()
         return keyFor(accountIndex).also { keysHandedOut += it }
     }
@@ -88,9 +110,26 @@ private class FakePorts(
 private fun messageRequest(
     signData: ByteArray = "Sign in to Lensly".toByteArray(),
     requestId: ByteArray? = REQUEST_ID,
-): UR = UR("eth-sign-request", requestCbor(signData, requestId))
+): UR = UR("eth-sign-request", requestCbor(signData, requestId, dataType = 3))
 
-private fun requestCbor(signData: ByteArray, requestId: ByteArray?): ByteArray {
+/** A ur:eth-sign-request for a typed transaction on account 0, the way a wallet sends it. */
+private fun transactionRequest(data: String): UR {
+    val tx = TransactionEncoder.encode(
+        RawTransaction.createTransaction(
+            MONAD_TESTNET,
+            BigInteger.valueOf(7),
+            BigInteger.valueOf(21_000),
+            RECIPIENT,
+            BigInteger.ZERO,
+            data,
+            BigInteger.valueOf(1_500_000_000L),
+            BigInteger.valueOf(30_000_000_000L),
+        ),
+    )
+    return UR("eth-sign-request", requestCbor(tx, REQUEST_ID, dataType = 4))
+}
+
+private fun requestCbor(signData: ByteArray, requestId: ByteArray?, dataType: Long): ByteArray {
     val steps = listOf(44L to true, 60L to true, 0L to true, 0L to false, 0L to false)
     val keypath = Cbor.Tagged(
         304,
@@ -104,7 +143,7 @@ private fun requestCbor(signData: ByteArray, requestId: ByteArray?): ByteArray {
     val fields = buildList<Pair<Cbor, Cbor>> {
         requestId?.let { add(Cbor.Uint(1) to Cbor.Tagged(37, Cbor.Bytes(it))) }
         add(Cbor.Uint(2) to Cbor.Bytes(signData))
-        add(Cbor.Uint(3) to Cbor.Uint(3))
+        add(Cbor.Uint(3) to Cbor.Uint(dataType))
         add(Cbor.Uint(4) to Cbor.Uint(MONAD_TESTNET))
         add(Cbor.Uint(5) to keypath)
     }
@@ -149,7 +188,7 @@ class SignFlowTest {
 
     @Test
     fun aCompleteRequestReachesTheReview() {
-        val review = reviewOf(SignFlow(FakePorts())).ready.review
+        val review = reviewOf(SignFlow(FakePorts(), WALLET_ID)).ready.review
         assertEquals(ART_ADDRESS, review.fromAddress)
         assertEquals(MONAD_TESTNET, review.chainId)
         assertEquals("Sign message", review.function)
@@ -157,7 +196,7 @@ class SignFlowTest {
 
     @Test
     fun anAnimatedRequestShowsProgressUntilItIsComplete() {
-        val flow = SignFlow(FakePorts())
+        val flow = SignFlow(FakePorts(), WALLET_ID)
         val frames = framesOf(messageRequest(signData = ByteArray(300) { 9 }), FRAGMENT)
         runBlocking { flow.onScanned(frames.first()) }
         val partway = assertIs<SignStep.Scanning>(flow.state.value)
@@ -170,7 +209,7 @@ class SignFlowTest {
 
     @Test
     fun aDifferentKindOfCodeIsRefusedAsUnsupported() {
-        val flow = SignFlow(FakePorts())
+        val flow = SignFlow(FakePorts(), WALLET_ID)
         val otherCode = PairingExport.urParts(XPUB, WALLET.masterFingerprint, "Lensly").single()
         runBlocking { flow.onScanned(otherCode) }
         assertEquals(SignStep.Refused("Unsupported code"), flow.state.value)
@@ -178,21 +217,21 @@ class SignFlowTest {
 
     @Test
     fun aRequestWithoutAnIdIsRefused() {
-        val flow = SignFlow(FakePorts())
+        val flow = SignFlow(FakePorts(), WALLET_ID)
         scan(flow, framesOf(messageRequest(requestId = null), FRAGMENT))
         assertEquals(SignStep.Refused("Request has no ID"), flow.state.value)
     }
 
     @Test
     fun aCodeThatIsNotPartOfTheRequestKeepsScanning() {
-        val flow = SignFlow(FakePorts())
+        val flow = SignFlow(FakePorts(), WALLET_ID)
         runBlocking { flow.onScanned("https://example.com") }
         assertEquals(null, assertIs<SignStep.Scanning>(flow.state.value).progress)
     }
 
     @Test
     fun aPartThatDeclaresTooManyPartsIsRefusedWithItsReason() {
-        val flow = SignFlow(FakePorts())
+        val flow = SignFlow(FakePorts(), WALLET_ID)
         val declared = "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/aa"
         runBlocking { flow.onScanned(declared) }
         assertEquals(
@@ -203,7 +242,7 @@ class SignFlowTest {
 
     @Test
     fun aRequestLargerThan64KiBIsRefusedBeforeItCompletes() {
-        val flow = SignFlow(FakePorts())
+        val flow = SignFlow(FakePorts(), WALLET_ID)
         val read = scan(flow, framesOf(messageRequest(signData = ByteArray(70 * 1024) { 1 }), FRAGMENT))
         assertEquals("The request is larger than 64 KiB.", assertIs<SignStep.Refused>(flow.state.value).reason)
         assertTrue(read < 300, "refused only after $read frames, so the scan did not stop early")
@@ -213,7 +252,7 @@ class SignFlowTest {
     fun aWrongPasswordLeavesTheConfirmationWithNothingSigned() {
         val password = "wrong pass".toCharArray()
         val ports = FakePorts(passwordCheck = { PasswordCheck.Rejected })
-        val flow = SignFlow(ports)
+        val flow = SignFlow(ports, WALLET_ID)
         val review = reviewOf(flow)
         flow.approve()
 
@@ -228,9 +267,9 @@ class SignFlowTest {
     }
 
     @Test
-    fun aRightPasswordSignsAndEmitsTheSignatureFrames() {
+    fun aRightPasswordSignsWithTheReviewedWalletAndEmitsTheSignatureFrames() {
         val ports = FakePorts()
-        val flow = SignFlow(ports)
+        val flow = SignFlow(ports, WALLET_ID)
         reviewOf(flow)
         flow.approve()
 
@@ -240,13 +279,14 @@ class SignFlowTest {
         val fields = responseFields(signature.parts)
         assertContentEquals(REQUEST_ID, ((fields.getValue(1L) as Cbor.Tagged).value as Cbor.Bytes).value)
         assertEquals(1, ports.signCalls)
+        assertEquals(listOf(WALLET_ID), ports.keyWalletIds)
         assertAllZero(ports.keysHandedOut)
     }
 
     @Test
     fun aKeyThatDoesNotControlTheReviewedAddressIsRefusedAndZeroed() {
         val ports = FakePorts(keyFor = { WALLET.privateKey(1) })
-        val flow = SignFlow(ports)
+        val flow = SignFlow(ports, WALLET_ID)
         reviewOf(flow)
         flow.approve()
 
@@ -260,7 +300,7 @@ class SignFlowTest {
     @Test
     fun anUnavailableVaultRefusesWithoutLoadingAKey() {
         val ports = FakePorts(passwordCheck = { PasswordCheck.Unavailable })
-        val flow = SignFlow(ports)
+        val flow = SignFlow(ports, WALLET_ID)
         reviewOf(flow)
         flow.approve()
 
@@ -273,7 +313,7 @@ class SignFlowTest {
     @Test
     fun aWalletThatCannotBeReadRefusesBeforeSigning() {
         val ports = FakePorts(unreadable = true)
-        val flow = SignFlow(ports)
+        val flow = SignFlow(ports, WALLET_ID)
         reviewOf(flow)
         flow.approve()
 
@@ -285,7 +325,7 @@ class SignFlowTest {
 
     @Test
     fun backFromTheConfirmationReturnsToTheReviewAndBackAgainLeaves() {
-        val flow = SignFlow(FakePorts())
+        val flow = SignFlow(FakePorts(), WALLET_ID)
         val review = reviewOf(flow)
         flow.approve()
 
@@ -300,7 +340,7 @@ class SignFlowTest {
     fun leavingWhilePasswordIsCheckedDiscardsTheSignature() {
         val answer = CompletableDeferred<PasswordCheck>()
         val ports = FakePorts(passwordCheck = { answer.await() })
-        val flow = SignFlow(ports)
+        val flow = SignFlow(ports, WALLET_ID)
         reviewOf(flow)
         flow.approve()
 
@@ -316,5 +356,106 @@ class SignFlowTest {
         assertEquals(SignStep.Closed, flow.state.value)
         assertEquals(0, ports.keyRequests)
         assertEquals(0, ports.signCalls)
+    }
+
+    @Test
+    fun aGlobalScanReviewsTheWalletTheRequestIsFor() {
+        val other = WalletView(
+            id = OTHER_ID,
+            masterFingerprint = WALLET.masterFingerprint xor 1,
+            accountCount = 1,
+            autoNameBase = "Other",
+            addressAt = { AccountAddresses.addressAt(XPUB, it) },
+        )
+        val ports = FakePorts(wallets = listOf(other, VIEW))
+
+        val review = reviewOf(SignFlow(ports, walletId = null))
+
+        assertEquals(WALLET_ID, review.ready.walletId)
+        assertEquals(ART_ADDRESS, review.ready.review.fromAddress)
+    }
+
+    @Test
+    fun aGlobalScanSignsWithTheKeyOfTheWalletItFound() {
+        val ports = FakePorts()
+        val flow = SignFlow(ports, walletId = null)
+        reviewOf(flow)
+        flow.approve()
+
+        runBlocking { flow.confirm("right pass".toCharArray()) }
+
+        assertIs<SignStep.Signature>(flow.state.value)
+        assertEquals(listOf(WALLET_ID), ports.keyWalletIds)
+        assertEquals(1, ports.signCalls)
+    }
+
+    @Test
+    fun aGlobalScanWithNoMatchingWalletSaysSoAndScansAgain() {
+        val other = WalletView(
+            id = OTHER_ID,
+            masterFingerprint = WALLET.masterFingerprint xor 1,
+            accountCount = 1,
+            autoNameBase = "Other",
+            addressAt = { AccountAddresses.addressAt(XPUB, it) },
+        )
+        val flow = SignFlow(FakePorts(wallets = listOf(other)), walletId = null)
+
+        scan(flow, framesOf(messageRequest(), FRAGMENT))
+        val unmatched = assertIs<SignStep.NoMatchingWallet>(flow.state.value)
+        assertEquals(false, unmatched.several)
+        assertEquals(WALLET.masterFingerprint, unmatched.request.sourceFingerprint)
+
+        flow.scanAgain()
+        assertEquals(null, assertIs<SignStep.Scanning>(flow.state.value).progress)
+    }
+
+    @Test
+    fun aGlobalScanInAnEmptyVaultHasNoMatch() {
+        val flow = SignFlow(FakePorts(wallets = emptyList()), walletId = null)
+
+        scan(flow, framesOf(messageRequest(), FRAGMENT))
+
+        assertEquals(false, assertIs<SignStep.NoMatchingWallet>(flow.state.value).several)
+    }
+
+    @Test
+    fun aGlobalScanRefusesToChooseBetweenTwoWalletsForTheSameRequest() {
+        val copy = WalletView(
+            id = OTHER_ID,
+            masterFingerprint = WALLET.masterFingerprint,
+            accountCount = 2,
+            autoNameBase = "Copy",
+            addressAt = { AccountAddresses.addressAt(XPUB, it) },
+        )
+        val ports = FakePorts(wallets = listOf(VIEW, copy))
+        val flow = SignFlow(ports, walletId = null)
+
+        scan(flow, framesOf(messageRequest(), FRAGMENT))
+
+        assertEquals(true, assertIs<SignStep.NoMatchingWallet>(flow.state.value).several)
+        assertEquals(0, ports.keyRequests)
+    }
+
+    @Test
+    fun scanAgainLeavesAnyOtherStepAlone() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        val review = reviewOf(flow)
+
+        flow.scanAgain()
+
+        assertEquals(review, flow.state.value)
+    }
+
+    @Test
+    fun anUndecodableCallIsRefusedAndKeepsItsDetails() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+
+        // balanceOf(address), which Lensly does not decode. It is refused, and the refusal keeps the whole call.
+        val data = "0x70a08231" + "0".repeat(24) + RECIPIENT.removePrefix("0x").lowercase()
+        scan(flow, framesOf(transactionRequest(data), FRAGMENT))
+
+        val refused = assertIs<SignStep.Refused>(flow.state.value)
+        assertEquals("Unknown contract call", refused.reason)
+        assertEquals("70a08231", assertNotNull(refused.call).selector)
     }
 }

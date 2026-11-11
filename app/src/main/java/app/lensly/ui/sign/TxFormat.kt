@@ -1,9 +1,13 @@
 package app.lensly.ui.sign
 
 import app.lensly.core.registry.Amounts
+import app.lensly.core.ur.PathStep
 import java.math.BigInteger
 
 private const val ASSUMED_DECIMALS = 18
+
+/** The text of a request field the wallet left out. */
+const val NOT_STATED = "Not stated"
 
 /**
  * The note under an unknown chain's native amount: [wei] read with 18 decimals, labelled as an assumption. The
@@ -30,6 +34,19 @@ private fun assumedEighteen(wei: BigInteger): String {
  * wraps only at the spaces, so no group is cut in half.
  */
 internal fun groupAddress(address: String): String = address.chunked(4).joinToString(" ")
+
+/**
+ * Splits hexadecimal [hex] (no 0x prefix) into groups of [size] digits separated by spaces. Every digit is kept, and text
+ * wraps only at the spaces.
+ */
+internal fun groupHex(hex: String, size: Int = 8): String = hex.chunked(size).joinToString(" ")
+
+/** A master fingerprint as 8 upper-case hex digits, or [NOT_STATED] when the request does not name one. */
+internal fun fingerprintText(fingerprint: Int?): String = fingerprint?.let { "%08X".format(it) } ?: NOT_STATED
+
+/** A derivation path in the usual notation, such as m/44'/60'/0'/0/0. */
+internal fun pathText(path: List<PathStep>): String =
+    "m" + path.joinToString("") { step -> "/${step.index}" + if (step.hardened) "'" else "" }
 
 private val EVM_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
 
