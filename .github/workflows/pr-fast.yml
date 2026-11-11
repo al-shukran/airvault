@@ -21,6 +21,7 @@ jobs:
       pull-requests: read # dorny/paths-filter lists PR files through the API
     outputs:
       partitions: ${{ steps.filter.outputs.changes }}
+      dependencies: ${{ steps.deps.outputs.dependencies }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -111,6 +112,20 @@ jobs:
               - 'gradle.properties'
               - 'settings.gradle.kts'
 
+      # Guideline 1.8: dependency review runs on PRs touching dependency files. Kept in its
+      # own step so the filter name never reaches the partition matrix.
+      - id: deps
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            dependencies:
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'tools/*/build.gradle.kts'
+              - 'gradle/libs.versions.toml'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+
   test:
     needs: changes
     if: needs.changes.result == 'success' && needs.changes.outputs.partitions != '[]'
@@ -156,6 +171,8 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: false # no pull-requests: write
 
   dependency_review:
+    needs: changes
+    if: needs.changes.outputs.dependencies == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -197,11 +214,16 @@ jobs:
         run: |
           printf 'changes=%s test=%s secrets=%s dependency_review=%s test_network=%s\n' \
             "$CHANGES" "$TEST" "$SECRETS" "$DEPENDENCY_REVIEW" "$TEST_NETWORK"
-          # test is skipped when no partition changed; that is a pass.
+          # test is skipped when no partition changed, and dependency review is skipped when
+          # no dependency file changed; both count as a pass.
           case "$TEST" in
             success | skipped) ;;
             *) echo "test partition failed or was cancelled"; exit 1 ;;
           esac
-          for result in "$CHANGES" "$SECRETS" "$DEPENDENCY_REVIEW" "$TEST_NETWORK"; do
+          case "$DEPENDENCY_REVIEW" in
+            success | skipped) ;;
+            *) echo "dependency review failed"; exit 1 ;;
+          esac
+          for result in "$CHANGES" "$SECRETS" "$TEST_NETWORK"; do
             [ "$result" = success ] || { echo "a required job did not succeed"; exit 1; }
           done
