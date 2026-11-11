@@ -71,12 +71,12 @@ class FailureStoreTest {
         return payload + macOf(key, payload)
     }
 
-    /** Wraps a keystore so that its key deletion fails, which is what a power cut between the write and the delete looks like. */
-    private class CrashBeforeDelete(private val inner: KeystoreBackend) : KeystoreBackend by inner {
+    /** Wraps a keystore so that its key deletion fails, which is what a Keystore error after the write looks like. */
+    private class DeleteFails(private val inner: KeystoreBackend) : KeystoreBackend by inner {
         var armed = false
 
         override fun deleteFailureMacKeysExcept(keepSeq: Long?) {
-            if (armed) throw IllegalStateException("power cut before the old key was deleted")
+            if (armed) throw GeneralSecurityException("the old key could not be deleted")
             inner.deleteFailureMacKeysExcept(keepSeq)
         }
     }
@@ -509,23 +509,32 @@ class FailureStoreTest {
     }
 
     @Test
-    fun crashBetweenTheWriteAndTheDeleteRecoversToTheNewState() {
+    fun aFailedKeyDeleteDoesNotFailTheSaveAndTheNextSaveRetriesIt() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         open(dir).initialize(clock)
-        val crashing = CrashBeforeDelete(keys)
-        val store = FailureStore(dir, crashing)
+        val deleting = DeleteFails(keys)
+        val store = FailureStore(dir, deleting)
         val previous = store.load(clock)
 
-        crashing.armed = true
-        assertFailsWith<IllegalStateException> { store.recordFailure(previous, clock) }
-        // Both copies now name the new state, and the key of the state before it still exists.
+        // The delete fails after both copies carry the new state. The save stands, and the old key is still there.
+        deleting.armed = true
+        val saved = store.recordFailure(previous, clock)
+        assertEquals(2L, saved.seq)
         assertEquals(2, keys.failureMacKeyCount())
 
-        FailureStore.forget(dir)
-        val recovered = open(dir).load(clock)
-        assertEquals(1, recovered.failures)
-        assertEquals(2L, recovered.seq)
+        // A new store, as each unlock builds one, tries the deletion again on its next save even though it cannot make its key.
+        deleting.armed = false
+        val refusing = object : KeystoreBackend by deleting {
+            override fun createFailureMacKey(seq: Long): SecretKey = throw GeneralSecurityException("refused")
+        }
+        assertFailsWith<VaultException> { FailureStore(dir, refusing).recordFailure(saved, clock) }
+        assertEquals(1, keys.failureMacKeyCount())
+
+        // With a working Keystore the save goes through and one key is left.
+        val next = open(dir).recordFailure(saved, clock)
+        assertEquals(3L, next.seq)
+        assertEquals(2, next.failures)
         assertEquals(1, keys.failureMacKeyCount())
     }
 
@@ -551,19 +560,19 @@ class FailureStoreTest {
 
     @Test
     fun residualOneStepRollbackWhileThePreviousKeyStillExists() {
-        // This documents the residual risk named in FailureStore: a power cut between the write and the delete, then a restore of
-        // the copies from before the save. The previous key still exists, so that state verifies once, until the next load.
+        // This documents the residual risk named in FailureStore: a delete that fails after the write, then a restore of the
+        // copies from before the save. The previous key still exists, so that state verifies once, until the next load.
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
         val beforeTheSavePrimary = dir.primary().readBytes()
         val beforeTheSaveBackup = dir.backup().readBytes()
-        val crashing = CrashBeforeDelete(keys)
-        val crashingStore = FailureStore(dir, crashing)
+        val deleting = DeleteFails(keys)
+        val crashingStore = FailureStore(dir, deleting)
         val previous = crashingStore.load(clock)
-        crashing.armed = true
-        assertFailsWith<IllegalStateException> { crashingStore.recordFailure(previous, clock) }
+        deleting.armed = true
+        crashingStore.recordFailure(previous, clock)
 
         dir.primary().writeBytes(beforeTheSavePrimary)
         dir.backup().writeBytes(beforeTheSaveBackup)

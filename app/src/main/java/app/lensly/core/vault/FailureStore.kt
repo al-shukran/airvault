@@ -17,7 +17,8 @@ import javax.crypto.SecretKey
  * deletes every other Delay State key. So a copy verifies only while its own key exists. A restored older pair names a key
  * that was deleted, so it counts as tampered: it gets the strictest cap, and a copy that still verifies keeps its own cap
  * (see [tamperedCap]). Tampering never lowers the owner's cap. Within this process, a copy older than the last save is also
- * tampered, even if its key still exists.
+ * tampered, even if its key still exists. A deletion that the Keystore refuses does not fail the save, because the new pair is
+ * already on disk; the next save or load deletes the keys that are left.
  *
  * The cap is part of the MAC-protected payload, so it is read before any unlock and cannot be changed in the file without
  * detection. It lives here rather than in the encrypted vault settings, because the delay applies before the vault can be
@@ -68,7 +69,7 @@ internal class FailureStore(
             // state again under a new sequence number settles both copies and deletes the keys they no longer use.
             if (p.legacy || b.legacy || p.state.seq != b.state.seq) return save(p.state.copy(seq = p.state.seq + 1), clock)
             // Keys left behind by an interrupted save are deleted here.
-            keystore(STATE_UNAVAILABLE) { keys.deleteFailureMacKeysExcept(p.state.seq) }
+            deleteOtherKeys(p.state.seq)
             return p.state
         }
         // A copy verifies when its MAC checks out under its own key and it is not older than this process has seen.
@@ -168,14 +169,31 @@ internal class FailureStore(
      */
     private fun save(state: FailureState, clock: Clock): FailureState {
         dir.mkdirs()
+        // A deletion that failed after an earlier save is tried again here, before this save writes. The pair on disk still
+        // names the sequence before this one, so that key stays.
+        if (PENDING_DELETE.contains(seenKey)) deleteOtherKeys(state.seq - 1)
         val stamped = stamped(state, clock)
         val key = keystore(STATE_UNAVAILABLE) { keys.createFailureMacKey(stamped.seq) }
         val bytes = encode(stamped, key)
         write(primary, bytes)
         write(backup, bytes)
         SEQ_SEEN[seenKey] = stamped.seq
-        keystore(STATE_UNAVAILABLE) { keys.deleteFailureMacKeysExcept(stamped.seq) }
+        deleteOtherKeys(stamped.seq)
         return stamped
+    }
+
+    /**
+     * Deletes every Delay State key except [keepSeq]. The pair on disk names [keepSeq], so the keys that go are not in use. A
+     * Keystore error does not fail the caller, because the new pair is already on disk: the keys that are left are deleted by
+     * the next save or load, which remembers that this deletion is outstanding.
+     */
+    private fun deleteOtherKeys(keepSeq: Long?) {
+        try {
+            keystore(STATE_UNAVAILABLE) { keys.deleteFailureMacKeysExcept(keepSeq) }
+            PENDING_DELETE.remove(seenKey)
+        } catch (e: VaultException) {
+            PENDING_DELETE.add(seenKey)
+        }
     }
 
     /**
@@ -323,9 +341,13 @@ internal class FailureStore(
         /** Highest sequence number this process has written, keyed by vault directory. */
         private val SEQ_SEEN = ConcurrentHashMap<String, Long>()
 
+        /** Vault directories whose last save or load could not delete the Delay State keys it no longer needs. */
+        private val PENDING_DELETE: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
         /** Forgets the in-process sequence number for [dir]. Call this when the vault is wiped. */
         fun forget(dir: File) {
             SEQ_SEEN.remove(dir.absolutePath)
+            PENDING_DELETE.remove(dir.absolutePath)
         }
     }
 }
