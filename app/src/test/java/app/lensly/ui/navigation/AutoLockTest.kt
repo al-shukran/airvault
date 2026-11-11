@@ -88,7 +88,7 @@ class AutoLockTest {
         assertEquals(LenslyRoute.HIDDEN, nav.currentBackStackEntry?.destination?.route)
         assertEquals(0L, holder.unlockEpoch())
 
-        // 10 s later the touch's own two minutes are up.
+        // 20 s later (130 s since the touch) the touch's own two minutes are up.
         compose.mainClock.advanceTimeBy(20_000L)
         compose.mainClock.advanceTimeByFrame()
         assertEquals(LenslyRoute.CAMERA, nav.currentBackStackEntry?.destination?.route)
