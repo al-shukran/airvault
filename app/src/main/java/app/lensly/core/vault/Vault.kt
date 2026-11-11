@@ -250,6 +250,20 @@ class Vault internal constructor(
         wipeVault(layout) { keys.deleteAll() }
     }
 
+    /**
+     * Deletes only the Decoy Vault, from a decoy session: its slot becomes random bytes of the same size again, and its
+     * wallets and records go. The real vault's slot, wallets and records are never touched, so the App Password still
+     * opens it. The Duress Password opens nothing afterwards, exactly as a real wipe leaves no vault behind.
+     *
+     * The decoy's folders stay, refilled with random bytes, so the store's folder count and file shape do not change.
+     *
+     * @throws VaultException if the vault key file cannot be changed, in which case nothing changed.
+     */
+    fun wipeDecoy(session: VaultSession) {
+        require(session.isDecoy) { "Only a decoy session can wipe the Decoy Vault." }
+        removeOwnDecoyLocked(session)
+    }
+
     /** The Keystore capabilities recorded when the vault was created. Without a vault, the device is probed. */
     fun deviceSecurity(): DeviceSecurity {
         if (layout.exists()) {
@@ -305,6 +319,8 @@ class Vault internal constructor(
                     layout.root.mkdirs()
                     FailureStore(layout.root, macKey).initialize(clock)
                     writeAtomically(layout.vaultKey, VaultKeyFile.encode(listOf(realSlot, decoySlot), random))
+                    // The store starts with its full set of wallet folders, so it never shows an empty one.
+                    WalletPad(layout) { hardwareKey }.padTo(WALLET_SLOT_STEP)
                     // The header goes last. Its presence is what makes exists() true, so a crash earlier leaves no vault.
                     val header = VaultHeader(
                         kdf = kdf,
@@ -332,9 +348,16 @@ class Vault internal constructor(
             val opened = checkPasswordLocked(password) ?: return UnlockResult.Rejected
             try {
                 if (opened.legacy) migrateToCurrentLayout(opened.softKey, opened.hardwareKey, opened.vaultKey)
-                val session = VaultSession(layout, opened.vaultKey.copyOf(), isDecoy = opened.role == VaultRole.DECOY)
+                val session = VaultSession(
+                    layout,
+                    opened.vaultKey.copyOf(),
+                    isDecoy = opened.role == VaultRole.DECOY,
+                    pad = WalletPad(layout) { opened.hardwareKey },
+                )
                 // Records written under plain names are renamed, so that the two vaults never share a file name.
                 if (!session.isDecoy) session.migrateLegacyRecordNames()
+                // An older store has one folder per wallet. The first unlock after the upgrade pads it to its full size.
+                session.ensurePadded()
                 return UnlockResult.Unlocked(session)
             } finally {
                 opened.close()
@@ -565,7 +588,7 @@ class Vault internal constructor(
         real: Int,
         populate: (VaultSession) -> Unit,
     ): DuressResult {
-        val decoy = VaultSession(layout, decoyKey.copyOf(), isDecoy = true)
+        val decoy = VaultSession(layout, decoyKey.copyOf(), isDecoy = true, pad = walletPad())
         try {
             populate(decoy)
             if (decoy.listWallets().isEmpty()) {
@@ -631,7 +654,7 @@ class Vault internal constructor(
                 throw VaultException("The vault key file could not be changed.", e)
             }
             // Only the files this key owns go. The real vault's wallets and records are not owned by this key.
-            discard(decoyKey)
+            discard(decoyKey, keepListing = true)
         } finally {
             Arrays.fill(decoyKey, 0)
         }
@@ -771,30 +794,45 @@ class Vault internal constructor(
         return index
     }
 
-    /** Deletes the wallets and vault records that [key] owns. This drops a decoy that was being set up. */
-    private fun discard(key: ByteArray) {
-        layout.wallets.list()?.forEach { id ->
-            if (ownsWallet(layout, key, id)) layout.walletDir(id).deleteRecursively()
-        }
+    /** Deletes the wallets and vault records that [key] owns. This drops a decoy that was being set up, or wipes the decoy. */
+    private fun discard(key: ByteArray, keepListing: Boolean = false) {
+        val owned = layout.wallets.list()?.filter { ownsWallet(layout, key, it) }.orEmpty()
+        // The folders stay, emptied and refilled with random bytes, so the store's folder count never falls.
+        walletPad().release(owned)
         VaultRecordNames.KNOWN.forEach { name ->
-            File(layout.vaultRecords, VaultRecordNames.fileName(key, name)).delete()
+            val file = File(layout.vaultRecords, VaultRecordNames.fileName(key, name))
+            if (!file.isFile) return@forEach
+            // A wipe keeps the name and size of the record file, so the store's file shape does not change.
+            if (keepListing) overwriteWithRandom(file) else file.delete()
         }
     }
 
     /**
      * Deletes what neither key in [keep] owns: wallet folders that hold a key file, and vault record files. A folder without
-     * a key file is still being written, so it is left alone. This is how a dropped Decoy Vault's files go.
+     * a key file is still being written, so it is left alone. This is how a dropped Decoy Vault's files go. A padded store
+     * keeps each dropped folder as an unused slot, so the folder count stays the same.
      */
     private fun purgeUnowned(keep: List<ByteArray>) {
-        layout.wallets.list()?.forEach { id ->
+        val pad = walletPad()
+        val dropped = layout.wallets.list()?.filter { id ->
             val dir = layout.walletDir(id)
-            val hasKeyFile = File(dir, WALLET_KEY_FILE_NAME).isFile
-            if (hasKeyFile && keep.none { ownsWallet(layout, it, id) }) dir.deleteRecursively()
-        }
+            File(dir, WALLET_KEY_FILE_NAME).isFile && keep.none { ownsWallet(layout, it, id) }
+        }.orEmpty()
+        pad.release(dropped)
         val kept = keep.flatMap { key -> VaultRecordNames.KNOWN.map { VaultRecordNames.fileName(key, it) } }.toSet()
         layout.vaultRecords.listFiles()?.forEach { file ->
             if (file.name.endsWith(".bin") && file.name !in kept) file.delete()
         }
+    }
+
+    /** The unused wallet slots of this store. Every session the vault opens shares them. */
+    private fun walletPad(): WalletPad = WalletPad(layout) { keystore(HARDWARE_FAILURE) { keys.hardwareKey() } }
+
+    /** Writes random bytes over [file], keeping its length. Used when a wipe must not change the store's file shape. */
+    private fun overwriteWithRandom(file: File) {
+        val size = file.length().toInt()
+        if (size <= 0) return
+        file.writeBytes(ByteArray(size).also { random.nextBytes(it) })
     }
 
     private fun failureStore(): FailureStore = FailureStore(layout.root, keys.failureMacKey())

@@ -1,5 +1,6 @@
 package app.lensly.ui.flow
 
+import app.lensly.app.EntryGestureHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletStore
 import app.lensly.core.vault.VaultException
@@ -42,27 +43,51 @@ internal class DeleteWalletPorts(
 }
 
 /**
- * The app's [ShredPorts] for Wipe. The App Password goes through [checkAppPassword], and the erase removes the whole vault.
+ * The app's [ShredPorts] for Wipe. The App Password goes through [checkAppPassword]. A real vault wipe removes the whole
+ * vault and resets the Hidden Entry Gesture; a wipe from the Decoy Vault removes only that decoy and leaves the gesture
+ * and the real vault alone.
  */
-internal class WipeVaultPorts(private val holder: VaultHolder) : ShredPorts {
+internal class WipeVaultPorts(
+    private val holder: VaultHolder,
+    private val gestures: EntryGestureHolder? = null,
+) : ShredPorts {
 
     override suspend fun checkPassword(password: CharArray): PasswordCheck = checkAppPassword(holder, password)
 
     /**
-     * The session closes first, so the Vault Key is zeroed before any file goes. NonCancellable, so a wipe that has started
-     * runs to its end.
+     * A decoy session wipes only its own vault, while its key is still open. A real session locks first, so the Vault Key
+     * is zeroed before any file goes, and then resets the entry gesture. NonCancellable, so a wipe that has started runs
+     * to its end.
      */
     override suspend fun erase(): ShredOutcome = withContext(Dispatchers.IO + NonCancellable) {
-        holder.lock()
-        try {
-            holder.vault.wipe()
-            ShredOutcome.ERASED
-        } catch (e: VaultException) {
-            ShredOutcome.UNAVAILABLE
-        } catch (e: GeneralSecurityException) {
-            ShredOutcome.UNAVAILABLE
-        } catch (e: ProviderException) {
-            ShredOutcome.UNAVAILABLE
+        val session = holder.openSession()
+        if (session != null && session.isDecoy) {
+            val outcome = try {
+                holder.vault.wipeDecoy(session)
+                ShredOutcome.ERASED
+            } catch (e: VaultException) {
+                ShredOutcome.UNAVAILABLE
+            } catch (e: GeneralSecurityException) {
+                ShredOutcome.UNAVAILABLE
+            } catch (e: ProviderException) {
+                ShredOutcome.UNAVAILABLE
+            }
+            holder.lock()
+            outcome
+        } else {
+            holder.lock()
+            try {
+                holder.vault.wipe()
+                // Only a real wipe reaches the real store, so only it may reset the gesture. A decoy never changes it.
+                gestures?.reset()
+                ShredOutcome.ERASED
+            } catch (e: VaultException) {
+                ShredOutcome.UNAVAILABLE
+            } catch (e: GeneralSecurityException) {
+                ShredOutcome.UNAVAILABLE
+            } catch (e: ProviderException) {
+                ShredOutcome.UNAVAILABLE
+            }
         }
     }
 }

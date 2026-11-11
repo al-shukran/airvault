@@ -152,7 +152,7 @@ class VaultDuressTest {
 
         assertEquals(DuressResult.Failed, result)
         assertEquals(emptyList<String>(), real.listWallets())
-        assertFalse(layout.wallets.list().orEmpty().isNotEmpty())
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
         real.close()
         assertRejected(unlockAfterDelay(DURESS))
     }
@@ -267,7 +267,7 @@ class VaultDuressTest {
         val reopened = unlocked(unlockAfterDelay(APP))
         assertEquals(listOf(realWallet), reopened.listWallets())
         reopened.close()
-        assertEquals(1, layout.wallets.list().orEmpty().size)
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
     }
 
     @Test
@@ -337,12 +337,12 @@ class VaultDuressTest {
         val real = unlocked(attempt(APP))
         real.createWallet()
         assertEquals(DuressResult.Enabled, setDuress(real, wallets = 2))
-        assertEquals(3, layout.wallets.list().orEmpty().size)
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
 
         runBlocking { vault.removeDuress(real) }
         real.close()
 
-        assertEquals(1, layout.wallets.list().orEmpty().size)
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
     }
 
     @Test
@@ -358,8 +358,8 @@ class VaultDuressTest {
         val decoy = unlocked(unlockAfterDelay(DURESS_TWO))
         assertEquals(2, decoy.listWallets().size)
         decoy.close()
-        // The real wallet and the new decoy's two wallets. The old decoy's wallet is gone.
-        assertEquals(3, layout.wallets.list().orEmpty().size)
+        // The real wallet and the new decoy's two wallets fill three slots; the rest stay unused.
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
     }
 
     @Test
@@ -475,7 +475,37 @@ class VaultDuressTest {
     }
 
     @Test
-    fun aWipeRemovesTheRealVaultAndTheDecoyVault() {
+    fun aWipeFromTheDecoyLeavesTheRealVaultAndItsWalletsAlone() {
+        createVault()
+        val real = unlocked(attempt(APP))
+        val realWallet = real.createWallet()
+        real.putRecord(realWallet, "secret", byteArrayOf(1, 2, 3))
+        assertEquals(DuressResult.Enabled, setDuress(real))
+        real.close()
+
+        val decoy = unlocked(unlockAfterDelay(DURESS))
+        val decoyWallet = decoy.listWallets().single()
+        decoy.putRecord(decoyWallet, "secret", byteArrayOf(9))
+        val shapeBefore = fileShape()
+
+        vault.wipeDecoy(decoy)
+        decoy.close()
+
+        // The files keep their names and sizes, so the store cannot show that a wipe happened.
+        assertEquals(shapeBefore, fileShape())
+        assertTrue(vault.exists())
+        // The Decoy Vault is gone, as a real wipe would leave it.
+        assertRejected(attempt(DURESS))
+
+        val reopened = unlocked(unlockAfterDelay(APP))
+        assertFalse(reopened.isDecoy)
+        assertEquals(listOf(realWallet), reopened.listWallets())
+        assertContentEquals(byteArrayOf(1, 2, 3), reopened.getRecord(realWallet, "secret"))
+        reopened.close()
+    }
+
+    @Test
+    fun aRealWipeRemovesTheRealVaultAndTheDecoyVault() {
         createVault()
         val real = unlocked(attempt(APP))
         real.createWallet()
@@ -526,6 +556,15 @@ class VaultDuressTest {
     private fun fixedFileSizes(): Map<String, Long> =
         listOf(layout.header, layout.vaultKey, File(layout.root, "failures.bin"), File(layout.root, "failures.bak"))
             .associate { it.name to it.length() }
+
+    /** The number of wallet folders, whether they hold a wallet or are unused. */
+    private fun walletFolders(): Int = layout.wallets.listFiles()?.count { it.isDirectory } ?: 0
+
+    /** Every file under the vault root, by path, with its size. Contents are not read, so a wipe can be compared by shape. */
+    private fun fileShape(): Map<String, Long> =
+        layout.root.walkTopDown()
+            .filter { it.isFile }
+            .associate { it.relativeTo(layout.root).path to it.length() }
 
     /** The v1 `vault.key` and a plain-named settings record, as the app wrote them before Duress Passwords existed. */
     private fun writeLegacyVault(password: String, settings: ByteArray) {
