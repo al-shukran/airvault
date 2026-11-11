@@ -8,6 +8,11 @@ import app.lensly.app.ProfileIcon
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
+import app.lensly.app.WalletReviewRecord
+import app.lensly.app.sign.ReviewKind
+import app.lensly.app.sign.ReviewOutcome
+import app.lensly.app.sign.ReviewRecord
+import app.lensly.ui.home.HomeReadiness
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
@@ -29,6 +34,10 @@ import org.robolectric.annotation.GraphicsMode
 /** Long enough for the Home entrance, the last card's stagger and its fade, to finish before the capture. */
 private const val SETTLE_MS = 1_000L
 
+private const val MINUTE_MS = 60_000L
+private const val HOUR_MS = 3_600_000L
+private const val DAY_MS = 86_400_000L
+
 /**
  * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice), the Wallets list (five),
  * wallet detail (deriving, accounts, adding an account, Single Key), bulk generate (empty, ready, refused, running, failed),
@@ -47,8 +56,11 @@ class HomeScreensScreenshotTest {
     }
 
     @Test
-    fun homeWithTwoWallets() = compose.snapshot("home_two_wallets", settleMs = SETTLE_MS) {
-        home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles)
+    fun homeWithTwoWallets() {
+        val now = System.currentTimeMillis()
+        compose.snapshot("home_two_wallets", settleMs = SETTLE_MS) {
+            home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, records = sampleRecords(now), nowMs = now)
+        }
     }
 
     @Test
@@ -170,6 +182,8 @@ class HomeScreensScreenshotTest {
         wallets: List<WalletMeta>,
         profiles: Map<String, WalletProfile> = emptyMap(),
         debugNotice: String? = null,
+        records: List<WalletReviewRecord> = emptyList(),
+        nowMs: Long = 1_700_000_000_000L,
     ) {
         WalletHomeScreen(
             wallets = wallets,
@@ -184,6 +198,9 @@ class HomeScreensScreenshotTest {
             onStartPairing = {},
             onScan = {},
             debugNotice = debugNotice,
+            records = records,
+            readiness = HomeReadiness(networkCount = 3, tokenCount = 2, lockout = "Default"),
+            nowMs = nowMs,
         )
     }
 
@@ -249,6 +266,72 @@ class HomeScreensScreenshotTest {
             onLock = {},
         )
     }
+
+    private fun sampleRecords(now: Long): List<WalletReviewRecord> = listOf(
+        WalletReviewRecord(
+            walletId = "w2",
+            record = ReviewRecord(
+                atMs = now - 2 * HOUR_MS,
+                outcome = ReviewOutcome.SIGNED,
+                kind = ReviewKind.MESSAGE,
+                chainId = 1L,
+                networkName = "Ethereum",
+                accountIndex = 0,
+                address = null,
+                function = null,
+                to = null,
+                amount = null,
+                tokenContract = null,
+                fee = emptyList(),
+                params = emptyList(),
+                origin = "app.example",
+                refusal = null,
+                dataHash = "11",
+            ),
+        ),
+        WalletReviewRecord(
+            walletId = "w1",
+            record = ReviewRecord(
+                atMs = now - 5 * MINUTE_MS,
+                outcome = ReviewOutcome.SIGNED,
+                kind = ReviewKind.TRANSACTION,
+                chainId = 10_143L,
+                networkName = "Monad Testnet",
+                accountIndex = 0,
+                address = null,
+                function = "transfer",
+                to = null,
+                amount = "0.0100 MON",
+                tokenContract = null,
+                fee = emptyList(),
+                params = emptyList(),
+                origin = null,
+                refusal = null,
+                dataHash = "22",
+            ),
+        ),
+        WalletReviewRecord(
+            walletId = "w2",
+            record = ReviewRecord(
+                atMs = now - DAY_MS,
+                outcome = ReviewOutcome.REFUSED,
+                kind = ReviewKind.TRANSACTION,
+                chainId = 8453L,
+                networkName = "Base",
+                accountIndex = null,
+                address = null,
+                function = null,
+                to = null,
+                amount = null,
+                tokenContract = null,
+                fee = emptyList(),
+                params = emptyList(),
+                origin = null,
+                refusal = "The request named no account.",
+                dataHash = "33",
+            ),
+        ),
+    )
 
     private fun sampleWallets(): List<WalletMeta> = listOf(
         WalletMeta(

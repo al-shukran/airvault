@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
@@ -76,7 +77,8 @@ private val CARD_SHAPE = RoundedCornerShape(LenslyRadius.xl)
  * One wallet as a card: its generated [WalletArt] under a scrim, the type chip and the avatar on top, then the name and the
  * accounts and master fingerprint in mono. [position] is the wallet's place in its list, which sets the avatar when the wallet
  * has no look of its own. A tap calls [onClick]. A long press calls [onLongPress], when set. [compact] makes a short card for
- * the Wallets list and the pairing picker.
+ * the Wallets list and the pairing picker. [width], when set, fixes the card's width instead of filling the row, for the Home
+ * carousel.
  */
 @Composable
 internal fun WalletCard(
@@ -87,6 +89,7 @@ internal fun WalletCard(
     modifier: Modifier = Modifier,
     onLongPress: (() -> Unit)? = null,
     compact: Boolean = false,
+    width: Dp? = null,
 ) {
     val haptics = rememberKeyHaptics()
     val feedback = LocalHapticFeedback.current
@@ -102,7 +105,7 @@ internal fun WalletCard(
     }
     Box(
         modifier = modifier
-            .fillMaxWidth()
+            .then(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth())
             .height(if (compact) COMPACT_CARD_HEIGHT else CARD_HEIGHT)
             .testTag(WALLET_CARD_TAG)
             .pressFeedback(interaction, enabled = true)

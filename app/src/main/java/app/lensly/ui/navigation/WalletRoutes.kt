@@ -52,6 +52,7 @@ import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.ActivityScreen
 import app.lensly.ui.home.BulkGenerateScreen
+import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SoonScreen
@@ -152,8 +153,27 @@ private fun HomeRoute(
 ) {
     val draft = draftOf(navController, entry)
     val session = rememberOpenSession(navController, holder) ?: return
+    val context = LocalContext.current.applicationContext
     val debugNotice = remember { debugKeystoreNotice(holder) }
     val listing = rememberWalletListing(navController, holder, session)
+    var records by remember { mutableStateOf<List<WalletReviewRecord>?>(null) }
+    var readiness by remember { mutableStateOf(HomeReadiness()) }
+    // The readiness chips read again each time Home is shown, so a new catalog package and a saved lockout show.
+    val current by navController.currentBackStackEntryAsState()
+    LaunchedEffect(session) {
+        whileUnlocked(navController, holder) {
+            records = withContext(Dispatchers.IO) { ReviewHistory(session).listAll() }
+        }
+    }
+    LaunchedEffect(current) {
+        val catalog = readCatalog(context)
+        val lockout = readFailureCap(holder)
+        readiness = HomeReadiness(
+            networkCount = catalog.networks.size,
+            tokenCount = catalog.tokens.size,
+            lockout = lockout.label,
+        )
+    }
     // The graph's entry carries the pairing confirmation. It is resolved once, as draftOf does, because the graph may pop.
     val hidden = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
     val notice by hidden.savedStateHandle.getStateFlow<String?>(HiddenRoute.PAIRED_NOTICE, null).collectAsState()
@@ -169,12 +189,19 @@ private fun HomeRoute(
         onEdit = { walletId -> navController.navigate(HiddenRoute.editWallet(walletId)) },
         onPair = { walletId -> navController.navigate(HiddenRoute.export(walletId)) },
         onAdd = { navController.navigate(HiddenRoute.WALLET_START) },
+        onRestore = { navController.navigate(HiddenRoute.RESTORE) },
         onWallets = { navController.navigate(HiddenRoute.WALLETS) },
         onSettings = { navController.navigate(HiddenRoute.SETTINGS) },
         onLock = { leaveHidden(navController, holder) },
         onStartPairing = { navController.navigate(HiddenRoute.PAIR) },
         onScan = { navController.navigate(HiddenRoute.SCAN_ANY) },
         onActivity = { navController.navigate(HiddenRoute.activity()) },
+        records = records,
+        readiness = readiness,
+        onNetworks = { navController.navigate(HiddenRoute.NETWORKS) },
+        onTokens = { navController.navigate(HiddenRoute.TOKENS) },
+        onCatalog = { navController.navigate(HiddenRoute.CATALOG) },
+        onLockout = { navController.navigate(HiddenRoute.FAILURE_CAP) },
         debugNotice = debugNotice,
         notice = notice,
         onNoticeShown = { hidden.savedStateHandle[HiddenRoute.PAIRED_NOTICE] = null },
