@@ -71,7 +71,7 @@ Run commands assume the wrapper at the repo root.
 - **Static:** Android Lint security checks (`./gradlew :app:lintDebug`, `SECURITY` issues as errors). Dependencies: OWASP `org.owasp.dependencycheck` nightly; `actions/dependency-review-action` on PRs touching dependency files. Secrets: `gitleaks` on changed files, allowlisting only `vectors/**`.
 - **Manifest guard:** check the merged manifest, since libraries add permissions during merge. Assert no `android.permission.INTERNET`, no `ACCESS_NETWORK_STATE`, and `android:allowBackup="false"`. Script: `scripts/ci/check-manifest.sh` after `:app:processDebugMainManifest`.
 - **Exact-match vectors:** BIP39 (mnemonic-to-seed), BIP32 (test vectors 1 and 2), EIP-155 and EIP-1559 signing examples, in `app/src/test/resources/vectors/<standard>/`. Each directory has a `README.md` with the source URL and retrieval date.
-- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, and the RLP transaction decoder once it lands. PR lane replays seeds as regular tests (JUnit regression mode). Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `app/src/test/resources/fuzz-regressions/`.
+- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, and the RLP transaction decoder once it lands. PR lane replays seeds as regular tests (JUnit regression mode), in their own JVM through `-PfuzzLane`: Jazzer's agent and Robolectric's sandbox cannot share one. Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `app/src/test/resources/fuzz-regressions/`.
 
 ### 1.9 Accessibility
 

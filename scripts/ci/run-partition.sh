@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Run one PR-lane partition (docs/testing/guideline.md 2.2).
 # Each partition is a single Gradle invocation with one filtered task, so the build cache
-# absorbs unchanged compile work and the log names exactly one selector.
+# absorbs unchanged compile work and the log names exactly one selector. The one exception is
+# core-ur-evm: its fuzz replay runs as a second invocation, because Jazzer and Robolectric cannot
+# share a JVM (see the -PfuzzLane note in app/build.gradle.kts).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -14,7 +16,7 @@ usage: scripts/ci/run-partition.sh <partition>
 partitions:
   core-wallet    :app:testDebugUnitTest --tests 'app.lensly.core.wallet.*'
   core-ur-evm    :app:testDebugUnitTest --tests 'app.lensly.core.ur.*' --tests 'app.lensly.core.evm.*'
-                 (plus app.lensly.fuzz.*: the fuzz targets cover UR/CBOR, eth-sign and RLP)
+                 (then a second invocation, -PfuzzLane: app.lensly.fuzz.* covers UR/CBOR, eth-sign and RLP)
   core-parse     :app:testDebugUnitTest --tests 'app.lensly.core.parse.*'
   core-vault     :app:testDebugUnitTest --tests 'app.lensly.core.vault.*'
   core-registry  :app:testDebugUnitTest --tests 'app.lensly.core.registry.*' --tests 'app.lensly.core.registry.update.*'
@@ -39,13 +41,13 @@ case "$partition" in
         ;;
     core-ur-evm)
         # Gradle ORs repeated --tests filters. evm landed after the 2.2 table was written.
-        # The fuzz targets replay their committed seeds here as ordinary JUnit tests (Jazzer
-        # regression mode, guideline 1.8); they cover UrScanner/UR, CBOR, the eth-sign request
-        # and the unsigned (RLP) transaction decoder, so they belong to this partition.
+        # The fuzz targets replay their committed seeds in their own JVM (Jazzer and Robolectric cannot share
+        # one, see the -PfuzzLane note in app/build.gradle.kts). They cover UrScanner/UR, CBOR, the eth-sign
+        # request and the unsigned (RLP) transaction decoder, so they belong to this partition.
         ./gradlew :app:testDebugUnitTest \
             --tests 'app.lensly.core.ur.*' \
-            --tests 'app.lensly.core.evm.*' \
-            --tests 'app.lensly.fuzz.*'
+            --tests 'app.lensly.core.evm.*'
+        ./gradlew :app:testDebugUnitTest --tests 'app.lensly.fuzz.*' -PfuzzLane
         ;;
     core-parse)
         # Parsing untrusted payloads (DecodeBudget). Paired with core-ur-evm in the workflow.

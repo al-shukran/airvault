@@ -68,8 +68,9 @@ sealed interface WalletSecret {
 }
 
 /**
- * Wallets kept in an open [VaultSession]. Each wallet has a meta and a secret record and a base-name record, and each renamed account has one more. All of them
- * use DataOutputStream and DataInputStream behind a version byte. None is JSON.
+ * Wallets kept in an open [VaultSession]. Each wallet has a meta and a secret record and a base-name record. An account with
+ * a profile has one more, and so does a wallet with a profile. All of them use DataOutputStream and DataInputStream behind
+ * a version byte. None is JSON.
  *
  * - `meta`, version 2: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int).
  *   A Mnemonic wallet then has master fingerprint hex (UTF), account public key and chain code (each an int length,
@@ -77,8 +78,12 @@ sealed interface WalletSecret {
  *   Version 1 is the same record without the kind byte. It is always a Mnemonic wallet, and it still loads.
  * - `secret`, version 1 for a Mnemonic wallet: word count (byte), each word (UTF), has-passphrase (boolean), then the
  *   passphrase (UTF) when present. Version 2 for a Single Key wallet: the 32-byte private key.
- * - `account-<index>`, version 1: the Display Name of one renamed account (UTF). Only a renamed account has one, so an
- *   account that keeps its Auto-Name costs no record. Renaming writes it, and a reset removes it.
+ * - `account-<index>`, version 2: a flags byte, then each field the flags name, in order: the Display Name (UTF), the colour
+ *   and the icon (one byte each, a code from [ProfileColour] or [ProfileIcon]), the label (UTF) and the group (UTF). Version 1
+ *   is the Display Name alone (UTF), as renaming wrote it before profiles, and it still loads. An account whose fields are all
+ *   defaults has no record, so an account that keeps its Auto-Name and its generated look costs nothing.
+ * - `profile`, version 1, for a wallet: a flags byte for the colour, icon and label, then those fields that are set, then the
+ *   group count (byte) and each group (UTF). A wallet whose fields are all defaults has no record.
  * - `base-name`, version 1: the wallet's name at creation (UTF), which its accounts' Auto-Names are built from. It is
  *   written once, at creation, and before the first rename of a wallet that has none. A wallet without one uses its
  *   current name.
@@ -327,27 +332,55 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * The Display Name of account [index] of wallet [id], or null when the account keeps its Auto-Name. A record that
-     * cannot be read counts as no name, so the account shows its Auto-Name.
+     * The profile of account [index] of wallet [id]: its Display Name, colour, icon, label and group. A null field is the
+     * default. An account with no record, or with a record that cannot be read, has an empty profile and shows its defaults.
      */
-    fun accountName(id: String, index: Int): String? {
-        val bytes = session.getRecord(id, WalletRecords.accountRecord(index)) ?: return null
+    fun accountProfile(id: String, index: Int): AccountProfile {
+        val bytes = session.getRecord(id, WalletRecords.accountRecord(index)) ?: return AccountProfile()
         return try {
-            WalletRecords.decodeName(bytes)
+            WalletRecords.decodeAccountProfile(bytes)
         } catch (e: IOException) {
-            null
+            AccountProfile()
         } catch (e: IllegalArgumentException) {
-            null
+            AccountProfile()
         }
     }
 
+    /**
+     * The Display Name of account [index] of wallet [id], or null when the account keeps its Auto-Name. A record that
+     * cannot be read counts as no name, so the account shows its Auto-Name.
+     */
+    fun accountName(id: String, index: Int): String? = accountProfile(id, index).name
+
+    /** The profiles of the accounts 0 until [count] of wallet [id] that have one, by account index. */
+    fun accountProfiles(id: String, count: Int): Map<Int, AccountProfile> =
+        (0 until count)
+            .mapNotNull { index -> accountProfile(id, index).takeUnless { it.isEmpty }?.let { index to it } }
+            .toMap()
+
     /** The Display Names of the accounts 0 until [count] of wallet [id] that have one, by account index. */
     fun accountNames(id: String, count: Int): Map<Int, String> =
-        (0 until count).mapNotNull { index -> accountName(id, index)?.let { index to it } }.toMap()
+        accountProfiles(id, count).mapNotNull { (index, profile) -> profile.name?.let { index to it } }.toMap()
 
     /**
-     * Gives account [index] of wallet [id] the Display Name [name], trimmed. The account's address and every other account
-     * stay as they are.
+     * Saves the whole profile of account [index] of wallet [id], in one record: its Display Name, colour, icon, label and
+     * group. A null field is the default, and an empty profile removes the record. The account's address and every other
+     * account stay as they are.
+     *
+     * @throws IllegalArgumentException if the name, label or group is not valid, or the wallet has no account [index].
+     * Nothing is saved then.
+     */
+    fun saveAccountProfile(id: String, index: Int, profile: AccountProfile) {
+        val clean = profile.checked()
+        synchronized(session) {
+            requireAccount(id, index)
+            writeAccountProfile(id, index, clean)
+        }
+    }
+
+    /**
+     * Gives account [index] of wallet [id] the Display Name [name], trimmed. Its colour, icon, label and group are kept. The
+     * account's address and every other account stay as they are.
      *
      * @throws IllegalArgumentException if [name] is not a valid Display Name, or the wallet has no account [index].
      */
@@ -355,26 +388,27 @@ class WalletStore(private val session: VaultSession) {
         val clean = displayNameOf(name)
         synchronized(session) {
             requireAccount(id, index)
-            session.putRecord(id, WalletRecords.accountRecord(index), WalletRecords.encodeName(clean))
+            writeAccountProfile(id, index, accountProfile(id, index).copy(name = clean))
         }
     }
 
     /**
-     * Gives account [index] of wallet [id] its default label back. Its profile record is removed, so the account is as it
-     * was before it was renamed.
+     * Gives account [index] of wallet [id] its Auto-Name back. Its colour, icon, label and group are kept. The record is
+     * removed once nothing else is left in it, so an account with no other data is as it was before it was renamed.
      *
      * @throws IllegalArgumentException if the wallet has no account [index].
      */
     fun resetAccountName(id: String, index: Int) {
         synchronized(session) {
             requireAccount(id, index)
-            session.deleteRecord(id, WalletRecords.accountRecord(index))
+            writeAccountProfile(id, index, accountProfile(id, index).copy(name = null))
         }
     }
 
     /**
      * Batch Rename: gives each account in [indices] of wallet [id] the Display Name "<[base]> <index>", built as an Auto-Name
-     * is, in one atomic write. The other accounts keep what they had. [base] is trimmed first.
+     * is, in one atomic write. The other accounts keep what they had, and the style of the renamed ones is kept too. [base]
+     * is trimmed first.
      *
      * @throws IllegalArgumentException if [indices] is empty, [base] is not a valid batch base for them (see
      * [isValidBatchBase]), or an index is not an account of the wallet. Nothing is saved then.
@@ -387,25 +421,105 @@ class WalletStore(private val session: VaultSession) {
         }
         synchronized(session) {
             requireAccounts(id, accounts)
-            val puts = accounts.associate { index ->
-                WalletRecords.accountRecord(index) to WalletRecords.encodeName(autoAccountName(clean, index))
+            val (puts, deletes) = batchWrites(id, accounts) { index, profile ->
+                profile.copy(name = autoAccountName(clean, index))
             }
-            session.putRecords(id, puts, deletes = emptyList())
+            session.putRecords(id, puts, deletes)
         }
     }
 
     /**
-     * Batch reset: gives each account in [indices] of wallet [id] its Auto-Name back. Their records are removed in one atomic
-     * write, and the other accounts keep what they had.
+     * Batch reset: gives each account in [indices] of wallet [id] its Auto-Name back, in one atomic write. The other accounts
+     * keep what they had, and the style of the reset ones is kept too. A record that holds nothing else is removed.
      *
-     * @throws IllegalArgumentException if [indices] is empty or an index is not an account of the wallet. Nothing is removed then.
+     * @throws IllegalArgumentException if [indices] is empty or an index is not an account of the wallet. Nothing is changed.
      */
     fun resetAccountNames(id: String, indices: Collection<Int>) {
         val accounts = selectedAccounts(indices)
         synchronized(session) {
             requireAccounts(id, accounts)
-            session.putRecords(id, puts = emptyMap(), deletes = accounts.map { WalletRecords.accountRecord(it) })
+            val (puts, deletes) = batchWrites(id, accounts) { _, profile -> profile.copy(name = null) }
+            session.putRecords(id, puts, deletes)
         }
+    }
+
+    /**
+     * Batch styling: applies [changes], in order, to each account in [indices] of wallet [id], in one atomic write. Each account
+     * keeps its Display Name, and every part of its style that no change touches.
+     *
+     * @throws IllegalArgumentException if [indices] or [changes] is empty, a label or group is not valid, or an index is not an
+     * account of the wallet. Nothing is saved then.
+     */
+    fun changeAccountStyles(id: String, indices: Collection<Int>, changes: List<StyleChange>) {
+        val accounts = selectedAccounts(indices)
+        require(changes.isNotEmpty()) { "Choose at least one change." }
+        val checked = changes.map { it.checked() }
+        synchronized(session) {
+            requireAccounts(id, accounts)
+            val (puts, deletes) = batchWrites(id, accounts) { _, profile -> profile.applying(checked) }
+            session.putRecords(id, puts, deletes)
+        }
+    }
+
+    /** The profile of wallet [id]: its colour, icon, label and groups. Empty when it has none or its record cannot be read. */
+    fun walletProfile(id: String): WalletProfile {
+        val bytes = session.getRecord(id, WalletRecords.PROFILE) ?: return WalletProfile()
+        return try {
+            WalletRecords.decodeWalletProfile(bytes)
+        } catch (e: IOException) {
+            WalletProfile()
+        } catch (e: IllegalArgumentException) {
+            WalletProfile()
+        }
+    }
+
+    /**
+     * Saves the profile of wallet [id]. Its name is not part of it, so [renameWallet] still changes the name and the accounts
+     * keep theirs. An empty profile removes the record.
+     *
+     * @throws IllegalArgumentException if a label or group is not valid, there are more than [WALLET_MAX_GROUPS] groups, or the
+     * wallet does not exist. Nothing is saved then.
+     */
+    fun saveWalletProfile(id: String, profile: WalletProfile) {
+        val clean = profile.checked()
+        synchronized(session) {
+            requireNotNull(meta(id)) { "No wallet $id." }
+            if (clean.isEmpty) {
+                session.deleteRecord(id, WalletRecords.PROFILE)
+            } else {
+                session.putRecord(id, WalletRecords.PROFILE, WalletRecords.encodeWalletProfile(clean))
+            }
+        }
+    }
+
+    /** Stores [profile] as the record of account [index], or removes the record when the profile is empty. */
+    private fun writeAccountProfile(id: String, index: Int, profile: AccountProfile) {
+        val record = WalletRecords.accountRecord(index)
+        if (profile.isEmpty) {
+            session.deleteRecord(id, record)
+        } else {
+            session.putRecord(id, record, WalletRecords.encodeAccountProfile(profile))
+        }
+    }
+
+    /**
+     * The record writes that give each account in [accounts] the profile [change] makes of its current one: a put for a profile
+     * that is still set, and a delete for one that is empty. The caller holds the session lock, and applies the writes with one
+     * [VaultSession.putRecords] call, so they all land or none does.
+     */
+    private inline fun batchWrites(
+        id: String,
+        accounts: List<Int>,
+        change: (index: Int, profile: AccountProfile) -> AccountProfile,
+    ): Pair<Map<String, ByteArray>, List<String>> {
+        val puts = linkedMapOf<String, ByteArray>()
+        val deletes = mutableListOf<String>()
+        accounts.forEach { index ->
+            val profile = change(index, accountProfile(id, index))
+            val record = WalletRecords.accountRecord(index)
+            if (profile.isEmpty) deletes += record else puts[record] = WalletRecords.encodeAccountProfile(profile)
+        }
+        return puts to deletes
     }
 
     private fun requireAccount(id: String, index: Int) {
@@ -462,6 +576,9 @@ internal object WalletRecords {
     /** The record that holds the wallet's name at creation, which its Auto-Names are built from. */
     const val BASE_NAME = "base-name"
 
+    /** The record that holds the wallet's profile: its colour, icon, label and groups. Only a wallet with one has it. */
+    const val PROFILE = "profile"
+
     /** The meta version written before wallet kinds. It has no kind byte, and it is always a Mnemonic wallet. */
     private const val META_VERSION_WITHOUT_KIND = 1
     private const val META_VERSION = 2
@@ -470,6 +587,25 @@ internal object WalletRecords {
     private const val MNEMONIC_SECRET_VERSION = 1
     private const val SINGLE_KEY_SECRET_VERSION = 2
     private const val NAME_VERSION = 1
+
+    /** The version of an account profile that holds more than a name. Version 1 holds the Display Name alone. */
+    private const val ACCOUNT_PROFILE_VERSION = 2
+    private const val WALLET_PROFILE_VERSION = 1
+
+    /** The fields of an account profile, one bit each. The flags byte says which ones follow, in this order. */
+    private const val FIELD_NAME = 1
+    private const val FIELD_COLOUR = 2
+    private const val FIELD_ICON = 4
+    private const val FIELD_LABEL = 8
+    private const val FIELD_GROUP = 16
+    private const val ACCOUNT_FIELDS = FIELD_NAME or FIELD_COLOUR or FIELD_ICON or FIELD_LABEL or FIELD_GROUP
+
+    /** The fields of a wallet profile that have a flag. Its groups always follow, as a count and then the names. */
+    private const val WALLET_FIELD_COLOUR = 1
+    private const val WALLET_FIELD_ICON = 2
+    private const val WALLET_FIELD_LABEL = 4
+    private const val WALLET_FIELDS = WALLET_FIELD_COLOUR or WALLET_FIELD_ICON or WALLET_FIELD_LABEL
+
     private const val MAX_WORDS = 24
     private const val MAX_FIELD_BYTES = 1024
 
@@ -491,6 +627,88 @@ internal object WalletRecords {
             else -> throw IllegalArgumentException("Unknown record version $version.")
         }
     }
+
+    /**
+     * An account profile record: the version byte, a flags byte, then each field the flags name, in the order of the
+     * [FIELD_NAME] bits. A colour and an icon take one byte each, as their codes.
+     */
+    fun encodeAccountProfile(profile: AccountProfile): ByteArray = writeBytes { out ->
+        out.writeByte(ACCOUNT_PROFILE_VERSION)
+        out.writeByte(
+            fieldBit(profile.name != null, FIELD_NAME) or
+                fieldBit(profile.colour != null, FIELD_COLOUR) or
+                fieldBit(profile.icon != null, FIELD_ICON) or
+                fieldBit(profile.label != null, FIELD_LABEL) or
+                fieldBit(profile.group != null, FIELD_GROUP),
+        )
+        profile.name?.let { out.writeUTF(it) }
+        profile.colour?.let { out.writeByte(it.wire) }
+        profile.icon?.let { out.writeByte(it.wire) }
+        profile.label?.let { out.writeUTF(it) }
+        profile.group?.let { out.writeUTF(it) }
+    }
+
+    /**
+     * Reads an account profile. A version 1 record is the Display Name alone, as renaming wrote it before profiles, so it
+     * reads as a name with no style. A colour or icon code this build does not know reads as the default.
+     */
+    fun decodeAccountProfile(bytes: ByteArray): AccountProfile = readBytes(bytes) { input ->
+        when (val version = input.readUnsignedByte()) {
+            NAME_VERSION -> AccountProfile(name = displayNameOf(input.readUTF()))
+            ACCOUNT_PROFILE_VERSION -> {
+                val fields = input.readUnsignedByte()
+                require(fields and ACCOUNT_FIELDS.inv() == 0) { "Unknown profile field." }
+                val name = if (fields has FIELD_NAME) displayNameOf(input.readUTF()) else null
+                val colour = if (fields has FIELD_COLOUR) ProfileColour.fromWire(input.readUnsignedByte()) else null
+                val icon = if (fields has FIELD_ICON) ProfileIcon.fromWire(input.readUnsignedByte()) else null
+                val label = if (fields has FIELD_LABEL) profileTextOf(input.readUTF()) else null
+                val group = if (fields has FIELD_GROUP) profileTextOf(input.readUTF()) else null
+                AccountProfile(name = name, colour = colour, icon = icon, label = label, group = group)
+            }
+            else -> throw IllegalArgumentException("Unknown record version $version.")
+        }
+    }
+
+    /**
+     * A wallet profile record: the version byte, a flags byte for the colour, icon and label, those fields that are set, then
+     * the group count and each group.
+     */
+    fun encodeWalletProfile(profile: WalletProfile): ByteArray {
+        require(profile.groups.size <= WALLET_MAX_GROUPS) { "A wallet sits in at most $WALLET_MAX_GROUPS groups." }
+        return writeBytes { out ->
+            out.writeByte(WALLET_PROFILE_VERSION)
+            out.writeByte(
+                fieldBit(profile.colour != null, WALLET_FIELD_COLOUR) or
+                    fieldBit(profile.icon != null, WALLET_FIELD_ICON) or
+                    fieldBit(profile.label != null, WALLET_FIELD_LABEL),
+            )
+            profile.colour?.let { out.writeByte(it.wire) }
+            profile.icon?.let { out.writeByte(it.wire) }
+            profile.label?.let { out.writeUTF(it) }
+            out.writeByte(profile.groups.size)
+            profile.groups.forEach { out.writeUTF(it) }
+        }
+    }
+
+    fun decodeWalletProfile(bytes: ByteArray): WalletProfile = readBytes(bytes) { input ->
+        val version = input.readUnsignedByte()
+        require(version == WALLET_PROFILE_VERSION) { "Unknown record version $version." }
+        val fields = input.readUnsignedByte()
+        require(fields and WALLET_FIELDS.inv() == 0) { "Unknown profile field." }
+        val colour = if (fields has WALLET_FIELD_COLOUR) ProfileColour.fromWire(input.readUnsignedByte()) else null
+        val icon = if (fields has WALLET_FIELD_ICON) ProfileIcon.fromWire(input.readUnsignedByte()) else null
+        val label = if (fields has WALLET_FIELD_LABEL) profileTextOf(input.readUTF()) else null
+        val count = input.readUnsignedByte()
+        require(count <= WALLET_MAX_GROUPS) { "Too many groups." }
+        val groups = List(count) { profileTextOf(input.readUTF()) }
+        WalletProfile(colour = colour, icon = icon, label = label, groups = groups)
+    }
+
+    /** The flag bit for a field that is set, or 0 for one that is not. */
+    private fun fieldBit(set: Boolean, bit: Int): Int = if (set) bit else 0
+
+    /** True when the flag [bit] is set in this flags byte. */
+    private infix fun Int.has(bit: Int): Boolean = (this and bit) != 0
 
     fun encodeMeta(meta: WalletMeta): ByteArray = writeBytes { out ->
         out.writeByte(META_VERSION)
