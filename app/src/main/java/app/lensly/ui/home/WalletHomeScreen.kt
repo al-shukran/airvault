@@ -19,7 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -39,8 +39,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.lensly.app.VisualIdentity
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
+import app.lensly.app.WalletProfile
+import app.lensly.app.visualIdentity
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.EmptyState
@@ -49,6 +52,7 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
+import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
@@ -63,7 +67,8 @@ import app.lensly.ui.wallet.WalletPillStyle
  * The wallet list: a dot-matrix headline, a count, one row per wallet, and a red add button. When there are no wallets
  * it invites the owner to add one. [onOpen] receives the wallet id. [onSettings] opens the Settings screen. [onLock]
  * locks the vault and leaves the hidden area. [onUpdateCatalog] opens the import of a signed registry package.
- * [debugNotice], when set, shows an inline warning, for example that the keystore is software-only.
+ * [debugNotice], when set, shows an inline warning, for example that the keystore is software-only. [profiles] holds each wallet's
+ * profile by wallet id. A wallet with none shows its generated Visual Identity, which comes from its place in [wallets].
  */
 @Composable
 fun WalletHomeScreen(
@@ -74,6 +79,7 @@ fun WalletHomeScreen(
     onLock: () -> Unit,
     onUpdateCatalog: () -> Unit,
     modifier: Modifier = Modifier,
+    profiles: Map<String, WalletProfile> = emptyMap(),
     debugNotice: String? = null,
 ) {
     val haptics = rememberKeyHaptics()
@@ -140,8 +146,14 @@ fun WalletHomeScreen(
                     // Room under the last row, so the add button never covers it.
                     contentPadding = PaddingValues(bottom = 96.dp),
                 ) {
-                    items(wallets, key = { it.id }) { wallet ->
-                        WalletRow(wallet = wallet, onClick = { onOpen(wallet.id) })
+                    itemsIndexed(wallets, key = { _, wallet -> wallet.id }) { position, wallet ->
+                        val profile = profiles[wallet.id] ?: WalletProfile()
+                        WalletRow(
+                            wallet = wallet,
+                            identity = visualIdentity(profile.colour, profile.icon, position),
+                            label = profile.label,
+                            onClick = { onOpen(wallet.id) },
+                        )
                     }
                 }
             }
@@ -168,11 +180,11 @@ fun WalletHomeScreen(
 }
 
 /**
- * One wallet in the list: its name, its kind as chips, and a chevron. The whole row is the tap target, and it shows the
+ * One wallet in the list: its Visual Identity, its name, its label and its kind as chips, and a chevron. The whole row is the tap target, and it shows the
  * standard ripple. No haptic here, because a press that starts a scroll should not buzz.
  */
 @Composable
-private fun WalletRow(wallet: WalletMeta, onClick: () -> Unit) {
+private fun WalletRow(wallet: WalletMeta, identity: VisualIdentity, label: String?, onClick: () -> Unit) {
     Column {
         Row(
             modifier = Modifier
@@ -181,6 +193,8 @@ private fun WalletRow(wallet: WalletMeta, onClick: () -> Unit) {
                 .padding(vertical = LenslySpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            ProfileAvatar(identity = identity, size = 36.dp)
+            Spacer(Modifier.width(LenslySpacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = wallet.name.uppercase(),
@@ -191,6 +205,7 @@ private fun WalletRow(wallet: WalletMeta, onClick: () -> Unit) {
                 )
                 Spacer(Modifier.height(LenslySpacing.xs))
                 Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
+                    if (label != null) PillChip(text = label)
                     if (wallet.deviceGenerated) PillChip(text = "Device-generated")
                     if (wallet.kind == WalletKind.SINGLE_KEY) {
                         PillChip(text = "Single key")

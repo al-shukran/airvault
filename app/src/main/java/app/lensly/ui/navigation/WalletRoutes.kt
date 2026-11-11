@@ -26,6 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
+import app.lensly.app.AccountProfile
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.RegistryHolder
 import app.lensly.app.SettingsStore
@@ -33,6 +34,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.WalletDraft
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
+import app.lensly.app.WalletProfile
 import app.lensly.app.WalletStore
 import app.lensly.app.export.AccountExport
 import app.lensly.core.registry.update.RegistryUpdate
@@ -119,6 +121,7 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     }
     composable(HiddenRoute.CATALOG) { HiddenBackdrop { RegistryImportRoute(navController, holder) } }
     renameRoutes(navController, holder)
+    profileRoutes(navController, holder)
 }
 
 internal fun walletIdArguments() = listOf(navArgument(HiddenRoute.WALLET_ID_ARG) { type = NavType.StringType })
@@ -135,18 +138,23 @@ private fun HomeRoute(
     val session = rememberOpenSession(navController, holder) ?: return
     val debugNotice = remember { debugKeystoreNotice(holder) }
     var wallets by remember { mutableStateOf<List<WalletMeta>>(emptyList()) }
+    var profiles by remember { mutableStateOf<Map<String, WalletProfile>>(emptyMap()) }
 
     // The draft only lives while a create or restore flow runs. Arriving here ends the flow.
     LaunchedEffect(Unit) { draft.wipe() }
     LaunchedEffect(session) {
         whileUnlocked(navController, holder) {
-            wallets = withContext(Dispatchers.IO) { WalletStore(session).list() }
+            val store = WalletStore(session)
+            val listed = withContext(Dispatchers.IO) { store.list() }
+            profiles = withContext(Dispatchers.IO) { listed.associate { it.id to store.walletProfile(it.id) } }
+            wallets = listed
         }
     }
 
     BackHandler { leaveHidden(navController, holder) }
     WalletHomeScreen(
         wallets = wallets,
+        profiles = profiles,
         onOpen = { walletId -> navController.navigate(HiddenRoute.detail(walletId)) },
         onAdd = { navController.navigate(HiddenRoute.WALLET_START) },
         onSettings = { navController.navigate(HiddenRoute.SETTINGS) },
@@ -459,11 +467,22 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     val scope = rememberCoroutineScope()
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
     var addresses by remember(walletId) { mutableStateOf<List<String>?>(null) }
-    var accountNames by remember(walletId) { mutableStateOf<Map<Int, String>>(emptyMap()) }
+    var profiles by remember(walletId) { mutableStateOf<Map<Int, AccountProfile>>(emptyMap()) }
+    var walletProfile by remember(walletId) { mutableStateOf(WalletProfile()) }
+    var position by remember(walletId) { mutableIntStateOf(0) }
 
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
-            wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
+            val store = WalletStore(session)
+            val meta = withContext(Dispatchers.IO) { store.meta(walletId) }
+            if (meta != null) {
+                // The profile and the place in the list come before the wallet, so the header never shows a default look.
+                walletProfile = withContext(Dispatchers.IO) { store.walletProfile(walletId) }
+                position = withContext(Dispatchers.IO) {
+                    store.list().indexOfFirst { it.id == walletId }.coerceAtLeast(0)
+                }
+            }
+            wallet = meta
         }
     }
     val current = wallet
@@ -471,9 +490,9 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         if (current != null) {
             addresses = null
             whileUnlocked(navController, holder) {
-                // The names come first, so a row never shows a default label that a name replaces.
-                accountNames = withContext(Dispatchers.IO) {
-                    WalletStore(session).accountNames(walletId, current.accountCount)
+                // The profiles come first, so a row never shows a default name or look that a profile replaces.
+                profiles = withContext(Dispatchers.IO) {
+                    WalletStore(session).accountProfiles(walletId, current.accountCount)
                 }
                 addresses = withContext(Dispatchers.IO) {
                     WalletStore(session).addresses(walletId, current.accountCount)
@@ -486,7 +505,9 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     WalletDetailScreen(
         wallet = shown,
         addresses = addresses,
-        accountNames = accountNames,
+        accountProfiles = profiles,
+        walletProfile = walletProfile,
+        walletPosition = position,
         onBack = { navController.popBackStack() },
         onLock = { leaveHidden(navController, holder) },
         onAddAccount = {
@@ -500,18 +521,19 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         onPair = { navController.navigate(HiddenRoute.export(walletId)) },
         onSign = { navController.navigate(HiddenRoute.scan(walletId)) },
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
-        onRenameWallet = { navController.navigate(HiddenRoute.renameWallet(walletId)) },
-        onRenameAccount = { index -> navController.navigate(HiddenRoute.renameAccount(walletId, index)) },
+        onEditWallet = { navController.navigate(HiddenRoute.editWallet(walletId)) },
+        onEditAccount = { index -> navController.navigate(HiddenRoute.editAccount(walletId, index)) },
         onExportAccount = { index -> navController.navigate(HiddenRoute.exportAccount(walletId, index)) },
         onRenameAccounts = { indices -> navController.navigate(HiddenRoute.renameAccounts(walletId, indices)) },
+        onStyleAccounts = { indices -> navController.navigate(HiddenRoute.styleAccounts(walletId, indices)) },
         onResetAccountNames = { indices ->
             scope.launch {
                 whileUnlocked(navController, holder) {
-                    // One write removes the selected names. The names are read again, so the rows show the Auto-Names.
-                    accountNames = withContext(Dispatchers.IO) {
+                    // One write removes the selected names. The profiles are read again, so the rows show the Auto-Names.
+                    profiles = withContext(Dispatchers.IO) {
                         val store = WalletStore(session)
                         store.resetAccountNames(walletId, indices)
-                        store.accountNames(walletId, shown.accountCount)
+                        store.accountProfiles(walletId, shown.accountCount)
                     }
                 }
             }
