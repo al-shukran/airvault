@@ -303,8 +303,10 @@ Where the shipped build differs from the text above:
 - **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The app still targets Java 17.
 - **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
 - **`ui` and pixels:** the `ui` partition passes `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly via `verifyRoborazziDebug`.
-- **Dependency graph:** the repository's Dependency graph is off, so `dependency_review` in `pr-fast.yml` and the submission job in `dependency-graph.yml` are gated on the repository variable `DEPENDENCY_GRAPH_ENABLED`. Until a human turns on Dependency graph at https://github.com/heyaibi/lensly/settings/security_analysis and sets `DEPENDENCY_GRAPH_ENABLED=true`, both jobs skip and raise no annotation. No `continue-on-error`: once enabled, a high-severity finding fails `pr-ok`.
+- **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and `dependency_review` in `pr-fast.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/heyaibi/lensly/settings/security_analysis.
 - **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
+- **Fuzz isolation:** Jazzer and Robolectric cannot share a JVM. Running a fuzz target first corrupts the Robolectric sandbox, and later Robolectric tests fail with `NoClassDefFoundError: JazzerInternal`. The fuzz tests therefore sit behind `-PfuzzLane`, which `run-partition.sh`, `fuzz-nightly.sh` and `nightly.yml` each pass in a separate Gradle invocation.
+- **Benchmark lane:** the benchmark variant needs `benchmarkImplementation` so `androidx.benchmark.IsolationActivity` merges into the app APK; without it every run fails with "Unable to resolve activity for androidx.benchmark.IsolationActivity". The lane runs only `app.lensly.benchmark.*`. Baselines need a manual AOT compile on a reference device, because a Gradle run reinstalls and clears the compiled code; the procedure is in `app/src/androidTest/benchmark-baselines/README.md`.
 - **Macrobenchmark:** lives in the separate `:benchmark` module (`com.android.test`). Baselines must be recorded on the reference device.
 - **Cache warm:** `scripts/ci/cache-warm.yml` warms the Gradle cache on pushes to `master` and `phase-1-5`. A cold branch previously hit the 3-minute job cap.
 - **E2E:** the `FrameSource` seam plus `app.lensly.e2e.WalletSignFlowTest` are verified on an API 36 arm64 emulator. The `/run-*` comment commands only work once the workflow exists on the default branch.
@@ -313,6 +315,3 @@ Where the shipped build differs from the text above:
 - **Policy, required check:** `pr-ok` is the required check; `master` and `phase-1-5` are protected and require it, and admins may bypass.
 - **Policy, `/run-fuzz` and `/run-perf`:** `/run-fuzz` runs each Jazzer target for 60 seconds; `/run-perf` runs on the self-hosted `android-ref` runner, not an emulator.
 - **Policy, interactive borders:** interactive input borders use `LenslyOutlineInteractive` (3:1 contrast); `LenslyOutline` stays decorative.
-
-The five policy entries above state agreed target policy for changes still in review. They are not claims that the code has landed yet.
-
