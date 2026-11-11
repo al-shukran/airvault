@@ -69,4 +69,18 @@ class EntryGestureStoreTest {
         assertEquals(setOf(EntryGestureStore.KEY), prefs().all.keys)
         assertEquals(EntryGesture.SWITCH_THEN_SHUTTER_HOLD.storedId, prefs().getInt(EntryGestureStore.KEY, 0))
     }
+
+    @Test
+    fun resetPutsTheDefaultBackAndKeepsTheOtherCameraSettings() {
+        prefs().edit()
+            .putInt(EntryGestureStore.KEY, EntryGesture.THUMBNAIL_HOLD_SWIPE.storedId)
+            .putBoolean("flash", true)
+            .putBoolean("grid", false)
+            .commit()
+
+        assertTrue(EntryGestureStore(prefs()).reset())
+
+        assertEquals(EntryGesture.DEFAULT, EntryGestureStore(prefs()).load())
+        assertEquals(setOf("flash", "grid"), prefs().all.keys)
+    }
 }
