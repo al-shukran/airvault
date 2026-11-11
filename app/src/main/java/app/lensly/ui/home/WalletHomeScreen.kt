@@ -94,6 +94,7 @@ fun WalletHomeScreen(
     var sheetWallet by remember { mutableStateOf<WalletMeta?>(null) }
     Box(modifier = modifier.fillMaxSize().background(LenslyBlack)) {
         Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            HomeTopBar(onSettings = onSettings, onLock = onLock)
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -101,8 +102,6 @@ fun WalletHomeScreen(
             ) {
                 HomeHero(
                     status = statusLine(wallets),
-                    onSettings = onSettings,
-                    onLock = onLock,
                 )
                 Column(modifier = Modifier.padding(horizontal = WALLET_GUTTER)) {
                     val loadedWallets = wallets.orEmpty()

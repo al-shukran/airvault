@@ -66,14 +66,11 @@ private const val ONE_TURN_MS = 8_000
 @Composable
 internal fun HomeHero(
     status: String,
-    onSettings: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val motion = remember(context) { animatorScale(context) }
     val rotation = if (motion == 0f) 0f else turningAperture()
-    val haptics = rememberKeyHaptics()
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -125,23 +122,6 @@ internal fun HomeHero(
                 center = centre,
             )
         }
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = LenslySpacing.xs, end = LenslySpacing.xxs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onSettings, modifier = Modifier.tapHaptic(haptics)) {
-                Icon(imageVector = Icons.Filled.Settings, contentDescription = "Settings", tint = LenslyOnSurface)
-            }
-            IconButton(onClick = onLock, modifier = Modifier.tapHaptic(haptics)) {
-                Icon(
-                    imageVector = Icons.Filled.Lock,
-                    contentDescription = "Lock the vault",
-                    tint = LenslyOnSurface,
-                )
-            }
-        }
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -159,6 +139,33 @@ internal fun HomeHero(
                 text = status,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * The bar above the hero: Settings and Lock, so neither sits over the lens. [onSettings] opens Settings, and [onLock] locks the
+ * vault.
+ */
+@Composable
+internal fun HomeTopBar(onSettings: () -> Unit, onLock: () -> Unit, modifier: Modifier = Modifier) {
+    val haptics = rememberKeyHaptics()
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = WALLET_GUTTER, end = LenslySpacing.xxs, top = LenslySpacing.xxs),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onSettings, modifier = Modifier.tapHaptic(haptics)) {
+            Icon(imageVector = Icons.Filled.Settings, contentDescription = "Settings", tint = LenslyOnSurface)
+        }
+        IconButton(onClick = onLock, modifier = Modifier.tapHaptic(haptics)) {
+            Icon(
+                imageVector = Icons.Filled.Lock,
+                contentDescription = "Lock the vault",
+                tint = LenslyOnSurface,
             )
         }
     }
