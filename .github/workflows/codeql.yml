@@ -128,11 +128,23 @@ jobs:
         if: matrix.languages == 'java-kotlin'
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
-      - name: Initialize CodeQL
+      # java-kotlin is compiled, so it is built by the step below. The other three
+      # languages are interpreted: no build-mode input at all, so CodeQL picks the
+      # mode for them. Passing build-mode: none would be accepted (the action only
+      # rejects an unknown value), but it would send those languages down the
+      # compiled extractor path, trace-command --use-build-mode, for no reason.
+      - name: Initialize CodeQL (compiled)
+        if: matrix.languages == 'java-kotlin'
         uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           languages: ${{ matrix.languages }}
-          build-mode: ${{ matrix.languages == 'java-kotlin' && 'manual' || 'none' }}
+          build-mode: manual
+
+      - name: Initialize CodeQL
+        if: matrix.languages != 'java-kotlin'
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.languages }}
 
       # --no-build-cache is mandatory. With the build cache, compileDebugKotlin is
       # served from cache, kotlinc never runs, and CodeQL extracts nothing
@@ -141,10 +153,14 @@ jobs:
         if: matrix.languages == 'java-kotlin'
         run: ./gradlew :app:compileDebugKotlin :app:compileDebugJavaWithJavac :tools:registry-pack:compileKotlin --no-build-cache
 
+      # The output path is explicit. Left at its default, analyze writes to
+      # "../results" relative to the workspace, which is not runner.temp, and the
+      # collect step below would find nothing and report every language broken.
       - name: Analyze
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: /language:${{ matrix.languages }}
+          output: ${{ runner.temp }}/results
           upload-database: false
 
       # Turns the SARIF into the small files the report job reads: one tab-separated
@@ -163,6 +179,7 @@ jobs:
           # checkout did not happen. Never fatal: the artifact must still upload.
           git rev-parse HEAD > "$out/commit.txt" 2>/dev/null || echo "${GITHUB_SHA:-unknown}" > "$out/commit.txt"
           shopt -s nullglob
+          # The same explicit path the analyze step writes to.
           files=("$RUNNER_TEMP"/results/*.sarif)
           if [ "${#files[@]}" -eq 0 ]; then
             : > "$out/findings.tsv"
