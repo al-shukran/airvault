@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +35,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -188,7 +192,8 @@ internal fun ProfileIconRow(selected: ProfileIcon?, onPick: (ProfileIcon) -> Uni
 /**
  * One text field of a profile editor: its name above, the count of its characters while it takes the keys, and its value in a
  * box. The box is outlined while it takes the keys, and empty text shows [placeholder] in muted type. A tap on the box calls
- * [onFocus], which makes it the field the keyboard types into.
+ * [onFocus], which makes it the field the keyboard types into. A field that takes the keys scrolls into view, so the keyboard
+ * does not cover it.
  */
 @Composable
 internal fun ProfileFieldRow(
@@ -201,7 +206,9 @@ internal fun ProfileFieldRow(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(LenslyRadius.lg)
-    Column(modifier = modifier.fillMaxWidth()) {
+    val scrollIntoView = remember { BringIntoViewRequester() }
+    LaunchedEffect(focused) { if (focused) scrollIntoView.bringIntoView() }
+    Column(modifier = modifier.fillMaxWidth().bringIntoViewRequester(scrollIntoView)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
