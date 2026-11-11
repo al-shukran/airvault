@@ -31,8 +31,16 @@ val SpaceMonoFamily = FontFamily(
     Font(R.font.space_mono_bold, FontWeight.Bold),
 )
 
+// Running text is a clean sans, the face the reference designs use for body copy. It is the system sans
+// (Roboto on Android). Data that must be compared by eye, such as addresses, hashes and amounts, copies
+// SpaceMonoFamily instead.
+val LenslySansFamily: FontFamily = FontFamily.SansSerif
+
 private const val LABEL_TRACKING = 1.5
 
+/**
+ * Type scale. Display and headline use Doto, titles and labels use Space Mono, and body text uses the sans.
+ */
 val LenslyTypography = Typography(
     // Display and headline styles use the dot-matrix face.
     displayLarge = TextStyle(
@@ -100,21 +108,21 @@ val LenslyTypography = Typography(
         letterSpacing = 0.sp,
     ),
     bodyLarge = TextStyle(
-        fontFamily = SpaceMonoFamily,
+        fontFamily = LenslySansFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
         letterSpacing = 0.sp,
     ),
     bodyMedium = TextStyle(
-        fontFamily = SpaceMonoFamily,
+        fontFamily = LenslySansFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp,
         letterSpacing = 0.sp,
     ),
     bodySmall = TextStyle(
-        fontFamily = SpaceMonoFamily,
+        fontFamily = LenslySansFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 16.sp,

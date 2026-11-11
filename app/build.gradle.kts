@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -49,6 +50,26 @@ android {
             pickFirsts += setOf("META-INF/DISCLAIMER")
         }
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric renders Compose screens from the merged resources (fonts, themes).
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+// Screenshot tests write PNGs here, and they are committed. Record with :app:recordRoborazziDebug;
+// check against the committed PNGs with :app:verifyRoborazziDebug.
+roborazzi {
+    outputDir.set(file("src/test/screenshots"))
+}
+
+// Robolectric reads FileDescriptor state through jdk.internal.access, which the JDK does not export to unnamed
+// modules. Export it to the unit-test JVM so Robolectric starts on the JDK 26 this project builds with locally.
+// The export is harmless on JDK 17, which CI uses.
+tasks.withType<Test>().configureEach {
+    jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
 }
 
 dependencies {
@@ -86,6 +107,13 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
+
+    // Compose UI tests on Robolectric, and their screenshots through Roborazzi.
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi.core)
+    testImplementation(libs.roborazzi.compose)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
