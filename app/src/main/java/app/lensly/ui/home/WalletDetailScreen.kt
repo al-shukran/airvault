@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -71,6 +72,7 @@ import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
@@ -112,7 +114,7 @@ private sealed interface DetailSheet {
  *
  * Each account row shows its Display Name, or its Auto-Name, its label, and its full address in groups of four. A tap or a long
  * press on a row opens the account's options: [onExportAccounts], with the one index, and [onEditAccount]. The wallet's options open from
- * the overflow icon or a long press on the header. They hold [onEditWallet], [onBulkGenerate], selection, [onShowSecret] behind a
+ * the overflow icon or a long press on the header. They hold [onEditWallet], [onBulkGenerate], selection, [onHistory], [onShowSecret] behind a
  * warning, and [onDeleteWallet].
  *
  * When any account is in a group, the accounts are listed under the group's name, in name order, with the ungrouped accounts last.
@@ -138,6 +140,7 @@ fun WalletDetailScreen(
     onAddAccount: () -> Unit,
     onBulkGenerate: () -> Unit,
     onShowSecret: () -> Unit,
+    onHistory: () -> Unit,
     onEditWallet: () -> Unit,
     onEditAccount: (Int) -> Unit,
     onExportAccounts: (List<Int>) -> Unit,
@@ -407,6 +410,10 @@ fun WalletDetailScreen(
                 selecting = true
                 selected = emptySet()
             },
+            onHistory = {
+                sheet = null
+                onHistory()
+            },
             onShowSecret = {
                 sheet = null
                 onShowSecret()
@@ -564,11 +571,11 @@ private fun AddAccountRow(onClick: () -> Unit) {
 
 /**
  * A Lensly-styled sheet of options. It closes on a swipe down, a tap outside it, or Back. The content goes in the gutter, with
- * the sheet's own bottom padding.
+ * the sheet's own bottom padding. With [scrollable] the content scrolls when it is taller than the sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OptionsSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun OptionsSheet(onDismiss: () -> Unit, scrollable: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -579,7 +586,8 @@ private fun OptionsSheet(onDismiss: () -> Unit, content: @Composable ColumnScope
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = WALLET_GUTTER)
-                .padding(bottom = LenslySpacing.lg),
+                .padding(bottom = LenslySpacing.lg)
+                .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier),
             content = content,
         )
     }
@@ -675,6 +683,7 @@ private fun WalletOptionsSheet(
     onEdit: () -> Unit,
     onGenerate: () -> Unit,
     onSelect: () -> Unit,
+    onHistory: () -> Unit,
     onShowSecret: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -696,6 +705,7 @@ private fun WalletOptionsSheet(
             if (!singleKey && listed) {
                 SheetOption(icon = Icons.Filled.Check, label = "Select accounts", onClick = onSelect)
             }
+            SheetOption(icon = LenslyIcons.History, label = "History", onClick = onHistory)
             SheetOption(
                 icon = Icons.Filled.Warning,
                 label = secretLabel,

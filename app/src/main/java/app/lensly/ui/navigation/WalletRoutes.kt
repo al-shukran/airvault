@@ -29,6 +29,7 @@ import app.lensly.BuildConfig
 import app.lensly.app.AccountProfile
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.RegistryHolder
+import app.lensly.app.ReviewHistory
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletDraft
@@ -37,6 +38,8 @@ import app.lensly.app.WalletProfile
 import app.lensly.app.WalletStore
 import app.lensly.app.export.AccountExport
 import app.lensly.app.export.AccountExportView
+import app.lensly.app.sign.ReviewRecord
+import app.lensly.core.registry.Registry
 import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
@@ -51,6 +54,7 @@ import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SoonScreen
 import app.lensly.ui.home.WalletDetailScreen
+import app.lensly.ui.home.WalletHistoryScreen
 import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.home.WalletsScreen
 import app.lensly.ui.home.importedState
@@ -124,6 +128,9 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     }
     composable(HiddenRoute.DELETE_WALLET, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DeleteWalletRoute(navController, holder, entry.walletId()) }
+    }
+    composable(HiddenRoute.HISTORY, arguments = walletIdArguments()) { entry ->
+        HiddenBackdrop { HistoryRoute(navController, holder, entry.walletId()) }
     }
     composable(HiddenRoute.CATALOG) { HiddenBackdrop { RegistryImportRoute(navController, holder) } }
     renameRoutes(navController, holder)
@@ -569,6 +576,7 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         },
         onBulkGenerate = { navController.navigate(HiddenRoute.bulk(walletId)) },
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
+        onHistory = { navController.navigate(HiddenRoute.history(walletId)) },
         onEditWallet = { navController.navigate(HiddenRoute.editWallet(walletId)) },
         onEditAccount = { index -> navController.navigate(HiddenRoute.editAccount(walletId, index)) },
         onExportAccounts = { indices -> navController.navigate(HiddenRoute.exportAccounts(walletId, indices)) },
@@ -587,6 +595,35 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
             }
         },
         onDeleteWallet = { navController.navigate(HiddenRoute.deleteWallet(walletId)) },
+    )
+}
+
+/**
+ * HISTORY of wallet [walletId]: its Review Records, newest first, read from the open session. The registry names each network
+ * for its logo.
+ */
+@Composable
+private fun HistoryRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    val context = LocalContext.current.applicationContext
+    var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
+    var records by remember(walletId) { mutableStateOf<List<ReviewRecord>?>(null) }
+    var registry by remember { mutableStateOf<Registry?>(null) }
+    LaunchedEffect(walletId) {
+        whileUnlocked(navController, holder) {
+            wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
+            records = withContext(Dispatchers.IO) { ReviewHistory(session).list(walletId) }
+            registry = withContext(Dispatchers.IO) { RegistryHolder.get(context) }
+        }
+    }
+    val shown = wallet ?: return
+    val list = records ?: return
+    val networks = registry ?: return
+    WalletHistoryScreen(
+        walletName = shown.name,
+        records = list,
+        networkOf = networks::network,
+        onBack = { navController.popBackStack() },
     )
 }
 

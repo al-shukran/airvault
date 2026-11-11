@@ -34,6 +34,8 @@ internal object HiddenRoute {
     const val SHOW_SECRET = "secret/{walletId}"
     // Delete Wallet: the App Password again, a warning with its confirmation, then the shred. Reached from the wallet detail.
     const val DELETE_WALLET = "delete/{walletId}"
+    // History: the Review Records of one wallet, newest first. Reached from the wallet detail's options.
+    const val HISTORY = "history/{walletId}"
     // Profiles: a wallet's name, colour, icon, label and groups, one account's, and the style of a batch of accounts.
     const val EDIT_WALLET = "edit-wallet/{walletId}"
     const val EDIT_ACCOUNT = "edit-account/{walletId}/{index}"
@@ -100,6 +102,8 @@ internal object HiddenRoute {
     fun showSecret(walletId: String): String = "secret/$walletId"
 
     fun deleteWallet(walletId: String): String = "delete/$walletId"
+
+    fun history(walletId: String): String = "history/$walletId"
 
     fun editWallet(walletId: String): String = "edit-wallet/$walletId"
 

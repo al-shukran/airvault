@@ -49,6 +49,16 @@ internal object LenslyIcons {
         )
     }
 
+    /** A clock turned back by an arrow, for the history of a wallet's reviews. */
+    val History: ImageVector by lazy {
+        outline(
+            "History",
+            "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8",
+            "M3 3v5h5",
+            "M12 7v5l4 2",
+        )
+    }
+
     /** An outline glyph: each path is stroked with rounded ends and joins at a 24 dp viewport. */
     private fun outline(name: String, vararg paths: String, strokeWidth: Float = 1.5f): ImageVector {
         val builder = ImageVector.Builder(
