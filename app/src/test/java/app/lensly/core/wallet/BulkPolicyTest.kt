@@ -3,39 +3,49 @@ package app.lensly.core.wallet
 import app.lensly.core.wallet.BulkPolicy.CountCheck
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
 import org.junit.Test
 
 class BulkPolicyTest {
 
     @Test
-    fun theBulkCapDefaultsToOneHundredAndOffersOneThousand() {
-        assertEquals(100, BulkCap.DEFAULT.accounts)
-        assertEquals(listOf(100, 1_000), BulkCap.entries.map { it.accounts })
+    fun theBulkCapDefaultsToFiftyAndOffersTwentyFiftyAndHundred() {
+        assertEquals(50, BulkCap.DEFAULT.accounts)
+        assertEquals(listOf(20, 50, 100), BulkCap.entries.map { it.accounts })
     }
 
     @Test
     fun aCapIsFoundByItsAccountCount() {
-        assertEquals(BulkCap.THOUSAND, BulkCap.fromAccounts(1_000))
+        assertEquals(BulkCap.HUNDRED, BulkCap.fromAccounts(100))
+        assertEquals(null, BulkCap.fromAccounts(1_000))
         assertEquals(null, BulkCap.fromAccounts(500))
     }
 
     @Test
     fun capsAreShownWithThousandsSeparators() {
+        assertEquals("20", BulkCap.TWENTY.label)
+        assertEquals("50", BulkCap.FIFTY.label)
         assertEquals("100", BulkCap.HUNDRED.label)
-        assertEquals("1,000", BulkCap.THOUSAND.label)
         assertEquals("10,000", formatAccounts(10_000))
     }
 
     @Test
-    fun thePresetsAreTenTwentyAndFifty() {
-        assertEquals(listOf(10, 20, 50), BulkPolicy.PRESETS)
+    fun thePresetsAreTheCapAndTenAndTwenty() {
+        assertEquals(listOf(10, 20), BulkPolicy.presetsFor(20))
+        assertEquals(listOf(10, 20, 50), BulkPolicy.presetsFor(50))
+        assertEquals(listOf(10, 20, 100), BulkPolicy.presetsFor(100))
     }
 
     @Test
-    fun everyPresetIsAValidCountUnderEveryBulkCap() {
+    fun aPresetIsNeverAboveTheCapAndNeverRepeated() {
+        // The cap itself is one of the candidates, so it is the only preset under a cap below 10.
+        assertEquals(listOf(10, 15), BulkPolicy.presetsFor(15))
+        assertEquals(listOf(5), BulkPolicy.presetsFor(5))
+    }
+
+    @Test
+    fun everyPresetIsAValidCountUnderItsCap() {
         for (cap in BulkCap.entries) {
-            for (preset in BulkPolicy.PRESETS) {
+            for (preset in BulkPolicy.presetsFor(cap.accounts)) {
                 assertEquals(CountCheck.Valid(preset), BulkPolicy.checkCount(preset, cap.accounts), "preset $preset")
             }
         }
@@ -56,11 +66,11 @@ class BulkPolicyTest {
 
     @Test
     fun theConfiguredCapDecidesWhatIsRefused() {
-        // The same Count is refused under the 100 cap and accepted under the 1,000 cap.
-        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkCount(150, cap = 100))
-        assertEquals(CountCheck.Valid(150), BulkPolicy.checkCount(150, cap = 1_000))
-        assertEquals(CountCheck.Valid(1_000), BulkPolicy.checkCount(1_000, cap = 1_000))
-        assertEquals(CountCheck.TooMany(1_000), BulkPolicy.checkCount(1_001, cap = 1_000))
+        // The same Count is refused under the 20 cap and accepted under the 100 cap.
+        assertEquals(CountCheck.TooMany(20), BulkPolicy.checkCount(50, cap = 20))
+        assertEquals(CountCheck.Valid(50), BulkPolicy.checkCount(50, cap = 100))
+        assertEquals(CountCheck.Valid(100), BulkPolicy.checkCount(100, cap = 100))
+        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkCount(101, cap = 100))
     }
 
     @Test
@@ -71,17 +81,16 @@ class BulkPolicyTest {
     }
 
     @Test
-    fun aThousandCapAllowsOneThousandAndRefusesOneThousandAndOne() {
-        val cap = BulkCap.THOUSAND.accounts
-        assertEquals(CountCheck.Valid(1_000), BulkPolicy.checkCount(1_000, cap))
-        assertEquals(CountCheck.TooMany(1_000), BulkPolicy.checkCount(1_001, cap))
+    fun aTypedCountCanReachTheLargestCap() {
+        assertEquals("100", BulkPolicy.appendDigit("10", '0'))
+        assertEquals(CountCheck.Valid(100), BulkPolicy.checkCount("100".toInt(), BulkCap.HUNDRED.accounts))
+        assertEquals(3, BulkPolicy.MAX_DIGITS)
     }
 
     @Test
-    fun aTypedCountCanReachTheLargestCap() {
-        assertEquals("1000", BulkPolicy.appendDigit("100", '0'))
-        assertEquals(CountCheck.Valid(1_000), BulkPolicy.checkCount("1000".toInt(), BulkCap.THOUSAND.accounts))
-        assertTrue(BulkPolicy.MAX_DIGITS >= BulkCap.THOUSAND.accounts.toString().length)
+    fun aTypedCountStopsAtTheLargestCapsDigits() {
+        assertEquals("100", BulkPolicy.appendDigit("100", '0'))
+        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkCount("999".toInt(), BulkCap.HUNDRED.accounts))
     }
 
     @Test

@@ -85,49 +85,54 @@ class BulkGenerateScreenTest {
     }
 
     @Test
-    fun aThousandCapAllowsOneThousandAndRefusesOneThousandAndOne() {
-        showScreen(BulkCap.THOUSAND, digits = "1000")
+    fun aTwentyCapAllowsTwentyAndRefusesTwentyOne() {
+        showScreen(BulkCap.TWENTY, digits = "21")
 
-        assertShown("ACCOUNTS, UP TO 1,000 PER RUN")
-        compose.onNodeWithText("GENERATE 1000").assertIsEnabled()
-        assertNotShown("Above the Bulk Cap of 1,000")
-
-        setDigits("1001")
-
-        assertShown("Above the Bulk Cap of 1,000")
+        assertShown("Above the Bulk Cap of 20")
         compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+
+        setDigits("20")
+
+        assertNotShown("Above the Bulk Cap of 20")
+        compose.onNodeWithText("GENERATE 20").assertIsEnabled()
     }
 
     @Test
     fun aChangedCapIsReflectedInTheScreen() {
-        showScreen(BulkCap.HUNDRED, digits = "500")
-        assertShown("ACCOUNTS, UP TO 100 PER RUN")
-        assertShown("Above the Bulk Cap of 100")
+        showScreen(BulkCap.HUNDRED, digits = "30")
+        assertShown("UP TO 100 PER RUN · CHANGE IN SETTINGS")
+        compose.onNodeWithText("GENERATE 30").assertIsEnabled()
 
-        setCap(BulkCap.THOUSAND)
+        setCap(BulkCap.TWENTY)
 
-        assertShown("ACCOUNTS, UP TO 1,000 PER RUN")
-        assertNotShown("Above the Bulk Cap of 100")
-        compose.onNodeWithText("GENERATE 500").assertIsEnabled()
+        assertShown("UP TO 20 PER RUN · CHANGE IN SETTINGS")
+        assertShown("Above the Bulk Cap of 20")
+        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
 
         setCap(BulkCap.HUNDRED)
 
-        assertShown("ACCOUNTS, UP TO 100 PER RUN")
-        assertShown("Above the Bulk Cap of 100")
-        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        assertShown("UP TO 100 PER RUN · CHANGE IN SETTINGS")
+        assertNotShown("Above the Bulk Cap of 20")
+        compose.onNodeWithText("GENERATE 30").assertIsEnabled()
     }
 
     @Test
-    fun thePresetsAreShownUnderEveryCap() {
-        showScreen(BulkCap.HUNDRED, digits = "")
+    fun thePresetsAreTenTwentyAndTheCap() {
+        showScreen(BulkCap.TWENTY, digits = "")
+        assertShown("10")
+        assertShown("20")
+
+        setCap(BulkCap.FIFTY)
+
         assertShown("10")
         assertShown("20")
         assertShown("50")
 
-        setCap(BulkCap.THOUSAND)
+        setCap(BulkCap.HUNDRED)
 
         assertShown("10")
         assertShown("20")
-        assertShown("50")
+        assertShown("100")
+        assertNotShown("50")
     }
 }
