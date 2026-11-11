@@ -1,6 +1,7 @@
 package app.lensly.ui.home
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,7 +11,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -27,9 +29,14 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.app.AccountProfile
+import app.lensly.app.VisualIdentity
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
+import app.lensly.app.WalletProfile
+import app.lensly.app.accountSections
 import app.lensly.app.autoAccountName
+import app.lensly.app.visualIdentity
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DotProgress
@@ -38,6 +45,7 @@ import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
+import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.SpaceMonoFamily
@@ -53,23 +61,30 @@ internal const val SINGLE_KEY_ONE_ACCOUNT =
     "A Wallet built on a Single Key has exactly one Account and cannot generate more."
 
 /**
- * One wallet: its name in the dot-matrix face, its accounts, and its actions. Each account shows its Display Name, or its
- * default label, and a shortened address. Tapping the row shows the full address in groups of four. [addresses] is null
- * while they are derived. [accountNames] holds the names of the renamed accounts, by index. RENAME, on the wallet and on
- * each account, opens the name screen. EXPORT, on each account, calls [onExportAccount] with its index.
+ * One wallet: its name in the dot-matrix face, its Visual Identity, its label and groups, its accounts, and its actions. EDIT PROFILE
+ * under the name opens the wallet's profile. Each account shows its Display Name, or its Auto-Name, with its Visual Identity, its label
+ * and a shortened address. Tapping the row shows the full address in groups of four. [addresses] is null while they are derived.
+ * [accountProfiles] holds the profiles that have anything set, by index, and [walletPosition] is the wallet's place in the list, which
+ * its generated Visual Identity comes from.
  *
- * SELECT on a Mnemonic wallet turns each account row into a checkbox. The selected accounts can then be renamed in one
- * flow, through [onRenameAccounts], or reset to their Auto-Names, through [onResetAccountNames]. Both get the selected
- * indices in order. The selection clears once a reset has been sent, and leaving the screen clears it too.
+ * When any account is in a group, the accounts are listed under the group's name, in name order, with the ungrouped accounts last.
+ * Otherwise they form one list with no headers. EDIT PROFILE, on each account, calls [onEditAccount] with its index. EXPORT calls
+ * [onExportAccount].
  *
- * The accounts are a LazyColumn, so a wallet with hundreds of accounts composes only the rows on screen. The header
- * scrolls with the list, and the Pair and Sign actions stay pinned under it.
+ * SELECT on a Mnemonic wallet turns each account row into a checkbox. The selected accounts can then be renamed in one flow, through
+ * [onRenameAccounts], styled in one flow, through [onStyleAccounts], or reset to their Auto-Names, through [onResetAccountNames]. Each
+ * gets the selected indices in order. The selection clears once a reset has been sent, and leaving the screen clears it too.
+ *
+ * The accounts are a LazyColumn, so a wallet with hundreds of accounts composes only the rows on screen. The header scrolls with the
+ * list, and the Pair and Sign actions stay pinned under it.
  */
 @Composable
 fun WalletDetailScreen(
     wallet: WalletMeta,
     addresses: List<String>?,
-    accountNames: Map<Int, String>,
+    accountProfiles: Map<Int, AccountProfile>,
+    walletProfile: WalletProfile,
+    walletPosition: Int,
     onBack: () -> Unit,
     onLock: () -> Unit,
     onAddAccount: () -> Unit,
@@ -77,10 +92,11 @@ fun WalletDetailScreen(
     onPair: () -> Unit,
     onSign: () -> Unit,
     onShowSecret: () -> Unit,
-    onRenameWallet: () -> Unit,
-    onRenameAccount: (Int) -> Unit,
+    onEditWallet: () -> Unit,
+    onEditAccount: (Int) -> Unit,
     onExportAccount: (Int) -> Unit,
     onRenameAccounts: (List<Int>) -> Unit,
+    onStyleAccounts: (List<Int>) -> Unit,
     onResetAccountNames: (List<Int>) -> Unit,
     onDeleteWallet: () -> Unit,
     modifier: Modifier = Modifier,
@@ -88,6 +104,13 @@ fun WalletDetailScreen(
     val haptics = rememberKeyHaptics()
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(emptySet<Int>()) }
+    // The accounts in list order, from the addresses that are shown, so a row never refers to an account past the list.
+    val sections = remember(addresses, accountProfiles) {
+        accountSections(addresses?.indices?.toList().orEmpty()) { index -> accountProfiles[index]?.group }
+    }
+    val grouped = accountProfiles.values.any { it.group != null }
+    val identity: VisualIdentity = visualIdentity(walletProfile.colour, walletProfile.icon, walletPosition)
+
     WalletScaffold(
         modifier = modifier,
         scrollable = false,
@@ -140,7 +163,14 @@ fun WalletDetailScreen(
                     Spacer(Modifier.height(LenslySpacing.lg))
                     WalletEyebrow(if (wallet.deviceGenerated) "Device-generated wallet" else "Wallet")
                     Spacer(Modifier.height(LenslySpacing.xs))
-                    DotText(text = wallet.name.uppercase(), fontSize = 40.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ProfileAvatar(identity = identity, size = 40.dp)
+                        Spacer(Modifier.width(LenslySpacing.sm))
+                        DotText(text = wallet.name.uppercase(), modifier = Modifier.weight(1f), fontSize = 40.sp)
+                    }
                     Spacer(Modifier.height(LenslySpacing.sm))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -154,11 +184,24 @@ fun WalletDetailScreen(
                         }
                         Spacer(Modifier.weight(1f))
                         WalletPill(
-                            text = "Rename",
-                            onClick = onRenameWallet,
+                            text = "Edit profile",
+                            onClick = onEditWallet,
                             style = WalletPillStyle.Outline,
                             size = WalletPillSize.Compact,
                         )
+                    }
+                    if (walletProfile.label != null || walletProfile.groups.isNotEmpty()) {
+                        Spacer(Modifier.height(LenslySpacing.xs))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            walletProfile.label?.let { PillChip(text = it) }
+                            walletProfile.groups.forEach { group -> PillChip(text = group) }
+                        }
                     }
                     Spacer(Modifier.height(LenslySpacing.lg))
                     Row(
@@ -202,15 +245,25 @@ fun WalletDetailScreen(
                         Spacer(Modifier.height(LenslySpacing.sm))
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = LenslySpacing.xs),
-                            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
+                            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
                         ) {
-                            PillButton(
+                            WalletPill(
                                 text = "Rename",
                                 onClick = { onRenameAccounts(selected.sorted()) },
                                 modifier = Modifier.weight(1f),
+                                style = WalletPillStyle.Outline,
+                                size = WalletPillSize.Compact,
                                 enabled = selected.isNotEmpty(),
                             )
-                            PillButton(
+                            WalletPill(
+                                text = "Style",
+                                onClick = { onStyleAccounts(selected.sorted()) },
+                                modifier = Modifier.weight(1f),
+                                style = WalletPillStyle.Outline,
+                                size = WalletPillSize.Compact,
+                                enabled = selected.isNotEmpty(),
+                            )
+                            WalletPill(
                                 text = "Reset names",
                                 onClick = {
                                     onResetAccountNames(selected.sorted())
@@ -218,6 +271,8 @@ fun WalletDetailScreen(
                                     selected = emptySet()
                                 },
                                 modifier = Modifier.weight(1f),
+                                style = WalletPillStyle.Outline,
+                                size = WalletPillSize.Compact,
                                 enabled = selected.isNotEmpty(),
                             )
                         }
@@ -236,16 +291,26 @@ fun WalletDetailScreen(
                     }
                 }
             } else {
-                itemsIndexed(addresses, key = { _, address -> address }) { index, address ->
-                    AccountRow(
-                        address = address,
-                        label = accountNames[index] ?: autoAccountName(wallet.autoNameBase, index),
-                        onRename = { onRenameAccount(index) },
-                        onExport = { onExportAccount(index) },
-                        selecting = selecting,
-                        selected = index in selected,
-                        onToggle = { selected = if (index in selected) selected - index else selected + index },
-                    )
+                sections.forEach { section ->
+                    if (grouped) {
+                        item(key = "group-${section.group.orEmpty()}") {
+                            GroupHeader(name = section.group ?: "Ungrouped", count = section.indices.size)
+                        }
+                    }
+                    items(section.indices, key = { index -> addresses[index] }) { index ->
+                        val profile = accountProfiles[index]
+                        AccountRow(
+                            address = addresses[index],
+                            name = profile?.name ?: autoAccountName(wallet.autoNameBase, index),
+                            label = profile?.label,
+                            identity = visualIdentity(profile?.colour, profile?.icon, index),
+                            onEdit = { onEditAccount(index) },
+                            onExport = { onExportAccount(index) },
+                            selecting = selecting,
+                            selected = index in selected,
+                            onToggle = { selected = if (index in selected) selected - index else selected + index },
+                        )
+                    }
                 }
             }
             item {
@@ -286,17 +351,34 @@ fun WalletDetailScreen(
     }
 }
 
+/** A group's name over its accounts, with the count of them. The ungrouped accounts are headed "Ungrouped". */
+@Composable
+private fun GroupHeader(name: String, count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = LenslySpacing.md, bottom = LenslySpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        WalletEyebrow(name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.width(LenslySpacing.xs))
+        WalletEyebrow("$count")
+    }
+}
+
 /**
- * One account row: its Display Name, or its Auto-Name, in the primary text, then its short address in the mono face.
- * The row expands to show the full address. Its Export and Rename pills sit at the end. While [selecting], the row
- * shows a checkbox instead, [selected] gives its state, and a tap calls [onToggle] rather than expanding the row. The
- * rows are in a list, so they play no haptic.
+ * One account row: its Visual Identity, then its name, or its Auto-Name, in the primary text, with its label as a chip under it. Its
+ * short address in the mono face sits last. The row expands to show the full address. EXPORT and EDIT PROFILE sit at the end. While
+ * [selecting], the row shows a checkbox instead, [selected] gives its state, and a tap calls [onToggle] rather than expanding the row.
+ * The rows are in a list, so they play no haptic.
  */
 @Composable
 private fun AccountRow(
     address: String,
-    label: String,
-    onRename: () -> Unit,
+    name: String,
+    label: String?,
+    identity: VisualIdentity,
+    onEdit: () -> Unit,
     onExport: () -> Unit,
     selecting: Boolean = false,
     selected: Boolean = false,
@@ -321,15 +403,21 @@ private fun AccountRow(
                     Checkbox(checked = selected, onCheckedChange = null)
                     Spacer(Modifier.width(LenslySpacing.sm))
                 }
+                ProfileAvatar(identity = identity, size = 32.dp)
+                Spacer(Modifier.width(LenslySpacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
                     // The Display Name, or the Auto-Name while the account has none. A long name is cut short.
                     Text(
-                        text = label.uppercase(),
+                        text = name.uppercase(),
                         style = MaterialTheme.typography.titleSmall,
                         color = LenslyOnSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (label != null) {
+                        Spacer(Modifier.height(LenslySpacing.xxs))
+                        PillChip(text = label)
+                    }
                     Spacer(Modifier.height(LenslySpacing.xxs))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Every address shows the Ethereum logo, whichever compatible chain it is used on.
@@ -352,8 +440,8 @@ private fun AccountRow(
                     )
                     Spacer(Modifier.width(LenslySpacing.xs))
                     WalletPill(
-                        text = "Rename",
-                        onClick = onRename,
+                        text = "Edit profile",
+                        onClick = onEdit,
                         style = WalletPillStyle.Outline,
                         size = WalletPillSize.Compact,
                     )
