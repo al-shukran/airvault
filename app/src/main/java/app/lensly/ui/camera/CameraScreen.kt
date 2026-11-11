@@ -23,16 +23,21 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -68,14 +73,16 @@ import androidx.lifecycle.LifecycleEventObserver
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ErrorState
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
+import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyMuted
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyOutlineInteractive
+import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurfaceHigh
@@ -88,6 +95,13 @@ import kotlinx.coroutines.withContext
 /** How long a failed capture stays on screen, in milliseconds. */
 private const val CAPTURE_NOTICE_MS = 3500L
 
+/** What the notice under the top bar says when a photo or a video could not be saved. */
+private const val PHOTO_NOT_SAVED = "Photo not saved. Try again."
+private const val VIDEO_NOT_SAVED = "Video not saved. Try again."
+
+/** How often the recording timer redraws, in milliseconds. */
+private const val TIMER_TICK_MS = 250L
+
 /** The white wash over the preview when a photo is saved: its peak opacity and how long it takes to fade. */
 private const val SHUTTER_FLASH_ALPHA = 0.7f
 private const val SHUTTER_FLASH_MS = 220
@@ -96,8 +110,8 @@ private const val SHUTTER_FLASH_MS = 220
 internal val ENTRY_SWIPE_DISTANCE: Dp = 40.dp
 
 /**
- * The camera face of the app: a plain photo viewfinder. [onHiddenEntry] fires when the viewfinder receives the hidden
- * entry gesture that [entryGesture] names; nothing on screen reveals it.
+ * The camera face of the app: a plain photo and video viewfinder. [onHiddenEntry] fires when the viewfinder receives the
+ * hidden entry gesture that [entryGesture] names; nothing on screen reveals it.
  */
 @Composable
 fun CameraScreen(
@@ -173,7 +187,28 @@ private fun CameraViewfinder(
     var photoVersion by remember { mutableIntStateOf(0) }
     var captureFailures by remember { mutableIntStateOf(0) }
     var showCaptureFailure by remember { mutableStateOf(false) }
+    var failureNotice by remember { mutableStateOf(PHOTO_NOT_SAVED) }
     val shutterFlash = remember { Animatable(0f) }
+    var mode by rememberSaveable { mutableStateOf(CameraMode.PHOTO) }
+    var videoSupported by remember { mutableStateOf(false) }
+    var microphoneAsked by rememberSaveable { mutableStateOf(false) }
+    // When the recording in progress started, or null when none is. Its timer runs while it is set.
+    var recordingSince by remember { mutableStateOf<Long?>(null) }
+    var elapsedMs by remember { mutableLongStateOf(0L) }
+    val microphoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    // Leaving the camera ends a recording, so its file is closed and kept rather than left open.
+    DisposableEffect(controller) {
+        onDispose { controller.stopRecording() }
+    }
+    recordingSince?.let { start ->
+        LaunchedEffect(start) {
+            while (true) {
+                elapsedMs = SystemClock.uptimeMillis() - start
+                delay(TIMER_TICK_MS)
+            }
+        }
+    }
 
     val latestPhoto by produceState<File?>(initialValue = null, photoVersion) {
         value = withContext(Dispatchers.IO) { store.list().firstOrNull() }
@@ -189,6 +224,8 @@ private fun CameraViewfinder(
         controller.flashEnabled = flashOn
         if (controller.bind(context, lifecycleOwner, view, selector)) {
             hasFlash = controller.hasFlashUnit
+            videoSupported = controller.videoAvailable
+            if (!videoSupported) mode = CameraMode.PHOTO
             unavailable = false
         } else if (lensFacing != CameraSelector.LENS_FACING_BACK) {
             // This device has no such lens. Fall back to the back camera.
@@ -205,6 +242,63 @@ private fun CameraViewfinder(
             showCaptureFailure = true
             delay(CAPTURE_NOTICE_MS)
             showCaptureFailure = false
+        }
+    }
+
+    fun showFailure(notice: String) {
+        failureNotice = notice
+        captureFailures++
+    }
+
+    fun beginVideo() {
+        val started = controller.startRecording(
+            context = context,
+            file = store.newVideoFile(),
+            executor = ContextCompat.getMainExecutor(context),
+            onFinished = { saved ->
+                recordingSince = null
+                if (saved) {
+                    photoVersion++
+                } else {
+                    showFailure(VIDEO_NOT_SAVED)
+                }
+            },
+        )
+        if (started) {
+            recordingSince = SystemClock.uptimeMillis()
+        } else {
+            showFailure(VIDEO_NOT_SAVED)
+        }
+    }
+
+    val onShutter: () -> Unit = {
+        touch.onShutterClick {
+            when {
+                mode == CameraMode.PHOTO -> controller.takePhoto(
+                    file = store.newFile(),
+                    executor = ContextCompat.getMainExecutor(context),
+                    onSaved = {
+                        photoVersion++
+                        scope.launch {
+                            shutterFlash.snapTo(SHUTTER_FLASH_ALPHA)
+                            shutterFlash.animateTo(0f, tween(SHUTTER_FLASH_MS))
+                        }
+                    },
+                    onFailure = { showFailure(PHOTO_NOT_SAVED) },
+                )
+                recordingSince != null -> controller.stopRecording()
+                else -> beginVideo()
+            }
+        }
+    }
+
+    val onModeChange: (CameraMode) -> Unit = { next ->
+        if (recordingSince != null) controller.stopRecording()
+        mode = next
+        // The microphone is asked for once, the first time the owner enters video mode. A refusal records without sound.
+        if (next == CameraMode.VIDEO && shouldAskForMicrophone(context.hasMicrophonePermission(), microphoneAsked)) {
+            microphoneAsked = true
+            microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
@@ -245,27 +339,24 @@ private fun CameraViewfinder(
                     controller.flashEnabled = flashOn
                 },
                 showCaptureFailure = showCaptureFailure,
+                captureFailureText = failureNotice,
                 latestPhoto = latestPhoto,
                 onOpenGallery = onOpenGallery,
-                onShutter = {
-                    if (!touch.consumeShutterClick()) controller.takePhoto(
-                        file = store.newFile(),
-                        executor = ContextCompat.getMainExecutor(context),
-                        onSaved = {
-                            photoVersion++
-                            scope.launch {
-                                shutterFlash.snapTo(SHUTTER_FLASH_ALPHA)
-                                shutterFlash.animateTo(0f, tween(SHUTTER_FLASH_MS))
-                            }
-                        },
-                        onFailure = { captureFailures++ },
-                    )
-                },
+                mode = mode,
+                onModeChange = onModeChange,
+                videoAvailable = videoSupported,
+                recording = recordingSince != null,
+                elapsedMs = elapsedMs,
+                onShutter = onShutter,
                 onFlip = {
-                    lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
-                        CameraSelector.LENS_FACING_BACK
-                    } else {
-                        CameraSelector.LENS_FACING_FRONT
+                    // Switching lenses rebinds the camera, which would cut a recording short, so the lens waits for the
+                    // recording to end. The press still counts toward the hidden gesture, which does not depend on the lens.
+                    if (recordingSince == null) {
+                        lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                            CameraSelector.LENS_FACING_BACK
+                        } else {
+                            CameraSelector.LENS_FACING_FRONT
+                        }
                     }
                     touch.onModeSwitch(SystemClock.uptimeMillis())
                 },
@@ -284,9 +375,9 @@ private fun CameraViewfinder(
 }
 
 /**
- * The viewfinder controls: the mode chip and flash toggle on top, the gallery thumbnail, shutter and camera switch at
- * the bottom. A failed capture shows a notice under the top bar. The space between is the touch area for focus and
- * zoom, and [onViewfinderBounds] reports it.
+ * The viewfinder controls: the Photo and Video switch, the flash toggle and the recording timer on top, the gallery
+ * thumbnail, shutter and camera switch at the bottom. A failed capture shows a notice under the top bar. The space between
+ * is the touch area for focus and zoom, and [onViewfinderBounds] reports it.
  */
 @Composable
 internal fun ViewfinderOverlay(
@@ -299,6 +390,12 @@ internal fun ViewfinderOverlay(
     onShutter: () -> Unit,
     onFlip: () -> Unit,
     modifier: Modifier = Modifier,
+    captureFailureText: String = PHOTO_NOT_SAVED,
+    mode: CameraMode = CameraMode.PHOTO,
+    onModeChange: (CameraMode) -> Unit = {},
+    videoAvailable: Boolean = true,
+    recording: Boolean = false,
+    elapsedMs: Long = 0L,
     onViewfinderBounds: (Rect) -> Unit = {},
     onControlPlaced: (EntryRegion, LayoutCoordinates) -> Unit = { _, _ -> },
 ) {
@@ -307,9 +404,14 @@ internal fun ViewfinderOverlay(
             flashAvailable = flashAvailable,
             flashOn = flashOn,
             onToggleFlash = onToggleFlash,
+            mode = mode,
+            onModeChange = onModeChange,
+            videoAvailable = videoAvailable,
+            recording = recording,
+            elapsedMs = elapsedMs,
         )
         if (showCaptureFailure) {
-            CaptureFailedBanner()
+            CaptureFailedBanner(message = captureFailureText)
         }
         Spacer(
             modifier = Modifier
@@ -331,14 +433,16 @@ internal fun ViewfinderOverlay(
             onOpenGallery = onOpenGallery,
             onShutter = onShutter,
             onFlip = onFlip,
+            mode = mode,
+            recording = recording,
             onControlPlaced = onControlPlaced,
         )
     }
 }
 
-/** Notice under the top bar after a photo could not be saved. It sits on black, so it reads over any preview. */
+/** Notice under the top bar after a photo or video could not be saved. It sits on black, so it reads over any preview. */
 @Composable
-internal fun CaptureFailedBanner(modifier: Modifier = Modifier) {
+internal fun CaptureFailedBanner(message: String, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -346,7 +450,7 @@ internal fun CaptureFailedBanner(modifier: Modifier = Modifier) {
             .clip(RoundedCornerShape(LenslyRadius.md))
             .background(LenslyBlack),
     ) {
-        InlineBanner(message = "Photo not saved. Try again.", tone = BannerTone.Error)
+        InlineBanner(message = message, tone = BannerTone.Error)
     }
 }
 
@@ -375,6 +479,11 @@ private fun ViewfinderTopBar(
     flashAvailable: Boolean,
     flashOn: Boolean,
     onToggleFlash: () -> Unit,
+    mode: CameraMode,
+    onModeChange: (CameraMode) -> Unit,
+    videoAvailable: Boolean,
+    recording: Boolean,
+    elapsedMs: Long,
 ) {
     Row(
         modifier = Modifier
@@ -383,8 +492,12 @@ private fun ViewfinderTopBar(
             .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PillChip(text = "Photo")
+        ModeSwitch(mode = mode, videoAvailable = videoAvailable, onChange = onModeChange)
         Spacer(modifier = Modifier.weight(1f))
+        if (recording) {
+            RecordingTimer(elapsedMs = elapsedMs)
+            Spacer(modifier = Modifier.weight(1f))
+        }
         if (flashAvailable) {
             RoundControl(
                 size = 44.dp,
@@ -402,12 +515,62 @@ private fun ViewfinderTopBar(
     }
 }
 
+/** Photo or Video, with the chosen one filled in. Video is left out on a lens that cannot record it. */
+@Composable
+private fun ModeSwitch(mode: CameraMode, videoAvailable: Boolean, onChange: (CameraMode) -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(LenslyPillShape)
+            .background(LenslyBlack.copy(alpha = 0.6f))
+            .border(1.dp, LenslyOutline, LenslyPillShape)
+            .padding(LenslySpacing.xxs),
+    ) {
+        val modes = if (videoAvailable) CameraMode.entries else listOf(CameraMode.PHOTO)
+        modes.forEach { option ->
+            val selected = option == mode
+            Text(
+                text = option.name,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (selected) LenslyBlack else LenslyMuted,
+                modifier = Modifier
+                    .clip(LenslyPillShape)
+                    .background(if (selected) LenslyOnSurface else Color.Transparent)
+                    .selectable(selected = selected, role = Role.Tab, onClick = { onChange(option) })
+                    .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xs),
+            )
+        }
+    }
+}
+
+/** A red dot and the length of the recording so far. */
+@Composable
+private fun RecordingTimer(elapsedMs: Long) {
+    // A dark backing keeps the timer readable over a bright preview.
+    Row(
+        modifier = Modifier
+            .clip(LenslyPillShape)
+            .background(LenslyBlack.copy(alpha = 0.6f))
+            .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(LenslySpacing.xs).clip(CircleShape).background(LenslyAccent))
+        Spacer(modifier = Modifier.width(LenslySpacing.xs))
+        Text(
+            text = formatDuration(elapsedMs),
+            style = MaterialTheme.typography.labelLarge,
+            color = LenslyOnSurface,
+        )
+    }
+}
+
 @Composable
 private fun ViewfinderBottomBar(
     latestPhoto: File?,
     onOpenGallery: () -> Unit,
     onShutter: () -> Unit,
     onFlip: () -> Unit,
+    mode: CameraMode,
+    recording: Boolean,
     onControlPlaced: (EntryRegion, LayoutCoordinates) -> Unit,
 ) {
     Row(
@@ -423,7 +586,12 @@ private fun ViewfinderBottomBar(
             onClick = onOpenGallery,
             onPlaced = { onControlPlaced(EntryRegion.THUMBNAIL, it) },
         )
-        ShutterButton(onClick = onShutter, onPlaced = { onControlPlaced(EntryRegion.SHUTTER, it) })
+        ShutterButton(
+            mode = mode,
+            recording = recording,
+            onClick = onShutter,
+            onPlaced = { onControlPlaced(EntryRegion.SHUTTER, it) },
+        )
         RoundControl(
             size = 56.dp,
             contentDescription = "Switch camera",
@@ -470,10 +638,21 @@ private fun GalleryThumbnail(latestPhoto: File?, onClick: () -> Unit, onPlaced: 
     }
 }
 
+/** Takes a photo in photo mode. In video mode it starts a recording, and a second press stops it. */
 @Composable
-private fun ShutterButton(onClick: () -> Unit, onPlaced: (LayoutCoordinates) -> Unit) {
+private fun ShutterButton(
+    mode: CameraMode,
+    recording: Boolean,
+    onClick: () -> Unit,
+    onPlaced: (LayoutCoordinates) -> Unit,
+) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
+    val label = when {
+        mode == CameraMode.PHOTO -> "Take photo"
+        recording -> "Stop recording"
+        else -> "Start recording"
+    }
     Box(
         modifier = Modifier
             .size(80.dp)
@@ -488,8 +667,16 @@ private fun ShutterButton(onClick: () -> Unit, onPlaced: (LayoutCoordinates) -> 
                 indication = null,
                 onClick = onClick,
             )
-            .semantics { contentDescription = "Take photo" },
-    )
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        // A red disc while idle and a red square while recording, the usual video shutter.
+        if (mode == CameraMode.VIDEO && recording) {
+            Box(Modifier.size(28.dp).clip(RoundedCornerShape(LenslyRadius.xs)).background(LenslyAccent))
+        } else if (mode == CameraMode.VIDEO) {
+            Box(Modifier.size(64.dp).clip(CircleShape).background(LenslyAccent))
+        }
+    }
 }
 
 @Composable
