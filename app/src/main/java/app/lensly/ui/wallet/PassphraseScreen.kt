@@ -1,12 +1,10 @@
 package app.lensly.ui.wallet
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,9 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.gate.PasswordField
+import app.lensly.ui.theme.LenslySpacing
 
 /** Steps of the optional passphrase screen. Enter and Confirm each take the same typed input. */
 enum class PassphraseStep { Ask, Enter, Confirm }
@@ -31,6 +32,14 @@ data class PassphraseState(
     val length: Int = 0,
     val mismatch: Boolean = false,
 )
+
+private const val TITLE = "Add passphrase"
+
+/** Enter and Confirm are the two numbered steps. The Ask question before them is optional and not counted. */
+private const val ENTRY_STEPS = 2
+
+/** Room for the mismatch banner, so the keyboard does not move when it appears or clears. */
+private val MESSAGE_SLOT_HEIGHT = 56.dp
 
 /**
  * Optional BIP39 passphrase. In [PassphraseStep.Ask] the owner chooses yes or skip. In Enter and
@@ -67,47 +76,39 @@ private fun PassphraseAsk(
     onSkip: () -> Unit,
     modifier: Modifier,
 ) {
-    WalletScaffold(
+    LenslyScreen(
+        title = TITLE,
         modifier = modifier,
-        footer = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                WalletPill(
-                    text = "Yes, add one",
-                    onClick = onYes,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = WalletPillStyle.Primary,
-                )
-                WalletPill(
-                    text = "Skip",
-                    onClick = onSkip,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = WalletPillStyle.Outline,
-                )
-            }
+        bottomAction = {
+            WalletPill(
+                text = "Yes, add one",
+                onClick = onYes,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+            )
+            Spacer(Modifier.height(LenslySpacing.sm))
+            WalletPill(
+                text = "Skip",
+                onClick = onSkip,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Outline,
+            )
         },
     ) {
-        Spacer(Modifier.height(24.dp))
         WalletEyebrow("Optional step")
-        Spacer(Modifier.height(12.dp))
-        DotHeadline(text = "ADD PASSPHRASE?")
-        Spacer(Modifier.height(16.dp))
-        WalletWarningChip(text = "Part of the backup")
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(LenslySpacing.xs))
+        DotText(text = "PASSPHRASE", fontSize = 48.sp)
+        Spacer(Modifier.height(LenslySpacing.lg))
         Text(
             text = "Without the passphrase, the 24 words restore a different, empty wallet.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = "Write it down separately from the 24 words. A lost passphrase cannot be recovered.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Spacer(Modifier.height(LenslySpacing.lg))
+        InlineBanner(
+            title = "Part of the backup",
+            message = "Write it down separately from the 24 words. A lost passphrase cannot be recovered.",
+            tone = BannerTone.Warning,
         )
     }
 }
@@ -122,10 +123,12 @@ private fun PassphraseEntry(
     modifier: Modifier,
 ) {
     val confirming = state.step == PassphraseStep.Confirm
-    WalletScaffold(
+    val step = if (confirming) 2 else 1
+    LenslyScreen(
+        title = TITLE,
         modifier = modifier,
         scrollable = false,
-        footer = {
+        bottomAction = {
             SecureKeyboard(
                 onKey = onKey,
                 onBackspace = onBackspace,
@@ -133,12 +136,11 @@ private fun PassphraseEntry(
             )
         },
     ) {
-        Spacer(Modifier.height(24.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            WalletEyebrow(if (confirming) "Step 2 of 2" else "Step 1 of 2")
+            WalletEyebrow("Step $step of $ENTRY_STEPS")
             Spacer(Modifier.weight(1f))
             WalletPill(
                 text = "Skip",
@@ -148,15 +150,35 @@ private fun PassphraseEntry(
                 size = WalletPillSize.Compact,
             )
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(LenslySpacing.xs))
+        StepSegments(count = ENTRY_STEPS, filled = step)
+        Spacer(Modifier.height(LenslySpacing.lg))
         // 48sp keeps "PASSPHRASE" on one line on a 720dp-wide phone; the 64sp headline wraps it.
         DotText(text = if (confirming) "CONFIRM" else "PASSPHRASE", fontSize = 48.sp)
-        Spacer(Modifier.height(16.dp))
-        WalletWarningChip(text = "Part of the backup. Write it down separately")
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Text(
+            text = if (confirming) "Type it again to check it." else "Part of the backup. Write it down separately.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.weight(1f))
         PasswordField(length = state.length)
-        Spacer(Modifier.height(12.dp))
-        WalletError(message = if (state.mismatch) "Does not match. Try again." else null)
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(MESSAGE_SLOT_HEIGHT),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                state.mismatch -> InlineBanner(message = "Does not match. Try again.", tone = BannerTone.Error)
+                !confirming && state.length == 0 -> Text(
+                    text = "Leave empty for no passphrase.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Spacer(Modifier.weight(1f))
     }
 }

@@ -1,18 +1,33 @@
 package app.lensly.ui.wallet
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.components.DotHeadline
+import androidx.compose.ui.unit.sp
+import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.theme.LenslyRadius
+import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LenslySurfaceContainer
+
+/** Words per row of the grid. The grid reads left to right, then down. */
+private const val GRID_COLUMNS = 2
 
 /**
  * Shows the recovery words in a numbered two-column grid, read left to right and then down. Anyone
@@ -25,63 +40,89 @@ fun MnemonicDisplayScreen(
     onWrittenDown: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    WalletScaffold(
+    LenslyScreen(
+        title = "Recovery phrase",
         modifier = modifier,
-        footer = {
+        bottomAction = {
             WalletPill(
                 text = "I wrote it down",
                 onClick = onWrittenDown,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 style = WalletPillStyle.Primary,
             )
         },
     ) {
-        Spacer(Modifier.height(16.dp))
-        WalletEyebrow("Recovery phrase. ${words.size} words")
-        Spacer(Modifier.height(8.dp))
-        DotHeadline(text = "WRITE DOWN")
-        Spacer(Modifier.height(12.dp))
-        WalletWarningChip(text = "Never photograph")
-        Spacer(Modifier.height(20.dp))
-        words.chunked(2).forEachIndexed { rowIndex, pair ->
+        WalletEyebrow("${words.size} words, in order")
+        Spacer(Modifier.height(LenslySpacing.xs))
+        // One line at 48sp, so the grid of 24 words fits above the button on a 720x1600 screen.
+        DotText(text = "WRITE DOWN", fontSize = 48.sp)
+        Spacer(Modifier.height(LenslySpacing.lg))
+        InlineBanner(
+            title = "Never photograph",
+            message = "Anyone with these words can spend from this wallet. Write them down by hand.",
+            tone = BannerTone.Warning,
+        )
+        Spacer(Modifier.height(LenslySpacing.md))
+        WordGrid(words = words)
+        Spacer(Modifier.height(LenslySpacing.sm))
+    }
+}
+
+@Composable
+private fun WordGrid(words: List<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(CELL_GAP)) {
+        words.chunked(GRID_COLUMNS).forEachIndexed { rowIndex, row ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(CELL_GAP),
             ) {
-                pair.forEachIndexed { column, word ->
+                row.forEachIndexed { column, word ->
                     WordCell(
-                        number = rowIndex * 2 + column + 1,
+                        number = rowIndex * GRID_COLUMNS + column + 1,
                         word = word,
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
     }
 }
 
+/**
+ * One word on its own tile. The number sits in a fixed-width column, so the words start at the same x in every row of
+ * a column, and the tiles are equal width.
+ */
 @Composable
 private fun WordCell(
     number: Int,
     word: String,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = "%02d".format(number),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.width(8.dp))
+    val shape = RoundedCornerShape(LenslyRadius.md)
+    Row(
+        modifier = modifier
+            .height(CELL_HEIGHT)
+            .clip(shape)
+            .background(LenslySurfaceContainer, shape)
+            .padding(horizontal = LenslySpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.width(NUMBER_WIDTH)) {
+            Text(
+                text = "%02d".format(number),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Text(
             text = word.uppercase(),
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
         )
     }
 }
+
+private val CELL_HEIGHT = 40.dp
+private val CELL_GAP = 6.dp
+private val NUMBER_WIDTH = 24.dp
