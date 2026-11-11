@@ -2,8 +2,12 @@ package app.lensly.ui.screenshot
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import app.lensly.app.AccountProfile
+import app.lensly.app.ProfileColour
+import app.lensly.app.ProfileIcon
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
+import app.lensly.app.WalletProfile
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
@@ -58,7 +62,13 @@ class HomeScreensScreenshotTest {
         detail(
             wallet = sampleWallets()[0],
             addresses = sampleAddresses,
-            names = mapOf(1 to "Savings"),
+            profiles = sampleProfiles,
+            walletProfile = WalletProfile(
+                colour = ProfileColour.ORANGE,
+                icon = ProfileIcon.HOME,
+                label = "Everyday",
+                groups = listOf("Work"),
+            ),
         )
     }
 
@@ -142,11 +152,18 @@ class HomeScreensScreenshotTest {
     }
 
     @Composable
-    private fun detail(wallet: WalletMeta, addresses: List<String>?, names: Map<Int, String> = emptyMap()) {
+    private fun detail(
+        wallet: WalletMeta,
+        addresses: List<String>?,
+        profiles: Map<Int, AccountProfile> = emptyMap(),
+        walletProfile: WalletProfile = WalletProfile(),
+    ) {
         WalletDetailScreen(
             wallet = wallet,
             addresses = addresses,
-            accountNames = names,
+            accountProfiles = profiles,
+            walletProfile = walletProfile,
+            walletPosition = 0,
             onBack = {},
             onLock = {},
             onAddAccount = {},
@@ -154,10 +171,11 @@ class HomeScreensScreenshotTest {
             onPair = {},
             onSign = {},
             onShowSecret = {},
-            onRenameWallet = {},
-            onRenameAccount = {},
+            onEditWallet = {},
+            onEditAccount = {},
             onExportAccount = {},
             onRenameAccounts = {},
+            onStyleAccounts = {},
             onResetAccountNames = {},
             onDeleteWallet = {},
         )
@@ -231,6 +249,13 @@ class HomeScreensScreenshotTest {
             kind = WalletKind.SINGLE_KEY,
             autoNameBase = "Hardware key",
         ),
+    )
+
+    /** Two accounts in the group "Home", one ungrouped, so the detail shows both kinds of section. */
+    private val sampleProfiles = mapOf(
+        0 to AccountProfile(name = "Main", colour = ProfileColour.BLUE, icon = ProfileIcon.STAR, label = "Everyday", group = "Home"),
+        1 to AccountProfile(name = "Savings", colour = ProfileColour.GREEN, group = "Home"),
+        2 to AccountProfile(colour = ProfileColour.PINK, label = "Rent"),
     )
 
     private val sampleAddresses = listOf(
