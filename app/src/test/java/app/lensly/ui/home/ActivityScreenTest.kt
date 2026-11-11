@@ -12,6 +12,7 @@ import app.lensly.app.WalletStore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
+import app.lensly.ui.sign.groupAddress
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -88,6 +89,19 @@ class ActivityScreenTest {
         compose.onNodeWithText("Unknown contract call").assertIsDisplayed()
         compose.onNodeWithText("transfer").assertDoesNotExist()
         compose.onNodeWithText("Sign message").assertDoesNotExist()
+    }
+
+    @Test
+    fun aTapOnARowOpensEveryRecordedFact() {
+        showActivity()
+
+        compose.onNodeWithText("transfer").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Signed").assertIsDisplayed()
+        compose.onNodeWithText("Monad Testnet · chain 10143").assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(SAMPLE_ACCOUNT)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(SAMPLE_RECIPIENT)).assertIsDisplayed()
     }
 
     @Test

@@ -216,6 +216,43 @@ class ReviewHistoryTest {
     }
 
     @Test
+    fun listAllPairsEveryRecordWithItsWalletNewestFirst() {
+        val first = newWallet("FIRST")
+        val second = newWallet("SECOND")
+        history.append(first, reviewOf(atMs = 4_000L))
+        history.append(second, reviewOf(atMs = 3_000L))
+        history.append(first, reviewOf(atMs = 2_000L))
+        history.append(second, reviewOf(atMs = 1_000L))
+
+        assertEquals(
+            listOf(4_000L to first, 3_000L to second, 2_000L to first, 1_000L to second),
+            history.listAll().map { it.record.atMs to it.walletId },
+        )
+    }
+
+    @Test
+    fun listAllInEitherSessionHoldsOnlyItsOwnWallets() {
+        val real = newWallet("REAL")
+        history.append(real, reviewOf(atMs = 1L))
+        val decoy = VaultSession(layout, ByteArray(32) { 99 }, isDecoy = true)
+        try {
+            val decoyWallet = WalletStore(decoy).create(
+                name = "Everyday",
+                deviceGenerated = true,
+                words = words,
+                passphrase = null,
+                nowMs = 2L,
+            )
+            ReviewHistory(decoy).append(decoyWallet, reviewOf(atMs = 2L))
+
+            assertEquals(listOf(real), history.listAll().map { it.walletId })
+            assertEquals(listOf(decoyWallet), ReviewHistory(decoy).listAll().map { it.walletId })
+        } finally {
+            decoy.close()
+        }
+    }
+
+    @Test
     fun aDamagedRecordIsLeftOutAndTheOthersAreListed() {
         val wallet = newWallet("MAIN")
         history.append(wallet, reviewOf(atMs = 1L))
