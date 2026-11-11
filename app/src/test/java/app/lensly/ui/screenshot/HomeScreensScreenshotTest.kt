@@ -31,8 +31,8 @@ private const val SETTLE_MS = 1_000L
 
 /**
  * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice), the Wallets list (five),
- * wallet detail (deriving, accounts, Single Key), bulk generate (empty, ready, refused, running, failed), catalog import
- * (idle, checking, installed, refused), and the placeholder. Record with :app:recordRoborazziDebug.
+ * wallet detail (deriving, accounts, adding an account, Single Key), bulk generate (empty, ready, refused, running, failed),
+ * catalog import (idle, checking, installed, refused), and the placeholder. Record with :app:recordRoborazziDebug.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -92,6 +92,11 @@ class HomeScreensScreenshotTest {
                 groups = listOf("Work"),
             ),
         )
+    }
+
+    @Test
+    fun walletDetailAddingAnAccount() = compose.snapshot("wallet_detail_adding") {
+        detail(wallet = sampleWallets()[0].copy(accountCount = 4), addresses = sampleAddresses)
     }
 
     @Test
@@ -199,8 +204,6 @@ class HomeScreensScreenshotTest {
             onLock = {},
             onAddAccount = {},
             onBulkGenerate = {},
-            onPair = {},
-            onSign = {},
             onShowSecret = {},
             onEditWallet = {},
             onEditAccount = {},
