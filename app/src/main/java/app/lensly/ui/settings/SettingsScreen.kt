@@ -1,43 +1,48 @@
 package app.lensly.ui.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.lensly.core.wallet.BulkCap
-import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.DotProgress
+import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.pressFeedback
+import app.lensly.ui.components.rememberKeyHaptics
+import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.wallet.WALLET_GUTTER
+import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillSize
-import app.lensly.ui.wallet.WalletPillStyle
 
 /** How many networks and tokens the catalog holds: the built-in entries plus any installed package. */
 data class CatalogCounts(val networks: Int, val tokens: Int)
 
 /**
- * The Settings screen of the vault, a LazyColumn of sections in the Nothing style of the wallet screens: Entry, Bulk
- * generation, Catalog and About. LOCK stays in the header.
+ * The Settings screen of the vault: Entry, Bulk generation, Catalog and About, one row style throughout. LOCK sits under
+ * the title, beside the offline label.
  *
  * [bulkCap] is null until the saved setting has been read, and its options are off until then. [onBulkCap] saves the
  * new cap. [onChangePassword] opens the App Password change. [catalog] is null while the counts are read. The hidden
@@ -56,231 +61,181 @@ fun SettingsScreen(
     onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = WALLET_GUTTER),
-    ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = PaddingValues(bottom = 24.dp),
-        ) {
-            item { SettingsHeader(onBack = onBack, onLock = onLock) }
-
-            item { SectionTitle("Entry") }
-            item {
-                ReadOnlyBlock(
-                    title = "Hidden entry gesture",
-                    body = "Two-finger double-tap on the viewfinder, then hold both fingers.",
-                    note = "This version has one gesture. Choosing another is not available yet.",
-                )
-            }
-            item {
-                ActionBlock(
-                    title = "Change App Password",
-                    body = "Enter the current password, then the new one twice. Your wallets stay as they are.",
-                    onClick = onChangePassword,
-                )
-            }
-
-            item { SectionTitle("Bulk generation") }
-            item { BulkCapBlock(bulkCap = bulkCap, onBulkCap = onBulkCap) }
-
-            item { SectionTitle("Catalog") }
-            item {
-                ActionBlock(
-                    title = "Update catalog",
-                    body = "Install a signed package from removable storage. It adds networks and tokens.",
-                    onClick = onUpdateCatalog,
-                )
-            }
-            item { CatalogSummaryBlock(catalog = catalog) }
-
-            item { SectionTitle("About") }
-            item { ValueBlock(label = "Version", value = "$versionName ($versionCode)") }
-            item { ValueBlock(label = "License", value = "Apache License 2.0. The text is in the LICENSE file.") }
-            item { NoticesBlock() }
-        }
-    }
-}
-
-@Composable
-private fun SettingsHeader(onBack: () -> Unit, onLock: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+    LenslyScreen(title = "Settings", modifier = modifier, onBack = onBack) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            WalletPill(
-                text = "Back",
-                onClick = onBack,
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
+            WalletEyebrow("Offline vault", modifier = Modifier.weight(1f))
+            PillButton(text = "Lock", onClick = onLock)
+        }
+
+        SettingsSection("Entry") {
+            SettingsRow(
+                title = "Hidden entry gesture",
+                description = "Two-finger double-tap on the viewfinder, then hold both fingers.\n" +
+                    "This version has one gesture. Choosing another is not available yet.",
             )
-            Spacer(Modifier.weight(1f))
-            WalletPill(
-                text = "Lock",
-                onClick = onLock,
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
+            SettingsRow(
+                title = "Change App Password",
+                description = "Enter the current password, then the new one twice. Your wallets stay as they are.",
+                onClick = onChangePassword,
             )
         }
-        Spacer(Modifier.height(20.dp))
-        WalletEyebrow("Offline vault")
-        Spacer(Modifier.height(8.dp))
-        DotHeadline(text = "SETTINGS")
+
+        SettingsSection("Bulk generation") {
+            BulkCapItem(bulkCap = bulkCap, onBulkCap = onBulkCap)
+        }
+
+        SettingsSection("Catalog") {
+            SettingsRow(
+                title = "Update catalog",
+                description = "Install a signed package from removable storage. It adds networks and tokens.",
+                onClick = onUpdateCatalog,
+            )
+            SettingsRow(
+                title = "Networks and tokens",
+                description = catalog?.let { "${it.networks} networks · ${it.tokens} tokens" }
+                    ?: "Reading the catalog…",
+                loading = catalog == null,
+            )
+        }
+
+        SettingsSection("About") {
+            SettingsRow(title = "Version", description = "$versionName ($versionCode)")
+            SettingsRow(title = "License", description = "Apache License 2.0. The text is in the LICENSE file.")
+            SettingsRow(title = "Third-party notices", description = NOTICES)
+        }
+        Spacer(Modifier.height(LenslySpacing.xl))
     }
 }
 
+/** One section: a muted label, then its rows. Every section starts the same distance below the one before. */
 @Composable
-private fun SectionTitle(text: String) {
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
-        WalletEyebrow(text)
-        Spacer(Modifier.height(4.dp))
+private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xl)) {
+        WalletEyebrow(title)
+        Spacer(Modifier.height(LenslySpacing.xs))
+        content()
     }
 }
 
-/** A row with a title and a note, and nothing to tap. */
+/** Wraps a settings row or block with the one divider that closes it. */
 @Composable
-private fun ReadOnlyBlock(title: String, body: String, note: String? = null) {
-    Column {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
-            Spacer(Modifier.height(4.dp))
-            Text(text = body, style = MaterialTheme.typography.bodyLarge, color = LenslyOnSurface)
-            if (note != null) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = note,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+private fun SettingsItem(content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        content()
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
     }
 }
 
-/** A row that opens another screen. The whole row and its OPEN pill both act. */
+/**
+ * The one row style of Settings: a title, an optional description, and a trailing mark. A row with [onClick] shows an
+ * arrow and presses like a button. A [loading] row shows a progress mark in place of the arrow.
+ */
 @Composable
-private fun ActionBlock(title: String, body: String, onClick: () -> Unit) {
-    Column {
+private fun SettingsRow(
+    title: String,
+    description: String? = null,
+    onClick: (() -> Unit)? = null,
+    loading: Boolean = false,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val haptics = rememberKeyHaptics()
+    val tapModifier = if (onClick != null) {
+        Modifier
+            .pressFeedback(interaction, enabled = true)
+            .tapHaptic(haptics)
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
+    } else {
+        Modifier
+    }
+    SettingsItem {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(role = Role.Button, onClick = onClick)
-                .padding(vertical = 16.dp),
+            modifier = Modifier.fillMaxWidth().then(tapModifier).padding(vertical = LenslySpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
-                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = LenslyOnSurface,
+                )
+                if (description != null) {
+                    Spacer(Modifier.height(LenslySpacing.xxs))
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (loading) {
+                Spacer(Modifier.width(LenslySpacing.sm))
+                DotProgress(description = "Loading $title")
+            } else if (onClick != null) {
+                Spacer(Modifier.width(LenslySpacing.sm))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
                 )
             }
-            Spacer(Modifier.width(12.dp))
-            WalletPill(
-                text = "Open",
-                onClick = onClick,
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
-            )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
     }
 }
 
-/** The Bulk Cap: one pill per cap the owner may select, the saved one filled. Chunked runs are not offered yet. */
+/**
+ * The Bulk Cap: one pill per cap the owner may select, the saved one filled. Until the saved cap is read the pills are
+ * off. Chunked runs are not offered yet.
+ */
 @Composable
-private fun BulkCapBlock(bulkCap: BulkCap?, onBulkCap: (BulkCap) -> Unit) {
-    Column {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-            Text(text = "Bulk Cap", style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
-            Spacer(Modifier.height(4.dp))
+private fun BulkCapItem(bulkCap: BulkCap?, onBulkCap: (BulkCap) -> Unit) {
+    SettingsItem {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md),
+            verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
+        ) {
+            Text(
+                text = "Bulk Cap",
+                style = MaterialTheme.typography.titleMedium,
+                color = LenslyOnSurface,
+            )
             Text(
                 text = "The most accounts one bulk run can create. A run above it is refused.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xxs),
+                horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
+            ) {
                 for (cap in BulkCap.entries) {
-                    WalletPill(
+                    PillButton(
                         text = cap.label,
                         onClick = { onBulkCap(cap) },
-                        style = if (cap == bulkCap) WalletPillStyle.Secondary else WalletPillStyle.Outline,
-                        size = WalletPillSize.Compact,
+                        modifier = Modifier.weight(1f).semantics { selected = cap == bulkCap },
+                        accent = cap == bulkCap,
                         enabled = bulkCap != null,
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
             Text(
-                text = "Chunked runs of 100 at a time are not available yet.",
+                text = if (bulkCap == null) {
+                    "Reading the saved cap…"
+                } else {
+                    "Chunked runs of 100 at a time are not available yet."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
     }
 }
 
-@Composable
-private fun CatalogSummaryBlock(catalog: CatalogCounts?) {
-    Column {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-            WalletEyebrow("Networks and tokens")
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = catalog?.let { "${it.networks} networks · ${it.tokens} tokens" } ?: "Reading the catalog…",
-                style = MaterialTheme.typography.bodyLarge,
-                color = LenslyOnSurface,
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-    }
-}
-
-@Composable
-private fun ValueBlock(label: String, value: String) {
-    Column {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
-            WalletEyebrow(label)
-            Spacer(Modifier.height(6.dp))
-            Text(text = value, style = MaterialTheme.typography.bodyLarge, color = LenslyOnSurface)
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-    }
-}
-
-@Composable
-private fun NoticesBlock() {
-    Column {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
-            WalletEyebrow("Third-party notices")
-            Spacer(Modifier.height(6.dp))
-            NoticeLine("Chain and token logos: web3icons (MIT) and Iconify token-icons (MIT).")
-            NoticeLine("Logo attribution files are in tools/icons/.")
-            NoticeLine("Fonts: Doto and Space Mono, SIL Open Font License 1.1. The texts are in licenses/.")
-            NoticeLine(
-                "Libraries: Bouncy Castle (Bouncy Castle Licence), zxcvbn (MIT License), and web3j, ZXing and " +
-                    "Hummingbird (Apache License 2.0).",
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-    }
-}
-
-@Composable
-private fun NoticeLine(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
-}
+private const val NOTICES = "Chain and token logos: web3icons (MIT) and Iconify token-icons (MIT).\n" +
+    "Logo attribution files are in tools/icons/.\n" +
+    "Fonts: Doto and Space Mono, SIL Open Font License 1.1. The texts are in licenses/.\n" +
+    "Libraries: Bouncy Castle (Bouncy Castle Licence), zxcvbn (MIT License), and web3j, ZXing and " +
+    "Hummingbird (Apache License 2.0)."

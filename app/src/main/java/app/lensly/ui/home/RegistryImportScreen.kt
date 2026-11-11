@@ -18,10 +18,17 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.update.RegistryPackage
 import app.lensly.core.registry.update.RegistryUpdateException
+import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ChainIcon
+import app.lensly.ui.components.DotProgress
+import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.TokenIcon
-import app.lensly.ui.theme.LenslyAccent
+import app.lensly.ui.components.rememberKeyHaptics
+import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LenslySuccess
 import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
@@ -68,7 +75,8 @@ fun refusalReason(error: Throwable): String = when (error) {
 
 /**
  * Installs a signed registry package from removable storage. The owner picks the file with [onChooseFile]; the result
- * is shown here, either what the package added or the reason it was refused. Nothing needs a network connection.
+ * is shown here, either what the package added or the reason it was refused. While the package is checked a progress
+ * row shows, and Choose file is off. Nothing needs a network connection.
  */
 @Composable
 fun RegistryImportScreen(
@@ -78,25 +86,31 @@ fun RegistryImportScreen(
     onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = rememberKeyHaptics()
     WalletScaffold(
         modifier = modifier,
         footer = {
-            WalletPill(
+            PillButton(
                 text = "Choose file",
                 onClick = onChooseFile,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                style = WalletPillStyle.Primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = LenslySpacing.md),
+                accent = true,
                 enabled = state !is ImportState.Checking,
             )
         },
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = LenslySpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             WalletPill(
                 text = "Back",
                 onClick = onBack,
+                modifier = Modifier.tapHaptic(haptics),
                 style = WalletPillStyle.Outline,
                 size = WalletPillSize.Compact,
             )
@@ -104,36 +118,41 @@ fun RegistryImportScreen(
             WalletPill(
                 text = "Lock",
                 onClick = onLock,
+                modifier = Modifier.tapHaptic(haptics),
                 style = WalletPillStyle.Outline,
                 size = WalletPillSize.Compact,
             )
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Offline catalog")
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(LenslySpacing.xs))
         DotText(text = "CATALOG", fontSize = 40.sp)
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "Insert removable storage with a signed package.",
             style = MaterialTheme.typography.bodyLarge,
             color = LenslyOnSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(LenslySpacing.xs))
         Text(
             text = "A package adds networks and tokens. It cannot change or remove the built-in catalog.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(LenslySpacing.lg))
         when (state) {
             ImportState.Idle -> Unit
-            ImportState.Checking -> Text(
-                text = "Checking the package…",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            ImportState.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
+                DotProgress(description = "Checking the package")
+                Spacer(Modifier.width(LenslySpacing.sm))
+                WalletEyebrow("Checking the package")
+            }
             is ImportState.Installed -> InstalledResult(state)
-            is ImportState.Refused -> RefusedResult(state)
+            is ImportState.Refused -> InlineBanner(
+                message = state.reason,
+                tone = BannerTone.Error,
+                title = "Refused",
+            )
         }
     }
 }
@@ -141,31 +160,27 @@ fun RegistryImportScreen(
 @Composable
 private fun InstalledResult(state: ImportState.Installed) {
     Text(
-        text = "INSTALLED · SEQUENCE ${state.sequence} · +${state.networks.size} NETWORKS +${state.tokens.size} TOKENS",
+        text = "INSTALLED · SEQUENCE ${state.sequence}",
         style = MaterialTheme.typography.labelLarge,
-        color = LenslyOnSurface,
+        color = LenslySuccess,
     )
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(LenslySpacing.xxs))
+    Text(
+        text = "+${state.networks.size} NETWORKS  +${state.tokens.size} TOKENS",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(LenslySpacing.md))
     NetworkList(networks = state.networks)
     TokenList(tokens = state.tokens, chains = state.chains)
 }
 
 @Composable
-private fun RefusedResult(state: ImportState.Refused) {
-    WalletEyebrow("Refused")
-    Spacer(Modifier.height(6.dp))
-    Text(
-        text = state.reason,
-        style = MaterialTheme.typography.bodyLarge,
-        color = LenslyAccent,
-    )
-}
-
-@Composable
 private fun NetworkList(networks: List<NetworkEntry>) {
     if (networks.isEmpty()) return
-    Column(modifier = Modifier.padding(bottom = 12.dp)) {
+    Column(modifier = Modifier.padding(bottom = LenslySpacing.sm)) {
         WalletEyebrow("Networks")
+        Spacer(Modifier.height(LenslySpacing.xs))
         networks.forEach { network ->
             LogoLine(text = "${network.name} · chain ${network.chainId}") {
                 ChainIcon(network = network, size = 20.dp)
@@ -177,8 +192,9 @@ private fun NetworkList(networks: List<NetworkEntry>) {
 @Composable
 private fun TokenList(tokens: List<TokenEntry>, chains: List<NetworkEntry>) {
     if (tokens.isEmpty()) return
-    Column(modifier = Modifier.padding(bottom = 12.dp)) {
+    Column(modifier = Modifier.padding(bottom = LenslySpacing.sm)) {
         WalletEyebrow("Tokens")
+        Spacer(Modifier.height(LenslySpacing.xs))
         tokens.forEach { token ->
             LogoLine(text = "${token.symbol} · chain ${token.chainId}") {
                 TokenIcon(token = token, size = 20.dp, chain = chains.firstOrNull { it.chainId == token.chainId })
@@ -190,9 +206,12 @@ private fun TokenList(tokens: List<TokenEntry>, chains: List<NetworkEntry>) {
 /** One catalog entry: its logo, then its label. */
 @Composable
 private fun LogoLine(text: String, logo: @Composable () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.padding(vertical = LenslySpacing.xxs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         logo()
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(LenslySpacing.xs))
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,

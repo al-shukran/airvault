@@ -1,12 +1,10 @@
 package app.lensly.ui.wallet
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -16,14 +14,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.AddressIcon
+import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.SecureHexKeyboard
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.home.groupedAddress
+import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.SpaceMonoFamily
 
 /** The two screens of a private key import. The address is shown only once the typed key has been checked. */
 enum class KeyImportStep { Enter, Address }
+
+/** Height of the line that shows why a key was refused. It is kept even when there is no refusal, so nothing moves. */
+private val REFUSAL_HEIGHT = 72.dp
 
 /**
  * UI state for [KeyEntryScreen]. Like the gate screens, it holds only the character count. [error] is the reason the
@@ -48,44 +55,54 @@ fun KeyEntryScreen(
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    WalletScaffold(
+    LenslyScreen(
+        title = "Import key",
         modifier = modifier,
         scrollable = false,
-        footer = {
-            SecureHexKeyboard(
-                onKey = onKey,
-                onBackspace = onBackspace,
-                onDone = onDone,
-            )
-        },
     ) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(LenslySpacing.lg))
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             WalletEyebrow("Import")
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(LenslySpacing.sm))
             PillChip(text = "EVM")
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(LenslySpacing.sm))
         // 48sp keeps "PRIVATE KEY" on one line on a 720dp-wide phone, as PassphraseScreen does for its headline.
         DotText(text = "PRIVATE KEY", fontSize = 48.sp)
-        Spacer(Modifier.height(16.dp))
-        WalletWarningChip(text = "A lost key is lost funds")
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(LenslySpacing.md))
+        InlineBanner(
+            message = "A lost key is lost funds. Lensly cannot make this key again.",
+            tone = BannerTone.Warning,
+        )
+        Spacer(Modifier.height(LenslySpacing.md))
         Text(
-            text = "Lensly cannot make this key again. Type its 64 hex digits, with or without 0x.",
+            text = "Type its 64 hex digits, with or without 0x.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.weight(1f))
         WalletEyebrow("${state.length} characters")
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(LenslySpacing.xs))
         PasswordField(length = state.length)
-        Spacer(Modifier.height(12.dp))
-        WalletError(message = state.error)
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Box(
+            modifier = Modifier.fillMaxWidth().height(REFUSAL_HEIGHT),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            state.error?.let { reason ->
+                InlineBanner(message = reason, tone = BannerTone.Error)
+            }
+        }
         Spacer(Modifier.weight(1f))
+        SecureHexKeyboard(
+            onKey = onKey,
+            onBackspace = onBackspace,
+            onDone = onDone,
+        )
+        Spacer(Modifier.height(LenslySpacing.md))
     }
 }
 
@@ -100,53 +117,45 @@ fun KeyAddressScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    WalletScaffold(
+    LenslyScreen(
+        title = "Check address",
         modifier = modifier,
-        footer = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                WalletPill(
-                    text = "Confirm address",
-                    onClick = onConfirm,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = WalletPillStyle.Primary,
-                )
-                WalletPill(
-                    text = "Back",
-                    onClick = onBack,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = WalletPillStyle.Outline,
-                )
-            }
+        onBack = onBack,
+        bottomAction = {
+            PillButton(
+                text = "Confirm address",
+                onClick = onConfirm,
+                accent = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
         },
     ) {
-        Spacer(Modifier.height(24.dp))
-        WalletEyebrow("Check the address")
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(LenslySpacing.lg))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            WalletEyebrow("Import")
+            Spacer(Modifier.width(LenslySpacing.sm))
+            PillChip(text = "EVM")
+        }
+        Spacer(Modifier.height(LenslySpacing.sm))
         DotHeadline(text = "ADDRESS")
-        Spacer(Modifier.height(16.dp))
-        PillChip(text = "EVM")
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "This key controls the address below. Check it is the one you expect before you continue.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(Modifier.height(24.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AddressIcon(size = 16.dp)
-            Spacer(Modifier.width(8.dp))
-            WalletEyebrow("Account 1")
+        Spacer(Modifier.height(LenslySpacing.lg))
+        WalletPanel {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AddressIcon(size = 16.dp)
+                Spacer(Modifier.width(LenslySpacing.xs))
+                WalletEyebrow("Account 1")
+            }
+            Text(
+                text = groupedAddress(address),
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = SpaceMonoFamily),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = groupedAddress(address),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
     }
 }
