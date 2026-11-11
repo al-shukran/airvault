@@ -2,7 +2,7 @@
 
 Status: implemented on `phase-1-5` (Phase 1.5). Describes the shipped state; see "Implementation notes" at the end for the places where the build differs from the YAML below.
 
-Today on `master`: JUnit 4 and `kotlin.test` unit tests under `app/src/test` (`core/wallet`, `core/ur`, `core/vault`, `ui/*`). No `androidTest` sources, no Robolectric, no Compose UI tests, no `.github/workflows`. `org.gradle.caching=true` is set; configuration cache is not.
+Today on `master`: JUnit 4 and `kotlin.test` unit tests under `app/src/test` (`core/wallet`, `core/ur`, `core/vault`, `ui/*`). `androidTest` sources, Robolectric, Compose UI tests, and `.github/workflows` exist. `org.gradle.caching=true` is set; configuration cache is not.
 
 Packages: `core/wallet`, `core/ur`, `core/vault`, `ui/camera`, `ui/gate`, `ui/wallet`, `ui/components`, `ui/theme`, `ui/navigation`. `core/evm` and `core/registry` are planned; their CI partitions are reserved (2.2).
 
@@ -50,7 +50,7 @@ Run commands assume the wrapper at the repo root.
 - **Scope:** each screen, dark theme only. `LenslyTheme` has no light scheme, so one golden per screen.
 - **Tools:** Roborazzi (`roborazzi-compose`) on Robolectric.
 - **Why Roborazzi, not Paparazzi:** Roborazzi captures from the same Robolectric `createComposeRule()` tests as 1.4, so one test source checks behavior and pixels. Paparazzi renders through layoutlib, not Robolectric, and cannot reuse those tests or their shadows.
-- **Files:** goldens in `app/src/test/snapshots/`; move to Git LFS if they exceed about 2 MB.
+- **Files:** goldens in `app/src/test/screenshots/`; move to Git LFS if they exceed about 2 MB.
 - **Run:** `./gradlew :app:verifyRoborazziDebug`; update with `:app:recordRoborazziDebug` and review the PNG diff.
 
 ### 1.6 End-to-end
