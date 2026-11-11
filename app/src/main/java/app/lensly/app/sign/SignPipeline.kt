@@ -8,11 +8,14 @@ import app.lensly.core.evm.TxType
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.ContractCall
+import app.lensly.core.registry.DecodedParam
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
+import app.lensly.core.registry.StaticAbiDecoder
+import app.lensly.core.registry.StaticDecode
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.ur.DataType
@@ -218,19 +221,40 @@ class SignPipeline(
      */
     private fun decodeGap(target: Target, tx: UnsignedTx, contract: String, calldata: ByteArray): Prepared {
         val entry = whitelistEntry(target, contract, calldata)
-        val call = undecodedCall(target, contract, tx.value, calldata, proxy = entry?.proxy)
+        val proxy = entry?.takeIf { it.upgradeable }?.proxy
+        val call = undecodedCall(target, contract, tx.value, calldata, proxy = proxy)
         if (entry == null) return Prepared.Refused(UNKNOWN_CALL, call)
-        if (entry.proxy != null && proxyPolicy == ProxyPolicy.BIND_TO_IMPLEMENTATION) {
+        if (entry.upgradeable && proxyPolicy == ProxyPolicy.BIND_TO_IMPLEMENTATION) {
             return Prepared.Refused(BOUND_PROXY_REFUSAL, call)
         }
-        if (entry.proxy != null && proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) {
+        if (entry.upgradeable && proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) {
             return Prepared.Refused(ANY_PROXY_REFUSAL, call)
         }
+        val decoded = when (val result = StaticAbiDecoder.decode(calldata, entry.params)) {
+            is StaticDecode.Ok -> result.params
+            is StaticDecode.Refused -> return Prepared.Refused(result.reason, call)
+        }
+        val token = registry.token(target.chainId, contract)
         val review = target.review(
             function = entry.signature.substringBefore('('),
             toAddress = checksum(contract),
+            params = decoded.map { paramValue(it, token) },
         ).copy(whitelisted = WhitelistedCall(entry.signature, entry.meaning, call))
         return ready(target, review, tx)
+    }
+
+    /**
+     * One decoded argument as the review lists it: its name and type, then its full value. A tokenRef uint named amount,
+     * value or wad also shows its quantity in the registered token's decimals.
+     */
+    private fun paramValue(decoded: DecodedParam, token: TokenEntry?): Pair<String, String> {
+        val param = decoded.param
+        val value = if (param.tokenRef && token != null && param.type.startsWith("uint") && param.name in AMOUNT_PARAMS) {
+            amountText(BigInteger(decoded.value), token)
+        } else {
+            decoded.value
+        }
+        return "${param.name} (${param.type})" to value
     }
 
     /** The whitelist entry for [contract] and the selector of [calldata] on the target's chain, or null when there is none. */
@@ -521,6 +545,9 @@ class SignPipeline(
         const val ACCOUNT_PATH_LENGTH = 5
         const val SELECTOR_BYTES = 4
         const val WORD_BYTES = 32
+
+        /** The uint argument names that are an amount of the contract's token when the entry marks them tokenRef. */
+        val AMOUNT_PARAMS = setOf("amount", "value", "wad")
 
         /** The first four steps of every Lensly account path, m/44'/60'/0'/0. The last step is the index. */
         val ACCOUNT_PATH_PREFIX = listOf(
