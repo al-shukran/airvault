@@ -112,4 +112,47 @@ class FailureDelayTest {
         clock.wall -= 1
         assertTrue(FailureDelay.elapsedSinceFailure(state, clock) < 0)
     }
+
+    @Test
+    fun ownerCapFromTheStateAppliesToEveryWait() {
+        val capped = stateWithCap(5_000L, failures = 3)
+        val delay = FailureDelay(created, FailureDelay.configuredCapFor(capped))
+        // The spec delay after three failures is 40 s, and the owner's 5 s cap is the smaller one.
+        assertEquals(5_000L, delay.delayFor(capped.failures, afterLearning))
+        assertEquals(5_000L, delay.delayFor(1, created))
+    }
+
+    @Test
+    fun capBelowTenSecondsAlsoLimitsTheLearningPeriod() {
+        val delay = FailureDelay(created, configuredCapMs = 5_000L)
+        assertEquals(5_000L, delay.delayFor(1, created))
+        assertEquals(5_000L, delay.delayFor(1, afterLearning))
+        assertEquals(5_000L, delay.delayFor(9, afterLearning))
+    }
+
+    @Test
+    fun defaultCapIsTheSpecDefault() {
+        val default = stateWithCap(null, failures = 1)
+        assertEquals(FailureDelay.DEFAULT_CAP_MS, FailureDelay.configuredCapFor(default))
+        val delay = FailureDelay(created, FailureDelay.configuredCapFor(default))
+        assertEquals(10_000L, delay.delayFor(1, created))
+        assertEquals(60_000L, delay.delayFor(4, afterLearning))
+    }
+
+    @Test
+    fun warningIsShownOnlyForCapsBelowTenSeconds() {
+        assertTrue(FailureDelay.warnsAt(1_000L))
+        assertTrue(FailureDelay.warnsAt(9_999L))
+        assertFalse(FailureDelay.warnsAt(10_000L))
+        assertFalse(FailureDelay.warnsAt(3_600_000L))
+        assertFalse(FailureDelay.warnsAt(null))
+    }
+
+    private fun stateWithCap(capMs: Long?, failures: Int) = FailureState(
+        seq = 2,
+        failures = failures,
+        lastFailureWallMs = created,
+        lastFailureElapsedMs = 0L,
+        capMs = capMs,
+    )
 }
