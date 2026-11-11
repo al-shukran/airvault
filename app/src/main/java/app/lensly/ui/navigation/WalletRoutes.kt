@@ -113,6 +113,10 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.SCAN, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { SignWalletRoute(navController, holder, entry.walletId()) }
     }
+    // A scan of any wallet of the vault: the wallet the request is for is found among them.
+    composable(HiddenRoute.SCAN_ANY) {
+        HiddenBackdrop { SignWalletRoute(navController, holder, walletId = null) }
+    }
     composable(HiddenRoute.SHOW_SECRET, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { ShowSecretRoute(navController, holder, entry.walletId()) }
     }

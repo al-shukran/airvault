@@ -21,6 +21,7 @@ internal object HiddenRoute {
     // Export of one account: its address as a code, reached from the account row of the wallet detail.
     const val EXPORT_ACCOUNT = "export-account/{walletId}/{index}"
     const val SCAN = "scan/{walletId}"
+    const val SCAN_ANY = "scan"
 
     // Show Secret: the App Password again, a warning, then the secret. Reached from the wallet detail.
     const val SHOW_SECRET = "secret/{walletId}"
