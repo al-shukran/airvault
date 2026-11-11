@@ -25,6 +25,8 @@ import app.lensly.ui.theme.LenslySpacing
 fun UnavailableScreen(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    /** A reason the build itself refuses, such as a backup-enabled build. Null for a device that cannot hold a vault. */
+    detail: String? = null,
 ) {
     Column(
         modifier = modifier
@@ -46,6 +48,14 @@ fun UnavailableScreen(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
+        detail?.let { reason ->
+            Spacer(Modifier.height(LenslySpacing.sm))
+            Text(
+                text = reason,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
         Spacer(Modifier.weight(1f))
 

@@ -49,7 +49,7 @@ class WalletDetailScreenTest {
     private class Route(accounts: Int) {
         var count by mutableIntStateOf(accounts)
         var addresses by mutableStateOf(List(accounts, ::addressAt))
-        var exported = -1
+        var exported: List<Int> = emptyList()
         var edited = -1
         var revealed = false
 
@@ -84,7 +84,7 @@ class WalletDetailScreenTest {
             onShowSecret = { route.revealed = true },
             onEditWallet = {},
             onEditAccount = { route.edited = it },
-            onExportAccount = { route.exported = it },
+            onExportAccounts = { route.exported = it },
             onRenameAccounts = {},
             onStyleAccounts = {},
             onResetAccountNames = {},
@@ -153,7 +153,27 @@ class WalletDetailScreenTest {
         compose.onNodeWithText("Edit profile").assertIsDisplayed()
 
         compose.onNodeWithText("Export address").performClick()
-        assertEquals(0, route.exported)
+        assertEquals(listOf(0), route.exported)
+    }
+
+    @Test
+    fun exportingASelectionSendsEachSelectedAccountOnceInListOrder() {
+        val route = Route(accounts = 5)
+        compose.setContent {
+            LenslyTheme {
+                Detail(route, rememberLazyListState())
+            }
+        }
+
+        compose.onNodeWithContentDescription("Wallet options").performClick()
+        compose.onNodeWithText("Select accounts").performClick()
+        compose.onNodeWithText(groupedAddress(addressAt(4))).performClick()
+        compose.onNodeWithText(groupedAddress(addressAt(1))).performClick()
+        compose.onNodeWithText(groupedAddress(addressAt(3))).performClick()
+        compose.onNodeWithText("3 SELECTED").assertIsDisplayed()
+
+        compose.onNodeWithText("EXPORT").performClick()
+        assertEquals(listOf(1, 3, 4), route.exported)
     }
 
     @Test
