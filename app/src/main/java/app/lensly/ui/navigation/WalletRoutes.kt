@@ -150,6 +150,7 @@ private fun HomeRoute(
     holder: VaultHolder,
     entry: NavBackStackEntry,
 ) {
+    val draft = draftOf(navController, entry)
     val session = rememberOpenSession(navController, holder) ?: return
     val debugNotice = remember { debugKeystoreNotice(holder) }
     val listing = rememberWalletListing(navController, holder, session)
@@ -157,8 +158,8 @@ private fun HomeRoute(
     val hidden = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
     val notice by hidden.savedStateHandle.getStateFlow<String?>(HiddenRoute.PAIRED_NOTICE, null).collectAsState()
 
-    // The draft is not wiped here: the screens of a flow that is still leaving may recompose, and a wipe belongs to the
-    // flow's owner. WalletDraftViewModel.onCleared wipes it when the hidden graph is disposed.
+    // The draft only lives while a create or restore flow runs. Arriving here ends the flow.
+    LaunchedEffect(Unit) { draft.wipe() }
 
     BackHandler { leaveHidden(navController, holder) }
     WalletHomeScreen(
@@ -427,12 +428,6 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
     }
     var name by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
-    // Set once this screen has saved the wallet. The wipe waits for this screen to be disposed, so the screens that
-    // leave with it are never recomposed from zeroed buffers.
-    var saved by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        onDispose { if (saved) draft.wipe() }
-    }
 
     WalletNameScreen(
         name = name,
@@ -454,7 +449,6 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
                     navController.navigate(HiddenRoute.PASSPHRASE_BACKUP)
                 } else {
                     saving = true
-                    saved = true
                     saveMnemonicWallet(navController, holder, session, draft, scope, finalName)
                 }
             }
@@ -478,12 +472,6 @@ private fun PassphraseBackupRoute(
     val scope = rememberCoroutineScope()
     var writtenDown by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
-    // Set once this screen has saved the wallet. The wipe waits for this screen to be disposed, so the screens that
-    // leave with it are never recomposed from zeroed buffers.
-    var saved by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        onDispose { if (saved) draft.wipe() }
-    }
 
     PassphraseBackupScreen(
         writtenDown = writtenDown,
@@ -491,7 +479,6 @@ private fun PassphraseBackupRoute(
         onCreate = {
             if (!saving && PassphraseGate.canSave(draft.passphrase, writtenDown)) {
                 saving = true
-                saved = true
                 saveMnemonicWallet(navController, holder, session, draft, scope, draft.name)
             }
         },
@@ -500,8 +487,7 @@ private fun PassphraseBackupRoute(
 
 /**
  * Saves the draft's Mnemonic wallet under [name] and opens the wallet's detail. The passphrase is read from the draft
- * before it is wiped; the wipe itself is done by the saving screen when it is disposed, so no leaving screen can be
- * recomposed from zeroed buffers.
+ * before the save.
  */
 private fun saveMnemonicWallet(
     navController: NavHostController,
