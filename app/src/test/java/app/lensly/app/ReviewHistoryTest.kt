@@ -4,7 +4,6 @@ import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.core.vault.VaultLayout
-import app.lensly.core.vault.VaultRecordPool
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.wipeVault
 import java.io.File
@@ -76,7 +75,7 @@ class ReviewHistoryTest {
 
     /** The one review file of [walletId], as it is on disk. */
     private fun reviewFileOf(walletId: String): File =
-        VaultRecordPool.file(layout, walletId, session.recordNames(walletId, "review-").single())
+        File(layout.walletDir(walletId), session.recordNames(walletId, "review-").single() + ".bin")
 
     @Test
     fun aRecordIsListedWithEveryFactUnchanged() {
@@ -165,13 +164,14 @@ class ReviewHistoryTest {
     fun aRecordFileThatSurvivesADeleteIsUnreadable() {
         val gone = newWallet("GONE")
         history.append(gone, reviewOf(atMs = 1L))
-        val name = session.recordNames(gone, "review-").single()
-        val sealed = reviewFileOf(gone).readBytes()
+        val file = reviewFileOf(gone)
+        val name = file.name.removeSuffix(".bin")
+        val sealed = file.readBytes()
 
         store.delete(gone)
         // Only the record file comes back. Its Per-Wallet Key is gone with the wallet, so the record cannot be opened.
-        VaultRecordPool.dir(layout).mkdirs()
-        VaultRecordPool.file(layout, gone, name).writeBytes(sealed)
+        layout.walletDir(gone).mkdirs()
+        File(layout.walletDir(gone), file.name).writeBytes(sealed)
 
         assertNull(session.getRecord(gone, name))
         assertTrue(history.list(gone).isEmpty())
