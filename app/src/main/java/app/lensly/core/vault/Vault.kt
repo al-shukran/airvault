@@ -30,6 +30,9 @@ sealed interface CreateResult {
      * was written.
      */
     data object DeviceUnsupported : CreateResult
+
+    /** The packaged app allows Android to back up its data, so this build never creates a vault. Nothing was written. */
+    data object BackupAllowed : CreateResult
 }
 
 /** Outcome of [Vault.unlock]. */
@@ -105,6 +108,8 @@ class Vault internal constructor(
     private val keys: KeystoreBackend,
     private val clock: Clock,
     private val kdfOverride: KdfParams?,
+    /** True when the packaged app allows backup. Such a build refuses to create a vault, see [refusal]. */
+    private val backupAllowed: Boolean = false,
     private val readBootCount: () -> Int? = { null },
 ) {
     constructor(context: Context, clock: Clock = RealClock) : this(context, clock, null)
@@ -115,6 +120,7 @@ class Vault internal constructor(
         clock = clock,
         kdfOverride = kdfOverride,
         readBootCount = { bootCountOf(context.applicationContext) },
+        backupAllowed = BackupExclusion.allowsBackup(context.applicationInfo.flags),
     )
 
     private val mutex = Mutex()
@@ -124,16 +130,23 @@ class Vault internal constructor(
     fun exists(): Boolean = layout.exists()
 
     /**
-     * True when this device may create a vault, under [KeystorePolicy]. The answer comes from the same probe as
-     * [deviceSecurity], so it is meaningful only while no vault exists.
+     * True when this device may create a vault, under [KeystorePolicy], and this build may create one under [refusal]. The
+     * answer comes from the same probe as [deviceSecurity], so it is meaningful only while no vault exists.
      */
     fun canCreate(): Boolean =
-        KeystorePolicy.verdict(deviceSecurity().hardwareBacked, BuildConfig.DEBUG) != KeystoreVerdict.Refused
+        refusal() == null && KeystorePolicy.verdict(deviceSecurity().hardwareBacked, BuildConfig.DEBUG) != KeystoreVerdict.Refused
+
+    /**
+     * Why this build may not create a vault, or null when it may. A build whose packaged manifest allows backup is refused, because
+     * its vault could leave the device. The text is [BackupExclusion.REFUSAL], which holds no secret.
+     */
+    fun refusal(): String? = if (backupAllowed) BackupExclusion.REFUSAL else null
 
     /**
      * Creates a vault protected by [password], which must pass [PasswordPolicy]. The decoy slot starts as random bytes.
      * Argon2 parameters are calibrated for this device, unless the vault was built with fixed test parameters. In a
-     * release build the vault key must be hardware-backed, or the result is [CreateResult.DeviceUnsupported].
+     * release build the vault key must be hardware-backed, or the result is [CreateResult.DeviceUnsupported]. A build that allows
+     * backup gets [CreateResult.BackupAllowed] before anything is checked or written.
      *
      * @throws IllegalStateException if a vault already exists. Call [wipe] first.
      */
@@ -250,6 +263,7 @@ class Vault internal constructor(
 
     private suspend fun createLocked(password: CharArray): CreateResult {
         try {
+            if (backupAllowed) return CreateResult.BackupAllowed
             val policy = PasswordPolicy.check(password)
             if (policy is PolicyResult.Refused) return CreateResult.PolicyRejected(policy.reason)
             check(!layout.exists()) { "A vault already exists. Call wipe() before creating another." }
@@ -520,7 +534,7 @@ class Vault internal constructor(
         return when (val result = rekeyDecoyLocked(session, duressPassword)) {
             CreateResult.Created -> DuressResult.Enabled
             is CreateResult.PolicyRejected -> DuressResult.PolicyRejected(result.reason)
-            CreateResult.DeviceUnsupported -> DuressResult.Failed
+            CreateResult.DeviceUnsupported, CreateResult.BackupAllowed -> DuressResult.Failed
         }
     }
 

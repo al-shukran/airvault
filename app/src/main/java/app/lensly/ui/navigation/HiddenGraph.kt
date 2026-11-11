@@ -52,7 +52,7 @@ internal fun NavGraphBuilder.hiddenGraph(navController: NavHostController, holde
         composable(HiddenRoute.UNLOCK) { HiddenBackdrop { UnlockRoute(navController, holder) } }
         composable(HiddenRoute.UNAVAILABLE) {
             HiddenBackdrop {
-                UnavailableScreen(onClose = { leaveHidden(navController, holder) })
+                UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = holder.vault.refusal())
             }
         }
         walletRoutes(navController, holder)

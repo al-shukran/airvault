@@ -1,5 +1,8 @@
 package app.lensly.ui.camera
 
+import android.net.Uri
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -43,7 +47,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
@@ -54,19 +61,22 @@ import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyError
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurface
 import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
-/** How long the "Photo deleted" notice stays, in milliseconds. */
+/** How long the deleted notice stays, in milliseconds. */
 private const val DELETED_NOTICE_MS = 2500L
 
 /** Height of the fade behind the viewer's controls, so they stay readable over a bright photo. */
 private val VIEWER_SCRIM_HEIGHT = 112.dp
 
-/** Grid of the photos in the app's private folder. Tap a photo to view it full screen. */
+/** Grid of the photos and videos in the app's private folder. Tap one to view it full screen. */
 @Composable
 fun GalleryScreen(
     onBack: () -> Unit,
@@ -78,6 +88,7 @@ fun GalleryScreen(
     var openedName by rememberSaveable { mutableStateOf<String?>(null) }
     var deletions by remember { mutableIntStateOf(0) }
     var showDeleted by remember { mutableStateOf(false) }
+    var deletedNotice by remember { mutableStateOf("") }
     val opened = photos.firstOrNull { it.name == openedName }
 
     // Each deletion restarts the notice, so a second delete shows it for the full time.
@@ -90,14 +101,14 @@ fun GalleryScreen(
     }
 
     LenslyScreen(
-        title = "Photos",
+        title = "Gallery",
         modifier = modifier,
         onBack = onBack,
         scrollable = false,
     ) {
         if (showDeleted) {
             InlineBanner(
-                message = "Photo deleted.",
+                message = deletedNotice,
                 tone = BannerTone.Info,
                 modifier = Modifier.padding(bottom = LenslySpacing.sm),
             )
@@ -111,8 +122,8 @@ fun GalleryScreen(
             ) {
                 EmptyState(
                     icon = CameraIcons.Photos,
-                    title = "No photos yet",
-                    body = "Photos you take appear here. They stay on this phone.",
+                    title = "No photos or videos yet",
+                    body = "Photos and videos you take appear here. They stay on this phone.",
                     actionLabel = "Back to camera",
                     onAction = onBack,
                 )
@@ -128,17 +139,18 @@ fun GalleryScreen(
                 horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xxs),
             ) {
                 items(photos, key = { it.name }) { file ->
-                    PhotoTile(file = file, onClick = { openedName = file.name })
+                    MediaTile(file = file, onClick = { openedName = file.name })
                 }
             }
         }
     }
 
     if (opened != null) {
-        PhotoViewer(
+        MediaViewer(
             file = opened,
             onClose = { openedName = null },
             onDelete = {
+                deletedNotice = if (opened.isVideo) "Video deleted." else "Photo deleted."
                 store.delete(opened)
                 photos = store.list()
                 openedName = null
@@ -148,15 +160,12 @@ fun GalleryScreen(
     }
 }
 
-/** One grid cell. It dims while pressed and plays the key haptic. */
+/** One grid cell. A video shows its length in the corner. It dims while pressed and plays the key haptic. */
 @Composable
-private fun PhotoTile(file: File, onClick: () -> Unit) {
+private fun MediaTile(file: File, onClick: () -> Unit) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
-    PhotoImage(
-        file = file,
-        maxSidePx = 320,
-        contentScale = ContentScale.Crop,
+    Box(
         modifier = Modifier
             .aspectRatio(1f)
             .pressFeedback(interaction, enabled = true)
@@ -167,31 +176,66 @@ private fun PhotoTile(file: File, onClick: () -> Unit) {
                 interactionSource = interaction,
                 indication = null,
                 onClick = onClick,
-            ),
-    )
+            )
+            .semantics { contentDescription = if (file.isVideo) "Video" else "Photo" },
+    ) {
+        PhotoImage(
+            file = file,
+            maxSidePx = 320,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (file.isVideo) {
+            DurationBadge(file = file, modifier = Modifier.align(Alignment.BottomEnd).padding(LenslySpacing.xxs))
+        }
+    }
+}
+
+/** The length of a video in a small dark tag. It appears once the length has been read from the file. */
+@Composable
+private fun DurationBadge(file: File, modifier: Modifier = Modifier) {
+    val durationMs by produceState<Long?>(initialValue = null, file) {
+        value = withContext(Dispatchers.IO) { videoDurationMs(file) }
+    }
+    durationMs?.let { ms ->
+        Text(
+            text = formatDuration(ms),
+            style = MaterialTheme.typography.labelSmall,
+            color = LenslyOnSurface,
+            modifier = modifier
+                .clip(LenslyPillShape)
+                .background(LenslyBlack.copy(alpha = 0.6f))
+                .padding(horizontal = LenslySpacing.xs, vertical = LenslySpacing.xxs),
+        )
+    }
 }
 
 @Composable
-private fun PhotoViewer(
+private fun MediaViewer(
     file: File,
     onClose: () -> Unit,
     onDelete: () -> Unit,
 ) {
     BackHandler(onBack = onClose)
     var confirmingDelete by remember { mutableStateOf(false) }
+    val kind = if (file.isVideo) "video" else "photo"
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(LenslyBlack),
     ) {
-        PhotoImage(
-            file = file,
-            maxSidePx = 1600,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize(),
-            contentDescription = "Photo",
-        )
+        if (file.isVideo) {
+            VideoPlayer(file = file, modifier = Modifier.fillMaxSize())
+        } else {
+            PhotoImage(
+                file = file,
+                maxSidePx = 1600,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+                contentDescription = "Photo",
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -220,7 +264,7 @@ private fun PhotoViewer(
             IconButton(onClick = { confirmingDelete = true }) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
-                    contentDescription = "Delete photo",
+                    contentDescription = "Delete $kind",
                     tint = LenslyOnSurface,
                 )
             }
@@ -233,14 +277,14 @@ private fun PhotoViewer(
             containerColor = LenslySurface,
             title = {
                 Text(
-                    text = "DELETE PHOTO?",
+                    text = "DELETE ${kind.uppercase()}?",
                     style = MaterialTheme.typography.titleMedium,
                     color = LenslyOnSurface,
                 )
             },
             text = {
                 Text(
-                    text = "The photo is removed from this phone. It cannot be undone.",
+                    text = "The $kind is removed from this phone. It cannot be undone.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -265,4 +309,20 @@ private fun PhotoViewer(
             },
         )
     }
+}
+
+/** Plays a saved video with the player's own controls. It starts when opened and stops when closed. */
+@Composable
+private fun VideoPlayer(file: File, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { context ->
+            VideoView(context).apply {
+                setMediaController(MediaController(context).also { it.setAnchorView(this) })
+                setVideoURI(Uri.fromFile(file))
+                start()
+            }
+        },
+        modifier = modifier,
+        onRelease = { it.stopPlayback() },
+    )
 }
