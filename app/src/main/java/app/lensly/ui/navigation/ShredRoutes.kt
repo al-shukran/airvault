@@ -9,8 +9,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
+import app.lensly.app.entryGestureHolder
 import app.lensly.ui.flow.DeleteWalletPorts
 import app.lensly.ui.flow.RemoveDuressPorts
 import app.lensly.ui.flow.ShredFlow
@@ -46,7 +48,9 @@ internal fun DeleteWalletRoute(navController: NavHostController, holder: VaultHo
  */
 @Composable
 internal fun WipeRoute(navController: NavHostController, holder: VaultHolder) {
-    val flow = remember { ShredFlow(WipeVaultPorts(holder)) }
+    // A real wipe resets the Hidden Entry Gesture; the decoy's wipe leaves it alone.
+    val gestures = LocalContext.current.entryGestureHolder()
+    val flow = remember { ShredFlow(WipeVaultPorts(holder, gestures)) }
     ShredRoute(
         navController = navController,
         holder = holder,

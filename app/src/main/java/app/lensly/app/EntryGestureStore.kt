@@ -29,6 +29,12 @@ class EntryGestureStore(private val prefs: SharedPreferences) {
     /** Saves [gesture]. Returns false when the write failed, and the stored gesture is then unchanged. */
     fun save(gesture: EntryGesture): Boolean = prefs.edit().putInt(KEY, gesture.storedId).commit()
 
+    /**
+     * Removes the saved gesture, so [load] answers [EntryGesture.DEFAULT]. Only the gesture's own entry goes: other camera
+     * settings, such as flash or grid, stay as they are. Returns false when the write failed.
+     */
+    fun reset(): Boolean = prefs.edit().remove(KEY).commit()
+
     companion object {
         /** The preference file. Its name says camera, not the vault. */
         const val FILE = "camera_prefs"
@@ -57,5 +63,15 @@ class EntryGestureHolder(private val store: EntryGestureStore) {
         val saved = withContext(Dispatchers.IO + NonCancellable) { store.save(gesture) }
         if (saved) current = gesture
         return saved
+    }
+
+    /**
+     * Resets the gesture to [EntryGesture.DEFAULT], as a wipe does. A reset that has started runs to its end, and the
+     * current gesture changes only once the file is written. Returns false when the write failed.
+     */
+    suspend fun reset(): Boolean {
+        val reset = withContext(Dispatchers.IO + NonCancellable) { store.reset() }
+        if (reset) current = EntryGesture.DEFAULT
+        return reset
     }
 }

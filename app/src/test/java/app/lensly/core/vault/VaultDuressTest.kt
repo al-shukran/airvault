@@ -143,18 +143,25 @@ class VaultDuressTest {
         createVault()
         val real = unlocked(attempt(APP))
 
+        val made = mutableListOf<String>()
+        var abandonedDecoyKey: ByteArray? = null
         val result = runBlocking {
             vault.setDuress(real, DURESS.toCharArray()) { decoy ->
-                decoy.createWallet()
+                abandonedDecoyKey = decoy.copyOfVaultKey()
+                made += decoy.createWallet()
                 error("The decoy could not be made.")
             }
         }
 
         assertEquals(DuressResult.Failed, result)
         assertEquals(emptyList<String>(), real.listWallets())
-        assertFalse(layout.wallets.list().orEmpty().isNotEmpty())
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
         real.close()
         assertRejected(unlockAfterDelay(DURESS))
+        // The folders stay, but the wallets that were made there no longer open.
+        val abandoned = checkNotNull(abandonedDecoyKey)
+        made.forEach { id -> assertFalse(ownsWallet(layout, abandoned, id)) }
+        abandoned.fill(0)
     }
 
     @Test
@@ -260,14 +267,20 @@ class VaultDuressTest {
         real.close()
 
         val decoy = unlocked(unlockAfterDelay(DURESS))
+        val decoyWallet = decoy.listWallets().single()
+        val decoyKey = decoy.copyOfVaultKey()
         runBlocking { vault.removeDuress(decoy) }
         decoy.close()
 
         assertRejected(unlockAfterDelay(DURESS))
+        // The folder stays, but its wallet no longer opens.
+        assertFalse(ownsWallet(layout, decoyKey, decoyWallet))
+        decoyKey.fill(0)
         val reopened = unlocked(unlockAfterDelay(APP))
         assertEquals(listOf(realWallet), reopened.listWallets())
+        assertFalse(reopened.listWallets().contains(decoyWallet))
         reopened.close()
-        assertEquals(1, layout.wallets.list().orEmpty().size)
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
     }
 
     @Test
@@ -337,12 +350,25 @@ class VaultDuressTest {
         val real = unlocked(attempt(APP))
         real.createWallet()
         assertEquals(DuressResult.Enabled, setDuress(real, wallets = 2))
-        assertEquals(3, layout.wallets.list().orEmpty().size)
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
 
+        val decoy = unlocked(unlockAfterDelay(DURESS))
+        val gone = decoy.listWallets()
+        val decoyKey = decoy.copyOfVaultKey()
+        decoy.close()
         runBlocking { vault.removeDuress(real) }
         real.close()
 
-        assertEquals(1, layout.wallets.list().orEmpty().size)
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
+        // The folders stay, but the wallets they held no longer open and no session lists them.
+        gone.forEach { id ->
+            assertFalse(ownsWallet(layout, decoyKey, id))
+            assertTrue(File(layout.walletDir(id), WALLET_KEY_FILE_NAME).isFile)
+        }
+        decoyKey.fill(0)
+        val reopened = unlocked(unlockAfterDelay(APP))
+        gone.forEach { id -> assertFalse(reopened.listWallets().contains(id)) }
+        reopened.close()
     }
 
     @Test
@@ -351,15 +377,23 @@ class VaultDuressTest {
         val real = unlocked(attempt(APP))
         real.createWallet()
         assertEquals(DuressResult.Enabled, setDuress(real, password = DURESS, wallets = 1))
+        val oldDecoy = unlocked(unlockAfterDelay(DURESS))
+        val oldWallet = oldDecoy.listWallets().single()
+        val oldDecoyKey = oldDecoy.copyOfVaultKey()
+        oldDecoy.close()
         assertEquals(DuressResult.Enabled, setDuress(real, password = DURESS_TWO, wallets = 2))
         real.close()
 
         assertRejected(unlockAfterDelay(DURESS))
+        // The old decoy's folder stays, but its wallet no longer opens.
+        assertFalse(ownsWallet(layout, oldDecoyKey, oldWallet))
+        oldDecoyKey.fill(0)
         val decoy = unlocked(unlockAfterDelay(DURESS_TWO))
         assertEquals(2, decoy.listWallets().size)
+        assertFalse(decoy.listWallets().contains(oldWallet))
         decoy.close()
-        // The real wallet and the new decoy's two wallets. The old decoy's wallet is gone.
-        assertEquals(3, layout.wallets.list().orEmpty().size)
+        // The real wallet and the new decoy's two wallets fill three slots; the rest stay unused.
+        assertEquals(WALLET_SLOT_STEP, walletFolders())
     }
 
     @Test
@@ -475,7 +509,42 @@ class VaultDuressTest {
     }
 
     @Test
-    fun aWipeRemovesTheRealVaultAndTheDecoyVault() {
+    fun aWipeFromTheDecoyLeavesTheRealVaultAndItsWalletsAlone() {
+        createVault()
+        val real = unlocked(attempt(APP))
+        val realWallet = real.createWallet()
+        real.putRecord(realWallet, "secret", byteArrayOf(1, 2, 3))
+        assertEquals(DuressResult.Enabled, setDuress(real))
+        real.close()
+
+        val decoy = unlocked(unlockAfterDelay(DURESS))
+        val decoyWallet = decoy.listWallets().single()
+        decoy.putRecord(decoyWallet, "secret", byteArrayOf(9))
+        val shapeBefore = fileShape()
+
+        vault.wipeDecoy(decoy)
+        decoy.close()
+
+        // The files keep their names and sizes, so the store cannot show that a wipe happened.
+        assertEquals(shapeBefore, fileShape())
+        assertTrue(vault.exists())
+
+        // The Duress Password still opens a decoy, but it is empty. A refusal would tell an attacker that a decoy existed.
+        val emptied = unlocked(unlockAfterDelay(DURESS))
+        assertTrue(emptied.isDecoy)
+        assertEquals(emptyList<String>(), emptied.listWallets())
+        assertFailsWith<VaultException> { emptied.getRecord(decoyWallet, "secret") }
+        emptied.close()
+
+        val reopened = unlocked(unlockAfterDelay(APP))
+        assertFalse(reopened.isDecoy)
+        assertEquals(listOf(realWallet), reopened.listWallets())
+        assertContentEquals(byteArrayOf(1, 2, 3), reopened.getRecord(realWallet, "secret"))
+        reopened.close()
+    }
+
+    @Test
+    fun aRealWipeRemovesTheRealVaultAndTheDecoyVault() {
         createVault()
         val real = unlocked(attempt(APP))
         real.createWallet()
@@ -526,6 +595,15 @@ class VaultDuressTest {
     private fun fixedFileSizes(): Map<String, Long> =
         listOf(layout.header, layout.vaultKey, File(layout.root, "failures.bin"), File(layout.root, "failures.bak"))
             .associate { it.name to it.length() }
+
+    /** The number of wallet folders, whether they hold a wallet or are unused. */
+    private fun walletFolders(): Int = layout.wallets.listFiles()?.count { it.isDirectory } ?: 0
+
+    /** Every file under the vault root, by path, with its size. Contents are not read, so a wipe can be compared by shape. */
+    private fun fileShape(): Map<String, Long> =
+        layout.root.walkTopDown()
+            .filter { it.isFile }
+            .associate { it.relativeTo(layout.root).path to it.length() }
 
     /** The v1 `vault.key` and a plain-named settings record, as the app wrote them before Duress Passwords existed. */
     private fun writeLegacyVault(password: String, settings: ByteArray) {
