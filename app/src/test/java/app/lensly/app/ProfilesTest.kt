@@ -43,7 +43,10 @@ class ProfilesTest {
     @Test
     fun aGeneratedIdentityStartsAtTheFirstColourAndIconAndAdvancesAfterACycleOfColours() {
         assertEquals(VisualIdentity(ProfileColour.RED, ProfileIcon.STAR), generatedIdentity(0))
-        assertEquals(VisualIdentity(ProfileColour.RED, ProfileIcon.HEART), generatedIdentity(8))
+        assertEquals(
+            VisualIdentity(ProfileColour.RED, ProfileIcon.HEART),
+            generatedIdentity(ProfileColour.entries.size),
+        )
     }
 
     @Test
@@ -62,8 +65,8 @@ class ProfilesTest {
 
     @Test
     fun thePaletteAndTheIconSetHaveTheirSizesAndUniqueCodes() {
-        assertEquals(8, ProfileColour.entries.size)
-        assertEquals(12, ProfileIcon.entries.size)
+        assertEquals(16, ProfileColour.entries.size)
+        assertEquals(60, ProfileIcon.entries.size)
         assertEquals(ProfileColour.entries.size, ProfileColour.entries.map { it.wire }.toSet().size)
         assertEquals(ProfileIcon.entries.size, ProfileIcon.entries.map { it.wire }.toSet().size)
         assertEquals(ProfileColour.BLUE, ProfileColour.fromWire(ProfileColour.BLUE.wire))
