@@ -217,6 +217,28 @@ dependencies {
 
     // Microbenchmarks (guideline 1.7). They run only on the benchmark build type, through the runner set above.
     androidTestImplementation(libs.androidx.benchmark.junit4)
+
+    // AndroidX Benchmark puts `androidx.benchmark.IsolationActivity` in the *app* APK's manifest, not the test APK's:
+    // AndroidBenchmarkRunner launches it by name in the app under test. So the library has to be on the benchmark
+    // variant's own runtime too, or every run dies with "Unable to resolve activity for
+    // androidx.benchmark.IsolationActivity".
+    //
+    // It drags in the test stack it was built against (androidx.test:runner 1.5.2, rules 1.5.0, monitor 1.6.1,
+    // junit 4.13.2) and pins some of those with `strictly` constraints. AGP merges the tested app's runtime into the
+    // androidTest runtime, so a plain add downgrades monitor to 1.6.1 and fails resolution of the runner/rules 1.7.0
+    // this module pins, which strips `org.hamcrest.Matchers` from every instrumented test. The app side only needs
+    // IsolationActivity and CpuInfo, and neither touches the test stack, so that stack stays on the androidTest
+    // classpath only.
+    //
+    // Kotlin DSL does not generate a type-safe accessor for this build type, so the configuration is named as a string.
+    "benchmarkImplementation"(libs.androidx.benchmark.junit4) {
+        exclude(group = "androidx.test")
+        exclude(group = "androidx.test.espresso")
+        exclude(group = "androidx.test.services")
+        exclude(group = "junit")
+        exclude(group = "org.hamcrest")
+    }
+
     // benchmark-macro-junit4 is in the catalog but not used here: macrobenchmarks need a separate
     // com.android.test module targeting this benchmark variant. That module has no catalog alias yet,
     // so it is deferred (see app/src/androidTest/benchmark-baselines/README.md).

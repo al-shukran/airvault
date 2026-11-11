@@ -150,8 +150,10 @@ jobs:
           arch: x86_64
           disable-animations: true
           # Trend data, not the reference-device gate; androidx.benchmark aborts on an emulator without this.
+          # The class filter keeps a11y/e2e/vault out of the run: they are not benchmark classes.
           script: >-
             ./gradlew :app:connectedBenchmarkAndroidTest
+            "-Pandroid.testInstrumentationRunnerArguments.class=app.lensly.benchmark.*"
             -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
 
       - name: Confirm trend-only
