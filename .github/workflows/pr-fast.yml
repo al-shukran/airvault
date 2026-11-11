@@ -1,0 +1,207 @@
+name: pr-fast
+
+# Guideline docs/testing/guideline.md 2.1-2.4. One job per changed partition, plus the
+# security checks from 1.8 and 3. `pr-ok` is the single required check.
+on:
+  pull_request:
+    branches: [master, phase-1-5]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-fast-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # dorny/paths-filter lists PR files through the API
+    outputs:
+      partitions: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # One filter per row of the 2.2 partition map. Build paths are the 2.2 exception:
+      # a build change can affect any package, so it runs every unit partition.
+      # core-parse, app and registry-pack are partitions run-partition.sh supports beyond
+      # 2.2; those packages already hold tests, so leaving them out would run nothing.
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            core-wallet:
+              - 'app/src/main/java/app/lensly/core/wallet/**'
+              - 'app/src/test/java/app/lensly/core/wallet/**'
+              - 'app/src/test/resources/vectors/bip39/**'
+              - 'app/src/test/resources/vectors/bip32/**'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            core-ur-evm:
+              - 'app/src/main/java/app/lensly/core/ur/**'
+              - 'app/src/main/java/app/lensly/core/evm/**'
+              - 'app/src/test/java/app/lensly/core/ur/**'
+              - 'app/src/test/java/app/lensly/core/evm/**'
+              - 'app/src/test/resources/keystone/**'
+              - 'app/src/test/resources/vectors/eip155/**'
+              - 'app/src/test/resources/vectors/eip1559/**'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            core-parse:
+              - 'app/src/main/java/app/lensly/core/parse/**'
+              - 'app/src/test/java/app/lensly/core/parse/**'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            core-vault:
+              - 'app/src/main/java/app/lensly/core/vault/**'
+              - 'app/src/test/java/app/lensly/core/vault/**'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            core-registry:
+              - 'app/src/main/java/app/lensly/core/registry/**'
+              - 'app/src/test/java/app/lensly/core/registry/**'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            ui:
+              - 'app/src/main/java/app/lensly/ui/**'
+              - 'app/src/test/java/app/lensly/ui/**'
+              - 'app/src/main/res/values/strings.xml'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            manifest:
+              - 'app/src/**/AndroidManifest.xml'
+              - 'gradle/libs.versions.toml'
+              - 'app/build.gradle.kts'
+            app:
+              - 'app/src/main/java/app/lensly/app/**'
+              - 'app/src/test/java/app/lensly/app/**'
+              - 'app/src/test/java/app/lensly/SmokeTest.kt'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            registry-pack:
+              - 'tools/registry-pack/**'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+
+  test:
+    needs: changes
+    if: needs.changes.result == 'success' && needs.changes.outputs.partitions != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: ${{ fromJSON(needs.changes.outputs.partitions) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      # run-partition.sh maps the name to its 2.2 selector; `manifest` runs check-manifest.sh.
+      - name: Run ${{ matrix.partition }}
+        run: ./scripts/ci/run-partition.sh "${{ matrix.partition }}"
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # pull_request: scans the PR's commit range, so only changed content is checked.
+      # .gitleaks.toml keeps the default rules and allowlists app/src/test/resources/vectors.
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false # no pull-requests: write
+
+  dependency_review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
+  test_network:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Guideline 3: test code must not reference java.net., HttpURLConnection, or URL(.
+      - run: ./scripts/ci/check-test-network.sh
+
+  pr-ok: # the single required check
+    if: always()
+    needs: [changes, test, secrets, dependency_review, test_network]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate results
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          TEST: ${{ needs.test.result }}
+          SECRETS: ${{ needs.secrets.result }}
+          DEPENDENCY_REVIEW: ${{ needs.dependency_review.result }}
+          TEST_NETWORK: ${{ needs.test_network.result }}
+        run: |
+          printf 'changes=%s test=%s secrets=%s dependency_review=%s test_network=%s\n' \
+            "$CHANGES" "$TEST" "$SECRETS" "$DEPENDENCY_REVIEW" "$TEST_NETWORK"
+          # test is skipped when no partition changed; that is a pass.
+          case "$TEST" in
+            success | skipped) ;;
+            *) echo "test partition failed or was cancelled"; exit 1 ;;
+          esac
+          for result in "$CHANGES" "$SECRETS" "$DEPENDENCY_REVIEW" "$TEST_NETWORK"; do
+            [ "$result" = success ] || { echo "a required job did not succeed"; exit 1; }
+          done
