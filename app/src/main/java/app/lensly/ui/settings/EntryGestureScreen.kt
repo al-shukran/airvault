@@ -4,24 +4,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.camera.EntryGesture
@@ -44,10 +39,7 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyMuted
 import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurface
@@ -154,45 +146,6 @@ private fun GestureOption(gesture: EntryGesture, current: Boolean, onChoose: () 
                 Spacer(Modifier.width(LenslySpacing.sm))
                 PillChip(text = "Current")
             }
-        }
-    }
-}
-
-/**
- * The demo of [gesture]: a 16:9 card that will show how the gesture is made. Until the demo exists it is a placeholder with a
- * play mark and a caption.
- */
-@Composable
-internal fun GestureDemo(gesture: EntryGesture, modifier: Modifier = Modifier) {
-    // TODO(Phase 1.7): the animation or video of the gesture goes here, in place of the placeholder.
-    val shape = RoundedCornerShape(LenslyRadius.md)
-    Box(
-        modifier = modifier
-            .aspectRatio(16f / 9f)
-            .clip(shape)
-            .background(LenslyBlack)
-            .border(1.dp, LenslyOutline, shape)
-            .testTag("gesture-demo-${gesture.storedId}"),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier.size(56.dp).border(1.dp, LenslyMuted, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = null,
-                    tint = LenslyMuted,
-                    modifier = Modifier.size(28.dp),
-                )
-            }
-            Spacer(Modifier.height(LenslySpacing.xs))
-            Text(
-                text = "Gesture demo — coming soon",
-                style = MaterialTheme.typography.labelSmall,
-                color = LenslyMuted,
-            )
         }
     }
 }

@@ -18,8 +18,9 @@ class EntryGestureScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
 
+    /** 1 s into the loop: the double tap is in its hold, and the thumbnail gesture is still resting on the thumbnail. */
     @Test
-    fun gestureChoice() = compose.snapshot("entry_gesture_choice") {
+    fun gestureChoice() = compose.snapshot("entry_gesture_choice", settleMs = 1_000L) {
         EntryGestureScreen(current = EntryGesture.DOUBLE_TAP_HOLD, onChoose = {}, onBack = {}, onLock = {})
     }
 }
