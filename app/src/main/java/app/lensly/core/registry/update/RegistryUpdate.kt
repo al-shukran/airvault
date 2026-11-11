@@ -42,11 +42,20 @@ object RegistryUpdate {
      * [RegistryUpdateException.Malformed] after one byte past the cap, so an oversized file is never buffered.
      */
     fun readPackage(input: InputStream): ByteArray {
-        val bytes = input.readNBytes(PackageFormat.MAX_BYTES + 1)
-        if (bytes.size > PackageFormat.MAX_BYTES) {
+        // InputStream.readNBytes needs API 33 and minSdk is 31, so this reads the same bound by hand: at most one
+        // byte past the cap, into one buffer of that size, so an oversized file is never buffered.
+        val limit = PackageFormat.MAX_BYTES + 1
+        val buffer = ByteArray(limit)
+        var total = 0
+        while (total < limit) {
+            val read = input.read(buffer, total, limit - total)
+            if (read <= 0) break
+            total += read
+        }
+        if (total > PackageFormat.MAX_BYTES) {
             throw RegistryUpdateException.Malformed("larger than ${PackageFormat.MAX_BYTES} bytes")
         }
-        return bytes
+        return buffer.copyOf(total)
     }
 
     /**
