@@ -20,6 +20,14 @@ class RegistryCatalog(
     fun current(): Registry = merged
 
     /**
+     * The installed package when it is in effect: it verifies, and its sequence is higher than the built-in catalog's, as the
+     * whitelist rule requires. Otherwise null, and the built-in sequence is the one in effect. Synchronized like [install].
+     */
+    @Synchronized
+    fun installed(): RegistryPackage? =
+        RegistryUpdate.installedPackage(baked, dir, trustedPublicKeys)?.takeIf { it.sequence > baked.catalogSequence }
+
+    /**
      * Installs [bytes] as [RegistryUpdate.install] does, checking them against the baked catalog. On success the
      * merged view is rebuilt before this returns. On failure the current view is unchanged.
      */

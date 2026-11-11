@@ -93,16 +93,24 @@ object RegistryUpdate {
      * unchanged; a failed verification is flagged on the result so Settings can say the built-in catalog is in use.
      */
     fun withInstalled(registry: Registry, dir: File, trustedPublicKeys: List<ByteArray>): Registry {
-        val file = File(dir, INSTALLED_FILE)
-        if (!file.isFile) return registry
-        val installed = runCatching { verify(file.readBytes(), trustedPublicKeys, registry).getOrThrow() }
-            .getOrNull() ?: return registry.withInstalledUpdateUnverified()
+        if (!File(dir, INSTALLED_FILE).isFile) return registry
+        val installed = installedPackage(registry, dir, trustedPublicKeys) ?: return registry.withInstalledUpdateUnverified()
         val merged = registry.withAdditions(installed.networks, installed.tokens)
         return if (installed.sequence > registry.catalogSequence) {
             merged.withWhitelist(installed.whitelist)
         } else {
             merged
         }
+    }
+
+    /**
+     * The installed package in [dir], when it verifies against [trustedPublicKeys] and [registry]. It is the package
+     * [withInstalled] merges, so its sequence is the one in effect. Null when none is stored or it no longer verifies.
+     */
+    fun installedPackage(registry: Registry, dir: File, trustedPublicKeys: List<ByteArray>): RegistryPackage? {
+        val file = File(dir, INSTALLED_FILE)
+        if (!file.isFile) return null
+        return runCatching { verify(file.readBytes(), trustedPublicKeys, registry).getOrThrow() }.getOrNull()
     }
 
     /** Sequence of the installed package, or 0 when none is stored or the stored file no longer verifies. */
