@@ -7,6 +7,7 @@ package app.lensly.core.vault
  * The two `lastFailure` readings are the wall-clock and monotonic times at the most recent failure.
  * [capMs] is the Failure Delay cap the owner chose, or null for Default, which is the spec default.
  * [bootCount] is `Settings.Global.BOOT_COUNT` when the state was written, or null when the device did not report it.
+ * [elapsedAtSave] is how much of the delay had run when the state was written, so a reboot continues the wait.
  */
 internal data class FailureState(
     val seq: Long,
@@ -15,6 +16,7 @@ internal data class FailureState(
     val lastFailureElapsedMs: Long,
     val capMs: Long? = null,
     val bootCount: Int? = null,
+    val elapsedAtSave: Long = 0L,
 )
 
 /**
@@ -85,24 +87,24 @@ internal class FailureDelay(
          * [bootCount] is the device's current `Settings.Global.BOOT_COUNT`, or null when it could not be read.
          * - Same boot count: the result is the smaller of the monotonic and wall readings, so a wall clock moved forward
          *   cannot shorten the delay.
-         * - A different boot count means the device rebooted, and the monotonic clock restarted with it. The time since boot
-         *   is then the true lower bound of the time since the failure, so it is the result, and the wall clock is not used.
+         * - A different boot count means the device rebooted, and the monotonic clock restarted with it. The wait then
+         *   continues from [FailureState.elapsedAtSave], plus the time since this boot, and the wall clock is not used.
          *   Moving the wall clock forward or back therefore cannot end the wait early. A count that a root user edits goes
          *   the same way, and can only make the wait longer.
-         * - No boot count on either side: the monotonic clock is used alone when it went back, which is the reboot it can see.
+         * - No boot count on either side: the monotonic clock is used alone while it did not go back, and the wall clock
+         *   carries the wait when it did, which is the reboot it can see.
          *
          * A negative result means the wall clock moved backwards within one boot, which [FailureStore] treats as tampering.
          */
         fun elapsedSinceFailure(state: FailureState, clock: Clock, bootCount: Int? = null): Long {
             val monotonicNow = clock.elapsedMillis()
+            val wallElapsed = clock.wallMillis() - state.lastFailureWallMs
             val storedBootCount = state.bootCount
             if (storedBootCount != null && bootCount != null) {
-                if (bootCount != storedBootCount) return monotonicNow
-                val wallElapsed = clock.wallMillis() - state.lastFailureWallMs
+                if (bootCount != storedBootCount) return state.elapsedAtSave + monotonicNow
                 return minOf(monotonicNow - state.lastFailureElapsedMs, wallElapsed)
             }
-            if (monotonicNow < state.lastFailureElapsedMs) return monotonicNow
-            val wallElapsed = clock.wallMillis() - state.lastFailureWallMs
+            if (monotonicNow < state.lastFailureElapsedMs) return wallElapsed
             return minOf(monotonicNow - state.lastFailureElapsedMs, wallElapsed)
         }
     }

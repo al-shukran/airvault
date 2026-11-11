@@ -94,22 +94,14 @@ class FailureDelayTest {
     }
 
     @Test
-    fun rebootRestartsTheWaitFromBootAndIgnoresTheWallClock() {
+    fun rebootFallsBackToTheWallClock() {
         val clock = FakeClock(wall = afterLearning, elapsed = 900_000L)
         val state = FailureState(seq = 2, failures = 1, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed)
 
-        // The device rebooted, so the monotonic clock restarted near zero, and 15 s of wall time have passed.
+        // After a reboot the monotonic clock restarts near zero, while 15 s of wall time have passed.
         clock.elapsed = 2_000L
         clock.wall += 15_000L
-        assertEquals(2_000L, FailureDelay.elapsedSinceFailure(state, clock))
-        assertTrue(FailureDelay(created).isBlocked(state, clock))
-
-        // Moving the clock forward by an hour does not end the wait. The 10 s delay runs from boot.
-        clock.wall += 3_600_000L
-        assertEquals(2_000L, FailureDelay.elapsedSinceFailure(state, clock))
-        assertTrue(FailureDelay(created).isBlocked(state, clock))
-
-        clock.advance(8_000)
+        assertEquals(15_000L, FailureDelay.elapsedSinceFailure(state, clock))
         assertFalse(FailureDelay(created).isBlocked(state, clock))
     }
 
@@ -127,17 +119,20 @@ class FailureDelayTest {
     }
 
     @Test
-    fun aWallClockMovedBackwardsAcrossARebootIsNotTampering() {
+    fun aWallClockMovedBackwardsAcrossARebootWithoutABootCountReadsAsTampering() {
+        // Master's behaviour, kept for a device that reports no boot count: only the monotonic clock can show the reboot, and
+        // the wall clock then carries the wait, so a clock that went back is negative and FailureStore treats it as tampering.
+        // The recorded boot count is what tells a reboot apart from a moved clock.
         val clock = FakeClock(wall = afterLearning, elapsed = 900_000L)
         val state = FailureState(seq = 2, failures = 1, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed)
 
         clock.elapsed = 2_000L
         clock.wall -= 3_600_000L
-        assertEquals(2_000L, FailureDelay.elapsedSinceFailure(state, clock))
+        assertTrue(FailureDelay.elapsedSinceFailure(state, clock) < 0)
     }
 
     @Test
-    fun aBootCountThatWentUpMeasuresFromBootEvenWhenTheMonotonicClockPassedTheFailure() {
+    fun aBootCountThatWentUpContinuesTheWaitEvenWhenTheMonotonicClockPassedTheFailure() {
         val clock = FakeClock(wall = afterLearning, elapsed = 1_000L)
         val state = FailureState(
             seq = 2,
@@ -145,13 +140,14 @@ class FailureDelayTest {
             lastFailureWallMs = clock.wall,
             lastFailureElapsedMs = clock.elapsed,
             bootCount = 7,
+            elapsedAtSave = 1_000L,
         )
 
-        // The device rebooted and stayed up longer than the failure had been up before it, so the monotonic clock is above the
-        // reading in the state. The wall clock is moved back an hour at the same time.
-        clock.elapsed = 5_000L
+        // The device rebooted, stayed up longer than the failure had been up before it, and the wall clock went back an hour.
+        // The wait continues: 1 s before the reboot and 2 s after it.
+        clock.elapsed = 2_000L
         clock.wall -= 3_600_000L
-        assertEquals(5_000L, FailureDelay.elapsedSinceFailure(state, clock, bootCount = 8))
+        assertEquals(3_000L, FailureDelay.elapsedSinceFailure(state, clock, bootCount = 8))
         assertTrue(FailureDelay(created).isBlocked(state, clock, bootCount = 8))
     }
 
@@ -172,7 +168,7 @@ class FailureDelayTest {
     }
 
     @Test
-    fun withoutABootCountTheOlderReadingIsKept() {
+    fun withoutACurrentBootCountTheWallClockCarriesTheWait() {
         val clock = FakeClock(wall = afterLearning, elapsed = 900_000L)
         val state = FailureState(
             seq = 2,
@@ -183,11 +179,11 @@ class FailureDelayTest {
         )
 
         // The state names a boot, but the device cannot report the current one, so the monotonic clock going back is the only
-        // reboot signal, as before.
+        // reboot signal and the wall clock carries the wait, as on master.
         clock.elapsed = 2_000L
         clock.wall += 15_000L
-        assertEquals(2_000L, FailureDelay.elapsedSinceFailure(state, clock))
-        assertTrue(FailureDelay(created).isBlocked(state, clock))
+        assertEquals(15_000L, FailureDelay.elapsedSinceFailure(state, clock))
+        assertFalse(FailureDelay(created).isBlocked(state, clock))
     }
 
     @Test
