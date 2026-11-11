@@ -190,6 +190,22 @@ dependencies {
     implementation(libs.bouncycastle.bcprov.jdk18on)
     implementation(libs.sparrowwallet.hummingbird)
 
+    // Transitive pins for Dependabot alerts 6-12, 15-23 and 24. Both libraries arrive through web3j
+    // 4.12.3, which is still the current release, and it asks for jackson 2.17.1 and guava
+    // 33.3.1-android. These are constraints, not forces: they only raise the floor, so a future web3j
+    // that asks for a newer version still wins.
+    constraints {
+        // Alerts 6-12, 15-23: every listed range ends at or before 2.18.11, and 2.18 is the patch line
+        // that keeps the 2.x API web3j was built against. The 2.22 line (used on the build classpath) is
+        // deliberately not used here: it is a newer minor than web3j has ever been tested with.
+        implementation("com.fasterxml.jackson.core:jackson-databind:2.18.11")
+        implementation("com.fasterxml.jackson.core:jackson-core:2.18.11")
+        implementation("com.fasterxml.jackson.core:jackson-annotations:2.18.11")
+        // Alert 24: 33.7.2 is the first release outside the range. The -android flavor is kept so no
+        // jre-only guava classes land on the Android classpath.
+        implementation("com.google.guava:guava:33.7.2-android")
+    }
+
     // Password strength estimation for the vault's App Password policy.
     implementation(libs.zxcvbn)
 
