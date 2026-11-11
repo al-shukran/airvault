@@ -16,7 +16,6 @@ import app.lensly.app.WalletMeta
 import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -56,6 +55,8 @@ class WalletDashboardTest {
     }
 
     @Test
+    // A window wide enough to hold all five cards, so the carousel's count can be asserted without scrolling it.
+    @Config(qualifiers = "w1400dp-h1600dp-port-mdpi")
     fun allWalletsOpensTheListOfEveryWallet() {
         lateinit var nav: NavHostController
         compose.setContent {
@@ -79,7 +80,7 @@ class WalletDashboardTest {
             }
         }
         settle()
-        assertTrue(compose.onAllNodesWithTag(WALLET_CARD_TAG).fetchSemanticsNodes().isNotEmpty())
+        compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(5)
 
         compose.onNodeWithText("All wallets →").performClick()
         settle()
