@@ -2,7 +2,11 @@ package app.lensly.ui.screenshot
 
 import android.provider.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import app.lensly.app.AccountProfile
 import app.lensly.app.ProfileColour
 import app.lensly.app.ProfileIcon
@@ -18,6 +22,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.home.BulkGenerateScreen
+import app.lensly.ui.home.HOME_SCROLL_TAG
 import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
@@ -42,6 +47,10 @@ private const val SETTLE_MS = 1_000L
 private const val FIXED_NOW_MS = 1_800_000_000_000L
 private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 3_600_000L
+
+/** The swipes that bring the Home content to its end, and the fling each one is given to settle. */
+private const val SCROLL_SWIPES = 10
+private const val FLING_MS = 1_000L
 
 /**
  * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice, and with the aperture still because
@@ -82,6 +91,22 @@ class HomeScreensScreenshotTest {
     }
 
     /** The same Home with the system's animations off: the aperture is drawn once, and the golden shows that frame. */
+    /**
+     * Home scrolled to its end, so Readiness is in view above the dock. The lockout here is one second, so its tile has the amber dot.
+     */
+    @Test
+    fun homeScrolledToReadiness() = compose.snapshot(
+        "home_readiness",
+        settleMs = SETTLE_MS,
+        beforeCapture = { scrollHomeToEnd() },
+    ) {
+        home(
+            wallets = sampleWallets().take(2),
+            profiles = sampleHomeProfiles,
+            readiness = sampleReadiness.copy(lockout = FailureCapChoice.ONE_SECOND),
+        )
+    }
+
     @Test
     fun homeWithAStaticHero() {
         Settings.Global.putFloat(RuntimeEnvironment.getApplication().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
@@ -200,12 +225,13 @@ class HomeScreensScreenshotTest {
         profiles: Map<String, WalletProfile> = emptyMap(),
         recent: List<WalletReviewRecord> = sampleActivity(),
         debugNotice: String? = null,
+        readiness: HomeReadiness = sampleReadiness,
     ) {
         WalletHomeScreen(
             wallets = wallets,
             profiles = profiles,
             recent = recent,
-            readiness = sampleReadiness,
+            readiness = readiness,
             nowMs = FIXED_NOW_MS,
             onOpen = {},
             onEdit = {},
@@ -419,4 +445,15 @@ class HomeScreensScreenshotTest {
 
     private val linea = NetworkEntry(59144L, "Linea", "ETH", 18, FeeModel.L2_ROLLUP, "Lineascan", false)
     private val usdc = TokenEntry(59144L, "0x176211869ca2b568f2a7d4ee941e073a821ee1ff", "USDC", "USD Coin", 6)
+}
+
+/** Swipes the Home content up until it stops, so its last section sits above the dock. */
+private fun ComposeContentTestRule.scrollHomeToEnd() {
+    repeat(SCROLL_SWIPES) {
+        onNodeWithTag(HOME_SCROLL_TAG).performTouchInput {
+            swipeUp(startY = height * 0.8f, endY = height * 0.2f, durationMillis = 200)
+        }
+        mainClock.advanceTimeBy(FLING_MS)
+        waitForIdle()
+    }
 }
