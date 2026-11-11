@@ -136,9 +136,12 @@ internal class WalletPad(
     /** Turns the wallet folders [ids] into unused slots, overwriting their files with random bytes of the same sizes. */
     fun release(ids: Collection<String>) {
         if (ids.isEmpty()) return
+        val free = freeSlots()
+        val turned = ids.filter { it !in free }
+        if (turned.isEmpty()) return
         val dirs = folderDirs()
-        ids.forEach { id -> overwriteAsFree(layout.walletDir(id)) }
-        write(freeSlots() + ids.filter { id -> dirs.any { it.name == id } })
+        turned.forEach { id -> overwriteAsFree(layout.walletDir(id)) }
+        write(free + turned.filter { id -> dirs.any { it.name == id } })
     }
 
     /** Makes the store hold [target] folders, adding unused ones. */
@@ -231,7 +234,8 @@ internal class WalletPad(
     private fun writeFreeKeyFile(dir: File) {
         dir.mkdirs()
         val bytes = byteArrayOf(BLOB_VERSION) + randomBytes(WALLET_KEY_BYTES + Aead.IV_BYTES + 16)
-        writeAtomically(File(dir, WALLET_KEY_FILE_NAME), bytes)
+        // No sync: a slot is padding, and a half-written one is still an empty slot. The pad list is the durable record.
+        File(dir, WALLET_KEY_FILE_NAME).writeBytes(bytes)
     }
 
     private fun randomBytes(size: Int): ByteArray = ByteArray(size).also { random.nextBytes(it) }
