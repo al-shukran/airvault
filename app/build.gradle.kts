@@ -68,8 +68,14 @@ roborazzi {
 // Robolectric reads FileDescriptor state through jdk.internal.access, which the JDK does not export to unnamed
 // modules. Export it to the unit-test JVM so Robolectric starts on the JDK 26 this project builds with locally.
 // The export is harmless on JDK 17, which CI uses.
+// jazzer-junit is a JUnit 5 artifact, so the unit-test JVM runs the JUnit Platform. The engine pair is explicit:
+// Jupiter runs the Jazzer fuzz targets, Vintage runs every existing JUnit 4 test (unit, Robolectric, Compose,
+// Roborazzi). Keep the two versions equal; 5.14 is the newest line Jazzer 0.30.0 is built against.
+val junitJupiter = "5.14.4"
+
 tasks.withType<Test>().configureEach {
     jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+    useJUnitPlatform()
 }
 
 dependencies {
@@ -107,6 +113,12 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
+
+    // Jazzer fuzz targets (app/src/test/java/app/lensly/fuzz). Regression mode replays the committed seeds as
+    // ordinary tests; JAZZER_FUZZ=1 turns the same targets into a fuzzing run. See scripts/ci/fuzz-nightly.sh.
+    testImplementation(libs.jazzer.junit)
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitJupiter")
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine:$junitJupiter")
 
     // Compose UI tests on Robolectric, and their screenshots through Roborazzi.
     testImplementation(libs.androidx.compose.ui.test.junit4)

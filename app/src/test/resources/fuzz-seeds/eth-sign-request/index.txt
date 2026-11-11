@@ -1,0 +1,5 @@
+empty.cbor
+no-origin.cbor
+not-a-map.cbor
+origin.cbor
+truncated.cbor
