@@ -205,6 +205,7 @@ class HomeScreensScreenshotTest {
             onAddAccount = {},
             onBulkGenerate = {},
             onShowSecret = {},
+            onHistory = {},
             onEditWallet = {},
             onEditAccount = {},
             onExportAccounts = {},

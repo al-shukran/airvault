@@ -158,6 +158,24 @@ class VaultSession internal constructor(
         }
     }
 
+    /**
+     * The names of the records of wallet [walletId] that start with [prefix], sorted. A wallet this session cannot open has
+     * none, so neither vault lists the other's records.
+     *
+     * @throws IllegalArgumentException if the id is malformed.
+     */
+    fun recordNames(walletId: String, prefix: String): List<String> {
+        synchronized(this) {
+            val key = requireOpen()
+            requireWalletId(walletId)
+            if (!ownsWallet(layout, key, walletId)) return emptyList()
+            return layout.walletDir(walletId).list().orEmpty()
+                .filter { it.startsWith(prefix) && it.endsWith(".bin") }
+                .map { it.removeSuffix(".bin") }
+                .sorted()
+        }
+    }
+
     /** Removes record [name] of wallet [walletId]. Does nothing if the record does not exist. */
     fun deleteRecord(walletId: String, name: String): Unit = synchronized(this) {
         requireOpen()

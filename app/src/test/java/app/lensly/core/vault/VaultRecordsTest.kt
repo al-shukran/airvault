@@ -154,4 +154,22 @@ class VaultRecordsTest {
         assertFalse(File(folder, "settings.bin").exists())
         session.close()
     }
+
+    @Test
+    fun recordNamesListsOnlyTheRecordsOfThatPrefixInOwnedWallets() {
+        val session = open()
+        val wallet = session.createWallet()
+        session.putRecord(wallet, "review-b", byteArrayOf(1))
+        session.putRecord(wallet, "review-a", byteArrayOf(2))
+        session.putRecord(wallet, "meta", byteArrayOf(3))
+        val other = open(ByteArray(32) { 9 })
+        val foreign = other.createWallet()
+        other.putRecord(foreign, "review-x", byteArrayOf(4))
+
+        assertEquals(listOf("review-a", "review-b"), session.recordNames(wallet, "review-"))
+        assertEquals(emptyList(), session.recordNames(foreign, "review-"))
+        assertEquals(emptyList(), other.recordNames(wallet, "review-"))
+        session.close()
+        other.close()
+    }
 }

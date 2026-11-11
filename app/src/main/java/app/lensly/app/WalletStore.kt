@@ -812,7 +812,7 @@ internal object WalletRecords {
     }
 
     /** Runs [write] on a fresh stream and returns a copy of its bytes. The stream's own buffer is zeroed too. */
-    private inline fun writeBytes(write: (DataOutputStream) -> Unit): ByteArray {
+    internal fun writeBytes(write: (DataOutputStream) -> Unit): ByteArray {
         val buffer = WipingBuffer()
         try {
             DataOutputStream(buffer).use(write)
@@ -822,7 +822,7 @@ internal object WalletRecords {
         }
     }
 
-    private inline fun <T> readBytes(bytes: ByteArray, read: (DataInputStream) -> T): T =
+    internal inline fun <T> readBytes(bytes: ByteArray, read: (DataInputStream) -> T): T =
         DataInputStream(ByteArrayInputStream(bytes)).use(read)
 
     private fun writeField(out: DataOutputStream, bytes: ByteArray) {
