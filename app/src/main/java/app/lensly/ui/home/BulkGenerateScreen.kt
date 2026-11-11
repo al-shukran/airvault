@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.app.autoAccountName
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.formatAccounts
@@ -34,6 +35,7 @@ import app.lensly.ui.wallet.WalletScaffold
 @Composable
 fun BulkGenerateScreen(
     existingAccounts: Int,
+    autoNameBase: String,
     cap: BulkCap,
     digits: String,
     running: Boolean,
@@ -99,7 +101,7 @@ fun BulkGenerateScreen(
         }
         Spacer(Modifier.height(16.dp))
         if (count != null) {
-            WalletEyebrow(addsLabel(BulkPolicy.indexRange(existingAccounts, count)))
+            WalletEyebrow(addsLabel(autoNameBase, BulkPolicy.indexRange(existingAccounts, count)))
         }
         WalletError(failure ?: refusal(check))
         if (running && count != null) {
@@ -116,11 +118,11 @@ fun BulkGenerateScreen(
     }
 }
 
-/** Names the accounts a run adds, numbered as the list shows them: "Account 4 to Account 13", or "Account 4" alone. */
-private fun addsLabel(range: IntRange): String {
-    val first = range.first + 1
-    val last = range.last + 1
-    return if (first == last) "Adds Account $first" else "Adds Account $first to Account $last"
+/** Names the Auto-Names a run adds, as the list shows them: "Adds Seed Wallet 3 to Seed Wallet 12", or one name alone. */
+private fun addsLabel(baseName: String, range: IntRange): String {
+    val first = autoAccountName(baseName, range.first)
+    val last = autoAccountName(baseName, range.last)
+    return if (range.first == range.last) "Adds $first" else "Adds $first to $last"
 }
 
 /** Why the typed Count cannot be generated. Null when it can, and when no Count has been typed yet. */

@@ -50,7 +50,9 @@ private val ONE_CENT_OF_MON: BigInteger = BigInteger.TEN.pow(16)
 private val WALLET by lazy { HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art")) }
 
 /** Two accounts, so index 1 is valid and index 2 is not. */
-private val VIEW by lazy { WalletView(WALLET.masterFingerprint, accountCount = 2) { WALLET.address(it) } }
+private val VIEW by lazy {
+    WalletView(WALLET.masterFingerprint, accountCount = 2, autoNameBase = "Seed Wallet") { WALLET.address(it) }
+}
 
 /** The well-known test key of the Single Key tests. It has never held funds, and no other fixture uses it. */
 private val SINGLE_KEY: ByteArray =
@@ -58,7 +60,7 @@ private val SINGLE_KEY: ByteArray =
 private const val SINGLE_KEY_ADDRESS = "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
 private const val SINGLE_KEY_ADDRESS_HEX = "2c7536e3605d9c16a7a3d7b1898e529396a65c23"
 private val SINGLE_KEY_BYTES: ByteArray = Numeric.hexStringToByteArray(SINGLE_KEY_ADDRESS)
-private val SINGLE_KEY_VIEW by lazy { WalletView.singleKey(SINGLE_KEY_ADDRESS) }
+private val SINGLE_KEY_VIEW by lazy { WalletView.singleKey(SINGLE_KEY_ADDRESS, autoNameBase = "Imported") }
 private val ART_BYTES: ByteArray = Numeric.hexStringToByteArray(ART_ADDRESS)
 
 private val REGISTRY = Registry(
@@ -108,7 +110,7 @@ class SignPipelineTest {
         assertEquals("0.01 MON", "${review.amount} ${review.symbol}")
         assertEquals("Native transfer", review.function)
         assertEquals(ART_ADDRESS, review.fromAddress)
-        assertEquals("ACCOUNT 1", review.fromAccountLabel)
+        assertEquals("SEED WALLET 0", review.fromAccountLabel)
         assertEquals(RECIPIENT, review.toAddress)
         assertNull(review.tokenContract)
         assertTrue(review.params.isEmpty())
@@ -214,8 +216,24 @@ class SignPipelineTest {
         val signable = ready(requestCbor(eip1559Tx(), index = 1))
 
         assertEquals(1, signable.accountIndex)
-        assertEquals("ACCOUNT 2", signable.review.fromAccountLabel)
+        assertEquals("SEED WALLET 1", signable.review.fromAccountLabel)
         assertEquals(WALLET.address(1), signable.review.fromAddress)
+    }
+
+    @Test
+    fun aRenamedAccountIsReviewedUnderItsDisplayNameInCapitals() {
+        val named = WalletView(
+            WALLET.masterFingerprint,
+            accountCount = 2,
+            autoNameBase = "Seed Wallet",
+            accountNames = mapOf(1 to "Rent"),
+        ) { WALLET.address(it) }
+
+        val review = assertIs<Prepared.Ready>(pipeline.prepare(requestCbor(eip1559Tx(), index = 1), named)).review
+
+        assertEquals("RENT", review.fromAccountLabel)
+        assertEquals(WALLET.address(1), review.fromAddress)
+        assertEquals("SEED WALLET 0", ready(requestCbor(eip1559Tx())).review.fromAccountLabel)
     }
 
     @Test
@@ -572,7 +590,7 @@ class SignPipelineTest {
             pipeline.prepare(requestCbor(tx, fingerprint = null, address = SINGLE_KEY_BYTES), SINGLE_KEY_VIEW),
         )
         assertEquals(SINGLE_KEY_ADDRESS, ready.review.fromAddress)
-        assertEquals("ACCOUNT 1", ready.review.fromAccountLabel)
+        assertEquals("IMPORTED 0", ready.review.fromAccountLabel)
 
         val response = signResponse(ready, key = SINGLE_KEY.copyOf())
 

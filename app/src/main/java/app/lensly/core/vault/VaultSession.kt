@@ -89,6 +89,14 @@ class VaultSession internal constructor(
         }
     }
 
+    /** Removes record [name] of wallet [walletId]. Does nothing if the record does not exist. */
+    fun deleteRecord(walletId: String, name: String): Unit = synchronized(this) {
+        requireOpen()
+        requireWalletId(walletId)
+        requireRecordName(name)
+        Files.deleteIfExists(recordFile(walletId, name).toPath())
+    }
+
     /**
      * Crypto-shreds a wallet: removes its wrapped Per-Wallet Key first, then its record files.
      * Does nothing if the wallet does not exist.

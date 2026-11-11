@@ -25,6 +25,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
+import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.RegistryHolder
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
@@ -52,7 +53,6 @@ import app.lensly.ui.wallet.PassphraseState
 import app.lensly.ui.wallet.PassphraseStep
 import app.lensly.ui.wallet.RestoreEntryScreen
 import app.lensly.ui.wallet.RestoreState
-import app.lensly.ui.wallet.WALLET_NAME_MAX_LENGTH
 import app.lensly.ui.wallet.WalletNameScreen
 import app.lensly.ui.wallet.effectiveWalletName
 import java.io.IOException
@@ -93,11 +93,12 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
         HiddenBackdrop { ShowSecretRoute(navController, holder, entry.walletId()) }
     }
     composable(HiddenRoute.CATALOG) { HiddenBackdrop { RegistryImportRoute(navController, holder) } }
+    renameRoutes(navController, holder)
 }
 
-private fun walletIdArguments() = listOf(navArgument(HiddenRoute.WALLET_ID_ARG) { type = NavType.StringType })
+internal fun walletIdArguments() = listOf(navArgument(HiddenRoute.WALLET_ID_ARG) { type = NavType.StringType })
 
-private fun NavBackStackEntry.walletId(): String = arguments?.getString(HiddenRoute.WALLET_ID_ARG).orEmpty()
+internal fun NavBackStackEntry.walletId(): String = arguments?.getString(HiddenRoute.WALLET_ID_ARG).orEmpty()
 
 @Composable
 private fun HomeRoute(navController: NavHostController, holder: VaultHolder) {
@@ -335,7 +336,7 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder) {
         name = name,
         placeholder = suggested,
         onKey = { c ->
-            if (!saving && name.length < WALLET_NAME_MAX_LENGTH) name += c
+            if (!saving && name.length < DISPLAY_NAME_MAX_LENGTH) name += c
         },
         onBackspace = {
             if (!saving && name.isNotEmpty()) name = name.dropLast(1)
@@ -379,6 +380,7 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     val scope = rememberCoroutineScope()
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
     var addresses by remember(walletId) { mutableStateOf<List<String>?>(null) }
+    var accountNames by remember(walletId) { mutableStateOf<Map<Int, String>>(emptyMap()) }
 
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
@@ -390,6 +392,10 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         if (current != null) {
             addresses = null
             whileUnlocked(navController, holder) {
+                // The names come first, so a row never shows a default label that a name replaces.
+                accountNames = withContext(Dispatchers.IO) {
+                    WalletStore(session).accountNames(walletId, current.accountCount)
+                }
                 addresses = withContext(Dispatchers.IO) {
                     WalletStore(session).addresses(walletId, current.accountCount)
                 }
@@ -401,6 +407,7 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     WalletDetailScreen(
         wallet = shown,
         addresses = addresses,
+        accountNames = accountNames,
         onBack = { navController.popBackStack() },
         onLock = { leaveHidden(navController, holder) },
         onAddAccount = {
@@ -414,6 +421,8 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         onPair = { navController.navigate(HiddenRoute.export(walletId)) },
         onSign = { navController.navigate(HiddenRoute.scan(walletId)) },
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
+        onRenameWallet = { navController.navigate(HiddenRoute.renameWallet(walletId)) },
+        onRenameAccount = { index -> navController.navigate(HiddenRoute.renameAccount(walletId, index)) },
     )
 }
 
@@ -447,6 +456,7 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
     BackHandler(enabled = running) {}
     BulkGenerateScreen(
         existingAccounts = shown.accountCount,
+        autoNameBase = shown.autoNameBase,
         cap = cap,
         digits = digits,
         running = running,

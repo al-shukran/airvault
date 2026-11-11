@@ -38,12 +38,17 @@ internal class VaultSignPorts(
                 WalletView(
                     masterFingerprint = requireNotNull(meta.masterFingerprintHex).toLong(16).toInt(),
                     accountCount = meta.accountCount,
+                    autoNameBase = meta.autoNameBase,
+                    accountNames = readWallet { WalletStore(it).accountNames(walletId, meta.accountCount) },
                     addressAt = { index -> AccountAddresses.addressAt(xpub, index) },
                 )
             }
             // The address is the only public fact a Single Key has, so the key is read once, for its address.
             WalletKind.SINGLE_KEY -> WalletView.singleKey(
                 address = readWallet { WalletStore(it).addresses(walletId, 1).single() },
+                autoNameBase = meta.autoNameBase,
+                // The one account is index 0. Its name is absent while the owner has not renamed it.
+                accountName = readWallet { WalletStore(it).accountNames(walletId, 1) }[0],
             )
         }
         SignPipeline(RegistryHolder.get(context)).prepare(request, wallet)

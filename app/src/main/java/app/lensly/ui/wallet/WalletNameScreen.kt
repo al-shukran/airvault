@@ -10,12 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.SecureKeyboard
-
-/** Longest name the screen accepts. The caller enforces it when it appends a character. */
-const val WALLET_NAME_MAX_LENGTH = 24
 
 /** Name suggested before the owner types one. */
 const val DEFAULT_WALLET_NAME = "WALLET 1"
@@ -31,9 +29,10 @@ fun effectiveWalletName(typed: String, suggested: String?): String =
     typed.trim().ifEmpty { suggested ?: FALLBACK_WALLET_NAME }
 
 /**
- * Last step of the wallet flow: name the wallet. The caller owns [name] and enforces
- * [WALLET_NAME_MAX_LENGTH]. [placeholder] is shown muted while [name] is empty and is not part of the name.
- * Taps go through [SecureKeyboard], and DONE finishes the flow.
+ * The name screen. It names a new wallet, and it renames a wallet or an account. The caller owns [name] and enforces
+ * [DISPLAY_NAME_MAX_LENGTH]. [placeholder] is shown muted while [name] is empty and is not part of the name. When
+ * [onReset] is set, a pill labelled [resetLabel] is shown under the eyebrow. Taps go through [SecureKeyboard], and DONE
+ * finishes the flow.
  */
 @Composable
 fun WalletNameScreen(
@@ -43,6 +42,8 @@ fun WalletNameScreen(
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String? = null,
+    onReset: (() -> Unit)? = null,
+    resetLabel: String = "Reset",
 ) {
     WalletScaffold(
         modifier = modifier,
@@ -60,7 +61,7 @@ fun WalletNameScreen(
         Spacer(Modifier.height(12.dp))
         DotHeadline(text = "NAME IT")
         Spacer(Modifier.height(16.dp))
-        PillChip(text = "Up to $WALLET_NAME_MAX_LENGTH characters")
+        PillChip(text = "Up to $DISPLAY_NAME_MAX_LENGTH characters")
         Spacer(Modifier.weight(1f))
         Box(
             modifier = Modifier
@@ -84,6 +85,17 @@ fun WalletNameScreen(
         }
         Spacer(Modifier.height(8.dp))
         WalletEyebrow("You can change it later")
+        if (onReset != null) {
+            Spacer(Modifier.height(16.dp))
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                WalletPill(
+                    text = resetLabel,
+                    onClick = onReset,
+                    style = WalletPillStyle.Outline,
+                    size = WalletPillSize.Compact,
+                )
+            }
+        }
         Spacer(Modifier.weight(1f))
     }
 }
