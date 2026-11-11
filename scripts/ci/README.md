@@ -19,7 +19,7 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 
 `core-parse`, `app` and `registry-pack` are not in the guideline 2.2 table: tests already live in those packages, so leaving them out would run nothing for changes there.
 
-`core-ur-evm` also replays the Jazzer fuzz targets (`app.lensly.fuzz.*`): they cover UR/CBOR, the eth-sign request and the unsigned (RLP) transaction decoder. The PR lane runs them as ordinary JUnit tests, so committed seeds are replayed on every change to that partition.
+`core-ur-evm` also replays the Jazzer fuzz targets (`app.lensly.fuzz.*`): they cover UR/CBOR, the eth-sign request and the unsigned (RLP) transaction decoder. The PR lane runs them as ordinary JUnit tests, so committed seeds are replayed on every change to that partition. They run as a second Gradle invocation with `-PfuzzLane`, in their own JVM: once a fuzz target has run, Jazzer's agent breaks Robolectric's sandbox class loader, so the shared unit-test JVM skips the fuzz package (see the note in `app/build.gradle.kts`).
 
 `ci` covers CI's own files (`scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml`). It needs no Gradle: it syntax-checks every script under `scripts/` and runs the test-network guard, so a workflow or script edit no longer merges without a check.
 
@@ -62,7 +62,7 @@ scripts/ci/fuzz-nightly.sh --list
 
 Duration comes from each `@FuzzTest` annotation: `maxDuration = "15m"`, which Jazzer passes to libFuzzer as `-max_total_time=900`. `--seconds` passes `-PfuzzMaxSeconds=N`; `app/build.gradle.kts` turns that into the `jazzer.internal.arg.0` JUnit configuration parameter, and Jazzer appends it after the annotation value, so the shorter cap wins.
 
-**PR lane.** The same targets run with no environment variable, as ordinary JUnit tests: Jazzer replays the committed seeds. `@FuzzTest` is a JUnit 5 `@ParameterizedTest`, so the unit-test JVM runs both engines — Jupiter for the fuzz targets, Vintage for every existing JUnit 4 test.
+**PR lane.** The same targets run with no environment variable, as ordinary JUnit tests: Jazzer replays the committed seeds. `@FuzzTest` is a JUnit 5 `@ParameterizedTest`, so the unit-test JVM runs both engines — Jupiter for the fuzz targets, Vintage for every existing JUnit 4 test. Pass `-PfuzzLane` so the run includes `app.lensly.fuzz.*`: without it the shared JVM skips that package, because Jazzer and Robolectric cannot share a JVM.
 
 **Seeds.** `app/src/test/resources/fuzz-seeds/<target>/` holds valid and malformed inputs, named in that directory's `index.txt`; the tests read them through `@MethodSource`. A crash a nightly run finds lands in `app/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/`, which the regression run replays as soon as the file is committed.
 

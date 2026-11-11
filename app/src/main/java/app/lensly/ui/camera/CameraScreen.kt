@@ -1,6 +1,7 @@
 package app.lensly.ui.camera
 
 import android.Manifest
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -37,6 +38,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,9 +50,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -87,14 +92,18 @@ private const val CAPTURE_NOTICE_MS = 3500L
 private const val SHUTTER_FLASH_ALPHA = 0.7f
 private const val SHUTTER_FLASH_MS = 220
 
+/** How far a leftward swipe must travel to complete the thumbnail gesture. */
+internal val ENTRY_SWIPE_DISTANCE: Dp = 40.dp
+
 /**
- * The camera face of the app: a plain photo viewfinder. [onHiddenEntry] fires when the
- * viewfinder receives the hidden entry gesture; nothing on screen reveals it.
+ * The camera face of the app: a plain photo viewfinder. [onHiddenEntry] fires when the viewfinder receives the hidden
+ * entry gesture that [entryGesture] names; nothing on screen reveals it.
  */
 @Composable
 fun CameraScreen(
     onOpenGallery: () -> Unit,
     onHiddenEntry: () -> Unit,
+    entryGesture: EntryGesture,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -120,6 +129,7 @@ fun CameraScreen(
             store = store,
             onOpenGallery = onOpenGallery,
             onHiddenEntry = onHiddenEntry,
+            gesture = entryGesture,
             modifier = modifier,
         )
     } else {
@@ -140,13 +150,18 @@ private fun CameraViewfinder(
     store: PhotoStore,
     onOpenGallery: () -> Unit,
     onHiddenEntry: () -> Unit,
+    gesture: EntryGesture,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val controller = remember { CameraController() }
-    val detector = remember { HiddenGestureDetector() }
+    val slopPx = LocalViewConfiguration.current.touchSlop
+    val swipePx = with(LocalDensity.current) { ENTRY_SWIPE_DISTANCE.toPx() }
+    // One touch state for the life of the screen, so its control positions survive a change of gesture.
+    val touch = remember(slopPx, swipePx) { EntryTouch(slopPx, swipePx) }
+    SideEffect { touch.select(gesture) }
     val currentOnHiddenEntry by rememberUpdatedState(onHiddenEntry)
 
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
@@ -159,8 +174,6 @@ private fun CameraViewfinder(
     var captureFailures by remember { mutableIntStateOf(0) }
     var showCaptureFailure by remember { mutableStateOf(false) }
     val shutterFlash = remember { Animatable(0f) }
-    var viewfinderBounds by remember { mutableStateOf<Rect?>(null) }
-    val currentBounds by rememberUpdatedState(viewfinderBounds)
 
     val latestPhoto by produceState<File?>(initialValue = null, photoVersion) {
         value = withContext(Dispatchers.IO) { store.list().firstOrNull() }
@@ -199,10 +212,11 @@ private fun CameraViewfinder(
         modifier = modifier
             .fillMaxSize()
             .background(LenslyBlack)
-            .pointerInput(Unit) {
-                detectViewfinderGestures(
-                    detector = detector,
-                    viewfinderBounds = { currentBounds },
+            .onGloballyPositioned { touch.root = it }
+            .pointerInput(touch) {
+                detectEntryGestures(
+                    touch = touch,
+                    zoomRatio = { controller.currentZoomRatio },
                     onFocus = { position -> controller.focusAt(position.x, position.y) },
                     onZoom = { scale -> controller.zoomBy(scale) },
                     onHiddenEntry = { currentOnHiddenEntry() },
@@ -234,7 +248,7 @@ private fun CameraViewfinder(
                 latestPhoto = latestPhoto,
                 onOpenGallery = onOpenGallery,
                 onShutter = {
-                    controller.takePhoto(
+                    if (!touch.consumeShutterClick()) controller.takePhoto(
                         file = store.newFile(),
                         executor = ContextCompat.getMainExecutor(context),
                         onSaved = {
@@ -253,9 +267,11 @@ private fun CameraViewfinder(
                     } else {
                         CameraSelector.LENS_FACING_FRONT
                     }
+                    touch.onModeSwitch(SystemClock.uptimeMillis())
                 },
                 modifier = Modifier.fillMaxSize(),
-                onViewfinderBounds = { viewfinderBounds = it },
+                onViewfinderBounds = { touch.viewfinder = it },
+                onControlPlaced = { region, coords -> touch.placeControl(region, coords) },
             )
         }
         // A white wash over the preview confirms each saved photo. It is transparent between shots and lets touches through.
@@ -284,6 +300,7 @@ internal fun ViewfinderOverlay(
     onFlip: () -> Unit,
     modifier: Modifier = Modifier,
     onViewfinderBounds: (Rect) -> Unit = {},
+    onControlPlaced: (EntryRegion, LayoutCoordinates) -> Unit = { _, _ -> },
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         ViewfinderTopBar(
@@ -314,6 +331,7 @@ internal fun ViewfinderOverlay(
             onOpenGallery = onOpenGallery,
             onShutter = onShutter,
             onFlip = onFlip,
+            onControlPlaced = onControlPlaced,
         )
     }
 }
@@ -390,6 +408,7 @@ private fun ViewfinderBottomBar(
     onOpenGallery: () -> Unit,
     onShutter: () -> Unit,
     onFlip: () -> Unit,
+    onControlPlaced: (EntryRegion, LayoutCoordinates) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -399,8 +418,12 @@ private fun ViewfinderBottomBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        GalleryThumbnail(latestPhoto = latestPhoto, onClick = onOpenGallery)
-        ShutterButton(onClick = onShutter)
+        GalleryThumbnail(
+            latestPhoto = latestPhoto,
+            onClick = onOpenGallery,
+            onPlaced = { onControlPlaced(EntryRegion.THUMBNAIL, it) },
+        )
+        ShutterButton(onClick = onShutter, onPlaced = { onControlPlaced(EntryRegion.SHUTTER, it) })
         RoundControl(
             size = 56.dp,
             contentDescription = "Switch camera",
@@ -417,12 +440,13 @@ private fun ViewfinderBottomBar(
 }
 
 @Composable
-private fun GalleryThumbnail(latestPhoto: File?, onClick: () -> Unit) {
+private fun GalleryThumbnail(latestPhoto: File?, onClick: () -> Unit, onPlaced: (LayoutCoordinates) -> Unit) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
             .size(56.dp)
+            .onGloballyPositioned(onPlaced)
             .pressFeedback(interaction, enabled = true)
             .clip(CircleShape)
             .border(1.dp, LenslyOutlineInteractive, CircleShape)
@@ -447,12 +471,13 @@ private fun GalleryThumbnail(latestPhoto: File?, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ShutterButton(onClick: () -> Unit) {
+private fun ShutterButton(onClick: () -> Unit, onPlaced: (LayoutCoordinates) -> Unit) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
             .size(80.dp)
+            .onGloballyPositioned(onPlaced)
             .pressFeedback(interaction, enabled = true)
             .clip(CircleShape)
             .background(LenslyOnSurface)

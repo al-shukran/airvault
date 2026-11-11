@@ -138,11 +138,24 @@ val junitJupiter = "5.14.4"
 // configuration-cache safe.
 val prLane = providers.gradleProperty("prLane").isPresent
 
+// Jazzer and Robolectric cannot share a JVM. Once a fuzz target has run, Jazzer's agent instruments the classes
+// Robolectric defines in its sandbox, and the injected code calls com.code_intelligence.jazzer.runtime
+// .JazzerInternal. That class ships inside the nested com/code_intelligence/jazzer/runtime/jazzer_bootstrap.jar,
+// so it is not on the class path as a top-level class and Robolectric's sandbox loader cannot read its bytes. The
+// next Robolectric test then fails with NoClassDefFoundError: JazzerInternal, on any JDK. The shared unit-test JVM
+// therefore skips the fuzz package, and -PfuzzLane is the lane that runs the committed seeds: one Gradle
+// invocation per target, always without Robolectric. scripts/ci/run-partition.sh, scripts/ci/fuzz-nightly.sh and
+// the nightly workflow pass it.
+val fuzzLane = providers.gradleProperty("fuzzLane").isPresent
+
 tasks.withType<Test>().configureEach {
     jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
     useJUnitPlatform()
     if (prLane) {
         filter { excludeTestsMatching("app.lensly.ui.screenshot.*") }
+    }
+    if (!fuzzLane) {
+        filter { excludeTestsMatching("app.lensly.fuzz.*") }
     }
     // Jazzer's JUnit integration reads extra libFuzzer flags from JUnit configuration parameters named
     // jazzer.internal.arg.<n>, and JUnit sources those from system properties. Element 0 is the libFuzzer

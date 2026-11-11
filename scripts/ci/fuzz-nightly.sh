@@ -110,12 +110,14 @@ for target in "${targets[@]}"; do
     echo "fuzz-nightly: $target, $label"
     # The test task's inputs do not change between runs, so drop its outputs first or Gradle skips the run.
     # Each target is its own Gradle invocation: Jazzer only fuzzes one @FuzzTest per run.
+    # -PfuzzLane selects the fuzz package, which the shared unit-test JVM skips: Jazzer and Robolectric
+    # cannot share a JVM (see the note in app/build.gradle.kts).
     if [ -n "$seconds" ]; then
         JAZZER_FUZZ=1 ./gradlew :app:cleanTestDebugUnitTest :app:testDebugUnitTest \
-            --tests "$target" "-PfuzzMaxSeconds=$seconds" || status=1
+            --tests "$target" -PfuzzLane "-PfuzzMaxSeconds=$seconds" || status=1
     else
         JAZZER_FUZZ=1 ./gradlew :app:cleanTestDebugUnitTest :app:testDebugUnitTest \
-            --tests "$target" || status=1
+            --tests "$target" -PfuzzLane || status=1
     fi
 done
 

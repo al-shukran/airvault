@@ -354,6 +354,49 @@ class VaultTest {
         }
     }
 
+    @Test
+    fun oneTamperedCopyLocksForTheOwnersCap() {
+        runBlocking {
+            vault.create(PASSWORD.toCharArray())
+            assertEquals(FailureCapResult.Saved, vault.setFailureDelayCap(PASSWORD.toCharArray(), 5_000L))
+
+            val bytes = failures.readBytes()
+            bytes[10] = (bytes[10].toInt() xor 1).toByte()
+            failures.writeBytes(bytes)
+
+            // The tampering is detected here. The backup still verifies, so the owner's 5 s cap applies to the lockout.
+            assertRejected(vault.unlock(PASSWORD.toCharArray()))
+            assertEquals(5_000L, vault.failureDelayCapMs())
+            clock.advance(4_999)
+            assertRejected(vault.unlock(PASSWORD.toCharArray()))
+            clock.advance(1)
+            unlocked(vault.unlock(PASSWORD.toCharArray())).close()
+        }
+    }
+
+    @Test
+    fun bothTamperedCopiesLockForTheStrictestCap() {
+        runBlocking {
+            vault.create(PASSWORD.toCharArray())
+            assertEquals(FailureCapResult.Saved, vault.setFailureDelayCap(PASSWORD.toCharArray(), 5_000L))
+            // Past the learning period, so the cap is what sets the lockout, not the 10 s learning cap.
+            clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+
+            for (file in listOf(failures, failuresBackup)) {
+                val bytes = file.readBytes()
+                bytes[10] = (bytes[10].toInt() xor 1).toByte()
+                file.writeBytes(bytes)
+            }
+
+            assertRejected(vault.unlock(PASSWORD.toCharArray()))
+            assertEquals(FailureDelay.MAX_CAP_MS, vault.failureDelayCapMs())
+            clock.advance(FailureDelay.MAX_CAP_MS - 1)
+            assertRejected(vault.unlock(PASSWORD.toCharArray()))
+            clock.advance(1)
+            unlocked(vault.unlock(PASSWORD.toCharArray())).close()
+        }
+    }
+
     private fun unlocked(result: UnlockResult): VaultSession {
         assertTrue("Expected Unlocked but was $result", result is UnlockResult.Unlocked)
         return (result as UnlockResult.Unlocked).session
