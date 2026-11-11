@@ -300,10 +300,10 @@ Durations are estimates, to be measured in Phase 1.5.
 
 Where the shipped build differs from the text above:
 
-- **JDK:** CI uses temurin 21, not the `java-version: '17'` in the 2.4 and 2.5 YAML. The app still targets Java 17.
+- **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The app still targets Java 17.
 - **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
 - **`ui` and pixels:** the `ui` partition passes `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly via `verifyRoborazziDebug`.
-- **Dependency graph:** GitHub Dependency graph is disabled for this repo, so `dependency_review` and the snapshot submission are advisory (`continue-on-error`) until a human enables it at https://github.com/heyaibi/lensly/settings/security_analysis.
+- **Dependency graph:** the repository's Dependency graph is off, so `dependency_review` in `pr-fast.yml` and the submission job in `dependency-graph.yml` are gated on the repository variable `DEPENDENCY_GRAPH_ENABLED`. Until a human turns on Dependency graph at https://github.com/heyaibi/lensly/settings/security_analysis and sets `DEPENDENCY_GRAPH_ENABLED=true`, both jobs skip and raise no annotation. No `continue-on-error`: once enabled, a high-severity finding fails `pr-ok`.
 - **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
 - **Macrobenchmark:** lives in the separate `:benchmark` module (`com.android.test`). Baselines must be recorded on the reference device.
 - **Cache warm:** `scripts/ci/cache-warm.yml` warms the Gradle cache on pushes to `master` and `phase-1-5`. A cold branch previously hit the 3-minute job cap.
