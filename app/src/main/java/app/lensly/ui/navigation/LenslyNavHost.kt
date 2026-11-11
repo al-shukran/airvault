@@ -61,6 +61,10 @@ fun LenslyNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             navController = navController,
             startDestination = LenslyRoute.CAMERA,
             modifier = Modifier.fillMaxSize(),
+            enterTransition = LenslyNavTransitions.enter,
+            exitTransition = LenslyNavTransitions.exit,
+            popEnterTransition = LenslyNavTransitions.popEnter,
+            popExitTransition = LenslyNavTransitions.popExit,
         ) {
             composable(LenslyRoute.CAMERA) {
                 CameraScreen(

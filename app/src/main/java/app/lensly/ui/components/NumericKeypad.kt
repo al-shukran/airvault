@@ -42,6 +42,7 @@ import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySurfaceHigh
+import app.lensly.ui.theme.SpaceMonoFamily
 
 private val KEY_GAP = 4.dp
 private val ROW_GAP = 8.dp
@@ -106,7 +107,7 @@ private fun DigitKey(digit: Char, modifier: Modifier, enabled: Boolean, onDigit:
     ) {
         Text(
             text = digit.toString(),
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = DIGIT_TEXT_SIZE),
+            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = SpaceMonoFamily, fontSize = DIGIT_TEXT_SIZE),
             color = LenslyOnSurface,
         )
     }

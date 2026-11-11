@@ -17,8 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.SecureKeyboard
-import app.lensly.ui.gate.DotProgress
 import app.lensly.ui.gate.PasswordField
 
 private val PROGRESS_SLOT_HEIGHT = 12.dp
