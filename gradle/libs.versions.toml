@@ -19,6 +19,11 @@ androidxTestExt = "1.3.0"
 androidxTestRunner = "1.7.0"
 robolectric = "4.17"
 roborazzi = "1.77.0"
+androidxTestRules = "1.7.0"
+espressoAccessibility = "3.7.0"
+uiautomator = "2.4.0"
+benchmark = "1.5.0"
+jazzer = "0.30.0"
 
 [libraries]
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -49,6 +54,12 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 roborazzi-core = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
 roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
+androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "androidxTestRules" }
+androidx-test-espresso-accessibility = { group = "androidx.test.espresso", name = "espresso-accessibility", version.ref = "espressoAccessibility" }
+androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+androidx-benchmark-junit4 = { group = "androidx.benchmark", name = "benchmark-junit4", version.ref = "benchmark" }
+androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
+jazzer-junit = { group = "com.code-intelligence", name = "jazzer-junit", version.ref = "jazzer" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
