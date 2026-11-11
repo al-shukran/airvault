@@ -2,6 +2,8 @@ package app.lensly.ui.flow
 
 import app.lensly.app.export.PairingExport
 import app.lensly.app.sign.Prepared
+import app.lensly.app.sign.ReviewEntry
+import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
 import app.lensly.core.parse.ParserLimits
@@ -20,6 +22,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
@@ -76,17 +79,23 @@ private class FakePorts(
     private val passwordCheck: suspend (CharArray) -> PasswordCheck = { PasswordCheck.Accepted },
     private val keyFor: (Int) -> ByteArray = { WALLET.privateKey(it) },
     private val unreadable: Boolean = false,
+    private val recordFails: Boolean = false,
+    private val prepareGate: CompletableDeferred<Unit>? = null,
+    private val signGate: CompletableDeferred<Unit>? = null,
 ) : SignFlowPorts {
     private val pipeline = SignPipeline(REGISTRY)
 
     val keysHandedOut = mutableListOf<ByteArray>()
     val keyWalletIds = mutableListOf<String>()
+    val records = mutableListOf<ReviewEntry>()
+    var beforeRecord: (ReviewEntry) -> Unit = {}
     var keyRequests = 0
     var signCalls = 0
 
     override suspend fun wallets(): List<WalletView> = wallets
 
     override suspend fun prepare(walletId: String, request: EthSignRequest): Prepared {
+        prepareGate?.await()
         val view = wallets.firstOrNull { it.id == walletId } ?: throw WalletUnavailable()
         return pipeline.prepare(request, view)
     }
@@ -102,7 +111,14 @@ private class FakePorts(
 
     override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> {
         signCalls++
+        signGate?.await()
         return pipeline.sign(ready, privateKey)
+    }
+
+    override suspend fun record(entry: ReviewEntry) {
+        beforeRecord(entry)
+        if (recordFails) throw ReviewNotSaved()
+        records += entry
     }
 }
 
@@ -329,10 +345,10 @@ class SignFlowTest {
         val review = reviewOf(flow)
         flow.approve()
 
-        flow.back()
+        runBlocking { flow.back() }
         assertEquals(review, flow.state.value)
 
-        flow.back()
+        runBlocking { flow.back() }
         assertEquals(SignStep.Closed, flow.state.value)
     }
 
@@ -457,5 +473,232 @@ class SignFlowTest {
         val refused = assertIs<SignStep.Refused>(flow.state.value)
         assertEquals("Unknown contract call", refused.reason)
         assertEquals("70a08231", assertNotNull(refused.call).selector)
+    }
+
+    @Test
+    fun aSignedRequestIsRecordedWithTheReviewTheOwnerSaw() {
+        val ports = FakePorts()
+        val flow = SignFlow(ports, WALLET_ID)
+        val review = reviewOf(flow)
+        flow.approve()
+
+        runBlocking { flow.confirm("right pass".toCharArray()) }
+
+        assertIs<SignStep.Signature>(flow.state.value)
+        val entry = ports.records.single()
+        assertEquals(ReviewOutcome.SIGNED, entry.outcome)
+        assertEquals(WALLET_ID, entry.walletId)
+        assertEquals(review.ready, entry.ready)
+        assertNull(entry.refusal)
+    }
+
+    @Test
+    fun aSignatureIsRecordedBeforeItIsShown() {
+        val ports = FakePorts()
+        val flow = SignFlow(ports, WALLET_ID)
+        reviewOf(flow)
+        flow.approve()
+        var shownWhileRecording: SignStep? = null
+        ports.beforeRecord = { shownWhileRecording = flow.state.value }
+
+        runBlocking { flow.confirm("right pass".toCharArray()) }
+
+        assertIs<SignStep.Confirming>(shownWhileRecording)
+        assertIs<SignStep.Signature>(flow.state.value)
+    }
+
+    @Test
+    fun aSignatureIsNotShownWhenItsRecordCannotBeSaved() {
+        val ports = FakePorts(recordFails = true)
+        val flow = SignFlow(ports, WALLET_ID)
+        reviewOf(flow)
+        flow.approve()
+
+        runBlocking { flow.confirm("right pass".toCharArray()) }
+
+        assertEquals(
+            SignStep.Refused("The review could not be saved, so the signature is not shown."),
+            flow.state.value,
+        )
+        assertTrue(ports.records.isEmpty())
+    }
+
+    @Test
+    fun aRefusedRequestIsRecordedWithItsReason() {
+        val ports = FakePorts()
+        val flow = SignFlow(ports, WALLET_ID)
+
+        // balanceOf(address), which Lensly does not decode.
+        val data = "0x70a08231" + "0".repeat(24) + RECIPIENT.removePrefix("0x").lowercase()
+        scan(flow, framesOf(transactionRequest(data), FRAGMENT))
+
+        val refused = assertIs<SignStep.Refused>(flow.state.value)
+        val entry = ports.records.single()
+        assertEquals(ReviewOutcome.REFUSED, entry.outcome)
+        assertEquals(WALLET_ID, entry.walletId)
+        assertEquals(refused.reason, entry.refusal)
+        assertNull(entry.ready)
+    }
+
+    @Test
+    fun aRefusalAfterTheReviewKeepsTheFactsTheOwnerSaw() {
+        val ports = FakePorts(keyFor = { WALLET.privateKey(1) })
+        val flow = SignFlow(ports, WALLET_ID)
+        val review = reviewOf(flow)
+        flow.approve()
+
+        runBlocking { flow.confirm("pass".toCharArray()) }
+
+        assertEquals(SignStep.Refused("Key does not match account"), flow.state.value)
+        val entry = ports.records.single()
+        assertEquals(ReviewOutcome.REFUSED, entry.outcome)
+        assertEquals(review.ready, entry.ready)
+        assertEquals("Key does not match account", entry.refusal)
+    }
+
+    @Test
+    fun aRequestWithoutAnIdIsRecordedOnlyForTheWalletItIsFor() {
+        val perWallet = FakePorts()
+        scan(SignFlow(perWallet, WALLET_ID), framesOf(messageRequest(requestId = null), FRAGMENT))
+        val entry = perWallet.records.single()
+        assertEquals(ReviewOutcome.REFUSED, entry.outcome)
+        assertEquals(WALLET_ID, entry.walletId)
+
+        val anyWallet = FakePorts()
+        scan(SignFlow(anyWallet, walletId = null), framesOf(messageRequest(requestId = null), FRAGMENT))
+        assertTrue(anyWallet.records.isEmpty())
+    }
+
+    @Test
+    fun leavingWhileTheSignatureIsMadeRecordsOnlyTheCancel() {
+        val gate = CompletableDeferred<Unit>()
+        val ports = FakePorts(signGate = gate)
+        val flow = SignFlow(ports, WALLET_ID)
+        reviewOf(flow)
+        flow.approve()
+
+        runBlocking {
+            val signing = launch { flow.confirm("pass".toCharArray()) }
+            while (ports.signCalls == 0) yield()
+            flow.leave()
+            gate.complete(Unit)
+            signing.join()
+        }
+
+        assertEquals(SignStep.Closed, flow.state.value)
+        assertEquals(listOf(ReviewOutcome.CANCELLED), ports.records.map { it.outcome })
+    }
+
+    @Test
+    fun aReviewedRequestThatIsLeftIsRecordedAsCancelled() {
+        val ports = FakePorts()
+        val flow = SignFlow(ports, WALLET_ID)
+        val review = reviewOf(flow)
+
+        runBlocking { flow.leave() }
+
+        assertEquals(SignStep.Closed, flow.state.value)
+        val entry = ports.records.single()
+        assertEquals(ReviewOutcome.CANCELLED, entry.outcome)
+        assertEquals(review.ready, entry.ready)
+        assertNull(entry.refusal)
+    }
+
+    @Test
+    fun aPasswordStepLeftByBackIsRecordedOnlyWhenTheFlowEnds() {
+        val ports = FakePorts()
+        val flow = SignFlow(ports, WALLET_ID)
+        reviewOf(flow)
+        flow.approve()
+
+        runBlocking { flow.back() }
+        assertTrue(ports.records.isEmpty())
+
+        runBlocking { flow.back() }
+        assertEquals(ReviewOutcome.CANCELLED, ports.records.single().outcome)
+    }
+
+    @Test
+    fun leavingAfterASignatureRecordsNothingMore() {
+        val ports = FakePorts()
+        val flow = SignFlow(ports, WALLET_ID)
+        reviewOf(flow)
+        flow.approve()
+        runBlocking { flow.confirm("right pass".toCharArray()) }
+
+        runBlocking { flow.leave() }
+
+        assertEquals(listOf(ReviewOutcome.SIGNED), ports.records.map { it.outcome })
+    }
+
+    @Test
+    fun aWrongPasswordRecordsNothing() {
+        val ports = FakePorts(passwordCheck = { PasswordCheck.Rejected })
+        val flow = SignFlow(ports, WALLET_ID)
+        reviewOf(flow)
+        flow.approve()
+
+        runBlocking { flow.confirm("wrong pass".toCharArray()) }
+
+        assertIs<SignStep.Confirming>(flow.state.value)
+        assertTrue(ports.records.isEmpty())
+    }
+
+    @Test
+    fun aCodeThatIsNotARequestRecordsNothing() {
+        val ports = FakePorts()
+        val flow = SignFlow(ports, WALLET_ID)
+        val otherCode = PairingExport.urParts(XPUB, WALLET.masterFingerprint, "Lensly").single()
+
+        runBlocking { flow.onScanned(otherCode) }
+
+        assertEquals(SignStep.Refused("Unsupported code"), flow.state.value)
+        assertTrue(ports.records.isEmpty())
+    }
+
+    @Test
+    fun aRefusalDecidedAfterTheOwnerLeftIsNotRecorded() {
+        val gate = CompletableDeferred<Unit>()
+        val ports = FakePorts(prepareGate = gate)
+        val flow = SignFlow(ports, WALLET_ID)
+        // balanceOf(address), which Lensly does not decode. Its refusal is decided only once prepare returns.
+        val data = "0x70a08231" + "0".repeat(24) + RECIPIENT.removePrefix("0x").lowercase()
+        // The animation repeats its frames forever, so the frames are read lazily, as the scan helper reads them.
+        val frames = framesOf(transactionRequest(data), FRAGMENT).take(2000)
+
+        runBlocking {
+            val feeding = launch { frames.forEach { flow.onScanned(it) } }
+            yield()
+            flow.leave()
+            gate.complete(Unit)
+            feeding.join()
+        }
+
+        assertEquals(SignStep.Closed, flow.state.value)
+        assertTrue(ports.records.isEmpty())
+    }
+
+    @Test
+    fun aWalletThatCannotBePreparedForAScanIsRefusedAndRecordedUnderIt() {
+        val ports = FakePorts(wallets = emptyList())
+        val flow = SignFlow(ports, WALLET_ID)
+
+        scan(flow, framesOf(messageRequest(), FRAGMENT))
+
+        assertEquals(SignStep.Refused("The wallet could not be read. Nothing was signed."), flow.state.value)
+        val entry = ports.records.single()
+        assertEquals(ReviewOutcome.REFUSED, entry.outcome)
+        assertEquals(WALLET_ID, entry.walletId)
+        assertEquals("The wallet could not be read. Nothing was signed.", entry.refusal)
+    }
+
+    @Test
+    fun aLeftRequestWhoseRecordCannotBeSavedStillLeaves() {
+        val flow = SignFlow(FakePorts(recordFails = true), WALLET_ID)
+        reviewOf(flow)
+
+        runBlocking { flow.leave() }
+
+        assertEquals(SignStep.Closed, flow.state.value)
     }
 }

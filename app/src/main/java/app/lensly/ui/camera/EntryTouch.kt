@@ -53,6 +53,7 @@ internal class EntryTouch(
     private var thumbnail: LayoutCoordinates? = null
     private var shutterControl: LayoutCoordinates? = null
     private var shutterClickIgnored = false
+    private var pendingShutterClick: (() -> Unit)? = null
 
     /**
      * Listens for [chosen] from now on. Any progress of the gesture before it is dropped. Control positions are kept, since
@@ -66,6 +67,7 @@ internal class EntryTouch(
         zoomTaps = PinchTripleTapDetector()
         shutter = ModeShutterHoldDetector()
         shutterClickIgnored = false
+        pendingShutterClick = null
     }
 
     /** Records where a control sits, so touches that start on it belong to its region. */
@@ -141,7 +143,21 @@ internal class EntryTouch(
             }
         }
         EntryGesture.SWITCH_THEN_SHUTTER_HOLD -> when {
-            frame.count == 0 -> shutter.onShutterUp(frame.timeMs)
+            frame.count == 0 -> {
+                val finished = shutter.onShutterUp(frame.timeMs)
+                if (finished) {
+                    // The hold completed on this release, so the click of the same touch is swallowed even when it
+                    // arrived before this event.
+                    completed()
+                } else {
+                    // The click of a touch that held too briefly still takes its photo or starts its recording.
+                    pendingShutterClick?.let { click ->
+                        pendingShutterClick = null
+                        click()
+                    }
+                }
+                finished
+            }
             frame.count > 1 || frame.moved -> {
                 shutter.cancel()
                 false
@@ -173,16 +189,23 @@ internal class EntryTouch(
     /** The gesture completed. The shutter click that ends the same touch must not take a photo. */
     fun completed() {
         shutterClickIgnored = true
+        pendingShutterClick = null
     }
 
     /**
      * Runs [action] for a shutter click, unless the click ends a touch on which a gesture completed. That click takes no
-     * photo and starts no recording.
+     * photo and starts no recording. When a hold is in progress, the action waits for the release: it runs only when the
+     * release does not complete the hold, whichever of the click and the pointer event arrives first.
      */
     fun onShutterClick(action: () -> Unit) {
         val ignored = shutterClickIgnored
         shutterClickIgnored = false
-        if (!ignored) action()
+        if (ignored) return
+        if (shutter.holdCompleteAtMs != null) {
+            pendingShutterClick = action
+            return
+        }
+        action()
     }
 
     private fun boundsIn(coords: LayoutCoordinates?): Rect? {

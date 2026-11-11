@@ -103,6 +103,7 @@ fun WalletHomeScreen(
     onStartPairing: () -> Unit,
     onScan: () -> Unit,
     modifier: Modifier = Modifier,
+    onActivity: () -> Unit = {},
     profiles: Map<String, WalletProfile> = emptyMap(),
     debugNotice: String? = null,
     notice: String? = null,
@@ -145,6 +146,7 @@ fun WalletHomeScreen(
             onPair = onStartPairing,
             onScan = onScan,
             onWallets = onWallets,
+            onActivity = onActivity,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .windowInsetsPadding(WindowInsets.navigationBars)
