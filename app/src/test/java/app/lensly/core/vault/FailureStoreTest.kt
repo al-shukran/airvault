@@ -692,4 +692,33 @@ class FailureStoreTest {
         assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
         assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
     }
+
+    @Test
+    fun aSeqJumpFromTheTamperPathLeavesOneKeyAfterTheNextSave() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        open(dir).initialize(clock)
+        val firstPrimary = dir.primary().readBytes()
+        val firstBackup = dir.backup().readBytes()
+        var state = open(dir).load(clock)
+        repeat(3) { state = open(dir).recordFailure(state, clock) }
+
+        // The copies are rolled back to the first pair, whose key is gone. This process has written sequence 4, so the lockout
+        // jumps to 5 and does not follow the pair on disk. Its key deletion fails, which leaves one key behind for the next save.
+        dir.primary().writeBytes(firstPrimary)
+        dir.backup().writeBytes(firstBackup)
+        val deleting = DeleteFails(keys)
+        deleting.armed = true
+        val locked = FailureStore(dir, deleting).load(clock)
+        assertEquals(5L, locked.seq)
+        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(2, keys.failureMacKeyCount())
+
+        // The next save writes sequence 6, and the only key left is the one for that sequence number.
+        deleting.armed = false
+        val next = FailureStore(dir, deleting).recordFailure(locked, clock)
+        assertEquals(6L, next.seq)
+        assertEquals(1, keys.failureMacKeyCount())
+        assertEquals(next, open(dir).load(clock))
+    }
 }

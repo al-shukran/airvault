@@ -20,7 +20,7 @@ import javax.crypto.SecretKey
  * that was deleted, so it counts as tampered: it gets the strictest cap, and a copy that still verifies keeps its own cap
  * (see [tamperedCap]). Tampering never lowers the owner's cap. Within this process, a copy older than the last save is also
  * tampered, even if its key still exists. A deletion that the Keystore refuses does not fail the save, because the new pair is
- * already on disk; the next save or load deletes the keys that are left.
+ * already on disk. The next save or load deletes the keys that are left, and remembers that the deletion is outstanding.
  *
  * The cap is part of the MAC-protected payload, so it is read before any unlock and cannot be changed in the file without
  * detection. It lives here rather than in the encrypted vault settings, because the delay applies before the vault can be
@@ -48,6 +48,8 @@ import javax.crypto.SecretKey
  * - Crash window: between writing the new pair and deleting the previous key, the previous key still exists. If power is cut
  *   there and an attacker restores the copies from before the save, the previous state verifies again until the next load
  *   deletes its key. That is one step of rollback per interrupted save.
+ * - Failed deletion: a deletion that the Keystore refuses leaves the earlier keys in place until the next save or load. A copy
+ *   restored during that window verifies once, as in the crash window. The retry keeps the key of the pair on disk.
  * - The directory is not fsynced after a rename. A power cut right after a save can leave the previous pair with its key
  *   already deleted, which reads as tampered: the owner's cap is kept when one copy verifies, and otherwise the strictest cap.
  * - A failed check whose state cannot be written is not counted. A Keystore error on that save, or on a cap change, surfaces as
@@ -229,15 +231,19 @@ internal class FailureStore(
      */
     private fun save(state: FailureState, clock: Clock): FailureState {
         dir.mkdirs()
-        // A deletion that failed after an earlier save is tried again here, before this save writes. The pair on disk still
-        // names the sequence before this one, so that key stays.
-        if (PENDING_DELETE.contains(seenKey)) deleteOtherKeys(state.seq - 1)
+        // A deletion that failed after an earlier save is tried again before this save makes its key. The key kept is the one
+        // of the pair this process wrote last, which is the pair on disk, so the retry cannot remove the key it needs. The number
+        // before this one is not assumed, because a lockout can jump the sequence. Nothing is retried when this process has not
+        // written yet: the deletion after the write below clears every other key anyway.
+        val onDisk = SEQ_SEEN[seenKey]
+        if (onDisk != null && PENDING_DELETE.contains(seenKey)) deleteOtherKeys(onDisk)
         val stamped = stamped(state, clock)
         val key = keystore(STATE_UNAVAILABLE) { keys.createFailureMacKey(stamped.seq) }
         val bytes = encode(stamped, key)
         write(primary, bytes)
         write(backup, bytes)
         SEQ_SEEN[seenKey] = stamped.seq
+        // Once both copies carry the new state, every other key goes. The sequence numbers need not be consecutive.
         deleteOtherKeys(stamped.seq)
         return stamped
     }
