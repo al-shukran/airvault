@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -32,10 +33,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
@@ -66,6 +67,16 @@ internal enum class NetworkFilter(val label: String) {
         TESTNETS -> network.testnet
     }
 }
+
+/** The logo on a network card. */
+private val NETWORK_ICON_SIZE = 56.dp
+
+/**
+ * The smallest a closed network card may be: the height a card with a testnet chip and a two-line name takes. Every closed
+ * card keeps it, so a one-line name and a name that wraps to two lines line up in the row. The name is never cut short, so a
+ * longer name grows the card; an open card grows past it too.
+ */
+private val NETWORK_CARD_MIN_HEIGHT = 220.dp
 
 /** The first rows fade in one after another, [WAVE_STEP_MS] apart. Later rows fade in at once, so scrolling is not held up. */
 private const val WAVE_ROWS = 8
@@ -168,16 +179,17 @@ private fun NetworkCard(
             .border(1.dp, LenslyOutline, shape)
             .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onToggle)
             .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
+            .testTag("network-card-${network.chainId}")
+            .heightIn(min = NETWORK_CARD_MIN_HEIGHT)
             .padding(LenslySpacing.md),
     ) {
-        ChainIcon(network = network, size = 56.dp)
+        ChainIcon(network = network, size = NETWORK_ICON_SIZE)
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
             text = network.name,
             style = MaterialTheme.typography.titleMedium,
             color = LenslyOnSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            minLines = 2,
         )
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(

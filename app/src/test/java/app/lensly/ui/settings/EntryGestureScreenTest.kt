@@ -37,7 +37,7 @@ class EntryGestureScreenTest {
         var chosen: EntryGesture? = null
         showList(EntryGesture.DOUBLE_TAP_HOLD) { chosen = it }
 
-        compose.onNodeWithText(EntryGesture.PINCH_TRIPLE_TAP.title).performClick()
+        compose.onNodeWithText(EntryGesture.PINCH_TRIPLE_TAP.title).performScrollTo().performClick()
 
         assertEquals(EntryGesture.PINCH_TRIPLE_TAP, chosen)
     }

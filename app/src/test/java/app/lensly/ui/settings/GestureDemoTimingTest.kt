@@ -14,7 +14,8 @@ import org.junit.Test
 
 /**
  * Each demo must make its gesture as the detectors in ui/camera read it: the same taps, holds and swipe length, and the
- * completion at the moment the demo shows it. The card is 347 px wide and 195 px high, and the detectors take pixels.
+ * completion at the moment the demo shows it. The demo frame is portrait, 9 wide by 19.5 tall: 420 px wide and 910 px
+ * high, and the detectors take pixels.
  */
 class GestureDemoTimingTest {
 
@@ -107,8 +108,9 @@ class GestureDemoTimingTest {
     private class PointerEvent(val ms: Int, val down: Boolean)
 
     private companion object {
-        const val CARD_WIDTH = 347f
-        const val CARD_HEIGHT = 195f
+        /** The demo frame at 240 dp and a density of 1.75, in a portrait 9:19.5 shape. */
+        const val CARD_WIDTH = 420f
+        const val CARD_HEIGHT = 910f
         const val SWIPE_PX = 40f
         const val TAPS_FROM_MS = 1_300
     }
