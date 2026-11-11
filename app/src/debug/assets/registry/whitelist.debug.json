@@ -1,0 +1,5 @@
+{
+  "whitelist": [
+    {"chainId": 11155111, "contract": "0x2222222222222222222222222222222222222222", "selector": "0x82b64a78", "signature": "lenslyTestCall(uint256,address)", "meaning": "Test only: a stand-in for a whitelisted call on Sepolia. Not a real contract.", "proxy": null}
+  ]
+}
