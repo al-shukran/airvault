@@ -111,16 +111,17 @@ private sealed interface DetailSheet {
  * set, by index, and [walletPosition] is the wallet's place in the list, which its generated Visual Identity comes from.
  *
  * Each account row shows its Display Name, or its Auto-Name, its label, and its full address in groups of four. A tap or a long
- * press on a row opens the account's options: [onExportAccount] and [onEditAccount], with its index. The wallet's options open from
+ * press on a row opens the account's options: [onExportAccounts], with the one index, and [onEditAccount]. The wallet's options open from
  * the overflow icon or a long press on the header. They hold [onEditWallet], [onBulkGenerate], selection, [onShowSecret] behind a
  * warning, and [onDeleteWallet].
  *
  * When any account is in a group, the accounts are listed under the group's name, in name order, with the ungrouped accounts last.
  * Otherwise they form one list with no headers. "Add account" is the last row, and a Single Key wallet shows a note in its place.
  *
- * SELECT on a Mnemonic wallet turns each account row into a checkbox. The selected accounts can then be renamed in one flow, through
- * [onRenameAccounts], styled in one flow, through [onStyleAccounts], or reset to their Auto-Names, through [onResetAccountNames]. Each
- * gets the selected indices in order. The selection clears once a reset has been sent, and leaving the screen clears it too.
+ * SELECT on a Mnemonic wallet turns each account row into a checkbox. The selected accounts can then be exported in one sequence, through
+ * [onExportAccounts], renamed in one flow, through [onRenameAccounts], styled in one flow, through [onStyleAccounts], or reset to their
+ * Auto-Names, through [onResetAccountNames]. Each gets the selected indices in order. The selection clears once a reset has been sent,
+ * and leaving the screen clears it too.
  *
  * The accounts are a LazyColumn, so a wallet with hundreds of accounts composes only the rows on screen. [listState] is hoisted, so
  * adding an account leaves the scroll position where it was.
@@ -139,7 +140,7 @@ fun WalletDetailScreen(
     onShowSecret: () -> Unit,
     onEditWallet: () -> Unit,
     onEditAccount: (Int) -> Unit,
-    onExportAccount: (Int) -> Unit,
+    onExportAccounts: (List<Int>) -> Unit,
     onRenameAccounts: (List<Int>) -> Unit,
     onStyleAccounts: (List<Int>) -> Unit,
     onResetAccountNames: (List<Int>) -> Unit,
@@ -277,6 +278,14 @@ fun WalletDetailScreen(
                             horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
                         ) {
                             WalletPill(
+                                text = "Export",
+                                onClick = { onExportAccounts(selected.sorted()) },
+                                modifier = Modifier.weight(1f),
+                                style = WalletPillStyle.Outline,
+                                size = WalletPillSize.Compact,
+                                enabled = selected.isNotEmpty(),
+                            )
+                            WalletPill(
                                 text = "Rename",
                                 onClick = { onRenameAccounts(selected.sorted()) },
                                 modifier = Modifier.weight(1f),
@@ -372,7 +381,7 @@ fun WalletDetailScreen(
             onDismiss = { sheet = null },
             onExport = {
                 sheet = null
-                onExportAccount(open.index)
+                onExportAccounts(listOf(open.index))
             },
             onEdit = {
                 sheet = null
