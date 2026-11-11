@@ -4,10 +4,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.waitUntilKeyboardHidden
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
@@ -62,6 +67,38 @@ class UnlockScreenTest {
 
         assertEquals("ab", typed.toString())
         compose.onNodeWithContentDescription("2 characters entered").assertExists()
+    }
+
+    @Test
+    fun aTapInsideTheKeyboardBetweenKeysKeepsItUpAndTheFieldFocused() {
+        setUnlock()
+        val a = compose.onNodeWithContentDescription("a").fetchSemanticsNode().boundsInRoot
+
+        // The gap left of the A row lies inside the keyboard, and no key is there.
+        compose.onRoot().performTouchInput { click(Offset(a.left - 8.dp.toPx(), a.center.y)) }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Done").assertExists()
+        compose.onNodeWithContentDescription("a").assertExists()
+        assertEquals("", typed.toString())
+    }
+
+    @Test
+    fun aTapAboveTheKeyboardHidesIt() {
+        setUnlock()
+
+        compose.onRoot().performTouchInput { click(Offset(width / 2f, 8.dp.toPx())) }
+        compose.waitUntilKeyboardHidden()
+    }
+
+    @Test
+    fun aKeyTapStillTypesItsCharacter() {
+        setUnlock()
+
+        compose.onNodeWithContentDescription("s").performClick()
+
+        assertEquals("s", typed.toString())
+        compose.onNodeWithContentDescription("Done").assertExists()
     }
 
     /** Hosts the unlock screen with the typed length in state, so the password field counts what the keys add. */
