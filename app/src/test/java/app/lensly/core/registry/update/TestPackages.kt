@@ -17,16 +17,24 @@ internal object TestPackages {
         """{"chainId":4242,"explorerName":"Lineascan","feeModel":"L2_ROLLUP","name":"Linea","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false}"""
     const val LINEA_USDC =
         """{"chainId":4242,"contract":"0x176211869ca2b568f2a7d4ee941e073a821ee1ff","decimals":6,"name":"USDC","symbol":"USDC"}"""
+    const val LINEA_SWAP =
+        """{"chainId":4242,"contract":"0x5555555555555555555555555555555555555555","meaning":"Swap tokens on the test route","proxy":null,"selector":"0x38ed1739","signature":"swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"}"""
 
-    /** A payload holding [networks] and [tokens], which are already JSON text. */
+    /**
+     * A payload holding [networks] and [tokens], which are already JSON text. A whitelist, also JSON text, is added only when
+     * given, so the payload is the one a package signed before the whitelist existed would hold.
+     */
     fun payload(
         sequence: Long = 1,
         networks: String = LINEA_NETWORK,
         tokens: String = LINEA_USDC,
         formatVersion: Int = 1,
         createdAt: String = "2026-11-10",
-    ): String =
-        """{"createdAt":"$createdAt","formatVersion":$formatVersion,"networks":[$networks],"sequence":$sequence,"tokens":[$tokens]}"""
+        whitelist: String? = null,
+    ): String {
+        val approvals = whitelist?.let { ""","whitelist":[$it]""" }.orEmpty()
+        return """{"createdAt":"$createdAt","formatVersion":$formatVersion,"networks":[$networks],"sequence":$sequence,"tokens":[$tokens]$approvals}"""
+    }
 
     fun signed(payload: String, seed: ByteArray = SEED): ByteArray =
         signedBytes(payload.toByteArray(StandardCharsets.UTF_8), seed)

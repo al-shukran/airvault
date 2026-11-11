@@ -2,7 +2,9 @@ package app.lensly.core.registry.update
 
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.WhitelistEntry
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.StandardCharsets
@@ -34,6 +36,7 @@ internal object PackageFormat {
     private const val HEADER_BYTES = 8
     private const val SIGNATURE_BYTES = 64
     private const val MAX_TEXT = 64
+    private const val MAX_MEANING = 240
     private const val MAX_DECIMALS = 36
     private val CONTRACT = Regex("0x[0-9a-f]{40}")
     private val json = Json
@@ -156,6 +159,13 @@ internal object PackageFormat {
             requirePrintable("token ${token.contract} name", token.name)
             token.icon?.let { requirePrintable("token ${token.contract} icon", it) }
         }
+        val approvals = dto.whitelist.map { Triple(it.chainId, it.contract, it.selector) }
+        if (approvals.toSet().size != approvals.size) {
+            throw RegistryUpdateException.Conflict("a whitelist entry appears more than once in the package")
+        }
+        for (entry in dto.whitelist) {
+            requirePrintable("whitelist ${entry.signature} meaning", entry.meaning, MAX_MEANING)
+        }
         val networks = dto.networks.map {
             NetworkEntry(
                 it.chainId, it.name, it.nativeSymbol, it.nativeDecimals, it.feeModel, it.explorerName, it.testnet,
@@ -165,21 +175,40 @@ internal object PackageFormat {
         val tokens = dto.tokens.map {
             TokenEntry(it.chainId, it.contract, it.symbol, it.name, it.decimals, icon = it.icon)
         }
+        // A package's whitelist replaces the build's, so its own entries are only checked against each other.
+        val whitelist = dto.whitelist.map { record ->
+            try {
+                WhitelistEntry(
+                    record.chainId,
+                    record.contract,
+                    record.selector,
+                    record.signature,
+                    record.meaning,
+                    record.proxy?.let { ProxyBinding(it.implementationAddress, it.implementationCodeHash) },
+                )
+            } catch (e: IllegalArgumentException) {
+                throw RegistryUpdateException.InvalidEntry("whitelist ${record.signature}: ${e.message}")
+            }
+        }
         return RegistryPackage(
             sequence = dto.sequence,
             createdAt = dto.createdAt,
             networks = networks.sortedBy { it.chainId },
             tokens = tokens.sortedWith(compareBy<TokenEntry>({ it.chainId }, { it.contract })),
+            whitelist = whitelist,
         )
     }
 
-    /** Non-blank, at most [MAX_TEXT] characters, with no control or format characters (no spoofing marks). */
-    private fun requirePrintable(what: String, value: String) {
+    /**
+     * Non-blank, at most [max] characters, with no control or format characters (no spoofing marks). Names are at most
+     * [MAX_TEXT] characters; a whitelist meaning may run to [MAX_MEANING].
+     */
+    private fun requirePrintable(what: String, value: String, max: Int = MAX_TEXT) {
         val printable = value.isNotBlank() &&
-            value.length <= MAX_TEXT &&
+            value.length <= max &&
             value.none { it.category == CharCategory.CONTROL || it.category == CharCategory.FORMAT }
         if (!printable) {
-            throw RegistryUpdateException.InvalidEntry("$what must be 1 to $MAX_TEXT printable characters")
+            throw RegistryUpdateException.InvalidEntry("$what must be 1 to $max printable characters")
         }
     }
 
@@ -209,11 +238,29 @@ internal object PackageFormat {
     )
 
     @Serializable
+    private class WhitelistRecord(
+        val chainId: Long,
+        val contract: String,
+        val selector: String,
+        val signature: String,
+        val meaning: String,
+        val proxy: ProxyRecord? = null,
+    )
+
+    @Serializable
+    private class ProxyRecord(
+        val implementationAddress: String? = null,
+        val implementationCodeHash: String? = null,
+    )
+
+    @Serializable
     private class Payload(
         val formatVersion: Long,
         val sequence: Long,
         val createdAt: String,
         val networks: List<NetworkRecord>,
         val tokens: List<TokenRecord>,
+        /** Optional. Packages signed before the whitelist existed omit it, and their whitelist is empty. */
+        val whitelist: List<WhitelistRecord> = emptyList(),
     )
 }

@@ -8,7 +8,8 @@ import java.io.InputStream
 
 /**
  * Offline catalog updates. A registry package adds networks and tokens to the baked-in catalog. It can never
- * change or remove a baked entry, and it is accepted only when the release key signed it.
+ * change or remove a baked entry. Its whitelist replaces the whitelist of the build as a whole. A package is
+ * accepted only when the release key signed it.
  *
  * Packages arrive on removable storage. This object checks them before anything is stored. Reading them from
  * storage is the caller's job.
@@ -85,16 +86,16 @@ object RegistryUpdate {
     }
 
     /**
-     * The [registry] with the installed package in [dir] merged in. Installed entries are only added. When there is
-     * no installed package, or it no longer verifies against [registry] (for example because an app update bakes
-     * one of its chain IDs), [registry] is returned unchanged.
+     * The [registry] with the installed package in [dir] merged in. Installed networks and tokens are only added, and the
+     * installed whitelist replaces the build's. When there is no installed package, or it no longer verifies against
+     * [registry] (for example because an app update bakes one of its chain IDs), [registry] is returned unchanged.
      */
     fun withInstalled(registry: Registry, dir: File, trustedPublicKeys: List<ByteArray>): Registry {
         val file = File(dir, INSTALLED_FILE)
         if (!file.isFile) return registry
         val installed = runCatching { verify(file.readBytes(), trustedPublicKeys, registry).getOrThrow() }
             .getOrNull() ?: return registry
-        return registry.withAdditions(installed.networks, installed.tokens)
+        return registry.withAdditions(installed.networks, installed.tokens).withWhitelist(installed.whitelist)
     }
 
     /** Sequence of the installed package, or 0 when none is stored or the stored file no longer verifies. */
@@ -122,6 +123,14 @@ object RegistryUpdate {
             if (!chainKnown) {
                 throw RegistryUpdateException.InvalidEntry(
                     "token ${token.contract} is on chain ${token.chainId}, which is neither baked nor in the package",
+                )
+            }
+        }
+        for (entry in pkg.whitelist) {
+            val chainKnown = baked.network(entry.chainId) != null || pkg.networks.any { it.chainId == entry.chainId }
+            if (!chainKnown) {
+                throw RegistryUpdateException.InvalidEntry(
+                    "whitelist ${entry.signature} is on chain ${entry.chainId}, which is neither baked nor in the package",
                 )
             }
         }
