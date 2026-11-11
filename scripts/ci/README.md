@@ -37,3 +37,19 @@ Fails if the merged debug manifest declares `INTERNET` or `ACCESS_NETWORK_STATE`
 scripts/ci/run-extended.sh security   # lintDebug, then check-manifest.sh
 CI=true scripts/ci/run-extended.sh e2e
 ```
+
+## Nightly fuzz — `fuzz-nightly.sh`
+
+Fuzzes each Jazzer target for 15 minutes, one Gradle invocation per target (`JAZZER_FUZZ=1`, which Jazzer's JUnit integration reads). `--list` prints the targets.
+
+```bash
+scripts/ci/fuzz-nightly.sh          # all four targets, about an hour
+scripts/ci/fuzz-nightly.sh --list
+```
+
+Duration is not a flag: each `@FuzzTest` carries `maxDuration = "15m"`, which Jazzer passes to libFuzzer as `-max_total_time=900`. The JUnit integration has no `-Djazzer.max_total_time` property.
+
+**PR lane.** The same targets run with no environment variable, as ordinary JUnit tests: Jazzer replays the committed seeds. `@FuzzTest` is a JUnit 5 `@ParameterizedTest`, so the unit-test JVM runs both engines — Jupiter for the fuzz targets, Vintage for every existing JUnit 4 test.
+
+**Seeds.** `app/src/test/resources/fuzz-seeds/<target>/` holds valid and malformed inputs, named in that directory's `index.txt`; the tests read them through `@MethodSource`. A crash a nightly run finds lands in `app/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/`, which the regression run replays as soon as the file is committed.
+
