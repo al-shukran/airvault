@@ -2,14 +2,17 @@ package app.lensly.ui.flow
 
 import android.content.Context
 import app.lensly.app.RegistryHolder
+import app.lensly.app.ReviewHistory
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.Prepared
+import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
+import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.visualIdentity
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.vault.UnlockResult
@@ -18,8 +21,10 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 /**
@@ -84,6 +89,25 @@ internal class VaultSignPorts(
         withContext(Dispatchers.Default) {
             SignPipeline(RegistryHolder.get(context)).sign(ready, privateKey)
         }
+
+    /**
+     * Writes [entry] as a Review Record of its wallet, through the open session. NonCancellable, so a record that has started is
+     * written even when the screen that asked for it is left.
+     */
+    override suspend fun record(entry: ReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
+        val session = holder.openSession() ?: throw ReviewNotSaved()
+        val record = reviewRecordOf(entry, System.currentTimeMillis(), RegistryHolder.get(context))
+        try {
+            ReviewHistory(session).append(entry.walletId, record)
+        } catch (e: IOException) {
+            throw ReviewNotSaved()
+        } catch (e: IllegalStateException) {
+            // A closed session, or a damaged vault.
+            throw ReviewNotSaved()
+        } catch (e: IllegalArgumentException) {
+            throw ReviewNotSaved()
+        }
+    }
 
     /**
      * The view of wallet [meta], which sits at [position] in the list the owner sees. Its name and Visual Identity, and the

@@ -1,6 +1,8 @@
 package app.lensly.ui.flow
 
 import app.lensly.app.sign.Prepared
+import app.lensly.app.sign.ReviewEntry
+import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
@@ -61,6 +63,9 @@ enum class PasswordCheck {
 /** The wallet cannot be read right now: its vault is closed or damaged, or its record is missing. */
 class WalletUnavailable : Exception("The wallet could not be read.")
 
+/** A Review Record could not be written. The signature it was for is then not shown. */
+class ReviewNotSaved : Exception("The review could not be saved.")
+
 /** What [SignFlow] asks of the app. [VaultSignPorts] is the app's implementation. Tests use fakes. */
 interface SignFlowPorts {
     /** Every wallet of the vault, as the sign pipeline checks them. Throws [WalletUnavailable] when the vault cannot be read. */
@@ -80,6 +85,9 @@ interface SignFlowPorts {
      * it. Throws IllegalArgumentException when the signer refuses the data.
      */
     suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String>
+
+    /** Writes [entry] as a Review Record of its wallet. Throws [ReviewNotSaved] when the record cannot be written. */
+    suspend fun record(entry: ReviewEntry)
 }
 
 /**
@@ -89,6 +97,9 @@ interface SignFlowPorts {
  *
  * A flow for one wallet ([walletId] set) checks the request against that wallet. A flow with no [walletId] finds the wallet
  * the request is for among all the wallets of the vault, and refuses to choose when none or several are.
+ *
+ * Each signature, and each refusal of a request that has a wallet, is written as a Review Record through [SignFlowPorts.record].
+ * A reviewed request that is left unsigned is recorded as cancelled.
  *
  * [state] holds the current step. Calls that suspend run one at a time. [leave] ends the flow at once, and any call that
  * is still running then changes nothing.
@@ -138,7 +149,7 @@ class SignFlow(
                 current.value = scanning(READING)
                 return
             }
-            publish(started, decide(ur))
+            publish(started, decide(started, ur))
         }
     }
 
@@ -171,7 +182,13 @@ class SignFlow(
                 val next = when (ports.checkPassword(password)) {
                     PasswordCheck.Accepted -> signApproved(waiting.ready, started)
                     PasswordCheck.Rejected -> SignStep.Confirming(waiting.ready, busy = false)
-                    PasswordCheck.Unavailable -> SignStep.Refused(VAULT_UNCHECKED)
+                    PasswordCheck.Unavailable -> refusal(
+                        started = started,
+                        wallet = waiting.ready.walletId,
+                        request = waiting.ready.request,
+                        reason = VAULT_UNCHECKED,
+                        ready = waiting.ready,
+                    )
                 }
                 publish(started, next)
             }
@@ -181,7 +198,7 @@ class SignFlow(
     }
 
     /** The system back gesture. On the password step it returns to the review. Anywhere else it ends the flow. */
-    fun back() {
+    suspend fun back() {
         when (current.value) {
             is SignStep.Confirming -> cancelApproval()
             SignStep.Closed -> Unit
@@ -189,10 +206,21 @@ class SignFlow(
         }
     }
 
-    /** REJECT, DONE, CANCEL, or leaving the flow. Work still running is discarded when it finishes. */
-    fun leave() {
+    /**
+     * REJECT, DONE, CANCEL, or leaving the flow. Work still running is discarded when it finishes. Leaving a reviewed request
+     * before it is signed records it as cancelled.
+     */
+    suspend fun leave() {
+        val reviewed = when (val step = current.value) {
+            is SignStep.Review -> step.ready
+            is SignStep.Confirming -> step.ready
+            else -> null
+        }
         epoch++
         current.value = SignStep.Closed
+        reviewed?.let {
+            recordQuietly(ReviewEntry(it.walletId, ReviewOutcome.CANCELLED, it.request, it, refusal = null))
+        }
     }
 
     private fun cancelApproval() {
@@ -201,13 +229,15 @@ class SignFlow(
     }
 
     /** Checks a complete request. Only the first complete request is decided, because scanning stops once it is. */
-    private suspend fun decide(ur: UR): SignStep {
+    private suspend fun decide(started: Int, ur: UR): SignStep {
         if (ur.type != EthSignRequest.UR_TYPE) return SignStep.Refused(UNSUPPORTED)
         val request = when (val decoded = EthSignRequest.decode(ur)) {
             is EthSignRequest.Result.Ok -> decoded.request
             is EthSignRequest.Result.Rejected -> return SignStep.Refused(decoded.reason)
         }
-        if (request.requestId == null) return SignStep.Refused(NO_REQUEST_ID)
+        if (request.requestId == null) {
+            return refusal(started = started, wallet = walletId, request = request, reason = NO_REQUEST_ID)
+        }
         return try {
             val target = walletId ?: when (val match = matchWallet(request, ports.wallets())) {
                 is WalletMatch.One -> match.walletId
@@ -216,7 +246,13 @@ class SignFlow(
             }
             when (val prepared = ports.prepare(target, request)) {
                 is Prepared.Ready -> SignStep.Review(prepared)
-                is Prepared.Refused -> SignStep.Refused(prepared.reason, prepared.call)
+                is Prepared.Refused -> refusal(
+                    started = started,
+                    wallet = target,
+                    request = request,
+                    reason = prepared.reason,
+                    call = prepared.call,
+                )
             }
         } catch (e: WalletUnavailable) {
             SignStep.Refused(WALLET_UNREADABLE)
@@ -225,29 +261,63 @@ class SignFlow(
 
     /**
      * Loads the key of the reviewed account and checks that it controls the address on the review. Only then does it sign.
-     * The key is zeroed on every path. Returns [SignStep.Closed] when the flow was left in the meantime, which [publish]
-     * then ignores.
+     * The key is zeroed on every path. The signature is recorded before it is returned, so no signature is shown without its
+     * record. Returns [SignStep.Closed] when the flow was left in the meantime, which [publish] then ignores.
      */
     private suspend fun signApproved(ready: Prepared.Ready, started: Int): SignStep {
         if (started != epoch) return SignStep.Closed
         val key = try {
             ports.privateKey(ready.walletId, ready.accountIndex)
         } catch (e: WalletUnavailable) {
-            return SignStep.Refused(WALLET_UNREADABLE)
+            return refusal(started, ready.walletId, ready.request, WALLET_UNREADABLE, ready)
         }
         try {
             if (started != epoch) return SignStep.Closed
             val keyAddress = AccountAddresses.addressOfPrivateKey(key)
             if (!keyAddress.equals(ready.review.fromAddress, ignoreCase = true)) {
-                return SignStep.Refused(KEY_MISMATCH)
+                return refusal(started, ready.walletId, ready.request, KEY_MISMATCH, ready)
+            }
+            val parts = try {
+                ports.sign(ready, key)
+            } catch (e: IllegalArgumentException) {
+                return refusal(started, ready.walletId, ready.request, e.message ?: SIGN_REFUSED, ready)
             }
             return try {
-                SignStep.Signature(ports.sign(ready, key))
-            } catch (e: IllegalArgumentException) {
-                SignStep.Refused(e.message ?: SIGN_REFUSED)
+                ports.record(ReviewEntry(ready.walletId, ReviewOutcome.SIGNED, ready.request, ready, refusal = null))
+                SignStep.Signature(parts)
+            } catch (e: ReviewNotSaved) {
+                refusal(started, ready.walletId, ready.request, NOT_SAVED, ready)
             }
         } finally {
             key.fill(0)
+        }
+    }
+
+    /**
+     * The step that shows a refusal of [request]. It is recorded under [wallet], with the [ready] review it came after if any. A
+     * request that no wallet was chosen for has nothing to be recorded under. A refusal decided after the flow was left was never
+     * shown, so it is not recorded either.
+     */
+    private suspend fun refusal(
+        started: Int,
+        wallet: String?,
+        request: EthSignRequest,
+        reason: String,
+        ready: Prepared.Ready? = null,
+        call: UndecodedCall? = null,
+    ): SignStep.Refused {
+        if (wallet != null && started == epoch) recordQuietly(ReviewEntry(wallet, ReviewOutcome.REFUSED, request, ready, reason))
+        return SignStep.Refused(reason, call)
+    }
+
+    /**
+     * Writes [entry]. A write that fails is left out. The outcome was decided already, and a refusal or a cancel signs nothing.
+     */
+    private suspend fun recordQuietly(entry: ReviewEntry) {
+        try {
+            ports.record(entry)
+        } catch (e: ReviewNotSaved) {
+            // Left out: the screen already shows the outcome, and nothing is signed for it.
         }
     }
 
@@ -273,6 +343,7 @@ class SignFlow(
         const val KEY_MISMATCH = "Key does not match account"
         const val WALLET_UNREADABLE = "The wallet could not be read. Nothing was signed."
         const val VAULT_UNCHECKED = "The App Password could not be checked. Nothing was signed."
+        const val NOT_SAVED = "The review could not be saved, so the signature is not shown."
         const val SIGN_REFUSED = "The request could not be signed."
     }
 }
