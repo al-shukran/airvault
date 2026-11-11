@@ -24,13 +24,14 @@ class VaultRollbackTest {
 
     private val clock = FakeClock()
     private val keys = MemoryKeystore()
+    private var bootCount: Int? = 7
     private lateinit var layout: VaultLayout
     private lateinit var vault: Vault
 
     @Before
     fun setUp() {
         layout = VaultLayout(File(tmp.root, "vault"))
-        vault = Vault(layout, keys, clock, KDF)
+        vault = newVault()
     }
 
     @Test
@@ -60,7 +61,9 @@ class VaultRollbackTest {
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
         assertRejected(attempt(WRONG))
 
-        // The device reboots: the monotonic clock restarts, and the wall clock is moved forward an hour.
+        // The device reboots: the boot count goes up by one, the monotonic clock restarts, and the wall clock is moved forward
+        // an hour.
+        bootCount = 8
         clock.elapsed = 2_000L
         clock.wall += FailureDelay.MAX_CAP_MS
         restart()
@@ -69,6 +72,19 @@ class VaultRollbackTest {
         assertRejected(attempt(APP))
         clock.advance(8_000)
         unlocked(attempt(APP)).close()
+    }
+
+    @Test
+    fun aCorrectUnlockResetsTheCount() {
+        createVault()
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        assertRejected(attempt(WRONG))
+        assertEquals(1, vault.failureCountForTesting())
+
+        // The wait for one failure is 10 s. Past it, the right password opens the vault and clears the count.
+        clock.advance(FailureDelay.LEARNING_CAP_MS)
+        unlocked(attempt(APP)).close()
+        assertEquals(0, vault.failureCountForTesting())
     }
 
     @Test
@@ -101,10 +117,12 @@ class VaultRollbackTest {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
     }
 
+    private fun newVault() = Vault(layout, keys, clock, KDF, readBootCount = { bootCount })
+
     /** Forgets the in-process sequence number, then builds a new vault over the same folder and keys. */
     private fun restart() {
         FailureStore.forget(layout.root)
-        vault = Vault(layout, keys, clock, KDF)
+        vault = newVault()
     }
 
     private fun attempt(password: String): UnlockResult = runBlocking { vault.unlock(password.toCharArray()) }

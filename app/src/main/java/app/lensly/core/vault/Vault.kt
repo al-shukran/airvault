@@ -2,6 +2,7 @@ package app.lensly.core.vault
 
 import android.content.Context
 import android.os.Build
+import android.provider.Settings
 import app.lensly.BuildConfig
 import app.lensly.ui.isEmulator
 import java.io.File
@@ -111,6 +112,7 @@ class Vault internal constructor(
     private val kdfOverride: KdfParams?,
     /** True when the packaged app allows backup. Such a build refuses to create a vault, see [refusal]. */
     private val backupAllowed: Boolean = false,
+    private val readBootCount: () -> Int? = { null },
 ) {
     constructor(context: Context, clock: Clock = RealClock) : this(context, clock, null)
 
@@ -119,6 +121,7 @@ class Vault internal constructor(
         keys = AndroidKeystoreBackend(context.applicationContext),
         clock = clock,
         kdfOverride = kdfOverride,
+        readBootCount = { bootCountOf(context.applicationContext) },
         backupAllowed = BackupExclusion.allowsBackup(context.applicationInfo.flags),
     )
 
@@ -394,7 +397,7 @@ class Vault internal constructor(
         val state = store.load(clock)
         // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still runs
         // once, on a fixed input, so a refused attempt takes as long as a real one.
-        if (FailureDelay(header.createdAtWallMs, FailureDelay.configuredCapFor(state)).isBlocked(state, clock)) {
+        if (FailureDelay(header.createdAtWallMs, FailureDelay.configuredCapFor(state)).isBlocked(state, clock, store.currentBootCount())) {
             spendKdfTime(header)
             return null
         }
@@ -796,7 +799,7 @@ class Vault internal constructor(
         }
     }
 
-    private fun failureStore(): FailureStore = FailureStore(layout.root, keys)
+    private fun failureStore(): FailureStore = FailureStore(layout.root, keys, readBootCount)
 
     /**
      * Starts the Failure Delay state. Its first Keystore key is made here, so a device whose Keystore refuses it gets no vault.
@@ -835,6 +838,22 @@ internal inline fun <T> keystore(message: String, block: () -> T): T = try {
     throw VaultException(message, e)
 } catch (e: ProviderException) {
     throw VaultException(message, e)
+}
+
+/**
+ * `Settings.Global.BOOT_COUNT`, or null when the device does not report it. The count goes up by one at each reboot, so the
+ * Failure Delay can tell a reboot, where the monotonic clock restarted, from a wall clock that moved. A root user can edit the
+ * count; a count that does not match the one recorded with the state only restarts the wait from boot, so the edit cannot
+ * shorten it.
+ */
+private fun bootCountOf(context: Context): Int? = try {
+    Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT)
+} catch (e: Settings.SettingNotFoundException) {
+    null
+} catch (e: SecurityException) {
+    null
+} catch (e: IllegalArgumentException) {
+    null
 }
 
 /**

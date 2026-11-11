@@ -137,6 +137,60 @@ class FailureDelayTest {
     }
 
     @Test
+    fun aBootCountThatWentUpMeasuresFromBootEvenWhenTheMonotonicClockPassedTheFailure() {
+        val clock = FakeClock(wall = afterLearning, elapsed = 1_000L)
+        val state = FailureState(
+            seq = 2,
+            failures = 1,
+            lastFailureWallMs = clock.wall,
+            lastFailureElapsedMs = clock.elapsed,
+            bootCount = 7,
+        )
+
+        // The device rebooted and stayed up longer than the failure had been up before it, so the monotonic clock is above the
+        // reading in the state. The wall clock is moved back an hour at the same time.
+        clock.elapsed = 5_000L
+        clock.wall -= 3_600_000L
+        assertEquals(5_000L, FailureDelay.elapsedSinceFailure(state, clock, bootCount = 8))
+        assertTrue(FailureDelay(created).isBlocked(state, clock, bootCount = 8))
+    }
+
+    @Test
+    fun theSameBootCountKeepsTheSmallerReading() {
+        val clock = FakeClock()
+        val state = FailureState(
+            seq = 2,
+            failures = 1,
+            lastFailureWallMs = clock.wall,
+            lastFailureElapsedMs = clock.elapsed,
+            bootCount = 7,
+        )
+
+        clock.advance(1_000)
+        clock.wall += 3_600_000L
+        assertEquals(1_000L, FailureDelay.elapsedSinceFailure(state, clock, bootCount = 7))
+    }
+
+    @Test
+    fun withoutABootCountTheOlderReadingIsKept() {
+        val clock = FakeClock(wall = afterLearning, elapsed = 900_000L)
+        val state = FailureState(
+            seq = 2,
+            failures = 1,
+            lastFailureWallMs = clock.wall,
+            lastFailureElapsedMs = clock.elapsed,
+            bootCount = 7,
+        )
+
+        // The state names a boot, but the device cannot report the current one, so the monotonic clock going back is the only
+        // reboot signal, as before.
+        clock.elapsed = 2_000L
+        clock.wall += 15_000L
+        assertEquals(2_000L, FailureDelay.elapsedSinceFailure(state, clock))
+        assertTrue(FailureDelay(created).isBlocked(state, clock))
+    }
+
+    @Test
     fun wallClockMovedBackwardGivesNegativeElapsed() {
         val clock = FakeClock()
         val state = FailureState(seq = 2, failures = 1, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed)

@@ -21,7 +21,7 @@ class FailureStoreTest {
 
     private val keys = MemoryKeystore()
 
-    private fun open(dir: File) = FailureStore(dir, keys)
+    private fun open(dir: File, bootCount: () -> Int? = { null }) = FailureStore(dir, keys, bootCount)
 
     private fun File.primary() = File(this, FailureStore.PRIMARY_FILE_NAME)
 
@@ -30,8 +30,8 @@ class FailureStoreTest {
     /** Where the cap starts in a version 2 or 3 record: magic (4) + version (1) + seq (8) + failures (4) + wall (8) + elapsed (8). */
     private val capOffset = 33
 
-    /** The MAC-covered part of a version 2 or 3 record: everything before the 32-byte MAC. */
-    private val payloadBytes = 41
+    /** The MAC-covered part of a version 3 record: everything before the 32-byte MAC. */
+    private val payloadBytes = 45
 
     /** The magic that opens every record. */
     private val magic = "LNFS".toByteArray(Charsets.US_ASCII)
@@ -51,6 +51,7 @@ class FailureStoreTest {
             .putLong(state.lastFailureWallMs)
             .putLong(state.lastFailureElapsedMs)
             .putLong(state.capMs ?: 0L)
+            .putInt(state.bootCount ?: -1)
             .array()
         return payload + macOf(key, payload)
     }
@@ -218,6 +219,78 @@ class FailureStoreTest {
         // The state is not tampered, and the 10 s wait still runs from boot.
         assertEquals(1, reloaded.failures)
         assertTrue(FailureDelay(FakeClock.START_WALL).isBlocked(reloaded, clock))
+    }
+
+    @Test
+    fun theBootCountIsRecordedWithTheStateAndKeptAcrossARead() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir) { 7 }
+        store.initialize(clock)
+
+        assertEquals(7, store.load(clock).bootCount)
+        assertEquals(7, open(dir) { 7 }.load(clock).bootCount)
+    }
+
+    @Test
+    fun aDeviceThatDoesNotReportTheBootCountRecordsNone() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+
+        assertNull(store.load(clock).bootCount)
+        assertNull(open(dir).load(clock).bootCount)
+    }
+
+    @Test
+    fun aRebootSeenByTheBootCountKeepsTheRemainingWait() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        var bootCount = 7
+        val store = open(dir) { bootCount }
+        store.initialize(clock)
+        store.recordFailure(store.load(clock), clock)
+        assertEquals(7, store.load(clock).bootCount)
+
+        // The device reboots one boot later, two seconds into the new boot, with the wall clock moved forward an hour.
+        FailureStore.forget(dir)
+        bootCount = 8
+        clock.elapsed = 2_000L
+        clock.wall += FailureDelay.MAX_CAP_MS
+        val reloaded = open(dir) { bootCount }.load(clock)
+        val delay = FailureDelay(FakeClock.START_WALL)
+
+        // The 10 s wait is measured from the reboot, so 8 s of it are left.
+        assertEquals(1, reloaded.failures)
+        assertEquals(7, reloaded.bootCount)
+        assertTrue(delay.isBlocked(reloaded, clock, bootCount))
+        clock.advance(7_999)
+        assertTrue(delay.isBlocked(reloaded, clock, bootCount))
+        clock.advance(1)
+        assertFalse(delay.isBlocked(reloaded, clock, bootCount))
+    }
+
+    @Test
+    fun aRebootSeenByTheBootCountIsNotTamperingWhenTheWallClockMovedBack() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        var bootCount = 7
+        clock.elapsed = 5_000L
+        val store = open(dir) { bootCount }
+        store.initialize(clock)
+        store.recordFailure(store.load(clock), clock)
+
+        // The device reboots, stays up for longer than that failure was in the previous boot, and the wall clock goes back an
+        // hour. The monotonic clock alone would read as a wall clock moved backwards; the boot count shows a reboot.
+        FailureStore.forget(dir)
+        bootCount = 8
+        clock.elapsed = 6_000L
+        clock.wall -= FailureDelay.MAX_CAP_MS
+        val reloaded = open(dir) { bootCount }.load(clock)
+
+        assertEquals(1, reloaded.failures)
+        assertTrue(FailureDelay(FakeClock.START_WALL).isBlocked(reloaded, clock, bootCount))
     }
 
     @Test
