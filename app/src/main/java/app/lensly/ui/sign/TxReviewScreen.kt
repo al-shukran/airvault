@@ -116,11 +116,12 @@ fun TxReviewScreen(
                 }
                 if (!isMessage) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // The native coin shows its chain's logo. A token shows its logo, or the unknown-token icon.
+                        // The native coin shows its chain's logo. A token shows its logo, or the unknown-token icon, with its
+                        // chain's logo as a badge when it is a pegged or bridged copy.
                         if (review.tokenContract == null) {
                             ChainIcon(network = review.network, size = 32.dp)
                         } else {
-                            TokenIcon(token = review.token, size = 32.dp)
+                            TokenIcon(token = review.token, size = 32.dp, chain = review.network)
                         }
                         Spacer(Modifier.width(12.dp))
                         // An amount in raw base units is set smaller, so a long integer stays on one line.
