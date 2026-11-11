@@ -63,8 +63,8 @@ sealed interface WalletSecret {
 }
 
 /**
- * Wallets kept in an open [VaultSession]. Each wallet has two records. Both use DataOutputStream and
- * DataInputStream behind a version byte. Neither is JSON.
+ * Wallets kept in an open [VaultSession]. Each wallet has two records, and each renamed account has one more. All of them
+ * use DataOutputStream and DataInputStream behind a version byte. None is JSON.
  *
  * - `meta`, version 2: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int).
  *   A Mnemonic wallet then has master fingerprint hex (UTF), account public key and chain code (each an int length,
@@ -72,6 +72,8 @@ sealed interface WalletSecret {
  *   Version 1 is the same record without the kind byte. It is always a Mnemonic wallet, and it still loads.
  * - `secret`, version 1 for a Mnemonic wallet: word count (byte), each word (UTF), has-passphrase (boolean), then the
  *   passphrase (UTF) when present. Version 2 for a Single Key wallet: the 32-byte private key.
+ * - `account-<index>`, version 1: the Display Name of one renamed account (UTF). Only a renamed account has one, so an
+ *   account that keeps its default label costs no record. Renaming writes it, and a reset removes it.
  *
  * Encoded bytes are zeroed after they are written or parsed, including the internal buffer of the stream
  * that produced them. The Strings for the words and the passphrase cannot be zeroed. They are dropped as soon
@@ -256,6 +258,73 @@ class WalletStore(private val session: VaultSession) {
         }
     }
 
+    /**
+     * Renames wallet [id] to [name], trimmed, and returns the updated metadata. Only the META record changes, so the
+     * secret, the account public key and every account keep what they were. Account names are not rewritten.
+     *
+     * @throws IllegalArgumentException if [name] is not a valid Display Name, or the wallet does not exist.
+     */
+    fun renameWallet(id: String, name: String): WalletMeta {
+        val clean = displayNameOf(name)
+        return synchronized(session) {
+            val current = requireNotNull(meta(id)) { "No wallet $id." }
+            val updated = current.copy(name = clean)
+            session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
+            updated
+        }
+    }
+
+    /**
+     * The Display Name of account [index] of wallet [id], or null when the account keeps its default label. A record that
+     * cannot be read counts as no name, so the account shows its default label.
+     */
+    fun accountName(id: String, index: Int): String? {
+        val bytes = session.getRecord(id, WalletRecords.accountRecord(index)) ?: return null
+        return try {
+            WalletRecords.decodeAccountName(bytes)
+        } catch (e: IOException) {
+            null
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
+    /** The Display Names of the accounts 0 until [count] of wallet [id] that have one, by account index. */
+    fun accountNames(id: String, count: Int): Map<Int, String> =
+        (0 until count).mapNotNull { index -> accountName(id, index)?.let { index to it } }.toMap()
+
+    /**
+     * Gives account [index] of wallet [id] the Display Name [name], trimmed. The account's address and every other account
+     * stay as they are.
+     *
+     * @throws IllegalArgumentException if [name] is not a valid Display Name, or the wallet has no account [index].
+     */
+    fun renameAccount(id: String, index: Int, name: String) {
+        val clean = displayNameOf(name)
+        synchronized(session) {
+            requireAccount(id, index)
+            session.putRecord(id, WalletRecords.accountRecord(index), WalletRecords.encodeAccountName(clean))
+        }
+    }
+
+    /**
+     * Gives account [index] of wallet [id] its default label back. Its profile record is removed, so the account is as it
+     * was before it was renamed.
+     *
+     * @throws IllegalArgumentException if the wallet has no account [index].
+     */
+    fun resetAccountName(id: String, index: Int) {
+        synchronized(session) {
+            requireAccount(id, index)
+            session.deleteRecord(id, WalletRecords.accountRecord(index))
+        }
+    }
+
+    private fun requireAccount(id: String, index: Int) {
+        val current = requireNotNull(meta(id)) { "No wallet $id." }
+        require(index in 0 until current.accountCount) { "Wallet $id has no account $index." }
+    }
+
     /** The Mnemonic secret of wallet [id]. A Single Key secret is zeroed and refused, so the caller never holds a key here. */
     private fun mnemonicSecret(id: String): WalletSecret.Mnemonic =
         when (val secret = requireNotNull(secret(id)) { "No wallet $id." }) {
@@ -295,8 +364,28 @@ internal object WalletRecords {
     /** The secret version of a Mnemonic wallet. It is the only secret layout before Single Keys. */
     private const val MNEMONIC_SECRET_VERSION = 1
     private const val SINGLE_KEY_SECRET_VERSION = 2
+    private const val ACCOUNT_NAME_VERSION = 1
     private const val MAX_WORDS = 24
     private const val MAX_FIELD_BYTES = 1024
+
+    /** The record that holds the Display Name of account [index]. Only a renamed account has one. */
+    fun accountRecord(index: Int): String {
+        require(index >= 0) { "An account index is never negative." }
+        return "account-$index"
+    }
+
+    /** An Account Profile record: the version byte, then the Display Name (UTF). */
+    fun encodeAccountName(name: String): ByteArray = writeBytes { out ->
+        out.writeByte(ACCOUNT_NAME_VERSION)
+        out.writeUTF(name)
+    }
+
+    fun decodeAccountName(bytes: ByteArray): String = readBytes(bytes) { input ->
+        when (val version = input.readUnsignedByte()) {
+            ACCOUNT_NAME_VERSION -> displayNameOf(input.readUTF())
+            else -> throw IllegalArgumentException("Unknown record version $version.")
+        }
+    }
 
     fun encodeMeta(meta: WalletMeta): ByteArray = writeBytes { out ->
         out.writeByte(META_VERSION)

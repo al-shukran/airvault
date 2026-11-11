@@ -219,6 +219,19 @@ class SignPipelineTest {
     }
 
     @Test
+    fun aRenamedAccountIsReviewedUnderItsDisplayNameInCapitals() {
+        val named = WalletView(WALLET.masterFingerprint, accountCount = 2, accountNames = mapOf(1 to "Rent")) {
+            WALLET.address(it)
+        }
+
+        val review = assertIs<Prepared.Ready>(pipeline.prepare(requestCbor(eip1559Tx(), index = 1), named)).review
+
+        assertEquals("RENT", review.fromAccountLabel)
+        assertEquals(WALLET.address(1), review.fromAddress)
+        assertEquals("ACCOUNT 1", ready(requestCbor(eip1559Tx())).review.fromAccountLabel)
+    }
+
+    @Test
     fun requestedAddressMustMatchTheAccountCaseInsensitively() {
         val data = eip1559Tx()
 

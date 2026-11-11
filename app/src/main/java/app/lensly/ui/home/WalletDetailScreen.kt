@@ -22,10 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
+import app.lensly.app.defaultAccountLabel
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.theme.LenslyOnSurface
@@ -41,8 +43,10 @@ internal const val SINGLE_KEY_ONE_ACCOUNT =
     "A Wallet built on a Single Key has exactly one Account and cannot generate more."
 
 /**
- * One wallet: its name in the dot-matrix face, its accounts, and its actions. Each account shows a shortened
- * address. Tapping the row shows the full address in groups of four. [addresses] is null while they are derived.
+ * One wallet: its name in the dot-matrix face, its accounts, and its actions. Each account shows its Display Name, or its
+ * default label, and a shortened address. Tapping the row shows the full address in groups of four. [addresses] is null
+ * while they are derived. [accountNames] holds the names of the renamed accounts, by index. RENAME, on the wallet and on
+ * each account, opens the name screen.
  *
  * The accounts are a LazyColumn, so a wallet with hundreds of accounts composes only the rows on screen. The header
  * scrolls with the list, and the Pair and Sign actions stay pinned under it.
@@ -51,6 +55,7 @@ internal const val SINGLE_KEY_ONE_ACCOUNT =
 fun WalletDetailScreen(
     wallet: WalletMeta,
     addresses: List<String>?,
+    accountNames: Map<Int, String>,
     onBack: () -> Unit,
     onLock: () -> Unit,
     onAddAccount: () -> Unit,
@@ -58,6 +63,8 @@ fun WalletDetailScreen(
     onPair: () -> Unit,
     onSign: () -> Unit,
     onShowSecret: () -> Unit,
+    onRenameWallet: () -> Unit,
+    onRenameAccount: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     WalletScaffold(
@@ -111,12 +118,23 @@ fun WalletDetailScreen(
                     Spacer(Modifier.height(8.dp))
                     DotText(text = wallet.name.uppercase(), fontSize = 40.sp)
                     Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         if (wallet.kind == WalletKind.SINGLE_KEY) {
                             PillChip(text = "Single key")
                         } else {
                             PillChip(text = "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}")
                         }
+                        Spacer(Modifier.weight(1f))
+                        WalletPill(
+                            text = "Rename",
+                            onClick = onRenameWallet,
+                            style = WalletPillStyle.Outline,
+                            size = WalletPillSize.Compact,
+                        )
                     }
                     Spacer(Modifier.height(24.dp))
                     WalletEyebrow("Accounts")
@@ -133,7 +151,12 @@ fun WalletDetailScreen(
                 }
             } else {
                 itemsIndexed(addresses, key = { _, address -> address }) { index, address ->
-                    AccountRow(index = index, address = address)
+                    AccountRow(
+                        index = index,
+                        address = address,
+                        name = accountNames[index],
+                        onRename = { onRenameAccount(index) },
+                    )
                 }
             }
             item {
@@ -176,7 +199,7 @@ fun WalletDetailScreen(
 }
 
 @Composable
-private fun AccountRow(index: Int, address: String) {
+private fun AccountRow(index: Int, address: String, name: String?, onRename: () -> Unit) {
     var expanded by rememberSaveable(address) { mutableStateOf(false) }
     Column {
         Column(
@@ -185,8 +208,17 @@ private fun AccountRow(index: Int, address: String) {
                 .clickable(role = Role.Button) { expanded = !expanded }
                 .padding(vertical = 12.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                WalletEyebrow("Account ${index + 1}")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // The Display Name, or the default label while the account has none. A long name is cut short.
+                WalletEyebrow(
+                    text = name ?: defaultAccountLabel(index),
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Spacer(Modifier.width(12.dp))
                 // Every address shows the Ethereum logo, whichever compatible chain it is used on.
                 AddressIcon(size = 16.dp)
@@ -195,6 +227,13 @@ private fun AccountRow(index: Int, address: String) {
                     text = shortAddress(address),
                     style = MaterialTheme.typography.bodyLarge,
                     color = LenslyOnSurface,
+                )
+                Spacer(Modifier.width(12.dp))
+                WalletPill(
+                    text = "Rename",
+                    onClick = onRename,
+                    style = WalletPillStyle.Outline,
+                    size = WalletPillSize.Compact,
                 )
             }
             if (expanded) {
