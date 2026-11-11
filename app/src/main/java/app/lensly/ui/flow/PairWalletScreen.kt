@@ -1,9 +1,22 @@
 package app.lensly.ui.flow
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,7 +26,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
@@ -22,22 +38,25 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
 import app.lensly.app.export.PairingExport
 import app.lensly.ui.components.AddressIcon
-import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.LoadingState
+import app.lensly.ui.components.pressFeedback
+import app.lensly.ui.components.rememberKeyHaptics
+import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.qr.ShowQrScreen
-import app.lensly.ui.wallet.WalletEyebrow
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillSize
-import app.lensly.ui.wallet.WalletPillStyle
-import app.lensly.ui.wallet.WalletScaffold
-import app.lensly.ui.wallet.WalletWarningChip
+import app.lensly.ui.theme.LenslyRadius
+import app.lensly.ui.theme.LenslySpacing
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private const val DEFAULT_PAIR_NAME = "Lensly"
+private const val PAIR_TITLE = "Pair wallet"
 
 /**
  * The online wallets that pair with Lensly. Both read the same ur:crypto-hdkey, so only the steps the owner follows
@@ -89,7 +108,12 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
             leaveHidden(navController, holder)
         }
     }
-    val shown = wallet ?: return
+    val shown = wallet
+    if (shown == null) {
+        // The wallet is read off the main thread. Until it arrives, the screen says so instead of staying blank.
+        PairLoading(label = "Loading wallet", onBack = { navController.popBackStack() })
+        return
+    }
     if (shown.kind == WalletKind.SINGLE_KEY) {
         SingleKeyPairScreen(onBack = { navController.popBackStack() })
     } else {
@@ -104,31 +128,18 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
  */
 @Composable
 internal fun SingleKeyPairScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
-    WalletScaffold(
+    LenslyScreen(
+        title = PAIR_TITLE,
         modifier = modifier,
-        footer = {
-            WalletPill(
-                text = "Back",
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Outline,
-            )
-        },
+        onBack = onBack,
     ) {
-        Spacer(Modifier.height(24.dp))
-        WalletEyebrow("Pair with an online wallet")
-        Spacer(Modifier.height(12.dp))
-        DotHeadline(text = "PAIR WALLET")
-        Spacer(Modifier.height(16.dp))
-        WalletWarningChip(text = "Cannot be paired")
-        Spacer(Modifier.height(20.dp))
-        Text(
-            text = "This wallet can't be paired. Pairing shares an account's extended public key and derivation path, " +
-                "and a single key has neither. An online wallet that pairs by extended public key cannot watch it.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+        InlineBanner(
+            title = "Cannot be paired",
+            message = "Pairing shares an account's extended public key and derivation path, and a single key has " +
+                "neither. An online wallet that pairs by extended public key cannot watch it.",
+            tone = BannerTone.Warning,
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(LenslySpacing.lg))
         Text(
             text = "To sign with this key, open SIGN on this wallet and scan a request that names its address.",
             style = MaterialTheme.typography.bodyMedium,
@@ -151,14 +162,19 @@ private fun PairWalletContent(wallet: WalletMeta, onDone: () -> Unit) {
     }
     // Back from the code returns to the choice, so the owner can pick the other wallet.
     BackHandler { format = null }
-    val parts = frames ?: return
+    val parts = frames
+    if (parts == null) {
+        PairLoading(label = "Preparing code", onBack = { format = null })
+        return
+    }
     ShowQrScreen(
-        title = "PAIR WALLET",
+        title = PAIR_TITLE,
         subtitle = chosen.instruction,
         parts = parts,
         onDone = onDone,
         // The paired account is an Ethereum account, so it carries the Ethereum logo.
         subtitleLeading = { AddressIcon(size = 16.dp) },
+        onBack = { format = null },
     )
 }
 
@@ -169,36 +185,84 @@ internal fun PairChooserScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    WalletScaffold(
+    LenslyScreen(
+        title = PAIR_TITLE,
         modifier = modifier,
-        footer = {
-            WalletPill(
-                text = "Back",
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Outline,
-            )
-        },
+        onBack = onBack,
     ) {
-        Spacer(Modifier.height(24.dp))
-        WalletEyebrow("Pair with an online wallet")
-        Spacer(Modifier.height(12.dp))
-        DotHeadline(text = "PAIR WALLET")
-        Spacer(Modifier.height(16.dp))
         Text(
-            text = "Choose the wallet you are pairing with. Each one has its own steps.",
+            text = "Choose the online wallet you are pairing with. Each one has its own steps.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(LenslySpacing.lg))
         PairFormat.entries.forEach { format ->
-            WalletPill(
-                text = format.label,
-                onClick = { onPick(format) },
-                modifier = Modifier.fillMaxWidth(),
-                size = WalletPillSize.Large,
+            PairOptionCard(format = format, onClick = { onPick(format) })
+            Spacer(Modifier.height(LenslySpacing.sm))
+        }
+    }
+}
+
+/** One online wallet to pair with: its name, its steps, and an arrow. It dims while pressed and plays the key haptic. */
+@Composable
+private fun PairOptionCard(format: PairFormat, onClick: () -> Unit) {
+    val haptics = rememberKeyHaptics()
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(LenslyRadius.lg)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressFeedback(interaction, enabled = true)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outline, shape)
+            .tapHaptic(haptics)
+            .clickable(
+                role = Role.Button,
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
             )
-            Spacer(Modifier.height(16.dp))
+            .padding(LenslySpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = format.label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(LenslySpacing.xxs))
+            Text(
+                text = format.instruction,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(LenslySpacing.sm))
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/** A pairing screen that is still reading its data: the frame with a centred loading state. */
+@Composable
+internal fun PairLoading(label: String, onBack: () -> Unit) {
+    LenslyScreen(
+        title = PAIR_TITLE,
+        onBack = onBack,
+        scrollable = false,
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            LoadingState(label = label)
         }
     }
 }

@@ -75,8 +75,11 @@ class CameraController {
         bound.cameraControl.setZoomRatio(zoomRatio)
     }
 
-    /** Saves one JPEG to [file]. [onSaved] runs on [executor] once the file is written. */
-    fun takePhoto(file: File, executor: Executor, onSaved: () -> Unit) {
+    /**
+     * Saves one JPEG to [file]. [onSaved] runs on [executor] once the file is written. [onFailure] runs on [executor]
+     * when the capture fails, and the partial file is removed first.
+     */
+    fun takePhoto(file: File, executor: Executor, onSaved: () -> Unit, onFailure: () -> Unit = {}) {
         val capture = imageCapture ?: return
         capture.takePicture(
             ImageCapture.OutputFileOptions.Builder(file).build(),
@@ -88,6 +91,7 @@ class CameraController {
 
                 override fun onError(exception: ImageCaptureException) {
                     file.delete()
+                    onFailure()
                 }
             },
         )
