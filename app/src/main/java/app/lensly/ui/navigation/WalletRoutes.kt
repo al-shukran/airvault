@@ -79,14 +79,20 @@ private const val MAX_WORD_LETTERS = 8
  * passphrase and name screens, a wallet's detail, and the pair and sign flows. The create flow is in [createRoutes].
  */
 internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.HOME) { HiddenBackdrop { HomeRoute(navController, holder) } }
-    composable(HiddenRoute.WALLET_START) { HiddenBackdrop { WalletStartRoute(navController) } }
+    composable(HiddenRoute.HOME) { entry ->
+        HiddenBackdrop { HomeRoute(navController, holder, entry) }
+    }
+    composable(HiddenRoute.WALLET_START) { entry ->
+        HiddenBackdrop { WalletStartRoute(navController, entry) }
+    }
     createRoutes(navController)
     importRoutes(navController, holder)
-    composable(HiddenRoute.RESTORE) { HiddenBackdrop { RestoreRoute(navController) } }
-    composable(HiddenRoute.PASSPHRASE) { HiddenBackdrop { PassphraseRoute(navController) } }
-    composable(HiddenRoute.NAME) { HiddenBackdrop { NameRoute(navController, holder) } }
-    composable(HiddenRoute.PASSPHRASE_BACKUP) { HiddenBackdrop { PassphraseBackupRoute(navController, holder) } }
+    composable(HiddenRoute.RESTORE) { entry -> HiddenBackdrop { RestoreRoute(navController, entry) } }
+    composable(HiddenRoute.PASSPHRASE) { entry -> HiddenBackdrop { PassphraseRoute(navController, entry) } }
+    composable(HiddenRoute.NAME) { entry -> HiddenBackdrop { NameRoute(navController, holder, entry) } }
+    composable(HiddenRoute.PASSPHRASE_BACKUP) { entry ->
+        HiddenBackdrop { PassphraseBackupRoute(navController, holder, entry) }
+    }
     composable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DetailRoute(navController, holder, entry.walletId()) }
     }
@@ -120,8 +126,12 @@ internal fun walletIdArguments() = listOf(navArgument(HiddenRoute.WALLET_ID_ARG)
 internal fun NavBackStackEntry.walletId(): String = arguments?.getString(HiddenRoute.WALLET_ID_ARG).orEmpty()
 
 @Composable
-private fun HomeRoute(navController: NavHostController, holder: VaultHolder) {
-    val draft = draftOf(navController)
+private fun HomeRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    entry: NavBackStackEntry,
+) {
+    val draft = draftOf(navController, entry)
     val session = rememberOpenSession(navController, holder) ?: return
     val debugNotice = remember { debugKeystoreNotice(holder) }
     var wallets by remember { mutableStateOf<List<WalletMeta>>(emptyList()) }
@@ -197,8 +207,8 @@ private fun importPackage(context: Context, uri: Uri): ImportState {
  * shows the checksum error.
  */
 @Composable
-private fun RestoreRoute(navController: NavHostController) {
-    val draft = draftOf(navController)
+private fun RestoreRoute(navController: NavHostController, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     val autocomplete = remember { Bip39Autocomplete() }
     var words by remember { mutableStateOf<List<String>>(emptyList()) }
     var activeIndex by remember { mutableIntStateOf(0) }
@@ -263,8 +273,8 @@ private fun RestoreRoute(navController: NavHostController) {
  * means no passphrase. The entry is zeroed as soon as it has been copied into the draft.
  */
 @Composable
-private fun PassphraseRoute(navController: NavHostController) {
-    val draft = draftOf(navController)
+private fun PassphraseRoute(navController: NavHostController, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.words.isNotEmpty())
     val buffer = remember { PasswordBuffer() }
     var step by remember { mutableStateOf(PassphraseStep.Ask) }
@@ -341,8 +351,8 @@ private fun PassphraseRoute(navController: NavHostController) {
  * wallet.
  */
 @Composable
-private fun NameRoute(navController: NavHostController, holder: VaultHolder) {
-    val draft = draftOf(navController)
+private fun NameRoute(navController: NavHostController, holder: VaultHolder, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.words.isNotEmpty() || draft.singleKey != null)
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
@@ -384,8 +394,12 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder) {
  * owner confirms the passphrase is written down. Then the wallet is saved from the draft, and its detail opens.
  */
 @Composable
-private fun PassphraseBackupRoute(navController: NavHostController, holder: VaultHolder) {
-    val draft = draftOf(navController)
+private fun PassphraseBackupRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    entry: NavBackStackEntry,
+) {
+    val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.words.isNotEmpty() && PassphraseGate.needsWriteDown(draft.passphrase))
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
