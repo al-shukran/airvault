@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.theme.LenslyMuted
 import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
+import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -51,7 +51,7 @@ fun PasswordField(
         val centerY = (size.height - line) / 2f
 
         drawLine(
-            color = LenslyOutline,
+            color = LenslyOutlineInteractive,
             start = Offset(0f, size.height - line / 2f),
             end = Offset(size.width, size.height - line / 2f),
             strokeWidth = line,

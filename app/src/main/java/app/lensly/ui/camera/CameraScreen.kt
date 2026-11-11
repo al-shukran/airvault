@@ -70,7 +70,7 @@ import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyMuted
 import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
+import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurfaceHigh
@@ -425,7 +425,7 @@ private fun GalleryThumbnail(latestPhoto: File?, onClick: () -> Unit) {
             .size(56.dp)
             .pressFeedback(interaction, enabled = true)
             .clip(CircleShape)
-            .border(1.dp, LenslyOutline, CircleShape)
+            .border(1.dp, LenslyOutlineInteractive, CircleShape)
             .tapHaptic(haptics)
             .clickable(
                 role = Role.Button,
