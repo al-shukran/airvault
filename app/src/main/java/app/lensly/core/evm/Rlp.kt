@@ -1,5 +1,8 @@
 package app.lensly.core.evm
 
+import app.lensly.core.parse.DecodeBudget
+import app.lensly.core.parse.ParserLimits
+
 /** Raised for transaction bytes that are malformed, non-canonical, or outside the supported schema. */
 internal class MalformedTxException(message: String) : Exception(message)
 
@@ -7,7 +10,8 @@ internal fun malformedTx(reason: String): Nothing = throw MalformedTxException(r
 
 /**
  * Strict RLP. Single bytes must not be wrapped, lengths must be minimal, and the input must be exactly one item.
- * Nesting deeper than [MAX_DEPTH] is rejected.
+ * Input larger than [ParserLimits.MAX_SIGN_DATA_BYTES], nesting deeper than [ParserLimits.MAX_RLP_DEPTH], more than
+ * [ParserLimits.MAX_RLP_ITEMS] items, or a decode that runs past its time budget are all rejected.
  */
 internal sealed class Rlp {
     class Str(val bytes: ByteArray) : Rlp()
@@ -15,22 +19,27 @@ internal sealed class Rlp {
     class Lst(val items: List<Rlp>) : Rlp()
 
     companion object {
-        private const val MAX_DEPTH = 8
-
-        fun decode(bytes: ByteArray): Rlp {
-            val reader = Reader(bytes)
+        fun decode(
+            bytes: ByteArray,
+            budget: DecodeBudget = DecodeBudget("RLP", ParserLimits.MAX_RLP_ITEMS),
+        ): Rlp {
+            if (bytes.size > ParserLimits.MAX_SIGN_DATA_BYTES) {
+                malformedTx("RLP is larger than ${ParserLimits.MAX_SIGN_DATA_BYTES} bytes")
+            }
+            val reader = Reader(bytes, budget)
             val item = reader.read(depth = 0, limit = bytes.size)
             if (reader.position != bytes.size) malformedTx("trailing bytes after RLP item")
             return item
         }
     }
 
-    private class Reader(private val bytes: ByteArray) {
+    private class Reader(private val bytes: ByteArray, private val budget: DecodeBudget) {
         var position = 0
             private set
 
         fun read(depth: Int, limit: Int): Rlp {
-            if (depth > MAX_DEPTH) malformedTx("RLP nested deeper than $MAX_DEPTH")
+            budget.charge()?.let { malformedTx(it) }
+            if (depth > ParserLimits.MAX_RLP_DEPTH) malformedTx("RLP nested deeper than ${ParserLimits.MAX_RLP_DEPTH}")
             if (position >= limit) malformedTx("truncated RLP")
             val prefix = bytes[position++].toInt() and 0xFF
             return when {

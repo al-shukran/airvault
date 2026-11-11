@@ -1,5 +1,6 @@
 package app.lensly.core.ur
 
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.wallet.toHex
 import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertContentEquals
@@ -64,6 +65,19 @@ class EthSignRequestTest {
         val huge = payload(signData = Cbor.Bytes(ByteArray(70_000)))
         val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(huge))
         assertTrue(rejected.reason.contains("payload exceeds"), rejected.reason)
+    }
+
+    @Test
+    fun refusesAPayloadWithTooManyItemsOrTooDeepANestingWithAReason() {
+        val crowded = Cbor.encode(Cbor.Dict(List(300) { Cbor.Uint(100L + it) to Cbor.Uint(0) }))
+        val tooMany = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(crowded))
+        assertEquals("CBOR has more than ${ParserLimits.MAX_CBOR_ITEMS} items", tooMany.reason)
+
+        var deep: Cbor = Cbor.Uint(0)
+        repeat(9) { deep = Cbor.Arr(listOf(deep)) }
+        val nested = Cbor.encode(dictOf(2L to deep))
+        val tooDeep = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(nested))
+        assertEquals("CBOR nested deeper than ${ParserLimits.MAX_CBOR_DEPTH}", tooDeep.reason)
     }
 
     @Test
