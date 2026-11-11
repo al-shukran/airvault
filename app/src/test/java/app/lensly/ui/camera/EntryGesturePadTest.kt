@@ -316,6 +316,8 @@ class EntryGesturePadTest {
         threeSwitchesThenHoldShutter("Start recording")
 
         assertEquals(1, performed)
+        // The hold starts no recording: its touch never reaches the shutter as a click.
+        assertEquals(0, shutterClicks)
     }
 
     @Test

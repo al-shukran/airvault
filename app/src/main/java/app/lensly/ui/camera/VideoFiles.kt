@@ -14,7 +14,8 @@ internal fun videoDurationMs(file: File): Long? = try {
         retriever.setDataSource(file.path)
         retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
     }
-} catch (e: IllegalArgumentException) {
+} catch (e: RuntimeException) {
+    // A corrupt or unsupported container is rejected at open, by the metadata retriever or by the codec.
     null
 }
 
