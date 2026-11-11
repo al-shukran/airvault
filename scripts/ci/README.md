@@ -43,9 +43,11 @@ Fails if the merged debug manifest declares `INTERNET` or `ACCESS_NETWORK_STATE`
 Where each kind runs (`comment-run.yml`): `screenshot-testing`, `security` and `fuzz` on `ubuntu-latest`; `instrumented` and `e2e` on an emulator; `perf` on the self-hosted reference device (`[self-hosted, android-ref]`), because the 10% benchmark gate only judges that phone.
 
 ```bash
-scripts/ci/run-extended.sh security   # lintDebug, then check-manifest.sh
+scripts/ci/run-extended.sh security   # lintDebug + dependencyCheckAnalyze, then check-manifest.sh
 CI=true scripts/ci/run-extended.sh e2e
 ```
+
+`security` is the on-demand trigger for guideline 2.7's "Lint (security) and OWASP" row: `:app:lintDebug` and `:app:dependencyCheckAnalyze` in one Gradle call with `--continue`, then `check-manifest.sh`. Each step reports its own result and the run still exits non-zero if any of them failed, so one pass lists every broken gate. Expect 10 to 15 minutes, mostly the OWASP scan. `NVD_API_KEY` is optional: without it the NVD API is rate-limited, so the scan is slower but still runs.
 
 `fuzz` is real fuzzing, not a replay: it calls `fuzz-nightly.sh --seconds 60`, so each of the four targets fuzzes for 60 seconds. `perf` runs the microbenchmarks on the reference device and applies the gate when `BENCHMARK_RESULT` names the result file.
 

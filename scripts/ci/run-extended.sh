@@ -6,7 +6,7 @@
 #   e2e                1.6  :app:connectedDebugAndroidTest -P...class=app.lensly.e2e.WalletSignFlowTest
 #   screenshot-testing 1.5  :app:verifyRoborazziDebug
 #   perf               1.7  :app:connectedBenchmarkAndroidTest (reference device, self-hosted runner)
-#   security           1.8  :app:lintDebug then check-manifest.sh
+#   security           1.8  :app:lintDebug + :app:dependencyCheckAnalyze, then check-manifest.sh (10 to 15 min)
 #   fuzz               1.8  scripts/ci/fuzz-nightly.sh --seconds 60 (real fuzzing, all four targets)
 #
 # Layers that have not landed yet print "not configured yet" and exit 0, so the script is
@@ -14,8 +14,9 @@
 # scheduled or comment-triggered run can never pass by silently skipping.
 #
 # Not wired here: the nightly Jazzer run (15 min per target, scripts/ci/fuzz-nightly.sh) and
-# gitleaks; the nightly workflow runs fuzzing as its own job. OWASP dependencyCheckAnalyze is
-# deliberately absent too: guideline 1.8 keeps it nightly, and the nightly workflow runs it.
+# gitleaks; the nightly workflow runs fuzzing as its own job. The OWASP scan is wired here, because
+# guideline 2.7 maps both lint and OWASP to /run-security. NVD_API_KEY is optional: without it the
+# NVD API rate limit makes the scan slower, but the scan still runs.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -89,8 +90,22 @@ case "$kind" in
         fi
         ;;
     security)
-        ./gradlew :app:lintDebug
-        "$ROOT/scripts/ci/check-manifest.sh"
+        # Guideline 2.7: lint and OWASP together take 10 to 15 minutes. One Gradle invocation with
+        # --continue, so a lint failure still lets the scan report its result, and check-manifest.sh
+        # runs either way. Each step keeps its own line in the log, and the run exits non-zero when
+        # any of them failed (same shape as the nightly gates in guideline 2.5).
+        #
+        # NVD_API_KEY is optional and read from the environment by app/build.gradle.kts. Without it
+        # the NVD API is rate-limited, so the scan takes longer but still runs.
+        status=0
+        echo "run-security: :app:lintDebug :app:dependencyCheckAnalyze --continue"
+        ./gradlew :app:lintDebug :app:dependencyCheckAnalyze --continue || status=1
+        echo "run-security: check-manifest.sh"
+        "$ROOT/scripts/ci/check-manifest.sh" || status=1
+        if [ "$status" -ne 0 ]; then
+            echo "run-security: at least one security step failed" >&2
+        fi
+        exit "$status"
         ;;
     fuzz)
         targets="$(find "$ROOT/app/src/test/java" -name '*Fuzz*.kt' 2>/dev/null || true)"
