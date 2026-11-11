@@ -34,7 +34,7 @@ internal fun decodePhoto(file: File, maxSidePx: Int): ImageBitmap? = try {
     null
 }
 
-/** Shows a saved photo, decoded off the main thread. Shows an empty tile until it is ready. */
+/** Shows a saved photo, or the first frame of a saved video, decoded off the main thread. Shows an empty tile until it is ready. */
 @Composable
 internal fun PhotoImage(
     file: File,
@@ -44,7 +44,9 @@ internal fun PhotoImage(
     contentDescription: String? = null,
 ) {
     val bitmap by produceState<ImageBitmap?>(initialValue = null, file, maxSidePx) {
-        value = withContext(Dispatchers.IO) { decodePhoto(file, maxSidePx) }
+        value = withContext(Dispatchers.IO) {
+            if (file.isVideo) videoFrame(file, maxSidePx)?.asImageBitmap() else decodePhoto(file, maxSidePx)
+        }
     }
     Box(modifier = modifier.background(LenslySurface)) {
         bitmap?.let {

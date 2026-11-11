@@ -37,6 +37,7 @@ private const val PAD_MAX_ZOOM = 5f
 internal fun EntryGesturePad(
     gesture: EntryGesture,
     onPerformed: () -> Unit,
+    onShutterClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val slopPx = LocalViewConfiguration.current.touchSlop
@@ -46,6 +47,7 @@ internal fun EntryGesturePad(
     val currentOnPerformed by rememberUpdatedState(onPerformed)
     var zoom by remember { mutableFloatStateOf(1f) }
     var performed by remember { mutableStateOf(false) }
+    var mode by remember { mutableStateOf(CameraMode.PHOTO) }
 
     Box(
         modifier = modifier
@@ -74,7 +76,9 @@ internal fun EntryGesturePad(
             showCaptureFailure = false,
             latestPhoto = null,
             onOpenGallery = {},
-            onShutter = {},
+            mode = mode,
+            onModeChange = { mode = it },
+            onShutter = { touch.onShutterClick(onShutterClick) },
             onFlip = { touch.onModeSwitch(SystemClock.uptimeMillis()) },
             modifier = Modifier.fillMaxSize(),
             onViewfinderBounds = { touch.viewfinder = it },

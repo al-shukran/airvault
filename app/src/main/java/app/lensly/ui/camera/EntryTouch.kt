@@ -175,11 +175,14 @@ internal class EntryTouch(
         shutterClickIgnored = true
     }
 
-    /** True once, for the shutter click that ends a touch on which a gesture completed. The click then takes no photo. */
-    fun consumeShutterClick(): Boolean {
+    /**
+     * Runs [action] for a shutter click, unless the click ends a touch on which a gesture completed. That click takes no
+     * photo and starts no recording.
+     */
+    fun onShutterClick(action: () -> Unit) {
         val ignored = shutterClickIgnored
         shutterClickIgnored = false
-        return ignored
+        if (!ignored) action()
     }
 
     private fun boundsIn(coords: LayoutCoordinates?): Rect? {
