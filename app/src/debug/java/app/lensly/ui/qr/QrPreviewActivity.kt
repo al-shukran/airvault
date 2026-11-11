@@ -39,13 +39,14 @@ import java.math.BigInteger
  * Debug-only harness that hosts the QR and signing screens with fake data, so they can be checked
  * on a device without the vault.
  *
- * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-token,
+ * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-token, review-pegged,
  * review-unknown-chain, review-unknown-token or refused:
  *   adb shell am start -n app.lensly/app.lensly.ui.qr.QrPreviewActivity --es screen show12
  *
  * show1 and show12 animate one or twelve fake UR parts. scan opens the live camera and writes each
  * decoded text into the status line (and to logcat under the tag [TAG]). review shows a native transfer,
- * review-token a token transfer, review-unknown-chain a native transfer on a chain outside the registry,
+ * review-token a token transfer, review-pegged a transfer of Binance Pegged USDT on BNB Chain (the BNB badge),
+ * review-unknown-chain a native transfer on a chain outside the registry,
  * review-unknown-token a transfer of a token outside the registry, and refused a refusal, all with sample data.
  */
 class QrPreviewActivity : ComponentActivity() {
@@ -75,6 +76,7 @@ class QrPreviewActivity : ComponentActivity() {
                         SCREEN_SCAN -> ScanPreview(onFinish = ::finish)
                         SCREEN_REVIEW -> ReviewPreview(sampleReview)
                         SCREEN_REVIEW_TOKEN -> ReviewPreview(sampleTokenReview)
+                        SCREEN_REVIEW_PEGGED -> ReviewPreview(samplePeggedReview)
                         SCREEN_REVIEW_UNKNOWN_CHAIN -> ReviewPreview(sampleUnknownChainReview)
                         SCREEN_REVIEW_UNKNOWN_TOKEN -> ReviewPreview(sampleUnknownTokenReview)
                         SCREEN_REFUSED -> SignRefusedScreen(
@@ -99,6 +101,7 @@ class QrPreviewActivity : ComponentActivity() {
             SCREEN_SCAN -> SCREEN_SCAN
             SCREEN_REVIEW -> SCREEN_REVIEW
             SCREEN_REVIEW_TOKEN -> SCREEN_REVIEW_TOKEN
+            SCREEN_REVIEW_PEGGED -> SCREEN_REVIEW_PEGGED
             SCREEN_REVIEW_UNKNOWN_CHAIN -> SCREEN_REVIEW_UNKNOWN_CHAIN
             SCREEN_REVIEW_UNKNOWN_TOKEN -> SCREEN_REVIEW_UNKNOWN_TOKEN
             SCREEN_REFUSED -> SCREEN_REFUSED
@@ -113,6 +116,7 @@ class QrPreviewActivity : ComponentActivity() {
         const val SCREEN_SCAN = "scan"
         const val SCREEN_REVIEW = "review"
         const val SCREEN_REVIEW_TOKEN = "review-token"
+        const val SCREEN_REVIEW_PEGGED = "review-pegged"
         const val SCREEN_REVIEW_UNKNOWN_CHAIN = "review-unknown-chain"
         const val SCREEN_REVIEW_UNKNOWN_TOKEN = "review-unknown-token"
         const val SCREEN_REFUSED = "refused"
@@ -238,6 +242,48 @@ private val sampleTokenReview = TxReview(
         name = "USD Coin",
         decimals = 6,
         icon = "token_usdc",
+    ),
+)
+
+/**
+ * A Binance Pegged USDT transfer on BNB Chain. The amount row shows the USDT logo with the BNB logo as its badge, and
+ * the network row shows the BNB logo.
+ */
+private val samplePeggedReview = TxReview(
+    networkName = "BNB Smart Chain",
+    chainId = 56L,
+    fromAccountLabel = "Main account",
+    fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+    toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
+    amount = "25.00",
+    symbol = "USDT",
+    tokenContract = "0x55d398326f99059ff775485246999027b3197955",
+    function = "Token transfer",
+    params = emptyList(),
+    fee = listOf(
+        "Gas limit" to "65000",
+        "Max fee" to "0.00013 BNB",
+    ),
+    feeNote = "Fee is paid in BNB from the sender's balance.",
+    warnings = emptyList(),
+    nonce = 7L,
+    txType = "EIP-1559",
+    network = NetworkEntry(
+        chainId = 56L,
+        name = "BNB Smart Chain",
+        nativeSymbol = "BNB",
+        feeModel = FeeModel.L1,
+        explorerName = "BscScan",
+        testnet = false,
+        icon = "chain_binance_smart_chain",
+    ),
+    token = TokenEntry(
+        chainId = 56L,
+        contract = "0x55d398326f99059ff775485246999027b3197955",
+        symbol = "USDT",
+        name = "Binance Pegged USDT",
+        decimals = 18,
+        icon = "token_usdt",
     ),
 )
 

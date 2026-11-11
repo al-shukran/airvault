@@ -33,15 +33,22 @@ import app.lensly.ui.wallet.WalletScaffold
 sealed interface ImportState {
     data object Idle : ImportState
     data object Checking : ImportState
-    data class Installed(val sequence: Long, val networks: List<NetworkEntry>, val tokens: List<TokenEntry>) : ImportState
+    /** [chains] is every network in the registry now, so a token's logo can show its chain's badge. */
+    data class Installed(
+        val sequence: Long,
+        val networks: List<NetworkEntry>,
+        val tokens: List<TokenEntry>,
+        val chains: List<NetworkEntry> = emptyList(),
+    ) : ImportState
     data class Refused(val reason: String) : ImportState
 }
 
-/** The state for an accepted package: its sequence and the networks and tokens it added. */
-fun importedState(pkg: RegistryPackage): ImportState.Installed = ImportState.Installed(
+/** The state for an accepted package: its sequence and the networks and tokens it added, and the registry's [chains]. */
+fun importedState(pkg: RegistryPackage, chains: List<NetworkEntry> = emptyList()): ImportState.Installed = ImportState.Installed(
     sequence = pkg.sequence,
     networks = pkg.networks,
     tokens = pkg.tokens,
+    chains = chains,
 )
 
 /** The reason to show for a refused package. Anything that is not a [RegistryUpdateException] is a read or storage error. */
@@ -140,7 +147,7 @@ private fun InstalledResult(state: ImportState.Installed) {
     )
     Spacer(Modifier.height(12.dp))
     NetworkList(networks = state.networks)
-    TokenList(tokens = state.tokens)
+    TokenList(tokens = state.tokens, chains = state.chains)
 }
 
 @Composable
@@ -168,13 +175,13 @@ private fun NetworkList(networks: List<NetworkEntry>) {
 }
 
 @Composable
-private fun TokenList(tokens: List<TokenEntry>) {
+private fun TokenList(tokens: List<TokenEntry>, chains: List<NetworkEntry>) {
     if (tokens.isEmpty()) return
     Column(modifier = Modifier.padding(bottom = 12.dp)) {
         WalletEyebrow("Tokens")
         tokens.forEach { token ->
             LogoLine(text = "${token.symbol} · chain ${token.chainId}") {
-                TokenIcon(token = token, size = 20.dp)
+                TokenIcon(token = token, size = 20.dp, chain = chains.firstOrNull { it.chainId == token.chainId })
             }
         }
     }
