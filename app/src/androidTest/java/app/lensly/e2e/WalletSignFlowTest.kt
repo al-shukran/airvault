@@ -65,7 +65,10 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.web3j.crypto.Hash
+import org.web3j.crypto.Keys
 import org.web3j.crypto.RawTransaction
+import org.web3j.crypto.Sign
 import org.web3j.crypto.TransactionEncoder
 import org.web3j.utils.Numeric
 import zxingcpp.BarcodeReader
@@ -180,7 +183,7 @@ class WalletSignFlowTest {
         compose.onNodeWithText("SIGNATURE").assertExists()
         compose.onNodeWithText("Scan this with your online wallet").assertExists()
 
-        assertSignatureEchoes(request, signature)
+        assertSignatureEchoes(request, signature, wallet.address)
     }
 
     /** Waits for a state that [accept] takes, with the step the flow is on if it never comes. */
@@ -296,14 +299,18 @@ class WalletSignFlowTest {
             ),
         )
         val parts = partsOf(framesOf(UR("eth-sign-request", payload), DEFAULT_MAX_FRAGMENT))
-        return Request(requestId = requestId, parts = parts)
+        return Request(requestId = requestId, signData = tx, parts = parts)
     }
 
     /**
      * Asserts that [parts] are the `ur:eth-signature` answer to [request]: the frames form one UR, it echoes the request ID,
-     * and it carries a 65-byte signature.
+     * it carries a 65-byte signature, and that signature recovers to [expectedAddress].
+     *
+     * The recovery is what ties the answer to the wallet. Shape alone would pass for a signature made with any key. The
+     * request is an EIP-1559 typed transaction (dataType 4), so the app encodes v as the recovery id, one byte of 0 or 1,
+     * and the signing hash is keccak256 of the exact `0x02` payload the request carried.
      */
-    private fun assertSignatureEchoes(request: Request, parts: List<String>) {
+    private fun assertSignatureEchoes(request: Request, parts: List<String>, expectedAddress: String) {
         assertTrue("no signature frames", parts.isNotEmpty())
         assertTrue(
             "the first frame is not an eth-signature: ${parts.first().take(40)}",
@@ -319,7 +326,26 @@ class WalletSignFlowTest {
         val fields = fieldsOf(ur)
         val echo = (fields[1L] as Cbor.Tagged).value as Cbor.Bytes
         assertArrayEquals(request.requestId, echo.value)
-        assertEquals(65, (fields[2L] as Cbor.Bytes).value.size)
+        val signature = (fields[2L] as Cbor.Bytes).value
+        assertEquals(65, signature.size)
+
+        // A typed transaction carries the recovery id in v itself, not 27 or 28 and not the EIP-155 chain form.
+        val recId = signature[64].toInt() and 0xFF
+        assertTrue("v must be the recovery id (0 or 1) for a typed transaction, was $recId", recId in 0..1)
+        val publicKey = Sign.signedMessageHashToKey(
+            Hash.sha3(request.signData),
+            Sign.SignatureData(
+                (27 + recId).toByte(),
+                signature.copyOfRange(0, 32),
+                signature.copyOfRange(32, 64),
+            ),
+        )
+        val recovered = Keys.getAddress(publicKey).lowercase().removePrefix("0x")
+        assertEquals(
+            "the signature must recover to the wallet address",
+            expectedAddress.lowercase().removePrefix("0x"),
+            recovered,
+        )
     }
 
     /** The CBOR map of [ur] by its integer key. */
@@ -366,7 +392,7 @@ class WalletSignFlowTest {
         val fingerprint: Int,
     )
 
-    private class Request(val requestId: ByteArray, val parts: List<String>)
+    private class Request(val requestId: ByteArray, val signData: ByteArray, val parts: List<String>)
 
     private companion object {
         /** Long enough for Argon2 with the test parameters plus the keystore and file work around it. */
