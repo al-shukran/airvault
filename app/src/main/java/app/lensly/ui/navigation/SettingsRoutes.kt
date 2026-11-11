@@ -17,10 +17,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.BuildConfig
 import app.lensly.app.AppSettings
+import app.lensly.app.DecoyVault
 import app.lensly.app.RegistryHolder
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.CreateResult
+import app.lensly.core.vault.DuressResult
 import app.lensly.core.vault.PasswordPolicy
 import app.lensly.core.vault.PolicyReason
 import app.lensly.core.vault.PolicyResult
@@ -28,7 +30,10 @@ import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.PolicyError
+import app.lensly.ui.flow.PasswordCheck
+import app.lensly.ui.flow.checkAppPassword
 import app.lensly.ui.settings.CatalogCounts
+import app.lensly.ui.settings.ChangeCopy
 import app.lensly.ui.settings.ChangePasswordScreen
 import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
@@ -43,6 +48,8 @@ import kotlinx.coroutines.withContext
 internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, holder: VaultHolder) {
     composable(HiddenRoute.SETTINGS) { HiddenBackdrop { SettingsRoute(navController, holder) } }
     composable(HiddenRoute.CHANGE_PASSWORD) { HiddenBackdrop { ChangePasswordRoute(navController, holder) } }
+    composable(HiddenRoute.DURESS) { HiddenBackdrop { ChangePasswordRoute(navController, holder, duress = true) } }
+    composable(HiddenRoute.DURESS_REMOVE) { HiddenBackdrop { RemoveDuressRoute(navController, holder) } }
     composable(HiddenRoute.FAILURE_CAP) { HiddenBackdrop { FailureCapRoute(navController, holder) } }
     composable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
 }
@@ -93,6 +100,8 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         catalog = catalog,
         onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
         onWipe = { navController.navigate(HiddenRoute.WIPE) },
+        onDuressPassword = { navController.navigate(HiddenRoute.DURESS) },
+        onRemoveDuressPassword = { navController.navigate(HiddenRoute.DURESS_REMOVE) },
         versionName = BuildConfig.VERSION_NAME,
         versionCode = BuildConfig.VERSION_CODE,
         onBack = { navController.popBackStack() },
@@ -107,7 +116,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
  * leaves one password working. A wrong current password clears the field and says nothing, as the gate does.
  */
 @Composable
-private fun ChangePasswordRoute(navController: NavHostController, holder: VaultHolder) {
+private fun ChangePasswordRoute(navController: NavHostController, holder: VaultHolder, duress: Boolean = false) {
     val scope = rememberCoroutineScope()
     val buffer = remember { PasswordBuffer() }
     var step by remember { mutableStateOf(ChangeStep.Current) }
@@ -196,7 +205,7 @@ private fun ChangePasswordRoute(navController: NavHostController, holder: VaultH
                         first = null
                         busy = true
                         scope.launch {
-                            val outcome = changeWith(holder, next)
+                            val outcome = if (duress) setDuressWith(holder, next) else changeWith(holder, next)
                             busy = false
                             when (outcome) {
                                 ChangeOutcome.Changed -> {
@@ -205,6 +214,10 @@ private fun ChangePasswordRoute(navController: NavHostController, holder: VaultH
                                 is ChangeOutcome.Refused -> {
                                     step = ChangeStep.New
                                     error = outcome.reason.toPolicyError()
+                                }
+                                ChangeOutcome.SameAsApp -> {
+                                    step = ChangeStep.New
+                                    error = PolicyError.SameAsApp
                                 }
                                 ChangeOutcome.Locked -> leaveHidden(navController, holder)
                                 else -> navController.openHidden(HiddenRoute.UNAVAILABLE)
@@ -217,6 +230,7 @@ private fun ChangePasswordRoute(navController: NavHostController, holder: VaultH
         onBack = { navController.popBackStack() },
         onLock = { leaveHidden(navController, holder) },
         onDone = { navController.popBackStack() },
+        copy = if (duress) ChangeCopy.DURESS_PASSWORD else ChangeCopy.APP_PASSWORD,
     )
 }
 
@@ -234,6 +248,9 @@ private sealed interface ChangeOutcome {
     /** The policy refused the new password. Nothing changed. */
     data class Refused(val reason: PolicyReason) : ChangeOutcome
 
+    /** The Duress Password is the App Password. Nothing changed. */
+    data object SameAsApp : ChangeOutcome
+
     /** The vault was locked before the change could run. Nothing changed. */
     data object Locked : ChangeOutcome
 
@@ -246,17 +263,36 @@ private sealed interface ChangeOutcome {
  * closed at once. NonCancellable, so an opened session is always closed, even if the screen left while it was checked.
  */
 private suspend fun verifyCurrent(holder: VaultHolder, password: CharArray): ChangeOutcome =
+    when (checkAppPassword(holder, password)) {
+        PasswordCheck.Accepted -> ChangeOutcome.Verified
+        PasswordCheck.Rejected -> ChangeOutcome.Rejected
+        PasswordCheck.Unavailable -> ChangeOutcome.Unavailable
+    }
+
+/**
+ * Sets the Duress Password from the open session, with the decoy's first wallet made by [DecoyVault]. On a decoy session the
+ * same call changes the decoy's own password. NonCancellable, so a set that has started runs to its outcome. The vault zeroes
+ * [password] on every path.
+ */
+private suspend fun setDuressWith(holder: VaultHolder, password: CharArray): ChangeOutcome =
     withContext(NonCancellable) {
+        val session = holder.openSession()
+        if (session == null) {
+            password.fill('\u0000')
+            return@withContext ChangeOutcome.Locked
+        }
         try {
-            when (val result = holder.vault.unlock(password)) {
-                is UnlockResult.Unlocked -> {
-                    result.session.close()
-                    ChangeOutcome.Verified
-                }
-                UnlockResult.Rejected -> ChangeOutcome.Rejected
+            when (val result = holder.vault.setDuress(session, password, DecoyVault::populate)) {
+                DuressResult.Enabled -> ChangeOutcome.Changed
+                is DuressResult.PolicyRejected -> ChangeOutcome.Refused(result.reason)
+                DuressResult.SameAsAppPassword -> ChangeOutcome.SameAsApp
+                DuressResult.DecoyEmpty, DuressResult.Failed -> ChangeOutcome.Unavailable
             }
         } catch (e: VaultException) {
             ChangeOutcome.Unavailable
+        } catch (e: IllegalStateException) {
+            // The session was closed by a lock while the set ran.
+            ChangeOutcome.Locked
         }
     }
 
