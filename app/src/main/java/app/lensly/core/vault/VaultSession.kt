@@ -2,20 +2,33 @@ package app.lensly.core.vault
 
 import java.io.File
 import java.io.IOException
+import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.security.GeneralSecurityException
+import java.security.ProviderException
 import java.security.SecureRandom
 import java.util.Arrays
 import java.util.UUID
 import javax.crypto.AEADBadTagException
 import javax.crypto.Mac
+import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 
 /** The key file of a wallet folder. It holds the wallet's Per-Wallet Key, wrapped under the vault key that owns the wallet. */
 internal const val WALLET_KEY_FILE_NAME = "pwk.bin"
 
+/** The fewest wallet folders a padded store holds, and the step its folder count grows by. */
+internal const val WALLET_SLOT_STEP = 16
+
+/** Names the file that lists the unused wallet slots. It sits outside `wallets/`, so it is never a wallet folder. */
+internal const val WALLET_PAD_FILE_NAME = "wallet-pad.bin"
+
 private const val WALLET_KEY_BYTES = 32
 private const val BLOB_VERSION: Byte = 1
+private const val WALLET_PAD_VERSION: Byte = 1
+private const val PAD_HEADER_BYTES = 5
+private const val WALLET_ID_BYTES = 36
 private val WALLET_ID = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 /**
@@ -72,6 +85,163 @@ internal fun ownsWallet(layout: VaultLayout, vaultKey: ByteArray, walletId: Stri
 }
 
 /**
+ * Keeps the number of wallet folders constant. A store holds [WALLET_SLOT_STEP] folders or a multiple of it, and every
+ * folder holds either one vault's wallet or an unused slot. An unused slot looks like a wallet whose key fails to open: its
+ * files have the same names and sizes as a real wallet's, but their bytes are random. Which slots are unused is kept in one
+ * file sealed under the hardware key, so a reader of the files cannot tell an unused slot from the other vault's wallet,
+ * and a session lists only the wallets its own key opens.
+ *
+ * A wallet takes an unused slot over, and deleting a wallet turns its slot back into an unused one, so the folder count
+ * never says how many wallets exist. When every slot is used, the store grows by [WALLET_SLOT_STEP].
+ */
+internal class WalletPad(
+    private val layout: VaultLayout,
+    private val keyProvider: () -> SecretKey,
+) {
+    private val random = SecureRandom()
+    private val file = File(layout.root, WALLET_PAD_FILE_NAME)
+    private val aad = "lensly.vault.wallet-pad".toByteArray(StandardCharsets.US_ASCII)
+
+    /** Pads the store to its size for the wallets it holds, if it is short. Best effort, so an unlock still opens. */
+    fun ensure() {
+        try {
+            val free = freeSlots()
+            val used = folderDirs().size - free.size
+            padTo(roundUp(maxOf(WALLET_SLOT_STEP, used)))
+        } catch (e: VaultException) {
+            // A pad that cannot be written leaves the wallets alone. The next unlock tries again.
+        } catch (e: IOException) {
+            // Same as above.
+        } catch (e: GeneralSecurityException) {
+            // Same as above.
+        } catch (e: ProviderException) {
+            // Same as above.
+        }
+    }
+
+    /** Takes one unused slot and returns its id, for a new wallet to write into. Grows the store first if none is free. */
+    fun take(): String? {
+        var free = freeSlots()
+        if (free.isEmpty()) {
+            val used = folderDirs().size
+            padTo(roundUp(maxOf(WALLET_SLOT_STEP, used + 1)))
+            free = freeSlots()
+        }
+        val id = free.minOrNull() ?: return null
+        // The slot stops being free before it is written, so a crash cannot make a real wallet look unused.
+        write(free - id)
+        return id
+    }
+
+    /** Turns the wallet folders [ids] into unused slots, overwriting their files with random bytes of the same sizes. */
+    fun release(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        val free = freeSlots()
+        val turned = ids.filter { it !in free }
+        if (turned.isEmpty()) return
+        val dirs = folderDirs()
+        turned.forEach { id -> overwriteAsFree(layout.walletDir(id)) }
+        write(free + turned.filter { id -> dirs.any { it.name == id } })
+    }
+
+    /** Makes the store hold [target] folders, adding unused ones. */
+    fun padTo(target: Int) {
+        val dirs = folderDirs()
+        if (dirs.size >= target) return
+        val free = freeSlots()
+        val added = mutableSetOf<String>()
+        repeat(target - dirs.size) {
+            val id = UUID.randomUUID().toString()
+            val dir = layout.walletDir(id)
+            dir.mkdirs()
+            writeFreeKeyFile(dir)
+            added += id
+        }
+        write(free + added)
+    }
+
+    /** Removes every file of the taken slot, so no record of its last wallet can be read through the new one. */
+    fun clearForWallet(id: String) {
+        val dir = layout.walletDir(id)
+        dir.listFiles()?.forEach { it.deleteRecursively() }
+        dir.mkdirs()
+    }
+
+    private fun roundUp(size: Int): Int {
+        var target = WALLET_SLOT_STEP
+        while (target < size) target += WALLET_SLOT_STEP
+        return target
+    }
+
+    private fun folderDirs(): List<File> =
+        layout.wallets.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name } ?: emptyList()
+
+    /** The unused slots that still have a folder. A missing or damaged list reads as no unused slot, which is safe. */
+    private fun freeSlots(): Set<String> {
+        if (!file.isFile) return emptySet()
+        val plain = try {
+            Aead.openWithKeystore(keyProvider(), aad, file.readBytes())
+        } catch (e: GeneralSecurityException) {
+            return emptySet()
+        } catch (e: ProviderException) {
+            return emptySet()
+        }
+        if (plain.size < PAD_HEADER_BYTES || plain[0] != WALLET_PAD_VERSION) return emptySet()
+        val count = ByteBuffer.wrap(plain, 1, 4).int
+        if (count < 0 || plain.size != PAD_HEADER_BYTES + count * WALLET_ID_BYTES) return emptySet()
+        val dirs = folderDirs().map { it.name }.toSet()
+        return (0 until count).mapNotNull { index ->
+            val start = PAD_HEADER_BYTES + index * WALLET_ID_BYTES
+            val id = String(plain, start, WALLET_ID_BYTES, StandardCharsets.US_ASCII)
+            id.takeUnless { chunk -> chunk.all { it == '\u0000' } }
+        }.filter { it in dirs }.toSet()
+    }
+
+    /**
+     * Seals [free] as the unused-slot list. The file is one record for every folder, so its size follows the folder count
+     * and not how many slots are free. That keeps a wipe from changing the store's file shape.
+     */
+    private fun write(free: Set<String>) {
+        val dirs = folderDirs()
+        val ids = free.filter { id -> dirs.any { it.name == id } }.sorted()
+        if (ids.size > dirs.size) return
+        val plain = ByteArray(PAD_HEADER_BYTES + dirs.size * WALLET_ID_BYTES)
+        plain[0] = WALLET_PAD_VERSION
+        ByteBuffer.wrap(plain, 1, 4).putInt(dirs.size)
+        ids.forEachIndexed { index, id ->
+            id.toByteArray(StandardCharsets.US_ASCII).copyInto(plain, PAD_HEADER_BYTES + index * WALLET_ID_BYTES)
+        }
+        val sealed = try {
+            Aead.sealWithKeystore(keyProvider(), aad, plain)
+        } catch (e: GeneralSecurityException) {
+            throw VaultException("The wallet slots could not be saved.", e)
+        } catch (e: ProviderException) {
+            throw VaultException("The wallet slots could not be saved.", e)
+        }
+        writeAtomically(file, sealed)
+    }
+
+    /** Overwrites every file of [dir] with random bytes of the same size, then writes an unopenable key file. */
+    private fun overwriteAsFree(dir: File) {
+        if (!dir.isDirectory) return
+        dir.listFiles()?.forEach { child ->
+            if (child.isFile) child.writeBytes(randomBytes(child.length().toInt())) else child.deleteRecursively()
+        }
+        writeFreeKeyFile(dir)
+    }
+
+    /** A key file of the size a real one has, with the version byte kept so opening it costs the same. */
+    private fun writeFreeKeyFile(dir: File) {
+        dir.mkdirs()
+        val bytes = byteArrayOf(BLOB_VERSION) + randomBytes(WALLET_KEY_BYTES + Aead.IV_BYTES + 16)
+        // No sync: a slot is padding, and a half-written one is still an empty slot. The pad list is the durable record.
+        File(dir, WALLET_KEY_FILE_NAME).writeBytes(bytes)
+    }
+
+    private fun randomBytes(size: Int): ByteArray = ByteArray(size).also { random.nextBytes(it) }
+}
+
+/**
  * An unlocked vault. It holds the Vault Key in memory until [close] is called.
  *
  * Each wallet has a random Per-Wallet Key, wrapped under the Vault Key with AAD = wallet id, in `pwk.bin`. Each record is
@@ -81,6 +251,9 @@ internal fun ownsWallet(layout: VaultLayout, vaultKey: ByteArray, walletId: Stri
  * A session is either the real vault or the Decoy Vault ([isDecoy]). Both vaults keep their wallets and records in the same
  * folders, but a session lists, reads and deletes only the files its own key opens. A wallet of the other vault is treated
  * as absent. A decoy session therefore cannot see, change, or delete any real wallet, and the reverse holds too.
+ *
+ * A padded store keeps a fixed number of wallet folders, so the folder count never says how many wallets exist. Unused
+ * folders look like wallets; see [WalletPad].
  *
  * Record bytes belong to the caller. The session does not zero the array passed to [putRecord], and the array returned by
  * [getRecord] is the caller's to zero.
@@ -92,6 +265,8 @@ class VaultSession internal constructor(
     vaultKey: ByteArray,
     /** True for the Decoy Vault, which a Duress Password opens. The App Password never opens it. */
     val isDecoy: Boolean = false,
+    /** The store's unused wallet slots, or null when the folder count is not padded (tests and plain folders). */
+    private val pad: WalletPad? = null,
 ) {
     private var vaultKey: ByteArray? = vaultKey
 
@@ -104,12 +279,13 @@ class VaultSession internal constructor(
             ?: emptyList()
     }
 
-    /** Creates a wallet with a fresh Per-Wallet Key and returns its id. */
+    /** Creates a wallet with a fresh Per-Wallet Key and returns its id. A padded store writes it into an unused slot. */
     fun createWallet(): String = synchronized(this) {
         val key = requireOpen()
-        val id = UUID.randomUUID().toString()
+        val unused = pad?.take()
+        val id = unused ?: UUID.randomUUID().toString()
         val dir = layout.walletDir(id)
-        dir.mkdirs()
+        if (unused != null) pad.clearForWallet(id) else dir.mkdirs()
         val walletKey = ByteArray(WALLET_KEY_BYTES).also { SecureRandom().nextBytes(it) }
         try {
             val wrapped = Aead.seal(key, id.toByteArray(StandardCharsets.UTF_8), walletKey)
@@ -244,7 +420,7 @@ class VaultSession internal constructor(
             if (!dir.isDirectory) return
             if (!ownsWallet(layout, key, walletId)) return
             Files.deleteIfExists(walletKeyFile(walletId).toPath())
-            dir.deleteRecursively()
+            if (pad != null) pad.release(listOf(walletId)) else dir.deleteRecursively()
         }
     }
 
@@ -293,6 +469,11 @@ class VaultSession internal constructor(
                 // Left in place. The next unlock tries again.
             }
         }
+    }
+
+    /** Pads the wallet folders to the store's size for the wallets it holds. Best effort, called on unlock. */
+    internal fun ensurePadded() {
+        pad?.ensure()
     }
 
     /** Zeroes the Vault Key. Any later call on this session throws [IllegalStateException]. */
