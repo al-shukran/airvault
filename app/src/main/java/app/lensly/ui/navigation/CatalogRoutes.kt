@@ -26,7 +26,12 @@ internal fun NavGraphBuilder.catalogRoutes(navController: NavHostController, hol
 /** The networks, tokens and whitelist the catalog holds. The first read loads the assets, so it runs off the main thread. */
 internal suspend fun readCatalog(context: Context): Catalog = withContext(Dispatchers.IO) {
     RegistryHolder.get(context).let {
-        Catalog(networks = it.networks(), tokens = it.tokens(), whitelist = it.whitelistEntries())
+        Catalog(
+            networks = it.networks(),
+            tokens = it.tokens(),
+            whitelist = it.whitelistEntries(),
+            installedUpdateUnverified = it.installedUpdateUnverified,
+        )
     }
 }
 

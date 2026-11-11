@@ -32,18 +32,20 @@ object RegistryLoader {
             TOKENS_PATH,
             checkNotNull(readAsset(TOKENS_PATH)) { "missing asset $TOKENS_PATH" },
         )
-        val whitelist = readAsset(WHITELIST_PATH)?.let { parseWhitelist(WHITELIST_PATH, it) }.orEmpty()
+        val whitelistFile = readAsset(WHITELIST_PATH)?.let { parseWhitelist(WHITELIST_PATH, it) }
+        val whitelist = whitelistFile?.whitelist.orEmpty()
         val networkOverlay = readAsset(NETWORKS_DEBUG_PATH)
             ?.let { parseNetworks(NETWORKS_DEBUG_PATH, it) }.orEmpty()
         val tokenOverlay = readAsset(TOKENS_DEBUG_PATH)
             ?.let { parseTokens(TOKENS_DEBUG_PATH, it) }.orEmpty()
         val whitelistOverlay = readAsset(WHITELIST_DEBUG_PATH)
-            ?.let { parseWhitelist(WHITELIST_DEBUG_PATH, it) }.orEmpty()
+            ?.let { parseWhitelist(WHITELIST_DEBUG_PATH, it).whitelist }.orEmpty()
 
         return Registry(
             networks = (networks + networkOverlay).associateBy { it.chainId }.values.toList(),
             tokens = (tokens + tokenOverlay).associateBy { it.chainId to it.contract }.values.toList(),
             whitelist = whitelist + whitelistOverlay,
+            catalogSequence = whitelistFile?.sequence ?: 0L,
         )
     }
 
@@ -74,9 +76,9 @@ object RegistryLoader {
         return entries
     }
 
-    private fun parseWhitelist(path: String, text: String): List<WhitelistEntry> =
-        json.decodeFromString<WhitelistFile>(text).whitelist.also {
-            require(it.map { entry -> Triple(entry.chainId, entry.contract, entry.selector) }.toSet().size == it.size) {
+    private fun parseWhitelist(path: String, text: String): WhitelistFile =
+        json.decodeFromString<WhitelistFile>(text).also {
+            require(it.whitelist.map { entry -> Triple(entry.chainId, entry.contract, entry.selector) }.toSet().size == it.whitelist.size) {
                 "duplicate whitelist entry in $path"
             }
         }
@@ -89,4 +91,8 @@ private class NetworksFile(val networks: List<NetworkEntry>)
 private class TokensFile(val tokens: List<TokenEntry>)
 
 @Serializable
-private class WhitelistFile(val whitelist: List<WhitelistEntry>)
+private class WhitelistFile(
+    /** The catalog sequence of the build's whitelist, so an installed package can be compared with it. */
+    val sequence: Long = 0,
+    val whitelist: List<WhitelistEntry>,
+)

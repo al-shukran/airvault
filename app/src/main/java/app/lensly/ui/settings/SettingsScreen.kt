@@ -56,6 +56,8 @@ data class Catalog(
     val networks: List<NetworkEntry>,
     val tokens: List<TokenEntry>,
     val whitelist: List<WhitelistEntry> = emptyList(),
+    /** True when an installed package is present but failed verification, so the built-in whitelist is in force. */
+    val installedUpdateUnverified: Boolean = false,
 )
 
 /** The count with its noun in the right form, such as "1 network" or "12 networks". */
@@ -170,6 +172,12 @@ fun SettingsScreen(
                     "approved contracts.",
                 onClick = onUpdateCatalog,
             )
+            if (catalog?.installedUpdateUnverified == true) {
+                SettingsRow(
+                    title = "Installed update",
+                    description = "Installed update could not be verified; using the built-in catalog",
+                )
+            }
         }
 
         SettingsSection("Whitelist") {

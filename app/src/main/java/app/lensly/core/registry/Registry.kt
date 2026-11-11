@@ -10,6 +10,10 @@ class Registry internal constructor(
     networks: List<NetworkEntry>,
     tokens: List<TokenEntry>,
     whitelist: List<WhitelistEntry> = emptyList(),
+    /** The catalog sequence the build ships. An installed package replaces the whitelist only when its sequence is higher. */
+    val catalogSequence: Long = 0,
+    /** True when an installed package was found but failed verification, so the baked whitelist is in force. */
+    val installedUpdateUnverified: Boolean = false,
 ) {
     private val networkList: List<NetworkEntry> = networks.sortedBy { it.chainId }
     private val tokenList: List<TokenEntry> =
@@ -64,11 +68,25 @@ class Registry internal constructor(
      * entries are never replaced.
      */
     fun withAdditions(additionalNetworks: List<NetworkEntry>, additionalTokens: List<TokenEntry>): Registry =
-        Registry(networkList + additionalNetworks, tokenList + additionalTokens, whitelistList)
+        Registry(
+            networkList + additionalNetworks,
+            tokenList + additionalTokens,
+            whitelistList,
+            catalogSequence,
+            installedUpdateUnverified,
+        )
 
     /**
      * This registry with its whitelist replaced by [entries]. A signed package replaces the whole whitelist, so the entries
      * that were here before are gone.
      */
-    fun withWhitelist(entries: List<WhitelistEntry>): Registry = Registry(networkList, tokenList, entries)
+    fun withWhitelist(entries: List<WhitelistEntry>): Registry =
+        Registry(networkList, tokenList, entries, catalogSequence, installedUpdateUnverified)
+
+    /**
+     * This registry with the flag that says an installed package could not be verified. The baked whitelist stays in force,
+     * and Settings shows that the built-in catalog is in use.
+     */
+    fun withInstalledUpdateUnverified(): Registry =
+        Registry(networkList, tokenList, whitelistList, catalogSequence, installedUpdateUnverified = true)
 }
