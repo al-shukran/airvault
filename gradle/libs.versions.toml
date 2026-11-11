@@ -63,6 +63,9 @@ jazzer-junit = { group = "com.code-intelligence", name = "jazzer-junit", version
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+# No version: com.android.test ships in the same AGP jar that :app already puts on the build classpath. Adding a
+# version here fails plugin resolution ("already on the classpath with an unknown version").
+android-test = { id = "com.android.test" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
