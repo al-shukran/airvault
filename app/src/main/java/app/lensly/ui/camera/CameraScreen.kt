@@ -265,6 +265,8 @@ private fun CameraViewfinder(
             },
         )
         if (started) {
+            // The timer starts from zero for this recording, whatever the last one reached.
+            elapsedMs = 0L
             recordingSince = SystemClock.uptimeMillis()
         } else {
             showFailure(VIDEO_NOT_SAVED)
