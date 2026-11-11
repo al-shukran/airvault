@@ -35,6 +35,9 @@ internal object HiddenRoute {
 
     // Catalog: installs a signed registry package from removable storage.
     const val CATALOG = "catalog"
+    // Networks and tokens: the catalog's lists, read only. Reached from Settings.
+    const val NETWORKS = "settings/networks"
+    const val TOKENS = "settings/tokens"
 
     // Settings: the Bulk Cap, the catalog summary and the About notices. Reached from the wallet list.
     const val SETTINGS = "settings"
