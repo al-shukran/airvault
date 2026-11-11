@@ -18,13 +18,15 @@ internal object DecoyVault {
     fun populate(session: VaultSession) {
         val entropy = ByteArray(ENTROPY_BYTES).also { SecureRandom().nextBytes(it) }
         try {
-            WalletStore(session).create(
-                name = WALLET_NAME,
-                deviceGenerated = true,
-                words = Mnemonic.fromEntropy(entropy),
-                passphrase = null,
-                nowMs = System.currentTimeMillis(),
-            )
+            Mnemonic.fromEntropy(entropy).use { words ->
+                WalletStore(session).create(
+                    name = WALLET_NAME,
+                    deviceGenerated = true,
+                    words = words,
+                    passphrase = null,
+                    nowMs = System.currentTimeMillis(),
+                )
+            }
         } finally {
             entropy.fill(0)
         }

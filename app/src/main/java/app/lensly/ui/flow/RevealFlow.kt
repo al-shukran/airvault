@@ -1,5 +1,6 @@
 package app.lensly.ui.flow
 
+import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.toHex
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,12 +17,12 @@ enum class RevealPart { WORDS, PASSPHRASE, KEY }
 /**
  * A secret while it is on screen, one page at a time. A page is one word, one passphrase word, or the whole key.
  *
- * [wipe] drops every copy the screen holds. The words and the passphrase are Strings, which cannot be zeroed, so their
- * references are dropped instead, as [app.lensly.app.WalletStore] does. A Single Key's bytes are zeroed as soon as its
- * hex has been built. [toString] never shows the secret.
+ * The words are held in a [Mnemonic], which [wipe] zeroes. The passphrase and the key's hex are Strings, which cannot
+ * be zeroed, so their references are dropped instead, as [app.lensly.app.WalletStore] does. A Single Key's bytes are
+ * zeroed as soon as its hex has been built. [toString] never shows the secret.
  */
 class RevealedSecret private constructor(
-    private var words: List<String>,
+    private var words: Mnemonic?,
     private var passphraseWords: List<String>,
     private var keyHex: String?,
 ) {
@@ -37,7 +38,7 @@ class RevealedSecret private constructor(
 
     /** The number of pages in [part]. */
     fun pageCount(part: RevealPart): Int = when (part) {
-        RevealPart.WORDS -> words.size
+        RevealPart.WORDS -> words?.size ?: 0
         RevealPart.PASSPHRASE -> passphraseWords.size
         RevealPart.KEY -> if (keyHex == null) 0 else 1
     }
@@ -47,14 +48,15 @@ class RevealedSecret private constructor(
      * shows as [EMPTY_WORD]. Each word is returned as it was typed, so its letter case is kept.
      */
     fun page(part: RevealPart, index: Int): String = when (part) {
-        RevealPart.WORDS -> words[index]
+        RevealPart.WORDS -> words?.get(index) ?: throw IndexOutOfBoundsException("index $index, size 0")
         RevealPart.PASSPHRASE -> passphraseWords[index].ifEmpty { EMPTY_WORD }
         RevealPart.KEY -> keyHex.orEmpty()
     }
 
-    /** Drops the secret. Nothing can be shown from it afterwards. */
+    /** Zeroes the words and drops the rest of the secret. Nothing can be shown from it afterwards. */
     fun wipe() {
-        words = emptyList()
+        words?.wipe()
+        words = null
         passphraseWords = emptyList()
         keyHex = null
         isWiped = true
@@ -65,16 +67,19 @@ class RevealedSecret private constructor(
     companion object {
         private const val EMPTY_WORD = "(empty)"
 
-        /** A Mnemonic wallet's words and passphrase. An empty passphrase counts as none, as it does for the seed. */
+        /**
+         * A Mnemonic wallet's words and passphrase. The words go into a [Mnemonic] of their own, which the secret holds
+         * and wipes; the caller keeps its list. An empty passphrase counts as none, as it does for the seed.
+         */
         fun ofMnemonic(words: List<String>, passphrase: String?): RevealedSecret = RevealedSecret(
-            words = words.toList(),
+            words = Mnemonic.of(words),
             passphraseWords = if (passphrase.isNullOrEmpty()) emptyList() else passphrase.split(' '),
             keyHex = null,
         )
 
         /** A Single Key, shown as hex. [privateKey] is zeroed here, so the caller keeps no copy of it. */
         fun ofKey(privateKey: ByteArray): RevealedSecret = try {
-            RevealedSecret(words = emptyList(), passphraseWords = emptyList(), keyHex = privateKey.toHex())
+            RevealedSecret(words = null, passphraseWords = emptyList(), keyHex = privateKey.toHex())
         } finally {
             privateKey.fill(0)
         }

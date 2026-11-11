@@ -24,7 +24,10 @@ internal class VaultRevealPorts(
         val session = holder.openSession() ?: return@withContext SecretLoad.Locked
         try {
             when (val secret = WalletStore(session).secret(walletId)) {
-                is WalletSecret.Mnemonic -> SecretLoad.Loaded(RevealedSecret.ofMnemonic(secret.words, secret.passphrase))
+                // The RevealedSecret holds the words in a Mnemonic of its own, and wipes it when the secret is cleared.
+                is WalletSecret.Mnemonic -> SecretLoad.Loaded(
+                    RevealedSecret.ofMnemonic(secret.words, secret.passphrase),
+                )
                 is WalletSecret.SingleKey -> SecretLoad.Loaded(RevealedSecret.ofKey(secret.privateKey))
                 null -> SecretLoad.Unavailable
             }
