@@ -5,6 +5,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import java.io.File
+import java.io.InputStream
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -340,5 +341,31 @@ class RegistryUpdateTest {
         val bytes = ByteArray(PackageFormat.MAX_BYTES + 1) { 7 }
 
         assertIs<RegistryUpdateException.Malformed>(failure(runCatching { RegistryUpdate.readPackage(bytes.inputStream()) }))
+    }
+
+    @Test
+    fun readPackageHoldsTheCapAcrossShortReads() {
+        val atCap = ByteArray(PackageFormat.MAX_BYTES) { it.toByte() }
+        val overCap = ByteArray(PackageFormat.MAX_BYTES + 1) { it.toByte() }
+
+        assertContentEquals(atCap, RegistryUpdate.readPackage(TrickleInputStream(atCap, chunk = 3)))
+        assertIs<RegistryUpdateException.Malformed>(
+            failure(runCatching { RegistryUpdate.readPackage(TrickleInputStream(overCap, chunk = 3)) }),
+        )
+    }
+}
+
+/** Hands out at most [chunk] bytes per read call, the way a slow or network-backed stream may. */
+private class TrickleInputStream(private val bytes: ByteArray, private val chunk: Int) : InputStream() {
+    private var position = 0
+
+    override fun read(): Int = if (position < bytes.size) bytes[position++].toInt() and 0xff else -1
+
+    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+        if (position >= bytes.size) return -1
+        val count = minOf(length, chunk, bytes.size - position)
+        bytes.copyInto(buffer, offset, position, position + count)
+        position += count
+        return count
     }
 }
