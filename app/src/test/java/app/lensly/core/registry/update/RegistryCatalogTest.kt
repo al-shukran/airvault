@@ -36,12 +36,12 @@ class RegistryCatalogTest {
     @Test
     fun anAcceptedPackageIsInEffectAtOnceWithoutARestart() {
         val catalog = catalog()
-        assertNull(catalog.current().network(59144L))
+        assertNull(catalog.current().network(4242L))
 
         catalog.install(TestPackages.signed(TestPackages.payload())).getOrThrow()
 
-        assertEquals("Linea", assertNotNull(catalog.current().network(59144L)).name)
-        assertEquals("USDC", assertNotNull(catalog.current().token(59144L, USDC_LINEA)).symbol)
+        assertEquals("Linea", assertNotNull(catalog.current().network(4242L)).name)
+        assertEquals("USDC", assertNotNull(catalog.current().token(4242L, USDC_LINEA)).symbol)
     }
 
     @Test
@@ -65,7 +65,7 @@ class RegistryCatalogTest {
         val refusal = catalog.install(TestPackages.signed(TestPackages.payload(sequence = 1)))
 
         assertIs<RegistryUpdateException.NotNewer>(refusal.exceptionOrNull())
-        assertEquals("Linea", assertNotNull(catalog.current().network(59144L)).name)
+        assertEquals("Linea", assertNotNull(catalog.current().network(4242L)).name)
     }
 
     @Test
@@ -75,7 +75,7 @@ class RegistryCatalogTest {
 
         val restarted = catalog(dir).current()
 
-        assertEquals("Linea", assertNotNull(restarted.network(59144L)).name)
-        assertEquals("USDC", assertNotNull(restarted.token(59144L, USDC_LINEA)).symbol)
+        assertEquals("Linea", assertNotNull(restarted.network(4242L)).name)
+        assertEquals("USDC", assertNotNull(restarted.token(4242L, USDC_LINEA)).symbol)
     }
 }

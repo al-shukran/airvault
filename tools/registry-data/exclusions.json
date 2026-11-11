@@ -1,0 +1,14 @@
+{
+  "_comment": "Inbox-style logo slugs that are not added. Each needs a reason and a source.",
+  "exclusions": [
+    {"slug": "blast", "chainId": 81457, "name": "Blast",
+     "reason": "Archived and shutting down; deposits closed and bridge withdrawals no longer possible",
+     "source": "https://ethbeat.org/scaling/projects/blast"},
+    {"slug": "kroma", "chainId": 255, "name": "Kroma",
+     "reason": "Shut down on June 30, 2025",
+     "source": "https://ethbeat.org/scaling/projects/kroma"},
+    {"slug": "okex", "chainId": 66, "name": "OKXChain Mainnet",
+     "reason": "OKTChain is retired; OKX moved its users to X Layer (196). X Layer already uses the x-layer logo, so the okex logo is dropped rather than re-mapped",
+     "source": "https://en.cryptonomist.ch/2025/08/13/x-layer-redraws-the-blockchain-maxi-burn-okb-zkevm-upgrade-and-end-of-oktchain-heres-what-changes-now/ (news report; no official OKX page was read in this run)"}
+  ]
+}
