@@ -43,6 +43,8 @@ internal object HiddenRoute {
     const val RESTORE = "wallet/restore"
     const val PASSPHRASE = "wallet/passphrase"
     const val NAME = "wallet/name"
+    // A wallet with a passphrase: its write-down, the last step before the wallet is saved.
+    const val PASSPHRASE_BACKUP = "wallet/passphrase-backup"
 
     // Single Key import: the typed key with its address check, then the write-down that ends the flow.
     const val IMPORT_KEY = "wallet/import-key"

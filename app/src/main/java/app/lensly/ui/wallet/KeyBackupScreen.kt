@@ -58,7 +58,11 @@ fun KeyBackupScreen(
         modifier = modifier,
         bottomAction = {
             Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
-                CopiedCheck(checked = copied, onCheckedChange = onCopiedChange)
+                CopiedCheck(
+                    checked = copied,
+                    onCheckedChange = onCopiedChange,
+                    label = "I copied the key onto my backup",
+                )
                 PillButton(
                     text = "Create wallet",
                     onClick = onCreate,
@@ -92,11 +96,11 @@ fun KeyBackupScreen(
 }
 
 /**
- * The owner's explicit confirmation that the key has been copied. The row is one tap target, and the box fills with a
- * check mark when it is ticked. It is a checkbox for screen readers too.
+ * The owner's explicit confirmation of a write-down, with [label] as its text. The row is one tap target, and the box
+ * fills with a check mark when it is ticked. It is a checkbox for screen readers too.
  */
 @Composable
-private fun CopiedCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+internal fun CopiedCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: String) {
     val interaction = remember { MutableInteractionSource() }
     val haptics = rememberKeyHaptics()
     val box = RoundedCornerShape(LenslyRadius.xs)
@@ -133,7 +137,7 @@ private fun CopiedCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
         }
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
-            text = "I copied the key onto my backup",
+            text = label,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
