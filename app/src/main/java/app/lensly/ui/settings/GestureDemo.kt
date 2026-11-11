@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
@@ -67,21 +69,32 @@ private const val RIPPLE_MS = 450
 /** How much of a finger's path the trail keeps, so a swipe leaves a short line behind it. */
 private const val TRAIL_MS = 300
 
-/** Radius of a finger, and the largest radius a ripple reaches, as fractions of the card's height. */
+/** Radius of a finger, and the largest radius a ripple reaches, as fractions of the frame's shorter side. */
 private const val FINGER_RADIUS = 0.045f
 private const val RIPPLE_RADIUS = 0.16f
+
+/** The frame is a phone held upright: 9 wide by 19.5 tall, and at most this wide so a demo card stays compact. */
+private val FRAME_MAX_WIDTH = 240.dp
+private const val FRAME_ASPECT = 9f / 19.5f
+
+// The space between the frame's edge and the camera UI, as a fraction of the frame's shorter side. It keeps every icon
+// clear of the edge, and is 1.5x the inset the landscape frame used.
+private const val FRAME_INSET = 0.09f
 
 // Places in the card, as fractions of its width (x) and height (y).
 private val CENTRE = Offset(0.5f, 0.40f) // the viewfinder, where the gestures are made
 private val SHUTTER = Offset(0.5f, 0.80f)
-private val THUMBNAIL = Offset(0.17f, 0.80f)
-private val SWITCH = Offset(0.83f, 0.80f)
+private val THUMBNAIL = Offset(0.20f, 0.80f)
+private val SWITCH = Offset(0.80f, 0.80f)
 private val SIDE = Offset(0.09f, 0f) // half the gap between two fingers that land side by side
 private val PINCH_START = Offset(0.05f, 0f) // each pinch finger starts this far from the centre
 private val PINCH_END = Offset(0.10f, 0f) // and ends this far, so the span doubles: 1x to 2x
 
-/** The thumbnail swipe, as a fraction of the width: about the 40 dp of the real gesture on a phone-width card. */
-private const val SWIPE = 0.12f
+/**
+ * The thumbnail swipe, as a fraction of the width. The portrait frame is 420 px wide, so the finger moves a little over the
+ * 40 px that the swipe detector reads as a completed swipe.
+ */
+private const val SWIPE = 0.098f
 
 /** A finger of a demo. It lands at [downMs], lifts at [upMs], and is at [at] in between. */
 internal class DemoFinger(val downMs: Int, val upMs: Int, val at: (Int) -> Offset)
@@ -153,23 +166,26 @@ internal fun GestureDemo(gesture: EntryGesture, modifier: Modifier = Modifier) {
         modifier = modifier.testTag("gesture-demo-${gesture.storedId}"),
         verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(16f / 9f)
-                .clip(shape)
-                .background(LenslyBlack)
-                .border(1.dp, LenslyOutline, shape)
-                .onGloballyPositioned { coords ->
-                    val window = Rect(Offset.Zero, Size(windowSize.width.toFloat(), windowSize.height.toFloat()))
-                    onScreen = window.overlaps(coords.boundsInWindow())
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .widthIn(max = FRAME_MAX_WIDTH)
+                    .fillMaxWidth()
+                    .aspectRatio(FRAME_ASPECT)
+                    .clip(shape)
+                    .background(LenslyBlack)
+                    .border(1.dp, LenslyOutline, shape)
+                    .onGloballyPositioned { coords ->
+                        val window = Rect(Offset.Zero, Size(windowSize.width.toFloat(), windowSize.height.toFloat()))
+                        onScreen = window.overlaps(coords.boundsInWindow())
+                    }
+                    .clearAndSetSemantics {}, // the caption below says the same in words
+            ) {
+                if (reduceMotion || !onScreen) {
+                    DemoCanvas(script, gesture) { script.completeMs }
+                } else {
+                    LoopingDemo(script, gesture)
                 }
-                .clearAndSetSemantics {}, // the caption below says the same in words
-        ) {
-            if (reduceMotion || !onScreen) {
-                DemoCanvas(script, gesture) { script.completeMs }
-            } else {
-                LoopingDemo(script, gesture)
             }
         }
         Text(
@@ -214,13 +230,13 @@ private fun DemoCanvas(script: GestureScript, gesture: EntryGesture, timeMs: () 
 
 /** The camera in outline: the frame, the mode label, the gallery thumbnail, the shutter and the camera switch. */
 private fun DrawScope.drawViewfinder(measurer: TextMeasurer, labelStyle: TextStyle) {
-    val height = size.height
-    val inset = height * 0.06f
+    val unit = size.minDimension
+    val inset = unit * FRAME_INSET
     drawRoundRect(
         color = LenslyOutlineInteractive,
         topLeft = Offset(inset, inset),
-        size = Size(size.width - 2 * inset, height - 2 * inset),
-        cornerRadius = CornerRadius(height * 0.1f),
+        size = Size(size.width - 2 * inset, size.height - 2 * inset),
+        cornerRadius = CornerRadius(unit * 0.1f),
         style = Stroke(width = 1.dp.toPx()),
     )
     val label = measurer.measure("Photo", labelStyle)
@@ -231,33 +247,33 @@ private fun DrawScope.drawViewfinder(measurer: TextMeasurer, labelStyle: TextSty
         color = LenslySurfaceContainer,
         topLeft = chipTopLeft,
         size = Size(label.size.width + 2 * padX, label.size.height + 2 * padY),
-        cornerRadius = CornerRadius(height),
+        cornerRadius = CornerRadius(unit),
     )
     drawText(label, topLeft = chipTopLeft + Offset(padX, padY))
 
     val thumb = cardPoint(THUMBNAIL)
-    val thumbSide = height * 0.16f
+    val thumbSide = unit * 0.16f
     drawRoundRect(
         color = LenslySurfaceHigh,
         topLeft = thumb - Offset(thumbSide / 2, thumbSide / 2),
         size = Size(thumbSide, thumbSide),
-        cornerRadius = CornerRadius(height * 0.03f),
+        cornerRadius = CornerRadius(unit * 0.03f),
     )
     drawRoundRect(
         color = LenslyMuted,
         topLeft = thumb - Offset(thumbSide / 2, thumbSide / 2),
         size = Size(thumbSide, thumbSide),
-        cornerRadius = CornerRadius(height * 0.03f),
+        cornerRadius = CornerRadius(unit * 0.03f),
         style = Stroke(width = 1.dp.toPx()),
     )
 
     val shutter = cardPoint(SHUTTER)
-    drawCircle(color = LenslyMuted, radius = height * 0.12f, center = shutter, style = Stroke(width = 2.dp.toPx()))
-    drawCircle(color = LenslyOnSurface, radius = height * 0.085f, center = shutter)
+    drawCircle(color = LenslyMuted, radius = unit * 0.11f, center = shutter, style = Stroke(width = 2.dp.toPx()))
+    drawCircle(color = LenslyOnSurface, radius = unit * 0.055f, center = shutter)
 
     drawCircle(
         color = LenslyMuted,
-        radius = height * 0.095f,
+        radius = unit * 0.085f,
         center = cardPoint(SWITCH),
         style = Stroke(width = 1.5.dp.toPx()),
     )
@@ -275,9 +291,10 @@ private fun DrawScope.drawZoom(measurer: TextMeasurer, style: TextStyle, zoom: F
 /** One finger: a dot while it is down, a ripple from where it landed, and a trail behind it while it moves. */
 private fun DrawScope.drawFinger(finger: DemoFinger, ms: Int) {
     val age = ms - finger.downMs
+    val unit = size.minDimension
     if (age in 0 until RIPPLE_MS) {
         val progress = age.toFloat() / RIPPLE_MS
-        val radius = size.height * (FINGER_RADIUS + (RIPPLE_RADIUS - FINGER_RADIUS) * progress)
+        val radius = unit * (FINGER_RADIUS + (RIPPLE_RADIUS - FINGER_RADIUS) * progress)
         drawCircle(
             color = LenslyAccent.copy(alpha = 0.6f * (1f - progress)),
             radius = radius,
@@ -297,7 +314,7 @@ private fun DrawScope.drawFinger(finger: DemoFinger, ms: Int) {
                 cap = StrokeCap.Round,
             )
         }
-        drawCircle(color = LenslyAccent, radius = size.height * FINGER_RADIUS, center = now)
+        drawCircle(color = LenslyAccent, radius = unit * FINGER_RADIUS, center = now)
     }
 }
 
