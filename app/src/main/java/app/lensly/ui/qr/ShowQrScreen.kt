@@ -3,6 +3,7 @@ package app.lensly.ui.qr
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,7 +18,8 @@ import app.lensly.ui.theme.LenslySpacing
  * Show screen: the [title] in the top bar, a [subtitle] line that says what to do with the code, the animated QR code at
  * full width, and a DONE pill. [parts] is one UR fragment per frame; a single part shows a still code. [subtitleLeading],
  * when set, sits before the subtitle, for example the Ethereum logo on a pairing screen. [onBack], when set, adds a back
- * arrow to the top bar.
+ * arrow to the top bar. [details], when set, sits under the code, for example the text of an address. [keepCase]
+ * encodes the parts as written, for a payload whose letter case matters.
  */
 @Composable
 fun ShowQrScreen(
@@ -28,6 +30,8 @@ fun ShowQrScreen(
     modifier: Modifier = Modifier,
     subtitleLeading: (@Composable () -> Unit)? = null,
     onBack: (() -> Unit)? = null,
+    details: (@Composable () -> Unit)? = null,
+    keepCase: Boolean = false,
 ) {
     LenslyScreen(
         title = title,
@@ -58,7 +62,11 @@ fun ShowQrScreen(
             )
         }
         Spacer(Modifier.weight(1f))
-        AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth(), keepCase = keepCase)
+        details?.let { show ->
+            Spacer(Modifier.height(LenslySpacing.md))
+            show()
+        }
         Spacer(Modifier.weight(1f))
     }
 }

@@ -18,6 +18,8 @@ internal object HiddenRoute {
     const val DETAIL = "detail/{walletId}"
     const val BULK = "bulk/{walletId}"
     const val EXPORT = "export/{walletId}"
+    // Export of one account: its address as a code, reached from the account row of the wallet detail.
+    const val EXPORT_ACCOUNT = "export-account/{walletId}/{index}"
     const val SCAN = "scan/{walletId}"
 
     // Show Secret: the App Password again, a warning, then the secret. Reached from the wallet detail.
@@ -35,6 +37,8 @@ internal object HiddenRoute {
     // Settings: the Bulk Cap, the catalog summary and the About notices. Reached from the wallet list.
     const val SETTINGS = "settings"
     const val CHANGE_PASSWORD = "settings/password"
+    // Failure Delay cap: a choice, a warning below 10 s, then the App Password. Reached from Settings.
+    const val FAILURE_CAP = "settings/failure-cap"
     // Wipe: the App Password again, a warning with its confirmation, then every file. Reached from Settings.
     const val WIPE = "settings/wipe"
     // Hidden entry gesture: the four gestures to choose from, then the change to one of them. Reached from Settings.
@@ -70,6 +74,8 @@ internal object HiddenRoute {
     fun bulk(walletId: String): String = "bulk/$walletId"
 
     fun export(walletId: String): String = "export/$walletId"
+
+    fun exportAccount(walletId: String, index: Int): String = "export-account/$walletId/$index"
 
     fun scan(walletId: String): String = "scan/$walletId"
 

@@ -46,8 +46,10 @@ data class CatalogCounts(val networks: Int, val tokens: Int)
  * the title, beside the offline label.
  *
  * [bulkCap] is null until the saved setting has been read, and its options are off until then. [onBulkCap] saves the
- * new cap. [onChangePassword] opens the App Password change, and [onWipe] opens the wipe. [catalog] is null while the
- * counts are read. [entryGesture] is the gesture the camera uses now, and [onEntryGesture] opens the choice of another.
+ * new cap. [onChangePassword] opens the App Password change, and [onWipe] opens the wipe. [failureDelayCap] is the saved
+ * Failure Delay cap, null while it is read, and [onFailureDelayCap] opens the screen that changes it. [catalog] is null
+ * while the counts are read. [entryGesture] is the gesture the camera uses now, and [onEntryGesture] opens the choice of
+ * another.
  */
 @Composable
 fun SettingsScreen(
@@ -56,6 +58,8 @@ fun SettingsScreen(
     onChangePassword: () -> Unit,
     entryGesture: EntryGesture = EntryGesture.DEFAULT,
     onEntryGesture: () -> Unit = {},
+    failureDelayCap: FailureCapChoice?,
+    onFailureDelayCap: () -> Unit,
     catalog: CatalogCounts?,
     onUpdateCatalog: () -> Unit,
     onWipe: () -> Unit,
@@ -89,6 +93,17 @@ fun SettingsScreen(
 
         SettingsSection("Bulk generation") {
             BulkCapItem(bulkCap = bulkCap, onBulkCap = onBulkCap)
+        }
+
+        SettingsSection("Failure delay") {
+            SettingsRow(
+                title = "Failure Delay cap",
+                description = failureDelayCap?.let {
+                    "Now: ${it.label}. The longest wait after a failed App Password check."
+                } ?: "Reading the saved cap…",
+                onClick = onFailureDelayCap,
+                loading = failureDelayCap == null,
+            )
         }
 
         SettingsSection("Catalog") {
@@ -200,7 +215,7 @@ internal fun SettingsRow(
 
 /**
  * The Bulk Cap: one pill per cap the owner may select, the saved one filled. Until the saved cap is read the pills are
- * off. Chunked runs are not offered yet.
+ * off.
  */
 @Composable
 private fun BulkCapItem(bulkCap: BulkCap?, onBulkCap: (BulkCap) -> Unit) {
@@ -233,15 +248,13 @@ private fun BulkCapItem(bulkCap: BulkCap?, onBulkCap: (BulkCap) -> Unit) {
                     )
                 }
             }
-            Text(
-                text = if (bulkCap == null) {
-                    "Reading the saved cap…"
-                } else {
-                    "Chunked runs of 100 at a time are not available yet."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (bulkCap == null) {
+                Text(
+                    text = "Reading the saved cap…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
