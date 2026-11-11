@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +28,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.PillChip
 import kotlinx.coroutines.delay
 
 private val CARD_CORNER = 24.dp
@@ -39,7 +38,7 @@ private val CARD_PAPER = Color.White
 /**
  * Shows one or more QR codes as a black-on-white card, the layout scanners expect.
  *
- * With more than one part, the parts cycle every [frameMillis] and a dot-matrix "3/12" counter sits
+ * With more than one part, the parts cycle every [frameMillis] and a "PART 3 OF 12" chip sits
  * under the card. Each part is encoded and rendered once per [parts] value and kept in memory.
  * The screen stays awake while this composable is shown.
  *
@@ -96,11 +95,7 @@ fun AnimatedQr(
         }
         if (frames.size > 1) {
             Spacer(Modifier.height(12.dp))
-            Text(
-                text = "${index + 1}/${frames.size}",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+            PillChip(text = "Part ${index + 1} of ${frames.size}")
         }
     }
 }

@@ -20,8 +20,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,14 +47,19 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import app.lensly.ui.camera.CameraIcons
+import app.lensly.ui.camera.openAppSettings
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslySpacing
 import java.util.concurrent.Executors
 import zxingcpp.BarcodeReader
 
@@ -70,7 +79,7 @@ private const val SCRIM_ALPHA = 0.6f
  * stops a flickering read from firing twice. Texts that differ, such as successive UR parts, all fire.
  *
  * If the camera permission is missing, the composable asks for it. If it is refused, the
- * composable shows an "ALLOW CAMERA" button.
+ * composable says so and offers OPEN SETTINGS, which still works after a permanent refusal.
  */
 @Composable
 fun QrScanner(
@@ -79,9 +88,13 @@ fun QrScanner(
 ) {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(context.hasCameraPermission()) }
+    var refused by rememberSaveable { mutableStateOf(false) }
     val requestPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { granted = it }
+    ) { result ->
+        granted = result
+        refused = !result
+    }
 
     LaunchedEffect(Unit) {
         if (!granted) requestPermission.launch(Manifest.permission.CAMERA)
@@ -95,8 +108,10 @@ fun QrScanner(
             CameraDecoder(onText = onText, modifier = Modifier.fillMaxSize())
             ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else {
-            CameraPermissionPrompt(
+            ScanPermissionPrompt(
+                refused = refused,
                 onAllow = { requestPermission.launch(Manifest.permission.CAMERA) },
+                onOpenSettings = { context.openAppSettings() },
             )
         }
     }
@@ -235,29 +250,68 @@ private fun ViewfinderOverlay(modifier: Modifier) {
     }
 }
 
+/**
+ * Shown in place of the scanner until camera access is granted. Before any refusal it asks for access. After a refusal
+ * ([refused]) it says access is off and puts OPEN SETTINGS first, because the system prompt may not show again.
+ */
 @Composable
-private fun CameraPermissionPrompt(onAllow: () -> Unit) {
+internal fun ScanPermissionPrompt(
+    refused: Boolean,
+    onAllow: () -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(LenslySpacing.lg),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            text = "CAMERA ACCESS NEEDED",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+        Icon(
+            imageVector = CameraIcons.Camera,
+            contentDescription = null,
+            tint = colors.onSurfaceVariant,
+            modifier = Modifier.size(48.dp),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(LenslySpacing.md))
         Text(
-            text = "Lensly reads QR codes with the camera. Images never leave the phone.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = if (refused) "CAMERA IS OFF" else "CAMERA ACCESS",
+            modifier = Modifier.semantics { heading() },
+            style = MaterialTheme.typography.headlineSmall,
+            color = colors.onSurface,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(24.dp))
-        PillButton(text = "Allow camera", onClick = onAllow, accent = true)
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Text(
+            text = if (refused) {
+                "Turn on camera access in Settings to scan codes. Images never leave the phone."
+            } else {
+                "Lensly reads QR codes with the camera. Images never leave the phone."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(LenslySpacing.xl))
+        if (refused) {
+            PillButton(
+                text = "Open settings",
+                onClick = onOpenSettings,
+                accent = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(LenslySpacing.sm))
+            PillButton(text = "Allow camera", onClick = onAllow, modifier = Modifier.fillMaxWidth())
+        } else {
+            PillButton(
+                text = "Allow camera",
+                onClick = onAllow,
+                accent = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
