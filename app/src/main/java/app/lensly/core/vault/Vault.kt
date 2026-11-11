@@ -357,7 +357,7 @@ class Vault internal constructor(
                 // decoy's change is accepted and nothing is written, so a coerced change cannot weaken the real cap.
                 val own = if (inDecoy) VaultRole.DECOY else VaultRole.REAL
                 if (opened.role != own) return FailureCapResult.Rejected
-                if (!inDecoy) opened.store.recordCap(opened.state, capMs)
+                if (!inDecoy) opened.store.recordCap(opened.state, capMs, clock)
                 return FailureCapResult.Saved
             } finally {
                 opened.close()
@@ -417,7 +417,7 @@ class Vault internal constructor(
                 return null
             }
             // The software layer authenticated, so the password is right. Reset the count before the hardware step.
-            val reset = store.recordSuccess(state)
+            val reset = store.recordSuccess(state, clock)
             val hardwareKey = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
             val (vaultKey, role) = unwrapOpened(hardwareKey, contents.legacy, opened.single().second)
             handedOver = true

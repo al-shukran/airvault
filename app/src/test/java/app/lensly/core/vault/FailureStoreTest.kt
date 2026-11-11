@@ -31,7 +31,7 @@ class FailureStoreTest {
     private val capOffset = 33
 
     /** The MAC-covered part of a version 3 record: everything before the 32-byte MAC. */
-    private val payloadBytes = 45
+    private val payloadBytes = 53
 
     /** The magic that opens every record. */
     private val magic = "LNFS".toByteArray(Charsets.US_ASCII)
@@ -52,6 +52,7 @@ class FailureStoreTest {
             .putLong(state.lastFailureElapsedMs)
             .putLong(state.capMs ?: 0L)
             .putInt(state.bootCount ?: -1)
+            .putLong(state.elapsedAtSave)
             .array()
         return payload + macOf(key, payload)
     }
@@ -99,7 +100,7 @@ class FailureStoreTest {
         store.recordFailure(afterOne, clock)
         assertEquals(2, open(dir).load(clock).failures)
 
-        store.recordSuccess(open(dir).load(clock))
+        store.recordSuccess(open(dir).load(clock), clock)
         assertEquals(0, open(dir).load(clock).failures)
     }
 
@@ -110,7 +111,7 @@ class FailureStoreTest {
         val store = open(dir)
         store.initialize(clock)
         val state = store.load(clock)
-        assertEquals(state, store.recordSuccess(state))
+        assertEquals(state, store.recordSuccess(state, clock))
     }
 
     @Test
@@ -204,7 +205,7 @@ class FailureStoreTest {
     }
 
     @Test
-    fun aRebootWithTheClockMovedForwardKeepsTheStateAndTheWait() {
+    fun aRebootWithoutABootCountCannotTellTheWaitFromAMovedWallClock() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
@@ -216,9 +217,10 @@ class FailureStoreTest {
         clock.elapsed = 2_000L
         clock.wall += FailureDelay.MAX_CAP_MS
         val reloaded = open(dir).load(clock)
-        // The state is not tampered, and the 10 s wait still runs from boot.
+        // This device reports no boot count, so the wall clock carries the wait, as on master: the hour ends it. The recorded
+        // boot count is what closes this gap, see aRebootSeenByTheBootCountContinuesTheWait.
         assertEquals(1, reloaded.failures)
-        assertTrue(FailureDelay(FakeClock.START_WALL).isBlocked(reloaded, clock))
+        assertFalse(FailureDelay(FakeClock.START_WALL).isBlocked(reloaded, clock))
     }
 
     @Test
@@ -244,28 +246,33 @@ class FailureStoreTest {
     }
 
     @Test
-    fun aRebootSeenByTheBootCountKeepsTheRemainingWait() {
+    fun aRebootSeenByTheBootCountContinuesTheWait() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         var bootCount = 7
         val store = open(dir) { bootCount }
         store.initialize(clock)
-        store.recordFailure(store.load(clock), clock)
-        assertEquals(7, store.load(clock).bootCount)
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        var state = store.load(clock)
+        repeat(4) { state = store.recordFailure(state, clock) }
 
-        // The device reboots one boot later, two seconds into the new boot, with the wall clock moved forward an hour.
+        // Ten seconds of the 60 s wait run before the device reboots, and the next save records that much.
+        clock.advance(10_000)
+        state = store.recordCap(state, FailureDelay.DEFAULT_CAP_MS, clock)
+        assertEquals(10_000L, state.elapsedAtSave)
+
+        // The device reboots one boot later, five seconds into the new boot, with the wall clock moved forward an hour.
         FailureStore.forget(dir)
         bootCount = 8
-        clock.elapsed = 2_000L
+        clock.elapsed = 5_000L
         clock.wall += FailureDelay.MAX_CAP_MS
         val reloaded = open(dir) { bootCount }.load(clock)
-        val delay = FailureDelay(FakeClock.START_WALL)
+        val delay = FailureDelay(FakeClock.START_WALL, FailureDelay.configuredCapFor(reloaded))
 
-        // The 10 s wait is measured from the reboot, so 8 s of it are left.
-        assertEquals(1, reloaded.failures)
-        assertEquals(7, reloaded.bootCount)
-        assertTrue(delay.isBlocked(reloaded, clock, bootCount))
-        clock.advance(7_999)
+        // Ten seconds before the reboot and five after it: 45 s of the 60 s wait are left.
+        assertEquals(4, reloaded.failures)
+        assertEquals(15_000L, FailureDelay.elapsedSinceFailure(reloaded, clock, bootCount))
+        clock.advance(44_999)
         assertTrue(delay.isBlocked(reloaded, clock, bootCount))
         clock.advance(1)
         assertFalse(delay.isBlocked(reloaded, clock, bootCount))
@@ -310,16 +317,16 @@ class FailureStoreTest {
         val store = open(dir)
         store.initialize(clock)
 
-        store.recordCap(store.load(clock), 5_000L)
+        store.recordCap(store.load(clock), 5_000L, clock)
         assertEquals(5_000L, open(dir).load(clock).capMs)
 
-        store.recordCap(open(dir).load(clock), FailureDelay.MAX_CAP_MS)
+        store.recordCap(open(dir).load(clock), FailureDelay.MAX_CAP_MS, clock)
         assertEquals(FailureDelay.MAX_CAP_MS, open(dir).load(clock).capMs)
 
-        store.recordCap(open(dir).load(clock), FailureDelay.MIN_CAP_MS)
+        store.recordCap(open(dir).load(clock), FailureDelay.MIN_CAP_MS, clock)
         assertEquals(FailureDelay.MIN_CAP_MS, open(dir).load(clock).capMs)
 
-        store.recordCap(open(dir).load(clock), null)
+        store.recordCap(open(dir).load(clock), null, clock)
         assertNull(open(dir).load(clock).capMs)
     }
 
@@ -329,12 +336,12 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 300_000L)
+        store.recordCap(store.load(clock), 300_000L, clock)
 
         store.recordFailure(store.load(clock), clock)
         assertEquals(300_000L, open(dir).load(clock).capMs)
 
-        store.recordSuccess(open(dir).load(clock))
+        store.recordSuccess(open(dir).load(clock), clock)
         val reloaded = open(dir).load(clock)
         assertEquals(0, reloaded.failures)
         assertEquals(300_000L, reloaded.capMs)
@@ -348,8 +355,8 @@ class FailureStoreTest {
         store.initialize(clock)
         val state = store.load(clock)
 
-        assertFailsWith<IllegalArgumentException> { store.recordCap(state, 999L) }
-        assertFailsWith<IllegalArgumentException> { store.recordCap(state, FailureDelay.MAX_CAP_MS + 1) }
+        assertFailsWith<IllegalArgumentException> { store.recordCap(state, 999L, clock) }
+        assertFailsWith<IllegalArgumentException> { store.recordCap(state, FailureDelay.MAX_CAP_MS + 1, clock) }
         assertNull(open(dir).load(clock).capMs)
     }
 
@@ -359,7 +366,7 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L)
+        store.recordCap(store.load(clock), 5_000L, clock)
 
         // Change the owner's 5 s cap in the primary copy, and leave its MAC as it was.
         val bytes = dir.primary().readBytes()
@@ -381,7 +388,7 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L)
+        store.recordCap(store.load(clock), 5_000L, clock)
 
         for (file in listOf(dir.primary(), dir.backup())) {
             val bytes = file.readBytes()
@@ -400,7 +407,7 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L)
+        store.recordCap(store.load(clock), 5_000L, clock)
         dir.backup().delete()
 
         val locked = open(dir).load(clock)
@@ -414,7 +421,7 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L)
+        store.recordCap(store.load(clock), 5_000L, clock)
         dir.primary().delete()
         dir.backup().delete()
 
@@ -429,9 +436,9 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS)
+        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS, clock)
         val olderOneHour = dir.primary().readBytes()
-        store.recordCap(store.load(clock), 5_000L)
+        store.recordCap(store.load(clock), 5_000L, clock)
 
         // The primary is put back to the one-hour copy. Its key was deleted at the 5 s save, so it does not verify.
         dir.primary().writeBytes(olderOneHour)
@@ -447,9 +454,9 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L)
+        store.recordCap(store.load(clock), 5_000L, clock)
         val olderFiveSeconds = dir.primary().readBytes()
-        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS)
+        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS, clock)
 
         // The primary is put back to the 5 s copy. After a restart this process has seen nothing, and its key is gone.
         dir.primary().writeBytes(olderFiveSeconds)
@@ -495,9 +502,9 @@ class FailureStoreTest {
             state = store.recordFailure(state, clock)
             assertEquals(1, keys.failureMacKeyCount())
         }
-        state = store.recordCap(state, 5_000L)
+        state = store.recordCap(state, 5_000L, clock)
         assertEquals(1, keys.failureMacKeyCount())
-        store.recordSuccess(state)
+        store.recordSuccess(state, clock)
         assertEquals(1, keys.failureMacKeyCount())
     }
 
