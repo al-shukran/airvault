@@ -520,6 +520,8 @@ private fun ViewfinderTopBar(
 private fun ModeSwitch(mode: CameraMode, videoAvailable: Boolean, onChange: (CameraMode) -> Unit) {
     Row(
         modifier = Modifier
+            .clip(LenslyPillShape)
+            .background(LenslyBlack.copy(alpha = 0.6f))
             .border(1.dp, LenslyOutline, LenslyPillShape)
             .padding(LenslySpacing.xxs),
     ) {
@@ -543,7 +545,14 @@ private fun ModeSwitch(mode: CameraMode, videoAvailable: Boolean, onChange: (Cam
 /** A red dot and the length of the recording so far. */
 @Composable
 private fun RecordingTimer(elapsedMs: Long) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    // A dark backing keeps the timer readable over a bright preview.
+    Row(
+        modifier = Modifier
+            .clip(LenslyPillShape)
+            .background(LenslyBlack.copy(alpha = 0.6f))
+            .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Box(modifier = Modifier.size(LenslySpacing.xs).clip(CircleShape).background(LenslyAccent))
         Spacer(modifier = Modifier.width(LenslySpacing.xs))
         Text(
