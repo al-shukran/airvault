@@ -61,7 +61,8 @@ enum class ProfileIcon(val wire: Int) {
     GEM(25),
     ROCKET(26),
     SHIELD(27),
-    LOCK(28),
+    /** Wire 28 stays, so a profile that stored it still loads; it is the lantern now, not the padlock it once was. */
+    LANTERN(28),
     LINK(29),
     NODE(30),
     CUBE(31),

@@ -169,13 +169,18 @@ internal object ProfileIcons {
         )
     }
 
-    /** A padlock. */
-    val Lock: ImageVector by lazy {
+    /** A hanging lantern with a lit flame, in the place the padlock used to hold. */
+    val Lantern: ImageVector by lazy {
         outline(
-            "Lock",
-            "M5 11h14v9H5z",
-            "M8 11V8a4 4 0 0 1 8 0v3",
-            "M12 14v2.5",
+            "Lantern",
+            "M10 3.5a2 2 0 0 1 4 0a2 2 0 0 1 -4 0z",
+            "M7.5 8 12 5.5 16.5 8",
+            "M8 8h8v11H8z",
+            "M10.5 8v11",
+            "M13.5 8v11",
+            "M7 19h10",
+            "M8.5 21h7",
+            "M12 12c1 1.5 1.5 2.5 1.5 3.5a1.5 1.5 0 0 1 -3 0c0-1 .5-2 1.5-3.5z",
         )
     }
 
@@ -589,7 +594,7 @@ internal val profileIconSections: List<ProfileIconSection> = listOf(
             ProfileIcon.GEM,
             ProfileIcon.ROCKET,
             ProfileIcon.SHIELD,
-            ProfileIcon.LOCK,
+            ProfileIcon.LANTERN,
             ProfileIcon.LINK,
             ProfileIcon.NODE,
             ProfileIcon.CUBE,

@@ -133,7 +133,7 @@ internal fun ProfileIcon.glyph(): ImageVector = when (this) {
     ProfileIcon.GEM -> ProfileIcons.Gem
     ProfileIcon.ROCKET -> ProfileIcons.Rocket
     ProfileIcon.SHIELD -> ProfileIcons.Shield
-    ProfileIcon.LOCK -> ProfileIcons.Lock
+    ProfileIcon.LANTERN -> ProfileIcons.Lantern
     ProfileIcon.LINK -> ProfileIcons.Link
     ProfileIcon.NODE -> ProfileIcons.Node
     ProfileIcon.CUBE -> ProfileIcons.Cube
