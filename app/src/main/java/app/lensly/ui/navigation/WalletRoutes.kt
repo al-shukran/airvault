@@ -55,6 +55,7 @@ import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.ActivityScreen
 import app.lensly.ui.home.BulkGenerateScreen
+import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SoonScreen
@@ -157,6 +158,8 @@ private fun HomeRoute(
     val session = rememberOpenSession(navController, holder) ?: return
     val debugNotice = remember { debugKeystoreNotice(holder) }
     val listing = rememberWalletListing(navController, holder, session)
+    val recent = rememberRecentActivity(navController, holder, session, entry)
+    val readiness = rememberHomeReadiness(navController, holder, entry)
     // The graph's entry carries the pairing confirmation. It is resolved once, as draftOf does, because the graph may pop.
     val hidden = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
     val notice by hidden.savedStateHandle.getStateFlow<String?>(HiddenRoute.PAIRED_NOTICE, null).collectAsState()
@@ -171,20 +174,81 @@ private fun HomeRoute(
     WalletHomeScreen(
         wallets = listing?.wallets,
         profiles = listing?.profiles.orEmpty(),
+        recent = recent,
+        readiness = readiness,
+        nowMs = System.currentTimeMillis(),
         onOpen = { walletId -> navController.navigate(HiddenRoute.detail(walletId)) },
         onEdit = { walletId -> navController.navigate(HiddenRoute.editWallet(walletId)) },
         onPair = { walletId -> navController.navigate(HiddenRoute.export(walletId)) },
-        onAdd = { navController.navigate(HiddenRoute.WALLET_START) },
+        // Create starts the same ceremony as the start screen's Create, so the flow reads the same from either place.
+        onCreate = {
+            draft.startCeremony()
+            navController.navigate(HiddenRoute.CEREMONY_CHOICE)
+        },
+        onRestore = { navController.navigate(HiddenRoute.RESTORE) },
+        onScan = { navController.navigate(HiddenRoute.SCAN_ANY) },
+        onActivity = { navController.navigate(HiddenRoute.activity()) },
         onWallets = { navController.navigate(HiddenRoute.WALLETS) },
         onSettings = { navController.navigate(HiddenRoute.SETTINGS) },
         onLock = { leaveHidden(navController, holder) },
         onStartPairing = { navController.navigate(HiddenRoute.PAIR) },
-        onScan = { navController.navigate(HiddenRoute.SCAN_ANY) },
-        onActivity = { navController.navigate(HiddenRoute.activity()) },
+        onNetworks = { navController.navigate(HiddenRoute.NETWORKS) },
+        onTokens = { navController.navigate(HiddenRoute.TOKENS) },
+        onCatalog = { navController.navigate(HiddenRoute.CATALOG) },
+        onLockout = { navController.navigate(HiddenRoute.FAILURE_CAP) },
         debugNotice = debugNotice,
         notice = notice,
         onNoticeShown = { hidden.savedStateHandle[HiddenRoute.PAIRED_NOTICE] = null },
     )
+}
+
+/**
+ * The Review Records of every wallet in the open session, newest first. Home shows the first few. The read runs off the main thread,
+ * and again each time Home is shown, so a new signature shows at once. Null until the read finishes.
+ */
+@Composable
+private fun rememberRecentActivity(
+    navController: NavHostController,
+    holder: VaultHolder,
+    session: VaultSession,
+    entry: NavBackStackEntry,
+): List<WalletReviewRecord>? {
+    var records by remember(entry) { mutableStateOf<List<WalletReviewRecord>?>(null) }
+    LaunchedEffect(entry) {
+        whileUnlocked(navController, holder) {
+            records = withContext(Dispatchers.IO) { ReviewHistory(session).listAll() }
+        }
+    }
+    return records
+}
+
+/**
+ * The readiness tiles: the networks and tokens of the catalog, the version of the installed catalog package, and the lockout cap. The
+ * catalog and lockout reads run off the main thread. They run again each time Home is shown, so a package installed from Update catalog
+ * or a changed cap shows at once. Null until the reads finish.
+ */
+@Composable
+private fun rememberHomeReadiness(
+    navController: NavHostController,
+    holder: VaultHolder,
+    entry: NavBackStackEntry,
+): HomeReadiness? {
+    val context = LocalContext.current.applicationContext
+    var readiness by remember(entry) { mutableStateOf<HomeReadiness?>(null) }
+    LaunchedEffect(entry) {
+        whileUnlocked(navController, holder) {
+            val catalog = readCatalog(context)
+            val installed = withContext(Dispatchers.IO) { RegistryHolder.installed(context) }
+            val lockout = withContext(Dispatchers.IO) { readFailureCap(holder) }
+            readiness = HomeReadiness(
+                networkCount = catalog.networks.size,
+                tokenCount = catalog.tokens.size,
+                catalogSequence = installed?.sequence,
+                lockout = lockout,
+            )
+        }
+    }
+    return readiness
 }
 
 /** The Wallets list, every wallet as a card. It reads the wallets the same way Home does. */
