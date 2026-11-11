@@ -1,25 +1,41 @@
 package app.lensly.ui.wallet
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.ui.components.DotHeadline
-import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
+import app.lensly.ui.theme.LenslyOutline
+import app.lensly.ui.theme.LenslyRadius
+import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LenslySurfaceContainer
+import app.lensly.ui.theme.LenslyWarning
 
 /** Name suggested before the owner types one. */
 const val DEFAULT_WALLET_NAME = "WALLET 1"
 
 /** Name used when the owner confirms without typing one and no suggestion has loaded yet. */
 private const val FALLBACK_WALLET_NAME = "WALLET"
+
+private val NAME_FIELD_HEIGHT = 56.dp
 
 /**
  * The name a wallet is saved under. [typed] is only what the owner typed, so the suggestion never mixes
@@ -31,8 +47,10 @@ fun effectiveWalletName(typed: String, suggested: String?): String =
 /**
  * The name screen. It names a new wallet, and it renames a wallet or an account. The caller owns [name] and enforces
  * [DISPLAY_NAME_MAX_LENGTH]. [placeholder] is shown muted while [name] is empty and is not part of the name. When
- * [onReset] is set, a pill labelled [resetLabel] is shown under the eyebrow. Taps go through [SecureKeyboard], and DONE
+ * [onReset] is set, a pill labelled [resetLabel] is shown under the field. Taps go through [SecureKeyboard], and DONE
  * finishes the flow.
+ *
+ * Under the field, a counter shows the length. Empty input says what DONE will use, and a full field says it is full.
  */
 @Composable
 fun WalletNameScreen(
@@ -45,10 +63,13 @@ fun WalletNameScreen(
     onReset: (() -> Unit)? = null,
     resetLabel: String = "Reset",
 ) {
-    WalletScaffold(
+    val full = name.length >= DISPLAY_NAME_MAX_LENGTH
+    val helperColor = if (full) LenslyWarning else MaterialTheme.colorScheme.onSurfaceVariant
+    LenslyScreen(
+        title = if (onReset != null) "Account name" else "Wallet name",
         modifier = modifier,
         scrollable = false,
-        footer = {
+        bottomAction = {
             SecureKeyboard(
                 onKey = onKey,
                 onBackspace = onBackspace,
@@ -56,37 +77,43 @@ fun WalletNameScreen(
             )
         },
     ) {
-        Spacer(Modifier.height(24.dp))
         WalletEyebrow("Name")
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(LenslySpacing.xs))
         DotHeadline(text = "NAME IT")
-        Spacer(Modifier.height(16.dp))
-        PillChip(text = "Up to $DISPLAY_NAME_MAX_LENGTH characters")
-        Spacer(Modifier.weight(1f))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            contentAlignment = Alignment.Center,
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Text(
+            text = "You can change it later.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(LenslySpacing.lg))
+        NameField(name = name, placeholder = placeholder, full = full)
+        Spacer(Modifier.height(LenslySpacing.xs))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (name.isEmpty()) {
-                Text(
-                    text = placeholder ?: "No name",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(
-                    text = "${name}_",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+            Text(
+                text = when {
+                    full -> "Name is full"
+                    name.isEmpty() -> "Leave empty to use ${placeholder ?: "the suggested name"}"
+                    else -> "Up to $DISPLAY_NAME_MAX_LENGTH characters"
+                }.uppercase(),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
+                color = helperColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(LenslySpacing.xs))
+            Text(
+                text = "${name.length}/$DISPLAY_NAME_MAX_LENGTH",
+                style = MaterialTheme.typography.labelMedium,
+                color = helperColor,
+            )
         }
-        Spacer(Modifier.height(8.dp))
-        WalletEyebrow("You can change it later")
         if (onReset != null) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(LenslySpacing.lg))
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 WalletPill(
                     text = resetLabel,
@@ -96,6 +123,38 @@ fun WalletNameScreen(
                 )
             }
         }
-        Spacer(Modifier.weight(1f))
+    }
+}
+
+/**
+ * The name as typed, with a caret, or the placeholder in muted text while the field is empty. The caret goes once the
+ * name is full, since nothing more can be typed. A long name wraps onto a second line rather than cutting off.
+ */
+@Composable
+private fun NameField(name: String, placeholder: String?, full: Boolean) {
+    val shape = RoundedCornerShape(LenslyRadius.lg)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = NAME_FIELD_HEIGHT)
+            .clip(shape)
+            .background(LenslySurfaceContainer, shape)
+            .border(1.dp, if (full) LenslyWarning else LenslyOutline, shape)
+            .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.sm),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        if (name.isEmpty()) {
+            Text(
+                text = placeholder ?: "No name",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text(
+                text = if (full) name else "${name}_",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
