@@ -89,6 +89,9 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.SCAN, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { SignWalletRoute(navController, holder, entry.walletId()) }
     }
+    composable(HiddenRoute.SHOW_SECRET, arguments = walletIdArguments()) { entry ->
+        HiddenBackdrop { ShowSecretRoute(navController, holder, entry.walletId()) }
+    }
     composable(HiddenRoute.CATALOG) { HiddenBackdrop { RegistryImportRoute(navController, holder) } }
 }
 
@@ -410,6 +413,7 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         onBulkGenerate = { navController.navigate(HiddenRoute.bulk(walletId)) },
         onPair = { navController.navigate(HiddenRoute.export(walletId)) },
         onSign = { navController.navigate(HiddenRoute.scan(walletId)) },
+        onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
     )
 }
 
