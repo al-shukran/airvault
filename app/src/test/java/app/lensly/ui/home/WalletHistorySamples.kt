@@ -19,7 +19,7 @@ internal const val SAMPLE_ACCOUNT = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
 /** The recipient of the signed sample record, in full. */
 internal const val SAMPLE_RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
 
-private const val SAMPLE_TOKEN = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+private const val SAMPLE_CONTRACT = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 private const val MONAD_TESTNET = 10143L
 
 /** The network of the sample records. Any other chain is not in the sample registry. */
@@ -58,7 +58,7 @@ internal fun sampleHistory(): List<ReviewRecord> {
             function = "transfer",
             to = SAMPLE_RECIPIENT,
             amount = "1.5 USDC",
-            tokenContract = SAMPLE_TOKEN,
+            tokenContract = SAMPLE_CONTRACT,
             fee = listOf("Gas limit" to "21000", "Max fee" to "0.0021 MON"),
             params = listOf("to" to SAMPLE_RECIPIENT, "value" to "1500000 (1.5 USDC)"),
             origin = "https://app.example",

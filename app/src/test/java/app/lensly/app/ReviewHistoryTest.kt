@@ -19,7 +19,7 @@ import org.junit.rules.TemporaryFolder
 
 private const val ACCOUNT = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
 private const val RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
-private const val TOKEN = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+private const val CONTRACT_ADDR = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
 private fun reviewOf(atMs: Long, outcome: ReviewOutcome = ReviewOutcome.SIGNED) = ReviewRecord(
     atMs = atMs,
@@ -32,7 +32,7 @@ private fun reviewOf(atMs: Long, outcome: ReviewOutcome = ReviewOutcome.SIGNED) 
     function = "transfer",
     to = RECIPIENT,
     amount = "1.5 USDC",
-    tokenContract = TOKEN,
+    tokenContract = CONTRACT_ADDR,
     fee = listOf("Gas limit" to "21000", "Max fee" to "0.0021 MON"),
     params = listOf("to" to RECIPIENT, "value" to "1500000 (1.5 USDC)"),
     origin = "https://app.example",
@@ -141,7 +141,7 @@ class ReviewHistoryTest {
 
         val raw = reviewFileOf(wallet).readBytes()
 
-        listOf(ACCOUNT, RECIPIENT, TOKEN, "transfer", "Monad Testnet", "https://app.example", "1.5 USDC").forEach { secret ->
+        listOf(ACCOUNT, RECIPIENT, CONTRACT_ADDR, "transfer", "Monad Testnet", "https://app.example", "1.5 USDC").forEach { secret ->
             assertFalse(raw.containsBytes(secret.toByteArray()), "$secret can be read from the record file")
         }
     }

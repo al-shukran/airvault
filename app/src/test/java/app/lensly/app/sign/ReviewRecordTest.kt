@@ -17,7 +17,7 @@ import org.junit.Test
 private const val MONAD = 10143L
 private const val SENDER = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
 private const val RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
-private const val TOKEN = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+private const val CONTRACT_ADDR = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
 private val REGISTRY = Registry(
     networks = listOf(
@@ -57,7 +57,7 @@ private fun transferReview() = TxReview(
     toAddress = RECIPIENT,
     amount = "1.5",
     symbol = "USDC",
-    tokenContract = TOKEN,
+    tokenContract = CONTRACT_ADDR,
     function = "transfer",
     params = listOf("to" to RECIPIENT, "value" to "1500000 (1.5 USDC)"),
     fee = listOf("Gas limit" to "21000", "Max fee" to "0.0021 MON"),
@@ -90,7 +90,7 @@ class ReviewRecordTest {
         assertEquals("transfer", record.function)
         assertEquals(RECIPIENT, record.to)
         assertEquals("1.5 USDC", record.amount)
-        assertEquals(TOKEN, record.tokenContract)
+        assertEquals(CONTRACT_ADDR, record.tokenContract)
         assertEquals(
             listOf(
                 "Gas limit" to "21000",
