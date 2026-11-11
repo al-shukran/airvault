@@ -3,6 +3,7 @@ package app.lensly.ui.screenshot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.settings.CatalogCounts
+import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.SettingsScreen
 import org.junit.Rule
 import org.junit.Test
@@ -25,6 +26,8 @@ class SettingsScreenshotTest {
             bulkCap = BulkCap.HUNDRED,
             onBulkCap = {},
             onChangePassword = {},
+            failureDelayCap = FailureCapChoice.DEFAULT,
+            onFailureDelayCap = {},
             catalog = CatalogCounts(networks = 12, tokens = 48),
             onUpdateCatalog = {},
             onWipe = {},
@@ -41,6 +44,8 @@ class SettingsScreenshotTest {
             bulkCap = null,
             onBulkCap = {},
             onChangePassword = {},
+            failureDelayCap = null,
+            onFailureDelayCap = {},
             catalog = null,
             onUpdateCatalog = {},
             onWipe = {},

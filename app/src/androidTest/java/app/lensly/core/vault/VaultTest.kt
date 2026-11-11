@@ -305,6 +305,55 @@ class VaultTest {
         }
     }
 
+    @Test
+    fun failureCapNeedsTheAppPasswordAndIsRefusedDuringADelay() {
+        runBlocking {
+            vault.create(PASSWORD.toCharArray())
+            assertNull(vault.failureDelayCapMs())
+
+            // A wrong password is refused and counts as a failure, so the delay runs and the next change is refused too.
+            assertEquals(FailureCapResult.Rejected, vault.setFailureDelayCap(WRONG.toCharArray(), 5_000L))
+            assertEquals(1, vault.failureCountForTesting())
+            assertEquals(FailureCapResult.Rejected, vault.setFailureDelayCap(PASSWORD.toCharArray(), 5_000L))
+            assertNull(vault.failureDelayCapMs())
+
+            clock.advance(FailureDelay.LEARNING_CAP_MS)
+            assertEquals(FailureCapResult.Saved, vault.setFailureDelayCap(PASSWORD.toCharArray(), 5_000L))
+            assertEquals(5_000L, vault.failureDelayCapMs())
+            assertEquals(0, vault.failureCountForTesting())
+
+            // The cap is stored in the failure files, so it is still there after the vault is opened again.
+            val reopened = Vault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
+            assertEquals(5_000L, reopened.failureDelayCapMs())
+        }
+    }
+
+    @Test
+    fun savedCapShortensTheDelayBeforeAnyUnlock() {
+        runBlocking {
+            vault.create(PASSWORD.toCharArray())
+            assertEquals(FailureCapResult.Saved, vault.setFailureDelayCap(PASSWORD.toCharArray(), 1_000L))
+
+            // The wrong password makes one failure. The learning cap would allow 10 s, but the owner's 1 s cap is smaller.
+            assertRejected(vault.unlock(WRONG.toCharArray()))
+            clock.advance(999)
+            assertRejected(vault.unlock(PASSWORD.toCharArray()))
+            clock.advance(1)
+            unlocked(vault.unlock(PASSWORD.toCharArray())).close()
+        }
+    }
+
+    @Test
+    fun failureCapOutsideOneSecondToOneHourIsRefused() {
+        runBlocking {
+            vault.create(PASSWORD.toCharArray())
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { vault.setFailureDelayCap(PASSWORD.toCharArray(), 999L) }
+            }
+            assertNull(vault.failureDelayCapMs())
+        }
+    }
+
     private fun unlocked(result: UnlockResult): VaultSession {
         assertTrue("Expected Unlocked but was $result", result is UnlockResult.Unlocked)
         return (result as UnlockResult.Unlocked).session

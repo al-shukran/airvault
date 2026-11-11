@@ -5,12 +5,14 @@ package app.lensly.core.vault
  *
  * [seq] grows on every write, so an older copy of the file can be recognised as a rollback.
  * The two `lastFailure` readings are the wall-clock and monotonic times at the most recent failure.
+ * [capMs] is the Failure Delay cap the owner chose, or null for Default, which is the spec default.
  */
 internal data class FailureState(
     val seq: Long,
     val failures: Int,
     val lastFailureWallMs: Long,
     val lastFailureElapsedMs: Long,
+    val capMs: Long? = null,
 )
 
 /**
@@ -58,6 +60,15 @@ internal class FailureDelay(
         const val DEFAULT_CAP_MS = 60_000L
         const val MIN_CAP_MS = 1_000L
         const val MAX_CAP_MS = 3_600_000L
+
+        /** A cap below this is offered only after the owner confirms the spec warning. */
+        const val WARNING_BELOW_CAP_MS = 10_000L
+
+        /** The cap that applies to [state]: the owner's choice, or [DEFAULT_CAP_MS] for Default. */
+        fun configuredCapFor(state: FailureState): Long = state.capMs ?: DEFAULT_CAP_MS
+
+        /** True when choosing [capMs] must show the spec warning first. Default ([capMs] null) never does. */
+        fun warnsAt(capMs: Long?): Boolean = capMs != null && capMs < WARNING_BELOW_CAP_MS
 
         /** From this exponent on, `BASE_DELAY_MS shl exponent` exceeds every cap, so the cap applies. */
         private const val MAX_EXPONENT = 40

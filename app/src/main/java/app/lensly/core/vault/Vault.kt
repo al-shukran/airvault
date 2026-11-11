@@ -40,6 +40,15 @@ sealed interface UnlockResult {
     data object Rejected : UnlockResult
 }
 
+/** Outcome of [Vault.setFailureDelayCap]. */
+sealed interface FailureCapResult {
+    /** The App Password was right, and the cap is saved. */
+    data object Saved : FailureCapResult
+
+    /** The App Password was wrong, or a Failure Delay is running. Nothing was saved. */
+    data object Rejected : FailureCapResult
+}
+
 /** What the device's Keystore provides for the vault key. */
 data class DeviceSecurity(val strongBox: Boolean, val hardwareBacked: Boolean)
 
@@ -105,6 +114,29 @@ class Vault internal constructor(
      */
     suspend fun unlock(password: CharArray): UnlockResult =
         withContext(Dispatchers.IO) { mutex.withLock { unlockLocked(password) } }
+
+    /**
+     * Saves the Failure Delay cap: [capMs] in milliseconds, within [FailureDelay.MIN_CAP_MS] to [FailureDelay.MAX_CAP_MS],
+     * or null for Default. The App Password is checked first, exactly as [unlock] checks it, so a running delay refuses
+     * the change and a wrong password counts as a failure. A right one resets the failure count. The cap lives in the
+     * failure store, so it applies before unlock. [password] is zeroed before this returns.
+     *
+     * @throws IllegalArgumentException if [capMs] is outside the offered range.
+     */
+    suspend fun setFailureDelayCap(password: CharArray, capMs: Long?): FailureCapResult =
+        withContext(Dispatchers.IO) { mutex.withLock { setFailureDelayCapLocked(password, capMs) } }
+
+    /**
+     * The saved Failure Delay cap in milliseconds. Null means Default, and it is also the answer when no vault exists, so
+     * callers check [exists] first when that difference matters.
+     */
+    suspend fun failureDelayCapMs(): Long? =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (!layout.exists()) return@withLock null
+                failureStore().load(clock).capMs
+            }
+        }
 
     /**
      * Replaces the password of an unlocked vault. Only the wrapped vault key file changes, so wallet data is untouched.
@@ -192,34 +224,59 @@ class Vault internal constructor(
 
     private suspend fun unlockLocked(password: CharArray): UnlockResult {
         try {
-            if (!layout.exists()) return UnlockResult.Rejected
-            val header = VaultHeader.decode(layout.header.readBytes())
-            val store = failureStore()
-            val state = store.load(clock)
-            // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still
-            // runs once, on a fixed input, so a refused attempt takes as long as a real one.
-            if (FailureDelay(header.createdAtWallMs).isBlocked(state, clock)) {
-                spendKdfTime(header)
-                return UnlockResult.Rejected
-            }
-
-            val kSw = withContext(Dispatchers.Default) { Argon2Kdf.derive(password, header.salt, header.kdf) }
-            try {
-                val hardwareWrapped = try {
-                    Aead.open(kSw, SOFTWARE_AAD, VaultKeyFile.decode(layout.vaultKey.readBytes()))
-                } catch (e: AEADBadTagException) {
-                    store.recordFailure(state, clock)
-                    return UnlockResult.Rejected
-                }
-                // The software layer authenticated, so the password is right. Reset the count before the hardware step.
-                store.recordSuccess(state)
-                val vaultKey = unwrapWithHardware(hardwareWrapped)
-                return UnlockResult.Unlocked(VaultSession(layout, vaultKey))
-            } finally {
-                Arrays.fill(kSw, 0)
-            }
+            val verified = verifyPasswordLocked(password) ?: return UnlockResult.Rejected
+            val vaultKey = unwrapWithHardware(verified.hardwareWrapped)
+            return UnlockResult.Unlocked(VaultSession(layout, vaultKey))
         } finally {
             Arrays.fill(password, '\u0000')
+        }
+    }
+
+    private suspend fun setFailureDelayCapLocked(password: CharArray, capMs: Long?): FailureCapResult {
+        try {
+            if (capMs != null) {
+                require(capMs in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS) { "cap must be between 1 s and 1 h" }
+            }
+            val verified = verifyPasswordLocked(password) ?: return FailureCapResult.Rejected
+            verified.store.recordCap(verified.state, capMs)
+            return FailureCapResult.Saved
+        } finally {
+            Arrays.fill(password, '\u0000')
+        }
+    }
+
+    /** A password that passed [verifyPasswordLocked], with the store and the state after its failure count was reset. */
+    private class VerifiedPassword(val hardwareWrapped: ByteArray, val store: FailureStore, val state: FailureState)
+
+    /**
+     * Checks [password] against the Failure Delay and the software layer of the Vault Key. Returns null when the attempt
+     * is refused: during a delay, which is not checked and not counted, or for a wrong password, which is counted.
+     * [password] is not zeroed here; the caller does that.
+     */
+    private suspend fun verifyPasswordLocked(password: CharArray): VerifiedPassword? {
+        if (!layout.exists()) return null
+        val header = VaultHeader.decode(layout.header.readBytes())
+        val store = failureStore()
+        val state = store.load(clock)
+        // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still
+        // runs once, on a fixed input, so a refused attempt takes as long as a real one.
+        if (FailureDelay(header.createdAtWallMs, FailureDelay.configuredCapFor(state)).isBlocked(state, clock)) {
+            spendKdfTime(header)
+            return null
+        }
+
+        val kSw = withContext(Dispatchers.Default) { Argon2Kdf.derive(password, header.salt, header.kdf) }
+        try {
+            val hardwareWrapped = try {
+                Aead.open(kSw, SOFTWARE_AAD, VaultKeyFile.decode(layout.vaultKey.readBytes()))
+            } catch (e: AEADBadTagException) {
+                store.recordFailure(state, clock)
+                return null
+            }
+            // The software layer authenticated, so the password is right. Reset the count before the hardware step.
+            return VerifiedPassword(hardwareWrapped, store, store.recordSuccess(state))
+        } finally {
+            Arrays.fill(kSw, 0)
         }
     }
 
