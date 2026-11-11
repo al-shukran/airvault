@@ -2,6 +2,7 @@ package app.lensly.core.vault
 
 import java.io.File
 import java.nio.ByteBuffer
+import java.security.GeneralSecurityException
 import javax.crypto.Mac
 import javax.crypto.SecretKey
 import kotlinx.coroutines.runBlocking
@@ -111,6 +112,26 @@ class VaultRollbackTest {
         assertRejected(attempt(APP))
         clock.advance(1)
         unlocked(attempt(APP)).close()
+    }
+
+    @Test
+    fun aCorrectPasswordUnlocksWhenTheKeystoreWillNotMakeANewDelayStateKey() {
+        createVault()
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        assertRejected(attempt(WRONG))
+        // Past the 10 s wait, so the next attempt is checked.
+        clock.advance(FailureDelay.LEARNING_CAP_MS)
+
+        // From here the Keystore refuses to make the key that a reset would rotate in. The right password must still open.
+        val refusing = object : KeystoreBackend by keys {
+            override fun createFailureMacKey(seq: Long): SecretKey = throw GeneralSecurityException("no new key")
+        }
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, refusing, clock, KDF, readBootCount = { bootCount })
+
+        unlocked(attempt(APP)).close()
+        // The reset was written under the key already on disk, so the count is cleared and the state still reads.
+        assertEquals(0, vault.failureCountForTesting())
     }
 
     private fun createVault() {

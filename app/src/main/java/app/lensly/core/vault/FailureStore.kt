@@ -104,10 +104,22 @@ internal class FailureStore(
     /**
      * Clears the failure count after a passing check. The state is written even when there was nothing to clear, so a
      * passing check costs the same two writes and fsyncs as a failed one and cannot be told apart by its storage work.
+     *
+     * A Keystore that will not make the new Delay State key may never refuse a correct password. The save is tried once more,
+     * and when that fails too the reset is written under the key already on disk, with no rotation this time, so the unlock
+     * goes on. The next save that can make a key rotates it.
      */
     fun recordSuccess(previous: FailureState, clock: Clock): FailureState {
         val reset = if (previous.failures == 0) previous else previous.copy(seq = previous.seq + 1, failures = 0)
-        return save(reset, clock)
+        return try {
+            save(reset, clock)
+        } catch (e: VaultException) {
+            try {
+                save(reset, clock)
+            } catch (retry: VaultException) {
+                saveWithoutNewKey(reset, clock)
+            }
+        }
     }
 
     /**
@@ -175,6 +187,22 @@ internal class FailureStore(
         val bootCount = readBootCount()
         val elapsed = if (state.failures == 0) 0L else FailureDelay.elapsedSinceFailure(state, clock, bootCount)
         return state.copy(bootCount = bootCount, elapsedAtSave = maxOf(0L, elapsed))
+    }
+
+    /**
+     * Writes [state] under the key it already has: no new key is made and its sequence number does not change. Used when the
+     * Keystore refuses a new Delay State key at a moment when the wait must not stand in the way of a correct password.
+     */
+    private fun saveWithoutNewKey(state: FailureState, clock: Clock): FailureState {
+        dir.mkdirs()
+        val stamped = stamped(state, clock)
+        val key = keystore(STATE_UNAVAILABLE) { keys.failureMacKey(stamped.seq) }
+            ?: throw VaultException(STATE_UNAVAILABLE)
+        val bytes = encode(stamped, key)
+        writeAtomically(primary, bytes)
+        writeAtomically(backup, bytes)
+        SEQ_SEEN[seenKey] = stamped.seq
+        return stamped
     }
 
     /** The copy at [file] if it verifies under its own key, or null. A missing or unreadable file is not a copy. */
