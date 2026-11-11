@@ -1,0 +1,61 @@
+name: cache-warm
+
+# Guideline 2.3 assumes setup-gradle's Gradle user home cache is "saved on master, restored on
+# PRs". In this repo the integration base is phase-1-5, not master, and nothing ran on push to
+# either branch, so there was no base cache to restore: every new branch paid full compilation.
+# That is what broke PR #63, where the first run of test (core-registry) was cancelled by the
+# job's timeout-minutes: 3 on a cold cache, while warm runs of the same job take about 1m54s.
+#
+# This job only compiles, so it fills the cache the PR lane reads. It is not a test gate: it runs
+# no tests, and a red run here never blocks a pull request.
+#
+# Two details make the warm cache actually reachable from a PR:
+#   - setup-gradle writes cache entries only on the default branch (master) unless
+#     cache-read-only is false, so the phase-1-5 leg sets it false. Without that, this job would
+#     read and never save.
+#   - A PR run restores entries from its base branch, so the phase-1-5 leg is what serves PRs
+#     that target phase-1-5.
+on:
+  push:
+    branches: [master, phase-1-5]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-warm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          # The default is read-only on any branch that is not the repository default, which
+          # would leave phase-1-5 without a cache of its own.
+          cache-read-only: false
+
+      # Compile every variant the PR lane compiles, and nothing else. Each task was confirmed
+      # present with `./gradlew <tasks> --dry-run`. Keep this list in step with the build types
+      # in app/build.gradle.kts and the modules in settings.gradle.kts.
+      - name: Compile without tests
+        run: >
+          ./gradlew
+          :app:compileDebugKotlin
+          :app:compileDebugUnitTestKotlin
+          :app:compileDebugAndroidTestKotlin
+          :app:compileBenchmarkKotlin
+          :app:compileBenchmarkAndroidTestKotlin
+          :tools:registry-pack:testClasses
