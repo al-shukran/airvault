@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -104,6 +105,18 @@ fun TokensScreen(
 /** The icon of a chain in the filter row. */
 private val CHIP_ICON_SIZE = 20.dp
 
+/** The logo at the start of a network's group header. */
+private val HEADER_ICON_SIZE = 24.dp
+
+/** The logo at the start of a token row. */
+private val ROW_ICON_SIZE = 40.dp
+
+/**
+ * The height of a token row. Every row keeps it, so the list reads as one column whatever the length of a name or a
+ * contract address. The name is the only line that may be cut short; the symbol and the address are always shown in full.
+ */
+private val ROW_MIN_HEIGHT = 172.dp
+
 /** The header of one network's group. It stays on top while the group's tokens scroll under it. */
 @Composable
 private fun GroupHeader(chainId: Long, network: NetworkEntry?, count: Int) {
@@ -114,7 +127,7 @@ private fun GroupHeader(chainId: Long, network: NetworkEntry?, count: Int) {
             .padding(vertical = LenslySpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ChainIcon(network = network, size = 24.dp)
+        ChainIcon(network = network, size = HEADER_ICON_SIZE)
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
             text = network?.name ?: "Chain $chainId",
@@ -135,9 +148,9 @@ private fun GroupHeader(chainId: Long, network: NetworkEntry?, count: Int) {
 /** One token: its logo, symbol, name and decimals, then the full contract address in groups of four. */
 @Composable
 private fun TokenRow(token: TokenEntry, network: NetworkEntry?, modifier: Modifier) {
-    Column(modifier = modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
+    Column(modifier = modifier.fillMaxWidth().heightIn(min = ROW_MIN_HEIGHT).padding(vertical = LenslySpacing.md)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TokenIcon(token = token, size = 40.dp, chain = network)
+            TokenIcon(token = token, size = ROW_ICON_SIZE, chain = network)
             Spacer(Modifier.width(LenslySpacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
