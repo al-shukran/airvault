@@ -252,7 +252,6 @@ class Vault internal constructor(
             check(!layout.exists()) { "A vault already exists. Call wipe() before creating another." }
 
             val hardwareKey = keystoreOrNull { keys.createHardwareKey() } ?: return CreateResult.DeviceUnsupported
-            val macKey = keystoreOrNull { keys.createFailureMacKey() } ?: return CreateResult.DeviceUnsupported
             val securityLevel = keystoreOrNull { keys.securityLevel(hardwareKey) } ?: UNKNOWN_SECURITY_LEVEL
             val verdict = KeystorePolicy.verdict(
                 hardwareBacked = VaultKeystore.isHardwareBacked(securityLevel),
@@ -273,7 +272,7 @@ class Vault internal constructor(
                     val realSlot = sealSlot(softKey, hardwareKey, vaultKey, VaultRole.REAL)
                     val decoySlot = VaultKeyFile.randomSlot(random)
                     layout.root.mkdirs()
-                    FailureStore(layout.root, macKey).initialize(clock)
+                    if (!createFailureState()) return CreateResult.DeviceUnsupported
                     writeAtomically(layout.vaultKey, VaultKeyFile.encode(listOf(realSlot, decoySlot), random))
                     // The header goes last. Its presence is what makes exists() true, so a crash earlier leaves no vault.
                     val header = VaultHeader(
@@ -767,7 +766,18 @@ class Vault internal constructor(
         }
     }
 
-    private fun failureStore(): FailureStore = FailureStore(layout.root, keys.failureMacKey())
+    private fun failureStore(): FailureStore = FailureStore(layout.root, keys)
+
+    /**
+     * Starts the Failure Delay state. Its first Keystore key is made here, so a device whose Keystore refuses it gets no vault.
+     * Returns false in that case.
+     */
+    private fun createFailureState(): Boolean = try {
+        failureStore().initialize(clock)
+        true
+    } catch (e: VaultException) {
+        false
+    }
 
     private companion object {
         const val KEY_BYTES = VaultKeyFile.KEY_BYTES
@@ -782,15 +792,19 @@ class Vault internal constructor(
         } catch (e: ProviderException) {
             null
         }
-
-        inline fun <T> keystore(message: String, block: () -> T): T = try {
-            block()
-        } catch (e: GeneralSecurityException) {
-            throw VaultException(message, e)
-        } catch (e: ProviderException) {
-            throw VaultException(message, e)
-        }
     }
+}
+
+/**
+ * Runs a Keystore call. The Keystore's own errors become a [VaultException] with [message], so the app treats them as damage
+ * and never as a crash.
+ */
+internal inline fun <T> keystore(message: String, block: () -> T): T = try {
+    block()
+} catch (e: GeneralSecurityException) {
+    throw VaultException(message, e)
+} catch (e: ProviderException) {
+    throw VaultException(message, e)
 }
 
 /**

@@ -74,18 +74,21 @@ internal class FailureDelay(
         private const val MAX_EXPONENT = 40
 
         /**
-         * Milliseconds elapsed since the failure recorded in [state].
+         * Milliseconds elapsed since the failure recorded in [state]. It is never more than the real time that has passed, so
+         * the wait ends only after the delay has really run.
          *
-         * Within one boot the monotonic clock is used, and it cannot be moved by changing the wall clock.
-         * The result is the smaller of the monotonic and wall readings, so a wall clock moved forward
-         * cannot shorten the delay. After a reboot the monotonic clock has restarted, so only the wall
-         * clock is available. A negative result means the wall clock moved backwards, which
-         * [FailureStore] treats as tampering.
+         * Within one boot the result is the smaller of the monotonic and wall readings, so a wall clock moved forward cannot
+         * shorten the delay. The monotonic clock goes back only at a reboot. After one, the wait restarts from boot: the result
+         * is the monotonic reading, and the wall clock is not used, because the user can change it. A negative result means the
+         * wall clock moved backwards, which [FailureStore] treats as tampering.
+         *
+         * The boot count is deliberately not used. It sits in the Settings database, which a root user or a flash edit can
+         * change. A changed count with no reboot would make the time since boot look longer than the real time since the failure.
          */
         fun elapsedSinceFailure(state: FailureState, clock: Clock): Long {
-            val wallElapsed = clock.wallMillis() - state.lastFailureWallMs
             val monotonicNow = clock.elapsedMillis()
-            if (monotonicNow < state.lastFailureElapsedMs) return wallElapsed
+            if (monotonicNow < state.lastFailureElapsedMs) return monotonicNow
+            val wallElapsed = clock.wallMillis() - state.lastFailureWallMs
             return minOf(monotonicNow - state.lastFailureElapsedMs, wallElapsed)
         }
     }
