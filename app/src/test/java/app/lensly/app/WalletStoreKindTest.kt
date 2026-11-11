@@ -131,6 +131,40 @@ class WalletStoreKindTest {
         )
     }
 
+    @Test
+    fun anAccountOfAMnemonicWalletIsTheAddressOfItsIndex() {
+        val wallet = HdWallet(Mnemonic.toSeed(words))
+        val id = store.create(name = "Seed", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        store.addAccount(id)
+
+        assertEquals("0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb", store.accountAddress(id, 0))
+        assertEquals(wallet.address(1), store.accountAddress(id, 1))
+    }
+
+    @Test
+    fun anAccountOfALegacyMnemonicWalletIsTheAddressOfItsIndex() {
+        val wallet = HdWallet(Mnemonic.toSeed(words))
+        val id = writeLegacyMnemonicWallet(accountCount = 2)
+
+        assertEquals(wallet.address(1), store.accountAddress(id, 1))
+    }
+
+    @Test
+    fun anAccountTheWalletDoesNotHaveHasNoAddress() {
+        val id = store.create(name = "Seed", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+
+        assertFailsWith<IllegalArgumentException> { store.accountAddress(id, 1) }
+        assertFailsWith<IllegalArgumentException> { store.accountAddress(id, -1) }
+    }
+
+    @Test
+    fun theOnlyAccountOfASingleKeyIsTheAddressOfItsKey() {
+        val id = newSingleKey()
+
+        assertEquals(KEY_ADDRESS, store.accountAddress(id, 0))
+        assertFailsWith<IllegalArgumentException> { store.accountAddress(id, 1) }
+    }
+
     /** Writes a wallet in the version 1 records, as a vault from before kinds holds it. */
     private fun writeLegacyMnemonicWallet(accountCount: Int): String {
         val wallet = HdWallet(Mnemonic.toSeed(words))
