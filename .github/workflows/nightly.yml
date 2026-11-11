@@ -232,7 +232,10 @@ jobs:
           api-level: 34
           arch: x86_64
           disable-animations: true
-          script: ./gradlew :app:connectedBenchmarkAndroidTest
+          # Trend data, not the reference-device gate; androidx.benchmark aborts on an emulator without this.
+          script: >-
+            ./gradlew :app:connectedBenchmarkAndroidTest
+            -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
 
       - name: Confirm trend-only
         run: echo "Emulator results are trend data; the 10% gate runs on the reference device only."
