@@ -8,9 +8,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -103,39 +105,41 @@ fun WalletHomeScreen(
                 HomeHero(
                     status = statusLine(wallets),
                 )
-                Column(modifier = Modifier.padding(horizontal = WALLET_GUTTER)) {
-                    val loadedWallets = wallets.orEmpty()
-                    if (loadedWallets.isNotEmpty()) {
-                        Spacer(Modifier.height(LenslySpacing.md))
-                        ScanToSignButton(onClick = onScan)
+                val loadedWallets = wallets.orEmpty()
+                if (loadedWallets.isNotEmpty()) {
+                    Spacer(Modifier.height(LenslySpacing.md))
+                    Gutter { ScanToSignButton(onClick = onScan) }
+                }
+                if (debugNotice != null) {
+                    Spacer(Modifier.height(LenslySpacing.sm))
+                    Gutter { InlineBanner(message = debugNotice, tone = BannerTone.Warning) }
+                }
+                when {
+                    wallets == null -> Unit
+                    wallets.isEmpty() -> {
+                        Spacer(Modifier.height(LenslySpacing.lg))
+                        Gutter { HomeEmptyState(onCreate = onAdd, onRestore = onRestore) }
                     }
-                    if (debugNotice != null) {
-                        Spacer(Modifier.height(LenslySpacing.sm))
-                        InlineBanner(message = debugNotice, tone = BannerTone.Warning)
-                    }
-                    when {
-                        wallets == null -> Unit
-                        wallets.isEmpty() -> {
-                            Spacer(Modifier.height(LenslySpacing.lg))
-                            HomeEmptyState(onCreate = onAdd, onRestore = onRestore)
-                        }
-                        else -> {
-                            Spacer(Modifier.height(LenslySpacing.lg))
+                    else -> {
+                        Spacer(Modifier.height(LenslySpacing.lg))
+                        Gutter {
                             RecentActivitySection(
                                 records = records.orEmpty(),
                                 wallets = wallets,
                                 nowMs = nowMs,
                                 onSeeAll = onActivity,
                             )
-                            Spacer(Modifier.height(LenslySpacing.lg))
-                            WalletPeekSection(
-                                wallets = wallets,
-                                profiles = profiles,
-                                onOpen = onOpen,
-                                onWallets = onWallets,
-                                onLongPress = { sheetWallet = it },
-                            )
-                            Spacer(Modifier.height(LenslySpacing.lg))
+                        }
+                        Spacer(Modifier.height(LenslySpacing.lg))
+                        WalletPeekSection(
+                            wallets = wallets,
+                            profiles = profiles,
+                            onOpen = onOpen,
+                            onWallets = onWallets,
+                            onLongPress = { sheetWallet = it },
+                        )
+                        Spacer(Modifier.height(LenslySpacing.lg))
+                        Gutter {
                             ReadinessStrip(
                                 readiness = readiness,
                                 onNetworks = onNetworks,
@@ -145,8 +149,8 @@ fun WalletHomeScreen(
                             )
                         }
                     }
-                    Spacer(Modifier.height(DOCK_CLEARANCE))
                 }
+                Spacer(Modifier.height(DOCK_CLEARANCE))
             }
         }
         ActionDock(
@@ -176,6 +180,19 @@ fun WalletHomeScreen(
             onPair = onPair,
         )
     }
+}
+
+/**
+ * The screen gutter around one block of Home. The wallet carousel sits outside it, so its cards bleed to the screen edges.
+ */
+@Composable
+private fun Gutter(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = WALLET_GUTTER),
+        content = content,
+    )
 }
 
 /** The one status line under the wordmark: "Sealed · 2 wallets · 3 accounts". */

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,6 +59,7 @@ import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySuccess
 import app.lensly.ui.theme.LenslySurfaceHigh
+import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lensly.ui.wallet.WalletEyebrow
 
 /** The test tag of one recent activity row, so a test can count how many Home shows. */
@@ -172,20 +174,33 @@ internal fun WalletPeekSection(
     onOpen: (String) -> Unit,
     onWallets: () -> Unit,
     onLongPress: (WalletMeta) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    SectionHeader(title = "Wallets", action = "All wallets →", onAction = onWallets)
-    Spacer(Modifier.height(LenslySpacing.xs))
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
-        itemsIndexed(wallets, key = { _, wallet -> wallet.id }) { index, wallet ->
-            WalletCard(
-                wallet = wallet,
-                profile = profiles[wallet.id] ?: WalletProfile(),
-                position = index,
-                compact = true,
-                width = PEEK_CARD_WIDTH,
-                onClick = { onOpen(wallet.id) },
-                onLongPress = { onLongPress(wallet) },
-            )
+    Column(modifier = modifier.fillMaxWidth()) {
+        SectionHeader(
+            title = "Wallets",
+            action = "All wallets →",
+            onAction = onWallets,
+            modifier = Modifier.padding(horizontal = WALLET_GUTTER),
+        )
+        Spacer(Modifier.height(LenslySpacing.xs))
+        // The row fills the screen and carries the gutter as content padding, so the next card peeks from the true edge.
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = WALLET_GUTTER),
+            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
+        ) {
+            itemsIndexed(wallets, key = { _, wallet -> wallet.id }) { index, wallet ->
+                WalletCard(
+                    wallet = wallet,
+                    profile = profiles[wallet.id] ?: WalletProfile(),
+                    position = index,
+                    compact = true,
+                    width = PEEK_CARD_WIDTH,
+                    onClick = { onOpen(wallet.id) },
+                    onLongPress = { onLongPress(wallet) },
+                )
+            }
         }
     }
 }
@@ -238,8 +253,8 @@ private fun ReadinessChip(text: String, onClick: () -> Unit) {
 
 /** The head of a section: its title, and the quiet link that opens the screen with all of it. */
 @Composable
-private fun SectionHeader(title: String, action: String, onAction: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun SectionHeader(title: String, action: String, onAction: () -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         WalletEyebrow(title, modifier = Modifier.weight(1f))
         Text(
             text = action,
