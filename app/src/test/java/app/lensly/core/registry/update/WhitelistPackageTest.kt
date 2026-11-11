@@ -29,7 +29,7 @@ class WhitelistPackageTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private val keys = listOf(TestPackages.PUBLIC_KEY)
+    private val keys = listOf(TestPackages.PUBLIC_BYTES)
     private val baked: Registry = RegistryLoader.load { path -> File(MAIN, path).takeIf(File::isFile)?.readText() }
 
     private fun dir(): File = folder.root.resolve("registry")

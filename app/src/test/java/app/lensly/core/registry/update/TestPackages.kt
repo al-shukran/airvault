@@ -11,7 +11,7 @@ import org.bouncycastle.crypto.signers.Ed25519Signer
  */
 internal object TestPackages {
     val SEED = ByteArray(32) { (it * 3 + 7).toByte() }
-    val PUBLIC_KEY: ByteArray = Ed25519PrivateKeyParameters(SEED, 0).generatePublicKey().encoded
+    val PUBLIC_BYTES: ByteArray = Ed25519PrivateKeyParameters(SEED, 0).generatePublicKey().encoded
 
     const val LINEA_NETWORK =
         """{"chainId":4242,"explorerName":"Lineascan","feeModel":"L2_ROLLUP","name":"Linea","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false}"""
