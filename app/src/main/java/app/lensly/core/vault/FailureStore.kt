@@ -30,6 +30,7 @@ import javax.crypto.SecretKey
 internal class FailureStore(
     private val dir: File,
     private val macKey: SecretKey,
+    private val write: (File, ByteArray) -> Unit = ::writeAtomically,
 ) {
     private val primary = File(dir, PRIMARY_FILE_NAME)
     private val backup = File(dir, BACKUP_FILE_NAME)
@@ -73,10 +74,12 @@ internal class FailureStore(
         return next
     }
 
-    /** Resets the failure count after a passing check. Returns [previous] unchanged when there is nothing to reset. */
+    /**
+     * Clears the failure count after a passing check. The state is written even when there was nothing to clear, so a
+     * passing check costs the same two writes and fsyncs as a failed one and cannot be told apart by its storage work.
+     */
     fun recordSuccess(previous: FailureState): FailureState {
-        if (previous.failures == 0) return previous
-        val next = previous.copy(seq = previous.seq + 1, failures = 0)
+        val next = if (previous.failures == 0) previous else previous.copy(seq = previous.seq + 1, failures = 0)
         save(next)
         return next
     }
@@ -125,8 +128,8 @@ internal class FailureStore(
     private fun save(state: FailureState) {
         dir.mkdirs()
         val bytes = encode(state)
-        writeAtomically(primary, bytes)
-        writeAtomically(backup, bytes)
+        write(primary, bytes)
+        write(backup, bytes)
         SEQ_SEEN[seenKey] = state.seq
     }
 

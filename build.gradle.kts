@@ -22,23 +22,36 @@ buildscript {
                 "com.fasterxml.jackson:jackson-bom:2.22.3",
                 "com.fasterxml.jackson.core:jackson-core:2.22.3",
                 "com.fasterxml.jackson.core:jackson-databind:2.22.3",
-                // Alert 24: arrives at 33.6.0-jre; 33.7.2 is the first release outside the range.
-                "com.google.guava:guava:33.7.2-jre",
-                // Alerts 5, 13, 14: arrives at 1.80.2; 1.85 is the first patched line, 1.86 matches the
-                // version :app already ships so both classpaths agree.
-                "org.bouncycastle:bcprov-jdk18on:1.86",
-                "org.bouncycastle:bcpkix-jdk18on:1.86",
+                // Alert 24: arrives at 33.6.0-jre; 33.8.0 is the latest patched release.
+                "com.google.guava:guava:33.8.0-jre",
+                // Alerts 5, 13, 14: arrives at 1.80.2; 1.87 is the latest patched release.
+                "org.bouncycastle:bcprov-jdk18on:1.87",
+                "org.bouncycastle:bcpkix-jdk18on:1.87",
                 // Alert 4: arrives at 0.9.5.
                 "org.bitbucket.b_c:jose4j:0.9.6",
                 // Alert 3: arrives at 2.0.6.
                 "org.jdom:jdom2:2.0.6.1",
                 // Alerts 25, 26, 35: arrives at 1.23.1, below every fixed line (1.14.2, 1.15.3, 1.23.2).
-                "org.jsoup:jsoup:1.23.2",
+                "org.jsoup:jsoup:1.24.1",
                 // Alert 36: arrives at 20260522; 20260719 is the fixed build.
                 "org.json:json:20260719",
+                // Alerts 1 and 2: arrives below the fixed lines 4.5.13 and 3.18.0. These pinned versions are the
+                // latest patched releases, so an explicit pin keeps the classpath from dropping back.
+                "org.apache.httpcomponents:httpclient:4.5.14",
+                "org.apache.commons:commons-lang3:3.21.0",
             )
-            // Alerts 1 (httpclient <4.5.13) and 2 (commons-lang3 <3.18.0) need no pin: this classpath
-            // already resolves 4.5.14 and 3.20.0. Forcing them would only risk downgrading those.
         }
+    }
+}
+
+// Alert 27: androidx.benchmark pulls wire-runtime 6.4.0 onto the app's benchmark androidTest classpath, not
+// the shipped runtime. 6.4.5 is the first patched release; pin the latest 6.4.x patch. wire has no entry on
+// releaseRuntimeClasspath, so the app's shipped dependencies stay exactly as they are.
+subprojects {
+    configurations.configureEach {
+        resolutionStrategy.force(
+            "com.squareup.wire:wire-runtime:6.4.7",
+            "com.squareup.wire:wire-runtime-jvm:6.4.7",
+        )
     }
 }

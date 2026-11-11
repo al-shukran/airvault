@@ -1,7 +1,9 @@
 package app.lensly.core.vault
 
 import android.content.Context
+import android.os.Build
 import app.lensly.BuildConfig
+import app.lensly.ui.isEmulator
 import java.io.File
 import java.io.IOException
 import java.security.GeneralSecurityException
@@ -131,7 +133,9 @@ class Vault internal constructor(
      * answer comes from the same probe as [deviceSecurity], so it is meaningful only while no vault exists.
      */
     fun canCreate(): Boolean =
-        refusal() == null && KeystorePolicy.verdict(deviceSecurity().hardwareBacked, BuildConfig.DEBUG) != KeystoreVerdict.Refused
+        refusal() == null &&
+            KeystorePolicy.verdict(deviceSecurity().hardwareBacked, BuildConfig.DEBUG, deviceIsEmulator()) !=
+            KeystoreVerdict.Refused
 
     /**
      * Why this build may not create a vault, or null when it may. A build whose packaged manifest allows backup is refused, because
@@ -258,6 +262,17 @@ class Vault internal constructor(
     /** The failure count as currently stored. For tests only. */
     internal fun failureCountForTesting(): Int = failureStore().load(clock).failures
 
+    /**
+     * True on an emulator, through the same check the secure-window rule uses. JVM tests have no device values, so a
+     * missing one counts as a real device.
+     */
+    private fun deviceIsEmulator(): Boolean {
+        val hardware = Build.HARDWARE ?: return false
+        val product = Build.PRODUCT ?: return false
+        val fingerprint = Build.FINGERPRINT ?: return false
+        return isEmulator(hardware, product, fingerprint)
+    }
+
     private suspend fun createLocked(password: CharArray): CreateResult {
         try {
             if (backupAllowed) return CreateResult.BackupAllowed
@@ -271,6 +286,7 @@ class Vault internal constructor(
             val verdict = KeystorePolicy.verdict(
                 hardwareBacked = VaultKeystore.isHardwareBacked(securityLevel),
                 isDebugBuild = BuildConfig.DEBUG,
+                isEmulator = deviceIsEmulator(),
             )
             if (verdict == KeystoreVerdict.Refused) {
                 // Nothing else has been written yet, so the keys just made are removed and no vault is created.

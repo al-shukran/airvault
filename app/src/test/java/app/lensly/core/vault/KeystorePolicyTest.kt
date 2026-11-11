@@ -9,7 +9,7 @@ class KeystorePolicyTest {
     fun aHardwareBackedKeystoreIsAllowedInAReleaseBuild() {
         assertEquals(
             KeystoreVerdict.HardwareBacked,
-            KeystorePolicy.verdict(hardwareBacked = true, isDebugBuild = false),
+            KeystorePolicy.verdict(hardwareBacked = true, isDebugBuild = false, isEmulator = false),
         )
     }
 
@@ -17,7 +17,7 @@ class KeystorePolicyTest {
     fun aHardwareBackedKeystoreIsAllowedInADebugBuild() {
         assertEquals(
             KeystoreVerdict.HardwareBacked,
-            KeystorePolicy.verdict(hardwareBacked = true, isDebugBuild = true),
+            KeystorePolicy.verdict(hardwareBacked = true, isDebugBuild = true, isEmulator = false),
         )
     }
 
@@ -25,15 +25,31 @@ class KeystorePolicyTest {
     fun aSoftwareKeystoreIsRefusedInAReleaseBuild() {
         assertEquals(
             KeystoreVerdict.Refused,
-            KeystorePolicy.verdict(hardwareBacked = false, isDebugBuild = false),
+            KeystorePolicy.verdict(hardwareBacked = false, isDebugBuild = false, isEmulator = false),
         )
     }
 
     @Test
-    fun aSoftwareKeystoreIsAllowedOnlyInADebugBuild() {
+    fun aSoftwareKeystoreIsRefusedInAReleaseBuildOnAnEmulator() {
+        assertEquals(
+            KeystoreVerdict.Refused,
+            KeystorePolicy.verdict(hardwareBacked = false, isDebugBuild = false, isEmulator = true),
+        )
+    }
+
+    @Test
+    fun aSoftwareKeystoreIsAllowedInADebugBuildOnAnEmulator() {
         assertEquals(
             KeystoreVerdict.SoftwareInDebugOnly,
-            KeystorePolicy.verdict(hardwareBacked = false, isDebugBuild = true),
+            KeystorePolicy.verdict(hardwareBacked = false, isDebugBuild = true, isEmulator = true),
+        )
+    }
+
+    @Test
+    fun aSoftwareKeystoreIsRefusedInADebugBuildOnARealDevice() {
+        assertEquals(
+            KeystoreVerdict.Refused,
+            KeystorePolicy.verdict(hardwareBacked = false, isDebugBuild = true, isEmulator = false),
         )
     }
 }
