@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -100,6 +101,7 @@ private const val REVIEW_FRAMES = 6
 private fun ComposeContentTestRule.snapshotScrolled(
     name: String,
     label: String,
+    toggle: String? = null,
     content: @Composable () -> Unit,
 ) {
     mainClock.autoAdvance = false
@@ -126,6 +128,11 @@ private fun ComposeContentTestRule.snapshotScrolled(
     }
     // performScrollTo applies the scroll through the frame clock, so the clock must advance while it runs.
     mainClock.autoAdvance = true
+    // A folded section named by [toggle] is scrolled to and clicked open before the scroll to [label], so its contents are laid out.
+    toggle?.let {
+        onNodeWithText(it).performScrollTo().performClick()
+        waitForIdle()
+    }
     onNodeWithText(label).performScrollTo()
     waitForIdle()
     mainClock.autoAdvance = false
@@ -170,8 +177,13 @@ class SignScreenshotTest {
     }
 
     @Test
-    fun reviewWhitelistedRawCalldata() = compose.snapshotScrolled("tx_review_whitelisted_raw", "FUNCTION") {
-        // The first fact after the whitelisted block: scrolling to it leaves the Raw calldata section in view above it.
+    fun reviewWhitelistedRawCalldata() = compose.snapshotScrolled(
+        "tx_review_whitelisted_raw",
+        "FUNCTION",
+        toggle = "Raw calldata",
+    ) {
+        // The raw calldata section is opened first. The first fact after the whitelisted block is then scrolled to, which
+        // leaves the expanded words in view above it.
         TxReviewScreen(review = whitelistedSample(), onApprove = {}, onReject = {})
     }
 
