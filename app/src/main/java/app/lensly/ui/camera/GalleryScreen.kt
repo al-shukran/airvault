@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
+import app.lensly.ui.components.ErrorState
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.pressFeedback
@@ -314,15 +315,32 @@ private fun MediaViewer(
 /** Plays a saved video with the player's own controls. It starts when opened and stops when closed. */
 @Composable
 private fun VideoPlayer(file: File, modifier: Modifier = Modifier) {
-    AndroidView(
-        factory = { context ->
-            VideoView(context).apply {
-                setMediaController(MediaController(context).also { it.setAnchorView(this) })
-                setVideoURI(Uri.fromFile(file))
-                start()
-            }
-        },
-        modifier = modifier,
-        onRelease = { it.stopPlayback() },
-    )
+    // A file the player cannot decode shows the app's own error state instead of the system's "can't play" dialog.
+    var unplayable by remember(file) { mutableStateOf(false) }
+    Box(modifier, contentAlignment = Alignment.Center) {
+        if (unplayable) {
+            ErrorState(
+                icon = CameraIcons.Photos,
+                title = "Video can't be played",
+                body = "The file may be damaged, or this phone may not read its format.",
+            )
+        } else {
+            AndroidView(
+                factory = { context ->
+                    VideoView(context).apply {
+                        setMediaController(MediaController(context).also { it.setAnchorView(this) })
+                        setOnErrorListener { _, _, _ ->
+                            unplayable = true
+                            // Handled here, so the player does not show its own error dialog.
+                            true
+                        }
+                        setVideoURI(Uri.fromFile(file))
+                        start()
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+                onRelease = { it.stopPlayback() },
+            )
+        }
+    }
 }
