@@ -36,7 +36,12 @@ private const val SCREEN_TAG = "lensly-screenshot-screen"
  * Call it once per test, in one line. The frame is sized in dp so its pixel size is exact. [settleMs] advances the paused clock
  * before the capture, so an entrance animation has finished.
  */
-fun ComposeContentTestRule.snapshot(name: String, settleMs: Long = 0L, content: @Composable () -> Unit) {
+fun ComposeContentTestRule.snapshot(
+    name: String,
+    settleMs: Long = 0L,
+    beforeCapture: ComposeContentTestRule.() -> Unit = {},
+    content: @Composable () -> Unit,
+) {
     mainClock.autoAdvance = false
     setContent {
         CompositionLocalProvider(LocalDensity provides Density(SCREEN_DENSITY)) {
@@ -57,6 +62,9 @@ fun ComposeContentTestRule.snapshot(name: String, settleMs: Long = 0L, content: 
     }
     waitForIdle()
     mainClock.advanceTimeBy(settleMs)
+    waitForIdle()
+    // [beforeCapture] runs once the entrance has settled, for a step such as a scroll, and the frame is then drawn again.
+    beforeCapture()
     waitForIdle()
     onNodeWithTag(SCREEN_TAG).captureRoboImage(filePath = "$SCREENSHOT_DIR/$name.png")
 }

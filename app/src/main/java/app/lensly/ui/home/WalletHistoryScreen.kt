@@ -245,19 +245,22 @@ private fun LabelledRows(rows: List<Pair<String, String>>) {
     }
 }
 
-private fun outcomeIcon(outcome: ReviewOutcome): ImageVector = when (outcome) {
+/** The icon of an outcome, shared with the Home activity rows. */
+internal fun outcomeIcon(outcome: ReviewOutcome): ImageVector = when (outcome) {
     ReviewOutcome.SIGNED -> Icons.Filled.Check
     ReviewOutcome.REFUSED -> Icons.Filled.Warning
     ReviewOutcome.CANCELLED -> Icons.Filled.Close
 }
 
-private fun outcomeTint(outcome: ReviewOutcome): Color = when (outcome) {
+/** The colour of an outcome, shared with the Home activity rows. */
+internal fun outcomeTint(outcome: ReviewOutcome): Color = when (outcome) {
     ReviewOutcome.SIGNED -> LenslySuccess
     ReviewOutcome.REFUSED -> LenslyError
     ReviewOutcome.CANCELLED -> LenslyMuted
 }
 
-private fun outcomeLabel(outcome: ReviewOutcome): String = when (outcome) {
+/** The word for an outcome, shared with the Home activity rows. */
+internal fun outcomeLabel(outcome: ReviewOutcome): String = when (outcome) {
     ReviewOutcome.SIGNED -> "Signed"
     ReviewOutcome.REFUSED -> "Refused"
     ReviewOutcome.CANCELLED -> "Cancelled"

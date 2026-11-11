@@ -20,7 +20,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.ui.gate.UnlockScreen
+import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.WalletHomeScreen
+import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TxReviewScreen
 import app.lensly.ui.theme.LenslyTheme
@@ -111,15 +113,29 @@ class AccessibilityTest {
             LenslyTheme {
                 WalletHomeScreen(
                     wallets = listOf(meta("Seed wallet")),
+                    recent = emptyList(),
+                    readiness = HomeReadiness(
+                        networkCount = 1,
+                        tokenCount = 1,
+                        catalogSequence = null,
+                        lockout = FailureCapChoice.DEFAULT,
+                    ),
+                    nowMs = 0L,
                     onOpen = {},
                     onEdit = {},
                     onPair = {},
-                    onAdd = {},
+                    onCreate = {},
+                    onRestore = {},
+                    onScan = {},
+                    onActivity = {},
                     onWallets = {},
                     onSettings = {},
                     onLock = {},
                     onStartPairing = {},
-                    onScan = {},
+                    onNetworks = {},
+                    onTokens = {},
+                    onCatalog = {},
+                    onLockout = {},
                 )
             }
         }

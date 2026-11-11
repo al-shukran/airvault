@@ -1,10 +1,10 @@
 package app.lensly.ui.home
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.ui.navigation.HiddenRoute
+import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
@@ -24,8 +25,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Home and the Wallets list: one card per wallet up to three, the add tile, no catalog action, the See all link to the full
- * list, and the dock's Scan. The navigation tests run the same route names as the app through a real NavHost.
+ * Home and the Wallets list: one card per wallet in the Home carousel, no add tile once there is a wallet, no catalog action, All
+ * wallets to the full list, and the Scan to sign button to the scan. The navigation tests run the same route names as the app through a
+ * real NavHost.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w720dp-h1600dp-port-mdpi")
@@ -35,7 +37,8 @@ class WalletDashboardTest {
     val compose = createComposeRule()
 
     @Test
-    fun homeShowsOneCardPerWalletAndTheAddTileButNoCatalogAction() {
+    fun homeShowsOneCardPerWalletWithNoAddTileAndNoCatalogAction() {
+        compose.mainClock.autoAdvance = false
         compose.setContent {
             LenslyTheme {
                 Home(wallets = wallets(2))
@@ -44,13 +47,14 @@ class WalletDashboardTest {
         settle()
 
         compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(2)
-        compose.onNodeWithTag(ADD_WALLET_TAG).assertExists()
+        compose.onNodeWithTag(ADD_WALLET_TAG).assertDoesNotExist()
         compose.onNodeWithText("Update catalog", substring = true, ignoreCase = true).assertDoesNotExist()
     }
 
     @Test
-    fun homeShowsThreeCardsAndSeeAllOpensTheListOfEveryWallet() {
+    fun homeCarouselHoldsEveryWalletAndAllWalletsOpensTheListOfEveryWallet() {
         lateinit var nav: NavHostController
+        compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
             LenslyTheme {
@@ -72,9 +76,10 @@ class WalletDashboardTest {
             }
         }
         settle()
-        compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(3)
+        // The carousel holds all five wallets. Its cards on screen are fewer, so the row is checked by its item count.
+        assertEquals(5, compose.onNodeWithTag(HOME_CAROUSEL_TAG).fetchSemanticsNode().config[SemanticsProperties.CollectionInfo].columnCount)
 
-        compose.onNodeWithText("See all 5").performClick()
+        compose.onNodeWithText("ALL WALLETS").performClick()
         settle()
 
         assertEquals(HiddenRoute.WALLETS, nav.currentBackStackEntry?.destination?.route)
@@ -83,8 +88,9 @@ class WalletDashboardTest {
     }
 
     @Test
-    fun theDockScanNavigatesToTheScanRoute() {
+    fun theScanToSignButtonNavigatesToTheScanRoute() {
         lateinit var nav: NavHostController
+        compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
             LenslyTheme {
@@ -98,7 +104,7 @@ class WalletDashboardTest {
         }
         settle()
 
-        compose.onNodeWithContentDescription("Scan a QR code").performClick()
+        compose.onNodeWithTag(HOME_SCAN_TAG).performClick()
         settle()
 
         assertEquals("scan", nav.currentBackStackEntry?.destination?.route)
@@ -113,19 +119,33 @@ class WalletDashboardTest {
     ) {
         WalletHomeScreen(
             wallets = wallets,
+            recent = emptyList(),
+            readiness = HomeReadiness(
+                networkCount = 12,
+                tokenCount = 48,
+                catalogSequence = null,
+                lockout = FailureCapChoice.DEFAULT,
+            ),
+            nowMs = NOW_MS,
             onOpen = {},
             onEdit = {},
             onPair = {},
-            onAdd = {},
+            onCreate = {},
+            onRestore = {},
+            onScan = onScan,
+            onActivity = {},
             onWallets = onWallets,
             onSettings = {},
             onLock = {},
             onStartPairing = {},
-            onScan = onScan,
+            onNetworks = {},
+            onTokens = {},
+            onCatalog = {},
+            onLockout = {},
         )
     }
 
-    /** Lets the entrance stagger and the navigation transitions finish, so the screen is in its settled state. */
+    /** Lets the entrance and the navigation transitions finish, so the screen is in its settled state. */
     private fun settle() {
         compose.mainClock.advanceTimeBy(SETTLE_MS)
         compose.waitForIdle()
@@ -147,5 +167,6 @@ class WalletDashboardTest {
 
     private companion object {
         const val SETTLE_MS = 1_000L
+        const val NOW_MS = 1_800_000_000_000L
     }
 }
