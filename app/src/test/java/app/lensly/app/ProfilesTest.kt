@@ -43,10 +43,18 @@ class ProfilesTest {
     @Test
     fun aGeneratedIdentityStartsAtTheFirstColourAndIconAndAdvancesAfterACycleOfColours() {
         assertEquals(VisualIdentity(ProfileColour.RED, ProfileIcon.STAR), generatedIdentity(0))
-        assertEquals(
-            VisualIdentity(ProfileColour.RED, ProfileIcon.HEART),
-            generatedIdentity(ProfileColour.entries.size),
-        )
+        assertEquals(VisualIdentity(ProfileColour.RED, ProfileIcon.HEART), generatedIdentity(8))
+    }
+
+    @Test
+    fun aGeneratedIdentityIsTheOneTheFirstBuildGaveAtEveryPositionUpToTwoHundred() {
+        for (position in 0..200) {
+            val expected = VisualIdentity(
+                ProfileColour.entries[position % 8],
+                ProfileIcon.entries[(position / 8) % 12],
+            )
+            assertEquals(expected, generatedIdentity(position), "position $position")
+        }
     }
 
     @Test

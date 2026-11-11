@@ -105,17 +105,29 @@ enum class ProfileIcon(val wire: Int) {
 data class VisualIdentity(val colour: ProfileColour, val icon: ProfileIcon)
 
 /**
- * The Visual Identity generated for the entry at [position] of its list, counted from 0. Colours cycle through the palette,
- * and the icon advances once per full cycle of colours. So the first 960 positions, which is every colour with every icon,
- * all differ, and fifty entries look different at a glance.
+ * The number of colours a generated identity cycles through: the first eight of the palette. The palette has grown since the
+ * first build, but an account that was never styled must keep the look it already had, so the generated identity still uses
+ * only these. Nothing here changes when the palette grows.
+ */
+const val GENERATED_COLOURS = 8
+
+/**
+ * The number of icons a generated identity cycles through: the first twelve of the icon set. Kept for the same reason as
+ * [GENERATED_COLOURS]: an unstyled account must not change look when the icon set grows.
+ */
+const val GENERATED_ICONS = 12
+
+/**
+ * The Visual Identity generated for the entry at [position] of its list, counted from 0. Colours cycle through the first
+ * [GENERATED_COLOURS] of the palette, and the icon advances through the first [GENERATED_ICONS] once per full cycle of
+ * colours. So the first 96 positions, which is every one of those colours with every one of those icons, all differ, and
+ * fifty entries look different at a glance.
  */
 fun generatedIdentity(position: Int): VisualIdentity {
     require(position >= 0) { "A position is never negative." }
-    val colours = ProfileColour.entries
-    val icons = ProfileIcon.entries
     return VisualIdentity(
-        colour = colours[position % colours.size],
-        icon = icons[(position / colours.size) % icons.size],
+        colour = ProfileColour.entries[position % GENERATED_COLOURS],
+        icon = ProfileIcon.entries[(position / GENERATED_COLOURS) % GENERATED_ICONS],
     )
 }
 
