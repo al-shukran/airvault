@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -27,13 +28,19 @@ import app.lensly.ui.wallet.WalletStartScreen
  * screen needs the draft of a started ceremony, so a missing draft sends the owner back to the start.
  */
 internal fun NavGraphBuilder.createRoutes(navController: NavHostController) {
-    composable(HiddenRoute.CEREMONY_CHOICE) { HiddenBackdrop { CeremonyChoiceRoute(navController) } }
-    composable(HiddenRoute.DICE) { HiddenBackdrop { EntropyRoute(navController, EntropyMode.Dice) } }
-    composable(HiddenRoute.COINS) { HiddenBackdrop { EntropyRoute(navController, EntropyMode.Coins) } }
-    composable(HiddenRoute.SKIP) { HiddenBackdrop { SkipRoute(navController) } }
-    composable(HiddenRoute.RESULT) { HiddenBackdrop { ResultRoute(navController) } }
-    composable(HiddenRoute.WORDS) { HiddenBackdrop { WordsRoute(navController) } }
-    composable(HiddenRoute.CONFIRM) { HiddenBackdrop { ConfirmRoute(navController) } }
+    composable(HiddenRoute.CEREMONY_CHOICE) { entry ->
+        HiddenBackdrop { CeremonyChoiceRoute(navController, entry) }
+    }
+    composable(HiddenRoute.DICE) { entry ->
+        HiddenBackdrop { EntropyRoute(navController, EntropyMode.Dice, entry) }
+    }
+    composable(HiddenRoute.COINS) { entry ->
+        HiddenBackdrop { EntropyRoute(navController, EntropyMode.Coins, entry) }
+    }
+    composable(HiddenRoute.SKIP) { entry -> HiddenBackdrop { SkipRoute(navController, entry) } }
+    composable(HiddenRoute.RESULT) { entry -> HiddenBackdrop { ResultRoute(navController, entry) } }
+    composable(HiddenRoute.WORDS) { entry -> HiddenBackdrop { WordsRoute(navController, entry) } }
+    composable(HiddenRoute.CONFIRM) { entry -> HiddenBackdrop { ConfirmRoute(navController, entry) } }
 }
 
 /**
@@ -41,8 +48,8 @@ internal fun NavGraphBuilder.createRoutes(navController: NavHostController) {
  * one private key instead of 24 words.
  */
 @Composable
-internal fun WalletStartRoute(navController: NavHostController) {
-    val draft = draftOf(navController)
+internal fun WalletStartRoute(navController: NavHostController, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     WalletStartScreen(
         onCreate = {
             draft.startCeremony()
@@ -54,8 +61,8 @@ internal fun WalletStartRoute(navController: NavHostController) {
 }
 
 @Composable
-private fun CeremonyChoiceRoute(navController: NavHostController) {
-    val draft = draftOf(navController)
+private fun CeremonyChoiceRoute(navController: NavHostController, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.commitmentHex.isNotEmpty())
     CeremonyChoiceScreen(
         commitmentHex = draft.commitmentHex,
@@ -70,8 +77,8 @@ private fun CeremonyChoiceRoute(navController: NavHostController) {
  * string is the mixer input, whatever its length.
  */
 @Composable
-private fun EntropyRoute(navController: NavHostController, mode: EntropyMode) {
-    val draft = draftOf(navController)
+private fun EntropyRoute(navController: NavHostController, mode: EntropyMode, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.commitmentHex.isNotEmpty())
     val minimum = EntropyTargets.minimumFor(mode)
     val fullStrength = EntropyTargets.fullStrengthFor(mode)
@@ -95,8 +102,8 @@ private fun EntropyRoute(navController: NavHostController, mode: EntropyMode) {
 }
 
 @Composable
-private fun SkipRoute(navController: NavHostController) {
-    val draft = draftOf(navController)
+private fun SkipRoute(navController: NavHostController, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.commitmentHex.isNotEmpty())
     SkipWarningScreen(
         onConfirm = {
@@ -110,8 +117,8 @@ private fun SkipRoute(navController: NavHostController) {
 }
 
 @Composable
-private fun ResultRoute(navController: NavHostController) {
-    val draft = draftOf(navController)
+private fun ResultRoute(navController: NavHostController, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.mixedHashHex.isNotEmpty())
     CeremonyResultScreen(
         commitmentHex = draft.commitmentHex,
@@ -122,8 +129,8 @@ private fun ResultRoute(navController: NavHostController) {
 }
 
 @Composable
-private fun WordsRoute(navController: NavHostController) {
-    val draft = draftOf(navController)
+private fun WordsRoute(navController: NavHostController, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.words.isNotEmpty())
     MnemonicDisplayScreen(
         words = draft.words,
@@ -136,8 +143,8 @@ private fun WordsRoute(navController: NavHostController) {
  * every question moves on to the passphrase.
  */
 @Composable
-private fun ConfirmRoute(navController: NavHostController) {
-    val draft: WalletDraft = draftOf(navController)
+private fun ConfirmRoute(navController: NavHostController, entry: NavBackStackEntry) {
+    val draft: WalletDraft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.words.size == Mnemonic.WORD_COUNT)
     if (draft.words.size != Mnemonic.WORD_COUNT) return
 
