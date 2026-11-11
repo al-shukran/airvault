@@ -4,12 +4,10 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.wallet.AccountAddresses
-import app.lensly.core.wallet.AccountXpub
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import com.sparrowwallet.hummingbird.registry.CryptoHDKey
 import com.sparrowwallet.hummingbird.registry.pathcomponent.IndexPathComponent
-import java.nio.ByteBuffer
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -62,17 +60,6 @@ class AccountExportTest {
     }
 
     @Test
-    fun aMnemonicCodeIsThePairingCodeOfTheAccountKey() {
-        val view = AccountExport.view(artMeta, 0, artWallet.address(0))
-
-        assertEquals(
-            PairingExport.urParts(artWallet.accountXpub(), artWallet.masterFingerprint, "Seed wallet"),
-            view.parts,
-        )
-        assertEquals(artWallet.address(0), view.address)
-    }
-
-    @Test
     fun theDerivationPathIsTheExternalChainOfTheAccount() {
         assertEquals("m/44'/60'/0'/0/0", AccountExport.derivationPath(0))
         assertEquals("m/44'/60'/0'/0/3", AccountExport.derivationPath(3))
@@ -89,13 +76,13 @@ class AccountExportTest {
         val fields = view.fields.toMap()
 
         assertEquals(
-            listOf("Derivation path", "Origin path", "Account public key", "Chain code", "Parent fingerprint", "Master fingerprint"),
+            listOf("Derivation path", "Depth", "Public key", "Chain code", "Parent fingerprint", "Master fingerprint"),
             view.fields.map { it.first },
         )
         assertEquals("m/44'/60'/0'/0/3", fields.getValue("Derivation path"))
-        assertEquals("m/44'/60'/0'", fields.getValue("Origin path"))
+        assertEquals("5", fields.getValue("Depth"))
         // 33 bytes and 32 bytes in hex, and 4 bytes of fingerprint: nothing is cut short.
-        assertEquals(66, fields.getValue("Account public key").length)
+        assertEquals(66, fields.getValue("Public key").length)
         assertEquals(64, fields.getValue("Chain code").length)
         assertEquals(8, fields.getValue("Parent fingerprint").length)
         assertEquals(artWallet.masterFingerprintHex, fields.getValue("Master fingerprint"))
@@ -121,37 +108,33 @@ class AccountExportTest {
     }
 
     /**
-     * Round trip: the code is scanned and decoded again. The key it carries must be the account key that web3j derives from the seed
-     * along m/44'/60'/0', with its chain code and both fingerprints, and the addresses that key derives by public derivation must
-     * equal the addresses web3j derives along the shown paths.
+     * Round trip, for accounts 0 and 3: the code is scanned and decoded again. The key it carries must be the key that web3j derives
+     * from the seed along m/44'/60'/0'/0/[index], with its chain code, its origin path and depth, the master fingerprint, and the
+     * fingerprint of m/44'/60'/0'/0 as its parent. The address of that private key must be the address shown.
      */
     @Test
-    fun theAccountKeyInTheCodeDerivesEveryShownAddress() {
-        val key = decodeKey(AccountExport.view(artMeta, 0, artWallet.address(0)).parts)
-
+    fun theCodeOfEachAccountDecodesToItsOwnAddressKey() {
         val master = Bip32ECKeyPair.generateKeyPair(Mnemonic.toSeed(artMnemonic))
-        val coin = Bip32ECKeyPair.deriveKeyPair(master, pathComponents("m/44'/60'"))
-        val account = Bip32ECKeyPair.deriveKeyPair(master, pathComponents("m/44'/60'/0'"))
-        assertContentEquals(account.publicKeyPoint.getEncoded(true), key.key)
-        assertContentEquals(account.chainCode, key.chainCode)
-        assertContentEquals(hash160Prefix(coin.publicKeyPoint.getEncoded(true)), key.parentFingerprint)
-        assertContentEquals(hash160Prefix(master.publicKeyPoint.getEncoded(true)), key.origin.sourceFingerprint)
-        assertEquals(listOf(44, 60, 0), key.origin.components.map { (it as IndexPathComponent).index })
+        val external = Bip32ECKeyPair.deriveKeyPair(master, pathComponents("m/44'/60'/0'/0"))
+        for (index in listOf(0, 3)) {
+            val view = AccountExport.view(artMeta, index, artWallet.address(index))
+            val key = decodeKey(view.parts)
+            val child = Bip32ECKeyPair.deriveKeyPair(master, pathComponents(AccountExport.derivationPath(index)))
 
-        val xpub = AccountXpub(
-            publicKey = key.key,
-            chainCode = key.chainCode,
-            parentFingerprint = ByteBuffer.wrap(key.parentFingerprint).int,
-        )
-        for (index in 0..4) {
-            val child = Bip32ECKeyPair.deriveKeyPair(account, intArrayOf(0, index))
+            assertContentEquals(child.publicKeyPoint.getEncoded(true), key.key, "index $index")
+            assertContentEquals(child.chainCode, key.chainCode, "index $index")
+            assertContentEquals(hash160Prefix(external.publicKeyPoint.getEncoded(true)), key.parentFingerprint, "index $index")
+            assertContentEquals(hash160Prefix(master.publicKeyPoint.getEncoded(true)), key.origin.sourceFingerprint, "index $index")
+            assertEquals(5, key.origin.depth, "index $index")
+            assertEquals(listOf(44, 60, 0, 0, index), key.origin.components.map { (it as IndexPathComponent).index })
+            assertEquals(
+                listOf(true, true, true, false, false),
+                key.origin.components.map { (it as IndexPathComponent).isHardened },
+            )
+
             val privateKey = Numeric.toBytesPadded(child.privateKey, PRIVATE_KEY_BYTES)
             try {
-                assertEquals(
-                    AccountAddresses.addressOfPrivateKey(privateKey),
-                    AccountAddresses.addressAt(xpub, index),
-                    "index $index",
-                )
+                assertEquals(view.address, AccountAddresses.addressOfPrivateKey(privateKey), "index $index")
             } finally {
                 privateKey.fill(0)
             }

@@ -77,8 +77,8 @@ class FlowScreenshotTest {
                     parts = listOf(SAMPLE_UR),
                     fields = listOf(
                         "Derivation path" to "m/44'/60'/0'/0/0",
-                        "Origin path" to "m/44'/60'/0'",
-                        "Account public key" to "02eae4b876a8696134b868f88cc2f51f715f2dbedb7446b8e6edf3d4541c4eb67b",
+                        "Depth" to "5",
+                        "Public key" to "02eae4b876a8696134b868f88cc2f51f715f2dbedb7446b8e6edf3d4541c4eb67b",
                         "Chain code" to "d882718b7a42806803eeb17f7483f20620611adb88fc943c898dc5aba94c2819",
                         "Parent fingerprint" to "d32e4508",
                         "Master fingerprint" to "e9181cf3",
