@@ -197,7 +197,7 @@ private fun SettingsRow(
 
 /**
  * The Bulk Cap: one pill per cap the owner may select, the saved one filled. Until the saved cap is read the pills are
- * off. Chunked runs are not offered yet.
+ * off.
  */
 @Composable
 private fun BulkCapItem(bulkCap: BulkCap?, onBulkCap: (BulkCap) -> Unit) {
@@ -230,15 +230,13 @@ private fun BulkCapItem(bulkCap: BulkCap?, onBulkCap: (BulkCap) -> Unit) {
                     )
                 }
             }
-            Text(
-                text = if (bulkCap == null) {
-                    "Reading the saved cap…"
-                } else {
-                    "Chunked runs of 100 at a time are not available yet."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (bulkCap == null) {
+                Text(
+                    text = "Reading the saved cap…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

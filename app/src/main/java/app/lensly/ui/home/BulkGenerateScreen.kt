@@ -99,10 +99,10 @@ fun BulkGenerateScreen(
         Spacer(Modifier.height(LenslySpacing.xs))
         DotText(text = digits.ifEmpty { "—" }, fontSize = 48.sp)
         Spacer(Modifier.height(LenslySpacing.xxs))
-        WalletEyebrow("Accounts, up to ${cap.label} per run")
+        WalletEyebrow("Up to ${cap.label} per run · change in Settings")
         Spacer(Modifier.height(LenslySpacing.md))
         Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-            for (preset in BulkPolicy.PRESETS) {
+            for (preset in BulkPolicy.presetsFor(cap.accounts)) {
                 WalletPill(
                     text = preset.toString(),
                     onClick = { onPreset(preset) },
