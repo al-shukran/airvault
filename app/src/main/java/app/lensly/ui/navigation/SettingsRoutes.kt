@@ -20,6 +20,7 @@ import app.lensly.app.AppSettings
 import app.lensly.app.RegistryHolder
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
+import app.lensly.app.entryGestureHolder
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.PasswordPolicy
 import app.lensly.core.vault.PolicyReason
@@ -45,6 +46,7 @@ internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, ho
     composable(HiddenRoute.CHANGE_PASSWORD) { HiddenBackdrop { ChangePasswordRoute(navController, holder) } }
     composable(HiddenRoute.FAILURE_CAP) { HiddenBackdrop { FailureCapRoute(navController, holder) } }
     composable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
+    entryGestureRoutes(navController, holder)
 }
 
 /**
@@ -56,6 +58,7 @@ internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, ho
 private fun SettingsRoute(navController: NavHostController, holder: VaultHolder) {
     val session = rememberOpenSession(navController, holder) ?: return
     val context = LocalContext.current
+    val entryGestures = context.entryGestureHolder()
     val scope = rememberCoroutineScope()
     var settings by remember { mutableStateOf<AppSettings?>(null) }
     var catalog by remember { mutableStateOf<CatalogCounts?>(null) }
@@ -88,6 +91,8 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
             }
         },
         onChangePassword = { navController.navigate(HiddenRoute.CHANGE_PASSWORD) },
+        entryGesture = entryGestures.current,
+        onEntryGesture = { navController.navigate(HiddenRoute.ENTRY_GESTURE) },
         failureDelayCap = failureCap,
         onFailureDelayCap = { navController.navigate(HiddenRoute.FAILURE_CAP) },
         catalog = catalog,

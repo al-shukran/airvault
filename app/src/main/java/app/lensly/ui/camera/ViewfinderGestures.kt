@@ -4,25 +4,23 @@ import android.os.SystemClock
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputScope
 import kotlin.math.abs
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Pointer handling for the viewfinder.
+ * Pointer handling for a viewfinder screen, the camera or the practice pad. Each touch is classified by where it starts.
  *
- * - A single-finger tap calls [onFocus] with the touch position.
- * - A two-finger pinch calls [onZoom] with the span scale since the last event.
- * - Every touch is also fed to [detector] for the hidden entry gesture, which is never shown.
+ * - A single-finger tap on the viewfinder calls [onFocus] with the touch position.
+ * - A two-finger pinch on the viewfinder calls [onZoom] with the span scale since the last event.
+ * - The chosen gesture of [touch] sees the touches that start in its own region, and no others.
  *
- * Only touches that start inside [viewfinderBounds] count, so the controls keep their own clicks.
- * Nothing is consumed here.
+ * Nothing is consumed here, so the controls keep their own clicks. [onHiddenEntry] runs once for each completed gesture.
  */
-internal suspend fun PointerInputScope.detectViewfinderGestures(
-    detector: HiddenGestureDetector,
-    viewfinderBounds: () -> Rect?,
+internal suspend fun PointerInputScope.detectEntryGestures(
+    touch: EntryTouch,
+    zoomRatio: () -> Float,
     onFocus: (Offset) -> Unit,
     onZoom: (scale: Float) -> Unit,
     onHiddenEntry: () -> Unit,
@@ -30,7 +28,10 @@ internal suspend fun PointerInputScope.detectViewfinderGestures(
     val slop = viewConfiguration.touchSlop
     awaitEachGesture {
         val first = awaitFirstDown(requireUnconsumed = false)
-        val active = viewfinderBounds()?.contains(first.position) == true
+        val region = touch.regionOf(first.position)
+        val inViewfinder = region == EntryRegion.VIEWFINDER
+        val active = region == touch.gesture.region
+        val downTime = first.uptimeMillis
         val downAt = HashMap<PointerId, Offset>()
         downAt[first.id] = first.position
         var pressed = 1
@@ -39,18 +40,21 @@ internal suspend fun PointerInputScope.detectViewfinderGestures(
         var pinching = false
         var startSpan = -1f
         var lastSpan = -1f
-        if (active) detector.onDown(1, first.uptimeMillis)
+        touch.touchStarted(region, first.position, downTime)
 
         while (true) {
             // While a hold is in progress, wake up when it completes even if no finger moves.
-            val holdEndsAt = if (active) detector.holdCompleteAtMs else null
-            val event = if (holdEndsAt == null) {
+            val wakeAt = if (active) touch.wakeAtMs() else null
+            val event = if (wakeAt == null) {
                 awaitPointerEvent()
             } else {
-                withTimeoutOrNull(holdEndsAt - SystemClock.uptimeMillis()) { awaitPointerEvent() }
+                withTimeoutOrNull(wakeAt - SystemClock.uptimeMillis()) { awaitPointerEvent() }
             }
             if (event == null) {
-                if (detector.onTick(SystemClock.uptimeMillis())) onHiddenEntry()
+                if (active && touch.tick(SystemClock.uptimeMillis())) {
+                    touch.completed()
+                    onHiddenEntry()
+                }
                 continue
             }
 
@@ -58,23 +62,25 @@ internal suspend fun PointerInputScope.detectViewfinderGestures(
             val down = event.changes.filter { it.pressed }
             down.forEach { change -> downAt.getOrPut(change.id) { change.position } }
             val count = down.size
-
-            if (active) {
-                val completed = when {
-                    count > pressed -> detector.onDown(count, time)
-                    count < pressed -> detector.onUp(count, time)
-                    else -> false
-                }
-                if (completed) onHiddenEntry()
+            if (!moved) {
+                moved = down.any { change -> (change.position - downAt.getValue(change.id)).getDistance() > slop }
             }
-            pressed = count
             peak = maxOf(peak, count)
 
-            if (!moved) {
-                moved = down.any { change ->
-                    (change.position - downAt.getValue(change.id)).getDistance() > slop
-                }
+            var completed = false
+            if (active) {
+                val frame = TouchFrame(
+                    count = count,
+                    pressed = pressed,
+                    position = down.firstOrNull()?.position,
+                    timeMs = time,
+                    moved = moved,
+                    peak = peak,
+                    contactMs = time - downTime,
+                )
+                completed = touch.activeEvent(frame)
             }
+            pressed = count
 
             if (count >= 2) {
                 val span = (down[0].position - down[1].position).getDistance()
@@ -82,21 +88,27 @@ internal suspend fun PointerInputScope.detectViewfinderGestures(
                     startSpan = span
                 } else if (!pinching && abs(span - startSpan) > slop) {
                     pinching = true
+                    if (inViewfinder) touch.pinchStarted()
                 }
                 if (pinching) {
                     moved = true
-                    if (active && lastSpan > 0f && span > 0f) onZoom(span / lastSpan)
+                    if (inViewfinder && lastSpan > 0f && span > 0f) onZoom(span / lastSpan)
                 }
-                if (moved && active) detector.cancel()
+                if (moved && active) touch.cancelGesture()
                 lastSpan = span
             } else {
+                if (pinching && inViewfinder) touch.pinchEnded(zoomRatio(), time)
                 startSpan = -1f
                 lastSpan = -1f
                 pinching = false
             }
 
+            if (completed) {
+                touch.completed()
+                onHiddenEntry()
+            }
             if (count == 0) {
-                if (active && peak == 1 && !moved) onFocus(first.position)
+                if (inViewfinder && peak == 1 && !moved) onFocus(first.position)
                 break
             }
         }
