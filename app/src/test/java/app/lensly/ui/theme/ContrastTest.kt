@@ -19,8 +19,10 @@ import org.junit.Test
  * - `LenslyAccent` as small text on `LenslyBlack` (4.05:1) and on `LenslySurfaceContainer` (3.22:1): the brand red is a
  *   fill colour. `WalletWarningChip` and `WalletError` use `LenslyWarning` and `LenslyError` for text instead. This is
  *   the pair the test was written for.
- * - `LenslyOutline` on `LenslyBlack` (1.85:1) and on `LenslySurface` (1.62:1): separators and the outlined pill border.
- *   Known gap: a separator is decorative, and the pill also carries a label. Tracked outside this gate.
+ * - `LenslyOutline` on `LenslyBlack` (1.85:1) and on `LenslySurface` (1.62:1): decorative only. It draws separators,
+ *   framed word slots, and the outline on labelled pills and buttons, where the label carries the identity of the
+ *   control. It is never the boundary of a control on its own. Every interactive boundary uses
+ *   `LenslyOutlineInteractive`, which is checked below at 3:1.
  * - `LenslyMuted` on `LenslySurfaceHigh` (4.40:1) and on `LenslySurfaceHighest` (3.71:1): muted text is never drawn on
  *   the raised fills. Keys and pills there use `LenslyOnSurface`.
  * - `LenslyError` on `LenslySurfaceHighest` (4.35:1): the highest surface is only a dot fill, never behind error text.
@@ -94,6 +96,13 @@ class ContrastTest {
         // UI component boundaries and icons.
         Pair(LenslyAccent, LenslyBlack, largeTextOrUi, "accent fill against the page"),
         Pair(LenslyWarning, LenslyBlack, largeTextOrUi, "warning chip border and icon"),
+
+        // Interactive component boundaries: the password rule, the restore and name field borders, the copied
+        // checkbox, and the empty gallery button. The container row is the fill the bordered fields sit on, so the
+        // border has to stand out from its own inside as well as from the page.
+        Pair(LenslyOutlineInteractive, LenslyBlack, largeTextOrUi, "text field and checkbox boundary on the page"),
+        Pair(LenslyOutlineInteractive, LenslySurface, largeTextOrUi, "field boundary in a card or dialog"),
+        Pair(LenslyOutlineInteractive, LenslySurfaceContainer, largeTextOrUi, "field boundary against the field fill"),
 
         // InlineBanner: tone text on a 12% tone strip, and the body text on the same strip.
         Pair(LenslyWarning, LenslyWarning.tint(0.12f), bodyText, "warning banner title on its strip"),
