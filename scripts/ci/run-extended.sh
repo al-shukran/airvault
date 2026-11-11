@@ -5,17 +5,17 @@
 #   instrumented       1.3  :app:connectedDebugAndroidTest
 #   e2e                1.6  :app:connectedDebugAndroidTest -P...class=app.lensly.e2e.WalletSignFlowTest
 #   screenshot-testing 1.5  :app:verifyRoborazziDebug
-#   perf               1.7  :app:connectedBenchmarkAndroidTest
+#   perf               1.7  :app:connectedBenchmarkAndroidTest (reference device, self-hosted runner)
 #   security           1.8  :app:lintDebug then check-manifest.sh
-#   fuzz               1.8  :app:testDebugUnitTest replayed against the fuzz targets
+#   fuzz               1.8  scripts/ci/fuzz-nightly.sh --seconds 60 (real fuzzing, all four targets)
 #
 # Layers that have not landed yet print "not configured yet" and exit 0, so the script is
 # usable locally before those stages exist. With CI=true the same case exits 1, so a
 # scheduled or comment-triggered run can never pass by silently skipping.
 #
-# Not wired here: the nightly Jazzer run (15 min per target) and gitleaks; those arrive with
-# their own stages (checklist 4 and 7). OWASP dependencyCheckAnalyze is deliberately absent too:
-# guideline 1.8 keeps it nightly, and the nightly workflow already runs it.
+# Not wired here: the nightly Jazzer run (15 min per target, scripts/ci/fuzz-nightly.sh) and
+# gitleaks; the nightly workflow runs fuzzing as its own job. OWASP dependencyCheckAnalyze is
+# deliberately absent too: guideline 1.8 keeps it nightly, and the nightly workflow runs it.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -67,6 +67,8 @@ case "$kind" in
     perf)
         grep -q 'benchmark' "$ROOT/app/build.gradle.kts" ||
             not_configured "benchmark build type and :app:connectedBenchmarkAndroidTest (guideline 1.7)"
+        # Runs on the self-hosted reference device (comment-run.yml), so no emulator suppression is needed
+        # and the numbers can be judged against the committed baseline.
         ./gradlew :app:connectedBenchmarkAndroidTest
         # Macrobenchmarks live in their own com.android.test module: they launch the installed app instead of running
         # inside it. Same device, same benchmark variant, so they run in the same pass.
@@ -75,12 +77,12 @@ case "$kind" in
         else
             echo "run-extended: no benchmark module, skipping the macrobenchmark (guideline 1.7)" >&2
         fi
-        # AGP's result path moves between versions, so the caller names the result file. Without it the gate is not
-        # run here; the nightly job passes BENCHMARK_RESULT after pulling the JSON off the device.
+        # AGP's result path moves between versions, so the caller names the result file. The runner is the
+        # reference device, so the gate judges it; without a result file the gate makes no verdict.
         if [ -n "${BENCHMARK_RESULT:-}" ]; then
-            "$ROOT/scripts/ci/benchmark-gate.sh" "$BENCHMARK_RESULT"
+            "$ROOT/scripts/ci/benchmark-gate.sh" --reference-device "$BENCHMARK_RESULT"
         else
-            echo "run-extended: set BENCHMARK_RESULT=<benchmarkData.json> to compare against the reference baseline" >&2
+            echo "run-extended: set BENCHMARK_RESULT=<benchmarkData.json> to compare this run against the baseline" >&2
         fi
         ;;
     security)
@@ -91,7 +93,8 @@ case "$kind" in
         targets="$(find "$ROOT/app/src/test/java" -name '*Fuzz*.kt' 2>/dev/null || true)"
         [ -n "$targets" ] ||
             not_configured "Jazzer fuzz targets under app/src/test (guideline 1.8)"
-        ./gradlew :app:testDebugUnitTest --tests 'app.lensly.*Fuzz*'
+        # Real fuzzing, not a seed replay: 60 seconds per target through the same script the nightly run uses.
+        "$ROOT/scripts/ci/fuzz-nightly.sh" --seconds 60
         ;;
     *)
         echo "run-extended: unknown kind: $kind" >&2

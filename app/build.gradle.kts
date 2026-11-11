@@ -144,6 +144,15 @@ tasks.withType<Test>().configureEach {
     if (prLane) {
         filter { excludeTestsMatching("app.lensly.ui.screenshot.*") }
     }
+    // Jazzer's JUnit integration reads extra libFuzzer flags from JUnit configuration parameters named
+    // jazzer.internal.arg.<n>, and JUnit sources those from system properties. Element 0 is the libFuzzer
+    // argv[0], so the flag goes at index 1. Jazzer appends these after the @FuzzTest duration, so the
+    // shorter cap wins. scripts/ci/run-extended.sh passes -PfuzzMaxSeconds=60 for /run-fuzz; the nightly
+    // run leaves it unset and keeps the 15m annotation.
+    providers.gradleProperty("fuzzMaxSeconds").orNull?.let { seconds ->
+        systemProperty("jazzer.internal.arg.0", "fake_argv0")
+        systemProperty("jazzer.internal.arg.1", "-max_total_time=$seconds")
+    }
 }
 
 dependencies {

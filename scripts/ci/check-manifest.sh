@@ -10,10 +10,10 @@ cd "$ROOT"
 
 MERGED="$ROOT/app/build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml"
 
-if [ ! -f "$MERGED" ]; then
-    echo "check-manifest: merged manifest absent; running :app:processDebugMainManifest"
-    ./gradlew :app:processDebugMainManifest
-fi
+# Always run the task: reusing whatever intermediate happens to be in app/build can check a
+# manifest built from older inputs and pass a change it never saw.
+echo "check-manifest: building the merged debug manifest"
+./gradlew :app:processDebugMainManifest
 
 if [ ! -f "$MERGED" ]; then
     # AGP has moved this intermediate before; fall back to a search instead of guessing again.

@@ -14,6 +14,7 @@ usage: scripts/ci/run-partition.sh <partition>
 partitions:
   core-wallet    :app:testDebugUnitTest --tests 'app.lensly.core.wallet.*'
   core-ur-evm    :app:testDebugUnitTest --tests 'app.lensly.core.ur.*' --tests 'app.lensly.core.evm.*'
+                 (plus app.lensly.fuzz.*: the fuzz targets cover UR/CBOR, eth-sign and RLP)
   core-parse     :app:testDebugUnitTest --tests 'app.lensly.core.parse.*'
   core-vault     :app:testDebugUnitTest --tests 'app.lensly.core.vault.*'
   core-registry  :app:testDebugUnitTest --tests 'app.lensly.core.registry.*' --tests 'app.lensly.core.registry.update.*'
@@ -21,6 +22,7 @@ partitions:
   app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
   registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
+  ci             bash -n on every script, then scripts/ci/check-test-network.sh (no Gradle)
 EOF
 }
 
@@ -37,9 +39,13 @@ case "$partition" in
         ;;
     core-ur-evm)
         # Gradle ORs repeated --tests filters. evm landed after the 2.2 table was written.
+        # The fuzz targets replay their committed seeds here as ordinary JUnit tests (Jazzer
+        # regression mode, guideline 1.8); they cover UrScanner/UR, CBOR, the eth-sign request
+        # and the unsigned (RLP) transaction decoder, so they belong to this partition.
         ./gradlew :app:testDebugUnitTest \
             --tests 'app.lensly.core.ur.*' \
-            --tests 'app.lensly.core.evm.*'
+            --tests 'app.lensly.core.evm.*' \
+            --tests 'app.lensly.fuzz.*'
         ;;
     core-parse)
         # Parsing untrusted payloads (DecodeBudget). Paired with core-ur-evm in the workflow.
@@ -72,6 +78,17 @@ case "$partition" in
         ;;
     manifest)
         exec "$ROOT/scripts/ci/check-manifest.sh"
+        ;;
+    ci)
+        # CI's own files: a syntax check of every shell script plus the test-network guard.
+        # No Gradle, so this stays well inside the 3-minute PR budget.
+        scripts=0
+        while IFS= read -r script; do
+            bash -n "$script"
+            scripts=$((scripts + 1))
+        done < <(find "$ROOT/scripts" -type f -name '*.sh' | sort)
+        echo "run-partition: bash -n passed for $scripts script(s)"
+        exec "$ROOT/scripts/ci/check-test-network.sh"
         ;;
     *)
         echo "run-partition: unknown partition: $partition" >&2
