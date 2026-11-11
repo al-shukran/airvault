@@ -118,10 +118,7 @@ class Vault internal constructor(
      * Do not call it while [create], [unlock] or [rekey] is running.
      */
     fun wipe() {
-        // Delete the keys first. Without them the wrapped vault key is unrecoverable even if some file survives.
-        VaultKeystore.deleteAll()
-        FailureStore.forget(layout.root)
-        layout.root.deleteRecursively()
+        wipeVault(layout, VaultKeystore::deleteAll)
     }
 
     /** The Keystore capabilities recorded when the vault was created. Without a vault, the device is probed. */
@@ -335,4 +332,16 @@ class Vault internal constructor(
             throw VaultException(message, e)
         }
     }
+}
+
+/**
+ * Deletes a vault: its Keystore keys first (through [deleteKeys]), then every file under its root. Without the keys the
+ * wrapped vault key is unrecoverable even if some file survives.
+ *
+ * @throws VaultException if some file could not be removed. The keys are already gone by then.
+ */
+internal fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
+    deleteKeys()
+    FailureStore.forget(layout.root)
+    if (!layout.root.deleteRecursively()) throw VaultException("Some vault files could not be deleted.")
 }

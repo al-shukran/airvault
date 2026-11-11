@@ -42,6 +42,7 @@ import kotlinx.coroutines.withContext
 internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, holder: VaultHolder) {
     composable(HiddenRoute.SETTINGS) { HiddenBackdrop { SettingsRoute(navController, holder) } }
     composable(HiddenRoute.CHANGE_PASSWORD) { HiddenBackdrop { ChangePasswordRoute(navController, holder) } }
+    composable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
 }
 
 /**
@@ -83,6 +84,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         onChangePassword = { navController.navigate(HiddenRoute.CHANGE_PASSWORD) },
         catalog = catalog,
         onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
+        onWipe = { navController.navigate(HiddenRoute.WIPE) },
         versionName = BuildConfig.VERSION_NAME,
         versionCode = BuildConfig.VERSION_CODE,
         onBack = { navController.popBackStack() },

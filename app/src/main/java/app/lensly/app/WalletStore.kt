@@ -289,6 +289,16 @@ class WalletStore(private val session: VaultSession) {
         }
     }
 
+    /**
+     * Crypto-shreds wallet [id]: its Per-Wallet Key goes first, so its records cannot be read even if a file survives. The
+     * other wallets are not touched, and an id with no wallet changes nothing.
+     *
+     * @throws java.io.IOException if the key file cannot be removed. The wallet is then still readable.
+     */
+    fun delete(id: String) {
+        session.deleteWallet(id)
+    }
+
     /** The name the wallet had at creation, from its record, or null if it has no readable record. */
     private fun storedBaseName(id: String): String? {
         val bytes = session.getRecord(id, WalletRecords.BASE_NAME) ?: return null

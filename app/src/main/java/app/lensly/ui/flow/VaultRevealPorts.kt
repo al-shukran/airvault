@@ -3,8 +3,6 @@ package app.lensly.ui.flow
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
-import app.lensly.core.vault.UnlockResult
-import app.lensly.core.vault.VaultException
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -19,18 +17,7 @@ internal class VaultRevealPorts(
     private val walletId: String,
 ) : RevealPorts {
 
-    /** Opens a second session only to prove the password, then closes it at once. The open session is left alone. */
-    override suspend fun checkPassword(password: CharArray): PasswordCheck = try {
-        when (val result = holder.vault.unlock(password)) {
-            is UnlockResult.Unlocked -> {
-                result.session.close()
-                PasswordCheck.Accepted
-            }
-            UnlockResult.Rejected -> PasswordCheck.Rejected
-        }
-    } catch (e: VaultException) {
-        PasswordCheck.Unavailable
-    }
+    override suspend fun checkPassword(password: CharArray): PasswordCheck = checkAppPassword(holder, password)
 
     /** Reads the secret from the open session. A Single Key's bytes are zeroed by [RevealedSecret.ofKey]. */
     override suspend fun loadSecret(): SecretLoad = withContext(Dispatchers.IO) {

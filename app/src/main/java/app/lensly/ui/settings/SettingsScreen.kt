@@ -45,8 +45,8 @@ data class CatalogCounts(val networks: Int, val tokens: Int)
  * the title, beside the offline label.
  *
  * [bulkCap] is null until the saved setting has been read, and its options are off until then. [onBulkCap] saves the
- * new cap. [onChangePassword] opens the App Password change. [catalog] is null while the counts are read. The hidden
- * entry gesture is read-only, because the detector has one fixed gesture.
+ * new cap. [onChangePassword] opens the App Password change, and [onWipe] opens the wipe. [catalog] is null while the
+ * counts are read. The hidden entry gesture is read-only, because the detector has one fixed gesture.
  */
 @Composable
 fun SettingsScreen(
@@ -55,6 +55,7 @@ fun SettingsScreen(
     onChangePassword: () -> Unit,
     catalog: CatalogCounts?,
     onUpdateCatalog: () -> Unit,
+    onWipe: () -> Unit,
     versionName: String,
     versionCode: Int,
     onBack: () -> Unit,
@@ -98,6 +99,14 @@ fun SettingsScreen(
                 description = catalog?.let { "${it.networks} networks · ${it.tokens} tokens" }
                     ?: "Reading the catalog…",
                 loading = catalog == null,
+            )
+        }
+
+        SettingsSection("Wipe") {
+            SettingsRow(
+                title = "Wipe the vault",
+                description = "Erase every wallet and the App Password from this device. A new App Password is set up next.",
+                onClick = onWipe,
             )
         }
 

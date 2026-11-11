@@ -81,6 +81,7 @@ fun WalletDetailScreen(
     onRenameAccount: (Int) -> Unit,
     onRenameAccounts: (List<Int>) -> Unit,
     onResetAccountNames: (List<Int>) -> Unit,
+    onDeleteWallet: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberKeyHaptics()
@@ -269,6 +270,12 @@ fun WalletDetailScreen(
                 PillButton(
                     text = "Show secret",
                     onClick = onShowSecret,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(LenslySpacing.sm))
+                PillButton(
+                    text = "Delete wallet",
+                    onClick = onDeleteWallet,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(LenslySpacing.xs))
