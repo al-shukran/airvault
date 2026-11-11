@@ -11,9 +11,10 @@ import org.web3j.utils.Numeric
  * BIP39 mnemonics as Lensly uses them: 24 English words encoding 256 bits of entropy.
  *
  * The words, their entropy and the derived seed live in buffers this instance owns, and [wipe] zeroes every one of
- * them. Create one for a single operation and use it with `use { }`, so it is wiped afterwards. Reading a wiped
- * instance throws [IllegalStateException], except for [equals], [hashCode] and [iterator], which a screen holding the
- * instance may call again after the wipe.
+ * them. Create one for a single operation and use it with `use { }`, so it is wiped afterwards. A wiped instance is an
+ * empty list to a screen that still holds it: [size] is 0, [get] throws [IndexOutOfBoundsException], and [iterator] is
+ * empty, so the screen can recompose without reading zeroed words. [equals] and [hashCode] compare by identity. [text]
+ * and [deriveSeed] throw [IllegalStateException].
  *
  * The [List] view lets screens and records read the words one at a time. Each [get] decodes a word from the buffer
  * into a short-lived String. [text] returns a wipeable copy for callers that can handle one.
@@ -31,14 +32,11 @@ class Mnemonic private constructor(
     private var wiped = false
 
     override val size: Int
-        get() {
-            checkLive()
-            return WORD_COUNT
-        }
+        get() = if (wiped) 0 else WORD_COUNT
 
     override fun get(index: Int): String {
-        checkLive()
-        if (index < 0 || index >= WORD_COUNT) throw IndexOutOfBoundsException("index $index, size $WORD_COUNT")
+        val count = size
+        if (index < 0 || index >= count) throw IndexOutOfBoundsException("index $index, size $count")
         var start = 0
         var word = 0
         while (word < index) {

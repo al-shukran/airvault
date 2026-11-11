@@ -61,10 +61,27 @@ class MnemonicWipeTest {
     fun readingAWipedMnemonicThrows() {
         val mnemonic = Mnemonic.fromEntropy(ByteArray(Mnemonic.ENTROPY_BYTES))
         mnemonic.wipe()
-        assertFailsWith<IllegalStateException> { mnemonic.size }
-        assertFailsWith<IllegalStateException> { mnemonic[0] }
+        // The list view is empty, so a screen that still holds the instance has no word to read.
+        assertEquals(0, mnemonic.size)
+        assertFailsWith<IndexOutOfBoundsException> { mnemonic[0] }
+        // The words and the seed themselves are refused.
         assertFailsWith<IllegalStateException> { mnemonic.text() }
         assertFailsWith<IllegalStateException> { mnemonic.deriveSeed("TREZOR") }
+    }
+
+    @Test
+    fun aWipedMnemonicIsAnEmptyListToAStaleHolder() {
+        val mnemonic = Mnemonic.of(artWords)
+        val live = Mnemonic.of(artWords)
+        mnemonic.wipe()
+        assertEquals(0, mnemonic.size)
+        assertFailsWith<IndexOutOfBoundsException> { mnemonic[0] }
+        assertFailsWith<IndexOutOfBoundsException> { mnemonic[Mnemonic.WORD_COUNT - 1] }
+        assertFalse(mnemonic.iterator().hasNext())
+        assertTrue(mnemonic == mnemonic)
+        assertFalse(mnemonic == live, "a wiped instance compares by identity")
+        assertEquals(System.identityHashCode(mnemonic), mnemonic.hashCode())
+        live.wipe()
     }
 
     @Test

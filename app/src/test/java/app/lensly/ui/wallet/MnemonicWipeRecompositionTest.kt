@@ -1,6 +1,7 @@
 package app.lensly.ui.wallet
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -11,6 +12,7 @@ import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,17 +37,19 @@ class MnemonicWipeRecompositionTest {
     fun aWipeWhileTheScreenShowsDoesNotThrowOnRecomposition() {
         val draft = WalletDraft()
         draft.setTypedWords(artWords)
-        val shown = draft.words
+        // The instance the screen was given. The wipe zeroes it, and the screen goes on holding it while it leaves.
+        val held = draft.words
         var revision by mutableIntStateOf(0)
 
         compose.setContent {
             LenslyTheme {
-                // Read the words the way the routes do, and key a remember on them as the confirmation route does.
-                val words = draft.words
-                remember(words) { words.size }
-                revision
-
-                MnemonicDisplayScreen(words = words, onWrittenDown = {})
+                // The screen reads only the instance it holds, and keys a remember on it as the confirmation route does.
+                remember(held) { held.size }
+                // Each revision starts the screen again. Its composition then reads the wiped instance, which an equal
+                // parameter would otherwise skip.
+                key(revision) {
+                    MnemonicDisplayScreen(words = held, onWrittenDown = {})
+                }
             }
         }
         compose.onNodeWithText("24 WORDS, IN ORDER").assertExists()
@@ -57,12 +61,13 @@ class MnemonicWipeRecompositionTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("0 WORDS, IN ORDER").assertExists()
+        assertTrue(draft.words.isEmpty(), "the draft itself no longer holds the words")
 
         // The instance the screen still holds is wiped, yet comparing, hashing and iterating it cannot throw.
-        assertEquals(shown, shown)
-        assertFalse(shown == emptyList<String>())
-        assertFalse(shown == artWords)
-        assertFalse(shown.iterator().hasNext())
-        assertEquals(System.identityHashCode(shown), shown.hashCode())
+        assertEquals(held, held)
+        assertFalse(held == emptyList<String>())
+        assertFalse(held == artWords)
+        assertFalse(held.iterator().hasNext())
+        assertEquals(System.identityHashCode(held), held.hashCode())
     }
 }
