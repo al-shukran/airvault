@@ -4,15 +4,17 @@ import android.content.Context
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
+import app.lensly.app.WalletMeta
 import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
+import app.lensly.app.visualIdentity
+import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
@@ -21,40 +23,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * The app's [SignFlowPorts] for one wallet. Wallet reads go through the open session, and only [privateKey] reads the
- * secret. The address check and the review use the public xpub, so the mnemonic is not needed to show them.
+ * The app's [SignFlowPorts]. Wallet reads go through the open session, and only [privateKey] reads a secret. The address check
+ * and the review use the public xpub, so the mnemonic is not needed to show them.
  */
 internal class VaultSignPorts(
     private val context: Context,
     private val holder: VaultHolder,
-    private val walletId: String,
 ) : SignFlowPorts {
 
-    override suspend fun prepare(request: EthSignRequest): Prepared = withContext(Dispatchers.IO) {
-        val meta = readWallet { WalletStore(it).meta(walletId) }
-        val wallet = when (meta.kind) {
-            WalletKind.MNEMONIC -> {
-                val xpub = requireNotNull(meta.accountXpub) { "A Mnemonic wallet has an account public key." }
-                WalletView(
-                    masterFingerprint = requireNotNull(meta.masterFingerprintHex).toLong(16).toInt(),
-                    accountCount = meta.accountCount,
-                    autoNameBase = meta.autoNameBase,
-                    accountNames = readWallet { WalletStore(it).accountNames(walletId, meta.accountCount) },
-                    addressAt = { index -> AccountAddresses.addressAt(xpub, index) },
-                )
-            }
-            // The address is the only public fact a Single Key has, so the key is read once, for its address.
-            WalletKind.SINGLE_KEY -> WalletView.singleKey(
-                address = readWallet { WalletStore(it).addresses(walletId, 1).single() },
-                autoNameBase = meta.autoNameBase,
-                // The one account is index 0. Its name is absent while the owner has not renamed it.
-                accountName = readWallet { WalletStore(it).accountNames(walletId, 1) }[0],
-            )
+    override suspend fun wallets(): List<WalletView> = withContext(Dispatchers.IO) {
+        readWallet { session ->
+            WalletStore(session).list().mapIndexedNotNull { position, meta -> viewOf(session, meta, position) }
+        }
+    }
+
+    override suspend fun prepare(walletId: String, request: EthSignRequest): Prepared = withContext(Dispatchers.IO) {
+        val wallet = readWallet { session ->
+            val listed = WalletStore(session).list()
+            val position = listed.indexOfFirst { it.id == walletId }
+            if (position < 0) null else viewOf(session, listed[position], position)
         }
         SignPipeline(RegistryHolder.get(context)).prepare(request, wallet)
     }
 
-    override suspend fun privateKey(accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
+    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
         when (val secret = readWallet { WalletStore(it).secret(walletId) }) {
             is WalletSecret.Mnemonic -> {
                 val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
@@ -94,8 +86,62 @@ internal class VaultSignPorts(
         }
 
     /**
+     * The view of wallet [meta], which sits at [position] in the list the owner sees. Its name and Visual Identity, and the
+     * Visual Identity of each account, come from the owner's profile records. A Single Key's address is read from its key,
+     * which is zeroed again. Null when the wallet's records cannot be read, so a scan of every wallet skips it.
+     */
+    private fun viewOf(session: VaultSession, meta: WalletMeta, position: Int): WalletView? {
+        val store = WalletStore(session)
+        return try {
+            val profile = store.walletProfile(meta.id)
+            val profiles = store.accountProfiles(meta.id, meta.accountCount)
+            val identity = visualIdentity(profile.colour, profile.icon, position)
+            val accountNames = profiles.mapNotNull { (index, accountProfile) -> accountProfile.name?.let { index to it } }.toMap()
+            val accountIdentity = { index: Int ->
+                profiles[index].let { accountProfile -> visualIdentity(accountProfile?.colour, accountProfile?.icon, index) }
+            }
+            when (meta.kind) {
+                WalletKind.MNEMONIC -> {
+                    val xpub = meta.accountXpub
+                    val fingerprint = meta.masterFingerprintHex?.toLongOrNull(16)?.toInt()
+                    if (xpub == null || fingerprint == null) {
+                        null
+                    } else {
+                        WalletView(
+                            id = meta.id,
+                            masterFingerprint = fingerprint,
+                            accountCount = meta.accountCount,
+                            autoNameBase = meta.autoNameBase,
+                            accountNames = accountNames,
+                            addressAt = { index -> AccountAddresses.addressAt(xpub, index) },
+                            name = meta.name,
+                            identity = identity,
+                            accountIdentity = accountIdentity,
+                        )
+                    }
+                }
+                // The address is the only public fact a Single Key has, so the key is read once, for its address.
+                WalletKind.SINGLE_KEY -> WalletView.singleKey(
+                    id = meta.id,
+                    address = store.addresses(meta.id, 1).single(),
+                    autoNameBase = meta.autoNameBase,
+                    // The one account is index 0. Its name is absent while the owner has not renamed it.
+                    accountName = accountNames[0],
+                    name = meta.name,
+                    identity = identity,
+                    accountIdentity = accountIdentity(0),
+                )
+            }
+        } catch (e: IllegalStateException) {
+            null
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
+    /**
      * Runs [read] on the open session. Throws [WalletUnavailable] when the vault is closed, when it is damaged (a damaged
-     * vault throws IllegalStateException too), or when the record is missing.
+     * vault throws IllegalStateException too), or when [read] finds nothing.
      */
     private inline fun <T : Any> readWallet(read: (VaultSession) -> T?): T {
         val session = holder.openSession() ?: throw WalletUnavailable()

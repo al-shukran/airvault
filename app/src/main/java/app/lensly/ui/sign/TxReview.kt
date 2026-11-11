@@ -1,5 +1,7 @@
 package app.lensly.ui.sign
 
+import app.lensly.app.VisualIdentity
+import app.lensly.app.generatedIdentity
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 
@@ -20,6 +22,13 @@ const val UNKNOWN_UNIT = "base units"
 
 /** The [TxReview.amountNote] of a token amount whose decimals are not known. */
 const val UNKNOWN_DECIMALS_NOTE = "Decimals unknown: raw integer amount, not verified"
+
+/** The warning on an approval that lets the spender take every token. [symbol] is the token, or null when it is unknown. */
+fun unlimitedApprovalWarning(symbol: String?): String =
+    "Unlimited approval: this contract can spend all your ${symbol ?: "tokens of this contract"}"
+
+/** The warning on `setApprovalForAll(operator, true)`: the operator controls every token of the contract. */
+const val ALL_NFTS_WARNING = "Grants control of ALL your NFTs in this collection"
 
 /**
  * Everything the review screen shows about one transaction before the user decides.
@@ -55,6 +64,16 @@ data class TxReview(
      * an assumption. For an unknown token it says the decimals are unknown. Null for a known coin or token.
      */
     val amountNote: String? = null,
+    /** The ABI signature of a contract call, such as transfer(address,uint256). Null for a native transfer and a message. */
+    val signature: String? = null,
+    /** The wallet that signs, as the review header names it. */
+    val walletName: String = "",
+    /** The Visual Identity of the wallet that signs. */
+    val walletIdentity: VisualIdentity = generatedIdentity(0),
+    /** The Visual Identity of the account that signs. */
+    val accountIdentity: VisualIdentity = generatedIdentity(0),
+    /** The origin the request names, such as the wallet's site, or null when the request names none. */
+    val origin: String? = null,
 ) {
     /**
      * True when the chain or the token is outside the registry. Such a review carries the registry warning, and APPROVE
@@ -64,7 +83,7 @@ data class TxReview(
     val needsRegistryConfirmation: Boolean
         get() = network == null || (tokenContract != null && token == null)
 
-    /** True when APPROVE may be pressed: every fact has been seen and, outside the registry, the check is ticked. */
+    /** True when the hold-to-sign control may run: every fact has been seen and, outside the registry, the check is ticked. */
     fun canApprove(everyFactShown: Boolean, registryChecked: Boolean): Boolean =
         everyFactShown && (!needsRegistryConfirmation || registryChecked)
 }

@@ -3,12 +3,10 @@ package app.lensly.ui.sign
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +47,7 @@ import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
+import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyError
@@ -59,18 +57,17 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.SpaceMonoFamily
 
 /**
- * Transaction review. Every fact is in one scrollable list, and APPROVE stays disabled until the
- * user has scrolled to the end, so no fact can be skipped. A list that fits on screen counts as
- * read. Warnings sit at the top as red banners.
+ * Transaction review. The top block names the wallet, account, network and origin that will sign. Every fact is in one
+ * scrollable list, and the hold-to-sign control stays disabled until the user has scrolled to the end, so no fact can be
+ * skipped. A list that fits on screen counts as read. Warnings sit at the top as red banners.
  *
- * A personal message ([SIGN_MESSAGE_FUNCTION]) has no recipient, amount, nonce or fee. Its review
- * shows the message text in a monospace block instead of those facts.
+ * A personal message ([SIGN_MESSAGE_FUNCTION]) has no recipient, amount, nonce or fee. Its review shows the message in a
+ * monospace block, with its size, instead of those facts. The message is part of the list, so the scroll covers it.
  *
- * A review outside the registry ([TxReview.needsRegistryConfirmation]) opens with a solid warning
- * block, and APPROVE also needs the "I CHECKED THE CHAIN ID / CONTRACT" check to be ON. The line
- * above the buttons says what is still missing.
+ * A review outside the registry ([TxReview.needsRegistryConfirmation]) opens with a solid warning block, and signing also
+ * needs the "I CHECKED THE CHAIN ID / CONTRACT" check to be ON. The line above the buttons says what is still missing.
  *
- * REJECT is always enabled.
+ * REJECT is always enabled. Nothing is ellipsized: every value on this screen is shown in full, and wraps when it must.
  */
 @Composable
 fun TxReviewScreen(
@@ -112,19 +109,8 @@ fun TxReviewScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
             ) {
-                ReviewPill(
-                    text = "Reject",
-                    onClick = onReject,
-                    filled = false,
-                    modifier = Modifier.weight(1f),
-                )
-                ReviewPill(
-                    text = "Approve",
-                    onClick = onApprove,
-                    filled = true,
-                    enabled = approvable,
-                    modifier = Modifier.weight(1f),
-                )
+                RejectPill(onClick = onReject, modifier = Modifier.weight(1f))
+                HoldToSignButton(enabled = approvable, onSign = onApprove, modifier = Modifier.weight(1f))
             }
         },
     ) {
@@ -135,119 +121,94 @@ fun TxReviewScreen(
                     .onSizeChanged { viewportPx = it.height }
                     .verticalScroll(scroll),
             ) {
-            Column(modifier = Modifier.fillMaxWidth().onSizeChanged { contentPx = it.height }) {
-                if (review.needsRegistryConfirmation) {
-                    RegistryWarning()
-                    Spacer(Modifier.height(LenslySpacing.sm))
-                }
-                review.warnings.forEach { warning ->
-                    InlineBanner(message = warning, tone = BannerTone.Error, title = "Warning")
-                    Spacer(Modifier.height(LenslySpacing.xs))
-                }
-                if (!isMessage) {
-                    AmountRow(review)
-                    Spacer(Modifier.height(LenslySpacing.xs))
-                }
+                Column(modifier = Modifier.fillMaxWidth().onSizeChanged { contentPx = it.height }) {
+                    if (review.needsRegistryConfirmation) {
+                        RegistryWarning()
+                        Spacer(Modifier.height(LenslySpacing.sm))
+                    }
+                    review.warnings.forEach { warning ->
+                        InlineBanner(message = warning, tone = BannerTone.Error, title = "Warning")
+                        Spacer(Modifier.height(LenslySpacing.xs))
+                    }
+                    if (!isMessage && review.amount.isNotEmpty()) {
+                        AmountRow(review)
+                        Spacer(Modifier.height(LenslySpacing.xs))
+                    }
 
-                FactRow(label = "Network") {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
-                    ) {
-                        ChainIcon(network = review.network, size = 20.dp)
+                    SigningHeader(review)
+
+                    if (!isMessage && review.toAddress.isNotEmpty()) {
+                        FactRow(label = "To") {
+                            AddressText(address = review.toAddress)
+                        }
+                    }
+                    review.tokenContract?.let { contract ->
+                        if (review.token == null) {
+                            FactRow(label = "Token") {
+                                Text(
+                                    text = UNKNOWN_TOKEN_NAME,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                        FactRow(label = "Token contract") {
+                            AddressText(address = contract)
+                        }
+                    }
+                    FactRow(label = "Function") {
                         Text(
-                            text = review.networkName,
+                            text = review.function,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        // A testnet can share its logo with a mainnet, so the logo alone does not say which it is.
-                        if (review.network?.testnet == true) PillChip(text = "Testnet")
-                        PillChip(text = "Chain ${review.chainId}")
                     }
-                }
-                FactRow(label = "From") {
-                    Text(
-                        text = review.fromAccountLabel,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    AddressText(address = review.fromAddress)
-                }
-                if (!isMessage) {
-                    FactRow(label = "To") {
-                        AddressText(address = review.toAddress)
+                    review.signature?.let { signature ->
+                        FactRow(label = "Signature") {
+                            MonoText(text = signature)
+                        }
                     }
-                }
-                review.tokenContract?.let { contract ->
-                    if (review.token == null) {
-                        FactRow(label = "Token") {
+                    if (isMessage) {
+                        MessageFacts(review)
+                    } else {
+                        FactRow(label = "Parameters") {
+                            if (review.params.isEmpty()) {
+                                MutedText("None")
+                            } else {
+                                review.params.forEach { (name, value) ->
+                                    LabelledValue(label = name, value = value)
+                                }
+                            }
+                        }
+                        FactRow(label = "Fee breakdown") {
+                            review.fee.forEach { (name, value) ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    MutedText(name.uppercase())
+                                    MonoText(text = value)
+                                }
+                            }
+                            review.feeNote?.let { note -> NoteText(note) }
+                        }
+                        FactRow(label = "Nonce") {
                             Text(
-                                text = UNKNOWN_TOKEN_NAME,
+                                text = review.nonce.toString(),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                         }
                     }
-                    FactRow(label = "Token contract") {
-                        AddressText(address = contract)
-                    }
-                }
-                FactRow(label = "Function") {
-                    Text(
-                        text = review.function,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                if (isMessage) {
-                    FactRow(label = "Message") {
-                        MessageBlock(text = review.params.firstOrNull()?.second.orEmpty())
-                    }
-                } else {
-                    FactRow(label = "Parameters") {
-                        if (review.params.isEmpty()) {
-                            MutedText("None")
-                        } else {
-                            review.params.forEach { (name, value) ->
-                                LabelledValue(label = name, value = value)
-                            }
-                        }
-                    }
-                    FactRow(label = "Fee breakdown") {
-                        review.fee.forEach { (name, value) ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                MutedText(name.uppercase())
-                                Text(
-                                    text = value,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-                        review.feeNote?.let { note -> NoteText(note) }
-                    }
-                }
-                if (!isMessage) {
-                    FactRow(label = "Nonce") {
+                    FactRow(label = "Type") {
                         Text(
-                            text = review.nonce.toString(),
+                            text = review.txType,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
+                    Spacer(Modifier.height(LenslySpacing.md))
                 }
-                FactRow(label = "Type") {
-                    Text(
-                        text = review.txType,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                Spacer(Modifier.height(LenslySpacing.md))
-            }
             }
             // A fade over the cut-off edge while more facts lie below, so the list reads as scrolling, not clipped.
             if (!atEnd) {
@@ -269,12 +230,12 @@ private fun ScrollFade(modifier: Modifier) {
 }
 
 /**
- * The line above the buttons. It names what still stands between the owner and APPROVE, and holds its height when there
+ * The line above the buttons. It names what still stands between the owner and signing, and holds its height when there
  * is nothing to say, so the buttons do not move.
  */
 private fun reviewHint(review: TxReview, everyFactShown: Boolean, registryChecked: Boolean): String? = when {
-    !everyFactShown -> "Scroll to the end to approve"
-    review.needsRegistryConfirmation && !registryChecked -> "Tick the check below to approve"
+    !everyFactShown -> "Scroll to the end to review everything"
+    review.needsRegistryConfirmation && !registryChecked -> "Tick the check below to sign"
     else -> null
 }
 
@@ -292,6 +253,72 @@ private fun ReviewHint(text: String?) {
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+/**
+ * Who signs, and where. The wallet and the account are shown with their Visual Identity, and the account's full address
+ * follows its name. The network has its logo, and the origin the request names is shown as the requester gave it.
+ */
+@Composable
+private fun SigningHeader(review: TxReview) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(LenslyRadius.md))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = LenslySpacing.sm),
+    ) {
+        FactRow(label = "Wallet") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ProfileAvatar(identity = review.walletIdentity, size = 32.dp)
+                Spacer(Modifier.width(LenslySpacing.sm))
+                Text(
+                    text = review.walletName,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        FactRow(label = "Account") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ProfileAvatar(identity = review.accountIdentity, size = 24.dp)
+                Spacer(Modifier.width(LenslySpacing.sm))
+                Text(
+                    text = review.fromAccountLabel,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(LenslySpacing.xs))
+            AddressText(address = review.fromAddress)
+        }
+        FactRow(label = "Network") {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
+            ) {
+                ChainIcon(network = review.network, size = 20.dp)
+                Text(
+                    text = review.networkName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                // A testnet can share its logo with a mainnet, so the logo alone does not say which it is.
+                if (review.network?.testnet == true) PillChip(text = "Testnet")
+                PillChip(text = "Chain ${review.chainId}")
+            }
+        }
+        FactRow(label = "Requested by") {
+            val origin = review.origin
+            Text(
+                text = origin ?: NOT_STATED,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (origin == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
         }
     }
@@ -316,7 +343,7 @@ private fun AmountRow(review: TxReview) {
         }
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
-            text = "${review.amount} ${review.symbol}",
+            text = listOf(review.amount, review.symbol).filter { it.isNotEmpty() }.joinToString(" "),
             style = if (review.amountNote == null) {
                 MaterialTheme.typography.displaySmall
             } else {
@@ -362,7 +389,7 @@ private fun RegistryWarning() {
 
 /**
  * The explicit check for a review outside the registry. It sits above the buttons, outside the scroll, so it stays in
- * view, and APPROVE is disabled until it is ON. A red outline means the check is still owed.
+ * view, and the hold-to-sign control is disabled until it is ON. A red outline means the check is still owed.
  */
 @Composable
 private fun RegistryCheckRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
@@ -403,46 +430,28 @@ private fun RegistryCheckRow(checked: Boolean, onCheckedChange: (Boolean) -> Uni
     }
 }
 
-/** One fact: a muted uppercase label above its value, with a divider underneath. */
-@Composable
-private fun FactRow(
-    label: String,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = LenslySpacing.sm),
-    ) {
-        MutedText(label.uppercase())
-        Spacer(Modifier.height(LenslySpacing.xs))
-        content()
-    }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-}
-
 /**
- * An address in the monospace face, so each character can be compared by eye, with the Ethereum logo beside it. Every
- * address shows that logo, whichever chain it is used on.
+ * A personal message: its text in the monospace face on a raised block, so each character can be checked by eye. Long
+ * lines wrap inside the block, and its size follows it.
  */
 @Composable
-private fun AddressText(address: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        AddressIcon(size = 16.dp)
-        Spacer(Modifier.width(LenslySpacing.xs))
-        Text(
-            text = groupAddress(address),
-            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
+private fun MessageFacts(review: TxReview) {
+    val text = review.params.firstOrNull { it.first == "message" }?.second.orEmpty()
+    val size = review.params.firstOrNull { it.first == "size" }?.second
+    FactRow(label = "Message") {
+        MessageBlock(text = text)
+    }
+    if (size != null) {
+        FactRow(label = "Size") {
+            Text(
+                text = size,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 
-/**
- * The text of a message in the monospace face on a raised block, so each character can be checked by eye. Long
- * lines wrap inside the block.
- */
 @Composable
 private fun MessageBlock(text: String) {
     val shape = RoundedCornerShape(LenslyRadius.md)
@@ -461,6 +470,7 @@ private fun MessageBlock(text: String) {
     }
 }
 
+/** One argument of a call: its name above its value. An address is shown in groups of four, so it can be compared by eye. */
 @Composable
 private fun LabelledValue(label: String, value: String) {
     Column(modifier = Modifier.padding(bottom = LenslySpacing.xs)) {
@@ -471,72 +481,26 @@ private fun LabelledValue(label: String, value: String) {
                 AddressIcon(size = 16.dp)
                 Spacer(Modifier.width(LenslySpacing.xs))
             }
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
-            )
+            MonoText(text = if (isEvmAddress(value)) groupAddress(value) else value, modifier = Modifier.weight(1f))
         }
     }
 }
 
-/** A sentence of explanation, such as a fee or amount note. It uses the sans body face, which reads better than the tracked label face. */
+/** REJECT: an outlined pill that is always enabled. It shrinks while pressed and plays the key haptic. */
 @Composable
-private fun NoteText(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-@Composable
-private fun MutedText(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-/**
- * A pill for REJECT or APPROVE. A filled pill is white, an outlined one is transparent with a thin border. A disabled
- * pill is grey and ignores taps. It is not PillButton, which cannot be white. It shrinks while pressed and plays the key
- * haptic when it is enabled.
- */
-@Composable
-private fun ReviewPill(
-    text: String,
-    onClick: () -> Unit,
-    filled: Boolean,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-) {
+private fun RejectPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(percent = 50)
-    val fill: Color = when {
-        filled && enabled -> LenslyOnSurface
-        filled -> colors.surfaceVariant
-        else -> Color.Transparent
-    }
-    val labelColor: Color = when {
-        !enabled -> colors.onSurfaceVariant
-        filled -> LenslyBlack
-        else -> colors.onSurface
-    }
     Box(
         modifier = modifier
             .height(56.dp)
-            .pressIfEnabled(interaction, enabled)
+            .pressFeedback(interaction, enabled = true)
             .clip(shape)
-            .background(fill)
-            .then(if (filled) Modifier else Modifier.border(1.dp, colors.outline, shape))
-            .tapHaptic(haptics, enabled)
+            .border(1.dp, colors.outline, shape)
+            .tapHaptic(haptics)
             .clickable(
-                enabled = enabled,
                 interactionSource = interaction,
                 indication = null,
                 role = Role.Button,
@@ -545,14 +509,9 @@ private fun ReviewPill(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = text.uppercase(),
+            text = "REJECT",
             style = MaterialTheme.typography.labelLarge,
-            color = labelColor,
+            color = colors.onSurface,
         )
     }
 }
-
-/** Press feedback only for an enabled pill. A disabled one already reads as disabled, so it does not also shrink. */
-@Composable
-private fun Modifier.pressIfEnabled(interaction: InteractionSource, enabled: Boolean): Modifier =
-    if (enabled) pressFeedback(interaction, enabled = true) else this

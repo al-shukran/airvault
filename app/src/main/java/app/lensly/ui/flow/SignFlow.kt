@@ -1,6 +1,10 @@
 package app.lensly.ui.flow
 
 import app.lensly.app.sign.Prepared
+import app.lensly.app.sign.UndecodedCall
+import app.lensly.app.sign.WalletMatch
+import app.lensly.app.sign.WalletView
+import app.lensly.app.sign.matchWallet
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.urPartRefusal
@@ -17,13 +21,22 @@ sealed interface SignStep {
     /** Waiting for the request. [progress] runs from 0 to 1 for an animated request, and is null for a single code. */
     data class Scanning(val progress: Float?, val status: String) : SignStep
 
-    /** The request cannot be signed. [reason] says why, in plain words. */
-    data class Refused(val reason: String) : SignStep
+    /**
+     * The request cannot be signed. [reason] says why, in plain words. [call] is set when the request is a contract call Lensly
+     * cannot decode, so the screen can show all of it.
+     */
+    data class Refused(val reason: String, val call: UndecodedCall? = null) : SignStep
+
+    /**
+     * A scan of any wallet found no wallet for [request], or [several] wallets for it. Lensly does not choose between them,
+     * so the owner scans again.
+     */
+    data class NoMatchingWallet(val request: EthSignRequest, val several: Boolean) : SignStep
 
     /** The request passed every check. The owner reads the review, then approves or rejects it. */
     data class Review(val ready: Prepared.Ready) : SignStep
 
-    /** APPROVE was pressed. The App Password is checked before anything is signed. [busy] while that check runs. */
+    /** The hold-to-sign control ran. The App Password is checked before anything is signed. [busy] while that check runs. */
     data class Confirming(val ready: Prepared.Ready, val busy: Boolean) : SignStep
 
     /** The signature, as the frames to show the online wallet. */
@@ -50,11 +63,14 @@ class WalletUnavailable : Exception("The wallet could not be read.")
 
 /** What [SignFlow] asks of the app. [VaultSignPorts] is the app's implementation. Tests use fakes. */
 interface SignFlowPorts {
-    /** Checks [request] against the wallet and the registry. Throws [WalletUnavailable] when the wallet cannot be read. */
-    suspend fun prepare(request: EthSignRequest): Prepared
+    /** Every wallet of the vault, as the sign pipeline checks them. Throws [WalletUnavailable] when the vault cannot be read. */
+    suspend fun wallets(): List<WalletView>
 
-    /** The 32-byte private key of account [accountIndex]. The caller zeroes it. Throws [WalletUnavailable]. */
-    suspend fun privateKey(accountIndex: Int): ByteArray
+    /** Checks [request] against wallet [walletId] and the registry. Throws [WalletUnavailable] when the wallet cannot be read. */
+    suspend fun prepare(walletId: String, request: EthSignRequest): Prepared
+
+    /** The 32-byte private key of account [accountIndex] of wallet [walletId]. The caller zeroes it. Throws [WalletUnavailable]. */
+    suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray
 
     /** Checks the App Password. The caller keeps ownership of [password] and zeroes it afterwards. */
     suspend fun checkPassword(password: CharArray): PasswordCheck
@@ -71,11 +87,17 @@ interface SignFlowPorts {
  * Password again before it signs, and emits the signature frames. It has no Android types. [SignFlowPorts] does the vault
  * and registry work.
  *
+ * A flow for one wallet ([walletId] set) checks the request against that wallet. A flow with no [walletId] finds the wallet
+ * the request is for among all the wallets of the vault, and refuses to choose when none or several are.
+ *
  * [state] holds the current step. Calls that suspend run one at a time. [leave] ends the flow at once, and any call that
  * is still running then changes nothing.
  */
-class SignFlow(private val ports: SignFlowPorts) {
-    private val scanner = UrScanner()
+class SignFlow(
+    private val ports: SignFlowPorts,
+    private val walletId: String?,
+) {
+    private var scanner = UrScanner()
     private val distinctParts = HashSet<String>()
     private var scannedChars = 0L
     private val gate = Mutex()
@@ -118,6 +140,15 @@ class SignFlow(private val ports: SignFlowPorts) {
             }
             publish(started, decide(ur))
         }
+    }
+
+    /** SCAN AGAIN after a request matched no wallet, or several. The scan starts from nothing. */
+    fun scanAgain() {
+        if (current.value !is SignStep.NoMatchingWallet) return
+        scanner = UrScanner()
+        distinctParts.clear()
+        scannedChars = 0L
+        current.value = SignStep.Scanning(progress = null, status = SCAN_HINT)
     }
 
     /** APPROVE on the review. The App Password is asked before anything is signed. */
@@ -178,9 +209,14 @@ class SignFlow(private val ports: SignFlowPorts) {
         }
         if (request.requestId == null) return SignStep.Refused(NO_REQUEST_ID)
         return try {
-            when (val prepared = ports.prepare(request)) {
+            val target = walletId ?: when (val match = matchWallet(request, ports.wallets())) {
+                is WalletMatch.One -> match.walletId
+                WalletMatch.None -> return SignStep.NoMatchingWallet(request, several = false)
+                is WalletMatch.Several -> return SignStep.NoMatchingWallet(request, several = true)
+            }
+            when (val prepared = ports.prepare(target, request)) {
                 is Prepared.Ready -> SignStep.Review(prepared)
-                is Prepared.Refused -> SignStep.Refused(prepared.reason)
+                is Prepared.Refused -> SignStep.Refused(prepared.reason, prepared.call)
             }
         } catch (e: WalletUnavailable) {
             SignStep.Refused(WALLET_UNREADABLE)
@@ -195,7 +231,7 @@ class SignFlow(private val ports: SignFlowPorts) {
     private suspend fun signApproved(ready: Prepared.Ready, started: Int): SignStep {
         if (started != epoch) return SignStep.Closed
         val key = try {
-            ports.privateKey(ready.accountIndex)
+            ports.privateKey(ready.walletId, ready.accountIndex)
         } catch (e: WalletUnavailable) {
             return SignStep.Refused(WALLET_UNREADABLE)
         }
