@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
+import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.navigation.openHidden
@@ -26,9 +27,17 @@ import app.lensly.ui.sign.TxReviewScreen
 /**
  * SIGN for the wallet [walletId]: scan the request, read the review, approve it with the App Password, then show the
  * signature. Leaving the flow in any way pops back to the wallet.
+ *
+ * [frameSource] is passed to the scan step. Leave it null on a device: the camera feeds the scanner. The end-to-end test
+ * passes its own source of generated frames, so the test drives this route instead of a copy of its screen mapping.
  */
 @Composable
-internal fun SignWalletRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
+internal fun SignWalletRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    walletId: String,
+    frameSource: FrameSource? = null,
+) {
     val context = LocalContext.current.applicationContext
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -54,6 +63,7 @@ internal fun SignWalletRoute(navController: NavHostController, holder: VaultHold
             statusText = shown.status,
             onText = flow::onScanned,
             onCancel = flow::leave,
+            frameSource = frameSource,
         )
         is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, onDone = flow::leave)
         is SignStep.Review -> TxReviewScreen(
