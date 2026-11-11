@@ -47,7 +47,10 @@ kind="$1"
 
 case "$kind" in
     instrumented)
-        ./gradlew :app:connectedDebugAndroidTest
+        # The benchmark classes need AndroidBenchmarkRunner, which only the benchmark variant gets, so a debug
+        # instrumented run skips that package instead of failing on the runner check.
+        ./gradlew :app:connectedDebugAndroidTest \
+            -Pandroid.testInstrumentationRunnerArguments.notPackage=app.lensly.benchmark
         ;;
     e2e)
         [ -d "$ROOT/app/src/androidTest/java/app/lensly/e2e" ] ||
@@ -64,6 +67,13 @@ case "$kind" in
         grep -q 'benchmark' "$ROOT/app/build.gradle.kts" ||
             not_configured "benchmark build type and :app:connectedBenchmarkAndroidTest (guideline 1.7)"
         ./gradlew :app:connectedBenchmarkAndroidTest
+        # AGP's result path moves between versions, so the caller names the result file. Without it the gate is not
+        # run here; the nightly job passes BENCHMARK_RESULT after pulling the JSON off the device.
+        if [ -n "${BENCHMARK_RESULT:-}" ]; then
+            "$ROOT/scripts/ci/benchmark-gate.sh" "$BENCHMARK_RESULT"
+        else
+            echo "run-extended: set BENCHMARK_RESULT=<benchmarkData.json> to compare against the reference baseline" >&2
+        fi
         ;;
     security)
         ./gradlew :app:lintDebug
