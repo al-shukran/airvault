@@ -154,9 +154,7 @@ class CameraController {
         recording = pending.start(executor) { event ->
             if (event is VideoRecordEvent.Finalize) {
                 recording = null
-                val failed = event.hasError() && event.error != VideoRecordEvent.Finalize.ERROR_SOURCE_INACTIVE
-                if (failed) file.delete()
-                onFinished(!failed)
+                onFinished(recordingFileSaved(event.hasError(), event.error, file))
             }
         }
         return true
@@ -181,4 +179,17 @@ class CameraController {
             )
             continuation.invokeOnCancellation { future.cancel(false) }
         }
+}
+
+/**
+ * Tells whether a closed recording leaves a file worth keeping. A recording the camera stopped because its source went
+ * inactive still keeps what it wrote, but only when it wrote something: a missing or empty file is removed and reported
+ * as failed, like any other error.
+ */
+internal fun recordingFileSaved(hasError: Boolean, error: Int, file: File): Boolean {
+    val keptShortRecording = error == VideoRecordEvent.Finalize.ERROR_SOURCE_INACTIVE &&
+        file.isFile && file.length() > 0
+    val saved = !hasError || keptShortRecording
+    if (!saved) file.delete()
+    return saved
 }
