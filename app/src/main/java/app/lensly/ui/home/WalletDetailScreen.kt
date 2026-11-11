@@ -56,7 +56,7 @@ internal const val SINGLE_KEY_ONE_ACCOUNT =
  * One wallet: its name in the dot-matrix face, its accounts, and its actions. Each account shows its Display Name, or its
  * default label, and a shortened address. Tapping the row shows the full address in groups of four. [addresses] is null
  * while they are derived. [accountNames] holds the names of the renamed accounts, by index. RENAME, on the wallet and on
- * each account, opens the name screen.
+ * each account, opens the name screen. EXPORT, on each account, calls [onExportAccount] with its index.
  *
  * SELECT on a Mnemonic wallet turns each account row into a checkbox. The selected accounts can then be renamed in one
  * flow, through [onRenameAccounts], or reset to their Auto-Names, through [onResetAccountNames]. Both get the selected
@@ -79,6 +79,7 @@ fun WalletDetailScreen(
     onShowSecret: () -> Unit,
     onRenameWallet: () -> Unit,
     onRenameAccount: (Int) -> Unit,
+    onExportAccount: (Int) -> Unit,
     onRenameAccounts: (List<Int>) -> Unit,
     onResetAccountNames: (List<Int>) -> Unit,
     onDeleteWallet: () -> Unit,
@@ -240,6 +241,7 @@ fun WalletDetailScreen(
                         address = address,
                         label = accountNames[index] ?: autoAccountName(wallet.autoNameBase, index),
                         onRename = { onRenameAccount(index) },
+                        onExport = { onExportAccount(index) },
                         selecting = selecting,
                         selected = index in selected,
                         onToggle = { selected = if (index in selected) selected - index else selected + index },
@@ -286,15 +288,16 @@ fun WalletDetailScreen(
 
 /**
  * One account row: its Display Name, or its Auto-Name, in the primary text, then its short address in the mono face.
- * The row expands to show the full address. Its Rename pill sits at the end. While [selecting], the row shows a checkbox
- * instead, [selected] gives its state, and a tap calls [onToggle] rather than expanding the row. The rows are in a list,
- * so they play no haptic.
+ * The row expands to show the full address. Its Export and Rename pills sit at the end. While [selecting], the row
+ * shows a checkbox instead, [selected] gives its state, and a tap calls [onToggle] rather than expanding the row. The
+ * rows are in a list, so they play no haptic.
  */
 @Composable
 private fun AccountRow(
     address: String,
     label: String,
     onRename: () -> Unit,
+    onExport: () -> Unit,
     selecting: Boolean = false,
     selected: Boolean = false,
     onToggle: () -> Unit = {},
@@ -341,6 +344,13 @@ private fun AccountRow(
                 }
                 if (!selecting) {
                     Spacer(Modifier.width(LenslySpacing.sm))
+                    WalletPill(
+                        text = "Export",
+                        onClick = onExport,
+                        style = WalletPillStyle.Outline,
+                        size = WalletPillSize.Compact,
+                    )
+                    Spacer(Modifier.width(LenslySpacing.xs))
                     WalletPill(
                         text = "Rename",
                         onClick = onRename,

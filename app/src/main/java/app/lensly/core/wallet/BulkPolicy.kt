@@ -6,8 +6,15 @@ package app.lensly.core.wallet
  * Nothing here touches keys or storage, so every rule is tested on the JVM.
  */
 object BulkPolicy {
-    /** The Counts one tap away on the bulk screen. Each one is at most 100, so it fits every [BulkCap]. */
-    val PRESETS: List<Int> = listOf(10, 20, 50)
+    /** The Counts every bulk screen offers, before the cap is added to them. */
+    private val FIXED_PRESETS: List<Int> = listOf(10, 20)
+
+    /**
+     * The Counts one tap away on the bulk screen under [cap]: 10, 20 and the cap itself, distinct, sorted, and never
+     * above the cap. A cap of 20 offers 10 and 20, a cap of 50 offers 10, 20 and 50, and a cap of 100 offers 10, 20
+     * and 100. Each one is a valid Count under [cap].
+     */
+    fun presetsFor(cap: Int): List<Int> = (FIXED_PRESETS + cap).filter { it <= cap }.distinct().sorted()
 
     /**
      * The most digits a typed Count takes: enough digits to write the largest [BulkCap], so the owner can always type

@@ -38,18 +38,18 @@ class SettingsStoreTest {
     fun aVaultWithNoSavedSettingsReadsTheDefaultBulkCap() {
         val session = open()
 
-        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
+        assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
         session.close()
     }
 
     @Test
     fun aSavedBulkCapIsReadBackAfterTheVaultReopens() {
         val first = open()
-        SettingsStore(first).save(AppSettings(bulkCap = BulkCap.THOUSAND))
+        SettingsStore(first).save(AppSettings(bulkCap = BulkCap.TWENTY))
         first.close()
 
         val reopened = open()
-        assertEquals(BulkCap.THOUSAND, SettingsStore(reopened).load().bulkCap)
+        assertEquals(BulkCap.TWENTY, SettingsStore(reopened).load().bulkCap)
         reopened.close()
     }
 
@@ -57,10 +57,20 @@ class SettingsStoreTest {
     fun theLastSavedBulkCapWins() {
         val session = open()
         val store = SettingsStore(session)
-        store.save(AppSettings(BulkCap.THOUSAND))
+        store.save(AppSettings(BulkCap.TWENTY))
         store.save(AppSettings(BulkCap.HUNDRED))
 
         assertEquals(BulkCap.HUNDRED, store.load().bulkCap)
+        session.close()
+    }
+
+    @Test
+    fun aLegacyThousandCapReadsAsOneHundred() {
+        // Before this change the largest cap was 1,000. A vault that saved it reads the largest cap offered now.
+        val session = open()
+        session.putVaultRecord("settings", record(version = 1, accounts = 1_000))
+
+        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
         session.close()
     }
 
@@ -75,7 +85,8 @@ class SettingsStoreTest {
     }
 
     @Test
-    fun aCapTheAppDoesNotOfferReadsAsTheDefault() {
+    fun anUnofferedCapCountReadsAsOneHundred() {
+        // A count the app does not offer, such as 500, reads as the largest cap offered, not as the default.
         val session = open()
         session.putVaultRecord("settings", record(version = 1, accounts = 500))
 
@@ -88,7 +99,7 @@ class SettingsStoreTest {
         val session = open()
         session.putVaultRecord("settings", record(version = 2, accounts = 1_000))
 
-        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
+        assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
         session.close()
     }
 
@@ -98,20 +109,21 @@ class SettingsStoreTest {
         // Version 1, then no account count.
         session.putVaultRecord("settings", byteArrayOf(1, 0))
 
-        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
+        assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
         session.close()
     }
 
     @Test
     fun aDamagedSettingsRecordReadsAsTheDefault() {
         val session = open()
-        SettingsStore(session).save(AppSettings(BulkCap.THOUSAND))
+        SettingsStore(session).save(AppSettings(BulkCap.TWENTY))
         val file = File(tmp.root, "vault-records/settings.bin")
         val bytes = file.readBytes()
         bytes[bytes.size - 1] = (bytes[bytes.size - 1].toInt() xor 1).toByte()
         file.writeBytes(bytes)
 
-        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
+        // The record is sealed, so the flipped byte fails authentication and reads as the default, not as another cap.
+        assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
         session.close()
     }
 
@@ -131,14 +143,14 @@ class SettingsStoreTest {
         val wallets = WalletStore(session)
         val id = wallets.create(name = "Test", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
 
-        SettingsStore(session).save(AppSettings(BulkCap.HUNDRED))
-        val hundred = SettingsStore(session).load().bulkCap.accounts
-        assertFailsWith<IllegalArgumentException> { wallets.addAccounts(id, 101, hundred) }
+        SettingsStore(session).save(AppSettings(BulkCap.TWENTY))
+        val twenty = SettingsStore(session).load().bulkCap.accounts
+        assertFailsWith<IllegalArgumentException> { wallets.addAccounts(id, 21, twenty) }
         assertEquals(1, wallets.meta(id)?.accountCount)
 
-        SettingsStore(session).save(AppSettings(BulkCap.THOUSAND))
-        val thousand = SettingsStore(session).load().bulkCap.accounts
-        assertEquals(102, assertNotNull(wallets.addAccounts(id, 101, thousand)).accountCount)
+        SettingsStore(session).save(AppSettings(BulkCap.HUNDRED))
+        val hundred = SettingsStore(session).load().bulkCap.accounts
+        assertEquals(101, assertNotNull(wallets.addAccounts(id, 100, hundred)).accountCount)
         session.close()
     }
 }

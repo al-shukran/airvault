@@ -2,6 +2,7 @@ package app.lensly.core.registry.update
 
 import app.lensly.core.registry.Registry
 import app.lensly.core.vault.writeAtomically
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
 
@@ -20,6 +21,8 @@ object RegistryUpdate {
     const val INSTALLED_FILE = "installed.lrp"
 
     private val installLock = Any()
+
+    private const val READ_CHUNK_BYTES = 8 * 1024
 
     /** The trusted keys: the single key in the [TRUSTED_KEY_PATH] asset, read through [readAsset]. */
     fun trustedKeys(readAsset: (String) -> String?): List<ByteArray> = listOf(
@@ -42,20 +45,20 @@ object RegistryUpdate {
      * [RegistryUpdateException.Malformed] after one byte past the cap, so an oversized file is never buffered.
      */
     fun readPackage(input: InputStream): ByteArray {
-        // InputStream.readNBytes needs API 33 and minSdk is 31, so this reads the same bound by hand: at most one
-        // byte past the cap, into one buffer of that size, so an oversized file is never buffered.
         val limit = PackageFormat.MAX_BYTES + 1
-        val buffer = ByteArray(limit)
-        var total = 0
-        while (total < limit) {
-            val read = input.read(buffer, total, limit - total)
-            if (read <= 0) break
-            total += read
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(READ_CHUNK_BYTES)
+        // Same as InputStream.readNBytes(limit), which API 31 lacks: reads until [limit] bytes or end of stream.
+        while (out.size() < limit) {
+            val read = input.read(buffer, 0, minOf(buffer.size, limit - out.size()))
+            if (read < 0) break
+            out.write(buffer, 0, read)
         }
-        if (total > PackageFormat.MAX_BYTES) {
+        val bytes = out.toByteArray()
+        if (bytes.size > PackageFormat.MAX_BYTES) {
             throw RegistryUpdateException.Malformed("larger than ${PackageFormat.MAX_BYTES} bytes")
         }
-        return buffer.copyOf(total)
+        return bytes
     }
 
     /**
