@@ -94,15 +94,46 @@ class FailureDelayTest {
     }
 
     @Test
-    fun rebootFallsBackToTheWallClock() {
+    fun rebootRestartsTheWaitFromBootAndIgnoresTheWallClock() {
         val clock = FakeClock(wall = afterLearning, elapsed = 900_000L)
         val state = FailureState(seq = 2, failures = 1, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed)
 
-        // After a reboot the monotonic clock restarts near zero, while 15 s of wall time have passed.
+        // The device rebooted, so the monotonic clock restarted near zero, and 15 s of wall time have passed.
         clock.elapsed = 2_000L
         clock.wall += 15_000L
-        assertEquals(15_000L, FailureDelay.elapsedSinceFailure(state, clock))
+        assertEquals(2_000L, FailureDelay.elapsedSinceFailure(state, clock))
+        assertTrue(FailureDelay(created).isBlocked(state, clock))
+
+        // Moving the clock forward by an hour does not end the wait. The 10 s delay runs from boot.
+        clock.wall += 3_600_000L
+        assertEquals(2_000L, FailureDelay.elapsedSinceFailure(state, clock))
+        assertTrue(FailureDelay(created).isBlocked(state, clock))
+
+        clock.advance(8_000)
         assertFalse(FailureDelay(created).isBlocked(state, clock))
+    }
+
+    @Test
+    fun aRebootTheMonotonicClockDoesNotShowIsMeasuredLikeTheSameBoot() {
+        // The device stayed up after the reboot for longer than the failure had been up before it, so the monotonic clock did not go
+        // back. The wait is then measured as the same boot: the monotonic time since the failure, and never more than that.
+        val clock = FakeClock(wall = afterLearning, elapsed = 1_000L)
+        val state = FailureState(seq = 2, failures = 1, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed)
+
+        clock.elapsed = 5_000L
+        clock.wall += 3_600_000L
+        assertEquals(4_000L, FailureDelay.elapsedSinceFailure(state, clock))
+        assertTrue(FailureDelay(created).isBlocked(state, clock))
+    }
+
+    @Test
+    fun aWallClockMovedBackwardsAcrossARebootIsNotTampering() {
+        val clock = FakeClock(wall = afterLearning, elapsed = 900_000L)
+        val state = FailureState(seq = 2, failures = 1, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed)
+
+        clock.elapsed = 2_000L
+        clock.wall -= 3_600_000L
+        assertEquals(2_000L, FailureDelay.elapsedSinceFailure(state, clock))
     }
 
     @Test

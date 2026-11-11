@@ -6,9 +6,12 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
+import android.util.Log
+import app.lensly.BuildConfig
 import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.security.ProviderException
+import java.util.Collections
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
@@ -19,13 +22,20 @@ import javax.crypto.SecretKeyFactory
  * - [HARDWARE_KEY_ALIAS]: AES-256-GCM. It is the hardware layer that wraps the vault key. It is StrongBox
  *   when available, otherwise TEE. No user-auth binding and no unlocked-device requirement, because the
  *   vault phone may have no lock screen.
- * - [FAILURE_MAC_ALIAS]: HMAC-SHA256. It authenticates the failure-delay state.
+ * - `lensly.vault.failure-mac.<seq>`: HMAC-SHA256, one for each Delay State write. It authenticates the failure-delay state
+ *   with that sequence number. The keys of earlier writes are deleted, so an older state no longer verifies (see [FailureStore]).
  */
 internal object VaultKeystore {
     const val HARDWARE_KEY_ALIAS = "lensly.vault.hw"
-    const val FAILURE_MAC_ALIAS = "lensly.vault.failure-mac"
+
+    /** Every Delay State MAC key alias starts with this. */
+    private const val FAILURE_MAC_PREFIX = "lensly.vault.failure-mac"
+
+    /** The one Delay State MAC key of the layout before per-save keys. It is read only to migrate, and then deleted. */
+    private const val LEGACY_FAILURE_MAC_ALIAS = FAILURE_MAC_PREFIX
     private const val PROBE_ALIAS = "lensly.vault.probe"
     private const val PROVIDER = "AndroidKeyStore"
+    private const val TAG = "LenslyVault"
 
     /** Replaces the hardware wrapping key. Tries StrongBox first and falls back to the TEE. */
     fun createHardwareKey(): SecretKey {
@@ -37,25 +47,43 @@ internal object VaultKeystore {
     fun hardwareKey(): SecretKey =
         get(HARDWARE_KEY_ALIAS) ?: throw VaultException("The vault's hardware key is missing from the Keystore.")
 
-    /** Replaces the failure-state MAC key. */
-    fun createFailureMacKey(): SecretKey {
-        delete(FAILURE_MAC_ALIAS)
-        val spec = KeyGenParameterSpec.Builder(FAILURE_MAC_ALIAS, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
-            .setKeySize(256)
-            .setDigests(KeyProperties.DIGEST_SHA256)
-            .build()
-        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, PROVIDER)
-            .apply { init(spec) }
-            .generateKey()
+    /**
+     * Creates the Delay State MAC key for [seq], replacing any key under that number. It is StrongBox when the device has one,
+     * and the TEE otherwise. As for the vault key, a key that is not hardware-backed is refused in a release build.
+     */
+    fun createFailureMacKey(seq: Long): SecretKey {
+        val alias = failureMacAlias(seq)
+        delete(alias)
+        val key = withStrongBoxFallback { generateHmac(alias, strongBox = it) }
+        val level = securityLevel(key)
+        // The security level is not secret. It shows whether the Delay State rests on hardware.
+        Log.i(TAG, "Delay State MAC key at security level $level")
+        if (KeystorePolicy.verdict(isHardwareBacked(level), BuildConfig.DEBUG) == KeystoreVerdict.Refused) {
+            delete(alias)
+            throw GeneralSecurityException("The Delay State MAC key is not hardware-backed.")
+        }
+        return key
     }
 
-    /** The failure-state MAC key, created if it is missing. A new key cannot verify old state, so the state reads as tampered. */
-    fun failureMacKey(): SecretKey = get(FAILURE_MAC_ALIAS) ?: createFailureMacKey()
+    /** The Delay State MAC key for [seq], or null once it has been deleted. */
+    fun failureMacKey(seq: Long): SecretKey? = get(failureMacAlias(seq))
+
+    /** The legacy single Delay State MAC key, or null once it has been deleted. */
+    fun legacyFailureMacKey(): SecretKey? = get(LEGACY_FAILURE_MAC_ALIAS)
+
+    /** Deletes every Delay State MAC key except the one for [keepSeq], and the legacy key too. A null [keepSeq] deletes them all. */
+    fun deleteFailureMacKeysExcept(keepSeq: Long?) {
+        val store = keyStore()
+        val keep = keepSeq?.let { failureMacAlias(it) }
+        Collections.list(store.aliases())
+            .filter { it.startsWith(FAILURE_MAC_PREFIX) && it != keep }
+            .forEach { store.deleteEntry(it) }
+    }
 
     /** Removes every key the vault uses on this device. */
     fun deleteAll() {
         delete(HARDWARE_KEY_ALIAS)
-        delete(FAILURE_MAC_ALIAS)
+        deleteFailureMacKeysExcept(keepSeq = null)
         delete(PROBE_ALIAS)
     }
 
@@ -89,6 +117,8 @@ internal object VaultKeystore {
         }
     }
 
+    private fun failureMacAlias(seq: Long): String = "$FAILURE_MAC_PREFIX.$seq"
+
     private fun keyStore(): KeyStore = KeyStore.getInstance(PROVIDER).apply { load(null) }
 
     private fun get(alias: String): SecretKey? = keyStore().getKey(alias, null) as? SecretKey
@@ -98,13 +128,16 @@ internal object VaultKeystore {
         if (store.containsAlias(alias)) store.deleteEntry(alias)
     }
 
-    private fun generateAes(alias: String): SecretKey = try {
-        generateAes(alias, strongBox = true)
+    /** Generates a key in StrongBox when the device has one, and in the TEE otherwise. */
+    private inline fun withStrongBoxFallback(generate: (strongBox: Boolean) -> SecretKey): SecretKey = try {
+        generate(true)
     } catch (e: StrongBoxUnavailableException) {
-        generateAes(alias, strongBox = false)
+        generate(false)
     } catch (e: ProviderException) {
-        if (e.cause is StrongBoxUnavailableException) generateAes(alias, strongBox = false) else throw e
+        if (e.cause is StrongBoxUnavailableException) generate(false) else throw e
     }
+
+    private fun generateAes(alias: String): SecretKey = withStrongBoxFallback { generateAes(alias, strongBox = it) }
 
     private fun generateAes(alias: String, strongBox: Boolean): SecretKey {
         val spec = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
@@ -114,6 +147,17 @@ internal object VaultKeystore {
             .setIsStrongBoxBacked(strongBox)
             .build()
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
+            .apply { init(spec) }
+            .generateKey()
+    }
+
+    private fun generateHmac(alias: String, strongBox: Boolean): SecretKey {
+        val spec = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
+            .setKeySize(256)
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .setIsStrongBoxBacked(strongBox)
+            .build()
+        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, PROVIDER)
             .apply { init(spec) }
             .generateKey()
     }
