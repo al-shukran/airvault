@@ -16,4 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Lensly"
 include(":app")
+include(":benchmark")
 include(":tools:registry-pack")
