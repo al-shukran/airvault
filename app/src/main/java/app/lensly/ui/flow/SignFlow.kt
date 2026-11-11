@@ -255,7 +255,7 @@ class SignFlow(
                 )
             }
         } catch (e: WalletUnavailable) {
-            SignStep.Refused(WALLET_UNREADABLE)
+            return refusal(started = started, wallet = walletId, request = request, reason = WALLET_UNREADABLE)
         }
     }
 

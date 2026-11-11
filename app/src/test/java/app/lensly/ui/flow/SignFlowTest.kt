@@ -679,6 +679,20 @@ class SignFlowTest {
     }
 
     @Test
+    fun aWalletThatCannotBePreparedForAScanIsRefusedAndRecordedUnderIt() {
+        val ports = FakePorts(wallets = emptyList())
+        val flow = SignFlow(ports, WALLET_ID)
+
+        scan(flow, framesOf(messageRequest(), FRAGMENT))
+
+        assertEquals(SignStep.Refused("The wallet could not be read. Nothing was signed."), flow.state.value)
+        val entry = ports.records.single()
+        assertEquals(ReviewOutcome.REFUSED, entry.outcome)
+        assertEquals(WALLET_ID, entry.walletId)
+        assertEquals("The wallet could not be read. Nothing was signed.", entry.refusal)
+    }
+
+    @Test
     fun aLeftRequestWhoseRecordCannotBeSavedStillLeaves() {
         val flow = SignFlow(FakePorts(recordFails = true), WALLET_ID)
         reviewOf(flow)
