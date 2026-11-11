@@ -34,6 +34,10 @@ class CameraController {
             applyFlash()
         }
 
+    /** The zoom ratio the lens is at now, as pinch zoom has set it. */
+    val currentZoomRatio: Float
+        get() = zoomRatio
+
     /** Binds preview and still capture to [owner]. Returns false when [selector] is not available. */
     suspend fun bind(
         context: Context,
