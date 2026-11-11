@@ -1,12 +1,16 @@
 package app.lensly.ui.home
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -54,9 +58,31 @@ class WalletDashboardTest {
         compose.onNodeWithText("Update catalog", substring = true, ignoreCase = true).assertDoesNotExist()
     }
 
+    /**
+     * The carousel holds one card per wallet, not a fixed three: five wallets make five card nodes. The row is laid out in a
+     * frame wide enough for all of them, so the count is exact without scrolling.
+     */
     @Test
-    // A window wide enough to hold all five cards, so the carousel's count can be asserted without scrolling it.
-    @Config(qualifiers = "w1400dp-h1600dp-port-mdpi")
+    fun theCarouselHoldsOneCardPerWallet() {
+        compose.setContent {
+            LenslyTheme {
+                Box(modifier = Modifier.requiredSize(width = 1400.dp, height = 200.dp)) {
+                    WalletPeekSection(
+                        wallets = wallets(5),
+                        profiles = emptyMap(),
+                        onOpen = {},
+                        onWallets = {},
+                        onLongPress = {},
+                    )
+                }
+            }
+        }
+        settle()
+
+        compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(5)
+    }
+
+    @Test
     fun allWalletsOpensTheListOfEveryWallet() {
         lateinit var nav: NavHostController
         compose.setContent {
@@ -80,8 +106,6 @@ class WalletDashboardTest {
             }
         }
         settle()
-        compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(5)
-
         compose.onNodeWithText("All wallets →").performClick()
         settle()
 
