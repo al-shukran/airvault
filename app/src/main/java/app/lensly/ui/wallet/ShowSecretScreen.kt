@@ -41,6 +41,7 @@ import app.lensly.ui.theme.LenslyWarning
 import app.lensly.ui.theme.SpaceMonoFamily
 
 private const val TITLE = "Show secret"
+private const val SHOW_PROMPT = "Enter your App Password to show the secret."
 
 /** The three steps: App Password, warning, and the secret. */
 private const val STEP_COUNT = 3
@@ -93,8 +94,11 @@ fun ShowSecretScreen(
     }
 }
 
+/**
+ * The App Password step, shared with Delete Wallet and Wipe. [title], [prompt] and [stepCount] say which action it belongs to.
+ */
 @Composable
-private fun PasswordStep(
+internal fun PasswordStep(
     busy: Boolean,
     length: Int,
     onKey: (Char) -> Unit,
@@ -103,9 +107,12 @@ private fun PasswordStep(
     onBack: () -> Unit,
     onLock: () -> Unit,
     modifier: Modifier,
+    title: String = TITLE,
+    prompt: String = SHOW_PROMPT,
+    stepCount: Int = STEP_COUNT,
 ) {
     LenslyScreen(
-        title = TITLE,
+        title = title,
         onBack = onBack,
         modifier = modifier,
         scrollable = false,
@@ -118,12 +125,12 @@ private fun PasswordStep(
             )
         },
     ) {
-        StepHeader(step = 1, onLock = onLock)
+        StepHeader(step = 1, onLock = onLock, count = stepCount)
         Spacer(Modifier.height(LenslySpacing.lg))
         DotHeadline(text = "PASSWORD")
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
-            text = "Enter your App Password to show the secret.",
+            text = prompt,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -310,14 +317,14 @@ private fun RevealedStep(
     }
 }
 
-/** The step line at the top of a step: "Step N of 3", a Lock pill, and the progress bar underneath. */
+/** The step line at the top of a step: "Step N of [count]", a Lock pill, and the progress bar underneath. */
 @Composable
-private fun StepHeader(step: Int, onLock: () -> Unit) {
+internal fun StepHeader(step: Int, onLock: () -> Unit, count: Int = STEP_COUNT) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        WalletEyebrow("Step $step of $STEP_COUNT")
+        WalletEyebrow("Step $step of $count")
         Spacer(Modifier.weight(1f))
         WalletPill(
             text = "Lock",
@@ -327,7 +334,7 @@ private fun StepHeader(step: Int, onLock: () -> Unit) {
         )
     }
     Spacer(Modifier.height(LenslySpacing.xs))
-    StepSegments(count = STEP_COUNT, filled = step)
+    StepSegments(count = count, filled = step)
 }
 
 /**

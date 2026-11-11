@@ -158,6 +158,7 @@ class HomeScreensScreenshotTest {
             onRenameAccount = {},
             onRenameAccounts = {},
             onResetAccountNames = {},
+            onDeleteWallet = {},
         )
     }
 
