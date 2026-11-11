@@ -18,7 +18,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.BuildConfig
 import app.lensly.app.AppSettings
 import app.lensly.app.DecoyVault
-import app.lensly.app.RegistryHolder
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
@@ -33,7 +32,7 @@ import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.flow.checkAppPassword
-import app.lensly.ui.settings.CatalogCounts
+import app.lensly.ui.settings.Catalog
 import app.lensly.ui.settings.ChangeCopy
 import app.lensly.ui.settings.ChangePasswordScreen
 import app.lensly.ui.settings.ChangePasswordState
@@ -54,12 +53,12 @@ internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, ho
     composable(HiddenRoute.FAILURE_CAP) { HiddenBackdrop { FailureCapRoute(navController, holder) } }
     composable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
     entryGestureRoutes(navController, holder)
+    catalogRoutes(navController, holder)
 }
 
 /**
- * Settings: the saved Bulk Cap, which a tap on an option saves at once, the Failure Delay cap, the catalog counts, and
- * the About notices. Every store read and write runs off the main thread, and a closed session returns the owner to the
- * camera.
+ * Settings: the saved Bulk Cap, which a tap on an option saves at once, the wrong password lockout, the catalog, and the
+ * About notices. Every store read and write runs off the main thread, and a closed session returns the owner to the camera.
  */
 @Composable
 private fun SettingsRoute(navController: NavHostController, holder: VaultHolder) {
@@ -68,7 +67,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
     val entryGestures = context.entryGestureHolder()
     val scope = rememberCoroutineScope()
     var settings by remember { mutableStateOf<AppSettings?>(null) }
-    var catalog by remember { mutableStateOf<CatalogCounts?>(null) }
+    var catalog by remember { mutableStateOf<Catalog?>(null) }
     var failureCap by remember { mutableStateOf<FailureCapChoice?>(null) }
 
     LaunchedEffect(session) {
@@ -76,13 +75,11 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
             settings = withContext(Dispatchers.IO) { SettingsStore(session).load() }
         }
     }
-    // Read again each time the screen is shown, so a package installed from Update catalog is counted, and a cap saved on
-    // the Failure Delay cap screen shows.
+    // Read again each time the screen is shown, so a package installed from Update catalog shows, and a lockout saved on
+    // its screen shows.
     val entry by navController.currentBackStackEntryAsState()
     LaunchedEffect(entry) {
-        catalog = withContext(Dispatchers.IO) {
-            RegistryHolder.get(context).let { CatalogCounts(networks = it.networks().size, tokens = it.tokens().size) }
-        }
+        catalog = readCatalog(context)
         failureCap = readFailureCap(holder)
     }
 
@@ -103,6 +100,8 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         failureDelayCap = failureCap,
         onFailureDelayCap = { navController.navigate(HiddenRoute.FAILURE_CAP) },
         catalog = catalog,
+        onNetworks = { navController.navigate(HiddenRoute.NETWORKS) },
+        onTokens = { navController.navigate(HiddenRoute.TOKENS) },
         onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
         onWipe = { navController.navigate(HiddenRoute.WIPE) },
         onDuressPassword = { navController.navigate(HiddenRoute.DURESS) },

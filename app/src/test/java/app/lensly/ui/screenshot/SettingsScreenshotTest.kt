@@ -2,7 +2,8 @@ package app.lensly.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.wallet.BulkCap
-import app.lensly.ui.settings.CatalogCounts
+import app.lensly.ui.settings.Catalog
+import app.lensly.ui.shippedRegistry
 import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.SettingsScreen
 import org.junit.Rule
@@ -12,7 +13,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** Settings with its values read, and while the saved cap and the catalog counts are still being read. */
+/** Settings with its values read, and while the saved lockout and the catalog are still being read. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -22,13 +23,16 @@ class SettingsScreenshotTest {
 
     @Test
     fun settingsLoaded() = compose.snapshot("settings_loaded") {
+        val registry = shippedRegistry()
         SettingsScreen(
             bulkCap = BulkCap.HUNDRED,
             onBulkCap = {},
             onChangePassword = {},
             failureDelayCap = FailureCapChoice.DEFAULT,
             onFailureDelayCap = {},
-            catalog = CatalogCounts(networks = 12, tokens = 48),
+            catalog = Catalog(networks = registry.networks(), tokens = registry.tokens()),
+            onNetworks = {},
+            onTokens = {},
             onUpdateCatalog = {},
             onWipe = {},
             versionName = "1.0",
@@ -47,6 +51,8 @@ class SettingsScreenshotTest {
             failureDelayCap = null,
             onFailureDelayCap = {},
             catalog = null,
+            onNetworks = {},
+            onTokens = {},
             onUpdateCatalog = {},
             onWipe = {},
             versionName = "1.0",

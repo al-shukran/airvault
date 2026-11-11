@@ -33,9 +33,10 @@ private const val SCREEN_TAG = "lensly-screenshot-screen"
 
 /**
  * Renders [content] in the Lensly dark theme at 720 x 1600 px and 280 dpi, then records it as [SCREENSHOT_DIR]/[name].png.
- * Call it once per test, in one line. The frame is sized in dp so its pixel size is exact.
+ * Call it once per test, in one line. The frame is sized in dp so its pixel size is exact. [settleMs] advances the paused clock
+ * before the capture, so an entrance animation has finished.
  */
-fun ComposeContentTestRule.snapshot(name: String, content: @Composable () -> Unit) {
+fun ComposeContentTestRule.snapshot(name: String, settleMs: Long = 0L, content: @Composable () -> Unit) {
     mainClock.autoAdvance = false
     setContent {
         CompositionLocalProvider(LocalDensity provides Density(SCREEN_DENSITY)) {
@@ -54,6 +55,8 @@ fun ComposeContentTestRule.snapshot(name: String, content: @Composable () -> Uni
             }
         }
     }
+    waitForIdle()
+    mainClock.advanceTimeBy(settleMs)
     waitForIdle()
     onNodeWithTag(SCREEN_TAG).captureRoboImage(filePath = "$SCREENSHOT_DIR/$name.png")
 }
