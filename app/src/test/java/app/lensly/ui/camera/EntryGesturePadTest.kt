@@ -36,13 +36,19 @@ class EntryGesturePadTest {
     val compose = createComposeRule()
 
     private var performed = 0
+    private var shutterClicks = 0
 
     private fun showPad(gesture: EntryGesture) {
         performed = 0
+        shutterClicks = 0
         compose.setContent {
             LenslyTheme {
                 Box(Modifier.testTag(PAD_TAG).fillMaxSize()) {
-                    EntryGesturePad(gesture = gesture, onPerformed = { performed++ })
+                    EntryGesturePad(
+                        gesture = gesture,
+                        onPerformed = { performed++ },
+                        onShutterClick = { shutterClicks++ },
+                    )
                 }
             }
         }
@@ -77,21 +83,39 @@ class EntryGesturePadTest {
         advanceEventTime(300)
     }
 
+    /** Two double taps with two fingers, then both fingers held for the hold time. */
+    private fun TouchInjectionScope.doubleTapThenHold() {
+        twoFingerTap()
+        advanceEventTime(150)
+        twoFingerTap()
+        advanceEventTime(150)
+        down(0, Offset(center.x - 30f, center.y))
+        down(1, Offset(center.x + 30f, center.y))
+        advanceEventTime(1_300)
+        up(0)
+        up(1)
+    }
+
+    /** Switches to Video with the mode switch. The gestures must still work once it is set. */
+    private fun enterVideoMode() {
+        compose.onNodeWithText("VIDEO").performClick()
+    }
+
+    /** Three camera switches, then the shutter held for the hold time. */
+    private fun threeSwitchesThenHoldShutter(shutterLabel: String) {
+        repeat(3) { compose.onNodeWithContentDescription("Switch camera").performClick() }
+        compose.onNodeWithContentDescription(shutterLabel).performTouchInput {
+            down(center)
+            advanceEventTime(900)
+            up()
+        }
+    }
+
     @Test
     fun twoFingerDoubleTapThenHoldCompletesTheDefaultGesture() {
         showPad(EntryGesture.DOUBLE_TAP_HOLD)
 
-        padTouch {
-            twoFingerTap()
-            advanceEventTime(150)
-            twoFingerTap()
-            advanceEventTime(150)
-            down(0, Offset(center.x - 30f, center.y))
-            down(1, Offset(center.x + 30f, center.y))
-            advanceEventTime(1_300)
-            up(0)
-            up(1)
-        }
+        padTouch { doubleTapThenHold() }
 
         assertEquals(1, performed)
     }
@@ -236,6 +260,89 @@ class EntryGesturePadTest {
             up()
         }
 
+        assertEquals(0, performed)
+    }
+
+    // Regression: the Photo and Video switch sits outside every gesture region, so each gesture must still complete
+    // once video mode is on, and the shutter gesture must not start a recording.
+
+    @Test
+    fun theDefaultGestureStillCompletesInVideoMode() {
+        showPad(EntryGesture.DOUBLE_TAP_HOLD)
+        enterVideoMode()
+
+        padTouch { doubleTapThenHold() }
+
+        assertEquals(1, performed)
+    }
+
+    @Test
+    fun thePinchGestureStillCompletesInVideoMode() {
+        showPad(EntryGesture.PINCH_TRIPLE_TAP)
+        enterVideoMode()
+
+        padTouch { pinchToTwoX() }
+        padTouch {
+            tap()
+            advanceEventTime(200)
+            tap()
+            advanceEventTime(200)
+            tap()
+        }
+
+        assertEquals(1, performed)
+    }
+
+    @Test
+    fun theThumbnailGestureStillCompletesInVideoMode() {
+        showPad(EntryGesture.THUMBNAIL_HOLD_SWIPE)
+        enterVideoMode()
+
+        compose.onNodeWithContentDescription("Open gallery").performTouchInput {
+            down(center)
+            advanceEventTime(700)
+            moveTo(Offset(center.x - 200f, center.y))
+            up()
+        }
+
+        assertEquals(1, performed)
+    }
+
+    @Test
+    fun theShutterGestureStillCompletesInVideoModeAndStartsNoRecording() {
+        showPad(EntryGesture.SWITCH_THEN_SHUTTER_HOLD)
+        enterVideoMode()
+
+        threeSwitchesThenHoldShutter("Start recording")
+
+        assertEquals(1, performed)
+    }
+
+    @Test
+    fun tappingPhotoAndVideoDoesNotCountAsACameraSwitch() {
+        showPad(EntryGesture.SWITCH_THEN_SHUTTER_HOLD)
+
+        repeat(3) {
+            enterVideoMode()
+            compose.onNodeWithText("PHOTO").performClick()
+        }
+        compose.onNodeWithContentDescription("Take photo").performTouchInput {
+            down(center)
+            advanceEventTime(900)
+            up()
+        }
+
+        assertEquals(0, performed)
+    }
+
+    @Test
+    fun aTapOnTheRecordButtonInVideoModeReachesTheShutter() {
+        showPad(EntryGesture.SWITCH_THEN_SHUTTER_HOLD)
+        enterVideoMode()
+
+        compose.onNodeWithContentDescription("Start recording").performClick()
+
+        assertEquals(1, shutterClicks)
         assertEquals(0, performed)
     }
 }

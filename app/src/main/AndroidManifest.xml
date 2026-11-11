@@ -5,6 +5,8 @@
 
     <!-- Offline vault: no INTERNET permission is requested on purpose. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Sound for video recording. Asked the first time the owner picks Video; without it the video has no sound. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Key-press haptics (KeyHaptics). Vibration only, no sound. -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- androidx.core merges ACCESS_NETWORK_STATE by default; the app never inspects connectivity. -->

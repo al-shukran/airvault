@@ -1,6 +1,8 @@
 package app.lensly.ui.camera
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.FocusMeteringAction
@@ -8,6 +10,13 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -16,12 +25,18 @@ import java.util.concurrent.Executor
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-/** CameraX session behind the viewfinder: binding, focus, zoom, flash and still capture. */
+/** CameraX session behind the viewfinder: binding, focus, zoom, flash, still capture and video recording. */
 class CameraController {
     private var previewView: PreviewView? = null
     private var camera: Camera? = null
     private var imageCapture: ImageCapture? = null
+    private var videoCapture: VideoCapture<Recorder>? = null
+    private var recording: Recording? = null
     private var zoomRatio = 1f
+
+    /** True when the bound lens also records video. A lens that cannot run video with still capture is bound for photos only. */
+    var videoAvailable: Boolean = false
+        private set
 
     /** True when the bound lens has a flash unit. */
     val hasFlashUnit: Boolean
@@ -38,7 +53,7 @@ class CameraController {
     val currentZoomRatio: Float
         get() = zoomRatio
 
-    /** Binds preview and still capture to [owner]. Returns false when [selector] is not available. */
+    /** Binds preview, still capture and video to [owner]. Returns false when [selector] is not available. */
     suspend fun bind(
         context: Context,
         owner: LifecycleOwner,
@@ -48,10 +63,23 @@ class CameraController {
         val provider = awaitProvider(context)
         val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
         val capture = ImageCapture.Builder().build()
+        val video = VideoCapture.withOutput(
+            Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HD)).build(),
+        )
         camera = null
         imageCapture = null
+        videoCapture = null
         provider.unbindAll()
-        val bound = provider.bindToLifecycle(owner, selector, preview, capture)
+        val bound = try {
+            provider.bindToLifecycle(owner, selector, preview, capture, video).also {
+                videoCapture = video
+                videoAvailable = true
+            }
+        } catch (e: IllegalArgumentException) {
+            // This lens cannot record video alongside still capture. Photos still work, so bind without video.
+            videoAvailable = false
+            provider.bindToLifecycle(owner, selector, preview, capture)
+        }
         camera = bound
         imageCapture = capture
         previewView = view
@@ -99,6 +127,44 @@ class CameraController {
                 }
             },
         )
+    }
+
+    /**
+     * Starts recording an MP4 to [file], with sound when [context] holds the microphone permission. Returns false when no
+     * recording can start. Otherwise [onFinished] runs on [executor] once the file is closed, with false when the recording
+     * failed; a failed file is removed first. A source that goes away mid-recording still keeps what was recorded.
+     */
+    fun startRecording(
+        context: Context,
+        file: File,
+        executor: Executor,
+        onFinished: (saved: Boolean) -> Unit,
+    ): Boolean {
+        val output = videoCapture?.output ?: return false
+        val prepared = output.prepareRecording(context, FileOutputOptions.Builder(file).build())
+        // Sound only with the microphone allowed. The check sits right at the call, where lint can see the guard.
+        val pending = if (
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+        ) {
+            prepared.withAudioEnabled()
+        } else {
+            prepared
+        }
+        recording = pending.start(executor) { event ->
+            if (event is VideoRecordEvent.Finalize) {
+                recording = null
+                val failed = event.hasError() && event.error != VideoRecordEvent.Finalize.ERROR_SOURCE_INACTIVE
+                if (failed) file.delete()
+                onFinished(!failed)
+            }
+        }
+        return true
+    }
+
+    /** Ends the recording in progress. Its file is saved, and the callback given to [startRecording] runs once it is closed. */
+    fun stopRecording() {
+        recording?.stop()
     }
 
     private fun applyFlash() {
