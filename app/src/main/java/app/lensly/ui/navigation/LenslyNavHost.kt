@@ -88,17 +88,13 @@ fun LenslyNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
  * records every touch, so the countdown restarts with each one.
  */
 @Composable
-internal fun InactivityLock(
-    navController: NavHostController,
-    holder: VaultHolder,
-    lockDelayMs: Long = INACTIVITY_LOCK_MS,
-): Modifier {
+internal fun InactivityLock(navController: NavHostController, holder: VaultHolder): Modifier {
     val entry by navController.currentBackStackEntryAsState()
     val inHidden = entry?.destination.inHiddenGraph()
     var touches by remember { mutableIntStateOf(0) }
     LaunchedEffect(inHidden, touches) {
         if (inHidden) {
-            delay(lockDelayMs)
+            delay(INACTIVITY_LOCK_MS)
             leaveHidden(navController, holder)
         }
     }
