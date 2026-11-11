@@ -83,7 +83,7 @@ class AutoLockTest {
         compose.onNodeWithTag(ROOT).performTouchInput { up() }
         compose.mainClock.advanceTimeByFrame()
 
-        // 230 s since entering, but only 10 s since the touch.
+        // 220 s since entering, but only 110 s since the touch.
         compose.mainClock.advanceTimeBy(INACTIVITY_LOCK_MS - 10_000L)
         assertEquals(LenslyRoute.HIDDEN, nav.currentBackStackEntry?.destination?.route)
         assertEquals(0L, holder.unlockEpoch())
