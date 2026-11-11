@@ -1,6 +1,6 @@
 # Testing guideline
 
-Status: to implement in Phase 1.5. Describes the target state.
+Status: implemented on `phase-1-5` (Phase 1.5). Describes the shipped state; see "Implementation notes" at the end for the places where the build differs from the YAML below.
 
 Today on `master`: JUnit 4 and `kotlin.test` unit tests under `app/src/test` (`core/wallet`, `core/ur`, `core/vault`, `ui/*`). No `androidTest` sources, no Robolectric, no Compose UI tests, no `.github/workflows`. `org.gradle.caching=true` is set; configuration cache is not.
 
@@ -301,3 +301,19 @@ Durations are estimates, to be measured in Phase 1.5.
 10. Add `nightly.yml` (2.5) and `comment-run.yml` (2.6). Verify issue creation on a throwaway failing branch, and the write-access gate with a non-collaborator account.
 11. Add the `benchmark` build type; record reference-device baselines; set the 10% gate.
 12. Run the Accessibility Test Framework spike on Compose screens and decide whether it gates. Add the manual device protocol to the release checklist.
+
+---
+
+## 5. Implementation notes
+
+Where the shipped build differs from the text above:
+
+- **JDK:** CI uses temurin 21, not the `java-version: '17'` in the 2.4 and 2.5 YAML. The app still targets Java 17.
+- **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
+- **`ui` and pixels:** the `ui` partition passes `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly via `verifyRoborazziDebug`.
+- **Dependency graph:** GitHub Dependency graph is disabled for this repo, so `dependency_review` and the snapshot submission are advisory (`continue-on-error`) until a human enables it at https://github.com/heyaibi/lensly/settings/security_analysis.
+- **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
+- **Macrobenchmark:** lives in the separate `:benchmark` module (`com.android.test`). Baselines must be recorded on the reference device.
+- **Cache warm:** `scripts/ci/cache-warm.yml` warms the Gradle cache on pushes to `master` and `phase-1-5`. A cold branch previously hit the 3-minute job cap.
+- **E2E:** the `FrameSource` seam plus `app.lensly.e2e.WalletSignFlowTest` are verified on an API 36 arm64 emulator. The `/run-*` comment commands only work once the workflow exists on the default branch.
+
