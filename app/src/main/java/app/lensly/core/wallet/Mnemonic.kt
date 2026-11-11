@@ -12,7 +12,8 @@ import org.web3j.utils.Numeric
  *
  * The words, their entropy and the derived seed live in buffers this instance owns, and [wipe] zeroes every one of
  * them. Create one for a single operation and use it with `use { }`, so it is wiped afterwards. Reading a wiped
- * instance throws [IllegalStateException].
+ * instance throws [IllegalStateException], except for [equals], [hashCode] and [iterator], which a screen holding the
+ * instance may call again after the wipe.
  *
  * The [List] view lets screens and records read the words one at a time. Each [get] decodes a word from the buffer
  * into a short-lived String. [text] returns a wipeable copy for callers that can handle one.
@@ -82,6 +83,18 @@ class Mnemonic private constructor(
     }
 
     override fun close() = wipe()
+
+    /**
+     * A wiped instance compares by identity, because its contents are gone. A screen that recomposes with a reference
+     * to it therefore compares safely instead of reading zeroed buffers.
+     */
+    override fun equals(other: Any?): Boolean = if (wiped) this === other else super.equals(other)
+
+    /** The identity hash of a wiped instance, since a content hash would read the zeroed buffers. */
+    override fun hashCode(): Int = if (wiped) System.identityHashCode(this) else super.hashCode()
+
+    /** A wiped instance has no words left to iterate, so it iterates as empty rather than throwing. */
+    override fun iterator(): Iterator<String> = if (wiped) emptyList<String>().iterator() else super.iterator()
 
     private fun checkLive() {
         check(!wiped) { "Mnemonic has been wiped" }
