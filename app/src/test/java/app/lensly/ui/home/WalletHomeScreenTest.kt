@@ -97,6 +97,26 @@ class WalletHomeScreenTest {
     }
 
     @Test
+    fun theCatalogChipShowsTheCatalogVersion() {
+        compose.setContent {
+            LenslyTheme {
+                home(
+                    wallets = wallets(1),
+                    readiness = HomeReadiness(
+                        networkCount = 3,
+                        tokenCount = 2,
+                        catalogVersion = "7",
+                        lockout = "Default",
+                    ),
+                )
+            }
+        }
+        settle()
+
+        compose.onNodeWithText("Catalog 7").assertExists()
+    }
+
+    @Test
     fun readinessChipsOpenTheirSettingsScreens() {
         lateinit var nav: NavHostController
         compose.setContent {

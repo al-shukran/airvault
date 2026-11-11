@@ -41,6 +41,8 @@ import app.lensly.app.export.AccountExport
 import app.lensly.app.export.AccountExportView
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.core.registry.Registry
+import app.lensly.core.registry.update.PackageFormat
+import app.lensly.core.registry.update.RegistryPackage
 import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
@@ -72,6 +74,7 @@ import app.lensly.ui.wallet.RestoreEntryScreen
 import app.lensly.ui.wallet.RestoreState
 import app.lensly.ui.wallet.WalletNameScreen
 import app.lensly.ui.wallet.effectiveWalletName
+import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -167,10 +170,12 @@ private fun HomeRoute(
     }
     LaunchedEffect(current) {
         val catalog = readCatalog(context)
+        val installed = installedCatalog(context)
         val lockout = readFailureCap(holder)
         readiness = HomeReadiness(
             networkCount = catalog.networks.size,
             tokenCount = catalog.tokens.size,
+            catalogVersion = installed?.sequence?.toString(),
             lockout = lockout.label,
         )
     }
@@ -207,6 +212,24 @@ private fun HomeRoute(
         onNoticeShown = { hidden.savedStateHandle[HiddenRoute.PAIRED_NOTICE] = null },
     )
 }
+
+/**
+ * The installed catalog package: its version and date, as the Update catalog screen reports them. Null while the vault runs on
+ * the built-in catalog. The package is the one the catalog stores, and it is opened the same way the catalog opens it.
+ */
+private suspend fun installedCatalog(context: Context): RegistryPackage? = withContext(Dispatchers.IO) {
+    runCatching {
+        val file = File(context.noBackupFilesDir, INSTALLED_CATALOG_DIR + RegistryUpdate.INSTALLED_FILE)
+        if (!file.isFile) return@runCatching null
+        val trustedKeys = RegistryUpdate.trustedKeys { path ->
+            runCatching { context.assets.open(path).bufferedReader().use { it.readText() } }.getOrNull()
+        }
+        PackageFormat.decode(PackageFormat.open(file.readBytes(), trustedKeys))
+    }.getOrNull()
+}
+
+/** The directory under noBackupFilesDir where an accepted catalog package is stored. */
+private const val INSTALLED_CATALOG_DIR = "registry/"
 
 /** The Wallets list, every wallet as a card. It reads the wallets the same way Home does. */
 @Composable
