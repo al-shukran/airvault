@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
+import app.lensly.app.export.AccountExportView
 import app.lensly.ui.flow.AccountExportScreen
 import app.lensly.ui.flow.ConfirmPasswordScreen
 import app.lensly.ui.flow.PairFormat
@@ -67,9 +68,23 @@ class FlowScreenshotTest {
 
     @Test
     fun accountExport() = compose.snapshot("account_export_screen") {
+        // A fixed code and fields, as the pair wizard's screenshot uses SAMPLE_UR. The live encoder is covered by unit tests.
         AccountExportScreen(
-            address = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
-            derivationPath = "m/44'/60'/0'/0/0",
+            accounts = listOf(
+                AccountExportView(
+                    address = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+                    derivationPath = "m/44'/60'/0'/0/0",
+                    parts = listOf(SAMPLE_UR),
+                    fields = listOf(
+                        "Derivation path" to "m/44'/60'/0'/0/0",
+                        "Depth" to "5",
+                        "Public key" to "02eae4b876a8696134b868f88cc2f51f715f2dbedb7446b8e6edf3d4541c4eb67b",
+                        "Chain code" to "d882718b7a42806803eeb17f7483f20620611adb88fc943c898dc5aba94c2819",
+                        "Parent fingerprint" to "d32e4508",
+                        "Master fingerprint" to "e9181cf3",
+                    ),
+                ),
+            ),
             onDone = {},
             onBack = {},
         )
@@ -78,8 +93,14 @@ class FlowScreenshotTest {
     @Test
     fun accountExportSingleKey() = compose.snapshot("account_export_single_key") {
         AccountExportScreen(
-            address = "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23",
-            derivationPath = null,
+            accounts = listOf(
+                AccountExportView(
+                    address = "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23",
+                    derivationPath = null,
+                    parts = listOf("0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"),
+                    fields = emptyList(),
+                ),
+            ),
             onDone = {},
             onBack = {},
         )

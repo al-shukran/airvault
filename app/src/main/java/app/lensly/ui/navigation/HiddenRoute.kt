@@ -22,8 +22,9 @@ internal object HiddenRoute {
     const val DETAIL = "detail/{walletId}"
     const val BULK = "bulk/{walletId}"
     const val EXPORT = "export/{walletId}"
-    // Export of one account: its address as a code, reached from the account row of the wallet detail.
-    const val EXPORT_ACCOUNT = "export-account/{walletId}/{index}"
+    // Export of one or more accounts: each account's code and its plain-text fields. Reached from an account's options or from
+    // the selection of the wallet detail.
+    const val EXPORT_ACCOUNTS = "export-accounts/{walletId}/{indices}"
     const val SCAN = "scan/{walletId}"
     const val SCAN_ANY = "scan"
     // Saved-state key on the hidden graph, not a route: Home shows the message once after a pairing, then forgets it.
@@ -90,7 +91,9 @@ internal object HiddenRoute {
 
     fun export(walletId: String): String = "export/$walletId"
 
-    fun exportAccount(walletId: String, index: Int): String = "export-account/$walletId/$index"
+    /** The export of the accounts in [indices], as the same comma-separated list that the batch routes use. */
+    fun exportAccounts(walletId: String, indices: Collection<Int>): String =
+        "export-accounts/$walletId/${indices.joinToString(",")}"
 
     fun scan(walletId: String): String = "scan/$walletId"
 

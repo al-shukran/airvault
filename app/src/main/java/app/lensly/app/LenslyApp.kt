@@ -2,6 +2,8 @@ package app.lensly.app
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
+import app.lensly.core.vault.BackupExclusion
 import app.lensly.core.vault.Vault
 
 /**
@@ -12,6 +14,13 @@ import app.lensly.core.vault.Vault
 class LenslyApp : Application() {
     val vaultHolder: VaultHolder by lazy { VaultHolder(Vault(this)) }
     val entryGestureHolder: EntryGestureHolder by lazy { EntryGestureHolder(EntryGestureStore.open(this)) }
+
+    override fun onCreate() {
+        super.onCreate()
+        // Backup Exclusion, in debug and release alike. The line is a fixed message, so no secret can reach the log. The vault
+        // itself refuses to create a vault in such a build, see Vault.refusal.
+        if (BackupExclusion.allowsBackup(applicationInfo.flags)) Log.e(BackupExclusion.LOG_TAG, BackupExclusion.REFUSAL)
+    }
 }
 
 /** The app-wide [VaultHolder]. */

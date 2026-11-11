@@ -7,13 +7,16 @@ import org.web3j.crypto.Hash
 import org.web3j.crypto.Keys
 import org.web3j.utils.Numeric
 
-/** Public account data for m/44'/60'/0', enough to derive every receiving address without the seed. */
+/**
+ * A public extended key, enough to derive receiving addresses without the seed. It is the account key m/44'/60'/0', or an address
+ * key m/44'/60'/0'/0/i from [AccountAddresses.addressXpub], which names its own path.
+ */
 class AccountXpub(
-    /** 33-byte compressed secp256k1 public key of m/44'/60'/0'. */
+    /** 33-byte compressed secp256k1 public key of the key's path. */
     val publicKey: ByteArray,
-    /** 32-byte BIP32 chain code of m/44'/60'/0'. */
+    /** 32-byte BIP32 chain code of the key's path. */
     val chainCode: ByteArray,
-    /** Fingerprint of the parent key m/44'/60'. */
+    /** Fingerprint of the parent key: m/44'/60' for the account key, m/44'/60'/0'/0 for an address key. */
     val parentFingerprint: Int,
 )
 

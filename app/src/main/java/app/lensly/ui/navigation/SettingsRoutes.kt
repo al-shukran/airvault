@@ -315,7 +315,7 @@ private suspend fun changeWith(holder: VaultHolder, password: CharArray): Change
             when (val result = holder.vault.rekey(session, password)) {
                 CreateResult.Created -> ChangeOutcome.Changed
                 is CreateResult.PolicyRejected -> ChangeOutcome.Refused(result.reason)
-                CreateResult.DeviceUnsupported -> ChangeOutcome.Unavailable
+                CreateResult.DeviceUnsupported, CreateResult.BackupAllowed -> ChangeOutcome.Unavailable
             }
         } catch (e: VaultException) {
             ChangeOutcome.Unavailable
