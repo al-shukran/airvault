@@ -68,8 +68,11 @@ case "$kind" in
         grep -q 'benchmark' "$ROOT/app/build.gradle.kts" ||
             not_configured "benchmark build type and :app:connectedBenchmarkAndroidTest (guideline 1.7)"
         # Runs on the self-hosted reference device (comment-run.yml), so no emulator suppression is needed
-        # and the numbers can be judged against the committed baseline.
-        ./gradlew :app:connectedBenchmarkAndroidTest
+        # and the numbers can be judged against the committed baseline. The class filter keeps the a11y, e2e and
+        # vault tests out of the benchmark APK run: the benchmark runner cannot measure them, and on the reference
+        # device they would only add minutes to the gate.
+        ./gradlew :app:connectedBenchmarkAndroidTest \
+            -Pandroid.testInstrumentationRunnerArguments.class='app.lensly.benchmark.*'
         # Macrobenchmarks live in their own com.android.test module: they launch the installed app instead of running
         # inside it. Same device, same benchmark variant, so they run in the same pass.
         if [ -d "$ROOT/benchmark" ]; then
