@@ -56,6 +56,7 @@ import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.ActivityScreen
 import app.lensly.ui.home.BulkGenerateScreen
 import app.lensly.ui.home.HomeReadiness
+import app.lensly.ui.home.effectiveCatalogSequence
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SoonScreen
@@ -238,12 +239,15 @@ private fun rememberHomeReadiness(
     LaunchedEffect(entry) {
         whileUnlocked(navController, holder) {
             val catalog = readCatalog(context)
-            val installed = withContext(Dispatchers.IO) { RegistryHolder.installed(context) }
+            val (installed, baked) = withContext(Dispatchers.IO) {
+                RegistryHolder.installed(context) to RegistryHolder.get(context).catalogSequence
+            }
             val lockout = withContext(Dispatchers.IO) { readFailureCap(holder) }
             readiness = HomeReadiness(
                 networkCount = catalog.networks.size,
                 tokenCount = catalog.tokens.size,
-                catalogSequence = installed?.sequence,
+                // The sequence in effect: the installed package's only when it replaces the built-in one.
+                catalogSequence = effectiveCatalogSequence(baked, installed?.sequence),
                 lockout = lockout,
             )
         }

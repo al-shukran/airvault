@@ -172,9 +172,10 @@ class WalletHomeScreenTest {
         settle()
 
         compose.onAllNodesWithTag(HOME_ACTIVITY_ROW_TAG).assertCountEquals(3)
-        compose.onNodeWithText("Send 4").assertDoesNotExist()
-        compose.onNodeWithText("Send 3").assertDoesNotExist()
-        val tops = listOf("Send 0", "Send 1", "Send 2").map { compose.onNodeWithText(it).fetchSemanticsNode().boundsInRoot.top }
+        // Each row reads "Signed · Send N", so the match is by part of the text.
+        compose.onNodeWithText("Send 4", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Send 3", substring = true).assertDoesNotExist()
+        val tops = listOf("Send 0", "Send 1", "Send 2").map { compose.onNodeWithText(it, substring = true).fetchSemanticsNode().boundsInRoot.top }
         assertTrue(tops.zipWithNext().all { (above, below) -> above < below }, "newest first, top to bottom: $tops")
     }
 
@@ -466,7 +467,7 @@ class WalletHomeScreenTest {
         )
     }
 
-    /** A signed transaction of wallet w1, made [hoursAgo] hours before [NOW_MS]. Its summary is "Send" and the hours. */
+    /** A signed transaction of wallet w1, made [hoursAgo] hours before [NOW_MS]. Its row reads "Signed · Send" and the hours. */
     private fun activity(hoursAgo: Int): WalletReviewRecord = WalletReviewRecord(
         walletId = "w1",
         record = ReviewRecord(

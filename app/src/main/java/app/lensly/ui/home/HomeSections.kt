@@ -65,8 +65,11 @@ internal const val READINESS_LOCKOUT_TAG = "readiness-lockout"
 /** How many records Recent activity shows: the newest ones. */
 internal const val HOME_ACTIVITY_LIMIT = 3
 
-/** A wallet card in the carousel. It is narrower than the Wallets list's cards, so the next card shows at the screen's edge. */
-private val CAROUSEL_CARD_WIDTH = 172.dp
+/**
+ * A wallet card in the carousel. Two cards fit the screen with the next card's edge showing, and the text of that next card starts past the
+ * screen's edge, so no name is cut by it.
+ */
+private val CAROUSEL_CARD_WIDTH = 182.dp
 
 /** The height of a readiness tile. Two rows of them make the grid. */
 private val TILE_HEIGHT = 96.dp
@@ -150,6 +153,8 @@ internal fun WalletCarouselSection(
                     compact = true,
                     // The fingerprint is left to the Wallets list: a card this narrow would only cut it short.
                     showFingerprint = false,
+                    // Two lines hold a name of up to about forty characters.
+                    nameLines = 2,
                     modifier = Modifier.width(CAROUSEL_CARD_WIDTH),
                 )
             }

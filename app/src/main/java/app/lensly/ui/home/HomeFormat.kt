@@ -35,12 +35,27 @@ internal fun relativeAge(atMs: Long, nowMs: Long): String {
 }
 
 /**
- * What a record says in one line: the function it reviewed, then its amount. A refusal names its reason instead. A record that
- * named neither reads as "Request", or "Message" for typed data and messages.
+ * One short line for a record: its outcome, then what it did. A signed record also shows its amount. A refusal shows no reason here,
+ * because a reason can run long and would be cut mid-sentence; the Activity detail shows the whole reason. A record that named no
+ * function reads as "Request", or as "Message" for typed data and messages.
  */
 internal fun activitySummary(record: ReviewRecord): String {
     val refused = record.outcome == ReviewOutcome.REFUSED
-    val what = (if (refused) record.refusal ?: record.function else record.function ?: record.refusal)
-        ?: if (record.kind == ReviewKind.MESSAGE) "Message" else "Request"
-    return if (refused) what else listOfNotNull(what, record.amount).joinToString(" · ")
+    val what = record.function ?: when {
+        refused -> null
+        record.kind == ReviewKind.MESSAGE -> "Message"
+        else -> "Request"
+    }
+    val amount = record.amount.takeIf { record.outcome == ReviewOutcome.SIGNED }
+    return listOfNotNull(outcomeLabel(record.outcome), what, amount).joinToString(" · ")
+}
+
+/**
+ * The catalog sequence in effect, for the Catalog tile. It is the installed package's when that sequence is higher than the build's,
+ * as the whitelist rule has it, and otherwise the build's. Null when the sequence is zero, which is the built-in catalog with no
+ * sequence of its own.
+ */
+internal fun effectiveCatalogSequence(bakedSequence: Long, installedSequence: Long?): Long? {
+    val inEffect = if (installedSequence != null && installedSequence > bakedSequence) installedSequence else bakedSequence
+    return inEffect.takeIf { it > 0 }
 }

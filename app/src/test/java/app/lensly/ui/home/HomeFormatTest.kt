@@ -4,6 +4,8 @@ import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import org.junit.Test
 
 class HomeFormatTest {
@@ -28,21 +30,39 @@ class HomeFormatTest {
     }
 
     @Test
-    fun aSignedRecordNamesItsFunctionAndAmount() {
-        assertEquals("transfer · 0.0100 MON", activitySummary(record(ReviewOutcome.SIGNED, function = "transfer", amount = "0.0100 MON")))
-        assertEquals("approve", activitySummary(record(ReviewOutcome.SIGNED, function = "approve")))
+    fun aSignedRecordNamesItsOutcomeFunctionAndAmount() {
+        assertEquals("Signed · transfer · 0.0100 MON", activitySummary(record(ReviewOutcome.SIGNED, function = "transfer", amount = "0.0100 MON")))
+        assertEquals("Signed · approve", activitySummary(record(ReviewOutcome.SIGNED, function = "approve")))
     }
 
     @Test
     fun aRecordWithNoFunctionReadsAsARequestOrAMessage() {
-        assertEquals("Request", activitySummary(record(ReviewOutcome.CANCELLED)))
-        assertEquals("Message", activitySummary(record(ReviewOutcome.SIGNED, kind = ReviewKind.MESSAGE)))
+        assertEquals("Cancelled · Request", activitySummary(record(ReviewOutcome.CANCELLED)))
+        assertEquals("Signed · Message", activitySummary(record(ReviewOutcome.SIGNED, kind = ReviewKind.MESSAGE)))
     }
 
     @Test
-    fun aRefusalNamesItsReasonRatherThanTheFunction() {
-        val refused = record(ReviewOutcome.REFUSED, function = "transfer", refusal = "Unknown chain", amount = "1 MON")
-        assertEquals("Unknown chain", activitySummary(refused))
+    fun aRefusalShowsItsOutcomeNotItsReason() {
+        val reason = "Chain 999999 is not in the registry, so this request cannot be checked before it is signed."
+        val refused = record(ReviewOutcome.REFUSED, function = "transfer", refusal = reason, amount = "1 MON")
+
+        assertEquals("Refused · transfer", activitySummary(refused))
+        assertFalse(activitySummary(refused).contains("registry"), "the reason is left to the Activity detail")
+    }
+
+    @Test
+    fun aRefusalWithNoFunctionIsJustRefused() {
+        assertEquals("Refused", activitySummary(record(ReviewOutcome.REFUSED, refusal = "Unknown chain")))
+    }
+
+    @Test
+    fun theCatalogSequenceInEffectIsTheInstalledOneOnlyWhenItIsHigher() {
+        assertEquals(5L, effectiveCatalogSequence(bakedSequence = 5, installedSequence = 3), "an installed sequence below the build's shows the build's")
+        assertEquals(5L, effectiveCatalogSequence(bakedSequence = 5, installedSequence = 5), "a tie keeps the build's")
+        assertEquals(7L, effectiveCatalogSequence(bakedSequence = 5, installedSequence = 7))
+        assertEquals(5L, effectiveCatalogSequence(bakedSequence = 5, installedSequence = null))
+        assertEquals(3L, effectiveCatalogSequence(bakedSequence = 0, installedSequence = 3))
+        assertNull(effectiveCatalogSequence(bakedSequence = 0, installedSequence = null), "no sequence anywhere reads as Built-in")
     }
 
     private fun record(

@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
@@ -70,13 +71,17 @@ internal const val ADD_WALLET_TAG = "add-wallet"
 
 private val CARD_HEIGHT = 150.dp
 private val COMPACT_CARD_HEIGHT = 104.dp
+
+/** A compact card whose name takes two lines, as the Home carousel's does. The height holds the name, the chip and the line under it. */
+private val COMPACT_TWO_LINE_CARD_HEIGHT = 120.dp
 private val CARD_SHAPE = RoundedCornerShape(LenslyRadius.xl)
 
 /**
  * One wallet as a card: its generated [WalletArt] under a scrim, the type chip and the avatar on top, then the name and the
  * accounts and master fingerprint in mono. [position] is the wallet's place in its list, which sets the avatar when the wallet
  * has no look of its own. A tap calls [onClick]. A long press calls [onLongPress], when set. [compact] makes a short card for
- * the Wallets list and the pairing picker.
+ * the Wallets list and the pairing picker. A compact card has its name on one line, unless [nameLines] asks for two, which the Home
+ * carousel does so a name is not cut mid-phrase.
  */
 @Composable
 internal fun WalletCard(
@@ -88,6 +93,7 @@ internal fun WalletCard(
     onLongPress: (() -> Unit)? = null,
     compact: Boolean = false,
     showFingerprint: Boolean = true,
+    nameLines: Int = 1,
 ) {
     val haptics = rememberKeyHaptics()
     val feedback = LocalHapticFeedback.current
@@ -105,7 +111,9 @@ internal fun WalletCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(if (compact) COMPACT_CARD_HEIGHT else CARD_HEIGHT)
+            .height(
+                if (!compact) CARD_HEIGHT else if (nameLines > 1) COMPACT_TWO_LINE_CARD_HEIGHT else COMPACT_CARD_HEIGHT,
+            )
             .testTag(WALLET_CARD_TAG)
             .pressFeedback(interaction, enabled = true)
             .clip(CARD_SHAPE)
@@ -135,9 +143,14 @@ internal fun WalletCard(
             Spacer(Modifier.weight(1f))
             Text(
                 text = wallet.name.uppercase(),
-                style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
+                style = when {
+                    !compact -> MaterialTheme.typography.headlineSmall
+                    // Twelve sp in mono, so two lines hold the whole name of a carousel card.
+                    nameLines > 1 -> MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp, lineHeight = 16.sp)
+                    else -> MaterialTheme.typography.titleMedium
+                },
                 color = LenslyOnSurface,
-                maxLines = if (compact) 1 else 2,
+                maxLines = if (compact) nameLines else 2,
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(LenslySpacing.xxs))
