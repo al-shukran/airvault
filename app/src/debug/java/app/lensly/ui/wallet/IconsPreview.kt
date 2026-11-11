@@ -30,7 +30,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.R
+import app.lensly.core.registry.FeeModel
+import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.components.BackdropLogo
+import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.components.chainIconDrawables
 import app.lensly.ui.components.chainIconsNeedingBackdrop
 import app.lensly.ui.components.tokenIconDrawables
@@ -60,12 +64,94 @@ internal fun IconsPreview() {
         items(tokenIconDrawables.entries.sortedBy { it.key }) { entry ->
             IconCell(resource = entry.value, label = entry.key, backdrop = entry.key in tokenIconsNeedingBackdrop)
         }
+        section("PEGGED AND BRIDGED: TOKEN LOGO WITH CHAIN BADGE")
+        items(stackedSamples) { sample -> StackedCell(sample) }
         section("APP AND FALLBACK")
         item { IconCell(resource = R.drawable.ic_unknown_token, label = "ic_unknown_token") }
         item { IconCell(resource = R.drawable.logo_lensly, label = "logo_lensly") }
         item { LauncherCell() }
     }
 }
+
+/** A pegged or bridged copy, drawn with the logo of its chain as a badge. */
+private class StackedSample(val label: String, val token: TokenEntry, val chain: NetworkEntry)
+
+private val bnbSmartChain = NetworkEntry(
+    chainId = 56L,
+    name = "BNB Smart Chain",
+    nativeSymbol = "BNB",
+    feeModel = FeeModel.L1,
+    explorerName = "BscScan",
+    testnet = false,
+    icon = "chain_binance_smart_chain",
+)
+
+private val avalancheChain = NetworkEntry(
+    chainId = 43114L,
+    name = "Avalanche C-Chain",
+    nativeSymbol = "AVAX",
+    feeModel = FeeModel.L1,
+    explorerName = "Snowtrace",
+    testnet = false,
+    icon = "chain_avalanche",
+)
+
+private val stackedSamples = listOf(
+    StackedSample(
+        label = "Binance Pegged USDT",
+        token = TokenEntry(
+            chainId = 56L,
+            contract = "0x55d398326f99059ff775485246999027b3197955",
+            symbol = "USDT",
+            name = "Binance Pegged USDT",
+            decimals = 18,
+            icon = "token_usdt",
+        ),
+        chain = bnbSmartChain,
+    ),
+    StackedSample(
+        label = "Binance Pegged ETH",
+        token = TokenEntry(56L, "0x2170ed0880ac9a755fd29b2688956bd959f933f8", "ETH", "Binance Pegged ETH", 18, null),
+        chain = bnbSmartChain,
+    ),
+    StackedSample(
+        label = "AAVE.e (Avalanche)",
+        token = TokenEntry(
+            chainId = 43114L,
+            contract = "0x63a72806098bd3d9520cc43356dd78afe5d386d9",
+            symbol = "AAVE.e",
+            name = "Aave (Avalanche Bridge)",
+            decimals = 18,
+            icon = "token_aave",
+        ),
+        chain = avalancheChain,
+    ),
+    StackedSample(
+        label = "WETH.e (Avalanche)",
+        token = TokenEntry(
+            chainId = 43114L,
+            contract = "0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab",
+            symbol = "WETH.e",
+            name = "Wrapped Ether (Avalanche Bridge)",
+            decimals = 18,
+            icon = null,
+        ),
+        chain = avalancheChain,
+    ),
+    StackedSample(
+        label = "USDC (Ethereum, no badge)",
+        token = TokenEntry(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6, "token_usdc"),
+        chain = NetworkEntry(
+            chainId = 1L,
+            name = "Ethereum",
+            nativeSymbol = "ETH",
+            feeModel = FeeModel.L1,
+            explorerName = "Etherscan",
+            testnet = false,
+            icon = "chain_ethereum",
+        ),
+    ),
+)
 
 private fun LazyGridScope.section(title: String) {
     item(span = { GridItemSpan(maxLineSpan) }) {
@@ -91,6 +177,25 @@ private fun IconCell(resource: Int, label: String, backdrop: Boolean = false) {
         Spacer(Modifier.height(6.dp))
         Text(
             text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun StackedCell(sample: StackedSample) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        TokenIcon(token = sample.token, size = 48.dp, chain = sample.chain)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = sample.label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

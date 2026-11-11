@@ -163,7 +163,7 @@ private fun importPackage(context: Context, uri: Uri): ImportState {
         RegistryHolder.install(context, bytes).getOrThrow()
     }
     return outcome.fold(
-        onSuccess = { importedState(it) },
+        onSuccess = { importedState(it, chains = RegistryHolder.get(context).networks()) },
         onFailure = { ImportState.Refused(refusalReason(it)) },
     )
 }
