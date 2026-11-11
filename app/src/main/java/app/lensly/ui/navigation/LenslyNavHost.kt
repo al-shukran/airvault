@@ -27,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.lensly.app.VaultHolder
+import app.lensly.app.entryGestureHolder
 import app.lensly.app.vaultHolder
 import app.lensly.ui.camera.CameraScreen
 import app.lensly.ui.camera.GalleryScreen
@@ -51,6 +52,7 @@ private const val INACTIVITY_LOCK_MS = 2 * 60 * 1000L
 @Composable
 fun LenslyNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
     val holder = LocalContext.current.vaultHolder()
+    val entryGestures = LocalContext.current.entryGestureHolder()
     val navController = rememberNavController()
     ReturnToCameraWhenBackgrounded(navController, holder)
     OpenHiddenOnDebugLaunch(navController, debugHiddenRequest)
@@ -70,6 +72,7 @@ fun LenslyNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                 CameraScreen(
                     onOpenGallery = { navController.navigate(LenslyRoute.GALLERY) { launchSingleTop = true } },
                     onHiddenEntry = { navController.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } },
+                    entryGesture = entryGestures.current,
                 )
             }
             composable(LenslyRoute.GALLERY) {
