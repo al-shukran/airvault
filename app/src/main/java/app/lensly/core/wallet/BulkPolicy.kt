@@ -9,8 +9,11 @@ object BulkPolicy {
     /** The Counts one tap away on the bulk screen. Each one is at most 100, so it fits every [BulkCap]. */
     val PRESETS: List<Int> = listOf(10, 20, 50)
 
-    /** The most digits a typed Count takes. Four digits reach 9999, which is above the largest [BulkCap]. */
-    const val MAX_DIGITS = 4
+    /**
+     * The most digits a typed Count takes: enough digits to write the largest [BulkCap], so the owner can always type
+     * up to whichever cap is set. It follows the caps, so a larger cap needs no change here.
+     */
+    val MAX_DIGITS: Int = BulkCap.entries.maxOf { it.accounts }.toString().length
 
     /** The outcome of [checkCount]. */
     sealed interface CountCheck {

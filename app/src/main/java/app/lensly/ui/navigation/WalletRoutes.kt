@@ -23,6 +23,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
@@ -443,10 +444,16 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
     val derivedCount = remember { MutableStateFlow(0) }
     val derived by derivedCount.collectAsState()
 
+    // The Bulk Cap is read each time this screen is shown, so a cap saved in Settings is the one this screen uses. The
+    // screen and the run both use the cap read here.
+    val entry by navController.currentBackStackEntryAsState()
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
             wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
-            // The Bulk Cap the owner set in Settings. The screen and the run both use this value.
+        }
+    }
+    LaunchedEffect(walletId, entry) {
+        whileUnlocked(navController, holder) {
             bulkCap = withContext(Dispatchers.IO) { SettingsStore(session).load().bulkCap }
         }
     }
