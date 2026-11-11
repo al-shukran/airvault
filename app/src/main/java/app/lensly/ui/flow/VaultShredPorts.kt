@@ -79,8 +79,9 @@ internal class WipeVaultPorts(
             try {
                 holder.vault.wipe()
                 // Only a real wipe reaches the real store, so only it may reset the gesture. A decoy never changes it.
-                gestures?.reset()
-                ShredOutcome.ERASED
+                val gestureReset = gestures?.reset() ?: true
+                // A reset that failed leaves the old gesture in place, so the wipe is not reported as complete.
+                if (gestureReset) ShredOutcome.ERASED else ShredOutcome.UNAVAILABLE
             } catch (e: VaultException) {
                 ShredOutcome.UNAVAILABLE
             } catch (e: GeneralSecurityException) {

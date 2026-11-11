@@ -87,6 +87,22 @@ class WipeGestureTest {
         reopened.close()
     }
 
+    @Test
+    fun aFailedGestureResetIsReportedAndTheOldGestureStays() = runBlocking<Unit> {
+        create()
+        val real = unlocked(APP)
+        assertEquals(DuressResult.Enabled, vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() })
+        assertTrue(gestures.save(EntryGesture.PINCH_TRIPLE_TAP))
+        adopt(real)
+        val refusingGestures = EntryGestureHolder(EntryGestureStore(RemovalRefusingPrefs(prefs)))
+
+        assertEquals(ShredOutcome.UNAVAILABLE, WipeVaultPorts(holder, refusingGestures).erase())
+
+        assertFalse(vault.exists())
+        assertEquals(EntryGesture.PINCH_TRIPLE_TAP, refusingGestures.current)
+        assertEquals(EntryGesture.PINCH_TRIPLE_TAP, EntryGestureStore(prefs).load())
+    }
+
     private fun create() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
     }
@@ -99,6 +115,23 @@ class WipeGestureTest {
 
     private fun adopt(session: VaultSession) {
         assertTrue(holder.adopt(session, holder.unlockEpoch()))
+    }
+
+    /** Preferences that refuse to commit a removal, as storage that cannot be written does. Reads and other writes pass. */
+    private class RemovalRefusingPrefs(private val inner: SharedPreferences) : SharedPreferences by inner {
+        override fun edit(): SharedPreferences.Editor = RemovalRefusingEditor(inner.edit())
+    }
+
+    private class RemovalRefusingEditor(private val inner: SharedPreferences.Editor) : SharedPreferences.Editor by inner {
+        private var removes = false
+
+        override fun remove(key: String): SharedPreferences.Editor {
+            removes = true
+            inner.remove(key)
+            return this
+        }
+
+        override fun commit(): Boolean = !removes && inner.commit()
     }
 
     private companion object {
