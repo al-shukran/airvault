@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: read # dorny/paths-filter lists PR files through the API
@@ -140,7 +140,7 @@ jobs:
   test:
     needs: changes
     if: needs.changes.result == 'success' && needs.changes.outputs.partitions != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     strategy:
       fail-fast: false
@@ -154,7 +154,7 @@ jobs:
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '21.0.13+9'
 
       # The cache this restores is warmed on master and phase-1-5 by cache-warm.yml.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
@@ -165,7 +165,7 @@ jobs:
         run: ./scripts/ci/run-partition.sh "${{ matrix.partition }}"
 
   secrets:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     permissions:
       contents: read
@@ -185,11 +185,19 @@ jobs:
 
   dependency_review:
     # Snapshot comes from dependency-graph.yml, which submits on pushes to master and phase-1-5.
-    # Repo dependency graph is disabled (needs a manual admin setting); flip this back to gating once enabled.
-    continue-on-error: true
+    #
+    # The repository's Dependency graph is off, and only an admin can turn it on
+    # (Settings -> Code security). While it is off the action cannot diff anything and fails with
+    # "Dependency review is not supported on this repository" on every dependency PR. To enable:
+    # turn on Dependency graph, then set the repository variable DEPENDENCY_GRAPH_ENABLED=true.
+    # Until both are done the job skips, which raises no annotation and counts as a pass in pr-ok.
+    #
+    # No continue-on-error on purpose. The `if` is the whole fix: a skipped job never runs the
+    # action, so the unsupported-repository error cannot appear. continue-on-error would instead
+    # report a genuine high-severity finding as success once the graph is on, which disarms 1.8.
     needs: changes
-    if: needs.changes.outputs.dependencies == 'true'
-    runs-on: ubuntu-latest
+    if: needs.changes.outputs.dependencies == 'true' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -203,7 +211,7 @@ jobs:
           fail-on-severity: high
 
   test_network:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     permissions:
       contents: read
@@ -218,7 +226,7 @@ jobs:
   pr-ok: # the single required check
     if: always()
     needs: [changes, test, secrets, dependency_review, test_network]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Aggregate results
         env:
@@ -231,8 +239,8 @@ jobs:
           printf 'changes=%s test=%s secrets=%s dependency_review=%s test_network=%s\n' \
             "$CHANGES" "$TEST" "$SECRETS" "$DEPENDENCY_REVIEW" "$TEST_NETWORK"
           # test is skipped when no partition changed, and dependency review is skipped when
-          # no dependency file changed; both count as a pass. A job with continue-on-error
-          # reports success here even when its steps fail (dependency_review for now).
+          # no dependency file changed or DEPENDENCY_GRAPH_ENABLED is not 'true'; both count as
+          # a pass. Once the variable is set, a failing dependency review fails this check.
           case "$TEST" in
             success | skipped) ;;
             *) echo "test partition failed or was cancelled"; exit 1 ;;
