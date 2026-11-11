@@ -118,9 +118,11 @@ fun ActivityScreen(
             records.isEmpty() -> EmptyState(icon = LenslyIcons.History, title = EMPTY_TITLE, body = EMPTY_BODY)
             shown.isEmpty() -> EmptyState(icon = LenslyIcons.History, title = FILTERED_TITLE, body = FILTERED_BODY)
             else -> LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                shown.groupBy { dayOf(it.record.atMs) }.forEach { (day, dayRecords) ->
+                shown.withIndex().groupBy { dayOf(it.value.record.atMs) }.forEach { (day, dayRecords) ->
                     item(key = day.toString()) { DayHeader(day) }
-                    items(dayRecords, key = { "${it.walletId}-${it.record.atMs}-${it.record.dataHash}" }) { item ->
+                    // The position in the whole list is unique, so two records with equal facts cannot clash.
+                    items(dayRecords, key = { it.index }) { position ->
+                        val item = position.value
                         val wallet = walletById[item.walletId]
                         HistoryRow(
                             record = item.record,
