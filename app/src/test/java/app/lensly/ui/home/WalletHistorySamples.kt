@@ -1,5 +1,11 @@
 package app.lensly.ui.home
 
+import app.lensly.app.ProfileColour
+import app.lensly.app.ProfileIcon
+import app.lensly.app.WalletKind
+import app.lensly.app.WalletMeta
+import app.lensly.app.WalletProfile
+import app.lensly.app.WalletReviewRecord
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
@@ -95,5 +101,52 @@ internal fun sampleHistory(): List<ReviewRecord> {
             refusal = null,
             dataHash = "b2e8".repeat(16),
         ),
+    )
+}
+
+/** The id of the sample wallet whose records are [sampleHistory]. */
+internal const val SAMPLE_WALLET_ONE = "0d4f5a26-1b8e-4c39-9a71-2f6c8d5e7b10"
+
+/** The id of the other sample wallet, in the Activity samples. */
+internal const val SAMPLE_WALLET_TWO = "7b1c3e90-4a2d-47f6-8c15-9e0b6d3a2f84"
+
+/** The two sample wallets: a Mnemonic wallet and a Single Key, so their generated looks differ. */
+internal fun sampleWallets(): List<WalletMeta> = listOf(
+    WalletMeta(
+        id = SAMPLE_WALLET_ONE,
+        name = "Seed wallet",
+        createdAtMs = 1L,
+        deviceGenerated = true,
+        accountCount = 3,
+        masterFingerprintHex = "1a2b3c4d",
+        accountXpub = null,
+    ),
+    WalletMeta(
+        id = SAMPLE_WALLET_TWO,
+        name = "Trading",
+        createdAtMs = 2L,
+        deviceGenerated = false,
+        accountCount = 1,
+        masterFingerprintHex = null,
+        accountXpub = null,
+        kind = WalletKind.SINGLE_KEY,
+    ),
+)
+
+/** A profile for the second sample wallet, so the Activity screen shows a chosen colour and icon beside it. */
+internal fun sampleActivityProfiles(): Map<String, WalletProfile> = mapOf(
+    SAMPLE_WALLET_TWO to WalletProfile(colour = ProfileColour.TEAL, icon = ProfileIcon.STAR),
+)
+
+/**
+ * The Activity records of both sample wallets, newest first, as the screen lists them: the signed transfer on the first wallet, the
+ * refused call on the second an hour earlier, and the cancelled message on the first a day earlier.
+ */
+internal fun sampleActivity(): List<WalletReviewRecord> {
+    val history = sampleHistory()
+    return listOf(
+        WalletReviewRecord(SAMPLE_WALLET_ONE, history[0]),
+        WalletReviewRecord(SAMPLE_WALLET_TWO, history[1]),
+        WalletReviewRecord(SAMPLE_WALLET_ONE, history[2]),
     )
 }

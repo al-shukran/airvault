@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.app.VisualIdentity
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
@@ -44,6 +45,7 @@ import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
+import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.sign.AddressText
 import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
@@ -113,16 +115,25 @@ fun WalletHistoryScreen(
 }
 
 @Composable
-private fun DayHeader(day: LocalDate) {
+internal fun DayHeader(day: LocalDate) {
     WalletEyebrow(
         text = day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
         modifier = Modifier.padding(top = LenslySpacing.md, bottom = LenslySpacing.xs),
     )
 }
 
-/** One record: its outcome, its network, what the request did with its amount, and the time. */
+/**
+ * One record: its outcome, its network, what the request did with its amount, and the time. A row on the all-wallet Activity
+ * screen also names its wallet, through [walletName], with that wallet's Visual Identity, through [walletIdentity].
+ */
 @Composable
-private fun HistoryRow(record: ReviewRecord, network: NetworkEntry?, onClick: () -> Unit) {
+internal fun HistoryRow(
+    record: ReviewRecord,
+    network: NetworkEntry?,
+    onClick: () -> Unit,
+    walletName: String? = null,
+    walletIdentity: VisualIdentity? = null,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -147,11 +158,33 @@ private fun HistoryRow(record: ReviewRecord, network: NetworkEntry?, onClick: ()
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = timeOf(record.atMs),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (walletName == null) {
+                Text(
+                    text = timeOf(record.atMs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    walletIdentity?.let { identity ->
+                        ProfileAvatar(identity = identity, size = 14.dp)
+                        Spacer(Modifier.width(LenslySpacing.xxs))
+                    }
+                    Text(
+                        text = walletName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.width(LenslySpacing.xxs))
+                    Text(
+                        text = "· ${timeOf(record.atMs)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
         record.amount?.let { amount ->
             Spacer(Modifier.width(LenslySpacing.sm))
@@ -167,7 +200,7 @@ private fun HistoryRow(record: ReviewRecord, network: NetworkEntry?, onClick: ()
 
 /** Every fact the record holds, each address in full. The sheet scrolls, since a message or a long call can be tall. */
 @Composable
-private fun HistoryDetailSheet(record: ReviewRecord, onDismiss: () -> Unit) {
+internal fun HistoryDetailSheet(record: ReviewRecord, onDismiss: () -> Unit) {
     OptionsSheet(onDismiss = onDismiss, scrollable = true) {
         Text(
             text = outcomeLabel(record.outcome),
@@ -244,7 +277,7 @@ private fun networkLine(record: ReviewRecord): String = when {
 
 private fun zoned(atMs: Long) = Instant.ofEpochMilli(atMs).atZone(ZoneId.systemDefault())
 
-private fun dayOf(atMs: Long): LocalDate = zoned(atMs).toLocalDate()
+internal fun dayOf(atMs: Long): LocalDate = zoned(atMs).toLocalDate()
 
 // The formatters are made per call, so they follow the locale the screen is shown in, not the one the app started in.
 private fun timeOf(atMs: Long): String = zoned(atMs).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))

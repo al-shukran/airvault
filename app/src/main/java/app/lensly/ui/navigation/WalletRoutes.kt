@@ -35,6 +35,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.WalletDraft
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
+import app.lensly.app.WalletReviewRecord
 import app.lensly.app.WalletStore
 import app.lensly.app.export.AccountExport
 import app.lensly.app.export.AccountExportView
@@ -49,6 +50,7 @@ import app.lensly.ui.flow.AccountExportScreen
 import app.lensly.ui.flow.PairWalletRoute
 import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.gate.PasswordBuffer
+import app.lensly.ui.home.ActivityScreen
 import app.lensly.ui.home.BulkGenerateScreen
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
@@ -132,6 +134,7 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.HISTORY, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { HistoryRoute(navController, holder, entry.walletId()) }
     }
+    composable(HiddenRoute.ACTIVITY) { HiddenBackdrop { ActivityRoute(navController, holder) } }
     composable(HiddenRoute.CATALOG) { HiddenBackdrop { RegistryImportRoute(navController, holder) } }
     renameRoutes(navController, holder)
     profileRoutes(navController, holder)
@@ -171,6 +174,7 @@ private fun HomeRoute(
         onLock = { leaveHidden(navController, holder) },
         onStartPairing = { navController.navigate(HiddenRoute.PAIR) },
         onScan = { navController.navigate(HiddenRoute.SCAN_ANY) },
+        onActivity = { navController.navigate(HiddenRoute.activity()) },
         debugNotice = debugNotice,
         notice = notice,
         onNoticeShown = { hidden.savedStateHandle[HiddenRoute.PAIRED_NOTICE] = null },
@@ -622,6 +626,35 @@ private fun HistoryRoute(navController: NavHostController, holder: VaultHolder, 
     WalletHistoryScreen(
         walletName = shown.name,
         records = list,
+        networkOf = networks::network,
+        onBack = { navController.popBackStack() },
+    )
+}
+
+/**
+ * ACTIVITY: the Review Records of every wallet in the open session, newest first, each with its wallet. The registry names each
+ * network for its logo.
+ */
+@Composable
+private fun ActivityRoute(navController: NavHostController, holder: VaultHolder) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    val context = LocalContext.current.applicationContext
+    val listing = rememberWalletListing(navController, holder, session)
+    var records by remember { mutableStateOf<List<WalletReviewRecord>?>(null) }
+    var registry by remember { mutableStateOf<Registry?>(null) }
+    LaunchedEffect(session) {
+        whileUnlocked(navController, holder) {
+            records = withContext(Dispatchers.IO) { ReviewHistory(session).listAll() }
+            registry = withContext(Dispatchers.IO) { RegistryHolder.get(context) }
+        }
+    }
+    val list = records ?: return
+    val networks = registry ?: return
+    val wallets = listing ?: return
+    ActivityScreen(
+        records = list,
+        wallets = wallets.wallets,
+        profiles = wallets.profiles,
         networkOf = networks::network,
         onBack = { navController.popBackStack() },
     )

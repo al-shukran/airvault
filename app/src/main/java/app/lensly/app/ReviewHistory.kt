@@ -13,6 +13,9 @@ import java.util.UUID
 /** The name prefix of a Review Record. The rest of its name is a random id, so the name shows neither the time nor the content. */
 private const val REVIEW_PREFIX = "review-"
 
+/** One Review Record with the wallet it belongs to. */
+data class WalletReviewRecord(val walletId: String, val record: ReviewRecord)
+
 /**
  * The Review Records of the wallets that an open [VaultSession] holds. Each record is one file in its wallet's folder, sealed under
  * the wallet's Per-Wallet Key. So Delete Wallet and Wipe shred it with the wallet, and a decoy session reads only its own records.
@@ -36,6 +39,14 @@ class ReviewHistory(private val session: VaultSession) {
     fun list(walletId: String): List<ReviewRecord> = session.recordNames(walletId, REVIEW_PREFIX)
         .mapNotNull { name -> read(walletId, name) }
         .sortedByDescending { it.atMs }
+
+    /**
+     * The Review Records of every wallet this session holds, newest first, each with the wallet it belongs to. It reads each wallet
+     * the same way [list] does. A decoy session holds only its own wallets, so it lists only their records.
+     */
+    fun listAll(): List<WalletReviewRecord> = session.listWallets()
+        .flatMap { walletId -> list(walletId).map { record -> WalletReviewRecord(walletId, record) } }
+        .sortedByDescending { it.record.atMs }
 
     private fun read(walletId: String, name: String): ReviewRecord? {
         val bytes = try {

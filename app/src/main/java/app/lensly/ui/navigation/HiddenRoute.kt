@@ -36,6 +36,8 @@ internal object HiddenRoute {
     const val DELETE_WALLET = "delete/{walletId}"
     // History: the Review Records of one wallet, newest first. Reached from the wallet detail's options.
     const val HISTORY = "history/{walletId}"
+    // Activity: the Review Records of every wallet in the session, newest first. Reached from the dock on Home.
+    const val ACTIVITY = "activity"
     // Profiles: a wallet's name, colour, icon, label and groups, one account's, and the style of a batch of accounts.
     const val EDIT_WALLET = "edit-wallet/{walletId}"
     const val EDIT_ACCOUNT = "edit-account/{walletId}/{index}"
@@ -104,6 +106,8 @@ internal object HiddenRoute {
     fun deleteWallet(walletId: String): String = "delete/$walletId"
 
     fun history(walletId: String): String = "history/$walletId"
+
+    fun activity(): String = ACTIVITY
 
     fun editWallet(walletId: String): String = "edit-wallet/$walletId"
 

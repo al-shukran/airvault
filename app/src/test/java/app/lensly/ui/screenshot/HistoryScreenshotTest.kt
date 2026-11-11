@@ -1,9 +1,13 @@
 package app.lensly.ui.screenshot
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import app.lensly.ui.home.ActivityScreen
 import app.lensly.ui.home.WalletHistoryScreen
+import app.lensly.ui.home.sampleActivity
+import app.lensly.ui.home.sampleActivityProfiles
 import app.lensly.ui.home.sampleHistory
 import app.lensly.ui.home.sampleNetworks
+import app.lensly.ui.home.sampleWallets
 import java.util.Locale
 import java.util.TimeZone
 import org.junit.After
@@ -62,6 +66,19 @@ class HistoryScreenshotTest {
             WalletHistoryScreen(
                 walletName = "Seed wallet",
                 records = sampleHistory(),
+                networkOf = sampleNetworks,
+                onBack = {},
+            )
+        }
+    }
+
+    @Test
+    fun theActivityOfTwoWallets() {
+        compose.snapshot("activity_records") {
+            ActivityScreen(
+                records = sampleActivity(),
+                wallets = sampleWallets(),
+                profiles = sampleActivityProfiles(),
                 networkOf = sampleNetworks,
                 onBack = {},
             )
