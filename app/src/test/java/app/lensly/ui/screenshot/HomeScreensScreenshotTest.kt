@@ -18,6 +18,7 @@ import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SoonScreen
 import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHomeScreen
+import app.lensly.ui.home.WalletsScreen
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,10 +26,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+/** Long enough for the Home entrance, the last card's stagger and its fade, to finish before the capture. */
+private const val SETTLE_MS = 1_000L
+
 /**
- * The home screens, one snapshot per state: the wallet list (empty, with wallets, with the debug notice), wallet detail
- * (deriving, accounts, Single Key), bulk generate (empty, ready, refused, running, failed), catalog import (idle,
- * checking, installed, refused), and the placeholder. Record with :app:recordRoborazziDebug.
+ * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice), the Wallets list (five),
+ * wallet detail (deriving, accounts, Single Key), bulk generate (empty, ready, refused, running, failed), catalog import
+ * (idle, checking, installed, refused), and the placeholder. Record with :app:recordRoborazziDebug.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -38,18 +42,36 @@ class HomeScreensScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun walletListEmpty() = compose.snapshot("wallet_list_empty") {
-        list(wallets = emptyList())
+    fun homeWithoutWallets() = compose.snapshot("home_no_wallets", settleMs = SETTLE_MS) {
+        home(wallets = emptyList())
     }
 
     @Test
-    fun walletListWithWallets() = compose.snapshot("wallet_list_with_wallets") {
-        list(wallets = sampleWallets())
+    fun homeWithTwoWallets() = compose.snapshot("home_two_wallets", settleMs = SETTLE_MS) {
+        home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles)
     }
 
     @Test
-    fun walletListWithDebugNotice() = compose.snapshot("wallet_list_debug_notice") {
-        list(wallets = sampleWallets().take(1), debugNotice = "Keystore is software-only on this device.")
+    fun homeWithFiveWallets() = compose.snapshot("home_five_wallets", settleMs = SETTLE_MS) {
+        home(wallets = sampleWallets(), profiles = sampleHomeProfiles)
+    }
+
+    @Test
+    fun homeWithDebugNotice() = compose.snapshot("home_debug_notice", settleMs = SETTLE_MS) {
+        home(wallets = sampleWallets().take(1), debugNotice = "Keystore is software-only on this device.")
+    }
+
+    @Test
+    fun walletsListWithFiveWallets() = compose.snapshot("wallets_five_wallets", settleMs = SETTLE_MS) {
+        WalletsScreen(
+            wallets = sampleWallets(),
+            profiles = sampleHomeProfiles,
+            onOpen = {},
+            onEdit = {},
+            onPair = {},
+            onAdd = {},
+            onBack = {},
+        )
     }
 
     @Test
@@ -139,14 +161,23 @@ class HomeScreensScreenshotTest {
     }
 
     @Composable
-    private fun list(wallets: List<WalletMeta>, debugNotice: String? = null) {
+    private fun home(
+        wallets: List<WalletMeta>,
+        profiles: Map<String, WalletProfile> = emptyMap(),
+        debugNotice: String? = null,
+    ) {
         WalletHomeScreen(
             wallets = wallets,
+            profiles = profiles,
             onOpen = {},
+            onEdit = {},
+            onPair = {},
             onAdd = {},
+            onWallets = {},
             onSettings = {},
             onLock = {},
-            onUpdateCatalog = {},
+            onStartPairing = {},
+            onScan = {},
             debugNotice = debugNotice,
         )
     }
@@ -249,6 +280,34 @@ class HomeScreensScreenshotTest {
             kind = WalletKind.SINGLE_KEY,
             autoNameBase = "Hardware key",
         ),
+        WalletMeta(
+            id = "w4",
+            name = "Cold storage",
+            createdAtMs = 0L,
+            deviceGenerated = true,
+            accountCount = 2,
+            masterFingerprintHex = "5e6f7a8b",
+            accountXpub = null,
+            kind = WalletKind.MNEMONIC,
+            autoNameBase = "Cold storage",
+        ),
+        WalletMeta(
+            id = "w5",
+            name = "Trip",
+            createdAtMs = 0L,
+            deviceGenerated = false,
+            accountCount = 1,
+            masterFingerprintHex = "c0ffee42",
+            accountXpub = null,
+            kind = WalletKind.MNEMONIC,
+            autoNameBase = "Trip",
+        ),
+    )
+
+    /** Two wallets with their own look, so the art of a card shows a chosen colour as well as a generated one. */
+    private val sampleHomeProfiles = mapOf(
+        "w1" to WalletProfile(colour = ProfileColour.ORANGE, icon = ProfileIcon.HOME, label = "Everyday"),
+        "w4" to WalletProfile(colour = ProfileColour.TEAL),
     )
 
     /** Two accounts in the group "Home", one ungrouped, so the detail shows both kinds of section. */

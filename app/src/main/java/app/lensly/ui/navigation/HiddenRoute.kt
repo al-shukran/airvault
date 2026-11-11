@@ -15,12 +15,19 @@ internal object HiddenRoute {
 
     // Wallets.
     const val HOME = "home"
+    // Every wallet as a card, reached from the See all link on Home or from the dock.
+    const val WALLETS = "wallets"
+    // Pairing wizard, from the dock. It starts at the wallet step, or at the app step when there is only one wallet.
+    const val PAIR = "pair"
     const val DETAIL = "detail/{walletId}"
     const val BULK = "bulk/{walletId}"
     const val EXPORT = "export/{walletId}"
     // Export of one account: its address as a code, reached from the account row of the wallet detail.
     const val EXPORT_ACCOUNT = "export-account/{walletId}/{index}"
     const val SCAN = "scan/{walletId}"
+    const val SCAN_ANY = "scan"
+    // Saved-state key on the hidden graph, not a route: Home shows the message once after a pairing, then forgets it.
+    const val PAIRED_NOTICE = "paired-notice"
 
     // Show Secret: the App Password again, a warning, then the secret. Reached from the wallet detail.
     const val SHOW_SECRET = "secret/{walletId}"

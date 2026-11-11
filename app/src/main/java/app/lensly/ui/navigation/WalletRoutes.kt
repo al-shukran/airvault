@@ -53,6 +53,7 @@ import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SoonScreen
 import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHomeScreen
+import app.lensly.ui.home.WalletsScreen
 import app.lensly.ui.home.importedState
 import app.lensly.ui.home.refusalReason
 import app.lensly.ui.wallet.Bip39Autocomplete
@@ -95,6 +96,8 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.PASSPHRASE_BACKUP) { entry ->
         HiddenBackdrop { PassphraseBackupRoute(navController, holder, entry) }
     }
+    composable(HiddenRoute.WALLETS) { HiddenBackdrop { WalletsRoute(navController, holder) } }
+    composable(HiddenRoute.PAIR) { HiddenBackdrop { PairWalletRoute(navController, holder, walletId = null) } }
     composable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DetailRoute(navController, holder, entry.walletId()) }
     }
@@ -102,7 +105,7 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
         HiddenBackdrop { BulkRoute(navController, holder, entry.walletId()) }
     }
     composable(HiddenRoute.EXPORT, arguments = walletIdArguments()) { entry ->
-        HiddenBackdrop { PairWalletRoute(navController, holder, entry.walletId()) }
+        HiddenBackdrop { PairWalletRoute(navController, holder, walletId = entry.walletId()) }
     }
     composable(
         HiddenRoute.EXPORT_ACCOUNT,
@@ -113,6 +116,8 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.SCAN, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { SignWalletRoute(navController, holder, entry.walletId()) }
     }
+    // TEMP until global scan lands: the dock's Scan picks a wallet to sign with. See ScanAnyRoute.
+    composable(HiddenRoute.SCAN_ANY) { HiddenBackdrop { ScanAnyRoute(navController, holder) } }
     composable(HiddenRoute.SHOW_SECRET, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { ShowSecretRoute(navController, holder, entry.walletId()) }
     }
@@ -137,31 +142,73 @@ private fun HomeRoute(
     val draft = draftOf(navController, entry)
     val session = rememberOpenSession(navController, holder) ?: return
     val debugNotice = remember { debugKeystoreNotice(holder) }
-    var wallets by remember { mutableStateOf<List<WalletMeta>>(emptyList()) }
-    var profiles by remember { mutableStateOf<Map<String, WalletProfile>>(emptyMap()) }
+    val listing = rememberWalletListing(navController, holder, session)
+    // The graph's entry carries the pairing confirmation. It is resolved once, as draftOf does, because the graph may pop.
+    val hidden = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
+    val notice by hidden.savedStateHandle.getStateFlow<String?>(HiddenRoute.PAIRED_NOTICE, null).collectAsState()
 
     // The draft only lives while a create or restore flow runs. Arriving here ends the flow.
     LaunchedEffect(Unit) { draft.wipe() }
-    LaunchedEffect(session) {
-        whileUnlocked(navController, holder) {
-            val store = WalletStore(session)
-            val listed = withContext(Dispatchers.IO) { store.list() }
-            profiles = withContext(Dispatchers.IO) { listed.associate { it.id to store.walletProfile(it.id) } }
-            wallets = listed
-        }
-    }
 
     BackHandler { leaveHidden(navController, holder) }
     WalletHomeScreen(
-        wallets = wallets,
-        profiles = profiles,
+        wallets = listing?.wallets,
+        profiles = listing?.profiles.orEmpty(),
         onOpen = { walletId -> navController.navigate(HiddenRoute.detail(walletId)) },
+        onEdit = { walletId -> navController.navigate(HiddenRoute.editWallet(walletId)) },
+        onPair = { walletId -> navController.navigate(HiddenRoute.export(walletId)) },
         onAdd = { navController.navigate(HiddenRoute.WALLET_START) },
+        onWallets = { navController.navigate(HiddenRoute.WALLETS) },
         onSettings = { navController.navigate(HiddenRoute.SETTINGS) },
         onLock = { leaveHidden(navController, holder) },
-        onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
+        onStartPairing = { navController.navigate(HiddenRoute.PAIR) },
+        onScan = { navController.navigate(HiddenRoute.SCAN_ANY) },
         debugNotice = debugNotice,
+        notice = notice,
+        onNoticeShown = { hidden.savedStateHandle[HiddenRoute.PAIRED_NOTICE] = null },
     )
+}
+
+/** The Wallets list, every wallet as a card. It reads the wallets the same way Home does. */
+@Composable
+private fun WalletsRoute(navController: NavHostController, holder: VaultHolder) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    val listing = rememberWalletListing(navController, holder, session)
+    WalletsScreen(
+        wallets = listing?.wallets,
+        profiles = listing?.profiles.orEmpty(),
+        onOpen = { walletId -> navController.navigate(HiddenRoute.detail(walletId)) },
+        onEdit = { walletId -> navController.navigate(HiddenRoute.editWallet(walletId)) },
+        onPair = { walletId -> navController.navigate(HiddenRoute.export(walletId)) },
+        onAdd = { navController.navigate(HiddenRoute.WALLET_START) },
+        onBack = { navController.popBackStack() },
+    )
+}
+
+/** The wallets of the vault and their profiles. Both are read off the main thread. */
+internal class WalletListing(val wallets: List<WalletMeta>, val profiles: Map<String, WalletProfile>)
+
+/**
+ * The wallets and their profiles while the vault is open, or null until the first read finishes. A profile is read with its
+ * wallet, so a card never shows a default look that a profile replaces.
+ */
+@Composable
+internal fun rememberWalletListing(
+    navController: NavHostController,
+    holder: VaultHolder,
+    session: VaultSession?,
+): WalletListing? {
+    var listing by remember { mutableStateOf<WalletListing?>(null) }
+    LaunchedEffect(session) {
+        if (session == null) return@LaunchedEffect
+        whileUnlocked(navController, holder) {
+            val store = WalletStore(session)
+            val wallets = withContext(Dispatchers.IO) { store.list() }
+            val profiles = withContext(Dispatchers.IO) { wallets.associate { it.id to store.walletProfile(it.id) } }
+            listing = WalletListing(wallets, profiles)
+        }
+    }
+    return listing
 }
 
 /**
