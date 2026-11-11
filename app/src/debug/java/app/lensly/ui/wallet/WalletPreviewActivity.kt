@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.applySecureWindow
 import app.lensly.ui.gate.PasswordBuffer
@@ -363,7 +364,7 @@ private fun NamePreview() {
         name = name,
         placeholder = DEFAULT_WALLET_NAME,
         onKey = { c ->
-            if (name.length < WALLET_NAME_MAX_LENGTH) name += c
+            if (name.length < DISPLAY_NAME_MAX_LENGTH) name += c
         },
         onBackspace = { name = name.dropLast(1) },
         onDone = { toast(context, "Preview: named $name") },

@@ -1,5 +1,6 @@
 package app.lensly.app.sign
 
+import app.lensly.app.autoAccountName
 import app.lensly.app.export.partsOf
 import app.lensly.core.evm.MessageSigner
 import app.lensly.core.evm.TxSigner
@@ -103,7 +104,8 @@ class SignPipeline(private val registry: Registry) {
 
         val chainId = request.chainId ?: return Prepared.Refused("The request does not name a network")
         // A chain outside the registry has no network. It is reviewed as an unknown chain, with a warning, not refused.
-        val target = Target(request, chainId, registry.network(chainId), index, address)
+        val label = (wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)).uppercase()
+        val target = Target(request, chainId, registry.network(chainId), index, address, label)
 
         return if (request.dataType == DataType.PERSONAL_MESSAGE) message(target) else transaction(target)
     }
@@ -289,9 +291,9 @@ class SignPipeline(private val registry: Registry) {
         val network: NetworkEntry?,
         val index: Int,
         val address: String,
-    ) {
-        val label: String get() = "ACCOUNT ${index + 1}"
-    }
+        /** The FROM label of the review: the account's Display Name in capitals, or its Auto-Name while it has none. */
+        val label: String,
+    )
 
     private companion object {
         const val L2_FEE_NOTE = "L1 data fee is not computable offline; total may be higher"

@@ -59,7 +59,9 @@ private class FakePorts(
     private val unreadable: Boolean = false,
 ) : SignFlowPorts {
     private val pipeline = SignPipeline(REGISTRY)
-    private val view = WalletView(WALLET.masterFingerprint, accountCount = 2) { AccountAddresses.addressAt(XPUB, it) }
+    private val view = WalletView(WALLET.masterFingerprint, accountCount = 2, autoNameBase = "Seed Wallet") {
+        AccountAddresses.addressAt(XPUB, it)
+    }
 
     val keysHandedOut = mutableListOf<ByteArray>()
     var keyRequests = 0

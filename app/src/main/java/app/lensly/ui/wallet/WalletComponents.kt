@@ -140,14 +140,24 @@ internal fun WalletScaffold(
 /** Horizontal page gutter, matching the gate screens. */
 internal val WALLET_GUTTER = 16.dp
 
-/** Small muted label above a headline, such as "SEED CEREMONY". */
+/**
+ * Small muted label above a headline, such as "SEED CEREMONY". A label that may be long can be cut with [maxLines] and
+ * [overflow].
+ */
 @Composable
-internal fun WalletEyebrow(text: String, modifier: Modifier = Modifier) {
+internal fun WalletEyebrow(
+    text: String,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+) {
     Text(
         text = text.uppercase(),
         modifier = modifier,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = maxLines,
+        overflow = overflow,
     )
 }
 
