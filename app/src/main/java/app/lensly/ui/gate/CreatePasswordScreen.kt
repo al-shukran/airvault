@@ -33,7 +33,7 @@ const val MIN_PASSWORD_LENGTH = 8
 enum class CreateStep { Enter, Confirm }
 
 /** Why the current entry was rejected. Null means nothing to report. */
-enum class PolicyError { TooShort, TooWeak, Mismatch }
+enum class PolicyError { TooShort, TooWeak, Mismatch, SameAsApp }
 
 /**
  * UI state for [CreatePasswordScreen]. The screen never sees the password itself, only its length.
@@ -49,6 +49,7 @@ internal fun PolicyError.message(): String = when (this) {
     PolicyError.TooShort -> "NEEDS $MIN_PASSWORD_LENGTH+ CHARACTERS"
     PolicyError.TooWeak -> "TOO EASY TO GUESS. ADD VARIETY."
     PolicyError.Mismatch -> "DOES NOT MATCH. TRY AGAIN."
+    PolicyError.SameAsApp -> "THAT IS THE APP PASSWORD. CHOOSE ANOTHER."
 }
 
 /**

@@ -126,7 +126,8 @@ private enum class FailureCapOutcome {
 private suspend fun saveFailureCap(holder: VaultHolder, password: CharArray, capMs: Long?): FailureCapOutcome =
     withContext(NonCancellable) {
         try {
-            when (holder.vault.setFailureDelayCap(password, capMs)) {
+            // A decoy's change is accepted and nothing is written, so it can never weaken the real cap (see Vault).
+            when (holder.vault.setFailureDelayCap(password, capMs, inDecoy = holder.openSession()?.isDecoy == true)) {
                 FailureCapResult.Saved -> FailureCapOutcome.Saved
                 FailureCapResult.Rejected -> FailureCapOutcome.Rejected
             }

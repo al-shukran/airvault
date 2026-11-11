@@ -5,7 +5,6 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
-import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
@@ -117,7 +116,7 @@ class SettingsStoreTest {
     fun aDamagedSettingsRecordReadsAsTheDefault() {
         val session = open()
         SettingsStore(session).save(AppSettings(BulkCap.TWENTY))
-        val file = File(tmp.root, "vault-records/settings.bin")
+        val file = session.vaultRecordFileForTesting("settings")
         val bytes = file.readBytes()
         bytes[bytes.size - 1] = (bytes[bytes.size - 1].toInt() xor 1).toByte()
         file.writeBytes(bytes)
