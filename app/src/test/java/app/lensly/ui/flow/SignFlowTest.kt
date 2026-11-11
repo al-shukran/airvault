@@ -81,6 +81,7 @@ private class FakePorts(
     private val unreadable: Boolean = false,
     private val recordFails: Boolean = false,
     private val prepareGate: CompletableDeferred<Unit>? = null,
+    private val signGate: CompletableDeferred<Unit>? = null,
 ) : SignFlowPorts {
     private val pipeline = SignPipeline(REGISTRY)
 
@@ -110,6 +111,7 @@ private class FakePorts(
 
     override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> {
         signCalls++
+        signGate?.await()
         return pipeline.sign(ready, privateKey)
     }
 
@@ -565,6 +567,26 @@ class SignFlowTest {
         val anyWallet = FakePorts()
         scan(SignFlow(anyWallet, walletId = null), framesOf(messageRequest(requestId = null), FRAGMENT))
         assertTrue(anyWallet.records.isEmpty())
+    }
+
+    @Test
+    fun leavingWhileTheSignatureIsMadeRecordsOnlyTheCancel() {
+        val gate = CompletableDeferred<Unit>()
+        val ports = FakePorts(signGate = gate)
+        val flow = SignFlow(ports, WALLET_ID)
+        reviewOf(flow)
+        flow.approve()
+
+        runBlocking {
+            val signing = launch { flow.confirm("pass".toCharArray()) }
+            while (ports.signCalls == 0) yield()
+            flow.leave()
+            gate.complete(Unit)
+            signing.join()
+        }
+
+        assertEquals(SignStep.Closed, flow.state.value)
+        assertEquals(listOf(ReviewOutcome.CANCELLED), ports.records.map { it.outcome })
     }
 
     @Test

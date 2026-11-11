@@ -283,6 +283,7 @@ class SignFlow(
                 return refusal(started, ready.walletId, ready.request, e.message ?: SIGN_REFUSED, ready)
             }
             return try {
+                if (started != epoch) return SignStep.Closed
                 ports.record(ReviewEntry(ready.walletId, ReviewOutcome.SIGNED, ready.request, ready, refusal = null))
                 SignStep.Signature(parts)
             } catch (e: ReviewNotSaved) {
