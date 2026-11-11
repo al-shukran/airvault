@@ -17,8 +17,9 @@ data class AppSettings(val bulkCap: BulkCap = BulkCap.DEFAULT)
  * version byte (1), then the Bulk Cap as its account count (int), in the same DataOutputStream style as the wallet
  * records.
  *
- * A missing record, a damaged one, an unknown version, or a cap the app does not offer all read as the default, so a
- * bad setting never blocks the vault. The default Bulk Cap is the safe one. A closed session still throws.
+ * A missing record, a damaged one, or an unknown version reads as the default, so a bad setting never blocks the vault.
+ * A cap the app no longer offers, such as the retired 1,000, reads as 100, the largest cap offered. A closed session
+ * still throws.
  */
 class SettingsStore(private val session: VaultSession) {
 
@@ -50,7 +51,8 @@ class SettingsStore(private val session: VaultSession) {
         fun decode(bytes: ByteArray): AppSettings = try {
             DataInputStream(ByteArrayInputStream(bytes)).use { input ->
                 if (input.readUnsignedByte() != VERSION) return@use AppSettings()
-                AppSettings(bulkCap = BulkCap.fromAccounts(input.readInt()) ?: BulkCap.DEFAULT)
+                // A count the app does not offer, such as the retired 1,000, reads as the largest cap now offered.
+                AppSettings(bulkCap = BulkCap.fromAccounts(input.readInt()) ?: BulkCap.HUNDRED)
             }
         } catch (e: IOException) {
             AppSettings()

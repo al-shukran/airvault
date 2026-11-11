@@ -210,7 +210,7 @@ private fun RenameAccountsRoute(navController: NavHostController, holder: VaultH
     )
 }
 
-private fun NavBackStackEntry.accountIndex(): Int = requireNotNull(arguments).getInt(HiddenRoute.ACCOUNT_INDEX_ARG)
+internal fun NavBackStackEntry.accountIndex(): Int = requireNotNull(arguments).getInt(HiddenRoute.ACCOUNT_INDEX_ARG)
 
 /** The accounts of a batch route, from its comma-separated list. A malformed list is empty, so the route goes back. */
 private fun NavBackStackEntry.accountIndices(): List<Int> {

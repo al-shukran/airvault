@@ -33,6 +33,15 @@ class QrMatrixTest {
     }
 
     @Test
+    fun keepCaseScansAChecksummedAddressBackAsWritten() {
+        // Uppercasing would turn the 0x prefix into 0X and lose the checksum, so the address is encoded as it is.
+        val address = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
+        val matrix = QrMatrix.encode(address, keepCase = true)
+        val decoded = QRCodeReader().decode(BinaryBitmap(HybridBinarizer(luminance(matrix))))
+        assertEquals(address, decoded.text)
+    }
+
+    @Test
     fun toPixelsDrawsWholeSquareModules() {
         val pixels = QrMatrix.toPixels(QrMatrix.encode("hello"), targetPx = 368)
         // 368 / 23 modules gives 16 pixels per module, so the bitmap is 368 pixels square.

@@ -156,6 +156,7 @@ class HomeScreensScreenshotTest {
             onShowSecret = {},
             onRenameWallet = {},
             onRenameAccount = {},
+            onExportAccount = {},
             onRenameAccounts = {},
             onResetAccountNames = {},
             onDeleteWallet = {},
