@@ -1,0 +1,22 @@
+{
+  "_comment": "Networks that chainid.network does not list as mainnets. rpc is used by verify_onchain.py instead of the chainlist RPCs, and only for this chainId. mainnet true means the entry may be kept when no RPC answers.",
+  "networks": [
+    {
+      "chainId": 999,
+      "name": "HyperEVM",
+      "nativeSymbol": "HYPE",
+      "nativeDecimals": 18,
+      "feeModel": "L1",
+      "explorerName": null,
+      "testnet": false,
+      "icon": "chain_hyper_evm",
+      "rpc": ["https://rpc.hyperliquid.xyz/evm"],
+      "mainnet": true,
+      "sources": [
+        "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm : 'Chain ID: 999', 'JSON-RPC endpoint: https://rpc.hyperliquid.xyz/evm for mainnet', 'HYPE is the native gas token on the HyperEVM'",
+        "eth_chainId on https://rpc.hyperliquid.xyz/evm returns 0x3e7 (999), checked in this run"
+      ],
+      "note": "chainlist.org lists chainId 999 only as Wanchain Testnet, so chainlist RPCs are not used for this chainId. Decimals of the native token are not on-chain data; 18 is the EVM default and is stated for HYPE by no source read in this run."
+    }
+  ]
+}

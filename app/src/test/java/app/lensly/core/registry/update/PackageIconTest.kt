@@ -44,13 +44,13 @@ class PackageIconTest {
 
     private companion object {
         const val LINEA_WITH_ICON =
-            """{"chainId":59144,"explorerName":"Lineascan","feeModel":"L2_ROLLUP","icon":"chain_ethereum",""" +
+            """{"chainId":4242,"explorerName":"Lineascan","feeModel":"L2_ROLLUP","icon":"chain_ethereum",""" +
                 """"name":"Linea","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false}"""
         const val LINEA_USDC_WITH_ICON =
-            """{"chainId":59144,"contract":"0x176211869ca2b568f2a7d4ee941e073a821ee1ff","decimals":6,""" +
+            """{"chainId":4242,"contract":"0x176211869ca2b568f2a7d4ee941e073a821ee1ff","decimals":6,""" +
                 """"icon":"token_usdc","name":"USDC","symbol":"USDC"}"""
         const val LINEA_USDC_WITH_CONTROL_ICON =
-            """{"chainId":59144,"contract":"0x176211869ca2b568f2a7d4ee941e073a821ee1ff","decimals":6,""" +
+            """{"chainId":4242,"contract":"0x176211869ca2b568f2a7d4ee941e073a821ee1ff","decimals":6,""" +
                 """"icon":"token_\u0007usdc","name":"USDC","symbol":"USDC"}"""
     }
 }
