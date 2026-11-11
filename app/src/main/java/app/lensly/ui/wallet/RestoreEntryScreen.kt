@@ -31,7 +31,7 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslyError
 import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
+import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurfaceContainer
@@ -178,7 +178,7 @@ private fun PrefixField(prefix: String, placeholder: String, invalid: Boolean) {
             .height(INPUT_HEIGHT)
             .clip(shape)
             .background(LenslySurfaceContainer, shape)
-            .border(1.dp, if (invalid) LenslyError else LenslyOutline, shape)
+            .border(1.dp, if (invalid) LenslyError else LenslyOutlineInteractive, shape)
             .padding(horizontal = LenslySpacing.md),
         contentAlignment = Alignment.CenterStart,
     ) {

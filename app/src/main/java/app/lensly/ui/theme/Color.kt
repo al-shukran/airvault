@@ -22,7 +22,19 @@ val LenslySurface = Color(0xFF141414)
 val LenslySurfaceContainer = Color(0xFF1E1E1E)
 val LenslySurfaceHigh = Color(0xFF2A2A2A)
 val LenslySurfaceHighest = Color(0xFF363636)
+
+/**
+ * Decorative separators and frames: rules, dividers, and the outline on labelled pills. It is only 1.85:1 on
+ * [LenslyBlack], so it must never be the only thing that marks a control.
+ */
 val LenslyOutline = Color(0xFF3A3A3A)
+
+/**
+ * The boundary of an interactive control: text field rules, field borders, and checkboxes. WCAG 1.4.11 wants 3:1 for
+ * a component boundary, and this is the lightest step that reaches it: 3.88:1 on [LenslyBlack], 3.41:1 on
+ * [LenslySurface], and 3.08:1 on [LenslySurfaceContainer], which is the fill the bordered fields sit on.
+ */
+val LenslyOutlineInteractive = Color(0xFF6A6A6A)
 val LenslyOnSurface = Color(0xFFFFFFFF)
 val LenslyMuted = Color(0xFF8E8E93)
 val LenslyAccent = Color(0xFFD71921)
