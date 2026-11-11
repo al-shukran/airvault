@@ -36,6 +36,33 @@ import app.lensly.ui.wallet.WalletEyebrow
 enum class ChangeStep { Current, New, Confirm }
 
 /**
+ * The words of the change screen. The App Password change and the Duress Password set share the screen, and differ only here.
+ * The current step always asks for the password that opened this vault, so its words are the same.
+ */
+data class ChangeCopy(
+    val title: String,
+    val newHeadline: String,
+    val newHint: String,
+    val changedText: String,
+) {
+    companion object {
+        val APP_PASSWORD = ChangeCopy(
+            title = "App Password",
+            newHeadline = "NEW PASSWORD",
+            newHint = "$MIN_PASSWORD_LENGTH+ characters, hard to guess",
+            changedText = "The new password opens the vault now. The old one does not.",
+        )
+
+        val DURESS_PASSWORD = ChangeCopy(
+            title = "Duress Password",
+            newHeadline = "NEW PASSWORD",
+            newHint = "$MIN_PASSWORD_LENGTH+ characters, not your App Password",
+            changedText = "The Duress Password is set. The old one does not open anything.",
+        )
+    }
+}
+
+/**
  * What the change-password screen shows. The screen never sees a password, only its length. [error] is set only on
  * the new-password steps, where the owner can be told why a password was refused. [busy] covers a key derivation,
  * which takes about a second. [changed] is set once the vault accepts the new password.
@@ -68,13 +95,14 @@ fun ChangePasswordScreen(
     onLock: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
+    copy: ChangeCopy = ChangeCopy.APP_PASSWORD,
 ) {
     if (state.changed) {
-        ChangedContent(onDone = onDone, onLock = onLock, modifier = modifier)
+        ChangedContent(copy = copy, onDone = onDone, onLock = onLock, modifier = modifier)
         return
     }
     LenslyScreen(
-        title = "App Password",
+        title = copy.title,
         modifier = modifier,
         // The arrow stays in place so the title does not move. It does nothing while the change runs.
         onBack = { if (!state.busy) onBack() },
@@ -90,9 +118,9 @@ fun ChangePasswordScreen(
         Spacer(Modifier.height(LenslySpacing.sm))
         // A fixed height keeps the hint chip in the same place on every step.
         Box(modifier = Modifier.fillMaxWidth().height(HEADLINE_HEIGHT)) {
-            DotHeadline(text = headline(state.step))
+            DotHeadline(text = headline(state.step, copy))
         }
-        PillChip(text = hint(state.step))
+        PillChip(text = hint(state.step, copy))
 
         Spacer(Modifier.weight(1f))
 
@@ -133,9 +161,9 @@ private fun StatusSlot(state: ChangePasswordState) {
 }
 
 @Composable
-private fun ChangedContent(onDone: () -> Unit, onLock: () -> Unit, modifier: Modifier) {
+private fun ChangedContent(copy: ChangeCopy, onDone: () -> Unit, onLock: () -> Unit, modifier: Modifier) {
     LenslyScreen(
-        title = "App Password",
+        title = copy.title,
         modifier = modifier,
         onBack = null,
         scrollable = false,
@@ -161,22 +189,22 @@ private fun ChangedContent(onDone: () -> Unit, onLock: () -> Unit, modifier: Mod
         DotHeadline(text = "CHANGED")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
-            text = "The new password opens the vault now. The old one does not.",
+            text = copy.changedText,
             style = MaterialTheme.typography.bodyLarge,
             color = LenslyOnSurface,
         )
     }
 }
 
-private fun headline(step: ChangeStep): String = when (step) {
+private fun headline(step: ChangeStep, copy: ChangeCopy): String = when (step) {
     ChangeStep.Current -> "CURRENT"
-    ChangeStep.New -> "NEW PASSWORD"
+    ChangeStep.New -> copy.newHeadline
     ChangeStep.Confirm -> "CONFIRM"
 }
 
-private fun hint(step: ChangeStep): String = when (step) {
+private fun hint(step: ChangeStep, copy: ChangeCopy): String = when (step) {
     ChangeStep.Current -> "Your password now"
-    ChangeStep.New -> "$MIN_PASSWORD_LENGTH+ characters, hard to guess"
+    ChangeStep.New -> copy.newHint
     ChangeStep.Confirm -> "Type the new password again"
 }
 
@@ -185,6 +213,7 @@ private fun PolicyError.sentence(): String = when (this) {
     PolicyError.TooShort -> "Use $MIN_PASSWORD_LENGTH or more characters."
     PolicyError.TooWeak -> "Too easy to guess. Add more variety."
     PolicyError.Mismatch -> "The two passwords do not match. Try again."
+    PolicyError.SameAsApp -> "That is the App Password. Choose another."
 }
 
 private val HEADLINE_HEIGHT = 136.dp
