@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navigation
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletDraft
@@ -116,7 +117,8 @@ internal fun NavHostController.openHidden(route: String) {
 /** The draft shared by every screen of the hidden graph. It is scoped to the graph, so rotation keeps it. */
 @Composable
 internal fun draftOf(navController: NavHostController): WalletDraft {
-    val owner = navController.getBackStackEntry(LenslyRoute.HIDDEN)
+    val entry by navController.currentBackStackEntryAsState()
+    val owner = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
     return viewModel<WalletDraftViewModel>(viewModelStoreOwner = owner).draft
 }
 
