@@ -20,8 +20,9 @@ import javax.crypto.SecretKey
  * A copy counts as tampered when its file is missing, its MAC does not verify, its sequence number is lower
  * than the other copy's, or it is lower than the last sequence number this process has seen. A copy whose
  * last failure lies in the future (the wall clock moved backwards) also counts. Tampering replaces the state
- * with one that blocks for the full cap, and that state is saved. The cap of a tampered state is the spec
- * default, not the owner's choice, because the owner's choice can no longer be read.
+ * with one that blocks for the full cap, and that state is saved. Its cap comes from the copies that still verify
+ * (see [tamperedCap]): one verified copy keeps its cap, and when no copy verifies the cap is the strictest one, one hour.
+ * Tampering never lowers the owner's cap.
  *
  * Rollback resistance is limited. If an attacker restores a matching older pair of copies after the process
  * has restarted, nothing here detects it. Closing that gap needs hardware-backed monotonic storage.
@@ -42,7 +43,10 @@ internal class FailureStore(
         if (p != null && b != null && p.seq >= b.seq && p.seq >= seen && !wallMovedBack(p, clock)) {
             return p
         }
-        return lockAsTampered(clock, highestSeq = maxOf(p?.seq ?: 0L, b?.seq ?: 0L, seen))
+        // A copy verifies when its MAC checks out and it is not older than this process has seen. An older copy is a
+        // rollback, so its cap is not trusted.
+        val verified = listOfNotNull(p, b).filter { it.seq >= seen }
+        return lockAsTampered(clock, highestSeq = maxOf(p?.seq ?: 0L, b?.seq ?: 0L, seen), verified = verified)
     }
 
     /** Creates the initial state for a new vault: no failures, sequence 1. */
@@ -93,15 +97,29 @@ internal class FailureStore(
     private fun wallMovedBack(state: FailureState, clock: Clock): Boolean =
         state.failures > 0 && FailureDelay.elapsedSinceFailure(state, clock) < 0
 
-    private fun lockAsTampered(clock: Clock, highestSeq: Long): FailureState {
+    private fun lockAsTampered(clock: Clock, highestSeq: Long, verified: List<FailureState>): FailureState {
         val locked = FailureState(
             seq = highestSeq + 1,
             failures = TAMPER_FAILURES,
             lastFailureWallMs = clock.wallMillis(),
             lastFailureElapsedMs = clock.elapsedMillis(),
+            capMs = tamperedCap(verified),
         )
+        // Saving writes both copies, so a copy that was damaged is repaired here.
         save(locked)
         return locked
+    }
+
+    /**
+     * The cap a tampered state keeps, so tampering never weakens the owner's protection. One verified copy: its own cap,
+     * and the other copy is repaired. Two verified copies that disagree: the stricter of the two, so a rolled-back copy
+     * cannot lower the cap. No verified copy: the strictest cap allowed, one hour, so corrupting both files cannot lower
+     * the owner's cap.
+     */
+    private fun tamperedCap(verified: List<FailureState>): Long? = when (verified.size) {
+        0 -> FailureDelay.MAX_CAP_MS
+        1 -> verified.single().capMs
+        else -> verified.maxBy { FailureDelay.configuredCapFor(it) }.capMs
     }
 
     private fun save(state: FailureState) {

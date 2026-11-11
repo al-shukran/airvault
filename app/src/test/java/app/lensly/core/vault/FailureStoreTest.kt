@@ -201,41 +201,110 @@ class FailureStoreTest {
     }
 
     @Test
-    fun editedCapInThePrimaryCopyLocksToTheDefaultCap() {
+    fun editedCapInThePrimaryCopyKeepsTheOwnersCapAndRepairsThePrimary() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS)
+        store.recordCap(store.load(clock), 5_000L)
 
-        // Lower the owner's one-hour cap by changing its stored bytes, and leave the MAC as it was.
+        // Change the owner's 5 s cap in the primary copy, and leave its MAC as it was.
         val bytes = dir.primary().readBytes()
-        bytes[capOffset + 7] = (bytes[capOffset + 7].toInt() xor 0x40).toByte()
+        bytes[capOffset + 7] = (bytes[capOffset + 7].toInt() xor 0x01).toByte()
         dir.primary().writeBytes(bytes)
 
+        // The backup still verifies, so its cap is kept, and saving the lockout rewrites the primary.
         val locked = open(dir).load(clock)
         assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
-        assertNull(locked.capMs)
-        assertEquals(FailureDelay.DEFAULT_CAP_MS, FailureDelay.configuredCapFor(locked))
+        assertEquals(5_000L, locked.capMs)
+        val repaired = open(dir).load(clock)
+        assertEquals(FailureStore.TAMPER_FAILURES, repaired.failures)
+        assertEquals(5_000L, repaired.capMs)
     }
 
     @Test
-    fun editedCapInBothCopiesLocksToTheDefaultCap() {
+    fun editedCapInBothCopiesLocksToTheStrictestCap() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS)
+        store.recordCap(store.load(clock), 5_000L)
 
         for (file in listOf(dir.primary(), dir.backup())) {
             val bytes = file.readBytes()
-            bytes[capOffset + 7] = (bytes[capOffset + 7].toInt() xor 0x40).toByte()
+            bytes[capOffset + 7] = (bytes[capOffset + 7].toInt() xor 0x01).toByte()
             file.writeBytes(bytes)
         }
 
         val locked = open(dir).load(clock)
         assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
-        assertNull(locked.capMs)
+        assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
+    }
+
+    @Test
+    fun missingBackupKeepsTheOwnersCap() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordCap(store.load(clock), 5_000L)
+        dir.backup().delete()
+
+        val locked = open(dir).load(clock)
+        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(5_000L, locked.capMs)
+    }
+
+    @Test
+    fun missingBothCopiesLocksToTheStrictestCap() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordCap(store.load(clock), 5_000L)
+        dir.primary().delete()
+        dir.backup().delete()
+
+        val locked = open(dir).load(clock)
+        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
+    }
+
+    @Test
+    fun rolledBackPrimaryWhileAliveKeepsTheCapThisProcessSaved() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS)
+        val olderOneHour = dir.primary().readBytes()
+        store.recordCap(store.load(clock), 5_000L)
+
+        // The primary is put back to the one-hour copy. This process has seen the 5 s save, so that copy is stale.
+        dir.primary().writeBytes(olderOneHour)
+
+        val locked = open(dir).load(clock)
+        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(5_000L, locked.capMs)
+    }
+
+    @Test
+    fun rolledBackPrimaryAfterARestartKeepsTheStricterCap() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordCap(store.load(clock), 5_000L)
+        val olderFiveSeconds = dir.primary().readBytes()
+        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS)
+
+        // The primary is put back to the 5 s copy. After a restart this process has seen nothing, so both copies verify.
+        dir.primary().writeBytes(olderFiveSeconds)
+        FailureStore.forget(dir)
+
+        val locked = open(dir).load(clock)
+        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
     }
 
     @Test
@@ -272,8 +341,9 @@ class FailureStoreTest {
         dir.primary().writeBytes(record)
         dir.backup().writeBytes(record)
 
+        // Neither copy verifies, so the cap is the strictest one allowed.
         val locked = open(dir).load(clock)
         assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
-        assertNull(locked.capMs)
+        assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
     }
 }
