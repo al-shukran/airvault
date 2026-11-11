@@ -13,8 +13,9 @@
 # usable locally before those stages exist. With CI=true the same case exits 1, so a
 # scheduled or comment-triggered run can never pass by silently skipping.
 #
-# Not wired here: the nightly Jazzer run (15 min per target), OWASP dependencyCheckAnalyze
-# and gitleaks; those arrive with their own stages (checklist 4 and 7).
+# Not wired here: the nightly Jazzer run (15 min per target) and gitleaks; those arrive with
+# their own stages (checklist 4 and 7). OWASP dependencyCheckAnalyze is deliberately absent too:
+# guideline 1.8 keeps it nightly, and the nightly workflow already runs it.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.roborazzi)
+    id("org.owasp.dependencycheck")
 }
 
 android {
@@ -101,6 +102,24 @@ androidComponents {
 // check against the committed PNGs with :app:verifyRoborazziDebug.
 roborazzi {
     outputDir.set(file("src/test/screenshots"))
+}
+
+// OWASP dependency-check (guideline 1.8, static security), run by the nightly workflow only.
+// It stays out of the PR lane: the task downloads the NVD feed on first use, so a cold run takes
+// 10 to 15 minutes against a 3-minute PR budget.
+dependencyCheck {
+    // Fail on a high-severity finding, CVSS 7.0 and above. The plugin default is 11.0, which is
+    // above the 10.0 maximum, so an unconfigured run never fails the build.
+    getFailBuildOnCVSS().set(7.0f)
+    // Scan what ships: the app's runtime classpath.
+    getScanConfigurations().set(listOf("releaseRuntimeClasspath"))
+    // Read the key from the environment (a CI repository secret, NVD_API_KEY) and never from the
+    // repo. An absent key is not an error: the scan still runs, rate-limited to one NVD call every
+    // 8 seconds instead of every 3.5.
+    getNvd().getApiKey().set(providers.environmentVariable("NVD_API_KEY").orElse(""))
+    // An Android APK is a zip of dex files, not a .NET assembly, so the assembly analyzer has
+    // nothing to read and only costs scan time.
+    getAnalyzers().getAssemblyEnabled().set(false)
 }
 
 // Robolectric reads FileDescriptor state through jdk.internal.access, which the JDK does not export to unnamed
