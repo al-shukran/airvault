@@ -4,6 +4,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import org.junit.Test
 
+// MEASURE: cold-cache timing probe (throwaway, comment only, no behavior change).
 private val WALLET by lazy { HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art")) }
 
 class AccountAddressesTest {

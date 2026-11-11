@@ -8,6 +8,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+// MEASURE: cold-cache timing probe (throwaway, comment only, no behavior change).
+
 /**
  * WCAG 2.x contrast for the dark palette in [Color] and the pairs the UI actually paints.
  *
