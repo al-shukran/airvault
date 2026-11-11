@@ -110,6 +110,7 @@ internal fun PasswordStep(
     title: String = TITLE,
     prompt: String = SHOW_PROMPT,
     stepCount: Int = STEP_COUNT,
+    step: Int = 1,
 ) {
     LenslyScreen(
         title = title,
@@ -125,7 +126,7 @@ internal fun PasswordStep(
             )
         },
     ) {
-        StepHeader(step = 1, onLock = onLock, count = stepCount)
+        StepHeader(step = step, onLock = onLock, count = stepCount)
         Spacer(Modifier.height(LenslySpacing.lg))
         DotHeadline(text = "PASSWORD")
         Spacer(Modifier.height(LenslySpacing.sm))
