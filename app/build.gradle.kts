@@ -184,8 +184,12 @@ dependencies {
     testImplementation(libs.roborazzi.compose)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.uiautomator)
 
     // Microbenchmarks (guideline 1.7). They run only on the benchmark build type, through the runner set above.
     androidTestImplementation(libs.androidx.benchmark.junit4)
