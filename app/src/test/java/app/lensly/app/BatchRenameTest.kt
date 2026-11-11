@@ -1,6 +1,7 @@
 package app.lensly.app
 
 import app.lensly.core.vault.VaultLayout
+import app.lensly.core.vault.VaultRecordPool
 import app.lensly.core.vault.VaultSession
 import java.io.File
 import java.io.IOException
@@ -223,7 +224,7 @@ class BatchRenameTest {
         val id = newWallet(4)
         store.renameAccount(id, 1, "Old")
         // The record of account 3 is a non-empty directory, so its write fails after account 1 has been written.
-        val blocker = File(VaultLayout(tmp.root).walletDir(id), "account-3.bin").apply { mkdirs() }
+        val blocker = VaultRecordPool.file(VaultLayout(tmp.root), id, "account-3").apply { mkdirs() }
         File(blocker, "keep").writeText("x")
 
         assertFailsWith<IOException> { store.renameAccounts(id, listOf(1, 3), "Rent") }

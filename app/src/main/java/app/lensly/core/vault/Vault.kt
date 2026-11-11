@@ -359,6 +359,9 @@ class Vault internal constructor(
                 )
                 // Records written under plain names are renamed, so that the two vaults never share a file name.
                 if (!session.isDecoy) session.migrateLegacyRecordNames()
+                // An older store keeps wallet records in the wallet folders. They move to the record pool, so every folder
+                // holds only a key file.
+                session.migrateRecordFilesToPool()
                 // An older store has one folder per wallet. The first unlock after the upgrade pads it to its full size.
                 session.ensurePadded()
                 return UnlockResult.Unlocked(session)
@@ -809,6 +812,13 @@ class Vault internal constructor(
         val owned = layout.wallets.list()?.filter { ownsWallet(layout, key, it) }.orEmpty()
         // The folders stay, emptied and refilled with random bytes, so the store's folder count never falls.
         walletPad().release(owned)
+        // The record files of those wallets go too. A wipe keeps their names and sizes, so the store's file shape does not
+        // change, but no key opens them any longer.
+        owned.forEach { id ->
+            VaultRecordPool.files(layout, id).forEach { file ->
+                if (keepListing) overwriteWithRandom(file) else file.delete()
+            }
+        }
         VaultRecordNames.KNOWN.forEach { name ->
             val file = File(layout.vaultRecords, VaultRecordNames.fileName(key, name))
             if (!file.isFile) return@forEach
@@ -829,6 +839,9 @@ class Vault internal constructor(
             File(dir, WALLET_KEY_FILE_NAME).isFile && keep.none { ownsWallet(layout, it, id) }
         }.orEmpty()
         pad.release(dropped)
+        // Each dropped folder becomes an unused slot, and the record files of the wallet it held go with it, so no later
+        // wallet that takes the slot over can find them.
+        dropped.forEach { id -> VaultRecordPool.files(layout, id).forEach { it.delete() } }
         val kept = keep.flatMap { key -> VaultRecordNames.KNOWN.map { VaultRecordNames.fileName(key, it) } }.toSet()
         layout.vaultRecords.listFiles()?.forEach { file ->
             if (file.name.endsWith(".bin") && file.name !in kept) file.delete()

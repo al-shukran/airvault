@@ -1,6 +1,7 @@
 package app.lensly.app
 
 import app.lensly.core.vault.VaultLayout
+import app.lensly.core.vault.VaultRecordPool
 import app.lensly.core.vault.VaultSession
 import java.io.File
 import java.io.IOException
@@ -258,7 +259,7 @@ class ProfileStoreTest {
         val id = newWallet(4)
         store.saveAccountProfile(id, 1, AccountProfile(name = "Old"))
         // The record of account 3 is a non-empty directory, so its write fails after account 1 has been written.
-        val blocker = File(VaultLayout(tmp.root).walletDir(id), "account-3.bin").apply { mkdirs() }
+        val blocker = VaultRecordPool.file(VaultLayout(tmp.root), id, "account-3").apply { mkdirs() }
         File(blocker, "keep").writeText("x")
 
         assertFailsWith<IOException> {
@@ -289,9 +290,9 @@ class ProfileStoreTest {
         val id = newWallet(1)
         store.saveAccountProfile(id, 0, full)
         store.saveWalletProfile(id, WalletProfile(label = "Family money", groups = listOf("Quarterly")))
-        val folder = VaultLayout(tmp.root).walletDir(id)
+        val layout = VaultLayout(tmp.root)
 
-        for (file in listOf(File(folder, "account-0.bin"), File(folder, "profile.bin"))) {
+        for (file in listOf(VaultRecordPool.file(layout, id, "account-0"), VaultRecordPool.file(layout, id, "profile"))) {
             val text = String(file.readBytes(), Charsets.ISO_8859_1)
             for (plain in listOf("Quarterly rent", "Family money", "Quarterly", "Home")) {
                 assertFalse(text.contains(plain), "${file.name} holds '$plain' in plain text")
