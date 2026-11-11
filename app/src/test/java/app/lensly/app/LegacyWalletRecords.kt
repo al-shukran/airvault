@@ -42,6 +42,12 @@ internal object LegacyWalletRecords {
         if (passphrase != null) out.writeUTF(passphrase)
     }
 
+    /** An account's name record as renaming wrote it before profiles: version 1, then the Display Name. */
+    fun accountName(name: String): ByteArray = bytes { out ->
+        out.writeByte(1)
+        out.writeUTF(name)
+    }
+
     private inline fun bytes(write: (DataOutputStream) -> Unit): ByteArray {
         val buffer = ByteArrayOutputStream()
         DataOutputStream(buffer).use(write)
