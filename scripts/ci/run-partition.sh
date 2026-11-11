@@ -56,7 +56,10 @@ case "$partition" in
             --tests 'app.lensly.core.registry.update.*'
         ;;
     ui)
-        ./gradlew :app:testDebugUnitTest --tests 'app.lensly.ui.*'
+        # -PprLane drops app.lensly.ui.screenshot.* (Roborazzi pixel tests) from this partition.
+        # They push it past the 3-minute cap (guideline 2.1) and are verified nightly by
+        # verifyRoborazziDebug instead (guideline 2.7).
+        ./gradlew :app:testDebugUnitTest --tests 'app.lensly.ui.*' -PprLane
         ;;
     app)
         # Wallet stores, settings, export and sign pipelines, plus the module smoke test.

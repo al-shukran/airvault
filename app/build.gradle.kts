@@ -130,9 +130,20 @@ dependencyCheck {
 // Roborazzi). Keep the two versions equal; 5.14 is the newest line Jazzer 0.30.0 is built against.
 val junitJupiter = "5.14.4"
 
+// The 100 Roborazzi pixel tests in app.lensly.ui.screenshot push the PR `ui` partition past its
+// 3-minute budget (guideline 2.1), so over-budget work moves to the nightly verifyRoborazziDebug
+// run (guideline 2.7). scripts/ci/run-partition.sh passes -PprLane for that partition only, which
+// drops the pixel tests from the PR JVM while behaviour tests in the same packages still run.
+// Read through providers so the value is captured at configuration time and the task stays
+// configuration-cache safe.
+val prLane = providers.gradleProperty("prLane").isPresent
+
 tasks.withType<Test>().configureEach {
     jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
     useJUnitPlatform()
+    if (prLane) {
+        filter { excludeTestsMatching("app.lensly.ui.screenshot.*") }
+    }
 }
 
 dependencies {
