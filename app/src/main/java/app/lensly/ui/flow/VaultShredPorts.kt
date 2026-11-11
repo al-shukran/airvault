@@ -66,3 +66,30 @@ internal class WipeVaultPorts(private val holder: VaultHolder) : ShredPorts {
         }
     }
 }
+
+/**
+ * The app's [ShredPorts] for Remove Duress Password. The App Password goes through [checkAppPassword]. The erase removes the
+ * Duress Password, through the open session, so on a decoy session it removes that decoy only. NonCancellable, so a removal
+ * that has started runs to its end.
+ */
+internal class RemoveDuressPorts(private val holder: VaultHolder) : ShredPorts {
+
+    override suspend fun checkPassword(password: CharArray): PasswordCheck = checkAppPassword(holder, password)
+
+    override suspend fun erase(): ShredOutcome = withContext(Dispatchers.IO + NonCancellable) {
+        val session = holder.openSession() ?: return@withContext ShredOutcome.LOCKED
+        try {
+            holder.vault.removeDuress(session)
+            ShredOutcome.ERASED
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: VaultException) {
+            ShredOutcome.UNAVAILABLE
+        } catch (e: IllegalStateException) {
+            // A closed session. The vault was locked while the removal was starting.
+            if (holder.openSession() == null) ShredOutcome.LOCKED else ShredOutcome.UNAVAILABLE
+        } catch (e: IOException) {
+            ShredOutcome.UNAVAILABLE
+        }
+    }
+}

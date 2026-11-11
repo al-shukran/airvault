@@ -63,6 +63,8 @@ fun SettingsScreen(
     catalog: CatalogCounts?,
     onUpdateCatalog: () -> Unit,
     onWipe: () -> Unit,
+    onDuressPassword: () -> Unit = {},
+    onRemoveDuressPassword: () -> Unit = {},
     versionName: String,
     versionCode: Int,
     onBack: () -> Unit,
@@ -88,6 +90,17 @@ fun SettingsScreen(
                 title = "Change App Password",
                 description = "Enter the current password, then the new one twice. Your wallets stay as they are.",
                 onClick = onChangePassword,
+            )
+            // The same two rows show in the real vault and in a decoy, so the decoy's Settings look identical.
+            SettingsRow(
+                title = "Duress Password",
+                description = "A second password. Enter the App Password, then the new one twice.",
+                onClick = onDuressPassword,
+            )
+            SettingsRow(
+                title = "Remove Duress Password",
+                description = "Enter the App Password. The second password stops opening anything.",
+                onClick = onRemoveDuressPassword,
             )
         }
 
