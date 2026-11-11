@@ -1,6 +1,5 @@
 package app.lensly.ui.wallet
 
-import android.os.SystemClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -42,7 +42,9 @@ import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
+import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslyRadius
@@ -51,12 +53,6 @@ import kotlin.math.roundToInt
 
 /** How many of the newest entries the dot-matrix strip shows. */
 private const val RECENT_ENTRIES = 20
-
-/**
- * Two taps on the same button closer together than this are one tap: the second is an accidental double tap and is
- * ignored. Taps this far apart or more each count. Undo is guarded the same way.
- */
-const val DOUBLE_TAP_WINDOW_MS = 150L
 
 /** Height of the recent strip and the status line. Each has one height, so the buttons do not move as the entry grows. */
 private val LINE_HEIGHT = 32.dp
@@ -87,17 +83,24 @@ const val RECENT_STRIP_TAG = "entry-recent"
 /** Test tag of one value button, e.g. `entry-face-3` or `entry-face-H`. */
 fun faceTag(symbol: Char): String = "entry-face-$symbol"
 
-/** Identifies the Undo control in [DoubleTapGuard], which otherwise keys on the symbols. */
-private const val UNDO_CONTROL = "undo"
+/** Test tag of the last-entries row above the value buttons. */
+const val LAST_ENTRIES_TAG = "entry-last"
+
+/** How many of the newest entries the last-entries row shows. The newest always sits in the rightmost slot. */
+private const val LAST_SLOTS = 5
+
+/** Height of the last-entries row. */
+private val LAST_ROW_HEIGHT = 72.dp
+
+/** Size of a die face or coin in a last-entries slot. */
+private val LAST_FACE_SIZE = 44.dp
 
 /**
  * Dice or coin entry for the seed ceremony. The owner taps one face at a time. [entered] is the full
  * record so far, and [onSymbol] is called with one more face. Taps are never refused for reaching a
  * count; only [EntropyTargets.MAX_SYMBOLS] stops them. DONE enables at [minimumCount], and
  * [fullStrengthCount] is where the entry reaches its full 256 bits. Undo is off until the first face.
- *
- * A second tap on the same button within [DOUBLE_TAP_WINDOW_MS] is ignored. [nowMs] is the clock those taps are
- * timed by, in milliseconds.
+ * Every tap on a value button records one entry, and every Undo tap removes one.
  */
 @Composable
 fun DiceEntryScreen(
@@ -109,13 +112,11 @@ fun DiceEntryScreen(
     onBackspace: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
-    nowMs: () -> Long = { SystemClock.uptimeMillis() },
 ) {
     val progress = entropyProgress(mode, entered.length, minimumCount, fullStrengthCount)
     val complete = entered.length >= minimumCount
     val atCap = entered.length >= EntropyTargets.MAX_SYMBOLS
     val unit = if (mode == EntropyMode.Dice) "rolls" else "flips"
-    val guard = remember(mode) { DoubleTapGuard<Any>() }
     LenslyScreen(
         title = if (mode == EntropyMode.Dice) "Roll the dice" else "Flip the coins",
         modifier = modifier,
@@ -127,7 +128,7 @@ fun DiceEntryScreen(
             ) {
                 UndoControl(
                     enabled = entered.isNotEmpty(),
-                    onClick = { if (guard.accept(UNDO_CONTROL, nowMs())) onBackspace() },
+                    onClick = onBackspace,
                 )
                 PillButton(
                     text = "Done",
@@ -140,13 +141,9 @@ fun DiceEntryScreen(
         },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xl)) {
             Stat(label = unit, value = "${entered.length}")
             Stat(label = "Bits of $FULL_STRENGTH_BITS", value = "${progress.bits.roundToInt()}")
-            Stat(label = "Last", value = entered.lastOrNull()?.toString() ?: "-")
         }
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Recent")
@@ -176,11 +173,11 @@ fun DiceEntryScreen(
 
         Spacer(Modifier.weight(1f))
 
+        LastEntriesRow(mode = mode, entered = entered)
+        Spacer(Modifier.height(LenslySpacing.sm))
         EntryPad(
             mode = mode,
-            onSymbol = { symbol ->
-                if (!atCap && mode.accepts(symbol) && guard.accept(symbol, nowMs())) onSymbol(symbol)
-            },
+            onSymbol = { symbol -> if (!atCap && mode.accepts(symbol)) onSymbol(symbol) },
         )
         Spacer(Modifier.height(LenslySpacing.md))
     }
@@ -234,6 +231,61 @@ private fun FullStrengthChip() {
             style = MaterialTheme.typography.labelSmall,
             color = LenslyOnSurface,
         )
+    }
+}
+
+/**
+ * The last [LAST_SLOTS] entries as faces, right-aligned so the newest is always in the rightmost slot, which has an
+ * accent border. Empty slots are outlined placeholders. The row is spoken as the entries, oldest first.
+ */
+@Composable
+private fun LastEntriesRow(mode: EntropyMode, entered: String) {
+    val slots: List<Char?> = List(LAST_SLOTS) { index -> entered.getOrNull(entered.length - LAST_SLOTS + index) }
+    val spoken = entered.takeLast(LAST_SLOTS).toList().joinToString(", ")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(LAST_ROW_HEIGHT)
+            .testTag(LAST_ENTRIES_TAG)
+            .semantics {
+                contentDescription = if (spoken.isEmpty()) "No entries yet" else "Last entries: $spoken"
+            },
+        horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
+    ) {
+        slots.forEachIndexed { index, symbol ->
+            LastSlot(
+                mode = mode,
+                symbol = symbol,
+                newest = index == LAST_SLOTS - 1 && symbol != null,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
+        }
+    }
+}
+
+/** One slot of the last-entries row: the face when filled, an outline when empty, accent when newest. */
+@Composable
+private fun LastSlot(mode: EntropyMode, symbol: Char?, newest: Boolean, modifier: Modifier) {
+    val border = if (newest) {
+        Modifier.border(2.dp, LenslyAccent, BUTTON_SHAPE)
+    } else {
+        Modifier.border(1.dp, LenslyOutline, BUTTON_SHAPE)
+    }
+    Box(
+        modifier = modifier
+            .clip(BUTTON_SHAPE)
+            .background(
+                if (symbol != null) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+                BUTTON_SHAPE,
+            )
+            .then(border),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            symbol == null -> Unit
+            mode == EntropyMode.Dice -> DieFace(face = symbol - '0', faceSize = LAST_FACE_SIZE)
+            else -> CoinMark(side = symbol, markSize = LAST_FACE_SIZE)
+        }
     }
 }
 
@@ -317,24 +369,30 @@ private fun CoinButton(side: Char, label: String, modifier: Modifier, onClick: (
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(COIN_ICON_SIZE)
-                    .border(2.dp, LenslyOnSurface, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = side.toString(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = LenslyOnSurface,
-                )
-            }
+            CoinMark(side = side, markSize = COIN_ICON_SIZE)
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.headlineSmall,
                 color = LenslyOnSurface,
             )
         }
+    }
+}
+
+/** A coin drawn as a ring with its side letter inside. */
+@Composable
+private fun CoinMark(side: Char, markSize: Dp) {
+    Box(
+        modifier = Modifier
+            .size(markSize)
+            .border(2.dp, LenslyOnSurface, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = side.toString(),
+            style = MaterialTheme.typography.headlineMedium,
+            color = LenslyOnSurface,
+        )
     }
 }
 
@@ -444,22 +502,5 @@ private fun DieFace(face: Int, faceSize: Dp, color: Color = LenslyOnSurface) {
         for (pip in DIE_PIPS.getValue(face)) {
             drawCircle(color = color, radius = pipRadius, center = Offset(pip.x * w, pip.y * h))
         }
-    }
-}
-
-/**
- * Ignores a second tap on the same button that lands within [windowMs] of the last accepted tap on it. Only accepted
- * taps start the window, so a bounce cannot keep a button locked out. Each button is tracked on its own, so taps on
- * different faces never block one another.
- */
-internal class DoubleTapGuard<K : Any>(private val windowMs: Long = DOUBLE_TAP_WINDOW_MS) {
-    private val lastAccepted = HashMap<K, Long>()
-
-    /** True when a tap on [button] at [nowMs] should count, and records it. */
-    fun accept(button: K, nowMs: Long): Boolean {
-        val last = lastAccepted[button]
-        if (last != null && nowMs - last < windowMs) return false
-        lastAccepted[button] = nowMs
-        return true
     }
 }

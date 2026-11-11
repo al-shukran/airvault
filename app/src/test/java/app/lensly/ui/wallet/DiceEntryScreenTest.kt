@@ -9,9 +9,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -24,7 +26,6 @@ import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -37,14 +38,11 @@ private const val PHONE_DENSITY = 1.75f
 private val PHONE_WIDTH: Dp = (720f / PHONE_DENSITY).dp
 private val PHONE_HEIGHT: Dp = (1600f / PHONE_DENSITY).dp
 
-/** Gap between two taps that the owner makes on purpose, well over the double-tap window. */
+/** Gap between two taps that are not the point of a test, so each is an ordinary separate tap. */
 private const val SEPARATE_TAP_MS = 1_000L
 
-/** A double tap: a second tap on the same button this soon after the first. */
-private const val DOUBLE_TAP_GAP_MS = 100L
-
-/** Two taps this far apart on one button both count. */
-private const val SEPARATE_TAP_GAP_MS = 200L
+/** Quick taps: well under a second apart, the way a real pair of rolls can come in. */
+private const val QUICK_TAP_MS = 50L
 
 /** Height of a button's bounds in dp. [DpRect] has edges but no height of its own. */
 private val DpRect.tall: Dp get() = bottom - top
@@ -68,9 +66,6 @@ class DiceEntryScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
-    /** The clock the taps are timed by. Each test moves it between taps. */
-    private var nowMs = 0L
-
     /** Every symbol the screen handed to onSymbol, in order. */
     private val recorded = mutableListOf<Char>()
 
@@ -89,14 +84,12 @@ class DiceEntryScreenTest {
                 },
                 onBackspace = { entered = entered.dropLast(1) },
                 onDone = {},
-                nowMs = { nowMs },
             )
         }
     }
 
-    /** Taps the node with [tag], after the owner has waited long enough for a tap to count on its own. */
+    /** Taps the node with [tag]. Each tap is its own event, so nothing is dropped as a repeat. */
     private fun tap(tag: String) {
-        nowMs += SEPARATE_TAP_MS
         compose.onNodeWithTag(tag).performClick()
     }
 
@@ -104,7 +97,10 @@ class DiceEntryScreenTest {
     fun eachDiceButtonEntersItsValue() {
         showEntry(EntropyMode.Dice)
 
-        for (face in '1'..'6') tap(faceTag(face))
+        for (face in '1'..'6') {
+            compose.mainClock.advanceTimeBy(SEPARATE_TAP_MS)
+            tap(faceTag(face))
+        }
 
         assertEquals(listOf('1', '2', '3', '4', '5', '6'), recorded)
     }
@@ -114,6 +110,7 @@ class DiceEntryScreenTest {
         showEntry(EntropyMode.Coins)
 
         tap(faceTag('H'))
+        compose.mainClock.advanceTimeBy(SEPARATE_TAP_MS)
         tap(faceTag('T'))
 
         assertEquals(listOf('H', 'T'), recorded)
@@ -127,45 +124,69 @@ class DiceEntryScreenTest {
         tap(faceTag('3'))
         compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("123")
 
+        compose.mainClock.advanceTimeBy(SEPARATE_TAP_MS)
         tap(UNDO_TAG)
 
         compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("12")
     }
 
     @Test
-    fun aDoubleTapWithinTheWindowEntersOnce() {
+    fun sixThenSixTappedFiftyMsApartRecordsTwoEntries() {
         showEntry(EntropyMode.Dice)
-        nowMs = SEPARATE_TAP_MS
-        compose.onNodeWithTag(faceTag('3')).performClick()
-        nowMs += DOUBLE_TAP_GAP_MS
-        compose.onNodeWithTag(faceTag('3')).performClick()
 
-        assertEquals(listOf('3'), recorded)
+        tap(faceTag('6'))
+        compose.mainClock.advanceTimeBy(QUICK_TAP_MS)
+        tap(faceTag('6'))
+
+        assertEquals(listOf('6', '6'), recorded)
+        compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("66")
     }
 
     @Test
-    fun twoTapsTwoHundredMsApartEnterTwice() {
+    fun threeQuickTapsOnTheSameFaceRecordThree() {
         showEntry(EntropyMode.Dice)
-        nowMs = SEPARATE_TAP_MS
-        compose.onNodeWithTag(faceTag('3')).performClick()
-        nowMs += SEPARATE_TAP_GAP_MS
-        compose.onNodeWithTag(faceTag('3')).performClick()
 
-        assertEquals(listOf('3', '3'), recorded)
+        repeat(3) {
+            tap(faceTag('3'))
+            compose.mainClock.advanceTimeBy(QUICK_TAP_MS)
+        }
+
+        assertEquals(listOf('3', '3', '3'), recorded)
+        compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("333")
     }
 
     @Test
-    fun aDoubleTapOnUndoRemovesOnlyOneEntry() {
+    fun twoQuickUndoTapsRemoveTwoEntries() {
         showEntry(EntropyMode.Dice)
         tap(faceTag('1'))
         tap(faceTag('2'))
         tap(faceTag('3'))
+        tap(faceTag('4'))
 
         tap(UNDO_TAG)
-        nowMs += DOUBLE_TAP_GAP_MS
-        compose.onNodeWithTag(UNDO_TAG).performClick()
+        compose.mainClock.advanceTimeBy(QUICK_TAP_MS)
+        tap(UNDO_TAG)
 
         compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("12")
+    }
+
+    @Test
+    fun theLastFiveEntriesAreShownNewestAtTheRightAndSpokenInOrder() {
+        showEntry(EntropyMode.Dice)
+        for (face in "123456") {
+            compose.mainClock.advanceTimeBy(SEPARATE_TAP_MS)
+            tap(faceTag(face))
+        }
+
+        compose.onNodeWithTag(LAST_ENTRIES_TAG)
+            .assert(hasContentDescription("Last entries: 2, 3, 4, 5, 6"))
+    }
+
+    @Test
+    fun theLastEntriesRowSaysNoEntriesBeforeTheFirstTap() {
+        showEntry(EntropyMode.Dice)
+
+        compose.onNodeWithTag(LAST_ENTRIES_TAG).assert(hasContentDescription("No entries yet"))
     }
 
     @Test
@@ -221,41 +242,5 @@ class DiceEntryScreenTest {
                 }
             }
         }
-    }
-}
-
-/** The double-tap window: a tap inside it is ignored, and one at or past it counts. */
-class DoubleTapGuardTest {
-
-    @Test
-    fun aTapInsideTheWindowIsIgnoredAndOneAtTheWindowCounts() {
-        val guard = DoubleTapGuard<Any>()
-
-        assertTrue(guard.accept('1', 0L))
-        assertFalse(guard.accept('1', DOUBLE_TAP_WINDOW_MS - 1))
-        assertTrue(guard.accept('1', DOUBLE_TAP_WINDOW_MS))
-    }
-
-    @Test
-    fun aRejectedTapDoesNotRestartTheWindow() {
-        val guard = DoubleTapGuard<Any>()
-
-        assertTrue(guard.accept('1', 0L))
-        assertFalse(guard.accept('1', 100L))
-        assertTrue(guard.accept('1', 200L))
-    }
-
-    @Test
-    fun tapsOnDifferentButtonsNeverBlockEachOther() {
-        val guard = DoubleTapGuard<Any>()
-
-        assertTrue(guard.accept('1', 0L))
-        assertTrue(guard.accept('2', 10L))
-        assertFalse(guard.accept('1', 10L))
-    }
-
-    @Test
-    fun theWindowIsOneHundredAndFiftyMilliseconds() {
-        assertEquals(150L, DOUBLE_TAP_WINDOW_MS)
     }
 }
