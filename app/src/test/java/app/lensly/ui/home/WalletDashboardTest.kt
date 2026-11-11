@@ -91,6 +91,28 @@ class WalletDashboardTest {
     }
 
     @Test
+    fun seeAllOpensTheActivityScreen() {
+        lateinit var nav: NavHostController
+        compose.setContent {
+            nav = rememberNavController()
+            LenslyTheme {
+                NavHost(navController = nav, startDestination = HiddenRoute.HOME) {
+                    composable(HiddenRoute.HOME) {
+                        Home(wallets = wallets(2), onActivity = { nav.navigate(HiddenRoute.activity()) })
+                    }
+                    composable(HiddenRoute.activity()) {}
+                }
+            }
+        }
+        settle()
+
+        compose.onNodeWithText("See all").performClick()
+        settle()
+
+        assertEquals(HiddenRoute.activity(), nav.currentBackStackEntry?.destination?.route)
+    }
+
+    @Test
     fun scanToSignNavigatesToTheScanRoute() {
         lateinit var nav: NavHostController
         compose.setContent {
@@ -118,6 +140,7 @@ class WalletDashboardTest {
         wallets: List<WalletMeta>,
         onScan: () -> Unit = {},
         onWallets: () -> Unit = {},
+        onActivity: () -> Unit = {},
     ) {
         WalletHomeScreen(
             wallets = wallets,
@@ -130,6 +153,7 @@ class WalletDashboardTest {
             onLock = {},
             onStartPairing = {},
             onScan = onScan,
+            onActivity = onActivity,
         )
     }
 

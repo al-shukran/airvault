@@ -11,18 +11,23 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import app.lensly.app.ReviewHistory
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletReviewRecord
+import app.lensly.app.WalletStore
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
+import app.lensly.core.vault.VaultLayout
+import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -37,6 +42,12 @@ class WalletHomeScreenTest {
 
     @get:Rule
     val compose = createComposeRule()
+
+    @get:Rule
+    val tmp = TemporaryFolder()
+
+    /** A test mnemonic: twenty-three "abandon" words and the checksum word. */
+    private val words = List(23) { "abandon" } + "art"
 
     @Before
     fun pauseTheClock() {
@@ -114,6 +125,65 @@ class WalletHomeScreenTest {
         settle()
 
         compose.onNodeWithText("Catalog 7").assertExists()
+    }
+
+    @Test
+    fun withNoRecordsHomeSaysNothingSignedYet() {
+        compose.setContent {
+            LenslyTheme {
+                home(wallets = wallets(2), records = emptyList())
+            }
+        }
+        settle()
+
+        compose.onNodeWithText("Nothing signed yet").assertExists()
+        compose.onAllNodesWithTag(HOME_ACTIVITY_ROW_TAG).assertCountEquals(0)
+    }
+
+    /**
+     * The records Home lists come from [ReviewHistory.listAll], the read HomeRoute does when it opens, so two wallets' records
+     * reach the screen together.
+     */
+    @Test
+    fun homeListsTheSessionRecordsOfTwoWallets() {
+        val layout = VaultLayout(tmp.root)
+        val session = VaultSession(layout, ByteArray(32) { (it + 5).toByte() })
+        try {
+            val store = WalletStore(session)
+            val history = ReviewHistory(session)
+            val first = store.create(
+                name = "FIRST",
+                deviceGenerated = true,
+                words = words,
+                passphrase = null,
+                nowMs = 1L,
+            )
+            val second = store.create(
+                name = "SECOND",
+                deviceGenerated = true,
+                words = words,
+                passphrase = null,
+                nowMs = 2L,
+            )
+            history.append(first, review(walletId = first, atMs = 3 * MINUTE, amount = "0.01 MON").record)
+            history.append(second, review(walletId = second, atMs = 4 * MINUTE, amount = "0.02 MON").record)
+
+            val records = ReviewHistory(session).listAll()
+            val wallets = store.list()
+
+            compose.setContent {
+                LenslyTheme {
+                    home(wallets = wallets, records = records)
+                }
+            }
+            settle()
+
+            compose.onAllNodesWithTag(HOME_ACTIVITY_ROW_TAG).assertCountEquals(2)
+            compose.onNodeWithText("Sent 0.01 MON on Monad Testnet").assertExists()
+            compose.onNodeWithText("Sent 0.02 MON on Monad Testnet").assertExists()
+        } finally {
+            session.close()
+        }
     }
 
     @Test
