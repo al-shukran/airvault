@@ -112,10 +112,14 @@ class AccessibilityTest {
                 WalletHomeScreen(
                     wallets = listOf(meta("Seed wallet")),
                     onOpen = {},
+                    onEdit = {},
+                    onPair = {},
                     onAdd = {},
+                    onWallets = {},
                     onSettings = {},
                     onLock = {},
-                    onUpdateCatalog = {},
+                    onStartPairing = {},
+                    onScan = {},
                 )
             }
         }

@@ -1,88 +1,114 @@
 package app.lensly.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import app.lensly.app.VisualIdentity
-import app.lensly.app.WalletKind
+import app.lensly.app.ProfileColour
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
-import app.lensly.app.visualIdentity
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DotHeadline
-import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.PillChip
-import app.lensly.ui.components.pressFeedback
+import app.lensly.ui.components.WalletArt
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
+import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LenslySurfaceHigh
 import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lensly.ui.wallet.WalletEyebrow
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillSize
-import app.lensly.ui.wallet.WalletPillStyle
+import kotlinx.coroutines.delay
+
+/** How many wallet cards Home shows. More than this, the section links to the full Wallets list. */
+private const val HOME_CARD_LIMIT = 3
+
+/** Each card after the first arrives this much later, so the list fills in one card after another. */
+private const val STAGGER_STEP_MS = 70L
+private const val ENTER_MS = 240
+
+/** How long the pairing confirmation stays on screen. */
+private const val NOTICE_MS = 2_400L
+
+/** Room under the last card, so the dock never covers it. */
+private val DOCK_CLEARANCE = 120.dp
+
+/** The bottom edge of the pairing confirmation: it sits just above the dock. */
+private val NOTICE_BOTTOM = 100.dp
 
 /**
- * The wallet list: a dot-matrix headline, a count, one row per wallet, and a red add button. When there are no wallets
- * it invites the owner to add one. [onOpen] receives the wallet id. [onSettings] opens the Settings screen. [onLock]
- * locks the vault and leaves the hidden area. [onUpdateCatalog] opens the import of a signed registry package.
- * [debugNotice], when set, shows an inline warning, for example that the keystore is software-only. [profiles] holds each wallet's
- * profile by wallet id. A wallet with none shows its generated Visual Identity, which comes from its place in [wallets].
+ * Home: the vault's front page. A header with the Lensly wordmark, Settings and Lock; a status line; the WALLETS section with
+ * up to three cards, then the add tile; and the action dock at the foot. [wallets] is null until the list has been read. The
+ * callbacks take a wallet's id where the action is about one wallet. [debugNotice], when set, shows a warning, for example that
+ * the keystore is software-only. [notice], when set, shows a short confirmation such as "Wallet paired", and [onNoticeShown] is
+ * called once it has appeared, so the caller can forget it.
  */
 @Composable
 fun WalletHomeScreen(
-    wallets: List<WalletMeta>,
+    wallets: List<WalletMeta>?,
     onOpen: (String) -> Unit,
+    onEdit: (String) -> Unit,
+    onPair: (String) -> Unit,
     onAdd: () -> Unit,
+    onWallets: () -> Unit,
     onSettings: () -> Unit,
     onLock: () -> Unit,
-    onUpdateCatalog: () -> Unit,
+    onStartPairing: () -> Unit,
+    onScan: () -> Unit,
     modifier: Modifier = Modifier,
     profiles: Map<String, WalletProfile> = emptyMap(),
     debugNotice: String? = null,
+    notice: String? = null,
+    onNoticeShown: () -> Unit = {},
 ) {
-    val haptics = rememberKeyHaptics()
+    var sheetWallet by remember { mutableStateOf<WalletMeta?>(null) }
     Box(modifier = modifier.fillMaxSize().background(LenslyBlack)) {
         Column(
             modifier = Modifier
@@ -90,171 +116,261 @@ fun WalletHomeScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(horizontal = WALLET_GUTTER),
         ) {
-            Row(
+            HomeHeader(onSettings = onSettings, onLock = onLock)
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = LenslySpacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
             ) {
-                WalletEyebrow("Offline vault")
-                Spacer(Modifier.weight(1f))
-                WalletPill(
-                    text = "Settings",
-                    onClick = onSettings,
-                    modifier = Modifier.tapHaptic(haptics),
-                    style = WalletPillStyle.Outline,
-                    size = WalletPillSize.Compact,
-                )
-                Spacer(Modifier.width(LenslySpacing.xs))
-                WalletPill(
-                    text = "Lock",
-                    onClick = onLock,
-                    modifier = Modifier.tapHaptic(haptics),
-                    style = WalletPillStyle.Outline,
-                    size = WalletPillSize.Compact,
-                )
-            }
-            Spacer(Modifier.height(LenslySpacing.sm))
-            DotHeadline(text = "WALLETS")
-            if (debugNotice != null) {
-                Spacer(Modifier.height(LenslySpacing.sm))
-                InlineBanner(message = debugNotice, tone = BannerTone.Warning)
-            }
-            Spacer(Modifier.height(LenslySpacing.md))
-            if (wallets.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    EmptyState(
-                        icon = Icons.Filled.Lock,
-                        title = "No wallets yet",
-                        body = "Create a wallet, or restore one from its 24 words.",
-                        actionLabel = "Add wallet",
-                        onAction = onAdd,
+                WalletEyebrow(statusLine(wallets?.size))
+                if (debugNotice != null) {
+                    Spacer(Modifier.height(LenslySpacing.sm))
+                    InlineBanner(message = debugNotice, tone = BannerTone.Warning)
+                }
+                if (wallets != null) {
+                    Spacer(Modifier.height(LenslySpacing.lg))
+                    WalletsSection(
+                        wallets = wallets,
+                        profiles = profiles,
+                        onOpen = onOpen,
+                        onAdd = onAdd,
+                        onWallets = onWallets,
+                        onLongPress = { sheetWallet = it },
                     )
                 }
-            } else {
-                WalletEyebrow(if (wallets.size == 1) "1 wallet" else "${wallets.size} wallets")
-                Spacer(Modifier.height(LenslySpacing.xs))
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    // Room under the last row, so the add button never covers it.
-                    contentPadding = PaddingValues(bottom = 96.dp),
-                ) {
-                    itemsIndexed(wallets, key = { _, wallet -> wallet.id }) { position, wallet ->
-                        val profile = profiles[wallet.id] ?: WalletProfile()
-                        WalletRow(
-                            wallet = wallet,
-                            identity = visualIdentity(profile.colour, profile.icon, position),
-                            label = profile.label,
-                            onClick = { onOpen(wallet.id) },
-                        )
-                    }
-                }
+                Spacer(Modifier.height(DOCK_CLEARANCE))
             }
         }
-        WalletPill(
-            text = "Update catalog",
-            onClick = onUpdateCatalog,
+        ActionDock(
+            onPair = onStartPairing,
+            onScan = onScan,
+            onWallets = onWallets,
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(start = WALLET_GUTTER, bottom = LenslySpacing.md)
-                .tapHaptic(haptics),
-            style = WalletPillStyle.Outline,
-            size = WalletPillSize.Compact,
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(start = WALLET_GUTTER, end = WALLET_GUTTER, bottom = LenslySpacing.xs),
         )
-        AddWalletButton(
-            onClick = onAdd,
+        HomeNotice(
+            notice = notice,
+            onShown = onNoticeShown,
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(end = LenslySpacing.md, bottom = LenslySpacing.md),
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(bottom = NOTICE_BOTTOM),
+        )
+    }
+    sheetWallet?.let { wallet ->
+        WalletContextSheet(
+            wallet = wallet,
+            onDismiss = { sheetWallet = null },
+            onOpen = onOpen,
+            onEdit = onEdit,
+            onPair = onPair,
         )
     }
 }
 
-/**
- * One wallet in the list: its Visual Identity, its name, its label and its kind as chips, and a chevron. The whole row is the tap target, and it shows the
- * standard ripple. No haptic here, because a press that starts a scroll should not buzz.
- */
+/** The header row: the Lensly wordmark in the dot-matrix face, then Settings and Lock as icon buttons. */
 @Composable
-private fun WalletRow(wallet: WalletMeta, identity: VisualIdentity, label: String?, onClick: () -> Unit) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(role = Role.Button, onClick = onClick)
-                .padding(vertical = LenslySpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ProfileAvatar(identity = identity, size = 36.dp)
-            Spacer(Modifier.width(LenslySpacing.sm))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = wallet.name.uppercase(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LenslyOnSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(LenslySpacing.xs))
-                Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-                    if (label != null) PillChip(text = label)
-                    if (wallet.deviceGenerated) PillChip(text = "Device-generated")
-                    if (wallet.kind == WalletKind.SINGLE_KEY) {
-                        PillChip(text = "Single key")
-                    } else {
-                        PillChip(text = "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}")
-                    }
-                }
-            }
-            Spacer(Modifier.width(LenslySpacing.sm))
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-    }
-}
-
-/**
- * The red circular add button from the contacts reference. It shrinks and dims while pressed and plays the key haptic,
- * like the shared buttons.
- */
-@Composable
-private fun AddWalletButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun HomeHeader(onSettings: () -> Unit, onLock: () -> Unit) {
     val haptics = rememberKeyHaptics()
-    val interaction = remember { MutableInteractionSource() }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "LENSLY",
+            style = MaterialTheme.typography.headlineMedium,
+            color = LenslyOnSurface,
+        )
+        Spacer(Modifier.weight(1f))
+        IconButton(onClick = onSettings, modifier = Modifier.tapHaptic(haptics)) {
+            Icon(imageVector = Icons.Filled.Settings, contentDescription = "Settings", tint = LenslyOnSurface)
+        }
+        IconButton(onClick = onLock, modifier = Modifier.tapHaptic(haptics)) {
+            Icon(imageVector = Icons.Filled.Lock, contentDescription = "Lock the vault", tint = LenslyOnSurface)
+        }
+    }
+}
+
+/** The status line under the header, such as "Offline vault · 2 wallets". */
+private fun statusLine(count: Int?): String = when (count) {
+    null -> "Offline vault"
+    0 -> "Offline vault · no wallets"
+    1 -> "Offline vault · 1 wallet"
+    else -> "Offline vault · $count wallets"
+}
+
+/**
+ * The WALLETS section: its heading, a "See all" link once there are more wallets than fit, the first [HOME_CARD_LIMIT] cards,
+ * and the add tile. With no wallets it shows the empty state above the add tile.
+ */
+@Composable
+private fun WalletsSection(
+    wallets: List<WalletMeta>,
+    profiles: Map<String, WalletProfile>,
+    onOpen: (String) -> Unit,
+    onAdd: () -> Unit,
+    onWallets: () -> Unit,
+    onLongPress: (WalletMeta) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "WALLETS",
+            modifier = Modifier.semantics { heading() },
+            style = MaterialTheme.typography.headlineMedium,
+            color = LenslyOnSurface,
+        )
+        Spacer(Modifier.weight(1f))
+        if (wallets.size > HOME_CARD_LIMIT) {
+            SeeAllLink(count = wallets.size, onClick = onWallets)
+        }
+    }
+    Spacer(Modifier.height(LenslySpacing.md))
+    if (wallets.isEmpty()) {
+        EmptyVault()
+        Spacer(Modifier.height(LenslySpacing.lg))
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
+        wallets.take(HOME_CARD_LIMIT).forEachIndexed { index, wallet ->
+            StaggeredIn(index = index) {
+                WalletCard(
+                    wallet = wallet,
+                    profile = profiles[wallet.id] ?: WalletProfile(),
+                    position = index,
+                    onClick = { onOpen(wallet.id) },
+                    onLongPress = { onLongPress(wallet) },
+                )
+            }
+        }
+        StaggeredIn(index = minOf(wallets.size, HOME_CARD_LIMIT)) {
+            AddWalletTile(onClick = onAdd)
+        }
+    }
+}
+
+/** The text link that opens the Wallets list, which shows every wallet. */
+@Composable
+private fun SeeAllLink(count: Int, onClick: () -> Unit) {
+    val haptics = rememberKeyHaptics()
+    Text(
+        text = "See all $count",
+        modifier = Modifier
+            .tapHaptic(haptics)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = LenslySpacing.xxs, vertical = LenslySpacing.xs),
+        style = MaterialTheme.typography.labelLarge,
+        color = LenslyOnSurface,
+        textDecoration = TextDecoration.Underline,
+    )
+}
+
+/** Fades and lifts [content] in after [index] steps, so a list arrives one item after another. */
+@Composable
+private fun StaggeredIn(index: Int, content: @Composable () -> Unit) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(index * STAGGER_STEP_MS)
+        shown = true
+    }
+    AnimatedVisibility(
+        visible = shown,
+        enter = fadeIn(tween(ENTER_MS)) + slideInVertically(tween(ENTER_MS)) { it / 6 },
+    ) {
+        content()
+    }
+}
+
+/**
+ * The empty state: a lens drawn in the wallet art style, then the invitation. The add tile below it is the way to start.
+ */
+@Composable
+private fun EmptyVault() {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        VaultLens(modifier = Modifier.size(136.dp))
+        Spacer(Modifier.height(LenslySpacing.lg))
+        Text(
+            text = "Create or restore your first wallet",
+            modifier = Modifier.semantics { heading() },
+            style = MaterialTheme.typography.headlineSmall,
+            color = LenslyOnSurface,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(LenslySpacing.xs))
+        Text(
+            text = "Start with a new wallet of 24 words, or restore one you already have.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/** A circle of wallet art crossed by rings, with the accent at its centre. Drawn, so it needs no image. */
+@Composable
+private fun VaultLens(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(64.dp)
-            .pressFeedback(interaction, enabled = true)
             .clip(CircleShape)
-            .background(LenslyAccent)
-            .tapHaptic(haptics)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                role = Role.Button,
-                onClick = onClick,
-            )
-            .semantics { contentDescription = "Add wallet" },
-        contentAlignment = Alignment.Center,
+            .background(LenslySurfaceHigh),
     ) {
-        Icon(
-            imageVector = Icons.Filled.Add,
-            contentDescription = null,
-            tint = LenslyOnSurface,
-            modifier = Modifier.size(28.dp),
+        WalletArt(seed = "lensly-vault", colour = ProfileColour.RED, modifier = Modifier.matchParentSize())
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val centre = Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension / 2f
+            for (ring in 1..4) {
+                drawCircle(
+                    color = LenslyOnSurface.copy(alpha = 0.2f),
+                    radius = radius * ring / 4f,
+                    center = centre,
+                    style = Stroke(width = 1.dp.toPx()),
+                )
+            }
+            drawCircle(color = LenslyAccent, radius = 6.dp.toPx(), center = centre)
+        }
+    }
+}
+
+/**
+ * The confirmation after a pairing: a pill that shows [notice] for a few seconds, then fades. It reports the notice once, through
+ * [onShown], as soon as it appears, so a later visit does not show it again.
+ */
+@Composable
+private fun HomeNotice(notice: String?, onShown: () -> Unit, modifier: Modifier = Modifier) {
+    var visible by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf("") }
+    LaunchedEffect(notice) {
+        if (notice != null) {
+            text = notice
+            visible = true
+            onShown()
+        }
+    }
+    LaunchedEffect(visible) {
+        if (visible) {
+            delay(NOTICE_MS)
+            visible = false
+        }
+    }
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = fadeIn(tween(ENTER_MS)) + slideInVertically(tween(ENTER_MS)) { it / 2 },
+        exit = fadeOut(tween(ENTER_MS)),
+    ) {
+        Text(
+            text = text.uppercase(),
+            modifier = Modifier
+                .clip(LenslyPillShape)
+                .background(LenslySurfaceHigh)
+                .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm),
+            style = MaterialTheme.typography.labelMedium,
+            color = LenslyOnSurface,
         )
     }
 }
