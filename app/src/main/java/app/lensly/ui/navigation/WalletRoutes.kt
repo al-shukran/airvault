@@ -98,6 +98,9 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.SHOW_SECRET, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { ShowSecretRoute(navController, holder, entry.walletId()) }
     }
+    composable(HiddenRoute.DELETE_WALLET, arguments = walletIdArguments()) { entry ->
+        HiddenBackdrop { DeleteWalletRoute(navController, holder, entry.walletId()) }
+    }
     composable(HiddenRoute.CATALOG) { HiddenBackdrop { RegistryImportRoute(navController, holder) } }
     renameRoutes(navController, holder)
 }
@@ -475,6 +478,7 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
         onRenameWallet = { navController.navigate(HiddenRoute.renameWallet(walletId)) },
         onRenameAccount = { index -> navController.navigate(HiddenRoute.renameAccount(walletId, index)) },
+        onDeleteWallet = { navController.navigate(HiddenRoute.deleteWallet(walletId)) },
     )
 }
 
