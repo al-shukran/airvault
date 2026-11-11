@@ -21,12 +21,19 @@ import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
+import app.lensly.ui.sign.NoMatchingWalletScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReviewScreen
 
+/** The view model key of a scan that is not for one wallet, so it never shares a flow with a wallet's scan. */
+private const val ANY_WALLET_KEY = "sign-any-wallet"
+
 /**
- * SIGN for the wallet [walletId]: scan the request, read the review, approve it with the App Password, then show the
- * signature. Leaving the flow in any way pops back to the wallet.
+ * SIGN: scan the request, read the review, approve it with the App Password, then show the signature. Leaving the flow in any
+ * way pops back to where it started.
+ *
+ * [walletId] is the wallet to sign with, as the wallet's own SIGN scan has it. Null is a scan of any wallet of the vault: the
+ * wallet the request is for is found among them, and the owner is asked to scan again when none or several match.
  *
  * [frameSource] is passed to the scan step. Leave it null on a device: the camera feeds the scanner. The end-to-end test
  * passes its own source of generated frames, so the test drives this route instead of a copy of its screen mapping.
@@ -35,7 +42,7 @@ import app.lensly.ui.sign.TxReviewScreen
 internal fun SignWalletRoute(
     navController: NavHostController,
     holder: VaultHolder,
-    walletId: String,
+    walletId: String?,
     frameSource: FrameSource? = null,
 ) {
     val context = LocalContext.current.applicationContext
@@ -45,9 +52,9 @@ internal fun SignWalletRoute(
     }
 
     val flow: SignFlowViewModel = viewModel(
-        key = walletId,
+        key = walletId ?: ANY_WALLET_KEY,
         factory = viewModelFactory {
-            initializer { SignFlowViewModel(SignFlow(VaultSignPorts(context, holder, walletId))) }
+            initializer { SignFlowViewModel(SignFlow(VaultSignPorts(context, holder), walletId)) }
         },
     )
     val step by flow.state.collectAsState()
@@ -65,7 +72,13 @@ internal fun SignWalletRoute(
             onCancel = flow::leave,
             frameSource = frameSource,
         )
-        is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, onDone = flow::leave)
+        is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, call = shown.call, onDone = flow::leave)
+        is SignStep.NoMatchingWallet -> NoMatchingWalletScreen(
+            request = shown.request,
+            several = shown.several,
+            onScanAgain = flow::scanAgain,
+            onCancel = flow::leave,
+        )
         is SignStep.Review -> TxReviewScreen(
             review = shown.ready.review,
             onApprove = flow::approve,

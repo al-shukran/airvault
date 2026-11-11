@@ -52,7 +52,7 @@ class AmountsTest {
 
     @Test
     fun maxUint256AtEighteenDecimalsIsExact() {
-        val max = Erc20Call.MAX_UINT256
+        val max = ContractCall.MAX_UINT256
         assertEquals(
             "115792089237316195423570985008687907853269984665640564039457.584007913129639935",
             Amounts.format(max, 18),

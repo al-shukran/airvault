@@ -7,7 +7,7 @@ import app.lensly.core.evm.TxSigner
 import app.lensly.core.evm.TxType
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.registry.Amounts
-import app.lensly.core.registry.Erc20Call
+import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
@@ -17,13 +17,16 @@ import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.EthSignatureEncoder
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
+import app.lensly.ui.sign.ALL_NFTS_WARNING
 import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
 import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
 import app.lensly.ui.sign.UNKNOWN_UNIT
 import app.lensly.ui.sign.assumedAmountNote
+import app.lensly.ui.sign.groupHex
 import app.lensly.ui.sign.unknownFeeNote
+import app.lensly.ui.sign.unlimitedApprovalWarning
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import java.nio.ByteBuffer
@@ -35,11 +38,34 @@ import org.web3j.utils.Numeric
 
 /** The outcome of [SignPipeline.prepare]: a review for the user to confirm, or a refusal that says why. */
 sealed interface Prepared {
-    /** [accountIndex] is i in m/44'/60'/0'/0/i. Nothing is signed until [SignPipeline.sign] runs. */
-    data class Ready(val review: TxReview, val request: EthSignRequest, val accountIndex: Int) : Prepared
+    /**
+     * [accountIndex] is i in m/44'/60'/0'/0/i, and [walletId] is the wallet that holds that account. Nothing is signed until
+     * [SignPipeline.sign] runs.
+     */
+    data class Ready(
+        val review: TxReview,
+        val request: EthSignRequest,
+        val accountIndex: Int,
+        val walletId: String,
+    ) : Prepared
 
-    data class Refused(val reason: String) : Prepared
+    /** [call] is set when the refusal is for a contract call Lensly cannot decode, so the refusal can show it. */
+    data class Refused(val reason: String, val call: UndecodedCall? = null) : Prepared
 }
+
+/**
+ * A contract call Lensly cannot decode, as its refusal shows it: the contract, the network, the native value, the selector,
+ * and the calldata after the selector in 32-byte words. Hex has no 0x prefix. The last word is shorter when the calldata does
+ * not end on a word boundary.
+ */
+data class UndecodedCall(
+    val target: String,
+    val networkName: String,
+    val chainId: Long,
+    val value: String,
+    val selector: String,
+    val words: List<String>,
+)
 
 /**
  * Checks a scanned eth-sign-request against the wallet and the registry, builds the review the user confirms, and
@@ -105,7 +131,7 @@ class SignPipeline(private val registry: Registry) {
         val chainId = request.chainId ?: return Prepared.Refused("The request does not name a network")
         // A chain outside the registry has no network. It is reviewed as an unknown chain, with a warning, not refused.
         val label = (wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)).uppercase()
-        val target = Target(request, chainId, registry.network(chainId), index, address, label)
+        val target = Target(request, chainId, registry.network(chainId), wallet, index, address, label)
 
         return if (request.dataType == DataType.PERSONAL_MESSAGE) message(target) else transaction(target)
     }
@@ -154,93 +180,214 @@ class SignPipeline(private val registry: Registry) {
         }
         val to = tx.to ?: return Prepared.Refused("Contract creation is not supported")
 
-        val network = target.network
-        // Fields that depend on what the transaction does are set below, in each branch.
-        val base = TxReview(
-            networkName = network?.name ?: UNKNOWN_CHAIN_NAME,
-            chainId = target.chainId,
-            fromAccountLabel = target.label,
-            fromAddress = target.address,
-            toAddress = "",
-            amount = "",
-            symbol = "",
-            tokenContract = null,
-            function = "",
-            params = emptyList(),
-            fee = feeLines(tx, network),
-            feeNote = feeNote(tx, network),
-            warnings = emptyList(),
-            nonce = tx.nonce.toLong(),
-            txType = if (tx.type == TxType.EIP1559) "EIP-1559" else "Legacy",
-            network = network,
-        )
-
         val calldata = Numeric.hexStringToByteArray(tx.data)
         val review = if (calldata.isEmpty()) {
-            base.copy(
-                toAddress = to,
-                amount = nativeAmount(tx.value, network),
-                symbol = nativeUnit(network),
-                amountNote = if (network == null) assumedAmountNote(tx.value) else null,
-                function = "Native transfer",
-            )
+            nativeReview(target, to, tx.value)
         } else {
             // An undecodable call is refused for any contract, so it is decoded before the token lookup.
-            val call = Erc20Call.decode(calldata) ?: return Prepared.Refused("Unknown contract call")
+            val call = ContractCall.decode(calldata)
+                ?: return Prepared.Refused(UNKNOWN_CALL, undecodedCall(target, to, tx.value, calldata))
             if (tx.value.signum() != 0) return Prepared.Refused("Token calls must not send native currency")
             // A contract outside the registry is an unknown token. Its decimals are not known, so its amounts stay raw.
-            val token = registry.token(target.chainId, to)
-            val amountNote = if (token == null) UNKNOWN_DECIMALS_NOTE else null
-            when (call) {
-                is Erc20Call.Transfer -> base.copy(
-                    token = token,
-                    toAddress = checksum(call.to),
-                    amount = tokenAmount(call.amount, token),
-                    symbol = token?.symbol ?: UNKNOWN_UNIT,
-                    amountNote = amountNote,
-                    tokenContract = to,
-                    function = "Token transfer",
-                )
-                is Erc20Call.Approve -> {
-                    val allowance = tokenAmount(call.amount, token)
-                    base.copy(
-                        token = token,
-                        toAddress = checksum(call.spender),
-                        amount = allowance,
-                        symbol = token?.symbol ?: UNKNOWN_UNIT,
-                        amountNote = amountNote,
-                        tokenContract = to,
-                        function = "Token approval",
-                        params = listOf("spender" to checksum(call.spender), "amount" to allowance),
-                        warnings = if (call.unlimited) listOf("UNLIMITED APPROVAL") else emptyList(),
-                    )
-                }
-            }
+            callReview(target, call, to, registry.token(target.chainId, to))
         }
-        return Prepared.Ready(review, request, target.index)
+        val network = target.network
+        return Prepared.Ready(
+            review.copy(
+                fee = feeLines(tx, network),
+                feeNote = feeNote(tx, network),
+                nonce = tx.nonce.toLong(),
+                txType = if (tx.type == TxType.EIP1559) "EIP-1559" else "Legacy",
+            ),
+            request,
+            target.index,
+            target.walletId,
+        )
     }
 
-    private fun message(target: Target): Prepared.Ready {
-        val review = TxReview(
+    /** The review of a native transfer of [value] to [to], in the network's coin. */
+    private fun nativeReview(target: Target, to: String, value: BigInteger): TxReview {
+        val network = target.network
+        return target.review(
+            function = "Native transfer",
+            toAddress = to,
+            amount = nativeAmount(value, network),
+            symbol = nativeUnit(network),
+            amountNote = if (network == null) assumedAmountNote(value) else null,
+        )
+    }
+
+    /**
+     * The review of a decoded contract call on [contract]. [token] is the registry's token at that address, or null. The review
+     * names the ABI function and its signature, lists every argument, and carries the warnings the call earns.
+     */
+    private fun callReview(target: Target, call: ContractCall, contract: String, token: TokenEntry?): TxReview {
+        // A call that moves or approves a fungible amount. Its amount is in the token's decimals when the token is known.
+        fun fungible(
+            function: String,
+            recipient: String,
+            value: BigInteger,
+            params: List<Pair<String, String>>,
+            warnings: List<String> = emptyList(),
+        ): TxReview = target.review(
+            function = function,
+            signature = call.signature,
+            toAddress = recipient,
+            amount = tokenAmount(value, token),
+            symbol = token?.symbol ?: UNKNOWN_UNIT,
+            amountNote = if (token == null) UNKNOWN_DECIMALS_NOTE else null,
+            tokenContract = contract,
+            token = token,
+            params = params,
+            warnings = warnings,
+        )
+
+        return when (call) {
+            is ContractCall.Transfer -> fungible(
+                function = call.name,
+                recipient = checksum(call.to),
+                value = call.value,
+                params = listOf("to" to checksum(call.to), "value" to amountText(call.value, token)),
+            )
+            is ContractCall.Approve -> fungible(
+                function = call.name,
+                recipient = checksum(call.spender),
+                value = call.value,
+                params = listOf("spender" to checksum(call.spender), "value" to amountText(call.value, token)),
+                warnings = if (call.unlimited) listOf(unlimitedApprovalWarning(token?.symbol)) else emptyList(),
+            )
+            is ContractCall.TransferFrom ->
+                if (token != null) {
+                    fungible(
+                        function = call.name,
+                        recipient = checksum(call.to),
+                        value = call.value,
+                        params = listOf(
+                            "from" to checksum(call.from),
+                            "to" to checksum(call.to),
+                            "value" to amountText(call.value, token),
+                        ),
+                    )
+                } else {
+                    // The contract is not known, so its third argument is a token amount or a token id. Neither is shown as an amount.
+                    target.review(
+                        function = "${call.name} (token or NFT)",
+                        signature = call.signature,
+                        toAddress = checksum(call.to),
+                        tokenContract = contract,
+                        params = listOf(
+                            "from" to checksum(call.from),
+                            "to" to checksum(call.to),
+                            "amount or tokenId" to call.value.toString(),
+                        ),
+                    )
+                }
+            is ContractCall.IncreaseAllowance -> fungible(
+                function = call.name,
+                recipient = checksum(call.spender),
+                value = call.addedValue,
+                params = listOf(
+                    "spender" to checksum(call.spender),
+                    "addedValue" to amountText(call.addedValue, token),
+                ),
+                warnings = if (call.unlimited) listOf(unlimitedApprovalWarning(token?.symbol)) else emptyList(),
+            )
+            is ContractCall.DecreaseAllowance -> fungible(
+                function = call.name,
+                recipient = checksum(call.spender),
+                value = call.subtractedValue,
+                params = listOf(
+                    "spender" to checksum(call.spender),
+                    "subtractedValue" to amountText(call.subtractedValue, token),
+                ),
+            )
+            is ContractCall.SetApprovalForAll -> target.review(
+                function = call.name,
+                signature = call.signature,
+                toAddress = checksum(call.operator),
+                tokenContract = contract,
+                params = listOf("operator" to checksum(call.operator), "approved" to call.approved.toString()),
+                warnings = if (call.approved) listOf(ALL_NFTS_WARNING) else emptyList(),
+            )
+            is ContractCall.SafeTransferFrom -> target.review(
+                function = call.name,
+                signature = call.signature,
+                toAddress = checksum(call.to),
+                amount = "#${call.tokenId}",
+                tokenContract = contract,
+                params = listOf(
+                    "from" to checksum(call.from),
+                    "to" to checksum(call.to),
+                    "tokenId" to call.tokenId.toString(),
+                ),
+            )
+        }
+    }
+
+    /** What the refusal of an undecodable call shows: its contract, network, native value, selector and calldata words. */
+    private fun undecodedCall(target: Target, contract: String, value: BigInteger, calldata: ByteArray): UndecodedCall =
+        UndecodedCall(
+            target = checksum(contract),
             networkName = target.network?.name ?: UNKNOWN_CHAIN_NAME,
             chainId = target.chainId,
-            fromAccountLabel = target.label,
-            fromAddress = target.address,
-            toAddress = "",
-            amount = "",
-            symbol = "",
-            tokenContract = null,
-            function = SIGN_MESSAGE_FUNCTION,
-            params = listOf("message" to messageText(target.request.signData)),
-            fee = emptyList(),
-            feeNote = null,
-            warnings = emptyList(),
-            nonce = 0L,
-            txType = "Personal message",
-            network = target.network,
+            value = "${nativeAmount(value, target.network)} ${nativeUnit(target.network)}",
+            selector = calldata.copyOfRange(0, minOf(SELECTOR_BYTES, calldata.size)).toHex(),
+            words = (SELECTOR_BYTES until calldata.size step WORD_BYTES).map { start ->
+                calldata.copyOfRange(start, minOf(start + WORD_BYTES, calldata.size)).toHex()
+            },
         )
-        return Prepared.Ready(review, target.request, target.index)
+
+    private fun message(target: Target): Prepared.Ready {
+        val bytes = target.request.signData
+        val review = target.review(
+            function = SIGN_MESSAGE_FUNCTION,
+            txType = "Personal message",
+            params = listOf("message" to messageText(bytes), "size" to sizeText(bytes)),
+        )
+        return Prepared.Ready(review, target.request, target.index, target.walletId)
     }
+
+    /**
+     * The review fields every request shares: the wallet, the account, the network and the origin. The caller sets what the
+     * request does.
+     */
+    private fun Target.review(
+        function: String,
+        txType: String = "",
+        signature: String? = null,
+        toAddress: String = "",
+        amount: String = "",
+        symbol: String = "",
+        tokenContract: String? = null,
+        token: TokenEntry? = null,
+        amountNote: String? = null,
+        params: List<Pair<String, String>> = emptyList(),
+        warnings: List<String> = emptyList(),
+    ): TxReview = TxReview(
+        networkName = network?.name ?: UNKNOWN_CHAIN_NAME,
+        chainId = chainId,
+        fromAccountLabel = label,
+        fromAddress = address,
+        toAddress = toAddress,
+        amount = amount,
+        symbol = symbol,
+        tokenContract = tokenContract,
+        function = function,
+        params = params,
+        fee = emptyList(),
+        feeNote = null,
+        warnings = warnings,
+        nonce = 0L,
+        txType = txType,
+        network = network,
+        token = token,
+        amountNote = amountNote,
+        signature = signature,
+        walletName = wallet.name,
+        walletIdentity = wallet.identity,
+        accountIdentity = wallet.accountIdentity(index),
+        origin = request.origin,
+    )
 
     /**
      * The fee rows of the review. Values are exact: wei converted to native units, and gas prices in gwei. On an
@@ -275,11 +422,17 @@ class SignPipeline(private val registry: Registry) {
         else -> null
     }
 
-    /** The message as UTF-8 text when every character is printable, otherwise as 0x-prefixed hex. */
-    private fun messageText(bytes: ByteArray): String {
-        val text = utf8OrNull(bytes)
-        return if (text != null && text.all(::isPrintable)) text else "0x" + bytes.toHex()
+    /** The message as text when it reads as text, otherwise as 0x-prefixed hex, grouped. */
+    private fun messageText(bytes: ByteArray): String = printableText(bytes) ?: "0x" + groupHex(bytes.toHex())
+
+    /** The length of a message: its characters when it reads as text, and its bytes. */
+    private fun sizeText(bytes: ByteArray): String {
+        val text = printableText(bytes) ?: return "${bytes.size} bytes"
+        return "${text.codePointCount(0, text.length)} characters, ${bytes.size} bytes"
     }
+
+    /** The message as UTF-8 text, when every character is one a reader can see. Otherwise null. */
+    private fun printableText(bytes: ByteArray): String? = utf8OrNull(bytes)?.takeIf { text -> text.all(::isPrintable) }
 
     /**
      * A request that passed the wallet, account and address checks. [network] is null when the chain is not in the
@@ -289,16 +442,22 @@ class SignPipeline(private val registry: Registry) {
         val request: EthSignRequest,
         val chainId: Long,
         val network: NetworkEntry?,
+        val wallet: WalletView,
         val index: Int,
         val address: String,
         /** The FROM label of the review: the account's Display Name in capitals, or its Auto-Name while it has none. */
         val label: String,
-    )
+    ) {
+        val walletId: String get() = wallet.id
+    }
 
     private companion object {
         const val L2_FEE_NOTE = "L1 data fee is not computable offline; total may be higher"
+        const val UNKNOWN_CALL = "Unknown contract call"
         const val GWEI_DECIMALS = 9
         const val ACCOUNT_PATH_LENGTH = 5
+        const val SELECTOR_BYTES = 4
+        const val WORD_BYTES = 32
 
         /** The first four steps of every Lensly account path, m/44'/60'/0'/0. The last step is the index. */
         val ACCOUNT_PATH_PREFIX = listOf(
@@ -324,6 +483,10 @@ class SignPipeline(private val registry: Registry) {
         fun tokenAmount(raw: BigInteger, token: TokenEntry?): String =
             if (token == null) raw.toString() else Amounts.format(raw, token.decimals)
 
+        /** A uint argument as the review lists it: the exact integer, and for a known token its formatted amount as well. */
+        fun amountText(raw: BigInteger, token: TokenEntry?): String =
+            if (token == null) raw.toString() else "$raw (${Amounts.format(raw, token.decimals)} ${token.symbol})"
+
         /** i when [path] is exactly m/44'/60'/0'/0/i, otherwise null. */
         fun accountIndexOf(path: List<PathStep>): Int? {
             if (path.size != ACCOUNT_PATH_LENGTH) return null
@@ -331,9 +494,6 @@ class SignPipeline(private val registry: Registry) {
             val last = path[ACCOUNT_PATH_PREFIX.size]
             return if (last.hardened) null else last.index
         }
-
-        fun sameAddress(address: ByteArray, expected: String): Boolean =
-            ("0x" + address.toHex()).equals(expected, ignoreCase = true)
 
         fun checksum(address: String): String = Keys.toChecksumAddress(address)
 
@@ -347,7 +507,20 @@ class SignPipeline(private val registry: Registry) {
             null
         }
 
-        fun isPrintable(char: Char): Boolean =
-            char == '\n' || char == '\r' || char == '\t' || !Character.isISOControl(char)
+        /**
+         * True for a character a reader can check by eye. Line breaks and tabs are fine. Controls, invisible format characters
+         * such as a right-to-left override, private-use and unassigned characters are not, so the message shows its bytes.
+         */
+        fun isPrintable(char: Char): Boolean = when (char) {
+            '\n', '\r', '\t' -> true
+            else -> when (Character.getType(char)) {
+                Character.CONTROL.toInt(),
+                Character.FORMAT.toInt(),
+                Character.PRIVATE_USE.toInt(),
+                Character.UNASSIGNED.toInt(),
+                -> false
+                else -> true
+            }
+        }
     }
 }

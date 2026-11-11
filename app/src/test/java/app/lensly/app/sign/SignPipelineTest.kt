@@ -1,7 +1,7 @@
 package app.lensly.app.sign
 
 import app.lensly.core.evm.EvmFixtures
-import app.lensly.core.registry.Erc20Call
+import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
@@ -42,6 +42,10 @@ private const val UNREGISTERED = "0x1111111111111111111111111111111111111111"
 
 private const val SELECTOR_TRANSFER = "a9059cbb"
 private const val SELECTOR_APPROVE = "095ea7b3"
+private const val SELECTOR_TRANSFER_FROM = "23b872dd"
+private const val SELECTOR_INCREASE_ALLOWANCE = "39509351"
+private const val SELECTOR_SET_APPROVAL_FOR_ALL = "a22cb465"
+private const val SELECTOR_SAFE_TRANSFER_FROM = "42842e0e"
 private const val SELECTOR_BALANCE_OF = "70a08231"
 private const val L2_NOTE = "L1 data fee is not computable offline; total may be higher"
 
@@ -49,9 +53,21 @@ private val REQUEST_ID = Numeric.hexStringToByteArray("9b1deb4d3b7d4bad9bdd2b0d7
 private val ONE_CENT_OF_MON: BigInteger = BigInteger.TEN.pow(16)
 private val WALLET by lazy { HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art")) }
 
+private const val WALLET_ID = "wallet-mnemonic"
+private const val KEY_ID = "wallet-single-key"
+private const val ORIGIN = "metamask"
+private const val UNLIMITED_USDC = "Unlimited approval: this contract can spend all your USDC"
+private const val UNLIMITED_UNKNOWN = "Unlimited approval: this contract can spend all your tokens of this contract"
+
 /** Two accounts, so index 1 is valid and index 2 is not. */
 private val VIEW by lazy {
-    WalletView(WALLET.masterFingerprint, accountCount = 2, autoNameBase = "Seed Wallet") { WALLET.address(it) }
+    WalletView(
+        id = WALLET_ID,
+        masterFingerprint = WALLET.masterFingerprint,
+        accountCount = 2,
+        autoNameBase = "Seed Wallet",
+        addressAt = { WALLET.address(it) },
+    )
 }
 
 /** The well-known test key of the Single Key tests. It has never held funds, and no other fixture uses it. */
@@ -60,7 +76,9 @@ private val SINGLE_KEY: ByteArray =
 private const val SINGLE_KEY_ADDRESS = "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
 private const val SINGLE_KEY_ADDRESS_HEX = "2c7536e3605d9c16a7a3d7b1898e529396a65c23"
 private val SINGLE_KEY_BYTES: ByteArray = Numeric.hexStringToByteArray(SINGLE_KEY_ADDRESS)
-private val SINGLE_KEY_VIEW by lazy { WalletView.singleKey(SINGLE_KEY_ADDRESS, autoNameBase = "Imported") }
+private val SINGLE_KEY_VIEW by lazy {
+    WalletView.singleKey(id = KEY_ID, address = SINGLE_KEY_ADDRESS, autoNameBase = "Imported")
+}
 private val ART_BYTES: ByteArray = Numeric.hexStringToByteArray(ART_ADDRESS)
 
 private val REGISTRY = Registry(
@@ -166,23 +184,27 @@ class SignPipelineTest {
         val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
 
         assertEquals("1.5 USDC", "${review.amount} ${review.symbol}")
-        assertEquals("Token transfer", review.function)
+        assertEquals("transfer", review.function)
+        assertEquals("transfer(address,uint256)", review.signature)
         assertEquals(RECIPIENT, review.toAddress)
         assertEquals(USDC_ETHEREUM, review.tokenContract)
-        assertTrue(review.params.isEmpty())
+        assertEquals(
+            listOf("to" to RECIPIENT, "value" to "1500000 (1.5 USDC)"),
+            review.params,
+        )
         assertEquals(REGISTRY.network(ETHEREUM), review.network)
         assertEquals(REGISTRY.token(ETHEREUM, USDC_ETHEREUM), review.token)
     }
 
     @Test
     fun unlimitedErc20ApprovalIsWarned() {
-        val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, Erc20Call.MAX_UINT256)
+        val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, ContractCall.MAX_UINT256)
         val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
         val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
 
-        assertEquals("Token approval", review.function)
-        assertEquals(listOf("UNLIMITED APPROVAL"), review.warnings)
-        assertEquals(listOf("spender", "amount"), review.params.map { it.first })
+        assertEquals("approve", review.function)
+        assertEquals(listOf(UNLIMITED_USDC), review.warnings)
+        assertEquals(listOf("spender", "value"), review.params.map { it.first })
         assertEquals(RECIPIENT, review.params.first().second)
     }
 
@@ -193,22 +215,193 @@ class SignPipelineTest {
         val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
 
         assertTrue(review.warnings.isEmpty())
-        assertEquals("100", review.params.last().second)
+        assertEquals("100000000 (100 USDC)", review.params.last().second)
+    }
+
+    @Test
+    fun approvalOfTwoToTheTo255IsUnlimitedAndOneBelowIsNot() {
+        val threshold = BigInteger.ONE.shiftLeft(255)
+        val atThreshold = erc20Call(SELECTOR_APPROVE, RECIPIENT, threshold)
+        val below = erc20Call(SELECTOR_APPROVE, RECIPIENT, threshold.subtract(BigInteger.ONE))
+
+        val unlimited = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = atThreshold)
+        val limited = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = below)
+
+        assertEquals(listOf(UNLIMITED_USDC), ready(requestCbor(unlimited, chainId = ETHEREUM)).review.warnings)
+        assertTrue(ready(requestCbor(limited, chainId = ETHEREUM)).review.warnings.isEmpty())
+    }
+
+    @Test
+    fun transferFromAKnownTokenIsReviewedAsAnErc20Transfer() {
+        val data = transferFromCall(ART_ADDRESS, RECIPIENT, BigInteger.valueOf(1_500_000))
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+        val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
+
+        assertEquals("transferFrom", review.function)
+        assertEquals("1.5 USDC", "${review.amount} ${review.symbol}")
+        assertEquals(
+            listOf("from" to ART_ADDRESS, "to" to RECIPIENT, "value" to "1500000 (1.5 USDC)"),
+            review.params,
+        )
+        assertTrue(review.warnings.isEmpty())
+    }
+
+    @Test
+    fun transferFromAnUnknownContractIsNamedAsATokenOrAnNft() {
+        val data = transferFromCall(ART_ADDRESS, RECIPIENT, BigInteger.valueOf(7))
+        val tx = eip1559Tx(chainId = ETHEREUM, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
+        val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
+
+        assertEquals("transferFrom (token or NFT)", review.function)
+        assertEquals("", review.amount)
+        assertEquals(
+            listOf("from" to ART_ADDRESS, "to" to RECIPIENT, "amount or tokenId" to "7"),
+            review.params,
+        )
+        assertEquals(UNREGISTERED, review.tokenContract)
+    }
+
+    @Test
+    fun increaseAllowanceAtTheUnlimitedThresholdIsWarned() {
+        val data = erc20Call(SELECTOR_INCREASE_ALLOWANCE, RECIPIENT, ContractCall.MAX_UINT256)
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+        val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
+
+        assertEquals("increaseAllowance", review.function)
+        assertEquals(listOf(UNLIMITED_USDC), review.warnings)
+        assertEquals(listOf("spender", "addedValue"), review.params.map { it.first })
+    }
+
+    @Test
+    fun setApprovalForAllGrantIsWarnedAndRevokeIsNot() {
+        val grant = eip1559Tx(
+            chainId = ETHEREUM,
+            to = UNREGISTERED,
+            value = BigInteger.ZERO,
+            data = erc20Call(SELECTOR_SET_APPROVAL_FOR_ALL, RECIPIENT, BigInteger.ONE),
+        )
+        val revoke = eip1559Tx(
+            chainId = ETHEREUM,
+            to = UNREGISTERED,
+            value = BigInteger.ZERO,
+            data = erc20Call(SELECTOR_SET_APPROVAL_FOR_ALL, RECIPIENT, BigInteger.ZERO),
+        )
+
+        val granted = ready(requestCbor(grant, chainId = ETHEREUM)).review
+        assertEquals("setApprovalForAll", granted.function)
+        assertEquals(listOf("Grants control of ALL your NFTs in this collection"), granted.warnings)
+        assertEquals(listOf("operator" to RECIPIENT, "approved" to "true"), granted.params)
+        assertEquals("", granted.amount)
+
+        val revoked = ready(requestCbor(revoke, chainId = ETHEREUM)).review
+        assertEquals(listOf("operator" to RECIPIENT, "approved" to "false"), revoked.params)
+        assertTrue(revoked.warnings.isEmpty())
+    }
+
+    @Test
+    fun safeTransferFromShowsItsTokenIdAsTheHeadline() {
+        val data = callOf(SELECTOR_SAFE_TRANSFER_FROM, addressWord(ART_ADDRESS), addressWord(RECIPIENT), uintWord(BigInteger.valueOf(7)))
+        val tx = eip1559Tx(chainId = ETHEREUM, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
+        val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
+
+        assertEquals("safeTransferFrom", review.function)
+        assertEquals("#7", review.amount)
+        assertEquals(listOf("from" to ART_ADDRESS, "to" to RECIPIENT, "tokenId" to "7"), review.params)
+    }
+
+    @Test
+    fun anUndecodableCallIsRefusedWithTheWholeCallOnScreen() {
+        // balanceOf with an address and an amount word, then one stray byte, so the last word is shorter than 32 bytes.
+        val data = erc20Call(SELECTOR_BALANCE_OF, RECIPIENT, BigInteger.ZERO) + "ab"
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+
+        val refused = assertIs<Prepared.Refused>(prepared(requestCbor(tx, chainId = ETHEREUM)))
+
+        assertEquals("Unknown contract call", refused.reason)
+        val call = assertNotNull(refused.call)
+        assertEquals(USDC_ETHEREUM, call.target)
+        assertEquals("Ethereum", call.networkName)
+        assertEquals(ETHEREUM, call.chainId)
+        assertEquals("0 ETH", call.value)
+        assertEquals(SELECTOR_BALANCE_OF, call.selector)
+        assertEquals(
+            listOf(
+                "000000000000000000000000" + RECIPIENT.removePrefix("0x").lowercase(),
+                "0".repeat(64),
+                "ab",
+            ),
+            call.words,
+        )
+    }
+
+    @Test
+    fun theReviewCarriesTheWalletAndTheRequestOrigin() {
+        val review = ready(requestCbor(eip1559Tx())).review
+
+        assertEquals("Seed Wallet", review.walletName)
+        assertEquals(ORIGIN, review.origin)
+        assertEquals(WALLET_ID, ready(requestCbor(eip1559Tx())).walletId)
+    }
+
+    @Test
+    fun aRequestWithoutAnOriginHasNoOrigin() {
+        val noOrigin = EthSignRequest(
+            requestId = REQUEST_ID,
+            signData = eip1559Tx(),
+            dataType = DataType.TYPED_TRANSACTION,
+            chainId = MONAD_TESTNET,
+            derivationPath = accountPath(0),
+            sourceFingerprint = WALLET.masterFingerprint,
+            address = null,
+            origin = null,
+        )
+
+        assertNull(assertIs<Prepared.Ready>(pipeline.prepare(noOrigin, VIEW)).review.origin)
     }
 
     @Test
     fun personalMessageIsReviewedAsTextWhenPrintableAndHexOtherwise() {
         val text = ready(requestCbor("Sign in to Lensly".toByteArray(Charsets.UTF_8), dataType = 3)).review
         assertEquals("Sign message", text.function)
-        assertEquals(listOf("message" to "Sign in to Lensly"), text.params)
+        assertEquals(
+            listOf("message" to "Sign in to Lensly", "size" to "17 characters, 17 bytes"),
+            text.params,
+        )
         assertEquals("Personal message", text.txType)
         assertTrue(text.fee.isEmpty())
 
         val binary = byteArrayOf(0x00, 0x01, 0xff.toByte())
-        assertEquals("0x0001ff", ready(requestCbor(binary, dataType = 3)).review.params.single().second)
+        assertEquals("0x0001ff", ready(requestCbor(binary, dataType = 3)).review.params.first().second)
+        assertEquals("3 bytes", ready(requestCbor(binary, dataType = 3)).review.params.last().second)
 
         val withControl = "a\u0001b".toByteArray(Charsets.UTF_8)
-        assertEquals("0x610162", ready(requestCbor(withControl, dataType = 3)).review.params.single().second)
+        assertEquals("0x610162", ready(requestCbor(withControl, dataType = 3)).review.params.first().second)
+    }
+
+    @Test
+    fun aHexMessageIsGroupedInEightDigitGroupsAndKeepsEveryByte() {
+        val bytes = ByteArray(10) { it.toByte() }
+
+        val review = ready(requestCbor(bytes, dataType = 3)).review
+
+        assertEquals("0x00010203 04050607 0809", review.params.first().second)
+        assertEquals("10 bytes", review.params.last().second)
+    }
+
+    @Test
+    fun aMessageWithAnInvisibleFormatCharacterIsShownAsHex() {
+        // U+202E, a right-to-left override, is invisible in text. Its bytes are shown instead.
+        val hidden = "a‮b".toByteArray(Charsets.UTF_8)
+
+        assertEquals("0x61e280ae 62", ready(requestCbor(hidden, dataType = 3)).review.params.first().second)
+    }
+
+    @Test
+    fun aLongerMessageReportsItsCharactersAndItsBytes() {
+        // Two characters take three bytes in UTF-8, so the counts differ.
+        val accented = "héllo".toByteArray(Charsets.UTF_8)
+
+        assertEquals("5 characters, 6 bytes", ready(requestCbor(accented, dataType = 3)).review.params.last().second)
     }
 
     @Test
@@ -223,11 +416,13 @@ class SignPipelineTest {
     @Test
     fun aRenamedAccountIsReviewedUnderItsDisplayNameInCapitals() {
         val named = WalletView(
-            WALLET.masterFingerprint,
+            id = WALLET_ID,
+            masterFingerprint = WALLET.masterFingerprint,
             accountCount = 2,
             autoNameBase = "Seed Wallet",
             accountNames = mapOf(1 to "Rent"),
-        ) { WALLET.address(it) }
+            addressAt = { WALLET.address(it) },
+        )
 
         val review = assertIs<Prepared.Ready>(pipeline.prepare(requestCbor(eip1559Tx(), index = 1), named)).review
 
@@ -405,7 +600,7 @@ class SignPipelineTest {
         assertEquals(UNKNOWN_CHAIN, review.chainId)
         assertNull(review.network)
         assertEquals("Sign message", review.function)
-        assertEquals(listOf("message" to "Sign in to Lensly"), review.params)
+        assertEquals(listOf("message" to "Sign in to Lensly", "size" to "17 characters, 17 bytes"), review.params)
         assertTrue(review.needsRegistryConfirmation)
     }
 
@@ -417,7 +612,7 @@ class SignPipelineTest {
 
         assertEquals("Unknown Chain", review.networkName)
         assertNull(review.network)
-        assertEquals("Token transfer", review.function)
+        assertEquals("transfer", review.function)
         assertNull(review.token)
         assertEquals(UNREGISTERED, review.tokenContract)
         assertEquals("42 base units", "${review.amount} ${review.symbol}")
@@ -428,7 +623,7 @@ class SignPipelineTest {
     @Test
     fun knownChainsAndTokensAreReviewedWithoutAWarning() {
         val usdcTransfer = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.valueOf(1_500_000))
-        val usdcApproval = erc20Call(SELECTOR_APPROVE, RECIPIENT, Erc20Call.MAX_UINT256)
+        val usdcApproval = erc20Call(SELECTOR_APPROVE, RECIPIENT, ContractCall.MAX_UINT256)
         val reviews = listOf(
             ready(requestCbor(eip1559Tx())).review,
             ready(requestCbor(eip1559Tx(chainId = BASE), chainId = BASE)).review,
@@ -452,7 +647,7 @@ class SignPipelineTest {
             assertFalse(review.needsRegistryConfirmation, label)
             assertNull(review.amountNote, label)
         }
-        assertEquals(listOf("UNLIMITED APPROVAL"), reviews[4].warnings)
+        assertEquals(listOf(UNLIMITED_USDC), reviews[4].warnings)
     }
 
     @Test
@@ -481,7 +676,7 @@ class SignPipelineTest {
         val tx = eip1559Tx(chainId = ETHEREUM, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
         val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
 
-        assertEquals("Token transfer", review.function)
+        assertEquals("transfer", review.function)
         assertEquals("Ethereum", review.networkName)
         assertEquals(REGISTRY.network(ETHEREUM), review.network)
         assertNull(review.token)
@@ -495,14 +690,14 @@ class SignPipelineTest {
 
     @Test
     fun unknownTokenApprovalKeepsTheUnlimitedWarning() {
-        val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, Erc20Call.MAX_UINT256)
+        val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, ContractCall.MAX_UINT256)
         val tx = eip1559Tx(chainId = ETHEREUM, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
         val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
 
-        assertEquals("Token approval", review.function)
-        assertEquals(listOf("UNLIMITED APPROVAL"), review.warnings)
-        assertEquals(listOf("spender", "amount"), review.params.map { it.first })
-        assertEquals(Erc20Call.MAX_UINT256.toString(), review.params.last().second)
+        assertEquals("approve", review.function)
+        assertEquals(listOf(UNLIMITED_UNKNOWN), review.warnings)
+        assertEquals(listOf("spender", "value"), review.params.map { it.first })
+        assertEquals(ContractCall.MAX_UINT256.toString(), review.params.last().second)
         assertNull(review.token)
         assertTrue(review.needsRegistryConfirmation)
     }
@@ -754,7 +949,16 @@ class SignPipelineTest {
 
     /** ABI calldata for a call that takes an address and a uint256, such as transfer or approve. */
     private fun erc20Call(selector: String, address: String, amount: BigInteger): String =
-        "0x" + selector +
-            address.removePrefix("0x").lowercase().padStart(64, '0') +
-            amount.toString(16).padStart(64, '0')
+        callOf(selector, addressWord(address), uintWord(amount))
+
+    /** ABI calldata for transferFrom(from, to, amount). */
+    private fun transferFromCall(from: String, to: String, amount: BigInteger): String =
+        callOf(SELECTOR_TRANSFER_FROM, addressWord(from), addressWord(to), uintWord(amount))
+
+    /** Calldata: the selector, then each argument as one 64-digit word. */
+    private fun callOf(selector: String, vararg words: String): String = "0x" + selector + words.joinToString("")
+
+    private fun addressWord(address: String): String = address.removePrefix("0x").lowercase().padStart(64, '0')
+
+    private fun uintWord(amount: BigInteger): String = amount.toString(16).padStart(64, '0')
 }

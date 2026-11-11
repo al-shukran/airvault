@@ -9,7 +9,9 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
@@ -37,6 +39,7 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.ui.flow.SignFlowViewModel
 import app.lensly.ui.flow.SignStep
 import app.lensly.ui.flow.SignWalletRoute
+import app.lensly.ui.sign.HOLD_TO_SIGN_TAG
 import app.lensly.ui.theme.LenslyTheme
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
@@ -167,11 +170,15 @@ class WalletSignFlowTest {
         compose.onNodeWithText(ACCOUNT_LABEL).assertExists()
 
         scrollReviewToTheEnd()
-        compose.onNodeWithText("APPROVE").assertIsNotEnabled()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
         compose.onNodeWithText("I CHECKED THE CHAIN ID / CONTRACT").performClick()
-        compose.onNodeWithText("APPROVE").assertIsEnabled()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
 
-        compose.onNodeWithText("APPROVE").performClick()
+        // The hold fills on the real frame clock while the finger is down, and signs when it is full. The step only
+        // moves on after that, so the finger is lifted once the App Password step is shown.
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).performTouchInput { down(center) }
+        awaitStep(flow, "the App Password step") { it is SignStep.Confirming }
+        compose.onRoot().performTouchInput { up() }
         compose.onNodeWithText("Enter your App Password to sign.").assertExists()
         typePassword(PASSWORD)
         compose.onNodeWithContentDescription("${PASSWORD.length} characters entered").assertExists()
@@ -202,7 +209,7 @@ class WalletSignFlowTest {
         compose.onNodeWithText("TYPE").performScrollTo()
         // The last row is followed by a spacer, so swipes finish the scroll. The hint says when every fact has been seen.
         repeat(MAX_SWIPES) {
-            val seen = compose.onAllNodesWithText("TICK THE CHECK BELOW TO APPROVE").fetchSemanticsNodes()
+            val seen = compose.onAllNodesWithText("TICK THE CHECK BELOW TO SIGN").fetchSemanticsNodes()
             if (seen.isNotEmpty()) return
             compose.onNode(hasScrollAction()).performTouchInput { swipeUp() }
         }
