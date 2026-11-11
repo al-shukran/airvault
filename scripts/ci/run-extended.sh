@@ -67,7 +67,9 @@ case "$kind" in
     perf)
         grep -q 'benchmark' "$ROOT/app/build.gradle.kts" ||
             not_configured "benchmark build type and :app:connectedBenchmarkAndroidTest (guideline 1.7)"
-        ./gradlew :app:connectedBenchmarkAndroidTest
+        # Trend data, not the reference-device gate; androidx.benchmark aborts on an emulator without this.
+        ./gradlew :app:connectedBenchmarkAndroidTest \
+            -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
         # Macrobenchmarks live in their own com.android.test module: they launch the installed app instead of running
         # inside it. Same device, same benchmark variant, so they run in the same pass.
         if [ -d "$ROOT/benchmark" ]; then
