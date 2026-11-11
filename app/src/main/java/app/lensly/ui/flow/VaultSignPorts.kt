@@ -2,14 +2,18 @@ package app.lensly.ui.flow
 
 import android.content.Context
 import app.lensly.app.RegistryHolder
+import app.lensly.app.ReviewHistory
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.Prepared
+import app.lensly.app.sign.ReviewEntry
+import app.lensly.app.sign.ReviewRecord
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
+import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.visualIdentity
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.vault.UnlockResult
@@ -20,6 +24,7 @@ import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 /**
@@ -29,6 +34,10 @@ import kotlinx.coroutines.withContext
 internal class VaultSignPorts(
     private val context: Context,
     private val holder: VaultHolder,
+    /** Writes [ReviewRecord] [record] of wallet [walletId] through [session]. */
+    private val writeRecord: (VaultSession, String, ReviewRecord) -> Unit = { session, walletId, record ->
+        ReviewHistory(session).append(walletId, record)
+    },
 ) : SignFlowPorts {
 
     override suspend fun wallets(): List<WalletView> = withContext(Dispatchers.IO) {
@@ -84,6 +93,23 @@ internal class VaultSignPorts(
         withContext(Dispatchers.Default) {
             SignPipeline(RegistryHolder.get(context)).sign(ready, privateKey)
         }
+
+    /**
+     * Writes [entry] as a Review Record of its wallet, through the open session. NonCancellable, so a record that has started is
+     * written even when the screen that asked for it is left.
+     */
+    override suspend fun record(entry: ReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
+        val session = holder.openSession() ?: throw ReviewNotSaved()
+        try {
+            val record = reviewRecordOf(entry, System.currentTimeMillis(), RegistryHolder.get(context))
+            writeRecord(session, entry.walletId, record)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // A closed or damaged vault, unwritable storage, or a record that cannot be written.
+            throw ReviewNotSaved()
+        }
+    }
 
     /**
      * The view of wallet [meta], which sits at [position] in the list the owner sees. Its name and Visual Identity, and the
