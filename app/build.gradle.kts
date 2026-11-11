@@ -22,6 +22,20 @@ android {
         release {
             isMinifyEnabled = false
         }
+
+        // Performance tests run release-like code (no debug flag), signed with the debug key so a device
+        // can install it. Release sets no proguard files and leaves minify off, so benchmark mirrors that:
+        // the gate measures the code that ships, not a R8 build that differs from release.
+        create("benchmark") {
+            initWith(getByName("debug"))
+            // Debug-only dependencies fall back to their debug variant; this app has none yet.
+            matchingFallbacks += "debug"
+            signingConfig = signingConfigs.getByName("debug")
+            // Non-debuggable, like release: a debuggable APK cannot be profiled, so its timings would not be
+            // comparable to shipped code.
+            isDebuggable = false
+            isMinifyEnabled = false
+        }
     }
 
     compileOptions {
@@ -55,6 +69,30 @@ android {
         unitTests {
             // Robolectric renders Compose screens from the merged resources (fonts, themes).
             isIncludeAndroidResources = true
+        }
+    }
+}
+
+// `testBuildType` stays "debug". Setting it to "benchmark" is the usual recipe, and it would give
+// :app:connectedBenchmarkAndroidTest, but it also moves every instrumented test (guideline 1.3 and 1.6) onto the
+// benchmark variant and removes :app:connectedDebugAndroidTest. Instead, the benchmark variant gets its own androidTest
+// component, and only that variant's runner is swapped. `testInstrumentationRunner` is a defaultConfig field, so debug
+// and release keep AndroidJUnitRunner.
+androidComponents {
+    beforeVariants { variantBuilder ->
+        if (variantBuilder.buildType == "benchmark") {
+            // AGP builds the androidTest APK only for the testBuildType. This enables the same for benchmark, which is
+            // what makes :app:connectedBenchmarkAndroidTest and :app:assembleBenchmarkAndroidTest exist at all.
+            variantBuilder.enableAndroidTest = true
+            // Release-like builds cannot be profiled; the benchmark runner needs this to collect timings.
+            variantBuilder.profileable = true
+        }
+    }
+    onVariants { variant ->
+        if (variant.buildType == "benchmark") {
+            variant.androidTest?.instrumentationRunner?.set(
+                "androidx.benchmark.junit4.AndroidBenchmarkRunner",
+            )
         }
     }
 }
@@ -129,4 +167,10 @@ dependencies {
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+
+    // Microbenchmarks (guideline 1.7). They run only on the benchmark build type, through the runner set above.
+    androidTestImplementation(libs.androidx.benchmark.junit4)
+    // benchmark-macro-junit4 is in the catalog but not used here: macrobenchmarks need a separate
+    // com.android.test module targeting this benchmark variant. That module has no catalog alias yet,
+    // so it is deferred (see app/src/androidTest/benchmark-baselines/README.md).
 }

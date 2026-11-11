@@ -53,3 +53,8 @@ Duration is not a flag: each `@FuzzTest` carries `maxDuration = "15m"`, which Ja
 
 **Seeds.** `app/src/test/resources/fuzz-seeds/<target>/` holds valid and malformed inputs, named in that directory's `index.txt`; the tests read them through `@MethodSource`. A crash a nightly run finds lands in `app/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/`, which the regression run replays as soon as the file is committed.
 
+`instrumented` skips `app.lensly.benchmark`: those classes need `AndroidBenchmarkRunner`, which only the `benchmark` build type gets. `perf` runs `:app:connectedBenchmarkAndroidTest`; set `BENCHMARK_RESULT=<benchmarkData.json>` to make it compare that run against the reference baseline.
+
+## Benchmark gate — `benchmark-gate.sh [--record] <result.json>`
+
+Compares an AndroidX Benchmark result against `app/src/androidTest/benchmark-baselines/baselines.json` and fails above `BENCHMARK_MAX_REGRESSION_PCT` (default 10) or when a result has no baseline entry. `--record` writes the baseline and refuses `CI=true`. A missing baseline file fails under `CI=true` and exits 0 locally. No baseline numbers are committed yet; see the README in the baseline directory for how to record them on the reference device.
