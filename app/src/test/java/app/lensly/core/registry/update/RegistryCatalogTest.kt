@@ -78,4 +78,22 @@ class RegistryCatalogTest {
         assertEquals("Linea", assertNotNull(restarted.network(4242L)).name)
         assertEquals("USDC", assertNotNull(restarted.token(4242L, USDC_LINEA)).symbol)
     }
+
+    @Test
+    fun anInstalledPackageNotNewerThanTheBuildIsNotInEffect() {
+        val build = Registry(baked.networks(), baked.tokens(), baked.whitelistEntries(), catalogSequence = 5)
+        val catalog = RegistryCatalog(build, folder.root.resolve("registry"), keys)
+        catalog.install(TestPackages.signed(TestPackages.payload(sequence = 3))).getOrThrow()
+
+        assertNull(catalog.installed(), "a package with sequence 3 does not replace a build with sequence 5")
+    }
+
+    @Test
+    fun aNewerInstalledPackageIsInEffectAndItsSequenceIsTheVersion() {
+        val build = Registry(baked.networks(), baked.tokens(), baked.whitelistEntries(), catalogSequence = 5)
+        val catalog = RegistryCatalog(build, folder.root.resolve("registry"), keys)
+        catalog.install(TestPackages.signed(TestPackages.payload(sequence = 7))).getOrThrow()
+
+        assertEquals(7L, assertNotNull(catalog.installed()).sequence)
+    }
 }
