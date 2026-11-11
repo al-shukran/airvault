@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -32,8 +33,10 @@ import kotlinx.coroutines.withContext
  * comes. The write-down is the last step, and it is the one that saves the wallet.
  */
 internal fun NavGraphBuilder.importRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.IMPORT_KEY) { HiddenBackdrop { KeyImportRoute(navController) } }
-    composable(HiddenRoute.KEY_BACKUP) { HiddenBackdrop { KeyBackupRoute(navController, holder) } }
+    composable(HiddenRoute.IMPORT_KEY) { entry -> HiddenBackdrop { KeyImportRoute(navController, entry) } }
+    composable(HiddenRoute.KEY_BACKUP) { entry ->
+        HiddenBackdrop { KeyBackupRoute(navController, holder, entry) }
+    }
 }
 
 /**
@@ -42,8 +45,8 @@ internal fun NavGraphBuilder.importRoutes(navController: NavHostController, hold
  * Back from the address returns to the entry, and the key is zeroed.
  */
 @Composable
-private fun KeyImportRoute(navController: NavHostController) {
-    val draft = draftOf(navController)
+private fun KeyImportRoute(navController: NavHostController, entry: NavBackStackEntry) {
+    val draft = draftOf(navController, entry)
     val buffer = remember { PasswordBuffer(initialCapacity = PrivateKey.HEX_DIGITS) }
     var step by remember { mutableStateOf(KeyImportStep.Enter) }
     var length by remember { mutableIntStateOf(0) }
@@ -122,8 +125,12 @@ private fun KeyImportRoute(navController: NavHostController) {
  * from the draft, the draft is wiped, and the wallet's detail opens. The key is the draft's until then.
  */
 @Composable
-private fun KeyBackupRoute(navController: NavHostController, holder: VaultHolder) {
-    val draft = draftOf(navController)
+private fun KeyBackupRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    entry: NavBackStackEntry,
+) {
+    val draft = draftOf(navController, entry)
     val key = draft.singleKey
     RequireDraft(navController, ready = key != null)
     val session = rememberOpenSession(navController, holder) ?: return

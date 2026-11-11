@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -115,10 +116,11 @@ internal fun NavHostController.openHidden(route: String) {
 
 /** The draft shared by every screen of the hidden graph. It is scoped to the graph, so rotation keeps it. */
 @Composable
-internal fun draftOf(navController: NavHostController): WalletDraft {
-    val owner = remember(navController.currentBackStackEntry) {
-        navController.getBackStackEntry(LenslyRoute.HIDDEN)
-    }
+internal fun draftOf(navController: NavHostController, entry: NavBackStackEntry): WalletDraft {
+    // Keyed on this screen's own entry, which stays the same through the exit fade. Leaving the hidden area pops the
+    // graph, and resolving its entry again there would throw. Entering the hidden area again composes the screen
+    // afresh, with a new entry, so the graph's new owner is picked up then.
+    val owner = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
     return viewModel<WalletDraftViewModel>(viewModelStoreOwner = owner).draft
 }
 

@@ -1,0 +1,51 @@
+name: dependency-graph
+
+# dependency-review-action in the PR fast lane needs a submitted dependency graph to diff
+# against. GitHub cannot read a Gradle graph without a submission, so this job submits one on
+# every push to a long-lived branch. Without it, a PR that touches a dependency file fails
+# with "Dependency review is not supported on this repository".
+#
+# The repository's Dependency graph is currently off, and only an admin can turn it on
+# (Settings -> Code security). To enable dependency review:
+#   1. Settings -> Code security: turn on Dependency graph.
+#   2. Settings -> Secrets and variables -> Actions -> Variables: add DEPENDENCY_GRAPH_ENABLED=true.
+# Until both are done this job skips, so it raises no annotation and no red run.
+on:
+  push:
+    branches: [master, phase-1-5]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    # Neither half can work without the other: the submission API is off while the graph is off,
+    # and dependency_review in pr-fast.yml stays skipped until the variable is set.
+    if: vars.DEPENDENCY_GRAPH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # required by the dependency submission API; nothing else needs write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      # No continue-on-error: with the `if` above, a failure here can only mean the graph was
+      # submitted but rejected, and dependency review would then diff against a stale snapshot.
+      # That is worth a red run on a long-lived branch; no required check depends on it.
+      - id: submission
+        uses: gradle/actions/dependency-submission@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Explain a failed submission
+        if: failure()
+        run: |
+          echo "::warning::The dependency graph submission failed, so dependency review will diff against a stale snapshot. Check Settings -> Code security, then re-run this workflow."

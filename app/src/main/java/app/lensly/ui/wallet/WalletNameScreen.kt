@@ -23,7 +23,7 @@ import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
-import app.lensly.ui.theme.LenslyOutline
+import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurfaceContainer
@@ -143,7 +143,7 @@ private fun NameField(name: String, placeholder: String?, full: Boolean) {
             .heightIn(min = NAME_FIELD_HEIGHT)
             .clip(shape)
             .background(LenslySurfaceContainer, shape)
-            .border(1.dp, if (full) LenslyWarning else LenslyOutline, shape)
+            .border(1.dp, if (full) LenslyWarning else LenslyOutlineInteractive, shape)
             .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.sm),
         contentAlignment = Alignment.CenterStart,
     ) {

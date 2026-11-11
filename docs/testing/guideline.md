@@ -1,6 +1,6 @@
 # Testing guideline
 
-Status: to implement in Phase 1.5. Describes the target state.
+Status: implemented on `phase-1-5` (Phase 1.5). Describes the shipped state; see "Implementation notes" at the end for the places where the build differs from the YAML below.
 
 Today on `master`: JUnit 4 and `kotlin.test` unit tests under `app/src/test` (`core/wallet`, `core/ur`, `core/vault`, `ui/*`). No `androidTest` sources, no Robolectric, no Compose UI tests, no `.github/workflows`. `org.gradle.caching=true` is set; configuration cache is not.
 
@@ -62,16 +62,16 @@ Run commands assume the wrapper at the repo root.
 ### 1.7 Performance
 
 - **Microbenchmark** (`androidx.benchmark:benchmark-junit4`): Argon2 calibration targets about 1 s on the reference device (accept 0.8 to 1.2 s); the calibrated parameters are stored with the vault. QR decode rate of `UrScanner` over fixture frames, in frames per second.
-- **Macrobenchmark** (`androidx.benchmark:benchmark-macro-junit4`): cold start via `StartupTimingMetric`.
+- **Macrobenchmark** (`androidx.benchmark:benchmark-macro-junit4`): cold start via `StartupTimingMetric`. It lives in the separate `:benchmark` module (`com.android.test`, targeting `:app`'s `benchmark` variant), because a macrobenchmark launches the installed app from outside.
 - **Rules:** run only on a `benchmark` build type. Gate on the reference device only, at more than 10% regression from its baseline. Emulator numbers are trend data.
-- **Run:** `./gradlew :app:connectedBenchmarkAndroidTest`
+- **Run:** `./gradlew :app:connectedBenchmarkAndroidTest` (microbenchmarks) and `./gradlew :benchmark:connectedBenchmarkAndroidTest` (macrobenchmarks, needs a device)
 
 ### 1.8 Security
 
 - **Static:** Android Lint security checks (`./gradlew :app:lintDebug`, `SECURITY` issues as errors). Dependencies: OWASP `org.owasp.dependencycheck` nightly; `actions/dependency-review-action` on PRs touching dependency files. Secrets: `gitleaks` on changed files, allowlisting only `vectors/**`.
 - **Manifest guard:** check the merged manifest, since libraries add permissions during merge. Assert no `android.permission.INTERNET`, no `ACCESS_NETWORK_STATE`, and `android:allowBackup="false"`. Script: `scripts/ci/check-manifest.sh` after `:app:processDebugMainManifest`.
 - **Exact-match vectors:** BIP39 (mnemonic-to-seed), BIP32 (test vectors 1 and 2), EIP-155 and EIP-1559 signing examples, in `app/src/test/resources/vectors/<standard>/`. Each directory has a `README.md` with the source URL and retrieval date.
-- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, and the RLP transaction decoder once it lands. PR lane replays seeds as regular tests (JUnit regression mode). Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `app/src/test/resources/fuzz-regressions/`.
+- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, and the RLP transaction decoder once it lands. PR lane replays seeds as regular tests (JUnit regression mode), in their own JVM through `-PfuzzLane`: Jazzer's agent and Robolectric's sandbox cannot share one. Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `app/src/test/resources/fuzz-regressions/`.
 
 ### 1.9 Accessibility
 
@@ -99,11 +99,12 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 | Partition | Triggers (paths) | Selector |
 |---|---|---|
 | `core-wallet` | `core/wallet/**`, its tests, `vectors/bip39/**`, `vectors/bip32/**` | `app.lensly.core.wallet.*` |
-| `core-ur-evm` | `core/ur/**`, its tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**` | `app.lensly.core.ur.*` (add `core.evm.*` when it lands) |
+| `core-ur-evm` | `core/ur/**`, its tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**`, `fuzz/**`, `fuzz-seeds/**` | `app.lensly.core.ur.*` (add `core.evm.*` when it lands) and `app.lensly.fuzz.*` |
 | `core-vault` | `core/vault/**`, its tests | `app.lensly.core.vault.*` |
 | `core-registry` | `core/registry/**` (reserved) | `app.lensly.core.registry.*` |
 | `ui` | `ui/**`, its tests, `res/values/strings.xml` | `app.lensly.ui.*` |
 | `manifest` | `app/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts` | `check-manifest.sh` |
+| `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml` | `bash -n` on every script, then `check-test-network.sh` |
 
 Build paths (`build.gradle.kts`, `gradle.properties`, `settings.gradle.kts`, `gradle/**`) trigger every unit partition. This is the one exception to "touched code only", because build changes can affect any package. Owner to confirm.
 
@@ -200,21 +201,12 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew test lintDebug verifyRoborazziDebug dependencyCheckAnalyze --continue
-      - name: Open or update issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          n=$(gh issue list -l nightly-failure -s open --json number -q '.[0].number')
-          if [ -n "$n" ]; then
-            gh issue comment "$n" --body "Still failing: $RUN_URL"
-          else
-            gh issue create -t "Nightly failed $(date -u +%F)" -l nightly-failure -b "Run: $RUN_URL"
-          fi
+  # A single report job (needs: every job, if: failure()) opens or comments on the
+  # nightly-failure issue once, listing the failed jobs. .github/workflows/nightly.yml
+  # holds the gh commands; no job copies them.
 ```
 
-Create the `nightly-failure` label once. Device and fuzz jobs are added to this file as separate jobs with the same failure step.
+Create the `nightly-failure` label once. Device and fuzz jobs are added to this file as separate jobs. Instead of a copy of the issue step in each job, one `report` job takes `needs` on every job, runs `if: failure()`, and opens or comments once with the run URL and the list of failed jobs, so parallel failures cannot open several issues.
 
 ### 2.6 Comment-triggered runs
 
@@ -254,7 +246,7 @@ jobs:
           script: scripts/ci/run-extended.sh ${{ steps.gate.outputs.kind }}
 ```
 
-Commands: `/run-instrumented`, `/run-e2e`, `/run-screenshot-testing`, `/run-perf` (self-hosted device, label `android-ref`), `/run-security`, `/run-fuzz`. The gate runs before PR code is checked out, so fork code never runs with secrets unless a collaborator with write access triggers it. The script posts the result and run link back to the PR.
+Commands: `/run-instrumented`, `/run-e2e`, `/run-screenshot-testing`, `/run-perf` (self-hosted reference device, label `android-ref`; the 10% benchmark gate needs that phone), `/run-security`, `/run-fuzz` (60 seconds of real fuzzing per target). The gate runs before PR code is checked out, so fork code never runs with secrets unless a collaborator with write access triggers it. The script posts the result and run link back to the PR.
 
 ### 2.7 Test type, trigger, expected duration
 
@@ -301,3 +293,25 @@ Durations are estimates, to be measured in Phase 1.5.
 10. Add `nightly.yml` (2.5) and `comment-run.yml` (2.6). Verify issue creation on a throwaway failing branch, and the write-access gate with a non-collaborator account.
 11. Add the `benchmark` build type; record reference-device baselines; set the 10% gate.
 12. Run the Accessibility Test Framework spike on Compose screens and decide whether it gates. Add the manual device protocol to the release checklist.
+
+---
+
+## 5. Implementation notes
+
+Where the shipped build differs from the text above:
+
+- **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The app still targets Java 17.
+- **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
+- **`ui` and pixels:** the `ui` partition passes `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly via `verifyRoborazziDebug`.
+- **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and `dependency_review` in `pr-fast.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/heyaibi/lensly/settings/security_analysis.
+- **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
+- **Fuzz isolation:** Jazzer and Robolectric cannot share a JVM. Running a fuzz target first corrupts the Robolectric sandbox, and later Robolectric tests fail with `NoClassDefFoundError: JazzerInternal`. The fuzz tests therefore sit behind `-PfuzzLane`, which `run-partition.sh`, `fuzz-nightly.sh` and `nightly.yml` each pass in a separate Gradle invocation.
+- **Benchmark lane:** the benchmark variant needs `benchmarkImplementation` so `androidx.benchmark.IsolationActivity` merges into the app APK; without it every run fails with "Unable to resolve activity for androidx.benchmark.IsolationActivity". The lane runs only `app.lensly.benchmark.*`. Baselines need a manual AOT compile on a reference device, because a Gradle run reinstalls and clears the compiled code; the procedure is in `app/src/androidTest/benchmark-baselines/README.md`.
+- **Macrobenchmark:** lives in the separate `:benchmark` module (`com.android.test`). Baselines must be recorded on the reference device.
+- **Cache warm:** `scripts/ci/cache-warm.yml` warms the Gradle cache on pushes to `master` and `phase-1-5`. A cold branch previously hit the 3-minute job cap.
+- **E2E:** the `FrameSource` seam plus `app.lensly.e2e.WalletSignFlowTest` are verified on an API 36 arm64 emulator. The `/run-*` comment commands only work once the workflow exists on the default branch.
+- **Policy, `FixtureDecoder` in `src/main`:** `FixtureDecoder` and the public `frameSource` parameter ship in `src/main` so the E2E can feed frames through the real decoder. This is a deliberate exception to §3; moving it to `src/test` would change the app's camera API.
+- **Policy, benchmark gate scope:** the 10% gate enforces only on the reference device (`--reference-device`, or `BENCHMARK_REFERENCE_DEVICE=1`). Elsewhere it prints "no verdict" and never passes silently.
+- **Policy, required check:** `pr-ok` is the required check; `master` and `phase-1-5` are protected and require it, and admins may bypass.
+- **Policy, `/run-fuzz` and `/run-perf`:** `/run-fuzz` runs each Jazzer target for 60 seconds; `/run-perf` runs on the self-hosted `android-ref` runner, not an emulator.
+- **Policy, interactive borders:** interactive input borders use `LenslyOutlineInteractive` (3:1 contrast); `LenslyOutline` stays decorative.
