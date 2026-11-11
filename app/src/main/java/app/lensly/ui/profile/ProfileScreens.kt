@@ -2,6 +2,7 @@ package app.lensly.ui.profile
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +29,8 @@ import app.lensly.app.TextEdit
 import app.lensly.app.VisualIdentity
 import app.lensly.app.WALLET_MAX_GROUPS
 import app.lensly.app.WalletProfileDraft
+import app.lensly.ui.components.BottomSlot
+import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslyOnSurface
@@ -39,16 +42,18 @@ import app.lensly.ui.wallet.WalletPillStyle
 
 /**
  * The profile editor of one account: its Display Name, label and group, then its colour and icon. The field that takes the keys
- * is outlined, and [onKey] and [onBackspace] feed it. A blank name is the Auto-Name, and DONE saves the whole profile. [groups] are
- * the groups the wallet's other accounts use, offered as quick picks. RESET NAME shows while the account has a name, and RESET
- * STYLE gives back the generated colour and icon and clears the label and group.
+ * is outlined, and [onKey] and [onBackspace] feed it. No field takes the keys until one is tapped, so the keyboard starts hidden
+ * and SAVE shows. A tap on a field shows the keyboard. A tap outside the fields, the keyboard's DONE or the system Back hides it
+ * again, through [onFocus] with null. A blank name is the Auto-Name, and SAVE saves the whole profile. [groups] are the groups the
+ * wallet's other accounts use, offered as quick picks. RESET NAME shows while the account has a name, and RESET STYLE gives back the
+ * generated colour and icon and clears the label and group.
  */
 @Composable
 fun AccountProfileScreen(
     draft: AccountDraft,
     autoName: String,
     groups: List<String>,
-    onFocus: (ProfileField) -> Unit,
+    onFocus: (ProfileField?) -> Unit,
     onKey: (Char) -> Unit,
     onBackspace: () -> Unit,
     onPickColour: (ProfileColour) -> Unit,
@@ -56,224 +61,273 @@ fun AccountProfileScreen(
     onPickGroup: (String) -> Unit,
     onResetName: () -> Unit,
     onResetStyle: () -> Unit,
-    onDone: () -> Unit,
+    onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LenslyScreen(
-        title = "Account profile",
-        modifier = modifier,
-        bottomAction = { SecureKeyboard(onKey = onKey, onBackspace = onBackspace, onDone = onDone) },
-    ) {
-        ProfileHeader(identity = VisualIdentity(draft.colour, draft.icon), title = draft.name.ifEmpty { autoName })
-        Spacer(Modifier.height(LenslySpacing.lg))
-        ProfileFieldRow(
-            label = "Name",
-            value = draft.name,
-            placeholder = autoName,
-            focused = draft.focus == ProfileField.NAME,
-            maxLength = DISPLAY_NAME_MAX_LENGTH,
-            onFocus = { onFocus(ProfileField.NAME) },
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
-        ProfileFieldRow(
-            label = "Label",
-            value = draft.label,
-            placeholder = "No label",
-            focused = draft.focus == ProfileField.LABEL,
-            maxLength = PROFILE_TEXT_MAX_LENGTH,
-            onFocus = { onFocus(ProfileField.LABEL) },
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
-        ProfileFieldRow(
-            label = "Group",
-            value = draft.group,
-            placeholder = "No group",
-            focused = draft.focus == ProfileField.GROUP,
-            maxLength = PROFILE_TEXT_MAX_LENGTH,
-            onFocus = { onFocus(ProfileField.GROUP) },
-        )
-        if (groups.isNotEmpty()) {
-            Spacer(Modifier.height(LenslySpacing.xs))
-            ChipLine {
-                groups.forEach { group ->
-                    WalletPill(
-                        text = group,
-                        onClick = { onPickGroup(group) },
-                        style = WalletPillStyle.Outline,
-                        size = WalletPillSize.Compact,
-                    )
+    val focused = draft.focus != null
+    val unfocus = { onFocus(null) }
+    KeyboardHost(focused = focused, onUnfocus = unfocus) {
+        LenslyScreen(
+            title = "Account profile",
+            modifier = modifier,
+            bottomAction = {
+                ProfileBottom(focused = focused, onKey = onKey, onBackspace = onBackspace, onUnfocus = unfocus, onSave = onSave)
+            },
+        ) {
+            ProfileHeader(identity = VisualIdentity(draft.colour, draft.icon), title = draft.name.ifEmpty { autoName })
+            Spacer(Modifier.height(LenslySpacing.lg))
+            ProfileFieldRow(
+                label = "Name",
+                value = draft.name,
+                placeholder = autoName,
+                focused = draft.focus == ProfileField.NAME,
+                maxLength = DISPLAY_NAME_MAX_LENGTH,
+                onFocus = { onFocus(ProfileField.NAME) },
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            ProfileFieldRow(
+                label = "Label",
+                value = draft.label,
+                placeholder = "No label",
+                focused = draft.focus == ProfileField.LABEL,
+                maxLength = PROFILE_TEXT_MAX_LENGTH,
+                onFocus = { onFocus(ProfileField.LABEL) },
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            ProfileFieldRow(
+                label = "Group",
+                value = draft.group,
+                placeholder = "No group",
+                focused = draft.focus == ProfileField.GROUP,
+                maxLength = PROFILE_TEXT_MAX_LENGTH,
+                onFocus = { onFocus(ProfileField.GROUP) },
+            )
+            if (groups.isNotEmpty()) {
+                Spacer(Modifier.height(LenslySpacing.xs))
+                ChipLine {
+                    groups.forEach { group ->
+                        WalletPill(
+                            text = group,
+                            onClick = { onPickGroup(group) },
+                            style = WalletPillStyle.Outline,
+                            size = WalletPillSize.Compact,
+                        )
+                    }
                 }
             }
-        }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        WalletEyebrow("Colour")
-        Spacer(Modifier.height(LenslySpacing.xs))
-        ProfileColourRow(selected = draft.colour, onPick = onPickColour)
-        Spacer(Modifier.height(LenslySpacing.md))
-        WalletEyebrow("Icon")
-        Spacer(Modifier.height(LenslySpacing.xs))
-        ProfileIconRow(selected = draft.icon, onPick = onPickIcon)
-        Spacer(Modifier.height(LenslySpacing.lg))
-        ChipLine {
-            if (draft.name.isNotEmpty()) {
-                WalletPill(text = "Reset name", onClick = onResetName, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+            Spacer(Modifier.height(LenslySpacing.lg))
+            WalletEyebrow("Colour")
+            Spacer(Modifier.height(LenslySpacing.xs))
+            ProfileColourRow(selected = draft.colour, onPick = onPickColour)
+            Spacer(Modifier.height(LenslySpacing.md))
+            WalletEyebrow("Icon")
+            Spacer(Modifier.height(LenslySpacing.xs))
+            ProfileIconRow(selected = draft.icon, onPick = onPickIcon)
+            Spacer(Modifier.height(LenslySpacing.lg))
+            ChipLine {
+                if (draft.name.isNotEmpty()) {
+                    WalletPill(text = "Reset name", onClick = onResetName, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+                }
+                WalletPill(text = "Reset style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
             }
-            WalletPill(text = "Reset style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
         }
     }
 }
 
 /**
  * The profile editor of one wallet: its name, label and groups, then its colour and icon. A blank name keeps the current one, since a
- * wallet always has one. The group field adds the group typed when DONE saves, and a tap on a group takes the wallet out of it. A
- * wallet sits in at most [WALLET_MAX_GROUPS] groups.
+ * wallet always has one. The group field adds the group typed when SAVE runs, and a tap on a group takes the wallet out of it. A
+ * wallet sits in at most [WALLET_MAX_GROUPS] groups. The keyboard starts hidden and works as in [AccountProfileScreen].
  */
 @Composable
 fun WalletProfileScreen(
     draft: WalletProfileDraft,
-    onFocus: (ProfileField) -> Unit,
+    onFocus: (ProfileField?) -> Unit,
     onKey: (Char) -> Unit,
     onBackspace: () -> Unit,
     onPickColour: (ProfileColour) -> Unit,
     onPickIcon: (ProfileIcon) -> Unit,
     onRemoveGroup: (String) -> Unit,
     onResetStyle: () -> Unit,
-    onDone: () -> Unit,
+    onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val full = draft.groups.size >= WALLET_MAX_GROUPS
-    LenslyScreen(
-        title = "Wallet profile",
-        modifier = modifier,
-        bottomAction = { SecureKeyboard(onKey = onKey, onBackspace = onBackspace, onDone = onDone) },
-    ) {
-        ProfileHeader(identity = VisualIdentity(draft.colour, draft.icon), title = draft.name)
-        Spacer(Modifier.height(LenslySpacing.lg))
-        ProfileFieldRow(
-            label = "Name",
-            value = draft.name,
-            placeholder = "Keep the current name",
-            focused = draft.focus == ProfileField.NAME,
-            maxLength = DISPLAY_NAME_MAX_LENGTH,
-            onFocus = { onFocus(ProfileField.NAME) },
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
-        ProfileFieldRow(
-            label = "Label",
-            value = draft.label,
-            placeholder = "No label",
-            focused = draft.focus == ProfileField.LABEL,
-            maxLength = PROFILE_TEXT_MAX_LENGTH,
-            onFocus = { onFocus(ProfileField.LABEL) },
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
-        ProfileFieldRow(
-            label = "Group",
-            value = draft.pendingGroup,
-            placeholder = if (full) "Eight groups at most" else "Add a group",
-            focused = draft.focus == ProfileField.GROUP,
-            maxLength = PROFILE_TEXT_MAX_LENGTH,
-            onFocus = { onFocus(ProfileField.GROUP) },
-        )
-        if (draft.groups.isNotEmpty()) {
-            Spacer(Modifier.height(LenslySpacing.xs))
-            ChipLine {
-                draft.groups.forEach { group ->
-                    WalletPill(
-                        text = group,
-                        onClick = { onRemoveGroup(group) },
-                        style = WalletPillStyle.Outline,
-                        size = WalletPillSize.Compact,
-                    )
+    val focused = draft.focus != null
+    val unfocus = { onFocus(null) }
+    KeyboardHost(focused = focused, onUnfocus = unfocus) {
+        LenslyScreen(
+            title = "Wallet profile",
+            modifier = modifier,
+            bottomAction = {
+                ProfileBottom(focused = focused, onKey = onKey, onBackspace = onBackspace, onUnfocus = unfocus, onSave = onSave)
+            },
+        ) {
+            ProfileHeader(identity = VisualIdentity(draft.colour, draft.icon), title = draft.name)
+            Spacer(Modifier.height(LenslySpacing.lg))
+            ProfileFieldRow(
+                label = "Name",
+                value = draft.name,
+                placeholder = "Keep the current name",
+                focused = draft.focus == ProfileField.NAME,
+                maxLength = DISPLAY_NAME_MAX_LENGTH,
+                onFocus = { onFocus(ProfileField.NAME) },
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            ProfileFieldRow(
+                label = "Label",
+                value = draft.label,
+                placeholder = "No label",
+                focused = draft.focus == ProfileField.LABEL,
+                maxLength = PROFILE_TEXT_MAX_LENGTH,
+                onFocus = { onFocus(ProfileField.LABEL) },
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            ProfileFieldRow(
+                label = "Group",
+                value = draft.pendingGroup,
+                placeholder = if (full) "Eight groups at most" else "Add a group",
+                focused = draft.focus == ProfileField.GROUP,
+                maxLength = PROFILE_TEXT_MAX_LENGTH,
+                onFocus = { onFocus(ProfileField.GROUP) },
+            )
+            if (draft.groups.isNotEmpty()) {
+                Spacer(Modifier.height(LenslySpacing.xs))
+                ChipLine {
+                    draft.groups.forEach { group ->
+                        WalletPill(
+                            text = group,
+                            onClick = { onRemoveGroup(group) },
+                            style = WalletPillStyle.Outline,
+                            size = WalletPillSize.Compact,
+                        )
+                    }
                 }
+                WalletEyebrow("Tap a group to take the wallet out of it")
             }
-            WalletEyebrow("Tap a group to take the wallet out of it")
-        }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        WalletEyebrow("Colour")
-        Spacer(Modifier.height(LenslySpacing.xs))
-        ProfileColourRow(selected = draft.colour, onPick = onPickColour)
-        Spacer(Modifier.height(LenslySpacing.md))
-        WalletEyebrow("Icon")
-        Spacer(Modifier.height(LenslySpacing.xs))
-        ProfileIconRow(selected = draft.icon, onPick = onPickIcon)
-        Spacer(Modifier.height(LenslySpacing.lg))
-        ChipLine {
-            WalletPill(text = "Reset style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+            Spacer(Modifier.height(LenslySpacing.lg))
+            WalletEyebrow("Colour")
+            Spacer(Modifier.height(LenslySpacing.xs))
+            ProfileColourRow(selected = draft.colour, onPick = onPickColour)
+            Spacer(Modifier.height(LenslySpacing.md))
+            WalletEyebrow("Icon")
+            Spacer(Modifier.height(LenslySpacing.xs))
+            ProfileIconRow(selected = draft.icon, onPick = onPickIcon)
+            Spacer(Modifier.height(LenslySpacing.lg))
+            ChipLine {
+                WalletPill(text = "Reset style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+            }
         }
     }
 }
 
 /**
- * The batch style editor: the colour, icon, label and group that every selected account gets, applied in one write on DONE. A
+ * The batch style editor: the colour, icon, label and group that every selected account gets, applied in one write on SAVE. A
  * colour, icon, label or group that is not set here keeps each account's own. CLEAR removes a label or group from every selected
- * account, and RESET STYLE gives every selected account its generated look at once.
+ * account, and RESET STYLE gives every selected account its generated look at once. The keyboard starts hidden and works as in
+ * [AccountProfileScreen].
  */
 @Composable
 fun StyleAccountsScreen(
     count: Int,
     edits: StyleEdits,
-    onFocus: (StyleField) -> Unit,
+    onFocus: (StyleField?) -> Unit,
     onKey: (Char) -> Unit,
     onBackspace: () -> Unit,
     onPickColour: (ProfileColour) -> Unit,
     onPickIcon: (ProfileIcon) -> Unit,
     onClear: (StyleField) -> Unit,
     onResetStyle: () -> Unit,
-    onDone: () -> Unit,
+    onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LenslyScreen(
-        title = "Account style",
-        modifier = modifier,
-        bottomAction = { SecureKeyboard(onKey = onKey, onBackspace = onBackspace, onDone = onDone) },
-    ) {
-        Text(
-            text = "Set for $count accounts",
-            style = MaterialTheme.typography.titleMedium,
-            color = LenslyOnSurface,
-        )
-        Spacer(Modifier.height(LenslySpacing.xs))
-        Text(
-            text = "Pick what to set. Each account keeps what is not set here.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(LenslySpacing.lg))
-        WalletEyebrow("Colour")
-        Spacer(Modifier.height(LenslySpacing.xs))
-        ProfileColourRow(selected = edits.colour, onPick = onPickColour)
-        Spacer(Modifier.height(LenslySpacing.md))
-        WalletEyebrow("Icon")
-        Spacer(Modifier.height(LenslySpacing.xs))
-        ProfileIconRow(selected = edits.icon, onPick = onPickIcon)
-        Spacer(Modifier.height(LenslySpacing.lg))
-        ProfileFieldRow(
-            label = "Label",
-            value = edits.label.shown(),
-            placeholder = if (edits.label == TextEdit.Clear) "Cleared from every account" else "Keep each account's label",
-            focused = edits.focus == StyleField.LABEL,
-            maxLength = PROFILE_TEXT_MAX_LENGTH,
-            onFocus = { onFocus(StyleField.LABEL) },
-        )
-        Spacer(Modifier.height(LenslySpacing.xs))
-        ChipLine {
-            WalletPill(text = "Clear label", onClick = { onClear(StyleField.LABEL) }, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+    val focused = edits.focus != null
+    val unfocus = { onFocus(null) }
+    KeyboardHost(focused = focused, onUnfocus = unfocus) {
+        LenslyScreen(
+            title = "Account style",
+            modifier = modifier,
+            bottomAction = {
+                ProfileBottom(focused = focused, onKey = onKey, onBackspace = onBackspace, onUnfocus = unfocus, onSave = onSave)
+            },
+        ) {
+            Text(
+                text = "Set for $count accounts",
+                style = MaterialTheme.typography.titleMedium,
+                color = LenslyOnSurface,
+            )
+            Spacer(Modifier.height(LenslySpacing.xs))
+            Text(
+                text = "Pick what to set. Each account keeps what is not set here.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(LenslySpacing.lg))
+            WalletEyebrow("Colour")
+            Spacer(Modifier.height(LenslySpacing.xs))
+            ProfileColourRow(selected = edits.colour, onPick = onPickColour)
+            Spacer(Modifier.height(LenslySpacing.md))
+            WalletEyebrow("Icon")
+            Spacer(Modifier.height(LenslySpacing.xs))
+            ProfileIconRow(selected = edits.icon, onPick = onPickIcon)
+            Spacer(Modifier.height(LenslySpacing.lg))
+            ProfileFieldRow(
+                label = "Label",
+                value = edits.label.shown(),
+                placeholder = if (edits.label == TextEdit.Clear) "Cleared from every account" else "Keep each account's label",
+                focused = edits.focus == StyleField.LABEL,
+                maxLength = PROFILE_TEXT_MAX_LENGTH,
+                onFocus = { onFocus(StyleField.LABEL) },
+            )
+            Spacer(Modifier.height(LenslySpacing.xs))
+            ChipLine {
+                WalletPill(
+                    text = "Clear label",
+                    onClick = { onClear(StyleField.LABEL) },
+                    style = WalletPillStyle.Outline,
+                    size = WalletPillSize.Compact,
+                )
+            }
+            Spacer(Modifier.height(LenslySpacing.md))
+            ProfileFieldRow(
+                label = "Group",
+                value = edits.group.shown(),
+                placeholder = if (edits.group == TextEdit.Clear) "Cleared from every account" else "Keep each account's group",
+                focused = edits.focus == StyleField.GROUP,
+                maxLength = PROFILE_TEXT_MAX_LENGTH,
+                onFocus = { onFocus(StyleField.GROUP) },
+            )
+            Spacer(Modifier.height(LenslySpacing.xs))
+            ChipLine {
+                WalletPill(
+                    text = "Clear group",
+                    onClick = { onClear(StyleField.GROUP) },
+                    style = WalletPillStyle.Outline,
+                    size = WalletPillSize.Compact,
+                )
+                WalletPill(text = "Reset style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+            }
         }
-        Spacer(Modifier.height(LenslySpacing.md))
-        ProfileFieldRow(
-            label = "Group",
-            value = edits.group.shown(),
-            placeholder = if (edits.group == TextEdit.Clear) "Cleared from every account" else "Keep each account's group",
-            focused = edits.focus == StyleField.GROUP,
-            maxLength = PROFILE_TEXT_MAX_LENGTH,
-            onFocus = { onFocus(StyleField.GROUP) },
-        )
-        Spacer(Modifier.height(LenslySpacing.xs))
-        ChipLine {
-            WalletPill(text = "Clear group", onClick = { onClear(StyleField.GROUP) }, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
-            WalletPill(text = "Reset style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
-        }
+    }
+}
+
+/**
+ * The foot of a profile editor. While a field takes the keys, the keyboard is up, and its DONE hides it, since a profile saves with
+ * SAVE and DONE does not. While the keyboard is hidden, SAVE takes its place.
+ */
+@Composable
+private fun ColumnScope.ProfileBottom(
+    focused: Boolean,
+    onKey: (Char) -> Unit,
+    onBackspace: () -> Unit,
+    onUnfocus: () -> Unit,
+    onSave: () -> Unit,
+) {
+    BottomSlot(visible = focused) {
+        SecureKeyboard(onKey = onKey, onBackspace = onBackspace, onDone = onUnfocus)
+    }
+    BottomSlot(visible = !focused) {
+        WalletPill(text = "Save", onClick = onSave, modifier = Modifier.fillMaxWidth(), style = WalletPillStyle.Primary)
     }
 }
 

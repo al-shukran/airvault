@@ -16,11 +16,17 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslyPillShape
@@ -59,7 +65,8 @@ internal fun PolicyError.message(): String = when (this) {
  * [onSubmit] is the keyboard's done key. The caller checks the policy for the current step and
  * updates [state]; the screen does no checking itself. While entering the first password, a hint counts down the
  * characters still needed. A rejection shows in the error colour on the status line. While [busy] (the vault is being
- * created) the keyboard is disabled and a progress row shows on the status line.
+ * created) the keyboard is disabled and a progress row shows on the status line. Each step opens with the keyboard up. A tap
+ * outside the field or the system Back hides it, and a tap on the field brings it back.
  */
 @Composable
 fun CreatePasswordScreen(
@@ -83,53 +90,58 @@ fun CreatePasswordScreen(
         error != null -> error.message()
         else -> hint
     }
+    var focused by rememberSaveable(state.step) { mutableStateOf(true) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = LenslySpacing.md),
-    ) {
-        Spacer(Modifier.height(LenslySpacing.lg))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = if (confirming) "STEP 2 OF 2" else "STEP 1 OF 2",
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.onSurfaceVariant,
+    KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(horizontal = LenslySpacing.md),
+        ) {
+            Spacer(Modifier.height(LenslySpacing.lg))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (confirming) "STEP 2 OF 2" else "STEP 1 OF 2",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(LenslySpacing.sm))
+                StepBar(active = true)
+                Spacer(Modifier.width(LenslySpacing.xxs))
+                StepBar(active = confirming)
+            }
+            Spacer(Modifier.height(LenslySpacing.sm))
+            // A fixed height keeps the policy chip in the same place on both steps.
+            Box(modifier = Modifier.fillMaxWidth().height(HEADLINE_HEIGHT)) {
+                DotHeadline(text = if (confirming) "CONFIRM" else "SET PASSWORD")
+            }
+            Spacer(Modifier.height(LenslySpacing.md))
+            PillChip(
+                text = if (confirming) "Re-enter to confirm" else "$MIN_PASSWORD_LENGTH+ characters, hard to guess",
             )
-            Spacer(Modifier.width(LenslySpacing.sm))
-            StepBar(active = true)
-            Spacer(Modifier.width(LenslySpacing.xxs))
-            StepBar(active = confirming)
+
+            Spacer(Modifier.weight(1f))
+
+            PasswordField(length = state.length, onClick = { focused = true })
+            Spacer(Modifier.height(LenslySpacing.sm))
+            GateStatusLine(
+                text = status,
+                working = busy,
+                tone = if (error != null && !busy) colors.error else colors.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            BottomSlot(visible = focused) {
+                SecureKeyboard(
+                    onKey = onKey,
+                    onBackspace = onBackspace,
+                    onDone = onSubmit,
+                    enabled = !busy,
+                )
+            }
         }
-        Spacer(Modifier.height(LenslySpacing.sm))
-        // A fixed height keeps the policy chip in the same place on both steps.
-        Box(modifier = Modifier.fillMaxWidth().height(HEADLINE_HEIGHT)) {
-            DotHeadline(text = if (confirming) "CONFIRM" else "SET PASSWORD")
-        }
-        Spacer(Modifier.height(LenslySpacing.md))
-        PillChip(
-            text = if (confirming) "Re-enter to confirm" else "$MIN_PASSWORD_LENGTH+ characters, hard to guess",
-        )
-
-        Spacer(Modifier.weight(1f))
-
-        PasswordField(length = state.length)
-        Spacer(Modifier.height(LenslySpacing.sm))
-        GateStatusLine(
-            text = status,
-            working = busy,
-            tone = if (error != null && !busy) colors.error else colors.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.weight(1f))
-
-        SecureKeyboard(
-            onKey = onKey,
-            onBackspace = onBackspace,
-            onDone = onSubmit,
-            enabled = !busy,
-        )
     }
 }
 

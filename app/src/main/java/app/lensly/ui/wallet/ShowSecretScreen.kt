@@ -13,6 +13,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,9 +27,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.flow.RevealPart
@@ -112,54 +118,60 @@ internal fun PasswordStep(
     stepCount: Int = STEP_COUNT,
     step: Int = 1,
 ) {
-    LenslyScreen(
-        title = title,
-        onBack = onBack,
-        modifier = modifier,
-        scrollable = false,
-        bottomAction = {
-            SecureKeyboard(
-                onKey = onKey,
-                onBackspace = onBackspace,
-                onDone = onSubmit,
-                enabled = !busy,
-            )
-        },
-    ) {
-        StepHeader(step = step, onLock = onLock, count = stepCount)
-        Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "PASSWORD")
-        Spacer(Modifier.height(LenslySpacing.sm))
-        Text(
-            text = prompt,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.weight(1f))
-
-        PasswordField(length = length)
-        Spacer(Modifier.height(LenslySpacing.sm))
-        // Reserved height, so the keyboard does not move while the progress row comes and goes. A wrong password shows
-        // nothing, as at the gate.
-        Box(
-            modifier = Modifier.fillMaxWidth().height(PROGRESS_SLOT_HEIGHT),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (busy) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    DotProgress(description = "Checking password")
-                    Spacer(Modifier.width(LenslySpacing.xs))
-                    Text(
-                        text = "CHECKING",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    // The keyboard is up when the step opens. A tap outside the field or the system Back hides it, and a tap on the field brings it back.
+    var focused by rememberSaveable { mutableStateOf(true) }
+    KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
+        LenslyScreen(
+            title = title,
+            onBack = onBack,
+            modifier = modifier,
+            scrollable = false,
+            bottomAction = {
+                BottomSlot(visible = focused) {
+                    SecureKeyboard(
+                        onKey = onKey,
+                        onBackspace = onBackspace,
+                        onDone = onSubmit,
+                        enabled = !busy,
                     )
                 }
-            }
-        }
+            },
+        ) {
+            StepHeader(step = step, onLock = onLock, count = stepCount)
+            Spacer(Modifier.height(LenslySpacing.lg))
+            DotHeadline(text = "PASSWORD")
+            Spacer(Modifier.height(LenslySpacing.sm))
+            Text(
+                text = prompt,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
-        Spacer(Modifier.weight(1f))
+            Spacer(Modifier.weight(1f))
+
+            PasswordField(length = length, onClick = { focused = true })
+            Spacer(Modifier.height(LenslySpacing.sm))
+            // Reserved height, so the keyboard does not move while the progress row comes and goes. A wrong password shows
+            // nothing, as at the gate.
+            Box(
+                modifier = Modifier.fillMaxWidth().height(PROGRESS_SLOT_HEIGHT),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (busy) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        DotProgress(description = "Checking password")
+                        Spacer(Modifier.width(LenslySpacing.xs))
+                        Text(
+                            text = "CHECKING",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+        }
     }
 }
 

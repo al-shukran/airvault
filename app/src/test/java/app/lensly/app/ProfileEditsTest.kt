@@ -169,7 +169,22 @@ class ProfileEditsTest {
     fun aBatchWithNothingSetHasNoChanges() {
         assertEquals(emptyList(), StyleEdits().changes())
         // Typing and then deleting the same letter leaves the label blank, which changes nothing.
-        assertEquals(emptyList(), StyleEdits().typing('x').backspace().changes())
+        assertEquals(emptyList(), StyleEdits(focus = StyleField.LABEL).typing('x').backspace().changes())
+    }
+
+    @Test
+    fun keysTypedWhileNoFieldHasFocusChangeNothing() {
+        val account = account().copy(focus = null)
+        assertEquals(account, account.typing('x'))
+        assertEquals(account, account.backspace())
+
+        val wallet = WalletProfileDraft(name = "Seed", colour = generated.colour, icon = generated.icon, label = "", groups = emptyList())
+        assertEquals(wallet, wallet.typing('x'))
+        assertEquals(wallet, wallet.backspace())
+
+        val batch = StyleEdits()
+        assertEquals(batch, batch.typing('x'))
+        assertEquals(batch, batch.backspace())
     }
 
     @Test

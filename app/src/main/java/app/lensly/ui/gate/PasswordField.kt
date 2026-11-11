@@ -1,6 +1,7 @@
 package app.lensly.ui.gate
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -30,18 +32,21 @@ import app.lensly.ui.theme.LenslySpacing
  * character count, so the plaintext never reaches the UI layer. There is deliberately no reveal toggle.
  *
  * When the field is empty it shows a short muted dash. Once the row is full it stays full, and the
- * accessibility description still reports the exact character count.
+ * accessibility description still reports the exact character count. With [onClick] set, a tap calls it, which is how a
+ * screen brings its keyboard back.
  */
 @Composable
 fun PasswordField(
     length: Int,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
 ) {
     val description = if (length == 0) "Password empty" else "$length characters entered"
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(FIELD_HEIGHT)
+            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
             .semantics { contentDescription = description },
     ) {
         val line = RULE_THICKNESS.toPx()

@@ -20,18 +20,21 @@ data class AccountDraft(
     val icon: ProfileIcon,
     val label: String,
     val group: String,
-    val focus: ProfileField = ProfileField.NAME,
+    val focus: ProfileField? = null,
 ) {
-    fun focusOn(field: ProfileField): AccountDraft = copy(focus = field)
+    /** Makes [field] the field that takes the keys, or none when it is null. */
+    fun focusOn(field: ProfileField?): AccountDraft = copy(focus = field)
 
-    /** The draft after [key] is typed into the focused field, which stops at that field's length. */
+    /** The draft after [key] is typed into the focused field, which stops at its length. With no field focused, nothing changes. */
     fun typing(key: Char): AccountDraft = when (focus) {
+        null -> this
         ProfileField.NAME -> copy(name = appended(name, key, DISPLAY_NAME_MAX_LENGTH))
         ProfileField.LABEL -> copy(label = appended(label, key, PROFILE_TEXT_MAX_LENGTH))
         ProfileField.GROUP -> copy(group = appended(group, key, PROFILE_TEXT_MAX_LENGTH))
     }
 
     fun backspace(): AccountDraft = when (focus) {
+        null -> this
         ProfileField.NAME -> copy(name = name.dropLast(1))
         ProfileField.LABEL -> copy(label = label.dropLast(1))
         ProfileField.GROUP -> copy(group = group.dropLast(1))
@@ -84,12 +87,16 @@ data class WalletProfileDraft(
     val label: String,
     val groups: List<String>,
     val pendingGroup: String = "",
-    val focus: ProfileField = ProfileField.NAME,
+    val focus: ProfileField? = null,
 ) {
-    fun focusOn(field: ProfileField): WalletProfileDraft = copy(focus = field)
+    fun focusOn(field: ProfileField?): WalletProfileDraft = copy(focus = field)
 
-    /** The draft after [key] is typed into the focused field. The group field takes nothing once the wallet is at its cap. */
+    /**
+     * The draft after [key] is typed into the focused field. The group field takes nothing once the wallet is at its cap, and with no
+     * field focused nothing changes.
+     */
     fun typing(key: Char): WalletProfileDraft = when (focus) {
+        null -> this
         ProfileField.NAME -> copy(name = appended(name, key, DISPLAY_NAME_MAX_LENGTH))
         ProfileField.LABEL -> copy(label = appended(label, key, PROFILE_TEXT_MAX_LENGTH))
         ProfileField.GROUP -> if (groups.size >= WALLET_MAX_GROUPS) {
@@ -100,6 +107,7 @@ data class WalletProfileDraft(
     }
 
     fun backspace(): WalletProfileDraft = when (focus) {
+        null -> this
         ProfileField.NAME -> copy(name = name.dropLast(1))
         ProfileField.LABEL -> copy(label = label.dropLast(1))
         ProfileField.GROUP -> copy(pendingGroup = pendingGroup.dropLast(1))
@@ -169,9 +177,9 @@ data class StyleEdits(
     val icon: ProfileIcon? = null,
     val label: TextEdit = TextEdit.Keep,
     val group: TextEdit = TextEdit.Keep,
-    val focus: StyleField = StyleField.LABEL,
+    val focus: StyleField? = null,
 ) {
-    fun focusOn(field: StyleField): StyleEdits = copy(focus = field)
+    fun focusOn(field: StyleField?): StyleEdits = copy(focus = field)
 
     /** Picking the colour that is already picked un-picks it, so the batch can leave the colour alone. */
     fun pickColour(colour: ProfileColour): StyleEdits = copy(colour = if (this.colour == colour) null else colour)
@@ -185,13 +193,15 @@ data class StyleEdits(
         StyleField.GROUP -> copy(group = TextEdit.Clear)
     }
 
-    /** The edit after [key] is typed into the focused field, which stops at the label length. */
+    /** The edit after [key] is typed into the focused field, which stops at the label length. With no field focused, nothing changes. */
     fun typing(key: Char): StyleEdits = when (focus) {
+        null -> this
         StyleField.LABEL -> copy(label = TextEdit.Set(appended(label.textOrEmpty(), key, PROFILE_TEXT_MAX_LENGTH)))
         StyleField.GROUP -> copy(group = TextEdit.Set(appended(group.textOrEmpty(), key, PROFILE_TEXT_MAX_LENGTH)))
     }
 
     fun backspace(): StyleEdits = when (focus) {
+        null -> this
         StyleField.LABEL -> copy(label = TextEdit.Set(label.textOrEmpty().dropLast(1)))
         StyleField.GROUP -> copy(group = TextEdit.Set(group.textOrEmpty().dropLast(1)))
     }

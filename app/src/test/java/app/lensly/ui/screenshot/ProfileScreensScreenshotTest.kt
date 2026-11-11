@@ -20,8 +20,9 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The profile editors, one snapshot each: an account with its name being typed, a wallet with groups and one being added, and the
- * batch style editor with a colour picked and a label set to be cleared. Record with :app:recordRoborazziDebug.
+ * The profile editors, one snapshot each: an account with its name being typed, an account with no field focused (the keyboard
+ * hidden and SAVE shown), a wallet with groups and one being added, and the batch style editor with a colour picked and a label set
+ * to be cleared. Record with :app:recordRoborazziDebug.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -51,7 +52,31 @@ class ProfileScreensScreenshotTest {
             onPickGroup = {},
             onResetName = {},
             onResetStyle = {},
-            onDone = {},
+            onSave = {},
+        )
+    }
+
+    @Test
+    fun accountProfileWithNoFieldFocused() = compose.snapshot("profile_edit_account_idle") {
+        AccountProfileScreen(
+            draft = AccountDraft(
+                name = "Savings",
+                colour = ProfileColour.GREEN,
+                icon = ProfileIcon.STAR,
+                label = "Rent",
+                group = "Home",
+            ),
+            autoName = "Seed wallet 1",
+            groups = listOf("Home", "Work"),
+            onFocus = {},
+            onKey = {},
+            onBackspace = {},
+            onPickColour = {},
+            onPickIcon = {},
+            onPickGroup = {},
+            onResetName = {},
+            onResetStyle = {},
+            onSave = {},
         )
     }
 
@@ -74,7 +99,7 @@ class ProfileScreensScreenshotTest {
             onPickIcon = {},
             onRemoveGroup = {},
             onResetStyle = {},
-            onDone = {},
+            onSave = {},
         )
     }
 
@@ -95,7 +120,7 @@ class ProfileScreensScreenshotTest {
             onPickIcon = {},
             onClear = {},
             onResetStyle = {},
-            onDone = {},
+            onSave = {},
         )
     }
 }
