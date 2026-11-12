@@ -15,7 +15,7 @@ internal object HiddenRoute {
 
     // Wallets.
     const val HOME = "home"
-    // Every wallet as a card, reached from the See all link on Home or from the dock.
+    // Every wallet as a card, reached from All wallets on Home or from the dock.
     const val WALLETS = "wallets"
     // Pairing wizard, from the dock. It starts at the wallet step, or at the app step when there is only one wallet.
     const val PAIR = "pair"
@@ -36,7 +36,7 @@ internal object HiddenRoute {
     const val DELETE_WALLET = "delete/{walletId}"
     // History: the Review Records of one wallet, newest first. Reached from the wallet detail's options.
     const val HISTORY = "history/{walletId}"
-    // Activity: the Review Records of every wallet in the session, newest first. Reached from the dock on Home.
+    // Activity: the Review Records of every wallet in the session, newest first. Reached from See all on Home, or from the dock.
     const val ACTIVITY = "activity"
     // Profiles: a wallet's name, colour, icon, label and groups, one account's, and the style of a batch of accounts.
     const val EDIT_WALLET = "edit-wallet/{walletId}"
@@ -59,6 +59,10 @@ internal object HiddenRoute {
     const val DURESS_REMOVE = "settings/duress/remove"
     // Failure Delay cap: a choice, a warning below 10 s, then the App Password. Reached from Settings.
     const val FAILURE_CAP = "settings/failure-cap"
+    // Approved contracts: the signed whitelist, grouped by network. Read only, reached from Settings.
+    const val APPROVED_CONTRACTS = "settings/approved"
+    // Proxy policy: a choice of how whitelisted proxies are handled, then the App Password. Reached from Settings.
+    const val PROXY_POLICY = "settings/proxy-policy"
     // Wipe: the App Password again, a warning with its confirmation, then every file. Reached from Settings.
     const val WIPE = "settings/wipe"
     // Hidden entry gesture: the four gestures to choose from, then the change to one of them. Reached from Settings.

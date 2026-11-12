@@ -1,36 +1,60 @@
 package app.lensly.ui.screenshot
 
+import android.provider.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import app.lensly.app.AccountProfile
 import app.lensly.app.ProfileColour
 import app.lensly.app.ProfileIcon
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
+import app.lensly.app.WalletReviewRecord
+import app.lensly.app.sign.ReviewKind
+import app.lensly.app.sign.ReviewOutcome
+import app.lensly.app.sign.ReviewRecord
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.home.BulkGenerateScreen
+import app.lensly.ui.home.HOME_SCROLL_TAG
+import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SoonScreen
 import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.home.WalletsScreen
+import app.lensly.ui.settings.FailureCapChoice
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** Long enough for the Home entrance, the last card's stagger and its fade, to finish before the capture. */
+/** Long enough for the Home sections and the aperture to settle before the capture. */
 private const val SETTLE_MS = 1_000L
 
+/** The moment every Home golden is read against, so the relative times on the goldens never change. */
+private const val FIXED_NOW_MS = 1_800_000_000_000L
+private const val MINUTE_MS = 60_000L
+private const val HOUR_MS = 3_600_000L
+
+/** The swipes that bring the Home content to its end, and the fling each one is given to settle. */
+private const val SCROLL_SWIPES = 10
+private const val FLING_MS = 1_000L
+
 /**
- * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice), the Wallets list (five),
+ * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice, and with the aperture still because
+ * the animations are off), the Wallets list (five),
  * wallet detail (deriving, accounts, adding an account, Single Key), bulk generate (empty, ready, refused, running, failed),
  * catalog import (idle, checking, installed, refused), and the placeholder. Record with :app:recordRoborazziDebug.
  */
@@ -40,6 +64,11 @@ private const val SETTLE_MS = 1_000L
 class HomeScreensScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
+
+    @After
+    fun restoreAnimators() {
+        Settings.Global.putFloat(RuntimeEnvironment.getApplication().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+    }
 
     @Test
     fun homeWithoutWallets() = compose.snapshot("home_no_wallets", settleMs = SETTLE_MS) {
@@ -58,7 +87,32 @@ class HomeScreensScreenshotTest {
 
     @Test
     fun homeWithDebugNotice() = compose.snapshot("home_debug_notice", settleMs = SETTLE_MS) {
-        home(wallets = sampleWallets().take(1), debugNotice = "Keystore is software-only on this device.")
+        home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, debugNotice = "Software keystore")
+    }
+
+    /** The same Home with the system's animations off: the aperture is drawn once, and the golden shows that frame. */
+    /**
+     * Home scrolled to its end, so Readiness is in view above the dock. The lockout here is one second, so its tile has the amber dot.
+     */
+    @Test
+    fun homeScrolledToReadiness() = compose.snapshot(
+        "home_readiness",
+        settleMs = SETTLE_MS,
+        beforeCapture = { scrollHomeToEnd() },
+    ) {
+        home(
+            wallets = sampleWallets().take(2),
+            profiles = sampleHomeProfiles,
+            readiness = sampleReadiness.copy(lockout = FailureCapChoice.ONE_SECOND),
+        )
+    }
+
+    @Test
+    fun homeWithAStaticHero() {
+        Settings.Global.putFloat(RuntimeEnvironment.getApplication().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+        compose.snapshot("home_hero_static", settleMs = SETTLE_MS) {
+            home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles)
+        }
     }
 
     @Test
@@ -169,23 +223,85 @@ class HomeScreensScreenshotTest {
     private fun home(
         wallets: List<WalletMeta>,
         profiles: Map<String, WalletProfile> = emptyMap(),
+        recent: List<WalletReviewRecord> = sampleActivity(),
         debugNotice: String? = null,
+        readiness: HomeReadiness = sampleReadiness,
     ) {
         WalletHomeScreen(
             wallets = wallets,
             profiles = profiles,
+            recent = recent,
+            readiness = readiness,
+            nowMs = FIXED_NOW_MS,
             onOpen = {},
             onEdit = {},
             onPair = {},
-            onAdd = {},
+            onCreate = {},
+            onRestore = {},
+            onScan = {},
+            onActivity = {},
             onWallets = {},
             onSettings = {},
             onLock = {},
             onStartPairing = {},
-            onScan = {},
+            onNetworks = {},
+            onTokens = {},
+            onCatalog = {},
+            onLockout = {},
             debugNotice = debugNotice,
         )
     }
+
+    /** The readiness as an installed catalog package reports it, so the version tile shows a sequence. */
+    private val sampleReadiness = HomeReadiness(
+        networkCount = 12,
+        tokenCount = 48,
+        catalogSequence = 3L,
+        lockout = FailureCapChoice.DEFAULT,
+    )
+
+    /**
+     * Three records of the session's wallets: a transfer, a refusal whose reason wraps onto a second line and ends with an ellipsis, and
+     * a message. They are listed out of order, so the screen has to sort them.
+     */
+    private fun sampleActivity(): List<WalletReviewRecord> = listOf(
+        WalletReviewRecord("w1", sampleRecord(FIXED_NOW_MS - 12 * MINUTE_MS, ReviewOutcome.SIGNED, function = "transfer", amount = "0.0100 MON")),
+        WalletReviewRecord(
+            "w2",
+            sampleRecord(
+                FIXED_NOW_MS - 3 * HOUR_MS,
+                ReviewOutcome.REFUSED,
+                refusal = "Chain 999999 is not in the registry, so this request cannot be checked before it is signed.",
+            ),
+        ),
+        WalletReviewRecord("w1", sampleRecord(FIXED_NOW_MS - 26 * HOUR_MS, ReviewOutcome.SIGNED, kind = ReviewKind.MESSAGE)),
+    ).reversed()
+
+    private fun sampleRecord(
+        atMs: Long,
+        outcome: ReviewOutcome,
+        kind: ReviewKind = ReviewKind.TRANSACTION,
+        function: String? = null,
+        amount: String? = null,
+        refusal: String? = null,
+    ): ReviewRecord = ReviewRecord(
+        atMs = atMs,
+        outcome = outcome,
+        kind = kind,
+        chainId = 1L,
+        networkName = "Ethereum",
+        accountIndex = 0,
+        address = "0x00000000000000000000000000000000000000AA",
+        function = function,
+        to = null,
+        amount = amount,
+        tokenContract = null,
+        fee = emptyList(),
+        params = emptyList(),
+        origin = null,
+        refusal = refusal,
+        dataHash = "00",
+    )
 
     @Composable
     private fun detail(
@@ -329,4 +445,15 @@ class HomeScreensScreenshotTest {
 
     private val linea = NetworkEntry(59144L, "Linea", "ETH", 18, FeeModel.L2_ROLLUP, "Lineascan", false)
     private val usdc = TokenEntry(59144L, "0x176211869ca2b568f2a7d4ee941e073a821ee1ff", "USDC", "USD Coin", 6)
+}
+
+/** Swipes the Home content up until it stops, so its last section sits above the dock. */
+private fun ComposeContentTestRule.scrollHomeToEnd() {
+    repeat(SCROLL_SWIPES) {
+        onNodeWithTag(HOME_SCROLL_TAG).performTouchInput {
+            swipeUp(startY = height * 0.8f, endY = height * 0.2f, durationMillis = 200)
+        }
+        mainClock.advanceTimeBy(FLING_MS)
+        waitForIdle()
+    }
 }

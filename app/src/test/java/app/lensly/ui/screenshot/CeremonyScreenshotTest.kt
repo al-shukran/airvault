@@ -69,6 +69,11 @@ class CeremonyScreenshotTest {
     }
 
     @Test
+    fun coinsEmpty() = compose.snapshot("coin_entry_empty") {
+        dice(EntropyMode.Coins, count = 0)
+    }
+
+    @Test
     fun coinsMinimumReached() = compose.snapshot("coin_entry_minimum_reached") {
         dice(EntropyMode.Coins, count = 140)
     }

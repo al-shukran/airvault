@@ -20,11 +20,16 @@ partitions:
   core-parse     :app:testDebugUnitTest --tests 'app.lensly.core.parse.*'
   core-vault     :app:testDebugUnitTest --tests 'app.lensly.core.vault.*'
   core-registry  :app:testDebugUnitTest --tests 'app.lensly.core.registry.*' --tests 'app.lensly.core.registry.update.*'
-  ui             :app:testDebugUnitTest --tests 'app.lensly.ui.*'
+  ui-a           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.camera.*' --tests 'app.lensly.ui.settings.*'
+                 --tests 'app.lensly.ui.wallet.*' --tests 'app.lensly.ui.qr.*' --tests 'app.lensly.ui.navigation.*'
+                 --tests 'app.lensly.ui.a11y.*' --tests 'app.lensly.ui.theme.*' --tests 'app.lensly.ui.screenshot.*'
+  ui-b           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.flow.*' --tests 'app.lensly.ui.components.*'
+                 --tests 'app.lensly.ui.home.*' --tests 'app.lensly.ui.sign.*' --tests 'app.lensly.ui.gate.*'
+                 --tests 'app.lensly.ui.profile.*' --tests 'app.lensly.ui.SecureWindowTest'
   app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
   registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
-  ci             bash -n on every script, then scripts/ci/check-test-network.sh (no Gradle)
+  ci             bash -n on every script, scripts/ci/check-ui-partitions.sh, then scripts/ci/check-test-network.sh (no Gradle)
 EOF
 }
 
@@ -63,11 +68,34 @@ case "$partition" in
             --tests 'app.lensly.core.registry.*' \
             --tests 'app.lensly.core.registry.update.*'
         ;;
-    ui)
-        # -PprLane drops app.lensly.ui.screenshot.* (Roborazzi pixel tests) from this partition.
-        # They push it past the 3-minute cap (guideline 2.1) and are verified nightly by
-        # verifyRoborazziDebug instead (guideline 2.7).
-        ./gradlew :app:testDebugUnitTest --tests 'app.lensly.ui.*' -PprLane
+    # The app.lensly.ui tests are split in two halves so each stays under the 3-minute cap (guideline 2.1).
+    # A new ui subpackage, or a test class directly in app.lensly.ui, must be added to ONE of these two
+    # lists. scripts/ci/check-ui-partitions.sh (run by the ci partition) fails when one is in neither.
+    # -PprLane drops app.lensly.ui.screenshot.* (Roborazzi pixel tests) from both halves. They are
+    # verified nightly by verifyRoborazziDebug instead (guideline 2.7).
+    ui-a)
+        # screenshot is listed so the coverage guard sees it. -PprLane excludes its pixel tests anyway.
+        ./gradlew :app:testDebugUnitTest \
+            --tests 'app.lensly.ui.camera.*' \
+            --tests 'app.lensly.ui.screenshot.*' \
+            --tests 'app.lensly.ui.settings.*' \
+            --tests 'app.lensly.ui.wallet.*' \
+            --tests 'app.lensly.ui.qr.*' \
+            --tests 'app.lensly.ui.navigation.*' \
+            --tests 'app.lensly.ui.a11y.*' \
+            --tests 'app.lensly.ui.theme.*' \
+            -PprLane
+        ;;
+    ui-b)
+        ./gradlew :app:testDebugUnitTest \
+            --tests 'app.lensly.ui.flow.*' \
+            --tests 'app.lensly.ui.components.*' \
+            --tests 'app.lensly.ui.home.*' \
+            --tests 'app.lensly.ui.sign.*' \
+            --tests 'app.lensly.ui.gate.*' \
+            --tests 'app.lensly.ui.profile.*' \
+            --tests 'app.lensly.ui.SecureWindowTest' \
+            -PprLane
         ;;
     app)
         # Wallet stores, settings, export and sign pipelines, plus the module smoke test.
@@ -90,6 +118,7 @@ case "$partition" in
             scripts=$((scripts + 1))
         done < <(find "$ROOT/scripts" -type f -name '*.sh' | sort)
         echo "run-partition: bash -n passed for $scripts script(s)"
+        "$ROOT/scripts/ci/check-ui-partitions.sh"
         exec "$ROOT/scripts/ci/check-test-network.sh"
         ;;
     *)

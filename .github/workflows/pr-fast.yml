@@ -85,7 +85,17 @@ jobs:
               - 'gradle/**'
               - 'gradle.properties'
               - 'settings.gradle.kts'
-            ui:
+            # The ui tests run as two partitions (ui-a, ui-b) with the same paths, so each change runs both.
+            ui-a:
+              - 'app/src/main/java/app/lensly/ui/**'
+              - 'app/src/test/java/app/lensly/ui/**'
+              - 'app/src/main/res/values/strings.xml'
+              - 'build.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            ui-b:
               - 'app/src/main/java/app/lensly/ui/**'
               - 'app/src/test/java/app/lensly/ui/**'
               - 'app/src/main/res/values/strings.xml'
@@ -141,7 +151,7 @@ jobs:
     needs: changes
     if: needs.changes.result == 'success' && needs.changes.outputs.partitions != '[]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    timeout-minutes: 5 # guideline 2.1 amendment (2026-11-12)
     strategy:
       fail-fast: false
       matrix:
@@ -156,7 +166,8 @@ jobs:
           distribution: temurin
           java-version: '21.0.13+9'
 
-      # The cache this restores is warmed on master and phase-1-5 by cache-warm.yml.
+      # The cache this restores is warmed on master and phase-1-5 by cache-warm.yml. That workflow's
+      # job is also named `test`: setup-gradle matches entries by job id, so the names must stay equal.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       # run-partition.sh maps the name to its 2.2 selector; `manifest` runs check-manifest.sh and

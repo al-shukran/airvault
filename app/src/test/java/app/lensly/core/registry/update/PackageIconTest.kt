@@ -15,7 +15,7 @@ class PackageIconTest {
     }
 
     private fun verify(payload: String): Result<RegistryPackage> =
-        RegistryUpdate.verify(TestPackages.signed(payload), listOf(TestPackages.PUBLIC_KEY), baked)
+        RegistryUpdate.verify(TestPackages.signed(payload), listOf(TestPackages.PUBLIC_BYTES), baked)
 
     @Test
     fun aPackageWithoutIconFieldsStillVerifies() {

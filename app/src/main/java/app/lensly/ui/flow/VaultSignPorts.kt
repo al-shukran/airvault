@@ -3,6 +3,7 @@ package app.lensly.ui.flow
 import android.content.Context
 import app.lensly.app.RegistryHolder
 import app.lensly.app.ReviewHistory
+import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
@@ -52,13 +53,14 @@ internal class VaultSignPorts(
             val position = listed.indexOfFirst { it.id == walletId }
             if (position < 0) null else viewOf(session, listed[position], position)
         }
-        SignPipeline(RegistryHolder.get(context)).prepare(request, wallet)
+        val proxyPolicy = readWallet { SettingsStore(it).load().proxyPolicy }
+        SignPipeline(RegistryHolder.get(context), proxyPolicy).prepare(request, wallet)
     }
 
     override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
         when (val secret = readWallet { WalletStore(it).secret(walletId) }) {
             is WalletSecret.Mnemonic -> {
-                val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
+                val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
                 try {
                     HdWallet(seed).privateKey(accountIndex)
                 } finally {

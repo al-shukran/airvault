@@ -15,6 +15,10 @@ name: cache-warm
 #     read and never save.
 #   - A PR run restores entries from its base branch, so the phase-1-5 leg is what serves PRs
 #     that target phase-1-5.
+#   - setup-gradle keys the Gradle User Home entry by job id, and a PR restores only entries saved
+#     under the same job id (the `test` job in pr-fast.yml). The job is therefore named `test`
+#     here. Named `warm`, its entries were never read by PR test jobs, which kept restoring a
+#     stale `test` entry from before this job existed.
 on:
   push:
     branches: [master, phase-1-5]
@@ -28,7 +32,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  warm:
+  test: # the job id must match pr-fast.yml's `test` job (see above)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

@@ -24,7 +24,7 @@ private const val SAMPLE = "../tools/registry-pack/samples/example.lrp"
 private const val USDC_ETHEREUM = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 private const val USDC_LINEA = "0x176211869ca2b568f2a7d4ee941e073a821ee1ff"
 
-private val BAKED_KEYS: List<ByteArray> = RegistryUpdate.trustedKeys(fileReader(MAIN))
+private val BAKED_BYTES: List<ByteArray> = RegistryUpdate.trustedKeys(fileReader(MAIN))
 
 /** Simulates the APK layout: each path is read from the first root that contains it. */
 private fun fileReader(vararg roots: String): (String) -> String? = { path ->
@@ -40,7 +40,7 @@ private fun bakedRegistry(): Registry = RegistryLoader.load(fileReader(MAIN))
 
 private fun verifyBytes(
     bytes: ByteArray,
-    keys: List<ByteArray> = listOf(TestPackages.PUBLIC_KEY),
+    keys: List<ByteArray> = listOf(TestPackages.PUBLIC_BYTES),
     baked: Registry = bakedRegistry(),
 ): Result<RegistryPackage> = RegistryUpdate.verify(bytes, keys, baked)
 
@@ -53,7 +53,7 @@ class RegistryUpdateTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private val keys = listOf(TestPackages.PUBLIC_KEY)
+    private val keys = listOf(TestPackages.PUBLIC_BYTES)
 
     private fun registryDir(): File = folder.root.resolve("registry")
 
@@ -268,7 +268,7 @@ class RegistryUpdateTest {
                 baked.tokens().filter { it.chainId != 59144L },
             )
         }
-        val pkg = RegistryUpdate.verify(File(SAMPLE).readBytes(), BAKED_KEYS, bakedWithoutSampleChain).getOrThrow()
+        val pkg = RegistryUpdate.verify(File(SAMPLE).readBytes(), BAKED_BYTES, bakedWithoutSampleChain).getOrThrow()
 
         assertEquals(listOf(59144L), pkg.networks.map { it.chainId })
         assertEquals("Linea", pkg.networks.single().name)
@@ -278,8 +278,8 @@ class RegistryUpdateTest {
 
     @Test
     fun bakedReleaseKeyIsASingle32ByteKey() {
-        assertEquals(1, BAKED_KEYS.size)
-        assertEquals(32, BAKED_KEYS.single().size)
+        assertEquals(1, BAKED_BYTES.size)
+        assertEquals(32, BAKED_BYTES.single().size)
     }
 
     @Test

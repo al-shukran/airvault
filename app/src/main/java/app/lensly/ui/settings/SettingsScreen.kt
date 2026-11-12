@@ -33,7 +33,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.components.ChainIcon
@@ -49,8 +51,14 @@ import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
 
-/** The networks and tokens the catalog holds: the built-in entries plus any installed package. */
-data class Catalog(val networks: List<NetworkEntry>, val tokens: List<TokenEntry>)
+/** The networks, tokens and approved contracts the catalog holds: the built-in entries plus any installed package. */
+data class Catalog(
+    val networks: List<NetworkEntry>,
+    val tokens: List<TokenEntry>,
+    val whitelist: List<WhitelistEntry> = emptyList(),
+    /** True when an installed package is present but failed verification, so the built-in whitelist is in force. */
+    val installedUpdateUnverified: Boolean = false,
+)
 
 /** The count with its noun in the right form, such as "1 network" or "12 networks". */
 private fun Int.countOf(one: String, many: String): String = "$this ${if (this == 1) one else many}"
@@ -67,7 +75,8 @@ private const val PREVIEW_ICONS = 4
  * new cap. [onChangePassword] opens the App Password change, and [onWipe] opens the wipe. [failureDelayCap] is the saved
  * wrong password lockout, null while it is read, and [onFailureDelayCap] opens the screen that changes it. [catalog] is null
  * while it is read, and [onNetworks] and [onTokens] open the lists. [entryGesture] is the gesture the camera uses now, and
- * [onEntryGesture] opens the choice of another.
+ * [onEntryGesture] opens the choice of another. [onApprovedContracts] opens the approved contracts, which [catalog] counts.
+ * [proxyPolicy] is the policy in force, null while it is read, and [onProxyPolicy] opens the screen that changes it.
  */
 @Composable
 fun SettingsScreen(
@@ -81,6 +90,9 @@ fun SettingsScreen(
     catalog: Catalog?,
     onNetworks: () -> Unit,
     onTokens: () -> Unit,
+    onApprovedContracts: () -> Unit = {},
+    proxyPolicy: ProxyPolicy? = null,
+    onProxyPolicy: () -> Unit = {},
     onUpdateCatalog: () -> Unit,
     onWipe: () -> Unit,
     onDuressPassword: () -> Unit = {},
@@ -156,8 +168,33 @@ fun SettingsScreen(
             )
             SettingsRow(
                 title = "Update catalog",
-                description = "Install a signed package from removable storage. It adds networks and tokens.",
+                description = "Install a signed package from removable storage. It adds networks and tokens, and sets the " +
+                    "approved contracts.",
                 onClick = onUpdateCatalog,
+            )
+            if (catalog?.installedUpdateUnverified == true) {
+                SettingsRow(
+                    title = "Installed update",
+                    description = "Installed update could not be verified; using the built-in catalog",
+                )
+            }
+        }
+
+        SettingsSection("Whitelist") {
+            SettingsRow(
+                title = "Approved contracts",
+                description = catalog?.let { it.whitelist.size.countOf("approved call", "approved calls") }
+                    ?: "Reading the catalog…",
+                onClick = onApprovedContracts,
+                loading = catalog == null,
+            )
+            SettingsRow(
+                title = "Proxy policy",
+                description = proxyPolicy?.let { policy ->
+                    if (policy == ProxyPolicy.DEFAULT) "${policy.title} (default)" else policy.title
+                } ?: "Reading the saved policy…",
+                onClick = onProxyPolicy,
+                loading = proxyPolicy == null,
             )
         }
 

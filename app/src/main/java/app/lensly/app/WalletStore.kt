@@ -231,7 +231,7 @@ class WalletStore(private val session: VaultSession) {
         val start = before.accountCount
         val indices = BulkPolicy.indexRange(start, count)
         val secret = mnemonicSecret(id)
-        val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
+        val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
         try {
             // The addresses are not kept. A failure in any of them stops the run here, before anything is saved.
             BulkRun.addresses(HdWallet(seed), indices, onProgress)
@@ -257,7 +257,7 @@ class WalletStore(private val session: VaultSession) {
     fun addresses(id: String, count: Int): List<String> {
         return when (val secret = requireNotNull(secret(id)) { "No wallet $id." }) {
             is WalletSecret.Mnemonic -> {
-                val seed = Mnemonic.toSeed(secret.words, secret.passphrase.orEmpty())
+                val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
                 try {
                     val wallet = HdWallet(seed)
                     (0 until count).map { index -> wallet.address(index) }

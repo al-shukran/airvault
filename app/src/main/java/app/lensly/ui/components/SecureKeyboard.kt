@@ -3,6 +3,7 @@ package app.lensly.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -101,6 +103,7 @@ fun SecureKeyboard(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .keyboardSurface()
             .navigationBarsPadding()
             .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(ROW_GAP),
@@ -207,6 +210,7 @@ fun SecureHexKeyboard(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .keyboardSurface()
             .navigationBarsPadding()
             .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(ROW_GAP),
@@ -238,6 +242,13 @@ fun SecureHexKeyboard(
         }
     }
 }
+
+/**
+ * Makes the whole keyboard a tap target. A tap that lands on no key, such as the gap beside a row or the row padding, is consumed
+ * here, so it does not reach the screen behind and hide the keyboard. Taps outside the keyboard still reach the screen. There is no
+ * visual feedback and no semantics, so the keys look and act as before.
+ */
+private fun Modifier.keyboardSurface(): Modifier = pointerInput(Unit) { detectTapGestures {} }
 
 /**
  * A row of weighted keys with [ROW_PADDING] on each side. With [inset], the row gets a half-key
