@@ -83,9 +83,9 @@ private const val FRAME_INSET = 0.09f
 
 // Places in the card, as fractions of its width (x) and height (y).
 private val CENTRE = Offset(0.5f, 0.40f) // the viewfinder, where the gestures are made
-private val SHUTTER = Offset(0.5f, 0.80f)
-private val THUMBNAIL = Offset(0.25f, 0.80f)
-private val SWITCH = Offset(0.75f, 0.80f)
+private val SHUTTER = Offset(0.5f, 0.88f)
+private val THUMBNAIL = Offset(0.25f, 0.88f)
+private val SWITCH = Offset(0.75f, 0.88f)
 private val SIDE = Offset(0.09f, 0f) // half the gap between two fingers that land side by side
 private val PINCH_START = Offset(0.05f, 0f) // each pinch finger starts this far from the centre
 private val PINCH_END = Offset(0.10f, 0f) // and ends this far, so the span doubles: 1x to 2x
