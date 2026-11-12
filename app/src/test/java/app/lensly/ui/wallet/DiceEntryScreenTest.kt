@@ -11,22 +11,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyTheme
+import java.security.SecureRandom
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.channels.Channel
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,11 +45,8 @@ private const val PHONE_DENSITY = 1.75f
 private val PHONE_WIDTH: Dp = (720f / PHONE_DENSITY).dp
 private val PHONE_HEIGHT: Dp = (1600f / PHONE_DENSITY).dp
 
-/** Gap between two taps that are not the point of a test, so each is an ordinary separate tap. */
-private const val SEPARATE_TAP_MS = 1_000L
-
-/** Quick taps: well under a second apart, the way a real pair of rolls can come in. */
-private const val QUICK_TAP_MS = 50L
+/** The number of values the hide delay is drawn from: 100 + nextInt(4901) covers 100 to 5000 ms. */
+private const val DELAY_DRAW_BOUND = 4_901
 
 /** Height of a button's bounds in dp. [DpRect] has edges but no height of its own. */
 private val DpRect.tall: Dp get() = bottom - top
@@ -59,6 +63,35 @@ private val MIN_DIE_GAP: Dp = 12.dp
 /** Gap between the two coin buttons, in dp. */
 private val COIN_GAP: Dp = 16.dp
 
+/**
+ * A source with fixed draws: every shuffle draw is 0 and the hide-delay draw is [delayDraw]. With every shuffle draw at
+ * 0, one tap moves the dice from 1 2 3 4 5 6 to 2 3 4 5 6 1, and the default delay is the shortest, 100 ms.
+ */
+private class ScriptedRandom(private val delayDraw: Int = 0) : SecureRandom() {
+    override fun nextInt(bound: Int): Int = if (bound == DELAY_DRAW_BOUND) delayDraw else 0
+}
+
+/**
+ * The wait after a tap, held by the test. Each hide records its delay and then stays hidden until [release], so a
+ * test decides when the tiles are shown again.
+ */
+private class HeldHide {
+    /** The delay of every hide so far, in order. */
+    val delays = mutableListOf<Long>()
+    private val releases = Channel<Unit>(Channel.UNLIMITED)
+
+    /** Passed to the screen as its hideFor. */
+    val wait: suspend (Long) -> Unit = { ms ->
+        delays += ms
+        releases.receive()
+    }
+
+    /** Lets the pending hide finish, so the tiles are shown again. */
+    fun release() {
+        releases.trySend(Unit)
+    }
+}
+
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 class DiceEntryScreenTest {
@@ -69,10 +102,16 @@ class DiceEntryScreenTest {
     /** Every symbol the screen handed to onSymbol, in order. */
     private val recorded = mutableListOf<Char>()
 
-    /** Shows the entry for [mode] with its own state: [recorded] gets each symbol and Undo removes the last one. */
-    private fun showEntry(mode: EntropyMode) {
+    /** The wait after each tap. A hide stays until the test calls [reveal]. */
+    private val hold = HeldHide()
+
+    /**
+     * Shows the entry for [mode] with its own state: [recorded] gets each symbol and Undo removes the last one.
+     * [random] decides the shuffles and the hide delay. [hold] decides when the tiles are shown again.
+     */
+    private fun showEntry(mode: EntropyMode, random: SecureRandom = ScriptedRandom(), initial: String = "") {
         compose.setPhone {
-            var entered by remember { mutableStateOf("") }
+            var entered by remember { mutableStateOf(initial) }
             DiceEntryScreen(
                 mode = mode,
                 entered = entered,
@@ -84,22 +123,46 @@ class DiceEntryScreenTest {
                 },
                 onBackspace = { entered = entered.dropLast(1) },
                 onDone = {},
+                random = random,
+                hideFor = hold.wait,
             )
         }
     }
 
-    /** Taps the node with [tag]. Each tap is its own event, so nothing is dropped as a repeat. */
-    private fun tap(tag: String) {
-        compose.onNodeWithTag(tag).performClick()
+    /** Taps the tile labelled [label], e.g. "Roll 3" or "Heads", as one tap. */
+    private fun tapTile(label: String) {
+        compose.onNodeWithContentDescription(label).performClick()
+    }
+
+    private fun tapUndo() {
+        compose.onNodeWithTag(UNDO_TAG).performClick()
+    }
+
+    /** Lets the pending hide finish, and waits until the tiles have been shown again. */
+    private fun reveal() {
+        hold.release()
+        compose.waitForIdle()
+    }
+
+    /** Taps the tile labelled [label], then lets the tiles be shown again. */
+    private fun tapAndReveal(label: String) {
+        tapTile(label)
+        reveal()
+    }
+
+    /** Asserts the label of each tile in grid order. */
+    private fun assertTileLabels(vararg labels: String) {
+        labels.forEachIndexed { index, label ->
+            compose.onNodeWithTag(tileTag(index)).assert(hasContentDescription(label))
+        }
     }
 
     @Test
-    fun eachDiceButtonEntersItsValue() {
+    fun eachDiceTileEntersItsFace() {
         showEntry(EntropyMode.Dice)
 
         for (face in '1'..'6') {
-            compose.mainClock.advanceTimeBy(SEPARATE_TAP_MS)
-            tap(faceTag(face))
+            tapAndReveal("Roll $face")
         }
 
         assertEquals(listOf('1', '2', '3', '4', '5', '6'), recorded)
@@ -109,9 +172,8 @@ class DiceEntryScreenTest {
     fun headsAndTailsEnterTheirSide() {
         showEntry(EntropyMode.Coins)
 
-        tap(faceTag('H'))
-        compose.mainClock.advanceTimeBy(SEPARATE_TAP_MS)
-        tap(faceTag('T'))
+        tapAndReveal("Heads")
+        tapTile("Tails")
 
         assertEquals(listOf('H', 'T'), recorded)
     }
@@ -119,63 +181,93 @@ class DiceEntryScreenTest {
     @Test
     fun undoRemovesTheLastEntry() {
         showEntry(EntropyMode.Dice)
-        tap(faceTag('1'))
-        tap(faceTag('2'))
-        tap(faceTag('3'))
+        for (face in "123") {
+            tapAndReveal("Roll $face")
+        }
         compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("123")
 
-        compose.mainClock.advanceTimeBy(SEPARATE_TAP_MS)
-        tap(UNDO_TAG)
+        tapUndo()
 
         compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("12")
     }
 
     @Test
-    fun sixThenSixTappedFiftyMsApartRecordsTwoEntries() {
+    fun theRecordedFaceIsTheFaceOnTheTappedTileAtTapTime() {
         showEntry(EntropyMode.Dice)
+        tapAndReveal("Roll 1")
 
-        tap(faceTag('6'))
-        compose.mainClock.advanceTimeBy(QUICK_TAP_MS)
-        tap(faceTag('6'))
+        // The scripted shuffle left 2 3 4 5 6 1 on the tiles, so tile 0 now shows 2.
+        assertTileLabels("Roll 2", "Roll 3", "Roll 4", "Roll 5", "Roll 6", "Roll 1")
+        compose.onNodeWithTag(tileTag(0)).performClick()
 
-        assertEquals(listOf('6', '6'), recorded)
-        compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("66")
+        assertEquals(listOf('1', '2'), recorded)
+        compose.onNodeWithTag(LAST_ENTRIES_TAG).assert(hasContentDescription("Last entries: 1, 2"))
     }
 
     @Test
-    fun threeQuickTapsOnTheSameFaceRecordThree() {
-        showEntry(EntropyMode.Dice)
+    fun theTilesAreHiddenForTheDelayAndThenShowTheShuffledLayout() {
+        showEntry(EntropyMode.Dice, random = ScriptedRandom(delayDraw = 0))
+        tapTile("Roll 1")
+        compose.waitForIdle() // the hide starts on the frame after the tap
 
-        repeat(3) {
-            tap(faceTag('3'))
-            compose.mainClock.advanceTimeBy(QUICK_TAP_MS)
+        assertEquals(listOf(HIDE_MIN_MS), hold.delays)
+        for (index in 0..5) {
+            compose.onNodeWithTag(tileTag(index)).assert(hasContentDescription("Shuffling"))
         }
 
-        assertEquals(listOf('3', '3', '3'), recorded)
-        compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("333")
+        reveal()
+        assertTileLabels("Roll 2", "Roll 3", "Roll 4", "Roll 5", "Roll 6", "Roll 1")
     }
 
     @Test
-    fun twoQuickUndoTapsRemoveTwoEntries() {
+    fun theLongestDelayIsFiveSecondsAndKeepsTheTilesHidden() {
+        showEntry(EntropyMode.Dice, random = ScriptedRandom(delayDraw = DELAY_DRAW_BOUND - 1))
+        tapTile("Roll 1")
+        compose.waitForIdle() // the hide starts on the frame after the tap
+
+        assertEquals(listOf(HIDE_MAX_MS), hold.delays)
+        compose.onNodeWithTag(tileTag(0)).assertIsNotEnabled()
+
+        reveal()
+        compose.onNodeWithTag(tileTag(0)).assertIsEnabled()
+    }
+
+    @Test
+    fun aTapWhileHiddenIsRefusedAndTheTilesAreDisabled() {
         showEntry(EntropyMode.Dice)
-        tap(faceTag('1'))
-        tap(faceTag('2'))
-        tap(faceTag('3'))
-        tap(faceTag('4'))
+        tapTile("Roll 6")
 
-        tap(UNDO_TAG)
-        compose.mainClock.advanceTimeBy(QUICK_TAP_MS)
-        tap(UNDO_TAG)
+        for (index in 0..5) {
+            compose.onNodeWithTag(tileTag(index)).assertIsNotEnabled()
+        }
+        compose.onNodeWithTag(tileTag(0)).performTouchInput { click() }
+        compose.onNodeWithTag(UNDO_TAG).assertIsNotEnabled()
 
-        compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("12")
+        assertEquals(listOf('6'), recorded)
+        compose.onNodeWithTag(RECENT_STRIP_TAG).assertTextEquals("6")
+    }
+
+    @Test
+    fun doneAndUndoAreDisabledWhileHidden() {
+        showEntry(EntropyMode.Dice, initial = "1".repeat(EntropyTargets.DICE_MINIMUM))
+        compose.onNodeWithText("DONE").assertIsEnabled()
+        compose.onNodeWithTag(UNDO_TAG).assertIsEnabled()
+
+        tapTile("Roll 1")
+
+        compose.onNodeWithText("DONE").assertIsNotEnabled()
+        compose.onNodeWithTag(UNDO_TAG).assertIsNotEnabled()
+
+        reveal()
+        compose.onNodeWithText("DONE").assertIsEnabled()
+        compose.onNodeWithTag(UNDO_TAG).assertIsEnabled()
     }
 
     @Test
     fun theLastFiveEntriesAreShownNewestAtTheRightAndSpokenInOrder() {
         showEntry(EntropyMode.Dice)
         for (face in "123456") {
-            compose.mainClock.advanceTimeBy(SEPARATE_TAP_MS)
-            tap(faceTag(face))
+            tapAndReveal("Roll $face")
         }
 
         compose.onNodeWithTag(LAST_ENTRIES_TAG)
@@ -190,29 +282,28 @@ class DiceEntryScreenTest {
     }
 
     @Test
-    fun aDieButtonIsAtLeast88dpTallAndDiceAreSeparatedByAtLeast12dp() {
+    fun aDieTileIsAtLeast88dpTallAndDiceAreSeparatedByAtLeast12dp() {
         showEntry(EntropyMode.Dice)
-        val bounds = "123456".associateWith { compose.onNodeWithTag(faceTag(it)).getBoundsInRoot() }
+        val bounds = (0..5).map { compose.onNodeWithTag(tileTag(it)).getBoundsInRoot() }
 
-        for ((face, box) in bounds) {
-            assertTrue(box.tall >= MIN_DIE_HEIGHT, "die $face is ${box.tall} tall")
-            assertTrue(box.bottom <= PHONE_HEIGHT, "die $face runs off the bottom of the phone")
+        for ((index, box) in bounds.withIndex()) {
+            assertTrue(box.tall >= MIN_DIE_HEIGHT, "tile $index is ${box.tall} tall")
+            assertTrue(box.bottom <= PHONE_HEIGHT, "tile $index runs off the bottom of the phone")
         }
-        for (row in listOf("123", "456")) {
-            for ((left, right) in row.zipWithNext()) {
-                val gap = bounds.getValue(right).left - bounds.getValue(left).right
-                assertTrue(gap >= MIN_DIE_GAP, "gap between $left and $right is $gap")
-            }
+        // Tiles 0, 1 and 3, 4 sit before a gap within their row.
+        for (index in listOf(0, 1, 3, 4)) {
+            val gap = bounds[index + 1].left - bounds[index].right
+            assertTrue(gap >= MIN_DIE_GAP, "gap after tile $index is $gap")
         }
-        val rowGap = bounds.getValue('4').top - bounds.getValue('1').bottom
+        val rowGap = bounds[3].top - bounds[0].bottom
         assertTrue(rowGap >= MIN_DIE_GAP, "gap between the rows is $rowGap")
     }
 
     @Test
     fun coinButtonsAreAtLeast120dpTallWithA16dpGap() {
         showEntry(EntropyMode.Coins)
-        val heads: DpRect = compose.onNodeWithTag(faceTag('H')).getBoundsInRoot()
-        val tails: DpRect = compose.onNodeWithTag(faceTag('T')).getBoundsInRoot()
+        val heads: DpRect = compose.onNodeWithTag(tileTag(0)).getBoundsInRoot()
+        val tails: DpRect = compose.onNodeWithTag(tileTag(1)).getBoundsInRoot()
 
         assertTrue(heads.tall >= MIN_COIN_HEIGHT, "heads is ${heads.tall} tall")
         assertTrue(tails.tall >= MIN_COIN_HEIGHT, "tails is ${tails.tall} tall")

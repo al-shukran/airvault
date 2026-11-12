@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +50,9 @@ import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
+import java.security.SecureRandom
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 
 /** How many of the newest entries the dot-matrix strip shows. */
 private const val RECENT_ENTRIES = 20
@@ -80,8 +83,8 @@ const val UNDO_TAG = "entry-undo"
 /** Test tag of the recent-entries strip, whose text is the newest entries. */
 const val RECENT_STRIP_TAG = "entry-recent"
 
-/** Test tag of one value button, e.g. `entry-face-3` or `entry-face-H`. */
-fun faceTag(symbol: Char): String = "entry-face-$symbol"
+/** Test tag of the value tile at [index] in the grid. The tile moves its face around, so the tag is the position. */
+fun tileTag(index: Int): String = "entry-tile-$index"
 
 /** Test tag of the last-entries row above the value buttons. */
 const val LAST_ENTRIES_TAG = "entry-last"
@@ -100,7 +103,10 @@ private val LAST_FACE_SIZE = 44.dp
  * record so far, and [onSymbol] is called with one more face. Taps are never refused for reaching a
  * count; only [EntropyTargets.MAX_SYMBOLS] stops them. DONE enables at [minimumCount], and
  * [fullStrengthCount] is where the entry reaches its full 256 bits. Undo is off until the first face.
- * Every tap on a value button records one entry, and every Undo tap removes one.
+ * Every tap on a value tile records one entry, and every Undo tap removes one. Each of those taps then hides
+ * the tiles and reorders them with [random], and they are shown again after a random 100 ms to 5 s. While they
+ * are hidden, the tiles, Undo and Done take no taps. [random] draws the shuffles and the delay, and [hideFor]
+ * waits out the delay. Both are injected so tests can run without real time or real randomness.
  */
 @Composable
 fun DiceEntryScreen(
@@ -112,7 +118,17 @@ fun DiceEntryScreen(
     onBackspace: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
+    random: SecureRandom = remember { SecureRandom() },
+    hideFor: suspend (durationMs: Long) -> Unit = { delay(it) },
 ) {
+    val tiles = remember(mode, random) { EntryTiles(mode, random) }
+    val hidden = tiles.hidden
+    LaunchedEffect(hidden) {
+        if (hidden) {
+            hideFor(tiles.hideDelayMs())
+            tiles.reveal()
+        }
+    }
     val progress = entropyProgress(mode, entered.length, minimumCount, fullStrengthCount)
     val complete = entered.length >= minimumCount
     val atCap = entered.length >= EntropyTargets.MAX_SYMBOLS
@@ -127,14 +143,14 @@ fun DiceEntryScreen(
                 horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
             ) {
                 UndoControl(
-                    enabled = entered.isNotEmpty(),
-                    onClick = onBackspace,
+                    enabled = entered.isNotEmpty() && !hidden,
+                    onClick = { if (tiles.hide()) onBackspace() },
                 )
                 PillButton(
                     text = "Done",
                     onClick = onDone,
                     accent = true,
-                    enabled = complete,
+                    enabled = complete && !hidden,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -177,7 +193,9 @@ fun DiceEntryScreen(
         Spacer(Modifier.height(LenslySpacing.sm))
         EntryPad(
             mode = mode,
-            onSymbol = { symbol -> if (!atCap && mode.accepts(symbol)) onSymbol(symbol) },
+            faces = tiles.faces,
+            hidden = hidden,
+            onTile = { index -> if (!atCap) tiles.tap(index)?.let(onSymbol) },
         )
         Spacer(Modifier.height(LenslySpacing.md))
     }
@@ -289,41 +307,43 @@ private fun LastSlot(mode: EntropyMode, symbol: Char?, newest: Boolean, modifier
     }
 }
 
-/** The value buttons for [mode]: the dice faces or the two coin sides. */
+/** The value tiles for [mode], showing [faces] in tile order. [onTile] is called with the index of a tapped tile. */
 @Composable
-private fun EntryPad(mode: EntropyMode, onSymbol: (Char) -> Unit) {
+private fun EntryPad(mode: EntropyMode, faces: List<Char>, hidden: Boolean, onTile: (Int) -> Unit) {
     when (mode) {
-        EntropyMode.Dice -> DicePad(onSymbol)
-        EntropyMode.Coins -> CoinPad(onSymbol)
+        EntropyMode.Dice -> DicePad(faces, hidden, onTile)
+        EntropyMode.Coins -> CoinPad(faces, hidden, onTile)
     }
 }
 
-/** The six dice faces in a 3 by 2 grid that fills the width, with a 12 dp gap. */
+/** The six dice tiles in a 3 by 2 grid that fills the width, with a 12 dp gap. */
 @Composable
-private fun DicePad(onSymbol: (Char) -> Unit) {
+private fun DicePad(faces: List<Char>, hidden: Boolean, onTile: (Int) -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
     ) {
-        for (row in listOf("123", "456")) {
+        for (row in 0..1) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
             ) {
-                for (symbol in row) {
-                    EntryButton(
-                        tag = faceTag(symbol),
-                        description = "Roll ${symbol - '0'}",
+                for (index in row * 3 until row * 3 + 3) {
+                    val face = faces[index] - '0'
+                    EntryTile(
+                        index = index,
+                        hidden = hidden,
+                        label = "Roll $face",
                         modifier = Modifier.weight(1f).height(DIE_BUTTON_HEIGHT),
-                        onClick = { onSymbol(symbol) },
+                        onTile = onTile,
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(LenslySpacing.xxs),
                         ) {
-                            DieFace(face = symbol - '0', faceSize = DIE_PIP_SIZE)
+                            DieFace(face = face, faceSize = DIE_PIP_SIZE)
                             Text(
-                                text = symbol.toString(),
+                                text = face.toString(),
                                 style = MaterialTheme.typography.headlineLarge,
                                 color = LenslyOnSurface,
                             )
@@ -337,44 +357,65 @@ private fun DicePad(onSymbol: (Char) -> Unit) {
 
 /** Heads and Tails side by side, with a 16 dp gap. Each is tall and wide, so either is easy to tap. */
 @Composable
-private fun CoinPad(onSymbol: (Char) -> Unit) {
+private fun CoinPad(faces: List<Char>, hidden: Boolean, onTile: (Int) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(LenslySpacing.md),
     ) {
-        CoinButton(
-            side = 'H',
-            label = "Heads",
-            modifier = Modifier.weight(1f).height(COIN_BUTTON_HEIGHT),
-            onClick = { onSymbol('H') },
-        )
-        CoinButton(
-            side = 'T',
-            label = "Tails",
-            modifier = Modifier.weight(1f).height(COIN_BUTTON_HEIGHT),
-            onClick = { onSymbol('T') },
-        )
+        for (index in faces.indices) {
+            val side = faces[index]
+            val label = if (side == 'H') "Heads" else "Tails"
+            EntryTile(
+                index = index,
+                hidden = hidden,
+                label = label,
+                modifier = Modifier.weight(1f).height(COIN_BUTTON_HEIGHT),
+                onTile = onTile,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
+                ) {
+                    CoinMark(side = side, markSize = COIN_ICON_SIZE)
+                    Text(
+                        text = label.uppercase(),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = LenslyOnSurface,
+                    )
+                }
+            }
+        }
     }
 }
 
+/**
+ * One value tile at [index]. Its label follows the face it shows. While the tiles are [hidden] it is disabled, reads
+ * "Shuffling", and shows no face, so a tap cannot land on a face the owner cannot see.
+ */
 @Composable
-private fun CoinButton(side: Char, label: String, modifier: Modifier, onClick: () -> Unit) {
+private fun EntryTile(
+    index: Int,
+    hidden: Boolean,
+    label: String,
+    modifier: Modifier,
+    onTile: (Int) -> Unit,
+    content: @Composable BoxScope.() -> Unit,
+) {
     EntryButton(
-        tag = faceTag(side),
-        description = label,
+        tag = tileTag(index),
+        description = if (hidden) "Shuffling" else label,
+        enabled = !hidden,
         modifier = modifier,
-        onClick = onClick,
+        onClick = { onTile(index) },
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-        ) {
-            CoinMark(side = side, markSize = COIN_ICON_SIZE)
+        if (hidden) {
             Text(
-                text = label.uppercase(),
-                style = MaterialTheme.typography.headlineSmall,
-                color = LenslyOnSurface,
+                text = "Shuffling…",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        } else {
+            content()
         }
     }
 }
@@ -398,12 +439,14 @@ private fun CoinMark(side: Char, markSize: Dp) {
 
 /**
  * A value button: a large surface tile that shrinks and dims while pressed and plays the key haptic on
- * every tap. [description] is what a screen reader says.
+ * every tap. [description] is what a screen reader says. When not [enabled] it takes no taps and plays no
+ * haptic, and its fill drops to the page surface so it reads as covered.
  */
 @Composable
 private fun EntryButton(
     tag: String,
     description: String,
+    enabled: Boolean,
     modifier: Modifier,
     onClick: () -> Unit,
     content: @Composable BoxScope.() -> Unit,
@@ -415,9 +458,13 @@ private fun EntryButton(
             .testTag(tag)
             .pressFeedback(interaction, enabled = true)
             .clip(BUTTON_SHAPE)
-            .background(MaterialTheme.colorScheme.surfaceVariant, BUTTON_SHAPE)
-            .tapHaptic(haptics)
+            .background(
+                if (enabled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
+                BUTTON_SHAPE,
+            )
+            .tapHaptic(haptics, enabled)
             .clickable(
+                enabled = enabled,
                 interactionSource = interaction,
                 indication = null,
                 role = Role.Button,
