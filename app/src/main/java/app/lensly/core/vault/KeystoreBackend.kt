@@ -26,6 +26,12 @@ internal interface KeystoreBackend {
     /** Deletes every Delay State MAC key except the one for [keepSeq], and the legacy key too. A null [keepSeq] deletes them all. */
     fun deleteFailureMacKeysExcept(keepSeq: Long?)
 
+    /** Deletes the Delay State MAC key for [seq], if there is one. */
+    fun deleteFailureMacKey(seq: Long)
+
+    /** The sequence numbers of the Delay State MAC keys the Keystore holds. Throws if the Keystore cannot list them. */
+    fun failureMacKeySeqs(): List<Long>
+
     /** Removes every key the vault uses on this device. */
     fun deleteAll()
 
@@ -52,6 +58,10 @@ internal class AndroidKeystoreBackend(private val context: Context) : KeystoreBa
     override fun legacyFailureMacKey(): SecretKey? = VaultKeystore.legacyFailureMacKey()
 
     override fun deleteFailureMacKeysExcept(keepSeq: Long?) = VaultKeystore.deleteFailureMacKeysExcept(keepSeq)
+
+    override fun deleteFailureMacKey(seq: Long) = VaultKeystore.deleteFailureMacKey(seq)
+
+    override fun failureMacKeySeqs(): List<Long> = VaultKeystore.failureMacKeySeqs()
 
     override fun deleteAll() = VaultKeystore.deleteAll()
 

@@ -1,6 +1,7 @@
 package app.lensly.core.vault
 
 import java.io.File
+import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.ProviderException
 import javax.crypto.SecretKey
@@ -23,6 +24,10 @@ class FailureStoreKeystoreErrorTest {
     private val clock = FakeClock()
     private val keys = MemoryKeystore()
     private val flaky = FlakyKeystore(keys)
+
+    private fun File.primary() = File(this, FailureStore.PRIMARY_FILE_NAME)
+
+    private fun File.backup() = File(this, FailureStore.BACKUP_FILE_NAME)
 
     /**
      * A keystore whose Delay State key calls fail when a test asks, the way a Keystore error does. A refused key creation also
@@ -85,21 +90,70 @@ class FailureStoreKeystoreErrorTest {
     }
 
     @Test
-    fun aKeyReadFailureOnTheSuccessSaveSkipsTheResetAndDoesNotThrow() {
+    fun aResetThatCannotRotateTheKeyIsNeverWrittenUnderTheOldOne() {
         val dir = File(tmp.root, "vault")
         val store = FailureStore(dir, flaky)
         store.initialize(clock)
         val failed = store.recordFailure(store.load(clock), clock)
+        val primaryBefore = dir.primary().readBytes()
+        val backupBefore = dir.backup().readBytes()
 
         flaky.refuseNewKeys = true
         flaky.failReads = true
-        val after = store.recordSuccess(failed, clock)
-        assertEquals(failed.failures, after.failures)
+        // The reset cannot make its key, so it is kept in memory for this process, and nothing is written under the key on disk.
+        assertEquals(0, store.recordSuccess(failed, clock).failures)
+        assertTrue(primaryBefore.contentEquals(dir.primary().readBytes()))
+        assertTrue(backupBefore.contentEquals(dir.backup().readBytes()))
 
-        // Nothing was written, so the copies still hold the one failure and verify once the Keystore works again.
+        // A new process sees the stored count, the stricter one, once the Keystore works again.
         flaky.refuseNewKeys = false
         flaky.failReads = false
+        FailureStore.forget(dir)
         assertEquals(1, FailureStore(dir, flaky).load(clock).failures)
+    }
+
+    @Test
+    fun aPersistentKeyCreationFailureDoesNotExtendTheLockFromEachAttempt() {
+        val dir = File(tmp.root, "vault")
+        FailureStore(dir, flaky).initialize(clock)
+        // Past the learning period, so the strictest cap is the one that applies.
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        // The copies are lost, and the Keystore refuses every new key, so the lockout cannot be saved.
+        dir.primary().delete()
+        dir.backup().delete()
+        flaky.refuseNewKeys = true
+
+        // The first attempt locks for one hour, from now.
+        assertTrue(FailureStore(dir, flaky).checkDelay(clock, FakeClock.START_WALL).blocked)
+        // Attempts inside that hour do not start another one, so the end of the wait does not move.
+        clock.advance(FailureDelay.MAX_CAP_MS - 1)
+        assertTrue(FailureStore(dir, flaky).checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(1)
+        // The hour has run out, so the owner is no longer held.
+        assertFalse(FailureStore(dir, flaky).checkDelay(clock, FakeClock.START_WALL).blocked)
+    }
+
+    @Test
+    fun anIOExceptionFromTheKeystoreNeverEscapesTheDelayCheck() {
+        val dir = File(tmp.root, "vault")
+        val io = IoFailingKeystore(keys)
+        val store = FailureStore(dir, io)
+        store.initialize(clock)
+        store.recordFailure(store.load(clock), clock)
+
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        io.failing = true
+        // Every call returns: the check blocks the attempt, a failure that cannot be saved locks at the strictest cap, and a reset that
+        // cannot be saved is kept in memory. Nothing is thrown.
+        val check = FailureStore(dir, io).checkDelay(clock, FakeClock.START_WALL)
+        assertTrue(check.blocked)
+        assertEquals(FailureStore.TAMPER_FAILURES, FailureStore(dir, io).recordFailureOrLock(check.state, clock).failures)
+        assertTrue(FailureStore(dir, io).checkDelay(clock, FakeClock.START_WALL).blocked)
+
+        clock.advance(FailureDelay.MAX_CAP_MS)
+        val passed = FailureStore(dir, io).checkDelay(clock, FakeClock.START_WALL)
+        assertFalse(passed.blocked)
+        assertEquals(0, FailureStore(dir, io).recordSuccess(passed.state, clock).failures)
     }
 
     @Test
@@ -130,6 +184,25 @@ class FailureStoreKeystoreErrorTest {
         assertEquals(UnlockResult.Rejected, runBlocking { vault.unlock(APP.toCharArray()) })
         flaky.failReads = false
         assertEquals(FailureStore.TAMPER_FAILURES, vault.failureCountForTesting())
+    }
+
+    /** A keystore whose Delay State key calls throw an IOException, as a Keystore service that has died can. */
+    private class IoFailingKeystore(private val inner: KeystoreBackend) : KeystoreBackend by inner {
+        var failing = false
+
+        private fun fail(): Nothing = throw IOException("the Keystore service is gone")
+
+        override fun createFailureMacKey(seq: Long): SecretKey = if (failing) fail() else inner.createFailureMacKey(seq)
+
+        override fun failureMacKey(seq: Long): SecretKey? = if (failing) fail() else inner.failureMacKey(seq)
+
+        override fun legacyFailureMacKey(): SecretKey? = if (failing) fail() else inner.legacyFailureMacKey()
+
+        override fun failureMacKeySeqs(): List<Long> = if (failing) fail() else inner.failureMacKeySeqs()
+
+        override fun deleteFailureMacKeysExcept(keepSeq: Long?) = if (failing) fail() else inner.deleteFailureMacKeysExcept(keepSeq)
+
+        override fun deleteFailureMacKey(seq: Long) = if (failing) fail() else inner.deleteFailureMacKey(seq)
     }
 
     private companion object {

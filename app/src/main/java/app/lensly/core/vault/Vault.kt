@@ -413,7 +413,7 @@ class Vault internal constructor(
      */
     private suspend fun checkPasswordLocked(password: CharArray): OpenedSlot? {
         if (!layout.exists()) return null
-        val header = VaultHeader.decode(layout.header.readBytes())
+        val header = VaultHeader.decode(readVaultFile(layout.header))
         val store = failureStore()
         // The Failure Delay check. While the wait runs, the time it has served is saved, so a reboot continues the wait.
         val check = store.checkDelay(clock, header.createdAtWallMs)
@@ -428,7 +428,7 @@ class Vault internal constructor(
         val softKey = withContext(Dispatchers.Default) { Argon2Kdf.derive(password, header.salt, header.kdf) }
         var handedOver = false
         try {
-            val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
+            val contents = VaultKeyFile.decode(readVaultFile(layout.vaultKey))
             val opened = contents.slots.indices.mapNotNull { index ->
                 openSoftLayer(softKey, contents, index)?.let { index to it }
             }
@@ -436,7 +436,8 @@ class Vault internal constructor(
                 throw VaultException("The vault key file is damaged: two slots open with one password.")
             }
             if (opened.isEmpty()) {
-                store.recordFailure(state, clock)
+                // A wrong password that cannot be saved locks instead of throwing, so the attempt is blocked and nothing escapes.
+                store.recordFailureOrLock(state, clock)
                 return null
             }
             // The software layer authenticated, so the password is right. Reset the count before the hardware step.
@@ -845,6 +846,13 @@ class Vault internal constructor(
     }
 
     private fun failureStore(): FailureStore = FailureStore(layout.root, keys, readBootCount)
+
+    /** The bytes of a vault file. A file that cannot be read is damage to the vault, reported as the documented [VaultException]. */
+    private fun readVaultFile(file: File): ByteArray = try {
+        file.readBytes()
+    } catch (e: IOException) {
+        throw VaultException("The vault file ${file.name} could not be read.", e)
+    }
 
     /**
      * Starts the Failure Delay state. Its first Keystore key is made here, so a device whose Keystore refuses it gets no vault.

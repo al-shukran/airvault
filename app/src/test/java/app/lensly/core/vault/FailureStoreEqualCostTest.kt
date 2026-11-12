@@ -2,6 +2,7 @@ package app.lensly.core.vault
 
 import java.io.File
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -43,5 +44,27 @@ class FailureStoreEqualCostTest {
 
         assertEquals(2, failure.writes, "one failure writes the primary and the backup copy")
         assertEquals(failure.writes, success.writes, "a passing check must cost the same storage work as a failure")
+    }
+
+    @Test
+    fun aBlockedAttemptWritesTheSameWhetherOrNotBootCountIsReadable() {
+        val clock = FakeClock()
+        val readable = Counter()
+        val unreadable = Counter()
+        val withCount = FailureStore(File(tmp.root, "readable"), failureKeys, { 7 }, write = readable::write)
+        val withoutCount = FailureStore(File(tmp.root, "unreadable"), successKeys, { null }, write = unreadable::write)
+        withCount.initialize(clock)
+        withoutCount.initialize(clock)
+        withCount.recordFailure(withCount.load(clock), clock)
+        withoutCount.recordFailure(withoutCount.load(clock), clock)
+        clock.advance(4_000)
+        readable.writes = 0
+        unreadable.writes = 0
+
+        // Both attempts are inside the 10 s wait, so both are blocked and both save the time served.
+        assertTrue(withCount.checkDelay(clock, FakeClock.START_WALL).blocked)
+        assertTrue(withoutCount.checkDelay(clock, FakeClock.START_WALL).blocked)
+        assertEquals(2, readable.writes, "a blocked attempt saves once: the primary and the backup copy")
+        assertEquals(readable.writes, unreadable.writes, "an unreadable BOOT_COUNT must not change the storage work")
     }
 }

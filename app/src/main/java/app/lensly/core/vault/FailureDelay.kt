@@ -1,5 +1,33 @@
 package app.lensly.core.vault
 
+/*
+ * Threat model for the Failure Delay. The attacker holds the phone, can edit the app's files (root, or a restored backup), reboot
+ * it, set its clocks, write Settings.Global.BOOT_COUNT, and make the Keystore or the storage fail. Each attack and its defence:
+ * 1. Restore an older pair of copies: every save MACs under a new Keystore key and deletes the older keys, so the older pair does
+ *    not verify. A pair older than the newest key the Keystore still lists is tampered too, because a deletion may have failed.
+ *    Tampering locks at the cap of a copy that still verifies, or at the strictest cap (1 h) when none does.
+ * 2. Delete one copy: the other still verifies, so the owner's cap is kept and the missing copy is rewritten.
+ * 3. Delete both copies, or every key: nothing verifies, so the state locks at the strictest cap.
+ * 4. Reboot: the served time is saved at each check. A monotonic reading below the save time proves that the clock restarted, and
+ *    the wait goes on from the served time plus the time since that boot, never from zero.
+ * 5. Move the wall clock forward within one boot: the monotonic reading bounds the wait, so the jump cannot shorten it.
+ * 6. Move the wall clock back past the failure: a negative reading is tampering.
+ * 7. Move the wall clock forward across a reboot: the wall clock never credits more than the served time plus the time since the
+ *    boot, with or without a boot count, so the jump cannot end the wait early.
+ * 8. Raise BOOT_COUNT without a reboot: the monotonic clock did not restart, so the count is not believed. The wait is measured on
+ *    the monotonic clock alone, which cannot overstate the served time.
+ * 9. Lower BOOT_COUNT: no reboot does that, so the state is tampered and locks at the strictest cap.
+ * 10. Make BOOT_COUNT unreadable: the recorded count is not compared, and items 4, 5, 6 and 7 still hold.
+ * 11. Make the Keystore or the storage fail: no error is thrown past FailureStore. A failed check that cannot be saved deletes the
+ *    copies and locks at the strictest cap. A lock that cannot be saved is held in memory with the time it was first made, so
+ *    repeated attempts cannot extend it: the owner waits at most one hour from that time. A correct password is never refused for good.
+ * 12. Time the attempts: a blocked attempt saves once, as a failed or a passing attempt does, whether or not BOOT_COUNT is readable.
+ * 13. Replay an older payload: a reset is never written under a key that is already on disk, because two payloads would then verify
+ *    under it. While no new key can be made, the reset stays in memory for this process.
+ * 14. Crash between the write of a save and the deletion of the old key: the deletion is repeated on every load and save, so the
+ *    next load recovers it.
+ */
+
 /**
  * Failure bookkeeping as persisted by [FailureStore].
  *
@@ -82,31 +110,38 @@ internal class FailureDelay(
         private const val MAX_EXPONENT = 40
 
         /**
-         * Milliseconds elapsed since the failure recorded in [state]. It is never more than the real time that has passed, so
-         * the wait ends only after the delay has really run.
+         * Milliseconds of the wait served since the failure recorded in [state], as the least that the clocks allow. It is never more
+         * than the real time that has passed, so the wait ends only after the delay has really run (see the threat model above).
          *
-         * [bootCount] is the device's current `Settings.Global.BOOT_COUNT`, or null when it could not be read.
-         * - Same boot count: the result is the smaller of the monotonic and wall readings, so a wall clock moved forward
-         *   cannot shorten the delay.
-         * - A different boot count means the device rebooted, and the monotonic clock restarted with it. The wait then
-         *   continues from [FailureState.elapsedAtSave], plus the time since this boot, and the wall clock is not used.
-         *   Moving the wall clock forward or back therefore cannot end the wait early. A count that a root user edits goes
-         *   the same way, and can only make the wait longer.
-         * - No boot count on either side: the monotonic clock is used alone while it did not go back, and the wall clock
-         *   carries the wait when it did, which is the reboot it can see.
+         * [state] was saved at monotonic time `lastFailureElapsedMs + elapsedAtSave`. A monotonic reading below that time proves that
+         * the clock restarted, which is a reboot. Then the wait continues from the served time plus the time since this boot. With a
+         * boot count on the state, the wall clock is not used at all. Without one, the wall clock may only shorten that credit, so a
+         * moved clock cannot add to it. Without a restart, the monotonic reading alone measures the wait, and the wall clock may only
+         * shorten it. A boot count that went up without a restart is not believed, because it can be written without one.
          *
-         * A negative result means the wall clock moved backwards within one boot, which [FailureStore] treats as tampering.
+         * [bootCount] is the device's current `Settings.Global.BOOT_COUNT`, or null when it could not be read. A count that went down
+         * is tampering, which [FailureStore] detects with [bootCountWentBack]. A negative result means the wall clock moved backwards
+         * past the failure, which [FailureStore] also treats as tampering.
          */
         fun elapsedSinceFailure(state: FailureState, clock: Clock, bootCount: Int? = null): Long {
             val monotonicNow = clock.elapsedMillis()
             val wallElapsed = clock.wallMillis() - state.lastFailureWallMs
-            val storedBootCount = state.bootCount
-            if (storedBootCount != null && bootCount != null) {
-                if (bootCount != storedBootCount) return state.elapsedAtSave + monotonicNow
-                return minOf(monotonicNow - state.lastFailureElapsedMs, wallElapsed)
+            val savedAt = state.lastFailureElapsedMs + state.elapsedAtSave
+            if (monotonicNow < savedAt) {
+                // The clock restarted: the time since this boot is real time that passed after the save.
+                val continued = state.elapsedAtSave + monotonicNow
+                return if (state.bootCount != null) continued else minOf(wallElapsed, continued)
             }
-            if (monotonicNow < state.lastFailureElapsedMs) return wallElapsed
-            return minOf(monotonicNow - state.lastFailureElapsedMs, wallElapsed)
+            val monotonicElapsed = monotonicNow - state.lastFailureElapsedMs
+            val storedBootCount = state.bootCount
+            if (storedBootCount != null && bootCount != null && bootCount > storedBootCount) return monotonicElapsed
+            return minOf(monotonicElapsed, wallElapsed)
+        }
+
+        /** True when the device reports a boot count below the one recorded with [state], which no reboot can cause. */
+        fun bootCountWentBack(state: FailureState, bootCount: Int?): Boolean {
+            val stored = state.bootCount ?: return false
+            return bootCount != null && bootCount < stored
         }
     }
 }

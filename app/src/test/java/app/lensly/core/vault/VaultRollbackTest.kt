@@ -158,6 +158,61 @@ class VaultRollbackTest {
         unlocked(attempt(APP)).close()
     }
 
+    @Test
+    fun aBootCountRaisedWithoutARebootDoesNotEndTheWaitEarly() {
+        createVault()
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        assertRejected(attempt(WRONG))
+
+        // The attacker writes BOOT_COUNT up by one. The device has not rebooted, so the monotonic clock keeps counting.
+        bootCount = 8
+        clock.advance(1_000)
+        assertRejected(attempt(APP))
+        clock.advance(8_999)
+        assertRejected(attempt(APP))
+        clock.advance(1)
+        unlocked(attempt(APP)).close()
+    }
+
+    @Test
+    fun aCorrectUnlockResetsTheCountWhenTheKeyOfTheStateIsGone() {
+        createVault()
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        assertRejected(attempt(WRONG))
+        clock.advance(FailureDelay.LEARNING_CAP_MS)
+
+        // The Keystore loses every Delay State key, and refuses to make another, so the state can be neither read nor saved.
+        keys.deleteFailureMacKeysExcept(null)
+        val refusing = object : KeystoreBackend by keys {
+            override fun createFailureMacKey(seq: Long): SecretKey = throw GeneralSecurityException("no key")
+        }
+        vault = Vault(layout, refusing, clock, KDF, readBootCount = { bootCount })
+
+        // The unreadable state locks at the strictest cap, and that lock is held in memory.
+        assertRejected(attempt(APP))
+        clock.advance(FailureDelay.MAX_CAP_MS)
+        // After the wait, the right password opens the vault, and the count is cleared for this process, with no key for the state.
+        unlocked(attempt(APP)).close()
+        assertEquals(0, vault.failureCountForTesting())
+        unlocked(attempt(APP)).close()
+    }
+
+    @Test
+    fun aStorageErrorNeverThrowsFromUnlockAndTheCorrectPasswordOpensAfterTheWait() {
+        createVault()
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        // Every write of the Delay State fails, as on a full disk: its temp file cannot be created.
+        File(layout.root, "${FailureStore.PRIMARY_FILE_NAME}.tmp").mkdirs()
+
+        // A wrong password whose failure cannot be saved locks at the strictest cap, and nothing is thrown.
+        assertRejected(attempt(WRONG))
+        assertRejected(attempt(APP))
+        clock.advance(FailureDelay.MAX_CAP_MS - 1)
+        assertRejected(attempt(APP))
+        clock.advance(1)
+        unlocked(attempt(APP)).close()
+    }
+
     private fun createVault() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
     }

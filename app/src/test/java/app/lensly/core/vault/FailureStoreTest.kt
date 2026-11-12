@@ -105,13 +105,14 @@ class FailureStoreTest {
     }
 
     @Test
-    fun recordSuccessWithoutFailuresChangesNothing() {
+    fun recordSuccessWithoutFailuresKeepsTheCountAtZero() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        val state = store.load(clock)
-        assertEquals(state, store.recordSuccess(state, clock))
+        val after = store.recordSuccess(store.load(clock), clock)
+        assertEquals(0, after.failures)
+        assertEquals(0, open(dir).load(clock).failures)
     }
 
     @Test
@@ -205,7 +206,7 @@ class FailureStoreTest {
     }
 
     @Test
-    fun aRebootWithoutABootCountCannotTellTheWaitFromAMovedWallClock() {
+    fun aRebootWithoutABootCountIsNotShortenedByAForwardWallClockJump() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
@@ -217,10 +218,44 @@ class FailureStoreTest {
         clock.elapsed = 2_000L
         clock.wall += FailureDelay.MAX_CAP_MS
         val reloaded = open(dir).load(clock)
-        // This device reports no boot count, so the wall clock carries the wait, as on master: the hour ends it. The recorded
-        // boot count is what closes this gap, see aRebootSeenByTheBootCountContinuesTheWait.
+        // This device reports no boot count. A reboot credits no more than the time since boot, so the hour cannot end the 10 s wait.
         assertEquals(1, reloaded.failures)
-        assertFalse(FailureDelay(FakeClock.START_WALL).isBlocked(reloaded, clock))
+        assertTrue(FailureDelay(FakeClock.START_WALL).isBlocked(reloaded, clock))
+    }
+
+    @Test
+    fun aBootCountRaisedWithoutARebootCannotEndTheWait() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        var bootCount = 7
+        val store = open(dir) { bootCount }
+        store.initialize(clock)
+        store.recordFailure(store.load(clock), clock)
+
+        // The attacker writes BOOT_COUNT up by one, with no reboot. Four seconds in, the attempt is checked and blocked.
+        bootCount = 8
+        clock.advance(4_000)
+        assertTrue(open(dir) { bootCount }.checkDelay(clock, FakeClock.START_WALL).blocked)
+        // The wait is 10 s. Master read the raised count as a reboot, and this check let the attempt through.
+        clock.advance(5_999)
+        assertTrue(open(dir) { bootCount }.checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(1)
+        assertFalse(open(dir) { bootCount }.checkDelay(clock, FakeClock.START_WALL).blocked)
+    }
+
+    @Test
+    fun aDecreasedBootCountIsTamperingAndLocksAtTheStrictestCap() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir) { 8 }
+        store.initialize(clock)
+        store.recordCap(store.load(clock), 5_000L, clock)
+        store.recordFailure(store.load(clock), clock)
+
+        // No reboot lowers the count. The copies still verify, and the owner's 5 s cap is kept on paper, but the lock is the strictest one.
+        val locked = open(dir) { 7 }.load(clock)
+        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
     }
 
     @Test
@@ -289,11 +324,11 @@ class FailureStoreTest {
         store.initialize(clock)
         store.recordFailure(store.load(clock), clock)
 
-        // The device reboots, stays up for longer than that failure was in the previous boot, and the wall clock goes back an
-        // hour. The monotonic clock alone would read as a wall clock moved backwards; the boot count shows a reboot.
+        // The device reboots, and the wall clock goes back an hour. The monotonic clock restarts below the failure's reading, so the
+        // reboot is seen, and the recorded boot count continues the wait instead of reading the backwards clock as tampering.
         FailureStore.forget(dir)
         bootCount = 8
-        clock.elapsed = 6_000L
+        clock.elapsed = 1_000L
         clock.wall -= FailureDelay.MAX_CAP_MS
         val reloaded = open(dir) { bootCount }.load(clock)
 
@@ -560,9 +595,9 @@ class FailureStoreTest {
     }
 
     @Test
-    fun residualOneStepRollbackWhileThePreviousKeyStillExists() {
-        // This documents the residual risk named in FailureStore: a delete that fails after the write, then a restore of the
-        // copies from before the save. The previous key still exists, so that state verifies once, until the next load.
+    fun aRollbackWhileAFailedDeletionLeftTheNewerKeyIsTampered() {
+        // A deletion that fails after a save leaves the older key behind. A restore of the copies from before the save names that
+        // key, but the Keystore still lists the newer one, so the older pair is tampered: it locks at the strictest cap.
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
@@ -571,18 +606,38 @@ class FailureStoreTest {
         val beforeTheSaveBackup = dir.backup().readBytes()
         val deleting = DeleteFails(keys)
         val crashingStore = FailureStore(dir, deleting)
-        val previous = crashingStore.load(clock)
         deleting.armed = true
-        crashingStore.recordFailure(previous, clock)
+        crashingStore.recordFailure(crashingStore.load(clock), clock)
 
         dir.primary().writeBytes(beforeTheSavePrimary)
         dir.backup().writeBytes(beforeTheSaveBackup)
         FailureStore.forget(dir)
 
+        val locked = open(dir).load(clock)
+        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
+        // The lockout is saved under a new key, and the older keys are gone.
+        assertEquals(1, keys.failureMacKeyCount())
+    }
+
+    @Test
+    fun aCrashBetweenTheWriteAndTheKeyDeleteIsRecoveredOnTheNextLoad() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        open(dir).initialize(clock)
+        val deleting = DeleteFails(keys)
+        val store = FailureStore(dir, deleting)
+        // The save writes both copies, the deletion of the old key fails, and then the process dies.
+        deleting.armed = true
+        store.recordFailure(store.load(clock), clock)
+        assertEquals(2, keys.failureMacKeyCount())
+        FailureStore.forget(dir)
+
+        // The next load finds the pair under its newest key, and deletes the key it no longer needs. Nothing was held in memory.
+        deleting.armed = false
         val recovered = open(dir).load(clock)
-        assertEquals(0, recovered.failures)
-        assertEquals(1L, recovered.seq)
-        // The next load deleted the key of the state that was rolled back to, and the newer key too.
+        assertEquals(1, recovered.failures)
+        assertEquals(2L, recovered.seq)
         assertEquals(1, keys.failureMacKeyCount())
     }
 

@@ -13,47 +13,37 @@ import javax.crypto.SecretKey
 /**
  * Persists [FailureState] as two copies in the vault directory: `failures.bin`, then `failures.bak`. Each copy is the state
  * followed by an HMAC-SHA256 made with the Keystore key for that state's sequence number (see
- * [KeystoreBackend.createFailureMacKey]). The primary copy is always written first.
+ * [KeystoreBackend.createFailureMacKey]). The primary copy is always written first. The threat model, and the defence against each
+ * attack, is at the top of FailureDelay.kt.
  *
- * A save creates the key for its new sequence number, writes both copies atomically (temp, fsync, rename), and only then
- * deletes every other Delay State key. So a copy verifies only while its own key exists. A restored older pair names a key
- * that was deleted, so it counts as tampered: it gets the strictest cap, and a copy that still verifies keeps its own cap
- * (see [tamperedCap]). Tampering never lowers the owner's cap. Within this process, a copy older than the last save is also
- * tampered, even if its key still exists. A deletion that the Keystore refuses does not fail the save, because the new pair is
- * already on disk. The next save or load deletes the keys that are left, and remembers that the deletion is outstanding.
+ * A save creates the key for its new sequence number, writes both copies atomically (temp, fsync, rename), and only then deletes
+ * every other Delay State key. So a copy verifies only while its own key exists, and a pair older than the newest key the Keystore
+ * lists is tampered. A deletion that the Keystore refuses does not fail the save, because the new pair is already on disk. The next
+ * load or save deletes the keys that are left.
  *
- * The cap is part of the MAC-protected payload, so it is read before any unlock and cannot be changed in the file without
- * detection. It lives here rather than in the encrypted vault settings, because the delay applies before the vault can be
- * unlocked.
+ * The cap, the boot count and the time the wait had already run are in the MAC-protected payload. Each check made while a wait runs
+ * saves the time served so far (see [checkDelay]), so a reboot continues the wait.
  *
- * The boot count (`Settings.Global.BOOT_COUNT`, or the marker for "not reported") is in the same payload. A later load compares
- * it with the device's current count, so a reboot, which restarts the monotonic clock, still measures the wait from where the
- * state left it and never shortens it (see [FailureDelay.elapsedSinceFailure]). Each check made while the wait runs saves the
- * time served so far (see [checkDelay]). The time served is remembered as of the last check before the reboot. Time between that
- * check and the reboot is not counted, so the wait can run longer than it should, but never shorter.
+ * Copies written before per-save keys (layout versions 1 and 2) verify under the one legacy key. [load] settles such a pair by
+ * saving it again under a new sequence number, which deletes the legacy key. The pending delay is kept.
  *
- * Copies written before per-save keys (layout versions 1 and 2) verify under the one legacy key. [load] settles such a pair
- * by saving it again under a new sequence number, which deletes the legacy key. The pending delay is kept.
- *
- * Keystore errors on the load path are not failures. An error reading or using a key leaves that copy unverified, so the state
- * is tampered: it locks at the strictest cap, or at the cap of a copy that still verifies, and no exception escapes. On the
- * success save, a correct password is never refused because of the Keystore: a refused key is tried again, then the reset goes
- * under the key already on disk, and if that key cannot be read either, the reset is skipped and the unlock goes on.
+ * No storage or Keystore error is thrown past [load], [checkDelay], [recordFailureOrLock] or [recordSuccess]. A lock or a reset that
+ * this process could not save is held in memory (see [PENDING]), so the delay still applies to this process until a save goes through.
+ * [recordFailure], [recordCap] and [initialize] still throw when the state cannot be saved: a cap change and a vault creation report
+ * that to their caller.
  *
  * Assumptions and residual risk:
- * - A deleted Keystore key cannot be brought back. This class cannot prove it. It rests on KeyMint: the StrongBox guarantee
- *   the owner accepted, and whatever the TEE provides. The public SDK offers no rollback-resistance flag for app keys, so the
- *   app cannot request the guarantee. A Delay State key that is not hardware-backed is refused in a release build instead (see
- *   [VaultKeystore.createFailureMacKey]).
- * - Crash window: between writing the new pair and deleting the previous key, the previous key still exists. If power is cut
- *   there and an attacker restores the copies from before the save, the previous state verifies again until the next load
- *   deletes its key. That is one step of rollback per interrupted save.
- * - Failed deletion: a deletion that the Keystore refuses leaves the earlier keys in place until the next save or load. A copy
- *   restored during that window verifies once, as in the crash window. The retry keeps the key of the pair on disk.
- * - The directory is not fsynced after a rename. A power cut right after a save can leave the previous pair with its key
- *   already deleted, which reads as tampered: the owner's cap is kept when one copy verifies, and otherwise the strictest cap.
- * - A failed check whose state cannot be written is not counted. A Keystore error on that save, or on a cap change, surfaces as
- *   [VaultException].
+ * - A deleted Keystore key cannot be brought back. This class cannot prove it. It rests on KeyMint: the StrongBox guarantee the owner
+ *   accepted, and whatever the TEE provides. The public SDK offers no rollback-resistance flag for app keys. A Delay State key that is
+ *   not hardware-backed is refused in a release build instead (see [VaultKeystore.createFailureMacKey]).
+ * - A Keystore that cannot list its keys adds nothing to the newest-key check. A pair restored while the deletion of its newer key
+ *   also failed then verifies once, until the next load that can list the keys.
+ * - A crash between making a key and writing the copies leaves a key newer than the pair on disk. The next load reads the pair as
+ *   tampered and locks at the strictest cap, which fails closed.
+ * - The directory is not fsynced after a rename. A power cut right after a save can leave the previous pair with its key already
+ *   deleted, which reads as tampered: the owner's cap is kept when one copy verifies, and otherwise the strictest cap.
+ * - A lock or reset that could not be saved lives in memory only. A new process reads the stored copies, which may be the stricter
+ *   state, and makes a new lock from its first load if they cannot be read.
  */
 internal class FailureStore(
     private val dir: File,
@@ -68,36 +58,56 @@ internal class FailureStore(
     /** A copy that verified. [legacy] is true for a layout written before per-save keys. */
     private class Copy(val state: FailureState, val legacy: Boolean)
 
+    /** Saves attempted by this instance, so [checkDelay] can tell whether its load already made this attempt's save. */
+    private var saveAttempts = 0
+
     /** The device's current `Settings.Global.BOOT_COUNT`, or null when it could not be read. */
     fun currentBootCount(): Int? = readBootCount()
 
-    /** Loads the stored state, or returns the cap-locking state if the copies look tampered. */
+    /**
+     * The stored state, or the lockout when the copies cannot be trusted. It never throws. A state this process could not save is
+     * returned first, so no Keystore or storage error can lift it.
+     */
     fun load(clock: Clock): FailureState {
+        val written = WRITTEN[seenKey]
         val p = readCopy(primary)
         val b = readCopy(backup)
-        val seen = SEQ_SEEN[seenKey] ?: 0L
-        if (p != null && b != null && p.state.seq >= b.state.seq && p.state.seq >= seen && !wallMovedBack(p.state, clock)) {
-            // A legacy copy, or copies that are not one save apart, means a save or a migration was interrupted. Saving the
-            // state again under a new sequence number settles both copies and deletes the keys they no longer use.
+        // The newest Delay State key the Keystore holds, or the pair this process wrote last. A pair older than either was replaced by a
+        // later save, even when a failed deletion left its key behind.
+        val newest = maxOf(written?.state?.seq ?: 0L, keystoreOrNull { keys.failureMacKeySeqs() }?.maxOrNull() ?: 0L)
+        val highestSeq = maxOf(p?.state?.seq ?: 0L, b?.state?.seq ?: 0L, newest)
+        PENDING[seenKey]?.let { pending ->
+            // A state this process could not save stays in force, with the times it was first made, until a save goes through.
+            return trySave(pending.copy(seq = maxOf(highestSeq, pending.seq) + 1), clock) ?: pending
+        }
+        val bootCount = readBootCount()
+        // A boot count that went down is tampering, whatever the copies say, because no reboot does that.
+        val recorded = listOfNotNull(p, b).map { it.state } + listOfNotNull(written?.state)
+        if (recorded.any { FailureDelay.bootCountWentBack(it, bootCount) }) {
+            return lockAsTampered(clock, highestSeq, verified = emptyList())
+        }
+        if (p != null && b != null && p.state.seq >= b.state.seq && p.state.seq >= newest && !clockWentBack(p.state, clock, bootCount)) {
+            // A legacy copy, or copies that are not one save apart, means a save or a migration was interrupted. Saving the state
+            // again under a new sequence number settles both copies and deletes the keys they no longer use.
             if (p.legacy || b.legacy || p.state.seq != b.state.seq) return settle(p.state, clock)
-            // Keys left behind by an interrupted save are deleted here.
+            // Keys left behind by an interrupted save, or by a deletion the Keystore refused, are deleted here.
             deleteOtherKeys(p.state.seq)
             return p.state
         }
-        // A copy verifies when its MAC checks out under its own key and it is not older than this process has seen.
-        val verified = listOfNotNull(p, b).map { it.state }.filter { it.seq >= seen }
-        return lockAsTampered(clock, highestSeq = maxOf(p?.state?.seq ?: 0L, b?.state?.seq ?: 0L, seen), verified = verified)
+        // The lock this process wrote last is kept while the copies still hold exactly those bytes. Without this, a Keystore that cannot
+        // read the key of that lock would lock again at every load, and the owner could never get through.
+        if (written != null && written.state.failures >= TAMPER_FAILURES && onDisk(primary, written.bytes) && onDisk(backup, written.bytes)) {
+            return written.state
+        }
+        // A copy verifies when its MAC checks out under its own key and no later save is known. Only copies that are not older than
+        // the newest key count.
+        val verified = listOfNotNull(p, b).map { it.state }.filter { it.seq >= newest }
+        return lockAsTampered(clock, highestSeq, verified)
     }
 
-    /**
-     * Saves a pair that [load] found legacy or out of step, under a new sequence number. A Keystore that refuses the new key leaves
-     * the pair as it verified, and this load uses that state. The next load settles it again.
-     */
-    private fun settle(state: FailureState, clock: Clock): FailureState = try {
-        save(state.copy(seq = state.seq + 1), clock)
-    } catch (e: VaultException) {
-        state
-    }
+    /** Saves a pair that [load] found legacy or out of step, under a new sequence number. A failed save leaves the pair as it verified. */
+    private fun settle(state: FailureState, clock: Clock): FailureState =
+        trySave(state.copy(seq = state.seq + 1), clock) ?: state
 
     /** Creates the initial state for a new vault: no failures, sequence 1. */
     fun initialize(clock: Clock) {
@@ -112,7 +122,11 @@ internal class FailureStore(
         )
     }
 
-    /** Records one more failed check, made at [clock]'s current time, and returns the new state. */
+    /**
+     * Records one more failed check, made at [clock]'s current time, and returns the new state.
+     *
+     * @throws VaultException or [IOException] when the state cannot be saved. [recordFailureOrLock] never throws.
+     */
     fun recordFailure(previous: FailureState, clock: Clock): FailureState =
         save(
             previous.copy(
@@ -128,26 +142,49 @@ internal class FailureStore(
         )
 
     /**
-     * Clears the failure count after a passing check. The state is written even when there was nothing to clear, so a
-     * passing check costs the same two writes and fsyncs as a failed one and cannot be told apart by its storage work.
+     * [recordFailure], failing closed: when the failure cannot be saved, both copies are deleted, so a new process locks too instead
+     * of granting a guess the count never saw, and this process locks at the strictest cap from now.
+     */
+    fun recordFailureOrLock(previous: FailureState, clock: Clock): FailureState = try {
+        recordFailure(previous, clock)
+    } catch (e: VaultException) {
+        lockAfterUnsavedFailure(previous, clock)
+    } catch (e: IOException) {
+        lockAfterUnsavedFailure(previous, clock)
+    }
+
+    private fun lockAfterUnsavedFailure(previous: FailureState, clock: Clock): FailureState {
+        primary.delete()
+        backup.delete()
+        // A new failure starts a new wait, so this lock is anchored now and replaces any earlier one.
+        val locked = FailureState(
+            seq = maxOf(previous.seq, WRITTEN[seenKey]?.state?.seq ?: 0L) + 1,
+            failures = TAMPER_FAILURES,
+            lastFailureWallMs = clock.wallMillis(),
+            lastFailureElapsedMs = clock.elapsedMillis(),
+            capMs = FailureDelay.MAX_CAP_MS,
+        )
+        PENDING[seenKey] = locked
+        return locked
+    }
+
+    /**
+     * Clears the failure count after a passing check. The state is written even when there was nothing to clear, so a passing check
+     * costs the same two writes and fsyncs as a failed one and cannot be told apart by its storage work.
      *
-     * A Keystore that will not make the new Delay State key may never refuse a correct password. The save is tried once more,
-     * and when that fails too the reset is written under the key already on disk, with no rotation this time, so the unlock
-     * goes on. The next save that can make a key rotates it. If that key cannot be read either, the reset is skipped, the copies
-     * keep the state they had, and the unlock goes on all the same.
+     * A Keystore that will not make the new key may never refuse a correct password. The save is tried twice. When both fail, the reset
+     * is kept in memory for this process, and nothing is written: a reset is never written under a key that is already on disk, because
+     * two payloads would then verify under it, and an older one would bring the failures back. A new process sees the stored count, which
+     * is the stricter one. This never throws.
      */
     fun recordSuccess(previous: FailureState, clock: Clock): FailureState {
-        val reset = if (previous.failures == 0) previous else previous.copy(seq = previous.seq + 1, failures = 0)
-        return try {
-            save(reset, clock)
-        } catch (e: VaultException) {
-            try {
-                save(reset, clock)
-            } catch (retry: VaultException) {
-                // The reset keeps the key that is already on disk, so its sequence number does not change this time.
-                saveWithoutNewKey(previous.copy(failures = 0), clock) ?: previous
-            }
-        }
+        // The sequence number always moves on, so every save makes a key of its own and never replaces the key of the pair on disk.
+        val reset = previous.copy(seq = previous.seq + 1, failures = 0)
+        trySave(reset, clock)?.let { return it }
+        trySave(reset, clock)?.let { return it }
+        val cleared = previous.copy(failures = 0)
+        PENDING[seenKey] = cleared
+        return cleared
     }
 
     /**
@@ -167,37 +204,42 @@ internal class FailureStore(
     /**
      * The Failure Delay check made before each password attempt, and the only such check. [vaultCreatedWallMs] is when the vault
      * was made, which sets the learning-period cap. While the wait runs, the attempt is blocked, and the time the wait has served
-     * is saved, so that a reboot continues it (see the class doc).
+     * is saved, so that a reboot continues it (see the threat model in FailureDelay.kt).
      */
     fun checkDelay(clock: Clock, vaultCreatedWallMs: Long): DelayCheck {
+        val savesBefore = saveAttempts
         val state = load(clock)
         val blocked = FailureDelay(vaultCreatedWallMs, FailureDelay.configuredCapFor(state)).isBlocked(state, clock, currentBootCount())
         if (!blocked) return DelayCheck(state, blocked = false)
+        // A load that saved, a lockout for instance, has already done this attempt's one save.
+        if (saveAttempts != savesBefore) return DelayCheck(state, blocked = true)
         return DelayCheck(recordWaitServed(state, clock), blocked = true)
     }
 
     /**
-     * Saves the time the running wait has served, as of [clock] now. A device that reports no boot count saves nothing, because
-     * a reboot cannot be told from a moved clock on it, so the wait is measured as it was. A Keystore or storage error leaves the
-     * state as it was loaded, which still blocks the attempt, so the check never fails because of this save.
+     * Saves the time the running wait has served, as of [clock] now. It is saved whether or not the device reports a boot count, so a
+     * blocked attempt costs the same storage work as a failed or a passing one. A Keystore or storage error leaves the state as it was
+     * loaded, which still blocks the attempt, so the check never fails because of this save.
      */
-    private fun recordWaitServed(state: FailureState, clock: Clock): FailureState {
-        if (currentBootCount() == null) return state
-        return try {
-            save(state.copy(seq = state.seq + 1), clock)
-        } catch (e: VaultException) {
-            state
-        } catch (e: IOException) {
-            state
-        }
-    }
+    private fun recordWaitServed(state: FailureState, clock: Clock): FailureState =
+        trySave(state.copy(seq = state.seq + 1), clock) ?: state
 
-    private fun wallMovedBack(state: FailureState, clock: Clock): Boolean =
-        state.failures > 0 && FailureDelay.elapsedSinceFailure(state, clock, readBootCount()) < 0
+    /** A wall clock moved back past the last failure within one boot. */
+    private fun clockWentBack(state: FailureState, clock: Clock, bootCount: Int?): Boolean =
+        state.failures > 0 && FailureDelay.elapsedSinceFailure(state, clock, bootCount) < 0
+
+    /** True when [file] holds exactly [bytes]. A file that cannot be read does not. */
+    private fun onDisk(file: File, bytes: ByteArray): Boolean =
+        try {
+            file.readBytes().contentEquals(bytes)
+        } catch (e: IOException) {
+            false
+        }
 
     /**
-     * The lockout for a state that cannot be verified. It is saved, which repairs a damaged copy. A Keystore that refuses the key
-     * still locks this load at the same cap, and the next load locks again until a save can be made.
+     * The lockout for a state that cannot be verified. It is saved, which repairs a damaged copy. When it cannot be saved it is held
+     * in memory, anchored at this first attempt, and [load] returns it until a save goes through. Later attempts do not move the end
+     * of the wait.
      */
     private fun lockAsTampered(clock: Clock, highestSeq: Long, verified: List<FailureState>): FailureState {
         val locked = FailureState(
@@ -207,11 +249,16 @@ internal class FailureStore(
             lastFailureElapsedMs = clock.elapsedMillis(),
             capMs = tamperedCap(verified),
         )
-        return try {
-            save(locked, clock)
-        } catch (e: VaultException) {
-            locked
-        }
+        return trySave(locked, clock) ?: locked.also { PENDING[seenKey] = it }
+    }
+
+    /** [save], or null when the Keystore or the storage refused it. */
+    private fun trySave(state: FailureState, clock: Clock): FailureState? = try {
+        save(state, clock)
+    } catch (e: VaultException) {
+        null
+    } catch (e: IOException) {
+        null
     }
 
     /**
@@ -227,41 +274,54 @@ internal class FailureStore(
     }
 
     /**
-     * Writes [state] under a new key for its sequence number, then deletes every other Delay State key. The keys of earlier
-     * states go only after both copies carry the new one, so a crash leaves at least one key for each copy. The boot count and
-     * the time the wait had already run are recorded with the state, so a reboot continues the wait instead of restarting it.
+     * Writes [state] under a new key for its sequence number, then deletes every other Delay State key. The keys of earlier states go
+     * only after both copies carry the new one, so a crash leaves at least one key for each copy. The boot count and the time the wait
+     * had already run are recorded with the state, so a reboot continues the wait instead of restarting it.
      */
     private fun save(state: FailureState, clock: Clock): FailureState {
+        saveAttempts++
         dir.mkdirs()
-        // A deletion that failed after an earlier save is tried again before this save makes its key. The key kept is the one
-        // of the pair this process wrote last, which is the pair on disk, so the retry cannot remove the key it needs. The number
-        // before this one is not assumed, because a lockout can jump the sequence. Nothing is retried when this process has not
-        // written yet: the deletion after the write below clears every other key anyway.
-        val onDisk = SEQ_SEEN[seenKey]
-        if (onDisk != null && PENDING_DELETE.contains(seenKey)) deleteOtherKeys(onDisk)
+        // Keys left by a deletion that failed are deleted again before this save makes its key, so nothing depends on remembering the
+        // failure. The key kept is the one of the pair this process wrote last, which is the pair on disk. The number before this one is
+        // not assumed, because a lockout can jump the sequence.
+        WRITTEN[seenKey]?.let { deleteOtherKeys(it.state.seq) }
         val stamped = stamped(state, clock)
-        val key = keystore(STATE_UNAVAILABLE) { keys.createFailureMacKey(stamped.seq) }
-        val bytes = encode(stamped, key)
-        write(primary, bytes)
+        val key = try {
+            keystore(STATE_UNAVAILABLE) { keys.createFailureMacKey(stamped.seq) }
+        } catch (e: VaultException) {
+            discardKey(stamped.seq)
+            throw e
+        }
+        val bytes = try {
+            encode(stamped, key).also { write(primary, it) }
+        } catch (e: VaultException) {
+            discardKey(stamped.seq)
+            throw e
+        } catch (e: IOException) {
+            discardKey(stamped.seq)
+            throw e
+        }
+        // From here the primary names the new key, so the key stays even when the backup cannot be written: the next load settles the pair.
         write(backup, bytes)
-        SEQ_SEEN[seenKey] = stamped.seq
+        WRITTEN[seenKey] = Written(stamped, bytes)
+        PENDING.remove(seenKey)
         // Once both copies carry the new state, every other key goes. The sequence numbers need not be consecutive.
         deleteOtherKeys(stamped.seq)
         return stamped
     }
 
+    /** Deletes the key of [seq] after a save failed, so that no key newer than the pair on disk is left for a load to find. */
+    private fun discardKey(seq: Long) {
+        keystoreOrNull { keys.deleteFailureMacKey(seq) }
+    }
+
     /**
-     * Deletes every Delay State key except [keepSeq]. The pair on disk names [keepSeq], so the keys that go are not in use. A
-     * Keystore error does not fail the caller, because the new pair is already on disk: the keys that are left are deleted by
-     * the next save or load, which remembers that this deletion is outstanding.
+     * Deletes every Delay State key except [keepSeq]. The pair on disk names [keepSeq], so the keys that go are not in use. A Keystore
+     * error does not fail the caller, because the new pair is already on disk. The keys that are left are deleted by the next save or
+     * load. Until then a newer key makes [load] read the pair as tampered, which fails closed.
      */
     private fun deleteOtherKeys(keepSeq: Long?) {
-        try {
-            keystore(STATE_UNAVAILABLE) { keys.deleteFailureMacKeysExcept(keepSeq) }
-            PENDING_DELETE.remove(seenKey)
-        } catch (e: VaultException) {
-            PENDING_DELETE.add(seenKey)
-        }
+        keystoreOrNull { keys.deleteFailureMacKeysExcept(keepSeq) }
     }
 
     /**
@@ -279,31 +339,6 @@ internal class FailureStore(
             lastFailureWallMs = clock.wallMillis() - served,
             lastFailureElapsedMs = clock.elapsedMillis() - served,
         )
-    }
-
-    /**
-     * Writes [state] under the key it already has: no new key is made and its sequence number does not change. Used when the
-     * Keystore refuses a new Delay State key at a moment when the wait must not stand in the way of a correct password. The key is
-     * read at most twice. If it cannot be read or used, nothing is written and null is returned.
-     */
-    private fun saveWithoutNewKey(state: FailureState, clock: Clock): FailureState? {
-        dir.mkdirs()
-        val stamped = stamped(state, clock)
-        val bytes = encodedUnderKeyOnDisk(stamped) ?: encodedUnderKeyOnDisk(stamped) ?: return null
-        write(primary, bytes)
-        write(backup, bytes)
-        SEQ_SEEN[seenKey] = stamped.seq
-        return stamped
-    }
-
-    /** [state] MAC'd under the key for its sequence number, or null when that key cannot be read or used. */
-    private fun encodedUnderKeyOnDisk(state: FailureState): ByteArray? {
-        val key = keystoreOrNull { keys.failureMacKey(state.seq) } ?: return null
-        return try {
-            encode(state, key)
-        } catch (e: VaultException) {
-            null
-        }
     }
 
     /** The copy at [file] if it verifies under its own key, or null. A missing or unreadable file is not a copy. */
@@ -423,19 +458,25 @@ internal class FailureStore(
         /** The boot count read from the record, or null for the marker this app writes when it had none. */
         private fun bootCountOf(stored: Int): Int? = if (stored == NO_BOOT_COUNT) null else stored
 
-        /** Highest sequence number this process has written, keyed by vault directory. */
-        private val SEQ_SEEN = ConcurrentHashMap<String, Long>()
+        /** The record this process last wrote to both copies, and the state it holds. Keyed by vault directory. */
+        private val WRITTEN = ConcurrentHashMap<String, Written>()
 
-        /** Vault directories whose last save or load could not delete the Delay State keys it no longer needs. */
-        private val PENDING_DELETE: MutableSet<String> = ConcurrentHashMap.newKeySet()
+        /**
+         * A state this process could not save: a lock, or a reset. It keeps the times it was first made, and it stays in force until a
+         * save goes through. Keyed by vault directory.
+         */
+        private val PENDING = ConcurrentHashMap<String, FailureState>()
 
-        /** Forgets the in-process sequence number for [dir]. Call this when the vault is wiped. */
+        /** Forgets the in-process state for [dir]. Call this when the vault is wiped. A test calls it to model a restart. */
         fun forget(dir: File) {
-            SEQ_SEEN.remove(dir.absolutePath)
-            PENDING_DELETE.remove(dir.absolutePath)
+            WRITTEN.remove(dir.absolutePath)
+            PENDING.remove(dir.absolutePath)
         }
     }
 }
+
+/** The record this process last wrote: the state, and the bytes written to both copies. */
+private class Written(val state: FailureState, val bytes: ByteArray)
 
 /**
  * Runs a Keystore call. The Keystore's own errors become a [VaultException] with [message], so the app treats them as damage
@@ -447,6 +488,8 @@ private inline fun <T> keystore(message: String, block: () -> T): T = try {
     throw VaultException(message, e)
 } catch (e: ProviderException) {
     throw VaultException(message, e)
+} catch (e: IOException) {
+    throw VaultException(message, e)
 }
 
 /** Runs a Keystore call on a path that must not fail: a Keystore error gives null. */
@@ -455,5 +498,9 @@ private inline fun <T> keystoreOrNull(block: () -> T): T? = try {
 } catch (e: GeneralSecurityException) {
     null
 } catch (e: ProviderException) {
+    null
+} catch (e: IOException) {
+    null
+} catch (e: VaultException) {
     null
 }

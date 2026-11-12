@@ -29,6 +29,12 @@ internal class MemoryKeystore : KeystoreBackend {
         legacyFailureMac = null
     }
 
+    override fun deleteFailureMacKey(seq: Long) {
+        failureMacs.remove(seq)
+    }
+
+    override fun failureMacKeySeqs(): List<Long> = failureMacs.keys.toList()
+
     /** Makes the single key of the layout before per-save keys, so a test can write a legacy record under it. */
     fun createLegacyFailureMacKey(): SecretKey = newHmacKey().also { legacyFailureMac = it }
 

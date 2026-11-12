@@ -7,8 +7,10 @@ import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import app.lensly.BuildConfig
+import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
+import java.security.KeyStoreException
 import java.security.ProviderException
 import java.util.Collections
 import javax.crypto.KeyGenerator
@@ -81,6 +83,14 @@ internal object VaultKeystore {
             .forEach { store.deleteEntry(it) }
     }
 
+    /** Deletes the Delay State MAC key for [seq], if the Keystore holds one. */
+    fun deleteFailureMacKey(seq: Long) = delete(failureMacAlias(seq))
+
+    /** The sequence numbers of the Delay State MAC keys the Keystore holds. Throws a GeneralSecurityException if it cannot list them. */
+    fun failureMacKeySeqs(): List<Long> = Collections.list(keyStore().aliases())
+        .filter { it.startsWith("$FAILURE_MAC_PREFIX.") }
+        .mapNotNull { it.removePrefix("$FAILURE_MAC_PREFIX.").toLongOrNull() }
+
     /** Removes every key the vault uses on this device. */
     fun deleteAll() {
         delete(HARDWARE_KEY_ALIAS)
@@ -120,7 +130,14 @@ internal object VaultKeystore {
 
     private fun failureMacAlias(seq: Long): String = "$FAILURE_MAC_PREFIX.$seq"
 
-    private fun keyStore(): KeyStore = KeyStore.getInstance(PROVIDER).apply { load(null) }
+    private fun keyStore(): KeyStore = KeyStore.getInstance(PROVIDER).apply {
+        try {
+            load(null)
+        } catch (e: IOException) {
+            // Reported as a Keystore error, like the others, so no caller sees a bare IOException.
+            throw KeyStoreException("The Android Keystore could not be opened.", e)
+        }
+    }
 
     private fun get(alias: String): SecretKey? = keyStore().getKey(alias, null) as? SecretKey
 
