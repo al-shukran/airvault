@@ -4,6 +4,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Test
 
+// Plain JVM test: no Android or Robolectric types, only strings passed to isSecureRequired.
 class SecureWindowTest {
 
     private val motorolaHardware = "mt6855"
