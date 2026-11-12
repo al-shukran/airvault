@@ -73,9 +73,9 @@ class ReviewHistoryTest {
         nowMs = 1L,
     )
 
-    /** The one review file of [walletId], as it is on disk. */
+    /** The one pool file that holds a Review Record of [walletId], as it is on disk. */
     private fun reviewFileOf(walletId: String): File =
-        File(layout.walletDir(walletId), session.recordNames(walletId, "review-").single() + ".bin")
+        session.reviewFileForTesting(walletId, session.reviewNames(walletId).single())!!
 
     @Test
     fun aRecordIsListedWithEveryFactUnchanged() {
@@ -161,19 +161,19 @@ class ReviewHistoryTest {
     }
 
     @Test
-    fun aRecordFileThatSurvivesADeleteIsUnreadable() {
+    fun aRecordSlotThatSurvivesADeleteIsUnreadable() {
         val gone = newWallet("GONE")
         history.append(gone, reviewOf(atMs = 1L))
+        val name = session.reviewNames(gone).single()
         val file = reviewFileOf(gone)
-        val name = file.name.removeSuffix(".bin")
         val sealed = file.readBytes()
 
         store.delete(gone)
-        // Only the record file comes back. Its Per-Wallet Key is gone with the wallet, so the record cannot be opened.
-        layout.walletDir(gone).mkdirs()
-        File(layout.walletDir(gone), file.name).writeBytes(sealed)
+        assertFalse(file.readBytes().contentEquals(sealed), "The deleted slot still holds the record")
+        // A copy of the slot made before the delete is put back. Its Per-Wallet Key is gone with the wallet, so it cannot be opened.
+        file.writeBytes(sealed)
 
-        assertNull(session.getRecord(gone, name))
+        assertNull(session.getReview(gone, name))
         assertTrue(history.list(gone).isEmpty())
     }
 
@@ -206,7 +206,7 @@ class ReviewHistoryTest {
             ReviewHistory(decoy).append(decoyWallet, reviewOf(atMs = 2L))
 
             assertTrue(ReviewHistory(decoy).list(real).isEmpty())
-            assertTrue(decoy.recordNames(real, "review-").isEmpty())
+            assertTrue(decoy.reviewNames(real).isEmpty())
             assertTrue(history.list(decoyWallet).isEmpty())
             assertEquals(listOf(reviewOf(atMs = 2L)), ReviewHistory(decoy).list(decoyWallet))
             assertEquals(listOf(reviewOf(atMs = 1L)), history.list(real))
