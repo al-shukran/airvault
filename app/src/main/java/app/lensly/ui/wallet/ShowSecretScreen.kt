@@ -75,6 +75,8 @@ fun ShowSecretScreen(
     onDone: () -> Unit,
     onLock: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The Done of the last page of the words. It runs in place of [onDone] there, so a caller can record the backup first. */
+    onFinish: () -> Unit = onDone,
 ) {
     when (step) {
         is RevealStep.Password -> PasswordStep(
@@ -93,6 +95,7 @@ fun ShowSecretScreen(
             onMove = onMove,
             onSelect = onSelect,
             onDone = onDone,
+            onFinish = onFinish,
             onLock = onLock,
             modifier = modifier,
         )
@@ -214,6 +217,7 @@ private fun RevealedStep(
     onMove: (Int) -> Unit,
     onSelect: (RevealPart) -> Unit,
     onDone: () -> Unit,
+    onFinish: () -> Unit,
     onLock: () -> Unit,
     modifier: Modifier,
 ) {
@@ -245,7 +249,7 @@ private fun RevealedStep(
                     )
                     WalletPill(
                         text = if (last) "Done" else "Next",
-                        onClick = { if (last) onDone() else onMove(1) },
+                        onClick = { if (last) onFinish() else onMove(1) },
                         modifier = Modifier.weight(1f),
                         style = WalletPillStyle.Primary,
                     )

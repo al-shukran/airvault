@@ -40,6 +40,13 @@ class WalletDraft {
     var deviceGenerated: Boolean = false
         private set
 
+    /**
+     * True when the owner has backed up the words: the create ceremony's quiz has passed, or the words were typed in a restore. A save
+     * writes it as the wallet's backed-up flag.
+     */
+    var backedUp: Boolean = false
+        private set
+
     /** The optional BIP39 passphrase. Null means none. */
     var passphrase: String? = null
         private set
@@ -66,6 +73,7 @@ class WalletDraft {
             mixedHashHex = mixed.toHex()
             replaceMnemonic(Mnemonic.fromEntropy(mixed))
             deviceGenerated = false
+            backedUp = false
         } finally {
             mixed.fill(0)
         }
@@ -76,13 +84,20 @@ class WalletDraft {
         val entropy = checkNotNull(deviceEntropy) { "No ceremony is running." }
         replaceMnemonic(Mnemonic.fromEntropy(entropy))
         deviceGenerated = true
+        backedUp = false
         mixedHashHex = ""
     }
 
-    /** Restore: the owner typed these words. */
+    /** Restore: the owner typed these words, so they count as backed up. */
     fun setTypedWords(typed: List<String>) {
         wipe()
         replaceMnemonic(Mnemonic.of(typed))
+        backedUp = true
+    }
+
+    /** The create ceremony's quiz has passed: the owner has checked the words are written down. */
+    fun markBackedUp() {
+        backedUp = true
     }
 
     /** Replaces the words, zeroing the buffers of the previous ones. */
@@ -122,6 +137,7 @@ class WalletDraft {
         mnemonic?.wipe()
         mnemonic = null
         deviceGenerated = false
+        backedUp = false
         passphrase = null
         singleKey?.fill(0)
         singleKey = null

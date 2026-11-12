@@ -11,10 +11,10 @@ import org.junit.Test
 class HomeFormatTest {
 
     @Test
-    fun theSealedLineCountsWalletsAndAccountsWithSingularAndPlural() {
-        assertEquals("Sealed · 0 wallets · 0 accounts", sealedLine(0, 0))
-        assertEquals("Sealed · 1 wallet · 1 account", sealedLine(1, 1))
-        assertEquals("Sealed · 5 wallets · 19 accounts", sealedLine(5, 19))
+    fun countedUsesTheSingularForOneAndThePluralOtherwise() {
+        assertEquals("0 networks", counted(0, "network"))
+        assertEquals("1 network", counted(1, "network"))
+        assertEquals("55 networks", counted(55, "network"))
     }
 
     @Test

@@ -45,8 +45,8 @@ import org.robolectric.annotation.Config
 
 /**
  * Home, from the top down, on a phone's 411 x 914 dp window. The wallets come as a carousel of cards, the recent activity as three rows at
- * most, and the readiness as four tiles. With no wallet the sections give way to the empty state. The aperture is static when the
- * system animator scale is 0, and the dock never covers the content once it has scrolled to the end.
+ * most, and the readiness as four tiles. With no wallet the sections give way to the empty state. The dock never covers the content once
+ * it has scrolled to the end.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h914dp-port-mdpi")
@@ -77,9 +77,9 @@ class WalletHomeScreenTest {
         compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(0)
         // Scanning needs a wallet, so the empty state has no Scan to sign button.
         compose.onNodeWithTag(HOME_SCAN_TAG).assertDoesNotExist()
-        compose.onNodeWithText("Sealed · 0 wallets · 0 accounts").assertIsDisplayed()
-        // The aperture stays above the empty state.
-        compose.onNodeWithTag(HOME_HERO_TAG).assertIsDisplayed()
+        // The chart and the backup panel need a wallet, so the empty state has neither.
+        compose.onNodeWithTag(HOME_CHART_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(HOME_BACKUP_TAG).assertDoesNotExist()
     }
 
     @Test
@@ -315,16 +315,19 @@ class WalletHomeScreenTest {
     }
 
     @Test
-    fun statusLineCountsTheWalletsAndTheirAccounts() {
+    fun tappingTheChartOpensTheActivityScreen() {
         compose.mainClock.autoAdvance = false
+        var opened = false
         compose.setContent {
             LenslyTheme {
-                Home(wallets = wallets(2), recent = emptyList())
+                Home(wallets = wallets(2), recent = listOf(activity(0)), onActivity = { opened = true })
             }
         }
         settle()
 
-        compose.onNodeWithText("Sealed · 2 wallets · 2 accounts").assertIsDisplayed()
+        compose.onNodeWithTag(HOME_CHART_TAG).performClick()
+
+        assertTrue(opened)
     }
 
     @Test
@@ -426,6 +429,7 @@ class WalletHomeScreenTest {
             onTokens = onTokens,
             onCatalog = onCatalog,
             onLockout = onLockout,
+            onBackup = {},
         )
     }
 

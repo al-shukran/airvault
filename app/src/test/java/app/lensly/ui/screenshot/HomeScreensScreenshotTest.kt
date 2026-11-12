@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import app.lensly.app.AccountProfile
@@ -31,7 +33,9 @@ import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.home.WalletsScreen
 import app.lensly.ui.settings.FailureCapChoice
+import java.util.TimeZone
 import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,21 +44,23 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** Long enough for the Home sections and the aperture to settle before the capture. */
+/** Long enough for the Home sections to settle before the capture. */
 private const val SETTLE_MS = 1_000L
 
 /** The moment every Home golden is read against, so the relative times on the goldens never change. */
 private const val FIXED_NOW_MS = 1_800_000_000_000L
 private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 3_600_000L
+private const val DAY_MS = 86_400_000L
 
 /** The swipes that bring the Home content to its end, and the fling each one is given to settle. */
 private const val SCROLL_SWIPES = 10
 private const val FLING_MS = 1_000L
 
 /**
- * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice, and with the aperture still because
- * the animations are off), the Wallets list (five),
+ * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice, with the signing chart empty, by status,
+ * by network and over seven days, with a backup needed for one wallet and for several, and with the logo collage still because the
+ * animations are off), the Wallets list (five),
  * wallet detail (deriving, accounts, adding an account, Single Key), bulk generate (empty, ready, refused, running, failed),
  * catalog import (idle, checking, installed, refused), and the placeholder. Record with :app:recordRoborazziDebug.
  */
@@ -65,9 +71,18 @@ class HomeScreensScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
 
+    private val defaultZone: TimeZone = TimeZone.getDefault()
+
+    @Before
+    fun readTheChartInUtc() {
+        // The chart's days are read in the device's zone, so the goldens read them in UTC and do not move with the machine.
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+    }
+
     @After
     fun restoreAnimators() {
         Settings.Global.putFloat(RuntimeEnvironment.getApplication().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+        TimeZone.setDefault(defaultZone)
     }
 
     @Test
@@ -90,7 +105,51 @@ class HomeScreensScreenshotTest {
         home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, debugNotice = "Software keystore")
     }
 
-    /** The same Home with the system's animations off: the aperture is drawn once, and the golden shows that frame. */
+    /** Home with no record yet: the chart shows its placeholder line, and the one wallet is backed up, so no panel shows. */
+    @Test
+    fun homeChartBeforeAnySignature() = compose.snapshot("home_chart_empty", settleMs = SETTLE_MS) {
+        home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, recent = emptyList())
+    }
+
+    /** The chart over the last thirty days, stacked by status. */
+    @Test
+    fun homeChartByStatus() = compose.snapshot("home_chart_status", settleMs = SETTLE_MS) {
+        home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, recent = chartActivity())
+    }
+
+    /** The chart stacked by network, once the App segment is chosen. */
+    @Test
+    fun homeChartByApp() = compose.snapshot(
+        "home_chart_app",
+        settleMs = SETTLE_MS,
+        beforeCapture = { tap("APP") },
+    ) {
+        home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, recent = chartActivity())
+    }
+
+    /** The chart over the last seven days, once that window is chosen. */
+    @Test
+    fun homeChartBySevenDays() = compose.snapshot(
+        "home_chart_week",
+        settleMs = SETTLE_MS,
+        beforeCapture = { tap("7 DAYS") },
+    ) {
+        home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, recent = chartActivity())
+    }
+
+    /** One wallet's seed is not backed up, so the backup panel sits under Scan to sign. */
+    @Test
+    fun homeBackupNeeded() = compose.snapshot("home_backup_needed", settleMs = SETTLE_MS) {
+        val wallets = sampleWallets().take(2).mapIndexed { index, wallet -> if (index == 0) wallet.copy(seedBackedUp = false) else wallet }
+        home(wallets = wallets, profiles = sampleHomeProfiles)
+    }
+
+    /** Several seeds are not backed up, so the panel counts them. */
+    @Test
+    fun homeBackupNeededForSeveralWallets() = compose.snapshot("home_backup_needed_many", settleMs = SETTLE_MS) {
+        home(wallets = sampleWallets().map { it.copy(seedBackedUp = false) }, profiles = sampleHomeProfiles)
+    }
+
     /**
      * Home scrolled to its end, so Readiness is in view above the dock. The lockout here is one second, so its tile has the amber dot.
      */
@@ -107,10 +166,11 @@ class HomeScreensScreenshotTest {
         )
     }
 
+    /** The logo collage with the system's animations off: its rows stay where they start, and the golden shows that frame. */
     @Test
-    fun homeWithAStaticHero() {
+    fun homeCollageWithAnimationsOff() {
         Settings.Global.putFloat(RuntimeEnvironment.getApplication().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
-        compose.snapshot("home_hero_static", settleMs = SETTLE_MS) {
+        compose.snapshot("home_collage_still", settleMs = SETTLE_MS, beforeCapture = { scrollHomeToEnd() }) {
             home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles)
         }
     }
@@ -248,8 +308,30 @@ class HomeScreensScreenshotTest {
             onTokens = {},
             onCatalog = {},
             onLockout = {},
+            onBackup = {},
             debugNotice = debugNotice,
         )
+    }
+
+    /**
+     * Records over the last thirty days, with all three outcomes and five networks, so both chart modes have something to stack. The
+     * networks past the three busiest fall into Other.
+     */
+    private fun chartActivity(): List<WalletReviewRecord> {
+        val networks = listOf(1L to "Ethereum", 143L to "Monad", 56L to "BNB Chain", 8453L to "Base", 42161L to "Arbitrum One")
+        return (0 until 60).map { index ->
+            val outcome = when {
+                index % 9 == 0 -> ReviewOutcome.REFUSED
+                index % 13 == 0 -> ReviewOutcome.CANCELLED
+                else -> ReviewOutcome.SIGNED
+            }
+            val (chainId, network) = networks[index % networks.size]
+            val atMs = FIXED_NOW_MS - (index * 7 % 30) * DAY_MS - (index % 20) * HOUR_MS
+            WalletReviewRecord(
+                walletId = if (index % 2 == 0) "w1" else "w2",
+                record = sampleRecord(atMs, outcome, chainId = chainId, networkName = network),
+            )
+        }
     }
 
     /** The readiness as an installed catalog package reports it, so the version tile shows a sequence. */
@@ -284,12 +366,14 @@ class HomeScreensScreenshotTest {
         function: String? = null,
         amount: String? = null,
         refusal: String? = null,
+        chainId: Long = 1L,
+        networkName: String = "Ethereum",
     ): ReviewRecord = ReviewRecord(
         atMs = atMs,
         outcome = outcome,
         kind = kind,
-        chainId = 1L,
-        networkName = "Ethereum",
+        chainId = chainId,
+        networkName = networkName,
         accountIndex = 0,
         address = "0x00000000000000000000000000000000000000AA",
         function = function,
@@ -445,6 +529,16 @@ class HomeScreensScreenshotTest {
 
     private val linea = NetworkEntry(59144L, "Linea", "ETH", 18, FeeModel.L2_ROLLUP, "Lineascan", false)
     private val usdc = TokenEntry(59144L, "0x176211869ca2b568f2a7d4ee941e073a821ee1ff", "USDC", "USD Coin", 6)
+}
+
+/**
+ * Taps the node with [text] and lets the frame the tap changes draw. The clock does not run on its own in these tests, so without the
+ * advance the capture would show the screen from before the tap.
+ */
+private fun ComposeContentTestRule.tap(text: String) {
+    onNodeWithText(text).performClick()
+    mainClock.advanceTimeBy(SETTLE_MS)
+    waitForIdle()
 }
 
 /** Swipes the Home content up until it stops, so its last section sits above the dock. */

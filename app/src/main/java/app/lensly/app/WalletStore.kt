@@ -53,6 +53,12 @@ data class WalletMeta(
      * record. A wallet that has none, because it was written before this existed, uses its current name.
      */
     val autoNameBase: String = name,
+    /**
+     * True when the owner has backed up the seed phrase. The create ceremony sets it once its quiz passes, a restore sets it, and so does a
+     * Single Key import. A wallet with it false is asked for a backup on Home. A record written before the flag reads as true, so no
+     * wallet made before it is asked.
+     */
+    val seedBackedUp: Boolean = true,
 )
 
 /** The secret part of a wallet, as it is stored. */
@@ -72,10 +78,11 @@ sealed interface WalletSecret {
  * a profile has one more, and so does a wallet with a profile. All of them use DataOutputStream and DataInputStream behind
  * a version byte. None is JSON.
  *
- * - `meta`, version 2: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int).
- *   A Mnemonic wallet then has master fingerprint hex (UTF), account public key and chain code (each an int length,
+ * - `meta`, version 3: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int), seed backed up
+ *   (boolean). A Mnemonic wallet then has master fingerprint hex (UTF), account public key and chain code (each an int length,
  *   then bytes), and parent fingerprint (int). A Single Key wallet has nothing more.
- *   Version 1 is the same record without the kind byte. It is always a Mnemonic wallet, and it still loads.
+ *   Version 2 is the same record without the backed-up flag, and it loads as backed up. Version 1 is the same record without the kind
+ *   byte. It is always a Mnemonic wallet, and it still loads.
  * - `secret`, version 1 for a Mnemonic wallet: word count (byte), each word (UTF), has-passphrase (boolean), then the
  *   passphrase (UTF) when present. Version 2 for a Single Key wallet: the 32-byte private key.
  * - `account-<index>`, version 2: a flags byte, then each field the flags name, in order: the Display Name (UTF), the colour
@@ -136,6 +143,7 @@ class WalletStore(private val session: VaultSession) {
         words: List<String>,
         passphrase: String?,
         nowMs: Long,
+        seedBackedUp: Boolean = true,
     ): String {
         val identity = identityOf(words, passphrase.orEmpty())
         val id = session.createWallet()
@@ -154,6 +162,7 @@ class WalletStore(private val session: VaultSession) {
                 accountCount = 1,
                 masterFingerprintHex = identity.fingerprintHex,
                 accountXpub = identity.xpub,
+                seedBackedUp = seedBackedUp,
             )
             session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(name))
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
@@ -304,6 +313,23 @@ class WalletStore(private val session: VaultSession) {
                 session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(current.autoNameBase))
             }
             val updated = current.copy(name = clean)
+            session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
+            updated
+        }
+    }
+
+    /**
+     * Records that the owner has backed up the seed phrase of wallet [id], and returns the updated metadata. A wallet that is backed up
+     * already is returned as it is, and nothing is written.
+     *
+     * @throws IllegalArgumentException if the wallet does not exist.
+     */
+    fun markSeedBackedUp(id: String): WalletMeta = synchronized(session) {
+        val current = requireNotNull(meta(id)) { "No wallet $id." }
+        if (current.seedBackedUp) {
+            current
+        } else {
+            val updated = current.copy(seedBackedUp = true)
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
             updated
         }
@@ -579,9 +605,10 @@ internal object WalletRecords {
     /** The record that holds the wallet's profile: its colour, icon, label and groups. Only a wallet with one has it. */
     const val PROFILE = "profile"
 
-    /** The meta version written before wallet kinds. It has no kind byte, and it is always a Mnemonic wallet. */
+    /** The meta versions before wallet kinds, which have no kind byte, and before the backed-up flag. Version 3 is written now. */
     private const val META_VERSION_WITHOUT_KIND = 1
-    private const val META_VERSION = 2
+    private const val META_VERSION_WITHOUT_BACKUP_FLAG = 2
+    private const val META_VERSION = 3
 
     /** The secret version of a Mnemonic wallet. It is the only secret layout before Single Keys. */
     private const val MNEMONIC_SECRET_VERSION = 1
@@ -717,6 +744,7 @@ internal object WalletRecords {
         out.writeLong(meta.createdAtMs)
         out.writeBoolean(meta.deviceGenerated)
         out.writeInt(meta.accountCount)
+        out.writeBoolean(meta.seedBackedUp)
         when (meta.kind) {
             WalletKind.MNEMONIC -> {
                 val xpub = requireNotNull(meta.accountXpub) { "A Mnemonic wallet needs its account public key." }
@@ -732,15 +760,18 @@ internal object WalletRecords {
     }
 
     fun decodeMeta(id: String, bytes: ByteArray): WalletMeta = readBytes(bytes) { input ->
-        val kind = when (val version = input.readUnsignedByte()) {
+        val version = input.readUnsignedByte()
+        val kind = when (version) {
             META_VERSION_WITHOUT_KIND -> WalletKind.MNEMONIC
-            META_VERSION -> WalletKind.fromWire(input.readUnsignedByte())
+            META_VERSION_WITHOUT_BACKUP_FLAG, META_VERSION -> WalletKind.fromWire(input.readUnsignedByte())
             else -> throw IllegalArgumentException("Unknown record version $version.")
         }
         val name = input.readUTF()
         val createdAtMs = input.readLong()
         val deviceGenerated = input.readBoolean()
         val accountCount = input.readInt()
+        // A record from before the flag reads as backed up, so a wallet made before it is not asked for a backup.
+        val seedBackedUp = if (version == META_VERSION) input.readBoolean() else true
         when (kind) {
             WalletKind.MNEMONIC -> {
                 val fingerprintHex = input.readUTF()
@@ -756,6 +787,7 @@ internal object WalletRecords {
                     masterFingerprintHex = fingerprintHex,
                     accountXpub = AccountXpub(publicKey, chainCode, parentFingerprint),
                     kind = kind,
+                    seedBackedUp = seedBackedUp,
                 )
             }
             WalletKind.SINGLE_KEY -> WalletMeta(
@@ -767,6 +799,7 @@ internal object WalletRecords {
                 masterFingerprintHex = null,
                 accountXpub = null,
                 kind = kind,
+                seedBackedUp = seedBackedUp,
             )
         }
     }

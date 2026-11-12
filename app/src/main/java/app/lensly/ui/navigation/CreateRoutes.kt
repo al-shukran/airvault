@@ -156,7 +156,10 @@ private fun ConfirmRoute(navController: NavHostController, entry: NavBackStackEn
             when (quiz.answer(word)) {
                 MnemonicQuiz.Answer.Correct -> state = quiz.stateFor(failed = false)
                 MnemonicQuiz.Answer.Wrong -> state = quiz.stateFor(failed = true)
-                MnemonicQuiz.Answer.Finished -> navController.navigate(HiddenRoute.PASSPHRASE)
+                MnemonicQuiz.Answer.Finished -> {
+                    draft.markBackedUp()
+                    navController.navigate(HiddenRoute.PASSPHRASE)
+                }
             }
         },
         onBack = { navController.popBackStack() },

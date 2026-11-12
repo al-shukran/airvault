@@ -49,6 +49,11 @@ internal object LenslyIcons {
         )
     }
 
+    /** A shield, for the backup of a wallet's seed phrase. */
+    val Shield: ImageVector by lazy {
+        outline("Shield", "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z")
+    }
+
     /** A clock turned back by an arrow, for the history of a wallet's reviews. */
     val History: ImageVector by lazy {
         outline(
