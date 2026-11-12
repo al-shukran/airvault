@@ -151,7 +151,7 @@ jobs:
     needs: changes
     if: needs.changes.result == 'success' && needs.changes.outputs.partitions != '[]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    timeout-minutes: 5 # guideline 2.1 amendment (2026-11-12)
     strategy:
       fail-fast: false
       matrix:
