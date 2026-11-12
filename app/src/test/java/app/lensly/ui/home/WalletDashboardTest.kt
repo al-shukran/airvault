@@ -142,6 +142,7 @@ class WalletDashboardTest {
             onTokens = {},
             onCatalog = {},
             onLockout = {},
+            onBackup = {},
         )
     }
 

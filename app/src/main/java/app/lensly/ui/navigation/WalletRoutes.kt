@@ -197,6 +197,7 @@ private fun HomeRoute(
         onTokens = { navController.navigate(HiddenRoute.TOKENS) },
         onCatalog = { navController.navigate(HiddenRoute.CATALOG) },
         onLockout = { navController.navigate(HiddenRoute.FAILURE_CAP) },
+        onBackup = { walletId -> navController.navigate(HiddenRoute.showSecret(walletId)) },
         debugNotice = debugNotice,
         notice = notice,
         onNoticeShown = { hidden.savedStateHandle[HiddenRoute.PAIRED_NOTICE] = null },
@@ -529,7 +530,7 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
                     draft.setName(finalName)
                     navController.navigate(HiddenRoute.PASSPHRASE_BACKUP)
                 } else {
-                    model.save(finalName, walletWriter(session))
+                    model.save(finalName, walletWriter(session, draft.backedUp))
                 }
             }
         },
@@ -562,7 +563,7 @@ private fun PassphraseBackupRoute(
         onWrittenDownChange = { writtenDown = it },
         onCreate = {
             if (!saving && PassphraseGate.canSave(draft.passphrase, writtenDown)) {
-                model.save(draft.name, walletWriter(session))
+                model.save(draft.name, walletWriter(session, draft.backedUp))
             }
         },
     )
@@ -593,14 +594,18 @@ private fun draftModelOf(navController: NavHostController, entry: NavBackStackEn
     return viewModel<WalletDraftViewModel>(viewModelStoreOwner = owner)
 }
 
-/** The writer of a draft's save: a new Mnemonic wallet with one account, in [session]. */
-private fun walletWriter(session: VaultSession): WalletWriter = { name, deviceGenerated, words, passphrase ->
+/**
+ * The writer of a draft's save: a new Mnemonic wallet with one account, in [session]. [seedBackedUp] is the draft's backed-up flag, read
+ * before the save starts.
+ */
+private fun walletWriter(session: VaultSession, seedBackedUp: Boolean): WalletWriter = { name, deviceGenerated, words, passphrase ->
     WalletStore(session).create(
         name = name,
         deviceGenerated = deviceGenerated,
         words = words,
         passphrase = passphrase,
         nowMs = System.currentTimeMillis(),
+        seedBackedUp = seedBackedUp,
     )
 }
 

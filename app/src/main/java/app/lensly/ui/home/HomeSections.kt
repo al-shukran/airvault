@@ -371,7 +371,7 @@ private fun ReadinessTile(
         }
         Text(
             text = value,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleSmall,
             color = LenslyOnSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
