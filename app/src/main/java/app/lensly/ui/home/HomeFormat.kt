@@ -12,11 +12,8 @@ private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 3_600_000L
 private const val DAY_MS = 86_400_000L
 
-/** The line under Home's aperture, such as "Sealed · 5 wallets · 19 accounts". It counts only the wallets of this session. */
-internal fun sealedLine(wallets: Int, accounts: Int): String =
-    "Sealed · ${counted(wallets, "wallet")} · ${counted(accounts, "account")}"
-
-private fun counted(count: Int, noun: String): String = if (count == 1) "1 $noun" else "$count ${noun}s"
+/** A count with its noun, singular for one: "1 wallet", "5 wallets". */
+internal fun counted(count: Int, noun: String): String = if (count == 1) "1 $noun" else "$count ${noun}s"
 
 /**
  * How long ago a record was made, read against [nowMs]: "Just now", "12 min ago", "3 h ago", "Yesterday", and a date for anything

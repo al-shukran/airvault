@@ -74,12 +74,6 @@ internal const val HOME_SCROLL_TAG = "home-scroll"
 /** The top bar: the wordmark and the lock. */
 private val HEADER_HEIGHT = 56.dp
 
-/** The box of the aperture. Its glow reaches past the box, and the scroll clips it at the edge of the content. */
-private val HERO_HEIGHT = 256.dp
-
-/** The box of the aperture with no wallet: larger, so the empty state fills the screen as the first wallet would. */
-private val EMPTY_HERO_HEIGHT = 440.dp
-
 private val SCAN_HEIGHT = 56.dp
 
 /** The room between two parts of the content. */
@@ -106,15 +100,16 @@ private const val ENTER_MS = 240
 private const val NOTICE_MS = 2_400L
 
 /**
- * Home: the vault's front page, from the top down. A small wordmark with the lock; the aperture, with a line that counts
- * this session's wallets and accounts; the Scan to sign button; Recent activity; the wallets as a row of cards; and the readiness
- * tiles. The action dock floats at the foot over a fade, and the content keeps clear of it. With no wallet, the sections give way to
- * the empty state with Create and Restore, and the aperture stays above it.
+ * Home: the vault's front page, from the top down. A small wordmark with the lock; the Scan to sign button; the backup panel, while a
+ * wallet's seed is not backed up; the signing activity chart; Recent activity; the wallets as a row of cards; the readiness tiles; and a
+ * collage of the supported logos. The action dock floats at the foot over a fade, and the content keeps clear of it. With no wallet, the
+ * sections give way to the empty state with Create and Restore.
  *
- * [wallets], [recent] and [readiness] are null until each has been read. [nowMs] is the time that the relative times are read
- * against. The callbacks take a wallet's id where the action is about one wallet. [debugNotice], when set, shows a short warning chip
- * beside the wordmark, for example that the keystore is software-only. [notice], when set, shows a short confirmation such as "Wallet
- * paired", and [onNoticeShown] is called once it has appeared, so the caller can forget it.
+ * [wallets], [recent] and [readiness] are null until each has been read. [recent] holds every Review Record, which the chart and Recent
+ * activity read. [nowMs] is the time that the relative times and the chart's days are read against. The callbacks take a wallet's id
+ * where the action is about one wallet, and [onBackup] opens the Show Secret flow of that wallet. [debugNotice], when set, shows a short
+ * warning chip beside the wordmark, for example that the keystore is software-only. [notice], when set, shows a short confirmation such as
+ * "Wallet paired", and [onNoticeShown] is called once it has appeared, so the caller can forget it.
  */
 @Composable
 fun WalletHomeScreen(
@@ -137,6 +132,7 @@ fun WalletHomeScreen(
     onTokens: () -> Unit,
     onCatalog: () -> Unit,
     onLockout: () -> Unit,
+    onBackup: (String) -> Unit,
     modifier: Modifier = Modifier,
     profiles: Map<String, WalletProfile> = emptyMap(),
     debugNotice: String? = null,
@@ -146,8 +142,9 @@ fun WalletHomeScreen(
     var sheetWallet by remember { mutableStateOf<WalletMeta?>(null) }
     val walletNames = remember(wallets) { wallets.orEmpty().associate { it.id to it.name } }
     val newest = remember(recent) { recent?.sortedByDescending { it.record.atMs }?.take(HOME_ACTIVITY_LIMIT) }
+    val records = remember(recent) { recent?.map { it.record } }
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    // A vault with no wallet shows only the aperture, the line under it and the empty state.
+    // A vault with no wallet shows only the empty state.
     val empty = wallets != null && wallets.isEmpty()
     val fadeHeight = DOCK_BAR_HEIGHT + LenslySpacing.xs + DOCK_FADE + navBottom
     Box(modifier = modifier.fillMaxSize().background(LenslyBlack)) {
@@ -159,14 +156,23 @@ fun WalletHomeScreen(
                     .testTag(HOME_SCROLL_TAG)
                     .verticalScroll(rememberScrollState()),
             ) {
-                ApertureHero(modifier = Modifier.fillMaxWidth().height(if (empty) EMPTY_HERO_HEIGHT else HERO_HEIGHT))
-                StatusLine(text = wallets?.let { sealedLine(it.size, it.sumOf { wallet -> wallet.accountCount }) } ?: "Sealed")
                 Spacer(Modifier.height(SECTION_GAP))
                 if (empty) {
                     EmptyVault(onCreate = onCreate, onRestore = onRestore, modifier = Modifier.padding(horizontal = WALLET_GUTTER))
                 } else {
                     ScanToSignButton(onClick = onScan, modifier = Modifier.padding(horizontal = WALLET_GUTTER))
                     if (wallets != null) {
+                        val needingBackup = walletsNeedingBackup(wallets)
+                        if (needingBackup.isNotEmpty()) {
+                            Spacer(Modifier.height(SECTION_GAP))
+                            BackupPanel(
+                                wallets = needingBackup,
+                                onBackup = onBackup,
+                                modifier = Modifier.padding(horizontal = WALLET_GUTTER),
+                            )
+                        }
+                        Spacer(Modifier.height(SECTION_GAP))
+                        ActivityChartSection(records = records, nowMs = nowMs, onOpen = onActivity)
                         Spacer(Modifier.height(SECTION_GAP))
                         RecentActivitySection(records = newest, walletNames = walletNames, nowMs = nowMs, onSeeAll = onActivity)
                         Spacer(Modifier.height(SECTION_GAP))
@@ -186,6 +192,12 @@ fun WalletHomeScreen(
                                 onTokens = onTokens,
                                 onCatalog = onCatalog,
                                 onLockout = onLockout,
+                            )
+                            Spacer(Modifier.height(SECTION_GAP))
+                            LogoCollageSection(
+                                networkCount = readiness.networkCount,
+                                tokenCount = readiness.tokenCount,
+                                onNetworks = onNetworks,
                             )
                         }
                     }
@@ -256,18 +268,6 @@ private fun HomeHeader(debugNotice: String?, onLock: () -> Unit) {
             Icon(imageVector = Icons.Filled.Lock, contentDescription = "Lock the vault", tint = LenslyOnSurface)
         }
     }
-}
-
-/** The line under the aperture, in the body style: the session's counts, as the caller words them. */
-@Composable
-private fun StatusLine(text: String) {
-    Text(
-        text = text,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = WALLET_GUTTER),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-    )
 }
 
 /** The large primary button: the accent fill, the viewfinder glyph and the words. It opens the scan of any wallet. */

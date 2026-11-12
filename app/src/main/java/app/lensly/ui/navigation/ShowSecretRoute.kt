@@ -15,15 +15,20 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
+import app.lensly.app.WalletStore
 import app.lensly.core.vault.RealClock
+import app.lensly.core.vault.VaultSession
 import app.lensly.ui.flow.ClearReason
 import app.lensly.ui.flow.RevealFlow
 import app.lensly.ui.flow.RevealStep
 import app.lensly.ui.flow.VaultRevealPorts
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.wallet.ShowSecretScreen
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** How often the countdown on the Show Secret screen is updated. */
 private const val COUNTDOWN_TICK_MS = 1_000L
@@ -35,7 +40,7 @@ private const val COUNTDOWN_TICK_MS = 1_000L
  */
 @Composable
 internal fun ShowSecretRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
-    if (rememberOpenSession(navController, holder) == null) return
+    val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
     val password = remember { PasswordBuffer() }
     val flow = remember(walletId) { RevealFlow(VaultRevealPorts(holder, walletId)) { RealClock.elapsedMillis() } }
@@ -98,9 +103,30 @@ internal fun ShowSecretRoute(navController: NavHostController, holder: VaultHold
         onMove = { delta -> flow.move(delta) },
         onSelect = { part -> flow.select(part) },
         onDone = { flow.leave(ClearReason.DONE) },
+        // The last page's Done: the words have been shown in full, so the wallet counts as backed up before the screen leaves.
+        onFinish = {
+            scope.launch {
+                markBackedUp(session, walletId)
+                flow.leave(ClearReason.DONE)
+            }
+        },
         onLock = {
             flow.leave(ClearReason.LOCKED)
             leaveHidden(navController, holder)
         },
     )
+}
+
+/**
+ * Records that wallet [walletId]'s seed phrase is backed up. A write that fails leaves the flag as it was, so Home asks again. The vault
+ * closing mid-write is such a failure, and the screen leaves all the same.
+ */
+private suspend fun markBackedUp(session: VaultSession, walletId: String) {
+    try {
+        withContext(Dispatchers.IO) { WalletStore(session).markSeedBackedUp(walletId) }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        // The flag stays off, and Home asks for the backup again.
+    }
 }
