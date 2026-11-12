@@ -134,6 +134,23 @@ class FailureStoreKeystoreErrorTest {
     }
 
     @Test
+    fun aKeyThatCannotBeReadAfterItsLockIsSavedDoesNotLockForever() {
+        val dir = File(tmp.root, "vault")
+        FailureStore(dir, flaky).initialize(clock)
+        // Past the learning period, so the strictest cap is the one that applies.
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        // The Keystore can make keys but cannot read them. The copies cannot be verified, so the lock is saved, and it stays saved.
+        flaky.failReads = true
+        assertTrue(FailureStore(dir, flaky).checkDelay(clock, FakeClock.START_WALL).blocked)
+        // Checks inside the hour are still blocked, and none of them starts another hour.
+        clock.advance(FailureDelay.MAX_CAP_MS - 1)
+        assertTrue(FailureStore(dir, flaky).checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(1)
+        // The hour has run out. The owner is not held for good, even though the Keystore still cannot read the key.
+        assertFalse(FailureStore(dir, flaky).checkDelay(clock, FakeClock.START_WALL).blocked)
+    }
+
+    @Test
     fun anIOExceptionFromTheKeystoreNeverEscapesTheDelayCheck() {
         val dir = File(tmp.root, "vault")
         val io = IoFailingKeystore(keys)
