@@ -1,0 +1,18 @@
+{
+  "wallets": [
+    {
+      "name": "Rabby",
+      "ecosystems": ["EVM"],
+      "formats": ["ur:crypto-hdkey", "ur:eth-sign-request", "ur:eth-signature"],
+      "note": "Pairs through the AirGap Vault option of Rabby. Lensly reads Rabby's signing requests and answers them in the same code format.",
+      "limitations": "A change in Rabby's code format stops signing until a signed registry package adds the new format. Rabby's requests name the signing address, and Lensly checks it against the shown account."
+    },
+    {
+      "name": "MetaMask",
+      "ecosystems": ["EVM"],
+      "formats": ["ur:crypto-hdkey", "ur:eth-sign-request", "ur:eth-signature"],
+      "note": "Pairs through the QR-based hardware wallet option of MetaMask. Lensly reads MetaMask's signing requests and answers them in the same code format.",
+      "limitations": "MetaMask's requests do not name the signing address, so Lensly checks the account from its derivation path alone. A change in MetaMask's code format stops signing until a signed registry package adds the new format."
+    }
+  ]
+}

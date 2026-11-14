@@ -123,7 +123,7 @@ class PackTest {
             "nativeDecimals above 36" to source.copy(networks = listOf(network.copy(nativeDecimals = 37))),
             "sequence zero" to source.copy(sequence = 0),
             "formatVersion one" to source.copy(formatVersion = 1),
-            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 2),
+            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 3),
             "minSchemaVersion zero" to source.copy(minSchemaVersion = 0),
             "impossible date" to source.copy(createdAt = "2026-02-30"),
             "control character in name" to source.copy(networks = listOf(network.copy(name = "Li\u0007nea"))),
@@ -258,6 +258,73 @@ class PackTest {
             "proxy on an entry that is not upgradeable" to whitelistSource.copy(
                 whitelist = listOf(proxy.copy(upgradeable = false)),
             ),
+        )
+        for ((label, content) in cases) {
+            assertFailsWith<IllegalArgumentException>(label) {
+                Pack.build(json.encodeToString(PackageDto.serializer(), content), seed)
+            }
+        }
+    }
+
+    @Test
+    fun denylistAndWalletsRoundTripThroughTheSignedPackage() {
+        val (bytes, content) = Pack.build(sourceJson, seed)
+
+        assertEquals(source, content)
+        assertEquals(source, Pack.verify(bytes, publicKey))
+        assertEquals(2, source.denylist?.size)
+        assertEquals(1, source.wallets?.size)
+    }
+
+    @Test
+    fun aPackageWithoutDenylistOrWalletsKeepsItsOldPayloadBytes() {
+        val payload = String(
+            Pack.canonicalPayload(source.copy(minSchemaVersion = 1, denylist = null, wallets = null)),
+            StandardCharsets.UTF_8,
+        )
+
+        assertFalse(payload.contains("denylist"))
+        assertFalse(payload.contains("wallets"))
+    }
+
+    @Test
+    fun anEmptyDenylistIsWrittenSoItClearsTheBuiltInList() {
+        val payload = String(Pack.canonicalPayload(source.copy(denylist = emptyList())), StandardCharsets.UTF_8)
+
+        assertTrue(payload.contains("\"denylist\":[]"))
+    }
+
+    @Test
+    fun tamperedDenylistByteFailsVerification() {
+        val bytes = Pack.build(sourceJson, seed).first
+        val at = String(bytes, StandardCharsets.ISO_8859_1).indexOf("Sample entry: an unlimited")
+        bytes[at] = (bytes[at] + 1).toByte()
+
+        assertFails { Pack.verify(bytes, publicKey) }
+    }
+
+    @Test
+    fun invalidDenylistAndWalletEntriesAreRefused() {
+        val denylist = source.denylist!!
+        val wallet = source.wallets!!.single()
+        val cases = mapOf(
+            "denylist without minSchemaVersion 2" to source.copy(minSchemaVersion = 1),
+            "selector of the wrong length" to source.copy(denylist = listOf(denylist[0].copy(selector = "0x095ea7b"))),
+            "contract without a chainId" to source.copy(denylist = listOf(denylist[1].copy(chainId = null))),
+            "chainId zero" to source.copy(denylist = listOf(denylist[1].copy(chainId = 0))),
+            "entry naming no selector, contract or type" to source.copy(
+                denylist = listOf(DenylistDto(severity = DenylistSeverity.WARN, reason = "Reason.")),
+            ),
+            "condition without a selector" to source.copy(
+                denylist = listOf(denylist[1].copy(condition = DenylistCondition.UNLIMITED)),
+            ),
+            "blank reason" to source.copy(denylist = listOf(denylist[0].copy(reason = " "))),
+            "bidi control in reason" to source.copy(denylist = listOf(denylist[0].copy(reason = "Approve‮ tokens"))),
+            "reason over 240 characters" to source.copy(denylist = listOf(denylist[0].copy(reason = "x".repeat(241)))),
+            "wallet without a note" to source.copy(wallets = listOf(wallet.copy(note = " "))),
+            "wallet without a code format" to source.copy(wallets = listOf(wallet.copy(formats = emptyList()))),
+            "wallet without limitations" to source.copy(wallets = listOf(wallet.copy(limitations = ""))),
+            "wallet named twice" to source.copy(wallets = listOf(wallet, wallet.copy(note = "Again"))),
         )
         for ((label, content) in cases) {
             assertFailsWith<IllegalArgumentException>(label) {

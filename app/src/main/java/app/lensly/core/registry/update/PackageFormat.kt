@@ -1,11 +1,16 @@
 package app.lensly.core.registry.update
 
+import app.lensly.core.registry.DenylistCondition
+import app.lensly.core.registry.DenylistEntry
+import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.WalletEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
+import app.lensly.core.registry.isDisplayText
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.StandardCharsets
@@ -37,9 +42,10 @@ internal object PackageFormat {
 
     /**
      * The newest catalog schema this app interprets. A package states the schema it needs in `minSchemaVersion`, and one that
-     * needs a newer schema is refused as [RegistryUpdateException.Incompatible] before its entries are read.
+     * needs a newer schema is refused as [RegistryUpdateException.Incompatible] before its entries are read. Schema 2 adds the
+     * denylist and the wallets, so an older app refuses a package that carries them instead of failing on unknown fields.
      */
-    const val SCHEMA_VERSION = 1L
+    const val SCHEMA_VERSION = 2L
     const val MAX_BYTES = 1 shl 20
 
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
@@ -201,6 +207,31 @@ internal object PackageFormat {
         for (entry in dto.whitelist) {
             requirePrintable("whitelist ${entry.signature} meaning", entry.meaning, MAX_MEANING)
         }
+        val denylist = dto.denylist?.mapIndexed { index, record ->
+            try {
+                DenylistEntry(
+                    chainId = record.chainId,
+                    contract = record.contract,
+                    selector = record.selector,
+                    primaryType = record.primaryType,
+                    condition = record.condition,
+                    severity = record.severity,
+                    reason = record.reason,
+                )
+            } catch (e: IllegalArgumentException) {
+                throw RegistryUpdateException.InvalidEntry("denylist entry ${index + 1}: ${e.message}")
+            }
+        }
+        val wallets = dto.wallets?.mapIndexed { index, record ->
+            try {
+                WalletEntry(record.name, record.ecosystems, record.formats, record.note, record.limitations)
+            } catch (e: IllegalArgumentException) {
+                throw RegistryUpdateException.InvalidEntry("wallet entry ${index + 1}: ${e.message}")
+            }
+        }
+        if (wallets != null && wallets.map { it.name }.toSet().size != wallets.size) {
+            throw RegistryUpdateException.Conflict("a wallet appears more than once in the package")
+        }
         val networks = dto.networks.map {
             NetworkEntry(
                 it.chainId, it.name, it.nativeSymbol, it.nativeDecimals, it.feeModel, it.explorerName, it.testnet,
@@ -233,6 +264,8 @@ internal object PackageFormat {
             networks = networks.sortedBy { it.chainId },
             tokens = tokens.sortedWith(compareBy<TokenEntry>({ it.chainId }, { it.contract })),
             whitelist = whitelist,
+            denylist = denylist,
+            wallets = wallets,
         )
     }
 
@@ -241,10 +274,7 @@ internal object PackageFormat {
      * [MAX_TEXT] characters; a whitelist meaning may run to [MAX_MEANING].
      */
     private fun requirePrintable(what: String, value: String, max: Int = MAX_TEXT) {
-        val printable = value.isNotBlank() &&
-            value.length <= max &&
-            value.none { it.category == CharCategory.CONTROL || it.category == CharCategory.FORMAT }
-        if (!printable) {
+        if (!isDisplayText(value, max)) {
             throw RegistryUpdateException.InvalidEntry("$what must be 1 to $max printable characters")
         }
     }
@@ -300,6 +330,26 @@ internal object PackageFormat {
     )
 
     @Serializable
+    private class DenylistRecord(
+        val chainId: Long? = null,
+        val contract: String? = null,
+        val selector: String? = null,
+        val primaryType: String? = null,
+        val condition: DenylistCondition = DenylistCondition.ANY,
+        val severity: DenylistSeverity,
+        val reason: String,
+    )
+
+    @Serializable
+    private class WalletRecord(
+        val name: String,
+        val ecosystems: List<String>,
+        val formats: List<String>,
+        val note: String,
+        val limitations: String,
+    )
+
+    @Serializable
     private class Payload(
         val formatVersion: Long,
         val minSchemaVersion: Long,
@@ -309,5 +359,9 @@ internal object PackageFormat {
         val tokens: List<TokenRecord>,
         /** Optional. Packages signed before the whitelist existed omit it, and their whitelist is empty. */
         val whitelist: List<WhitelistRecord> = emptyList(),
+        /** Optional. Omitted, the build's denylist stays in force. An empty list clears it. */
+        val denylist: List<DenylistRecord>? = null,
+        /** Optional. Omitted, the build's wallets stay in force. An empty list clears them. */
+        val wallets: List<WalletRecord>? = null,
     )
 }

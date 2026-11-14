@@ -3,11 +3,15 @@ package app.lensly.ui.sign
 import app.lensly.app.VisualIdentity
 import app.lensly.app.generatedIdentity
 import app.lensly.app.sign.WhitelistedCall
+import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 
 /** A fact the owner ticks before signing, because the review cannot prove it on its own. */
 enum class ReviewCheck {
+    /** The request matches the denylist of known-dangerous requests, and the owner has read the warning. */
+    DENYLIST,
+
     /** The chain ID and the contract are outside the registry, and the owner has checked them. */
     REGISTRY,
 
@@ -89,6 +93,8 @@ data class TxReview(
     val origin: String? = null,
     /** The whitelisted call this review is for, or null for a call Lensly decodes. */
     val whitelisted: WhitelistedCall? = null,
+    /** The denylist entries this request matches, each a known-dangerous request. Empty when none matches. */
+    val denylisted: List<DenylistEntry> = emptyList(),
 ) {
     /**
      * True when the chain or the token is outside the registry. Such a review carries the registry warning, and APPROVE
@@ -101,6 +107,7 @@ data class TxReview(
     /** The checks the owner ticks before signing, in the order the screen shows them. */
     val requiredChecks: List<ReviewCheck>
         get() = listOfNotNull(
+            ReviewCheck.DENYLIST.takeIf { denylisted.isNotEmpty() },
             ReviewCheck.REGISTRY.takeIf { needsRegistryConfirmation },
             ReviewCheck.WHITELIST.takeIf { whitelisted != null },
             ReviewCheck.UPGRADE.takeIf { whitelisted?.call?.proxy != null },
