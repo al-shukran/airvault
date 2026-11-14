@@ -3,18 +3,21 @@ package app.lensly.ui.navigation
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
+import app.lensly.app.SaveState
+import app.lensly.app.SingleKeyWriter
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletStore
+import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.PrivateKey
 import app.lensly.core.wallet.toHex
@@ -24,9 +27,6 @@ import app.lensly.ui.wallet.KeyBackupScreen
 import app.lensly.ui.wallet.KeyEntryScreen
 import app.lensly.ui.wallet.KeyEntryState
 import app.lensly.ui.wallet.KeyImportStep
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * The Single Key import. The key is typed and checked, its address is shown for confirmation, and then the name screen
@@ -122,7 +122,8 @@ private fun KeyImportRoute(navController: NavHostController, entry: NavBackStack
 
 /**
  * The write-down of an imported key. CREATE WALLET stays off until the owner confirms the copy. Then the wallet is saved
- * from the draft, the draft is wiped, and the wallet's detail opens. The key is the draft's until then.
+ * from the draft in the model, so a rotation cannot cancel the save. Its detail opens once the save succeeds, and the
+ * draft's key is wiped then. The key is the draft's until then.
  */
 @Composable
 private fun KeyBackupRoute(
@@ -130,39 +131,32 @@ private fun KeyBackupRoute(
     holder: VaultHolder,
     entry: NavBackStackEntry,
 ) {
-    val draft = draftOf(navController, entry)
-    val key = draft.singleKey
-    RequireDraft(navController, ready = key != null)
+    val model = draftModelOf(navController, entry)
+    val draft = model.draft
+    val save by model.saveState.collectAsState()
+    RequireDraft(navController, ready = save is SaveState.Saved || draft.singleKey != null)
     val session = rememberOpenSession(navController, holder) ?: return
-    if (key == null) return
-    val scope = rememberCoroutineScope()
+    val saving = save == SaveState.Saving
+    BackHandler(enabled = saving) {}
+    FollowSave(navController, holder, save)
+    val key = draft.singleKey ?: return
     var copied by remember { mutableStateOf(false) }
-    var saving by remember { mutableStateOf(false) }
     val hex = remember(key) { key.toHex() }
 
     KeyBackupScreen(
         hex = hex,
         copied = copied,
         onCopiedChange = { copied = it },
+        errorMessage = if (save == SaveState.Failed) SAVE_FAILED_MESSAGE else null,
         onCreate = {
             if (!saving && copied) {
-                saving = true
-                scope.launch {
-                    whileUnlocked(navController, holder) {
-                        val walletId = withContext(Dispatchers.IO) {
-                            WalletStore(session).createSingleKey(
-                                name = draft.name.ifEmpty { "WALLET" },
-                                privateKey = key,
-                                nowMs = System.currentTimeMillis(),
-                            )
-                        }
-                        draft.wipe()
-                        navController.navigate(HiddenRoute.detail(walletId)) {
-                            popUpTo(HiddenRoute.HOME) { inclusive = false }
-                        }
-                    }
-                }
+                model.saveSingleKey(name = draft.name.ifEmpty { "WALLET" }, write = singleKeyWriter(session))
             }
         },
     )
+}
+
+/** Writes the Single Key wallet of an import, in [session]. */
+private fun singleKeyWriter(session: VaultSession): SingleKeyWriter = { name, privateKey ->
+    WalletStore(session).createSingleKey(name = name, privateKey = privateKey, nowMs = System.currentTimeMillis())
 }

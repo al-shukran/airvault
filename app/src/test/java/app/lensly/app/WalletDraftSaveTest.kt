@@ -8,7 +8,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import java.io.IOException
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Rule
@@ -136,6 +139,80 @@ class WalletDraftSaveTest {
         awaitSave(model) { it is SaveState.Saved }
         assertEquals(1, writes, "the second call does nothing while the first save runs")
         assertEquals(SaveState.Saved("wallet-4"), model.saveState.value)
+    }
+
+    private val importedKey = ByteArray(32) { (it + 1).toByte() }
+
+    @Test
+    fun aSingleKeySaveRunsToItsEndAfterTheScreenLeavesAndWipesTheKeyAfter() {
+        val model = WalletDraftViewModel()
+        model.draft.setSingleKey(importedKey.copyOf())
+        val release = CompletableDeferred<Unit>()
+        var showing by mutableStateOf(true)
+        compose.setContent {
+            if (showing) {
+                val state by model.saveState.collectAsState()
+                Text(state.toString())
+            }
+        }
+        compose.runOnIdle {
+            model.saveSingleKey("WALLET") { _, _ ->
+                release.await()
+                "key-wallet-1"
+            }
+        }
+        compose.runOnIdle { showing = false }
+        compose.waitForIdle()
+
+        assertEquals(SaveState.Saving, model.saveState.value)
+        assertNotNull(model.draft.singleKey, "the key stays until the write returns")
+        release.complete(Unit)
+        awaitSave(model) { it is SaveState.Saved }
+        assertEquals(SaveState.Saved("key-wallet-1"), model.saveState.value)
+        assertNull(model.draft.singleKey, "the key is wiped once the write has returned")
+    }
+
+    @Test
+    fun aWipeDuringTheSingleKeyWriteDoesNotChangeTheKeyTheWriteReceives() {
+        val model = WalletDraftViewModel()
+        model.draft.setSingleKey(importedKey.copyOf())
+        val release = CompletableDeferred<Unit>()
+        var received: ByteArray? = null
+        compose.runOnIdle {
+            model.saveSingleKey("WALLET") { _, key ->
+                release.await()
+                received = key.copyOf()
+                "key-wallet-2"
+            }
+        }
+        // A HOME arrival, or the graph closing, wipes the draft while the write is still running.
+        compose.runOnIdle { model.draft.wipe() }
+        release.complete(Unit)
+        awaitSave(model) { it is SaveState.Saved }
+        assertContentEquals(importedKey, received)
+    }
+
+    @Test
+    fun aFailedSingleKeySaveKeepsTheKeyAndASecondSaveWritesItAgain() {
+        val model = WalletDraftViewModel()
+        model.draft.setSingleKey(importedKey.copyOf())
+        compose.runOnIdle {
+            model.saveSingleKey("WALLET") { _, _ -> throw IOException("the write failed") }
+        }
+        awaitSave(model) { it == SaveState.Failed }
+        assertContentEquals(importedKey, model.draft.singleKey, "a failed write keeps the key")
+
+        val written = mutableListOf<ByteArray>()
+        compose.runOnIdle {
+            model.saveSingleKey("WALLET") { _, key ->
+                written += key.copyOf()
+                "key-wallet-3"
+            }
+        }
+        awaitSave(model) { it is SaveState.Saved }
+        assertEquals(1, written.size)
+        assertContentEquals(importedKey, written.single(), "the retry writes the same key")
+        assertNull(model.draft.singleKey, "the key is wiped after the retry succeeds")
     }
 
     /**

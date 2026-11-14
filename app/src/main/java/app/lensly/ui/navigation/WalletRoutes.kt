@@ -580,7 +580,7 @@ private fun PassphraseBackupRoute(
  * rotation still acts on it.
  */
 @Composable
-private fun FollowSave(navController: NavHostController, holder: VaultHolder, state: SaveState) {
+internal fun FollowSave(navController: NavHostController, holder: VaultHolder, state: SaveState) {
     LaunchedEffect(state) {
         when (state) {
             is SaveState.Saved -> navController.navigate(HiddenRoute.detail(state.walletId)) {
@@ -594,7 +594,7 @@ private fun FollowSave(navController: NavHostController, holder: VaultHolder, st
 
 /** The ViewModel that holds the draft of the hidden graph. It is resolved as [draftOf] resolves the draft. */
 @Composable
-private fun draftModelOf(navController: NavHostController, entry: NavBackStackEntry): WalletDraftViewModel {
+internal fun draftModelOf(navController: NavHostController, entry: NavBackStackEntry): WalletDraftViewModel {
     val owner = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
     return viewModel<WalletDraftViewModel>(viewModelStoreOwner = owner)
 }
