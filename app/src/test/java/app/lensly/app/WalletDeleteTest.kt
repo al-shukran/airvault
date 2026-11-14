@@ -1,6 +1,7 @@
 package app.lensly.app
 
 import app.lensly.core.vault.MemoryKeystore
+import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.flow.PasswordCheck
@@ -12,6 +13,7 @@ import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -88,6 +90,19 @@ class WalletDeleteTest {
         assertEquals(otherAddress, store.addresses(other, 1))
         assertNotNull(store.secret(kept))
         assertNotNull(store.secret(other))
+    }
+
+    @Test
+    fun aKeystoreFailureStillRemovesTheWalletAndReportsIt() {
+        val kept = newWallet("KEPT", "one")
+        val gone = newWallet("GONE", "two")
+        keys.failFolderKeyDeletes = true
+
+        assertFailsWith<VaultException> { store.delete(gone) }
+
+        assertNull(store.meta(gone))
+        assertEquals(setOf(kept), store.list().map { it.id }.toSet())
+        assertNotNull(store.secret(kept))
     }
 
     @Test

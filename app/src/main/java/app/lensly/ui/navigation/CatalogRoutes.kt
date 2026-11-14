@@ -30,6 +30,8 @@ internal suspend fun readCatalog(context: Context): Catalog = withContext(Dispat
             networks = it.networks(),
             tokens = it.tokens(),
             whitelist = it.whitelistEntries(),
+            denylist = it.denylistEntries(),
+            wallets = it.walletEntries(),
             installedUpdateUnverified = it.installedUpdateUnverified,
         )
     }
