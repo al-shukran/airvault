@@ -615,7 +615,7 @@ class VaultDuressTest {
         val sealed = Aead.seal(softKey, VaultKeyFile.LEGACY_SOFTWARE_AAD, hardwareWrapped)
         layout.root.mkdirs()
         writeAtomically(layout.vaultKey, VaultKeyFile.encodeLegacy(sealed))
-        FailureStore(layout.root, keys.createFailureMacKey()).initialize(clock)
+        FailureStore(layout.root, keys).initialize(clock)
         val header = VaultHeader(
             kdf = KDF,
             salt = salt,

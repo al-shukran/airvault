@@ -9,7 +9,8 @@ import javax.crypto.SecretKey
  */
 internal class MemoryKeystore : KeystoreBackend {
     private var hardware: SecretKey? = null
-    private var failureMac: SecretKey? = null
+    private val failureMacs = mutableMapOf<Long, SecretKey>()
+    private var legacyFailureMac: SecretKey? = null
 
     override fun createHardwareKey(): SecretKey =
         KeyGenerator.getInstance("AES").apply { init(256) }.generateKey().also { hardware = it }
@@ -17,14 +18,33 @@ internal class MemoryKeystore : KeystoreBackend {
     override fun hardwareKey(): SecretKey =
         hardware ?: throw VaultException("The vault's hardware key is missing from the Keystore.")
 
-    override fun createFailureMacKey(): SecretKey =
-        KeyGenerator.getInstance("HmacSHA256").generateKey().also { failureMac = it }
+    override fun createFailureMacKey(seq: Long): SecretKey = newHmacKey().also { failureMacs[seq] = it }
 
-    override fun failureMacKey(): SecretKey = failureMac ?: createFailureMacKey()
+    override fun failureMacKey(seq: Long): SecretKey? = failureMacs[seq]
+
+    override fun legacyFailureMacKey(): SecretKey? = legacyFailureMac
+
+    override fun deleteFailureMacKeysExcept(keepSeq: Long?) {
+        failureMacs.keys.removeAll { it != keepSeq }
+        legacyFailureMac = null
+    }
+
+    override fun deleteFailureMacKey(seq: Long) {
+        failureMacs.remove(seq)
+    }
+
+    override fun failureMacKeySeqs(): List<Long> = failureMacs.keys.toList()
+
+    /** Makes the single key of the layout before per-save keys, so a test can write a legacy record under it. */
+    fun createLegacyFailureMacKey(): SecretKey = newHmacKey().also { legacyFailureMac = it }
+
+    /** How many Delay State MAC keys exist, the legacy key included. */
+    fun failureMacKeyCount(): Int = failureMacs.size + if (legacyFailureMac != null) 1 else 0
 
     override fun deleteAll() {
         hardware = null
-        failureMac = null
+        failureMacs.clear()
+        legacyFailureMac = null
     }
 
     override fun securityLevel(key: SecretKey): Int = TRUSTED_ENVIRONMENT
@@ -32,6 +52,8 @@ internal class MemoryKeystore : KeystoreBackend {
     override fun strongBox(): Boolean = false
 
     override fun probe(): DeviceSecurity = DeviceSecurity(strongBox = false, hardwareBacked = true)
+
+    private fun newHmacKey(): SecretKey = KeyGenerator.getInstance("HmacSHA256").generateKey()
 
     private companion object {
         /** `KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT`, so the vault treats the test key as hardware-backed. */
