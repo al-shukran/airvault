@@ -2,6 +2,7 @@ package app.lensly.core.registry
 
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
+import org.web3j.utils.Numeric
 
 /**
  * A contract call Lensly decodes for review before it signs. Calldata whose selector is not in [decode] is refused, and the
@@ -41,6 +42,25 @@ sealed class ContractCall(val name: String, val signature: String) {
     /** `safeTransferFrom(address from, address to, uint256 tokenId)`, an ERC-721 transfer. */
     class SafeTransferFrom(val from: String, val to: String, val tokenId: BigInteger) :
         ContractCall("safeTransferFrom", "safeTransferFrom(address,address,uint256)")
+
+    /**
+     * The calldata of this call, rebuilt from its arguments the way [decode] reads them: the selector, then one 32-byte word for
+     * each argument. Comparing it with the signed calldata shows that the labels are what is signed. Null for an address that is
+     * not 20 bytes of hex, or for a value that does not fit in 256 bits.
+     */
+    fun encode(): ByteArray? {
+        val (selector, words) = when (this) {
+            is Transfer -> TRANSFER to listOf(addressWord(to), uintWord(value))
+            is Approve -> APPROVE to listOf(addressWord(spender), uintWord(value))
+            is TransferFrom -> TRANSFER_FROM to listOf(addressWord(from), addressWord(to), uintWord(value))
+            is IncreaseAllowance -> INCREASE_ALLOWANCE to listOf(addressWord(spender), uintWord(addedValue))
+            is DecreaseAllowance -> DECREASE_ALLOWANCE to listOf(addressWord(spender), uintWord(subtractedValue))
+            is SetApprovalForAll -> SET_APPROVAL_FOR_ALL to listOf(addressWord(operator), boolWord(approved))
+            is SafeTransferFrom -> SAFE_TRANSFER_FROM to listOf(addressWord(from), addressWord(to), uintWord(tokenId))
+        }
+        val args = words.map { it ?: return null }
+        return args.fold(Numeric.hexStringToByteArray(selector)) { all, word -> all + word }
+    }
 
     companion object {
         /** 2^256 - 1, the "unlimited allowance" value most contracts use. */
@@ -106,6 +126,20 @@ sealed class ContractCall(val name: String, val signature: String) {
             } else {
                 null
             }
+
+        private val ADDRESS = Regex("0x[0-9a-fA-F]{40}")
+
+        private fun addressWord(address: String): ByteArray? =
+            if (ADDRESS.matches(address)) ByteArray(WORD_BYTES - 20) + Numeric.hexStringToByteArray(address) else null
+
+        private fun uintWord(value: BigInteger): ByteArray? {
+            if (value.signum() < 0 || value.bitLength() > 256) return null
+            val bytes = value.toByteArray().dropWhile { it == 0.toByte() }.toByteArray()
+            return ByteArray(WORD_BYTES - bytes.size) + bytes
+        }
+
+        private fun boolWord(approved: Boolean): ByteArray =
+            ByteArray(WORD_BYTES).also { it[WORD_BYTES - 1] = (if (approved) 1 else 0).toByte() }
 
         private fun uint(word: ByteArray): BigInteger = BigInteger(1, word)
 

@@ -2,6 +2,7 @@ package app.lensly.core.evm
 
 import app.lensly.core.parse.DecodeBudget
 import app.lensly.core.parse.ParserLimits
+import java.nio.ByteBuffer
 
 /** Raised for transaction bytes that are malformed, non-canonical, or outside the supported schema. */
 internal class MalformedTxException(message: String) : Exception(message)
@@ -30,6 +31,27 @@ internal sealed class Rlp {
             val item = reader.read(depth = 0, limit = bytes.size)
             if (reader.position != bytes.size) malformedTx("trailing bytes after RLP item")
             return item
+        }
+
+        private const val SHORT_LIMIT = 55
+        private const val STRING_OFFSET = 0x80
+        private const val LIST_OFFSET = 0xC0
+
+        /** The RLP of a byte string. A single byte below 0x80 is its own encoding. Anything else gets a minimal length prefix. */
+        fun encodeString(bytes: ByteArray): ByteArray =
+            if (bytes.size == 1 && (bytes[0].toInt() and 0xFF) < 0x80) bytes else header(STRING_OFFSET, bytes.size) + bytes
+
+        /** The RLP of a list whose items are already encoded. */
+        fun encodeList(items: List<ByteArray>): ByteArray {
+            val payload = items.fold(ByteArray(0)) { all, item -> all + item }
+            return header(LIST_OFFSET, payload.size) + payload
+        }
+
+        /** The prefix of an item of [size] bytes: one byte with the length when it is short, else that byte and the length. */
+        private fun header(offset: Int, size: Int): ByteArray {
+            if (size <= SHORT_LIMIT) return byteArrayOf((offset + size).toByte())
+            val length = ByteBuffer.allocate(Int.SIZE_BYTES).putInt(size).array().dropWhile { it == 0.toByte() }.toByteArray()
+            return byteArrayOf((offset + SHORT_LIMIT + length.size).toByte()) + length
         }
     }
 

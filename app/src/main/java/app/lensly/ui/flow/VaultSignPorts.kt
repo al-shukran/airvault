@@ -16,7 +16,10 @@ import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.visualIdentity
-import app.lensly.core.ur.EthSignRequest
+import app.lensly.app.requestParser
+import app.lensly.core.parse.ParsedRequest
+import app.lensly.core.parse.RequestParser
+import app.lensly.core.parse.ScanReply
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
@@ -30,11 +33,13 @@ import kotlinx.coroutines.withContext
 
 /**
  * The app's [SignFlowPorts]. Wallet reads go through the open session, and only [privateKey] reads a secret. The address check
- * and the review use the public xpub, so the mnemonic is not needed to show them.
+ * and the review use the public xpub, so the mnemonic is not needed to show them. Everything scanned is parsed by [parser],
+ * which is the Parser Sandbox.
  */
 internal class VaultSignPorts(
     private val context: Context,
     private val holder: VaultHolder,
+    private val parser: RequestParser = context.requestParser(),
     /** Writes [ReviewRecord] [record] of wallet [walletId] through [session]. */
     private val writeRecord: (VaultSession, String, ReviewRecord) -> Unit = { session, walletId, record ->
         ReviewHistory(session).append(walletId, record)
@@ -47,14 +52,16 @@ internal class VaultSignPorts(
         }
     }
 
-    override suspend fun prepare(walletId: String, request: EthSignRequest): Prepared = withContext(Dispatchers.IO) {
+    override suspend fun scan(parts: List<String>): ScanReply = withContext(Dispatchers.IO) { parser.scan(parts) }
+
+    override suspend fun prepare(walletId: String, parsed: ParsedRequest): Prepared = withContext(Dispatchers.IO) {
         val wallet = readWallet { session ->
             val listed = WalletStore(session).list()
             val position = listed.indexOfFirst { it.id == walletId }
             if (position < 0) null else viewOf(session, listed[position], position)
         }
         val proxyPolicy = readWallet { SettingsStore(it).load().proxyPolicy }
-        SignPipeline(RegistryHolder.get(context), proxyPolicy).prepare(request, wallet)
+        SignPipeline(RegistryHolder.get(context), parser, proxyPolicy).prepare(parsed, wallet)
     }
 
     override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
@@ -93,7 +100,7 @@ internal class VaultSignPorts(
 
     override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> =
         withContext(Dispatchers.Default) {
-            SignPipeline(RegistryHolder.get(context)).sign(ready, privateKey)
+            SignPipeline(RegistryHolder.get(context), parser).sign(ready, privateKey)
         }
 
     /**

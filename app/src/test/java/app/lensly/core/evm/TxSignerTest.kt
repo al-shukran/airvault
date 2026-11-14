@@ -109,15 +109,15 @@ class TxSignerTest {
     @Test
     fun refusesOtherDataTypesAndMalformedPayloads() {
         val legacy = TransactionEncoder.encode(legacyTx(), 10143L)
-        assertIs<TxSigner.Result.Refused>(TxSigner.sign(legacy, DataType.PERSONAL_MESSAGE, key))
-        assertIs<TxSigner.Result.Refused>(TxSigner.sign(legacy, DataType.TYPED_DATA, key))
+        assertIs<TxSignResult.Refused>(TxSigner.sign(legacy, DataType.PERSONAL_MESSAGE, key))
+        assertIs<TxSignResult.Refused>(TxSigner.sign(legacy, DataType.TYPED_DATA, key))
 
         val eip2930 = byteArrayOf(0x01) + TxSamples.eip1559Payload().copyOfRange(1, TxSamples.eip1559Payload().size)
-        assertIs<TxSigner.Result.Refused>(TxSigner.sign(eip2930, DataType.TYPED_TRANSACTION, key))
+        assertIs<TxSignResult.Refused>(TxSigner.sign(eip2930, DataType.TYPED_TRANSACTION, key))
 
         // Six fields is a legacy transaction without the EIP-155 chainId placeholders.
         val withoutEip155 = TxSamples.legacy(fields = TxSamples.legacyFields().take(6))
-        assertIs<TxSigner.Result.Refused>(TxSigner.sign(withoutEip155, DataType.TRANSACTION, key))
+        assertIs<TxSignResult.Refused>(TxSigner.sign(withoutEip155, DataType.TRANSACTION, key))
     }
 
     @Test
@@ -146,7 +146,7 @@ class TxSignerTest {
         "0x",
     )
 
-    private fun signed(result: TxSigner.Result): ByteArray = assertIs<TxSigner.Result.Signed>(result).signature
+    private fun signed(result: TxSignResult): ByteArray = assertIs<TxSignResult.Signed>(result).signature
 
     private fun r(signature: ByteArray): ByteArray = signature.copyOfRange(0, 32)
 

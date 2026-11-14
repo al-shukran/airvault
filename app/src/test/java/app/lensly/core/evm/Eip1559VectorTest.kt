@@ -59,7 +59,7 @@ class Eip1559VectorTest {
     @Test
     fun signatureMatchesPublishedSignedTransaction() {
         for (vector in vectors) {
-            val signature = assertIs<TxSigner.Result.Signed>(
+            val signature = assertIs<TxSignResult.Signed>(
                 TxSigner.sign(unsigned(vector), DataType.TYPED_TRANSACTION, EvmFixtures.hex(vector.privateKey)),
             ).signature
             val fields = signedFields(vector)
@@ -82,7 +82,7 @@ class Eip1559VectorTest {
     @Test
     fun reencodedSignedTransactionMatchesPublishedBytes() {
         for (vector in vectors) {
-            val signature = assertIs<TxSigner.Result.Signed>(
+            val signature = assertIs<TxSignResult.Signed>(
                 TxSigner.sign(unsigned(vector), DataType.TYPED_TRANSACTION, EvmFixtures.hex(vector.privateKey)),
             ).signature
             val signed = EvmFixtures.rlpList(
