@@ -1,6 +1,7 @@
 package app.lensly.app.sign
 
 import app.lensly.core.evm.EvmFixtures
+import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
@@ -167,7 +168,7 @@ private val GUARDED: Registry = REGISTRY.withWhitelist(listOf(SWAP_ENTRY, PROXY_
 
 class SignPipelineTest {
 
-    private val pipeline = SignPipeline(REGISTRY)
+    private val pipeline = SignPipeline(REGISTRY, inProcessSandboxParser)
 
     @Test
     fun eip1559MonTransferIsReviewedAsNativeTransfer() {
@@ -397,7 +398,7 @@ class SignPipelineTest {
     )
 
     private fun guarded(cbor: ByteArray, policy: ProxyPolicy = ProxyPolicy.DEFAULT): Prepared =
-        SignPipeline(GUARDED, policy).prepare(cbor, VIEW)
+        SignPipeline(GUARDED, inProcessSandboxParser, policy).prepare(cbor, VIEW)
 
     @Test
     fun aWhitelistedDecodeGapIsReviewedWithItsApprovedMeaningAndEveryWord() {
@@ -439,7 +440,7 @@ class SignPipelineTest {
         val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
 
         val ready = assertIs<Prepared.Ready>(
-            SignPipeline(REGISTRY.withWhitelist(listOf(entry))).prepare(requestCbor(tx, chainId = ETHEREUM), VIEW),
+            SignPipeline(REGISTRY.withWhitelist(listOf(entry)), inProcessSandboxParser).prepare(requestCbor(tx, chainId = ETHEREUM), VIEW),
         )
 
         assertEquals(listOf("amount (uint256)" to "1500000 (1.5 USDC)"), ready.review.params)

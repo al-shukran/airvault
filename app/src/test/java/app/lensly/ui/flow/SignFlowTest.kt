@@ -6,7 +6,11 @@ import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
+import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ParserLimits
+import app.lensly.core.parse.RequestParser
+import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
@@ -82,8 +86,9 @@ private class FakePorts(
     private val recordFails: Boolean = false,
     private val prepareGate: CompletableDeferred<Unit>? = null,
     private val signGate: CompletableDeferred<Unit>? = null,
+    private val parser: RequestParser = inProcessSandboxParser,
 ) : SignFlowPorts {
-    private val pipeline = SignPipeline(REGISTRY)
+    private val pipeline = SignPipeline(REGISTRY, parser)
 
     val keysHandedOut = mutableListOf<ByteArray>()
     val keyWalletIds = mutableListOf<String>()
@@ -94,10 +99,12 @@ private class FakePorts(
 
     override suspend fun wallets(): List<WalletView> = wallets
 
-    override suspend fun prepare(walletId: String, request: EthSignRequest): Prepared {
+    override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
+
+    override suspend fun prepare(walletId: String, parsed: ParsedRequest): Prepared {
         prepareGate?.await()
         val view = wallets.firstOrNull { it.id == walletId } ?: throw WalletUnavailable()
-        return pipeline.prepare(request, view)
+        return pipeline.prepare(parsed, view)
     }
 
     override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray {
