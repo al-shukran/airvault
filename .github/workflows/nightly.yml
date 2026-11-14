@@ -27,16 +27,46 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
-      # One gradle invocation, as guideline 2.5 lists. --continue keeps going after the first
+      # One gradle invocation for the test, lint and screenshot gates. --continue keeps going after the first
       # failure so one run reports every broken gate.
+      - name: Nightly gates
+        run: ./gradlew test lintDebug verifyRoborazziDebug --continue
+
+      # OWASP runs as its own step so an NVD outage can be retried. The plugin retries each NVD request itself, but
+      # in a burst of about a second, and gives up during a longer 503 window (run 43586280383 failed this way). Only
+      # an NVD failure is retried, six times with a 10-minute pause, which is about an hour of waiting inside the
+      # job's 120-minute limit. A CVSS finding or any other error still fails the job at once.
       #
       # NVD_API_KEY lifts the NVD API rate limit. Set it as a repository secret; without it the
       # dependency-check step still runs, just slower (one NVD call every 8 seconds), so a missing
       # secret never fails the build.
-      - name: Nightly gates
+      - name: OWASP dependency check
+        if: always()
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: ./gradlew test lintDebug verifyRoborazziDebug dependencyCheckAnalyze --continue
+        run: |
+          set -o pipefail
+          for attempt in 1 2 3 4 5 6; do
+            if ./gradlew dependencyCheckAnalyze 2>&1 | tee dependency-check.log; then
+              exit 0
+            fi
+            grep -q -E "NVD Returned Status Code|Error updating the NVD Data" dependency-check.log || exit 1
+            echo "NVD is unavailable (attempt $attempt of 6); retrying in 10 minutes"
+            sleep 600
+          done
+          exit 1
+
+      # TEMPORARY DIAGNOSTIC (remove before merge): keep the Roborazzi diffs of a failed run.
+      - name: Upload Roborazzi diffs (diagnostic)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: roborazzi-diffs
+          path: |
+            app/build/outputs/roborazzi
+            app/build/reports/roborazzi
+            app/build/test-results/testDebugUnitTest
+          if-no-files-found: warn
 
       # The fuzz targets replay their committed seeds in a second invocation, with -PfuzzLane. They must not
       # share a JVM with the Robolectric tests above: Jazzer and Robolectric cannot (see the note in
@@ -89,6 +119,17 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
+      # Without /dev/kvm the runner falls back to `-accel off` (software x86 emulation), and an API 34 x86_64
+      # image does not finish booting inside its 600 s timeout. The udev rule opens KVM to the runner user.
+      - name: Allow the runner to use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          sudo chmod 0666 /dev/kvm
+          test -w /dev/kvm
+
       - name: Run connected debug tests on an emulator
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -101,6 +142,17 @@ jobs:
           script: >-
             ./gradlew :app:connectedDebugAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.notPackage=app.lensly.benchmark
+
+      # TEMPORARY DIAGNOSTIC (remove before merge): keep the connected-test reports of a failed run.
+      - name: Upload connected-test reports (diagnostic)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: connected-instrumented
+          path: |
+            app/build/outputs/androidTest-results
+            app/build/reports/androidTests
+          if-no-files-found: warn
 
   e2e:
     # Guideline 1.6: the wallet sign flow on an emulator, separate from `instrumented` so one
@@ -119,6 +171,15 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
+      - name: Allow the runner to use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          sudo chmod 0666 /dev/kvm
+          test -w /dev/kvm
+
       - name: Run WalletSignFlowTest on an emulator
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -129,6 +190,17 @@ jobs:
           script: >-
             ./gradlew :app:connectedDebugAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.class=app.lensly.e2e.WalletSignFlowTest
+
+      # TEMPORARY DIAGNOSTIC (remove before merge): keep the connected-test reports of a failed run.
+      - name: Upload connected-test reports (diagnostic)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: connected-e2e
+          path: |
+            app/build/outputs/androidTest-results
+            app/build/reports/androidTests
+          if-no-files-found: warn
 
   benchmark:
     # Guideline 1.7: emulator numbers are trend data only. The 10% gate needs the reference
@@ -148,6 +220,15 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
+      - name: Allow the runner to use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          sudo chmod 0666 /dev/kvm
+          test -w /dev/kvm
+
       - name: Run microbenchmarks on an emulator
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -161,6 +242,17 @@ jobs:
             ./gradlew :app:connectedBenchmarkAndroidTest
             "-Pandroid.testInstrumentationRunnerArguments.class=app.lensly.benchmark.*"
             -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
+
+      # TEMPORARY DIAGNOSTIC (remove before merge): keep the connected-test reports of a failed run.
+      - name: Upload connected-test reports (diagnostic)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: connected-benchmark
+          path: |
+            app/build/outputs/androidTest-results
+            app/build/reports/androidTests
+          if-no-files-found: warn
 
       - name: Confirm trend-only
         run: echo "Emulator results are trend data; the 10% gate runs on the reference device only."
