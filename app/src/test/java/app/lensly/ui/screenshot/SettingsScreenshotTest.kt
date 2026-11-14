@@ -1,6 +1,7 @@
 package app.lensly.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import app.lensly.app.HideDelay
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.settings.Catalog
@@ -31,6 +32,7 @@ class SettingsScreenshotTest {
             onChangePassword = {},
             failureDelayCap = FailureCapChoice.DEFAULT,
             onFailureDelayCap = {},
+            hideDelay = HideDelay.DEFAULT,
             catalog = Catalog(
                 networks = registry.networks(),
                 tokens = registry.tokens(),
