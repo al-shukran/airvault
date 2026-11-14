@@ -8,6 +8,7 @@ import kotlin.test.assertIs
 import org.junit.Test
 import org.web3j.crypto.RawTransaction
 import org.web3j.crypto.TransactionEncoder
+import org.web3j.utils.Numeric
 
 class UnsignedTxTest {
 
@@ -164,6 +165,17 @@ class UnsignedTxTest {
         val overLimit = calldataTx(ByteArray(ParserLimits.MAX_CALLDATA_BYTES + 1))
         val rejected = assertIs<UnsignedTx.Result.Rejected>(UnsignedTx.decode(overLimit, DataType.TRANSACTION))
         assertEquals("calldata is larger than ${ParserLimits.MAX_CALLDATA_BYTES} bytes", rejected.reason)
+    }
+
+    @Test
+    fun acceptsA6KiBMulticallAndA16KiBCalldataButRefusesCalldataOf16385Bytes() {
+        val multicall = Numeric.hexStringToByteArray("ac9650d8") + ByteArray(6 * 1024 - 4)
+        assertEquals(6 * 1024, Numeric.hexStringToByteArray(okTx(UnsignedTx.decode(calldataTx(multicall), DataType.TRANSACTION)).data).size)
+
+        assertEquals(16_384, Numeric.hexStringToByteArray(okTx(UnsignedTx.decode(calldataTx(ByteArray(16_384)), DataType.TRANSACTION)).data).size)
+
+        val rejected = assertIs<UnsignedTx.Result.Rejected>(UnsignedTx.decode(calldataTx(ByteArray(16_385)), DataType.TRANSACTION))
+        assertEquals("calldata is larger than 16384 bytes", rejected.reason)
     }
 
     @Test

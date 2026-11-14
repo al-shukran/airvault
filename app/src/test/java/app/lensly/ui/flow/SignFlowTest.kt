@@ -160,6 +160,24 @@ private fun transactionRequest(data: String): UR {
     return UR("eth-sign-request", requestCbor(tx, REQUEST_ID, dataType = 4))
 }
 
+private fun hexWordOf(value: Int): String = value.toString(16).padStart(64, '0')
+
+private fun addressWordOf(address: String): String = address.removePrefix("0x").lowercase().padStart(64, '0')
+
+/** The calldata of Multicall3 `aggregate3((address,bool,bytes)[])` over [calls], each with [target] and allowFailure false. */
+private fun aggregate3DataOf(calls: List<String>, target: String): String {
+    // Each tuple: its target, its flag, the offset of its bytes (96), then the bytes: their length and their words.
+    val tuples = calls.map { data ->
+        val padded = data + "00".repeat((32 - data.length / 2 % 32) % 32)
+        addressWordOf(target) + hexWordOf(0) + hexWordOf(96) + hexWordOf(data.length / 2) + padded
+    }.map { it.length / 2 to it }
+    // The array: its length, the offset of each tuple from the start of the offsets, then the tuples.
+    var next = 32 * calls.size
+    val offsets = tuples.map { (size, _) -> hexWordOf(next).also { next += size } }
+    return "0x82ad56cb" + hexWordOf(32) + hexWordOf(calls.size) + offsets.joinToString("") +
+        tuples.joinToString("") { it.second }
+}
+
 private fun requestCbor(signData: ByteArray, requestId: ByteArray?, dataType: Long): ByteArray {
     val steps = listOf(44L to true, 60L to true, 0L to true, 0L to false, 0L to false)
     val keypath = Cbor.Tagged(
@@ -292,11 +310,49 @@ class SignFlowTest {
     }
 
     @Test
-    fun aRequestLargerThan64KiBIsRefusedBeforeItCompletes() {
+    fun aRequestLargerThan128KiBIsRefusedBeforeItCompletes() {
         val flow = SignFlow(FakePorts(), WALLET_ID)
-        val read = scan(flow, framesOf(messageRequest(signData = ByteArray(70 * 1024) { 1 }), FRAGMENT))
-        assertEquals("The request is larger than 64 KiB.", assertIs<SignStep.Refused>(flow.state.value).reason)
-        assertTrue(read < 300, "refused only after $read frames, so the scan did not stop early")
+        val read = scan(flow, framesOf(messageRequest(signData = ByteArray(100 * 1024) { 1 }), FRAGMENT))
+        assertEquals("The request is larger than 128 KiB.", assertIs<SignStep.Refused>(flow.state.value).reason)
+        assertTrue(read < 400, "refused only after $read frames, so the scan did not stop early")
+    }
+
+    @Test
+    fun aSixteenKiBRequestIsStillReadWhenHalfOfItsFramesAreMissed() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        val data = "0xdeadbeef" + "00".repeat(ParserLimits.MAX_CALLDATA_BYTES - 4)
+        val frames = framesOf(transactionRequest(data), FRAGMENT).filterIndexed { index, _ -> index % 2 == 0 }
+        scan(flow, frames)
+        // The call is refused for being undecodable, and shown in full. The scan limit does not stop it.
+        assertEquals(512, assertNotNull(assertIs<SignStep.Refused>(flow.state.value).call).words.size)
+    }
+
+    @Test
+    fun aRouterSizedMulticallOfAboutSixKiBIsScannedInFramesAndReviewed() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        val transfer = "a9059cbb" + addressWordOf(RECIPIENT) + hexWordOf(1_500_000)
+        scan(flow, framesOf(transactionRequest(aggregate3DataOf(List(24) { transfer }, RECIPIENT)), FRAGMENT))
+        assertIs<SignStep.Review>(flow.state.value)
+    }
+
+    @Test
+    fun aSixteenKiBCallThatCannotBeDecodedIsScannedInFramesAndShownInFull() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        val data = "0xdeadbeef" + "00".repeat(ParserLimits.MAX_CALLDATA_BYTES - 4)
+        scan(flow, framesOf(transactionRequest(data), FRAGMENT))
+        val refused = assertIs<SignStep.Refused>(flow.state.value)
+        // The whole call is shown, so a 16 KiB request is not cut short by the scan size limit.
+        assertEquals(512, assertNotNull(refused.call).words.size)
+    }
+
+    @Test
+    fun aRequestWithCalldataOver16KiBIsRefusedWithItsReason() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        scan(flow, framesOf(transactionRequest("0x" + "00".repeat(ParserLimits.MAX_CALLDATA_BYTES + 1)), FRAGMENT))
+        assertEquals(
+            "calldata is larger than ${ParserLimits.MAX_CALLDATA_BYTES} bytes",
+            assertIs<SignStep.Refused>(flow.state.value).reason,
+        )
     }
 
     @Test
