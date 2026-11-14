@@ -1,6 +1,11 @@
 package app.lensly.app.sign
 
 import app.lensly.core.evm.EvmFixtures
+import app.lensly.core.evm.Rlp
+import app.lensly.core.evm.UnsignedTx
+import app.lensly.core.parse.CANNOT_BE_READ
+import app.lensly.core.parse.ParsedRequest
+import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.FeeModel
@@ -16,9 +21,11 @@ import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.UrScanner
+import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.sign.ReviewCheck
+import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -38,6 +45,9 @@ import org.web3j.utils.Numeric
 
 private const val MONAD_TESTNET = 10143L
 private const val ETHEREUM = 1L
+private const val WHOLE_REQUEST = 64 * 1024
+private const val ACCESS_LIST_FIELD = 8
+private const val TYPED_EIP1559: Byte = 0x02
 private const val BASE = 8453L
 private const val UNKNOWN_CHAIN = 999_999L
 
@@ -1008,6 +1018,73 @@ class SignPipelineTest {
         ).reason
 
         assertEquals("This request is for a different address", reason)
+    }
+
+    @Test
+    fun aSandboxThatChangesTheRecipientIsRefusedWhileTheHonestParseIsReady() {
+        val cbor = requestCbor(eip1559Tx())
+
+        assertIs<Prepared.Ready>(pipeline.prepare(changedParse(cbor) { it }, VIEW))
+        val changed = changedParse(cbor) { it.copy(to = UNREGISTERED) }
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(changed, VIEW))
+    }
+
+    @Test
+    fun aSandboxThatChangesTheValueIsRefused() {
+        val cbor = requestCbor(eip1559Tx())
+        val changed = changedParse(cbor) { it.copy(value = it.value + BigInteger.ONE) }
+
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(changed, VIEW))
+    }
+
+    @Test
+    fun aSandboxThatChangesTheChainIsRefused() {
+        val cbor = requestCbor(eip1559Tx())
+        val changed = changedParse(cbor) { it.copy(chainId = BigInteger.valueOf(ETHEREUM)) }
+
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(changed, VIEW))
+    }
+
+    @Test
+    fun aSandboxThatChangesTheCalldataOfATokenCallIsRefused() {
+        val honest = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+        val cbor = requestCbor(eip1559Tx(to = USDC_ETHEREUM, value = BigInteger.ZERO, data = honest))
+        val larger = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.valueOf(1_000_000))
+
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(changedParse(cbor) { it.copy(data = larger) }, VIEW))
+    }
+
+    @Test
+    fun aTransactionWithAnAccessListIsRefusedBecauseTheReviewCannotShowIt() {
+        assertEquals(CANNOT_BE_READ, refusal(requestCbor(eip1559WithAccessList())))
+    }
+
+    @Test
+    fun aSignatureIsNeverMadeOverFieldsThatDifferFromTheReviewedTransaction() {
+        val ready = ready(requestCbor(eip1559Tx()))
+        val tx = assertNotNull(ready.tx)
+        val changed = ready.copy(tx = tx.copy(value = tx.value + BigInteger.ONE))
+
+        assertFailsWith<IllegalArgumentException> { pipeline.sign(changed, WALLET.privateKey(0)) }
+    }
+
+    /** The parse a compromised sandbox would send for [cbor]: the transaction it decoded is changed by [change]. */
+    private fun changedParse(cbor: ByteArray, change: (UnsignedTx) -> UnsignedTx): ParsedRequest {
+        val parts = listOf(framesOf(UR(EthSignRequest.UR_TYPE, cbor), WHOLE_REQUEST).first())
+        val reply = assertIs<ScanReply.Complete>(inProcessSandboxParser.scan(parts))
+        val tx = assertIs<UnsignedTx.Result.Ok>(reply.parsed.tx).tx
+        return reply.parsed.copy(tx = UnsignedTx.Result.Ok(change(tx)))
+    }
+
+    /** A typed transaction like [eip1559Tx], with one access list entry. The review has no place to show an access list. */
+    private fun eip1559WithAccessList(): ByteArray {
+        val signed = eip1559Tx()
+        val fields = (Rlp.decode(signed.copyOfRange(1, signed.size)) as Rlp.Lst).items
+            .take(ACCESS_LIST_FIELD).map { Rlp.encodeString((it as Rlp.Str).bytes) }
+        val entry = Rlp.encodeList(
+            listOf(Rlp.encodeString(ByteArray(20) { 1 }), Rlp.encodeList(listOf(Rlp.encodeString(ByteArray(32) { 2 })))),
+        )
+        return byteArrayOf(TYPED_EIP1559) + Rlp.encodeList(fields + Rlp.encodeList(listOf(entry)))
     }
 
     private fun prepared(cbor: ByteArray): Prepared = pipeline.prepare(cbor, VIEW)

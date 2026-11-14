@@ -6,6 +6,7 @@ import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
+import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ParserLimits
@@ -191,6 +192,16 @@ private fun scan(flow: SignFlow, frames: Sequence<String>, limit: Int = 2000): I
     fed
 }
 
+/** A sandbox that adds one wei to the value of the transaction it decodes, as a compromised sandbox could. */
+private class ValueChangingParser : RequestParser by inProcessSandboxParser {
+    override fun scan(parts: List<String>): ScanReply {
+        val reply = inProcessSandboxParser.scan(parts)
+        if (reply !is ScanReply.Complete) return reply
+        val tx = assertIs<UnsignedTx.Result.Ok>(reply.parsed.tx).tx
+        return ScanReply.Complete(reply.parsed.copy(tx = UnsignedTx.Result.Ok(tx.copy(value = tx.value + BigInteger.ONE))))
+    }
+}
+
 /** Scans a complete request through [parser]. The flow refuses it with the sandbox's refusal, and nothing is signed. */
 private fun assertRefusedWithoutSigning(parser: RequestParser) {
     val ports = FakePorts(parser = parser)
@@ -305,6 +316,18 @@ class SignFlowTest {
         } finally {
             release.countDown()
         }
+    }
+
+    @Test
+    fun aSandboxThatChangesTheTransactionRefusesTheRequestAndSignsNothing() {
+        val ports = FakePorts(parser = ValueChangingParser())
+        val flow = SignFlow(ports, WALLET_ID)
+
+        scan(flow, framesOf(transactionRequest("0x"), FRAGMENT))
+
+        assertEquals(SignStep.Refused(CANNOT_BE_READ), flow.state.value)
+        assertEquals(0, ports.signCalls)
+        assertTrue(ports.keysHandedOut.isEmpty())
     }
 
     @Test

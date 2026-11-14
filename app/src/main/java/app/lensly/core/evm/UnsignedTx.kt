@@ -5,6 +5,7 @@ import app.lensly.core.ur.DataType
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import org.web3j.crypto.Keys
+import org.web3j.utils.Numeric
 
 enum class TxType { LEGACY_EIP155, EIP1559 }
 
@@ -35,6 +36,40 @@ data class UnsignedTx(
         class Ok(val tx: UnsignedTx) : Result
 
         class Rejected(val reason: String) : Result
+    }
+
+    /**
+     * The unsigned payload of this transaction, rebuilt from its fields in the form [decode] reads. The review shows these
+     * fields, so the payload is what gets signed when the review shows what is signed. Null when a field is not in that form:
+     * a to that is not its checksum address, calldata that is not lowercase hex, or fees that do not fit the type.
+     */
+    fun encode(): ByteArray? {
+        if (chainId.signum() <= 0 || nonce.signum() < 0 || value.signum() < 0 || gasLimit.signum() < 0) return null
+        val address = to?.let { canonicalAddress(it) ?: return null } ?: ByteArray(0)
+        val calldata = canonicalCalldata(data) ?: return null
+        return when (type) {
+            TxType.LEGACY_EIP155 -> {
+                if (gasPrice == null || maxPriorityFeePerGas != null || maxFeePerGas != null) return null
+                Rlp.encodeList(
+                    listOf(
+                        rlpInteger(nonce), rlpInteger(gasPrice), rlpInteger(gasLimit), Rlp.encodeString(address),
+                        rlpInteger(value), Rlp.encodeString(calldata), rlpInteger(chainId), Rlp.encodeString(ByteArray(0)),
+                        Rlp.encodeString(ByteArray(0)),
+                    ),
+                )
+            }
+            TxType.EIP1559 -> {
+                if (gasPrice != null || maxPriorityFeePerGas == null || maxFeePerGas == null) return null
+                // The access list is empty. decode accepts a list it cannot show, so a transaction with one is refused.
+                byteArrayOf(TYPED_EIP1559.toByte()) + Rlp.encodeList(
+                    listOf(
+                        rlpInteger(chainId), rlpInteger(nonce), rlpInteger(maxPriorityFeePerGas), rlpInteger(maxFeePerGas),
+                        rlpInteger(gasLimit), Rlp.encodeString(address), rlpInteger(value), Rlp.encodeString(calldata),
+                        Rlp.encodeList(emptyList()),
+                    ),
+                )
+            }
+        }
     }
 
     companion object {
@@ -139,3 +174,22 @@ data class UnsignedTx(
         private fun hexOf(bytes: ByteArray): String = "0x" + bytes.toHex()
     }
 }
+
+private val CANONICAL_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
+private val CANONICAL_CALLDATA = Regex("0x(?:[0-9a-f]{2})*")
+
+/** The bytes of [address] when it is written as its EIP-55 checksum, or null when it is not. */
+private fun canonicalAddress(address: String): ByteArray? =
+    if (CANONICAL_ADDRESS.matches(address) && Keys.toChecksumAddress(address) == address) {
+        Numeric.hexStringToByteArray(address)
+    } else {
+        null
+    }
+
+/** The bytes of [data] when it is lowercase 0x hex, or null when it is not. */
+private fun canonicalCalldata(data: String): ByteArray? =
+    if (CANONICAL_CALLDATA.matches(data)) Numeric.hexStringToByteArray(data) else null
+
+/** An unsigned integer as RLP: its minimal big-endian bytes, where zero is the empty string. */
+private fun rlpInteger(value: BigInteger): ByteArray =
+    Rlp.encodeString(value.toByteArray().dropWhile { it == 0.toByte() }.toByteArray())

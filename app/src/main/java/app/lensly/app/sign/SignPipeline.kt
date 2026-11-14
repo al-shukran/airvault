@@ -182,6 +182,8 @@ class SignPipeline(
             is UnsignedTx.Result.Rejected -> return Prepared.Refused(decoded.reason)
             null -> return Prepared.Refused(CANNOT_BE_READ)
         }
+        // The review shows the fields of tx, so they must rebuild the bytes that get signed. Otherwise it shows another transaction.
+        if (tx.encode()?.contentEquals(target.request.signData) != true) return Prepared.Refused(CANNOT_BE_READ)
         if (tx.chainId != BigInteger.valueOf(target.chainId)) {
             return Prepared.Refused(
                 "The transaction is for chain ${tx.chainId}, but the request is for chain ${target.chainId}",
