@@ -2,8 +2,10 @@ package app.lensly.ui.flow
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
+import app.lensly.ui.shippedRegistry
 import app.lensly.ui.theme.LenslyTheme
 import org.junit.Rule
 import org.junit.Test
@@ -65,6 +67,51 @@ class PairWizardTest {
         compose.onNodeWithText("Step 2 of 4", ignoreCase = true).assertExists()
         // The banner title is shown in capitals, so the match ignores case.
         compose.onNodeWithText("Cannot be paired", ignoreCase = true).assertExists()
+    }
+
+    @Test
+    fun pickingAWalletShowsItsWalletEntryNoteOnTheInstructions() {
+        compose.setContent {
+            LenslyTheme {
+                PairWizard(
+                    wallets = listOf(mnemonic("w1", "Seed wallet")),
+                    profiles = emptyMap(),
+                    preselected = null,
+                    onDone = {},
+                    onLeave = {},
+                    walletEntries = shippedRegistry().walletEntries(),
+                )
+            }
+        }
+
+        compose.onNodeWithText("WALLET ENTRY").assertDoesNotExist()
+        compose.onNodeWithText("RABBY (AIRGAP VAULT)").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("WALLET ENTRY").assertExists()
+        compose.onNodeWithText("Rabby").assertExists()
+        compose.onNodeWithText("Known limitations: ", substring = true).assertExists()
+    }
+
+    @Test
+    fun aWalletOutsideTheRegistryShowsNoWalletEntryNote() {
+        compose.setContent {
+            LenslyTheme {
+                PairWizard(
+                    wallets = listOf(mnemonic("w1", "Seed wallet")),
+                    profiles = emptyMap(),
+                    preselected = null,
+                    onDone = {},
+                    onLeave = {},
+                    walletEntries = shippedRegistry().walletEntries(),
+                )
+            }
+        }
+
+        compose.onNodeWithText("OTHER WALLET").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("WALLET ENTRY").assertDoesNotExist()
     }
 
     private fun mnemonic(id: String, name: String) = WalletMeta(
