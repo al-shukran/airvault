@@ -5,8 +5,8 @@ Run from anywhere:
     python3 -I tools/registry-data/build.py
 
 Each run re-fetches the sources listed in sources.md into raw/, writes the candidates to out/, and rewrites
-sources.md. Nothing under app/ is written. verify_onchain.py then checks out/ on chain, and README.md says how
-the result reaches app/src/main/assets/registry/. Downloaded files are parsed as JSON or searched as text; they
+sources.md. Nothing under app/ or shared/ is written. verify_onchain.py then checks out/ on chain, and README.md says how
+the result reaches shared/src/main/assets/registry/. Downloaded files are parsed as JSON or searched as text; they
 are never executed.
 """
 import datetime as dt
@@ -24,9 +24,9 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 RAW = HERE / "raw"
 OUT = HERE / "out"
-EXISTING_NETWORKS = REPO / "app/src/main/assets/registry/networks.json"
-EXISTING_TOKENS = REPO / "app/src/main/assets/registry/tokens.json"
-REGISTRY_ICONS = REPO / "app/src/main/java/app/lensly/ui/components/RegistryIcons.kt"
+EXISTING_NETWORKS = REPO / "shared/src/main/assets/registry/networks.json"
+EXISTING_TOKENS = REPO / "shared/src/main/assets/registry/tokens.json"
+REGISTRY_ICONS = REPO / "shared/src/main/java/app/lensly/ui/components/RegistryIcons.kt"
 FEE_MODEL_FILE = HERE / "feemodel.json"
 EXCLUSIONS_FILE = HERE / "exclusions.json"
 MANUAL_NETWORKS_FILE = HERE / "manual-networks.json"

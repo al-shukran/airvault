@@ -7,5 +7,5 @@ useDefault = true
 [[allowlists]]
 description = "Published test vectors: public material only (guideline 1.8)"
 paths = [
-  '''app/src/test/resources/vectors/.*''',
+  '''shared/src/test/resources/vectors/.*''',
 ]

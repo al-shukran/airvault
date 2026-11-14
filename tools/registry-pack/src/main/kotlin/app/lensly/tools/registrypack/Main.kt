@@ -69,7 +69,7 @@ private fun keygen(options: Options, out: PrintStream, passphrase: PassphraseSou
     out.println("wrote ${dir.resolve("release.pub")}")
     out.println("public key ${publicKey.toHex()}, key ID $keyId")
     out.println(
-        """entry for app/src/main/assets/registry/trusted-keys.json: """ +
+        """entry for shared/src/main/assets/registry/trusted-keys.json: """ +
             """{"id":"$keyId","publicKey":"${publicKey.toHex()}","status":"active"}""",
     )
 }

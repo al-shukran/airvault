@@ -39,7 +39,7 @@ done < <(
   grep -rnIE \
     --include='*.kt' --include='*.java' \
     "$pattern" \
-    app/src/test app/src/androidTest tools/*/src/test tools/*/src/androidTest \
+    app/src/test app/src/androidTest shared/src/test shared/src/testFixtures tools/*/src/test tools/*/src/androidTest \
     2>/dev/null || true
 )
 
@@ -47,7 +47,7 @@ if ((failed)); then
   cat <<'EOF'
 
 Test code must not reach the network (guideline §3: release has no INTERNET permission).
-Use local fixtures under app/src/test/resources instead. If the match is a fixture string
+Use local fixtures under shared/src/test/resources or app/src/test/resources instead. If the match is a fixture string
 and not a real call, add CI_ALLOW_NETWORK_REFERENCE with a reason on the same line.
 EOF
   exit 1

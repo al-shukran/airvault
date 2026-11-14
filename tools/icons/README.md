@@ -1,7 +1,8 @@
 # Icon tools
 
-`convert.mjs` turns the logo SVGs into Android VectorDrawables in `app/src/main/res/drawable/`. It also writes
-`app/src/main/java/app/lensly/ui/components/RegistryIcons.kt`, the map from each icon name to its drawable.
+`convert.mjs` turns the logo SVGs into Android VectorDrawables. The chain and token drawables go to
+`shared/src/main/res/drawable/`, and the logo and launcher icons to `app/src/main/res/drawable/`. It also writes
+`shared/src/main/java/app/lensly/ui/components/RegistryIcons.kt`, the map from each icon name to its drawable.
 
 ## Sources and license
 

@@ -53,10 +53,14 @@ jobs:
 
       # Compile every variant the PR lane compiles, and nothing else. Each task was confirmed
       # present with `./gradlew <tasks> --dry-run`. Keep this list in step with the build types
-      # in app/build.gradle.kts and the modules in settings.gradle.kts.
+      # in app/build.gradle.kts and shared/build.gradle.kts and the modules in settings.gradle.kts.
       - name: Compile without tests
         run: >
           ./gradlew
+          :shared:compileDebugKotlin
+          :shared:compileDebugUnitTestKotlin
+          :shared:compileDebugTestFixturesKotlin
+          :shared:compileBenchmarkKotlin
           :app:compileDebugKotlin
           :app:compileDebugUnitTestKotlin
           :app:compileDebugAndroidTestKotlin

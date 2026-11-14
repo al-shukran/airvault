@@ -6,34 +6,34 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 
 | Partition | Selector |
 |---|---|
-| `core-wallet` | `app.lensly.core.wallet.*` |
-| `core-ur-evm` | `app.lensly.core.ur.*` and `app.lensly.core.evm.*`, plus `app.lensly.fuzz.*` |
-| `core-parse` | `app.lensly.core.parse.*` |
-| `core-vault` | `app.lensly.core.vault.*` |
-| `core-registry` | `app.lensly.core.registry.*` and `app.lensly.core.registry.update.*` |
-| `core-btc` | `app.lensly.core.btc.*` |
-| `ui-a` | `app.lensly.ui.{camera,settings,wallet,qr,navigation,a11y,theme,screenshot}.*` minus the pixel tests (see below) |
-| `ui-b` | `app.lensly.ui.{flow,components,home,sign,gate,profile}.*` and `app.lensly.ui.SecureWindowTest` |
-| `app` | `app.lensly.app.*` and `app.lensly.SmokeTest` |
+| `core-wallet` | `:shared` `app.lensly.core.wallet.*` |
+| `core-ur-evm` | `:shared` `app.lensly.core.ur.*` and `app.lensly.core.evm.*`, plus `app.lensly.fuzz.*` |
+| `core-parse` | `:shared` `app.lensly.core.parse.*` |
+| `core-vault` | `:shared` `app.lensly.core.vault.*` |
+| `core-registry` | `:shared` `app.lensly.core.registry.*` and `app.lensly.core.registry.update.*` |
+| `core-btc` | `:shared` `app.lensly.core.btc.*` |
+| `ui-a` | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme}.*`; the pixel tests are excluded (see below) |
+| `ui-b` | `:app` `app.lensly.ui.{flow,home,sign,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
+| `app` | `:app` `app.lensly.app.*`, `app.lensly.SmokeTest` and `app.lensly.core.vault.BackupExclusionTest` |
 | `registry-pack` | `:tools:registry-pack:test` |
 | `manifest` | `check-manifest.sh` |
 | `ci` | `bash -n` on every script, then `check-ui-partitions.sh` and `check-test-network.sh` (no Gradle) |
 
 `core-parse`, `app` and `registry-pack` are not in the guideline 2.2 table: tests already live in those packages, so leaving them out would run nothing for changes there.
 
-`core-ur-evm` also replays the Jazzer fuzz targets (`app.lensly.fuzz.*`): they cover UR/CBOR, the eth-sign request and the unsigned (RLP) transaction decoder. The PR lane runs them as ordinary JUnit tests, so committed seeds are replayed on every change to that partition. They run as a second Gradle invocation with `-PfuzzLane`, in their own JVM: once a fuzz target has run, Jazzer's agent breaks Robolectric's sandbox class loader, so the shared unit-test JVM skips the fuzz package (see the note in `app/build.gradle.kts`).
+`core-ur-evm` also replays the Jazzer fuzz targets (`app.lensly.fuzz.*`): they cover UR/CBOR, the eth-sign request and the unsigned (RLP) transaction decoder. The PR lane runs them as ordinary JUnit tests, so committed seeds are replayed on every change to that partition. They run as a second Gradle invocation with `-PfuzzLane`, in their own JVM: once a fuzz target has run, Jazzer's agent breaks Robolectric's sandbox class loader, so the shared unit-test JVM skips the fuzz package (see the note in `shared/build.gradle.kts`).
 
 `ci` covers CI's own files (`scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml`). It needs no Gradle: it syntax-checks every script under `scripts/` and runs the test-network guard, so a workflow or script edit no longer merges without a check.
 
-Each partition is one `./gradlew :app:testDebugUnitTest --tests ...` call; repeated `--tests` filters are ORed. Gradle's `*` matches across dots, so `registry.*` already reaches `registry.update`; the explicit second filter is belt-and-braces. Unknown names print usage and exit 2.
+Each partition is one Gradle call per module, `./gradlew :shared:testDebugUnitTest --tests ...` (or `:app:testDebugUnitTest`, for the Lensly-only packages); repeated `--tests` filters are ORed. The `ui-a` and `ui-b` partitions run both modules in one call. Gradle's `*` matches across dots, so `registry.*` already reaches `registry.update`; the explicit second filter is belt-and-braces. Unknown names print usage and exit 2.
 
-The `ui-a` and `ui-b` partitions split the `app.lensly.ui` tests so each stays under the 3-minute cap (guideline 2.1). Every ui subpackage, and any test class directly in `app.lensly.ui`, must appear in exactly one of the two lists in `run-partition.sh`. `check-ui-partitions.sh` (run by the `ci` partition) fails when one is missing from both.
+The `ui-a` and `ui-b` partitions split the `app.lensly.ui` tests so each stays under the 3-minute cap (guideline 2.1). Every ui subpackage in `app/src/test` or `shared/src/test`, and any test class directly in `app.lensly.ui`, must appear in exactly one of the two halves in `run-partition.sh`. `check-ui-partitions.sh` (run by the `ci` partition) fails when one is missing from both.
 
 Both halves pass `-PprLane`, which makes `app/build.gradle.kts` exclude `app.lensly.ui.screenshot.*`. The Roborazzi pixel tests would push the partitions past the cap, so they are night-only: the nightly workflow runs `./gradlew ... verifyRoborazziDebug` against the committed goldens (guideline 2.7). Adding `-PprLane` to a local run reproduces the PR lane; leave it off to run everything.
 
 ```bash
 scripts/ci/run-partition.sh core-wallet
-./gradlew :app:testDebugUnitTest --tests 'app.lensly.core.wallet.*'   # same thing
+./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*'   # same thing
 ```
 
 ## Manifest guard — `check-manifest.sh`
@@ -74,11 +74,11 @@ scripts/ci/fuzz-nightly.sh --seconds 60                   # /run-fuzz: four minu
 scripts/ci/fuzz-nightly.sh --list
 ```
 
-Duration comes from each `@FuzzTest` annotation: `maxDuration = "15m"`, which Jazzer passes to libFuzzer as `-max_total_time=900`. `--seconds` passes `-PfuzzMaxSeconds=N`; `app/build.gradle.kts` turns that into the `jazzer.internal.arg.0` JUnit configuration parameter, and Jazzer appends it after the annotation value, so the shorter cap wins.
+Duration comes from each `@FuzzTest` annotation: `maxDuration = "15m"`, which Jazzer passes to libFuzzer as `-max_total_time=900`. `--seconds` passes `-PfuzzMaxSeconds=N`; `shared/build.gradle.kts` turns that into the `jazzer.internal.arg.0` JUnit configuration parameter, and Jazzer appends it after the annotation value, so the shorter cap wins.
 
 **PR lane.** The same targets run with no environment variable, as ordinary JUnit tests: Jazzer replays the committed seeds. `@FuzzTest` is a JUnit 5 `@ParameterizedTest`, so the unit-test JVM runs both engines — Jupiter for the fuzz targets, Vintage for every existing JUnit 4 test. Pass `-PfuzzLane` so the run includes `app.lensly.fuzz.*`: without it the shared JVM skips that package, because Jazzer and Robolectric cannot share a JVM.
 
-**Seeds.** `app/src/test/resources/fuzz-seeds/<target>/` holds valid and malformed inputs, named in that directory's `index.txt`; the tests read them through `@MethodSource`. A crash a nightly run finds lands in `app/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/`, which the regression run replays as soon as the file is committed.
+**Seeds.** `shared/src/test/resources/fuzz-seeds/<target>/` holds valid and malformed inputs, named in that directory's `index.txt`; the tests read them through `@MethodSource`. A crash a nightly run finds lands in `shared/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/`, which the regression run replays as soon as the file is committed.
 
 `instrumented` skips `app.lensly.benchmark`: those classes need `AndroidBenchmarkRunner`, which only the `benchmark` build type gets. `perf` runs `:app:connectedBenchmarkAndroidTest` on the reference device; set `BENCHMARK_RESULT=<benchmarkData.json>` to make it compare that run against the baseline.
 
