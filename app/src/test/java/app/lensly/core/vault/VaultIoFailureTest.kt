@@ -2,6 +2,7 @@ package app.lensly.core.vault
 
 import java.io.File
 import kotlinx.coroutines.runBlocking
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -58,7 +59,7 @@ class VaultIoFailureTest {
         taken += folder
         folder.setWritable(false)
 
-        assertTrue(unlockResult() is UnlockResult.Unlocked)
+        assertTrue(unlockOpens())
     }
 
     @Test
@@ -70,7 +71,7 @@ class VaultIoFailureTest {
         taken += pad
         pad.setReadable(false)
 
-        assertTrue(unlockResult() is UnlockResult.Unlocked)
+        assertTrue(unlockOpens())
     }
 
     @Test
@@ -85,7 +86,45 @@ class VaultIoFailureTest {
         taken += layout.vaultRecords
         layout.vaultRecords.setWritable(false)
 
-        assertTrue(unlockResult() is UnlockResult.Unlocked)
+        assertTrue(unlockOpens())
+    }
+
+    @Test
+    fun unlockOpensWhenTheReviewPoolCannotBeCreatedAndCreatesItOnTheNextUnlock() {
+        create()
+        // A file where the pool's folder belongs, so the first batch cannot be written.
+        layout.reviewPool.deleteRecursively()
+        layout.reviewPool.writeBytes(byteArrayOf(1))
+
+        assertTrue(unlockOpens())
+
+        layout.reviewPool.delete()
+        assertTrue(unlockOpens())
+        assertEquals(ReviewPoolFormat.BATCH, layout.reviewPool.listFiles().orEmpty().count { it.isFile })
+    }
+
+    @Test
+    fun unlockOpensWhenAnEarlierReviewCannotBeReadAndMovesItOnTheNextUnlock() {
+        create()
+        val session = unlock()
+        val wallet = session.createWallet()
+        val bytes = "a review written by an earlier build".toByteArray()
+        val key = session.copyOfVaultKey()
+        LegacyWalletFolder.writeRecord(layout, key, wallet, "review-old", bytes)
+        key.fill(0)
+        session.close()
+        val legacy = File(layout.walletDir(wallet), "review-old.bin")
+        taken += legacy
+        legacy.setReadable(false)
+
+        assertTrue(unlockOpens())
+        assertTrue(legacy.exists())
+
+        legacy.setReadable(true)
+        val reopened = unlock()
+        assertContentEquals(bytes, reopened.getReview(wallet, "review-old"))
+        assertFalse(legacy.exists())
+        reopened.close()
     }
 
     private fun create() {
@@ -99,6 +138,13 @@ class VaultIoFailureTest {
     }
 
     private fun unlockResult(): UnlockResult = runBlocking { vault.unlock(APP.toCharArray()) }
+
+    /** True when unlock opens the vault. The session it returns is closed here. */
+    private fun unlockOpens(): Boolean {
+        val result = unlockResult()
+        if (result is UnlockResult.Unlocked) result.session.close()
+        return result is UnlockResult.Unlocked
+    }
 
     private companion object {
         const val APP = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
