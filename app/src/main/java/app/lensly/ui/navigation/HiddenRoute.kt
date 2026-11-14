@@ -7,11 +7,11 @@ import app.lensly.ui.camera.EntryGesture
  * with a `{walletId}` argument cannot match the fixed ones.
  */
 internal object HiddenRoute {
-    // Gate: decides between create and unlock, and shows the neutral screen when the vault cannot open.
-    const val GATE = "gate"
-    const val CREATE_PASSWORD = "create-password"
-    const val UNLOCK = "unlock"
-    const val UNAVAILABLE = "unavailable"
+    // The gate's routes are shared with Lumio, so they are defined once, in GateRoutes.
+    const val GATE = GateRoutes.GATE
+    const val CREATE_PASSWORD = GateRoutes.CREATE_PASSWORD
+    const val UNLOCK = GateRoutes.UNLOCK
+    const val UNAVAILABLE = GateRoutes.UNAVAILABLE
 
     // Wallets.
     const val HOME = "home"

@@ -86,6 +86,7 @@ dependencies {
     api(libs.androidx.compose.material3)
     api(libs.androidx.compose.material.icons.core)
     api(libs.androidx.activity.compose)
+    api(libs.androidx.navigation.compose)
     api(libs.kotlinx.coroutines.android)
 
     implementation(libs.androidx.lifecycle.viewmodel.compose)

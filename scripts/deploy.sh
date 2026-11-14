@@ -2,6 +2,7 @@
 # Build the debug APK, then install and launch it on the target devices.
 # Default target is the emulator only; the physical phone belongs to the owner.
 # Override with DEVICES="serial1 serial2" or DEVICES=all.
+# APP picks the app: lensly (the default, module :app) or lumio (module :lumio).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,10 +13,14 @@ if [ -f "$ROOT/scripts/env.sh" ]; then
     . "$ROOT/scripts/env.sh"
 fi
 
-APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
-COMPONENT="app.lensly/.MainActivity"
+case "${APP:-lensly}" in
+    lensly) MODULE=app; COMPONENT="app.lensly/.MainActivity" ;;
+    lumio) MODULE=lumio; COMPONENT="app.lumio/.MainActivity" ;;
+    *) echo "deploy: unknown APP=${APP:-}; use lensly or lumio" >&2; exit 2 ;;
+esac
+APK="$ROOT/$MODULE/build/outputs/apk/debug/$MODULE-debug.apk"
 
-./gradlew :app:assembleDebug
+./gradlew ":$MODULE:assembleDebug"
 
 attached="$(adb devices | awk 'NR > 1 && $2 == "device" { print $1 }')"
 case "${DEVICES:-emulator-5554}" in

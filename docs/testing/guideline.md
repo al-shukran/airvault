@@ -106,7 +106,8 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 | `core-btc` | `shared`: `core/btc/**`, its tests, `vectors/bitcoin/**` | `:shared` `app.lensly.core.btc.*` |
 | `ui-a` | `ui/**` in `app` and `shared`, their tests, `shared/src/testFixtures/`, `res/values/strings.xml` (same paths as `ui-b`) | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme}.*` (`screenshot` is excluded by `-PprLane`) |
 | `ui-b` | same as `ui-a` | `:app` `app.lensly.ui.{flow,home,sign,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
-| `manifest` | `app/src/**/AndroidManifest.xml`, `shared/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts`, `shared/build.gradle.kts` | `check-manifest.sh` |
+| `lumio` | `lumio/**`, `shared/**`, the root build files | `:lumio:assembleDebug`, `:lumio:testDebugUnitTest` |
+| `manifest` | `app/src/**/AndroidManifest.xml`, `shared/src/**/AndroidManifest.xml`, `lumio/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts`, `shared/build.gradle.kts`, `lumio/build.gradle.kts`, `scripts/ci/check-manifest.sh` | `check-manifest.sh` (`:app` offline, `:lumio` allow-list) |
 | `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml` | `bash -n` on every script, `check-ui-partitions.sh`, then `check-test-network.sh` |
 
 The `ui` tests split in two so each half stays under the 3-minute cap. Every `ui` subpackage, and any test class directly in `app.lensly.ui`, must be listed in exactly one of `ui-a` or `ui-b`; `check-ui-partitions.sh` fails the `ci` partition otherwise.

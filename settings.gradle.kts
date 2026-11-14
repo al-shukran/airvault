@@ -16,6 +16,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Lensly"
 include(":app")
+include(":lumio")
 include(":shared")
 include(":benchmark")
 include(":tools:registry-pack")

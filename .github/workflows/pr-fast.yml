@@ -29,7 +29,7 @@ jobs:
 
       # One filter per row of the 2.2 partition map. Build paths are the 2.2 exception:
       # a build change can affect any package, so it runs every unit partition.
-      # core-parse, app and registry-pack are partitions run-partition.sh supports beyond
+      # core-parse, app, registry-pack and lumio are partitions run-partition.sh supports beyond
       # 2.2; those packages already hold tests, so leaving them out would run nothing.
       - id: filter
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -117,6 +117,8 @@ jobs:
               - 'shared/src/test/java/app/lensly/ui/**'
               - 'shared/src/testFixtures/**'
               - 'app/src/main/res/values/strings.xml'
+              - 'shared/src/main/res/**'
+              - 'shared/src/main/java/app/lensly/app/**'
               - 'build.gradle.kts'
               - 'app/build.gradle.kts'
               - 'shared/build.gradle.kts'
@@ -130,6 +132,8 @@ jobs:
               - 'shared/src/test/java/app/lensly/ui/**'
               - 'shared/src/testFixtures/**'
               - 'app/src/main/res/values/strings.xml'
+              - 'shared/src/main/res/**'
+              - 'shared/src/main/java/app/lensly/app/**'
               - 'build.gradle.kts'
               - 'app/build.gradle.kts'
               - 'shared/build.gradle.kts'
@@ -142,8 +146,12 @@ jobs:
               - 'gradle/libs.versions.toml'
               - 'app/build.gradle.kts'
               - 'shared/build.gradle.kts'
+              - 'lumio/src/**/AndroidManifest.xml'
+              - 'lumio/build.gradle.kts'
+              - 'scripts/ci/check-manifest.sh'
             app:
               - 'app/src/main/java/app/lensly/app/**'
+              - 'shared/src/main/java/app/lensly/app/**'
               - 'app/src/test/java/app/lensly/app/**'
               - 'app/src/test/java/app/lensly/SmokeTest.kt'
               - 'app/src/test/java/app/lensly/core/vault/BackupExclusionTest.kt'
@@ -159,6 +167,14 @@ jobs:
               - 'build.gradle.kts'
               - 'app/build.gradle.kts'
               - 'shared/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            # Lumio is a second app on the shared cover, gate and theme in :shared, so any change to :shared can break its build.
+            lumio:
+              - 'lumio/**'
+              - 'shared/**'
+              - 'build.gradle.kts'
               - 'gradle/**'
               - 'gradle.properties'
               - 'settings.gradle.kts'
@@ -179,6 +195,7 @@ jobs:
             dependencies:
               - 'build.gradle.kts'
               - 'app/build.gradle.kts'
+              - 'lumio/build.gradle.kts'
               - 'shared/build.gradle.kts'
               - 'tools/*/build.gradle.kts'
               - 'gradle/libs.versions.toml'

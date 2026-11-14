@@ -18,7 +18,7 @@ private const val SLIDE_DIVISOR = 12
  * Screen transitions for the nav host: a short fade with a small horizontal slide when moving forward, and the reverse
  * when going back.
  */
-internal object LenslyNavTransitions {
+object LenslyNavTransitions {
     val enter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
         fadeIn(tween(TRANSITION_MS)) + slideIntoContainer(
             towards = AnimatedContentTransitionScope.SlideDirection.Start,
