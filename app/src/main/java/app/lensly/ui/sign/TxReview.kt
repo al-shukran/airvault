@@ -48,6 +48,27 @@ fun unlimitedApprovalWarning(symbol: String?): String =
 const val ALL_NFTS_WARNING = "Grants control of ALL your NFTs in this collection"
 
 /**
+ * One call inside a multicall, as the review lists it. [depth] is its level: 1 for a call of the outer multicall, 2 for a call inside
+ * a nested one. [target] is the contract a Multicall3 call names, and null for a call to the contract the batch itself goes to.
+ * [whitelisted] is set when the signed whitelist approves the call, which Lensly cannot decode itself.
+ *
+ * A call carries the same warnings a lone call would: [warnings] such as an unlimited approval, the muted [note] under its amounts,
+ * and [unregistered] when it moves or approves a token outside the registry. Each is shown as it is for a lone call. [denylisted]
+ * holds the denylist entries the call matches, each a WARN, since a BLOCK match refuses the request before its review.
+ */
+data class NestedCall(
+    val depth: Int,
+    val target: String?,
+    val function: String,
+    val params: List<Pair<String, String>>,
+    val whitelisted: WhitelistedCall? = null,
+    val warnings: List<String> = emptyList(),
+    val note: String? = null,
+    val unregistered: Boolean = false,
+    val denylisted: List<DenylistEntry> = emptyList(),
+)
+
+/**
  * Everything the review screen shows about one transaction before the user decides.
  *
  * [amount] is already formatted for display, for example "0.0100". [fee] holds label and value
@@ -95,6 +116,8 @@ data class TxReview(
     val whitelisted: WhitelistedCall? = null,
     /** The denylist entries this request matches, each a known-dangerous request. Empty when none matches. */
     val denylisted: List<DenylistEntry> = emptyList(),
+    /** The calls of a multicall, level by level, in the order they run. Empty for any other call. */
+    val nested: List<NestedCall> = emptyList(),
 ) {
     /**
      * True when the chain or the token is outside the registry. Such a review carries the registry warning, and APPROVE
@@ -106,12 +129,16 @@ data class TxReview(
 
     /** The checks the owner ticks before signing, in the order the screen shows them. */
     val requiredChecks: List<ReviewCheck>
-        get() = listOfNotNull(
-            ReviewCheck.DENYLIST.takeIf { denylisted.isNotEmpty() },
-            ReviewCheck.REGISTRY.takeIf { needsRegistryConfirmation },
-            ReviewCheck.WHITELIST.takeIf { whitelisted != null },
-            ReviewCheck.UPGRADE.takeIf { whitelisted?.call?.proxy != null },
-        )
+        get() {
+            // A whitelisted or unregistered call may sit in a multicall, so every such call of the review counts.
+            val whitelistedCalls = listOfNotNull(whitelisted) + nested.mapNotNull { it.whitelisted }
+            return listOfNotNull(
+                ReviewCheck.DENYLIST.takeIf { denylisted.isNotEmpty() || nested.any { it.denylisted.isNotEmpty() } },
+                ReviewCheck.REGISTRY.takeIf { needsRegistryConfirmation || nested.any { it.unregistered } },
+                ReviewCheck.WHITELIST.takeIf { whitelistedCalls.isNotEmpty() },
+                ReviewCheck.UPGRADE.takeIf { whitelistedCalls.any { it.call.proxy != null } },
+            )
+        }
 
     /** True when the hold-to-sign control may run: every fact has been seen and every required check is ticked. */
     fun canApprove(everyFactShown: Boolean, checked: Set<ReviewCheck>): Boolean =

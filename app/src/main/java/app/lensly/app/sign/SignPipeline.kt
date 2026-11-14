@@ -7,8 +7,15 @@ import app.lensly.core.evm.TxSigner
 import app.lensly.core.evm.TxType
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.parse.CANNOT_BE_READ
+import app.lensly.core.parse.InnerCall
+import app.lensly.core.parse.Multicall
+import app.lensly.core.parse.MulticallShape
 import app.lensly.core.parse.ParsedRequest
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.RequestParser
+import app.lensly.core.parse.callCount
+import app.lensly.core.parse.deepestLevel
+import app.lensly.core.parse.encodesAs
 import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
@@ -28,6 +35,7 @@ import app.lensly.core.ur.EthSignatureEncoder
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.ALL_NFTS_WARNING
+import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
@@ -200,6 +208,8 @@ class SignPipeline(
         val review = if (calldata.isEmpty()) {
             nativeReview(target, to, tx.value)
         } else {
+            // A multicall lists each of its calls, and each call is decided as a call of its own.
+            target.parsed.multicall?.let { return multicallReview(target, tx, to, calldata, it) }
             // An undecodable call is a Decode Gap, so it is decided by the whitelist before the token lookup.
             val call = target.parsed.call ?: return decodeGap(target, tx, to, calldata)
             // The labels are shown only when the decoded call is exactly the calldata that gets signed.
@@ -213,38 +223,150 @@ class SignPipeline(
 
     /**
      * A Decode Gap: calldata Lensly cannot decode. It is refused unless its contract and Function Selector are on the signed
-     * whitelist. A whitelisted proxy is refused under Bind to implementation and under Refuse all proxies. Under Warn and
-     * confirm it is reviewed with its approved meaning, and the review carries the proxy binding.
+     * whitelist, as [whitelistedGap] decides. The review of an approved call carries its approved meaning and the proxy binding.
      */
-    private fun decodeGap(target: Target, tx: UnsignedTx, contract: String, calldata: ByteArray): Prepared {
+    private fun decodeGap(target: Target, tx: UnsignedTx, contract: String, calldata: ByteArray): Prepared =
+        when (val gap = whitelistedGap(target, contract, calldata, tx.value)) {
+            is GapOutcome.Refused -> Prepared.Refused(gap.reason, gap.call)
+            is GapOutcome.Approved -> ready(
+                target,
+                target.review(function = gap.function, toAddress = checksum(contract), params = gap.params)
+                    .copy(whitelisted = gap.whitelisted),
+                tx,
+            )
+        }
+
+    /** What the whitelist decides for an undecodable call: approved, with the facts its review shows, or refused with its reason. */
+    private sealed interface GapOutcome {
+        class Approved(val function: String, val params: List<Pair<String, String>>, val whitelisted: WhitelistedCall) : GapOutcome
+
+        class Refused(val reason: String, val call: UndecodedCall) : GapOutcome
+    }
+
+    /**
+     * The whitelist's decision for an undecodable call to [contract] that sends [value]. A call the whitelist does not approve is
+     * refused. A whitelisted proxy is refused under Bind to implementation and under Refuse all proxies. Under Warn and confirm it is
+     * approved with its approved meaning, and the approval carries the proxy binding. The sandbox decodes the arguments, and they are
+     * checked against the calldata before they are shown.
+     */
+    private fun whitelistedGap(target: Target, contract: String, calldata: ByteArray, value: BigInteger): GapOutcome {
         val entry = whitelistEntry(target, contract, calldata)
         val proxy = entry?.takeIf { it.upgradeable }?.proxy
-        val call = undecodedCall(target, contract, tx.value, calldata, proxy = proxy)
-        if (entry == null) return Prepared.Refused(UNKNOWN_CALL, call)
+        val call = undecodedCall(target, contract, value, calldata, proxy = proxy)
+        if (entry == null) return GapOutcome.Refused(UNKNOWN_CALL, call)
         if (entry.upgradeable && proxyPolicy == ProxyPolicy.BIND_TO_IMPLEMENTATION) {
-            return Prepared.Refused(BOUND_PROXY_REFUSAL, call)
+            return GapOutcome.Refused(BOUND_PROXY_REFUSAL, call)
         }
         if (entry.upgradeable && proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) {
-            return Prepared.Refused(ANY_PROXY_REFUSAL, call)
+            return GapOutcome.Refused(ANY_PROXY_REFUSAL, call)
         }
         val decoded = when (val result = parser.decodeStatic(calldata, entry.params)) {
             is StaticDecode.Ok -> result.params
-            is StaticDecode.Refused -> return Prepared.Refused(result.reason, call)
+            is StaticDecode.Refused -> return GapOutcome.Refused(result.reason, call)
         }
         // The sandbox must answer with exactly the params the entry declares, in their order.
-        if (decoded.map { it.param } != entry.params) return Prepared.Refused(CANNOT_BE_READ, call)
+        if (decoded.map { it.param } != entry.params) return GapOutcome.Refused(CANNOT_BE_READ, call)
         // The labels are shown only when the decoded values are exactly the arguments that get signed.
         if (StaticAbiDecoder.encode(decoded)?.contentEquals(argumentsOf(calldata)) != true) {
-            return Prepared.Refused(CANNOT_BE_READ, call)
+            return GapOutcome.Refused(CANNOT_BE_READ, call)
         }
         val token = registry.token(target.chainId, contract)
-        val review = target.review(
+        return GapOutcome.Approved(
             function = entry.signature.substringBefore('('),
-            toAddress = checksum(contract),
             params = decoded.map { paramValue(it, token) },
-        ).copy(whitelisted = WhitelistedCall(entry.signature, entry.meaning, call))
+            whitelisted = WhitelistedCall(entry.signature, entry.meaning, call),
+        )
+    }
+
+    /**
+     * A multicall. Its calldata must be exactly what the calls the sandbox read encode to, and each call is then decided where it
+     * sits. The review lists every call in order, indented by its level, under the batch's own function and deadline.
+     */
+    private fun multicallReview(target: Target, tx: UnsignedTx, to: String, calldata: ByteArray, multicall: Multicall): Prepared {
+        val shape = encodesAs(calldata, multicall) ?: return Prepared.Refused(CANNOT_BE_READ)
+        if (multicall.deepestLevel() > ParserLimits.MAX_NESTED_DEPTH) return Prepared.Refused(TOO_DEEP_REFUSAL)
+        if (multicall.callCount() > ParserLimits.MAX_NESTED_CALLS) return Prepared.Refused(TOO_MANY_CALLS_REFUSAL)
+        val rows = ArrayList<NestedCall>()
+        checkCalls(target, tx, to, shape, multicall, level = 1, rows)?.let { return it }
+        val network = target.network
+        val review = target.review(
+            function = shape.function,
+            signature = shape.signature,
+            toAddress = checksum(to),
+            amount = nativeAmount(tx.value, network),
+            symbol = nativeUnit(network),
+            amountNote = if (network == null) assumedAmountNote(tx.value) else null,
+            params = deadlineParams(multicall),
+            nested = rows,
+        )
         return ready(target, review, tx)
     }
+
+    /**
+     * Decides each call of [multicall], whose calldata has [shape], and lists it in [rows] at [level]. A nested batch is checked against
+     * its own calldata, and its calls one level down. Returns the refusal of the first call that fails, or null when every call passes.
+     */
+    private fun checkCalls(
+        target: Target,
+        tx: UnsignedTx,
+        to: String,
+        shape: MulticallShape,
+        multicall: Multicall,
+        level: Int,
+        rows: MutableList<NestedCall>,
+    ): Prepared.Refused? {
+        for (inner in multicall.calls) {
+            // A Multicall3 call names its own contract. Any other call goes to the contract its batch goes to.
+            val contract = inner.target ?: to
+            // Every call of the batch meets the denylist, as the request does: a BLOCK match refuses it, and a WARN match stays on its row.
+            val denied = registry.denylistMatches(target.chainId, contract, inner.calldata)
+            denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { return Prepared.Refused(it.reason) }
+            val shown = inner.target?.let { checksum(it) }
+            val flags = flagsOf(shape, inner, target.network)
+            val nested = inner.nested
+            val decoded = inner.call
+            when {
+                nested != null -> {
+                    val nestedShape = encodesAs(inner.calldata, nested) ?: return Prepared.Refused(CANNOT_BE_READ)
+                    rows += NestedCall(level, shown, nestedShape.function, flags + deadlineParams(nested), denylisted = denied)
+                    checkCalls(target, tx, contract, nestedShape, nested, level + 1, rows)?.let { return it }
+                }
+                decoded != null -> {
+                    // The labels are shown only when the decoded call is exactly the calldata that gets signed.
+                    if (decoded.encode()?.contentEquals(inner.calldata) != true) return Prepared.Refused(CANNOT_BE_READ)
+                    val review = callReview(target, decoded, contract, registry.token(target.chainId, contract))
+                    rows += NestedCall(
+                        depth = level,
+                        target = shown,
+                        function = review.function,
+                        params = flags + review.params,
+                        warnings = review.warnings,
+                        note = review.amountNote,
+                        unregistered = review.needsRegistryConfirmation,
+                        denylisted = denied,
+                    )
+                }
+                else -> when (val gap = whitelistedGap(target, contract, inner.calldata, inner.value ?: tx.value)) {
+                    is GapOutcome.Refused -> return Prepared.Refused(gap.reason, gap.call)
+                    is GapOutcome.Approved ->
+                        rows += NestedCall(level, shown, gap.function, flags + gap.params, gap.whitelisted, denylisted = denied)
+                }
+            }
+        }
+        return null
+    }
+
+    /** The flags a Multicall3 call carries, shown ahead of its own arguments: whether it may fail, and the value it sends. */
+    private fun flagsOf(shape: MulticallShape, inner: InnerCall, network: NetworkEntry?): List<Pair<String, String>> = buildList {
+        if (shape.hasAllowFailure) add("allowFailure (bool)" to "${inner.allowFailure}")
+        if (shape.hasValue) {
+            inner.value?.let { add("value (uint256)" to "${nativeAmount(it, network)} ${nativeUnit(network)}") }
+        }
+    }
+
+    /** The deadline of a multicall that carries one, as the review's parameter. */
+    private fun deadlineParams(multicall: Multicall): List<Pair<String, String>> =
+        listOfNotNull(multicall.deadline?.let { "deadline (uint256)" to it.toString() })
 
     /**
      * One decoded argument as the review lists it: its name and type, then its full value. A tokenRef uint named amount,
@@ -467,6 +589,7 @@ class SignPipeline(
         amountNote: String? = null,
         params: List<Pair<String, String>> = emptyList(),
         warnings: List<String> = emptyList(),
+        nested: List<NestedCall> = emptyList(),
     ): TxReview = TxReview(
         networkName = network?.name ?: UNKNOWN_CHAIN_NAME,
         chainId = chainId,
@@ -491,6 +614,7 @@ class SignPipeline(
         walletIdentity = wallet.identity,
         accountIdentity = wallet.accountIdentity(index),
         origin = request.origin,
+        nested = nested,
     )
 
     /**
@@ -562,6 +686,9 @@ class SignPipeline(
         const val BOUND_PROXY_REFUSAL = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is " +
             "still the approved version, so your Proxy Policy refuses it."
         const val ANY_PROXY_REFUSAL = "This contract is an upgradeable proxy, and your Proxy Policy refuses every proxy."
+        val TOO_DEEP_REFUSAL = "The calls nest deeper than ${ParserLimits.MAX_NESTED_DEPTH} levels, so Lensly cannot show every call."
+        val TOO_MANY_CALLS_REFUSAL = "The transaction holds more than ${ParserLimits.MAX_NESTED_CALLS} calls, " +
+            "so Lensly cannot show every call."
         const val GWEI_DECIMALS = 9
         const val ACCOUNT_PATH_LENGTH = 5
         const val SELECTOR_BYTES = 4

@@ -37,11 +37,13 @@ sealed interface ScanReply {
 /**
  * An eth-sign-request and what its data decodes to. A transaction dataType carries its decoded transaction, or the reason it
  * is refused. Other dataTypes carry neither. [call] is set when a decoded transaction's calldata is a call [ContractCall] knows.
+ * [multicall] is set when that calldata is a multicall whose calls the sandbox read, level by level.
  */
 data class ParsedRequest(
     val request: EthSignRequest,
     val tx: UnsignedTx.Result?,
     val call: ContractCall?,
+    val multicall: Multicall? = null,
 )
 
 /**
@@ -88,7 +90,8 @@ internal object InProcessParser : RequestParser {
         val tx = UnsignedTx.decode(request.signData, request.dataType)
         val calldata = (tx as? UnsignedTx.Result.Ok)?.tx?.data?.let { Numeric.hexStringToByteArray(it) }
         val call = calldata?.takeIf { it.isNotEmpty() }?.let { ContractCall.decode(it) }
-        return ParsedRequest(request, tx, call)
+        val multicall = calldata?.let { multicallOf(it) }
+        return ParsedRequest(request, tx, call, multicall)
     }
 }
 

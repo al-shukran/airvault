@@ -29,6 +29,15 @@ internal object ParserLimits {
     /** The largest calldata a transaction may carry. A token transfer or approval needs 68 bytes. */
     const val MAX_CALLDATA_BYTES = 1024
 
+    /** The deepest level a call of a multicall may sit at. The calls of the outer multicall are level 1, the calls inside them level 2. */
+    const val MAX_NESTED_DEPTH = 3
+
+    /** The most calls one request may show, the calls of nested multicalls included. */
+    const val MAX_NESTED_CALLS = 32
+
+    /** The most calls one multicall may read in the Parser Sandbox, nested ones included. It bounds a batch whose offsets overlap. */
+    const val MAX_NESTED_NODES = 256
+
     /** The time one decode may take, in nanoseconds. */
     const val DECODE_BUDGET_NANOS = 1_000_000_000L
 }

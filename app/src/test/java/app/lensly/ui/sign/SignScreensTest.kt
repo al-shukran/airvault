@@ -8,9 +8,11 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -22,6 +24,9 @@ import app.lensly.app.ProfileIcon
 import app.lensly.app.VisualIdentity
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
+import app.lensly.core.registry.DenylistCondition
+import app.lensly.core.registry.DenylistEntry
+import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
@@ -86,6 +91,64 @@ private fun whitelistedReview(proxy: ProxyBinding? = null) = approvalReview(orig
             selector = "6e17e9f6",
             words = SWAP_WORDS,
             proxy = proxy,
+        ),
+    ),
+)
+
+private const val DENYLIST_REASON = "Unlimited approval: the spender can take every token."
+
+/**
+ * A multicall with its calls listed level by level: an approval, and a Multicall3 batch whose whitelisted sweep sits one level down
+ * and names its contract.
+ */
+private fun multicallReview() = approvalReview(origin = null).copy(
+    function = "multicall",
+    signature = "multicall(uint256,bytes[])",
+    toAddress = TO,
+    amount = "",
+    symbol = "",
+    tokenContract = null,
+    token = null,
+    params = listOf("deadline (uint256)" to "1700000000"),
+    warnings = emptyList(),
+    nested = listOf(
+        NestedCall(
+            depth = 1,
+            target = null,
+            function = "approve",
+            params = listOf("spender" to TO, "value" to "10"),
+            warnings = listOf(UNLIMITED),
+            note = UNKNOWN_DECIMALS_NOTE,
+            unregistered = true,
+            denylisted = listOf(
+                DenylistEntry(
+                    chainId = BASE.chainId,
+                    selector = "0x095ea7b3",
+                    condition = DenylistCondition.UNLIMITED,
+                    severity = DenylistSeverity.WARN,
+                    reason = DENYLIST_REASON,
+                ),
+            ),
+        ),
+        NestedCall(depth = 1, target = null, function = "aggregate3", params = listOf("allowFailure (bool)" to "false")),
+        NestedCall(
+            depth = 2,
+            target = BASE_USDC,
+            function = "sweepToken",
+            params = listOf("token (address)" to BASE_USDC, "amountMinimum (uint256)" to "10"),
+            whitelisted = WhitelistedCall(
+                signature = "sweepToken(address,uint256,address)",
+                meaning = APPROVED_MEANING,
+                call = UndecodedCall(
+                    target = BASE_USDC,
+                    networkName = BASE.name,
+                    chainId = BASE.chainId,
+                    value = "0 ETH",
+                    selector = "df2ab5bb",
+                    words = SWAP_WORDS,
+                    proxy = null,
+                ),
+            ),
         ),
     ),
 )
@@ -236,6 +299,34 @@ class TxReviewScreenTest {
         }
         compose.onNodeWithText("I CHECKED THIS IS WHAT I INTEND").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aMulticallListsEachCallLevelByLevelWithItsTargetFunctionAndArguments() {
+        compose.setContent { LenslyTheme { TxReviewScreen(review = multicallReview(), onApprove = {}, onReject = {}) } }
+
+        compose.onNodeWithText("CALLS").assertExists()
+        compose.onNodeWithText("approve").assertExists()
+        // A call outside the registry earns the same warnings a lone call does: its warning, its note and its registry block.
+        compose.onNodeWithText(UNLIMITED).assertExists()
+        compose.onNodeWithText(UNKNOWN_DECIMALS_NOTE).assertExists()
+        compose.onNodeWithText("NOT IN LENSLY'S REGISTRY").assertExists()
+        // A call that matches the denylist shows its reason and needs the risky-request check.
+        compose.onNodeWithText("KNOWN RISKY REQUEST").assertExists()
+        compose.onNodeWithText(DENYLIST_REASON).assertExists()
+        compose.onNodeWithText("I UNDERSTAND THIS IS A RISKY REQUEST").assertExists()
+        compose.onNodeWithText("aggregate3").assertExists()
+        compose.onNodeWithText("ALLOWFAILURE (BOOL)").assertExists()
+        compose.onNodeWithText("sweepToken").assertExists()
+        compose.onNodeWithText("TARGET").assertExists()
+        // The sweep's target, its token argument, and the contract row of its whitelisted block are the same contract.
+        compose.onAllNodesWithText(groupAddress(BASE_USDC)).assertCountEquals(3)
+        compose.onNodeWithText("TOKEN (ADDRESS)").assertExists()
+        compose.onNodeWithText("AMOUNTMINIMUM (UINT256)").assertExists()
+        // The whitelisted call inside the batch carries the same warning, and the owner must tick its check.
+        compose.onNodeWithText("WHITELISTED CONTRACT CALL").assertExists()
+        compose.onNodeWithText("I CHECKED THIS IS WHAT I INTEND").assertExists()
+        compose.assertNoTextIsCutShort()
     }
 
     @Test
