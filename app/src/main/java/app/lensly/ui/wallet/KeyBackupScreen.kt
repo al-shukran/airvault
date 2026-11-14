@@ -44,7 +44,8 @@ import app.lensly.ui.theme.LenslySpacing
 /**
  * The write-down of a Single Key import, the last step before the wallet is saved. The key is shown once, in groups of
  * four, so it can be copied onto a backup by hand. Lensly keeps an encrypted copy, but that copy is not a backup. The
- * owner confirms that the copy exists, and only then can CREATE WALLET be pressed.
+ * owner confirms that the copy exists, and only then can CREATE WALLET be pressed. While [saving] is true, the button reads
+ * "Saving…" and stays off.
  */
 @Composable
 fun KeyBackupScreen(
@@ -54,6 +55,7 @@ fun KeyBackupScreen(
     onCreate: () -> Unit,
     modifier: Modifier = Modifier,
     errorMessage: String? = null,
+    saving: Boolean = false,
 ) {
     LenslyScreen(
         title = "Key backup",
@@ -66,10 +68,10 @@ fun KeyBackupScreen(
                     label = "I copied the key onto my backup",
                 )
                 PillButton(
-                    text = "Create wallet",
+                    text = if (saving) "Saving…" else "Create wallet",
                     onClick = onCreate,
                     accent = true,
-                    enabled = copied,
+                    enabled = copied && !saving,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

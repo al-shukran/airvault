@@ -242,11 +242,11 @@ class WalletDraftViewModel : ViewModel() {
     }
 
     /**
-     * Returns the save state to [SaveState.Idle]. A flow's HOME screen calls it when the flow ends, so a finished save
-     * does not act again in a later flow.
+     * Returns the save state to [SaveState.Idle], unless a save is running. A flow's HOME screen calls it when the flow ends,
+     * so a finished save does not act again in a later flow. A running save keeps its state, so its result is still kept.
      */
     fun clearSaveState() {
-        mutableSaveState.value = SaveState.Idle
+        if (mutableSaveState.value != SaveState.Saving) mutableSaveState.value = SaveState.Idle
     }
 
     override fun onCleared() {

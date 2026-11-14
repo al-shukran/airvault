@@ -2,6 +2,7 @@ package app.lensly.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
+import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.flow.RevealPart
 import app.lensly.ui.flow.RevealStep
 import app.lensly.ui.flow.RevealedSecret
@@ -124,13 +125,13 @@ class WalletPartBScreenshotTest {
     @Test
     fun showSecretWordsScreen() = showSecret(
         "show_secret_words_screen",
-        revealed(RevealedSecret.ofMnemonic(TEST_WORDS, null), RevealPart.WORDS, index = 2, secondsLeft = 45),
+        revealed(RevealedSecret.ofMnemonic(Mnemonic.of(TEST_WORDS), null), RevealPart.WORDS, index = 2, secondsLeft = 45),
     )
 
     @Test
     fun showSecretPassphraseScreen() = showSecret(
         "show_secret_passphrase_screen",
-        revealed(RevealedSecret.ofMnemonic(TEST_WORDS, TEST_PASSPHRASE), RevealPart.PASSPHRASE, index = 0, secondsLeft = 8),
+        revealed(RevealedSecret.ofMnemonic(Mnemonic.of(TEST_WORDS), TEST_PASSPHRASE), RevealPart.PASSPHRASE, index = 0, secondsLeft = 8),
     )
 
     @Test

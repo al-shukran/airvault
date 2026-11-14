@@ -86,6 +86,39 @@ class WalletDraftSaveTest {
     }
 
     @Test
+    fun aHomeResetDuringTheWriteKeepsTheSaveAndItsResult() {
+        val model = WalletDraftViewModel()
+        model.draft.setTypedWords(artWords)
+        val release = CompletableDeferred<Unit>()
+        compose.runOnIdle {
+            model.save("WALLET") { _, _, _, _ ->
+                release.await()
+                "wallet-5"
+            }
+        }
+        // HOME runs its flow-end reset while the write is still suspended. The reset must not end the save.
+        compose.runOnIdle { model.clearSaveState() }
+        assertEquals(SaveState.Saving, model.saveState.value)
+        release.complete(Unit)
+        awaitSave(model) { it is SaveState.Saved }
+        assertEquals(SaveState.Saved("wallet-5"), model.saveState.value)
+    }
+
+    @Test
+    fun aHomeResetAfterASaveEndsTheFinishedSave() {
+        val model = WalletDraftViewModel()
+        model.draft.setTypedWords(artWords)
+        compose.runOnIdle {
+            model.save("WALLET") { _, _, _, _ -> "wallet-6" }
+        }
+        awaitSave(model) { it is SaveState.Saved }
+
+        model.clearSaveState()
+
+        assertEquals(SaveState.Idle, model.saveState.value)
+    }
+
+    @Test
     fun aFailedSaveKeepsTheWordsAndASecondSaveWritesThemAgain() {
         val model = WalletDraftViewModel()
         model.draft.setTypedWords(artWords)
