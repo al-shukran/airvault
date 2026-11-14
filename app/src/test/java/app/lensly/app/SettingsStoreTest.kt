@@ -1,5 +1,7 @@
 package app.lensly.app
 
+import app.lensly.core.btc.InputVerificationPolicy
+import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
@@ -192,7 +194,7 @@ class SettingsStoreTest {
     @Test
     fun anUnknownSettingsVersionReadsAsTheDefault() {
         val session = open()
-        session.putVaultRecord("settings", record(version = 4, accounts = 1_000))
+        session.putVaultRecord("settings", record(version = 5, accounts = 1_000))
 
         assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
         session.close()
@@ -290,6 +292,72 @@ class SettingsStoreTest {
         SettingsStore(session).save(AppSettings(BulkCap.HUNDRED))
         val hundred = SettingsStore(session).load().bulkCap.accounts
         assertEquals(101, assertNotNull(wallets.addAccounts(id, 100, hundred)).accountCount)
+        session.close()
+    }
+
+    @Test
+    fun aSavedBitcoinPolicyIsReadBackAfterTheVaultReopens() {
+        val first = open()
+        SettingsStore(first).save(
+            AppSettings(
+                bitcoinInputPolicy = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED,
+                bitcoinSigningSource = SigningSourcePolicy.COMPANION_ONLY,
+            ),
+        )
+        first.close()
+
+        val reopened = open()
+        val loaded = SettingsStore(reopened).load()
+        assertEquals(InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED, loaded.bitcoinInputPolicy)
+        assertEquals(SigningSourcePolicy.COMPANION_ONLY, loaded.bitcoinSigningSource)
+        reopened.close()
+    }
+
+    @Test
+    fun everyBitcoinPolicyRoundTrips() {
+        val session = open()
+        for (input in InputVerificationPolicy.entries) {
+            for (source in SigningSourcePolicy.entries) {
+                SettingsStore(session).save(AppSettings(bitcoinInputPolicy = input, bitcoinSigningSource = source))
+                val loaded = SettingsStore(session).load()
+                assertEquals(input, loaded.bitcoinInputPolicy)
+                assertEquals(source, loaded.bitcoinSigningSource)
+            }
+        }
+        session.close()
+    }
+
+    @Test
+    fun aVersionThreeRecordReadsWithTheCoreBitcoinDefaults() {
+        val session = open()
+        session.putVaultRecord("settings", recordV3(accounts = 5, policyCode = 0, shortestMs = 250, longestMs = 4_000))
+
+        val loaded = SettingsStore(session).load()
+        assertEquals(HideDelay(250, 4_000), loaded.hideDelay)
+        assertEquals(InputVerificationPolicy.STRICT, loaded.bitcoinInputPolicy)
+        assertEquals(SigningSourcePolicy.ANY, loaded.bitcoinSigningSource)
+        session.close()
+    }
+
+    @Test
+    fun anUnknownBitcoinPolicyCodeReadsAsItsCoreDefaultAndTheRestIsKept() {
+        val session = open()
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(4)
+            out.writeInt(5)
+            out.writeByte(0)
+            out.writeInt(250)
+            out.writeInt(4_000)
+            out.writeByte(9)
+            out.writeByte(SigningSourcePolicy.COMPANION_ONLY.wire)
+        }
+        session.putVaultRecord("settings", buffer.toByteArray())
+
+        val loaded = SettingsStore(session).load()
+        assertEquals(InputVerificationPolicy.STRICT, loaded.bitcoinInputPolicy)
+        assertEquals(SigningSourcePolicy.COMPANION_ONLY, loaded.bitcoinSigningSource)
+        assertEquals(HideDelay(250, 4_000), loaded.hideDelay)
         session.close()
     }
 }

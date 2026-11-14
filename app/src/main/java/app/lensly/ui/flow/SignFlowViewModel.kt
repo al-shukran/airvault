@@ -20,6 +20,8 @@ class SignFlowViewModel(private val flow: SignFlow) : ViewModel() {
 
     fun approve() = flow.approve()
 
+    fun confirmUnverified(checked: Boolean) = flow.confirmUnverified(checked)
+
     /** The password is zeroed by the flow when it has been checked. */
     fun confirm(password: CharArray) {
         viewModelScope.launch { flow.confirm(password) }

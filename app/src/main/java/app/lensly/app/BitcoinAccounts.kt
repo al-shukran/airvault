@@ -2,7 +2,17 @@ package app.lensly.app
 
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.BtcReview
 import app.lensly.core.btc.ScriptType
+
+/**
+ * A Bitcoin request reviewed against a wallet: the Bitcoin account it spends from, as its stored record, and the review the owner
+ * reads before signing. It holds public data only.
+ */
+data class BitcoinReviewed(
+    val account: BitcoinAccountRecord,
+    val review: BtcReview,
+)
 
 /**
  * A Bitcoin account of a wallet, as the wallet's `bitcoin` record keeps it: its network, its Script Type and its account index, and

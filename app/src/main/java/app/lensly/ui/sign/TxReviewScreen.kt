@@ -458,7 +458,7 @@ private fun DenylistWarning(reasons: List<String>) {
  * means the check is still owed.
  */
 @Composable
-private fun CheckRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+internal fun CheckRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val haptics = rememberKeyHaptics()
     val pill = RoundedCornerShape(percent = 50)
     val owed = if (checked) LenslyOnSurface else LenslyError
@@ -637,7 +637,7 @@ private fun LabelledValue(label: String, value: String) {
 
 /** REJECT: an outlined pill that is always enabled. It shrinks while pressed and plays the key haptic. */
 @Composable
-private fun RejectPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun RejectPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }

@@ -21,6 +21,7 @@ import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
+import app.lensly.ui.sign.BitcoinReviewScreen
 import app.lensly.ui.sign.NoMatchingWalletScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReviewScreen
@@ -85,6 +86,17 @@ internal fun SignWalletRoute(
             onReject = flow::leave,
         )
         is SignStep.Confirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
+        is SignStep.BitcoinReview -> BitcoinReviewScreen(
+            review = shown.ready.reviewed.review,
+            network = shown.ready.reviewed.account.network,
+            scriptType = shown.ready.reviewed.account.scriptType,
+            accountIndex = shown.ready.reviewed.account.index,
+            confirmed = shown.confirmed,
+            onConfirmedChange = flow::confirmUnverified,
+            onApprove = flow::approve,
+            onReject = flow::leave,
+        )
+        is SignStep.BitcoinConfirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
         is SignStep.Signature -> ShowQrScreen(
             title = "SIGNATURE",
             subtitle = "Scan this with your online wallet",
