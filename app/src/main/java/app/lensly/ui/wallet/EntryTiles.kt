@@ -3,13 +3,8 @@ package app.lensly.ui.wallet
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.lensly.app.HideDelay
 import java.security.SecureRandom
-
-/** The shortest time the tiles stay hidden after a tap, in milliseconds. */
-const val HIDE_MIN_MS = 100L
-
-/** The longest time the tiles stay hidden after a tap, in milliseconds. Both ends of the range are possible. */
-const val HIDE_MAX_MS = 1_000L
 
 /**
  * The value tiles of a dice or coin entry: the face on each tile, and whether the tiles are hidden.
@@ -18,7 +13,7 @@ const val HIDE_MAX_MS = 1_000L
  * shuffle drawn from [random], so the layout shown after the reveal is not the layout the tap was made on. The
  * caller waits [hideDelayMs] and then calls [reveal]. While hidden, [tap] and [hide] do nothing.
  */
-class EntryTiles(mode: EntropyMode, private val random: SecureRandom) {
+class EntryTiles(mode: EntropyMode, private val random: SecureRandom, private val delay: HideDelay = HideDelay.DEFAULT) {
     /** The face on each tile, by tile index. Tile 0 is the first tile in the grid. */
     var faces: List<Char> by mutableStateOf(mode.symbols.toList())
         private set
@@ -48,8 +43,8 @@ class EntryTiles(mode: EntropyMode, private val random: SecureRandom) {
         hidden = false
     }
 
-    /** How long the tiles stay hidden: uniform over [HIDE_MIN_MS] to [HIDE_MAX_MS], as 100 + nextInt(901). */
-    fun hideDelayMs(): Long = HIDE_MIN_MS + random.nextInt((HIDE_MAX_MS - HIDE_MIN_MS + 1).toInt())
+    /** How long the tiles stay hidden: uniform over [HideDelay.minMs] to [HideDelay.maxMs], both included. */
+    fun hideDelayMs(): Long = delay.minMs + random.nextInt((delay.maxMs - delay.minMs + 1).toInt())
 
     /** Fisher–Yates over a copy of [tiles]: each position from the end swaps with a position at or before it. */
     private fun shuffled(tiles: List<Char>): List<Char> {

@@ -98,7 +98,7 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.WALLET_START) { entry ->
         HiddenBackdrop { WalletStartRoute(navController, entry) }
     }
-    createRoutes(navController)
+    createRoutes(navController, holder)
     importRoutes(navController, holder)
     composable(HiddenRoute.RESTORE) { entry -> HiddenBackdrop { RestoreRoute(navController, entry) } }
     composable(HiddenRoute.PASSPHRASE) { entry -> HiddenBackdrop { PassphraseRoute(navController, entry) } }

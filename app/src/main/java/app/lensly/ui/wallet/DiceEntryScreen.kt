@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.app.HideDelay
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.pressFeedback
@@ -104,7 +105,8 @@ private val LAST_FACE_SIZE = 44.dp
  * count; only [EntropyTargets.MAX_SYMBOLS] stops them. DONE enables at [minimumCount], and
  * [fullStrengthCount] is where the entry reaches its full 256 bits. Undo is off until the first face.
  * Every tap on a value tile records one entry, and every Undo tap removes one. Each of those taps then hides
- * the tiles and reorders them with [random], and they are shown again after a random 100 ms to 1 s. While they
+ * the tiles and reorders them with [random], and they are shown again after a random delay from [hideDelay], by default
+ * 100 ms to 1 s. While they
  * are hidden, the tiles, Undo and Done take no taps. [random] draws the shuffles and the delay, and [hideFor]
  * waits out the delay. Both are injected so tests can run without real time or real randomness.
  */
@@ -118,10 +120,11 @@ fun DiceEntryScreen(
     onBackspace: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
+    hideDelay: HideDelay = HideDelay.DEFAULT,
     random: SecureRandom = remember { SecureRandom() },
     hideFor: suspend (durationMs: Long) -> Unit = { delay(it) },
 ) {
-    val tiles = remember(mode, random) { EntryTiles(mode, random) }
+    val tiles = remember(mode, random, hideDelay) { EntryTiles(mode, random, hideDelay) }
     val hidden = tiles.hidden
     LaunchedEffect(hidden) {
         if (hidden) {

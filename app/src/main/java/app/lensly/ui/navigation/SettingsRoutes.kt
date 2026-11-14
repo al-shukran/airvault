@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.BuildConfig
 import app.lensly.app.AppSettings
+import app.lensly.app.HideDelay
 import app.lensly.app.DecoyVault
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
@@ -39,6 +40,8 @@ import app.lensly.ui.settings.ChangePasswordScreen
 import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
 import app.lensly.ui.settings.FailureCapChoice
+import app.lensly.ui.settings.HideDelayBound
+import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.SettingsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -52,6 +55,8 @@ internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, ho
     composable(HiddenRoute.DURESS) { HiddenBackdrop { ChangePasswordRoute(navController, holder, duress = true) } }
     composable(HiddenRoute.DURESS_REMOVE) { HiddenBackdrop { RemoveDuressRoute(navController, holder) } }
     composable(HiddenRoute.FAILURE_CAP) { HiddenBackdrop { FailureCapRoute(navController, holder) } }
+    composable(HiddenRoute.HIDE_DELAY_SHORTEST) { HiddenBackdrop { HideDelayRoute(navController, holder, HideDelayBound.SHORTEST) } }
+    composable(HiddenRoute.HIDE_DELAY_LONGEST) { HiddenBackdrop { HideDelayRoute(navController, holder, HideDelayBound.LONGEST) } }
     composable(HiddenRoute.PROXY_POLICY) { HiddenBackdrop { ProxyPolicyRoute(navController, holder) } }
     composable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
     entryGestureRoutes(navController, holder)
@@ -85,6 +90,10 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         catalog = readCatalog(context)
         failureCap = readFailureCap(holder)
         proxyPolicy = readProxyPolicy(holder)
+        // A hide delay saved on its screen shows here when the owner comes back.
+        whileUnlocked(navController, holder) {
+            settings = withContext(Dispatchers.IO) { SettingsStore(session).load() }
+        }
     }
 
     SettingsScreen(
@@ -111,6 +120,12 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         onApprovedContracts = { navController.navigate(HiddenRoute.APPROVED_CONTRACTS) },
         proxyPolicy = proxyPolicy,
         onProxyPolicy = { navController.navigate(HiddenRoute.PROXY_POLICY) },
+        hideDelay = settings?.hideDelay,
+        onHideDelay = { bound ->
+            navController.navigate(
+                if (bound == HideDelayBound.SHORTEST) HiddenRoute.HIDE_DELAY_SHORTEST else HiddenRoute.HIDE_DELAY_LONGEST,
+            )
+        },
         onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
         onWipe = { navController.navigate(HiddenRoute.WIPE) },
         onDuressPassword = { navController.navigate(HiddenRoute.DURESS) },
@@ -120,6 +135,93 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         onBack = { navController.popBackStack() },
         onLock = { leaveHidden(navController, holder) },
     )
+}
+
+/**
+ * The shortest or the longest hide delay of the dice and coin tiles. Both bounds are kept on one screen, so the range is
+ * checked as a whole: SAVE refuses a range outside 0 to [HideDelay.LIMIT_MS] or with the shortest above the longest, and says
+ * why. A saved range is read back when the screen opens and written with the rest of the settings.
+ */
+@Composable
+private fun HideDelayRoute(navController: NavHostController, holder: VaultHolder, start: HideDelayBound) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    val scope = rememberCoroutineScope()
+    var focus by remember { mutableStateOf(start) }
+    var shortest by remember { mutableStateOf("") }
+    var longest by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var ready by remember { mutableStateOf(false) }
+
+    LaunchedEffect(session) {
+        whileUnlocked(navController, holder) {
+            val saved = withContext(Dispatchers.IO) { SettingsStore(session).load().hideDelay }
+            shortest = saved.minMs.toString()
+            longest = saved.maxMs.toString()
+            ready = true
+        }
+    }
+    HideDelayScreen(
+        shortest = shortest,
+        longest = longest,
+        focus = focus,
+        error = error,
+        ready = ready,
+        onFocus = {
+            focus = it
+            error = null
+        },
+        onDigit = { digit ->
+            if (focus == HideDelayBound.SHORTEST) shortest = typed(shortest, digit) else longest = typed(longest, digit)
+            error = null
+        },
+        onBackspace = {
+            if (focus == HideDelayBound.SHORTEST) shortest = shortest.dropLast(1) else longest = longest.dropLast(1)
+            error = null
+        },
+        onSave = {
+            val min = shortest.toLongOrNull()
+            val max = longest.toLongOrNull()
+            val range = if (min == null || max == null) null else HideDelay.of(min, max)
+            if (range == null) {
+                error = if (min == null || max == null) {
+                    "Enter both delays in milliseconds."
+                } else {
+                    "A delay runs from 0 to ${HideDelay.LIMIT_MS} ms, and the shortest cannot be longer than the longest."
+                }
+            } else {
+                scope.launch {
+                    whileUnlocked(navController, holder) {
+                        withContext(Dispatchers.IO) {
+                            // Only the hide delay changes, so the saved Bulk Cap and Proxy Policy are kept.
+                            SettingsStore(session).let { store -> store.load().copy(hideDelay = range).also(store::save) }
+                        }
+                        navController.popBackStack()
+                    }
+                }
+            }
+        },
+        onBack = { navController.popBackStack() },
+    )
+}
+
+/** The digits typed so far with [digit] added. A count is at most four digits, and a leading zero is not kept. */
+private fun typed(digits: String, digit: Char): String = when {
+    digits.length >= MAX_DELAY_DIGITS -> digits
+    digits == "0" -> digit.toString()
+    else -> digits + digit
+}
+
+/** Four digits hold the longest delay the owner may set, 5000 ms. */
+private const val MAX_DELAY_DIGITS = 4
+
+/** The saved hide delay, or the default when the vault cannot be read. The dice and coin screens start from it. */
+internal suspend fun readHideDelay(holder: VaultHolder): HideDelay = withContext(Dispatchers.IO) {
+    val session = holder.openSession() ?: return@withContext HideDelay.DEFAULT
+    try {
+        SettingsStore(session).load().hideDelay
+    } catch (e: IllegalStateException) {
+        HideDelay.DEFAULT
+    }
 }
 
 /**
