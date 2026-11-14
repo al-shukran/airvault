@@ -13,6 +13,9 @@ internal class MemoryKeystore : KeystoreBackend {
     private var legacyFailureMac: SecretKey? = null
     private val folderKeys = mutableMapOf<String, SecretKey>()
 
+    /** When true, deleting a folder key fails, as a Keystore error would. The key stays where it was. */
+    var failFolderKeyDeletes = false
+
     override fun createHardwareKey(): SecretKey = newAesKey().also { hardware = it }
 
     override fun hardwareKey(): SecretKey =
@@ -40,6 +43,7 @@ internal class MemoryKeystore : KeystoreBackend {
     override fun folderKey(keyId: String): SecretKey? = folderKeys[keyId]
 
     override fun deleteFolderKey(keyId: String) {
+        if (failFolderKeyDeletes) throw VaultException("The Keystore refused to delete the key.")
         folderKeys.remove(keyId)
     }
 

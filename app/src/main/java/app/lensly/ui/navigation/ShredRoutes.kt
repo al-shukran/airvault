@@ -37,7 +37,13 @@ internal fun DeleteWalletRoute(navController: NavHostController, holder: VaultHo
         holder = holder,
         flow = flow,
         copy = DELETE_WALLET_COPY,
-        onErased = { navController.popBackStack(HiddenRoute.HOME, inclusive = false) },
+        onErased = { outcome ->
+            // A pending key is still a deleted wallet, so Home shows the same way out, with a note about the key.
+            if (outcome == ShredOutcome.ERASED_KEY_PENDING) {
+                navController.getBackStackEntry(LenslyRoute.HIDDEN).savedStateHandle[HiddenRoute.NOTICE] = KEY_CLEANUP_NOTICE
+            }
+            navController.popBackStack(HiddenRoute.HOME, inclusive = false)
+        },
     )
 }
 
@@ -87,7 +93,7 @@ internal fun ShredRoute(
     holder: VaultHolder,
     flow: ShredFlow,
     copy: ShredCopy,
-    onErased: () -> Unit,
+    onErased: (ShredOutcome) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val password = remember { PasswordBuffer() }
@@ -99,8 +105,8 @@ internal fun ShredRoute(
         onDispose { password.clear() }
     }
     LaunchedEffect(step) {
-        when ((step as? ShredStep.Ended)?.outcome) {
-            ShredOutcome.ERASED -> onErased()
+        when (val outcome = (step as? ShredStep.Ended)?.outcome) {
+            ShredOutcome.ERASED, ShredOutcome.ERASED_KEY_PENDING -> onErased(outcome)
             ShredOutcome.LOCKED -> leaveHidden(navController, holder)
             ShredOutcome.UNAVAILABLE -> navController.openHidden(HiddenRoute.UNAVAILABLE)
             null -> Unit
@@ -132,6 +138,9 @@ internal fun ShredRoute(
         onLock = { leaveHidden(navController, holder) },
     )
 }
+
+/** What Home says after a wallet was deleted but its Keystore key was not. Short, and not an error. */
+private const val KEY_CLEANUP_NOTICE = "Wallet deleted. Key cleanup at next unlock."
 
 private val DELETE_WALLET_COPY = ShredCopy(
     title = "Delete wallet",
