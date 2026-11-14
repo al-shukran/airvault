@@ -3,22 +3,20 @@ package app.lensly.app
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
-import app.lensly.core.vault.VaultException
+import app.lensly.core.vault.REVIEW_RECORD_PREFIX
 import app.lensly.core.vault.VaultSession
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
 import java.util.UUID
 
-/** The name prefix of a Review Record. The rest of its name is a random id, so the name shows neither the time nor the content. */
-private const val REVIEW_PREFIX = "review-"
-
 /** One Review Record with the wallet it belongs to. */
 data class WalletReviewRecord(val walletId: String, val record: ReviewRecord)
 
 /**
- * The Review Records of the wallets that an open [VaultSession] holds. Each record is one file in its wallet's folder, sealed under
- * the wallet's Per-Wallet Key. So Delete Wallet and Wipe shred it with the wallet, and a decoy session reads only its own records.
+ * The Review Records of the wallets that an open [VaultSession] holds. Each record is one slot in the shared Review Record pool,
+ * sealed under the wallet's Per-Wallet Key. So Delete Wallet and Wipe overwrite it with the wallet, and a decoy session reads only
+ * its own records. The record's name is a random id, so the name shows neither the time nor the content.
  */
 class ReviewHistory(private val session: VaultSession) {
 
@@ -26,7 +24,7 @@ class ReviewHistory(private val session: VaultSession) {
     fun append(walletId: String, record: ReviewRecord) {
         val bytes = ReviewRecordCodec.encode(record)
         try {
-            session.putRecord(walletId, REVIEW_PREFIX + UUID.randomUUID(), bytes)
+            session.putReview(walletId, REVIEW_RECORD_PREFIX + UUID.randomUUID(), bytes)
         } finally {
             bytes.fill(0)
         }
@@ -36,8 +34,8 @@ class ReviewHistory(private val session: VaultSession) {
      * The Review Records of wallet [walletId], newest first. A record that cannot be read is left out. A wallet this session cannot
      * open has none.
      */
-    fun list(walletId: String): List<ReviewRecord> = session.recordNames(walletId, REVIEW_PREFIX)
-        .mapNotNull { name -> read(walletId, name) }
+    fun list(walletId: String): List<ReviewRecord> = session.reviewRecords(walletId)
+        .mapNotNull { (_, bytes) -> decodeOrNull(bytes) }
         .sortedByDescending { it.atMs }
 
     /**
@@ -48,21 +46,15 @@ class ReviewHistory(private val session: VaultSession) {
         .flatMap { walletId -> list(walletId).map { record -> WalletReviewRecord(walletId, record) } }
         .sortedByDescending { it.record.atMs }
 
-    private fun read(walletId: String, name: String): ReviewRecord? {
-        val bytes = try {
-            session.getRecord(walletId, name) ?: return null
-        } catch (e: VaultException) {
-            return null
-        }
-        return try {
-            ReviewRecordCodec.decode(bytes)
-        } catch (e: IOException) {
-            null
-        } catch (e: IllegalArgumentException) {
-            null
-        } finally {
-            bytes.fill(0)
-        }
+    /** The record in [bytes], or null if it cannot be read. Zeroes [bytes]. */
+    private fun decodeOrNull(bytes: ByteArray): ReviewRecord? = try {
+        ReviewRecordCodec.decode(bytes)
+    } catch (e: IOException) {
+        null
+    } catch (e: IllegalArgumentException) {
+        null
+    } finally {
+        bytes.fill(0)
     }
 }
 
