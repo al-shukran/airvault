@@ -1,6 +1,5 @@
 package app.lensly.ui.home
 
-import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -25,8 +24,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +41,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -115,6 +120,9 @@ internal fun LogoCollageSection(
     modifier: Modifier = Modifier,
 ) {
     val rows = remember { interleaveLogos(chainIconDrawables.values, tokenIconDrawables.values).chunked(COLLAGE_PER_ROW).take(COLLAGE_ROWS) }
+    // The logos are composed one frame after the rest of Home, so Home's first frame is not held up by them.
+    var logosReady by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { withFrameNanos { logosReady = true } }
     val context = LocalContext.current
     val still = remember(context) { animatorsDisabled(context) }
     val caption = "${counted(networkCount, "network")} · ${counted(tokenCount, "token")}"
@@ -129,8 +137,12 @@ internal fun LogoCollageSection(
                 .semantics { contentDescription = "Supported networks and tokens, $caption. Opens the networks list." }
                 .clickable(role = Role.Button, onClickLabel = "Open Networks", onClick = onNetworks),
         ) {
-            Column(modifier = Modifier.padding(vertical = ROW_BLEED)) {
-                rows.forEachIndexed { index, logos -> CollageRow(logos = logos, row = index, still = still) }
+            if (logosReady) {
+                // One painter per logo, shared by its copies, so the collage makes 24 painters rather than 72.
+                val painters = rows.flatten().distinct().map { it to painterResource(id = it) }.toMap()
+                Column(modifier = Modifier.padding(vertical = ROW_BLEED)) {
+                    rows.forEachIndexed { index, logos -> CollageRow(logos = logos, row = index, still = still, painters = painters) }
+                }
             }
         }
         Spacer(Modifier.height(LenslySpacing.xs))
@@ -165,7 +177,7 @@ private fun Modifier.fadeEdges(): Modifier = this
  * screen. Its progress is read in the layout phase, so a frame moves the row without recomposing it.
  */
 @Composable
-private fun CollageRow(logos: List<Int>, row: Int, still: Boolean) {
+private fun CollageRow(logos: List<Int>, row: Int, still: Boolean, painters: Map<Int, Painter>) {
     val reverse = row % 2 == 1
     val setWidth = with(LocalDensity.current) { (LOGO_STEP * logos.size).toPx() }
     val progress = if (still) StillProgress else drift(durationMs = DRIFT_MS + row * DRIFT_STEP_MS)
@@ -179,7 +191,7 @@ private fun CollageRow(logos: List<Int>, row: Int, still: Boolean) {
             .wrapContentWidth(Alignment.Start, unbounded = true),
     ) {
         repeat(COLLAGE_COPIES) {
-            logos.forEach { logo -> CollageLogo(logo) }
+            logos.forEach { logo -> CollageLogo(painters.getValue(logo)) }
         }
     }
 }
@@ -198,7 +210,7 @@ private fun drift(durationMs: Int): State<Float> {
 
 /** One logo: a light disc with the logo centred in it. Its cell is narrower than the disc, so each logo overlaps its neighbours. */
 @Composable
-private fun CollageLogo(@DrawableRes logo: Int) {
+private fun CollageLogo(painter: Painter) {
     Box(
         modifier = Modifier.size(LOGO_STEP, ROW_STEP),
         contentAlignment = Alignment.Center,
@@ -212,7 +224,7 @@ private fun CollageLogo(@DrawableRes logo: Int) {
             contentAlignment = Alignment.Center,
         ) {
             Image(
-                painter = painterResource(id = logo),
+                painter = painter,
                 contentDescription = null,
                 modifier = Modifier.size(26.dp),
                 contentScale = ContentScale.Fit,

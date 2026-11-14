@@ -14,12 +14,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
+import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletDraft
 import app.lensly.app.WalletDraftViewModel
@@ -216,6 +218,7 @@ private fun CreatePasswordRoute(navController: NavHostController, holder: VaultH
 @Composable
 private fun UnlockRoute(navController: NavHostController, holder: VaultHolder) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current.applicationContext
     val buffer = remember { PasswordBuffer() }
     var length by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
@@ -243,6 +246,8 @@ private fun UnlockRoute(navController: NavHostController, holder: VaultHolder) {
             buffer.clear()
             length = 0
             busy = true
+            // Home shows the catalog's counts, so the catalog loads while the key is derived.
+            scope.launch(Dispatchers.IO) { runCatching { RegistryHolder.get(context) } }
             scope.launch {
                 val outcome = unlockWith(holder, password)
                 busy = false

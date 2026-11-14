@@ -35,6 +35,7 @@ import app.lensly.app.SaveState
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletDraftViewModel
+import app.lensly.app.WalletListing
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
@@ -159,7 +160,7 @@ private fun HomeRoute(
     val session = rememberOpenSession(navController, holder) ?: return
     val debugNotice = remember { debugKeystoreNotice(holder) }
     val listing = rememberWalletListing(navController, holder, session)
-    val recent = rememberRecentActivity(navController, holder, session, entry)
+    val recent = rememberRecentActivity(navController, holder, entry)
     val readiness = rememberHomeReadiness(navController, holder, entry)
     // The graph's entry carries the pairing confirmation. It is resolved once, as draftOf does, because the graph may pop.
     val hidden = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
@@ -205,20 +206,20 @@ private fun HomeRoute(
 }
 
 /**
- * The Review Records of every wallet in the open session, newest first. Home shows the first few. The read runs off the main thread,
- * and again each time Home is shown, so a new signature shows at once. Null until the read finishes.
+ * The Review Records of every wallet in the open session, newest first. Home shows the first few. A kept read is shown at once. Otherwise
+ * the read runs off the main thread, and a new signature shows once it finishes. Null until then.
  */
 @Composable
 private fun rememberRecentActivity(
     navController: NavHostController,
     holder: VaultHolder,
-    session: VaultSession,
     entry: NavBackStackEntry,
 ): List<WalletReviewRecord>? {
-    var records by remember(entry) { mutableStateOf<List<WalletReviewRecord>?>(null) }
+    var records by remember(entry) { mutableStateOf(holder.sessionReads()?.cachedRecent()) }
     LaunchedEffect(entry) {
         whileUnlocked(navController, holder) {
-            records = withContext(Dispatchers.IO) { ReviewHistory(session).listAll() }
+            val reads = holder.sessionReads() ?: return@whileUnlocked
+            records = withContext(Dispatchers.IO) { reads.recent() }
         }
     }
     return records
@@ -236,7 +237,7 @@ private fun rememberHomeReadiness(
     entry: NavBackStackEntry,
 ): HomeReadiness? {
     val context = LocalContext.current.applicationContext
-    var readiness by remember(entry) { mutableStateOf<HomeReadiness?>(null) }
+    var readiness by remember(entry) { mutableStateOf(holder.sessionReads()?.lastReadiness()) }
     LaunchedEffect(entry) {
         whileUnlocked(navController, holder) {
             val catalog = readCatalog(context)
@@ -244,13 +245,15 @@ private fun rememberHomeReadiness(
                 RegistryHolder.installed(context) to RegistryHolder.get(context).catalogSequence
             }
             val lockout = withContext(Dispatchers.IO) { readFailureCap(holder) }
-            readiness = HomeReadiness(
+            val fresh = HomeReadiness(
                 networkCount = catalog.networks.size,
                 tokenCount = catalog.tokens.size,
                 // The sequence in effect: the installed package's only when it replaces the built-in one.
                 catalogSequence = effectiveCatalogSequence(baked, installed?.sequence),
                 lockout = lockout,
             )
+            holder.sessionReads()?.keepReadiness(fresh)
+            readiness = fresh
         }
     }
     return readiness
@@ -272,12 +275,10 @@ private fun WalletsRoute(navController: NavHostController, holder: VaultHolder) 
     )
 }
 
-/** The wallets of the vault and their profiles. Both are read off the main thread. */
-internal class WalletListing(val wallets: List<WalletMeta>, val profiles: Map<String, WalletProfile>)
-
 /**
  * The wallets and their profiles while the vault is open, or null until the first read finishes. A profile is read with its
- * wallet, so a card never shows a default look that a profile replaces.
+ * wallet, so a card never shows a default look that a profile replaces. A kept read is shown at once. Otherwise it is read off the
+ * main thread, once a wallet or a Review Record has changed since the last read.
  */
 @Composable
 internal fun rememberWalletListing(
@@ -285,14 +286,12 @@ internal fun rememberWalletListing(
     holder: VaultHolder,
     session: VaultSession?,
 ): WalletListing? {
-    var listing by remember { mutableStateOf<WalletListing?>(null) }
+    var listing by remember(session) { mutableStateOf(holder.sessionReads()?.cachedListing()) }
     LaunchedEffect(session) {
         if (session == null) return@LaunchedEffect
         whileUnlocked(navController, holder) {
-            val store = WalletStore(session)
-            val wallets = withContext(Dispatchers.IO) { store.list() }
-            val profiles = withContext(Dispatchers.IO) { wallets.associate { it.id to store.walletProfile(it.id) } }
-            listing = WalletListing(wallets, profiles)
+            val reads = holder.sessionReads() ?: return@whileUnlocked
+            listing = withContext(Dispatchers.IO) { reads.listing() }
         }
     }
     return listing
