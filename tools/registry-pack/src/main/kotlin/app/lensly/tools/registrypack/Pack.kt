@@ -24,6 +24,42 @@ data class PackageDto(
     val tokens: List<TokenDto>,
     /** Optional. A package made before the whitelist existed has none, and the app then has an empty whitelist. */
     val whitelist: List<WhitelistDto> = emptyList(),
+    /** Optional. Omitted, the app keeps its built-in denylist. An empty list clears it. Needs minSchemaVersion 2. */
+    val denylist: List<DenylistDto>? = null,
+    /** Optional. Omitted, the app keeps its built-in wallets. An empty list clears them. Needs minSchemaVersion 2. */
+    val wallets: List<WalletDto>? = null,
+)
+
+/**
+ * One known-dangerous request. It names a selector, a contract on a chain, or both, or a typed-data [primaryType]. [condition] narrows
+ * a selector to the risky calls: UNLIMITED for an unlimited amount, APPROVED for an operator grant of true.
+ */
+@Serializable
+data class DenylistDto(
+    val chainId: Long? = null,
+    val contract: String? = null,
+    val selector: String? = null,
+    val primaryType: String? = null,
+    val condition: DenylistCondition = DenylistCondition.ANY,
+    val severity: DenylistSeverity,
+    val reason: String,
+)
+
+@Serializable
+enum class DenylistCondition { ANY, UNLIMITED, APPROVED }
+
+/** WARN asks the owner to confirm; BLOCK refuses the request and shows its reason. */
+@Serializable
+enum class DenylistSeverity { WARN, BLOCK }
+
+/** One online wallet of the Wallet Compatibility Registry, with the code formats the vault reads and writes for it. */
+@Serializable
+data class WalletDto(
+    val name: String,
+    val ecosystems: List<String>,
+    val formats: List<String>,
+    val note: String,
+    val limitations: String,
 )
 
 /** One contract call the whitelist approves. [selector] must be the Keccak-256 selector of [signature]. */
@@ -85,13 +121,15 @@ enum class FeeModel { L1, L2_ROLLUP }
  * File: `LRP2` | u32 big-endian payload length | 8-byte key ID | payload | 64-byte Ed25519 signature.
  * Key ID: the first 8 bytes of the SHA-256 of the signing public key. The app picks its trusted key by this ID.
  * Payload: canonical JSON (sorted keys, no whitespace, entries sorted by chain ID and then contract). The `whitelist` key
- * is written only when the package has whitelist entries, so a package without one keeps the bytes it had before.
+ * is written only when the package has whitelist entries, so a package without one keeps the bytes it had before. The
+ * `denylist` and `wallets` keys are written whenever the source has them, even when empty, because an omitted list means
+ * "keep the app's own" and an empty one means "clear it".
  * Signed message: `LENSLY-REGISTRY-v2\n`, the key ID, then the payload bytes.
  */
 internal object Pack {
     const val FORMAT_VERSION = 2
     /** The newest catalog schema the app reads. A package may not need a newer one. */
-    const val SCHEMA_VERSION = 1
+    const val SCHEMA_VERSION = 2
     const val MAX_BYTES = 1 shl 20
 
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
@@ -156,10 +194,40 @@ internal object Pack {
             if (content.whitelist.isNotEmpty()) {
                 put("whitelist", content.whitelist.sortedWith(WHITELIST_ORDER).map(::whitelistMap))
             }
+            content.denylist?.let { put("denylist", it.sortedWith(DENYLIST_ORDER).map(::denylistMap)) }
+            content.wallets?.let { put("wallets", it.sortedBy { wallet -> wallet.name }.map(::walletMap)) }
         },
     ).toByteArray(StandardCharsets.UTF_8)
 
     private val WHITELIST_ORDER = compareBy<WhitelistDto>({ it.chainId }, { it.contract }, { it.selector })
+
+    private val DENYLIST_ORDER = compareBy<DenylistDto>(
+        { it.chainId ?: 0L },
+        { it.contract.orEmpty() },
+        { it.selector.orEmpty() },
+        { it.primaryType.orEmpty() },
+        { it.condition.name },
+        { it.severity.name },
+        { it.reason },
+    )
+
+    private fun denylistMap(entry: DenylistDto): Map<String, Any?> = mapOf(
+        "chainId" to entry.chainId,
+        "condition" to entry.condition.name,
+        "contract" to entry.contract,
+        "primaryType" to entry.primaryType,
+        "reason" to entry.reason,
+        "selector" to entry.selector,
+        "severity" to entry.severity.name,
+    )
+
+    private fun walletMap(wallet: WalletDto): Map<String, Any?> = mapOf(
+        "ecosystems" to wallet.ecosystems,
+        "formats" to wallet.formats,
+        "limitations" to wallet.limitations,
+        "name" to wallet.name,
+        "note" to wallet.note,
+    )
 
     private fun whitelistMap(entry: WhitelistDto): Map<String, Any?> = mapOf(
         "chainId" to entry.chainId,
@@ -282,6 +350,44 @@ internal object Pack {
                 }
             }
         }
+        val newLists = content.denylist != null || content.wallets != null
+        require(!newLists || content.minSchemaVersion >= 2) { "a denylist or wallets list needs minSchemaVersion 2" }
+        content.denylist?.forEachIndexed { index, entry -> validateDenylist(index + 1, entry) }
+        content.wallets?.let { wallets ->
+            require(wallets.map { it.name }.distinct().size == wallets.size) { "a wallet appears more than once (same name)" }
+            wallets.forEach(::validateWallet)
+        }
+    }
+
+    private fun validateDenylist(number: Int, entry: DenylistDto) {
+        val what = "denylist entry $number"
+        entry.chainId?.let { require(it > 0) { "$what: chainId must be positive: $it" } }
+        entry.contract?.let {
+            require(entry.chainId != null) { "$what: a contract needs a chainId" }
+            require(CONTRACT.matches(it)) { "$what: contract must be 0x followed by 40 lowercase hex digits: $it" }
+        }
+        entry.selector?.let {
+            require(SELECTOR.matches(it)) { "$what: selector must be 0x and 8 lowercase hex digits: $it" }
+        }
+        entry.primaryType?.let { requireText("$what primaryType", it) }
+        require(entry.selector != null || entry.contract != null || entry.primaryType != null) {
+            "$what names a selector, a contract or a primaryType"
+        }
+        require(entry.condition == DenylistCondition.ANY || entry.selector != null) {
+            "$what: only a selector can name an amount or an approval"
+        }
+        requireText("$what reason", entry.reason, MAX_MEANING)
+    }
+
+    private fun validateWallet(wallet: WalletDto) {
+        val name = wallet.name
+        requireText("wallet name", name)
+        require(wallet.ecosystems.isNotEmpty()) { "wallet $name names no ecosystem" }
+        wallet.ecosystems.forEach { requireText("wallet $name ecosystem", it) }
+        require(wallet.formats.isNotEmpty()) { "wallet $name names no code format" }
+        wallet.formats.forEach { requireText("wallet $name format", it) }
+        requireText("wallet $name note", wallet.note, MAX_MEANING)
+        requireText("wallet $name limitations", wallet.limitations, MAX_MEANING)
     }
 
     /** Non-blank, at most [max] characters, and no control or format characters (no spoofing marks). */

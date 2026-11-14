@@ -2,8 +2,8 @@
   "note": "Development key. Debug source set only: release builds never read this file. Its private half signed samples/example.lrp and was then discarded.",
   "keys": [
     {
-      "id": "8e550bd7fc1c9e21",
-      "publicKey": "0a56e8e54b591f7844b6940cf0c6993890f98a6c1683525f57903580ca796c10",
+      "id": "09924d8ec60d1d7a",
+      "publicKey": "5b41103ac5bc29817ba5dc6e0fb768a6c78c85e56956a8576b51c78ceb56059b",
       "status": "active"
     }
   ]
