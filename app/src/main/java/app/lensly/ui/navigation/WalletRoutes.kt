@@ -43,6 +43,7 @@ import app.lensly.app.WalletStore
 import app.lensly.app.WalletWriter
 import app.lensly.app.export.AccountExport
 import app.lensly.app.export.AccountExportView
+import app.lensly.app.sessionReads
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.update.RegistryUpdate

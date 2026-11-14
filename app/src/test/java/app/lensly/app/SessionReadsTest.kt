@@ -66,7 +66,7 @@ class SessionReadsTest {
 
     @Test
     fun lockingTheHolderDropsTheKeptReads() {
-        val holder = VaultHolder(Vault(VaultLayout(tmp.root), keys, FakeClock(), KdfParams(memoryKiB = 8 * 1024, iterations = 1)))
+        val holder = VaultHolder(Vault(VaultLayout(tmp.root), keys, FakeClock(), KdfParams(memoryKiB = 8 * 1024, iterations = 1))) { SessionReads(it) }
         val epoch = holder.unlockEpoch()
         assertTrue(holder.adopt(VaultSession(VaultLayout(tmp.root), keys, key.copyOf()), epoch))
         assertNotNull(holder.sessionReads(), "An open session has its reads.")

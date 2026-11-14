@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only manifest: merged into the debug variant only, never into release. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            singleTop lets an am start of MainActivity with the debugHidden extra reach a running MainActivity through onNewIntent.
+            With the standard launch mode, the platform does not deliver the intent, so the debug hook would never run. Debug builds only.
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:launchMode="singleTop" />
+    </application>
+
+</manifest>

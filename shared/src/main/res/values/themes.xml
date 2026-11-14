@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark-only: there is intentionally no values-night or light variant. -->
+    <!-- Dark-only: there is intentionally no values-night or light variant. Lensly and Lumio share this theme. -->
     <style name="Theme.Lensly" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/lensly_black</item>
         <item name="android:colorBackground">@color/lensly_black</item>

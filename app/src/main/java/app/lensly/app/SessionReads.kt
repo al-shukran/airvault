@@ -12,7 +12,7 @@ class WalletListing(val wallets: List<WalletMeta>, val profiles: Map<String, Wal
  * that count still holds. A change to a wallet or a Review Record moves the count, so the next visit reads again. The readiness tiles are
  * kept too, and every visit reads them again, so a visit shows the last tiles at once and then any change.
  */
-class SessionReads(private val session: VaultSession) {
+class SessionReads(private val session: VaultSession) : SessionAttachment {
     @Volatile private var listing: Taken<WalletListing>? = null
     @Volatile private var recent: Taken<List<WalletReviewRecord>>? = null
     @Volatile private var readiness: HomeReadiness? = null
@@ -53,3 +53,6 @@ class SessionReads(private val session: VaultSession) {
 
 /** A read and the write count it was taken at. */
 private class Taken<T>(val writes: Long, val value: T)
+
+/** The reads kept for the open session, or null while the vault is locked. */
+fun VaultHolder.sessionReads(): SessionReads? = sessionAttachment() as? SessionReads
