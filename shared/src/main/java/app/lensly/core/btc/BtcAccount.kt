@@ -67,16 +67,7 @@ class BtcAccount private constructor(
     internal fun publicKey(branch: Int, index: Int): PublicKey =
         publicAccountKey.derivePublicKey(checkBranch(branch).toLong()).derivePublicKey(checkIndex(index).toLong()).publicKey
 
-    private fun address(branch: Int, index: Int): String {
-        val key = publicKey(branch, index)
-        val chainHash = network.chain.chainHash
-        return when (scriptType) {
-            ScriptType.LEGACY -> Bitcoin.computeP2PkhAddress(key, chainHash)
-            ScriptType.NESTED_SEGWIT -> Bitcoin.computeP2ShOfP2WpkhAddress(key, chainHash)
-            ScriptType.NATIVE_SEGWIT -> Bitcoin.computeP2WpkhAddress(key, chainHash)
-            ScriptType.TAPROOT -> Bitcoin.computeBIP86Address(key, chainHash)
-        }
-    }
+    private fun address(branch: Int, index: Int): String = addressOf(scriptType, network, publicKey(branch, index))
 
     companion object {
         /** The standard gap limit: the run of empty addresses a restore scan accepts before it stops. */
@@ -100,6 +91,20 @@ class BtcAccount private constructor(
 private const val MIN_SEED_BYTES = 16
 private const val MAX_SEED_BYTES = 64
 private const val PRIVATE_KEY_BYTES = 32
+
+/**
+ * The address of [key] for [scriptType] on [network]. An Account's keys and a watch-only copy's keys take the same encoding, so both
+ * call this.
+ */
+internal fun addressOf(scriptType: ScriptType, network: BtcNetwork, key: PublicKey): String {
+    val chainHash = network.chain.chainHash
+    return when (scriptType) {
+        ScriptType.LEGACY -> Bitcoin.computeP2PkhAddress(key, chainHash)
+        ScriptType.NESTED_SEGWIT -> Bitcoin.computeP2ShOfP2WpkhAddress(key, chainHash)
+        ScriptType.NATIVE_SEGWIT -> Bitcoin.computeP2WpkhAddress(key, chainHash)
+        ScriptType.TAPROOT -> Bitcoin.computeBIP86Address(key, chainHash)
+    }
+}
 
 /**
  * The BIP32 master key of [seed]. It is derived with the same call core/wallet's HdWallet uses for its root (web3j's

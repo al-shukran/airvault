@@ -76,7 +76,14 @@ tasks.withType<Test>().configureEach {
 dependencies {
     implementation(project(":shared"))
 
+    // The pairing codes are read as UR and Bitcoin key types, the same libraries :shared reads them with.
+    implementation(libs.sparrowwallet.hummingbird)
+    implementation(libs.bitcoin.kmp)
+
     // Unit tests on Robolectric. The JUnit 4 tests run on the Vintage engine, as they do in :app.
+    testImplementation(testFixtures(project(":shared")))
+    // Keys on the JVM need the native secp256k1 that :shared's own unit tests load.
+    testImplementation(libs.secp256k1.kmp.jni.jvm)
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.androidx.compose.ui.test.junit4)

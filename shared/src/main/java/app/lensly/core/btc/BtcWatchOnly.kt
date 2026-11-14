@@ -1,6 +1,7 @@
 package app.lensly.core.btc
 
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
+import app.lensly.core.ur.PRIVATE_KEY_REFUSAL
 import app.lensly.core.ur.framesOf
 import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.URDecoder
@@ -48,6 +49,15 @@ data class BtcWatchOnlyAccount(
         }
         "$body#${Descriptor.checksum(body)}"
     }
+
+    /**
+     * The receive address at m/.../0/[index], derived from the public key alone. A watch-only copy shows this address without the seed.
+     * @throws IllegalArgumentException if [index] is negative.
+     */
+    fun receiveAddress(index: Int): String {
+        require(index >= 0) { "address index must be 0 or more" }
+        return addressOf(scriptType, network, xpub.derivePublicKey(0).derivePublicKey(index.toLong()).publicKey)
+    }
 }
 
 /**
@@ -82,7 +92,20 @@ object BtcWatchOnly {
     /** The Accounts carried by a `ur:crypto-account`. Throws [IllegalArgumentException] for any other input. */
     fun parseCryptoAccount(ur: String): List<BtcWatchOnlyAccount> {
         val decoded = try {
-            URDecoder.decode(ur).decodeFromRegistry()
+            URDecoder.decode(ur)
+        } catch (e: Exception) {
+            throw IllegalArgumentException("not a ur:crypto-account", e)
+        }
+        return parseCryptoAccount(decoded)
+    }
+
+    /**
+     * The Accounts carried by a `ur:crypto-account` that a scanner has already read. A crypto-output that holds private key material is
+     * refused, so only public data comes out. Throws [IllegalArgumentException] for any other input.
+     */
+    fun parseCryptoAccount(ur: UR): List<BtcWatchOnlyAccount> {
+        val decoded = try {
+            ur.decodeFromRegistry()
         } catch (e: Exception) {
             throw IllegalArgumentException("not a ur:crypto-account", e)
         }
@@ -93,6 +116,8 @@ object BtcWatchOnly {
 }
 
 private const val UINT32_MASK = 0xFFFFFFFFL
+private const val PRIVATE_KEY_BYTES = 32
+private const val COMPRESSED_PUBLIC_KEY_BYTES = 33
 
 /** The "i-n" sequence header that every frame of a multi-part UR carries after its type, as in ur:type/1-3/body. */
 private val SEQUENCE_HEADER = Regex("""^UR:[A-Z0-9-]+/\d+-(\d+)/""", RegexOption.IGNORE_CASE)
@@ -120,6 +145,9 @@ private fun CryptoOutput.toWatchOnly(fingerprint: Long): BtcWatchOnlyAccount {
     val scriptType = ScriptType.entries.firstOrNull { it.expressions() == scriptExpressions }
         ?: throw IllegalArgumentException("unsupported script expressions in crypto-output")
     val key = hdKey ?: throw IllegalArgumentException("crypto-output without a crypto-hdkey")
+    // A watch-only key is a 33-byte compressed public key. A private key is refused, whether or not the code marks it as one.
+    if (key.isPrivateKey || key.key.size == PRIVATE_KEY_BYTES) throw IllegalArgumentException(PRIVATE_KEY_REFUSAL)
+    require(key.key.size == COMPRESSED_PUBLIC_KEY_BYTES) { "crypto-hdkey key must be a 33-byte compressed public key" }
     val origin = key.origin ?: throw IllegalArgumentException("crypto-hdkey without an origin path")
     val path = KeyPath(origin.components.map { component ->
         val index = component as? IndexPathComponent
