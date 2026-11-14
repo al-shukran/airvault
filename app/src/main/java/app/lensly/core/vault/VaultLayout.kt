@@ -8,8 +8,9 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * On-disk layout under `noBackupFilesDir/vault/`:
- * `header.bin`, `vault.key`, `failures.bin`, `failures.bak`, `vault-records/` (records that belong to one vault as a
- * whole, such as settings), and `wallets/<id>/` holding `pwk.bin` and the records.
+ * `header.bin`, `vault.key`, `failures.bin`, `failures.bak`, `wallet-pad.bin`, `vault-records/` (records that belong to one vault
+ * as a whole, such as settings), `review-pool/` (the Review Records of every wallet, in equal-size files outside the wallet
+ * folders, see [ReviewPool]), and `wallets/<id>/` holding `pwk.bin` and the other records.
  *
  * The real vault and the decoy vault share these folders. Every file is sealed under the key of the vault that owns it,
  * so a session lists and opens only its own files (see [ownsWallet] and [VaultRecordNames]).
@@ -19,6 +20,7 @@ internal class VaultLayout(val root: File) {
     val vaultKey = File(root, "vault.key")
     val wallets = File(root, "wallets")
     val vaultRecords = File(root, "vault-records")
+    val reviewPool = File(root, "review-pool")
 
     /** A vault exists once both the header and the wrapped vault key have been written. */
     fun exists(): Boolean = header.isFile && vaultKey.isFile
