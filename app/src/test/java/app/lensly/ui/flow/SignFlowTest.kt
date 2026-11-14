@@ -6,16 +6,18 @@ import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
+import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.RequestParser
+import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.ScriptedSandbox
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.AccountAddresses
@@ -37,6 +39,8 @@ import org.web3j.crypto.RawTransaction
 import org.web3j.crypto.TransactionEncoder
 import org.web3j.utils.Numeric
 import java.math.BigInteger
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 private const val MONAD_TESTNET = 10143L
 private const val ART_ADDRESS = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
@@ -44,6 +48,9 @@ private const val RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
 private const val WALLET_ID = "wallet-mnemonic"
 private const val OTHER_ID = "wallet-other"
 private const val FRAGMENT = 200
+
+/** Bounds a silent sandbox in a test, so a missing timeout fails the test instead of hanging it. */
+private const val SILENCE_BOUND_SECONDS = 10L
 private val REQUEST_ID = Numeric.hexStringToByteArray("9b1deb4d3b7d4bad9bdd2b0d7b3dcb6d")
 private val WALLET by lazy { HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art")) }
 private val XPUB by lazy { WALLET.accountXpub() }
@@ -184,6 +191,16 @@ private fun scan(flow: SignFlow, frames: Sequence<String>, limit: Int = 2000): I
     fed
 }
 
+/** Scans a complete request through [parser]. The flow refuses it with the sandbox's refusal, and nothing is signed. */
+private fun assertRefusedWithoutSigning(parser: RequestParser) {
+    val ports = FakePorts(parser = parser)
+    val flow = SignFlow(ports, WALLET_ID)
+    scan(flow, framesOf(messageRequest(), FRAGMENT))
+    assertEquals(SignStep.Refused(CANNOT_BE_READ), flow.state.value)
+    assertEquals(0, ports.signCalls)
+    assertTrue(ports.keysHandedOut.isEmpty())
+}
+
 /** Scans a complete single-code request and returns the review it reaches. */
 private fun reviewOf(flow: SignFlow): SignStep.Review {
     scan(flow, framesOf(messageRequest(), FRAGMENT))
@@ -269,6 +286,30 @@ class SignFlowTest {
         val read = scan(flow, framesOf(messageRequest(signData = ByteArray(70 * 1024) { 1 }), FRAGMENT))
         assertEquals("The request is larger than 64 KiB.", assertIs<SignStep.Refused>(flow.state.value).reason)
         assertTrue(read < 300, "refused only after $read frames, so the scan did not stop early")
+    }
+
+    @Test
+    fun aSandboxThatDiesRefusesTheRequestAndSignsNothing() {
+        assertRefusedWithoutSigning(SandboxedParser(ScriptedSandbox { _, _ -> throw IllegalStateException("The sandbox died.") }))
+    }
+
+    @Test
+    fun aSandboxThatNeverAnswersRefusesTheRequestAndSignsNothing() {
+        val release = CountDownLatch(1)
+        try {
+            val silent = ScriptedSandbox { _, _ ->
+                release.await(SILENCE_BOUND_SECONDS, TimeUnit.SECONDS)
+                ByteArray(0)
+            }
+            assertRefusedWithoutSigning(SandboxedParser(silent, timeoutMillis = 50))
+        } finally {
+            release.countDown()
+        }
+    }
+
+    @Test
+    fun aMalformedSandboxReplyRefusesTheRequestAndSignsNothing() {
+        assertRefusedWithoutSigning(SandboxedParser(ScriptedSandbox { _, _ -> byteArrayOf(1, 2, 3) }))
     }
 
     @Test
