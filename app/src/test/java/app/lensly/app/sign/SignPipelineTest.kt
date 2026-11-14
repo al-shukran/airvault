@@ -2,11 +2,19 @@ package app.lensly.app.sign
 
 import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.evm.EvmFixtures
+import app.lensly.core.evm.TxType
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.parse.CANNOT_BE_READ
+import app.lensly.core.parse.InProcessSandbox
+import app.lensly.core.parse.InnerCall
+import app.lensly.core.parse.Multicall
 import app.lensly.core.parse.ParsedRequest
+import app.lensly.core.parse.ParserWire
 import app.lensly.core.parse.RequestParser
+import app.lensly.core.parse.SandboxTransport
+import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.ScriptedSandbox
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
@@ -32,6 +40,7 @@ import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.shippedRegistry
 import app.lensly.ui.sign.ReviewCheck
+import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
@@ -123,6 +132,39 @@ private val PROXY_ENTRY = WhitelistEntry(
     upgradeable = true,
 )
 
+// A multicall: the Uniswap router's batch of calls, the calls the whitelist approves on it, and the Multicall3 contract.
+private const val ROUTER = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+private const val MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11"
+private const val SELECTOR_MULTICALL = "ac9650d8"
+private const val SWEEP_SIGNATURE = "sweepToken(address,uint256,address)"
+private const val UNWRAP_SIGNATURE = "unwrapWETH9(uint256,address)"
+private const val SWEEP_MEANING = "Send the router's balance of a token to a recipient."
+private const val TOO_DEEP = "The calls nest deeper than 3 levels, so Lensly cannot show every call."
+private const val TOO_MANY = "The transaction holds more than 32 calls, so Lensly cannot show every call."
+private val ROUTER_CHECKSUM = Keys.toChecksumAddress(ROUTER)
+private val SWEEP_ENTRY = WhitelistEntry(
+    chainId = ETHEREUM,
+    contract = ROUTER.lowercase(),
+    selector = WhitelistEntry.selectorOf(SWEEP_SIGNATURE),
+    signature = SWEEP_SIGNATURE,
+    meaning = SWEEP_MEANING,
+    params = listOf(
+        WhitelistParam("token", "address"),
+        WhitelistParam("amountMinimum", "uint256"),
+        WhitelistParam("recipient", "address"),
+    ),
+    upgradeable = false,
+)
+private val UNWRAP_ENTRY = WhitelistEntry(
+    chainId = ETHEREUM,
+    contract = ROUTER.lowercase(),
+    selector = WhitelistEntry.selectorOf(UNWRAP_SIGNATURE),
+    signature = UNWRAP_SIGNATURE,
+    meaning = "Unwrap the router's wrapped native currency to a recipient.",
+    params = listOf(WhitelistParam("amountMinimum", "uint256"), WhitelistParam("recipient", "address")),
+    upgradeable = false,
+)
+
 /** Two accounts, so index 1 is valid and index 2 is not. */
 private val VIEW by lazy {
     WalletView(
@@ -185,6 +227,9 @@ private val GUARDED: Registry = REGISTRY.withWhitelist(listOf(SWAP_ENTRY, PROXY_
 
 // The denylist that ships in the APK, on the same networks and tokens as REGISTRY.
 private val DENYLISTED: Registry = REGISTRY.withDenylist(shippedRegistry().denylistEntries())
+
+/** The registry of the batch tests: the router's two approved calls, and the approved swap and proxy the other tests use. */
+private val BATCH: Registry = REGISTRY.withWhitelist(listOf(SWEEP_ENTRY, UNWRAP_ENTRY, SWAP_ENTRY, PROXY_ENTRY))
 
 class SignPipelineTest {
 
@@ -1235,6 +1280,201 @@ class SignPipelineTest {
         assertFailsWith<IllegalArgumentException> { pipeline.sign(changed, WALLET.privateKey(0)) }
     }
 
+    // A multicall is read level by level, and each of its calls is decided where it sits.
+
+    @Test
+    fun aUniswapRouterMulticallDecodesBothOfItsWhitelistedCalls() {
+        val sweep = callOf(
+            WhitelistEntry.selectorOf(SWEEP_SIGNATURE).removePrefix("0x"),
+            addressWord(USDC_ETHEREUM),
+            uintWord(BigInteger.TEN),
+            addressWord(RECIPIENT),
+        )
+        val unwrap = callOf(WhitelistEntry.selectorOf(UNWRAP_SIGNATURE).removePrefix("0x"), uintWord(BigInteger.ONE), addressWord(RECIPIENT))
+
+        val ready = assertIs<Prepared.Ready>(batch(batchData(listOf(sweep, unwrap))))
+
+        assertEquals("multicall", ready.review.function)
+        assertEquals("multicall(bytes[])", ready.review.signature)
+        assertEquals(listOf("sweepToken", "unwrapWETH9"), ready.review.nested.map { it.function })
+        assertEquals(
+            listOf("token (address)" to USDC_ETHEREUM, "amountMinimum (uint256)" to "10", "recipient (address)" to RECIPIENT),
+            ready.review.nested[0].params,
+        )
+        assertEquals(listOf("amountMinimum (uint256)" to "1", "recipient (address)" to RECIPIENT), ready.review.nested[1].params)
+        assertEquals(listOf(ReviewCheck.WHITELIST), ready.review.requiredChecks)
+    }
+
+    @Test
+    fun aMulticallOfDecodableCallsListsEachCallWithItsArguments() {
+        val approve = callOf(SELECTOR_APPROVE, addressWord(RECIPIENT), uintWord(BigInteger.TEN))
+        val transfer = callOf(SELECTOR_TRANSFER, addressWord(RECIPIENT), uintWord(BigInteger.ONE))
+
+        val ready = assertIs<Prepared.Ready>(batch(batchData(listOf(approve, transfer))))
+
+        assertEquals(listOf("approve", "transfer"), ready.review.nested.map { it.function })
+        assertEquals(listOf("spender" to RECIPIENT, "value" to "10"), ready.review.nested[0].params)
+        assertEquals(listOf("to" to RECIPIENT, "value" to "1"), ready.review.nested[1].params)
+        // The router is not a registered token, so its approval needs the registry check, as a lone approval of it would.
+        assertEquals(listOf(ReviewCheck.REGISTRY), ready.review.requiredChecks)
+    }
+
+    @Test
+    fun aNestedMulticallDecodesItsCallsOneLevelDown() {
+        val approve = callOf(SELECTOR_APPROVE, addressWord(RECIPIENT), uintWord(BigInteger.TEN))
+        val transfer = callOf(SELECTOR_TRANSFER, addressWord(RECIPIENT), uintWord(BigInteger.ONE))
+        val inner = batchData(listOf(approve, transfer))
+
+        val ready = assertIs<Prepared.Ready>(batch(batchData(listOf(inner))))
+
+        assertEquals(listOf(1 to "multicall", 2 to "approve", 2 to "transfer"), ready.review.nested.map { it.depth to it.function })
+    }
+
+    @Test
+    fun aMulticallNestedDeeperThanTheDepthLimitIsRefused() {
+        val transfer = callOf(SELECTOR_TRANSFER, addressWord(RECIPIENT), uintWord(BigInteger.ONE))
+        val threeDeep = batchData(listOf(batchData(listOf(batchData(listOf(transfer))))))
+        val fourDeep = batchData(listOf(threeDeep))
+
+        assertIs<Prepared.Ready>(batch(threeDeep))
+        assertEquals(TOO_DEEP, assertIs<Prepared.Refused>(batch(fourDeep)).reason)
+    }
+
+    @Test
+    fun aMulticallWithMoreCallsThanTheCountLimitIsRefusedAndOneWithTheLimitIsNot() {
+        val approve = callOf(SELECTOR_APPROVE, addressWord(RECIPIENT), uintWord(BigInteger.TEN))
+        val approveBytes = Numeric.hexStringToByteArray(approve)
+        fun withCalls(count: Int): Prepared = fakeBatch(
+            data = batchData(List(count) { approve }),
+            calls = List(count) { InnerCall(null, null, null, approveBytes, ContractCall.decode(approveBytes), null) },
+        )
+
+        assertIs<Prepared.Ready>(withCalls(32))
+        assertEquals(TOO_MANY, assertIs<Prepared.Refused>(withCalls(33)).reason)
+    }
+
+    @Test
+    fun aTamperedCallInsideAMulticallIsRefusedByTheReEncodeCheck() {
+        val approve = callOf(SELECTOR_APPROVE, addressWord(RECIPIENT), uintWord(BigInteger.TEN))
+        val cbor = requestCbor(eip1559Tx(chainId = ETHEREUM, to = ROUTER, data = batchData(listOf(approve))), chainId = ETHEREUM)
+        assertIs<Prepared.Ready>(pipeline.prepare(parsedWith(cbor) { it }, VIEW))
+
+        val relabelled = batchParse(cbor) { batch ->
+            batch.copy(calls = listOf(batch.calls.single().copy(call = ContractCall.Approve(UNREGISTERED, BigInteger.TEN))))
+        }
+        val flipped = batchParse(cbor) { batch ->
+            val bytes = batch.calls.single().calldata.copyOf().also { it[it.size - 1] = 0x0b }
+            batch.copy(calls = listOf(batch.calls.single().copy(calldata = bytes)))
+        }
+
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(relabelled, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(flipped, VIEW))
+        assertEquals(
+            "Unknown contract call",
+            assertIs<Prepared.Refused>(pipeline.prepare(parsedWith(cbor) { it.copy(multicall = null) }, VIEW)).reason,
+        )
+    }
+
+    @Test
+    fun aWhitelistedCallInsideAMulticallIsWarnedAsAWhitelistedCallIsWarned() {
+        val sweep = callOf(WhitelistEntry.selectorOf(SWEEP_SIGNATURE).removePrefix("0x"), addressWord(USDC_ETHEREUM), uintWord(BigInteger.TEN), addressWord(RECIPIENT))
+
+        val ready = assertIs<Prepared.Ready>(batch(batchData(listOf(sweep))))
+        val whitelisted = assertNotNull(ready.review.nested.single().whitelisted)
+
+        assertEquals(SWEEP_SIGNATURE, whitelisted.signature)
+        assertEquals(SWEEP_MEANING, whitelisted.meaning)
+        assertEquals(ROUTER_CHECKSUM, whitelisted.call.target)
+        assertNull(ready.review.whitelisted)
+        assertEquals(listOf(ReviewCheck.WHITELIST), ready.review.requiredChecks)
+    }
+
+    @Test
+    fun anUndecodableCallInsideAMulticallIsRefusedAsAnOuterUndecodableCallIsRefused() {
+        val unknown = callOf("70a08231", addressWord(RECIPIENT))
+
+        val refused = assertIs<Prepared.Refused>(batch(batchData(listOf(unknown))))
+
+        assertEquals("Unknown contract call", refused.reason)
+        assertEquals(ROUTER_CHECKSUM, refused.call?.target)
+        assertEquals("70a08231", refused.call?.selector)
+    }
+
+    @Test
+    fun aWhitelistedProxyInsideAMulticallFollowsTheProxyPolicy() {
+        val stake = callOf(STAKE_SELECTOR, uintWord(BigInteger.TEN), addressWord(RECIPIENT))
+        val data = aggregate3Data(listOf(Triple(PROXY, false, stake)))
+
+        val refused = assertIs<Prepared.Refused>(batch(data, to = MULTICALL3))
+        assertEquals(BOUND_PROXY_REASON, refused.reason)
+        assertEquals(ProxyBinding(implementationAddress = IMPLEMENTATION), refused.call?.proxy)
+
+        val warned = assertIs<Prepared.Ready>(batch(data, to = MULTICALL3, policy = ProxyPolicy.WARN_AND_CONFIRM))
+        assertEquals(listOf(ReviewCheck.WHITELIST, ReviewCheck.UPGRADE), warned.review.requiredChecks)
+    }
+
+    @Test
+    fun anUnlimitedApprovalAndAnUnregisteredTokenInsideAMulticallEarnTheWarningsOfALoneCall() {
+        val unlimited = callOf(SELECTOR_APPROVE, addressWord(RECIPIENT), uintWord(ContractCall.MAX_UINT256))
+        val data = aggregate3Data(listOf(Triple(USDC_ETHEREUM, false, unlimited), Triple(UNREGISTERED, false, unlimited)))
+
+        val ready = assertIs<Prepared.Ready>(batch(data, to = MULTICALL3))
+        val known = ready.review.nested[0]
+        val unknown = ready.review.nested[1]
+
+        assertEquals(listOf(UNLIMITED_USDC), known.warnings)
+        assertFalse(known.unregistered)
+        assertEquals(listOf(UNLIMITED_UNKNOWN), unknown.warnings)
+        assertEquals(UNKNOWN_DECIMALS_NOTE, unknown.note)
+        assertTrue(unknown.unregistered)
+        assertEquals(listOf(ReviewCheck.REGISTRY), ready.review.requiredChecks)
+    }
+
+    @Test
+    fun aMulticall3BatchShowsEachCallsTargetAndItsFlags() {
+        val transfer = callOf(SELECTOR_TRANSFER, addressWord(RECIPIENT), uintWord(BigInteger.valueOf(1_500_000)))
+        val data = aggregate3ValueData(USDC_ETHEREUM, allowFailure = true, value = ONE_CENT_OF_MON, data = transfer)
+
+        val ready = assertIs<Prepared.Ready>(batch(data, to = MULTICALL3))
+        val row = ready.review.nested.single()
+
+        assertEquals("aggregate3Value", ready.review.function)
+        assertEquals(USDC_ETHEREUM, row.target)
+        assertEquals("transfer", row.function)
+        assertEquals(
+            listOf(
+                "allowFailure (bool)" to "true",
+                "value (uint256)" to "0.01 ETH",
+                "to" to RECIPIENT,
+                "value" to "1500000 (1.5 USDC)",
+            ),
+            row.params,
+        )
+    }
+
+    @Test
+    fun aMalformedBatchIsAnUndecodableCall() {
+        val malformed = "0x" + SELECTOR_MULTICALL + uintWord(BigInteger.valueOf(4096)) + uintWord(BigInteger.ZERO)
+
+        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(batch(malformed)).reason)
+    }
+
+    @Test
+    fun aMulticallReplyTamperedInTheSandboxIsRefusedAndTheHonestOneIsNot() {
+        val approve = callOf(SELECTOR_APPROVE, addressWord(RECIPIENT), uintWord(BigInteger.TEN))
+        val cbor = requestCbor(eip1559Tx(chainId = ETHEREUM, to = ROUTER, data = batchData(listOf(approve))), chainId = ETHEREUM)
+        val honest = ScriptedSandbox { method, payload -> InProcessSandbox.call(method, payload) }
+        val tampering = ScriptedSandbox { method, payload ->
+            val parsed = assertIs<ScanReply.Complete>(ParserWire.decodeScanReply(InProcessSandbox.call(method, payload))).parsed
+            val batch = assertNotNull(parsed.multicall)
+            val lying = batch.copy(calls = listOf(batch.calls.single().copy(call = ContractCall.Approve(UNREGISTERED, BigInteger.TEN))))
+            ParserWire.encodeScanReply(ScanReply.Complete(parsed.copy(multicall = lying)))
+        }
+
+        assertIs<Prepared.Ready>(throughSandbox(cbor, honest))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), throughSandbox(cbor, tampering))
+    }
+
     /** The parse a compromised sandbox would send for [cbor], with [change] applied to what it decoded. */
     private fun parsedWith(cbor: ByteArray, change: (ParsedRequest) -> ParsedRequest): ParsedRequest {
         val parts = listOf(framesOf(UR(EthSignRequest.UR_TYPE, cbor), WHOLE_REQUEST).first())
@@ -1277,6 +1517,99 @@ class SignPipelineTest {
             entries,
         ),
     )
+
+    /** The request for a transaction to [to] that carries [data], prepared through [registry] and [policy] as the sign flow does. */
+    private fun batch(
+        data: String,
+        to: String = ROUTER,
+        value: BigInteger = BigInteger.ZERO,
+        registry: Registry = BATCH,
+        policy: ProxyPolicy = ProxyPolicy.DEFAULT,
+    ): Prepared = SignPipeline(registry, inProcessSandboxParser, policy).prepare(
+        requestCbor(eip1559Tx(chainId = ETHEREUM, to = to, value = value, data = data), chainId = ETHEREUM),
+        VIEW,
+    )
+
+    /** The parse a compromised sandbox would send for [cbor], with the multicall it read changed by [change]. */
+    private fun batchParse(cbor: ByteArray, change: (Multicall) -> Multicall): ParsedRequest =
+        parsedWith(cbor) { it.copy(multicall = change(assertNotNull(it.multicall))) }
+
+    /**
+     * A request whose transaction carries [data] and whose sandbox read [calls] from it. It skips the transaction's size cap, which
+     * an honest sandbox cannot get past, so a batch larger than the cap can still be checked against its limits.
+     */
+    private fun fakeBatch(data: String, calls: List<InnerCall>): Prepared {
+        val tx = UnsignedTx(
+            type = TxType.EIP1559,
+            chainId = BigInteger.valueOf(ETHEREUM),
+            nonce = BigInteger.valueOf(7),
+            to = ROUTER_CHECKSUM,
+            value = BigInteger.ZERO,
+            data = data,
+            gasLimit = BigInteger.valueOf(21_000),
+            gasPrice = null,
+            maxPriorityFeePerGas = BigInteger.valueOf(1_500_000_000L),
+            maxFeePerGas = BigInteger.valueOf(30_000_000_000L),
+        )
+        val request = EthSignRequest(
+            requestId = REQUEST_ID,
+            signData = assertNotNull(tx.encode()),
+            dataType = DataType.TYPED_TRANSACTION,
+            chainId = ETHEREUM,
+            derivationPath = accountPath(0),
+            sourceFingerprint = WALLET.masterFingerprint,
+            address = null,
+            origin = ORIGIN,
+        )
+        return pipeline.prepare(ParsedRequest(request, UnsignedTx.Result.Ok(tx), null, Multicall(null, calls)), VIEW)
+    }
+
+    /** The request of a scanned [cbor] as a sandbox answers it. A sandbox that refuses the scan refuses the request. */
+    private fun throughSandbox(cbor: ByteArray, sandbox: SandboxTransport): Prepared {
+        val parts = listOf(framesOf(UR(EthSignRequest.UR_TYPE, cbor), WHOLE_REQUEST).first())
+        return when (val scan = SandboxedParser(sandbox).scan(parts)) {
+            is ScanReply.Complete -> pipeline.prepare(scan.parsed, VIEW)
+            is ScanReply.Refused -> Prepared.Refused(scan.reason)
+            else -> error("A single frame is a whole request or a refusal")
+        }
+    }
+
+    /** The calldata of `multicall(bytes[])` over [calls], each call with 0x. */
+    private fun batchData(calls: List<String>): String =
+        "0x" + SELECTOR_MULTICALL + uintWord(BigInteger.valueOf(32)) + arrayHex(calls.map { bytesHex(it) })
+
+    /** The calldata of `aggregate3((address,bool,bytes)[])` over (target, allowFailure, calldata) calls. */
+    private fun aggregate3Data(calls: List<Triple<String, Boolean, String>>): String {
+        val tuples = calls.map { (target, allowFailure, data) ->
+            addressWord(target) + flagWord(allowFailure) + uintWord(BigInteger.valueOf(96)) + bytesHex(data)
+        }
+        return "0x" + WhitelistEntry.selectorOf("aggregate3((address,bool,bytes)[])").removePrefix("0x") +
+            uintWord(BigInteger.valueOf(32)) + arrayHex(tuples)
+    }
+
+    /** The calldata of `aggregate3Value((address,bool,uint256,bytes)[])` over one call, with its target, flag, value and calldata. */
+    private fun aggregate3ValueData(target: String, allowFailure: Boolean, value: BigInteger, data: String): String {
+        val tuple = addressWord(target) + flagWord(allowFailure) + uintWord(value) + uintWord(BigInteger.valueOf(128)) + bytesHex(data)
+        return "0x" + WhitelistEntry.selectorOf("aggregate3Value((address,bool,uint256,bytes)[])").removePrefix("0x") +
+            uintWord(BigInteger.valueOf(32)) + arrayHex(listOf(tuple))
+    }
+
+    private fun flagWord(flag: Boolean): String = uintWord(if (flag) BigInteger.ONE else BigInteger.ZERO)
+
+    /** A dynamic byte string, without 0x: its length, then its bytes padded to a whole word. [hex] has 0x. */
+    private fun bytesHex(hex: String): String {
+        val digits = hex.removePrefix("0x")
+        return uintWord(BigInteger.valueOf((digits.length / 2).toLong())) + digits.padEnd((digits.length / 2 + 31) / 32 * 64, '0')
+    }
+
+    /** A dynamic array, without 0x: its length, the offset of each element, then the elements, each one already hex. */
+    private fun arrayHex(elements: List<String>): String {
+        var offset = 32 * elements.size
+        val offsets = elements.joinToString("") { element ->
+            uintWord(BigInteger.valueOf(offset.toLong())).also { offset += element.length / 2 }
+        }
+        return uintWord(BigInteger.valueOf(elements.size.toLong())) + offsets + elements.joinToString("")
+    }
 
     private fun prepared(cbor: ByteArray): Prepared = pipeline.prepare(cbor, VIEW)
 

@@ -23,6 +23,7 @@ import app.lensly.core.registry.StaticAbiDecoder
 import app.lensly.core.registry.StaticDecode
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.wallet.toHex
+import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReviewScreen
 import app.lensly.ui.theme.LenslyBlack
@@ -83,6 +84,40 @@ private fun whitelistedSample(proxy: ProxyBinding? = null) = sampleNativeReview.
             selector = "6e17e9f6",
             words = SWAP_CALLDATA.drop(4).toByteArray().toHex().chunked(64),
             proxy = proxy,
+        ),
+    ),
+)
+
+/** A multicall with its calls listed level by level: an approval, and a whitelisted swap one level down under its warning. */
+private fun nestedSample() = sampleNativeReview.copy(
+    function = "multicall",
+    signature = "multicall(uint256,bytes[])",
+    toAddress = SWAP_CONTRACT,
+    amount = "",
+    symbol = "",
+    params = listOf("deadline (uint256)" to "1700000000"),
+    warnings = emptyList(),
+    nested = listOf(
+        NestedCall(depth = 1, target = null, function = "approve", params = listOf("spender" to SWAP_RECIPIENT, "value" to "10")),
+        NestedCall(depth = 1, target = null, function = "aggregate3", params = listOf("allowFailure (bool)" to "false")),
+        NestedCall(
+            depth = 2,
+            target = SWAP_CONTRACT,
+            function = "swapExactTokensForTokens",
+            params = SWAP_DECODED.map { "${it.param.name} (${it.param.type})" to it.value },
+            whitelisted = WhitelistedCall(
+                signature = SWAP_SIGNATURE,
+                meaning = "Swap an exact amount of one token for another, along the route in the call.",
+                call = UndecodedCall(
+                    target = SWAP_CONTRACT,
+                    networkName = "Monad Testnet",
+                    chainId = 10143L,
+                    value = "0 MON",
+                    selector = "6e17e9f6",
+                    words = SWAP_CALLDATA.drop(4).toByteArray().toHex().chunked(64),
+                    proxy = null,
+                ),
+            ),
         ),
     ),
 )
@@ -203,6 +238,12 @@ class SignScreenshotTest {
                 proxy = ProxyBinding(implementationAddress = IMPLEMENTATION),
             ),
         )
+    }
+
+    @Test
+    fun reviewNestedCalls() = compose.snapshotScrolled("tx_review_nested", "WHITELISTED CONTRACT CALL") {
+        // The review is scrolled to the whitelisted call under the list, so the calls above it sit in view, indented by level.
+        TxReviewScreen(review = nestedSample(), onApprove = {}, onReject = {})
     }
 
     @Test
