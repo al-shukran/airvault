@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import java.io.File
@@ -19,6 +20,7 @@ import org.junit.rules.TemporaryFolder
  * accounts in one write and nothing else, and the profiles are encrypted on disk and purged with their wallet.
  */
 class ProfileStoreTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -32,7 +34,7 @@ class ProfileStoreTest {
 
     @Before
     fun openVault() {
-        session = VaultSession(VaultLayout(tmp.root), vaultKey())
+        session = VaultSession(VaultLayout(tmp.root), keys, vaultKey())
         store = WalletStore(session)
     }
 
@@ -44,7 +46,7 @@ class ProfileStoreTest {
     /** Locks the vault and unlocks it again, and returns a store on the new session. */
     private fun reopen(): WalletStore {
         session.close()
-        session = VaultSession(VaultLayout(tmp.root), vaultKey())
+        session = VaultSession(VaultLayout(tmp.root), keys, vaultKey())
         store = WalletStore(session)
         return store
     }

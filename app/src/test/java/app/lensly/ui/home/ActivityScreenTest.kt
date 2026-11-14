@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import app.lensly.app.ReviewHistory
 import app.lensly.app.WalletReviewRecord
 import app.lensly.app.WalletStore
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
@@ -30,6 +31,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 class ActivityScreenTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val compose = createComposeRule()
@@ -107,7 +109,7 @@ class ActivityScreenTest {
     @Test
     fun theDataFunctionOfADecoySessionHoldsOnlyItsOwnRecords() {
         val layout = VaultLayout(tmp.root)
-        val real = VaultSession(layout, ByteArray(32) { (it + 5).toByte() })
+        val real = VaultSession(layout, keys, ByteArray(32) { (it + 5).toByte() })
         try {
             val realWallet = WalletStore(real).create(
                 name = "REAL",
@@ -118,7 +120,7 @@ class ActivityScreenTest {
             )
             ReviewHistory(real).append(realWallet, sampleHistory()[0])
 
-            val decoy = VaultSession(layout, ByteArray(32) { 99 }, isDecoy = true)
+            val decoy = VaultSession(layout, keys, ByteArray(32) { 99 }, isDecoy = true)
             try {
                 val decoyWallet = WalletStore(decoy).create(
                     name = "Everyday",

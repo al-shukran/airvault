@@ -3,6 +3,7 @@ package app.lensly.app
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.wipeVault
@@ -42,6 +43,7 @@ private fun reviewOf(atMs: Long, outcome: ReviewOutcome = ReviewOutcome.SIGNED) 
 
 /** Review Records on real storage, as the sign flow writes them. The vault key is a test key, and no Keystore is involved. */
 class ReviewHistoryTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -55,7 +57,7 @@ class ReviewHistoryTest {
     @Before
     fun openVault() {
         layout = VaultLayout(tmp.root)
-        session = VaultSession(layout, ByteArray(32) { (it + 5).toByte() })
+        session = VaultSession(layout, keys, ByteArray(32) { (it + 5).toByte() })
         store = WalletStore(session)
         history = ReviewHistory(session)
     }
@@ -194,7 +196,7 @@ class ReviewHistoryTest {
     fun aDecoyVaultSeesNoRealHistoryAndTheRealVaultNoDecoyHistory() {
         val real = newWallet("REAL")
         history.append(real, reviewOf(atMs = 1L))
-        val decoy = VaultSession(layout, ByteArray(32) { 99 }, isDecoy = true)
+        val decoy = VaultSession(layout, keys, ByteArray(32) { 99 }, isDecoy = true)
         try {
             val decoyWallet = WalletStore(decoy).create(
                 name = "Everyday",
@@ -234,7 +236,7 @@ class ReviewHistoryTest {
     fun listAllInEitherSessionHoldsOnlyItsOwnWallets() {
         val real = newWallet("REAL")
         history.append(real, reviewOf(atMs = 1L))
-        val decoy = VaultSession(layout, ByteArray(32) { 99 }, isDecoy = true)
+        val decoy = VaultSession(layout, keys, ByteArray(32) { 99 }, isDecoy = true)
         try {
             val decoyWallet = WalletStore(decoy).create(
                 name = "Everyday",

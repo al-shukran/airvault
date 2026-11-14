@@ -86,23 +86,14 @@ internal object VaultRecordNames {
 }
 
 /**
- * True when wallet [walletId] has a key file that [vaultKey] unwraps. A wallet of the other vault, or a damaged one, is not
- * owned, so a session neither lists it nor deletes it.
+ * True when wallet [walletId] has a key file that [vaultKey] opens. A wallet of the other vault, or a damaged one, is not owned, so a
+ * session neither lists it nor deletes it. A Keystore or read failure throws [VaultException] instead, since it is not a verdict on the
+ * wallet, and a caller that deletes must not take it for one.
  */
-internal fun ownsWallet(layout: VaultLayout, vaultKey: ByteArray, walletId: String): Boolean {
-    val file = File(layout.walletDir(walletId), WALLET_KEY_FILE_NAME)
-    if (!file.isFile) return false
-    return try {
-        // The Per-Wallet Key is only checked here, so it is zeroed at once.
-        Aead.open(vaultKey, walletId.toByteArray(StandardCharsets.UTF_8), decodeBlob(file.readBytes())).fill(0)
-        true
-    } catch (e: AEADBadTagException) {
-        false
-    } catch (e: VaultException) {
-        false
-    } catch (e: IOException) {
-        false
-    }
+internal fun ownsWallet(keys: KeystoreBackend, layout: VaultLayout, vaultKey: ByteArray, walletId: String): Boolean {
+    val walletKey = WalletFolder.walletKeyOf(keys, layout.walletDir(walletId), vaultKey, walletId) ?: return false
+    walletKey.fill(0)
+    return true
 }
 
 /**
@@ -119,6 +110,7 @@ internal fun ownsWallet(layout: VaultLayout, vaultKey: ByteArray, walletId: Stri
  */
 internal class WalletPad(
     private val layout: VaultLayout,
+    private val keys: KeystoreBackend,
     vaultKey: ByteArray,
     /** The section this vault writes: [REAL_SECTION] or [DECOY_SECTION]. */
     private val section: Int,
@@ -147,7 +139,7 @@ internal class WalletPad(
             padTo(roundUp(maxOf(WALLET_SLOT_STEP, used)))
             for (id in freeSlots()) {
                 val dir = layout.walletDir(id)
-                if (!WalletFolder.isUnused(dir)) WalletFolder.makeUnused(dir)
+                if (!WalletFolder.isUnused(dir)) WalletFolder.makeUnused(dir, keys)
             }
         } catch (e: VaultException) {
             // A pad that cannot be written leaves the wallets alone. The next unlock tries again.
@@ -174,15 +166,19 @@ internal class WalletPad(
         return id
     }
 
-    /** Turns the wallet folders [ids] into unused slots, overwriting their files with random bytes of the same sizes. */
-    fun release(ids: Collection<String>) {
-        if (ids.isEmpty()) return
+    /**
+     * Turns the wallet folders [ids] into unused slots. Each folder's key goes first and its files are overwritten with random bytes of the
+     * same sizes (see [WalletFolder.makeUnused]). Returns false when a folder's key could not be deleted from the Keystore.
+     */
+    fun release(ids: Collection<String>): Boolean {
+        if (ids.isEmpty()) return true
         val free = freeSlots()
         val turned = ids.filter { it !in free }
-        if (turned.isEmpty()) return
+        if (turned.isEmpty()) return true
         val dirs = folderDirs()
-        turned.forEach { id -> WalletFolder.makeUnused(layout.walletDir(id)) }
+        val erased = turned.map { id -> WalletFolder.makeUnused(layout.walletDir(id), keys) }
         write(free + turned.filter { id -> dirs.any { it.name == id } })
+        return erased.all { it }
     }
 
     /**
@@ -210,7 +206,7 @@ internal class WalletPad(
         val added = mutableSetOf<String>()
         repeat(target - dirs.size) {
             val id = UUID.randomUUID().toString()
-            WalletFolder.makeUnused(layout.walletDir(id))
+            WalletFolder.makeUnused(layout.walletDir(id), keys)
             added += id
         }
         write(free + added)
@@ -222,7 +218,7 @@ internal class WalletPad(
      */
     fun clearForWallet(id: String) {
         val dir = layout.walletDir(id)
-        if (!WalletFolder.isUnused(dir)) WalletFolder.makeUnused(dir)
+        if (!WalletFolder.isUnused(dir)) WalletFolder.makeUnused(dir, keys)
     }
 
     /**
@@ -320,10 +316,10 @@ internal class WalletPad(
 /**
  * An unlocked vault. It holds the Vault Key in memory until [close] is called.
  *
- * Each wallet has a random Per-Wallet Key, wrapped under the Vault Key with AAD = wallet id, in `pwk.bin`. Each Review Record is
- * sealed under its wallet's key in the shared [ReviewPool], and every other record is a file in the wallet's folder, padded to a fixed
- * size and sealed under the same key (see [WalletFolder]). [deleteWallet] removes `pwk.bin` first, which shreds the wallet even if
- * removing its files fails part way.
+ * Each wallet has a random Per-Wallet Key, sealed under the Vault Key and then under its folder's Keystore key, in `pwk.bin` (see
+ * [WalletFolder]). Each Review Record is sealed under its wallet's key in the shared [ReviewPool], and every other record is a file in
+ * the wallet's folder, padded to a fixed size and sealed under the same key. [deleteWallet] deletes the folder's Keystore key first, which
+ * shreds the wallet even if its files survive.
  *
  * A session is either the real vault or the Decoy Vault ([isDecoy]). Both vaults keep their wallets and records in the same
  * folders and pool, but a session lists, reads and deletes only the files its own key opens. A wallet of the other vault is treated
@@ -339,6 +335,7 @@ internal class WalletPad(
  */
 class VaultSession internal constructor(
     private val layout: VaultLayout,
+    private val keys: KeystoreBackend,
     vaultKey: ByteArray,
     /** True for the Decoy Vault, which a Duress Password opens. The App Password never opens it. */
     val isDecoy: Boolean = false,
@@ -347,11 +344,11 @@ class VaultSession internal constructor(
 ) {
     private var vaultKey: ByteArray? = vaultKey
 
-    /** Wallet ids this session can open, sorted. Another vault's wallets are not listed. */
+    /** Wallet ids this session can open, sorted. Another vault's wallets are not listed, and neither is a folder the Keystore fails on. */
     fun listWallets(): List<String> = synchronized(this) {
         val key = requireOpen()
         layout.wallets.list()
-            ?.filter { ownsWallet(layout, key, it) }
+            ?.filter { id -> tryOwns(key, id) }
             ?.sorted()
             ?: emptyList()
     }
@@ -365,8 +362,7 @@ class VaultSession internal constructor(
         if (unused != null) pad.clearForWallet(id) else dir.mkdirs()
         val walletKey = ByteArray(WALLET_KEY_BYTES).also { SecureRandom().nextBytes(it) }
         try {
-            val wrapped = Aead.seal(key, id.toByteArray(StandardCharsets.UTF_8), walletKey)
-            writeAtomically(walletKeyFile(id), encodeBlob(wrapped))
+            WalletFolder.writeKeyFile(dir, keys, key, id, walletKey)
         } finally {
             Arrays.fill(walletKey, 0)
         }
@@ -420,7 +416,7 @@ class VaultSession internal constructor(
         requireWalletId(walletId)
         requireWalletRecord(name)
         // The record's file is overwritten, not removed, so the folder keeps its shape. Another vault's wallet is not this session's.
-        if (ownsWallet(layout, key, walletId)) WalletFolder.erase(layout.walletDir(walletId), name)
+        if (ownsWallet(keys, layout, key, walletId)) WalletFolder.erase(layout.walletDir(walletId), name)
     }
 
     /**
@@ -511,7 +507,7 @@ class VaultSession internal constructor(
     fun reviewRecords(walletId: String): List<Pair<String, ByteArray>> = synchronized(this) {
         val key = requireOpen()
         requireWalletId(walletId)
-        if (!ownsWallet(layout, key, walletId)) return@synchronized emptyList()
+        if (!ownsWallet(keys, layout, key, walletId)) return@synchronized emptyList()
         val pool = ReviewPool(layout.reviewPool, key)
         val slots = pool.slotsOf(walletId)
         if (slots.isEmpty()) return@synchronized emptyList()
@@ -533,14 +529,17 @@ class VaultSession internal constructor(
     fun reviewNames(walletId: String): List<String> = synchronized(this) {
         val key = requireOpen()
         requireWalletId(walletId)
-        if (!ownsWallet(layout, key, walletId)) return@synchronized emptyList()
+        if (!ownsWallet(keys, layout, key, walletId)) return@synchronized emptyList()
         ReviewPool(layout.reviewPool, key).names(walletId)
     }
 
     /**
-     * Crypto-shreds a wallet: removes its wrapped Per-Wallet Key first, then its record files and its Review Records in the pool.
-     * Does nothing if the wallet does not exist, or if this session cannot open it. A wallet of the other vault is never deleted
-     * from here.
+     * Crypto-shreds a wallet: its folder's Keystore key goes first, so its key file and records cannot be read even if a copy
+     * survives. Then the folder's files and the wallet's Review Records are overwritten, and the folder becomes an unused slot. Does
+     * nothing if the wallet does not exist, or if this session cannot open it. A wallet of the other vault is never deleted from here.
+     *
+     * @throws VaultException if the Keystore could not delete the wallet's key. The wallet is removed from the list all the same, and the
+     * next unlock deletes the key.
      */
     fun deleteWallet(walletId: String) {
         synchronized(this) {
@@ -548,10 +547,14 @@ class VaultSession internal constructor(
             requireWalletId(walletId)
             val dir = layout.walletDir(walletId)
             if (!dir.isDirectory) return
-            if (!ownsWallet(layout, key, walletId)) return
-            Files.deleteIfExists(walletKeyFile(walletId).toPath())
+            if (!ownsWallet(keys, layout, key, walletId)) return
+            val erased = if (pad != null) {
+                pad.release(listOf(walletId))
+            } else {
+                WalletFolder.retireKey(dir, keys).also { dir.deleteRecursively() }
+            }
             ReviewPool(layout.reviewPool, key).release(walletId)
-            if (pad != null) pad.release(listOf(walletId)) else dir.deleteRecursively()
+            if (!erased) throw VaultException("The wallet was removed, but its Keystore key could not be deleted.")
         }
     }
 
@@ -661,14 +664,17 @@ class VaultSession internal constructor(
     }
 
     /**
-     * Brings the wallet folders to the layout: the store is padded to its size, unused slots take the folder shape, and each wallet
-     * this session owns is settled. Called on unlock.
+     * Brings the wallet folders to the layout: each key file of an earlier build gets a Keystore key of its own, the store is padded to its
+     * size, unused slots take the folder shape, the Keystore keys are reconciled with the folders, and each wallet this session owns is
+     * settled. Called on unlock.
      */
     internal fun ensurePadded(): Unit = synchronized(this) {
         val key = requireOpen()
+        WalletFolder.upgradeKeyFiles(layout.wallets, keys)
         pad?.ensure()
+        WalletFolder.reconcileFolderKeys(layout.wallets, keys)
         for (walletId in layout.wallets.list().orEmpty()) {
-            if (!ownsWallet(layout, key, walletId)) continue
+            if (!ownsWallet(keys, layout, key, walletId)) continue
             val walletKey = unwrapWalletKey(key, walletId) ?: continue
             try {
                 WalletFolder.settle(layout.walletDir(walletId), walletId, walletKey)
@@ -702,6 +708,13 @@ class VaultSession internal constructor(
 
     private fun requireOpen(): ByteArray = vaultKey ?: throw IllegalStateException("The VaultSession is closed.")
 
+    /** [ownsWallet] for a listing. A folder that cannot be checked is left out, and nothing is changed on that account. */
+    private fun tryOwns(key: ByteArray, walletId: String): Boolean = try {
+        ownsWallet(keys, layout, key, walletId)
+    } catch (e: VaultException) {
+        false
+    }
+
     private fun walletKeyFile(walletId: String): File = File(layout.walletDir(walletId), WALLET_KEY_FILE_NAME)
 
     private fun recordFile(walletId: String, name: String): File =
@@ -710,15 +723,14 @@ class VaultSession internal constructor(
     private fun vaultRecordFile(vaultKey: ByteArray, name: String): File =
         File(layout.vaultRecords, VaultRecordNames.fileName(vaultKey, name))
 
-    /** Returns the Per-Wallet Key, or null if the wallet has no key file. The caller zeroes the result. */
+    /**
+     * Returns the Per-Wallet Key, or null if the wallet has no key file. A key file this vault does not own is an error. The caller zeroes
+     * the result.
+     */
     private fun unwrapWalletKey(vaultKey: ByteArray, walletId: String): ByteArray? {
-        val file = walletKeyFile(walletId)
-        if (!file.isFile) return null
-        return try {
-            Aead.open(vaultKey, walletId.toByteArray(StandardCharsets.UTF_8), decodeBlob(file.readBytes()))
-        } catch (e: AEADBadTagException) {
-            throw VaultException("The key of wallet $walletId failed authentication.", e)
-        }
+        if (!walletKeyFile(walletId).isFile) return null
+        return WalletFolder.walletKeyOf(keys, layout.walletDir(walletId), vaultKey, walletId)
+            ?: throw VaultException("The key of wallet $walletId failed authentication.")
     }
 
     private companion object {

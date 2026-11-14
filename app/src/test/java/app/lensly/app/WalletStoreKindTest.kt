@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
@@ -20,6 +21,7 @@ import org.web3j.utils.Numeric
 
 /** Storage round trips for both wallet kinds, and the load of a wallet written before kinds existed. */
 class WalletStoreKindTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -31,7 +33,7 @@ class WalletStoreKindTest {
 
     @Before
     fun openVault() {
-        session = VaultSession(VaultLayout(tmp.root), ByteArray(32) { (it + 7).toByte() })
+        session = VaultSession(VaultLayout(tmp.root), keys, ByteArray(32) { (it + 7).toByte() })
         store = WalletStore(session)
     }
 

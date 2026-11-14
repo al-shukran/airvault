@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.flow.PasswordCheck
@@ -26,6 +27,7 @@ private const val PASSWORD = "cobalt lantern marsh vivid tundra pepper"
  * password check is answered by the test, since the vault needs an Android Context.
  */
 class WalletDeleteTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -36,7 +38,7 @@ class WalletDeleteTest {
 
     @Before
     fun openVault() {
-        session = VaultSession(VaultLayout(tmp.root), ByteArray(32) { (it + 5).toByte() })
+        session = VaultSession(VaultLayout(tmp.root), keys, ByteArray(32) { (it + 5).toByte() })
         store = WalletStore(session)
     }
 

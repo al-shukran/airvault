@@ -320,7 +320,7 @@ class Vault internal constructor(
                     }
                     writeAtomically(layout.vaultKey, VaultKeyFile.encode(listOf(realSlot, decoySlot), random))
                     // The store starts with its full set of wallet folders, so it never shows an empty one.
-                    WalletPad(layout, vaultKey, REAL_SECTION).padTo(WALLET_SLOT_STEP)
+                    WalletPad(layout, keys, vaultKey, REAL_SECTION).padTo(WALLET_SLOT_STEP)
                     // The Review Record pool starts with its first batch, so an empty vault shows the same pool as one with records.
                     ReviewPool(layout.reviewPool, vaultKey).ensureFirstBatch()
                     // The header goes last. Its presence is what makes exists() true, so a crash earlier leaves no vault.
@@ -353,9 +353,10 @@ class Vault internal constructor(
                 val isDecoy = opened.role == VaultRole.DECOY
                 val session = VaultSession(
                     layout,
+                    keys,
                     opened.vaultKey.copyOf(),
                     isDecoy = isDecoy,
-                    pad = WalletPad(layout, opened.vaultKey, if (isDecoy) DECOY_SECTION else REAL_SECTION),
+                    pad = WalletPad(layout, keys, opened.vaultKey, if (isDecoy) DECOY_SECTION else REAL_SECTION),
                 )
                 // Records written under plain names are renamed, so that the two vaults never share a file name.
                 if (!session.isDecoy) bestEffort { session.migrateLegacyRecordNames() }
@@ -615,7 +616,7 @@ class Vault internal constructor(
     ): DuressResult {
         // The new decoy starts with unused slots lent from the real vault, so populating it does not grow the store.
         withPadOf(vaultKey, REAL_SECTION) { real -> withPadOf(decoyKey, DECOY_SECTION) { real.lend(it, WALLET_SLOT_STEP) } }
-        val decoy = VaultSession(layout, decoyKey.copyOf(), isDecoy = true, pad = WalletPad(layout, decoyKey, DECOY_SECTION))
+        val decoy = VaultSession(layout, keys, decoyKey.copyOf(), isDecoy = true, pad = WalletPad(layout, keys, decoyKey, DECOY_SECTION))
         try {
             populate(decoy)
             if (decoy.listWallets().isEmpty()) {
@@ -645,7 +646,8 @@ class Vault internal constructor(
             withRealPad(vaultKey) { discard(decoyKey, it) }
             return DuressResult.Failed
         }
-        purgeUnowned(listOf(vaultKey, decoyKey))
+        // The new decoy is committed, so a purge that fails leaves the old decoy's files for a later purge, and the result stays Enabled.
+        bestEffort { purgeUnowned(listOf(vaultKey, decoyKey)) }
         return DuressResult.Enabled
     }
 
@@ -662,7 +664,8 @@ class Vault internal constructor(
             } catch (e: IOException) {
                 throw VaultException("The vault key file could not be changed.", e)
             }
-            purgeUnowned(listOf(vaultKey))
+            // The slot is already replaced, so a purge that fails leaves the old decoy's files for a later purge.
+            bestEffort { purgeUnowned(listOf(vaultKey)) }
         } finally {
             Arrays.fill(vaultKey, 0)
         }
@@ -834,7 +837,7 @@ class Vault internal constructor(
      * A dropped decoy's pool files are overwritten, and its folders go to [pad] as unused slots.
      */
     private fun discard(key: ByteArray, pad: WalletPad, keepListing: Boolean = false) {
-        val owned = layout.wallets.list()?.filter { ownsWallet(layout, key, it) }.orEmpty()
+        val owned = layout.wallets.list()?.filter { ownsWallet(keys, layout, key, it) }.orEmpty()
         val pool = ReviewPool(layout.reviewPool, key)
         if (keepListing) {
             owned.forEach { pool.release(it) }
@@ -861,7 +864,7 @@ class Vault internal constructor(
         withRealPad(keep.first()) { pad ->
             val dropped = layout.wallets.list()?.filter { id ->
                 val dir = layout.walletDir(id)
-                File(dir, WALLET_KEY_FILE_NAME).isFile && keep.none { ownsWallet(layout, it, id) }
+                File(dir, WALLET_KEY_FILE_NAME).isFile && keep.none { ownsWallet(keys, layout, it, id) }
             }.orEmpty()
             pad.release(dropped)
         }
@@ -877,7 +880,7 @@ class Vault internal constructor(
 
     /** The pad of the vault whose key is [vaultKey], section [section], for the duration of [block]. Its key is zeroed afterwards. */
     private inline fun <T> withPadOf(vaultKey: ByteArray, section: Int, block: (WalletPad) -> T): T {
-        val pad = WalletPad(layout, vaultKey, section)
+        val pad = WalletPad(layout, keys, vaultKey, section)
         try {
             return block(pad)
         } finally {
@@ -966,15 +969,22 @@ internal fun deviceIsEmulator(): Boolean {
 }
 
 /**
- * Deletes a vault: its Keystore keys first (through [deleteKeys]), then every file under its root. Without the keys the
- * wrapped vault key is unrecoverable even if some file survives.
+ * Deletes a vault: its Keystore keys first (through [deleteKeys]), then every file under its root, each overwritten and synced before it
+ * is deleted. Without the keys the wrapped vault key and every wallet key are unrecoverable even if some file survives.
  *
  * @throws VaultException if some file could not be removed. The keys are already gone by then.
  */
 internal fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
     deleteKeys()
-    // Every Review Record slot is overwritten before the files are deleted, so no record survives in the storage.
-    ReviewPool.shredAll(layout.reviewPool)
+    // Each file is overwritten before it is deleted, so no record, key file or pool slot survives in the storage. A file that cannot be
+    // overwritten is still deleted below.
+    layout.root.walkTopDown().filter { it.isFile }.forEach { file ->
+        try {
+            overwriteInPlace(file)
+        } catch (e: IOException) {
+            // Deleted below all the same.
+        }
+    }
     FailureStore.forget(layout.root)
     if (!layout.root.deleteRecursively()) throw VaultException("Some vault files could not be deleted.")
 }

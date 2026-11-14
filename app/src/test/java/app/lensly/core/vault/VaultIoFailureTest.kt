@@ -110,7 +110,7 @@ class VaultIoFailureTest {
         val wallet = session.createWallet()
         val bytes = "a review written by an earlier build".toByteArray()
         val key = session.copyOfVaultKey()
-        LegacyWalletFolder.writeRecord(layout, key, wallet, "review-old", bytes)
+        LegacyWalletFolder.writeRecord(layout, keys, key, wallet, "review-old", bytes)
         key.fill(0)
         session.close()
         val legacy = File(layout.walletDir(wallet), "review-old.bin")

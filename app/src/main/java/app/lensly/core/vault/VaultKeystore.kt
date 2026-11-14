@@ -25,12 +25,17 @@ import javax.crypto.SecretKeyFactory
  *   vault phone may have no lock screen.
  * - `lensly.vault.failure-mac.<seq>`: HMAC-SHA256, one for each Delay State write. It authenticates the failure-delay state
  *   with that sequence number. The keys of earlier writes are deleted, so an older state no longer verifies (see [FailureStore]).
+ * - `lensly.vault.folder.<id>`: AES-256-GCM, one for each wallet folder, wallet or unused slot alike. The id is random and kept in
+ *   the folder's key file (see [WalletFolder]). Deleting the key makes that folder's key file unreadable, even with the Vault Key.
  */
 internal object VaultKeystore {
     const val HARDWARE_KEY_ALIAS = "lensly.vault.hw"
 
     /** Every Delay State MAC key alias starts with this. */
     private const val FAILURE_MAC_PREFIX = "lensly.vault.failure-mac"
+
+    /** Every wallet folder key alias starts with this. */
+    private const val FOLDER_KEY_PREFIX = "lensly.vault.folder."
 
     /** The one Delay State MAC key of the layout before per-save keys. It is read only to migrate, and then deleted. */
     private const val LEGACY_FAILURE_MAC_ALIAS = FAILURE_MAC_PREFIX
@@ -42,6 +47,34 @@ internal object VaultKeystore {
         delete(HARDWARE_KEY_ALIAS)
         return generateAes(HARDWARE_KEY_ALIAS)
     }
+
+    /**
+     * Creates the key of wallet folder [keyId], replacing any key under that id. It is TEE-backed and not StrongBox: every folder has
+     * a key, and StrongBox holds few keys and is slow. As for the other keys, a key that is not hardware-backed is refused in a
+     * release build.
+     */
+    fun createFolderKey(keyId: String): SecretKey {
+        val alias = folderAlias(keyId)
+        delete(alias)
+        val key = generateAes(alias, strongBox = false)
+        val verdict = KeystorePolicy.verdict(isHardwareBacked(securityLevel(key)), BuildConfig.DEBUG, deviceIsEmulator())
+        if (verdict == KeystoreVerdict.Refused) {
+            delete(alias)
+            throw GeneralSecurityException("The wallet folder key is not hardware-backed.")
+        }
+        return key
+    }
+
+    /** The key of wallet folder [keyId], or null once it has been deleted. */
+    fun folderKey(keyId: String): SecretKey? = get(folderAlias(keyId))
+
+    /** Deletes the key of wallet folder [keyId], if the Keystore holds one. */
+    fun deleteFolderKey(keyId: String) = delete(folderAlias(keyId))
+
+    /** The ids of the wallet folder keys the Keystore holds. Throws a GeneralSecurityException if it cannot list them. */
+    fun folderKeyIds(): List<String> = Collections.list(keyStore().aliases())
+        .filter { it.startsWith(FOLDER_KEY_PREFIX) }
+        .map { it.removePrefix(FOLDER_KEY_PREFIX) }
 
     /** The existing hardware wrapping key. Throws if it has been removed. */
     fun hardwareKey(): SecretKey =
@@ -95,6 +128,7 @@ internal object VaultKeystore {
     fun deleteAll() {
         delete(HARDWARE_KEY_ALIAS)
         deleteFailureMacKeysExcept(keepSeq = null)
+        folderKeyIds().forEach { deleteFolderKey(it) }
         delete(PROBE_ALIAS)
     }
 
@@ -129,6 +163,8 @@ internal object VaultKeystore {
     }
 
     private fun failureMacAlias(seq: Long): String = "$FAILURE_MAC_PREFIX.$seq"
+
+    private fun folderAlias(keyId: String): String = FOLDER_KEY_PREFIX + keyId
 
     private fun keyStore(): KeyStore = KeyStore.getInstance(PROVIDER).apply {
         try {

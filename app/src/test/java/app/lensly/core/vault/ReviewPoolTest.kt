@@ -71,7 +71,7 @@ class ReviewPoolTest {
         create()
         val real = unlock()
         real.createWallet()
-        val realFree = WalletPad(layout, real.copyOfVaultKey(), REAL_SECTION).freeSlotsForTesting()
+        val realFree = WalletPad(layout, keys, real.copyOfVaultKey(), REAL_SECTION).freeSlotsForTesting()
         assertEquals(WALLET_SLOT_STEP - 1, realFree.size)
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
         real.close()
@@ -79,9 +79,9 @@ class ReviewPoolTest {
         val decoy = unlock(DURESS)
         val decoyKey = decoy.copyOfVaultKey()
         // The decoy's key opens its own section of the pad, and none of the real vault's.
-        assertEquals(emptySet(), WalletPad(layout, decoyKey, REAL_SECTION).freeSlotsForTesting())
-        assertEquals(emptySet(), WalletPad(layout, ByteArray(32) { 9 }, REAL_SECTION).freeSlotsForTesting())
-        assertTrue(WalletPad(layout, decoyKey, DECOY_SECTION).freeSlotsForTesting().isNotEmpty())
+        assertEquals(emptySet(), WalletPad(layout, keys, decoyKey, REAL_SECTION).freeSlotsForTesting())
+        assertEquals(emptySet(), WalletPad(layout, keys, ByteArray(32) { 9 }, REAL_SECTION).freeSlotsForTesting())
+        assertTrue(WalletPad(layout, keys, decoyKey, DECOY_SECTION).freeSlotsForTesting().isNotEmpty())
         decoy.close()
     }
 
@@ -92,7 +92,7 @@ class ReviewPoolTest {
         val wallet = session.createWallet()
         val bytes = "a review written by an earlier build".toByteArray()
         val key = session.copyOfVaultKey()
-        LegacyWalletFolder.writeRecord(layout, key, wallet, "review-old", bytes)
+        LegacyWalletFolder.writeRecord(layout, keys, key, wallet, "review-old", bytes)
         key.fill(0)
         assertTrue(File(layout.walletDir(wallet), "review-old.bin").isFile)
         session.close()

@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import kotlin.test.assertEquals
@@ -18,6 +19,7 @@ import org.web3j.utils.Numeric
  * owner gives, and their survival across a lock. Reopening the vault with the same key is the unlock that follows a lock.
  */
 class WalletNamesTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -33,7 +35,7 @@ class WalletNamesTest {
 
     @Before
     fun openVault() {
-        session = VaultSession(VaultLayout(tmp.root), vaultKey())
+        session = VaultSession(VaultLayout(tmp.root), keys, vaultKey())
         store = WalletStore(session)
     }
 
@@ -45,7 +47,7 @@ class WalletNamesTest {
     /** Locks the vault and unlocks it again, and returns a store on the new session. */
     private fun reopen(): WalletStore {
         session.close()
-        session = VaultSession(VaultLayout(tmp.root), vaultKey())
+        session = VaultSession(VaultLayout(tmp.root), keys, vaultKey())
         store = WalletStore(session)
         return store
     }

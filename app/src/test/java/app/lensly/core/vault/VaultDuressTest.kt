@@ -160,7 +160,7 @@ class VaultDuressTest {
         assertRejected(unlockAfterDelay(DURESS))
         // The folders stay, but the wallets that were made there no longer open.
         val abandoned = checkNotNull(abandonedDecoyKey)
-        made.forEach { id -> assertFalse(ownsWallet(layout, abandoned, id)) }
+        made.forEach { id -> assertFalse(ownsWallet(keys, layout,abandoned, id)) }
         abandoned.fill(0)
     }
 
@@ -274,7 +274,7 @@ class VaultDuressTest {
 
         assertRejected(unlockAfterDelay(DURESS))
         // The folder stays, but its wallet no longer opens.
-        assertFalse(ownsWallet(layout, decoyKey, decoyWallet))
+        assertFalse(ownsWallet(keys, layout,decoyKey, decoyWallet))
         decoyKey.fill(0)
         val reopened = unlocked(unlockAfterDelay(APP))
         assertEquals(listOf(realWallet), reopened.listWallets())
@@ -362,7 +362,7 @@ class VaultDuressTest {
         assertEquals(WALLET_SLOT_STEP, walletFolders())
         // The folders stay, but the wallets they held no longer open and no session lists them.
         gone.forEach { id ->
-            assertFalse(ownsWallet(layout, decoyKey, id))
+            assertFalse(ownsWallet(keys, layout,decoyKey, id))
             assertTrue(File(layout.walletDir(id), WALLET_KEY_FILE_NAME).isFile)
         }
         decoyKey.fill(0)
@@ -386,7 +386,7 @@ class VaultDuressTest {
 
         assertRejected(unlockAfterDelay(DURESS))
         // The old decoy's folder stays, but its wallet no longer opens.
-        assertFalse(ownsWallet(layout, oldDecoyKey, oldWallet))
+        assertFalse(ownsWallet(keys, layout,oldDecoyKey, oldWallet))
         oldDecoyKey.fill(0)
         val decoy = unlocked(unlockAfterDelay(DURESS_TWO))
         assertEquals(2, decoy.listWallets().size)

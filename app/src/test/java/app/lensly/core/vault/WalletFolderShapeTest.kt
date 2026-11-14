@@ -59,8 +59,8 @@ class WalletFolderShapeTest {
         val key = real.copyOfVaultKey()
         real.close()
         // An earlier build sealed each record at its own size, and its unused folders held only the key file.
-        LegacyWalletFolder.writeRecord(layout, key, wallet, WalletFolder.META, ByteArray(37) { 1 })
-        LegacyWalletFolder.writeRecord(layout, key, wallet, WalletFolder.SECRET, ByteArray(90) { 2 })
+        LegacyWalletFolder.writeRecord(layout, keys, key, wallet, WalletFolder.META, ByteArray(37) { 1 })
+        LegacyWalletFolder.writeRecord(layout, keys, key, wallet, WalletFolder.SECRET, ByteArray(90) { 2 })
         key.fill(0)
         layout.wallets.listFiles().orEmpty().filter { it.isDirectory && it.name != wallet }.forEach { dir ->
             dir.listFiles().orEmpty().filter { it.name != WALLET_KEY_FILE_NAME }.forEach { it.delete() }

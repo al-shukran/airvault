@@ -1,6 +1,7 @@
 package app.lensly.app
 
 import app.lensly.core.registry.ProxyPolicy
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
@@ -14,6 +15,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 class SettingsStoreTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -22,7 +24,7 @@ class SettingsStoreTest {
     private val words = List(23) { "abandon" } + "art"
 
     // A session zeroes the key array it is given when it closes, so each session gets its own copy.
-    private fun open(): VaultSession = VaultSession(VaultLayout(tmp.root), vaultKey.copyOf())
+    private fun open(): VaultSession = VaultSession(VaultLayout(tmp.root), keys, vaultKey.copyOf())
 
     /** The settings record as the store writes it, with a chosen version and account count. */
     private fun record(version: Int, accounts: Int): ByteArray {

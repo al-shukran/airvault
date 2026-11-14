@@ -52,7 +52,7 @@ class UpgradeMigrationTest {
         unlock().close()
 
         assertNotEquals(legacy.size, File(layout.root, WALLET_PAD_FILE_NAME).length().toInt(), "The legacy pad was not rewritten")
-        assertEquals(folders, WalletPad(layout, realKey, REAL_SECTION).freeSlotsForTesting())
+        assertEquals(folders, WalletPad(layout, keys, realKey, REAL_SECTION).freeSlotsForTesting())
     }
 
     /** The file an earlier build wrote: a version byte, a count, the folder ids, sealed under the hardware key. */

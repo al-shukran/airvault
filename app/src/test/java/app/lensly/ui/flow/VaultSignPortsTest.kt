@@ -40,7 +40,7 @@ class VaultSignPortsTest {
     @Test
     fun aStoreThatThrowsAnUnexpectedExceptionIsReportedAsReviewNotSaved() {
         val layout = VaultLayout(tmp.root)
-        val session = VaultSession(layout, ByteArray(32) { (it + 5).toByte() })
+        val session = VaultSession(layout, MemoryKeystore(), ByteArray(32) { (it + 5).toByte() })
         try {
             val wallet = WalletStore(session).create(
                 name = "MAIN",
