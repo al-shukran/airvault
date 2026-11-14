@@ -63,14 +63,14 @@ fun HideDelayScreen(
             horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
         ) {
             PillButton(
-                text = "Shortest ${shortest.ifEmpty { "—" }} ms",
+                text = "Min ${shortest.ifEmpty { "—" }} ms",
                 onClick = { onFocus(HideDelayBound.SHORTEST) },
                 modifier = Modifier.weight(1f).semantics { selected = focus == HideDelayBound.SHORTEST },
                 accent = focus == HideDelayBound.SHORTEST,
                 enabled = ready,
             )
             PillButton(
-                text = "Longest ${longest.ifEmpty { "—" }} ms",
+                text = "Max ${longest.ifEmpty { "—" }} ms",
                 onClick = { onFocus(HideDelayBound.LONGEST) },
                 modifier = Modifier.weight(1f).semantics { selected = focus == HideDelayBound.LONGEST },
                 accent = focus == HideDelayBound.LONGEST,
