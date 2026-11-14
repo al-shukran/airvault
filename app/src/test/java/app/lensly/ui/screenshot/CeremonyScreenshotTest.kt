@@ -2,11 +2,15 @@ package app.lensly.ui.screenshot
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import app.lensly.ui.wallet.CeremonyChoiceScreen
 import app.lensly.ui.wallet.CeremonyResultScreen
 import app.lensly.ui.wallet.DiceEntryScreen
 import app.lensly.ui.wallet.EntropyMode
 import app.lensly.ui.wallet.EntropyTargets
+import app.lensly.ui.wallet.tileTag
+import kotlinx.coroutines.awaitCancellation
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,6 +81,29 @@ class CeremonyScreenshotTest {
     fun coinsMinimumReached() = compose.snapshot("coin_entry_minimum_reached") {
         dice(EntropyMode.Coins, count = 140)
     }
+
+    /** One tap, then a second for the dim animations to settle. The wait after the tap never ends, so the tiles stay hidden. */
+    @Test
+    fun diceShuffling() = compose.snapshot(
+        name = "dice_entry_shuffling",
+        beforeCapture = {
+            onNodeWithTag(tileTag(0)).performClick()
+            mainClock.advanceTimeBy(1_000)
+        },
+    ) {
+        dice(EntropyMode.Dice, count = 20)
+    }
+
+    @Test
+    fun coinsShuffling() = compose.snapshot(
+        name = "coin_entry_shuffling",
+        beforeCapture = {
+            onNodeWithTag(tileTag(0)).performClick()
+            mainClock.advanceTimeBy(1_000)
+        },
+    ) {
+        dice(EntropyMode.Coins, count = 40)
+    }
 }
 
 private val COMMITMENT = "9c1e4b7a2d8f03e5".repeat(4)
@@ -87,6 +114,7 @@ private fun symbols(mode: EntropyMode, count: Int): String = buildString {
     repeat(count) { append(mode.symbols[it % mode.symbols.length]) }
 }
 
+/** A tap in a capture stays hidden: the wait after it never ends, so the covered tiles are what gets recorded. */
 @Composable
 private fun dice(mode: EntropyMode, count: Int) {
     DiceEntryScreen(
@@ -97,5 +125,6 @@ private fun dice(mode: EntropyMode, count: Int) {
         onSymbol = {},
         onBackspace = {},
         onDone = {},
+        hideFor = { awaitCancellation() },
     )
 }

@@ -2,6 +2,7 @@ package app.lensly.core.vault
 
 import android.content.Context
 import android.os.Build
+import android.provider.Settings
 import app.lensly.BuildConfig
 import app.lensly.ui.isEmulator
 import java.io.File
@@ -111,6 +112,7 @@ class Vault internal constructor(
     private val kdfOverride: KdfParams?,
     /** True when the packaged app allows backup. Such a build refuses to create a vault, see [refusal]. */
     private val backupAllowed: Boolean = false,
+    private val readBootCount: () -> Int? = { null },
 ) {
     constructor(context: Context, clock: Clock = RealClock) : this(context, clock, null)
 
@@ -119,6 +121,7 @@ class Vault internal constructor(
         keys = AndroidKeystoreBackend(context.applicationContext),
         clock = clock,
         kdfOverride = kdfOverride,
+        readBootCount = { bootCountOf(context.applicationContext) },
         backupAllowed = BackupExclusion.allowsBackup(context.applicationInfo.flags),
     )
 
@@ -279,17 +282,6 @@ class Vault internal constructor(
     /** The failure count as currently stored. For tests only. */
     internal fun failureCountForTesting(): Int = failureStore().load(clock).failures
 
-    /**
-     * True on an emulator, through the same check the secure-window rule uses. JVM tests have no device values, so a
-     * missing one counts as a real device.
-     */
-    private fun deviceIsEmulator(): Boolean {
-        val hardware = Build.HARDWARE ?: return false
-        val product = Build.PRODUCT ?: return false
-        val fingerprint = Build.FINGERPRINT ?: return false
-        return isEmulator(hardware, product, fingerprint)
-    }
-
     private suspend fun createLocked(password: CharArray): CreateResult {
         try {
             if (backupAllowed) return CreateResult.BackupAllowed
@@ -298,7 +290,6 @@ class Vault internal constructor(
             check(!layout.exists()) { "A vault already exists. Call wipe() before creating another." }
 
             val hardwareKey = keystoreOrNull { keys.createHardwareKey() } ?: return CreateResult.DeviceUnsupported
-            val macKey = keystoreOrNull { keys.createFailureMacKey() } ?: return CreateResult.DeviceUnsupported
             val securityLevel = keystoreOrNull { keys.securityLevel(hardwareKey) } ?: UNKNOWN_SECURITY_LEVEL
             val verdict = KeystorePolicy.verdict(
                 hardwareBacked = VaultKeystore.isHardwareBacked(securityLevel),
@@ -320,7 +311,13 @@ class Vault internal constructor(
                     val realSlot = sealSlot(softKey, hardwareKey, vaultKey, VaultRole.REAL)
                     val decoySlot = VaultKeyFile.randomSlot(random)
                     layout.root.mkdirs()
-                    FailureStore(layout.root, macKey).initialize(clock)
+                    if (!createFailureState()) {
+                        // The hardware key was made a moment ago, and the directory may hold the first Delay State copies.
+                        // Both go, so a refused creation leaves nothing behind.
+                        keystoreOrNull { keys.deleteAll() }
+                        layout.root.deleteRecursively()
+                        return CreateResult.DeviceUnsupported
+                    }
                     writeAtomically(layout.vaultKey, VaultKeyFile.encode(listOf(realSlot, decoySlot), random))
                     // The store starts with its full set of wallet folders, so it never shows an empty one.
                     WalletPad(layout, vaultKey, REAL_SECTION).padTo(WALLET_SLOT_STEP)
@@ -389,7 +386,7 @@ class Vault internal constructor(
                 // decoy's change is accepted and nothing is written, so a coerced change cannot weaken the real cap.
                 val own = if (inDecoy) VaultRole.DECOY else VaultRole.REAL
                 if (opened.role != own) return FailureCapResult.Rejected
-                if (!inDecoy) opened.store.recordCap(opened.state, capMs)
+                if (!inDecoy) opened.store.recordCap(opened.state, capMs, clock)
                 return FailureCapResult.Saved
             } finally {
                 opened.close()
@@ -424,20 +421,22 @@ class Vault internal constructor(
      */
     private suspend fun checkPasswordLocked(password: CharArray): OpenedSlot? {
         if (!layout.exists()) return null
-        val header = VaultHeader.decode(layout.header.readBytes())
+        val header = VaultHeader.decode(readVaultFile(layout.header))
         val store = failureStore()
-        val state = store.load(clock)
+        // The Failure Delay check. While the wait runs, the time it has served is saved, so a reboot continues the wait.
+        val check = store.checkDelay(clock, header.createdAtWallMs)
         // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still runs
         // once, on a fixed input, so a refused attempt takes as long as a real one.
-        if (FailureDelay(header.createdAtWallMs, FailureDelay.configuredCapFor(state)).isBlocked(state, clock)) {
+        if (check.blocked) {
             spendKdfTime(header)
             return null
         }
+        val state = check.state
 
         val softKey = withContext(Dispatchers.Default) { Argon2Kdf.derive(password, header.salt, header.kdf) }
         var handedOver = false
         try {
-            val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
+            val contents = VaultKeyFile.decode(readVaultFile(layout.vaultKey))
             val opened = contents.slots.indices.mapNotNull { index ->
                 openSoftLayer(softKey, contents, index)?.let { index to it }
             }
@@ -445,11 +444,12 @@ class Vault internal constructor(
                 throw VaultException("The vault key file is damaged: two slots open with one password.")
             }
             if (opened.isEmpty()) {
-                store.recordFailure(state, clock)
+                // A wrong password that cannot be saved locks instead of throwing, so the attempt is blocked and nothing escapes.
+                store.recordFailureOrLock(state, clock)
                 return null
             }
             // The software layer authenticated, so the password is right. Reset the count before the hardware step.
-            val reset = store.recordSuccess(state)
+            val reset = store.recordSuccess(state, clock)
             val hardwareKey = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
             val (vaultKey, role) = unwrapOpened(hardwareKey, contents.legacy, opened.single().second)
             handedOver = true
@@ -878,7 +878,25 @@ class Vault internal constructor(
         file.writeBytes(ByteArray(size).also { random.nextBytes(it) })
     }
 
-    private fun failureStore(): FailureStore = FailureStore(layout.root, keys.failureMacKey())
+    private fun failureStore(): FailureStore = FailureStore(layout.root, keys, readBootCount)
+
+    /** The bytes of a vault file. A file that cannot be read is damage to the vault, reported as the documented [VaultException]. */
+    private fun readVaultFile(file: File): ByteArray = try {
+        file.readBytes()
+    } catch (e: IOException) {
+        throw VaultException("The vault file ${file.name} could not be read.", e)
+    }
+
+    /**
+     * Starts the Failure Delay state. Its first Keystore key is made here, so a device whose Keystore refuses it gets no vault.
+     * Returns false in that case.
+     */
+    private fun createFailureState(): Boolean = try {
+        failureStore().initialize(clock)
+        true
+    } catch (e: VaultException) {
+        false
+    }
 
     private companion object {
         const val KEY_BYTES = VaultKeyFile.KEY_BYTES
@@ -902,6 +920,33 @@ class Vault internal constructor(
             throw VaultException(message, e)
         }
     }
+}
+
+/**
+ * `Settings.Global.BOOT_COUNT`, or null when the device does not report it. The count goes up by one at each reboot, so the
+ * Failure Delay can tell a reboot, where the monotonic clock restarted, from a wall clock that moved. A root user can edit the
+ * count; a count that does not match the one recorded with the state only continues the wait from boot, so the edit cannot
+ * shorten it.
+ */
+private fun bootCountOf(context: Context): Int? = try {
+    Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT)
+} catch (e: Settings.SettingNotFoundException) {
+    null
+} catch (e: SecurityException) {
+    null
+} catch (e: IllegalArgumentException) {
+    null
+}
+
+/**
+ * True on an emulator, through the same check the secure-window rule uses. JVM tests have no device values, so a
+ * missing one counts as a real device.
+ */
+internal fun deviceIsEmulator(): Boolean {
+    val hardware = Build.HARDWARE ?: return false
+    val product = Build.PRODUCT ?: return false
+    val fingerprint = Build.FINGERPRINT ?: return false
+    return isEmulator(hardware, product, fingerprint)
 }
 
 /**
