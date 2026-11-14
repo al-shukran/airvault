@@ -164,7 +164,7 @@ private fun HomeRoute(
     val readiness = rememberHomeReadiness(navController, holder, entry)
     // The graph's entry carries the pairing confirmation. It is resolved once, as draftOf does, because the graph may pop.
     val hidden = remember(entry) { navController.getBackStackEntry(LenslyRoute.HIDDEN) }
-    val notice by hidden.savedStateHandle.getStateFlow<String?>(HiddenRoute.PAIRED_NOTICE, null).collectAsState()
+    val notice by hidden.savedStateHandle.getStateFlow<String?>(HiddenRoute.NOTICE, null).collectAsState()
 
     // The draft only lives while a create or restore flow runs. Arriving here ends the flow.
     LaunchedEffect(Unit) {
@@ -201,7 +201,7 @@ private fun HomeRoute(
         onBackup = { walletId -> navController.navigate(HiddenRoute.showSecret(walletId)) },
         debugNotice = debugNotice,
         notice = notice,
-        onNoticeShown = { hidden.savedStateHandle[HiddenRoute.PAIRED_NOTICE] = null },
+        onNoticeShown = { hidden.savedStateHandle[HiddenRoute.NOTICE] = null },
     )
 }
 

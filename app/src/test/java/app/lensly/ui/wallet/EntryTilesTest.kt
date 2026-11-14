@@ -72,22 +72,22 @@ class EntryTilesTest {
     }
 
     @Test
-    fun theHideDelayIsOneHundredPlusNextIntOf4901() {
+    fun theHideDelayIsOneHundredPlusNextIntOf901() {
         val shortest = RecordingRandom()
         assertEquals(HIDE_MIN_MS, EntryTiles(EntropyMode.Dice, shortest).hideDelayMs())
-        assertEquals(listOf(4901), shortest.bounds)
+        assertEquals(listOf(901), shortest.bounds)
 
-        val longest = RecordingRandom { 4900 }
+        val longest = RecordingRandom { 900 }
         assertEquals(HIDE_MAX_MS, EntryTiles(EntropyMode.Dice, longest).hideDelayMs())
     }
 
     @Test
-    fun everyHideDelayFromSecureRandomIsWithinOneHundredToFiveThousandMs() {
+    fun everyHideDelayFromSecureRandomIsWithinOneHundredToOneThousandMs() {
         val tiles = EntryTiles(EntropyMode.Dice, SecureRandom())
 
         repeat(10_000) {
             val delay = tiles.hideDelayMs()
-            assertTrue(delay in HIDE_MIN_MS..HIDE_MAX_MS, "delay $delay ms is out of range")
+            assertTrue(delay in HIDE_MIN_MS..1_000L, "delay $delay ms is out of range")
         }
     }
 
