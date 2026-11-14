@@ -46,12 +46,46 @@ The entries file is the source a package is built from. Entries may appear in an
 | Field | Meaning |
 | --- | --- |
 | `formatVersion` | Must be `2`. |
-| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `1` is the newest the app reads. |
+| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `2` is the newest the app reads. A package with a `denylist` or `wallets` list needs `2`. |
 | `sequence` | At least 1. The app refuses a package whose sequence is not higher than the last one it accepted. |
 | `createdAt` | ISO date, `yyyy-mm-dd`. |
 | `networks` | Networks the package adds. A package cannot add a testnet. |
 | `tokens` | Tokens the package adds. Each token's chain must be baked into the app or added by this package. |
 | `whitelist` | Optional. The contract calls that may be signed despite a Decode Gap (see below). |
+| `denylist` | Optional. Known-dangerous requests that get a warning or a refusal (see below). Omitted, the app keeps its built-in list; `[]` clears it. |
+| `wallets` | Optional. The Wallet Compatibility Registry: online wallets and their code formats (see below). Omitted, the app keeps its built-in list; `[]` clears it. |
+
+The app applies a package's `whitelist`, `denylist` and `wallets` only when its `sequence` is higher than the built-in catalog's.
+A list the package omits keeps the app's own.
+
+### Denylist entries
+
+A denylist entry marks a request as known-dangerous. Before signing, the app shows the reason on the review and asks the owner to
+tick a check. A `BLOCK` entry refuses the request instead.
+
+| Field | Meaning |
+| --- | --- |
+| `chainId` | Optional. Chain the entry applies to; omit it for every chain. Required when `contract` is set. |
+| `contract` | Optional. Lowercase `0x` address the entry applies to. |
+| `selector` | Optional. Lowercase `0x` and 8 hex digits: the Function Selector of the call. |
+| `primaryType` | Optional. An EIP-712 primary type such as `Permit`. Typed data is not reviewed yet, so no transaction matches it. |
+| `condition` | `ANY` (default), `UNLIMITED` (the amount is unlimited, for approve and increaseAllowance) or `APPROVED` (an operator grant of `true`, for setApprovalForAll). Needs a `selector`. |
+| `severity` | `WARN` (the owner must confirm) or `BLOCK` (refused). |
+| `reason` | Printable, at most 240 characters. Shown on the warning or the refusal. |
+
+An entry names a `selector`, a `contract`, or a `primaryType`.
+
+### Wallet entries
+
+A wallet entry is a support statement, never a condition for signing. The pairing wizard shows it for the chosen wallet.
+
+| Field | Meaning |
+| --- | --- |
+| `name` | The online wallet's name. Printable, at most 64 characters. Each name appears once. |
+| `ecosystems` | At least one, such as `EVM`. |
+| `formats` | At least one code format the vault reads and writes for this wallet, such as `ur:eth-sign-request`. |
+| `note` | The support statement, printable, at most 240 characters. |
+| `limitations` | The known limitations, printable, at most 240 characters. |
 
 ### Whitelist entries
 

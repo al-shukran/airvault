@@ -1,5 +1,6 @@
 {
   "formatVersion": 2,
+  "minSchemaVersion": 2,
   "sequence": 1,
   "createdAt": "2026-11-10",
   "networks": [
@@ -20,6 +21,29 @@
       "symbol": "USDC",
       "name": "USDC",
       "decimals": 6
+    }
+  ],
+  "denylist": [
+    {
+      "selector": "0x095ea7b3",
+      "condition": "UNLIMITED",
+      "severity": "WARN",
+      "reason": "Sample entry: an unlimited token approval."
+    },
+    {
+      "chainId": 59144,
+      "contract": "0x5555555555555555555555555555555555555555",
+      "severity": "WARN",
+      "reason": "Sample entry: a placeholder contract. Illustrative only, not a real finding."
+    }
+  ],
+  "wallets": [
+    {
+      "name": "Rabby",
+      "ecosystems": ["EVM"],
+      "formats": ["ur:crypto-hdkey", "ur:eth-sign-request", "ur:eth-signature"],
+      "note": "Sample entry: shows the format of a Wallet Entry.",
+      "limitations": "Sample entry: not a support statement for any release."
     }
   ]
 }

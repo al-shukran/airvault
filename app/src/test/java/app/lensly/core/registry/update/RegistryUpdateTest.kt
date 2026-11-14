@@ -281,10 +281,10 @@ class RegistryUpdateTest {
     @Test
     fun aPackageThatNeedsANewerSchemaIsIncompatible() {
         val refused = assertIs<RegistryUpdateException.Incompatible>(
-            failure(verifyPayload(TestPackages.payload(minSchemaVersion = 2))),
+            failure(verifyPayload(TestPackages.payload(minSchemaVersion = 3))),
         )
-        assertEquals(2L, refused.required)
-        assertEquals(1L, refused.supported)
+        assertEquals(3L, refused.required)
+        assertEquals(2L, refused.supported)
     }
 
     @Test

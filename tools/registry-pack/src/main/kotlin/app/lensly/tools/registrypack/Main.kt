@@ -94,7 +94,9 @@ private fun verify(options: Options, out: PrintStream) {
 
 private fun summary(content: PackageDto): String =
     "sequence ${content.sequence}, created ${content.createdAt}, " +
-        "${content.networks.size} network(s), ${content.tokens.size} token(s), ${content.whitelist.size} whitelist entry(ies)"
+        "${content.networks.size} network(s), ${content.tokens.size} token(s), ${content.whitelist.size} whitelist entry(ies), " +
+        "${content.denylist?.let { "${it.size} denylist entry(ies)" } ?: "no denylist"}, " +
+        "${content.wallets?.let { "${it.size} wallet(s)" } ?: "no wallets"}"
 
 /**
  * Writes a new key: the private seed sealed under [passphrase] (`release.key`, mode 600) and its public key (`release.pub`).

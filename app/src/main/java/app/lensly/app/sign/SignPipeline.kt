@@ -12,6 +12,7 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
+import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
@@ -270,8 +271,14 @@ class SignPipeline(
         return registry.whitelist(target.chainId, contract, "0x" + calldata.copyOfRange(0, SELECTOR_BYTES).toHex())
     }
 
-    /** The review with the fee, nonce and transaction type of [tx] added, ready for the owner to confirm. */
-    private fun ready(target: Target, review: TxReview, tx: UnsignedTx): Prepared.Ready {
+    /**
+     * The review with the fee, nonce and transaction type of [tx] added, ready for the owner to confirm. Every transaction review
+     * leaves here, so the denylist is checked here: a BLOCK match refuses, and a WARN match stays on the review with its reason and
+     * needs the owner's check before the hold-to-sign gate.
+     */
+    private fun ready(target: Target, review: TxReview, tx: UnsignedTx): Prepared {
+        val denied = tx.to?.let { registry.denylistMatches(target.chainId, it, Numeric.hexStringToByteArray(tx.data)) }.orEmpty()
+        denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { return Prepared.Refused(it.reason) }
         val network = target.network
         return Prepared.Ready(
             review.copy(
@@ -283,6 +290,7 @@ class SignPipeline(
                     TxType.EIP2930 -> "EIP-2930"
                     TxType.EIP1559 -> "EIP-1559"
                 },
+                denylisted = denied,
             ),
             target.request,
             target.index,

@@ -41,15 +41,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.export.PairingExport
+import app.lensly.core.registry.WalletEntry
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
@@ -65,11 +68,13 @@ import app.lensly.ui.navigation.LenslyRoute
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.navigation.rememberWalletListing
 import app.lensly.ui.qr.AnimatedQr
+import app.lensly.ui.theme.LenslyMuted
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LenslySurfaceContainer
 import app.lensly.ui.wallet.WalletEyebrow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -89,18 +94,22 @@ internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
  * The online wallets that pair with Lensly. They all read the same ur:crypto-hdkey, so only the steps the owner follows
  * differ. [OTHER] stands for any wallet with a hardware or QR-based account, so its steps are the general ones.
  */
-internal enum class PairFormat(val label: String, val instruction: String) {
+internal enum class PairFormat(val label: String, val instruction: String, val walletName: String?) {
     RABBY(
         label = "RABBY (AIRGAP VAULT)",
         instruction = "In Rabby: Add address → Hardware wallet → AirGap Vault → Scan QR",
+        walletName = "Rabby",
     ),
     METAMASK(
         label = "METAMASK (QR-BASED)",
         instruction = "Add account or hardware wallet → Hardware wallet → QR-based → Continue",
+        walletName = "MetaMask",
     ),
     OTHER(
         label = "OTHER WALLET",
         instruction = "In your wallet, add a hardware or QR-based account, then scan the code.",
+        // Not in the Wallet Compatibility Registry, so there is no Wallet Entry note to show.
+        walletName = null,
     ),
 }
 
@@ -129,6 +138,11 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
     }
     val listing = rememberWalletListing(navController, holder, session)
     val haptics = LocalHapticFeedback.current
+    // The Wallet Compatibility Registry is read off the main thread, and each wallet's note appears when it arrives.
+    val context = LocalContext.current
+    val walletEntries by produceState(initialValue = emptyList<WalletEntry>(), context) {
+        value = withContext(Dispatchers.IO) { RegistryHolder.get(context).walletEntries() }
+    }
     if (listing == null) {
         // The wallets are read off the main thread. Until they arrive, the screen says so instead of staying blank.
         PairLoading(label = "Loading wallets", onBack = { navController.popBackStack() })
@@ -143,6 +157,7 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
         wallets = listing.wallets,
         profiles = listing.profiles,
         preselected = preselected,
+        walletEntries = walletEntries,
         onDone = {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             navController.getBackStackEntry(LenslyRoute.HIDDEN).savedStateHandle[HiddenRoute.PAIRED_NOTICE] = PAIRED_MESSAGE
@@ -166,6 +181,7 @@ internal fun PairWizard(
     preselected: WalletMeta?,
     onDone: () -> Unit,
     onLeave: () -> Unit,
+    walletEntries: List<WalletEntry> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val skipsWalletStep = preselected != null || wallets.size == 1
@@ -193,6 +209,7 @@ internal fun PairWizard(
         profiles = profiles,
         wallet = chosen,
         format = format,
+        walletEntry = format?.walletName?.let { name -> walletEntries.firstOrNull { it.name == name } },
         frames = frames,
         onPickWallet = { picked ->
             wallet = picked
@@ -220,6 +237,8 @@ internal fun PairWizardScreen(
     profiles: Map<String, WalletProfile>,
     wallet: WalletMeta?,
     format: PairFormat?,
+    /** The Wallet Entry of the chosen online wallet, or null when the registry has none. Its note shows on the instructions step. */
+    walletEntry: WalletEntry? = null,
     frames: List<String>?,
     onPickWallet: (WalletMeta) -> Unit,
     onPickFormat: (PairFormat) -> Unit,
@@ -265,7 +284,7 @@ internal fun PairWizardScreen(
                     PairStep.WALLET -> WalletStep(wallets = wallets, profiles = profiles, onPick = onPickWallet)
                     PairStep.APP ->
                         if (wallet?.kind == WalletKind.SINGLE_KEY) SingleKeyNotice() else FormatStep(onPick = onPickFormat)
-                    PairStep.INSTRUCTIONS -> InstructionsStep(format = format)
+                    PairStep.INSTRUCTIONS -> InstructionsStep(format = format, walletEntry = walletEntry)
                     PairStep.CODE -> CodeStep(format = format, frames = frames)
                 }
             }
@@ -361,9 +380,9 @@ private fun SingleKeyNotice() {
     )
 }
 
-/** Step three: the steps for the chosen app, with a drawing of one phone scanning the other. */
+/** Step three: the steps for the chosen app, with a drawing of one phone scanning the other, and its Wallet Entry note. */
 @Composable
-private fun InstructionsStep(format: PairFormat?) {
+private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?) {
     PairIllustration(modifier = Modifier.fillMaxWidth())
     Spacer(Modifier.height(LenslySpacing.lg))
     if (format == null) return
@@ -378,6 +397,55 @@ private fun InstructionsStep(format: PairFormat?) {
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    if (walletEntry != null) {
+        Spacer(Modifier.height(LenslySpacing.lg))
+        WalletEntryNote(entry = walletEntry)
+    }
+}
+
+/**
+ * The Wallet Entry review note for the chosen online wallet: the support statement, the code formats the vault reads and writes,
+ * and the known limitations. It is the owner's reading before pairing, not a condition for it.
+ */
+@Composable
+private fun WalletEntryNote(entry: WalletEntry) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(LenslyRadius.lg))
+            .background(LenslySurfaceContainer)
+            .padding(LenslySpacing.md),
+    ) {
+        Text(
+            text = "WALLET ENTRY",
+            style = MaterialTheme.typography.labelSmall,
+            color = LenslyMuted,
+        )
+        Spacer(Modifier.height(LenslySpacing.xs))
+        Text(
+            text = entry.name,
+            style = MaterialTheme.typography.titleSmall,
+            color = LenslyOnSurface,
+        )
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Text(
+            text = entry.note,
+            style = MaterialTheme.typography.bodyMedium,
+            color = LenslyOnSurface,
+        )
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Text(
+            text = "Formats: ${entry.formats.joinToString(", ")}. Networks: ${entry.ecosystems.joinToString(", ")}.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Text(
+            text = "Known limitations: ${entry.limitations}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 /**

@@ -5,12 +5,14 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.export.AccountExportView
+import app.lensly.core.registry.WalletEntry
 import app.lensly.ui.flow.AccountExportScreen
 import app.lensly.ui.flow.ConfirmPasswordScreen
 import app.lensly.ui.flow.PairFormat
 import app.lensly.ui.flow.PairLoading
 import app.lensly.ui.flow.PairStep
 import app.lensly.ui.flow.PairWizardScreen
+import app.lensly.ui.shippedRegistry
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,6 +56,15 @@ class FlowScreenshotTest {
     @Test
     fun pairWizardShowsTheAppSteps() = compose.snapshot("pair_wizard_step3_instructions") {
         pairWizard(step = PairStep.INSTRUCTIONS, format = PairFormat.RABBY)
+    }
+
+    @Test
+    fun pairWizardShowsTheWalletEntry() = compose.snapshot("pair_wizard_step3_wallet_entry") {
+        pairWizard(
+            step = PairStep.INSTRUCTIONS,
+            format = PairFormat.RABBY,
+            walletEntry = shippedRegistry().walletEntries().single { it.name == "Rabby" },
+        )
     }
 
     @Test
@@ -111,6 +122,7 @@ class FlowScreenshotTest {
         step: PairStep,
         wallet: WalletMeta? = wallets.first(),
         format: PairFormat? = null,
+        walletEntry: WalletEntry? = null,
         frames: List<String>? = null,
     ) {
         PairWizardScreen(
@@ -119,6 +131,7 @@ class FlowScreenshotTest {
             profiles = emptyMap(),
             wallet = wallet,
             format = format,
+            walletEntry = walletEntry,
             frames = frames,
             onPickWallet = {},
             onPickFormat = {},

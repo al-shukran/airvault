@@ -10,6 +10,9 @@ import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
+import app.lensly.core.registry.DenylistCondition
+import app.lensly.core.registry.DenylistEntry
+import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
@@ -27,6 +30,7 @@ import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.ui.shippedRegistry
 import app.lensly.ui.sign.ReviewCheck
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
@@ -178,6 +182,9 @@ private val REGISTRY = Registry(
 
 /** The registry with the test whitelist: a plain approved call on Ethereum, and an approved proxy on Ethereum. */
 private val GUARDED: Registry = REGISTRY.withWhitelist(listOf(SWAP_ENTRY, PROXY_ENTRY))
+
+// The denylist that ships in the APK, on the same networks and tokens as REGISTRY.
+private val DENYLISTED: Registry = REGISTRY.withDenylist(shippedRegistry().denylistEntries())
 
 class SignPipelineTest {
 
@@ -1022,6 +1029,88 @@ class SignPipelineTest {
 
         assertEquals("This request is for a different address", reason)
     }
+
+    @Test
+    fun unlimitedApprovalIsOnTheDenylistAndNeedsItsCheckBeforeTheGate() {
+        val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, ContractCall.MAX_UINT256)
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+        val review = denylisted(requestCbor(tx, chainId = ETHEREUM)).review
+
+        assertEquals(listOf("0x095ea7b3"), review.denylisted.map { it.selector })
+        assertTrue(ReviewCheck.DENYLIST in review.requiredChecks)
+        assertEquals(listOf(UNLIMITED_USDC), review.warnings)
+    }
+
+    @Test
+    fun aLimitedApprovalIsNotOnTheDenylist() {
+        val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, BigInteger.valueOf(100_000_000))
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+        val review = denylisted(requestCbor(tx, chainId = ETHEREUM)).review
+
+        assertTrue(review.denylisted.isEmpty())
+        assertFalse(ReviewCheck.DENYLIST in review.requiredChecks)
+    }
+
+    @Test
+    fun setApprovalForAllWithTrueIsOnTheDenylistAndWithFalseIsNot() {
+        val grant = eip1559Tx(
+            chainId = ETHEREUM,
+            to = USDC_ETHEREUM,
+            value = BigInteger.ZERO,
+            data = erc20Call(SELECTOR_SET_APPROVAL_FOR_ALL, RECIPIENT, BigInteger.ONE),
+        )
+        val revoke = eip1559Tx(
+            chainId = ETHEREUM,
+            to = USDC_ETHEREUM,
+            value = BigInteger.ZERO,
+            data = erc20Call(SELECTOR_SET_APPROVAL_FOR_ALL, RECIPIENT, BigInteger.ZERO),
+        )
+
+        assertEquals(listOf("0xa22cb465"), denylisted(requestCbor(grant, chainId = ETHEREUM)).review.denylisted.map { it.selector })
+        assertTrue(denylisted(requestCbor(revoke, chainId = ETHEREUM)).review.denylisted.isEmpty())
+    }
+
+    @Test
+    fun anIncreaseAllowanceIsOnTheDenylistWhateverItsAmount() {
+        val data = erc20Call(SELECTOR_INCREASE_ALLOWANCE, RECIPIENT, BigInteger.ONE)
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+
+        assertEquals(listOf("0x39509351"), denylisted(requestCbor(tx, chainId = ETHEREUM)).review.denylisted.map { it.selector })
+    }
+
+    @Test
+    fun aTransferWithAnUnknownSelectorHasNoDenylistWarning() {
+        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+
+        assertTrue(denylisted(requestCbor(tx, chainId = ETHEREUM)).review.denylisted.isEmpty())
+    }
+
+    @Test
+    fun aBlockEntryRefusesTheRequestWithItsReason() {
+        val blocking = SignPipeline(
+            REGISTRY.withDenylist(
+                listOf(
+                    DenylistEntry(
+                        selector = "0x095ea7b3",
+                        condition = DenylistCondition.UNLIMITED,
+                        severity = DenylistSeverity.BLOCK,
+                        reason = "Blocked for this test.",
+                    ),
+                ),
+            ),
+            inProcessSandboxParser,
+        )
+        val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, ContractCall.MAX_UINT256)
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+
+        val reason = assertIs<Prepared.Refused>(blocking.prepare(requestCbor(tx, chainId = ETHEREUM), VIEW)).reason
+
+        assertEquals("Blocked for this test.", reason)
+    }
+
+    private fun denylisted(cbor: ByteArray): Prepared.Ready =
+        assertIs<Prepared.Ready>(SignPipeline(DENYLISTED, inProcessSandboxParser).prepare(cbor, VIEW))
 
     @Test
     fun aSandboxThatChangesTheRecipientIsRefusedWhileTheHonestParseIsReady() {
