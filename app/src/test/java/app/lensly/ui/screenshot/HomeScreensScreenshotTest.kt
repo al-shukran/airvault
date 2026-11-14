@@ -111,6 +111,13 @@ class HomeScreensScreenshotTest {
         home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, recent = emptyList())
     }
 
+    /** A first run: the one wallet is not backed up and nothing is signed, so Home shows the backup panel and the empty chart. */
+    @Test
+    fun homeFirstRunBeforeAnySignature() = compose.snapshot("home_first_run", settleMs = SETTLE_MS) {
+        val wallets = sampleWallets().take(1).map { it.copy(seedBackedUp = false) }
+        home(wallets = wallets, profiles = sampleHomeProfiles, recent = emptyList())
+    }
+
     /** The chart over the last thirty days, stacked by status. */
     @Test
     fun homeChartByStatus() = compose.snapshot("home_chart_status", settleMs = SETTLE_MS) {

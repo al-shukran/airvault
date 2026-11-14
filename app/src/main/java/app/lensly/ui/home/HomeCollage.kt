@@ -31,6 +31,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -68,6 +74,12 @@ private val LOGO_SIZE = 40.dp
 private val LOGO_STEP = 30.dp
 private val ROW_STEP = 32.dp
 
+/** A logo is taller than its row, so the first and last rows get this much room above and below, and the discs show whole. */
+private val ROW_BLEED = (LOGO_SIZE - ROW_STEP) / 2
+
+/** The share of each screen edge that fades out. */
+private const val EDGE_FADE = 0.08f
+
 /** How long a row takes to drift past one set of its logos, and how much longer each row after the first takes. */
 private const val DRIFT_MS = 36_000
 private const val DRIFT_STEP_MS = 6_000
@@ -91,9 +103,9 @@ internal fun interleaveLogos(chains: Collection<Int>, tokens: Collection<Int>): 
 }
 
 /**
- * The logo collage: the bundled network and token logos as overlapping circles in staggered rows. The rows drift slowly, alternately left
- * and right, unless the system animations are off (the animator duration scale is 0). The caption counts the catalog's networks and
- * tokens. A tap opens the Networks list through [onNetworks].
+ * The logo collage: the bundled network and token logos as overlapping circles in staggered rows. The rows run to both edges of the
+ * screen and fade out there, and they drift slowly, alternately left and right, unless the system animations are off (the animator
+ * duration scale is 0). The caption counts the catalog's networks and tokens. A tap opens the Networks list through [onNetworks].
  */
 @Composable
 internal fun LogoCollageSection(
@@ -106,28 +118,46 @@ internal fun LogoCollageSection(
     val context = LocalContext.current
     val still = remember(context) { animatorsDisabled(context) }
     val caption = "${counted(networkCount, "network")} · ${counted(tokenCount, "token")}"
-    Column(modifier = modifier.fillMaxWidth().padding(horizontal = WALLET_GUTTER)) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(ROW_STEP * COLLAGE_ROWS)
+                .height(ROW_STEP * COLLAGE_ROWS + ROW_BLEED * 2)
                 .clipToBounds()
+                .fadeEdges()
                 .testTag(HOME_COLLAGE_TAG)
                 .semantics { contentDescription = "Supported networks and tokens, $caption. Opens the networks list." }
                 .clickable(role = Role.Button, onClickLabel = "Open Networks", onClick = onNetworks),
         ) {
-            Column {
+            Column(modifier = Modifier.padding(vertical = ROW_BLEED)) {
                 rows.forEachIndexed { index, logos -> CollageRow(logos = logos, row = index, still = still) }
             }
         }
-        Spacer(Modifier.height(LenslySpacing.sm))
+        Spacer(Modifier.height(LenslySpacing.xs))
         Text(
             text = caption.uppercase(),
+            modifier = Modifier.padding(horizontal = WALLET_GUTTER),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
+
+/** Fades the content to nothing at both ends of the box, so a logo that runs off the screen's edge reads as cut by design. */
+private fun Modifier.fadeEdges(): Modifier = this
+    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        drawRect(
+            brush = Brush.horizontalGradient(
+                0f to Color.Transparent,
+                EDGE_FADE to Color.Black,
+                1f - EDGE_FADE to Color.Black,
+                1f to Color.Transparent,
+            ),
+            blendMode = BlendMode.DstIn,
+        )
+    }
 
 /**
  * Row [row] of logos. Odd rows drift right and even rows left, each at its own pace, so the rows do not move in step. Its logos are laid
