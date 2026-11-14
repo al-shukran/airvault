@@ -128,6 +128,10 @@ fun TxReviewScreen(
                     .verticalScroll(scroll),
             ) {
                 Column(modifier = Modifier.fillMaxWidth().onSizeChanged { contentPx = it.height }) {
+                    if (review.denylisted.isNotEmpty()) {
+                        DenylistWarning(reasons = review.denylisted.map { it.reason })
+                        Spacer(Modifier.height(LenslySpacing.sm))
+                    }
                     if (review.needsRegistryConfirmation) {
                         RegistryWarning()
                         Spacer(Modifier.height(LenslySpacing.sm))
@@ -257,6 +261,7 @@ private fun reviewHint(review: TxReview, everyFactShown: Boolean, checked: Set<R
 /** The text on the row of a check. */
 private val ReviewCheck.label: String
     get() = when (this) {
+        ReviewCheck.DENYLIST -> "I UNDERSTAND THIS IS A RISKY REQUEST"
         ReviewCheck.REGISTRY -> "I CHECKED THE CHAIN ID / CONTRACT"
         ReviewCheck.WHITELIST -> "I CHECKED THIS IS WHAT I INTEND"
         ReviewCheck.UPGRADE -> "I ACCEPT THE IMPLEMENTATION CANNOT BE CHECKED"
@@ -407,6 +412,35 @@ private fun RegistryWarning() {
             style = MaterialTheme.typography.bodyMedium,
             color = LenslyOnSurface,
         )
+    }
+}
+
+/**
+ * The first thing on a review that matches the denylist of known-dangerous requests. A solid block that gives the reason of each
+ * match, so the owner reads why the request is risky before the check that lets it be signed.
+ */
+@Composable
+private fun DenylistWarning(reasons: List<String>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(LenslyRadius.lg))
+            .background(LenslyAccent)
+            .padding(LenslySpacing.md),
+    ) {
+        Text(
+            text = "KNOWN RISKY REQUEST",
+            style = MaterialTheme.typography.headlineSmall,
+            color = LenslyOnSurface,
+        )
+        reasons.forEach { reason ->
+            Spacer(Modifier.height(LenslySpacing.xs))
+            Text(
+                text = reason,
+                style = MaterialTheme.typography.bodyMedium,
+                color = LenslyOnSurface,
+            )
+        }
     }
 }
 
