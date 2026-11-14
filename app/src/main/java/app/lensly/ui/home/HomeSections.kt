@@ -178,8 +178,8 @@ internal fun ReadinessSection(
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = WALLET_GUTTER)) {
         SectionHeader(title = "Readiness")
         Spacer(Modifier.height(LenslySpacing.xs))
-        Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
+        Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
                 ReadinessTile(
                     label = "Networks",
                     value = readiness.networkCount.toString(),
@@ -197,7 +197,7 @@ internal fun ReadinessSection(
                     modifier = Modifier.weight(1f),
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
                 ReadinessTile(
                     label = "Catalog",
                     value = readiness.catalogSequence?.let { "Sequence $it" } ?: "Built-in",
@@ -325,8 +325,8 @@ private fun OutcomeMark(outcome: ReviewOutcome) {
 }
 
 /**
- * One readiness tile: its label in the caps line with a status dot, and its value in the mono face under it. The whole tile is the
- * tap target, and it dims while pressed and plays the key haptic.
+ * One readiness tile: its label in the caps line, with the status dot at the end of that line, and its value in the mono face under it.
+ * Label and value share one left edge. The whole tile is the tap target, and it dims while pressed and plays the key haptic.
  */
 @Composable
 private fun ReadinessTile(
@@ -359,19 +359,19 @@ private fun ReadinessTile(
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(status))
-            Spacer(Modifier.width(LenslySpacing.xs))
             Text(
                 text = label.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(status))
         }
         Text(
             text = value,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleMedium,
             color = LenslyOnSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

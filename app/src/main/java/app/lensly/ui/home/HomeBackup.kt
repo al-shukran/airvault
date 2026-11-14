@@ -82,7 +82,8 @@ internal fun BackupPanel(
             )
             Spacer(Modifier.height(LenslySpacing.xxs))
             Text(
-                text = "If this phone is lost, the 24 words are the only way back.",
+                // A no-break space keeps "24 words" on one line.
+                text = "If this phone is lost, the 24 words are the only way back.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

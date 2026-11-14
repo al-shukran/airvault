@@ -261,13 +261,13 @@ private fun ChartCard(
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = dayLabel(chart.days.first().date),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
                     text = "TODAY",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -333,14 +333,14 @@ private fun ChartLegend(segments: List<ChartSegment>, breakdown: ChartBreakdown)
                         Text(
                             text = segment.label,
                             modifier = Modifier.weight(1f, fill = false),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = " ${segment.count}",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = LenslyOnSurface,
                             maxLines = 1,
                         )

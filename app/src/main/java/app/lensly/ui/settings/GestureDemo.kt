@@ -78,14 +78,14 @@ private val FRAME_MAX_WIDTH = 240.dp
 private const val FRAME_ASPECT = 9f / 19.5f
 
 // The space between the frame's edge and the camera UI, as a fraction of the frame's shorter side. It keeps every icon
-// clear of the edge, and is 1.5x the inset the landscape frame used.
-private const val FRAME_INSET = 0.09f
+// clear of the edge, and is the same at the top and the bottom, so the shutter row sits close to the bottom edge.
+private const val FRAME_INSET = 0.06f
 
 // Places in the card, as fractions of its width (x) and height (y).
 private val CENTRE = Offset(0.5f, 0.40f) // the viewfinder, where the gestures are made
-private val SHUTTER = Offset(0.5f, 0.88f)
-private val THUMBNAIL = Offset(0.25f, 0.88f)
-private val SWITCH = Offset(0.75f, 0.88f)
+private val SHUTTER = Offset(0.5f, 0.90f)
+private val THUMBNAIL = Offset(0.25f, 0.90f)
+private val SWITCH = Offset(0.75f, 0.90f)
 private val SIDE = Offset(0.09f, 0f) // half the gap between two fingers that land side by side
 private val PINCH_START = Offset(0.05f, 0f) // each pinch finger starts this far from the centre
 private val PINCH_END = Offset(0.10f, 0f) // and ends this far, so the span doubles: 1x to 2x
