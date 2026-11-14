@@ -8,9 +8,10 @@ import java.io.InputStream
 
 /**
  * Offline catalog updates. A registry package adds networks and tokens to the baked-in catalog. It can never
- * change or remove a baked entry. Its whitelist is the effective one only when the package is newer by sequence than the
- * build's catalog; otherwise the build's whitelist stays. A package is accepted only when a key the build trusts signed it
- * (see [TrustedKeys]), and only when its sequence is higher than every sequence accepted before.
+ * change or remove a baked entry. Its whitelist, denylist and wallets are the effective ones only when the package is newer by
+ * sequence than the build's catalog; otherwise the build's lists stay. A list the package does not carry keeps the build's too.
+ * A package is accepted only when a key the build trusts signed it (see [TrustedKeys]), and only when its sequence is higher than
+ * every sequence accepted before.
  *
  * Packages arrive on removable storage. This object checks them before anything is stored. Reading them from
  * storage is the caller's job.
@@ -88,20 +89,20 @@ object RegistryUpdate {
 
     /**
      * The [registry] with the installed package in [dir] merged in. Installed networks and tokens are only added. The effective
-     * whitelist comes from one source only: the installed package's when its sequence is higher than the build's
-     * [Registry.catalogSequence], otherwise the build's (a tie keeps the build's). When there is no installed package, or it no
-     * longer verifies against [registry] (for example because an app update bakes one of its chain IDs), [registry] is returned
-     * unchanged; a failed verification is flagged on the result so Settings can say the built-in catalog is in use.
+     * whitelist, denylist and wallets come from one source only: the installed package's when its sequence is higher than the
+     * build's [Registry.catalogSequence], otherwise the build's (a tie keeps the build's). A denylist or wallet list the package
+     * does not carry keeps the build's. When there is no installed package, or it no longer verifies against [registry] (for
+     * example because an app update bakes one of its chain IDs), [registry] is returned unchanged; a failed verification is
+     * flagged on the result so Settings can say the built-in catalog is in use.
      */
     fun withInstalled(registry: Registry, dir: File, trustedKeys: List<TrustedKey>): Registry {
         if (!File(dir, INSTALLED_FILE).isFile) return registry
         val installed = installedPackage(registry, dir, trustedKeys) ?: return registry.withInstalledUpdateUnverified()
         val merged = registry.withAdditions(installed.networks, installed.tokens)
-        return if (installed.sequence > registry.catalogSequence) {
-            merged.withWhitelist(installed.whitelist)
-        } else {
-            merged
-        }
+        if (installed.sequence <= registry.catalogSequence) return merged
+        return merged.withWhitelist(installed.whitelist)
+            .withDenylist(installed.denylist ?: registry.denylistEntries())
+            .withWallets(installed.wallets ?: registry.walletEntries())
     }
 
     /**
