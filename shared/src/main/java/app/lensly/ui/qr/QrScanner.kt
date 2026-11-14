@@ -3,12 +3,12 @@ package app.lensly.ui.qr
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Rect
 import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,13 +49,19 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import app.lensly.core.qr.BinderQrDecodeTransport
+import app.lensly.core.qr.LumaFrames
+import app.lensly.core.qr.QrDecodeClient
+import app.lensly.core.qr.QrDecodeOutcome
 import app.lensly.ui.camera.CameraIcons
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.camera.openAppSettings
@@ -62,8 +69,9 @@ import app.lensly.ui.components.PillButton
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LenslySurfaceHigh
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
-import zxingcpp.BarcodeReader
 
 /** Analysis frames are requested at about 720p. Smaller frames decode faster and keep latency low. */
 private val ANALYSIS_SIZE = Size(1280, 720)
@@ -74,11 +82,12 @@ private const val SCRIM_ALPHA = 0.6f
 
 /**
  * Live QR scanner: a CameraX preview with a square viewfinder. The viewfinder dims everything
- * outside it. Frames are decoded for QR codes only, on a background thread.
+ * outside it. Frames are decoded for QR codes only, in the QR Decode Sandbox, on a background thread.
  *
  * [onText] runs on the main thread. Identical texts that arrive in a row are reported once, so a
  * code held still does not fire repeatedly. A frame with no code does not reset that check, which
  * stops a flickering read from firing twice. Texts that differ, such as successive UR parts, all fire.
+ * If the sandbox does not answer in time, or has died, the viewfinder says that the code could not be read.
  *
  * If the camera permission is missing, the composable asks for it. If it is refused, the
  * composable says so and offers OPEN SETTINGS, which still works after a permanent refusal.
@@ -97,6 +106,7 @@ fun QrScanner(
     val injected = frameSource
     var granted by remember { mutableStateOf(context.hasCameraPermission()) }
     var refused by rememberSaveable { mutableStateOf(false) }
+    var decodeFailed by remember { mutableStateOf(false) }
     val requestPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { result ->
@@ -113,10 +123,10 @@ fun QrScanner(
         contentAlignment = Alignment.Center,
     ) {
         if (injected != null) {
-            FixtureDecoder(frameSource = injected, onText = onText)
+            FixtureDecoder(frameSource = injected, onText = onText, onFailed = { decodeFailed = it })
             ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else if (granted) {
-            CameraDecoder(onText = onText, modifier = Modifier.fillMaxSize())
+            CameraDecoder(onText = onText, onFailed = { decodeFailed = it }, modifier = Modifier.fillMaxSize())
             ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else {
             ScanPermissionPrompt(
@@ -125,6 +135,7 @@ fun QrScanner(
                 onOpenSettings = { context.openAppSettings() },
             )
         }
+        if (decodeFailed) DecodeFailedNotice(modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -143,14 +154,39 @@ internal class ConsecutiveDeduper {
     }
 }
 
+/**
+ * Hands each decode outcome to the scanner on the main thread: a text that differs from the one before, and each change in
+ * whether the sandbox can answer. It is not thread-safe, so call [submit] from one thread only.
+ */
+private class OutcomeSink(
+    private val mainExecutor: Executor,
+    private val onText: (String) -> Unit,
+    private val onFailed: (Boolean) -> Unit,
+) {
+    private val deduper = ConsecutiveDeduper()
+    private var failed = false
+
+    fun submit(outcome: QrDecodeOutcome) {
+        val nowFailed = outcome == QrDecodeOutcome.Unavailable
+        if (nowFailed != failed) {
+            failed = nowFailed
+            mainExecutor.execute { onFailed(nowFailed) }
+        }
+        val text = (outcome as? QrDecodeOutcome.Answered)?.texts?.firstOrNull() ?: return
+        if (deduper.accept(text)) mainExecutor.execute { onText(text) }
+    }
+}
+
 @Composable
 private fun CameraDecoder(
     onText: (String) -> Unit,
+    onFailed: (Boolean) -> Unit,
     modifier: Modifier,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestOnText = rememberUpdatedState(onText)
+    val latestOnFailed = rememberUpdatedState(onFailed)
     val previewView = remember {
         PreviewView(context).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
@@ -162,6 +198,7 @@ private fun CameraDecoder(
         val analysisExecutor = Executors.newSingleThreadExecutor()
         val mainExecutor = ContextCompat.getMainExecutor(context)
         val providerFuture = ProcessCameraProvider.getInstance(context)
+        val client = QrDecodeClient(BinderQrDecodeTransport(context))
         var provider: ProcessCameraProvider? = null
         var analysis: ImageAnalysis? = null
         var disposed = false
@@ -172,13 +209,11 @@ private fun CameraDecoder(
             val cameraProvider = providerFuture.get()
             provider = cameraProvider
 
-            val reader = BarcodeReader(
-                BarcodeReader.Options().apply {
-                    formats = setOf(BarcodeReader.Format.QR_CODE)
-                    tryHarder = false
-                },
+            val sink = OutcomeSink(
+                mainExecutor = mainExecutor,
+                onText = { text -> if (!disposed) latestOnText.value(text) },
+                onFailed = { failed -> if (!disposed) latestOnFailed.value(failed) },
             )
-            val deduper = ConsecutiveDeduper()
             val preview = Preview.Builder().build().also {
                 it.surfaceProvider = previewView.surfaceProvider
             }
@@ -193,19 +228,21 @@ private fun CameraDecoder(
                         )
                         .build(),
                 )
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
+            // The luminance is copied out and the image closed before the decode, so the camera buffer is not held during the
+            // call. The analyzer waits for the decode, and KEEP_ONLY_LATEST drops the frames that arrive meanwhile, so one
+            // frame is in flight at a time.
             imageAnalysis.setAnalyzer(analysisExecutor) { image ->
-                try {
-                    val text = reader.read(image).firstNotNullOfOrNull { result ->
-                        result.text?.takeIf { it.isNotEmpty() && result.error == null }
-                    }
-                    if (text != null && deduper.accept(text)) {
-                        mainExecutor.execute { latestOnText.value(text) }
-                    }
+                val width = image.width
+                val height = image.height
+                val luma = try {
+                    image.lumaBytes()
                 } finally {
                     image.close()
                 }
+                sink.submit(client.decode(luma, width, height))
             }
             analysis = imageAnalysis
 
@@ -223,10 +260,17 @@ private fun CameraDecoder(
             analysis?.clearAnalyzer()
             provider?.unbindAll()
             analysisExecutor.shutdown()
+            client.close()
         }
     }
 
     AndroidView(factory = { previewView }, modifier = modifier)
+}
+
+/** The luminance of a camera frame. The analysis format is YUV_420_888, whose first plane is the luminance. */
+private fun ImageProxy.lumaBytes(): ByteArray {
+    val plane = planes[0]
+    return LumaFrames.fromPlane(plane.buffer, width, height, plane.rowStride, plane.pixelStride)
 }
 
 /** Dims the frame outside a centred square with rounded corners, and outlines the square. */
@@ -259,6 +303,24 @@ private fun ViewfinderOverlay(modifier: Modifier) {
             style = Stroke(width = VIEWFINDER_STROKE.toPx()),
         )
     }
+}
+
+/**
+ * The error state of the scanner. It shows while the sandbox cannot answer, because it timed out or died, and it goes away
+ * on the next frame the sandbox answers.
+ */
+@Composable
+private fun DecodeFailedNotice(modifier: Modifier) {
+    Text(
+        text = "Couldn't read that code",
+        modifier = modifier
+            .padding(LenslySpacing.md)
+            .background(LenslySurfaceHigh, RoundedCornerShape(percent = 50))
+            .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        style = MaterialTheme.typography.bodyMedium,
+        color = LenslyOnSurface,
+    )
 }
 
 /**
@@ -332,41 +394,44 @@ private fun Context.hasCameraPermission(): Boolean =
 
 /**
  * Decodes every frame [frameSource] emits. This runs only when a source is passed in, so the production path with no
- * source never enters it. The reader options are the camera path's, and a text is reported once, on the main thread.
+ * source never enters it. Its frames go through the same QR Decode Sandbox as the camera's, and a text is reported once,
+ * on the main thread.
  */
 @Composable
 private fun FixtureDecoder(
     frameSource: FrameSource,
     onText: (String) -> Unit,
+    onFailed: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     val latestOnText = rememberUpdatedState(onText)
+    val latestOnFailed = rememberUpdatedState(onFailed)
 
     DisposableEffect(frameSource) {
         val decoderExecutor = Executors.newSingleThreadExecutor()
         val mainExecutor = ContextCompat.getMainExecutor(context)
-        val reader = BarcodeReader(
-            BarcodeReader.Options().apply {
-                formats = setOf(BarcodeReader.Format.QR_CODE)
-                tryHarder = false
-            },
+        val client = QrDecodeClient(BinderQrDecodeTransport(context))
+        var disposed = false
+        val sink = OutcomeSink(
+            mainExecutor = mainExecutor,
+            onText = { text -> if (!disposed) latestOnText.value(text) },
+            onFailed = { failed -> if (!disposed) latestOnFailed.value(failed) },
         )
-        val deduper = ConsecutiveDeduper()
         val handle = frameSource.start { bitmap ->
-            decoderExecutor.execute {
-                val text = reader.read(bitmap, Rect(0, 0, bitmap.width, bitmap.height))
-                    .firstNotNullOfOrNull { result ->
-                        result.text?.takeIf { it.isNotEmpty() && result.error == null }
-                    }
-                if (text != null && deduper.accept(text)) {
-                    mainExecutor.execute { latestOnText.value(text) }
-                }
-            }
+            // The pixels are read on the emitting thread, while the bitmap is valid. The frames are decoded in order.
+            val width = bitmap.width
+            val height = bitmap.height
+            val pixels = IntArray(width * height)
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+            val luma = LumaFrames.fromArgb(pixels, width, height)
+            decoderExecutor.execute { sink.submit(client.decode(luma, width, height)) }
         }
 
         onDispose {
+            disposed = true
             handle.stop()
             decoderExecutor.shutdown()
+            client.close()
         }
     }
 }
