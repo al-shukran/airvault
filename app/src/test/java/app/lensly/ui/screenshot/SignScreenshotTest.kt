@@ -198,7 +198,7 @@ class SignScreenshotTest {
                 networkName = "Monad Testnet",
                 chainId = 10143L,
                 value = "0 MON",
-                selector = "0x7acb7757",
+                selector = "7acb7757",
                 words = listOf("0".repeat(63) + "a"),
                 proxy = ProxyBinding(implementationAddress = IMPLEMENTATION),
             ),

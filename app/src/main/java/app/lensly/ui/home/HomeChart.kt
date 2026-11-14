@@ -163,9 +163,11 @@ private fun dayOf(atMs: Long, zone: ZoneId): LocalDate = Instant.ofEpochMilli(at
 /** The test tag of the chart's tappable area, so a test can find it. */
 internal const val HOME_CHART_TAG = "home-chart"
 
-/** The height of the bars, and of the placeholder line that stands in for them before any record. */
+/** The height of the bars. */
 private val CHART_HEIGHT = 120.dp
-private val PLACEHOLDER_HEIGHT = 48.dp
+
+/** The height of the empty chart card, which is the chart's card at a compact height. */
+private val EMPTY_CHART_HEIGHT = 120.dp
 
 /** The share of a day's slot a bar fills. The rest is the gap between two bars. */
 private const val BAR_FILL = 0.62f
@@ -261,13 +263,13 @@ private fun ChartCard(
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = dayLabel(chart.days.first().date),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
                     text = "TODAY",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -333,14 +335,14 @@ private fun ChartLegend(segments: List<ChartSegment>, breakdown: ChartBreakdown)
                         Text(
                             text = segment.label,
                             modifier = Modifier.weight(1f, fill = false),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = " ${segment.count}",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = LenslyOnSurface,
                             maxLines = 1,
                         )
@@ -361,13 +363,15 @@ private fun ChartPlaceholder() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .height(EMPTY_CHART_HEIGHT)
             .clip(shape)
             .background(LenslySurfaceContainer)
             .border(1.dp, LenslyOutline, shape)
             .padding(LenslySpacing.md),
+        verticalArrangement = Arrangement.SpaceBetween,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Canvas(modifier = Modifier.fillMaxWidth().height(PLACEHOLDER_HEIGHT)) {
+        Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
             drawLine(
                 color = LenslyOutline,
                 start = Offset(0f, size.height / 2f),
@@ -376,9 +380,8 @@ private fun ChartPlaceholder() {
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 6.dp.toPx())),
             )
         }
-        Spacer(Modifier.height(LenslySpacing.xs))
         Text(
-            text = "Your signing activity will appear here",
+            text = "No signatures yet — your activity chart appears here",
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
