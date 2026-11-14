@@ -1,9 +1,15 @@
 package app.lensly.app
 
 import app.lensly.core.btc.BtcAccount
+import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.BtcPsbt
+import app.lensly.core.btc.BtcRefusal
+import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.btc.InputVerificationPolicy.STRICT
 import app.lensly.core.btc.ScriptType
+import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
@@ -11,6 +17,8 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.Mnemonic
 import com.sparrowwallet.hummingbird.UREncoder
+import fr.acinq.bitcoin.DeterministicWallet
+import fr.acinq.bitcoin.psbt.Psbt
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
@@ -176,6 +184,111 @@ class WalletStoreBitcoinTest {
         val allTypes = ScriptType.entries.toSet()
         assertEquals(allTypes, accounts.filter { it.network == BtcNetwork.MAINNET }.map { it.scriptType }.toSet())
         assertEquals(allTypes, accounts.filter { it.network == BtcNetwork.TESTNET4 }.map { it.scriptType }.toSet())
+    }
+
+    @Test
+    fun theWatchOnlyExportCarriesEveryStoredAccountIndex() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 3, cap)
+
+        val scanner = UrScanner()
+        store.bitcoinWatchOnlyParts(id).forEach { scanner.receive(it) }
+        val accounts = BtcWatchOnly.parseCryptoAccount(UREncoder.encode(assertNotNull(scanner.result())))
+
+        // Indices 0, 1 and 2 on mainnet, with each of the four Script Types at every index.
+        assertEquals(12, accounts.size)
+        assertEquals(
+            setOf(0, 1, 2),
+            accounts.map { (it.path.path[2] - DeterministicWallet.hardenedKeyIndex).toInt() }.toSet(),
+        )
+    }
+
+    @Test
+    fun aReviewNamesTheStoredAccountTheRequestSpendsFromAndItsFee() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        val reviewed = store.bitcoinReview(id, requestFrom(walletAccount(BtcNetwork.TESTNET4, 0)), STRICT, SigningSourcePolicy.ANY)
+
+        assertEquals(BtcNetwork.TESTNET4, reviewed.account.network)
+        assertEquals(ScriptType.NATIVE_SEGWIT, reviewed.account.scriptType)
+        assertEquals(0, reviewed.account.index)
+        assertEquals(100_000L, reviewed.review.inputs.single().amountSats)
+        // The inputs hold 100,000 sat, the outputs 90,000 sat, so the fee is 10,000 sat.
+        assertEquals(10_000L, reviewed.review.feeSats)
+    }
+
+    @Test
+    fun aSignedRequestVerifiesAgainstItsPreviousOutputsAndIsReturnedAsFrames() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        val account = walletAccount(BtcNetwork.TESTNET4, 0)
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, paid = 30_000L, change = 60_000L))
+        val reviewed = store.bitcoinReview(id, psbt, STRICT, SigningSourcePolicy.ANY)
+
+        val frames = store.bitcoinSign(id, reviewed.account, psbt, STRICT, SigningSourcePolicy.ANY, unverifiedConfirmed = false)
+
+        val scanner = UrScanner()
+        frames.forEach { scanner.receive(it) }
+        val signed = BtcPsbt.fromUr(assertNotNull(scanner.result()))
+        val tx = BtcFixtures.finalize(signed, listOf(spend))
+        assertTrue(BtcFixtures.verifies(tx, BtcFixtures.prevouts(listOf(spend))), "the interpreter rejects the signed request")
+    }
+
+    @Test
+    fun aRequestSpendingFromAnAccountTheWalletDoesNotHoldIsRefused() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1, cap)
+        val refused = assertFailsWith<BtcRefusedException> {
+            store.bitcoinReview(id, requestFrom(walletAccount(BtcNetwork.MAINNET, 4)), STRICT, SigningSourcePolicy.ANY)
+        }
+        assertEquals(BtcRefusal.NoStoredAccount, refused.refusal)
+    }
+
+    @Test
+    fun aRequestOnANetworkTheWalletHoldsNoAccountOnIsRefused() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1, cap)
+        val refused = assertFailsWith<BtcRefusedException> {
+            store.bitcoinReview(id, requestFrom(walletAccount(BtcNetwork.TESTNET4, 0)), STRICT, SigningSourcePolicy.ANY)
+        }
+        assertEquals(BtcRefusal.NetworkMismatch, refused.refusal)
+    }
+
+    @Test
+    fun aRequestSpendingFromTwoAccountsOfTheWalletIsRefused() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)
+        val first = walletAccount(BtcNetwork.MAINNET, 0)
+        val second = walletAccount(BtcNetwork.MAINNET, 1)
+        val psbt = BtcFixtures.psbt(
+            listOf(
+                BtcFixtures.Spend(BtcFixtures.funding(first, 0, 0, 100_000L, salt = 1), first, 0, 0),
+                BtcFixtures.Spend(BtcFixtures.funding(second, 0, 0, 100_000L, salt = 2), second, 0, 0),
+            ),
+            BtcFixtures.paying(first, paid = 30_000L, change = 60_000L),
+        )
+        val refused = assertFailsWith<BtcRefusedException> { store.bitcoinReview(id, psbt, STRICT, SigningSourcePolicy.ANY) }
+        assertEquals(BtcRefusal.SeveralAccounts, refused.refusal)
+    }
+
+    @Test
+    fun aWalletWithNoBitcoinAccountRefusesEveryRequest() {
+        val id = newWallet()
+        val refused = assertFailsWith<BtcRefusedException> {
+            store.bitcoinReview(id, requestFrom(walletAccount(BtcNetwork.MAINNET, 0)), STRICT, SigningSourcePolicy.ANY)
+        }
+        assertEquals(BtcRefusal.NoStoredAccount, refused.refusal)
+    }
+
+    /** The account [index] of the wallet's own seed, on [network] and in Native Segwit. */
+    private fun walletAccount(network: BtcNetwork, index: Int): BtcAccount =
+        BtcAccount.fromSeed(Mnemonic.toSeed(words), network, ScriptType.NATIVE_SEGWIT, index)
+
+    /** A request that spends the first output of [account] and pays a receive address and the change of the same account. */
+    private fun requestFrom(account: BtcAccount): Psbt {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        return BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, paid = 30_000L, change = 60_000L))
     }
 
     private fun hex(text: String): ByteArray = ByteArray(text.length / 2) { i ->

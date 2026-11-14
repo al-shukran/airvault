@@ -33,6 +33,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.HideDelay
+import app.lensly.core.btc.InputVerificationPolicy
+import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyPolicy
@@ -102,6 +104,9 @@ fun SettingsScreen(
     onProxyPolicy: () -> Unit = {},
     hideDelay: HideDelay? = null,
     onHideDelay: (HideDelayBound) -> Unit = {},
+    bitcoinInputPolicy: InputVerificationPolicy? = null,
+    bitcoinSigningSource: SigningSourcePolicy? = null,
+    onBitcoinPolicy: () -> Unit = {},
     onThirdPartyLicences: () -> Unit = {},
     onUpdateCatalog: () -> Unit,
     onWipe: () -> Unit,
@@ -164,6 +169,18 @@ fun SettingsScreen(
                     ?: "Reading the saved delay…",
                 onClick = { onHideDelay(HideDelayBound.LONGEST) },
                 loading = hideDelay == null,
+            )
+        }
+
+        SettingsSection("Bitcoin") {
+            val policies = bitcoinInputPolicy?.let { input -> bitcoinSigningSource?.let { input to it } }
+            SettingsRow(
+                title = "Bitcoin policy",
+                description = policies?.let { (input, source) ->
+                    "Inputs: ${inputPolicyLabel(input)}. Signing: ${signingSourceLabel(source)}."
+                } ?: "Reading the saved policy…",
+                onClick = onBitcoinPolicy,
+                loading = policies == null,
             )
         }
 
