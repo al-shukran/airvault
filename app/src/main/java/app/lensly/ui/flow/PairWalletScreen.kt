@@ -51,14 +51,18 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
+import app.lensly.app.WalletStore
 import app.lensly.app.export.PairingExport
+import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.registry.WalletEntry
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.LoadingState
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
@@ -91,8 +95,9 @@ internal const val PAIRED_MESSAGE = "Wallet paired"
 internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
 
 /**
- * The online wallets that pair with Lensly. They all read the same ur:crypto-hdkey, so only the steps the owner follows
- * differ. [OTHER] stands for any wallet with a hardware or QR-based account, so its steps are the general ones.
+ * The online wallets that pair with Lensly. The EVM ones all read the same ur:crypto-hdkey, so only the steps the owner follows
+ * differ. [OTHER] stands for any wallet with a hardware or QR-based account, so its steps are the general ones. [BITCOIN] shares
+ * the watch-only Bitcoin accounts of a wallet as a ur:crypto-account.
  */
 internal enum class PairFormat(val label: String, val instruction: String, val walletName: String?) {
     RABBY(
@@ -109,6 +114,12 @@ internal enum class PairFormat(val label: String, val instruction: String, val w
         label = "OTHER WALLET",
         instruction = "In your wallet, add a hardware or QR-based account, then scan the code.",
         // Not in the Wallet Compatibility Registry, so there is no Wallet Entry note to show.
+        walletName = null,
+    ),
+    BITCOIN(
+        label = "BITCOIN (WATCH-ONLY)",
+        instruction = "In your Bitcoin wallet, import the watch-only accounts by QR, then scan the code.",
+        // Not an EVM wallet in the Wallet Compatibility Registry, so there is no Wallet Entry note to show.
         walletName = null,
     ),
 }
@@ -143,6 +154,17 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
     val walletEntries by produceState(initialValue = emptyList<WalletEntry>(), context) {
         value = withContext(Dispatchers.IO) { RegistryHolder.get(context).walletEntries() }
     }
+    // The Bitcoin networks each wallet holds an account on, read off the main thread. A wallet with none has no Bitcoin code.
+    val bitcoinNetworks by produceState(initialValue = emptyMap<String, Set<BtcNetwork>>(), session, listing) {
+        value = if (session == null || listing == null) {
+            emptyMap()
+        } else {
+            withContext(Dispatchers.IO) {
+                val store = WalletStore(session)
+                listing.wallets.associate { wallet -> wallet.id to store.bitcoinAccounts(wallet.id).map { it.network }.toSet() }
+            }
+        }
+    }
     if (listing == null) {
         // The wallets are read off the main thread. Until they arrive, the screen says so instead of staying blank.
         PairLoading(label = "Loading wallets", onBack = { navController.popBackStack() })
@@ -158,6 +180,12 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
         profiles = listing.profiles,
         preselected = preselected,
         walletEntries = walletEntries,
+        bitcoinNetworks = bitcoinNetworks,
+        bitcoinParts = { meta ->
+            withContext(Dispatchers.IO) {
+                WalletStore(requireNotNull(session) { "The vault is locked." }).bitcoinWatchOnlyParts(meta.id)
+            }
+        },
         onDone = {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             navController.getBackStackEntry(LenslyRoute.HIDDEN).savedStateHandle[HiddenRoute.NOTICE] = PAIRED_MESSAGE
@@ -182,6 +210,10 @@ internal fun PairWizard(
     onDone: () -> Unit,
     onLeave: () -> Unit,
     walletEntries: List<WalletEntry> = emptyList(),
+    /** The Bitcoin networks each wallet holds an account on, by wallet id. A wallet with none has no Bitcoin code to show. */
+    bitcoinNetworks: Map<String, Set<BtcNetwork>> = emptyMap(),
+    /** The Bitcoin code of a wallet with a Bitcoin account: its frames, read off the main thread. */
+    bitcoinParts: suspend (WalletMeta) -> List<String> = { emptyList() },
     modifier: Modifier = Modifier,
 ) {
     val skipsWalletStep = preselected != null || wallets.size == 1
@@ -190,9 +222,15 @@ internal fun PairWizard(
     var step by remember { mutableStateOf(if (skipsWalletStep) PairStep.APP else PairStep.WALLET) }
     val chosen = wallet
     val inCode = step == PairStep.CODE
+    val chosenNetworks = chosen?.let { bitcoinNetworks[it.id] }.orEmpty()
+    val bitcoinReady = chosenNetworks.isNotEmpty()
     // The code is built only when the owner reaches it, from public wallet data.
-    val frames by produceState<List<String>?>(initialValue = null, chosen, inCode) {
-        value = if (inCode && chosen != null) withContext(Dispatchers.Default) { pairingParts(chosen) } else null
+    val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, bitcoinReady) {
+        value = when {
+            !inCode || chosen == null -> null
+            format == PairFormat.BITCOIN -> if (bitcoinReady) bitcoinParts(chosen) else null
+            else -> withContext(Dispatchers.Default) { pairingParts(chosen) }
+        }
     }
     fun back() {
         when (step) {
@@ -211,6 +249,8 @@ internal fun PairWizard(
         format = format,
         walletEntry = format?.walletName?.let { name -> walletEntries.firstOrNull { it.name == name } },
         frames = frames,
+        bitcoinReady = bitcoinReady,
+        bitcoinTestnet = BtcNetwork.TESTNET4 in chosenNetworks,
         onPickWallet = { picked ->
             wallet = picked
             step = PairStep.APP
@@ -240,6 +280,10 @@ internal fun PairWizardScreen(
     /** The Wallet Entry of the chosen online wallet, or null when the registry has none. Its note shows on the instructions step. */
     walletEntry: WalletEntry? = null,
     frames: List<String>?,
+    /** Whether the chosen wallet holds a Bitcoin account. A Bitcoin code is offered only then. */
+    bitcoinReady: Boolean = true,
+    /** Whether the Bitcoin code holds a testnet account, which the code step marks with a Testnet chip. */
+    bitcoinTestnet: Boolean = false,
     onPickWallet: (WalletMeta) -> Unit,
     onPickFormat: (PairFormat) -> Unit,
     onShowCode: () -> Unit,
@@ -249,7 +293,15 @@ internal fun PairWizardScreen(
 ) {
     val action: (@Composable ColumnScope.() -> Unit)? = when (step) {
         PairStep.INSTRUCTIONS -> {
-            { PillButton(text = "Show code", onClick = onShowCode, accent = true, modifier = Modifier.fillMaxWidth()) }
+            {
+                PillButton(
+                    text = "Show code",
+                    onClick = onShowCode,
+                    accent = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = format != PairFormat.BITCOIN || bitcoinReady,
+                )
+            }
         }
         PairStep.CODE -> {
             { PillButton(text = "Done", onClick = onDone, accent = true, modifier = Modifier.fillMaxWidth()) }
@@ -284,8 +336,8 @@ internal fun PairWizardScreen(
                     PairStep.WALLET -> WalletStep(wallets = wallets, profiles = profiles, onPick = onPickWallet)
                     PairStep.APP ->
                         if (wallet?.kind == WalletKind.SINGLE_KEY) SingleKeyNotice() else FormatStep(onPick = onPickFormat)
-                    PairStep.INSTRUCTIONS -> InstructionsStep(format = format, walletEntry = walletEntry)
-                    PairStep.CODE -> CodeStep(format = format, frames = frames)
+                    PairStep.INSTRUCTIONS -> InstructionsStep(format = format, walletEntry = walletEntry, bitcoinReady = bitcoinReady)
+                    PairStep.CODE -> CodeStep(format = format, frames = frames, bitcoinTestnet = bitcoinTestnet)
                 }
             }
         }
@@ -382,7 +434,7 @@ private fun SingleKeyNotice() {
 
 /** Step three: the steps for the chosen app, with a drawing of one phone scanning the other, and its Wallet Entry note. */
 @Composable
-private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?) {
+private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, bitcoinReady: Boolean) {
     PairIllustration(modifier = Modifier.fillMaxWidth())
     Spacer(Modifier.height(LenslySpacing.lg))
     if (format == null) return
@@ -397,6 +449,14 @@ private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?) {
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    if (format == PairFormat.BITCOIN && !bitcoinReady) {
+        Spacer(Modifier.height(LenslySpacing.lg))
+        InlineBanner(
+            title = "No Bitcoin account",
+            message = "This wallet has none yet. Add one with Generate accounts on the wallet, then pair it.",
+            tone = BannerTone.Warning,
+        )
+    }
     if (walletEntry != null) {
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEntryNote(entry = walletEntry)
@@ -453,11 +513,11 @@ private fun WalletEntryNote(entry: WalletEntry) {
  * Until the parts are ready, it says so.
  */
 @Composable
-private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?) {
+private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?, bitcoinTestnet: Boolean) {
     if (format != null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // The paired account is an Ethereum account, so it carries the Ethereum logo.
-            AddressIcon(size = 16.dp)
+            // An EVM account carries the Ethereum logo, and a Bitcoin account the Bitcoin logo.
+            if (format == PairFormat.BITCOIN) BitcoinIcon(size = 16.dp) else AddressIcon(size = 16.dp)
             Spacer(Modifier.width(LenslySpacing.xs))
             Text(
                 text = format.instruction,
@@ -465,6 +525,10 @@ private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (format == PairFormat.BITCOIN && bitcoinTestnet) {
+                Spacer(Modifier.width(LenslySpacing.xs))
+                PillChip(text = "Testnet")
+            }
         }
     }
     Spacer(Modifier.weight(1f))

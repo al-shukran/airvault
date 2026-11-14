@@ -1,5 +1,8 @@
 package app.lensly.core.btc
 
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
+import app.lensly.core.ur.framesOf
+import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.URDecoder
 import com.sparrowwallet.hummingbird.UREncoder
 import com.sparrowwallet.hummingbird.registry.CryptoAccount
@@ -57,11 +60,23 @@ object BtcWatchOnly {
         ScriptType.entries.map { BtcAccount.fromSeed(seed, network, it, accountIndex).watchOnly() }
 
     /** The `ur:crypto-account` that carries [accounts], which must share one master fingerprint. */
-    fun cryptoAccount(accounts: List<BtcWatchOnlyAccount>): String {
+    fun cryptoAccount(accounts: List<BtcWatchOnlyAccount>): String = UREncoder.encode(cryptoAccountUr(accounts))
+
+    /**
+     * The frames of the `ur:crypto-account` that carries [accounts]. A payload that fits one QR code is one frame. A larger one
+     * gives the uncoded parts of an animated code, which the encoder emits first, so a caller that cycles this list sends the whole
+     * payload in every pass.
+     */
+    fun cryptoAccountParts(accounts: List<BtcWatchOnlyAccount>): List<String> {
+        val frames = framesOf(cryptoAccountUr(accounts), DEFAULT_MAX_FRAGMENT)
+        return frames.take(sequenceLength(frames.first())).toList()
+    }
+
+    private fun cryptoAccountUr(accounts: List<BtcWatchOnlyAccount>): UR {
         require(accounts.isNotEmpty()) { "no accounts to export" }
         require(accounts.map { it.masterFingerprint }.distinct().size == 1) { "accounts must share one master fingerprint" }
         val outputs = accounts.map { CryptoOutput(it.scriptType.expressions(), it.hdKey()) }
-        return UREncoder.encode(CryptoAccount(accounts.first().masterFingerprint.fingerprintBytes(), outputs).toUR())
+        return CryptoAccount(accounts.first().masterFingerprint.fingerprintBytes(), outputs).toUR()
     }
 
     /** The Accounts carried by a `ur:crypto-account`. Throws [IllegalArgumentException] for any other input. */
@@ -78,6 +93,12 @@ object BtcWatchOnly {
 }
 
 private const val UINT32_MASK = 0xFFFFFFFFL
+
+/** The "i-n" sequence header that every frame of a multi-part UR carries after its type, as in ur:type/1-3/body. */
+private val SEQUENCE_HEADER = Regex("""^UR:[A-Z0-9-]+/\d+-(\d+)/""", RegexOption.IGNORE_CASE)
+
+/** The number of parts an animated UR has, read from the sequence header of one of its frames, or 1 for a single-part UR. */
+private fun sequenceLength(frame: String): Int = SEQUENCE_HEADER.find(frame)?.groupValues?.get(1)?.toInt() ?: 1
 
 private fun BtcWatchOnlyAccount.hdKey(): CryptoHDKey {
     val origin = CryptoKeypath(path.components(), masterFingerprint.fingerprintBytes(), path.path.size)
