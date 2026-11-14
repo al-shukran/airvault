@@ -195,6 +195,11 @@ fun TxReviewScreen(
                                 }
                             }
                         }
+                        if (review.nested.isNotEmpty()) {
+                            FactRow(label = "Calls") {
+                                review.nested.forEach { NestedCallView(it) }
+                            }
+                        }
                         FactRow(label = "Fee breakdown") {
                             review.fee.forEach { (name, value) ->
                                 Row(
@@ -525,6 +530,51 @@ private fun MessageBlock(text: String) {
             style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+/**
+ * One call of a multicall, indented by its level so the nesting reads at a glance. It opens with the same warnings a lone call
+ * gets: the denylist block for a known-dangerous request, the registry block for a token outside the registry, then each warning.
+ * Then come its target when it names one, its function and arguments, and its note. A call the whitelist approves ends with its
+ * approved meaning, under the same block a lone call gets.
+ */
+@Composable
+private fun NestedCallView(call: NestedCall) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = LenslySpacing.md * (call.depth - 1), bottom = LenslySpacing.sm),
+    ) {
+        if (call.denylisted.isNotEmpty()) {
+            DenylistWarning(reasons = call.denylisted.map { it.reason })
+            Spacer(Modifier.height(LenslySpacing.xs))
+        }
+        if (call.unregistered) {
+            RegistryWarning()
+            Spacer(Modifier.height(LenslySpacing.xs))
+        }
+        call.warnings.forEach { warning ->
+            InlineBanner(message = warning, tone = BannerTone.Error, title = "Warning")
+            Spacer(Modifier.height(LenslySpacing.xs))
+        }
+        call.target?.let { target ->
+            MutedText("TARGET")
+            Spacer(Modifier.height(LenslySpacing.xxs))
+            AddressText(address = target)
+            Spacer(Modifier.height(LenslySpacing.xs))
+        }
+        Text(
+            text = call.function,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        call.params.forEach { (name, value) -> LabelledValue(label = name, value = value) }
+        call.note?.let { note -> NoteText(note) }
+        call.whitelisted?.let { whitelisted ->
+            Spacer(Modifier.height(LenslySpacing.xs))
+            WhitelistedCallBlock(whitelisted)
+        }
     }
 }
 
