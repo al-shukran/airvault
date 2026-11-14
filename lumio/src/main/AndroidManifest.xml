@@ -30,6 +30,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!--
+            QR Decode Sandbox: every camera frame is decoded here, as in Lensly. An isolated process has no permissions, no app files and
+            no Keystore, so a crafted code that breaks the decoder cannot reach the vault.
+        -->
+        <service
+            android:name="app.lensly.core.qr.QrDecodeService"
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:process=":qrdecode" />
     </application>
 
 </manifest>
