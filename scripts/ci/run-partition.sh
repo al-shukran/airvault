@@ -63,8 +63,11 @@ case "$partition" in
         ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.fuzz.*' -PfuzzLane
         ;;
     core-parse)
-        # Parsing untrusted payloads (DecodeBudget). Paired with core-ur-evm in the workflow.
-        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.parse.*'
+        # Parsing untrusted payloads (DecodeBudget), and the QR Decode Sandbox that takes untrusted camera frames.
+        # Paired with core-ur-evm in the workflow.
+        ./gradlew :shared:testDebugUnitTest \
+            --tests 'app.lensly.core.parse.*' \
+            --tests 'app.lensly.core.qr.*'
         ;;
     core-vault)
         ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.vault.*'

@@ -45,6 +45,15 @@
             android:exported="false"
             android:isolatedProcess="true"
             android:process=":parser" />
+        <!--
+            QR Decode Sandbox: every camera frame is decoded here. As for the Parser Sandbox, an isolated process has no
+            permissions, no app files and no Keystore, so a crafted code that breaks the decoder cannot reach the vault.
+        -->
+        <service
+            android:name=".core.qr.QrDecodeService"
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:process=":qrdecode" />
     </application>
 
 </manifest>

@@ -8,7 +8,7 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 |---|---|
 | `core-wallet` | `:shared` `app.lensly.core.wallet.*` |
 | `core-ur-evm` | `:shared` `app.lensly.core.ur.*` and `app.lensly.core.evm.*`, plus `app.lensly.fuzz.*` |
-| `core-parse` | `:shared` `app.lensly.core.parse.*` |
+| `core-parse` | `:shared` `app.lensly.core.parse.*` and `app.lensly.core.qr.*` |
 | `core-vault` | `:shared` `app.lensly.core.vault.*` |
 | `core-registry` | `:shared` `app.lensly.core.registry.*` and `app.lensly.core.registry.update.*` |
 | `core-btc` | `:shared` `app.lensly.core.btc.*` |
