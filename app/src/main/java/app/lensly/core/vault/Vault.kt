@@ -358,20 +358,34 @@ class Vault internal constructor(
                     pad = WalletPad(layout, opened.vaultKey, if (isDecoy) DECOY_SECTION else REAL_SECTION),
                 )
                 // Records written under plain names are renamed, so that the two vaults never share a file name.
-                if (!session.isDecoy) session.migrateLegacyRecordNames()
+                if (!session.isDecoy) bestEffort { session.migrateLegacyRecordNames() }
                 // An earlier build kept the free-slot list under the hardware key, which both vaults share. Each vault moves it into its own section.
-                session.migrateLegacyPad(opened.hardwareKey)
-                // An older store has one folder per wallet. The first unlock after the upgrade pads it to its full size.
-                session.ensurePadded()
-                // Review Records that an earlier build kept in wallet folders move into the shared pool.
-                if (!session.isDecoy) session.ensureReviewPool()
-                session.migrateLegacyReviews()
+                bestEffort { session.migrateLegacyPad(opened.hardwareKey) }
+                // Review Records that an earlier build kept in wallet folders move into the shared pool, before the folders are padded.
+                if (!session.isDecoy) bestEffort { session.ensureReviewPool() }
+                bestEffort { session.migrateLegacyReviews() }
+                // An older store has one folder per wallet. The first unlock after the upgrade pads every folder to the full shape.
+                bestEffort { session.ensurePadded() }
                 return UnlockResult.Unlocked(session)
             } finally {
                 opened.close()
             }
         } finally {
             Arrays.fill(password, '\u0000')
+        }
+    }
+
+    /**
+     * Runs one unlock step that moves or pads stored files. A step that fails is run again by the next unlock, so its failure must not
+     * fail this one: the password is right, and the vault opens.
+     */
+    private inline fun bestEffort(step: () -> Unit) {
+        try {
+            step()
+        } catch (e: IOException) {
+            // The next unlock runs the step again.
+        } catch (e: VaultException) {
+            // The next unlock runs the step again.
         }
     }
 
@@ -889,12 +903,14 @@ class Vault internal constructor(
 
     /**
      * Starts the Failure Delay state. Its first Keystore key is made here, so a device whose Keystore refuses it gets no vault.
-     * Returns false in that case.
+     * Returns false in that case, and also when the first state cannot be saved.
      */
     private fun createFailureState(): Boolean = try {
         failureStore().initialize(clock)
         true
     } catch (e: VaultException) {
+        false
+    } catch (e: IOException) {
         false
     }
 
