@@ -11,6 +11,7 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 | `core-parse` | `app.lensly.core.parse.*` |
 | `core-vault` | `app.lensly.core.vault.*` |
 | `core-registry` | `app.lensly.core.registry.*` and `app.lensly.core.registry.update.*` |
+| `core-btc` | `app.lensly.core.btc.*` |
 | `ui-a` | `app.lensly.ui.{camera,settings,wallet,qr,navigation,a11y,theme,screenshot}.*` minus the pixel tests (see below) |
 | `ui-b` | `app.lensly.ui.{flow,components,home,sign,gate,profile}.*` and `app.lensly.ui.SecureWindowTest` |
 | `app` | `app.lensly.app.*` and `app.lensly.SmokeTest` |

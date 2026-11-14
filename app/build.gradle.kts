@@ -191,6 +191,13 @@ dependencies {
     implementation(libs.bouncycastle.bcprov.jdk18on)
     implementation(libs.sparrowwallet.hummingbird)
 
+    // Bitcoin (app.lensly.core.btc): keys, addresses, PSBT and script checks from ACINQ's bitcoin-kmp (Apache-2.0).
+    // The Android build of secp256k1 ships its native library in the APK. The JVM build is only for unit tests:
+    // on a JVM the Android loader fails to load its library and falls back to the JVM loader on the same classpath.
+    implementation(libs.bitcoin.kmp)
+    implementation(libs.secp256k1.kmp.jni.android)
+    testImplementation(libs.secp256k1.kmp.jni.jvm)
+
     // Transitive pins for Dependabot alerts 6-12, 15-23 and 24. Both libraries arrive through web3j
     // 4.12.3, which is still the current release, and it asks for jackson 2.17.1 and guava
     // 33.3.1-android. These are constraints, not forces: they only raise the floor, so a future web3j
