@@ -30,7 +30,7 @@ class VaultRevealPortsTest {
 
     @Test
     fun aMnemonicWalletsWordsAreReadAsASecretThatWipesThem() = runBlocking {
-        val session = VaultSession(VaultLayout(tmp.root), ByteArray(32) { (it + 9).toByte() })
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it + 9).toByte() })
         val walletId = WalletStore(session).create(
             name = "Seed",
             deviceGenerated = false,

@@ -20,7 +20,7 @@ class VaultWipeTest {
         layout.vaultKey.writeBytes(byteArrayOf(4, 5, 6))
         File(layout.root, "failures.bin").writeBytes(byteArrayOf(7))
         File(layout.root, "failures.bak").writeBytes(byteArrayOf(8))
-        val session = VaultSession(layout, ByteArray(32) { 9 })
+        val session = VaultSession(layout, MemoryKeystore(), ByteArray(32) { 9 })
         val wallet = session.createWallet()
         session.putRecord(wallet, "secret", byteArrayOf(10))
         session.putVaultRecord("settings", byteArrayOf(11))

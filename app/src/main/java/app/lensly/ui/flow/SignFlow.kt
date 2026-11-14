@@ -7,11 +7,10 @@ import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.matchWallet
+import app.lensly.core.parse.ParsedRequest
+import app.lensly.core.parse.ScanReply
 import app.lensly.core.ur.EthSignRequest
-import app.lensly.core.ur.UrScanner
-import app.lensly.core.ur.urPartRefusal
 import app.lensly.core.wallet.AccountAddresses
-import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,8 +70,14 @@ interface SignFlowPorts {
     /** Every wallet of the vault, as the sign pipeline checks them. Throws [WalletUnavailable] when the vault cannot be read. */
     suspend fun wallets(): List<WalletView>
 
-    /** Checks [request] against wallet [walletId] and the registry. Throws [WalletUnavailable] when the wallet cannot be read. */
-    suspend fun prepare(walletId: String, request: EthSignRequest): Prepared
+    /**
+     * Parses the scanned [parts] of one request, in the order they were scanned, in the Parser Sandbox. Never throws: a
+     * sandbox that does not answer is a refusal.
+     */
+    suspend fun scan(parts: List<String>): ScanReply
+
+    /** Checks [parsed] against wallet [walletId] and the registry. Throws [WalletUnavailable] when the wallet cannot be read. */
+    suspend fun prepare(walletId: String, parsed: ParsedRequest): Prepared
 
     /** The 32-byte private key of account [accountIndex] of wallet [walletId]. The caller zeroes it. Throws [WalletUnavailable]. */
     suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray
@@ -91,7 +96,7 @@ interface SignFlowPorts {
 }
 
 /**
- * The sign flow as a state machine. It reads a scanned ur:eth-sign-request, checks it, shows the review, checks the App
+ * The sign flow as a state machine. It reads a scanned ur:eth-sign-request through the Parser Sandbox, checks it, shows the review, checks the App
  * Password again before it signs, and emits the signature frames. It has no Android types. [SignFlowPorts] does the vault
  * and registry work.
  *
@@ -108,9 +113,10 @@ class SignFlow(
     private val ports: SignFlowPorts,
     private val walletId: String?,
 ) {
-    private var scanner = UrScanner()
-    private val distinctParts = HashSet<String>()
+    /** The distinct texts the sandbox accepted as parts of the request, in the order they were scanned. */
+    private val parts = LinkedHashSet<String>()
     private var scannedChars = 0L
+    private var progress: Float? = null
     private val gate = Mutex()
 
     /** Raised by [leave]. A call that started under an earlier value must not change the state. */
@@ -128,37 +134,38 @@ class SignFlow(
         gate.withLock {
             if (current.value !is SignStep.Scanning) return
             val started = epoch
-            val refusal = urPartRefusal(text)
-            if (refusal != null) {
-                current.value = SignStep.Refused(refusal)
-                return
-            }
-            if (!scanner.receive(text)) {
-                current.value = scanning(NOT_PART)
-                return
-            }
-            if (distinctParts.add(text)) {
-                scannedChars += text.length
-                if (scannedChars > MAX_SCAN_CHARS) {
-                    current.value = SignStep.Refused(TOO_LARGE)
-                    return
-                }
-            }
-            val ur = scanner.result()
-            if (ur == null) {
+            if (text in parts) {
                 current.value = scanning(READING)
                 return
             }
-            publish(started, decide(started, ur))
+            val reply = ports.scan(parts.toList() + text)
+            if (started != epoch) return
+            when (reply) {
+                is ScanReply.Refused -> current.value = SignStep.Refused(reply.reason)
+                ScanReply.NotPart -> current.value = scanning(NOT_PART)
+                is ScanReply.Incomplete -> if (accept(text)) {
+                    progress = reply.progress.toFloat()
+                    current.value = scanning(READING)
+                }
+                is ScanReply.Complete -> if (accept(text)) publish(started, decide(started, reply.parsed))
+            }
         }
+    }
+
+    /** Counts [text] as a part of the request. False when the request is then over the size limit, which refuses it. */
+    private fun accept(text: String): Boolean {
+        parts += text
+        scannedChars += text.length
+        if (scannedChars > MAX_SCAN_CHARS) current.value = SignStep.Refused(TOO_LARGE)
+        return scannedChars <= MAX_SCAN_CHARS
     }
 
     /** SCAN AGAIN after a request matched no wallet, or several. The scan starts from nothing. */
     fun scanAgain() {
         if (current.value !is SignStep.NoMatchingWallet) return
-        scanner = UrScanner()
-        distinctParts.clear()
+        parts.clear()
         scannedChars = 0L
+        progress = null
         current.value = SignStep.Scanning(progress = null, status = SCAN_HINT)
     }
 
@@ -229,12 +236,8 @@ class SignFlow(
     }
 
     /** Checks a complete request. Only the first complete request is decided, because scanning stops once it is. */
-    private suspend fun decide(started: Int, ur: UR): SignStep {
-        if (ur.type != EthSignRequest.UR_TYPE) return SignStep.Refused(UNSUPPORTED)
-        val request = when (val decoded = EthSignRequest.decode(ur)) {
-            is EthSignRequest.Result.Ok -> decoded.request
-            is EthSignRequest.Result.Rejected -> return SignStep.Refused(decoded.reason)
-        }
+    private suspend fun decide(started: Int, parsed: ParsedRequest): SignStep {
+        val request = parsed.request
         if (request.requestId == null) {
             return refusal(started = started, wallet = walletId, request = request, reason = NO_REQUEST_ID)
         }
@@ -244,7 +247,7 @@ class SignFlow(
                 WalletMatch.None -> return SignStep.NoMatchingWallet(request, several = false)
                 is WalletMatch.Several -> return SignStep.NoMatchingWallet(request, several = true)
             }
-            when (val prepared = ports.prepare(target, request)) {
+            when (val prepared = ports.prepare(target, parsed)) {
                 is Prepared.Ready -> SignStep.Review(prepared)
                 is Prepared.Refused -> refusal(
                     started = started,
@@ -322,10 +325,7 @@ class SignFlow(
         }
     }
 
-    private fun scanning(status: String): SignStep.Scanning = SignStep.Scanning(
-        progress = if (distinctParts.isEmpty()) null else scanner.progress.toFloat(),
-        status = status,
-    )
+    private fun scanning(status: String): SignStep.Scanning = SignStep.Scanning(progress, status)
 
     private fun publish(started: Int, step: SignStep) {
         if (started == epoch) current.value = step
@@ -339,7 +339,6 @@ class SignFlow(
         const val READING = "Reading the request. Keep the code in view."
         const val NOT_PART = "That code is not part of this request."
         const val TOO_LARGE = "The request is larger than 64 KiB."
-        const val UNSUPPORTED = "Unsupported code"
         const val NO_REQUEST_ID = "Request has no ID"
         const val KEY_MISMATCH = "Key does not match account"
         const val WALLET_UNREADABLE = "The wallet could not be read. Nothing was signed."

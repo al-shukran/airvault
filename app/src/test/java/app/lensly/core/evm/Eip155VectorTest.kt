@@ -41,7 +41,7 @@ class Eip155VectorTest {
 
     @Test
     fun signatureMatchesPublishedSignedTransaction() {
-        val signature = assertIs<TxSigner.Result.Signed>(
+        val signature = assertIs<TxSignResult.Signed>(
             TxSigner.sign(unsigned, DataType.TRANSACTION, key),
         ).signature
 
@@ -57,7 +57,7 @@ class Eip155VectorTest {
 
     @Test
     fun reencodedSignedTransactionMatchesPublishedBytes() {
-        val signature = assertIs<TxSigner.Result.Signed>(
+        val signature = assertIs<TxSignResult.Signed>(
             TxSigner.sign(unsigned, DataType.TRANSACTION, key),
         ).signature
         val unsignedFields = (Rlp.decode(unsigned) as Rlp.Lst).items

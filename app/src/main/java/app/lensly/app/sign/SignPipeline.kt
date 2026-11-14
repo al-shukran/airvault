@@ -6,6 +6,9 @@ import app.lensly.core.evm.MessageSigner
 import app.lensly.core.evm.TxSigner
 import app.lensly.core.evm.TxType
 import app.lensly.core.evm.UnsignedTx
+import app.lensly.core.parse.CANNOT_BE_READ
+import app.lensly.core.parse.ParsedRequest
+import app.lensly.core.parse.RequestParser
 import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
@@ -34,7 +37,6 @@ import app.lensly.ui.sign.assumedAmountNote
 import app.lensly.ui.sign.groupHex
 import app.lensly.ui.sign.unknownFeeNote
 import app.lensly.ui.sign.unlimitedApprovalWarning
-import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -54,6 +56,8 @@ sealed interface Prepared {
         val request: EthSignRequest,
         val accountIndex: Int,
         val walletId: String,
+        /** The transaction the Parser Sandbox decoded from the request's data. Null for a request that is not a transaction. */
+        val tx: UnsignedTx? = null,
     ) : Prepared
 
     /** [call] is set when the refusal is for a contract call Lensly cannot decode, so the refusal can show it. */
@@ -86,38 +90,29 @@ data class WhitelistedCall(
 )
 
 /**
- * Checks a scanned eth-sign-request against the wallet and the registry, builds the review the user confirms, and
+ * Checks a scanned eth-sign-request, as the Parser Sandbox parsed it, against the wallet and the registry, builds the review the user confirms, and
  * signs only after that confirmation. A failed check returns [Prepared.Refused] with a plain reason and nothing is
  * signed.
  *
  * A chain or token outside the registry is not refused. Its review shows it as unknown, with raw base units and a
  * warning, and [TxReview.needsRegistryConfirmation] is set. A call that cannot be decoded is refused unless the signed
  * whitelist approves its contract and selector. [proxyPolicy] decides what a whitelisted proxy gets.
+ *
+ * The pipeline parses nothing itself. The request arrives parsed, and [parser] decodes the calldata of a whitelisted call.
  */
 class SignPipeline(
     private val registry: Registry,
+    private val parser: RequestParser,
     private val proxyPolicy: ProxyPolicy = ProxyPolicy.DEFAULT,
 ) {
 
-    fun prepare(urCbor: ByteArray, wallet: WalletView): Prepared =
-        when (val decoded = EthSignRequest.decode(urCbor)) {
-            is EthSignRequest.Result.Ok -> prepare(decoded.request, wallet)
-            is EthSignRequest.Result.Rejected -> Prepared.Refused(decoded.reason)
-        }
-
-    /** As [prepare] for a scanned UR. A UR of any type other than eth-sign-request is refused. */
-    fun prepare(ur: UR, wallet: WalletView): Prepared =
-        when (val decoded = EthSignRequest.decode(ur)) {
-            is EthSignRequest.Result.Ok -> prepare(decoded.request, wallet)
-            is EthSignRequest.Result.Rejected -> Prepared.Refused(decoded.reason)
-        }
-
     /**
-     * Checks [request] against [wallet]. A Mnemonic wallet's request names its master fingerprint and an account path,
+     * Checks the request of [parsed] against [wallet]. A Mnemonic wallet's request names its master fingerprint and an account path,
      * m/44'/60'/0'/0/i. A Single Key wallet has neither, so its request must name the wallet's address, and only that
      * address signs. The derivation path is not read for a Single Key.
      */
-    fun prepare(request: EthSignRequest, wallet: WalletView): Prepared {
+    fun prepare(parsed: ParsedRequest, wallet: WalletView): Prepared {
+        val request = parsed.request
         // The size check comes before any decoding of the payload.
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) {
             return Prepared.Refused("The data to sign is larger than 64 KiB")
@@ -153,7 +148,7 @@ class SignPipeline(
         val chainId = request.chainId ?: return Prepared.Refused("The request does not name a network")
         // A chain outside the registry has no network. It is reviewed as an unknown chain, with a warning, not refused.
         val label = (wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)).uppercase()
-        val target = Target(request, chainId, registry.network(chainId), wallet, index, address, label)
+        val target = Target(parsed, chainId, registry.network(chainId), wallet, index, address, label)
 
         return if (request.dataType == DataType.PERSONAL_MESSAGE) message(target) else transaction(target)
     }
@@ -169,10 +164,7 @@ class SignPipeline(
             val requestId = requireNotNull(request.requestId) { "The request has no requestId to echo" }
             val signature = when (request.dataType) {
                 DataType.TRANSACTION, DataType.TYPED_TRANSACTION ->
-                    when (val result = TxSigner.sign(request.signData, request.dataType, privateKey)) {
-                        is TxSigner.Result.Signed -> result.signature
-                        is TxSigner.Result.Refused -> throw IllegalArgumentException(result.reason)
-                    }
+                    TxSigner.sign(request.signData, requireNotNull(ready.tx) { CANNOT_BE_READ }, privateKey)
                 DataType.PERSONAL_MESSAGE ->
                     when (val result = MessageSigner.sign(request.dataType, request.signData, privateKey)) {
                         is MessageSigner.Result.Signed -> result.signature
@@ -187,11 +179,13 @@ class SignPipeline(
     }
 
     private fun transaction(target: Target): Prepared {
-        val request = target.request
-        val tx = when (val decoded = UnsignedTx.decode(request.signData, request.dataType)) {
+        val tx = when (val decoded = target.parsed.tx) {
             is UnsignedTx.Result.Ok -> decoded.tx
             is UnsignedTx.Result.Rejected -> return Prepared.Refused(decoded.reason)
+            null -> return Prepared.Refused(CANNOT_BE_READ)
         }
+        // The review shows the fields of tx, so they must rebuild the bytes that get signed. Otherwise it shows another transaction.
+        if (tx.encode()?.contentEquals(target.request.signData) != true) return Prepared.Refused(CANNOT_BE_READ)
         if (tx.chainId != BigInteger.valueOf(target.chainId)) {
             return Prepared.Refused(
                 "The transaction is for chain ${tx.chainId}, but the request is for chain ${target.chainId}",
@@ -207,7 +201,9 @@ class SignPipeline(
             nativeReview(target, to, tx.value)
         } else {
             // An undecodable call is a Decode Gap, so it is decided by the whitelist before the token lookup.
-            val call = ContractCall.decode(calldata) ?: return decodeGap(target, tx, to, calldata)
+            val call = target.parsed.call ?: return decodeGap(target, tx, to, calldata)
+            // The labels are shown only when the decoded call is exactly the calldata that gets signed.
+            if (call.encode()?.contentEquals(calldata) != true) return Prepared.Refused(CANNOT_BE_READ)
             if (tx.value.signum() != 0) return Prepared.Refused("Token calls must not send native currency")
             // A contract outside the registry is an unknown token. Its decimals are not known, so its amounts stay raw.
             callReview(target, call, to, registry.token(target.chainId, to))
@@ -231,9 +227,15 @@ class SignPipeline(
         if (entry.upgradeable && proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) {
             return Prepared.Refused(ANY_PROXY_REFUSAL, call)
         }
-        val decoded = when (val result = StaticAbiDecoder.decode(calldata, entry.params)) {
+        val decoded = when (val result = parser.decodeStatic(calldata, entry.params)) {
             is StaticDecode.Ok -> result.params
             is StaticDecode.Refused -> return Prepared.Refused(result.reason, call)
+        }
+        // The sandbox must answer with exactly the params the entry declares, in their order.
+        if (decoded.map { it.param } != entry.params) return Prepared.Refused(CANNOT_BE_READ, call)
+        // The labels are shown only when the decoded values are exactly the arguments that get signed.
+        if (StaticAbiDecoder.encode(decoded)?.contentEquals(argumentsOf(calldata)) != true) {
+            return Prepared.Refused(CANNOT_BE_READ, call)
         }
         val token = registry.token(target.chainId, contract)
         val review = target.review(
@@ -251,12 +253,17 @@ class SignPipeline(
     private fun paramValue(decoded: DecodedParam, token: TokenEntry?): Pair<String, String> {
         val param = decoded.param
         val value = if (param.tokenRef && token != null && param.type.startsWith("uint") && param.name in AMOUNT_PARAMS) {
-            amountText(BigInteger(decoded.value), token)
+            // The value came from the sandbox, so it is shown as it is when it is not a number.
+            decoded.value.toBigIntegerOrNull()?.let { amountText(it, token) } ?: decoded.value
         } else {
             decoded.value
         }
         return "${param.name} (${param.type})" to value
     }
+
+    /** The arguments of [calldata], which is what follows its selector. A calldata shorter than a selector has none. */
+    private fun argumentsOf(calldata: ByteArray): ByteArray =
+        calldata.copyOfRange(minOf(SELECTOR_BYTES, calldata.size), calldata.size)
 
     /** The whitelist entry for [contract] and the selector of [calldata] on the target's chain, or null when there is none. */
     private fun whitelistEntry(target: Target, contract: String, calldata: ByteArray): WhitelistEntry? {
@@ -278,12 +285,17 @@ class SignPipeline(
                 fee = feeLines(tx, network),
                 feeNote = feeNote(tx, network),
                 nonce = tx.nonce.toLong(),
-                txType = if (tx.type == TxType.EIP1559) "EIP-1559" else "Legacy",
+                txType = when (tx.type) {
+                    TxType.LEGACY_EIP155 -> "Legacy"
+                    TxType.EIP2930 -> "EIP-2930"
+                    TxType.EIP1559 -> "EIP-1559"
+                },
                 denylisted = denied,
             ),
             target.request,
             target.index,
             target.walletId,
+            tx,
         )
     }
 
@@ -487,7 +499,7 @@ class SignPipeline(
      */
     private fun feeLines(tx: UnsignedTx, network: NetworkEntry?): List<Pair<String, String>> {
         return when (tx.type) {
-            TxType.LEGACY_EIP155 -> {
+            TxType.LEGACY_EIP155, TxType.EIP2930 -> {
                 val gasPrice = checkNotNull(tx.gasPrice)
                 listOf(
                     "Gas limit" to tx.gasLimit.toString(),
@@ -531,7 +543,7 @@ class SignPipeline(
      * registry.
      */
     private class Target(
-        val request: EthSignRequest,
+        val parsed: ParsedRequest,
         val chainId: Long,
         val network: NetworkEntry?,
         val wallet: WalletView,
@@ -540,6 +552,7 @@ class SignPipeline(
         /** The FROM label of the review: the account's Display Name in capitals, or its Auto-Name while it has none. */
         val label: String,
     ) {
+        val request: EthSignRequest get() = parsed.request
         val walletId: String get() = wallet.id
     }
 

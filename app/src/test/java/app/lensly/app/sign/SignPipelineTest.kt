@@ -1,7 +1,15 @@
 package app.lensly.app.sign
 
+import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.evm.EvmFixtures
+import app.lensly.core.evm.UnsignedTx
+import app.lensly.core.parse.CANNOT_BE_READ
+import app.lensly.core.parse.ParsedRequest
+import app.lensly.core.parse.RequestParser
+import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.ContractCall
+import app.lensly.core.registry.DecodedParam
 import app.lensly.core.registry.DenylistCondition
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
@@ -10,6 +18,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
+import app.lensly.core.registry.StaticDecode
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
@@ -18,10 +27,12 @@ import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.UrScanner
+import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
-import app.lensly.ui.sign.ReviewCheck
 import app.lensly.ui.shippedRegistry
+import app.lensly.ui.sign.ReviewCheck
+import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -32,6 +43,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
+import org.web3j.crypto.AccessListObject
 import org.web3j.crypto.Hash
 import org.web3j.crypto.Keys
 import org.web3j.crypto.RawTransaction
@@ -41,6 +53,8 @@ import org.web3j.utils.Numeric
 
 private const val MONAD_TESTNET = 10143L
 private const val ETHEREUM = 1L
+private const val WHOLE_REQUEST = 64 * 1024
+private val STORAGE_KEY = "0x" + "22".repeat(32)
 private const val BASE = 8453L
 private const val UNKNOWN_CHAIN = 999_999L
 
@@ -174,7 +188,7 @@ private val DENYLISTED: Registry = REGISTRY.withDenylist(shippedRegistry().denyl
 
 class SignPipelineTest {
 
-    private val pipeline = SignPipeline(REGISTRY)
+    private val pipeline = SignPipeline(REGISTRY, inProcessSandboxParser)
 
     @Test
     fun eip1559MonTransferIsReviewedAsNativeTransfer() {
@@ -404,7 +418,7 @@ class SignPipelineTest {
     )
 
     private fun guarded(cbor: ByteArray, policy: ProxyPolicy = ProxyPolicy.DEFAULT): Prepared =
-        SignPipeline(GUARDED, policy).prepare(cbor, VIEW)
+        SignPipeline(GUARDED, inProcessSandboxParser, policy).prepare(cbor, VIEW)
 
     @Test
     fun aWhitelistedDecodeGapIsReviewedWithItsApprovedMeaningAndEveryWord() {
@@ -446,7 +460,7 @@ class SignPipelineTest {
         val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
 
         val ready = assertIs<Prepared.Ready>(
-            SignPipeline(REGISTRY.withWhitelist(listOf(entry))).prepare(requestCbor(tx, chainId = ETHEREUM), VIEW),
+            SignPipeline(REGISTRY.withWhitelist(listOf(entry)), inProcessSandboxParser).prepare(requestCbor(tx, chainId = ETHEREUM), VIEW),
         )
 
         assertEquals(listOf("amount (uint256)" to "1500000 (1.5 USDC)"), ready.review.params)
@@ -1085,6 +1099,7 @@ class SignPipelineTest {
                     ),
                 ),
             ),
+            inProcessSandboxParser,
         )
         val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, ContractCall.MAX_UINT256)
         val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
@@ -1094,7 +1109,174 @@ class SignPipelineTest {
         assertEquals("Blocked for this test.", reason)
     }
 
-    private fun denylisted(cbor: ByteArray): Prepared.Ready = assertIs<Prepared.Ready>(SignPipeline(DENYLISTED).prepare(cbor, VIEW))
+    private fun denylisted(cbor: ByteArray): Prepared.Ready =
+        assertIs<Prepared.Ready>(SignPipeline(DENYLISTED, inProcessSandboxParser).prepare(cbor, VIEW))
+
+    @Test
+    fun aSandboxThatChangesTheRecipientIsRefusedWhileTheHonestParseIsReady() {
+        val cbor = requestCbor(eip1559Tx())
+
+        assertIs<Prepared.Ready>(pipeline.prepare(changedParse(cbor) { it }, VIEW))
+        val changed = changedParse(cbor) { it.copy(to = UNREGISTERED) }
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(changed, VIEW))
+    }
+
+    @Test
+    fun aSandboxThatChangesTheValueIsRefused() {
+        val cbor = requestCbor(eip1559Tx())
+        val changed = changedParse(cbor) { it.copy(value = it.value + BigInteger.ONE) }
+
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(changed, VIEW))
+    }
+
+    @Test
+    fun aSandboxThatChangesTheChainIsRefused() {
+        val cbor = requestCbor(eip1559Tx())
+        val changed = changedParse(cbor) { it.copy(chainId = BigInteger.valueOf(ETHEREUM)) }
+
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(changed, VIEW))
+    }
+
+    @Test
+    fun aSandboxThatChangesTheCalldataOfATokenCallIsRefused() {
+        val honest = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+        val cbor = requestCbor(eip1559Tx(to = USDC_ETHEREUM, value = BigInteger.ZERO, data = honest))
+        val larger = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.valueOf(1_000_000))
+
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(changedParse(cbor) { it.copy(data = larger) }, VIEW))
+    }
+
+    @Test
+    fun aTransactionWithAnAccessListIsReviewedAndSignedByItsAccount() {
+        val signData = eip1559TxWithAccessList(listOf(AccessListObject(RECIPIENT, listOf(STORAGE_KEY))))
+        val response = signResponse(ready(requestCbor(signData)))
+
+        val v = response.signature[64].toInt()
+        assertEquals(EvmFixtures.normalize(ART_ADDRESS), recovered(Hash.sha3(signData), response.signature, v))
+    }
+
+    @Test
+    fun aTypeOneTransactionWithAnAccessListIsReviewedAsEip2930() {
+        val signData = eip2930TxWithAccessList(listOf(AccessListObject(RECIPIENT, listOf(STORAGE_KEY))))
+
+        assertEquals("EIP-2930", ready(requestCbor(signData)).review.txType)
+    }
+
+    @Test
+    fun aSandboxThatChangesTheAccessListIsRefused() {
+        val cbor = requestCbor(eip1559TxWithAccessList(listOf(AccessListObject(RECIPIENT, listOf(STORAGE_KEY)))))
+        val dropped = changedParse(cbor) { it.copy(accessList = emptyList()) }
+        val swapped = changedParse(cbor) { it.copy(accessList = listOf(AccessListEntry(UNREGISTERED, listOf(STORAGE_KEY)))) }
+
+        assertIs<Prepared.Ready>(pipeline.prepare(changedParse(cbor) { it }, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(dropped, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(swapped, VIEW))
+    }
+
+    @Test
+    fun aSandboxThatChangesTheRecipientOrAmountOfADecodedCallIsRefused() {
+        val honest = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+        val cbor = requestCbor(eip1559Tx(to = USDC_ETHEREUM, value = BigInteger.ZERO, data = honest))
+        val recipient = changedCall(cbor) { ContractCall.Transfer(UNREGISTERED, BigInteger.TEN) }
+        val amount = changedCall(cbor) { ContractCall.Transfer(RECIPIENT, BigInteger.valueOf(1_000_000)) }
+
+        assertIs<Prepared.Ready>(pipeline.prepare(changedCall(cbor) { it }, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(recipient, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(amount, VIEW))
+    }
+
+    @Test
+    fun aDecodableCallThatTheSandboxHidesIsRefusedByTheGateAsAnUndecodableCallIsOnMaster() {
+        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+        val cbor = requestCbor(eip1559Tx(to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data))
+        val hidden = parsedWith(cbor) { it.copy(call = null) }
+
+        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(pipeline.prepare(hidden, VIEW)).reason)
+    }
+
+    @Test
+    fun aDecodableUnlimitedApprovalOfAnUnregisteredTokenIsWarnedAsOnMaster() {
+        val approve = erc20Call(SELECTOR_APPROVE, RECIPIENT, ContractCall.MAX_UINT256)
+        val cbor = requestCbor(eip1559Tx(to = UNREGISTERED, value = BigInteger.ZERO, data = approve))
+
+        assertEquals(listOf(UNLIMITED_UNKNOWN), ready(cbor).review.warnings)
+    }
+
+    @Test
+    fun aDecodableCallThatSendsNativeCurrencyIsRefusedAsOnMaster() {
+        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+        val cbor = requestCbor(eip1559Tx(to = USDC_ETHEREUM, value = BigInteger.ONE, data = data))
+
+        assertEquals("Token calls must not send native currency", refusal(cbor))
+    }
+
+    @Test
+    fun aSandboxThatChangesAWhitelistedLabelIsRefused() {
+        val cbor = requestCbor(swapTx(ETHEREUM, WHITELISTED), chainId = ETHEREUM)
+        val lying = object : RequestParser by inProcessSandboxParser {
+            override fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode {
+                val honest = assertIs<StaticDecode.Ok>(inProcessSandboxParser.decodeStatic(calldata, params))
+                val first = DecodedParam(honest.params.first().param, "7")
+                return StaticDecode.Ok(listOf(first) + honest.params.drop(1))
+            }
+        }
+
+        assertIs<Prepared.Ready>(guarded(cbor))
+        val refused = assertIs<Prepared.Refused>(SignPipeline(GUARDED, lying).prepare(cbor, VIEW))
+        assertEquals(CANNOT_BE_READ, refused.reason)
+    }
+
+    @Test
+    fun aSignatureIsNeverMadeOverFieldsThatDifferFromTheReviewedTransaction() {
+        val ready = ready(requestCbor(eip1559Tx()))
+        val tx = assertNotNull(ready.tx)
+        val changed = ready.copy(tx = tx.copy(value = tx.value + BigInteger.ONE))
+
+        assertFailsWith<IllegalArgumentException> { pipeline.sign(changed, WALLET.privateKey(0)) }
+    }
+
+    /** The parse a compromised sandbox would send for [cbor], with [change] applied to what it decoded. */
+    private fun parsedWith(cbor: ByteArray, change: (ParsedRequest) -> ParsedRequest): ParsedRequest {
+        val parts = listOf(framesOf(UR(EthSignRequest.UR_TYPE, cbor), WHOLE_REQUEST).first())
+        return change(assertIs<ScanReply.Complete>(inProcessSandboxParser.scan(parts)).parsed)
+    }
+
+    /** The parse a compromised sandbox would send for [cbor], with the transaction it decoded changed by [change]. */
+    private fun changedParse(cbor: ByteArray, change: (UnsignedTx) -> UnsignedTx): ParsedRequest =
+        parsedWith(cbor) { parsed -> parsed.copy(tx = UnsignedTx.Result.Ok(change(assertIs<UnsignedTx.Result.Ok>(parsed.tx).tx))) }
+
+    /** The parse a compromised sandbox would send for [cbor], with the call it decoded changed by [change]. */
+    private fun changedCall(cbor: ByteArray, change: (ContractCall) -> ContractCall): ParsedRequest =
+        parsedWith(cbor) { parsed -> parsed.copy(call = change(assertNotNull(parsed.call))) }
+
+    /** A typed EIP-1559 transaction like [eip1559Tx], with the access list [entries]. */
+    private fun eip1559TxWithAccessList(entries: List<AccessListObject>): ByteArray = TransactionEncoder.encode(
+        RawTransaction.createTransaction(
+            MONAD_TESTNET,
+            BigInteger.valueOf(7),
+            BigInteger.valueOf(21_000),
+            RECIPIENT,
+            ONE_CENT_OF_MON,
+            "0x",
+            BigInteger.valueOf(1_500_000_000L),
+            BigInteger.valueOf(30_000_000_000L),
+            entries,
+        ),
+    )
+
+    /** An EIP-2930 transaction with the access list [entries]. */
+    private fun eip2930TxWithAccessList(entries: List<AccessListObject>): ByteArray = TransactionEncoder.encode(
+        RawTransaction.createTransaction(
+            MONAD_TESTNET,
+            BigInteger.valueOf(7),
+            BigInteger.valueOf(20_000_000_000L),
+            BigInteger.valueOf(21_000),
+            RECIPIENT,
+            ONE_CENT_OF_MON,
+            "0x",
+            entries,
+        ),
+    )
 
     private fun prepared(cbor: ByteArray): Prepared = pipeline.prepare(cbor, VIEW)
 
