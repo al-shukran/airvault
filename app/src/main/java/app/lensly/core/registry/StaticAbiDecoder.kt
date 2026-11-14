@@ -3,6 +3,7 @@ package app.lensly.core.registry
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import org.web3j.crypto.Keys
+import org.web3j.utils.Numeric
 
 /** One decoded argument of a whitelisted call: the param it belongs to and its full value. */
 data class DecodedParam(val param: WhitelistParam, val value: String)
@@ -48,6 +49,65 @@ object StaticAbiDecoder {
             }
         }
         return StaticDecode.Ok(decoded)
+    }
+
+    /**
+     * The argument words that [decoded] encodes, written the way [decode] reads them, or null when a value is not written that
+     * way. Compared with the calldata after its selector, the decoded values are exactly what is signed.
+     */
+    fun encode(decoded: List<DecodedParam>): ByteArray? {
+        val words = decoded.map { wordOf(it.param, it.value) ?: return null }
+        return words.fold(ByteArray(0)) { all, word -> all + word }
+    }
+
+    private val CANONICAL_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
+
+    private fun wordOf(param: WhitelistParam, value: String): ByteArray? {
+        val type = param.type
+        return when {
+            type == "address" -> if (CANONICAL_ADDRESS.matches(value) && Keys.toChecksumAddress(value) == value) {
+                ByteArray(WORD_BYTES - 20) + Numeric.hexStringToByteArray(value)
+            } else {
+                null
+            }
+            type == "bool" -> when (value) {
+                "true" -> uintWord(BigInteger.ONE)
+                "false" -> uintWord(BigInteger.ZERO)
+                else -> null
+            }
+            type.startsWith("uint") -> {
+                val bits = type.removePrefix("uint").toInt()
+                decimal(value)?.takeIf { it.signum() >= 0 && it.bitLength() <= bits }?.let { uintWord(it) }
+            }
+            type.startsWith("int") -> {
+                val limit = BigInteger.ONE.shiftLeft(type.removePrefix("int").toInt() - 1)
+                decimal(value)?.takeIf { it >= limit.negate() && it < limit }?.let { intWord(it) }
+            }
+            type.startsWith("bytes") -> {
+                val size = type.removePrefix("bytes").toInt()
+                if (Regex("0x[0-9a-f]{${2 * size}}").matches(value)) {
+                    Numeric.hexStringToByteArray(value) + ByteArray(WORD_BYTES - size)
+                } else {
+                    null
+                }
+            }
+            else -> null
+        }
+    }
+
+    /** A decimal number written the way [BigInteger.toString] writes it, or null. */
+    private fun decimal(value: String): BigInteger? = value.toBigIntegerOrNull()?.takeIf { it.toString() == value }
+
+    private fun uintWord(value: BigInteger): ByteArray {
+        val bytes = value.toByteArray().dropWhile { it == 0.toByte() }.toByteArray()
+        return ByteArray(WORD_BYTES - bytes.size) + bytes
+    }
+
+    /** A signed value as its two's complement word, sign-extended to 32 bytes. */
+    private fun intWord(value: BigInteger): ByteArray {
+        val bytes = value.toByteArray()
+        val fill: Byte = if (value.signum() < 0) -1 else 0
+        return ByteArray(WORD_BYTES) { fill }.also { bytes.copyInto(it, WORD_BYTES - bytes.size) }
     }
 
     private fun decodeAddress(param: WhitelistParam, word: ByteArray): DecodedParam? {

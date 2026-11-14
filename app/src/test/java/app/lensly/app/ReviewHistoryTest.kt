@@ -3,6 +3,7 @@ package app.lensly.app
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.wipeVault
@@ -42,6 +43,7 @@ private fun reviewOf(atMs: Long, outcome: ReviewOutcome = ReviewOutcome.SIGNED) 
 
 /** Review Records on real storage, as the sign flow writes them. The vault key is a test key, and no Keystore is involved. */
 class ReviewHistoryTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -55,7 +57,7 @@ class ReviewHistoryTest {
     @Before
     fun openVault() {
         layout = VaultLayout(tmp.root)
-        session = VaultSession(layout, ByteArray(32) { (it + 5).toByte() })
+        session = VaultSession(layout, keys, ByteArray(32) { (it + 5).toByte() })
         store = WalletStore(session)
         history = ReviewHistory(session)
     }
@@ -73,9 +75,9 @@ class ReviewHistoryTest {
         nowMs = 1L,
     )
 
-    /** The one review file of [walletId], as it is on disk. */
+    /** The one pool file that holds a Review Record of [walletId], as it is on disk. */
     private fun reviewFileOf(walletId: String): File =
-        File(layout.walletDir(walletId), session.recordNames(walletId, "review-").single() + ".bin")
+        session.reviewFileForTesting(walletId, session.reviewNames(walletId).single())!!
 
     @Test
     fun aRecordIsListedWithEveryFactUnchanged() {
@@ -161,19 +163,19 @@ class ReviewHistoryTest {
     }
 
     @Test
-    fun aRecordFileThatSurvivesADeleteIsUnreadable() {
+    fun aRecordSlotThatSurvivesADeleteIsUnreadable() {
         val gone = newWallet("GONE")
         history.append(gone, reviewOf(atMs = 1L))
+        val name = session.reviewNames(gone).single()
         val file = reviewFileOf(gone)
-        val name = file.name.removeSuffix(".bin")
         val sealed = file.readBytes()
 
         store.delete(gone)
-        // Only the record file comes back. Its Per-Wallet Key is gone with the wallet, so the record cannot be opened.
-        layout.walletDir(gone).mkdirs()
-        File(layout.walletDir(gone), file.name).writeBytes(sealed)
+        assertFalse(file.readBytes().contentEquals(sealed), "The deleted slot still holds the record")
+        // A copy of the slot made before the delete is put back. Its Per-Wallet Key is gone with the wallet, so it cannot be opened.
+        file.writeBytes(sealed)
 
-        assertNull(session.getRecord(gone, name))
+        assertNull(session.getReview(gone, name))
         assertTrue(history.list(gone).isEmpty())
     }
 
@@ -194,7 +196,7 @@ class ReviewHistoryTest {
     fun aDecoyVaultSeesNoRealHistoryAndTheRealVaultNoDecoyHistory() {
         val real = newWallet("REAL")
         history.append(real, reviewOf(atMs = 1L))
-        val decoy = VaultSession(layout, ByteArray(32) { 99 }, isDecoy = true)
+        val decoy = VaultSession(layout, keys, ByteArray(32) { 99 }, isDecoy = true)
         try {
             val decoyWallet = WalletStore(decoy).create(
                 name = "Everyday",
@@ -206,7 +208,7 @@ class ReviewHistoryTest {
             ReviewHistory(decoy).append(decoyWallet, reviewOf(atMs = 2L))
 
             assertTrue(ReviewHistory(decoy).list(real).isEmpty())
-            assertTrue(decoy.recordNames(real, "review-").isEmpty())
+            assertTrue(decoy.reviewNames(real).isEmpty())
             assertTrue(history.list(decoyWallet).isEmpty())
             assertEquals(listOf(reviewOf(atMs = 2L)), ReviewHistory(decoy).list(decoyWallet))
             assertEquals(listOf(reviewOf(atMs = 1L)), history.list(real))
@@ -234,7 +236,7 @@ class ReviewHistoryTest {
     fun listAllInEitherSessionHoldsOnlyItsOwnWallets() {
         val real = newWallet("REAL")
         history.append(real, reviewOf(atMs = 1L))
-        val decoy = VaultSession(layout, ByteArray(32) { 99 }, isDecoy = true)
+        val decoy = VaultSession(layout, keys, ByteArray(32) { 99 }, isDecoy = true)
         try {
             val decoyWallet = WalletStore(decoy).create(
                 name = "Everyday",
@@ -256,7 +258,10 @@ class ReviewHistoryTest {
     fun aDamagedRecordIsLeftOutAndTheOthersAreListed() {
         val wallet = newWallet("MAIN")
         history.append(wallet, reviewOf(atMs = 1L))
-        session.putRecord(wallet, "review-damaged", byteArrayOf(9, 9, 9))
+        session.putReview(wallet, "review-damaged", byteArrayOf(9, 9, 9))
+        // Random bytes in its pool slot: the record no longer authenticates.
+        val slot = requireNotNull(session.reviewFileForTesting(wallet, "review-damaged"))
+        slot.writeBytes(ByteArray(slot.length().toInt()).also { java.security.SecureRandom().nextBytes(it) })
 
         assertEquals(listOf(reviewOf(atMs = 1L)), history.list(wallet))
     }

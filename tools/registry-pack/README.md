@@ -2,16 +2,42 @@
 
 Builds, verifies and signs the offline registry packages that the app installs from removable storage
 (`Settings > Update catalog`). The app reader is `app/src/main/java/app/lensly/core/registry/update/`, and the
-two must agree on the wire format.
+two must agree on the wire format (`LRP2`, see `PackageFormat.kt`).
 
 ```
 ./gradlew :tools:registry-pack:run --args="keygen --out <dir>"
-./gradlew :tools:registry-pack:run --args="build --in <entries.json> --key <release.key> --out <file.lrp>"
-./gradlew :tools:registry-pack:run --args="verify --pub <release.pub> <file.lrp>"
+./gradlew :tools:registry-pack:run --args="build --in <entries.json> --key <dir>/release.key --out <file.lrp>"
+./gradlew :tools:registry-pack:run --args="verify --pub <dir>/release.pub <file.lrp>"
 ```
 
-Paths are relative to the repository root. `keygen` writes a private seed (`release.key`, mode 600) and its public key.
-Keep the private seed out of the repository.
+Paths are relative to the repository root. The private key (`release.key`) is encrypted, but keep it out of the
+repository all the same, and keep its passphrase apart from it.
+
+## Passphrase
+
+`keygen` seals the private key under a passphrase, and `build` opens it with the same one. The passphrase comes from
+the `LENSLY_REGISTRY_PASSPHRASE` environment variable when it is set. Otherwise the tool asks at the terminal, and
+`keygen` asks twice. Gradle `run` has no terminal, so set the variable there:
+
+```
+LENSLY_REGISTRY_PASSPHRASE='...' ./gradlew :tools:registry-pack:run --args="build ..."
+```
+
+A passphrase has at least 12 characters. `release.key` is one line of hex: `LRK1`, a salt, a nonce, then the seed sealed with
+AES-256-GCM. The AES key comes from scrypt (N = 2^17, r = 8, p = 1). A lost passphrase means a lost key.
+
+## Release key
+
+1. `keygen --out <dir>` writes `release.key` and `release.pub`, and prints the entry for the release key list.
+2. Add that entry to `app/src/main/assets/registry/trusted-keys.json` with `"status": "active"`.
+3. Sign packages with `build --key <dir>/release.key`.
+
+Rotation: list the new key as `active` and sign with it, then set the old key's `status` to `revoked`. The app refuses a
+package from a revoked key, including one already installed. The installed sequence stays recorded, so an older package
+still cannot be installed.
+
+The development key is listed in `app/src/debug/assets/registry/trusted-keys.debug.json`. Only debug builds read that
+file. Never list a development key in the release file.
 
 ## Entries file
 
@@ -19,8 +45,9 @@ The entries file is the source a package is built from. Entries may appear in an
 
 | Field | Meaning |
 | --- | --- |
-| `formatVersion` | Must be `1`. |
-| `sequence` | At least 1. The app refuses a package whose sequence is not higher than the installed one. |
+| `formatVersion` | Must be `2`. |
+| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `1` is the newest the app reads. |
+| `sequence` | At least 1. The app refuses a package whose sequence is not higher than the last one it accepted. |
 | `createdAt` | ISO date, `yyyy-mm-dd`. |
 | `networks` | Networks the package adds. A package cannot add a testnet. |
 | `tokens` | Tokens the package adds. Each token's chain must be baked into the app or added by this package. |
@@ -42,16 +69,17 @@ chain, contract and selector match an entry here.
 
 Each (`chainId`, `contract`, `selector`) appears once. A package's whitelist replaces the whitelist of the app as a
 whole, and an empty or missing `whitelist` leaves the app with no whitelisted calls. The `whitelist` key is omitted from
-the canonical payload when the list is empty, so a package without one has the same bytes as before the whitelist existed.
+the canonical payload when the list is empty.
 
 ## Samples
 
-- `samples/example-entries.json` is the source of `samples/example.lrp`, which is signed with the baked release key.
-  Its private half is not in the repository, so the sample is not re-signed when the format changes.
+- `samples/example-entries.json` is the source of `samples/example.lrp`. The sample is signed by the development key listed
+  in the debug file. Its private half was discarded after signing, so the sample is not re-signed when the format changes:
+  list a new development key in the debug file, then sign the sample with it.
 - `samples/example-whitelist-entries.json` shows whitelist entries, with a plain call and a proxy call. Its contracts are
   placeholders. Build it with your own key to try the format; it is not a real approval of any contract.
 
 ## Tests
 
-`./gradlew :tools:registry-pack:test` (also `scripts/ci/run-partition.sh registry-pack`) covers the round trip, tampering,
-invalid entries, and that the committed sample still verifies.
+`./gradlew :tools:registry-pack:test` (also `scripts/ci/run-partition.sh registry-pack`) covers the round trip with a
+passphrase, a wrong passphrase, tampering, invalid entries, and that the committed sample verifies with the debug key.

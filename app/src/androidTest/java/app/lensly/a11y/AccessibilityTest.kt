@@ -136,6 +136,7 @@ class AccessibilityTest {
                     onTokens = {},
                     onCatalog = {},
                     onLockout = {},
+                    onBackup = {},
                 )
             }
         }

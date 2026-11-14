@@ -19,7 +19,9 @@ class VaultRecordsTest {
     private val vaultKey = ByteArray(32) { (it * 3 + 1).toByte() }
 
     // A session zeroes the key array it is given when it closes, so each session gets its own copy.
-    private fun open(key: ByteArray = vaultKey.copyOf()): VaultSession = VaultSession(VaultLayout(tmp.root), key)
+    private val keys = MemoryKeystore()
+
+    private fun open(key: ByteArray = vaultKey.copyOf()): VaultSession = VaultSession(VaultLayout(tmp.root), keys, key)
 
     @Test
     fun aMissingVaultRecordReadsAsNull() {
@@ -156,20 +158,45 @@ class VaultRecordsTest {
     }
 
     @Test
-    fun recordNamesListsOnlyTheRecordsOfThatPrefixInOwnedWallets() {
+    fun aWalletRecordIsOneOfTheNamesAWalletFolderHolds() {
         val session = open()
         val wallet = session.createWallet()
-        session.putRecord(wallet, "review-b", byteArrayOf(1))
-        session.putRecord(wallet, "review-a", byteArrayOf(2))
         session.putRecord(wallet, "meta", byteArrayOf(3))
-        val other = open(ByteArray(32) { 9 })
-        val foreign = other.createWallet()
-        other.putRecord(foreign, "review-x", byteArrayOf(4))
+        session.putRecord(wallet, "account-7", byteArrayOf(4))
 
-        assertEquals(listOf("review-a", "review-b"), session.recordNames(wallet, "review-"))
-        assertEquals(emptyList(), session.recordNames(foreign, "review-"))
-        assertEquals(emptyList(), other.recordNames(wallet, "review-"))
+        assertContentEquals(byteArrayOf(3), session.getRecord(wallet, "meta"))
+        assertContentEquals(byteArrayOf(4), session.getRecord(wallet, "account-7"))
+        assertNull(session.getRecord(wallet, "account-8"))
+        // Any other name would add a file that the other folders do not have, so it is refused.
+        assertFailsWith<IllegalArgumentException> { session.putRecord(wallet, "review-b", byteArrayOf(1)) }
+        assertFailsWith<IllegalArgumentException> { session.putRecord(wallet, "pwk", byteArrayOf(1)) }
+        assertFailsWith<IllegalArgumentException> { session.putRecord(wallet, "account-100", byteArrayOf(1)) }
         session.close()
-        other.close()
+    }
+
+    @Test
+    fun aRecordLongerThanItsCapacityIsRefused() {
+        val session = open()
+        val wallet = session.createWallet()
+
+        assertFailsWith<IllegalArgumentException> { session.putRecord(wallet, "base-name", ByteArray(129)) }
+        session.putRecord(wallet, "base-name", ByteArray(128))
+        assertEquals(128, session.getRecord(wallet, "base-name")?.size)
+        session.close()
+    }
+
+    @Test
+    fun aDeletedRecordIsOverwrittenSoItsFileStays() {
+        val session = open()
+        val wallet = session.createWallet()
+        session.putRecord(wallet, "profile", byteArrayOf(1, 2))
+        val file = File(VaultLayout(tmp.root).walletDir(wallet), "profile.bin")
+        val size = file.length()
+
+        session.deleteRecord(wallet, "profile")
+
+        assertNull(session.getRecord(wallet, "profile"))
+        assertEquals(size, file.length())
+        session.close()
     }
 }

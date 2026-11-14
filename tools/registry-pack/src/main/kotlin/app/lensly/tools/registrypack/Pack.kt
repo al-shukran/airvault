@@ -2,6 +2,7 @@ package app.lensly.tools.registrypack
 
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import kotlinx.serialization.Serializable
@@ -15,6 +16,8 @@ import org.bouncycastle.crypto.signers.Ed25519Signer
 @Serializable
 data class PackageDto(
     val formatVersion: Int,
+    /** The catalog schema the package needs. The app refuses a package that needs a schema newer than it reads. */
+    val minSchemaVersion: Int = 1,
     val sequence: Long,
     val createdAt: String,
     val networks: List<NetworkDto>,
@@ -79,18 +82,23 @@ enum class FeeModel { L1, L2_ROLLUP }
 /**
  * Builds, checks and signs registry packages. The app reader is `core/registry/update`; the two must agree.
  *
- * File: `LRP1` | u32 big-endian payload length | payload | 64-byte Ed25519 signature.
+ * File: `LRP2` | u32 big-endian payload length | 8-byte key ID | payload | 64-byte Ed25519 signature.
+ * Key ID: the first 8 bytes of the SHA-256 of the signing public key. The app picks its trusted key by this ID.
  * Payload: canonical JSON (sorted keys, no whitespace, entries sorted by chain ID and then contract). The `whitelist` key
  * is written only when the package has whitelist entries, so a package without one keeps the bytes it had before.
- * Signed message: `LENSLY-REGISTRY-v1\n` followed by the payload bytes.
+ * Signed message: `LENSLY-REGISTRY-v2\n`, the key ID, then the payload bytes.
  */
 internal object Pack {
-    const val FORMAT_VERSION = 1
+    const val FORMAT_VERSION = 2
+    /** The newest catalog schema the app reads. A package may not need a newer one. */
+    const val SCHEMA_VERSION = 1
     const val MAX_BYTES = 1 shl 20
 
-    private val MAGIC = "LRP1".toByteArray(StandardCharsets.US_ASCII)
-    private val DOMAIN = "LENSLY-REGISTRY-v1\n".toByteArray(StandardCharsets.US_ASCII)
-    private const val HEADER_BYTES = 8
+    private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
+    private val DOMAIN = "LENSLY-REGISTRY-v2\n".toByteArray(StandardCharsets.US_ASCII)
+    private const val KEY_ID_OFFSET = 8
+    private const val KEY_ID_BYTES = 8
+    private const val HEADER_BYTES = KEY_ID_OFFSET + KEY_ID_BYTES
     private const val SIGNATURE_BYTES = 64
     private const val MAX_TEXT = 64
     private const val MAX_MEANING = 240
@@ -133,10 +141,14 @@ internal object Pack {
     fun publicKeyOf(seed: ByteArray): ByteArray =
         Ed25519PrivateKeyParameters(seed, 0).generatePublicKey().encoded
 
+    /** The key ID of [publicKey], as the app derives it: the first [KEY_ID_BYTES] bytes of its SHA-256. */
+    fun keyIdOf(publicKey: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(publicKey).copyOf(KEY_ID_BYTES)
+
     /** Canonical payload bytes for [content]. Entries are sorted here, so the order in the source never matters. */
     fun canonicalPayload(content: PackageDto): ByteArray = CanonicalJson.write(
         buildMap {
             put("formatVersion", content.formatVersion)
+            put("minSchemaVersion", content.minSchemaVersion)
             put("sequence", content.sequence)
             put("createdAt", content.createdAt)
             put("networks", content.networks.sortedBy { it.chainId }.map(::networkMap))
@@ -184,6 +196,7 @@ internal object Pack {
 
     private fun validate(content: PackageDto) {
         require(content.formatVersion == FORMAT_VERSION) { "formatVersion must be $FORMAT_VERSION" }
+        require(content.minSchemaVersion in 1..SCHEMA_VERSION) { "minSchemaVersion must be 1 to $SCHEMA_VERSION" }
         require(content.sequence >= 1) { "sequence must be at least 1" }
         try {
             LocalDate.parse(content.createdAt)
@@ -281,13 +294,15 @@ internal object Pack {
     }
 
     private fun encode(payload: ByteArray, seed: ByteArray): ByteArray {
-        val message = DOMAIN + payload
+        val keyId = keyIdOf(publicKeyOf(seed))
+        val message = DOMAIN + keyId + payload
         val signer = Ed25519Signer()
         signer.init(true, Ed25519PrivateKeyParameters(seed, 0))
         signer.update(message, 0, message.size)
         return ByteBuffer.allocate(HEADER_BYTES + payload.size + SIGNATURE_BYTES)
             .put(MAGIC)
             .putInt(payload.size)
+            .put(keyId)
             .put(payload)
             .put(signer.generateSignature())
             .array()
@@ -296,14 +311,18 @@ internal object Pack {
     private fun open(bytes: ByteArray, publicKey: ByteArray): ByteArray {
         require(bytes.size <= MAX_BYTES) { "package is larger than $MAX_BYTES bytes" }
         require(bytes.size > HEADER_BYTES + SIGNATURE_BYTES) { "package is truncated" }
-        require(bytes.copyOf(MAGIC.size).contentEquals(MAGIC)) { "not a Lensly registry package (bad magic)" }
+        require(bytes.copyOf(MAGIC.size).contentEquals(MAGIC)) {
+            "not a version $FORMAT_VERSION registry package (magic ${String(MAGIC, StandardCharsets.US_ASCII)} expected)"
+        }
         val declared = ByteBuffer.wrap(bytes, MAGIC.size, 4).int.toLong() and 0xffffffffL
         require(declared == (bytes.size - HEADER_BYTES - SIGNATURE_BYTES).toLong()) {
             "payload length does not match the file size"
         }
+        val keyId = bytes.copyOfRange(KEY_ID_OFFSET, HEADER_BYTES)
+        require(keyId.contentEquals(keyIdOf(publicKey))) { "package is signed with another key (key ID ${keyId.toHex()})" }
         val payload = bytes.copyOfRange(HEADER_BYTES, bytes.size - SIGNATURE_BYTES)
         val signature = bytes.copyOfRange(bytes.size - SIGNATURE_BYTES, bytes.size)
-        val message = DOMAIN + payload
+        val message = DOMAIN + keyId + payload
         val verifier = Ed25519Signer()
         verifier.init(false, Ed25519PublicKeyParameters(publicKey, 0))
         verifier.update(message, 0, message.size)

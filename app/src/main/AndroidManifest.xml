@@ -36,6 +36,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!--
+            Parser Sandbox: every parser of scanned input runs here. An isolated process has no permissions, no app
+            files and no Keystore, so a parser bug cannot reach the vault.
+        -->
+        <service
+            android:name=".core.parse.ParserSandboxService"
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:process=":parser" />
     </application>
 
 </manifest>

@@ -20,7 +20,7 @@ import app.lensly.ui.theme.LenslySpacing
 /**
  * The write-down of a wallet with a passphrase, the last step before the wallet is saved. The passphrase is part of
  * the only backup, so the owner confirms it is written down separately from the 24 words. CREATE WALLET stays off
- * until then.
+ * until then. While [saving] is true, the button reads "Saving…" and stays off.
  */
 @Composable
 fun PassphraseBackupScreen(
@@ -29,6 +29,7 @@ fun PassphraseBackupScreen(
     onCreate: () -> Unit,
     modifier: Modifier = Modifier,
     errorMessage: String? = null,
+    saving: Boolean = false,
 ) {
     LenslyScreen(
         title = "Passphrase backup",
@@ -41,10 +42,10 @@ fun PassphraseBackupScreen(
                     label = "I wrote the passphrase down separately",
                 )
                 PillButton(
-                    text = "Create wallet",
+                    text = if (saving) "Saving…" else "Create wallet",
                     onClick = onCreate,
                     accent = true,
-                    enabled = writtenDown,
+                    enabled = writtenDown && !saving,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

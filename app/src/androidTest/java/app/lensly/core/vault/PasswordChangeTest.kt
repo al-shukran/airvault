@@ -59,7 +59,7 @@ class PasswordChangeTest {
             vault.create(OLD.toCharArray())
             val session = unlocked(vault.unlock(OLD.toCharArray()))
             val wallet = session.createWallet()
-            session.putRecord(wallet, "seed", SEED)
+            session.putRecord(wallet, "secret", SEED)
             session.putRecord(wallet, "profile", PROFILE)
             session.putVaultRecord("settings", SETTINGS)
             val walletKeyBefore = File(vaultRoot, "wallets/$wallet/pwk.bin").readBytes()
@@ -75,7 +75,7 @@ class PasswordChangeTest {
             clock.advance(FailureDelay.LEARNING_CAP_MS)
             val reopened = unlocked(vault.unlock(NEW.toCharArray()))
             assertEquals(listOf(wallet), reopened.listWallets())
-            assertArrayEquals(SEED, reopened.getRecord(wallet, "seed"))
+            assertArrayEquals(SEED, reopened.getRecord(wallet, "secret"))
             assertArrayEquals(PROFILE, reopened.getRecord(wallet, "profile"))
             assertArrayEquals(SETTINGS, reopened.getVaultRecord("settings"))
             reopened.close()
@@ -88,7 +88,7 @@ class PasswordChangeTest {
             vault.create(OLD.toCharArray())
             val session = unlocked(vault.unlock(OLD.toCharArray()))
             val wallet = session.createWallet()
-            session.putRecord(wallet, "seed", SEED)
+            session.putRecord(wallet, "secret", SEED)
             val oldKeyFile = vaultKeyFile.readBytes()
 
             // Run the whole change, then put the files back to the moment before the rename. The new key file is
@@ -101,7 +101,7 @@ class PasswordChangeTest {
             assertRejected(vault.unlock(NEW.toCharArray()))
             clock.advance(FailureDelay.LEARNING_CAP_MS)
             val reopened = unlocked(vault.unlock(OLD.toCharArray()))
-            assertArrayEquals(SEED, reopened.getRecord(wallet, "seed"))
+            assertArrayEquals(SEED, reopened.getRecord(wallet, "secret"))
             reopened.close()
         }
     }
@@ -112,12 +112,12 @@ class PasswordChangeTest {
             vault.create(OLD.toCharArray())
             val session = unlocked(vault.unlock(OLD.toCharArray()))
             val wallet = session.createWallet()
-            session.putRecord(wallet, "seed", SEED)
+            session.putRecord(wallet, "secret", SEED)
 
             // The process died part way through writing the pending key file. The vault key file was never touched.
             pendingKeyFile.writeBytes(ByteArray(40) { 7 })
             val stillOpen = unlocked(vault.unlock(OLD.toCharArray()))
-            assertArrayEquals(SEED, stillOpen.getRecord(wallet, "seed"))
+            assertArrayEquals(SEED, stillOpen.getRecord(wallet, "secret"))
             stillOpen.close()
 
             // A retry replaces the partial file, commits, and leaves no pending file behind.

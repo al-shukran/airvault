@@ -53,8 +53,9 @@ class EthSignRequest(
         /** Largest signData accepted: 64 KiB. */
         const val MAX_SIGN_DATA_BYTES = ParserLimits.MAX_SIGN_DATA_BYTES
 
-        // The other fields are small, so the whole payload has a fixed headroom above the sign data.
-        private const val MAX_PAYLOAD_BYTES = MAX_SIGN_DATA_BYTES + 4096
+        // The other fields are small, so the whole payload has a fixed headroom above the sign data. The Parser Sandbox's
+        // wire format bounds the origin by it, so an origin the decoder accepts always crosses the wire.
+        const val MAX_PAYLOAD_BYTES = MAX_SIGN_DATA_BYTES + 4096
         private const val UUID_TAG = 37L
         private const val KEYPATH_TAG = 304L
         private const val MAX_PATH_STEPS = 16
