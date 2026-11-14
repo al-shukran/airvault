@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import java.io.File
@@ -21,6 +22,7 @@ import org.junit.rules.TemporaryFolder
  * survive a lock. A batch is one store write, so a refused or failed batch saves nothing.
  */
 class BatchRenameTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -34,7 +36,7 @@ class BatchRenameTest {
 
     @Before
     fun openVault() {
-        session = VaultSession(VaultLayout(tmp.root), vaultKey())
+        session = VaultSession(VaultLayout(tmp.root), keys, vaultKey())
         store = WalletStore(session)
     }
 
@@ -46,7 +48,7 @@ class BatchRenameTest {
     /** Locks the vault and unlocks it again, and returns a store on the new session. */
     private fun reopen(): WalletStore {
         session.close()
-        session = VaultSession(VaultLayout(tmp.root), vaultKey())
+        session = VaultSession(VaultLayout(tmp.root), keys, vaultKey())
         store = WalletStore(session)
         return store
     }

@@ -336,10 +336,12 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * Crypto-shreds wallet [id]: its Per-Wallet Key goes first, so its records cannot be read even if a file survives. The
+     * Crypto-shreds wallet [id]: its folder's Keystore key goes first, so its records cannot be read even if a file survives. The
      * other wallets are not touched, and an id with no wallet changes nothing.
      *
-     * @throws java.io.IOException if the key file cannot be removed. The wallet is then still readable.
+     * @throws java.io.IOException if a file cannot be overwritten or removed.
+     * @throws app.lensly.core.vault.VaultException if the Keystore could not delete the key. The wallet is removed from the list all the
+     * same, and the next unlock deletes the key.
      */
     fun delete(id: String) {
         session.deleteWallet(id)

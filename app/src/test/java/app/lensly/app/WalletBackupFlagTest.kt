@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import java.io.ByteArrayOutputStream
@@ -18,6 +19,7 @@ import org.junit.rules.TemporaryFolder
  * tracks the flag through the create ceremony.
  */
 class WalletBackupFlagTest {
+    private val keys = MemoryKeystore()
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -28,7 +30,7 @@ class WalletBackupFlagTest {
 
     @Before
     fun openVault() {
-        session = VaultSession(VaultLayout(tmp.root), ByteArray(32) { (it + 7).toByte() })
+        session = VaultSession(VaultLayout(tmp.root), keys, ByteArray(32) { (it + 7).toByte() })
         store = WalletStore(session)
     }
 
