@@ -1,7 +1,7 @@
 # registry-pack
 
 Builds, verifies and signs the offline registry packages that the app installs from removable storage
-(`Settings > Update catalog`). The app reader is `app/src/main/java/app/lensly/core/registry/update/`, and the
+(`Settings > Update catalog`). The app reader is `shared/src/main/java/app/lensly/core/registry/update/`, and the
 two must agree on the wire format (`LRP2`, see `PackageFormat.kt`).
 
 ```
@@ -29,14 +29,14 @@ AES-256-GCM. The AES key comes from scrypt (N = 2^17, r = 8, p = 1). A lost pass
 ## Release key
 
 1. `keygen --out <dir>` writes `release.key` and `release.pub`, and prints the entry for the release key list.
-2. Add that entry to `app/src/main/assets/registry/trusted-keys.json` with `"status": "active"`.
+2. Add that entry to `shared/src/main/assets/registry/trusted-keys.json` with `"status": "active"`.
 3. Sign packages with `build --key <dir>/release.key`.
 
 Rotation: list the new key as `active` and sign with it, then set the old key's `status` to `revoked`. The app refuses a
 package from a revoked key, including one already installed. The installed sequence stays recorded, so an older package
 still cannot be installed.
 
-The development key is listed in `app/src/debug/assets/registry/trusted-keys.debug.json`. Only debug builds read that
+The development key is listed in `shared/src/debug/assets/registry/trusted-keys.debug.json`. Only debug builds read that
 file. Never list a development key in the release file.
 
 ## Entries file

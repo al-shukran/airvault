@@ -100,7 +100,7 @@ class PackTest {
 
     @Test
     fun committedSampleIsTheSourceSignedWithTheDebugKey() {
-        val debugKey = json.parseToJsonElement(File("../../app/src/debug/assets/registry/trusted-keys.debug.json").readText())
+        val debugKey = json.parseToJsonElement(File("../../shared/src/debug/assets/registry/trusted-keys.debug.json").readText())
             .jsonObject.getValue("keys").jsonArray.single().jsonObject.getValue("publicKey").jsonPrimitive.content.hexToBytes()
         val committed = File("samples/example.lrp").readBytes()
 

@@ -108,9 +108,9 @@ case "$kind" in
         exit "$status"
         ;;
     fuzz)
-        targets="$(find "$ROOT/app/src/test/java" -name '*Fuzz*.kt' 2>/dev/null || true)"
+        targets="$(find "$ROOT/shared/src/test/java" -name '*Fuzz*.kt' 2>/dev/null || true)"
         [ -n "$targets" ] ||
-            not_configured "Jazzer fuzz targets under app/src/test (guideline 1.8)"
+            not_configured "Jazzer fuzz targets under shared/src/test (guideline 1.8)"
         # Real fuzzing, not a seed replay: 60 seconds per target through the same script the nightly run uses.
         "$ROOT/scripts/ci/fuzz-nightly.sh" --seconds 60
         ;;
