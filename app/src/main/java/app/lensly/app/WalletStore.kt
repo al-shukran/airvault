@@ -1,8 +1,16 @@
 package app.lensly.app
 
+import app.lensly.core.btc.BtcAccount
+import app.lensly.core.btc.BtcAccountSelection
 import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.BtcPsbt
+import app.lensly.core.btc.BtcRefusal
+import app.lensly.core.btc.BtcRefusedException
+import app.lensly.core.btc.BtcSigner
 import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
+import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
@@ -11,6 +19,7 @@ import app.lensly.core.wallet.BulkRun
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.PrivateKey
+import fr.acinq.bitcoin.psbt.Psbt
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -324,23 +333,85 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * The frames of the Bitcoin watch-only export of wallet [id]: one `ur:crypto-account` with the four Script Types of account 0 on
-     * each network the wallet has a Bitcoin account on. The seed is derived for the export and zeroed after it. The export asks for no
-     * App Password, as the EVM pairing does, and it carries public data only.
+     * The frames of the Bitcoin watch-only export of wallet [id]: one `ur:crypto-account` with the four Script Types of every account
+     * index the wallet holds on each network. Each index is exported once per network, in the order the owner added the accounts. The
+     * seed is derived for the export and zeroed after it. The export asks for no App Password, as the EVM pairing does, and it carries
+     * public data only.
      *
      * @throws IllegalArgumentException if the wallet is missing, is a Single Key, or has no Bitcoin account.
      */
     fun bitcoinWatchOnlyParts(id: String): List<String> {
-        val networks = bitcoinAccounts(id).map { it.network }.distinct()
-        require(networks.isNotEmpty()) { "Wallet $id has no Bitcoin account." }
+        val indices = bitcoinAccounts(id).map { it.network to it.index }.distinct()
+        require(indices.isNotEmpty()) { "Wallet $id has no Bitcoin account." }
         val secret = mnemonicSecret(id)
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
         try {
-            val accounts = networks.flatMap { network -> BtcWatchOnly.accounts(seed, network, accountIndex = 0) }
+            val accounts = indices.flatMap { (network, index) -> BtcWatchOnly.accounts(seed, network, accountIndex = index) }
             return BtcWatchOnly.cryptoAccountParts(accounts)
         } finally {
             seed.fill(0)
         }
+    }
+
+    /**
+     * Reviews a Bitcoin request [psbt] against wallet [id]. The request must spend from exactly one of the wallet's Bitcoin accounts,
+     * and the review is what the owner reads before signing. The seed is derived for the check and zeroed after it. The review holds
+     * public data only, so no App Password is needed for it.
+     *
+     * @throws BtcRefusedException when a rule refuses the request. Nothing is derived for signing then.
+     * @throws IllegalArgumentException if the wallet is missing or is a Single Key, which has no Bitcoin account.
+     */
+    fun bitcoinReview(
+        id: String,
+        psbt: Psbt,
+        inputPolicy: InputVerificationPolicy,
+        sourcePolicy: SigningSourcePolicy,
+    ): BitcoinReviewed {
+        val stored = bitcoinAccounts(id)
+        if (stored.isEmpty()) throw BtcRefusedException(BtcRefusal.NoStoredAccount)
+        val seed = seedOf(id)
+        try {
+            val accounts = stored.map { BtcAccount.fromSeed(seed, it.network, it.scriptType, it.index) }
+            val account = BtcAccountSelection.select(accounts, psbt)
+            val review = BtcSigner(account, inputPolicy, sourcePolicy).review(psbt)
+            val record = stored.first { it.key == Triple(account.scriptType, account.network, account.accountIndex) }
+            return BitcoinReviewed(record, review)
+        } finally {
+            seed.fill(0)
+        }
+    }
+
+    /**
+     * Signs the inputs of [psbt] that Bitcoin account [account] of wallet [id] owns, and returns the signed PSBT as the frames of its
+     * `ur:crypto-psbt`. The seed is derived for the signing and zeroed after it, on every path. The caller checks the App Password
+     * before this runs.
+     *
+     * @throws BtcRefusedException when a rule refuses the request. Nothing is signed then.
+     * @throws IllegalArgumentException if [account] is not a Bitcoin account of the wallet.
+     */
+    fun bitcoinSign(
+        id: String,
+        account: BitcoinAccountRecord,
+        psbt: Psbt,
+        inputPolicy: InputVerificationPolicy,
+        sourcePolicy: SigningSourcePolicy,
+        unverifiedConfirmed: Boolean,
+    ): List<String> {
+        require(bitcoinAccounts(id).any { it.key == account.key }) { "Wallet $id holds no such Bitcoin account." }
+        val seed = seedOf(id)
+        val signed = try {
+            val key = BtcAccount.fromSeed(seed, account.network, account.scriptType, account.index)
+            BtcSigner(key, inputPolicy, sourcePolicy).sign(psbt, unverifiedConfirmed)
+        } finally {
+            seed.fill(0)
+        }
+        return BtcPsbt.encodeUrParts(signed.psbt)
+    }
+
+    /** The BIP39 seed of wallet [id], which the caller zeroes. Throws for a wallet that is missing or is a Single Key. */
+    private fun seedOf(id: String): ByteArray {
+        val secret = mnemonicSecret(id)
+        return Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
     }
 
     /**

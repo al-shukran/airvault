@@ -123,7 +123,7 @@ private const val COMPRESSED_PUBLIC_KEY_BYTES = 33
 private val SEQUENCE_HEADER = Regex("""^UR:[A-Z0-9-]+/\d+-(\d+)/""", RegexOption.IGNORE_CASE)
 
 /** The number of parts an animated UR has, read from the sequence header of one of its frames, or 1 for a single-part UR. */
-private fun sequenceLength(frame: String): Int = SEQUENCE_HEADER.find(frame)?.groupValues?.get(1)?.toInt() ?: 1
+internal fun sequenceLength(frame: String): Int = SEQUENCE_HEADER.find(frame)?.groupValues?.get(1)?.toInt() ?: 1
 
 private fun BtcWatchOnlyAccount.hdKey(): CryptoHDKey {
     val origin = CryptoKeypath(path.components(), masterFingerprint.fingerprintBytes(), path.path.size)

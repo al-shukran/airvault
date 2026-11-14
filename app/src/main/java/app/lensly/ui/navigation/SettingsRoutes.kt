@@ -23,6 +23,8 @@ import app.lensly.app.DecoyVault
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
+import app.lensly.core.btc.InputVerificationPolicy
+import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.DuressResult
@@ -41,6 +43,7 @@ import app.lensly.ui.settings.ChangePasswordScreen
 import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
 import app.lensly.ui.settings.FailureCapChoice
+import app.lensly.ui.settings.BitcoinPolicyScreen
 import app.lensly.ui.settings.HideDelayBound
 import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.SettingsScreen
@@ -63,6 +66,7 @@ internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, ho
     composable(HiddenRoute.FAILURE_CAP) { HiddenBackdrop { FailureCapRoute(navController, holder) } }
     composable(HiddenRoute.HIDE_DELAY_SHORTEST) { HiddenBackdrop { HideDelayRoute(navController, holder, HideDelayBound.SHORTEST) } }
     composable(HiddenRoute.HIDE_DELAY_LONGEST) { HiddenBackdrop { HideDelayRoute(navController, holder, HideDelayBound.LONGEST) } }
+    composable(HiddenRoute.BITCOIN_POLICY) { HiddenBackdrop { BitcoinPolicyRoute(navController, holder) } }
     composable(HiddenRoute.PROXY_POLICY) { HiddenBackdrop { ProxyPolicyRoute(navController, holder) } }
     composable(HiddenRoute.LICENCES) { HiddenBackdrop { LicencesRoute(navController) } }
     composable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
@@ -128,6 +132,9 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         proxyPolicy = proxyPolicy,
         onProxyPolicy = { navController.navigate(HiddenRoute.PROXY_POLICY) },
         hideDelay = settings?.hideDelay,
+        bitcoinInputPolicy = settings?.bitcoinInputPolicy,
+        bitcoinSigningSource = settings?.bitcoinSigningSource,
+        onBitcoinPolicy = { navController.navigate(HiddenRoute.BITCOIN_POLICY) },
         onHideDelay = { bound ->
             navController.navigate(
                 if (bound == HideDelayBound.SHORTEST) HiddenRoute.HIDE_DELAY_SHORTEST else HiddenRoute.HIDE_DELAY_LONGEST,
@@ -225,6 +232,50 @@ private fun HideDelayRoute(navController: NavHostController, holder: VaultHolder
                         }
                         navController.popBackStack()
                     }
+                }
+            }
+        },
+        onBack = { navController.popBackStack() },
+    )
+}
+
+/**
+ * The Bitcoin policies: how input amounts are verified and which online side may ask for a Bitcoin signature. The saved choices are read
+ * back when the screen opens, and SAVE writes both with the rest of the settings. Only these two change, so the other saved settings stay.
+ */
+@Composable
+private fun BitcoinPolicyRoute(navController: NavHostController, holder: VaultHolder) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    val scope = rememberCoroutineScope()
+    var inputPolicy by remember { mutableStateOf(InputVerificationPolicy.STRICT) }
+    var signingSource by remember { mutableStateOf(SigningSourcePolicy.ANY) }
+    var ready by remember { mutableStateOf(false) }
+
+    LaunchedEffect(session) {
+        whileUnlocked(navController, holder) {
+            val saved = withContext(Dispatchers.IO) { SettingsStore(session).load() }
+            inputPolicy = saved.bitcoinInputPolicy
+            signingSource = saved.bitcoinSigningSource
+            ready = true
+        }
+    }
+    BitcoinPolicyScreen(
+        inputPolicy = inputPolicy,
+        signingSource = signingSource,
+        ready = ready,
+        onInputPolicy = { inputPolicy = it },
+        onSigningSource = { signingSource = it },
+        onSave = {
+            scope.launch {
+                whileUnlocked(navController, holder) {
+                    withContext(Dispatchers.IO) {
+                        SettingsStore(session).let { store ->
+                            store.load()
+                                .copy(bitcoinInputPolicy = inputPolicy, bitcoinSigningSource = signingSource)
+                                .also(store::save)
+                        }
+                    }
+                    navController.popBackStack()
                 }
             }
         },

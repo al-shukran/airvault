@@ -2,6 +2,7 @@ package app.lensly.app.sign
 
 import app.lensly.core.parse.InProcessParser
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.framesOf
@@ -22,6 +23,8 @@ fun SignPipeline.prepare(ur: UR, wallet: WalletView): Prepared =
     when (val reply = inProcessSandboxParser.scan(listOf(framesOf(ur, ONE_FRAME).first()))) {
         is ScanReply.Complete -> prepare(reply.parsed, wallet)
         is ScanReply.Refused -> Prepared.Refused(reply.reason)
+        // A PSBT is a Bitcoin request, which the EVM pipeline does not sign.
+        is ScanReply.Bitcoin -> Prepared.Refused(UNSUPPORTED_CODE)
         ScanReply.NotPart, is ScanReply.Incomplete -> error("A single frame is a whole request or a refusal")
     }
 

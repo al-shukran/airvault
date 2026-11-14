@@ -135,6 +135,13 @@ private class FakePorts(
         if (recordFails) throw ReviewNotSaved()
         records += entry
     }
+
+    // The EVM tests never send a Bitcoin request; the Bitcoin flow is tested in SignFlowBitcoinTest.
+    override suspend fun bitcoinPrepare(walletId: String, psbt: ByteArray): BitcoinPrepared =
+        error("a Bitcoin request is not expected in the EVM tests")
+
+    override suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String> =
+        error("a Bitcoin request is not expected in the EVM tests")
 }
 
 /** A ur:eth-sign-request for a personal message on account 0, the way a wallet sends it. */

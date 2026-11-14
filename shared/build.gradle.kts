@@ -104,9 +104,10 @@ dependencies {
     implementation(libs.sparrowwallet.hummingbird)
 
     // Bitcoin (app.lensly.core.btc): keys, addresses, PSBT and script checks from ACINQ's bitcoin-kmp (Apache-2.0).
+    // Its types are part of the core/btc API (KeyPath, Psbt), so the apps that use core/btc see them too.
     // The Android build of secp256k1 ships its native library in the APK. The JVM build is only for unit tests:
     // on a JVM the Android loader fails to load its library and falls back to the JVM loader on the same classpath.
-    implementation(libs.bitcoin.kmp)
+    api(libs.bitcoin.kmp)
     implementation(libs.secp256k1.kmp.jni.android)
     testImplementation(libs.secp256k1.kmp.jni.jvm)
 

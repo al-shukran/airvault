@@ -1,5 +1,6 @@
 package app.lensly.core.parse
 
+import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.evm.TypedDataParser
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.registry.ContractCall
@@ -10,6 +11,8 @@ import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.urPartRefusal
+import com.sparrowwallet.hummingbird.UR
+import fr.acinq.bitcoin.psbt.Psbt
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.web3j.utils.Numeric
@@ -19,6 +22,9 @@ const val CANNOT_BE_READ = "This code could not be read safely."
 
 /** The refusal of a code that is a UR of a type other than eth-sign-request. */
 const val UNSUPPORTED_CODE = "Unsupported code"
+
+/** The refusal of a `ur:crypto-psbt` whose PSBT does not parse. */
+const val NOT_A_PSBT = "The Bitcoin request is not a valid PSBT."
 
 /** What the sandbox says about the scanned parts of a request. */
 sealed interface ScanReply {
@@ -30,6 +36,12 @@ sealed interface ScanReply {
 
     /** The new text completes the request. [parsed] holds the request and what its data decodes to. */
     data class Complete(val parsed: ParsedRequest) : ScanReply
+
+    /**
+     * The new text completes a `ur:crypto-psbt`. [psbt] is the PSBT in its serialized form, which the sandbox has parsed, so a
+     * PSBT that does not parse never gets here.
+     */
+    data class Bitcoin(val psbt: ByteArray) : ScanReply
 
     /** The request cannot be read. [reason] says why, in plain words. */
     data class Refused(val reason: String) : ScanReply
@@ -75,6 +87,7 @@ object InProcessParser : RequestParser {
         }
         if (!accepted) return ScanReply.NotPart
         val ur = scanner.result() ?: return ScanReply.Incomplete(scanner.progress)
+        if (ur.type == BtcPsbt.UR_TYPE) return bitcoinReply(ur)
         if (ur.type != EthSignRequest.UR_TYPE) return ScanReply.Refused(UNSUPPORTED_CODE)
         return when (val decoded = EthSignRequest.decode(ur.cborBytes)) {
             is EthSignRequest.Result.Ok -> ScanReply.Complete(parsedOf(decoded.request))
@@ -84,6 +97,13 @@ object InProcessParser : RequestParser {
 
     override fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode =
         StaticAbiDecoder.decode(calldata, params)
+
+    /** The reply for a complete `ur:crypto-psbt`: its PSBT, parsed here in the sandbox, or a refusal when it does not parse. */
+    private fun bitcoinReply(ur: UR): ScanReply = try {
+        ScanReply.Bitcoin(Psbt.write(BtcPsbt.fromUr(ur)).toByteArray())
+    } catch (e: IllegalArgumentException) {
+        ScanReply.Refused(NOT_A_PSBT)
+    }
 
     /**
      * The transaction [request]'s data decodes to, and the call its calldata is. Typed data is parsed as EIP-712. A personal

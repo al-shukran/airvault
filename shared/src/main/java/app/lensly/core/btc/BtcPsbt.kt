@@ -1,5 +1,8 @@
 package app.lensly.core.btc
 
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
+import app.lensly.core.ur.framesOf
+import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.URDecoder
 import com.sparrowwallet.hummingbird.UREncoder
 import com.sparrowwallet.hummingbird.registry.CryptoPSBT
@@ -39,22 +42,56 @@ object BtcPsbt {
      */
     fun decode(text: String): Psbt {
         val trimmed = text.trim()
-        val bytes = if (trimmed.startsWith("ur:", ignoreCase = true)) {
-            val item = try {
-                URDecoder.decode(trimmed).decodeFromRegistry()
+        if (trimmed.startsWith("ur:", ignoreCase = true)) {
+            val ur = try {
+                URDecoder.decode(trimmed)
             } catch (e: Exception) {
                 throw IllegalArgumentException("not a ur:crypto-psbt", e)
             }
-            (item as? CryptoPSBT ?: throw IllegalArgumentException("not a ur:crypto-psbt")).psbt
-        } else {
-            Base64.getDecoder().decode(trimmed)
+            return fromUr(ur)
         }
-        return when (val parsed = Psbt.read(bytes)) {
-            is Either.Left -> throw IllegalArgumentException("not a valid PSBT: ${parsed.value}")
-            is Either.Right -> parsed.value
+        return parse(Base64.getDecoder().decode(trimmed))
+    }
+
+    /**
+     * The PSBT that a complete `ur:crypto-psbt` carries. The Parser Sandbox reads a scanned request this way.
+     *
+     * @throws IllegalArgumentException when [ur] is not a crypto-psbt, or does not parse as a PSBT
+     */
+    fun fromUr(ur: UR): Psbt {
+        val item = try {
+            ur.decodeFromRegistry()
+        } catch (e: Exception) {
+            throw IllegalArgumentException("not a ur:crypto-psbt", e)
         }
+        return parse((item as? CryptoPSBT ?: throw IllegalArgumentException("not a ur:crypto-psbt")).psbt)
+    }
+
+    /**
+     * The PSBT in its serialized (BIP174) form. The Parser Sandbox parses a scanned PSBT before the app uses it, so this reads bytes
+     * the sandbox has already accepted.
+     *
+     * @throws IllegalArgumentException when [bytes] does not parse as a PSBT
+     */
+    fun parse(bytes: ByteArray): Psbt = when (val parsed = Psbt.read(bytes)) {
+        is Either.Left -> throw IllegalArgumentException("not a valid PSBT: ${parsed.value}")
+        is Either.Right -> parsed.value
     }
 
     /** The `ur:crypto-psbt` form of [psbt]. */
-    fun encodeUr(psbt: Psbt): String = UREncoder.encode(CryptoPSBT(Psbt.write(psbt).toByteArray()).toUR())
+    fun encodeUr(psbt: Psbt): String = UREncoder.encode(ur(psbt))
+
+    /**
+     * The frames of the `ur:crypto-psbt` that carries [psbt]. A PSBT that fits one QR code is one frame. A larger one gives the
+     * uncoded parts of an animated code, so a caller that cycles this list sends the whole PSBT in every pass.
+     */
+    fun encodeUrParts(psbt: Psbt): List<String> {
+        val frames = framesOf(ur(psbt), DEFAULT_MAX_FRAGMENT)
+        return frames.take(sequenceLength(frames.first())).toList()
+    }
+
+    /** The UR type of a PSBT, as a scanned UR names it. */
+    const val UR_TYPE = "crypto-psbt"
+
+    private fun ur(psbt: Psbt): UR = CryptoPSBT(Psbt.write(psbt).toByteArray()).toUR()
 }

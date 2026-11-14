@@ -17,6 +17,9 @@ import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.visualIdentity
 import app.lensly.app.requestParser
+import app.lensly.core.btc.BtcPsbt
+import app.lensly.core.btc.BtcRefusedException
+import app.lensly.core.parse.NOT_A_PSBT
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
@@ -30,6 +33,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+
+/** The refusal of a Bitcoin request that could not be reviewed for a reason other than its rules. Nothing is signed for it. */
+private const val BITCOIN_UNREADABLE = "This Bitcoin request could not be reviewed. Nothing was signed."
 
 /**
  * The app's [SignFlowPorts]. Wallet reads go through the open session, and only [privateKey] reads a secret. The address check
@@ -101,6 +107,58 @@ internal class VaultSignPorts(
     override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> =
         withContext(Dispatchers.Default) {
             SignPipeline(RegistryHolder.get(context), parser).sign(ready, privateKey)
+        }
+
+    /**
+     * Reviews the Bitcoin request in [psbt] against wallet [walletId], with the owner's Bitcoin policies. The bytes were parsed by the
+     * Parser Sandbox, and they are parsed again here only to read them. A request the rules refuse is [BitcoinPrepared.Refused].
+     */
+    override suspend fun bitcoinPrepare(walletId: String, psbt: ByteArray): BitcoinPrepared = withContext(Dispatchers.IO) {
+        val parsed = try {
+            BtcPsbt.parse(psbt)
+        } catch (e: IllegalArgumentException) {
+            return@withContext BitcoinPrepared.Refused(NOT_A_PSBT)
+        }
+        val session = holder.openSession() ?: throw WalletUnavailable()
+        try {
+            val settings = SettingsStore(session).load()
+            val reviewed = WalletStore(session).bitcoinReview(
+                walletId,
+                parsed,
+                settings.bitcoinInputPolicy,
+                settings.bitcoinSigningSource,
+            )
+            BitcoinPrepared.Ready(walletId, parsed, reviewed)
+        } catch (e: BtcRefusedException) {
+            BitcoinPrepared.Refused(e.refusal.reason)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            throw WalletUnavailable()
+        } catch (e: IllegalArgumentException) {
+            BitcoinPrepared.Refused(BITCOIN_UNREADABLE)
+        }
+    }
+
+    /** Signs the reviewed Bitcoin request with the account it was reviewed under. The seed is zeroed inside [WalletStore]. */
+    override suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String> =
+        withContext(Dispatchers.Default) {
+            val session = holder.openSession() ?: throw WalletUnavailable()
+            try {
+                val settings = SettingsStore(session).load()
+                WalletStore(session).bitcoinSign(
+                    id = ready.walletId,
+                    account = ready.reviewed.account,
+                    psbt = ready.psbt,
+                    inputPolicy = settings.bitcoinInputPolicy,
+                    sourcePolicy = settings.bitcoinSigningSource,
+                    unverifiedConfirmed = unverifiedConfirmed,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IllegalStateException) {
+                throw WalletUnavailable()
+            }
         }
 
     /**

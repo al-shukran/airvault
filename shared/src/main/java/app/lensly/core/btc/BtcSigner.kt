@@ -8,6 +8,7 @@ import fr.acinq.bitcoin.OutPoint
 import fr.acinq.bitcoin.Script
 import fr.acinq.bitcoin.SigHash
 import fr.acinq.bitcoin.psbt.Input
+import fr.acinq.bitcoin.psbt.Output
 import fr.acinq.bitcoin.psbt.Psbt
 import fr.acinq.bitcoin.utils.Either
 
@@ -59,6 +60,7 @@ class BtcSigner(
                 amountSats = txOut.amount.sat,
                 isOwnChange = changeIndex != null,
                 changeIndex = changeIndex,
+                claimsOwnKey = psbt.outputs.getOrNull(index)?.let { claimsFingerprint(it, account.masterFingerprint) } ?: false,
             )
         }
         val allVerified = inputs.all { it.amountVerified }
@@ -71,8 +73,14 @@ class BtcSigner(
             outputs = outputs,
             feeSats = if (allVerified) inputTotal - outputTotal else null,
             requiresConfirmation = inputPolicy == InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING && !allVerified,
+            estimatedVsize = BtcFeeRate.estimatedVsize(tx, account.scriptType),
         )
     }
+
+    /** True when an ECDSA or taproot derivation of [output] names the master key [fingerprint]. */
+    private fun claimsFingerprint(output: Output, fingerprint: Long): Boolean =
+        output.derivationPaths.values.any { it.masterKeyFingerprint == fingerprint } ||
+            output.taprootDerivationPaths.values.any { it.masterKeyFingerprint == fingerprint }
 
     /**
      * Reviews [psbt] and then signs every input this Account owns. Returns the review and the PSBT with the new signatures.

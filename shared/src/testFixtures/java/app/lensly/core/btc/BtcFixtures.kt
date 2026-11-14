@@ -23,7 +23,7 @@ import fr.acinq.bitcoin.utils.Either
  * PSBT spends those outputs with the BIP32 derivation each Script Type needs. [finalize] and [verifies] are test-only: a signed
  * PSBT leaves the vault, and the online side finalizes it.
  */
-internal object BtcFixtures {
+object BtcFixtures {
     /** One funding output and the derivation that claims it. [claimedIndex] differs from [index] only in negative tests. */
     class Spend(
         val funding: Transaction,
@@ -132,6 +132,12 @@ internal object BtcFixtures {
         }
         return psbt.extract().unwrap()
     }
+
+    /** Two outputs: a payment to receive address 5 of [account], and the change to change address 0 of [account]. */
+    fun paying(account: BtcAccount, paid: Long, change: Long): List<TxOut> = listOf(
+        TxOut(Satoshi(paid), ByteVector(account.scriptPubKey(0, 5))),
+        TxOut(Satoshi(change), ByteVector(account.scriptPubKey(1, 0))),
+    )
 
     /** True when bitcoin-kmp's script interpreter accepts every input of [tx] against [prevouts]. */
     fun verifies(tx: Transaction, prevouts: List<TxOut>): Boolean = tx.txIn.indices.all { index ->
