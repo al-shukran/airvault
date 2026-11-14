@@ -62,6 +62,8 @@ internal object HiddenRoute {
     // Hidden tiles: the shortest or the longest delay of the dice and coin tiles, each reached from its own Settings row.
     const val HIDE_DELAY_SHORTEST = "settings/hide-delay/shortest"
     const val HIDE_DELAY_LONGEST = "settings/hide-delay/longest"
+    // Third-party licences: the notice the app ships, read only. Reached from About in Settings.
+    const val LICENCES = "settings/licences"
     // Approved contracts: the signed whitelist, grouped by network. Read only, reached from Settings.
     const val APPROVED_CONTRACTS = "settings/approved"
     // Proxy policy: a choice of how whitelisted proxies are handled, then the App Password. Reached from Settings.
