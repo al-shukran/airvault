@@ -1,0 +1,46 @@
+{
+  "denylist": [
+    {
+      "selector": "0x095ea7b3",
+      "condition": "UNLIMITED",
+      "severity": "WARN",
+      "reason": "Unlimited token approval. The spender can move every token of this contract, now and later, without asking again."
+    },
+    {
+      "selector": "0xa22cb465",
+      "condition": "APPROVED",
+      "severity": "WARN",
+      "reason": "Gives one address control of every token in this collection, including the ones you receive later."
+    },
+    {
+      "selector": "0x39509351",
+      "condition": "ANY",
+      "severity": "WARN",
+      "reason": "Raises a spender's token allowance. Scam sites use it to take more than you meant to allow."
+    },
+    {
+      "primaryType": "Permit",
+      "condition": "ANY",
+      "severity": "WARN",
+      "reason": "A signed permit lets a spender move your tokens without a transaction. Scam sites use it to drain wallets."
+    },
+    {
+      "selector": "0xf2fde38b",
+      "condition": "ANY",
+      "severity": "WARN",
+      "reason": "Hands control of this contract to a new owner, who can then change what the contract does."
+    },
+    {
+      "selector": "0x3659cfe6",
+      "condition": "ANY",
+      "severity": "WARN",
+      "reason": "Replaces the code behind a proxy contract. A malicious upgrade can take every asset the contract holds."
+    },
+    {
+      "selector": "0x4f1ef286",
+      "condition": "ANY",
+      "severity": "WARN",
+      "reason": "Replaces the code behind a proxy contract and runs new code at once. A malicious upgrade can take every asset it holds."
+    }
+  ]
+}
