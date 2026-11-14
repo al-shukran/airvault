@@ -83,6 +83,7 @@ private const val PREVIEW_ICONS = 4
  * [onEntryGesture] opens the choice of another. [onApprovedContracts] opens the approved contracts, which [catalog] counts.
  * [proxyPolicy] is the policy in force, null while it is read, and [onProxyPolicy] opens the screen that changes it.
  * [hideDelay] is the dice and coin hide delay, null while it is read, and [onHideDelay] opens the screen for one bound of it.
+ * [onThirdPartyLicences] opens the third-party licences from the About section.
  */
 @Composable
 fun SettingsScreen(
@@ -101,6 +102,7 @@ fun SettingsScreen(
     onProxyPolicy: () -> Unit = {},
     hideDelay: HideDelay? = null,
     onHideDelay: (HideDelayBound) -> Unit = {},
+    onThirdPartyLicences: () -> Unit = {},
     onUpdateCatalog: () -> Unit,
     onWipe: () -> Unit,
     onDuressPassword: () -> Unit = {},
@@ -244,7 +246,11 @@ fun SettingsScreen(
         SettingsSection("About") {
             SettingsRow(title = "Version", description = "$versionName ($versionCode)")
             SettingsRow(title = "License", description = "Apache License 2.0. The text is in the LICENSE file.")
-            SettingsRow(title = "Third-party notices", description = NOTICES)
+            SettingsRow(
+                title = "Third-party licences",
+                description = "Every library and font the app ships, with the licence it is used under.",
+                onClick = onThirdPartyLicences,
+            )
         }
         Spacer(Modifier.height(LenslySpacing.xl))
     }
@@ -403,9 +409,3 @@ private fun BulkCapItem(bulkCap: BulkCap?, onBulkCap: (BulkCap) -> Unit) {
         }
     }
 }
-
-private const val NOTICES = "Chain and token logos: web3icons (MIT) and Iconify token-icons (MIT).\n" +
-    "Logo attribution files are in tools/icons/.\n" +
-    "Fonts: Doto and Space Mono, SIL Open Font License 1.1. The texts are in licenses/.\n" +
-    "Libraries: Bouncy Castle (Bouncy Castle Licence), zxcvbn (MIT License), and web3j, ZXing and " +
-    "Hummingbird (Apache License 2.0)."
