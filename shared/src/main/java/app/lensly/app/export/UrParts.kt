@@ -8,7 +8,7 @@ private val SEQUENCE_HEADER = Regex("""^UR:[A-Z0-9-]+/\d+-(\d+)/""", RegexOption
  * A multi-part UR gives its first seqLen frames, the uncoded fragments, which the encoder emits before any mixed
  * ones. A caller that cycles this list therefore sends the whole payload in every pass.
  */
-internal fun partsOf(frames: Sequence<String>): List<String> {
+fun partsOf(frames: Sequence<String>): List<String> {
     val seqLen = SEQUENCE_HEADER.find(frames.first())?.groupValues?.get(1)?.toInt() ?: 1
     return frames.take(seqLen).toList()
 }
