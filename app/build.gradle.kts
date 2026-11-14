@@ -17,6 +17,20 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Phones are arm64-v8a, and the emulator the team uses is arm64-v8a too; x86_64 stays for x86 emulators. The 32-bit ARM
+        // and x86 copies of every native library are left out of the APK.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            // The third-party notice and the font licences are kept in licenses/ at the repository root, and the app ships them
+            // as assets, so the Settings screen can show them.
+            assets.srcDir("../licenses")
+        }
     }
 
     buildTypes {

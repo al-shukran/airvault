@@ -1,5 +1,6 @@
 package app.lensly.ui.navigation
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,6 +44,11 @@ import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.HideDelayBound
 import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.SettingsScreen
+import app.lensly.ui.settings.NoticeBlock
+import app.lensly.ui.settings.THIRD_PARTY_NOTICE_PATH
+import app.lensly.ui.settings.ThirdPartyLicencesScreen
+import app.lensly.ui.settings.noticeBlocks
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
@@ -58,6 +64,7 @@ internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, ho
     composable(HiddenRoute.HIDE_DELAY_SHORTEST) { HiddenBackdrop { HideDelayRoute(navController, holder, HideDelayBound.SHORTEST) } }
     composable(HiddenRoute.HIDE_DELAY_LONGEST) { HiddenBackdrop { HideDelayRoute(navController, holder, HideDelayBound.LONGEST) } }
     composable(HiddenRoute.PROXY_POLICY) { HiddenBackdrop { ProxyPolicyRoute(navController, holder) } }
+    composable(HiddenRoute.LICENCES) { HiddenBackdrop { LicencesRoute(navController) } }
     composable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
     entryGestureRoutes(navController, holder)
     catalogRoutes(navController, holder)
@@ -127,6 +134,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
             )
         },
         onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
+        onThirdPartyLicences = { navController.navigate(HiddenRoute.LICENCES) },
         onWipe = { navController.navigate(HiddenRoute.WIPE) },
         onDuressPassword = { navController.navigate(HiddenRoute.DURESS) },
         onRemoveDuressPassword = { navController.navigate(HiddenRoute.DURESS_REMOVE) },
@@ -135,6 +143,26 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         onBack = { navController.popBackStack() },
         onLock = { leaveHidden(navController, holder) },
     )
+}
+
+/** The third-party licences, from the notice packed into the app. The text is read off the main thread when the screen opens. */
+@Composable
+private fun LicencesRoute(navController: NavHostController) {
+    val context = LocalContext.current
+    var blocks by remember { mutableStateOf<List<NoticeBlock>?>(null) }
+    LaunchedEffect(Unit) {
+        blocks = readNotice(context)
+    }
+    ThirdPartyLicencesScreen(blocks = blocks, onBack = { navController.popBackStack() })
+}
+
+/** The notice's blocks, or one line saying the notice could not be read. */
+private suspend fun readNotice(context: Context): List<NoticeBlock> = withContext(Dispatchers.IO) {
+    try {
+        noticeBlocks(context.assets.open(THIRD_PARTY_NOTICE_PATH).bufferedReader().use { it.readText() })
+    } catch (e: IOException) {
+        listOf(NoticeBlock("The third-party licences could not be read.", heading = false))
+    }
 }
 
 /**
