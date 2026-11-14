@@ -1,5 +1,6 @@
 package app.lensly.ui.qr
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
@@ -19,12 +20,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import app.lensly.app.RegistryHolder
+import app.lensly.app.sign.Prepared
+import app.lensly.app.sign.SignPipeline
+import app.lensly.app.sign.WalletView
+import app.lensly.core.parse.InProcessParser
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.app.HideDelay
 import app.lensly.core.registry.ProxyPolicy
+import app.lensly.core.ur.DataType
+import app.lensly.core.ur.EthSignRequest
+import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.BulkCap
+import app.lensly.core.wallet.HdWallet
+import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.applySecureWindow
 import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.settings.Catalog
@@ -49,7 +60,7 @@ import java.math.BigInteger
  * on a device without the vault.
  *
  * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-large, review-token, review-pegged,
- * review-unknown-chain, review-unknown-token, refused, settings or hide-delay:
+ * review-unknown-chain, review-unknown-token, review-typed, refused-typed, refused, settings or hide-delay:
  *   adb shell am start -n app.lensly/app.lensly.ui.qr.QrPreviewActivity --es screen show12
  *
  * show1 and show12 animate one or twelve fake UR parts. scan opens the live camera and writes each
@@ -59,7 +70,9 @@ import java.math.BigInteger
  * settings the real Settings screen with sample values, including the dice and coin hide delay rows,
  * hide-delay the hide delay editor, interactive, with sample values,
  * review-unknown-chain a native transfer on a chain outside the registry,
- * review-unknown-token a transfer of a token outside the registry, and refused a refusal, all with sample data.
+ * review-unknown-token a transfer of a token outside the registry, review-typed a Permit (ERC-2612) typed-data request
+ * built by the sign pipeline from the shipped registry: its denylist warning and confirmation are shown. refused-typed a typed-data
+ * request on a chain outside the registry, which the pipeline refuses before review. refused a refusal, all with sample data.
  */
 class QrPreviewActivity : ComponentActivity() {
 
@@ -92,6 +105,8 @@ class QrPreviewActivity : ComponentActivity() {
                         SCREEN_REVIEW_PEGGED -> ReviewPreview(samplePeggedReview)
                         SCREEN_REVIEW_UNKNOWN_CHAIN -> ReviewPreview(sampleUnknownChainReview)
                         SCREEN_REVIEW_UNKNOWN_TOKEN -> ReviewPreview(sampleUnknownTokenReview)
+                        SCREEN_REVIEW_TYPED -> TypedPermitPreview()
+                        SCREEN_REFUSED_TYPED -> TypedRefusedPreview(onDone = ::finish)
                         SCREEN_REFUSED -> SignRefusedScreen(
                             reason = "Chain ID mismatch. The request targets chain 1, but this vault is set to chain 10143.",
                             onDone = ::finish,
@@ -120,6 +135,8 @@ class QrPreviewActivity : ComponentActivity() {
             SCREEN_REVIEW_PEGGED -> SCREEN_REVIEW_PEGGED
             SCREEN_REVIEW_UNKNOWN_CHAIN -> SCREEN_REVIEW_UNKNOWN_CHAIN
             SCREEN_REVIEW_UNKNOWN_TOKEN -> SCREEN_REVIEW_UNKNOWN_TOKEN
+            SCREEN_REVIEW_TYPED -> SCREEN_REVIEW_TYPED
+            SCREEN_REFUSED_TYPED -> SCREEN_REFUSED_TYPED
             SCREEN_REFUSED -> SCREEN_REFUSED
             SCREEN_SETTINGS -> SCREEN_SETTINGS
             SCREEN_HIDE_DELAY -> SCREEN_HIDE_DELAY
@@ -138,6 +155,8 @@ class QrPreviewActivity : ComponentActivity() {
         const val SCREEN_REVIEW_PEGGED = "review-pegged"
         const val SCREEN_REVIEW_UNKNOWN_CHAIN = "review-unknown-chain"
         const val SCREEN_REVIEW_UNKNOWN_TOKEN = "review-unknown-token"
+        const val SCREEN_REVIEW_TYPED = "review-typed"
+        const val SCREEN_REFUSED_TYPED = "refused-typed"
         const val SCREEN_REFUSED = "refused"
         const val SCREEN_SETTINGS = "settings"
         const val SCREEN_HIDE_DELAY = "hide-delay"
@@ -246,6 +265,77 @@ private fun ReviewPreview(review: TxReview) {
         onApprove = { Toast.makeText(context, "Preview: approved", Toast.LENGTH_SHORT).show() },
         onReject = { Toast.makeText(context, "Preview: rejected", Toast.LENGTH_SHORT).show() },
     )
+}
+
+/** A Permit (ERC-2612) request, reviewed by the sign pipeline as a scanned request is. The shipped denylist warns on it. */
+@Composable
+private fun TypedPermitPreview() {
+    val context = LocalContext.current
+    val review = remember(context) { typedPermitSampleReview(context) }
+    ReviewPreview(review)
+}
+
+/** The refusal the sign pipeline gives a typed message for a chain that the registry does not hold. */
+@Composable
+private fun TypedRefusedPreview(onDone: () -> Unit) {
+    val context = LocalContext.current
+    val reason = remember(context) { typedUnknownChainRefusal(context) }
+    SignRefusedScreen(reason = reason, onDone = onDone)
+}
+
+/**
+ * The review of a sample Permit on chain 1, built by the sign pipeline from the shipped registry. The shipped denylist holds a WARN
+ * entry for Permit, so the review shows its reason and needs the risky-request confirmation before HOLD TO SIGN.
+ */
+private fun typedPermitSampleReview(context: Context): TxReview =
+    when (val prepared = samplePermitPrepared(context, chainId = 1)) {
+        is Prepared.Ready -> prepared.review
+        is Prepared.Refused -> error("The sample Permit was refused: ${prepared.reason}")
+    }
+
+/** The refusal the pipeline gives the same Permit on chain 999999, which the registry does not hold. */
+private fun typedUnknownChainRefusal(context: Context): String =
+    when (val prepared = samplePermitPrepared(context, chainId = 999_999)) {
+        is Prepared.Refused -> prepared.reason
+        is Prepared.Ready -> error("The sample Permit on an unknown chain was reviewed, not refused")
+    }
+
+/** A sample Permit on [chainId], parsed and checked by the sign pipeline the way a scanned request is. */
+private fun samplePermitPrepared(context: Context, chainId: Long): Prepared {
+    val wallet = HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art"))
+    val view = WalletView(
+        id = "preview-wallet",
+        masterFingerprint = wallet.masterFingerprint,
+        accountCount = 1,
+        autoNameBase = "Preview",
+        addressAt = { wallet.address(it) },
+    )
+    val owner = wallet.address(0)
+    val json = """{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},""" +
+        """{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],""" +
+        """"Permit":[{"name":"owner","type":"address"},{"name":"spender","type":"address"},{"name":"value","type":"uint256"},""" +
+        """{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}]},"primaryType":"Permit",""" +
+        """"domain":{"name":"USD Coin","version":"2","chainId":$chainId,""" +
+        """"verifyingContract":"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"},""" +
+        """"message":{"owner":"$owner","spender":"0x1111111111111111111111111111111111111111","value":"25000000",""" +
+        """"nonce":"0","deadline":"1900000000"}}"""
+    val request = EthSignRequest(
+        requestId = ByteArray(16) { (it + 1).toByte() },
+        signData = json.toByteArray(Charsets.UTF_8),
+        dataType = DataType.TYPED_DATA,
+        chainId = chainId,
+        derivationPath = listOf(
+            PathStep(44, true),
+            PathStep(60, true),
+            PathStep(0, true),
+            PathStep(0, false),
+            PathStep(0, false),
+        ),
+        sourceFingerprint = wallet.masterFingerprint,
+        address = null,
+        origin = "sample.example",
+    )
+    return SignPipeline(RegistryHolder.get(context), InProcessParser).prepare(InProcessParser.parsedOf(request), view)
 }
 
 private const val SAMPLE_SINGLE_PART =

@@ -68,7 +68,7 @@ tick a check. A `BLOCK` entry refuses the request instead.
 | `chainId` | Optional. Chain the entry applies to; omit it for every chain. Required when `contract` is set. |
 | `contract` | Optional. Lowercase `0x` address the entry applies to. |
 | `selector` | Optional. Lowercase `0x` and 8 hex digits: the Function Selector of the call. |
-| `primaryType` | Optional. An EIP-712 primary type such as `Permit`. Typed data is not reviewed yet, so no transaction matches it. |
+| `primaryType` | Optional. An EIP-712 primary type such as `Permit`. It matches typed data of that type, never a transaction, and cannot be combined with `selector`. |
 | `condition` | `ANY` (default), `UNLIMITED` (the amount is unlimited, for approve and increaseAllowance) or `APPROVED` (an operator grant of `true`, for setApprovalForAll). Needs a `selector`. |
 | `severity` | `WARN` (the owner must confirm) or `BLOCK` (refused). |
 | `reason` | Printable, at most 240 characters. Shown on the warning or the refusal. |

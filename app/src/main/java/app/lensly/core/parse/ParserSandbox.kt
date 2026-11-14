@@ -1,5 +1,6 @@
 package app.lensly.core.parse
 
+import app.lensly.core.evm.TypedDataParser
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.StaticAbiDecoder
@@ -36,7 +37,8 @@ sealed interface ScanReply {
 
 /**
  * An eth-sign-request and what its data decodes to. A transaction dataType carries its decoded transaction, or the reason it
- * is refused. Other dataTypes carry neither. [call] is set when a decoded transaction's calldata is a call [ContractCall] knows.
+ * is refused. Typed data carries its parse result, the typed message or the reason it is refused. Other dataTypes carry neither.
+ * [call] is set when a decoded transaction's calldata is a call [ContractCall] knows.
  * [multicall] is set when that calldata is a multicall whose calls the sandbox read, level by level.
  */
 data class ParsedRequest(
@@ -44,6 +46,7 @@ data class ParsedRequest(
     val tx: UnsignedTx.Result?,
     val call: ContractCall?,
     val multicall: Multicall? = null,
+    val typed: TypedDataParser.Result? = null,
 )
 
 /**
@@ -82,8 +85,14 @@ internal object InProcessParser : RequestParser {
     override fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode =
         StaticAbiDecoder.decode(calldata, params)
 
-    /** The transaction [request]'s data decodes to, and the call its calldata is. A data type that is not a transaction has neither. */
+    /**
+     * The transaction [request]'s data decodes to, and the call its calldata is. Typed data is parsed as EIP-712. A personal
+     * message has neither.
+     */
     fun parsedOf(request: EthSignRequest): ParsedRequest {
+        if (request.dataType == DataType.TYPED_DATA) {
+            return ParsedRequest(request, tx = null, call = null, typed = TypedDataParser.parse(request.signData))
+        }
         if (request.dataType != DataType.TRANSACTION && request.dataType != DataType.TYPED_TRANSACTION) {
             return ParsedRequest(request, tx = null, call = null)
         }

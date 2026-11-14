@@ -183,8 +183,11 @@ fun TxReviewScreen(
                             MonoText(text = signature)
                         }
                     }
+                    val typed = review.typed
                     if (isMessage) {
                         MessageFacts(review)
+                    } else if (typed != null) {
+                        TypedDataFacts(typed)
                     } else {
                         FactRow(label = "Parameters") {
                             if (review.params.isEmpty()) {
@@ -489,6 +492,44 @@ private fun CheckRow(label: String, checked: Boolean, onCheckedChange: (Boolean)
                 style = MaterialTheme.typography.labelSmall,
                 color = if (checked) LenslyBlack else LenslyError,
             )
+        }
+    }
+}
+
+/**
+ * A typed message (EIP-712): its domain, the summary of a Permit or Permit2 payload when it is one, and every field of the message.
+ * The fields keep their nesting, so a struct's members sit under its header, one level in.
+ */
+@Composable
+private fun TypedDataFacts(typed: TypedReview) {
+    FactRow(label = "Domain") {
+        typed.domain.forEach { (name, value) -> LabelledValue(label = name, value = value) }
+    }
+    if (typed.summary.isNotEmpty()) {
+        FactRow(label = "Summary") {
+            typed.summary.forEach { (name, value) -> LabelledValue(label = name, value = value) }
+        }
+    }
+    FactRow(label = "Fields") {
+        typed.fields.forEach { row -> TypedFieldLine(row) }
+    }
+}
+
+/** One line of a typed message, indented by its depth. A header line names a struct or an array and its type. */
+@Composable
+private fun TypedFieldLine(row: TypedRow) {
+    val value = row.value
+    Column(modifier = Modifier.padding(start = (row.depth * 12).dp, bottom = LenslySpacing.xs)) {
+        MutedText("${row.label} · ${row.type}".uppercase())
+        if (value != null) {
+            Spacer(Modifier.height(LenslySpacing.xxs))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isEvmAddress(value)) {
+                    AddressIcon(size = 16.dp)
+                    Spacer(Modifier.width(LenslySpacing.xs))
+                }
+                MonoText(text = if (isEvmAddress(value)) groupAddress(value) else value, modifier = Modifier.weight(1f))
+            }
         }
     }
 }

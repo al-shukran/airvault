@@ -789,16 +789,20 @@ class SignPipelineTest {
     }
 
     @Test
-    fun typedDataIsRefused() {
+    fun typedDataThatDoesNotParseIsRefusedWithTheParsersReason() {
         val typed = "{\"types\":{},\"message\":{}}".toByteArray(Charsets.UTF_8)
-        assertEquals("Typed data not supported yet", refusal(requestCbor(typed, dataType = 2)))
+        assertEquals("the document is missing primaryType", refusal(requestCbor(typed, dataType = 2)))
     }
 
     @Test
-    fun typedDataWithAnUnknownDomainChainIsRefusedToo() {
-        // The domain names chain 999999, which is not in the registry. Typed data is refused before any chain check.
-        val typed = "{\"types\":{},\"domain\":{\"chainId\":999999},\"message\":{}}".toByteArray(Charsets.UTF_8)
-        assertEquals("Typed data not supported yet", refusal(requestCbor(typed, dataType = 2, chainId = UNKNOWN_CHAIN)))
+    fun typedDataForAnotherChainThanTheRequestIsRefused() {
+        val typed = ("{\"types\":{\"EIP712Domain\":[{\"name\":\"chainId\",\"type\":\"uint256\"}]," +
+            "\"Note\":[{\"name\":\"text\",\"type\":\"string\"}]},\"primaryType\":\"Note\",\"domain\":{\"chainId\":1}," +
+            "\"message\":{\"text\":\"hi\"}}").toByteArray(Charsets.UTF_8)
+        assertEquals(
+            "The typed data is for chain 1, but the request names chain $MONAD_TESTNET",
+            refusal(requestCbor(typed, dataType = 2)),
+        )
     }
 
     @Test

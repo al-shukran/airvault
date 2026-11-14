@@ -21,8 +21,8 @@ enum class DenylistCondition { ANY, UNLIMITED, APPROVED }
 /**
  * One known-dangerous request in the denylist. An entry names a Function Selector, a contract on a chain, or both. [condition]
  * narrows a selector to the calls that carry the risk, so an ordinary limited approval is not flagged. [primaryType] names an
- * EIP-712 type such as Permit. Typed data is not reviewed yet, so no transaction matches such an entry. [reason] is the short line
- * the owner reads on the warning or the refusal.
+ * EIP-712 type such as Permit. It matches typed data of that type, and no transaction, so it names no selector. [reason] is the
+ * short line the owner reads on the warning or the refusal.
  */
 @Serializable
 data class DenylistEntry(
@@ -52,6 +52,7 @@ data class DenylistEntry(
         require(primaryType == null || isDisplayText(primaryType, LABEL_MAX)) {
             "primaryType must be 1 to $LABEL_MAX printable characters"
         }
+        require(primaryType == null || selector == null) { "an entry names a selector or a primaryType, not both" }
         require(isDisplayText(reason, NOTE_MAX)) { "reason must be 1 to $NOTE_MAX printable characters" }
     }
 }
@@ -72,8 +73,24 @@ internal fun matchingDenylist(
     return entries.filter { it.matches(chainId, contract, selector, call) }
 }
 
+/**
+ * The entries that typed data of [primaryType] matches: a message whose domain names [chainId] and, when the domain names one,
+ * [verifyingContract]. An entry matches only when it names that primary type, and its chain and contract when it names them.
+ */
+internal fun matchingTypedDenylist(
+    entries: List<DenylistEntry>,
+    chainId: Long,
+    verifyingContract: String?,
+    primaryType: String,
+): List<DenylistEntry> = entries.filter { entry ->
+    entry.primaryType != null && entry.primaryType == primaryType &&
+        (entry.chainId == null || entry.chainId == chainId) &&
+        (entry.contract == null || (verifyingContract != null && entry.contract.equals(verifyingContract, ignoreCase = true)))
+}
+
 private fun DenylistEntry.matches(chainId: Long, contract: String, selector: String?, call: ContractCall?): Boolean {
-    if (this.selector == null && this.contract == null) return false
+    // A primary-type entry names typed data, so no transaction matches it, even one sent to its contract.
+    if (primaryType != null || (this.selector == null && this.contract == null)) return false
     if (this.chainId != null && this.chainId != chainId) return false
     if (this.contract != null && !this.contract.equals(contract, ignoreCase = true)) return false
     if (this.selector != null && this.selector != selector) return false

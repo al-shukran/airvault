@@ -1,0 +1,7 @@
+# Published EIP-712 values, one key=value per line. README.md names the sources.
+# mailSignature: the signature the standard gives for its Mail example, made by 0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826.
+# signingKey: the key of eth-sig-util's V4 signing tests. It has never held funds.
+# arrayMailSignature: eth-sig-util V4 signTypedData of its array Mail vector, with an empty domain and signingKey.
+mailSignature=0x4355c47d63924e8a72e509b65029052eb6c299d53a04e167c5775fd466751c9d07299936d304c153f6443dfa05f40ff007d72911b6f72307f996231605b915621c
+signingKey=0x4af1bceebf7f3634ec3cff8a2c38e51178d5d4ce585c52d6043e5e2cc3418bb0
+arrayMailSignature=0x17c484deba479e3e9f821a6d5defc0179ddf52195c0cd75895c936b3ab4d217c6ba7f1f164a3ac9701e1694a04a13f421fb67ec44cd316846326a98b0d5838a01c
