@@ -22,19 +22,33 @@ import org.bouncycastle.crypto.signers.Ed25519Signer
 /**
  * Wire format of a registry package. The writer is `:tools:registry-pack`; the two must agree.
  *
- * File: `LRP1` | u32 big-endian payload length | payload | 64-byte Ed25519 signature.
- * Payload: canonical JSON holding `formatVersion` and the fields of [RegistryPackage].
- * Signed message: `LENSLY-REGISTRY-v1\n` followed by the payload bytes.
+ * File: `LRP2` | u32 big-endian payload length | 8-byte key ID | payload | 64-byte Ed25519 signature.
+ * Key ID: the first 8 bytes of the SHA-256 of the signing public key. It selects the [TrustedKey] to verify with.
+ * Payload: canonical JSON holding `formatVersion`, `minSchemaVersion` and the fields of [RegistryPackage].
+ * Signed message: `LENSLY-REGISTRY-v2\n`, the key ID, then the payload bytes.
  *
- * Size, magic, length and signature are checked before any JSON is parsed.
+ * Any other magic is refused as [RegistryUpdateException.UnsupportedFormat] before anything else is checked: `LRP1` has no key
+ * ID, and `LRP3` or later is not read yet.
+ *
+ * Size, magic, length, key and signature are checked before any JSON is parsed.
  */
 internal object PackageFormat {
-    const val FORMAT_VERSION = 1L
+    const val FORMAT_VERSION = 2L
+
+    /**
+     * The newest catalog schema this app interprets. A package states the schema it needs in `minSchemaVersion`, and one that
+     * needs a newer schema is refused as [RegistryUpdateException.Incompatible] before its entries are read.
+     */
+    const val SCHEMA_VERSION = 1L
     const val MAX_BYTES = 1 shl 20
 
-    private val MAGIC = "LRP1".toByteArray(StandardCharsets.US_ASCII)
-    private val DOMAIN = "LENSLY-REGISTRY-v1\n".toByteArray(StandardCharsets.US_ASCII)
-    private const val HEADER_BYTES = 8
+    private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
+    private val MAGIC_PREFIX = "LRP".toByteArray(StandardCharsets.US_ASCII)
+    private val DOMAIN = "LENSLY-REGISTRY-v2\n".toByteArray(StandardCharsets.US_ASCII)
+    private const val LENGTH_OFFSET = 4
+    private const val KEY_ID_OFFSET = 8
+    private const val HEADER_BYTES = KEY_ID_OFFSET + TrustedKey.ID_BYTES
+    private const val FORMAT1_HEADER_BYTES = 8
     private const val SIGNATURE_BYTES = 64
     private const val MAX_TEXT = 64
     private const val MAX_MEANING = 240
@@ -42,22 +56,46 @@ internal object PackageFormat {
     private val CONTRACT = Regex("0x[0-9a-f]{40}")
     private val json = Json
 
-    /** The payload inside [bytes], once the size, magic, length and signature checks pass. */
-    fun open(bytes: ByteArray, trustedPublicKeys: List<ByteArray>): ByteArray {
+    /** The verified content of [bytes]: structure, signing key, signature, format, compatibility and entry rules, in that order. */
+    fun read(bytes: ByteArray, trustedKeys: List<TrustedKey>): RegistryPackage = decode(open(bytes, trustedKeys))
+
+    /**
+     * The sequence a format 1 package states, without any verification, or null when [bytes] are not one. Only for a file
+     * this app stored itself before format 2: it keeps the rollback check from starting over at 0 after the upgrade.
+     */
+    fun format1Sequence(bytes: ByteArray): Long? {
+        if (otherMagicVersion(bytes) != 1L || bytes.size <= FORMAT1_HEADER_BYTES + SIGNATURE_BYTES) return null
+        val payload = String(bytes, FORMAT1_HEADER_BYTES, bytes.size - FORMAT1_HEADER_BYTES - SIGNATURE_BYTES, StandardCharsets.UTF_8)
+        return runCatching { json.parseToJsonElement(payload).jsonObject["sequence"]?.jsonPrimitive?.longOrNull }.getOrNull()
+    }
+
+    /** The version named by a registry magic other than this app's (`LRP1`, `LRP3`, ...), or null for any other file. */
+    private fun otherMagicVersion(bytes: ByteArray): Long? {
+        if (bytes.size < MAGIC.size || !bytes.copyOf(MAGIC_PREFIX.size).contentEquals(MAGIC_PREFIX)) return null
+        if (bytes.copyOf(MAGIC.size).contentEquals(MAGIC)) return null
+        val digit = bytes[MAGIC_PREFIX.size].toInt().toChar()
+        return if (digit in '0'..'9') (digit - '0').toLong() else null
+    }
+
+    /** The payload inside [bytes], once the size, magic, length, key, key status and signature checks pass. */
+    private fun open(bytes: ByteArray, trustedKeys: List<TrustedKey>): ByteArray {
         if (bytes.size > MAX_BYTES) throw RegistryUpdateException.Malformed("larger than $MAX_BYTES bytes")
+        otherMagicVersion(bytes)?.let { throw RegistryUpdateException.UnsupportedFormat(it, FORMAT_VERSION) }
         if (bytes.size <= HEADER_BYTES + SIGNATURE_BYTES) throw RegistryUpdateException.Malformed("truncated")
         if (!bytes.copyOf(MAGIC.size).contentEquals(MAGIC)) {
             throw RegistryUpdateException.Malformed("not a Lensly registry package")
         }
-        val declared = ByteBuffer.wrap(bytes, MAGIC.size, 4).int.toLong() and 0xffffffffL
+        val declared = ByteBuffer.wrap(bytes, LENGTH_OFFSET, 4).int.toLong() and 0xffffffffL
         if (declared != (bytes.size - HEADER_BYTES - SIGNATURE_BYTES).toLong()) {
             throw RegistryUpdateException.Malformed("payload length does not match the file size")
         }
+        val keyId = bytes.copyOfRange(KEY_ID_OFFSET, HEADER_BYTES)
         val payload = bytes.copyOfRange(HEADER_BYTES, bytes.size - SIGNATURE_BYTES)
         val signature = bytes.copyOfRange(bytes.size - SIGNATURE_BYTES, bytes.size)
-        if (trustedPublicKeys.none { verifies(it, payload, signature) }) {
-            throw RegistryUpdateException.BadSignature()
-        }
+        val idText = TrustedKey.hex(keyId)
+        val key = trustedKeys.firstOrNull { it.id == idText } ?: throw RegistryUpdateException.UnknownKey(idText)
+        if (key.status == KeyStatus.REVOKED) throw RegistryUpdateException.RevokedKey(idText)
+        if (!verifies(key.publicKey, keyId + payload, signature)) throw RegistryUpdateException.BadSignature()
         return payload
     }
 
@@ -65,21 +103,27 @@ internal object PackageFormat {
      * Parses and validates a signed payload's content. Checks the payload's own rules only. The caller checks
      * the baked catalog.
      */
-    fun decode(payload: ByteArray): RegistryPackage {
+    private fun decode(payload: ByteArray): RegistryPackage {
         val text = try {
             StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(payload)).toString()
         } catch (e: CharacterCodingException) {
             throw RegistryUpdateException.Malformed("payload is not UTF-8")
         }
-        // formatVersion picks the reader, so it must be a JSON number, not a quoted one.
-        val version = try {
-            json.parseToJsonElement(text).jsonObject["formatVersion"]?.jsonPrimitive
-                ?.takeUnless { it.isString }?.longOrNull
+        // The two version fields decide whether the rest can be read at all, so they are read first and must be JSON numbers,
+        // not quoted ones. A package for a newer schema may hold fields this app does not know, which the strict decode below
+        // would report as malformed.
+        val root = try {
+            json.parseToJsonElement(text).jsonObject
         } catch (e: IllegalArgumentException) {
             throw RegistryUpdateException.Malformed("payload is not a JSON object")
         }
-        if (version == null) throw RegistryUpdateException.Malformed("payload has no integer formatVersion")
-        if (version != FORMAT_VERSION) throw RegistryUpdateException.UnsupportedFormat(version)
+        fun integer(name: String): Long = root[name]?.jsonPrimitive?.takeUnless { it.isString }?.longOrNull
+            ?: throw RegistryUpdateException.Malformed("payload has no integer $name")
+        val version = integer("formatVersion")
+        if (version != FORMAT_VERSION) throw RegistryUpdateException.UnsupportedFormat(version, FORMAT_VERSION)
+        val minSchema = integer("minSchemaVersion")
+        if (minSchema < 1) throw RegistryUpdateException.Malformed("minSchemaVersion must be at least 1")
+        if (minSchema > SCHEMA_VERSION) throw RegistryUpdateException.Incompatible(minSchema, SCHEMA_VERSION)
         val dto = try {
             json.decodeFromString<Payload>(text)
         } catch (e: IllegalArgumentException) {
@@ -89,18 +133,8 @@ internal object PackageFormat {
         return validated(dto)
     }
 
-    /** Parses a public key given as 64 hexadecimal characters, as stored in the `registry/release.pub` asset. */
-    fun parsePublicKey(text: String): ByteArray {
-        val hex = text.trim()
-        require(hex.length == 64 && hex.all { it.digitToIntOrNull(16) != null }) {
-            "public key must be 64 hexadecimal characters"
-        }
-        return ByteArray(32) { hex.substring(2 * it, 2 * it + 2).toInt(16).toByte() }
-    }
-
-    private fun verifies(publicKey: ByteArray, payload: ByteArray, signature: ByteArray): Boolean {
-        if (publicKey.size != 32) return false
-        val message = DOMAIN + payload
+    private fun verifies(publicKey: ByteArray, signed: ByteArray, signature: ByteArray): Boolean {
+        val message = DOMAIN + signed
         val verifier = Ed25519Signer()
         verifier.init(false, Ed25519PublicKeyParameters(publicKey, 0))
         verifier.update(message, 0, message.size)
@@ -268,6 +302,7 @@ internal object PackageFormat {
     @Serializable
     private class Payload(
         val formatVersion: Long,
+        val minSchemaVersion: Long,
         val sequence: Long,
         val createdAt: String,
         val networks: List<NetworkRecord>,

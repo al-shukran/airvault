@@ -28,7 +28,7 @@ class RegistryWhitelistSourceTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private val keys = listOf(TestPackages.PUBLIC_BYTES)
+    private val keys = TestPackages.TRUSTED
 
     private fun dir(): File = folder.root.resolve("registry")
 

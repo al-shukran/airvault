@@ -7,6 +7,7 @@ import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.update.RegistryCatalog
 import app.lensly.core.registry.update.RegistryPackage
 import app.lensly.core.registry.update.RegistryUpdate
+import app.lensly.core.registry.update.TrustedKeys
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -45,7 +46,7 @@ object RegistryHolder {
     private fun load(context: Context): RegistryCatalog {
         val assets = context.assets
         val baked = RegistryLoader.fromAssets(assets)
-        val trustedKeys = RegistryUpdate.trustedKeys { path -> readAsset(assets, path) }
+        val trustedKeys = TrustedKeys.load { path -> readAsset(assets, path) }
         return RegistryCatalog(baked, File(context.noBackupFilesDir, INSTALLED_DIR), trustedKeys)
     }
 

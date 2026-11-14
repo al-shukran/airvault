@@ -9,34 +9,33 @@ import java.io.InputStream
 /**
  * Offline catalog updates. A registry package adds networks and tokens to the baked-in catalog. It can never
  * change or remove a baked entry. Its whitelist is the effective one only when the package is newer by sequence than the
- * build's catalog; otherwise the build's whitelist stays. A package is accepted only when the release key signed it.
+ * build's catalog; otherwise the build's whitelist stays. A package is accepted only when a key the build trusts signed it
+ * (see [TrustedKeys]), and only when its sequence is higher than every sequence accepted before.
  *
  * Packages arrive on removable storage. This object checks them before anything is stored. Reading them from
  * storage is the caller's job.
  */
 object RegistryUpdate {
-    /** APK asset holding the trusted Ed25519 public key as 64 hexadecimal characters. */
-    const val TRUSTED_KEY_PATH = "registry/release.pub"
-
     /** The accepted package, stored in the registry directory (`noBackupFilesDir/registry/`). */
     const val INSTALLED_FILE = "installed.lrp"
+
+    /**
+     * The highest sequence ever accepted, as decimal text, stored beside [INSTALLED_FILE]. It keeps the rollback check
+     * working when the installed package itself can no longer be read.
+     */
+    const val SEQUENCE_FILE = "accepted-sequence"
 
     private val installLock = Any()
 
     private const val READ_CHUNK_BYTES = 8 * 1024
 
-    /** The trusted keys: the single key in the [TRUSTED_KEY_PATH] asset, read through [readAsset]. */
-    fun trustedKeys(readAsset: (String) -> String?): List<ByteArray> = listOf(
-        PackageFormat.parsePublicKey(checkNotNull(readAsset(TRUSTED_KEY_PATH)) { "missing asset $TRUSTED_KEY_PATH" }),
-    )
-
     /**
-     * Checks [bytes] against [trustedPublicKeys] and the [baked] catalog without storing anything. The sequence
+     * Checks [bytes] against [trustedKeys] and the [baked] catalog without storing anything. The sequence
      * check belongs to [install], because a package can be valid on its own and still be an old one.
      */
-    fun verify(bytes: ByteArray, trustedPublicKeys: List<ByteArray>, baked: Registry): Result<RegistryPackage> =
+    fun verify(bytes: ByteArray, trustedKeys: List<TrustedKey>, baked: Registry): Result<RegistryPackage> =
         runCatching {
-            val pkg = PackageFormat.decode(PackageFormat.open(bytes, trustedPublicKeys))
+            val pkg = PackageFormat.read(bytes, trustedKeys)
             checkAgainstBaked(pkg, baked)
             pkg
         }
@@ -63,24 +62,26 @@ object RegistryUpdate {
     }
 
     /**
-     * Stores [bytes] as the installed package in [dir] when they verify and their sequence is higher than the
-     * installed package's. An older or equal sequence is refused with [RegistryUpdateException.NotNewer]. On any
-     * failure nothing is written.
+     * Stores [bytes] as the installed package in [dir] when they verify and their sequence is higher than the last
+     * accepted one. An older or equal sequence is refused with [RegistryUpdateException.NotNewer]. On any failure
+     * nothing is written.
      */
     fun install(
         bytes: ByteArray,
-        trustedPublicKeys: List<ByteArray>,
+        trustedKeys: List<TrustedKey>,
         baked: Registry,
         dir: File,
     ): Result<RegistryPackage> = synchronized(installLock) {
         runCatching {
-            val incoming = verify(bytes, trustedPublicKeys, baked).getOrThrow()
-            val installed = installedSequence(dir, trustedPublicKeys)
-            if (incoming.sequence <= installed) {
-                throw RegistryUpdateException.NotNewer(installed, incoming.sequence)
+            val incoming = verify(bytes, trustedKeys, baked).getOrThrow()
+            val accepted = acceptedSequence(dir, trustedKeys)
+            if (incoming.sequence <= accepted) {
+                throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
             check(dir.isDirectory || dir.mkdirs()) { "cannot create ${dir.path}" }
+            // The package goes first: if the record write is lost, the package still gives its own sequence.
             writeAtomically(File(dir, INSTALLED_FILE), bytes)
+            writeAtomically(File(dir, SEQUENCE_FILE), incoming.sequence.toString().toByteArray())
             incoming
         }
     }
@@ -92,9 +93,9 @@ object RegistryUpdate {
      * longer verifies against [registry] (for example because an app update bakes one of its chain IDs), [registry] is returned
      * unchanged; a failed verification is flagged on the result so Settings can say the built-in catalog is in use.
      */
-    fun withInstalled(registry: Registry, dir: File, trustedPublicKeys: List<ByteArray>): Registry {
+    fun withInstalled(registry: Registry, dir: File, trustedKeys: List<TrustedKey>): Registry {
         if (!File(dir, INSTALLED_FILE).isFile) return registry
-        val installed = installedPackage(registry, dir, trustedPublicKeys) ?: return registry.withInstalledUpdateUnverified()
+        val installed = installedPackage(registry, dir, trustedKeys) ?: return registry.withInstalledUpdateUnverified()
         val merged = registry.withAdditions(installed.networks, installed.tokens)
         return if (installed.sequence > registry.catalogSequence) {
             merged.withWhitelist(installed.whitelist)
@@ -104,22 +105,31 @@ object RegistryUpdate {
     }
 
     /**
-     * The installed package in [dir], when it verifies against [trustedPublicKeys] and [registry]. It is the package
+     * The installed package in [dir], when it verifies against [trustedKeys] and [registry]. It is the package
      * [withInstalled] merges, so its sequence is the one in effect. Null when none is stored or it no longer verifies.
      */
-    fun installedPackage(registry: Registry, dir: File, trustedPublicKeys: List<ByteArray>): RegistryPackage? {
+    fun installedPackage(registry: Registry, dir: File, trustedKeys: List<TrustedKey>): RegistryPackage? {
         val file = File(dir, INSTALLED_FILE)
         if (!file.isFile) return null
-        return runCatching { verify(file.readBytes(), trustedPublicKeys, registry).getOrThrow() }.getOrNull()
+        return verify(file.readBytes(), trustedKeys, registry).getOrNull()
     }
 
-    /** Sequence of the installed package, or 0 when none is stored or the stored file no longer verifies. */
-    private fun installedSequence(dir: File, trustedPublicKeys: List<ByteArray>): Long {
+    /**
+     * The highest sequence accepted so far: the larger of the [SEQUENCE_FILE] record and the installed package's own
+     * sequence. It is 0 only when nothing was ever installed. An installed package that cannot be read with no record
+     * beside it is [RegistryUpdateException.SequenceUnknown], never 0.
+     */
+    private fun acceptedSequence(dir: File, trustedKeys: List<TrustedKey>): Long {
+        val recorded = File(dir, SEQUENCE_FILE).takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull()
         val file = File(dir, INSTALLED_FILE)
-        if (!file.isFile) return 0
-        return runCatching {
-            PackageFormat.decode(PackageFormat.open(file.readBytes(), trustedPublicKeys)).sequence
-        }.getOrDefault(0)
+        if (!file.isFile) return recorded ?: 0
+        val bytes = file.readBytes()
+        val installed = runCatching { PackageFormat.read(bytes, trustedKeys).sequence }.getOrNull()
+            // A package installed before the record existed is format 1, which is no longer verified. It was verified when
+            // it was stored, and this directory is private to the app, so its sequence still counts.
+            ?: PackageFormat.format1Sequence(bytes)
+        if (installed == null && recorded == null) throw RegistryUpdateException.SequenceUnknown()
+        return maxOf(installed ?: 0, recorded ?: 0)
     }
 
     private fun checkAgainstBaked(pkg: RegistryPackage, baked: Registry) {

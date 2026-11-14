@@ -60,15 +60,23 @@ fun importedState(pkg: RegistryPackage, chains: List<NetworkEntry> = emptyList()
 
 /** The reason to show for a refused package. Anything that is not a [RegistryUpdateException] is a read or storage error. */
 fun refusalReason(error: Throwable): String = when (error) {
-    // A tampered file and a file signed with another key fail the same check, so one message covers both.
-    is RegistryUpdateException.BadSignature ->
-        "Signature check failed. The file was altered, or it was not signed with the release key."
+    is RegistryUpdateException.BadSignature -> "Signature check failed. The file was altered after it was signed."
+    is RegistryUpdateException.UnknownKey ->
+        "Signed with a key this app does not trust (key ${error.keyId}). Only packages signed with the release key are accepted."
+    is RegistryUpdateException.RevokedKey ->
+        "Signed with a revoked key (key ${error.keyId}). Get a package signed with a current key."
+    is RegistryUpdateException.Incompatible ->
+        "This package needs a newer version of the app (catalog schema ${error.required}; this app reads up to " +
+            "${error.supported}). Update the app first."
+    is RegistryUpdateException.SequenceUnknown ->
+        "The installed catalog package is damaged and its sequence is not recorded, so no package can be shown to be newer."
     is RegistryUpdateException.NotNewer ->
         "Sequence ${error.offered} is not newer than the installed sequence ${error.installed}. " +
             "An older package cannot roll the catalog back."
     is RegistryUpdateException.Conflict -> "Conflict: ${error.message}."
     is RegistryUpdateException.InvalidEntry -> "Invalid entry: ${error.message}."
-    is RegistryUpdateException.UnsupportedFormat -> "Format version ${error.version} is not supported by this app."
+    is RegistryUpdateException.UnsupportedFormat ->
+        "Registry format version ${error.version} is not supported. This app reads format version ${error.supported}."
     is RegistryUpdateException.Malformed -> "Not a registry package: ${error.message}."
     else -> "The package could not be read or stored."
 }

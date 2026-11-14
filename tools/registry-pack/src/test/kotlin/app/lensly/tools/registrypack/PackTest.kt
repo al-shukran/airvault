@@ -1,6 +1,8 @@
 package app.lensly.tools.registrypack
 
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission
@@ -11,6 +13,9 @@ import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -26,6 +31,16 @@ class PackTest {
     private val publicKey = Pack.publicKeyOf(seed)
     private val sourceJson = File("samples/example-entries.json").readText()
     private val source = json.decodeFromString<PackageDto>(sourceJson)
+    private val passphrase = "correct horse battery staple".toCharArray()
+
+    /** Magic, length and key ID: the bytes before the payload. */
+    private val headerBytes = 16
+
+    /** Runs the tool with [pass] as its passphrase and returns the exit code. Its output is discarded. */
+    private fun tool(vararg args: String, pass: CharArray = passphrase): Int {
+        val sink = PrintStream(ByteArrayOutputStream())
+        return runTool(args.toList(), sink, sink) { pass }
+    }
 
     @Test
     fun buildingTwiceFromTheSameSourceGivesIdenticalBytes() {
@@ -53,10 +68,25 @@ class PackTest {
     }
 
     @Test
+    fun packageHeaderNamesTheFormatAndTheIdOfItsSigningKey() {
+        val bytes = Pack.build(sourceJson, seed).first
+
+        assertEquals("LRP2", String(bytes, 0, 4, StandardCharsets.US_ASCII))
+        assertContentEquals(Pack.keyIdOf(publicKey), bytes.copyOfRange(8, headerBytes))
+    }
+
+    @Test
     fun tamperedPayloadByteFailsVerification() {
         val bytes = Pack.build(sourceJson, seed).first
-        val payloadStart = 8
-        bytes[payloadStart + 20] = (bytes[payloadStart + 20] + 1).toByte()
+        bytes[headerBytes + 20] = (bytes[headerBytes + 20] + 1).toByte()
+
+        assertFails { Pack.verify(bytes, publicKey) }
+    }
+
+    @Test
+    fun tamperedKeyIdByteFailsVerification() {
+        val bytes = Pack.build(sourceJson, seed).first
+        bytes[8] = (bytes[8] + 1).toByte()
 
         assertFails { Pack.verify(bytes, publicKey) }
     }
@@ -69,12 +99,13 @@ class PackTest {
     }
 
     @Test
-    fun committedSampleIsTheSourceSignedWithTheBakedKey() {
-        val bakedKey = File("../../app/src/main/assets/registry/release.pub").readText().hexToBytes()
+    fun committedSampleIsTheSourceSignedWithTheDebugKey() {
+        val debugKey = json.parseToJsonElement(File("../../app/src/debug/assets/registry/trusted-keys.debug.json").readText())
+            .jsonObject.getValue("keys").jsonArray.single().jsonObject.getValue("publicKey").jsonPrimitive.content.hexToBytes()
         val committed = File("samples/example.lrp").readBytes()
 
-        assertEquals(source, Pack.verify(committed, bakedKey))
-        assertContentEquals(Pack.canonicalPayload(source), committed.copyOfRange(8, committed.size - 64))
+        assertEquals(source, Pack.verify(committed, debugKey))
+        assertContentEquals(Pack.canonicalPayload(source), committed.copyOfRange(headerBytes, committed.size - 64))
     }
 
     @Test
@@ -91,7 +122,9 @@ class PackTest {
             "testnet network" to source.copy(networks = listOf(network.copy(testnet = true))),
             "nativeDecimals above 36" to source.copy(networks = listOf(network.copy(nativeDecimals = 37))),
             "sequence zero" to source.copy(sequence = 0),
-            "formatVersion two" to source.copy(formatVersion = 2),
+            "formatVersion one" to source.copy(formatVersion = 1),
+            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 2),
+            "minSchemaVersion zero" to source.copy(minSchemaVersion = 0),
             "impossible date" to source.copy(createdAt = "2026-02-30"),
             "control character in name" to source.copy(networks = listOf(network.copy(name = "Li\u0007nea"))),
             "bidi control in token name" to source.copy(tokens = listOf(token.copy(name = "USD‮Coin"))),
@@ -113,19 +146,54 @@ class PackTest {
     }
 
     @Test
-    fun keygenWritesMatchingKeysAndRefusesToOverwrite() {
+    fun keygenWritesAnEncryptedKeyThatOpensWithItsPassphrase() {
         val dir = folder.root.toPath().resolve("keys")
 
-        val publicKey = generateKeys(dir)
+        val made = generateKeys(dir, passphrase)
 
-        assertEquals(publicKey.toHex(), Files.readString(dir.resolve("release.pub")).trim())
-        assertContentEquals(publicKey, Pack.publicKeyOf(readKey(dir.resolve("release.key"))))
+        assertEquals(made.toHex(), Files.readString(dir.resolve("release.pub")).trim())
+        val stored = Files.readString(dir.resolve("release.key"))
+        val privateSeed = decryptSeed(stored, passphrase)
+        assertContentEquals(made, Pack.publicKeyOf(privateSeed))
+        assertFalse(stored.contains(privateSeed.toHex()), "the seed must not be stored in the clear")
         assertEquals(
             setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE),
             Files.getPosixFilePermissions(dir.resolve("release.key")),
         )
-        assertFails { generateKeys(dir) }
+        assertFails { generateKeys(dir, passphrase) }
         assertTrue(Files.exists(dir.resolve("release.key")))
+    }
+
+    @Test
+    fun aWrongPassphraseOrAnAlteredKeyFileIsRefused() {
+        val dir = folder.root.toPath().resolve("keys")
+        generateKeys(dir, passphrase)
+        val stored = Files.readString(dir.resolve("release.key")).trim()
+        val altered = stored.dropLast(1) + if (stored.last() == '0') '1' else '0'
+
+        assertFailsWith<IllegalArgumentException> { decryptSeed(stored, "a different passphrase".toCharArray()) }
+        assertFailsWith<IllegalArgumentException> { decryptSeed(altered, passphrase) }
+    }
+
+    @Test
+    fun passphraseMustBeAtLeastTwelveCharacters() {
+        assertFailsWith<IllegalArgumentException> {
+            generateKeys(folder.root.toPath().resolve("short"), "too short".toCharArray())
+        }
+    }
+
+    @Test
+    fun keygenBuildAndVerifyRoundTripWithThePassphrase() {
+        val dir = folder.root.toPath().resolve("keys")
+        val out = folder.root.toPath().resolve("round-trip.lrp").toString()
+        val key = dir.resolve("release.key").toString()
+        val pub = dir.resolve("release.pub").toString()
+
+        assertEquals(0, tool("keygen", "--out", dir.toString()))
+        assertEquals(0, tool("build", "--in", "samples/example-entries.json", "--key", key, "--out", out))
+        assertEquals(0, tool("verify", "--pub", pub, out))
+        val wrong = "wrong passphrase!".toCharArray()
+        assertEquals(1, tool("build", "--in", "samples/example-entries.json", "--key", key, "--out", out, pass = wrong))
     }
 
     private val whitelistJson = File("samples/example-whitelist-entries.json").readText()

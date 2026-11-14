@@ -29,7 +29,7 @@ class WhitelistPackageTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private val keys = listOf(TestPackages.PUBLIC_BYTES)
+    private val keys = TestPackages.TRUSTED
     private val baked: Registry = RegistryLoader.load { path -> File(MAIN, path).takeIf(File::isFile)?.readText() }
 
     private fun dir(): File = folder.root.resolve("registry")
@@ -104,7 +104,7 @@ class WhitelistPackageTest {
     fun aTamperedWhitelistEntryIsRejectedAndNothingIsStored() {
         val payload = TestPackages.payload(whitelist = TestPackages.LINEA_SWAP)
         val bytes = TestPackages.signed(payload)
-        bytes[8 + payload.indexOf("Swap tokens")] = 'X'.code.toByte()
+        bytes[16 + payload.indexOf("Swap tokens")] = 'X'.code.toByte()
         val dir = dir()
 
         val result = RegistryUpdate.install(bytes, keys, baked, dir)

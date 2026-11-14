@@ -6,6 +6,7 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import java.io.File
 import java.io.InputStream
+import java.nio.charset.StandardCharsets
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -20,11 +21,10 @@ import org.junit.rules.TemporaryFolder
 
 /** Paths are relative to :app, the working directory for unit tests. */
 private const val MAIN = "src/main/assets"
+private const val DEBUG = "src/debug/assets"
 private const val SAMPLE = "../tools/registry-pack/samples/example.lrp"
 private const val USDC_ETHEREUM = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 private const val USDC_LINEA = "0x176211869ca2b568f2a7d4ee941e073a821ee1ff"
-
-private val BAKED_BYTES: List<ByteArray> = RegistryUpdate.trustedKeys(fileReader(MAIN))
 
 /** Simulates the APK layout: each path is read from the first root that contains it. */
 private fun fileReader(vararg roots: String): (String) -> String? = { path ->
@@ -40,7 +40,7 @@ private fun bakedRegistry(): Registry = RegistryLoader.load(fileReader(MAIN))
 
 private fun verifyBytes(
     bytes: ByteArray,
-    keys: List<ByteArray> = listOf(TestPackages.PUBLIC_BYTES),
+    keys: List<TrustedKey> = TestPackages.TRUSTED,
     baked: Registry = bakedRegistry(),
 ): Result<RegistryPackage> = RegistryUpdate.verify(bytes, keys, baked)
 
@@ -49,11 +49,25 @@ private fun verifyPayload(payload: String, baked: Registry = bakedRegistry()): R
 
 private fun failure(result: Result<*>): Throwable = assertNotNull(result.exceptionOrNull())
 
+/** The same package bytes with another magic: the format is checked before the signature, so the signature need not match. */
+private fun withMagic(bytes: ByteArray, magic: String): ByteArray =
+    bytes.copyOf().also { magic.toByteArray(StandardCharsets.US_ASCII).copyInto(it) }
+
+/** A format 1 package (`LRP1`: magic, length, payload, signature), as the app stored before key IDs existed. */
+private fun formatOnePackage(payload: String): ByteArray {
+    val body = payload.toByteArray(StandardCharsets.UTF_8)
+    return "LRP1".toByteArray(StandardCharsets.US_ASCII) + intBytes(body.size) + body + ByteArray(64)
+}
+
+private fun intBytes(value: Int): ByteArray = byteArrayOf(
+    (value ushr 24).toByte(), (value ushr 16).toByte(), (value ushr 8).toByte(), value.toByte(),
+)
+
 class RegistryUpdateTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private val keys = listOf(TestPackages.PUBLIC_BYTES)
+    private val keys = TestPackages.TRUSTED
 
     private fun registryDir(): File = folder.root.resolve("registry")
 
@@ -79,7 +93,7 @@ class RegistryUpdateTest {
     fun tamperedPayloadByteIsRejectedAndNothingIsStored() {
         val payload = TestPackages.payload()
         val bytes = TestPackages.signed(payload)
-        bytes[8 + payload.indexOf("Linea")] = 'X'.code.toByte()
+        bytes[16 + payload.indexOf("Linea")] = 'X'.code.toByte()
         val dir = registryDir()
 
         val result = RegistryUpdate.install(bytes, keys, bakedRegistry(), dir)
@@ -97,17 +111,50 @@ class RegistryUpdateTest {
     }
 
     @Test
-    fun packageSignedWithAnotherKeyIsRejected() {
-        val bytes = TestPackages.signed(TestPackages.payload(), seed = ByteArray(32) { 9 })
+    fun packageSignedWithAnUnknownKeyIsRejectedAndNamesTheKey() {
+        val otherSeed = ByteArray(32) { 9 }
+        val bytes = TestPackages.signed(TestPackages.payload(), seed = otherSeed)
 
-        assertIs<RegistryUpdateException.BadSignature>(failure(verifyBytes(bytes)))
+        val refused = assertIs<RegistryUpdateException.UnknownKey>(failure(verifyBytes(bytes)))
+        assertEquals(TrustedKey(TestPackages.publicKeyOf(otherSeed)).id, refused.keyId)
     }
 
     @Test
     fun packageIsRejectedWhenThereAreNoTrustedKeys() {
         val bytes = TestPackages.signed(TestPackages.payload())
 
-        assertIs<RegistryUpdateException.BadSignature>(failure(verifyBytes(bytes, keys = emptyList())))
+        assertIs<RegistryUpdateException.UnknownKey>(failure(verifyBytes(bytes, keys = emptyList())))
+    }
+
+    @Test
+    fun packageSignedWithARevokedKeyIsRefusedByName() {
+        val bytes = TestPackages.signed(TestPackages.payload())
+        val revoked = listOf(TrustedKey(TestPackages.PUBLIC_BYTES, KeyStatus.REVOKED))
+
+        val refused = assertIs<RegistryUpdateException.RevokedKey>(failure(verifyBytes(bytes, keys = revoked)))
+        assertEquals(TestPackages.TRUSTED.single().id, refused.keyId)
+    }
+
+    @Test
+    fun rotationStopsTheOldKeyButTheInstalledSequenceStillBlocksRollback() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        val newSeed = ByteArray(32) { 5 }
+        val rotated = listOf(
+            TrustedKey(TestPackages.PUBLIC_BYTES, KeyStatus.REVOKED),
+            TrustedKey(TestPackages.publicKeyOf(newSeed)),
+        )
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 2)), keys, baked, dir).getOrThrow()
+
+        // The installed package is signed by the revoked key, so it no longer counts for the catalog...
+        assertNull(RegistryUpdate.installedPackage(baked, dir, rotated))
+        assertEquals(baked.networks(), RegistryUpdate.withInstalled(baked, dir, rotated).networks())
+        // ...but its sequence still does: an older package from the new key cannot be installed.
+        val older = assertIs<RegistryUpdateException.NotNewer>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1), newSeed), rotated, baked, dir)),
+        )
+        assertEquals(2L, older.installed)
+        assertTrue(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 3), newSeed), rotated, baked, dir).isSuccess)
     }
 
     @Test
@@ -130,6 +177,49 @@ class RegistryUpdateTest {
         val stored = RegistryUpdate.verify(File(dir, RegistryUpdate.INSTALLED_FILE).readBytes(), keys, baked)
         assertEquals(2L, stored.getOrThrow().sequence)
         assertTrue(offer(3).isSuccess)
+    }
+
+    @Test
+    fun anUnreadableInstalledPackageStillRefusesAnEqualOrOlderSequence() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir).getOrThrow()
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(byteArrayOf(1, 2, 3))
+
+        val equal = assertIs<RegistryUpdateException.NotNewer>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir)),
+        )
+        assertEquals(5L, equal.installed)
+        assertIs<RegistryUpdateException.NotNewer>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 4)), keys, baked, dir)),
+        )
+        assertTrue(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 6)), keys, baked, dir).isSuccess)
+    }
+
+    @Test
+    fun anUnreadableInstalledPackageWithNoRecordNeverFallsBackToSequenceZero() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir).getOrThrow()
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(byteArrayOf(1, 2, 3))
+        File(dir, RegistryUpdate.SEQUENCE_FILE).delete()
+
+        assertIs<RegistryUpdateException.SequenceUnknown>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1)), keys, baked, dir)),
+        )
+        assertFalse(File(dir, RegistryUpdate.SEQUENCE_FILE).exists())
+    }
+
+    @Test
+    fun anInstalledFormatOnePackageStillSetsTheSequenceAfterAnUpgrade() {
+        val baked = bakedRegistry()
+        val dir = registryDir().apply { mkdirs() }
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(formatOnePackage(TestPackages.payload(sequence = 5)))
+
+        val refused = assertIs<RegistryUpdateException.NotNewer>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 4)), keys, baked, dir)),
+        )
+        assertEquals(5L, refused.installed)
     }
 
     @Test
@@ -172,11 +262,29 @@ class RegistryUpdateTest {
     }
 
     @Test
-    fun otherFormatVersionIsRejected() {
+    fun otherFormatVersionIsRejectedWithItsVersion() {
         val refused = assertIs<RegistryUpdateException.UnsupportedFormat>(
-            failure(verifyPayload(TestPackages.payload(formatVersion = 2))),
+            failure(verifyPayload(TestPackages.payload(formatVersion = 3))),
         )
-        assertEquals(2L, refused.version)
+        assertEquals(3L, refused.version)
+        assertEquals(2L, refused.supported)
+    }
+
+    @Test
+    fun otherMagicIsRefusedAsUnsupportedBeforeAnythingElseIsChecked() {
+        val signed = TestPackages.signed(TestPackages.payload())
+
+        assertEquals(1L, assertIs<RegistryUpdateException.UnsupportedFormat>(failure(verifyBytes(withMagic(signed, "LRP1")))).version)
+        assertEquals(3L, assertIs<RegistryUpdateException.UnsupportedFormat>(failure(verifyBytes(withMagic(signed, "LRP3")))).version)
+    }
+
+    @Test
+    fun aPackageThatNeedsANewerSchemaIsIncompatible() {
+        val refused = assertIs<RegistryUpdateException.Incompatible>(
+            failure(verifyPayload(TestPackages.payload(minSchemaVersion = 2))),
+        )
+        assertEquals(2L, refused.required)
+        assertEquals(1L, refused.supported)
     }
 
     @Test
@@ -228,7 +336,8 @@ class RegistryUpdateTest {
             "unknown field" to TestPackages.payload(networks = network.replace("\"testnet\":false", "\"testnet\":false,\"extra\":1")),
             "missing explorerName" to TestPackages.payload(networks = network.replace("\"explorerName\":\"Lineascan\",", "")),
             "not a JSON object" to "[1,2,3]",
-            "formatVersion as a string" to TestPackages.payload().replace("\"formatVersion\":1", "\"formatVersion\":\"1\""),
+            "formatVersion as a string" to TestPackages.payload().replace("\"formatVersion\":2", "\"formatVersion\":\"2\""),
+            "no minSchemaVersion" to TestPackages.payload().replace("\"minSchemaVersion\":1,", ""),
         )
         for ((label, payload) in cases) {
             assertIs<RegistryUpdateException.Malformed>(verifyPayload(payload).exceptionOrNull(), label)
@@ -259,7 +368,7 @@ class RegistryUpdateTest {
     }
 
     @Test
-    fun committedSampleVerifiesAgainstTheBakedKey() {
+    fun committedSampleVerifiesAgainstTheDebugKey() {
         // The committed sample adds Linea (59144), which the app now ships. Verify it against a catalog without
         // that chain, so the check still covers the signature and the package format.
         val bakedWithoutSampleChain = bakedRegistry().let { baked ->
@@ -268,7 +377,8 @@ class RegistryUpdateTest {
                 baked.tokens().filter { it.chainId != 59144L },
             )
         }
-        val pkg = RegistryUpdate.verify(File(SAMPLE).readBytes(), BAKED_BYTES, bakedWithoutSampleChain).getOrThrow()
+        val debugKeys = TrustedKeys.load(fileReader(MAIN, DEBUG))
+        val pkg = RegistryUpdate.verify(File(SAMPLE).readBytes(), debugKeys, bakedWithoutSampleChain).getOrThrow()
 
         assertEquals(listOf(59144L), pkg.networks.map { it.chainId })
         assertEquals("Linea", pkg.networks.single().name)
@@ -277,30 +387,25 @@ class RegistryUpdateTest {
     }
 
     @Test
-    fun bakedReleaseKeyIsASingle32ByteKey() {
-        assertEquals(1, BAKED_BYTES.size)
-        assertEquals(32, BAKED_BYTES.single().size)
+    fun committedSampleIsRefusedByTheReleaseKeysAlone() {
+        // The development key is listed only in the debug source set, so a release build (main assets only) refuses it.
+        val releaseKeys = TrustedKeys.load(fileReader(MAIN))
+
+        assertIs<RegistryUpdateException.UnknownKey>(
+            failure(RegistryUpdate.verify(File(SAMPLE).readBytes(), releaseKeys, bakedRegistry())),
+        )
     }
 
     @Test
-    fun missingKeyAssetFailsLoudly() {
-        assertFailsWith<IllegalStateException> { RegistryUpdate.trustedKeys { null } }
-    }
-
-    @Test
-    fun publicKeyTextMustBe64HexCharacters() {
-        assertFailsWith<IllegalArgumentException> { PackageFormat.parsePublicKey("abcd") }
-        assertFailsWith<IllegalArgumentException> { PackageFormat.parsePublicKey("zz" + "0".repeat(62)) }
-    }
-
-    @Test
-    fun corruptInstalledFileIsIgnoredAndInstallingStillWorks() {
+    fun corruptInstalledFileWithNoRecordIsIgnoredAndRefusesInstalls() {
         val dir = registryDir().apply { mkdirs() }
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(byteArrayOf(1, 2, 3))
         val baked = bakedRegistry()
 
         assertEquals(baked.networks(), RegistryUpdate.withInstalled(baked, dir, keys).networks())
-        assertTrue(RegistryUpdate.install(TestPackages.signed(TestPackages.payload()), keys, baked, dir).isSuccess)
+        assertIs<RegistryUpdateException.SequenceUnknown>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload()), keys, baked, dir)),
+        )
     }
 
     @Test

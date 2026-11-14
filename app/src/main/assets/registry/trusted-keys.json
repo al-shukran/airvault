@@ -1,0 +1,4 @@
+{
+  "note": "RELEASE KEY SLOT. Empty on purpose: no release key exists yet, so a release build accepts no registry package. To fill it, follow 'Release key' in tools/registry-pack/README.md and add the entry that keygen prints to the list below.",
+  "keys": []
+}

@@ -12,8 +12,22 @@ import org.junit.Test
 
 class RegistryImportStateTest {
     @Test
-    fun tamperedAndWrongKeyPackagesShareTheSignatureReason() {
+    fun anAlteredPackageFailsTheSignatureCheck() {
         assertTrue(refusalReason(RegistryUpdateException.BadSignature()).startsWith("Signature check failed"))
+    }
+
+    @Test
+    fun aPackageFromAnUntrustedOrRevokedKeyNamesTheKey() {
+        assertTrue(refusalReason(RegistryUpdateException.UnknownKey("8e550bd7fc1c9e21")).contains("8e550bd7fc1c9e21"))
+        assertTrue(refusalReason(RegistryUpdateException.RevokedKey("8e550bd7fc1c9e21")).startsWith("Signed with a revoked key"))
+    }
+
+    @Test
+    fun anUnsupportedFormatNamesTheVersionThisAppReads() {
+        assertEquals(
+            "Registry format version 1 is not supported. This app reads format version 2.",
+            refusalReason(RegistryUpdateException.UnsupportedFormat(version = 1, supported = 2)),
+        )
     }
 
     @Test

@@ -11,9 +11,9 @@ import java.io.File
 class RegistryCatalog(
     private val baked: Registry,
     private val dir: File,
-    private val trustedPublicKeys: List<ByteArray>,
+    private val trustedKeys: List<TrustedKey>,
 ) {
-    private var merged: Registry = RegistryUpdate.withInstalled(baked, dir, trustedPublicKeys)
+    private var merged: Registry = RegistryUpdate.withInstalled(baked, dir, trustedKeys)
 
     /** The baked catalog with the installed package merged in. */
     @Synchronized
@@ -25,7 +25,7 @@ class RegistryCatalog(
      */
     @Synchronized
     fun installed(): RegistryPackage? =
-        RegistryUpdate.installedPackage(baked, dir, trustedPublicKeys)?.takeIf { it.sequence > baked.catalogSequence }
+        RegistryUpdate.installedPackage(baked, dir, trustedKeys)?.takeIf { it.sequence > baked.catalogSequence }
 
     /**
      * Installs [bytes] as [RegistryUpdate.install] does, checking them against the baked catalog. On success the
@@ -33,7 +33,7 @@ class RegistryCatalog(
      */
     @Synchronized
     fun install(bytes: ByteArray): Result<RegistryPackage> =
-        RegistryUpdate.install(bytes, trustedPublicKeys, baked, dir).onSuccess {
-            merged = RegistryUpdate.withInstalled(baked, dir, trustedPublicKeys)
+        RegistryUpdate.install(bytes, trustedKeys, baked, dir).onSuccess {
+            merged = RegistryUpdate.withInstalled(baked, dir, trustedKeys)
         }
 }
