@@ -40,7 +40,7 @@ class EntryGestureStore(private val prefs: SharedPreferences) {
         const val FILE = "camera_prefs"
 
         /** The key holding the gesture number. */
-        internal const val KEY = "viewfinder_gesture"
+        const val KEY = "viewfinder_gesture"
 
         fun open(context: Context): EntryGestureStore =
             EntryGestureStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE))

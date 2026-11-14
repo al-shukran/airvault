@@ -5,8 +5,8 @@
 # core-ur-evm: its fuzz replay runs as a second invocation, because Jazzer and Robolectric cannot
 # share a JVM (see the -PfuzzLane note in shared/build.gradle.kts).
 #
-# Tests live in two modules. :shared (shared/src/test) holds the code Lensly and Lumio share. :app
-# (app/src/test) holds the Lensly-only code. A --tests filter that matches nothing in its module fails
+# Tests live in three modules. :shared (shared/src/test) holds the code Lensly and Lumio share. :app
+# (app/src/test) holds the Lensly-only code, and :lumio (lumio/src/test) the companion's. A --tests filter that matches nothing in its module fails
 # the task, so every selector runs in the module that owns its package.
 set -euo pipefail
 
@@ -35,6 +35,7 @@ partitions:
                  --tests 'app.lensly.ui.SecureWindowTest'
   app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
                  --tests 'app.lensly.core.vault.BackupExclusionTest'
+  lumio          :lumio:assembleDebug :lumio:testDebugUnitTest
   registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
   ci             bash -n on every script, scripts/ci/check-ui-partitions.sh, then scripts/ci/check-test-network.sh (no Gradle)
@@ -118,6 +119,11 @@ case "$partition" in
             --tests 'app.lensly.app.*' \
             --tests 'app.lensly.SmokeTest' \
             --tests 'app.lensly.core.vault.BackupExclusionTest'
+        ;;
+    lumio)
+        # Lumio, the companion app: its debug APK and its Home test. Its cover, gate and theme come from :shared, which the
+        # shared partitions test.
+        ./gradlew :lumio:assembleDebug :lumio:testDebugUnitTest
         ;;
     registry-pack)
         ./gradlew :tools:registry-pack:test
