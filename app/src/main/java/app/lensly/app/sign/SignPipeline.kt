@@ -17,6 +17,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
+import app.lensly.core.registry.StaticAbiDecoder
 import app.lensly.core.registry.StaticDecode
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
@@ -200,6 +201,8 @@ class SignPipeline(
         } else {
             // An undecodable call is a Decode Gap, so it is decided by the whitelist before the token lookup.
             val call = target.parsed.call ?: return decodeGap(target, tx, to, calldata)
+            // The labels are shown only when the decoded call is exactly the calldata that gets signed.
+            if (call.encode()?.contentEquals(calldata) != true) return Prepared.Refused(CANNOT_BE_READ)
             if (tx.value.signum() != 0) return Prepared.Refused("Token calls must not send native currency")
             // A contract outside the registry is an unknown token. Its decimals are not known, so its amounts stay raw.
             callReview(target, call, to, registry.token(target.chainId, to))
@@ -229,6 +232,10 @@ class SignPipeline(
         }
         // The sandbox must answer with exactly the params the entry declares, in their order.
         if (decoded.map { it.param } != entry.params) return Prepared.Refused(CANNOT_BE_READ, call)
+        // The labels are shown only when the decoded values are exactly the arguments that get signed.
+        if (StaticAbiDecoder.encode(decoded)?.contentEquals(argumentsOf(calldata)) != true) {
+            return Prepared.Refused(CANNOT_BE_READ, call)
+        }
         val token = registry.token(target.chainId, contract)
         val review = target.review(
             function = entry.signature.substringBefore('('),
@@ -253,6 +260,10 @@ class SignPipeline(
         return "${param.name} (${param.type})" to value
     }
 
+    /** The arguments of [calldata], which is what follows its selector. A calldata shorter than a selector has none. */
+    private fun argumentsOf(calldata: ByteArray): ByteArray =
+        calldata.copyOfRange(minOf(SELECTOR_BYTES, calldata.size), calldata.size)
+
     /** The whitelist entry for [contract] and the selector of [calldata] on the target's chain, or null when there is none. */
     private fun whitelistEntry(target: Target, contract: String, calldata: ByteArray): WhitelistEntry? {
         if (calldata.size < SELECTOR_BYTES) return null
@@ -267,7 +278,11 @@ class SignPipeline(
                 fee = feeLines(tx, network),
                 feeNote = feeNote(tx, network),
                 nonce = tx.nonce.toLong(),
-                txType = if (tx.type == TxType.EIP1559) "EIP-1559" else "Legacy",
+                txType = when (tx.type) {
+                    TxType.LEGACY_EIP155 -> "Legacy"
+                    TxType.EIP2930 -> "EIP-2930"
+                    TxType.EIP1559 -> "EIP-1559"
+                },
             ),
             target.request,
             target.index,
@@ -476,7 +491,7 @@ class SignPipeline(
      */
     private fun feeLines(tx: UnsignedTx, network: NetworkEntry?): List<Pair<String, String>> {
         return when (tx.type) {
-            TxType.LEGACY_EIP155 -> {
+            TxType.LEGACY_EIP155, TxType.EIP2930 -> {
                 val gasPrice = checkNotNull(tx.gasPrice)
                 listOf(
                     "Gas limit" to tx.gasLimit.toString(),

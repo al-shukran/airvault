@@ -1,18 +1,21 @@
 package app.lensly.app.sign
 
+import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.evm.EvmFixtures
-import app.lensly.core.evm.Rlp
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParsedRequest
+import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.ContractCall
+import app.lensly.core.registry.DecodedParam
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
+import app.lensly.core.registry.StaticDecode
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
@@ -36,6 +39,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
+import org.web3j.crypto.AccessListObject
 import org.web3j.crypto.Hash
 import org.web3j.crypto.Keys
 import org.web3j.crypto.RawTransaction
@@ -46,8 +50,7 @@ import org.web3j.utils.Numeric
 private const val MONAD_TESTNET = 10143L
 private const val ETHEREUM = 1L
 private const val WHOLE_REQUEST = 64 * 1024
-private const val ACCESS_LIST_FIELD = 8
-private const val TYPED_EIP1559: Byte = 0x02
+private val STORAGE_KEY = "0x" + "22".repeat(32)
 private const val BASE = 8453L
 private const val UNKNOWN_CHAIN = 999_999L
 
@@ -1055,8 +1058,83 @@ class SignPipelineTest {
     }
 
     @Test
-    fun aTransactionWithAnAccessListIsRefusedBecauseTheReviewCannotShowIt() {
-        assertEquals(CANNOT_BE_READ, refusal(requestCbor(eip1559WithAccessList())))
+    fun aTransactionWithAnAccessListIsReviewedAndSignedByItsAccount() {
+        val signData = eip1559TxWithAccessList(listOf(AccessListObject(RECIPIENT, listOf(STORAGE_KEY))))
+        val response = signResponse(ready(requestCbor(signData)))
+
+        val v = response.signature[64].toInt()
+        assertEquals(EvmFixtures.normalize(ART_ADDRESS), recovered(Hash.sha3(signData), response.signature, v))
+    }
+
+    @Test
+    fun aTypeOneTransactionWithAnAccessListIsReviewedAsEip2930() {
+        val signData = eip2930TxWithAccessList(listOf(AccessListObject(RECIPIENT, listOf(STORAGE_KEY))))
+
+        assertEquals("EIP-2930", ready(requestCbor(signData)).review.txType)
+    }
+
+    @Test
+    fun aSandboxThatChangesTheAccessListIsRefused() {
+        val cbor = requestCbor(eip1559TxWithAccessList(listOf(AccessListObject(RECIPIENT, listOf(STORAGE_KEY)))))
+        val dropped = changedParse(cbor) { it.copy(accessList = emptyList()) }
+        val swapped = changedParse(cbor) { it.copy(accessList = listOf(AccessListEntry(UNREGISTERED, listOf(STORAGE_KEY)))) }
+
+        assertIs<Prepared.Ready>(pipeline.prepare(changedParse(cbor) { it }, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(dropped, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(swapped, VIEW))
+    }
+
+    @Test
+    fun aSandboxThatChangesTheRecipientOrAmountOfADecodedCallIsRefused() {
+        val honest = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+        val cbor = requestCbor(eip1559Tx(to = USDC_ETHEREUM, value = BigInteger.ZERO, data = honest))
+        val recipient = changedCall(cbor) { ContractCall.Transfer(UNREGISTERED, BigInteger.TEN) }
+        val amount = changedCall(cbor) { ContractCall.Transfer(RECIPIENT, BigInteger.valueOf(1_000_000)) }
+
+        assertIs<Prepared.Ready>(pipeline.prepare(changedCall(cbor) { it }, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(recipient, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(amount, VIEW))
+    }
+
+    @Test
+    fun aDecodableCallThatTheSandboxHidesIsRefusedByTheGateAsAnUndecodableCallIsOnMaster() {
+        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+        val cbor = requestCbor(eip1559Tx(to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data))
+        val hidden = parsedWith(cbor) { it.copy(call = null) }
+
+        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(pipeline.prepare(hidden, VIEW)).reason)
+    }
+
+    @Test
+    fun aDecodableUnlimitedApprovalOfAnUnregisteredTokenIsWarnedAsOnMaster() {
+        val approve = erc20Call(SELECTOR_APPROVE, RECIPIENT, ContractCall.MAX_UINT256)
+        val cbor = requestCbor(eip1559Tx(to = UNREGISTERED, value = BigInteger.ZERO, data = approve))
+
+        assertEquals(listOf(UNLIMITED_UNKNOWN), ready(cbor).review.warnings)
+    }
+
+    @Test
+    fun aDecodableCallThatSendsNativeCurrencyIsRefusedAsOnMaster() {
+        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.TEN)
+        val cbor = requestCbor(eip1559Tx(to = USDC_ETHEREUM, value = BigInteger.ONE, data = data))
+
+        assertEquals("Token calls must not send native currency", refusal(cbor))
+    }
+
+    @Test
+    fun aSandboxThatChangesAWhitelistedLabelIsRefused() {
+        val cbor = requestCbor(swapTx(ETHEREUM, WHITELISTED), chainId = ETHEREUM)
+        val lying = object : RequestParser by inProcessSandboxParser {
+            override fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode {
+                val honest = assertIs<StaticDecode.Ok>(inProcessSandboxParser.decodeStatic(calldata, params))
+                val first = DecodedParam(honest.params.first().param, "7")
+                return StaticDecode.Ok(listOf(first) + honest.params.drop(1))
+            }
+        }
+
+        assertIs<Prepared.Ready>(guarded(cbor))
+        val refused = assertIs<Prepared.Refused>(SignPipeline(GUARDED, lying).prepare(cbor, VIEW))
+        assertEquals(CANNOT_BE_READ, refused.reason)
     }
 
     @Test
@@ -1068,24 +1146,48 @@ class SignPipelineTest {
         assertFailsWith<IllegalArgumentException> { pipeline.sign(changed, WALLET.privateKey(0)) }
     }
 
-    /** The parse a compromised sandbox would send for [cbor]: the transaction it decoded is changed by [change]. */
-    private fun changedParse(cbor: ByteArray, change: (UnsignedTx) -> UnsignedTx): ParsedRequest {
+    /** The parse a compromised sandbox would send for [cbor], with [change] applied to what it decoded. */
+    private fun parsedWith(cbor: ByteArray, change: (ParsedRequest) -> ParsedRequest): ParsedRequest {
         val parts = listOf(framesOf(UR(EthSignRequest.UR_TYPE, cbor), WHOLE_REQUEST).first())
-        val reply = assertIs<ScanReply.Complete>(inProcessSandboxParser.scan(parts))
-        val tx = assertIs<UnsignedTx.Result.Ok>(reply.parsed.tx).tx
-        return reply.parsed.copy(tx = UnsignedTx.Result.Ok(change(tx)))
+        return change(assertIs<ScanReply.Complete>(inProcessSandboxParser.scan(parts)).parsed)
     }
 
-    /** A typed transaction like [eip1559Tx], with one access list entry. The review has no place to show an access list. */
-    private fun eip1559WithAccessList(): ByteArray {
-        val signed = eip1559Tx()
-        val fields = (Rlp.decode(signed.copyOfRange(1, signed.size)) as Rlp.Lst).items
-            .take(ACCESS_LIST_FIELD).map { Rlp.encodeString((it as Rlp.Str).bytes) }
-        val entry = Rlp.encodeList(
-            listOf(Rlp.encodeString(ByteArray(20) { 1 }), Rlp.encodeList(listOf(Rlp.encodeString(ByteArray(32) { 2 })))),
-        )
-        return byteArrayOf(TYPED_EIP1559) + Rlp.encodeList(fields + Rlp.encodeList(listOf(entry)))
-    }
+    /** The parse a compromised sandbox would send for [cbor], with the transaction it decoded changed by [change]. */
+    private fun changedParse(cbor: ByteArray, change: (UnsignedTx) -> UnsignedTx): ParsedRequest =
+        parsedWith(cbor) { parsed -> parsed.copy(tx = UnsignedTx.Result.Ok(change(assertIs<UnsignedTx.Result.Ok>(parsed.tx).tx))) }
+
+    /** The parse a compromised sandbox would send for [cbor], with the call it decoded changed by [change]. */
+    private fun changedCall(cbor: ByteArray, change: (ContractCall) -> ContractCall): ParsedRequest =
+        parsedWith(cbor) { parsed -> parsed.copy(call = change(assertNotNull(parsed.call))) }
+
+    /** A typed EIP-1559 transaction like [eip1559Tx], with the access list [entries]. */
+    private fun eip1559TxWithAccessList(entries: List<AccessListObject>): ByteArray = TransactionEncoder.encode(
+        RawTransaction.createTransaction(
+            MONAD_TESTNET,
+            BigInteger.valueOf(7),
+            BigInteger.valueOf(21_000),
+            RECIPIENT,
+            ONE_CENT_OF_MON,
+            "0x",
+            BigInteger.valueOf(1_500_000_000L),
+            BigInteger.valueOf(30_000_000_000L),
+            entries,
+        ),
+    )
+
+    /** An EIP-2930 transaction with the access list [entries]. */
+    private fun eip2930TxWithAccessList(entries: List<AccessListObject>): ByteArray = TransactionEncoder.encode(
+        RawTransaction.createTransaction(
+            MONAD_TESTNET,
+            BigInteger.valueOf(7),
+            BigInteger.valueOf(20_000_000_000L),
+            BigInteger.valueOf(21_000),
+            RECIPIENT,
+            ONE_CENT_OF_MON,
+            "0x",
+            entries,
+        ),
+    )
 
     private fun prepared(cbor: ByteArray): Prepared = pipeline.prepare(cbor, VIEW)
 

@@ -21,7 +21,7 @@ object TxSigner {
                 .add(BigInteger.valueOf(35))
                 .add(tx.chainId.shiftLeft(1))
                 .toMinimalBigEndian()
-            TxType.EIP1559 -> byteArrayOf(signature.recId.toByte())
+            TxType.EIP1559, TxType.EIP2930 -> byteArrayOf(signature.recId.toByte())
         }
         return signature.r + signature.s + v
     }

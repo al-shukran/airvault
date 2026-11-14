@@ -1,5 +1,6 @@
 package app.lensly.core.parse
 
+import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.evm.TxType
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.registry.ContractCall
@@ -31,8 +32,8 @@ internal object ParserWire {
     /** The method of a call that decodes the calldata of a whitelisted call. */
     const val DECODE_STATIC = 2
 
-    /** The largest reply the app accepts. A complete request carries its data to sign, its calldata and a few short fields. */
-    const val MAX_REPLY_BYTES = 128 * 1024
+    /** The largest reply the app accepts. It carries the data to sign, the calldata and an access list, each within its limit. */
+    const val MAX_REPLY_BYTES = 256 * 1024
 
     private const val VERSION = 1
 
@@ -58,8 +59,11 @@ internal object ParserWire {
     private const val MAX_SIGN_DATA = ParserLimits.MAX_SIGN_DATA_BYTES
     private const val MAX_CALLDATA = ParserLimits.MAX_CALLDATA_BYTES
     private const val MAX_CALLDATA_HEX = 2 + 2 * MAX_CALLDATA
+    private const val MAX_ACCESS_LIST_ENTRIES = 4096
+    private const val MAX_STORAGE_KEYS = 4096
     private val ADDRESS = Regex("0x[0-9a-fA-F]{40}")
     private val HEX_DATA = Regex("0x(?:[0-9a-fA-F]{2})*")
+    private val STORAGE_KEY = Regex("0x[0-9a-fA-F]{64}")
 
     /** The reply both calls share when the sandbox cannot answer: a refusal with its reason. */
     fun encodeRefusal(reason: String): ByteArray = Out().apply {
@@ -221,8 +225,12 @@ internal object ParserWire {
         if (isTransaction != (tx != null)) throw WireException("transaction result does not match the data type")
         if (call != null && tx !is UnsignedTx.Result.Ok) throw WireException("a contract call needs a decoded transaction")
         if (tx is UnsignedTx.Result.Ok) {
-            val expected = if (request.dataType == DataType.TRANSACTION) TxType.LEGACY_EIP155 else TxType.EIP1559
-            if (tx.tx.type != expected) throw WireException("transaction type does not match the data type")
+            val expected = if (request.dataType == DataType.TRANSACTION) {
+                listOf(TxType.LEGACY_EIP155)
+            } else {
+                listOf(TxType.EIP2930, TxType.EIP1559)
+            }
+            if (tx.tx.type !in expected) throw WireException("transaction type does not match the data type")
         }
         return ParsedRequest(request, tx, call)
     }
@@ -238,6 +246,12 @@ internal object ParserWire {
         optional(tx.gasPrice) { big(it) }
         optional(tx.maxPriorityFeePerGas) { big(it) }
         optional(tx.maxFeePerGas) { big(it) }
+        count(tx.accessList.size, MAX_ACCESS_LIST_ENTRIES)
+        tx.accessList.forEach { entry ->
+            text(entry.address)
+            count(entry.storageKeys.size, MAX_STORAGE_KEYS)
+            entry.storageKeys.forEach { text(it) }
+        }
     }
 
     private fun In.transactionOf(): UnsignedTx {
@@ -251,10 +265,20 @@ internal object ParserWire {
         val gasPrice = optional { big() }
         val maxPriorityFee = optional { big() }
         val maxFee = optional { big() }
-        val legacy = type == TxType.LEGACY_EIP155
-        val feesMatch = (gasPrice != null) == legacy && (maxPriorityFee != null) != legacy && (maxFee != null) != legacy
+        val accessList = List(count(MAX_ACCESS_LIST_ENTRIES)) { accessListEntryOf() }
+        val gasPriced = type != TxType.EIP1559
+        val feesMatch = (gasPrice != null) == gasPriced && (maxPriorityFee != null) != gasPriced && (maxFee != null) != gasPriced
         if (!feesMatch) throw WireException("fee fields do not match the transaction type")
-        return UnsignedTx(type, chainId, nonce, to, value, data, gasLimit, gasPrice, maxPriorityFee, maxFee)
+        if (type == TxType.LEGACY_EIP155 && accessList.isNotEmpty()) throw WireException("a legacy transaction has no access list")
+        return UnsignedTx(type, chainId, nonce, to, value, data, gasLimit, gasPrice, maxPriorityFee, maxFee, accessList)
+    }
+
+    private fun In.accessListEntryOf(): AccessListEntry {
+        val address = text().also { if (!ADDRESS.matches(it)) throw WireException("access list address is not an address") }
+        val keys = List(count(MAX_STORAGE_KEYS)) {
+            text().also { if (!STORAGE_KEY.matches(it)) throw WireException("storage key is not 32 bytes") }
+        }
+        return AccessListEntry(address, keys)
     }
 
     private fun Out.contractCall(call: ContractCall) {

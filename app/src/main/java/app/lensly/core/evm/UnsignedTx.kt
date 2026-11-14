@@ -7,7 +7,11 @@ import java.math.BigInteger
 import org.web3j.crypto.Keys
 import org.web3j.utils.Numeric
 
-enum class TxType { LEGACY_EIP155, EIP1559 }
+/** An EIP-2930 access list entry: an address and the storage keys it warms, both as 0x hex. */
+data class AccessListEntry(val address: String, val storageKeys: List<String>)
+
+/** The transaction types Lensly signs: legacy (EIP-155), EIP-2930 (type 1) and EIP-1559 (type 2). */
+enum class TxType { LEGACY_EIP155, EIP1559, EIP2930 }
 
 /**
  * An unsigned transaction decoded from the bytes the wallet sent, for the confirmation screen.
@@ -30,6 +34,8 @@ data class UnsignedTx(
     val maxPriorityFeePerGas: BigInteger?,
     /** EIP-1559 max fee per gas in wei. Null for legacy. */
     val maxFeePerGas: BigInteger?,
+    /** The access list of an EIP-2930 or EIP-1559 transaction. Empty when there is none. */
+    val accessList: List<AccessListEntry> = emptyList(),
 ) {
     /** Outcome of [decode]. Decoding never throws. */
     sealed interface Result {
@@ -49,7 +55,7 @@ data class UnsignedTx(
         val calldata = canonicalCalldata(data) ?: return null
         return when (type) {
             TxType.LEGACY_EIP155 -> {
-                if (gasPrice == null || maxPriorityFeePerGas != null || maxFeePerGas != null) return null
+                if (gasPrice == null || maxPriorityFeePerGas != null || maxFeePerGas != null || accessList.isNotEmpty()) return null
                 Rlp.encodeList(
                     listOf(
                         rlpInteger(nonce), rlpInteger(gasPrice), rlpInteger(gasLimit), Rlp.encodeString(address),
@@ -58,14 +64,23 @@ data class UnsignedTx(
                     ),
                 )
             }
+            TxType.EIP2930 -> {
+                if (gasPrice == null || maxPriorityFeePerGas != null || maxFeePerGas != null) return null
+                byteArrayOf(TYPED_EIP2930.toByte()) + Rlp.encodeList(
+                    listOf(
+                        rlpInteger(chainId), rlpInteger(nonce), rlpInteger(gasPrice), rlpInteger(gasLimit),
+                        Rlp.encodeString(address), rlpInteger(value), Rlp.encodeString(calldata),
+                        accessListRlp(accessList) ?: return null,
+                    ),
+                )
+            }
             TxType.EIP1559 -> {
                 if (gasPrice != null || maxPriorityFeePerGas == null || maxFeePerGas == null) return null
-                // The access list is empty. decode accepts a list it cannot show, so a transaction with one is refused.
                 byteArrayOf(TYPED_EIP1559.toByte()) + Rlp.encodeList(
                     listOf(
                         rlpInteger(chainId), rlpInteger(nonce), rlpInteger(maxPriorityFeePerGas), rlpInteger(maxFeePerGas),
                         rlpInteger(gasLimit), Rlp.encodeString(address), rlpInteger(value), Rlp.encodeString(calldata),
-                        Rlp.encodeList(emptyList()),
+                        accessListRlp(accessList) ?: return null,
                     ),
                 )
             }
@@ -73,8 +88,11 @@ data class UnsignedTx(
     }
 
     companion object {
+        private const val TYPED_EIP2930 = 0x01
         private const val TYPED_EIP1559 = 0x02
         private const val MAX_INTEGER_BYTES = 32
+        private const val ADDRESS_BYTES = 20
+        private const val STORAGE_KEY_BYTES = 32
 
         /**
          * Decodes [signData] by [dataType]. Legacy (1) is the unsigned EIP-155 list
@@ -84,7 +102,7 @@ data class UnsignedTx(
         fun decode(signData: ByteArray, dataType: DataType): Result = try {
             when (dataType) {
                 DataType.TRANSACTION -> Result.Ok(legacy(signData))
-                DataType.TYPED_TRANSACTION -> Result.Ok(eip1559(signData))
+                DataType.TYPED_TRANSACTION -> Result.Ok(typed(signData))
                 else -> Result.Rejected("transactions use dataType 1 or 4, not dataType ${dataType.wire}")
             }
         } catch (e: MalformedTxException) {
@@ -112,14 +130,31 @@ data class UnsignedTx(
             )
         }
 
+        private fun typed(signData: ByteArray): UnsignedTx = when (signData.firstOrNull()?.toInt()?.and(0xFF)) {
+            TYPED_EIP2930 -> eip2930(signData)
+            TYPED_EIP1559 -> eip1559(signData)
+            else -> malformedTx("only EIP-2930 (type 0x01) and EIP-1559 (type 0x02) typed transactions are supported")
+        }
+
+        private fun eip2930(signData: ByteArray): UnsignedTx {
+            val fields = typedFields(signData, 8, "EIP-2930")
+            return UnsignedTx(
+                type = TxType.EIP2930,
+                chainId = chainIdOf(fields[0]),
+                nonce = unsignedOf(fields[1]),
+                to = addressOf(fields[4]),
+                value = unsignedOf(fields[5]),
+                data = calldataOf(fields[6]),
+                gasLimit = unsignedOf(fields[3]),
+                gasPrice = unsignedOf(fields[2]),
+                maxPriorityFeePerGas = null,
+                maxFeePerGas = null,
+                accessList = accessListOf(fields[7]),
+            )
+        }
+
         private fun eip1559(signData: ByteArray): UnsignedTx {
-            if (signData.isEmpty() || (signData[0].toInt() and 0xFF) != TYPED_EIP1559) {
-                malformedTx("only EIP-1559 typed transactions (type 0x02) are supported")
-            }
-            val payload = signData.copyOfRange(1, signData.size)
-            val fields = (Rlp.decode(payload) as? Rlp.Lst ?: malformedTx("EIP-1559 payload is not an RLP list")).items
-            if (fields.size != 9) malformedTx("EIP-1559 payload must have 9 fields, found ${fields.size}")
-            if (fields[8] !is Rlp.Lst) malformedTx("access list must be an RLP list")
+            val fields = typedFields(signData, 9, "EIP-1559")
             return UnsignedTx(
                 type = TxType.EIP1559,
                 chainId = chainIdOf(fields[0]),
@@ -131,7 +166,36 @@ data class UnsignedTx(
                 gasPrice = null,
                 maxPriorityFeePerGas = unsignedOf(fields[2]),
                 maxFeePerGas = unsignedOf(fields[3]),
+                accessList = accessListOf(fields[8]),
             )
+        }
+
+        /** The fields of a typed transaction: the RLP list after its type byte, which must hold [count] fields. */
+        private fun typedFields(signData: ByteArray, count: Int, name: String): List<Rlp> {
+            val payload = signData.copyOfRange(1, signData.size)
+            val fields = (Rlp.decode(payload) as? Rlp.Lst ?: malformedTx("$name payload is not an RLP list")).items
+            if (fields.size != count) malformedTx("$name payload must have $count fields, found ${fields.size}")
+            return fields
+        }
+
+        /** An access list: a list of [address, [storage keys]] entries, each address 20 bytes and each storage key 32 bytes. */
+        private fun accessListOf(item: Rlp): List<AccessListEntry> {
+            val entries = (item as? Rlp.Lst ?: malformedTx("access list must be an RLP list")).items
+            return entries.map { entry ->
+                val pair = (entry as? Rlp.Lst ?: malformedTx("access list entry must be an RLP list")).items
+                if (pair.size != 2) malformedTx("access list entry must hold an address and its storage keys")
+                val keys = (pair[1] as? Rlp.Lst ?: malformedTx("storage keys must be an RLP list")).items
+                AccessListEntry(
+                    address = fixedHexOf(pair[0], ADDRESS_BYTES, "access list address"),
+                    storageKeys = keys.map { fixedHexOf(it, STORAGE_KEY_BYTES, "storage key") },
+                )
+            }
+        }
+
+        private fun fixedHexOf(item: Rlp, size: Int, name: String): String {
+            val bytes = bytesOf(item)
+            if (bytes.size != size) malformedTx("$name must be $size bytes")
+            return hexOf(bytes)
         }
 
         private fun bytesOf(item: Rlp): ByteArray =
@@ -189,6 +253,23 @@ private fun canonicalAddress(address: String): ByteArray? =
 /** The bytes of [data] when it is lowercase 0x hex, or null when it is not. */
 private fun canonicalCalldata(data: String): ByteArray? =
     if (CANONICAL_CALLDATA.matches(data)) Numeric.hexStringToByteArray(data) else null
+
+/**
+ * The RLP of an access list, or null when an address or storage key is not 20 or 32 bytes of 0x hex. An empty list is the
+ * empty RLP list, which is what a transaction without an access list carries.
+ */
+private fun accessListRlp(accessList: List<AccessListEntry>): ByteArray? {
+    val entries = accessList.map { entry ->
+        val address = hexBytes(entry.address, 20) ?: return null
+        val keys = entry.storageKeys.map { key -> Rlp.encodeString(hexBytes(key, 32) ?: return null) }
+        Rlp.encodeList(listOf(Rlp.encodeString(address), Rlp.encodeList(keys)))
+    }
+    return Rlp.encodeList(entries)
+}
+
+/** The bytes of [text] when it is 0x hex of exactly [size] bytes, or null when it is not. */
+private fun hexBytes(text: String, size: Int): ByteArray? =
+    if (Regex("0x[0-9a-fA-F]{${2 * size}}").matches(text)) Numeric.hexStringToByteArray(text) else null
 
 /** An unsigned integer as RLP: its minimal big-endian bytes, where zero is the empty string. */
 private fun rlpInteger(value: BigInteger): ByteArray =
