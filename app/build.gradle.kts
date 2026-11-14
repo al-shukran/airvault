@@ -245,6 +245,12 @@ dependencies {
     // Accessibility Test Framework (guideline 1.9). The spike in app.lensly.a11y.AccessibilityTest uses it on
     // Compose screens; docs/testing/accessibility.md records what it does and does not see.
     androidTestImplementation(libs.androidx.test.espresso.accessibility)
+    constraints {
+        // Alerts 25, 26, 35: espresso-accessibility 3.7.0 (the newest stable release; 3.8.0 is still alpha) brings
+        // accessibility-test-framework 3.1.2, which brings jsoup 1.12.2. The floor applies to the androidTest
+        // classpath only; 1.24.1 is the newest stable jsoup, and no androidTest code ships in the APK.
+        androidTestImplementation("org.jsoup:jsoup:1.24.1")
+    }
 
     // Microbenchmarks (guideline 1.7). They run only on the benchmark build type, through the runner set above.
     androidTestImplementation(libs.androidx.benchmark.junit4)
