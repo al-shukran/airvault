@@ -487,6 +487,9 @@ private fun PassphraseRoute(navController: NavHostController, entry: NavBackStac
     )
 }
 
+/** Shown under the write-down or name screen when a save fails. The words or key stay, so the owner can try again. */
+internal const val SAVE_FAILED_MESSAGE = "The wallet could not be saved. Try again."
+
 /**
  * Names the wallet, then saves it and opens its detail. The suggested name counts the wallets already saved. An imported
  * key, and a wallet with a passphrase, keep their name in the draft and go on to their write-down, which saves the
@@ -520,6 +523,7 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
         onBackspace = {
             if (!saving && name.isNotEmpty()) name = name.dropLast(1)
         },
+        errorMessage = if (save == SaveState.Failed) SAVE_FAILED_MESSAGE else null,
         onDone = {
             if (!saving && draft.singleKey != null) {
                 draft.setName(effectiveWalletName(name, suggested))
@@ -561,6 +565,7 @@ private fun PassphraseBackupRoute(
     PassphraseBackupScreen(
         writtenDown = writtenDown,
         onWrittenDownChange = { writtenDown = it },
+        errorMessage = if (save == SaveState.Failed) SAVE_FAILED_MESSAGE else null,
         onCreate = {
             if (!saving && PassphraseGate.canSave(draft.passphrase, writtenDown)) {
                 model.save(draft.name, walletWriter(session, draft.backedUp))
