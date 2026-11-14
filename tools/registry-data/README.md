@@ -2,10 +2,10 @@
 
 These scripts rebuild the mainnet catalogs that ship in the app:
 
-- `app/src/main/assets/registry/networks.json`
-- `app/src/main/assets/registry/tokens.json`
+- `shared/src/main/assets/registry/networks.json`
+- `shared/src/main/assets/registry/tokens.json`
 
-Testnets never go here. They stay in `app/src/debug/assets/registry/*.debug.json`.
+Testnets never go here. They stay in `shared/src/debug/assets/registry/*.debug.json`.
 
 Everything is stdlib Python 3.9 or later. Run the scripts with `-I` so no local module can shadow the standard
 library.
@@ -126,15 +126,15 @@ python3 -I tools/registry-data/build.py
 python3 -I tools/registry-data/verify_onchain.py \
   --networks tools/registry-data/out/networks.json \
   --tokens tools/registry-data/out/tokens.json \
-  --out-networks app/src/main/assets/registry/networks.json \
-  --out-tokens app/src/main/assets/registry/tokens.json
+  --out-networks shared/src/main/assets/registry/networks.json \
+  --out-tokens shared/src/main/assets/registry/tokens.json
 ```
 
 `build.py` fetches the sources on every run (about 75 requests, paced at 1.5 seconds, retried with backoff). It
-writes `out/` and `sources.md`. It does not touch `app/`.
+writes `out/` and `sources.md`. It does not touch `app/` or `shared/`.
 
 `verify_onchain.py` makes about 3 requests per network and 3 per token, paced per host (default 0.25 s), with 15 s
 timeouts and up to four attempts with backoff. Pass `--report` to write the report somewhere else. Without
 `--out-networks` and `--out-tokens` it only reports.
 
-After integration, run `./gradlew :app:testDebugUnitTest`. `ShippedRegistryDataTest` checks the shipped JSON.
+After integration, run `./gradlew :shared:testDebugUnitTest`. `ShippedRegistryDataTest` checks the shipped JSON.

@@ -40,9 +40,9 @@ jobs:
 
       # The fuzz targets replay their committed seeds in a second invocation, with -PfuzzLane. They must not
       # share a JVM with the Robolectric tests above: Jazzer and Robolectric cannot (see the note in
-      # app/build.gradle.kts). The 15-minute real fuzzing stays in the `fuzz` job below.
+      # shared/build.gradle.kts). The 15-minute real fuzzing stays in the `fuzz` job below.
       - name: Nightly fuzz replay
-        run: ./gradlew :app:testDebugUnitTest --tests 'app.lensly.fuzz.*' -PfuzzLane
+        run: ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.fuzz.*' -PfuzzLane
 
   fuzz:
     # Guideline 2.5: fuzzing is its own job. One matrix leg per Jazzer target, so a crash in one

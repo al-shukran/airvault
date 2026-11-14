@@ -67,7 +67,7 @@ internal fun IconsPreview() {
         section("PEGGED AND BRIDGED: TOKEN LOGO WITH CHAIN BADGE")
         items(stackedSamples) { sample -> StackedCell(sample) }
         section("APP AND FALLBACK")
-        item { IconCell(resource = R.drawable.ic_unknown_token, label = "ic_unknown_token") }
+        item { IconCell(resource = app.lensly.shared.R.drawable.ic_unknown_token, label = "ic_unknown_token") }
         item { IconCell(resource = R.drawable.logo_lensly, label = "logo_lensly") }
         item { LauncherCell() }
     }

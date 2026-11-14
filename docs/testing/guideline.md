@@ -2,7 +2,7 @@
 
 Status: implemented on `phase-1-5` (Phase 1.5). Describes the shipped state; see "Implementation notes" at the end for the places where the build differs from the YAML below.
 
-Today on `master`: JUnit 4 and `kotlin.test` unit tests under `app/src/test` (`core/wallet`, `core/ur`, `core/vault`, `ui/*`). `androidTest` sources, Robolectric, Compose UI tests, and `.github/workflows` exist. `org.gradle.caching=true` is set; configuration cache is not.
+Today on `master`: JUnit 4 and `kotlin.test` unit tests under `shared/src/test` (the code Lensly and Lumio share: `core/*`, `fuzz`, and the shared screens and components) and under `app/src/test` (the Lensly-only code). `androidTest` sources, Robolectric, Compose UI tests, and `.github/workflows` exist. `org.gradle.caching=true` is set; configuration cache is not.
 
 Packages: `core/wallet`, `core/ur`, `core/vault`, `ui/camera`, `ui/gate`, `ui/wallet`, `ui/components`, `ui/theme`, `ui/navigation`. `core/evm` and `core/registry` are planned; their CI partitions are reserved (2.2).
 
@@ -17,8 +17,8 @@ Run commands assume the wrapper at the repo root.
 - **Purpose:** pure logic: derivation, encoding, parsing, policy, state machines.
 - **Scope:** `core/*` and pure view-model code. No Android types.
 - **Tools:** JUnit 4 (`junit` 4.13.2, in the catalog), `kotlin-test`.
-- **Files:** `app/src/test/java/app/lensly/core/<pkg>/<Subject>Test.kt`; fixtures in `app/src/test/resources/`.
-- **Run:** `./gradlew :app:testDebugUnitTest --tests 'app.lensly.core.wallet.*'`
+- **Files:** `shared/src/test/java/app/lensly/core/<pkg>/<Subject>Test.kt`; fixtures in `shared/src/test/resources/`. Test helpers that both apps' tests use live in `shared/src/testFixtures/`.
+- **Run:** `./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*'`
 
 ### 1.2 Integration (Robolectric)
 
@@ -26,7 +26,7 @@ Run commands assume the wrapper at the repo root.
 - **Scope:** `core/vault` persistence (`AtomicFile`, `FailureStore`), `ui/*` logic needing a `Context`.
 - **Tools:** Robolectric 4.x (`RobolectricTestRunner`), AndroidX Test core. Pin the SDK to 36 in `robolectric.properties`.
 - **Files:** same source set as unit tests.
-- **Run:** `./gradlew :app:testDebugUnitTest --tests 'app.lensly.core.vault.*'`
+- **Run:** `./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.vault.*'`
 
 ### 1.3 Instrumented (device or emulator)
 
@@ -41,8 +41,8 @@ Run commands assume the wrapper at the repo root.
 - **Purpose:** screen behavior: password entry, mnemonic confirm quiz, lockout and error states, navigation.
 - **Scope:** `ui/gate`, `ui/wallet`, `ui/camera`, `ui/components`.
 - **Tools:** `androidx.compose.ui:ui-test-junit4` (Compose BOM; add to the catalog) with `createComposeRule()`, run on Robolectric.
-- **Files:** `app/src/test/java/app/lensly/ui/<area>/<Screen>Test.kt`. Set `mainClock.autoAdvance = false`; no `Thread.sleep`.
-- **Run:** `./gradlew :app:testDebugUnitTest --tests 'app.lensly.ui.*'`
+- **Files:** `app/src/test/java/app/lensly/ui/<area>/<Screen>Test.kt` for Lensly screens. The shared screens and components (`camera`, `components`, `gate`, `qr`, `theme`) are in `shared/src/test/java/app/lensly/ui/<area>/`. Set `mainClock.autoAdvance = false`; no `Thread.sleep`.
+- **Run:** `./gradlew :app:testDebugUnitTest --tests 'app.lensly.ui.*' :shared:testDebugUnitTest --tests 'app.lensly.ui.*'`
 
 ### 1.5 Screenshot (Roborazzi)
 
@@ -70,8 +70,8 @@ Run commands assume the wrapper at the repo root.
 
 - **Static:** Android Lint security checks (`./gradlew :app:lintDebug`, `SECURITY` issues as errors). Dependencies: OWASP `org.owasp.dependencycheck` nightly; `actions/dependency-review-action` on PRs touching dependency files. Secrets: `gitleaks` on changed files, allowlisting only `vectors/**`.
 - **Manifest guard:** check the merged manifest, since libraries add permissions during merge. Assert no `android.permission.INTERNET`, no `ACCESS_NETWORK_STATE`, and `android:allowBackup="false"`. Script: `scripts/ci/check-manifest.sh` after `:app:processDebugMainManifest`.
-- **Exact-match vectors:** BIP39 (mnemonic-to-seed), BIP32 (test vectors 1 and 2), EIP-155 and EIP-1559 signing examples, in `app/src/test/resources/vectors/<standard>/`. Each directory has a `README.md` with the source URL and retrieval date.
-- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, and the RLP transaction decoder once it lands. PR lane replays seeds as regular tests (JUnit regression mode), in their own JVM through `-PfuzzLane`: Jazzer's agent and Robolectric's sandbox cannot share one. Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `app/src/test/resources/fuzz-regressions/`.
+- **Exact-match vectors:** BIP39 (mnemonic-to-seed), BIP32 (test vectors 1 and 2), EIP-155 and EIP-1559 signing examples, in `shared/src/test/resources/vectors/<standard>/`. Each directory has a `README.md` with the source URL and retrieval date.
+- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, and the RLP transaction decoder once it lands. PR lane replays seeds as regular tests (JUnit regression mode), in their own JVM through `-PfuzzLane`: Jazzer's agent and Robolectric's sandbox cannot share one. Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `shared/src/test/resources/fuzz-regressions/`.
 
 ### 1.9 Accessibility
 
@@ -99,14 +99,14 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 
 | Partition | Triggers (paths) | Selector |
 |---|---|---|
-| `core-wallet` | `core/wallet/**`, its tests, `vectors/bip39/**`, `vectors/bip32/**` | `app.lensly.core.wallet.*` |
-| `core-ur-evm` | `core/ur/**`, its tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**`, `fuzz/**`, `fuzz-seeds/**` | `app.lensly.core.ur.*` (add `core.evm.*` when it lands) and `app.lensly.fuzz.*` |
-| `core-vault` | `core/vault/**`, its tests | `app.lensly.core.vault.*` |
-| `core-registry` | `core/registry/**` (reserved) | `app.lensly.core.registry.*` |
-| `core-btc` | `core/btc/**`, its tests, `vectors/bitcoin/**` | `app.lensly.core.btc.*` |
-| `ui-a` | `ui/**`, its tests, `res/values/strings.xml` (same paths as `ui-b`) | `app.lensly.ui.{camera,settings,wallet,qr,navigation,a11y,theme,screenshot}.*` (`screenshot` is excluded by `-PprLane`) |
-| `ui-b` | same as `ui-a` | `app.lensly.ui.{flow,components,home,sign,gate,profile}.*` and `app.lensly.ui.SecureWindowTest` |
-| `manifest` | `app/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts` | `check-manifest.sh` |
+| `core-wallet` | `shared`: `core/wallet/**`, its tests, `vectors/bip39/**`, `vectors/bip32/**` | `:shared` `app.lensly.core.wallet.*` |
+| `core-ur-evm` | `shared`: `core/ur/**`, `core/evm/**`, their tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**`, `fuzz/**`, `fuzz-seeds/**` | `:shared` `app.lensly.core.ur.*`, `app.lensly.core.evm.*` and `app.lensly.fuzz.*` |
+| `core-vault` | `shared`: `core/vault/**`, its tests | `:shared` `app.lensly.core.vault.*` (`BackupExclusionTest` runs in `app`) |
+| `core-registry` | `shared`: `core/registry/**`, its tests, the shipped catalogs under `assets/registry/` | `:shared` `app.lensly.core.registry.*` |
+| `core-btc` | `shared`: `core/btc/**`, its tests, `vectors/bitcoin/**` | `:shared` `app.lensly.core.btc.*` |
+| `ui-a` | `ui/**` in `app` and `shared`, their tests, `shared/src/testFixtures/`, `res/values/strings.xml` (same paths as `ui-b`) | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme}.*` (`screenshot` is excluded by `-PprLane`) |
+| `ui-b` | same as `ui-a` | `:app` `app.lensly.ui.{flow,home,sign,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
+| `manifest` | `app/src/**/AndroidManifest.xml`, `shared/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts`, `shared/build.gradle.kts` | `check-manifest.sh` |
 | `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml` | `bash -n` on every script, `check-ui-partitions.sh`, then `check-test-network.sh` |
 
 The `ui` tests split in two so each half stays under the 3-minute cap. Every `ui` subpackage, and any test class directly in `app.lensly.ui`, must be listed in exactly one of `ui-a` or `ui-b`; `check-ui-partitions.sh` fails the `ci` partition otherwise.
@@ -146,12 +146,13 @@ jobs:
         with:
           filters: |
             core-wallet:
-              - 'app/src/main/java/app/lensly/core/wallet/**'
-              - 'app/src/test/java/app/lensly/core/wallet/**'
-              - 'app/src/test/resources/vectors/bip39/**'
-              - 'app/src/test/resources/vectors/bip32/**'
+              - 'shared/src/main/java/app/lensly/core/wallet/**'
+              - 'shared/src/test/java/app/lensly/core/wallet/**'
+              - 'shared/src/test/resources/vectors/bip39/**'
+              - 'shared/src/test/resources/vectors/bip32/**'
               - 'build.gradle.kts'
               - 'app/build.gradle.kts'
+              - 'shared/build.gradle.kts'
               - 'gradle/**'
               - 'gradle.properties'
             # one entry per row of the 2.2 table
@@ -276,7 +277,7 @@ Durations are estimates, to be measured in Phase 1.5.
 ## 3. Conventions
 
 - **Names:** `<Subject>Test.kt` mirrors the main package. Methods are camelCase and state the expectation (`addressZeroMatchesStandardVector`), in `androidTest` too.
-- **Vectors:** `app/src/test/resources/vectors/<standard>/`, or `keystone/` for UR captures. Assert exact bytes or addresses, never "not null".
+- **Vectors:** `shared/src/test/resources/vectors/<standard>/`, or `keystone/` for UR captures. Assert exact bytes or addresses, never "not null".
 - **No network:** release has no INTERNET permission. Tests use local fixtures only. The PR lane fails if test code references `java.net.`, `HttpURLConnection`, or `URL(`.
 - **Determinism:** inject `Clock` (`core/vault/Clock.kt`; `FakeClock` exists) and an entropy interface. Use seeded `kotlin.random.Random` in tests. No wall-clock time or `Thread.sleep`. For `SecureRandom` output, assert length and uniqueness only.
 - **Secrets:** fixtures hold only public material: the BIP39 `abandon … about` mnemonic and published vectors. Fixture passwords start with `TEST_ONLY_`. Never a key that has held funds. `gitleaks` allowlists `vectors/**` only.

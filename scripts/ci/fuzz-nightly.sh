@@ -6,10 +6,10 @@
 #
 # Duration comes from the @FuzzTest annotation (maxDuration = "15m"), which Jazzer passes to libFuzzer as
 # -max_total_time=900. A shorter run passes --seconds: the JUnit integration appends extra libFuzzer flags
-# from jazzer.internal.arg.<n> after the annotation value, so a later -max_total_time wins (app/build.gradle.kts
+# from jazzer.internal.arg.<n> after the annotation value, so a later -max_total_time wins (shared/build.gradle.kts
 # turns -PfuzzMaxSeconds into that configuration parameter).
 #
-# A crash is written under app/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/, which the regression
+# A crash is written under shared/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/, which the regression
 # run replays as soon as the file is committed.
 #
 # Usage: scripts/ci/fuzz-nightly.sh [--list] [--seconds N] [target]
@@ -111,12 +111,12 @@ for target in "${targets[@]}"; do
     # The test task's inputs do not change between runs, so drop its outputs first or Gradle skips the run.
     # Each target is its own Gradle invocation: Jazzer only fuzzes one @FuzzTest per run.
     # -PfuzzLane selects the fuzz package, which the shared unit-test JVM skips: Jazzer and Robolectric
-    # cannot share a JVM (see the note in app/build.gradle.kts).
+    # cannot share a JVM (see the note in shared/build.gradle.kts).
     if [ -n "$seconds" ]; then
-        JAZZER_FUZZ=1 ./gradlew :app:cleanTestDebugUnitTest :app:testDebugUnitTest \
+        JAZZER_FUZZ=1 ./gradlew :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
             --tests "$target" -PfuzzLane "-PfuzzMaxSeconds=$seconds" || status=1
     else
-        JAZZER_FUZZ=1 ./gradlew :app:cleanTestDebugUnitTest :app:testDebugUnitTest \
+        JAZZER_FUZZ=1 ./gradlew :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
             --tests "$target" -PfuzzLane || status=1
     fi
 done
