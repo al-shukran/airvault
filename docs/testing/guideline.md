@@ -103,6 +103,7 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 | `core-ur-evm` | `core/ur/**`, its tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**`, `fuzz/**`, `fuzz-seeds/**` | `app.lensly.core.ur.*` (add `core.evm.*` when it lands) and `app.lensly.fuzz.*` |
 | `core-vault` | `core/vault/**`, its tests | `app.lensly.core.vault.*` |
 | `core-registry` | `core/registry/**` (reserved) | `app.lensly.core.registry.*` |
+| `core-btc` | `core/btc/**`, its tests, `vectors/bitcoin/**` | `app.lensly.core.btc.*` |
 | `ui-a` | `ui/**`, its tests, `res/values/strings.xml` (same paths as `ui-b`) | `app.lensly.ui.{camera,settings,wallet,qr,navigation,a11y,theme,screenshot}.*` (`screenshot` is excluded by `-PprLane`) |
 | `ui-b` | same as `ui-a` | `app.lensly.ui.{flow,components,home,sign,gate,profile}.*` and `app.lensly.ui.SecureWindowTest` |
 | `manifest` | `app/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts` | `check-manifest.sh` |
