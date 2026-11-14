@@ -59,6 +59,10 @@ internal object ParserWire {
     private const val MAX_SIGN_DATA = ParserLimits.MAX_SIGN_DATA_BYTES
     private const val MAX_CALLDATA = ParserLimits.MAX_CALLDATA_BYTES
     private const val MAX_CALLDATA_HEX = 2 + 2 * MAX_CALLDATA
+
+    /** How deep a reply may nest multicalls. A deeper reply is broken. The app refuses a batch deeper than its own limit, with its reason. */
+    private const val MAX_CALL_LEVELS = 8
+    private const val ADDRESS_TEXT_BYTES = 42
     private const val MAX_ACCESS_LIST_ENTRIES = 4096
     private const val MAX_STORAGE_KEYS = 4096
     private val ADDRESS = Regex("0x[0-9a-fA-F]{40}")
@@ -209,6 +213,7 @@ internal object ParserWire {
             }
         }
         optional(parsed.call) { contractCall(it) }
+        optional(parsed.multicall) { batch(it, level = 1) }
     }
 
     /** The parsed request that follows the reply tag. Its transaction and call must agree with its data type. */
@@ -221,9 +226,11 @@ internal object ParserWire {
             else -> throw WireException("unknown transaction result")
         }
         val call = optional { contractCallOf() }
+        val multicall = optional { batchOf(level = 1) }
         val isTransaction = request.dataType == DataType.TRANSACTION || request.dataType == DataType.TYPED_TRANSACTION
         if (isTransaction != (tx != null)) throw WireException("transaction result does not match the data type")
         if (call != null && tx !is UnsignedTx.Result.Ok) throw WireException("a contract call needs a decoded transaction")
+        if (multicall != null && tx !is UnsignedTx.Result.Ok) throw WireException("a multicall needs a decoded transaction")
         if (tx is UnsignedTx.Result.Ok) {
             val expected = if (request.dataType == DataType.TRANSACTION) {
                 listOf(TxType.LEGACY_EIP155)
@@ -232,7 +239,7 @@ internal object ParserWire {
             }
             if (tx.tx.type !in expected) throw WireException("transaction type does not match the data type")
         }
-        return ParsedRequest(request, tx, call)
+        return ParsedRequest(request, tx, call, multicall)
     }
 
     private fun Out.transaction(tx: UnsignedTx) {
@@ -335,6 +342,41 @@ internal object ParserWire {
             6 -> ContractCall.SafeTransferFrom(address(), address(), big())
             else -> throw WireException("unknown contract call")
         }
+    }
+
+    /** The calls of a multicall. [level] is the level its calls sit at: 1 for the calls of the transaction's own multicall. */
+    private fun Out.batch(multicall: Multicall, level: Int) {
+        if (level > MAX_CALL_LEVELS) throw WireException("calls nest deeper than $MAX_CALL_LEVELS levels")
+        optional(multicall.deadline) { big(it) }
+        count(multicall.calls.size, ParserLimits.MAX_NESTED_NODES)
+        multicall.calls.forEach { inner(it, level) }
+    }
+
+    private fun Out.inner(call: InnerCall, level: Int) {
+        optional(call.target) { text(it, ADDRESS_TEXT_BYTES) }
+        optional(call.allowFailure) { flag(it) }
+        optional(call.value) { big(it) }
+        blob(call.calldata, MAX_CALLDATA)
+        optional(call.call) { contractCall(it) }
+        optional(call.nested) { batch(it, level + 1) }
+    }
+
+    private fun In.batchOf(level: Int): Multicall {
+        if (level > MAX_CALL_LEVELS) throw WireException("calls nest deeper than $MAX_CALL_LEVELS levels")
+        val deadline = optional { big() }
+        return Multicall(deadline, List(count(ParserLimits.MAX_NESTED_NODES)) { innerOf(level) })
+    }
+
+    private fun In.innerOf(level: Int): InnerCall {
+        val target = optional { text(ADDRESS_TEXT_BYTES) }
+            ?.also { if (!ADDRESS.matches(it)) throw WireException("target is not an address") }
+        val allowFailure = optional { flag() }
+        val value = optional { big() }
+        val calldata = blob(MAX_CALLDATA)
+        val call = optional { contractCallOf() }
+        val nested = optional { batchOf(level + 1) }
+        if (call != null && nested != null) throw WireException("a call is decoded or nested, not both")
+        return InnerCall(target, allowFailure, value, calldata, call, nested)
     }
 
     private fun Out.param(param: WhitelistParam) {
