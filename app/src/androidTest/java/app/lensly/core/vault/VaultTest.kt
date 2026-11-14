@@ -113,14 +113,14 @@ class VaultTest {
             vault.create(PASSWORD.toCharArray())
             val session = unlocked(vault.unlock(PASSWORD.toCharArray()))
             val wallet = session.createWallet()
-            session.putRecord(wallet, "seed", byteArrayOf(1, 2, 3, 4))
+            session.putRecord(wallet, "secret", byteArrayOf(1, 2, 3, 4))
 
             assertEquals(CreateResult.Created, vault.rekey(session, OTHER.toCharArray()))
 
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
             clock.advance(FailureDelay.LEARNING_CAP_MS)
             val reopened = unlocked(vault.unlock(OTHER.toCharArray()))
-            assertArrayEquals(byteArrayOf(1, 2, 3, 4), reopened.getRecord(wallet, "seed"))
+            assertArrayEquals(byteArrayOf(1, 2, 3, 4), reopened.getRecord(wallet, "secret"))
 
             reopened.close()
             session.close()
@@ -148,11 +148,11 @@ class VaultTest {
             vault.create(PASSWORD.toCharArray())
             val session = unlocked(vault.unlock(PASSWORD.toCharArray()))
             val wallet = session.createWallet()
-            session.putRecord(wallet, "seed", byteArrayOf(9, 9, 9))
-            assertNotNull(session.getRecord(wallet, "seed"))
+            session.putRecord(wallet, "secret", byteArrayOf(9, 9, 9))
+            assertNotNull(session.getRecord(wallet, "secret"))
 
             session.deleteWallet(wallet)
-            assertNull(session.getRecord(wallet, "seed"))
+            assertNull(session.getRecord(wallet, "secret"))
             assertFalse(session.listWallets().contains(wallet))
             assertFalse(File(vaultRoot, "wallets/$wallet").exists())
             session.close()
@@ -165,7 +165,7 @@ class VaultTest {
             vault.create(PASSWORD.toCharArray())
             val session = unlocked(vault.unlock(PASSWORD.toCharArray()))
             val wallet = session.createWallet()
-            session.putRecord(wallet, "seed", byteArrayOf(5, 6, 7))
+            session.putRecord(wallet, "secret", byteArrayOf(5, 6, 7))
             val recordFile = File(vaultRoot, "wallets/$wallet/seed.bin")
             val ciphertext = recordFile.readBytes()
 
@@ -173,7 +173,7 @@ class VaultTest {
             // Put the old ciphertext back on its own. Without the wallet key it must not decrypt.
             File(vaultRoot, "wallets/$wallet").mkdirs()
             recordFile.writeBytes(ciphertext)
-            assertNull(session.getRecord(wallet, "seed"))
+            assertNull(session.getRecord(wallet, "secret"))
             session.close()
         }
     }
@@ -261,9 +261,9 @@ class VaultTest {
 
             assertThrows(IllegalArgumentException::class.java) { session.putRecord(wallet, "../escape", byteArrayOf(1)) }
             assertThrows(IllegalArgumentException::class.java) { session.putRecord(wallet, "pwk", byteArrayOf(1)) }
-            assertThrows(IllegalArgumentException::class.java) { session.getRecord("not-a-wallet-id", "seed") }
+            assertThrows(IllegalArgumentException::class.java) { session.getRecord("not-a-wallet-id", "secret") }
             assertThrows(IllegalArgumentException::class.java) {
-                session.putRecord("00000000-0000-0000-0000-000000000000", "seed", byteArrayOf(1))
+                session.putRecord("00000000-0000-0000-0000-000000000000", "secret", byteArrayOf(1))
             }
             session.close()
         }
@@ -275,12 +275,12 @@ class VaultTest {
             vault.create(PASSWORD.toCharArray())
             val first = unlocked(vault.unlock(PASSWORD.toCharArray()))
             val wallet = first.createWallet()
-            first.putRecord(wallet, "notes", "hello".toByteArray())
+            first.putRecord(wallet, "profile", "hello".toByteArray())
             first.close()
 
             val reopened = unlocked(vault.unlock(PASSWORD.toCharArray()))
             assertEquals(listOf(wallet), reopened.listWallets())
-            assertArrayEquals("hello".toByteArray(), reopened.getRecord(wallet, "notes"))
+            assertArrayEquals("hello".toByteArray(), reopened.getRecord(wallet, "profile"))
             reopened.close()
         }
     }

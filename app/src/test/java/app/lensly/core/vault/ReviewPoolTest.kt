@@ -91,14 +91,15 @@ class ReviewPoolTest {
         val session = unlock()
         val wallet = session.createWallet()
         val bytes = "a review written by an earlier build".toByteArray()
-        session.putRecord(wallet, "review-old", bytes)
-        assertEquals(listOf("review-old"), session.recordNames(wallet, "review-"))
+        val key = session.copyOfVaultKey()
+        LegacyWalletFolder.writeRecord(layout, key, wallet, "review-old", bytes)
+        key.fill(0)
+        assertTrue(File(layout.walletDir(wallet), "review-old.bin").isFile)
         session.close()
 
         val reopened = unlock()
 
         assertContentEquals(bytes, reopened.getReview(wallet, "review-old"))
-        assertEquals(emptyList(), reopened.recordNames(wallet, "review-"))
         assertFalse(File(layout.walletDir(wallet), "review-old.bin").exists())
         reopened.migrateLegacyReviews()
         assertEquals(listOf("review-old"), reopened.reviewNames(wallet))

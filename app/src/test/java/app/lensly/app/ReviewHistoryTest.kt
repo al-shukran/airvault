@@ -256,7 +256,10 @@ class ReviewHistoryTest {
     fun aDamagedRecordIsLeftOutAndTheOthersAreListed() {
         val wallet = newWallet("MAIN")
         history.append(wallet, reviewOf(atMs = 1L))
-        session.putRecord(wallet, "review-damaged", byteArrayOf(9, 9, 9))
+        session.putReview(wallet, "review-damaged", byteArrayOf(9, 9, 9))
+        // Random bytes in its pool slot: the record no longer authenticates.
+        val slot = requireNotNull(session.reviewFileForTesting(wallet, "review-damaged"))
+        slot.writeBytes(ByteArray(slot.length().toInt()).also { java.security.SecureRandom().nextBytes(it) })
 
         assertEquals(listOf(reviewOf(atMs = 1L)), history.list(wallet))
     }
