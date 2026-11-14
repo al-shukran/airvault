@@ -344,18 +344,32 @@ class VaultSession internal constructor(
 ) {
     private var vaultKey: ByteArray? = vaultKey
 
+    /** The wallet ids this session owns, sorted, once a scan has checked every folder. Null until then, and after a wallet is created or deleted. */
+    private var owned: List<String>? = null
+
+    /**
+     * Counts the writes that can change what a read returns: wallets, wallet records and Review Records. Each increment is made under the
+     * session lock. [writeCount] reads it without the lock, so a caller on the main thread never waits for a write.
+     */
+    @Volatile private var writes = 0L
+
+    /**
+     * The number of writes made through this session so far that can change a read. A read taken at one count is current only while the
+     * count is unchanged, so a caller that keeps such a read checks it against this.
+     */
+    val writeCount: Long get() = writes
+
     /** Wallet ids this session can open, sorted. Another vault's wallets are not listed, and neither is a folder the Keystore fails on. */
     fun listWallets(): List<String> = synchronized(this) {
         val key = requireOpen()
-        layout.wallets.list()
-            ?.filter { id -> tryOwns(key, id) }
-            ?.sorted()
-            ?: emptyList()
+        owned ?: scanOwned(key)
     }
 
     /** Creates a wallet with a fresh Per-Wallet Key and returns its id. A padded store writes it into an unused slot. */
     fun createWallet(): String = synchronized(this) {
         val key = requireOpen()
+        writes++
+        owned = null
         val unused = pad?.take()
         val id = unused ?: UUID.randomUUID().toString()
         val dir = layout.walletDir(id)
@@ -378,6 +392,7 @@ class VaultSession internal constructor(
      */
     fun putRecord(walletId: String, name: String, bytes: ByteArray): Unit = synchronized(this) {
         val key = requireOpen()
+        writes++
         requireWalletId(walletId)
         requireWalletRecord(name)
         val walletKey = unwrapWalletKey(key, walletId)
@@ -413,6 +428,7 @@ class VaultSession internal constructor(
      */
     fun deleteRecord(walletId: String, name: String): Unit = synchronized(this) {
         val key = requireOpen()
+        writes++
         requireWalletId(walletId)
         requireWalletRecord(name)
         // The record's file is overwritten, not removed, so the folder keeps its shape. Another vault's wallet is not this session's.
@@ -431,6 +447,7 @@ class VaultSession internal constructor(
      */
     fun putRecords(walletId: String, puts: Map<String, ByteArray>, deletes: Collection<String>): Unit = synchronized(this) {
         val key = requireOpen()
+        writes++
         requireWalletId(walletId)
         (puts.keys + deletes).forEach { requireWalletRecord(it) }
         require(puts.keys.none { it in deletes }) { "A record cannot be stored and removed in one write." }
@@ -473,6 +490,7 @@ class VaultSession internal constructor(
      */
     fun putReview(walletId: String, name: String, bytes: ByteArray): Unit = synchronized(this) {
         val key = requireOpen()
+        writes++
         requireWalletId(walletId)
         requireRecordName(name)
         val walletKey = unwrapWalletKey(key, walletId)
@@ -544,6 +562,8 @@ class VaultSession internal constructor(
     fun deleteWallet(walletId: String) {
         synchronized(this) {
             val key = requireOpen()
+            writes++
+            owned = null
             requireWalletId(walletId)
             val dir = layout.walletDir(walletId)
             if (!dir.isDirectory) return
@@ -673,8 +693,7 @@ class VaultSession internal constructor(
         WalletFolder.upgradeKeyFiles(layout.wallets, keys)
         pad?.ensure()
         WalletFolder.reconcileFolderKeys(layout.wallets, keys)
-        for (walletId in layout.wallets.list().orEmpty()) {
-            if (!ownsWallet(keys, layout, key, walletId)) continue
+        for (walletId in listWallets()) {
             val walletKey = unwrapWalletKey(key, walletId) ?: continue
             try {
                 WalletFolder.settle(layout.walletDir(walletId), walletId, walletKey)
@@ -689,6 +708,7 @@ class VaultSession internal constructor(
         synchronized(this) {
             vaultKey?.let { Arrays.fill(it, 0) }
             vaultKey = null
+            owned = null
             pad?.close()
         }
     }
@@ -708,11 +728,23 @@ class VaultSession internal constructor(
 
     private fun requireOpen(): ByteArray = vaultKey ?: throw IllegalStateException("The VaultSession is closed.")
 
-    /** [ownsWallet] for a listing. A folder that cannot be checked is left out, and nothing is changed on that account. */
-    private fun tryOwns(key: ByteArray, walletId: String): Boolean = try {
-        ownsWallet(keys, layout, key, walletId)
-    } catch (e: VaultException) {
-        false
+    /**
+     * Checks every wallet folder once and returns the ids this session owns, sorted. A folder the Keystore cannot check is left out, and
+     * then nothing is kept, so the next [listWallets] checks again.
+     */
+    private fun scanOwned(key: ByteArray): List<String> {
+        val found = mutableListOf<String>()
+        var complete = true
+        for (id in layout.wallets.list().orEmpty()) {
+            try {
+                if (ownsWallet(keys, layout, key, id)) found += id
+            } catch (e: VaultException) {
+                complete = false
+            }
+        }
+        val sorted = found.sorted()
+        if (complete) owned = sorted
+        return sorted
     }
 
     private fun walletKeyFile(walletId: String): File = File(layout.walletDir(walletId), WALLET_KEY_FILE_NAME)
