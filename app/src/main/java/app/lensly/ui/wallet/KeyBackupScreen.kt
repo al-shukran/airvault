@@ -53,6 +53,7 @@ fun KeyBackupScreen(
     onCopiedChange: (Boolean) -> Unit,
     onCreate: () -> Unit,
     modifier: Modifier = Modifier,
+    errorMessage: String? = null,
 ) {
     LenslyScreen(
         title = "Key backup",
@@ -91,6 +92,10 @@ fun KeyBackupScreen(
         WalletPanel {
             WalletEyebrow("Private key")
             HashLines(hex = hex)
+        }
+        if (errorMessage != null) {
+            Spacer(Modifier.height(LenslySpacing.md))
+            InlineBanner(message = errorMessage, tone = BannerTone.Error)
         }
         Spacer(Modifier.height(LenslySpacing.md))
     }
