@@ -11,6 +11,9 @@ enum class ShredOutcome {
     /** The target was erased. The screen leaves. */
     ERASED,
 
+    /** The target was erased, but its Keystore key could not be deleted. The next unlock deletes the key. The screen leaves, as for [ERASED]. */
+    ERASED_KEY_PENDING,
+
     /** The vault was locked before the erase could run. Nothing was erased, and the gate takes over. */
     LOCKED,
 

@@ -31,6 +31,10 @@ internal class DeleteWalletPorts(
             ShredOutcome.ERASED
         } catch (e: CancellationException) {
             throw e
+        } catch (e: VaultException) {
+            // The wallet is already gone. Only its Keystore key is left, and the next unlock deletes it. Listed before
+            // IllegalStateException, which VaultException extends.
+            ShredOutcome.ERASED_KEY_PENDING
         } catch (e: IllegalStateException) {
             // A closed session. The vault was locked while the erase was starting.
             if (holder.openSession() == null) ShredOutcome.LOCKED else ShredOutcome.UNAVAILABLE

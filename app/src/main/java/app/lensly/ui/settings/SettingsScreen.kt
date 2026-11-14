@@ -32,9 +32,11 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.WalletEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.camera.EntryGesture
@@ -56,6 +58,8 @@ data class Catalog(
     val networks: List<NetworkEntry>,
     val tokens: List<TokenEntry>,
     val whitelist: List<WhitelistEntry> = emptyList(),
+    val denylist: List<DenylistEntry> = emptyList(),
+    val wallets: List<WalletEntry> = emptyList(),
     /** True when an installed package is present but failed verification, so the built-in whitelist is in force. */
     val installedUpdateUnverified: Boolean = false,
 )
@@ -165,6 +169,16 @@ fun SettingsScreen(
                 onClick = onTokens,
                 loading = catalog == null,
                 preview = { IconStack(items = catalog?.tokens.orEmpty()) { TokenIcon(token = it, size = PREVIEW_ICON_SIZE) } },
+            )
+            SettingsRow(
+                title = "Denylist",
+                description = catalog?.let { it.denylist.size.countOf("entry", "entries") } ?: "Reading the catalog…",
+                loading = catalog == null,
+            )
+            SettingsRow(
+                title = "Wallet compatibility",
+                description = catalog?.let { it.wallets.size.countOf("wallet", "wallets") } ?: "Reading the catalog…",
+                loading = catalog == null,
             )
             SettingsRow(
                 title = "Update catalog",

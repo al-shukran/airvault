@@ -5,11 +5,14 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import app.lensly.core.registry.DenylistEntry
+import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.WalletEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.wallet.BulkCap
@@ -66,6 +69,8 @@ class SettingsScreenTest {
         proxyPolicy: ProxyPolicy? = ProxyPolicy.DEFAULT,
         onProxyPolicy: () -> Unit = {},
         installedUpdateUnverified: Boolean = false,
+        denylist: List<DenylistEntry> = emptyList(),
+        wallets: List<WalletEntry> = emptyList(),
     ) {
         compose.setContent {
             LenslyTheme {
@@ -79,6 +84,8 @@ class SettingsScreenTest {
                         networks = listOf(network),
                         tokens = listOf(token, token.copy(symbol = "BBB")),
                         whitelist = approvals,
+                        denylist = denylist,
+                        wallets = wallets,
                         installedUpdateUnverified = installedUpdateUnverified,
                     ),
                     onNetworks = onNetworks,
@@ -142,6 +149,20 @@ class SettingsScreenTest {
 
         compose.onNodeWithText("1 network").assertExists()
         compose.onNodeWithText("2 tokens").assertExists()
+    }
+
+    @Test
+    fun theDenylistAndWalletRowsCountTheirEntries() {
+        show(
+            denylist = listOf(
+                DenylistEntry(chainId = 1L, contract = "0x" + "b".repeat(40), severity = DenylistSeverity.BLOCK, reason = "Drains"),
+                DenylistEntry(chainId = 1L, contract = "0x" + "c".repeat(40), severity = DenylistSeverity.WARN, reason = "Approves"),
+            ),
+            wallets = listOf(WalletEntry(name = "Rabby", ecosystems = listOf("EVM"), formats = listOf("QR"), note = "Scan", limitations = "None")),
+        )
+
+        compose.onNodeWithText("2 entries").assertExists()
+        compose.onNodeWithText("1 wallet").assertExists()
     }
 
     @Test

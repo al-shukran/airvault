@@ -160,7 +160,7 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
         walletEntries = walletEntries,
         onDone = {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-            navController.getBackStackEntry(LenslyRoute.HIDDEN).savedStateHandle[HiddenRoute.PAIRED_NOTICE] = PAIRED_MESSAGE
+            navController.getBackStackEntry(LenslyRoute.HIDDEN).savedStateHandle[HiddenRoute.NOTICE] = PAIRED_MESSAGE
             if (!navController.popBackStack(HiddenRoute.HOME, inclusive = false)) {
                 navController.openHidden(HiddenRoute.HOME)
             }

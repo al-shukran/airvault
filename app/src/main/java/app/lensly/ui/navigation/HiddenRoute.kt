@@ -27,8 +27,8 @@ internal object HiddenRoute {
     const val EXPORT_ACCOUNTS = "export-accounts/{walletId}/{indices}"
     const val SCAN = "scan/{walletId}"
     const val SCAN_ANY = "scan"
-    // Saved-state key on the hidden graph, not a route: Home shows the message once after a pairing, then forgets it.
-    const val PAIRED_NOTICE = "paired-notice"
+    // Saved-state key on the hidden graph, not a route: Home shows the message once after a pairing or a delete, then forgets it.
+    const val NOTICE = "notice"
 
     // Show Secret: the App Password again, a warning, then the secret. Reached from the wallet detail.
     const val SHOW_SECRET = "secret/{walletId}"
