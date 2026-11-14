@@ -104,7 +104,7 @@ private val LAST_FACE_SIZE = 44.dp
  * count; only [EntropyTargets.MAX_SYMBOLS] stops them. DONE enables at [minimumCount], and
  * [fullStrengthCount] is where the entry reaches its full 256 bits. Undo is off until the first face.
  * Every tap on a value tile records one entry, and every Undo tap removes one. Each of those taps then hides
- * the tiles and reorders them with [random], and they are shown again after a random 100 ms to 5 s. While they
+ * the tiles and reorders them with [random], and they are shown again after a random 100 ms to 1 s. While they
  * are hidden, the tiles, Undo and Done take no taps. [random] draws the shuffles and the delay, and [hideFor]
  * waits out the delay. Both are injected so tests can run without real time or real randomness.
  */

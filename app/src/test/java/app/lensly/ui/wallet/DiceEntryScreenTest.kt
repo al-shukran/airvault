@@ -45,8 +45,8 @@ private const val PHONE_DENSITY = 1.75f
 private val PHONE_WIDTH: Dp = (720f / PHONE_DENSITY).dp
 private val PHONE_HEIGHT: Dp = (1600f / PHONE_DENSITY).dp
 
-/** The number of values the hide delay is drawn from: 100 + nextInt(4901) covers 100 to 5000 ms. */
-private const val DELAY_DRAW_BOUND = 4_901
+/** The number of values the hide delay is drawn from: 100 + nextInt(901) covers 100 to 1000 ms. */
+private const val DELAY_DRAW_BOUND = 901
 
 /** Height of a button's bounds in dp. [DpRect] has edges but no height of its own. */
 private val DpRect.tall: Dp get() = bottom - top
@@ -220,7 +220,7 @@ class DiceEntryScreenTest {
     }
 
     @Test
-    fun theLongestDelayIsFiveSecondsAndKeepsTheTilesHidden() {
+    fun theLongestDelayIsOneSecondAndKeepsTheTilesHidden() {
         showEntry(EntropyMode.Dice, random = ScriptedRandom(delayDraw = DELAY_DRAW_BOUND - 1))
         tapTile("Roll 1")
         compose.waitForIdle() // the hide starts on the frame after the tap

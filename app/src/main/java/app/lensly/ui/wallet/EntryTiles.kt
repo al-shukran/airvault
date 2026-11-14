@@ -9,7 +9,7 @@ import java.security.SecureRandom
 const val HIDE_MIN_MS = 100L
 
 /** The longest time the tiles stay hidden after a tap, in milliseconds. Both ends of the range are possible. */
-const val HIDE_MAX_MS = 5_000L
+const val HIDE_MAX_MS = 1_000L
 
 /**
  * The value tiles of a dice or coin entry: the face on each tile, and whether the tiles are hidden.
@@ -48,7 +48,7 @@ class EntryTiles(mode: EntropyMode, private val random: SecureRandom) {
         hidden = false
     }
 
-    /** How long the tiles stay hidden: uniform over [HIDE_MIN_MS] to [HIDE_MAX_MS], as 100 + nextInt(4901). */
+    /** How long the tiles stay hidden: uniform over [HIDE_MIN_MS] to [HIDE_MAX_MS], as 100 + nextInt(901). */
     fun hideDelayMs(): Long = HIDE_MIN_MS + random.nextInt((HIDE_MAX_MS - HIDE_MIN_MS + 1).toInt())
 
     /** Fisher–Yates over a copy of [tiles]: each position from the end swaps with a position at or before it. */
