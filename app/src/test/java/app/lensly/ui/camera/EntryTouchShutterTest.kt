@@ -100,4 +100,43 @@ class EntryTouchShutterTest {
 
         assertEquals(1, shutterActions)
     }
+
+    @Test
+    fun aClickWaitingForAHoldIsDroppedWhenTheTouchMoves() {
+        val touch = shutterGestureTouch()
+        var shutterActions = 0
+        repeat(3) { touch.onModeSwitch(it * 1_000L) }
+        touch.touchStarted(EntryRegion.SHUTTER, Offset.Zero, 2_500L)
+        // The click lands while the hold runs, so it waits for the release.
+        touch.onShutterClick { shutterActions++ }
+
+        // The touch then moves, which cancels the hold. Its release must not fire the waiting click.
+        val moved = TouchFrame(
+            count = 1,
+            pressed = 1,
+            position = Offset.Zero,
+            timeMs = 2_600L,
+            moved = true,
+            peak = 1,
+            contactMs = 100L,
+        )
+        assertFalse(touch.activeEvent(moved))
+        assertFalse(touch.activeEvent(release(2_700L)))
+
+        assertEquals(0, shutterActions)
+    }
+
+    @Test
+    fun aClickWaitingForAHoldIsDroppedWhenAPinchOrDragCancelsTheGesture() {
+        val touch = shutterGestureTouch()
+        var shutterActions = 0
+        repeat(3) { touch.onModeSwitch(it * 1_000L) }
+        touch.touchStarted(EntryRegion.SHUTTER, Offset.Zero, 2_500L)
+        touch.onShutterClick { shutterActions++ }
+
+        touch.cancelGesture()
+        assertFalse(touch.activeEvent(release(2_700L)))
+
+        assertEquals(0, shutterActions)
+    }
 }
