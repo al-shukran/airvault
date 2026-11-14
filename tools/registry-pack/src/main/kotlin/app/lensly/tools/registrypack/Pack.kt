@@ -373,6 +373,7 @@ internal object Pack {
         require(entry.selector != null || entry.contract != null || entry.primaryType != null) {
             "$what names a selector, a contract or a primaryType"
         }
+        require(entry.primaryType == null || entry.selector == null) { "$what names a selector or a primaryType, not both" }
         require(entry.condition == DenylistCondition.ANY || entry.selector != null) {
             "$what: only a selector can name an amount or an approval"
         }

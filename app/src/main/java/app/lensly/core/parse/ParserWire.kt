@@ -1,7 +1,12 @@
 package app.lensly.core.parse
 
 import app.lensly.core.evm.AccessListEntry
+import app.lensly.core.evm.EIP712_DOMAIN
 import app.lensly.core.evm.TxType
+import app.lensly.core.evm.TypedData
+import app.lensly.core.evm.TypedDataParser
+import app.lensly.core.evm.TypedField
+import app.lensly.core.evm.TypedValue
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
@@ -47,6 +52,10 @@ internal object ParserWire {
     private const val NO_TRANSACTION = 0
     private const val TRANSACTION_OK = 1
     private const val TRANSACTION_REJECTED = 2
+    private const val NO_TYPED = 0
+    private const val TYPED_OK = 1
+    private const val TYPED_REJECTED = 2
+    private const val MAX_TYPED_NAME_BYTES = 256
 
     private const val MAX_TEXT_BYTES = 4096
     private const val MAX_PARTS = 4096
@@ -214,6 +223,17 @@ internal object ParserWire {
         }
         optional(parsed.call) { contractCall(it) }
         optional(parsed.multicall) { batch(it, level = 1) }
+        when (val typed = parsed.typed) {
+            null -> int(NO_TYPED)
+            is TypedDataParser.Result.Ok -> {
+                int(TYPED_OK)
+                typedData(typed.data)
+            }
+            is TypedDataParser.Result.Rejected -> {
+                int(TYPED_REJECTED)
+                text(typed.reason)
+            }
+        }
     }
 
     /** The parsed request that follows the reply tag. Its transaction and call must agree with its data type. */
@@ -227,6 +247,15 @@ internal object ParserWire {
         }
         val call = optional { contractCallOf() }
         val multicall = optional { batchOf(level = 1) }
+        val typed: TypedDataParser.Result? = when (int()) {
+            NO_TYPED -> null
+            TYPED_OK -> TypedDataParser.Result.Ok(typedDataOf())
+            TYPED_REJECTED -> TypedDataParser.Result.Rejected(text())
+            else -> throw WireException("unknown typed data result")
+        }
+        if ((request.dataType == DataType.TYPED_DATA) != (typed != null)) {
+            throw WireException("typed data result does not match the data type")
+        }
         val isTransaction = request.dataType == DataType.TRANSACTION || request.dataType == DataType.TYPED_TRANSACTION
         if (isTransaction != (tx != null)) throw WireException("transaction result does not match the data type")
         if (call != null && tx !is UnsignedTx.Result.Ok) throw WireException("a contract call needs a decoded transaction")
@@ -239,7 +268,94 @@ internal object ParserWire {
             }
             if (tx.tx.type !in expected) throw WireException("transaction type does not match the data type")
         }
-        return ParsedRequest(request, tx, call, multicall)
+        return ParsedRequest(request, tx, call, multicall, typed)
+    }
+
+    /**
+     * The typed message, as its types, its primary type, then its domain and its message. A value is written as its type says:
+     * a struct by its members in declared order, an array by its count and items, and an atomic value by its bytes or number.
+     */
+    private fun Out.typedData(data: TypedData) {
+        count(data.types.size, ParserLimits.MAX_TYPED_TYPES)
+        for ((name, members) in data.types) {
+            text(name, MAX_TYPED_NAME_BYTES)
+            count(members.size, ParserLimits.MAX_TYPED_MEMBERS)
+            for (member in members) {
+                text(member.name, MAX_TYPED_NAME_BYTES)
+                text(member.type, MAX_TYPED_NAME_BYTES)
+            }
+        }
+        text(data.primaryType, MAX_TYPED_NAME_BYTES)
+        typedValue(EIP712_DOMAIN, data.domain, data.types)
+        typedValue(data.primaryType, data.message, data.types)
+    }
+
+    private fun Out.typedValue(type: String, value: TypedValue, types: Map<String, List<TypedField>>) {
+        when {
+            TypedData.isArray(type) -> {
+                val items = (value as? TypedValue.ArrayValue ?: throw WireException("an array value is missing")).items
+                count(items.size, ParserLimits.MAX_TYPED_VALUES)
+                items.forEach { typedValue(TypedData.elementOf(type), it, types) }
+            }
+            type in types -> {
+                val struct = value as? TypedValue.StructValue ?: throw WireException("a struct value is missing")
+                for (member in types.getValue(type)) {
+                    typedValue(member.type, struct.fields.getValue(member.name), types)
+                }
+            }
+            else -> when (value) {
+                is TypedValue.IntValue -> {
+                    flag(value.value.signum() < 0)
+                    big(value.value.abs())
+                }
+                is TypedValue.BytesValue -> blob(value.bytes, ParserLimits.MAX_SIGN_DATA_BYTES)
+                is TypedValue.FlagValue -> flag(value.value)
+                is TypedValue.TextValue -> text(value.value, ParserLimits.MAX_SIGN_DATA_BYTES)
+                else -> throw WireException("a typed value does not match its type")
+            }
+        }
+    }
+
+    /** The typed message that [typedData] wrote. The schema is checked before any value is read, so a cycle cannot recurse. */
+    private fun In.typedDataOf(): TypedData {
+        val types = LinkedHashMap<String, List<TypedField>>()
+        repeat(count(ParserLimits.MAX_TYPED_TYPES)) {
+            val name = text(MAX_TYPED_NAME_BYTES)
+            val members = List(count(ParserLimits.MAX_TYPED_MEMBERS)) {
+                TypedField(text(MAX_TYPED_NAME_BYTES), text(MAX_TYPED_NAME_BYTES))
+            }
+            if (types.put(name, members) != null) throw WireException("a typed data type appears twice")
+        }
+        val primaryType = text(MAX_TYPED_NAME_BYTES)
+        if (EIP712_DOMAIN !in types || primaryType !in types) throw WireException("the typed data names an unknown type")
+        try {
+            TypedData.checkSchema(types)
+            val domain = typedValueOf(EIP712_DOMAIN, types) as TypedValue.StructValue
+            val message = typedValueOf(primaryType, types) as TypedValue.StructValue
+            return TypedData(types, primaryType, domain, message)
+        } catch (e: IllegalArgumentException) {
+            throw WireException(e.message ?: "the typed data is malformed")
+        }
+    }
+
+    private fun In.typedValueOf(type: String, types: Map<String, List<TypedField>>): TypedValue = when {
+        TypedData.isArray(type) -> {
+            val element = TypedData.elementOf(type)
+            TypedValue.ArrayValue(List(count(ParserLimits.MAX_TYPED_VALUES)) { typedValueOf(element, types) })
+        }
+        type in types -> {
+            val fields = LinkedHashMap<String, TypedValue>()
+            for (member in types.getValue(type)) fields[member.name] = typedValueOf(member.type, types)
+            TypedValue.StructValue(fields)
+        }
+        type == "bool" -> TypedValue.FlagValue(flag())
+        type == "string" -> TypedValue.TextValue(text(ParserLimits.MAX_SIGN_DATA_BYTES))
+        type == "address" || type.startsWith("bytes") -> TypedValue.BytesValue(blob(ParserLimits.MAX_SIGN_DATA_BYTES))
+        else -> {
+            val negative = flag()
+            val magnitude = big()
+            TypedValue.IntValue(if (negative) magnitude.negate() else magnitude)
+        }
     }
 
     private fun Out.transaction(tx: UnsignedTx) {
