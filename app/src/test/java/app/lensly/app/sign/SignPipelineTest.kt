@@ -231,6 +231,29 @@ private val DENYLISTED: Registry = REGISTRY.withDenylist(shippedRegistry().denyl
 /** The registry of the batch tests: the router's two approved calls, and the approved swap and proxy the other tests use. */
 private val BATCH: Registry = REGISTRY.withWhitelist(listOf(SWEEP_ENTRY, UNWRAP_ENTRY, SWAP_ENTRY, PROXY_ENTRY))
 
+private const val BLOCK_REASON = "Sweeps the whole balance of a token to one recipient."
+private const val WARN_REASON = "Unlimited approval: the spender can take every token."
+
+/** The batch registry with the denylist the batch tests check: a BLOCK on the router's sweep, and a WARN on an unlimited approval. */
+private val BATCH_DENYLIST: Registry = BATCH.withDenylist(
+    listOf(
+        DenylistEntry(
+            chainId = ETHEREUM,
+            contract = ROUTER.lowercase(),
+            selector = WhitelistEntry.selectorOf(SWEEP_SIGNATURE),
+            severity = DenylistSeverity.BLOCK,
+            reason = BLOCK_REASON,
+        ),
+        DenylistEntry(
+            chainId = ETHEREUM,
+            selector = WhitelistEntry.selectorOf("approve(address,uint256)"),
+            condition = DenylistCondition.UNLIMITED,
+            severity = DenylistSeverity.WARN,
+            reason = WARN_REASON,
+        ),
+    ),
+)
+
 class SignPipelineTest {
 
     private val pipeline = SignPipeline(REGISTRY, inProcessSandboxParser)
@@ -1428,6 +1451,32 @@ class SignPipelineTest {
         assertEquals(UNKNOWN_DECIMALS_NOTE, unknown.note)
         assertTrue(unknown.unregistered)
         assertEquals(listOf(ReviewCheck.REGISTRY), ready.review.requiredChecks)
+    }
+
+    @Test
+    fun aBlockedCallInsideAMulticallRefusesTheWholeRequestWithItsReason() {
+        val sweep = callOf(
+            WhitelistEntry.selectorOf(SWEEP_SIGNATURE).removePrefix("0x"),
+            addressWord(USDC_ETHEREUM),
+            uintWord(BigInteger.TEN),
+            addressWord(RECIPIENT),
+        )
+
+        val refused = assertIs<Prepared.Refused>(batch(batchData(listOf(sweep)), registry = BATCH_DENYLIST))
+
+        assertEquals(BLOCK_REASON, refused.reason)
+    }
+
+    @Test
+    fun aWarnedCallInsideAMulticallStaysOnItsRowAndNeedsTheDenylistCheck() {
+        val unlimited = callOf(SELECTOR_APPROVE, addressWord(RECIPIENT), uintWord(ContractCall.MAX_UINT256))
+
+        val ready = assertIs<Prepared.Ready>(batch(batchData(listOf(unlimited)), registry = BATCH_DENYLIST))
+
+        assertEquals(listOf(WARN_REASON), ready.review.nested.single().denylisted.map { it.reason })
+        assertTrue(ready.review.denylisted.isEmpty(), "the outer batch matches no entry")
+        // The router is not a registered token, so the approval also needs the registry check, as a lone approval would.
+        assertEquals(listOf(ReviewCheck.DENYLIST, ReviewCheck.REGISTRY), ready.review.requiredChecks)
     }
 
     @Test

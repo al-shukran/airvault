@@ -533,11 +533,11 @@ private fun MessageBlock(text: String) {
     }
 }
 
-/** One argument of a call: its name above its value. An address is shown in groups of four, so it can be compared by eye. */
 /**
  * One call of a multicall, indented by its level so the nesting reads at a glance. It opens with the same warnings a lone call
- * gets: the registry block for a token outside the registry, then each warning. Then come its target when it names one, its function
- * and arguments, and its note. A call the whitelist approves ends with its approved meaning, under the same block a lone call gets.
+ * gets: the denylist block for a known-dangerous request, the registry block for a token outside the registry, then each warning.
+ * Then come its target when it names one, its function and arguments, and its note. A call the whitelist approves ends with its
+ * approved meaning, under the same block a lone call gets.
  */
 @Composable
 private fun NestedCallView(call: NestedCall) {
@@ -546,6 +546,10 @@ private fun NestedCallView(call: NestedCall) {
             .fillMaxWidth()
             .padding(start = LenslySpacing.md * (call.depth - 1), bottom = LenslySpacing.sm),
     ) {
+        if (call.denylisted.isNotEmpty()) {
+            DenylistWarning(reasons = call.denylisted.map { it.reason })
+            Spacer(Modifier.height(LenslySpacing.xs))
+        }
         if (call.unregistered) {
             RegistryWarning()
             Spacer(Modifier.height(LenslySpacing.xs))
@@ -574,6 +578,7 @@ private fun NestedCallView(call: NestedCall) {
     }
 }
 
+/** One argument of a call: its name above its value. An address is shown in groups of four, so it can be compared by eye. */
 @Composable
 private fun LabelledValue(label: String, value: String) {
     Column(modifier = Modifier.padding(bottom = LenslySpacing.xs)) {

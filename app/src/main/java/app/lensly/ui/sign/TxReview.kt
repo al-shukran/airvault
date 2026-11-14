@@ -53,7 +53,8 @@ const val ALL_NFTS_WARNING = "Grants control of ALL your NFTs in this collection
  * [whitelisted] is set when the signed whitelist approves the call, which Lensly cannot decode itself.
  *
  * A call carries the same warnings a lone call would: [warnings] such as an unlimited approval, the muted [note] under its amounts,
- * and [unregistered] when it moves or approves a token outside the registry. Each is shown as it is for a lone call.
+ * and [unregistered] when it moves or approves a token outside the registry. Each is shown as it is for a lone call. [denylisted]
+ * holds the denylist entries the call matches, each a WARN, since a BLOCK match refuses the request before its review.
  */
 data class NestedCall(
     val depth: Int,
@@ -64,6 +65,7 @@ data class NestedCall(
     val warnings: List<String> = emptyList(),
     val note: String? = null,
     val unregistered: Boolean = false,
+    val denylisted: List<DenylistEntry> = emptyList(),
 )
 
 /**
@@ -131,7 +133,7 @@ data class TxReview(
             // A whitelisted or unregistered call may sit in a multicall, so every such call of the review counts.
             val whitelistedCalls = listOfNotNull(whitelisted) + nested.mapNotNull { it.whitelisted }
             return listOfNotNull(
-                ReviewCheck.DENYLIST.takeIf { denylisted.isNotEmpty() },
+                ReviewCheck.DENYLIST.takeIf { denylisted.isNotEmpty() || nested.any { it.denylisted.isNotEmpty() } },
                 ReviewCheck.REGISTRY.takeIf { needsRegistryConfirmation || nested.any { it.unregistered } },
                 ReviewCheck.WHITELIST.takeIf { whitelistedCalls.isNotEmpty() },
                 ReviewCheck.UPGRADE.takeIf { whitelistedCalls.any { it.call.proxy != null } },

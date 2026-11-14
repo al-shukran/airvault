@@ -318,6 +318,9 @@ class SignPipeline(
         for (inner in multicall.calls) {
             // A Multicall3 call names its own contract. Any other call goes to the contract its batch goes to.
             val contract = inner.target ?: to
+            // Every call of the batch meets the denylist, as the request does: a BLOCK match refuses it, and a WARN match stays on its row.
+            val denied = registry.denylistMatches(target.chainId, contract, inner.calldata)
+            denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { return Prepared.Refused(it.reason) }
             val shown = inner.target?.let { checksum(it) }
             val flags = flagsOf(shape, inner, target.network)
             val nested = inner.nested
@@ -325,7 +328,7 @@ class SignPipeline(
             when {
                 nested != null -> {
                     val nestedShape = encodesAs(inner.calldata, nested) ?: return Prepared.Refused(CANNOT_BE_READ)
-                    rows += NestedCall(level, shown, nestedShape.function, flags + deadlineParams(nested))
+                    rows += NestedCall(level, shown, nestedShape.function, flags + deadlineParams(nested), denylisted = denied)
                     checkCalls(target, tx, contract, nestedShape, nested, level + 1, rows)?.let { return it }
                 }
                 decoded != null -> {
@@ -340,11 +343,13 @@ class SignPipeline(
                         warnings = review.warnings,
                         note = review.amountNote,
                         unregistered = review.needsRegistryConfirmation,
+                        denylisted = denied,
                     )
                 }
                 else -> when (val gap = whitelistedGap(target, contract, inner.calldata, inner.value ?: tx.value)) {
                     is GapOutcome.Refused -> return Prepared.Refused(gap.reason, gap.call)
-                    is GapOutcome.Approved -> rows += NestedCall(level, shown, gap.function, flags + gap.params, gap.whitelisted)
+                    is GapOutcome.Approved ->
+                        rows += NestedCall(level, shown, gap.function, flags + gap.params, gap.whitelisted, denylisted = denied)
                 }
             }
         }

@@ -24,6 +24,9 @@ import app.lensly.app.ProfileIcon
 import app.lensly.app.VisualIdentity
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
+import app.lensly.core.registry.DenylistCondition
+import app.lensly.core.registry.DenylistEntry
+import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
@@ -92,6 +95,8 @@ private fun whitelistedReview(proxy: ProxyBinding? = null) = approvalReview(orig
     ),
 )
 
+private const val DENYLIST_REASON = "Unlimited approval: the spender can take every token."
+
 /**
  * A multicall with its calls listed level by level: an approval, and a Multicall3 batch whose whitelisted sweep sits one level down
  * and names its contract.
@@ -115,6 +120,15 @@ private fun multicallReview() = approvalReview(origin = null).copy(
             warnings = listOf(UNLIMITED),
             note = UNKNOWN_DECIMALS_NOTE,
             unregistered = true,
+            denylisted = listOf(
+                DenylistEntry(
+                    chainId = BASE.chainId,
+                    selector = "0x095ea7b3",
+                    condition = DenylistCondition.UNLIMITED,
+                    severity = DenylistSeverity.WARN,
+                    reason = DENYLIST_REASON,
+                ),
+            ),
         ),
         NestedCall(depth = 1, target = null, function = "aggregate3", params = listOf("allowFailure (bool)" to "false")),
         NestedCall(
@@ -297,6 +311,10 @@ class TxReviewScreenTest {
         compose.onNodeWithText(UNLIMITED).assertExists()
         compose.onNodeWithText(UNKNOWN_DECIMALS_NOTE).assertExists()
         compose.onNodeWithText("NOT IN LENSLY'S REGISTRY").assertExists()
+        // A call that matches the denylist shows its reason and needs the risky-request check.
+        compose.onNodeWithText("KNOWN RISKY REQUEST").assertExists()
+        compose.onNodeWithText(DENYLIST_REASON).assertExists()
+        compose.onNodeWithText("I UNDERSTAND THIS IS A RISKY REQUEST").assertExists()
         compose.onNodeWithText("aggregate3").assertExists()
         compose.onNodeWithText("ALLOWFAILURE (BOOL)").assertExists()
         compose.onNodeWithText("sweepToken").assertExists()
