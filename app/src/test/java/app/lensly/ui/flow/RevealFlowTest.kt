@@ -3,6 +3,7 @@ package app.lensly.ui.flow
 import app.lensly.core.vault.FailureDelay
 import app.lensly.core.vault.FailureState
 import app.lensly.core.vault.FakeClock
+import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -16,7 +17,7 @@ private val WORDS = List(23) { "abandon" } + "art"
 /** Fakes for the app's side of the flow. [check] answers each password check, and [load] answers each read. */
 private class FakeRevealPorts(
     private val check: (CharArray) -> PasswordCheck = { PasswordCheck.Accepted },
-    private val load: () -> SecretLoad = { SecretLoad.Loaded(RevealedSecret.ofMnemonic(WORDS, null)) },
+    private val load: () -> SecretLoad = { SecretLoad.Loaded(RevealedSecret.ofMnemonic(Mnemonic.of(WORDS), null)) },
 ) : RevealPorts {
     val checked = mutableListOf<CharArray>()
     var loads = 0
@@ -271,14 +272,14 @@ class RevealFlowTest {
     @Test
     fun aPassphraseIsOfferedOnlyWhenThereIsOneAndItsWordsKeepTheirCase() {
         runBlocking {
-            val withPassphrase = RevealedSecret.ofMnemonic(WORDS, "Correct  Horse")
+            val withPassphrase = RevealedSecret.ofMnemonic(Mnemonic.of(WORDS), "Correct  Horse")
             assertTrue(withPassphrase.hasPassphrase)
             assertEquals(3, withPassphrase.pageCount(RevealPart.PASSPHRASE))
             assertEquals("Correct", withPassphrase.page(RevealPart.PASSPHRASE, 0))
             assertEquals("(empty)", withPassphrase.page(RevealPart.PASSPHRASE, 1))
             assertEquals("Horse", withPassphrase.page(RevealPart.PASSPHRASE, 2))
 
-            val plain = RevealedSecret.ofMnemonic(WORDS, "")
+            val plain = RevealedSecret.ofMnemonic(Mnemonic.of(WORDS), "")
             assertFalse(plain.hasPassphrase)
 
             val flow = RevealFlow(FakeRevealPorts(load = { SecretLoad.Loaded(plain) })) { 0L }
@@ -292,7 +293,7 @@ class RevealFlowTest {
     @Test
     fun selectingThePassphraseStartsItsFirstWordAndCanGoBackToTheWords() {
         runBlocking {
-            val secret = RevealedSecret.ofMnemonic(WORDS, "two words")
+            val secret = RevealedSecret.ofMnemonic(Mnemonic.of(WORDS), "two words")
             val flow = RevealFlow(FakeRevealPorts(load = { SecretLoad.Loaded(secret) })) { 0L }
             flow.submitPassword(PASSWORD.toCharArray())
             flow.show()
@@ -331,7 +332,7 @@ class RevealFlowTest {
 
     @Test
     fun theSecretNeverAppearsInItsText() {
-        val secret = RevealedSecret.ofMnemonic(WORDS, "hunter2")
+        val secret = RevealedSecret.ofMnemonic(Mnemonic.of(WORDS), "hunter2")
         assertEquals("RevealedSecret(redacted)", secret.toString())
         val revealed = RevealStep.Revealed(secret, RevealPart.WORDS, index = 0, secondsLeft = 60)
         assertFalse(revealed.toString().contains("abandon"))
