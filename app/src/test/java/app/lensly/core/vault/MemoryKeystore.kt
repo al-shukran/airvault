@@ -11,9 +11,9 @@ internal class MemoryKeystore : KeystoreBackend {
     private var hardware: SecretKey? = null
     private val failureMacs = mutableMapOf<Long, SecretKey>()
     private var legacyFailureMac: SecretKey? = null
+    private val folderKeys = mutableMapOf<String, SecretKey>()
 
-    override fun createHardwareKey(): SecretKey =
-        KeyGenerator.getInstance("AES").apply { init(256) }.generateKey().also { hardware = it }
+    override fun createHardwareKey(): SecretKey = newAesKey().also { hardware = it }
 
     override fun hardwareKey(): SecretKey =
         hardware ?: throw VaultException("The vault's hardware key is missing from the Keystore.")
@@ -35,16 +35,32 @@ internal class MemoryKeystore : KeystoreBackend {
 
     override fun failureMacKeySeqs(): List<Long> = failureMacs.keys.toList()
 
+    override fun createFolderKey(keyId: String): SecretKey = newAesKey().also { folderKeys[keyId] = it }
+
+    override fun folderKey(keyId: String): SecretKey? = folderKeys[keyId]
+
+    override fun deleteFolderKey(keyId: String) {
+        folderKeys.remove(keyId)
+    }
+
+    override fun folderKeyIds(): List<String> = folderKeys.keys.toList()
+
     /** Makes the single key of the layout before per-save keys, so a test can write a legacy record under it. */
     fun createLegacyFailureMacKey(): SecretKey = newHmacKey().also { legacyFailureMac = it }
 
     /** How many Delay State MAC keys exist, the legacy key included. */
     fun failureMacKeyCount(): Int = failureMacs.size + if (legacyFailureMac != null) 1 else 0
 
+    /** Puts [key] back under [keyId], as if the Keystore had never deleted it. For a test of what a deleted key would have opened. */
+    fun restoreFolderKey(keyId: String, key: SecretKey) {
+        folderKeys[keyId] = key
+    }
+
     override fun deleteAll() {
         hardware = null
         failureMacs.clear()
         legacyFailureMac = null
+        folderKeys.clear()
     }
 
     override fun securityLevel(key: SecretKey): Int = TRUSTED_ENVIRONMENT
@@ -52,6 +68,8 @@ internal class MemoryKeystore : KeystoreBackend {
     override fun strongBox(): Boolean = false
 
     override fun probe(): DeviceSecurity = DeviceSecurity(strongBox = false, hardwareBacked = true)
+
+    private fun newAesKey(): SecretKey = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
 
     private fun newHmacKey(): SecretKey = KeyGenerator.getInstance("HmacSHA256").generateKey()
 

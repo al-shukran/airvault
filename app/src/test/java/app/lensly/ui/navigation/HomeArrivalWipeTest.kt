@@ -76,7 +76,7 @@ class HomeArrivalWipeTest {
 
     /** A vault with an open session, so HOME composes instead of sending the owner back to the gate. */
     private fun openHolder(): VaultHolder {
-        val session = VaultSession(VaultLayout(tmp.root), ByteArray(32) { (it + 5).toByte() })
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it + 5).toByte() })
         val vault = Vault(
             VaultLayout(File(tmp.root, "vault")),
             MemoryKeystore(),

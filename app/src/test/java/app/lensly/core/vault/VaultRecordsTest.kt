@@ -19,7 +19,9 @@ class VaultRecordsTest {
     private val vaultKey = ByteArray(32) { (it * 3 + 1).toByte() }
 
     // A session zeroes the key array it is given when it closes, so each session gets its own copy.
-    private fun open(key: ByteArray = vaultKey.copyOf()): VaultSession = VaultSession(VaultLayout(tmp.root), key)
+    private val keys = MemoryKeystore()
+
+    private fun open(key: ByteArray = vaultKey.copyOf()): VaultSession = VaultSession(VaultLayout(tmp.root), keys, key)
 
     @Test
     fun aMissingVaultRecordReadsAsNull() {

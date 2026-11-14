@@ -21,6 +21,7 @@ class VaultSessionOwnershipTest {
 
     private val realKey = ByteArray(32) { (it * 3 + 1).toByte() }
     private val decoyKey = ByteArray(32) { (it * 5 + 7).toByte() }
+    private val keys = MemoryKeystore()
     private lateinit var layout: VaultLayout
 
     @Before
@@ -105,5 +106,5 @@ class VaultSessionOwnershipTest {
     }
 
     private fun open(key: ByteArray, decoy: Boolean = false): VaultSession =
-        VaultSession(layout, key.copyOf(), isDecoy = decoy)
+        VaultSession(layout, keys, key.copyOf(), isDecoy = decoy)
 }
