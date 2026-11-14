@@ -18,7 +18,7 @@ class RegistryCatalogTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private val keys = listOf(TestPackages.PUBLIC_BYTES)
+    private val keys = TestPackages.TRUSTED
     private val baked: Registry = RegistryLoader.load { path ->
         File("src/main/assets", path).takeIf { it.isFile }?.readText()
     }
