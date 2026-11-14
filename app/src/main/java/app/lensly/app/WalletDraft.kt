@@ -156,6 +156,9 @@ typealias WalletWriter = suspend (
     passphrase: String?,
 ) -> String
 
+/** Writes a new Single Key wallet from an imported private key, and returns the new wallet's id. */
+typealias SingleKeyWriter = suspend (name: String, privateKey: ByteArray) -> String
+
 /** Where the save of a draft's wallet is. A save that fails keeps the words, so the owner can save again. */
 sealed interface SaveState {
     /** No save has run since the flow last ended. */
@@ -198,10 +201,33 @@ class WalletDraftViewModel : ViewModel() {
         val words = draft.words.toList()
         val deviceGenerated = draft.deviceGenerated
         val passphrase = draft.passphrase
+        launchSave { write(name, deviceGenerated, words, passphrase) }
+    }
+
+    /**
+     * Saves the draft's Single Key wallet through [write], with the rules of [save]. The write gets a copy of the key, which
+     * is zeroed when the write returns, so a wipe during the write cannot change the key it writes. The draft's key is wiped
+     * once the write has returned. A call made while a save runs, or with no key, does nothing.
+     */
+    fun saveSingleKey(name: String, write: SingleKeyWriter) {
+        val key = draft.singleKey ?: return
+        if (mutableSaveState.value == SaveState.Saving) return
+        val copy = key.copyOf()
+        launchSave {
+            try {
+                write(name, copy)
+            } finally {
+                copy.fill(0)
+            }
+        }
+    }
+
+    /** Runs [write] off the main thread in the model's scope, and sets the save state from its outcome. */
+    private fun launchSave(write: suspend () -> String) {
         mutableSaveState.value = SaveState.Saving
         viewModelScope.launch {
             mutableSaveState.value = try {
-                val walletId = withContext(Dispatchers.IO) { write(name, deviceGenerated, words, passphrase) }
+                val walletId = withContext(Dispatchers.IO) { write() }
                 draft.wipe()
                 SaveState.Saved(walletId)
             } catch (e: CancellationException) {

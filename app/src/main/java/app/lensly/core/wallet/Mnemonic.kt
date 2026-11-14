@@ -29,6 +29,8 @@ class Mnemonic private constructor(
     /** The 64-byte BIP39 seed, filled by [deriveSeed] and zeroed by [wipe]. */
     private val seed = ByteArray(SEED_BYTES)
 
+    /** Read by the screen that holds the instance and written by [wipe], which may run on another thread. */
+    @Volatile
     private var wiped = false
 
     override val size: Int
