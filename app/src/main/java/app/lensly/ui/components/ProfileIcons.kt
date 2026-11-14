@@ -126,14 +126,14 @@ internal object ProfileIcons {
         )
     }
 
-    /** A clasp purse: a frame across the top with two clasp knobs, over a body that tapers to its base. */
+    /** A handbag: an arched handle over a body, a flap line across the front, and a clasp tab hanging from the flap. */
     val Purse: ImageVector by lazy {
         outline(
             "Purse",
-            "M4 10h16",
-            "M4 10v3.2L5.6 19a2.4 2.4 0 0 0 2.3 1.7h8.2a2.4 2.4 0 0 0 2.3-1.7L20 13.2V10",
-            "M8.8 10a1.2 1.2 0 0 1 2.4 0a1.2 1.2 0 0 1 -2.4 0z",
-            "M12.8 10a1.2 1.2 0 0 1 2.4 0a1.2 1.2 0 0 1 -2.4 0z",
+            "M8.5 9.5V7.5a3.5 3.5 0 0 1 7 0v2",
+            "M5 9.5h14a1.5 1.5 0 0 1 1.5 1.5V19a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V11A1.5 1.5 0 0 1 5 9.5z",
+            "M3.5 13.5h17",
+            "M10.5 13.5v1.5a1.5 1.5 0 0 0 3 0v-1.5",
         )
     }
 

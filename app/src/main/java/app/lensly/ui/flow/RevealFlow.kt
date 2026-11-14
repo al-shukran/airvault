@@ -68,11 +68,11 @@ class RevealedSecret private constructor(
         private const val EMPTY_WORD = "(empty)"
 
         /**
-         * A Mnemonic wallet's words and passphrase. The words go into a [Mnemonic] of their own, which the secret holds
-         * and wipes; the caller keeps its list. An empty passphrase counts as none, as it does for the seed.
+         * A Mnemonic wallet's words and passphrase. The secret takes ownership of [words] and zeroes it on [wipe], so the
+         * caller must not wipe it or use it afterwards. An empty passphrase counts as none, as it does for the seed.
          */
-        fun ofMnemonic(words: List<String>, passphrase: String?): RevealedSecret = RevealedSecret(
-            words = Mnemonic.of(words),
+        fun ofMnemonic(words: Mnemonic, passphrase: String?): RevealedSecret = RevealedSecret(
+            words = words,
             passphraseWords = if (passphrase.isNullOrEmpty()) emptyList() else passphrase.split(' '),
             keyHex = null,
         )

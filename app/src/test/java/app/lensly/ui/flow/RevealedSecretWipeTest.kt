@@ -5,6 +5,7 @@ import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
@@ -24,8 +25,18 @@ class RevealedSecretWipeTest {
         }
 
     @Test
+    fun theSecretHoldsTheMnemonicItIsGivenAndWipesThatOne() {
+        val mnemonic = Mnemonic.of(words)
+        val secret = RevealedSecret.ofMnemonic(mnemonic, null)
+
+        assertSame(mnemonic, heldMnemonic(secret))
+        secret.wipe()
+        assertEquals(0, mnemonic.size)
+    }
+
+    @Test
     fun wipingTheSecretZeroesTheMnemonicItHolds() {
-        val secret = RevealedSecret.ofMnemonic(words, null)
+        val secret = RevealedSecret.ofMnemonic(Mnemonic.of(words), null)
         val held = heldMnemonic(secret)
         assertEquals(Mnemonic.WORD_COUNT, held.size)
         assertEquals("art", secret.page(RevealPart.WORDS, Mnemonic.WORD_COUNT - 1))
@@ -40,7 +51,7 @@ class RevealedSecretWipeTest {
     @Test
     fun theCountdownWipesTheMnemonicTheScreenShows() {
         val clock = FakeClock()
-        val secret = RevealedSecret.ofMnemonic(words, null)
+        val secret = RevealedSecret.ofMnemonic(Mnemonic.of(words), null)
         val held = heldMnemonic(secret)
         val flow = RevealFlow(SecretPorts(secret)) { clock.elapsedMillis() }
 
@@ -61,7 +72,7 @@ class RevealedSecretWipeTest {
     @Test
     fun leavingTheScreenWipesTheMnemonicTheScreenShows() {
         val clock = FakeClock()
-        val secret = RevealedSecret.ofMnemonic(words, null)
+        val secret = RevealedSecret.ofMnemonic(Mnemonic.of(words), null)
         val held = heldMnemonic(secret)
         val flow = RevealFlow(SecretPorts(secret)) { clock.elapsedMillis() }
 
