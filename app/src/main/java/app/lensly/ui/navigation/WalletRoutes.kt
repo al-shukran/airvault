@@ -36,6 +36,7 @@ import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletDraftViewModel
 import app.lensly.app.WalletListing
+import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
@@ -55,6 +56,7 @@ import app.lensly.ui.flow.PairWalletRoute
 import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.ActivityScreen
+import app.lensly.ui.home.BulkChain
 import app.lensly.ui.home.BulkGenerateScreen
 import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.effectiveCatalogSequence
@@ -805,6 +807,7 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
     var digits by rememberSaveable { mutableStateOf("") }
     var running by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
+    var chain by remember(walletId) { mutableStateOf<BulkChain>(BulkChain.Evm) }
     val derivedCount = remember { MutableStateFlow(0) }
     val derived by derivedCount.collectAsState()
 
@@ -836,10 +839,17 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
         onDigit = { digit -> if (!running) digits = BulkPolicy.appendDigit(digits, digit) },
         onBackspace = { if (!running) digits = digits.dropLast(1) },
         onPreset = { preset -> if (!running) digits = preset.toString() },
+        chain = chain,
+        onChain = { chosen -> chain = chosen },
+        bitcoinAllowed = shown.kind == WalletKind.MNEMONIC,
         onGenerate = generate@{
             val check = BulkPolicy.checkCount(digits.toIntOrNull(), cap.accounts)
             val count = (check as? BulkPolicy.CountCheck.Valid)?.count
-            if (running || count == null) return@generate
+            val chosenRun = chain
+            // A Bitcoin run needs a seed. The screen disables GENERATE for a Single Key, and this refuses it too.
+            if (running || count == null || (chosenRun is BulkChain.Bitcoin && shown.kind != WalletKind.MNEMONIC)) {
+                return@generate
+            }
             running = true
             failure = null
             derivedCount.value = 0
@@ -847,7 +857,19 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
                 whileUnlocked(navController, holder) {
                     val saved = try {
                         withContext(Dispatchers.IO) {
-                            WalletStore(session).addAccounts(walletId, count, cap.accounts) { derivedCount.value = it }
+                            val store = WalletStore(session)
+                            val progress: (Int) -> Unit = { derivedCount.value = it }
+                            when (chosenRun) {
+                                BulkChain.Evm -> store.addAccounts(walletId, count, cap.accounts, progress) != null
+                                is BulkChain.Bitcoin -> store.addBitcoinAccounts(
+                                    walletId,
+                                    chosenRun.scriptType,
+                                    chosenRun.network,
+                                    count,
+                                    cap.accounts,
+                                    progress,
+                                ) != null
+                            }
                         }
                     } catch (e: CancellationException) {
                         throw e
@@ -860,7 +882,7 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
                         return@whileUnlocked
                     }
                     running = false
-                    if (saved == null) {
+                    if (!saved) {
                         failure = "Wallet changed. Nothing was saved"
                     } else {
                         navController.popBackStack()

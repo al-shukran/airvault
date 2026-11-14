@@ -19,10 +19,13 @@ import app.lensly.app.WalletReviewRecord
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
+import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.ScriptType
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.BulkCap
+import app.lensly.ui.home.BulkChain
 import app.lensly.ui.home.BulkGenerateScreen
 import app.lensly.ui.home.HOME_SCROLL_TAG
 import app.lensly.ui.home.HomeReadiness
@@ -251,6 +254,16 @@ class HomeScreensScreenshotTest {
     }
 
     @Test
+    fun bulkGenerateBitcoinOnTestnet() = compose.snapshot("bulk_generate_bitcoin_testnet") {
+        bulk(digits = "3", chain = BulkChain.Bitcoin(ScriptType.TAPROOT, BtcNetwork.TESTNET4))
+    }
+
+    @Test
+    fun bulkGenerateBitcoinRefusedForASingleKey() = compose.snapshot("bulk_generate_bitcoin_single_key") {
+        bulk(digits = "1", chain = BulkChain.Bitcoin(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET), bitcoinAllowed = false)
+    }
+
+    @Test
     fun registryImportIdle() = compose.snapshot("registry_import_idle") {
         registry(ImportState.Idle)
     }
@@ -429,6 +442,8 @@ class HomeScreensScreenshotTest {
         running: Boolean = false,
         derived: Int = 0,
         failure: String? = null,
+        chain: BulkChain = BulkChain.Evm,
+        bitcoinAllowed: Boolean = true,
     ) {
         BulkGenerateScreen(
             existingAccounts = 3,
@@ -444,6 +459,8 @@ class HomeScreensScreenshotTest {
             onGenerate = {},
             onBack = {},
             onLock = {},
+            chain = chain,
+            bitcoinAllowed = bitcoinAllowed,
         )
     }
 
