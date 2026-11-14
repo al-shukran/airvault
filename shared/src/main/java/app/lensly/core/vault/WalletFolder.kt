@@ -40,6 +40,9 @@ internal object WalletFolder {
     /** The record of the wallet's profile: its colour, icon, label and groups. */
     const val PROFILE = "profile"
 
+    /** The record of the wallet's Bitcoin accounts: each one's network, Script Type, index and first receive address. */
+    const val BITCOIN = "bitcoin"
+
     /**
      * The account records a wallet can hold: accounts 0 to ACCOUNT_SLOTS - 1. Every folder holds all of them, so the count is fixed.
      * It is the largest Bulk Cap, so the first 100 accounts of a wallet can each be named and styled.
@@ -57,8 +60,11 @@ internal object WalletFolder {
     /** The length of a folder's key id: a UUID, written as ASCII. */
     private const val KEY_ID_BYTES = 36
 
-    /** The plaintext each fixed record can hold. A record that does not fit is refused. */
-    private val CAPACITY: Map<String, Int> = mapOf(META to 256, SECRET to 2048, BASE_NAME to 128, PROFILE to 512)
+    /**
+     * The plaintext each fixed record can hold. A record that does not fit is refused. The Bitcoin record holds 100 accounts, the largest
+     * a wallet keeps, at up to 70 bytes each with its header, so 8192 bytes always fit.
+     */
+    private val CAPACITY: Map<String, Int> = mapOf(META to 256, SECRET to 2048, BASE_NAME to 128, PROFILE to 512, BITCOIN to 8192)
 
     /**
      * The inner layer of `pwk.bin`: the Per-Wallet Key sealed under the Vault Key. An earlier build wrote this alone as the whole file, so
@@ -72,7 +78,7 @@ internal object WalletFolder {
     private val random = SecureRandom()
 
     /** The record names a wallet folder holds, in file order: the fixed records, then the account records. */
-    val NAMES: List<String> = listOf(META, SECRET, BASE_NAME, PROFILE) + (0 until ACCOUNT_SLOTS).map { accountName(it) }
+    val NAMES: List<String> = listOf(META, SECRET, BASE_NAME, PROFILE, BITCOIN) + (0 until ACCOUNT_SLOTS).map { accountName(it) }
 
     /** The name of the record of account [index]. */
     fun accountName(index: Int): String = ACCOUNT_PREFIX + index

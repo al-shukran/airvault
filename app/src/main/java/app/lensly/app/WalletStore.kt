@@ -1,5 +1,8 @@
 package app.lensly.app
 
+import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.btc.ScriptType
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
@@ -94,6 +97,8 @@ sealed interface WalletSecret {
  * - `base-name`, version 1: the wallet's name at creation (UTF), which its accounts' Auto-Names are built from. It is
  *   written once, at creation, and before the first rename of a wallet that has none. A wallet without one uses its
  *   current name.
+ * - `bitcoin`, version 1: the count (int), then each Bitcoin account: its network as its BIP44 coin type (byte), its Script Type as
+ *   its BIP43 purpose (byte), its index (int) and its first receive address (UTF). A wallet with no record has no Bitcoin account.
  *
  * Encoded bytes are zeroed after they are written or parsed, including the internal buffer of the stream
  * that produced them. The Strings for the words and the passphrase cannot be zeroed. They are dropped as soon
@@ -256,6 +261,85 @@ class WalletStore(private val session: VaultSession) {
                 session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
                 updated
             }
+        }
+    }
+
+    /**
+     * The Bitcoin accounts of wallet [id], in the order they were added. A wallet with none, or with a record that cannot be read,
+     * has an empty list.
+     */
+    fun bitcoinAccounts(id: String): List<BitcoinAccountRecord> {
+        val bytes = session.getRecord(id, WalletRecords.BITCOIN) ?: return emptyList()
+        return try {
+            WalletRecords.decodeBitcoinAccounts(bytes)
+        } catch (e: IOException) {
+            emptyList()
+        } catch (e: IllegalArgumentException) {
+            emptyList()
+        }
+    }
+
+    /**
+     * A Bitcoin Bulk Run: adds [count] accounts of [scriptType] on [network] to wallet [id], numbered after the ones it already has
+     * for that Script Type and network, and returns them. Every account is derived before anything is saved, so a failure stops the
+     * run with nothing written. The record is written under the session's lock. If the wallet's Bitcoin accounts changed while the run
+     * was deriving, nothing is saved and the result is null. [onProgress] receives the number of accounts derived so far.
+     *
+     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, it is a Single Key wallet, which has no
+     * seed, or it would keep more than [BITCOIN_MAX_ACCOUNTS] Bitcoin accounts. Nothing is saved then.
+     */
+    fun addBitcoinAccounts(
+        id: String,
+        scriptType: ScriptType,
+        network: BtcNetwork,
+        count: Int,
+        cap: Int,
+        onProgress: (Int) -> Unit = {},
+    ): List<BitcoinAccountRecord>? {
+        require(BulkPolicy.checkCount(count, cap) is BulkPolicy.CountCheck.Valid) {
+            "A Bulk Run makes 1 to $cap accounts."
+        }
+        val current = requireNotNull(meta(id)) { "No wallet $id." }
+        require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_BITCOIN }
+        val existing = bitcoinAccounts(id)
+        require(existing.size + count <= WalletRecords.BITCOIN_MAX_ACCOUNTS) {
+            "A wallet keeps at most ${WalletRecords.BITCOIN_MAX_ACCOUNTS} Bitcoin accounts."
+        }
+        val indices = BulkPolicy.indexRange(nextBitcoinIndex(existing, scriptType, network), count)
+        val secret = mnemonicSecret(id)
+        val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
+        val derived = try {
+            bitcoinAccountRecords(seed, network, scriptType, indices, onProgress)
+        } finally {
+            seed.fill(0)
+        }
+        return synchronized(session) {
+            if (bitcoinAccounts(id) != existing) {
+                null
+            } else {
+                session.putRecord(id, WalletRecords.BITCOIN, WalletRecords.encodeBitcoinAccounts(existing + derived))
+                derived
+            }
+        }
+    }
+
+    /**
+     * The frames of the Bitcoin watch-only export of wallet [id]: one `ur:crypto-account` with the four Script Types of account 0 on
+     * each network the wallet has a Bitcoin account on. The seed is derived for the export and zeroed after it. The export asks for no
+     * App Password, as the EVM pairing does, and it carries public data only.
+     *
+     * @throws IllegalArgumentException if the wallet is missing, is a Single Key, or has no Bitcoin account.
+     */
+    fun bitcoinWatchOnlyParts(id: String): List<String> {
+        val networks = bitcoinAccounts(id).map { it.network }.distinct()
+        require(networks.isNotEmpty()) { "Wallet $id has no Bitcoin account." }
+        val secret = mnemonicSecret(id)
+        val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
+        try {
+            val accounts = networks.flatMap { network -> BtcWatchOnly.accounts(seed, network, accountIndex = 0) }
+            return BtcWatchOnly.cryptoAccountParts(accounts)
+        } finally {
+            seed.fill(0)
         }
     }
 
@@ -607,6 +691,12 @@ internal object WalletRecords {
     /** The record that holds the wallet's profile: its colour, icon, label and groups. Only a wallet with one has it. */
     const val PROFILE = "profile"
 
+    /** The record that holds the wallet's Bitcoin accounts. Only a wallet with one has it. */
+    const val BITCOIN = "bitcoin"
+
+    /** The most Bitcoin accounts a wallet keeps, the largest Bulk Cap. The Bitcoin record's capacity is sized for them. */
+    const val BITCOIN_MAX_ACCOUNTS = 100
+
     /** The meta versions before wallet kinds, which have no kind byte, and before the backed-up flag. Version 3 is written now. */
     private const val META_VERSION_WITHOUT_KIND = 1
     private const val META_VERSION_WITHOUT_BACKUP_FLAG = 2
@@ -620,6 +710,7 @@ internal object WalletRecords {
     /** The version of an account profile that holds more than a name. Version 1 holds the Display Name alone. */
     private const val ACCOUNT_PROFILE_VERSION = 2
     private const val WALLET_PROFILE_VERSION = 1
+    private const val BITCOIN_VERSION = 1
 
     /** The fields of an account profile, one bit each. The flags byte says which ones follow, in this order. */
     private const val FIELD_NAME = 1
@@ -731,6 +822,48 @@ internal object WalletRecords {
         require(count <= WALLET_MAX_GROUPS) { "Too many groups." }
         val groups = List(count) { profileTextOf(input.readUTF()) }
         WalletProfile(colour = colour, icon = icon, label = label, groups = groups)
+    }
+
+    /**
+     * The Bitcoin accounts record: the version byte, the count (int), then each account: its network as its BIP44 coin type (byte),
+     * its Script Type as its BIP43 purpose (byte), its index (int) and its first receive address (UTF). Two accounts with one Script
+     * Type, network and index are refused, both when written and when read.
+     */
+    fun encodeBitcoinAccounts(accounts: List<BitcoinAccountRecord>): ByteArray {
+        require(accounts.map { it.key }.distinct().size == accounts.size) {
+            "A Bitcoin account is unique per Script Type, network and index."
+        }
+        require(accounts.size <= BITCOIN_MAX_ACCOUNTS) { "A wallet keeps at most $BITCOIN_MAX_ACCOUNTS Bitcoin accounts." }
+        return writeBytes { out ->
+            out.writeByte(BITCOIN_VERSION)
+            out.writeInt(accounts.size)
+            accounts.forEach { account ->
+                out.writeByte(account.network.coinType)
+                out.writeByte(account.scriptType.purpose)
+                out.writeInt(account.index)
+                out.writeUTF(account.firstReceiveAddress)
+            }
+        }
+    }
+
+    fun decodeBitcoinAccounts(bytes: ByteArray): List<BitcoinAccountRecord> = readBytes(bytes) { input ->
+        val version = input.readUnsignedByte()
+        require(version == BITCOIN_VERSION) { "Unknown record version $version." }
+        val count = input.readInt()
+        require(count >= 0) { "Account count out of range." }
+        val accounts = List(count) {
+            val coinType = input.readUnsignedByte()
+            val network = BtcNetwork.entries.firstOrNull { it.coinType == coinType }
+                ?: throw IllegalArgumentException("Unknown network.")
+            val purpose = input.readUnsignedByte()
+            val scriptType = ScriptType.entries.firstOrNull { it.purpose == purpose }
+                ?: throw IllegalArgumentException("Unknown script type.")
+            val index = input.readInt()
+            require(index >= 0) { "Account index out of range." }
+            BitcoinAccountRecord(network, scriptType, index, input.readUTF())
+        }
+        require(accounts.map { it.key }.distinct().size == accounts.size) { "Duplicate Bitcoin account." }
+        accounts
     }
 
     /** The flag bit for a field that is set, or 0 for one that is not. */

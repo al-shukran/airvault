@@ -134,3 +134,9 @@ private fun Monogram(letter: String, size: Dp, modifier: Modifier = Modifier) {
 fun AddressIcon(size: Dp, modifier: Modifier = Modifier) {
     ChainIcon(network = null, size = size, modifier = modifier)
 }
+
+/** The Bitcoin logo beside a Bitcoin account. It is decorative: the text beside it names the account. */
+@Composable
+fun BitcoinIcon(size: Dp, modifier: Modifier = Modifier) {
+    BackdropLogo(painter = painterResource(R.drawable.chain_bitcoin), size = size, backdrop = false, modifier = modifier)
+}

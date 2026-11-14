@@ -173,6 +173,8 @@ dependencies {
     testImplementation(libs.kotlin.test)
     // The export and sign tests decode UR payloads with the same library the shared code uses.
     testImplementation(libs.sparrowwallet.hummingbird)
+    // Bitcoin keys in unit tests load the JVM build of secp256k1, as :shared's tests do. The Android build is for the APK only.
+    testImplementation(libs.secp256k1.kmp.jni.jvm)
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:$junitJupiter")
     // Gradle starts the Vintage engine through the JUnit Platform launcher, which must be on the test runtime classpath. It used
     // to come in through jazzer-junit; that moved to :shared. The BOM keeps the launcher on the engine's version line.
