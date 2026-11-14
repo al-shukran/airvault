@@ -20,6 +20,7 @@ partitions:
   core-parse     :app:testDebugUnitTest --tests 'app.lensly.core.parse.*'
   core-vault     :app:testDebugUnitTest --tests 'app.lensly.core.vault.*'
   core-registry  :app:testDebugUnitTest --tests 'app.lensly.core.registry.*' --tests 'app.lensly.core.registry.update.*'
+  core-btc       :app:testDebugUnitTest --tests 'app.lensly.core.btc.*'
   ui-a           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.camera.*' --tests 'app.lensly.ui.settings.*'
                  --tests 'app.lensly.ui.wallet.*' --tests 'app.lensly.ui.qr.*' --tests 'app.lensly.ui.navigation.*'
                  --tests 'app.lensly.ui.a11y.*' --tests 'app.lensly.ui.theme.*' --tests 'app.lensly.ui.screenshot.*'
@@ -67,6 +68,9 @@ case "$partition" in
         ./gradlew :app:testDebugUnitTest \
             --tests 'app.lensly.core.registry.*' \
             --tests 'app.lensly.core.registry.update.*'
+        ;;
+    core-btc)
+        ./gradlew :app:testDebugUnitTest --tests 'app.lensly.core.btc.*'
         ;;
     # The app.lensly.ui tests are split in two halves so each stays under the 3-minute cap (guideline 2.1).
     # A new ui subpackage, or a test class directly in app.lensly.ui, must be added to ONE of these two
