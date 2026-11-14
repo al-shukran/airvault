@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import app.lensly.app.HideDelay
 import org.junit.Test
 
 /** A SecureRandom that records every bound it is asked for and answers each draw with [draw]. */
@@ -72,22 +73,53 @@ class EntryTilesTest {
     }
 
     @Test
-    fun theHideDelayIsOneHundredPlusNextIntOf901() {
+    fun theDefaultHideDelayIsOneHundredPlusNextIntOf901() {
         val shortest = RecordingRandom()
-        assertEquals(HIDE_MIN_MS, EntryTiles(EntropyMode.Dice, shortest).hideDelayMs())
+        assertEquals(HideDelay.DEFAULT_MIN_MS, EntryTiles(EntropyMode.Dice, shortest).hideDelayMs())
         assertEquals(listOf(901), shortest.bounds)
 
         val longest = RecordingRandom { 900 }
-        assertEquals(HIDE_MAX_MS, EntryTiles(EntropyMode.Dice, longest).hideDelayMs())
+        assertEquals(HideDelay.DEFAULT_MAX_MS, EntryTiles(EntropyMode.Dice, longest).hideDelayMs())
     }
 
     @Test
-    fun everyHideDelayFromSecureRandomIsWithinOneHundredToOneThousandMs() {
+    fun aSavedRangeDrawsFromItsOwnBounds() {
+        val range = HideDelay(250, 4_000)
+        val shortest = RecordingRandom()
+        assertEquals(250L, EntryTiles(EntropyMode.Dice, shortest, range).hideDelayMs())
+        assertEquals(listOf(3_751), shortest.bounds)
+
+        val longest = RecordingRandom { 3_750 }
+        assertEquals(4_000L, EntryTiles(EntropyMode.Dice, longest, range).hideDelayMs())
+    }
+
+    @Test
+    fun aRangeOfOneValueAlwaysGivesThatValue() {
+        val random = RecordingRandom()
+        assertEquals(700L, EntryTiles(EntropyMode.Coins, random, HideDelay(700, 700)).hideDelayMs())
+        assertEquals(listOf(1), random.bounds)
+    }
+
+    @Test
+    fun everyHideDelayFromSecureRandomIsWithinTheSavedRangeAndReachesBothEnds() {
+        val tiles = EntryTiles(EntropyMode.Dice, SecureRandom(), HideDelay(1_200, 1_500))
+        val seen = mutableSetOf<Long>()
+
+        repeat(10_000) {
+            val delay = tiles.hideDelayMs()
+            assertTrue(delay in 1_200L..1_500L, "delay $delay ms is out of range")
+            seen += delay
+        }
+        assertTrue(1_200L in seen && 1_500L in seen, "the draw never reached an end of the range")
+    }
+
+    @Test
+    fun everyHideDelayFromSecureRandomIsWithinTheDefaultRange() {
         val tiles = EntryTiles(EntropyMode.Dice, SecureRandom())
 
         repeat(10_000) {
             val delay = tiles.hideDelayMs()
-            assertTrue(delay in HIDE_MIN_MS..1_000L, "delay $delay ms is out of range")
+            assertTrue(delay in HideDelay.DEFAULT_MIN_MS..HideDelay.DEFAULT_MAX_MS, "delay $delay ms is out of range")
         }
     }
 

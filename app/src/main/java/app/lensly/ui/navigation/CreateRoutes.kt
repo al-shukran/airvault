@@ -1,6 +1,7 @@
 package app.lensly.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -9,6 +10,8 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
+import app.lensly.app.HideDelay
+import app.lensly.app.VaultHolder
 import app.lensly.app.WalletDraft
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.wallet.CeremonyChoiceScreen
@@ -27,15 +30,15 @@ import app.lensly.ui.wallet.WalletStartScreen
  * 24 words, and the quiz. The passphrase and name screens are shared with restore, in [walletRoutes]. Each flow
  * screen needs the draft of a started ceremony, so a missing draft sends the owner back to the start.
  */
-internal fun NavGraphBuilder.createRoutes(navController: NavHostController) {
+internal fun NavGraphBuilder.createRoutes(navController: NavHostController, holder: VaultHolder) {
     composable(HiddenRoute.CEREMONY_CHOICE) { entry ->
         HiddenBackdrop { CeremonyChoiceRoute(navController, entry) }
     }
     composable(HiddenRoute.DICE) { entry ->
-        HiddenBackdrop { EntropyRoute(navController, EntropyMode.Dice, entry) }
+        HiddenBackdrop { EntropyRoute(navController, holder, EntropyMode.Dice, entry) }
     }
     composable(HiddenRoute.COINS) { entry ->
-        HiddenBackdrop { EntropyRoute(navController, EntropyMode.Coins, entry) }
+        HiddenBackdrop { EntropyRoute(navController, holder, EntropyMode.Coins, entry) }
     }
     composable(HiddenRoute.SKIP) { entry -> HiddenBackdrop { SkipRoute(navController, entry) } }
     composable(HiddenRoute.RESULT) { entry -> HiddenBackdrop { ResultRoute(navController, entry) } }
@@ -77,9 +80,12 @@ private fun CeremonyChoiceRoute(navController: NavHostController, entry: NavBack
  * string is the mixer input, whatever its length.
  */
 @Composable
-private fun EntropyRoute(navController: NavHostController, mode: EntropyMode, entry: NavBackStackEntry) {
+private fun EntropyRoute(navController: NavHostController, holder: VaultHolder, mode: EntropyMode, entry: NavBackStackEntry) {
     val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.commitmentHex.isNotEmpty())
+    // The delay the owner saved in Settings. The default shows until it is read.
+    var hideDelay by remember { mutableStateOf(HideDelay.DEFAULT) }
+    LaunchedEffect(Unit) { hideDelay = readHideDelay(holder) }
     val minimum = EntropyTargets.minimumFor(mode)
     val fullStrength = EntropyTargets.fullStrengthFor(mode)
     var entered by remember(mode) { mutableStateOf("") }
@@ -88,6 +94,7 @@ private fun EntropyRoute(navController: NavHostController, mode: EntropyMode, en
         entered = entered,
         minimumCount = minimum,
         fullStrengthCount = fullStrength,
+        hideDelay = hideDelay,
         onSymbol = { symbol ->
             if (mode.accepts(symbol) && entered.length < EntropyTargets.MAX_SYMBOLS) entered += symbol
         },

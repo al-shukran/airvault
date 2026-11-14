@@ -107,10 +107,92 @@ class SettingsStoreTest {
         return buffer.toByteArray()
     }
 
+    /** The settings record as version 3 writes it, with the shortest and the longest hide delay in milliseconds. */
+    private fun recordV3(accounts: Int, policyCode: Int, shortestMs: Int, longestMs: Int): ByteArray {
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(3)
+            out.writeInt(accounts)
+            out.writeByte(policyCode)
+            out.writeInt(shortestMs)
+            out.writeInt(longestMs)
+        }
+        return buffer.toByteArray()
+    }
+
+    @Test
+    fun aVaultWithNoSavedSettingsReadsTheDefaultHideDelay() {
+        val session = open()
+        assertEquals(HideDelay.DEFAULT, SettingsStore(session).load().hideDelay)
+        session.close()
+    }
+
+    @Test
+    fun aSavedHideDelayIsReadBackAfterTheVaultReopens() {
+        val first = open()
+        SettingsStore(first).save(AppSettings(hideDelay = HideDelay(250, 4_000)))
+        first.close()
+
+        val reopened = open()
+        assertEquals(HideDelay(250, 4_000), SettingsStore(reopened).load().hideDelay)
+        reopened.close()
+    }
+
+    @Test
+    fun everyHideDelayAtItsEdgesRoundTrips() {
+        for (range in listOf(HideDelay(0, 0), HideDelay(0, 5_000), HideDelay(4_999, 5_000), HideDelay(100, 1_000))) {
+            val session = open()
+            SettingsStore(session).save(AppSettings(hideDelay = range))
+            assertEquals(range, SettingsStore(session).load().hideDelay)
+            session.close()
+        }
+    }
+
+    @Test
+    fun savingTheHideDelayKeepsTheBulkCapAndProxyPolicy() {
+        val session = open()
+        SettingsStore(session).save(AppSettings(bulkCap = BulkCap.TWENTY, proxyPolicy = ProxyPolicy.WARN_AND_CONFIRM))
+        SettingsStore(session).let { store -> store.load().copy(hideDelay = HideDelay(0, 500)).also(store::save) }
+
+        val loaded = SettingsStore(session).load()
+        assertEquals(BulkCap.TWENTY, loaded.bulkCap)
+        assertEquals(ProxyPolicy.WARN_AND_CONFIRM, loaded.proxyPolicy)
+        assertEquals(HideDelay(0, 500), loaded.hideDelay)
+        session.close()
+    }
+
+    @Test
+    fun aVersionTwoRecordReadsWithTheDefaultHideDelay() {
+        val session = open()
+        session.putVaultRecord("settings", recordV2(accounts = BulkCap.TWENTY.accounts, policyCode = ProxyPolicy.DEFAULT.code))
+
+        val loaded = SettingsStore(session).load()
+        assertEquals(BulkCap.TWENTY, loaded.bulkCap)
+        assertEquals(HideDelay.DEFAULT, loaded.hideDelay)
+        session.close()
+    }
+
+    @Test
+    fun aHideDelayOutsideTheAcceptedRangeReadsAsTheDefaultAndKeepsTheRest() {
+        for ((shortest, longest) in listOf(900 to 200, -1 to 500, 100 to 5_001)) {
+            val session = open()
+            session.putVaultRecord(
+                "settings",
+                recordV3(accounts = BulkCap.TWENTY.accounts, policyCode = ProxyPolicy.WARN_AND_CONFIRM.code, shortestMs = shortest, longestMs = longest),
+            )
+
+            val loaded = SettingsStore(session).load()
+            assertEquals(BulkCap.TWENTY, loaded.bulkCap)
+            assertEquals(ProxyPolicy.WARN_AND_CONFIRM, loaded.proxyPolicy)
+            assertEquals(HideDelay.DEFAULT, loaded.hideDelay, "range $shortest to $longest")
+            session.close()
+        }
+    }
+
     @Test
     fun anUnknownSettingsVersionReadsAsTheDefault() {
         val session = open()
-        session.putVaultRecord("settings", record(version = 3, accounts = 1_000))
+        session.putVaultRecord("settings", record(version = 4, accounts = 1_000))
 
         assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
         session.close()

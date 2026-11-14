@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.lensly.app.HideDelay
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyPolicy
@@ -81,6 +82,7 @@ private const val PREVIEW_ICONS = 4
  * while it is read, and [onNetworks] and [onTokens] open the lists. [entryGesture] is the gesture the camera uses now, and
  * [onEntryGesture] opens the choice of another. [onApprovedContracts] opens the approved contracts, which [catalog] counts.
  * [proxyPolicy] is the policy in force, null while it is read, and [onProxyPolicy] opens the screen that changes it.
+ * [hideDelay] is the dice and coin hide delay, null while it is read, and [onHideDelay] opens the screen for one bound of it.
  */
 @Composable
 fun SettingsScreen(
@@ -97,6 +99,8 @@ fun SettingsScreen(
     onApprovedContracts: () -> Unit = {},
     proxyPolicy: ProxyPolicy? = null,
     onProxyPolicy: () -> Unit = {},
+    hideDelay: HideDelay? = null,
+    onHideDelay: (HideDelayBound) -> Unit = {},
     onUpdateCatalog: () -> Unit,
     onWipe: () -> Unit,
     onDuressPassword: () -> Unit = {},
@@ -142,6 +146,23 @@ fun SettingsScreen(
 
         SettingsSection("Bulk generation") {
             BulkCapItem(bulkCap = bulkCap, onBulkCap = onBulkCap)
+        }
+
+        SettingsSection("Dice and coin entry") {
+            SettingsRow(
+                title = "Shortest hide delay",
+                description = hideDelay?.let { "${it.minMs} ms. The tiles stay hidden at least this long after a tap." }
+                    ?: "Reading the saved delay…",
+                onClick = { onHideDelay(HideDelayBound.SHORTEST) },
+                loading = hideDelay == null,
+            )
+            SettingsRow(
+                title = "Longest hide delay",
+                description = hideDelay?.let { "${it.maxMs} ms. The tiles stay hidden at most this long after a tap." }
+                    ?: "Reading the saved delay…",
+                onClick = { onHideDelay(HideDelayBound.LONGEST) },
+                loading = hideDelay == null,
+            )
         }
 
         SettingsSection("Lockout") {

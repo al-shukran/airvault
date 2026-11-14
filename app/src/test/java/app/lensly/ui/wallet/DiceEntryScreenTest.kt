@@ -27,6 +27,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
+import app.lensly.app.HideDelay
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyTheme
@@ -210,7 +211,7 @@ class DiceEntryScreenTest {
         tapTile("Roll 1")
         compose.waitForIdle() // the hide starts on the frame after the tap
 
-        assertEquals(listOf(HIDE_MIN_MS), hold.delays)
+        assertEquals(listOf(HideDelay.DEFAULT_MIN_MS), hold.delays)
         for (index in 0..5) {
             compose.onNodeWithTag(tileTag(index)).assert(hasContentDescription("Shuffling"))
         }
@@ -225,7 +226,7 @@ class DiceEntryScreenTest {
         tapTile("Roll 1")
         compose.waitForIdle() // the hide starts on the frame after the tap
 
-        assertEquals(listOf(HIDE_MAX_MS), hold.delays)
+        assertEquals(listOf(HideDelay.DEFAULT_MAX_MS), hold.delays)
         compose.onNodeWithTag(tileTag(0)).assertIsNotEnabled()
 
         reveal()
