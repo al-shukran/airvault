@@ -54,7 +54,8 @@ internal fun HomeRoute(
     }
     LumioHome(
         onLock = onLock,
-        onPair = { navController.openHidden(LumioRoute.PAIR_SCAN) },
+        // A push, not openHidden: openHidden pops everything above the hidden graph, Home included, so Save could not return to Home.
+        onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         wallets = wallets,
         onDelete = { wallet ->
             if (session != null) {
