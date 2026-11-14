@@ -137,6 +137,7 @@ private fun KeyBackupRoute(
     RequireDraft(navController, ready = save is SaveState.Saved || draft.singleKey != null)
     val session = rememberOpenSession(navController, holder) ?: return
     val saving = save == SaveState.Saving
+    // Back is ignored while the save runs, and the button reads "Saving…" until it ends.
     BackHandler(enabled = saving) {}
     FollowSave(navController, holder, save)
     val key = draft.singleKey ?: return
@@ -148,6 +149,7 @@ private fun KeyBackupRoute(
         copied = copied,
         onCopiedChange = { copied = it },
         errorMessage = if (save == SaveState.Failed) SAVE_FAILED_MESSAGE else null,
+        saving = saving,
         onCreate = {
             if (!saving && copied) {
                 model.saveSingleKey(name = draft.name.ifEmpty { "WALLET" }, write = singleKeyWriter(session))

@@ -63,7 +63,8 @@ fun effectiveWalletName(typed: String, suggested: String?): String =
  * Back hides it, and a tap on the field brings it back.
  *
  * Under the field, a counter shows the length. Empty input says what DONE will use, and a full field says it is full.
- * [errorMessage], when set, is shown as an error under the counter, for a save that failed.
+ * [errorMessage], when set, is shown as an error under the counter, for a save that failed. While [saving] is true, "Saving…"
+ * is shown there instead, so the owner sees that the save is running.
  */
 @Composable
 fun WalletNameScreen(
@@ -79,6 +80,7 @@ fun WalletNameScreen(
     maxLength: Int = DISPLAY_NAME_MAX_LENGTH,
     emptyHelp: String? = null,
     errorMessage: String? = null,
+    saving: Boolean = false,
 ) {
     val full = name.length >= maxLength
     val helperColor = if (full) LenslyWarning else MaterialTheme.colorScheme.onSurfaceVariant
@@ -133,7 +135,10 @@ fun WalletNameScreen(
                     color = helperColor,
                 )
             }
-            if (errorMessage != null) {
+            if (saving) {
+                Spacer(Modifier.height(LenslySpacing.md))
+                InlineBanner(message = "Saving…", tone = BannerTone.Info)
+            } else if (errorMessage != null) {
                 Spacer(Modifier.height(LenslySpacing.md))
                 InlineBanner(message = errorMessage, tone = BannerTone.Error)
             }

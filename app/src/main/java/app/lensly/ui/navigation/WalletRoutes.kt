@@ -511,6 +511,7 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
     }
     var name by remember { mutableStateOf("") }
     val saving = save == SaveState.Saving
+    // Back is ignored while the save runs, and the screen shows "Saving…" until it ends.
     BackHandler(enabled = saving) {}
     FollowSave(navController, holder, save)
 
@@ -524,6 +525,7 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
             if (!saving && name.isNotEmpty()) name = name.dropLast(1)
         },
         errorMessage = if (save == SaveState.Failed) SAVE_FAILED_MESSAGE else null,
+        saving = saving,
         onDone = {
             if (!saving && draft.singleKey != null) {
                 draft.setName(effectiveWalletName(name, suggested))
@@ -559,6 +561,7 @@ private fun PassphraseBackupRoute(
     val session = rememberOpenSession(navController, holder) ?: return
     var writtenDown by remember { mutableStateOf(false) }
     val saving = save == SaveState.Saving
+    // Back is ignored while the save runs, and the button reads "Saving…" until it ends.
     BackHandler(enabled = saving) {}
     FollowSave(navController, holder, save)
 
@@ -566,6 +569,7 @@ private fun PassphraseBackupRoute(
         writtenDown = writtenDown,
         onWrittenDownChange = { writtenDown = it },
         errorMessage = if (save == SaveState.Failed) SAVE_FAILED_MESSAGE else null,
+        saving = saving,
         onCreate = {
             if (!saving && PassphraseGate.canSave(draft.passphrase, writtenDown)) {
                 model.save(draft.name, walletWriter(session, draft.backedUp))
