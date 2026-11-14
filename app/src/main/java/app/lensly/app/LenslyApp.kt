@@ -3,6 +3,9 @@ package app.lensly.app
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import app.lensly.core.parse.BinderTransport
+import app.lensly.core.parse.RequestParser
+import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.vault.BackupExclusion
 import app.lensly.core.vault.Vault
 
@@ -14,6 +17,9 @@ import app.lensly.core.vault.Vault
 class LenslyApp : Application() {
     val vaultHolder: VaultHolder by lazy { VaultHolder(Vault(this)) }
     val entryGestureHolder: EntryGestureHolder by lazy { EntryGestureHolder(EntryGestureStore.open(this)) }
+
+    /** The Parser Sandbox: every parser of scanned input runs in its isolated process, which holds no keys and no files. */
+    val requestParser: RequestParser by lazy { SandboxedParser(BinderTransport(this)) }
 
     override fun onCreate() {
         super.onCreate()
@@ -28,3 +34,6 @@ fun Context.vaultHolder(): VaultHolder = (applicationContext as LenslyApp).vault
 
 /** The app-wide [EntryGestureHolder]. */
 fun Context.entryGestureHolder(): EntryGestureHolder = (applicationContext as LenslyApp).entryGestureHolder
+
+/** The app-wide parser of scanned input, which runs in the Parser Sandbox. */
+fun Context.requestParser(): RequestParser = (applicationContext as LenslyApp).requestParser
