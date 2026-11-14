@@ -22,8 +22,16 @@ import androidx.compose.ui.platform.LocalContext
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.app.HideDelay
+import app.lensly.core.registry.ProxyPolicy
+import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.applySecureWindow
 import app.lensly.ui.sign.NestedCall
+import app.lensly.ui.settings.Catalog
+import app.lensly.ui.settings.FailureCapChoice
+import app.lensly.ui.settings.HideDelayBound
+import app.lensly.ui.settings.HideDelayScreen
+import app.lensly.ui.settings.SettingsScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TxReviewScreen
@@ -41,13 +49,15 @@ import java.math.BigInteger
  * on a device without the vault.
  *
  * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-large, review-token, review-pegged,
- * review-unknown-chain, review-unknown-token or refused:
+ * review-unknown-chain, review-unknown-token, refused, settings or hide-delay:
  *   adb shell am start -n app.lensly/app.lensly.ui.qr.QrPreviewActivity --es screen show12
  *
  * show1 and show12 animate one or twelve fake UR parts. scan opens the live camera and writes each
  * decoded text into the status line (and to logcat under the tag [TAG]). review shows a native transfer,
  * review-token a token transfer, review-pegged a transfer of Binance Pegged USDT on BNB Chain (the BNB badge),
  * review-large a 24-call batch of token transfers, about 6 KB of calldata, which scrolls,
+ * settings the real Settings screen with sample values, including the dice and coin hide delay rows,
+ * hide-delay the hide delay editor, interactive, with sample values,
  * review-unknown-chain a native transfer on a chain outside the registry,
  * review-unknown-token a transfer of a token outside the registry, and refused a refusal, all with sample data.
  */
@@ -86,6 +96,8 @@ class QrPreviewActivity : ComponentActivity() {
                             reason = "Chain ID mismatch. The request targets chain 1, but this vault is set to chain 10143.",
                             onDone = ::finish,
                         )
+                        SCREEN_SETTINGS -> SettingsPreview(onBack = ::finish)
+                        SCREEN_HIDE_DELAY -> HideDelayPreview(onBack = ::finish)
                         else -> ShowPreview(title = "PAIR WALLET", parts = listOf(SAMPLE_SINGLE_PART), onDone = ::finish)
                     }
                 }
@@ -109,6 +121,8 @@ class QrPreviewActivity : ComponentActivity() {
             SCREEN_REVIEW_UNKNOWN_CHAIN -> SCREEN_REVIEW_UNKNOWN_CHAIN
             SCREEN_REVIEW_UNKNOWN_TOKEN -> SCREEN_REVIEW_UNKNOWN_TOKEN
             SCREEN_REFUSED -> SCREEN_REFUSED
+            SCREEN_SETTINGS -> SCREEN_SETTINGS
+            SCREEN_HIDE_DELAY -> SCREEN_HIDE_DELAY
             else -> SCREEN_SHOW1
         }
 
@@ -125,6 +139,8 @@ class QrPreviewActivity : ComponentActivity() {
         const val SCREEN_REVIEW_UNKNOWN_CHAIN = "review-unknown-chain"
         const val SCREEN_REVIEW_UNKNOWN_TOKEN = "review-unknown-token"
         const val SCREEN_REFUSED = "refused"
+        const val SCREEN_SETTINGS = "settings"
+        const val SCREEN_HIDE_DELAY = "hide-delay"
     }
 }
 
@@ -151,6 +167,75 @@ private fun ScanPreview(onFinish: () -> Unit) {
         },
         onCancel = onFinish,
     )
+}
+
+@Composable
+private fun SettingsPreview(onBack: () -> Unit) {
+    SettingsScreen(
+        bulkCap = BulkCap.DEFAULT,
+        onBulkCap = {},
+        onChangePassword = {},
+        failureDelayCap = FailureCapChoice.DEFAULT,
+        onFailureDelayCap = {},
+        catalog = Catalog(networks = emptyList(), tokens = emptyList()),
+        onNetworks = {},
+        onTokens = {},
+        proxyPolicy = ProxyPolicy.DEFAULT,
+        hideDelay = HideDelay.DEFAULT,
+        onHideDelay = {},
+        onUpdateCatalog = {},
+        onWipe = {},
+        versionName = "preview",
+        versionCode = 0,
+        onBack = onBack,
+        onLock = onBack,
+    )
+}
+
+/** The hide delay editor with the default range. Its keypad types, and SAVE checks the range and says why it refuses it. */
+@Composable
+private fun HideDelayPreview(onBack: () -> Unit) {
+    val context = LocalContext.current
+    var focus by remember { mutableStateOf(HideDelayBound.SHORTEST) }
+    var shortest by remember { mutableStateOf(HideDelay.DEFAULT.minMs.toString()) }
+    var longest by remember { mutableStateOf(HideDelay.DEFAULT.maxMs.toString()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    HideDelayScreen(
+        shortest = shortest,
+        longest = longest,
+        focus = focus,
+        error = error,
+        ready = true,
+        onFocus = {
+            focus = it
+            error = null
+        },
+        onDigit = { digit ->
+            if (focus == HideDelayBound.SHORTEST) shortest = typedDigit(shortest, digit) else longest = typedDigit(longest, digit)
+            error = null
+        },
+        onBackspace = {
+            if (focus == HideDelayBound.SHORTEST) shortest = shortest.dropLast(1) else longest = longest.dropLast(1)
+            error = null
+        },
+        onSave = {
+            val range = HideDelay.of(shortest.toLongOrNull() ?: -1L, longest.toLongOrNull() ?: -1L)
+            if (range == null) {
+                error = "A delay runs from 0 to ${HideDelay.LIMIT_MS} ms, and the shortest cannot be longer than the longest."
+            } else {
+                Toast.makeText(context, "Preview: saved ${range.minMs} to ${range.maxMs} ms", Toast.LENGTH_SHORT).show()
+                onBack()
+            }
+        },
+        onBack = onBack,
+    )
+}
+
+/** The digits typed so far with [digit] added, at most four, and no leading zero. */
+private fun typedDigit(digits: String, digit: Char): String = when {
+    digits.length >= 4 -> digits
+    digits == "0" -> digit.toString()
+    else -> digits + digit
 }
 
 @Composable
