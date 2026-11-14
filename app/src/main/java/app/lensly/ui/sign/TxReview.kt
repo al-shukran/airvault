@@ -118,14 +118,16 @@ data class TxReview(
     val denylisted: List<DenylistEntry> = emptyList(),
     /** The calls of a multicall, level by level, in the order they run. Empty for any other call. */
     val nested: List<NestedCall> = emptyList(),
+    /** What a typed data (EIP-712) review shows: the domain, the Permit summary and every field. Null for any other request. */
+    val typed: TypedReview? = null,
 ) {
     /**
      * True when the chain or the token is outside the registry. Such a review carries the registry warning, and APPROVE
-     * waits for the user's check of the chain ID and contract. It follows from [network] and [token], so they cannot
+     * waits for the user's check of the chain ID and contract. It follows from [network], [token] and [typed], so they cannot
      * disagree with it.
      */
     val needsRegistryConfirmation: Boolean
-        get() = network == null || (tokenContract != null && token == null)
+        get() = network == null || (tokenContract != null && token == null) || typed?.hasUnknownToken == true
 
     /** The checks the owner ticks before signing, in the order the screen shows them. */
     val requiredChecks: List<ReviewCheck>

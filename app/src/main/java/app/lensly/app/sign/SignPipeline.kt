@@ -5,6 +5,10 @@ import app.lensly.app.export.partsOf
 import app.lensly.core.evm.MessageSigner
 import app.lensly.core.evm.TxSigner
 import app.lensly.core.evm.TxType
+import app.lensly.core.evm.TypedData
+import app.lensly.core.evm.TypedDataParser
+import app.lensly.core.evm.TypedDataSigner
+import app.lensly.core.evm.TypedValue
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.InnerCall
@@ -19,6 +23,7 @@ import app.lensly.core.parse.encodesAs
 import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
+import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
@@ -38,6 +43,7 @@ import app.lensly.ui.sign.ALL_NFTS_WARNING
 import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
+import app.lensly.ui.sign.TypedReview
 import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
 import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
 import app.lensly.ui.sign.UNKNOWN_UNIT
@@ -66,6 +72,8 @@ sealed interface Prepared {
         val walletId: String,
         /** The transaction the Parser Sandbox decoded from the request's data. Null for a request that is not a transaction. */
         val tx: UnsignedTx? = null,
+        /** The typed message the Parser Sandbox parsed, which is what gets signed. Null for a request that is not typed data. */
+        val typed: TypedData? = null,
     ) : Prepared
 
     /** [call] is set when the refusal is for a contract call Lensly cannot decode, so the refusal can show it. */
@@ -125,8 +133,6 @@ class SignPipeline(
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) {
             return Prepared.Refused("The data to sign is larger than 64 KiB")
         }
-        if (request.dataType == DataType.TYPED_DATA) return Prepared.Refused("Typed data not supported yet")
-
         val masterFingerprint = wallet.masterFingerprint
         val index: Int
         val address: String
@@ -158,7 +164,11 @@ class SignPipeline(
         val label = (wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)).uppercase()
         val target = Target(parsed, chainId, registry.network(chainId), wallet, index, address, label)
 
-        return if (request.dataType == DataType.PERSONAL_MESSAGE) message(target) else transaction(target)
+        return when (request.dataType) {
+            DataType.PERSONAL_MESSAGE -> message(target)
+            DataType.TYPED_DATA -> typedData(target)
+            else -> transaction(target)
+        }
     }
 
     /**
@@ -178,7 +188,14 @@ class SignPipeline(
                         is MessageSigner.Result.Signed -> result.signature
                         is MessageSigner.Result.Refused -> throw IllegalArgumentException(result.reason)
                     }
-                DataType.TYPED_DATA -> throw IllegalArgumentException("Typed data not supported yet")
+                DataType.TYPED_DATA -> {
+                    val typed = requireNotNull(ready.typed) { CANNOT_BE_READ }
+                    val chainId = requireNotNull(request.chainId) { "The request does not name a network" }
+                    when (val result = TypedDataSigner.sign(request.dataType, typed, chainId, privateKey)) {
+                        is TypedDataSigner.Result.Signed -> result.signature
+                        is TypedDataSigner.Result.Refused -> throw IllegalArgumentException(result.reason)
+                    }
+                }
             }
             return partsOf(EthSignatureEncoder.encode(requestId, signature))
         } finally {
@@ -574,6 +591,42 @@ class SignPipeline(
     }
 
     /**
+     * Typed data (EIP-712). The domain must name the request's chain, and that chain must be in the registry: the domain chain must match
+     * a Network Entry, so a message for any other chain is refused before its review. A BLOCK denylist entry refuses the message with the
+     * entry's reason. A WARN entry is shown on the review with its reason, and HOLD TO SIGN waits for the owner's confirmation of it.
+     * Every field of the message is shown before the gate.
+     */
+    private fun typedData(target: Target): Prepared {
+        val typed = when (val parsed = target.parsed.typed) {
+            is TypedDataParser.Result.Ok -> parsed.data
+            is TypedDataParser.Result.Rejected -> return Prepared.Refused(parsed.reason)
+            null -> return Prepared.Refused(CANNOT_BE_READ)
+        }
+        val domainChain = typed.domainChainId ?: return Prepared.Refused(NO_DOMAIN_CHAIN)
+        if (domainChain != BigInteger.valueOf(target.chainId)) {
+            return Prepared.Refused("The typed data is for chain $domainChain, but the request names chain ${target.chainId}")
+        }
+        if (target.network == null) return Prepared.Refused(unknownTypedChain(target.chainId))
+        val verifyingContract = (typed.domain.fields["verifyingContract"] as? TypedValue.BytesValue)?.let {
+            checksum(it.bytes.toHex())
+        }
+        val denied = registry.typedDenylistMatches(target.chainId, verifyingContract, typed.primaryType)
+        denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { return Prepared.Refused(it.reason) }
+
+        val built = typedDataReview(typed, registry, target.chainId, target.network?.name ?: UNKNOWN_CHAIN_NAME)
+        val review = target.review(
+            function = typed.primaryType,
+            txType = TYPED_DATA_TYPE,
+            token = built.token,
+            params = built.params,
+            warnings = built.warnings,
+            denylisted = denied,
+            typed = built.review,
+        )
+        return Prepared.Ready(review, target.request, target.index, target.walletId, typed = typed)
+    }
+
+    /**
      * The review fields every request shares: the wallet, the account, the network and the origin. The caller sets what the
      * request does.
      */
@@ -590,6 +643,8 @@ class SignPipeline(
         params: List<Pair<String, String>> = emptyList(),
         warnings: List<String> = emptyList(),
         nested: List<NestedCall> = emptyList(),
+        denylisted: List<DenylistEntry> = emptyList(),
+        typed: TypedReview? = null,
     ): TxReview = TxReview(
         networkName = network?.name ?: UNKNOWN_CHAIN_NAME,
         chainId = chainId,
@@ -615,6 +670,8 @@ class SignPipeline(
         accountIdentity = wallet.accountIdentity(index),
         origin = request.origin,
         nested = nested,
+        denylisted = denylisted,
+        typed = typed,
     )
 
     /**
@@ -682,6 +739,12 @@ class SignPipeline(
 
     private companion object {
         const val L2_FEE_NOTE = "L1 data fee is not computable offline; total may be higher"
+        const val TYPED_DATA_TYPE = "Typed data (EIP-712)"
+        const val NO_DOMAIN_CHAIN = "The typed data names no chain ID in its domain"
+
+        /** The refusal of typed data for a chain the registry does not hold. */
+        fun unknownTypedChain(chainId: Long): String =
+            "The typed data is for chain $chainId, which is not in Lensly's network registry, so it is refused."
         const val UNKNOWN_CALL = "Unknown contract call"
         const val BOUND_PROXY_REFUSAL = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is " +
             "still the approved version, so your Proxy Policy refuses it."
@@ -745,20 +808,21 @@ class SignPipeline(
             null
         }
 
-        /**
-         * True for a character a reader can check by eye. Line breaks and tabs are fine. Controls, invisible format characters
-         * such as a right-to-left override, private-use and unassigned characters are not, so the message shows its bytes.
-         */
-        fun isPrintable(char: Char): Boolean = when (char) {
-            '\n', '\r', '\t' -> true
-            else -> when (Character.getType(char)) {
-                Character.CONTROL.toInt(),
-                Character.FORMAT.toInt(),
-                Character.PRIVATE_USE.toInt(),
-                Character.UNASSIGNED.toInt(),
-                -> false
-                else -> true
-            }
-        }
+    }
+}
+
+/**
+ * True for a character a reader can check by eye. Line breaks and tabs are fine. Controls, invisible format characters
+ * such as a right-to-left override, private-use and unassigned characters are not, so the message shows its bytes.
+ */
+internal fun isPrintable(char: Char): Boolean = when (char) {
+    '\n', '\r', '\t' -> true
+    else -> when (Character.getType(char)) {
+        Character.CONTROL.toInt(),
+        Character.FORMAT.toInt(),
+        Character.PRIVATE_USE.toInt(),
+        Character.UNASSIGNED.toInt(),
+        -> false
+        else -> true
     }
 }

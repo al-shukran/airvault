@@ -41,6 +41,14 @@ internal object ParserLimits {
     /** The most calls one multicall may read in the Parser Sandbox, nested ones included. It bounds a batch whose offsets overlap. */
     const val MAX_NESTED_NODES = 256
 
+    /** The deepest nesting of an EIP-712 document, counting its objects and arrays. */
+    const val MAX_TYPED_DEPTH = 8
+    /** The most JSON values one EIP-712 document may hold. */
+    const val MAX_TYPED_VALUES = 4096
+    /** The most struct types one EIP-712 document may declare. */
+    const val MAX_TYPED_TYPES = 64
+    /** The most members one struct type of an EIP-712 document may declare. */
+    const val MAX_TYPED_MEMBERS = 64
     /** The time one decode may take, in nanoseconds. */
     const val DECODE_BUDGET_NANOS = 1_000_000_000L
 }

@@ -67,6 +67,13 @@ class Registry internal constructor(
     fun denylistMatches(chainId: Long, contract: String, calldata: ByteArray): List<DenylistEntry> =
         matchingDenylist(denylistList, chainId, contract, calldata)
 
+    /**
+     * The denylist entries that typed data of [primaryType] matches. Its domain names [chainId], and [verifyingContract] when the domain
+     * names one.
+     */
+    fun typedDenylistMatches(chainId: Long, verifyingContract: String?, primaryType: String): List<DenylistEntry> =
+        matchingTypedDenylist(denylistList, chainId, verifyingContract, primaryType)
+
     fun networks(): List<NetworkEntry> = networkList
 
     fun tokens(): List<TokenEntry> = tokenList
