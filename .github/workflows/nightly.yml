@@ -34,8 +34,8 @@ jobs:
 
       # OWASP runs as its own step so an NVD outage can be retried. The plugin retries each NVD request itself, but
       # in a burst of about a second, and gives up during a longer 503 window (run 43586280383 failed this way). Only
-      # an NVD failure is retried, after a 5-minute pause. A CVSS finding or any other error still fails the job at
-      # once.
+      # an NVD failure is retried, six times with a 10-minute pause, which is about an hour of waiting inside the
+      # job's 120-minute limit. A CVSS finding or any other error still fails the job at once.
       #
       # NVD_API_KEY lifts the NVD API rate limit. Set it as a repository secret; without it the
       # dependency-check step still runs, just slower (one NVD call every 8 seconds), so a missing
@@ -46,13 +46,13 @@ jobs:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           set -o pipefail
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5 6; do
             if ./gradlew dependencyCheckAnalyze 2>&1 | tee dependency-check.log; then
               exit 0
             fi
             grep -q -E "NVD Returned Status Code|Error updating the NVD Data" dependency-check.log || exit 1
-            echo "NVD is unavailable (attempt $attempt of 3); retrying in 5 minutes"
-            sleep 300
+            echo "NVD is unavailable (attempt $attempt of 6); retrying in 10 minutes"
+            sleep 600
           done
           exit 1
 
@@ -126,6 +126,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          sudo chmod 0666 /dev/kvm
           test -w /dev/kvm
 
       - name: Run connected debug tests on an emulator
@@ -174,6 +176,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          sudo chmod 0666 /dev/kvm
           test -w /dev/kvm
 
       - name: Run WalletSignFlowTest on an emulator
@@ -221,6 +225,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          sudo chmod 0666 /dev/kvm
           test -w /dev/kvm
 
       - name: Run microbenchmarks on an emulator
