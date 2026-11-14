@@ -159,7 +159,7 @@ internal class EntryTouch(
                 finished
             }
             frame.count > 1 || frame.moved -> {
-                shutter.cancel()
+                cancelShutter()
                 false
             }
             else -> false
@@ -172,8 +172,17 @@ internal class EntryTouch(
             EntryGesture.DOUBLE_TAP_HOLD -> hidden.cancel()
             EntryGesture.THUMBNAIL_HOLD_SWIPE -> swipe.cancel()
             EntryGesture.PINCH_TRIPLE_TAP -> zoomTaps.onOtherTouch()
-            EntryGesture.SWITCH_THEN_SHUTTER_HOLD -> shutter.cancel()
+            EntryGesture.SWITCH_THEN_SHUTTER_HOLD -> cancelShutter()
         }
+    }
+
+    /**
+     * A cancelled hold is not a shutter tap, so the click that waited for its release is dropped with it. Otherwise that
+     * click would fire on the release of a touch that moved, or on the next release.
+     */
+    private fun cancelShutter() {
+        shutter.cancel()
+        pendingShutterClick = null
     }
 
     /** A pinch started on the viewfinder. */

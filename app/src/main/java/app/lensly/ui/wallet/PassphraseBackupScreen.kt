@@ -28,6 +28,7 @@ fun PassphraseBackupScreen(
     onWrittenDownChange: (Boolean) -> Unit,
     onCreate: () -> Unit,
     modifier: Modifier = Modifier,
+    errorMessage: String? = null,
 ) {
     LenslyScreen(
         title = "Passphrase backup",
@@ -62,6 +63,10 @@ fun PassphraseBackupScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (errorMessage != null) {
+            Spacer(Modifier.height(LenslySpacing.md))
+            InlineBanner(message = errorMessage, tone = BannerTone.Error)
+        }
         Spacer(Modifier.height(LenslySpacing.md))
     }
 }

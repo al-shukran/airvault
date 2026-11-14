@@ -26,8 +26,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
+import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
@@ -61,6 +63,7 @@ fun effectiveWalletName(typed: String, suggested: String?): String =
  * Back hides it, and a tap on the field brings it back.
  *
  * Under the field, a counter shows the length. Empty input says what DONE will use, and a full field says it is full.
+ * [errorMessage], when set, is shown as an error under the counter, for a save that failed.
  */
 @Composable
 fun WalletNameScreen(
@@ -75,6 +78,7 @@ fun WalletNameScreen(
     title: String? = null,
     maxLength: Int = DISPLAY_NAME_MAX_LENGTH,
     emptyHelp: String? = null,
+    errorMessage: String? = null,
 ) {
     val full = name.length >= maxLength
     val helperColor = if (full) LenslyWarning else MaterialTheme.colorScheme.onSurfaceVariant
@@ -128,6 +132,10 @@ fun WalletNameScreen(
                     style = MaterialTheme.typography.labelMedium,
                     color = helperColor,
                 )
+            }
+            if (errorMessage != null) {
+                Spacer(Modifier.height(LenslySpacing.md))
+                InlineBanner(message = errorMessage, tone = BannerTone.Error)
             }
             if (onReset != null) {
                 Spacer(Modifier.height(LenslySpacing.lg))
