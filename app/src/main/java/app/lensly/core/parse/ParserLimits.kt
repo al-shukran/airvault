@@ -26,8 +26,11 @@ internal object ParserLimits {
     /** The most items one RLP transaction may hold. Its access list is the only part that grows with the transaction. */
     const val MAX_RLP_ITEMS = 4096
 
-    /** The largest calldata a transaction may carry. A token transfer or approval needs 68 bytes. */
-    const val MAX_CALLDATA_BYTES = 1024
+    /**
+     * The largest calldata a transaction may carry, in bytes. A token transfer or approval needs 68 bytes, and a router or
+     * multicall batch often runs 1.5 to 6 KB. A transaction above this size is refused.
+     */
+    const val MAX_CALLDATA_BYTES = 16 * 1024
 
     /** The deepest level a call of a multicall may sit at. The calls of the outer multicall are level 1, the calls inside them level 2. */
     const val MAX_NESTED_DEPTH = 3

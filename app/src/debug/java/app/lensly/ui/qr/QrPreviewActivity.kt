@@ -23,6 +23,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.applySecureWindow
+import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TxReviewScreen
@@ -39,13 +40,14 @@ import java.math.BigInteger
  * Debug-only harness that hosts the QR and signing screens with fake data, so they can be checked
  * on a device without the vault.
  *
- * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-token, review-pegged,
+ * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-large, review-token, review-pegged,
  * review-unknown-chain, review-unknown-token or refused:
  *   adb shell am start -n app.lensly/app.lensly.ui.qr.QrPreviewActivity --es screen show12
  *
  * show1 and show12 animate one or twelve fake UR parts. scan opens the live camera and writes each
  * decoded text into the status line (and to logcat under the tag [TAG]). review shows a native transfer,
  * review-token a token transfer, review-pegged a transfer of Binance Pegged USDT on BNB Chain (the BNB badge),
+ * review-large a 24-call batch of token transfers, about 6 KB of calldata, which scrolls,
  * review-unknown-chain a native transfer on a chain outside the registry,
  * review-unknown-token a transfer of a token outside the registry, and refused a refusal, all with sample data.
  */
@@ -75,6 +77,7 @@ class QrPreviewActivity : ComponentActivity() {
                         SCREEN_SHOW12 -> ShowPreview(title = "SIGNATURE", parts = sampleTwelveParts(), onDone = ::finish)
                         SCREEN_SCAN -> ScanPreview(onFinish = ::finish)
                         SCREEN_REVIEW -> ReviewPreview(sampleReview)
+                        SCREEN_REVIEW_LARGE -> ReviewPreview(sampleLargeBatchReview)
                         SCREEN_REVIEW_TOKEN -> ReviewPreview(sampleTokenReview)
                         SCREEN_REVIEW_PEGGED -> ReviewPreview(samplePeggedReview)
                         SCREEN_REVIEW_UNKNOWN_CHAIN -> ReviewPreview(sampleUnknownChainReview)
@@ -100,6 +103,7 @@ class QrPreviewActivity : ComponentActivity() {
             SCREEN_SHOW12 -> SCREEN_SHOW12
             SCREEN_SCAN -> SCREEN_SCAN
             SCREEN_REVIEW -> SCREEN_REVIEW
+            SCREEN_REVIEW_LARGE -> SCREEN_REVIEW_LARGE
             SCREEN_REVIEW_TOKEN -> SCREEN_REVIEW_TOKEN
             SCREEN_REVIEW_PEGGED -> SCREEN_REVIEW_PEGGED
             SCREEN_REVIEW_UNKNOWN_CHAIN -> SCREEN_REVIEW_UNKNOWN_CHAIN
@@ -115,6 +119,7 @@ class QrPreviewActivity : ComponentActivity() {
         const val SCREEN_SHOW12 = "show12"
         const val SCREEN_SCAN = "scan"
         const val SCREEN_REVIEW = "review"
+        const val SCREEN_REVIEW_LARGE = "review-large"
         const val SCREEN_REVIEW_TOKEN = "review-token"
         const val SCREEN_REVIEW_PEGGED = "review-pegged"
         const val SCREEN_REVIEW_UNKNOWN_CHAIN = "review-unknown-chain"
@@ -243,6 +248,23 @@ private val sampleTokenReview = TxReview(
         decimals = 6,
         icon = "token_usdc",
     ),
+)
+
+/**
+ * A Multicall3 batch of 24 USDC transfers on Base, about 6 KB of calldata. Each call is its own row, so the review is
+ * longer than the screen and scrolls to the end before it can be approved.
+ */
+private val sampleLargeBatchReview = sampleTokenReview.copy(
+    function = "aggregate3",
+    signature = "aggregate3((address,bool,bytes)[])",
+    nested = List(24) { index ->
+        NestedCall(
+            depth = 1,
+            target = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            function = "transfer",
+            params = listOf("to" to "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2", "value" to "${index + 1}000000 (${index + 1}.00 USDC)"),
+        )
+    },
 )
 
 /**

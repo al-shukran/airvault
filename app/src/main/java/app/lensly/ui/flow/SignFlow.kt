@@ -332,13 +332,17 @@ class SignFlow(
     }
 
     private companion object {
-        /** The most scanned text the flow accepts, in characters. A UR in bytewords uses two characters per byte. */
-        const val MAX_SCAN_CHARS = 64L * 1024
+        /**
+         * The most scanned text the flow accepts, in characters. A UR in bytewords uses two characters per byte, and an
+         * animated request repeats frames when the camera misses some. A 16 KiB calldata request reads in about 35 K
+         * characters when every frame arrives, and in about 65 K when half of them are missed, so this leaves room for both.
+         */
+        const val MAX_SCAN_CHARS = 128L * 1024
 
         const val SCAN_HINT = "Scan the sign request from your online wallet."
         const val READING = "Reading the request. Keep the code in view."
         const val NOT_PART = "That code is not part of this request."
-        const val TOO_LARGE = "The request is larger than 64 KiB."
+        val TOO_LARGE = "The request is larger than ${MAX_SCAN_CHARS / 1024} KiB."
         const val NO_REQUEST_ID = "Request has no ID"
         const val KEY_MISMATCH = "Key does not match account"
         const val WALLET_UNREADABLE = "The wallet could not be read. Nothing was signed."
