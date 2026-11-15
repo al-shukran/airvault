@@ -1,6 +1,9 @@
 package app.lensly.e2e
 
+import android.app.UiAutomation
 import android.graphics.Rect
+import android.os.SystemClock
+import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsEnabled
@@ -11,7 +14,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
@@ -174,11 +176,9 @@ class WalletSignFlowTest {
         compose.onNodeWithText("I CHECKED THE CHAIN ID / CONTRACT").performClick()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
 
-        // The hold fills on the real frame clock while the finger is down, and signs when it is full. The step only
-        // moves on after that, so the finger is lifted once the App Password step is shown.
-        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).performTouchInput { down(center) }
-        awaitStep(flow, "the Application Password step") { it is SignStep.Confirming }
-        compose.onRoot().performTouchInput { up() }
+        // The hold fills on the real frame clock while the finger is down, and signs when it is full. The finger is lifted
+        // once the App Password step is shown.
+        holdSignControlUntil(flow, "the Application Password step") { it is SignStep.Confirming }
         compose.onNodeWithText("Enter your Application Password to sign.").assertExists()
         typePassword(PASSWORD)
         compose.onNodeWithContentDescription("${PASSWORD.length} characters entered").assertExists()
@@ -203,6 +203,45 @@ class WalletSignFlowTest {
                 throw AssertionError("the flow never reached $what; it is ${flow.state.value}", e)
             }
         }
+
+    /**
+     * Holds a real touch on the hold-to-sign control until [accept] is met, then lifts it.
+     *
+     * A `performTouchInput` gesture is released when its block returns, so a press split across the wait is lifted at once
+     * and the control cancels the hold. The touch is injected through [UiAutomation] instead, so the finger stays down while
+     * the bar fills on the frame clock.
+     *
+     * The first touch after the control is enabled starts its pointer handler and is not delivered to it. A tap that lets
+     * go at once signs nothing, and it leaves the handler waiting for the press that follows.
+     */
+    private fun holdSignControlUntil(flow: SignFlowViewModel, what: String, accept: (SignStep) -> Boolean) {
+        compose.waitForIdle()
+        val center = compose.onNodeWithTag(HOLD_TO_SIGN_TAG).fetchSemanticsNode().boundsInWindow.center
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val tapTime = SystemClock.uptimeMillis()
+        injectTouch(automation, MotionEvent.ACTION_DOWN, tapTime, center.x, center.y)
+        injectTouch(automation, MotionEvent.ACTION_UP, tapTime, center.x, center.y)
+        compose.waitForIdle()
+        val downTime = SystemClock.uptimeMillis()
+        injectTouch(automation, MotionEvent.ACTION_DOWN, downTime, center.x, center.y)
+        try {
+            awaitStep(flow, what, accept)
+        } finally {
+            // The hold has just opened the keyboard under this point, and a lone UP there types a key. A cancel ends the
+            // touch without a tap.
+            injectTouch(automation, MotionEvent.ACTION_CANCEL, downTime, center.x, center.y)
+            compose.waitForIdle()
+        }
+    }
+
+    private fun injectTouch(automation: UiAutomation, action: Int, downTime: Long, x: Float, y: Float) {
+        val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
+        try {
+            check(automation.injectInputEvent(event, true)) { "the touch event was not injected" }
+        } finally {
+            event.recycle()
+        }
+    }
 
     /** Scrolls the fact list to its end, which is what turns APPROVE on. A review that fits is already at the end. */
     private fun scrollReviewToTheEnd() {

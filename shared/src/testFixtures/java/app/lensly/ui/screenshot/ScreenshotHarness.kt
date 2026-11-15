@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyTheme
+import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 
 /**
@@ -24,6 +25,9 @@ const val SCREENSHOT_QUALIFIERS = "w720dp-h1600dp-port-mdpi"
 
 /** Where the goldens are written. Relative to the app module, which is the test working directory. */
 const val SCREENSHOT_DIR = "src/test/screenshots"
+
+/** The share of pixels allowed to differ from a golden: 0.05 percent, about 576 pixels of a 720 x 1600 frame. */
+private const val SCREENSHOT_CHANGE_THRESHOLD = 0.0005f
 
 /** The owner's phone: 720 x 1600 px at 280 dpi, which is density 1.75. */
 private const val SCREEN_WIDTH_PX = 720f
@@ -66,5 +70,12 @@ fun ComposeContentTestRule.snapshot(
     // [beforeCapture] runs once the entrance has settled, for a step such as a scroll, and the frame is then drawn again.
     beforeCapture()
     waitForIdle()
-    onNodeWithTag(SCREEN_TAG).captureRoboImage(filePath = "$SCREENSHOT_DIR/$name.png")
+    // The goldens are recorded on macOS. The Linux runner rasterizes some anti-aliased edges a few shades off, measured at
+    // most 2 of 255 per channel on 35 to 62 of a frame's 1,152,000 pixels. A real change moves far more pixels than the threshold.
+    onNodeWithTag(SCREEN_TAG).captureRoboImage(
+        filePath = "$SCREENSHOT_DIR/$name.png",
+        roborazziOptions = RoborazziOptions(
+            compareOptions = RoborazziOptions.CompareOptions(changeThreshold = SCREENSHOT_CHANGE_THRESHOLD),
+        ),
+    )
 }
