@@ -1,0 +1,38 @@
+package app.lumio.data.config
+
+import app.lensly.core.vault.VaultSession
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
+
+/**
+ * The provider settings of the open vault, kept as the vault record [RECORD]. The vault seals the record under its key, so the API keys in it are
+ * never stored in the clear.
+ */
+class ProviderConfigStore(private val session: VaultSession) {
+
+    /** The saved settings by provider id. Empty when nothing is stored, or when the record does not parse. */
+    fun load(): Map<String, ProviderConfig> {
+        val bytes = session.getVaultRecord(RECORD) ?: return emptyMap()
+        return try {
+            json.decodeFromString(serializer, bytes.decodeToString())
+        } catch (e: SerializationException) {
+            emptyMap()
+        } catch (e: IllegalArgumentException) {
+            emptyMap()
+        }
+    }
+
+    fun save(configs: Map<String, ProviderConfig>) {
+        session.putVaultRecord(RECORD, json.encodeToString(serializer, configs).encodeToByteArray())
+    }
+
+    companion object {
+        /** The vault record that holds the settings. */
+        const val RECORD = "lumio-providers"
+
+        private val json = Json { ignoreUnknownKeys = true }
+        private val serializer = MapSerializer(String.serializer(), ProviderConfig.serializer())
+    }
+}

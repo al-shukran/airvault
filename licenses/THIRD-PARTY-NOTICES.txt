@@ -10,6 +10,8 @@ Apache License 2.0:
 
 Android Jetpack, Jetpack Compose, Material 3 and CameraX (androidx.*): Activity 1.13.0, Navigation 2.9.8, Lifecycle 2.10.0, Compose BOM 2026.06.01, CameraX 1.6.2.
 
+Room 2.8.5 (androidx.room) and its SQLite driver (androidx.sqlite), the database under Lumio's cache and scan queue.
+
 Kotlin standard library 2.4.21, kotlinx-coroutines 1.11.0 and kotlinx-serialization 1.12.0 (JetBrains).
 
 Guava 33.7.2-android and failureaccess 1.0.3 (Google).

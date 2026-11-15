@@ -1,0 +1,114 @@
+package app.lumio.data.route
+
+import app.lumio.data.BTC
+import app.lumio.data.ETH
+import app.lumio.data.FakeProvider
+import app.lumio.data.config.ProviderConfig
+import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.Kind
+import app.lumio.data.provider.Op
+import app.lumio.data.provider.Provider
+import app.lumio.data.provider.Trait
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+/** Which providers the router offers for a request, and in what order. */
+class RouterTest {
+
+    private val everyone = object : ProviderState {
+        override fun available(providerId: String, nowMs: Long): Boolean = true
+
+        override fun score(providerId: String, nowMs: Long): Double = 0.0
+    }
+
+    private fun route(
+        providers: List<Provider>,
+        net: NetworkId = ETH,
+        op: Op = Op.TIP_HEIGHT,
+        configs: Map<String, ProviderConfig> = emptyMap(),
+        state: ProviderState = everyone,
+        tried: Set<String> = emptySet(),
+    ): List<String> =
+        Router(providers).route(net, op, configs, state, nowMs = 0L, tried = tried, excluded = emptySet()).map { it.id }
+
+    @Test
+    fun aProviderThatDoesNotServeTheNetworkOrTheOperationIsNeverOffered() {
+        val a = FakeProvider("a", networks = setOf(ETH), ops = setOf(Op.TIP_HEIGHT))
+
+        assertEquals(emptyList<String>(), route(listOf(a), net = BTC))
+        assertEquals(emptyList<String>(), route(listOf(a), op = Op.NATIVE_BALANCE))
+        assertEquals(listOf("a"), route(listOf(a)))
+    }
+
+    @Test
+    fun aKeyRequiredProviderIsOfferedOnlyWithAKey() {
+        val a = FakeProvider("a", traits = setOf(Trait.KEY_REQUIRED))
+
+        assertEquals(emptyList<String>(), route(listOf(a)))
+        assertEquals(listOf("a"), route(listOf(a), configs = mapOf("a" to ProviderConfig(apiKey = "fake-key"))))
+    }
+
+    @Test
+    fun aDisabledProviderIsNotOffered() {
+        val a = FakeProvider("a")
+
+        assertEquals(emptyList<String>(), route(listOf(a), configs = mapOf("a" to ProviderConfig(enabled = false))))
+    }
+
+    @Test
+    fun aCoolingOrOpenProviderIsNotOffered() {
+        val cooling = object : ProviderState {
+            override fun available(providerId: String, nowMs: Long): Boolean = providerId != "a"
+
+            override fun score(providerId: String, nowMs: Long): Double = 0.0
+        }
+
+        assertEquals(listOf("b"), route(listOf(FakeProvider("a"), FakeProvider("b")), state = cooling))
+    }
+
+    @Test
+    fun aLowerPriorityNumberIsOfferedFirst() {
+        val configs = mapOf("a" to ProviderConfig(priority = 1), "b" to ProviderConfig(priority = 0))
+
+        assertEquals(listOf("b", "a"), route(listOf(FakeProvider("a"), FakeProvider("b")), configs = configs))
+    }
+
+    @Test
+    fun aProviderThatFailedTransientlyGoesLastSoARetryMovesOn() {
+        assertEquals(listOf("b", "a"), route(listOf(FakeProvider("a"), FakeProvider("b")), tried = setOf("a")))
+    }
+
+    @Test
+    fun aBroadcastOnEvmOffersMevProtectedProvidersFirst() {
+        val plain = FakeProvider("plain", ops = setOf(Op.BROADCAST), networks = setOf(ETH, BTC))
+        val protectedRpc = FakeProvider(
+            "protected",
+            ops = setOf(Op.BROADCAST),
+            networks = setOf(ETH, BTC),
+            traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED),
+        )
+        val configs = mapOf("plain" to ProviderConfig(priority = 0), "protected" to ProviderConfig(priority = 1))
+
+        assertEquals(listOf("protected", "plain"), route(listOf(plain, protectedRpc), op = Op.BROADCAST, configs = configs))
+        assertEquals(listOf("plain", "protected"), route(listOf(plain, protectedRpc), net = BTC, op = Op.BROADCAST, configs = configs))
+    }
+
+    @Test
+    fun balanceReadsOfferDataProvidersBeforeRpcProviders() {
+        val rpc = FakeProvider("rpc", kind = Kind.RPC, ops = setOf(Op.NATIVE_BALANCE))
+        val data = FakeProvider("data", kind = Kind.DATA, ops = setOf(Op.NATIVE_BALANCE))
+        val configs = mapOf("rpc" to ProviderConfig(priority = 0), "data" to ProviderConfig(priority = 1))
+
+        assertEquals(listOf("data", "rpc"), route(listOf(rpc, data), op = Op.NATIVE_BALANCE, configs = configs))
+    }
+
+    @Test
+    fun providersThatTieShareCallsByWeight() {
+        val router = Router(listOf(FakeProvider("a"), FakeProvider("b")))
+        val configs = mapOf("a" to ProviderConfig(weight = 2), "b" to ProviderConfig(weight = 1))
+
+        val firsts = List(3) { router.route(ETH, Op.TIP_HEIGHT, configs, everyone, 0L, emptySet(), emptySet()).first().id }
+
+        assertEquals(listOf("a", "b", "a"), firsts)
+    }
+}
