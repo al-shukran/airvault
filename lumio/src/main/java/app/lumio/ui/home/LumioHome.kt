@@ -1,6 +1,7 @@
 package app.lumio.ui.home
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.LenslyScreen
@@ -33,7 +35,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Lumio's Home: the paired wallets, each with its name, its family and its networks, and the action that pairs a wallet from Lensly.
- * [onLock] returns to the camera and locks the vault. [onDelete] runs after the owner confirms a deletion.
+ * [onLock] returns to the camera and locks the vault. [onDelete] runs after the owner confirms a deletion. [onBitcoin] opens the Bitcoin
+ * portfolio, which is offered once a wallet holds a Bitcoin account. [onSettings] opens Lumio's settings.
  */
 @Composable
 fun LumioHome(
@@ -42,6 +45,8 @@ fun LumioHome(
     wallets: List<PairedWallet>,
     onDelete: (PairedWallet) -> Unit,
     modifier: Modifier = Modifier,
+    onBitcoin: () -> Unit = {},
+    onSettings: () -> Unit = {},
 ) {
     var pendingDelete by remember { mutableStateOf<PairedWallet?>(null) }
     LenslyScreen(
@@ -58,11 +63,16 @@ fun LumioHome(
                 body = "Pair a wallet from Lensly to see its balances and history here.",
             )
         } else {
+            if (wallets.any { it.bitcoin.isNotEmpty() }) {
+                BitcoinEntry(onClick = onBitcoin)
+                Spacer(Modifier.height(LenslySpacing.sm))
+            }
             wallets.forEach { wallet ->
                 PairedWalletRow(wallet = wallet, onDelete = { pendingDelete = wallet })
                 Spacer(Modifier.height(LenslySpacing.sm))
             }
         }
+        PillButton(text = "Settings", onClick = onSettings)
     }
     pendingDelete?.let { wallet ->
         AlertDialog(
@@ -81,6 +91,25 @@ fun LumioHome(
                 }
             },
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+        )
+    }
+}
+
+/** The row that opens the Bitcoin portfolio. Each network it holds is named on the row, and the networks are never added together. */
+@Composable
+private fun BitcoinEntry(onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(LenslyRadius.md))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(LenslySpacing.md),
+    ) {
+        Text("Bitcoin", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            "Mainnet and testnet4 accounts, each network on its own",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
