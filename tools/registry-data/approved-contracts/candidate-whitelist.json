@@ -2,6 +2,94 @@
   "whitelist": [
     {
       "chainId": 1,
+      "contract": "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",
+      "selector": "0x3593564c",
+      "signature": "execute(bytes,bytes[],uint256)",
+      "meaning": "Uniswap Universal Router: run a batch of swap and transfer commands in one call. The commands and inputs are shown as raw bytes, not decoded.",
+      "params": [
+        {
+          "name": "commands",
+          "type": "bytes"
+        },
+        {
+          "name": "inputs",
+          "type": "bytes[]"
+        },
+        {
+          "name": "deadline",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+      "selector": "0x3593564c",
+      "signature": "execute(bytes,bytes[],uint256)",
+      "meaning": "Uniswap Universal Router: run a batch of swap and transfer commands in one call. The commands and inputs are shown as raw bytes, not decoded.",
+      "params": [
+        {
+          "name": "commands",
+          "type": "bytes"
+        },
+        {
+          "name": "inputs",
+          "type": "bytes[]"
+        },
+        {
+          "name": "deadline",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+      "selector": "0x04e45aaf",
+      "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+      "meaning": "Uniswap SwapRouter02: swap an exact amount of one token for as much as possible of another, through one pool. The minimum received is shown.",
+      "params": [
+        {
+          "name": "params",
+          "type": "(address,address,uint24,address,uint256,uint256,uint160)",
+          "components": [
+            {
+              "name": "tokenIn",
+              "type": "address"
+            },
+            {
+              "name": "tokenOut",
+              "type": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint24"
+            },
+            {
+              "name": "recipient",
+              "type": "address"
+            },
+            {
+              "name": "amountIn",
+              "type": "uint256"
+            },
+            {
+              "name": "amountOutMinimum",
+              "type": "uint256"
+            },
+            {
+              "name": "sqrtPriceLimitX96",
+              "type": "uint160"
+            }
+          ]
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
       "contract": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
       "selector": "0xde0e9a3e",
       "signature": "unwrap(uint256)",
@@ -182,6 +270,24 @@
         }
       ],
       "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0x9008d19f58aabd9ed0d60971565aa8510560ab41",
+      "selector": "0xec6cb13f",
+      "signature": "setPreSignature(bytes,bool)",
+      "meaning": "CoW Protocol: approve or revoke a pre-signed order, identified by its order UID.",
+      "params": [
+        {
+          "name": "orderUid",
+          "type": "bytes"
+        },
+        {
+          "name": "signed",
+          "type": "bool"
+        }
+      ],
+      "upgradeable": false
     },
     {
       "chainId": 1,

@@ -16,6 +16,8 @@ import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.ScriptedSandbox
 import app.lensly.core.parse.inProcessSandboxParser
+import app.lensly.core.registry.AbiValue
+import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
 import app.lensly.core.registry.DenylistCondition
@@ -26,7 +28,6 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
-import app.lensly.core.registry.StaticDecode
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
@@ -1286,10 +1287,10 @@ class SignPipelineTest {
     fun aSandboxThatChangesAWhitelistedLabelIsRefused() {
         val cbor = requestCbor(swapTx(ETHEREUM, WHITELISTED), chainId = ETHEREUM)
         val lying = object : RequestParser by inProcessSandboxParser {
-            override fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode {
-                val honest = assertIs<StaticDecode.Ok>(inProcessSandboxParser.decodeStatic(calldata, params))
-                val first = DecodedParam(honest.params.first().param, "7")
-                return StaticDecode.Ok(listOf(first) + honest.params.drop(1))
+            override fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode {
+                val honest = assertIs<CallDecode.Ok>(inProcessSandboxParser.decodeCall(calldata, params))
+                val first = DecodedParam(honest.params.first().param, AbiValue.Word("0".repeat(63) + "7"))
+                return CallDecode.Ok(listOf(first) + honest.params.drop(1))
             }
         }
 

@@ -155,6 +155,22 @@ deployed-contracts page.
 `CandidateWhitelistTest` (shared) checks that the candidate loads through `RegistryLoader`, that every checksum matches,
 that every entry has one source row, and that every meaning names its protocol.
 
-Calls with a dynamic argument (`bytes`, arrays, structs) cannot be whitelisted: the entry format takes static types only.
-That covers the swap and bridge entry points of Uniswap, 1inch, 0x, CoW, Paraswap, Seaport, Across and Stargate.
+Entries may take dynamic arguments (`bytes`, `string`, arrays and tuples) and name a tuple's fields, which needs schema 3 in
+a package (see `tools/registry-pack/README.md`). The swap and bridge entries added with schema 3 are these, each checked on
+Ethereum mainnet: the address has code, and the Keccak-256 selector of the signature appears in its bytecode.
+
+- Uniswap Universal Router V2 (`0x66a9893c...`) and V1.2 (`0x3fC91A3a...`), `execute(bytes,bytes[],uint256)`. Addresses from
+  `deploy-addresses/mainnet.json` in `Uniswap/universal-router`; the signature from `contracts/interfaces/IUniversalRouter.sol`.
+- Uniswap SwapRouter02 (`0x68b34658...`), `exactInputSingle` with its struct fields. Fields from `IV3SwapRouter.sol` in
+  `Uniswap/swap-router-contracts`; address from the default in `Uniswap/smart-order-router`'s `src/util/addresses.ts`.
+- CoW Protocol settlement (`0x9008D19f...`), `setPreSignature(bytes,bool)`. Address from `networks.json` in
+  `cowprotocol/contracts`; signature from `src/contracts/mixins/GPv2Signing.sol`.
+
+Not added, because an official source was not reached in this pass:
+
+- 1inch Aggregation Router V6 (`0x11111112...`). Its `swap(address,(address,address,address,address,uint256,uint256,uint256),bytes)`
+  selector `0x07ed2379` is in the deployed code, but no GitHub page was found that names the router or its struct fields.
+- Across. The Ethereum SpokePool in `deployments/mainnet` (`0xFBc81a18...`) is an implementation with constructor arguments, and
+  the `0x5c7BCd6E...` SpokePool is listed in `legacy-addresses.json`. Which address users call was not settled.
+- Paraswap, 0x and Stargate. Not checked.
 

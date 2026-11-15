@@ -1,0 +1,85 @@
+package app.lensly.core.registry
+
+import java.math.BigInteger
+import org.web3j.crypto.Keys
+
+/**
+ * The rows a review shows for one decoded argument, as label and value pairs in order. A static argument is one row, labelled with its
+ * name and type. An array is a row with its item count, then one row per item, labelled `name[i]`. A tuple has no row of its own: each
+ * field is a row, labelled `name.field` with the name the entry gives it, or `name.0`, `name.1` ... when the entry names none.
+ *
+ * An address is its EIP-55 checksum, a uint or int its exact decimal, a bool true or false, and a bytesN its full hex. A bytes value shows
+ * its length and the first [PREVIEW_BYTES] bytes as hex, with an ellipsis when it is longer; the calldata section of the review holds every
+ * byte. A string shows its text in quotes. [amountOf] may replace the value of a top-level uint marked tokenRef, and returns null to keep it.
+ */
+object AbiRows {
+    private const val PREVIEW_BYTES = 32
+    private const val ADDRESS_HEX = 40
+    private const val TWO_POW_256 = 256
+
+    /** The rows of [decoded], in the order the review lists them. */
+    fun of(decoded: DecodedParam, amountOf: (BigInteger) -> String? = { null }): List<Pair<String, String>> {
+        val type = checkNotNull(AbiTypes.parse(decoded.param.type)) { "param type ${decoded.param.type} is not canonical" }
+        val rows = ArrayList<Pair<String, String>>()
+        node(decoded.param.name, type, decoded.param, decoded.value, rows)
+        val atomic = type as? AtomicType
+        if (decoded.param.tokenRef && atomic != null && decoded.value is AbiValue.Word) {
+            amountOf(BigInteger(decoded.value.hex, 16))?.let { rows[0] = rows[0].first to it }
+        }
+        return rows
+    }
+
+    /**
+     * Adds the rows of [value], which has [type]. [shape] is the param whose components name the tuple at the base of [type], or null
+     * when there are none to name.
+     */
+    private fun node(label: String, type: AbiType, shape: WhitelistParam?, value: AbiValue, rows: MutableList<Pair<String, String>>) {
+        when (type) {
+            is AtomicType -> rows += "$label (${type.canonical})" to wordText(type.canonical, (value as AbiValue.Word).hex)
+            is DynamicBytes -> rows += "$label (${type.canonical})" to dynamicText(type.canonical, (value as AbiValue.Dynamic).hex)
+            is ArrayType -> {
+                val items = (value as AbiValue.Items).items
+                rows += "$label (${typeName(type)})" to itemCount(items.size)
+                items.forEachIndexed { index, item -> node("$label[$index]", type.element, shape, item, rows) }
+            }
+            is TupleType -> {
+                val fields = (value as AbiValue.Items).items
+                fields.forEachIndexed { index, field ->
+                    val component = shape?.components?.getOrNull(index)
+                    val name = component?.name ?: index.toString()
+                    node("$label.$name", type.components[index], component, field, rows)
+                }
+            }
+        }
+    }
+
+    /** The type as a row shows it: a tuple is `tuple`, so a list of structs stays short, and each array dimension is kept. */
+    private fun typeName(type: AbiType): String = when (type) {
+        is TupleType -> "tuple"
+        is ArrayType -> typeName(type.element) + "[" + (type.length?.toString() ?: "") + "]"
+        else -> type.canonical
+    }
+
+    private fun itemCount(count: Int): String = if (count == 1) "1 item" else "$count items"
+
+    private fun wordText(type: String, hex: String): String = when {
+        type == "address" -> Keys.toChecksumAddress("0x" + hex.takeLast(ADDRESS_HEX))
+        type == "bool" -> if (hex.last() == '1') "true" else "false"
+        type.startsWith("uint") -> BigInteger(hex, 16).toString()
+        type.startsWith("int") -> {
+            val unsigned = BigInteger(hex, 16)
+            val signed = if (unsigned.testBit(TWO_POW_256 - 1)) unsigned - BigInteger.ONE.shiftLeft(TWO_POW_256) else unsigned
+            signed.toString()
+        }
+        else -> "0x" + hex.take(2 * type.removePrefix("bytes").toInt())
+    }
+
+    private fun dynamicText(type: String, hex: String): String {
+        val bytes = hex.length / 2
+        if (type == "string") return "\"" + utf8TextOf(hexBytesOrNull(hex) ?: ByteArray(0)).orEmpty() + "\""
+        if (bytes == 0) return "0 bytes"
+        val preview = hex.take(2 * PREVIEW_BYTES)
+        val ellipsis = if (bytes > PREVIEW_BYTES) "…" else ""
+        return "$bytes bytes: 0x$preview$ellipsis"
+    }
+}

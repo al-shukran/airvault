@@ -18,9 +18,10 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
+import app.lensly.core.registry.AbiDecoder
+import app.lensly.core.registry.AbiRows
+import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.ProxyBinding
-import app.lensly.core.registry.StaticAbiDecoder
-import app.lensly.core.registry.StaticDecode
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.NestedCall
@@ -63,7 +64,10 @@ private val SWAP_CALLDATA = Numeric.hexStringToByteArray(
 )
 
 /** What the decoder reads from [SWAP_CALLDATA], so the review lists the values the bytes hold and not typed-in ones. */
-private val SWAP_DECODED = (StaticAbiDecoder.decode(SWAP_CALLDATA, SWAP_PARAMS) as StaticDecode.Ok).params
+private val SWAP_DECODED = (AbiDecoder.decode(SWAP_CALLDATA, SWAP_PARAMS) as CallDecode.Ok).params
+
+/** The review rows of [SWAP_DECODED], as the sign flow shows them. */
+private val SWAP_ROWS = SWAP_DECODED.flatMap { AbiRows.of(it) }
 
 /** A call Lensly cannot decode that the whitelist approves, on the sample network. [proxy] is set for a proxy under Warn and confirm. */
 private fun whitelistedSample(proxy: ProxyBinding? = null) = sampleNativeReview.copy(
@@ -71,7 +75,7 @@ private fun whitelistedSample(proxy: ProxyBinding? = null) = sampleNativeReview.
     toAddress = SWAP_CONTRACT,
     amount = "",
     symbol = "",
-    params = SWAP_DECODED.map { "${it.param.name} (${it.param.type})" to it.value },
+    params = SWAP_ROWS,
     warnings = emptyList(),
     whitelisted = WhitelistedCall(
         signature = SWAP_SIGNATURE,
@@ -104,7 +108,7 @@ private fun nestedSample() = sampleNativeReview.copy(
             depth = 2,
             target = SWAP_CONTRACT,
             function = "swapExactTokensForTokens",
-            params = SWAP_DECODED.map { "${it.param.name} (${it.param.type})" to it.value },
+            params = SWAP_ROWS,
             whitelisted = WhitelistedCall(
                 signature = SWAP_SIGNATURE,
                 meaning = "Swap an exact amount of one token for another, along the route in the call.",
