@@ -133,6 +133,10 @@ dependencyCheck {
     // An Android APK is a zip of dex files, not a .NET assembly, so the assembly analyzer has
     // nothing to read and only costs scan time.
     getAnalyzers().getAssemblyEnabled().set(false)
+    // The nightly refreshes the NVD data in its own dependencyCheckUpdate step, then passes -PowaspAutoUpdate=false
+    // so the analysis reads the local database and makes no NVD call of its own. Without the property the
+    // default (true) applies, so local runs of dependencyCheckAnalyze still update.
+    getAutoUpdate().set((findProperty("owaspAutoUpdate") as String?)?.toBoolean() ?: true)
 }
 
 // Robolectric reads FileDescriptor state through jdk.internal.access, which the JDK does not export to unnamed
