@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.app.export.MultiAccountsExport
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcAccountSelection
 import app.lensly.core.btc.BtcNetwork
@@ -348,6 +349,26 @@ class WalletStore(private val session: VaultSession) {
         try {
             val accounts = indices.flatMap { (network, index) -> BtcWatchOnly.accounts(seed, network, accountIndex = index) }
             return BtcWatchOnly.cryptoAccountParts(accounts)
+        } finally {
+            seed.fill(0)
+        }
+    }
+
+    /**
+     * The frames of the Keystone multi-accounts export that Keystone Nexus imports for wallet [id]: the Bitcoin mainnet account 0 on each
+     * Script Type (BIP44, BIP49, BIP84, BIP86) and the Ethereum account key m/44'/60'/0'. [version] is the app version the export names.
+     * The seed is derived for the export and zeroed after it. The export asks for no App Password, as the other pairing exports do, and
+     * it carries public data only.
+     *
+     * @throws IllegalArgumentException if the wallet is missing or is a Single Key, which has no seed to derive from.
+     */
+    fun keystoneNexusParts(id: String, version: String): List<String> {
+        val secret = mnemonicSecret(id)
+        val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
+        try {
+            val wallet = HdWallet(seed)
+            val bitcoin = BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET, accountIndex = 0)
+            return MultiAccountsExport.urParts(wallet.masterFingerprint, bitcoin, wallet.accountXpub(), version)
         } finally {
             seed.fill(0)
         }

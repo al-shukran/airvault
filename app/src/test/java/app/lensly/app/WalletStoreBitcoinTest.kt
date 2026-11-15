@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.app.export.MultiAccountsExport
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
@@ -15,10 +16,12 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
+import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import com.sparrowwallet.hummingbird.UREncoder
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.psbt.Psbt
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
@@ -95,6 +98,27 @@ class WalletStoreBitcoinTest {
 
         assertTrue(store.bitcoinAccounts(id).isEmpty())
         assertFailsWith<IllegalArgumentException> { store.bitcoinWatchOnlyParts(id) }
+    }
+
+    @Test
+    fun theKeystoneExportCarriesTheMainnetAccountsAndTheEthereumAccountWithoutAnyBitcoinAccountAdded() {
+        // A wallet with no stored Bitcoin account still exports the four mainnet account 0 keys, as Keystone Nexus reads them.
+        val id = newWallet()
+        val version = "0.1.0"
+        val seed = Mnemonic.of(words).use { it.deriveSeed("") }
+        val expected = MultiAccountsExport.cbor(
+            HdWallet(seed).masterFingerprint,
+            BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET, accountIndex = 0),
+            HdWallet(seed).accountXpub(),
+            version,
+        )
+
+        val scanner = UrScanner()
+        store.keystoneNexusParts(id, version).forEach { scanner.receive(it) }
+        val ur = assertNotNull(scanner.result())
+
+        assertEquals("crypto-multi-accounts", ur.type)
+        assertContentEquals(expected, ur.cborBytes)
     }
 
     @Test
