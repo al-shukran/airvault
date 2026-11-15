@@ -15,12 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import app.lensly.app.export.PairingPayload
 import app.lensly.ui.navigation.CoverNavHost
 import app.lensly.ui.navigation.HiddenBackdrop
 import app.lensly.ui.navigation.hiddenArea
 import app.lensly.ui.navigation.leaveHidden
 import app.lumio.network.NetworkMode
-import app.lumio.pair.Pairing
 import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.settings.LumioSettingsScreen
 
@@ -64,7 +64,7 @@ internal object LumioRoute {
  * lock.
  */
 internal class PairDraft {
-    var pairing by mutableStateOf<Pairing?>(null)
+    var pairing by mutableStateOf<PairingPayload?>(null)
 
     fun clear() {
         pairing = null

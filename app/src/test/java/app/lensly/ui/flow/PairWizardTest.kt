@@ -149,7 +149,8 @@ class PairWizardTest {
             }
         }
 
-        compose.onNodeWithText("OTHER WALLET").performClick()
+        // The Lumio option is not in the registry, so its steps show no note.
+        compose.onNodeWithText("LUMIO (AIRVAULT COMPANION)").performClick()
         compose.waitForIdle()
 
         compose.onNodeWithText("WALLET ENTRY").assertDoesNotExist()
@@ -178,7 +179,7 @@ class PairWizardTest {
     }
 
     @Test
-    fun theLumioCodeOffersTheBitcoinCodeOnlyForAWalletWithABitcoinAccount() {
+    fun theLumioCodeIsOneCodeWithNoEthereumOrBitcoinChoice() {
         val wallet = mnemonic("w1", "Seed wallet")
         compose.setContent {
             LenslyTheme {
@@ -189,7 +190,6 @@ class PairWizardTest {
                     wallet = wallet,
                     format = PairFormat.LUMIO,
                     frames = null,
-                    bitcoinReady = true,
                     onPickWallet = {},
                     onPickFormat = {},
                     onShowCode = {},
@@ -199,37 +199,10 @@ class PairWizardTest {
             }
         }
 
-        compose.onNodeWithText("Ethereum", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Bitcoin", ignoreCase = true).performClick()
-        compose.waitForIdle()
-        // The Bitcoin code is still being prepared, because no Bitcoin frames were given.
-        compose.onNodeWithText("Preparing code", ignoreCase = true).assertExists()
-    }
-
-    @Test
-    fun theLumioCodeHasNoBitcoinChoiceForAWalletWithoutABitcoinAccount() {
-        val wallet = mnemonic("w1", "Seed wallet")
-        compose.setContent {
-            LenslyTheme {
-                PairWizardScreen(
-                    step = PairStep.CODE,
-                    wallets = listOf(wallet),
-                    profiles = emptyMap(),
-                    wallet = wallet,
-                    format = PairFormat.LUMIO,
-                    frames = null,
-                    bitcoinReady = false,
-                    onPickWallet = {},
-                    onPickFormat = {},
-                    onShowCode = {},
-                    onDone = {},
-                    onBack = {},
-                )
-            }
-        }
-
+        // The one code covers every App of the wallet, so no App is offered on its own. Its frames are still being prepared.
         compose.onNodeWithText("Ethereum", ignoreCase = true).assertDoesNotExist()
         compose.onNodeWithText("Bitcoin", ignoreCase = true).assertDoesNotExist()
+        compose.onNodeWithText("Preparing code", ignoreCase = true).assertExists()
     }
 
     private fun mnemonic(id: String, name: String) = WalletMeta(

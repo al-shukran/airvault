@@ -58,9 +58,11 @@ case "$partition" in
         # The fuzz targets replay their committed seeds in their own JVM (Jazzer and Robolectric cannot share
         # one, see the -PfuzzLane note in shared/build.gradle.kts). They cover UrScanner/UR, CBOR, the eth-sign
         # request and the unsigned (RLP) transaction decoder, so they belong to this partition.
+        # app.lensly.app.export is the AirVault pairing, a UR and CBOR payload that Lumio scans, so it runs with the UR tests.
         ./gradlew :shared:testDebugUnitTest \
             --tests 'app.lensly.core.ur.*' \
-            --tests 'app.lensly.core.evm.*'
+            --tests 'app.lensly.core.evm.*' \
+            --tests 'app.lensly.app.export.*'
         ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.fuzz.*' -PfuzzLane
         ;;
     core-parse)

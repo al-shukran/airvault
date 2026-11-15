@@ -1,6 +1,9 @@
 package app.lensly.app
 
 import app.lensly.app.export.MultiAccountsExport
+import app.lensly.app.export.PairingCodec
+import app.lensly.app.export.PairingPayload
+import app.lensly.app.export.fitBytes
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcAccountSelection
 import app.lensly.core.btc.BtcFeeThresholds
@@ -28,6 +31,12 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
 import java.util.Arrays
+
+/** The mask of an unsigned 32-bit value, which a master fingerprint is when it is read as a Long. */
+private const val UINT32_MASK = 0xFFFFFFFFL
+
+/** The name a pairing carries for a wallet that has none. */
+private const val DEFAULT_PAIRING_NAME = "Lensly"
 
 /**
  * What a wallet's secret is. A Mnemonic wallet holds a 24-word Mnemonic and an optional Passphrase, and every account
@@ -341,27 +350,6 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * The frames of the Bitcoin watch-only export of wallet [id]: one `ur:crypto-account` with the four Script Types of every account
-     * index the wallet holds on each network. Each index is exported once per network, in the order the owner added the accounts. The
-     * seed is derived for the export and zeroed after it. The export asks for no App Password, as the EVM pairing does, and it carries
-     * public data only.
-     *
-     * @throws IllegalArgumentException if the wallet is missing, is a Single Key, or has no Bitcoin account.
-     */
-    fun bitcoinWatchOnlyParts(id: String): List<String> {
-        val indices = bitcoinAccounts(id).map { it.network to it.index }.distinct()
-        require(indices.isNotEmpty()) { "Wallet $id has no Bitcoin account." }
-        val secret = mnemonicSecret(id)
-        val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
-        try {
-            val accounts = indices.flatMap { (network, index) -> BtcWatchOnly.accounts(seed, network, accountIndex = index) }
-            return BtcWatchOnly.cryptoAccountParts(accounts)
-        } finally {
-            seed.fill(0)
-        }
-    }
-
-    /**
      * The frames of the Keystone multi-accounts export that Keystone Nexus imports for wallet [id]: the account keys of every App in
      * [WalletApp], in its order (the Bitcoin mainnet account 0 on each Script Type, then the Ethereum account key m/44'/60'/0').
      * [version] is the app version the export names. The seed is derived for the export and zeroed after it. The export asks for no App
@@ -376,6 +364,29 @@ class WalletStore(private val session: VaultSession) {
             val masterFingerprint = HdWallet(seed).masterFingerprint
             val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint) }
             return MultiAccountsExport.urParts(masterFingerprint, keys, version)
+        } finally {
+            seed.fill(0)
+        }
+    }
+
+    /**
+     * The frames of the AirVault pairing of wallet [id]: one `ur:airvault-pairing` that holds the keys and accounts of every App in
+     * [WalletApp], in its order, with the names, labels and groups Lensly shows for them. Lumio replaces what it holds for the wallet with
+     * it, so Lensly is the source of truth. The seed is derived for the pairing and zeroed after it. The pairing asks for no App Password,
+     * and it carries public data only.
+     *
+     * @throws IllegalArgumentException if the wallet is missing or is a Single Key, which has no account key to pair.
+     */
+    fun pairingParts(id: String): List<String> {
+        val meta = requireNotNull(meta(id)) { "No wallet $id." }
+        require(meta.kind == WalletKind.MNEMONIC) { "A Single Key has no account key to pair." }
+        val secret = mnemonicSecret(id)
+        val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
+        try {
+            val fingerprint = HdWallet(seed).masterFingerprint.toLong() and UINT32_MASK
+            val apps = WalletApp.entries.map { app -> app.pairedApp(this, id, seed) }
+            val name = fitBytes(meta.name.ifBlank { DEFAULT_PAIRING_NAME }, PairingCodec.MAX_NAME_BYTES)
+            return PairingCodec.urParts(PairingPayload(fingerprint = fingerprint, name = name, apps = apps))
         } finally {
             seed.fill(0)
         }
