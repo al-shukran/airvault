@@ -106,7 +106,7 @@ internal class GestureScript(val fingers: List<DemoFinger>, val completeMs: Int)
 internal val EntryGesture.demoCaption: String
     get() = when (this) {
         EntryGesture.DOUBLE_TAP_HOLD -> "Tap twice with two fingers, then press and hold."
-        EntryGesture.THUMBNAIL_HOLD_SWIPE -> "Press and hold the gallery thumbnail, then swipe left."
+        EntryGesture.THUMBNAIL_HOLD_SWIPE -> "Press and hold the gallery thumbnail, then swipe right."
         EntryGesture.PINCH_TRIPLE_TAP -> "Pinch to 2x, lift, then tap the viewfinder three times."
         EntryGesture.SWITCH_THEN_SHUTTER_HOLD -> "Tap switch camera three times, then press and hold the shutter."
     }
@@ -121,9 +121,9 @@ internal fun gestureScript(gesture: EntryGesture): GestureScript = when (gesture
         fingers = twoFingers(250, 450) + twoFingers(600, 800) + twoFingers(950, 2_400),
         completeMs = 2_150,
     )
-    // The finger rests on the thumbnail for 0.9 s, slides left, then lifts. The swipe completes as it reaches its length.
+    // The finger rests on the thumbnail for 0.9 s, slides right, then lifts. The swipe completes as it reaches its length.
     EntryGesture.THUMBNAIL_HOLD_SWIPE -> GestureScript(
-        fingers = listOf(DemoFinger(250, 2_000, slide(THUMBNAIL, THUMBNAIL - Offset(SWIPE, 0f), 1_150, 1_650))),
+        fingers = listOf(DemoFinger(250, 2_000, slide(THUMBNAIL, THUMBNAIL + Offset(SWIPE, 0f), 1_150, 1_650))),
         completeMs = 1_650,
     )
     // Two fingers spread from 1x to 2x and lift together, then three quick taps on the viewfinder.

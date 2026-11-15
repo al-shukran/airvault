@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Refresh
@@ -153,7 +153,7 @@ private fun GestureOption(gesture: EntryGesture, current: Boolean, onChoose: () 
 /** The icon that stands for the gesture: a tap on the viewfinder, a swipe, a zoom, or a camera switch. */
 private fun EntryGesture.icon(): ImageVector = when (this) {
     EntryGesture.DOUBLE_TAP_HOLD -> Icons.Filled.Place
-    EntryGesture.THUMBNAIL_HOLD_SWIPE -> Icons.AutoMirrored.Filled.ArrowBack
+    EntryGesture.THUMBNAIL_HOLD_SWIPE -> Icons.AutoMirrored.Filled.ArrowForward
     EntryGesture.PINCH_TRIPLE_TAP -> Icons.Filled.Add
     EntryGesture.SWITCH_THEN_SHUTTER_HOLD -> Icons.Filled.Refresh
 }
