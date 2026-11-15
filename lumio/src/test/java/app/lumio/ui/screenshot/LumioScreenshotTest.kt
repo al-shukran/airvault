@@ -1,5 +1,9 @@
 package app.lumio.ui.screenshot
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
@@ -14,9 +18,14 @@ import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.screenshot.snapshot
+import app.lensly.ui.theme.LenslyBlack
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcRow
 import app.lumio.btc.BtcSection
+import app.lumio.data.config.AssetSort
+import app.lumio.data.config.AssetSortKey
+import app.lumio.data.net.Family
+import app.lumio.data.net.NetworkId
 import app.lumio.evm.AddressRow
 import app.lumio.evm.CachedBalance
 import app.lumio.evm.EvmChain
@@ -24,13 +33,15 @@ import app.lumio.data.config.DisplaySettings
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.Total
 import app.lumio.evm.Totals
+import app.lumio.home.HomeAsset
+import app.lumio.home.NativeAsset
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
-import app.lumio.pair.PairedWallet
 import app.lumio.ui.btc.BitcoinAccountScreen
 import app.lumio.ui.btc.BitcoinPortfolioScreen
 import app.lumio.ui.btc.BtcSendFormScreen
+import app.lumio.ui.home.AssetSortSheetContent
 import app.lumio.ui.home.LumioHome
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.portfolio.WalletScreen
@@ -42,6 +53,7 @@ import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
+import java.math.BigDecimal
 import java.math.BigInteger
 import org.junit.Rule
 import org.junit.Test
@@ -69,17 +81,82 @@ class LumioScreenshotTest {
 
     @Test
     fun homeWithoutWallets() = compose.snapshot("home_empty") {
-        LumioHome(onLock = {}, onPair = {}, wallets = emptyList(), onDelete = {}, mode = NetworkMode.MAINNET, onMode = {})
+        LumioHome(
+            assets = emptyList(),
+            settings = DisplaySettings(),
+            mode = NetworkMode.MAINNET,
+            onMode = {},
+            onUpdateDisplay = {},
+            onLock = {},
+            onAsset = {},
+            onPair = {},
+            hasWallets = false,
+            refreshing = false,
+            onRefresh = {},
+        )
     }
 
     @Test
-    fun homeWithAWalletOnMainnet() = compose.snapshot("home_wallet_mainnet") {
-        LumioHome(onLock = {}, onPair = {}, wallets = listOf(demoWallet()), onDelete = {}, mode = NetworkMode.MAINNET, onMode = {})
+    fun homeTotalHidden() = compose.snapshot("home_total_hidden") {
+        LumioHome(
+            assets = homeAssets(),
+            settings = DisplaySettings(),
+            mode = NetworkMode.MAINNET,
+            onMode = {},
+            onUpdateDisplay = {},
+            onLock = {},
+            onAsset = {},
+            onPair = {},
+            hasWallets = true,
+            refreshing = false,
+            onRefresh = {},
+            staleSinceMs = NOW,
+        )
     }
 
     @Test
-    fun homeWithAWalletOnTestnet() = compose.snapshot("home_wallet_testnet") {
-        LumioHome(onLock = {}, onPair = {}, wallets = listOf(demoWallet()), onDelete = {}, mode = NetworkMode.TESTNET, onMode = {})
+    fun homeTotalShown() = compose.snapshot("home_total_shown") {
+        LumioHome(
+            assets = homeAssets(),
+            settings = DisplaySettings(showTotal = true),
+            mode = NetworkMode.MAINNET,
+            onMode = {},
+            onUpdateDisplay = {},
+            onLock = {},
+            onAsset = {},
+            onPair = {},
+            hasWallets = true,
+            refreshing = false,
+            onRefresh = {},
+        )
+    }
+
+    @Test
+    fun homeTestnet() = compose.snapshot("home_testnet") {
+        LumioHome(
+            assets = testnetAssets(),
+            settings = DisplaySettings(showTotal = true),
+            mode = NetworkMode.TESTNET,
+            onMode = {},
+            onUpdateDisplay = {},
+            onLock = {},
+            onAsset = {},
+            onPair = {},
+            hasWallets = true,
+            refreshing = false,
+            onRefresh = {},
+        )
+    }
+
+    @Test
+    fun homeSortSheet() = compose.snapshot("home_sort_sheet") {
+        Column(modifier = Modifier.fillMaxSize().background(LenslyBlack)) {
+            AssetSortSheetContent(
+                sort = AssetSort(AssetSortKey.USD_VALUE, descending = true),
+                onSort = {},
+                onDone = {},
+            )
+        }
     }
 
     @Test
@@ -269,13 +346,19 @@ class LumioScreenshotTest {
         )
     }
 
-    private fun demoWallet(): PairedWallet = PairedWallet(
-        id = "wallet-Demo",
-        name = "Demo",
-        fingerprint = 0x1a2b3c4dL,
-        createdAtMs = 1L,
-        evm = HdWallet(PairFixtures.seed).accountXpub(),
-        bitcoin = bitcoinAccounts(BtcNetwork.MAINNET) + bitcoinAccounts(BtcNetwork.TESTNET4),
+    /** The coins of a mainnet side: two priced above the minimum, one priced below it, which Home hides. */
+    private fun homeAssets(): List<HomeAsset> = listOf(
+        NativeAsset("BTC-mainnet", "BTC", "Bitcoin", NetworkId(Family.BTC, "mainnet", testnet = false), BigDecimal("0.0425"), 4012.5, -0.4),
+        NativeAsset("EVM-1", "ETH", "Ethereum", NetworkId(Family.EVM, "1", testnet = false), BigDecimal("1.2345"), 3950.12, 1.25),
+        NativeAsset("EVM-8453", "ETH", "Base", NetworkId(Family.EVM, "8453", testnet = false), BigDecimal("0.5"), 1975.0, 1.25),
+        NativeAsset("EVM-10", "ETH", "Optimism", NetworkId(Family.EVM, "10", testnet = false), BigDecimal("0.0001"), 0.3, 0.1),
+    )
+
+    /** The coins of a testnet side, which have no price. */
+    private fun testnetAssets(): List<HomeAsset> = listOf(
+        NativeAsset("EVM-11155111", "ETH", "Sepolia", NetworkId(Family.EVM, "11155111", testnet = true), BigDecimal("0.25")),
+        NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Family.EVM, "10143", testnet = true), BigDecimal("12")),
+        NativeAsset("BTC-testnet4", "BTC", "Bitcoin testnet4", NetworkId(Family.BTC, "testnet4", testnet = true), BigDecimal("0.0002")),
     )
 
     /** The Bitcoin accounts of [network]: the four script types of the seed. */
