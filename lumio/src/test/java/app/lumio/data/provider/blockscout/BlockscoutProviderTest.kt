@@ -61,18 +61,6 @@ class BlockscoutProviderTest {
     }
 
     @Test
-    fun aKeyIsNeverSentEvenWhenOneIsSet() {
-        server.enqueue(MockResponse().setBody("""{"message":"OK","result":"1","status":"1"}"""))
-
-        call(NativeBalance(ETH, ethAddress), ProviderConfig(apiKey = "KEY-123"))
-
-        val request = server.takeRequest()
-        assertNull(request.requestUrl!!.queryParameter("apikey"))
-        assertNull(request.getHeader("apikey"))
-        assertFalse(request.requestUrl!!.toString().contains("KEY-123"))
-    }
-
-    @Test
     fun anInvalidAddressHashIsFatalSoAnotherProviderCanAnswer() {
         server.enqueue(MockResponse().setBody("""{"message":"Invalid address hash","result":null,"status":"0"}"""))
 
@@ -122,5 +110,25 @@ class BlockscoutProviderTest {
     @Test
     fun aPlainHttpInstanceToAnotherHostIsNotSupported() {
         assertFalse(BlockscoutProvider(bases = mapOf("1" to "http://example.org/")).supports(ETH, Op.NATIVE_BALANCE, ProviderConfig()))
+    }
+
+    @Test
+    fun theApiKeyGoesInTheApikeyQueryParameter() {
+        server.enqueue(MockResponse().setBody("""{"message":"OK","result":"1","status":"1"}"""))
+
+        call(NativeBalance(ETH, ethAddress), ProviderConfig(apiKey = "proapi_test"))
+
+        val request = server.takeRequest()
+        assertEquals("proapi_test", request.requestUrl!!.queryParameter("apikey"))
+        assertNull(request.getHeader("apikey"))
+    }
+
+    @Test
+    fun withoutAKeyNoApikeyParameterIsSent() {
+        server.enqueue(MockResponse().setBody("""{"message":"OK","result":"1","status":"1"}"""))
+
+        call(NativeBalance(ETH, ethAddress))
+
+        assertNull(server.takeRequest().requestUrl!!.queryParameter("apikey"))
     }
 }
