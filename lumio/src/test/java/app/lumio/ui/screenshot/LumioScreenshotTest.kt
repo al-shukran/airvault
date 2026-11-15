@@ -1,6 +1,10 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import app.lensly.app.export.PairingAccount
+import app.lensly.app.export.PairingApp
+import app.lensly.app.export.PairingKey
+import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.BtcWatchOnlyAccount
@@ -18,8 +22,8 @@ import app.lumio.evm.Total
 import app.lumio.evm.Totals
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
+import app.lumio.pair.PairImport
 import app.lumio.pair.PairedWallet
-import app.lumio.pair.Pairing
 import app.lumio.ui.btc.BitcoinAccountScreen
 import app.lumio.ui.btc.BitcoinPortfolioScreen
 import app.lumio.ui.btc.BtcSendFormScreen
@@ -190,6 +194,7 @@ class LumioScreenshotTest {
                 )
             },
             onDataProviders = {},
+            onThirdPartyLicences = {},
         )
     }
 
@@ -213,10 +218,16 @@ class LumioScreenshotTest {
     @Test
     fun pairReview() = compose.snapshot("pair_review") {
         PairReviewScreen(
-            pairing = Pairing.Evm(
+            pairing = PairingPayload(
                 fingerprint = 0x1a2b3c4dL,
                 name = "Demo",
-                xpub = HdWallet(PairFixtures.seed).accountXpub(),
+                apps = listOf(
+                    PairingApp(
+                        app = PairImport.ETHEREUM,
+                        keys = listOf(PairingKey.ethereumAccount(HdWallet(PairFixtures.seed).accountXpub())),
+                        accounts = listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null)),
+                    ),
+                ),
             ),
             alreadyPaired = false,
             error = null,

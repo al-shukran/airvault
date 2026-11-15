@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.theme.LenslySpacing
