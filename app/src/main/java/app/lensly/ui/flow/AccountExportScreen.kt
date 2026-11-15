@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.lensly.app.export.AccountExportView
 import app.lensly.ui.components.AddressIcon
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.home.groupedAddress
@@ -113,7 +114,10 @@ internal fun AccountExportScreen(
 @Composable
 private fun AccountFields(account: AccountExportView, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-        FieldText(label = "Address", value = groupedAddress(account.address))
+        Spacer(Modifier.height(LenslySpacing.sm))
+        WalletEyebrow("Address")
+        Spacer(Modifier.height(LenslySpacing.xxs))
+        AddressText(address = account.address, shown = groupedAddress(account.address), icon = false, color = LenslyOnSurface)
         account.fields.forEach { (label, value) -> FieldText(label = label, value = value) }
     }
 }
@@ -137,9 +141,10 @@ private fun AccountAddressDetails(address: String, derivationPath: String?) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            text = groupedAddress(address),
-            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+        AddressText(
+            address = address,
+            shown = groupedAddress(address),
+            icon = false,
             color = LenslyOnSurface,
             textAlign = TextAlign.Center,
         )

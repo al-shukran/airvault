@@ -64,6 +64,15 @@ object LenslyIcons {
         )
     }
 
+    /** Two overlapping sheets, for the copy action of an address. */
+    val Copy: ImageVector by lazy {
+        outline(
+            "Copy",
+            "M9 9h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z",
+            "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
+        )
+    }
+
     /** An outline glyph: each path is stroked with rounded ends and joins at a 24 dp viewport. */
     private fun outline(name: String, vararg paths: String, strokeWidth: Float = 1.5f): ImageVector {
         val builder = ImageVector.Builder(

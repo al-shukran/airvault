@@ -13,6 +13,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.wallet.toHex
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen

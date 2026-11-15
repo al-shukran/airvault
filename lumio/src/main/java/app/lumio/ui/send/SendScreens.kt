@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.core.registry.Amounts
+import app.lensly.ui.components.AddressField
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
@@ -35,6 +37,7 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmFormat
 import app.lumio.evm.PreparedSend
+import app.lumio.evm.SendInput
 
 private const val TESTNET_LABEL = "TESTNET"
 
@@ -89,7 +92,12 @@ fun SendFormScreen(
         }
         SectionLabel("From")
         Text(fromLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(fromAddress, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+        AddressText(
+            address = fromAddress,
+            shown = fromAddress,
+            icon = false,
+            style = MaterialTheme.typography.bodyMedium,
+        )
 
         SectionLabel("Network")
         chains.forEach { chain ->
@@ -97,13 +105,12 @@ fun SendFormScreen(
         }
 
         SectionLabel("Send to")
-        OutlinedTextField(
+        AddressField(
             value = recipient,
             onValueChange = onRecipient,
-            label = { Text("Recipient address (0x)") },
-            singleLine = true,
+            label = "Recipient address (0x)",
+            validate = ::recipientError,
             enabled = !busy,
-            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(LenslySpacing.sm))
         OutlinedTextField(
@@ -144,8 +151,8 @@ fun SendReviewScreen(
         },
     ) {
         NetworkHeader(chain)
-        ReviewField("From", send.from)
-        ReviewField("To", send.to)
+        ReviewAddress("From", send.from)
+        ReviewAddress("To", send.to)
         ReviewField("Amount", EvmFormat.amount(send.valueWei, chain.decimals, chain.symbol))
         ReviewField("Fee, at most", EvmFormat.amount(send.maxFeeWei, chain.decimals, chain.symbol))
         ReviewField("Fee cap per gas", "${Amounts.format(send.maxFeePerGas, GWEI_DECIMALS)} gwei")
@@ -299,5 +306,19 @@ internal fun ReviewField(label: String, value: String) {
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
+
+/** A [ReviewField] whose value is an address: the same label and text, with the copy action. */
+@Composable
+internal fun ReviewAddress(label: String, address: String) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AddressText(address = address, shown = address, icon = false, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** Why [text] is not a recipient the EVM send can pay, or null when it is one. The words are the ones the send refuses with. */
+internal fun recipientError(text: String): String? = runCatching { SendInput.recipient(text) }
+    .exceptionOrNull()
+    ?.let { it.message ?: "Enter a valid recipient address." }
 
 private const val GWEI_DECIMALS = 9

@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.TokenIcon
@@ -37,7 +38,6 @@ import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyMuted
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
 
 /**
  * The tokens Lensly can sign for, grouped under their network. A row of chain logos above the list picks one network, or all of
@@ -172,9 +172,10 @@ private fun TokenRow(token: TokenEntry, network: NetworkEntry?, modifier: Modifi
                 )
             }
         }
-        Text(
-            text = groupedAddress(token.contract),
-            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+        AddressText(
+            address = token.contract,
+            shown = groupedAddress(token.contract),
+            icon = false,
             color = LenslyOnSurface,
             modifier = Modifier.padding(top = LenslySpacing.sm),
         )

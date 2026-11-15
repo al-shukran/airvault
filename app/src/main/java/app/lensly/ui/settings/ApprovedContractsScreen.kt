@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.KeyboardHost
@@ -36,7 +37,6 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.SecureKeyboard
-import app.lensly.ui.sign.AddressText
 import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
 import app.lensly.ui.sign.ProxyFacts
@@ -209,7 +209,7 @@ private fun ApprovalCard(entry: WhitelistEntry) {
                     style = MaterialTheme.typography.titleSmall,
                     color = LenslyOnSurface,
                 )
-                MonoText(text = shortAddress(entry.contract))
+                AddressText(address = entry.contract, shown = shortAddress(entry.contract), icon = false)
             }
             if (entry.proxy != null) PillChip(text = "Proxy")
         }

@@ -42,6 +42,7 @@ import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.EmptyState
@@ -49,7 +50,6 @@ import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.profile.ProfileAvatar
-import app.lensly.ui.sign.AddressText
 import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
 import app.lensly.ui.sign.MutedText

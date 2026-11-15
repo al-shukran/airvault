@@ -40,8 +40,8 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.accountSections
 import app.lensly.app.autoAccountName
 import app.lensly.app.visualIdentity
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.DetailTopBar
-import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.InlineBanner
@@ -51,7 +51,6 @@ import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillSize
@@ -378,17 +377,14 @@ private fun AccountRow(
                     PillChip(text = label)
                 }
                 Spacer(Modifier.height(LenslySpacing.xxs))
-                Row(verticalAlignment = Alignment.Top) {
-                    // Every address shows the Ethereum logo, whichever compatible chain it is used on.
-                    AddressIcon(size = 16.dp)
-                    Spacer(Modifier.width(LenslySpacing.xs))
-                    // The whole address, never cut short. It wraps at the spaces between the groups.
-                    Text(
-                        text = groupedAddress(address),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                // Every address shows the Ethereum logo, whichever compatible chain it is used on. The whole address is shown,
+                // never cut short; it wraps at the spaces between the groups. A tap opens the row's options, as the row does.
+                AddressText(
+                    address = address,
+                    shown = groupedAddress(address),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = if (selecting) onToggle else onOptions,
+                )
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)

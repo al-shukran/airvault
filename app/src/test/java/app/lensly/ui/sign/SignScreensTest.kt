@@ -33,6 +33,7 @@ import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals

@@ -10,8 +10,8 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.sign.groupAddress
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertTrue
 import org.junit.Rule

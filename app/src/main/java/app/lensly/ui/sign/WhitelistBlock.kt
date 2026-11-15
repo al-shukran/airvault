@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.ProxyBinding
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.PillChip

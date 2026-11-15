@@ -12,8 +12,8 @@ import app.lensly.app.WalletStore
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.sign.groupAddress
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
