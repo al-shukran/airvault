@@ -187,7 +187,7 @@ private fun ScriptType.expressions(): List<ScriptExpression> = when (this) {
 }
 
 /** The origin components of an account path: hardened levels keep their index and carry the hardened flag. */
-private fun KeyPath.components(): List<PathComponent> = path.map { child ->
+internal fun KeyPath.components(): List<PathComponent> = path.map { child ->
     val hardened = DeterministicWallet.isHardened(child)
     IndexPathComponent(
         (if (hardened) child - DeterministicWallet.hardenedKeyIndex else child).toInt(),
