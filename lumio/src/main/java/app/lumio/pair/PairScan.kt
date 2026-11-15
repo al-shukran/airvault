@@ -1,5 +1,6 @@
 package app.lumio.pair
 
+import app.lensly.app.export.PairingPayload
 import app.lensly.core.ur.UrScanner
 
 /** What one scanned text did to a pairing scan. */
@@ -8,7 +9,7 @@ sealed interface ScanStep {
     data class Reading(val fraction: Float) : ScanStep
 
     /** The code is whole, and it is a pairing. */
-    data class Complete(val pairing: Pairing) : ScanStep
+    data class Complete(val pairing: PairingPayload) : ScanStep
 
     /** The code is whole, and Lumio refuses it. The owner can scan again with a new [PairScan]. */
     data class Refused(val reason: String) : ScanStep

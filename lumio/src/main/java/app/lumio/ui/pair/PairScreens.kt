@@ -12,8 +12,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import app.lensly.app.export.PairingAccount
+import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.wallet.AccountAddresses
+import app.lensly.core.wallet.AccountXpub
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
@@ -22,7 +25,7 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.pair.PairFamily
-import app.lumio.pair.Pairing
+import app.lumio.pair.PairImport
 
 /** The camera scan for a pairing code. [progress] shows for an animated code, and [status] says what the scan is doing. */
 @Composable
@@ -37,17 +40,20 @@ fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, o
 }
 
 /**
- * The review of a scanned pairing, before anything is saved: what the code imports, with each Bitcoin account's network, Script Type and
- * first address. [alreadyPaired] means saving updates the wallet that is paired. [error] is shown when a save failed.
+ * The review of a scanned pairing, before anything is saved: the wallet, each Ethereum account with the name, label and group Lensly gave
+ * it, and each Bitcoin account with its network, Script Type and first address. [alreadyPaired] means saving replaces what Lumio holds for
+ * the wallet. [error] is shown when a save failed.
  */
 @Composable
 fun PairReviewScreen(
-    pairing: Pairing,
+    pairing: PairingPayload,
     alreadyPaired: Boolean,
     error: String?,
     onSave: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val accounts = pairing.apps.firstOrNull { it.app == PairImport.ETHEREUM }?.accounts.orEmpty()
+    val bitcoin = PairImport.bitcoinAccountsOf(pairing)
     LenslyScreen(
         title = "REVIEW PAIRING",
         onBack = onCancel,
@@ -57,15 +63,14 @@ fun PairReviewScreen(
     ) {
         if (alreadyPaired) {
             InlineBanner(
-                message = "This wallet is already paired. Saving replaces its public copy in Lumio.",
+                message = "This wallet is already paired. Saving makes its names, labels, groups and accounts match Lensly.",
                 tone = BannerTone.Info,
             )
             Spacer(Modifier.height(LenslySpacing.md))
         }
-        when (pairing) {
-            is Pairing.Evm -> EvmReview(pairing)
-            is Pairing.Bitcoin -> BitcoinReview(pairing)
-        }
+        ReviewHeader(title = pairing.name, fingerprint = pairing.fingerprint)
+        if (accounts.isNotEmpty()) EthereumReview(xpub = PairImport.ethereumKeyOf(pairing), accounts = accounts)
+        if (bitcoin.isNotEmpty()) BitcoinReview(accounts = bitcoin)
         error?.let {
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -74,20 +79,42 @@ fun PairReviewScreen(
 }
 
 @Composable
-private fun EvmReview(pairing: Pairing.Evm) {
-    val address = remember(pairing) { AccountAddresses.addressAt(pairing.xpub, 0) }
-    ReviewHeader(title = pairing.name ?: "Lensly", family = PairFamily.EVM, fingerprint = pairing.fingerprint)
+private fun EthereumReview(xpub: AccountXpub, accounts: List<PairingAccount>) {
+    Spacer(Modifier.height(LenslySpacing.md))
+    PillChip(text = PairLabels.family(PairFamily.EVM))
     ReviewField("Network", "All EVM networks")
-    ReviewField("Account", "m/44'/60'/0'")
-    ReviewField("First address", address)
-    ReviewField("Accounts", "1")
+    ReviewField("Accounts", "${accounts.size}")
+    accounts.sortedBy { it.child }.forEach { account -> EthereumAccountReview(xpub = xpub, account = account) }
 }
 
 @Composable
-private fun BitcoinReview(pairing: Pairing.Bitcoin) {
-    ReviewHeader(title = "Bitcoin accounts", family = PairFamily.BITCOIN, fingerprint = pairing.fingerprint)
-    ReviewField("Accounts", "${pairing.accounts.size}")
-    pairing.accounts.forEach { account -> BitcoinAccountReview(account) }
+private fun EthereumAccountReview(xpub: AccountXpub, account: PairingAccount) {
+    val index = account.child ?: return
+    val address = remember(xpub, index) { AccountAddresses.addressAt(xpub, index) }
+    Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
+        Text(
+            text = account.name ?: "Account $index",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (account.label != null || account.group != null) {
+            Spacer(Modifier.height(LenslySpacing.xxs))
+            Row {
+                account.label?.let { PillChip(text = it) }
+                if (account.label != null && account.group != null) Spacer(Modifier.width(LenslySpacing.xs))
+                account.group?.let { PillChip(text = it) }
+            }
+        }
+        ReviewField("First address", address)
+    }
+}
+
+@Composable
+private fun BitcoinReview(accounts: List<BtcWatchOnlyAccount>) {
+    Spacer(Modifier.height(LenslySpacing.md))
+    PillChip(text = PairLabels.family(PairFamily.BITCOIN))
+    ReviewField("Accounts", "${accounts.size}")
+    accounts.forEach { account -> BitcoinAccountReview(account) }
 }
 
 @Composable
@@ -105,12 +132,9 @@ private fun BitcoinAccountReview(account: BtcWatchOnlyAccount) {
 }
 
 @Composable
-private fun ReviewHeader(title: String, family: PairFamily, fingerprint: Long) {
+private fun ReviewHeader(title: String, fingerprint: Long) {
     Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
     Spacer(Modifier.height(LenslySpacing.xs))
-    Row {
-        PillChip(text = PairLabels.family(family))
-    }
     ReviewField("Master fingerprint", PairLabels.fingerprint(fingerprint))
 }
 

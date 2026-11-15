@@ -20,6 +20,12 @@ object ParserLimits {
     /** The most items one CBOR payload may hold. A complete eth-sign-request holds about sixty. */
     const val MAX_CBOR_ITEMS = 256
 
+    /**
+     * The most items one AirVault pairing may hold. A pairing carries every account of a wallet, so it is larger than a request: 100
+     * Ethereum accounts and 400 Bitcoin keys, the most a wallet can list, take about 8,000 items. The bound still stops a crafted code.
+     */
+    const val MAX_PAIRING_ITEMS = 16 * 1024
+
     /** The deepest nesting of an RLP transaction. */
     const val MAX_RLP_DEPTH = 8
 
