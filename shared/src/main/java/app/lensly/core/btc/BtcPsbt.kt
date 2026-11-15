@@ -7,7 +7,15 @@ import com.sparrowwallet.hummingbird.URDecoder
 import com.sparrowwallet.hummingbird.UREncoder
 import com.sparrowwallet.hummingbird.registry.CryptoPSBT
 import fr.acinq.bitcoin.ByteVector
+import fr.acinq.bitcoin.OP_PUSHDATA
+import fr.acinq.bitcoin.PublicKey
+import fr.acinq.bitcoin.Script
+import fr.acinq.bitcoin.ScriptFlags
+import fr.acinq.bitcoin.ScriptWitness
+import fr.acinq.bitcoin.Transaction
+import fr.acinq.bitcoin.TxOut
 import fr.acinq.bitcoin.psbt.DataEntry
+import fr.acinq.bitcoin.psbt.Input
 import fr.acinq.bitcoin.psbt.Psbt
 import fr.acinq.bitcoin.utils.Either
 import java.util.Base64
@@ -88,6 +96,85 @@ object BtcPsbt {
     fun encodeUrParts(psbt: Psbt): List<String> {
         val frames = framesOf(ur(psbt), DEFAULT_MAX_FRAGMENT)
         return frames.take(sequenceLength(frames.first())).toList()
+    }
+
+    /**
+     * Finalizes the inputs of [psbt] that Lensly signed, and extracts the transaction that a node accepts. An input that is already final is
+     * kept. An open input must carry exactly one signature, the one its key made, and it must spend a P2PKH, P2WPKH, P2SH-P2WPKH or P2TR output.
+     * The result must pass bitcoin-kmp's script interpreter for every input, so a signature that does not verify is refused here, before
+     * anything is broadcast.
+     *
+     * @throws IllegalArgumentException when an input has no previous output, has no signature, spends another script, or does not verify
+     */
+    fun finalizeAndExtract(psbt: Psbt): Transaction {
+        val prevouts = psbt.inputs.mapIndexed { index, input ->
+            input.spentOutput() ?: throw IllegalArgumentException("Input $index has no previous output.")
+        }
+        var finished = psbt
+        psbt.inputs.forEachIndexed { index, input ->
+            if (input.isOpen()) finished = finished.finalizeInput(index, prevouts[index])
+        }
+        val tx = when (val extracted = finished.extract()) {
+            is Either.Left -> throw IllegalArgumentException("The signed request is incomplete: ${extracted.value}")
+            is Either.Right -> extracted.value
+        }
+        require(verifies(tx, prevouts)) { "A signature in this transaction does not verify." }
+        return tx
+    }
+
+    private fun Input.spentOutput(): TxOut? = when (this) {
+        is Input.WitnessInput.PartiallySignedWitnessInput -> txOut
+        is Input.WitnessInput.FinalizedWitnessInput -> txOut
+        is Input.NonWitnessInput.PartiallySignedNonWitnessInput -> inputTx.txOut[outputIndex]
+        is Input.NonWitnessInput.FinalizedNonWitnessInput -> inputTx.txOut[outputIndex]
+        else -> null
+    }
+
+    private fun Input.isOpen(): Boolean =
+        this is Input.WitnessInput.PartiallySignedWitnessInput || this is Input.NonWitnessInput.PartiallySignedNonWitnessInput
+
+    private fun Psbt.finalizeInput(index: Int, prevout: TxOut): Psbt {
+        val script = prevout.publicKeyScript.toByteArray()
+        val result = when (val input = inputs[index]) {
+            is Input.WitnessInput.PartiallySignedWitnessInput -> {
+                val taproot = input.taprootKeySignature
+                if (taproot != null) {
+                    require(Script.isPay2tr(script)) { "Input $index carries a taproot signature, but it does not spend a taproot output." }
+                    finalizeWitnessInput(index, ScriptWitness(listOf(taproot)))
+                } else {
+                    val (key, signature) = onlySignature(index, input.partialSigs)
+                    val nested = Script.isPay2sh(script) && input.redeemScript?.let { Script.isPay2wpkh(it) } == true
+                    require(Script.isPay2wpkh(script) || nested) { "Input $index spends a script that this app cannot finalize." }
+                    finalizeWitnessInput(index, ScriptWitness(listOf(signature, key.value)))
+                }
+            }
+            is Input.NonWitnessInput.PartiallySignedNonWitnessInput -> {
+                require(Script.isPay2pkh(script)) { "Input $index spends a script that this app cannot finalize." }
+                val (key, signature) = onlySignature(index, input.partialSigs)
+                finalizeNonWitnessInput(index, listOf(OP_PUSHDATA(signature), OP_PUSHDATA(key.value)))
+            }
+            else -> return this
+        }
+        return when (result) {
+            is Either.Left -> throw IllegalArgumentException("Input $index could not be finalized: ${result.value}")
+            is Either.Right -> result.value
+        }
+    }
+
+    /** The one signature of an input, with the key that made it. An input with none, or with several, is refused. */
+    private fun onlySignature(index: Int, signatures: Map<PublicKey, ByteVector>): Pair<PublicKey, ByteVector> {
+        val entry = signatures.entries.singleOrNull()
+            ?: throw IllegalArgumentException("Input $index has ${if (signatures.isEmpty()) "no signature" else "more than one signature"}.")
+        return entry.key to entry.value
+    }
+
+    private fun verifies(tx: Transaction, prevouts: List<TxOut>): Boolean = tx.txIn.indices.all { index ->
+        runCatching {
+            Script.Runner(
+                Script.Context(tx, index, prevouts[index].amount, prevouts),
+                ScriptFlags.STANDARD_SCRIPT_VERIFY_FLAGS,
+            ).verifyScripts(tx.txIn[index].signatureScript, prevouts[index].publicKeyScript, tx.txIn[index].witness)
+        }.getOrDefault(false)
     }
 
     /** The UR type of a PSBT, as a scanned UR names it. */
