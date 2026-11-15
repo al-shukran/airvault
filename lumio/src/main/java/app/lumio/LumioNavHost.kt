@@ -35,6 +35,15 @@ internal object LumioRoute {
     const val DATA_PROVIDERS = "settings/providers"
     const val LICENCES = "settings/licences"
 
+    /** The argument of the tokens route: the chain ID whose tokens the screen lists. */
+    const val CHAIN_ARG = "chainId"
+
+    /** The tokens of one chain: its bundled defaults, and the owner's own tokens with the add form. */
+    const val TOKENS = "settings/tokens/{$CHAIN_ARG}"
+
+    /** The route of the tokens of chain [chainId]. */
+    fun tokens(chainId: Long): String = "settings/tokens/$chainId"
+
     /** The argument of a paired wallet's routes: the wallet's ID. */
     const val WALLET_ARG = "walletId"
 
@@ -173,6 +182,13 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             }
             composable(LumioRoute.LICENCES) {
                 LumioBackdrop(selection) { LicencesRoute(navController = navController) }
+            }
+            composable(
+                route = LumioRoute.TOKENS,
+                arguments = listOf(navArgument(LumioRoute.CHAIN_ARG) { type = NavType.LongType }),
+            ) { entry ->
+                val chainId = entry.arguments?.getLong(LumioRoute.CHAIN_ARG) ?: 0L
+                LumioBackdrop(selection) { AddTokenRoute(navController = navController, holder = holder, chainId = chainId) }
             }
             composable(
                 route = LumioRoute.WALLET,

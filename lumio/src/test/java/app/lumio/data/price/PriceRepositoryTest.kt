@@ -5,6 +5,7 @@ import app.lumio.data.ETH
 import app.lumio.data.FakeClock
 import app.lumio.data.FakeKvDao
 import app.lumio.data.FakeProvider
+import app.lumio.data.asset.AssetId
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
 import app.lumio.data.config.Limits
@@ -193,5 +194,18 @@ class PriceRepositoryTest {
             path.startsWith("/cg/api/v3/simple/price") -> "cg"
             else -> "other"
         }
+    }
+
+    @Test
+    fun aTokenIsPricedOnceAndKeptApartFromTheNativeCoinOfItsChain() = runBlocking {
+        val usdc = AssetId.Erc20.of(ETH, "0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48")
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Op.TOKEN_PRICE))
+        source.outcomes.add(PriceQuote(usd = 0.9998, change24hPct = -0.01, asOfMs = 1_000L))
+        val repository = repository(listOf(source))
+
+        assertEquals(Price(usd = 0.9998, change24hPct = -0.01, asOfMs = 1_000L, stale = false), repository.assetPrices(listOf(usdc))[usdc])
+        clock.now += 30_000L
+        assertEquals(0.9998, repository.assetPrices(listOf(usdc, AssetId.Native(ETH)))[usdc]!!.usd, 0.0)
+        assertEquals(1, source.calls)
     }
 }

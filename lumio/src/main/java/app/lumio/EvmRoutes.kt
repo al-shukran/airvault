@@ -33,6 +33,9 @@ import app.lumio.evm.Totals
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.tokens.CustomTokenStore
+import app.lumio.tokens.TokenCatalog
+import app.lumio.tokens.TokenPortfolio
 import app.lumio.ui.portfolio.WalletScreen
 import app.lumio.ui.settings.EvmSettingsSection
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +84,13 @@ private fun loadPortfolio(app: LumioApp, session: VaultSession, walletId: String
 private suspend fun refreshWallet(app: LumioApp, session: VaultSession, wallet: PairedWallet, mode: NetworkMode): List<ChainFailure> {
     val settings = EvmSettingsStore.read(session)
     val chains = catalogOf(app, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
-    return Portfolio.refresh(session, listOf(wallet), settings, chains, app.evmReadsFor(session))[wallet.id].orEmpty()
+    val reads = app.evmReadsFor(session)
+    val failures = Portfolio.refresh(session, listOf(wallet), settings, chains, reads)[wallet.id].orEmpty()
+    // The token reads follow the native ones. A token that fails keeps its earlier read, so the native result stands on its own.
+    val defaults = app.defaultTokens
+    val custom = CustomTokenStore.read(session)
+    TokenPortfolio.refresh(session, wallet, settings, chains, { TokenCatalog.onChain(defaults, custom, it.chainId) }, reads)
+    return failures
 }
 
 /**
@@ -221,5 +230,6 @@ internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHol
             val builtIn = app.registry.networks().map { it.chainId }.toSet()
             change({ s, rpc -> EvmEdits.addCustom(s, builtIn, input, rpc) }, onDone)
         },
+        onTokens = { chainId -> navController.navigate(LumioRoute.tokens(chainId)) },
     )
 }
