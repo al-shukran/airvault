@@ -1,0 +1,197 @@
+package app.lumio.data.price
+
+import app.lumio.data.BTC
+import app.lumio.data.ETH
+import app.lumio.data.FakeClock
+import app.lumio.data.FakeKvDao
+import app.lumio.data.FakeProvider
+import app.lumio.data.cache.Cache
+import app.lumio.data.cache.CacheKeys
+import app.lumio.data.config.Limits
+import app.lumio.data.config.ProviderConfig
+import app.lumio.data.net.Family
+import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.Http
+import app.lumio.data.provider.Op
+import app.lumio.data.provider.PriceQuote
+import app.lumio.data.provider.Provider
+import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.coingecko.CoinGeckoProvider
+import app.lumio.data.provider.defillama.DefiLlamaProvider
+import app.lumio.data.sched.Scheduler
+import java.util.concurrent.TimeUnit
+import kotlin.random.Random
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * The price repository over the real scheduler, with DefiLlama and CoinGecko on one local MockWebServer and a clock the test moves by hand. A stale
+ * price is checked with a scripted provider, so no test waits out a real retry backoff.
+ */
+class PriceRepositoryTest {
+    private val server = MockWebServer()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val http = Http(OkHttpClient.Builder().callTimeout(5, TimeUnit.SECONDS).build())
+    private val clock = FakeClock(1_000_000L)
+    private val store = Cache(FakeKvDao(), CacheKeys(ByteArray(32) { 3 }, ByteArray(32) { 5 }), clock)
+    private val fast = Limits(rps = 1_000.0, burst = 1_000, maxConcurrent = 10)
+    private val routes = Routes()
+
+    @Before
+    fun start() {
+        server.start()
+        server.dispatcher = routes
+    }
+
+    @After
+    fun stop() {
+        scope.cancel()
+        server.shutdown()
+    }
+
+    /** The repository over [providers], with the local server as each provider's base, and [kept] as the open vault's cache. */
+    private fun repository(providers: List<Provider>, kept: Cache? = store): PriceRepository {
+        val configs = mapOf(
+            "defillama" to ProviderConfig(baseUrl = server.url("/").toString(), limits = fast),
+            "coingecko" to ProviderConfig(baseUrl = server.url("/cg/api/v3/").toString(), limits = fast),
+        )
+        val scheduler = Scheduler(providers, { configs }, http, clock, Random(7), scope) { kept }
+        return PriceRepository(scheduler) { kept }
+    }
+
+    private fun live(): List<Provider> = listOf(DefiLlamaProvider(), CoinGeckoProvider())
+
+    private fun priceOf(price: String, timestamp: Long): MockResponse = MockResponse().setBody(
+        """{"coins":{"coingecko:ethereum":{"price":$price,"symbol":"ETH","timestamp":$timestamp,"confidence":0.999}}}""",
+    )
+
+    private fun changeOf(value: String): MockResponse = MockResponse().setBody("""{"coins":{"coingecko:ethereum":$value}}""")
+
+    @Test
+    fun aRateLimitedDefiLlamaFallsBackToCoinGeckoAndStaysCooledForTheNextRead() = runBlocking {
+        routes.on("prices", MockResponse().setResponseCode(429).setHeader("Retry-After", "60"))
+        routes.on("cg", MockResponse().setBody("""{"ethereum":{"usd":1827.5,"usd_24h_change":0.41,"last_updated_at":1794774853}}"""))
+        routes.on("cg", MockResponse().setBody("""{"bitcoin":{"usd":64976,"usd_24h_change":-0.62,"last_updated_at":1794774860}}"""))
+        val repository = repository(live())
+
+        assertEquals(Price(usd = 1827.5, change24hPct = 0.41, asOfMs = 1_794_774_853_000L, stale = false), repository.prices(listOf(ETH))[ETH])
+        assertEquals(Price(usd = 64976.0, change24hPct = -0.62, asOfMs = 1_794_774_860_000L, stale = false), repository.prices(listOf(BTC))[BTC])
+        assertEquals(1, routes.calls("prices"))
+        assertEquals(2, routes.calls("cg"))
+    }
+
+    @Test
+    fun aPriceIsReusedFromMemoryWithinTheTtlAndFetchedAgainAfterIt() = runBlocking {
+        routes.on("prices", priceOf("1831.25", 1_794_774_850L), priceOf("1832.5", 1_794_774_900L))
+        routes.on("percentage", changeOf("0.5"), changeOf("0.6"))
+        val repository = repository(live())
+
+        assertEquals(1_831.25, repository.prices(listOf(ETH))[ETH]!!.usd, 0.0)
+        clock.now += 30_000L
+        assertEquals(1_831.25, repository.prices(listOf(ETH))[ETH]!!.usd, 0.0)
+        assertEquals(1, routes.calls("prices"))
+
+        clock.now += 31_000L
+        assertEquals(1_832.5, repository.prices(listOf(ETH))[ETH]!!.usd, 0.0)
+        assertEquals(2, routes.calls("prices"))
+    }
+
+    @Test
+    fun whenNoSourceAnswersTheLastPriceKeptIsReturnedAsStale() = runBlocking {
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Op.PRICE))
+        source.outcomes.add(PriceQuote(usd = 1831.25, change24hPct = 0.5, asOfMs = 1_000L))
+        source.outcomes.add(ProviderError.Fatal("The provider is down."))
+        val repository = repository(listOf(source))
+
+        assertEquals(Price(usd = 1831.25, change24hPct = 0.5, asOfMs = 1_000L, stale = false), repository.prices(listOf(ETH))[ETH])
+        clock.now += 10 * 60_000L
+
+        assertEquals(Price(usd = 1831.25, change24hPct = 0.5, asOfMs = 1_000L, stale = true), repository.prices(listOf(ETH))[ETH])
+    }
+
+    @Test
+    fun withNoKeptPriceAndNoAnswerTheNetworkHasNoPrice() = runBlocking {
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Op.PRICE))
+        source.outcomes.add(ProviderError.Fatal("The provider is down."))
+
+        assertNull(repository(listOf(source)).prices(listOf(ETH))[ETH])
+    }
+
+    @Test
+    fun aTestnetHasNoPriceAndNoSourceIsAsked() = runBlocking {
+        val testnet = NetworkId(Family.EVM, "1", testnet = true)
+        val monadTestnet = NetworkId(Family.EVM, "10143", testnet = true)
+
+        assertEquals(emptyMap<NetworkId, Price>(), repository(live()).prices(listOf(testnet, monadTestnet)))
+        assertEquals(0, routes.total())
+    }
+
+    @Test
+    fun aMixedRequestPricesEachNetworkThatHasAPriceAndOmitsTheRest() = runBlocking {
+        routes.on("prices", priceOf("1831.25", 1_794_774_850L))
+        routes.on("percentage", changeOf("0.5"))
+        val unpriced = NetworkId(Family.EVM, "250", testnet = false)
+        val testnet = NetworkId(Family.EVM, "1", testnet = true)
+
+        val prices = repository(live()).prices(listOf(ETH, unpriced, testnet))
+
+        assertEquals(setOf(ETH), prices.keys)
+        assertEquals(1, routes.calls("prices"))
+    }
+
+    @Test
+    fun withTheVaultLockedAFailedSourceGivesNoStalePrice() = runBlocking {
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Op.PRICE))
+        source.outcomes.add(PriceQuote(usd = 1831.25, change24hPct = 0.5, asOfMs = 1_000L))
+        source.outcomes.add(ProviderError.Fatal("The provider is down."))
+        val repository = repository(listOf(source), kept = null)
+
+        assertEquals(1_831.25, repository.prices(listOf(ETH))[ETH]!!.usd, 0.0)
+        clock.now += 10 * 60_000L
+        assertNull(repository.prices(listOf(ETH))[ETH])
+    }
+
+    /** Answers each route from its own queue. A route with no answer left gets 500, so an unexpected call fails the test. */
+    private class Routes : Dispatcher() {
+        private val queues = HashMap<String, ArrayDeque<MockResponse>>()
+        private val counts = HashMap<String, Int>()
+
+        @Synchronized
+        fun on(route: String, vararg answers: MockResponse) {
+            queues.getOrPut(route) { ArrayDeque() }.addAll(answers)
+        }
+
+        @Synchronized
+        fun calls(route: String): Int = counts[route] ?: 0
+
+        @Synchronized
+        fun total(): Int = counts.values.sum()
+
+        @Synchronized
+        override fun dispatch(request: RecordedRequest): MockResponse {
+            val route = routeOf(request.path.orEmpty())
+            counts[route] = calls(route) + 1
+            return queues[route]?.removeFirstOrNull() ?: MockResponse().setResponseCode(500)
+        }
+
+        private fun routeOf(path: String): String = when {
+            path.startsWith("/prices/current/") -> "prices"
+            path.startsWith("/percentage/") -> "percentage"
+            path.startsWith("/cg/api/v3/simple/price") -> "cg"
+            else -> "other"
+        }
+    }
+}
