@@ -54,9 +54,18 @@ data class BtcWatchOnlyAccount(
      * The receive address at m/.../0/[index], derived from the public key alone. A watch-only copy shows this address without the seed.
      * @throws IllegalArgumentException if [index] is negative.
      */
-    fun receiveAddress(index: Int): String {
+    fun receiveAddress(index: Int): String = addressAt(BtcAccount.RECEIVE, index)
+
+    /**
+     * The change address at m/.../1/[index], derived from the public key alone. It is the address [BtcAccount.changeAddress] gives
+     * for the same Account, so a watch-only copy can watch the change chain too.
+     * @throws IllegalArgumentException if [index] is negative.
+     */
+    fun changeAddress(index: Int): String = addressAt(BtcAccount.CHANGE, index)
+
+    private fun addressAt(branch: Int, index: Int): String {
         require(index >= 0) { "address index must be 0 or more" }
-        return addressOf(scriptType, network, xpub.derivePublicKey(0).derivePublicKey(index.toLong()).publicKey)
+        return addressOf(scriptType, network, xpub.derivePublicKey(branch.toLong()).derivePublicKey(index.toLong()).publicKey)
     }
 }
 

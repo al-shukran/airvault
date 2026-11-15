@@ -62,7 +62,7 @@ internal object VaultRecordNames {
      * The record names the app writes. Removing a Decoy Vault keeps the files of these names under the real key and deletes
      * the other files. A new vault record name must be added here.
      */
-    val KNOWN: List<String> = listOf("settings")
+    val KNOWN: List<String> = listOf("settings", "btc-scan", "btc-servers")
 
     /** A record name the app can write. */
     val NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
