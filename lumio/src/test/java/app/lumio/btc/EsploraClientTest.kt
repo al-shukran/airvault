@@ -8,6 +8,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Before
@@ -118,11 +119,52 @@ class EsploraClientTest {
 
     @Test
     fun anHttpErrorIsRefusedWithItsStatus() {
-        fake.status = 503
+        fake.status = 404
 
         val error = assertFailsWith<EsploraException> { EsploraClient(base).tipHeight() }
 
-        assertEquals("The server answered HTTP 503.", error.message)
+        assertEquals("The server answered HTTP 404.", error.message)
+        assertEquals(1, fake.paths.size, "an error that is not busy is not retried")
+    }
+
+    @Test
+    fun aRateLimitedAnswerIsWaitedOutAsRetryAfterSaysAndThenRetried() {
+        fake.queued += MockResponse().setResponseCode(429).setHeader("Retry-After", "2")
+        val waits = mutableListOf<Long>()
+
+        val height = EsploraClient(base) { waits += it }.tipHeight()
+
+        assertEquals(850_000L, height)
+        assertEquals(listOf(2_000L), waits, "Retry-After of 2 seconds is waited out once")
+        assertEquals(2, fake.paths.size)
+    }
+
+    @Test
+    fun aServerThatStaysBusyIsGivenUpOnAfterFiveRetriesWithBackoff() {
+        fake.status = 429
+        val waits = mutableListOf<Long>()
+
+        val error = assertFailsWith<EsploraException> { EsploraClient(base) { waits += it }.tipHeight() }
+
+        assertEquals("Rate limited, retry later.", error.message)
+        assertEquals(6, fake.paths.size, "one try and five retries")
+        assertEquals(5, waits.size)
+        // Each wait is the backoff of 1s, 2s, 4s, 8s and 16s, jittered to between half of it and all of it.
+        listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L).zip(waits).forEach { (nominal, wait) ->
+            assertTrue(wait in nominal / 2..nominal, "a wait of $wait ms for a backoff of $nominal ms")
+        }
+    }
+
+    @Test
+    fun aRetryAfterLongerThanTheCapIsNotWaitedFor() {
+        fake.queued += MockResponse().setResponseCode(503).setHeader("Retry-After", "3600")
+        val waits = mutableListOf<Long>()
+
+        val error = assertFailsWith<EsploraException> { EsploraClient(base) { waits += it }.tipHeight() }
+
+        assertEquals("Rate limited, retry later.", error.message)
+        assertEquals(1, fake.paths.size, "the server asks for an hour, so the scan gives up at once")
+        assertTrue(waits.isEmpty())
     }
 
     @Test

@@ -5,6 +5,9 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Semaphore
+import kotlin.random.Random
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -31,6 +34,9 @@ data class EsploraSide(
 data class EsploraAddressStats(val chain: EsploraSide, val mempool: EsploraSide) {
     /** True once the address has appeared in any transaction, confirmed or not. The gap-limit scan counts an address that is not used. */
     val used: Boolean get() = chain.txCount + mempool.txCount > 0
+
+    /** The coins the address holds, confirmed and unconfirmed. Zero means it holds none, so its unspent outputs are not asked for. */
+    val balance: Long get() = chain.net + mempool.net
 }
 
 /** The previous output an input spends. [address] is null for a script with no address. */
@@ -62,8 +68,13 @@ class EsploraException(message: String, cause: Throwable? = null) : IOException(
  * wallet needs, over the base URL it is given, with a 10-second connect and read timeout. An answer is size-capped and parsed strictly:
  * a damaged answer is an [EsploraException], never a partial result. Only the network's own [baseUrl] is ever asked, and the addresses
  * in the paths are checked to be plain Bitcoin address characters first.
+ *
+ * A busy answer, HTTP 429 or 503, is retried up to five times. A Retry-After in seconds is waited out, and otherwise the wait is an
+ * exponential backoff with jitter, 1s, 2s, 4s and so on. A server that is still busy is refused with a "Rate limited, retry later."
+ * message. At most two requests are in flight to one host, across every client in the process. [pause] does the waiting, and tests
+ * replace it.
  */
-class EsploraClient(baseUrl: String) {
+class EsploraClient(baseUrl: String, private val pause: (Long) -> Unit = { Thread.sleep(it) }) {
     private val base = baseUrl.trimEnd('/')
 
     /** The confirmed and mempool history of [address]. */
@@ -82,17 +93,31 @@ class EsploraClient(baseUrl: String) {
     fun feeEstimates(): Map<Int, Double> = EsploraParse.feeEstimates(get("/fee-estimates"))
 
     private fun get(path: String): String {
-        val connection = URI(base + path).toURL().openConnection() as HttpURLConnection
+        val gate = gates.getOrPut(hostOf(base)) { Semaphore(MAX_IN_FLIGHT) }
+        gate.acquire()
         try {
-            connection.connectTimeout = TIMEOUT_MS
-            connection.readTimeout = TIMEOUT_MS
-            connection.useCaches = false
-            connection.setRequestProperty("Accept", "application/json, text/plain")
-            val code = connection.responseCode
-            if (code !in 200..299) throw EsploraException("The server answered HTTP $code.")
-            return connection.inputStream.use { readBounded(it) }.toString(Charsets.UTF_8)
+            var retry = 0
+            while (true) {
+                val connection = URI(base + path).toURL().openConnection() as HttpURLConnection
+                var wait = 0L
+                try {
+                    connection.connectTimeout = TIMEOUT_MS
+                    connection.readTimeout = TIMEOUT_MS
+                    connection.useCaches = false
+                    connection.setRequestProperty("Accept", "application/json, text/plain")
+                    val code = connection.responseCode
+                    if (code in 200..299) return connection.inputStream.use { readBounded(it) }.toString(Charsets.UTF_8)
+                    if (code !in BUSY_CODES) throw EsploraException("The server answered HTTP $code.")
+                    wait = backoffMs(retry, connection.getHeaderField("Retry-After")) ?: throw EsploraException(RATE_LIMITED)
+                } finally {
+                    connection.disconnect()
+                }
+                if (retry == MAX_RETRIES) throw EsploraException(RATE_LIMITED)
+                pause(wait)
+                retry++
+            }
         } finally {
-            connection.disconnect()
+            gate.release()
         }
     }
 
@@ -109,6 +134,26 @@ class EsploraClient(baseUrl: String) {
 
         /** Base58 and bech32 addresses are plain letters and digits. */
         val ADDRESS = Regex("[A-Za-z0-9]{14,90}")
+
+        /** The in-flight limit of each host, shared by every client, so the requests of all accounts together stay at two. */
+        val gates = ConcurrentHashMap<String, Semaphore>()
+        const val MAX_IN_FLIGHT = 2
+        const val MAX_RETRIES = 5
+        const val MAX_WAIT_MS = 30_000L
+        const val RATE_LIMITED = "Rate limited, retry later."
+        val BUSY_CODES = setOf(429, 503)
+
+        /**
+         * The wait before retry [retry], counted from 0. A Retry-After in seconds is the wait when the server gives one. Otherwise the wait
+         * is 1s, 2s, 4s and so on, capped at [MAX_WAIT_MS], and jittered to between half of that and all of it. Null when the server asks
+         * for longer than [MAX_WAIT_MS], so the scan gives up at once rather than hold the screen.
+         */
+        fun backoffMs(retry: Int, retryAfter: String?): Long? {
+            val seconds = retryAfter?.trim()?.toLongOrNull()
+            if (seconds != null) return (seconds * 1_000).takeIf { it in 0..MAX_WAIT_MS }
+            val nominal = minOf(1_000L shl retry, MAX_WAIT_MS)
+            return nominal / 2 + Random.nextLong(nominal / 2 + 1)
+        }
 
         fun readBounded(input: InputStream): ByteArray {
             val out = ByteArrayOutputStream()

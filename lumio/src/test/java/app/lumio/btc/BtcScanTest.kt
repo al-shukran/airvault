@@ -6,6 +6,8 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lumio.pair.PairFixtures
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -40,7 +42,11 @@ class BtcScanTest {
         server.shutdown()
     }
 
-    private fun scan(nowMs: Long = 1_000L): BtcSnapshot = runBlocking { scanAccount(ref, EsploraClient(base), base, nowMs) }
+    private fun scan(
+        nowMs: Long = 1_000L,
+        detail: Boolean = false,
+        memo: ConcurrentMap<String, EsploraAddressStats> = ConcurrentHashMap(),
+    ): BtcSnapshot = runBlocking { scanAccount(ref, EsploraClient(base) {}, base, nowMs, memo, detail) }
 
     @Test
     fun aChainStopsAfterTwentyUnusedAddressesInARow() {
@@ -49,8 +55,8 @@ class BtcScanTest {
         val snapshot = scan()
 
         // Receive 0 is used, so the walk asks receive 0 to 20 (twenty unused in a row). The change chain has nothing, so it asks 0 to 19.
-        val expected = (0..20).map { account.receiveAddress(it) } + (0..19).map { account.changeAddress(it) }
-        assertEquals(expected, fake.statsRequests())
+        assertEquals((0..20).map { account.receiveAddress(it) }, fake.askedFor((0..20).map { account.receiveAddress(it) }))
+        assertEquals((0..19).map { account.changeAddress(it) }, fake.askedFor((0..19).map { account.changeAddress(it) }))
         assertEquals(10_000L, snapshot.confirmedSats)
         assertEquals(1, snapshot.nextReceiveIndex)
         assertEquals(account.receiveAddress(1), snapshot.nextReceiveAddress)
@@ -67,8 +73,8 @@ class BtcScanTest {
         val snapshot = scan()
 
         // Receive: 0 to 40, since 21 to 40 are the twenty unused after 20. Change: 0 to 23, since 4 to 23 are the twenty unused after 3.
-        val expected = (0..40).map { account.receiveAddress(it) } + (0..23).map { account.changeAddress(it) }
-        assertEquals(expected, fake.statsRequests())
+        assertEquals((0..40).map { account.receiveAddress(it) }, fake.askedFor((0..40).map { account.receiveAddress(it) }))
+        assertEquals((0..23).map { account.changeAddress(it) }, fake.askedFor((0..23).map { account.changeAddress(it) }))
         assertEquals(3_000L, snapshot.confirmedSats)
         assertEquals(700L, snapshot.unconfirmedSats)
         assertEquals(1, snapshot.nextReceiveIndex)
@@ -99,14 +105,14 @@ class BtcScanTest {
         val received = """{"txid":"tx-received","vin":[],"vout":[{"scriptpubkey_address":"$receive0","value":1000}],""" +
             """"status":{"confirmed":true,"block_height":849990,"block_time":1700000000}}"""
         val spend = """{"txid":"tx-spend","vin":[{"txid":"tx-received","vout":0,"prevout":{"scriptpubkey_address":"$receive0",""" +
-            """"value":1000}}],"vout":[{"scriptpubkey_address":"$change3","value":600},{"scriptpubkey_address":"tb1qstranger","value":300}],""" +
-            """"status":{"confirmed":false}}"""
+            """"value":1000}}],"vout":[{"scriptpubkey_address":"$change3","value":600},""" +
+            """{"scriptpubkey_address":"tb1qstranger","value":300}],"status":{"confirmed":false}}"""
         // Both addresses report the spend, and the scan must count it once.
         fake.txs[receive0] = "[$spend,$received]"
         fake.txs[change3] = "[$spend]"
         fake.utxos[change3] = """[{"txid":"tx-spend","vout":0,"status":{"confirmed":false},"value":600}]"""
 
-        val snapshot = scan()
+        val snapshot = scan(detail = true)
 
         assertEquals(1_000L, snapshot.confirmedSats)
         assertEquals(-400L, snapshot.unconfirmedSats, "the spend takes 1,000 from receive 0 and gives 600 back to change 3")
@@ -130,15 +136,69 @@ class BtcScanTest {
     }
 
     @Test
-    fun aNetworkThatFailsIsTriedOnceAndItsAccountsKeepTheirCache() {
+    fun aNetworkThatStaysBusyIsGivenUpOnAndItsAccountsKeepTheirCache() {
         fake.status = 503
         val second = BtcAccountRef("wallet-1", PairFixtures.account(PairFixtures.seed, BtcNetwork.TESTNET4, ScriptType.TAPROOT))
 
-        val report = runBlocking { scanAll(listOf(ref, second), mapOf(BtcNetwork.TESTNET4 to base), store()) { 1_000L } }
+        val report = runBlocking {
+            scanAll(listOf(ref, second), mapOf(BtcNetwork.TESTNET4 to base), store(), pause = {}) { 1_000L }
+        }
 
         assertTrue(report.fresh.isEmpty())
-        assertEquals("The server answered HTTP 503.", report.failures[BtcNetwork.TESTNET4])
-        assertEquals(1, fake.paths.size, "only the first account's tip was asked; the second account of that network was skipped")
+        assertEquals("Rate limited, retry later.", report.failures[BtcNetwork.TESTNET4])
+        assertEquals(6, fake.paths.size, "the first account's tip: one try and five retries; the second account was skipped")
+    }
+
+    @Test
+    fun aPortfolioScanNeverAsksForTransactions() {
+        fake.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1))
+
+        val snapshot = scan()
+
+        assertEquals(emptyList<String>(), fake.paths.filter { it.endsWith("/txs") })
+        assertEquals(emptyList<BtcTx>(), snapshot.transactions)
+    }
+
+    @Test
+    fun unusedAddressesAreNeverAskedForUnspentOutputsOrTransactions() {
+        val receive0 = account.receiveAddress(0)
+        fake.stats[receive0] = addressJson(chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1))
+
+        scan(detail = true)
+
+        assertEquals(listOf("/api/address/$receive0/txs"), fake.paths.filter { it.endsWith("/txs") })
+        assertEquals(listOf("/api/address/$receive0/utxo"), fake.paths.filter { it.endsWith("/utxo") })
+    }
+
+    @Test
+    fun anEmptyAccountAsksTwentyAddressesPerChainAndTheTipOnce() {
+        scan()
+
+        val receive = (0..19).map { account.receiveAddress(it) }
+        val change = (0..19).map { account.changeAddress(it) }
+        assertEquals(receive, fake.askedFor(receive))
+        assertEquals(change, fake.askedFor(change))
+        assertEquals(40, fake.statsRequests().size, "twenty receive and twenty change addresses")
+        assertEquals(41, fake.paths.size, "with the tip height, asked once")
+    }
+
+    @Test
+    fun aRescanAsksAgainOnlyTheUsedAddressesAndTheGapWindow() {
+        val memo = ConcurrentHashMap<String, EsploraAddressStats>()
+        // Receive 0 and 2 are used, with unused receive 1 between them. The first walk asks receive 0 to 22, and change 0 to 19.
+        fake.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1))
+        fake.stats[account.receiveAddress(2)] = addressJson(chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1))
+        scan(memo = memo)
+        assertEquals(43, fake.statsRequests().size)
+        fake.paths.clear()
+
+        val snapshot = scan(nowMs = 2_000L, memo = memo)
+
+        // Receive 1 lies before the last used address, 2, so it is read from the memo. Receive 0 and 2 are used; 3 to 22 are the gap window.
+        val receive = (0..22).map { account.receiveAddress(it) }
+        assertEquals((listOf(0, 2) + (3..22)).map { account.receiveAddress(it) }, fake.askedFor(receive))
+        assertEquals(42, fake.statsRequests().size, "22 receive, and 20 change: with no used change address, all twenty are the gap window")
+        assertEquals(2_000L, snapshot.confirmedSats, "the same balance as the first scan")
     }
 
     @Test
