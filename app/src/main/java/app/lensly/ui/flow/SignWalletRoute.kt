@@ -62,7 +62,7 @@ internal fun SignWalletRoute(
     val step by flow.state.collectAsState()
     // A debug build may offer a fixture request to a wallet's sign screen, which reads it as the first scan. Release offers none.
     LaunchedEffect(flow) {
-        if (walletId != null) DebugBtcFixture.take()?.let { flow.onScanned(it) }
+        if (walletId != null) DebugBtcFixture.take()?.split(' ')?.forEach { flow.onScanned(it) }
     }
     BackHandler { flow.back() }
     LaunchedEffect(step) {
