@@ -4,6 +4,7 @@ import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.NativeBalance
@@ -12,7 +13,11 @@ import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.Trait
+import app.lumio.data.provider.explorer.ExplorerTx
 import app.lumio.data.provider.explorer.explorerBalance
+import app.lumio.data.provider.explorer.explorerNormalTxs
+import app.lumio.data.provider.explorer.explorerTokenTxs
+import app.lumio.data.provider.explorer.involving
 import app.lumio.data.provider.fetchText
 import app.lumio.data.provider.noRedirects
 import app.lumio.data.provider.providerBase
@@ -21,8 +26,12 @@ import okhttp3.HttpUrl
 import okhttp3.Request as HttpRequest
 
 /**
- * Blockscout as a DATA provider. It serves the native balance of each chain in [BASES] from that chain's hosted instance. An optional API key goes in
- * the `apikey` query parameter, as the Blockscout docs show.
+ * Blockscout as a DATA provider. It serves the native balance and the transaction history of each chain in [BASES] from that chain's hosted instance.
+ * An optional API key goes in the `apikey` query parameter, as the Blockscout docs show.
+ *
+ * Sources for the history, read on 2026-11-16: https://docs.blockscout.com/devs/apis/rpc/account. It gives
+ * `GET {instance}/api?module=account&action=txlist` and `action=tokentx`, with `address`, `page`, `offset` and `sort`, and it states a maximum of 10,000
+ * rows per query. Neither list names a log index, and the page documents no `apikey` for these two actions. The key is sent as it is for the balance.
  *
  * Sources, read on 2026-11-15:
  * - Endpoint and answer: https://docs.blockscout.com/devs/apis/rpc/account. It gives `GET {instance}/api?module=account&action=balance&address={address}`,
@@ -43,7 +52,8 @@ class BlockscoutProvider(private val bases: Map<String, String> = BASES) : Provi
     override val kind: Kind = Kind.DATA
     override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean = op == Op.NATIVE_BALANCE && instanceOf(net) != null
+    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
+        (op == Op.NATIVE_BALANCE || op == Op.TX_HISTORY) && instanceOf(net) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = LIMITS
 
@@ -52,6 +62,7 @@ class BlockscoutProvider(private val bases: Map<String, String> = BASES) : Provi
         if (!supports(req.net, req.op, cfg)) throw ProviderError.Unsupported()
         return when (req) {
             is NativeBalance -> balance(req, cfg, http) as T
+            is AddressTxHistory -> txHistory(req, cfg, http) as T
             else -> throw ProviderError.Unsupported()
         }
     }
@@ -66,6 +77,33 @@ class BlockscoutProvider(private val bases: Map<String, String> = BASES) : Provi
             .apply { cfg.apiKey?.trim()?.takeIf { it.isNotEmpty() }?.let { addQueryParameter("apikey", it) } }
             .build()
         return explorerBalance(fetchText(http.noRedirects(), HttpRequest.Builder().url(url).get().build(), banMs = null))
+    }
+
+    /**
+     * The page of history: the normal transactions of the account, then its token transfers. The second request is charged to the call's rate budget
+     * before it is sent, so the two together stay within the limit.
+     */
+    private suspend fun txHistory(req: AddressTxHistory, cfg: ProviderConfig, http: Http): List<ExplorerTx> {
+        val normal = explorerNormalTxs(fetchText(http.noRedirects(), historyRequest(req, cfg, "txlist"), banMs = null))
+        http.charge()
+        val tokens = explorerTokenTxs(fetchText(http.noRedirects(), historyRequest(req, cfg, "tokentx"), banMs = null))
+        val rows: List<ExplorerTx> = normal + tokens
+        return rows.involving(req.address)
+    }
+
+    /** `{instance}/api?module=account&action={action}&address=...&page=...&offset=...&sort=desc`, with the key as `apikey` when one is set. */
+    private fun historyRequest(req: AddressTxHistory, cfg: ProviderConfig, action: String): HttpRequest {
+        val url = checkNotNull(instanceOf(req.net)).newBuilder()
+            .addPathSegment("api")
+            .addQueryParameter("module", "account")
+            .addQueryParameter("action", action)
+            .addQueryParameter("address", req.address)
+            .addQueryParameter("page", req.page.toString())
+            .addQueryParameter("offset", req.offset.toString())
+            .addQueryParameter("sort", "desc")
+            .apply { cfg.apiKey?.trim()?.takeIf { it.isNotEmpty() }?.let { addQueryParameter("apikey", it) } }
+            .build()
+        return HttpRequest.Builder().url(url).get().build()
     }
 
     /** The instance that serves [net], or null when Blockscout hosts none for it, or the address it has is not accepted. */
