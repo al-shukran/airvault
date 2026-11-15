@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.theme.LenslyTheme
 import app.lumio.evm.EvmSettings
 import kotlin.test.assertTrue
@@ -84,6 +85,30 @@ class LumioSettingsScreenTest {
         }
 
         compose.onNodeWithText("Third-party licences", ignoreCase = true).performScrollTo().performClick()
+        assertTrue(opened)
+    }
+
+    @Test
+    fun theHiddenEntryGestureRowShowsTheSavedGestureAndOpensTheChoice() {
+        var opened = false
+        compose.setContent {
+            LenslyTheme {
+                LumioSettingsScreen(
+                    onBack = {},
+                    display = {},
+                    bitcoin = {},
+                    ethereum = {},
+                    onDataProviders = {},
+                    onThirdPartyLicences = {},
+                    entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
+                    onEntryGesture = { opened = true },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Hidden entry gesture").performScrollTo()
+        compose.onNodeWithText(EntryGesture.THUMBNAIL_HOLD_SWIPE.title).assertExists()
+        compose.onNodeWithText("Hidden entry gesture").performClick()
         assertTrue(opened)
     }
 
