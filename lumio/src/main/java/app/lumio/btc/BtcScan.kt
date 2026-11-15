@@ -1,7 +1,9 @@
 package app.lumio.btc
 
+import android.util.Log
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
+import app.lumio.BuildConfig
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -173,12 +175,20 @@ suspend fun scanAll(
 ): BtcScanReport {
     val fresh = LinkedHashMap<String, BtcSnapshot>()
     val failures = LinkedHashMap<BtcNetwork, String>()
+    val started = System.nanoTime()
     for (ref in refs) {
         val network = ref.account.network
         if (network in failures) continue
         val server = EsploraServers.baseUrl(network, servers)
         try {
-            val scanned = scanAccount(ref, EsploraClient(server, pause), server, nowMs(), memo.forServer(server), detail)
+            val scanned = scanAccount(
+                ref,
+                EsploraClient(server, ESPLORA_REQUEST_INTERVAL_MS, pause),
+                server,
+                nowMs(),
+                memo.forServer(server),
+                detail,
+            )
             val snapshot = if (detail) scanned else scanned.copy(transactions = cachedTransactions(store, ref, server))
             store.save(snapshot)
             fresh[ref.key] = snapshot
@@ -189,6 +199,11 @@ suspend fun scanAll(
                 "Could not reach ${hostOf(server)}."
             }
         }
+    }
+    // Debug builds only: one line per scan, read beside the request lines of the same tag.
+    if (BuildConfig.DEBUG) {
+        val ms = (System.nanoTime() - started) / 1_000_000
+        Log.d(ESPLORA_LOG_TAG, "scan done accounts=${refs.size} fresh=${fresh.size} ms=$ms failures=${failures.values}")
     }
     return BtcScanReport(fresh, failures)
 }

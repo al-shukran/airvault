@@ -10,6 +10,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -137,6 +138,20 @@ class EsploraClientTest {
         assertEquals(850_000L, height)
         assertEquals(listOf(2_000L), waits, "Retry-After of 2 seconds is waited out once")
         assertEquals(2, fake.paths.size)
+    }
+
+    @Test
+    fun aConnectionThatGivesNoAnswerIsTriedAgainAfterABackoff() {
+        // The connection itself retries a GET once, so two dropped connections in a row reach the client as a failure to retry.
+        fake.queued += MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+        fake.queued += MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+        val waits = mutableListOf<Long>()
+
+        val height = EsploraClient(base) { waits += it }.tipHeight()
+
+        assertEquals(850_000L, height)
+        assertTrue(waits.isNotEmpty(), "a connection that gives no answer costs a backoff before the retry")
+        assertTrue(waits.first() in 500L..1_000L, "the first backoff is 1s, jittered to half or all of it")
     }
 
     @Test
