@@ -301,7 +301,6 @@ private fun BitcoinAccountRow(
                     shown = groupedInFours(account.firstReceiveAddress),
                     icon = false,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = onOptions,
                 )
             }
         }
