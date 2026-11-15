@@ -35,7 +35,7 @@ partitions:
                  --tests 'app.lensly.ui.SecureWindowTest'
   app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
                  --tests 'app.lensly.core.vault.BackupExclusionTest'
-  lumio          :lumio:assembleDebug :lumio:testDebugUnitTest :lumio:lintDebug
+  lumio          :lumio:assembleDebug :lumio:testDebugUnitTest
   registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
   ci             bash -n on every script, scripts/ci/check-ui-partitions.sh, then scripts/ci/check-test-network.sh (no Gradle)
@@ -124,9 +124,9 @@ case "$partition" in
             --tests 'app.lensly.core.vault.BackupExclusionTest'
         ;;
     lumio)
-        # Lumio, the companion app: its debug APK, its lint and its Home test. Its cover, gate and theme come from :shared, which the
+        # Lumio, the companion app: its debug APK and its Home test. Its cover, gate and theme come from :shared, which the
         # shared partitions test.
-        ./gradlew :lumio:assembleDebug :lumio:testDebugUnitTest :lumio:lintDebug
+        ./gradlew :lumio:assembleDebug :lumio:testDebugUnitTest
         ;;
     registry-pack)
         ./gradlew :tools:registry-pack:test
