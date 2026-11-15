@@ -33,9 +33,19 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
     fun configs(): Map<String, ProviderConfig> = providerConfigs
 
     /** Saves [configs] in place of the earlier settings. @throws IllegalStateException when the vault has closed. */
+    @Synchronized
     fun saveConfigs(configs: Map<String, ProviderConfig>) {
         ProviderConfigStore(session).save(configs)
         providerConfigs = configs
+    }
+
+    /**
+     * Saves the settings that [change] makes of the current ones, in one write. The settings screen changes the enable switch, the priorities and the
+     * API key through it. An API key is kept in the settings record with the rest, which the vault seals.
+     */
+    @Synchronized
+    fun updateConfigs(change: (Map<String, ProviderConfig>) -> Map<String, ProviderConfig>) {
+        saveConfigs(change(providerConfigs))
     }
 
     private companion object {

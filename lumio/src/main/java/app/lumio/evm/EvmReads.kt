@@ -19,6 +19,7 @@ import app.lumio.data.provider.Request
 import app.lumio.data.rpc.CustomRpc
 import app.lumio.data.rpc.RpcPlugins
 import app.lumio.data.sched.Priority
+import app.lumio.data.sched.ProviderHealth
 import app.lumio.data.sched.Scheduler
 import java.math.BigInteger
 import kotlin.random.Random
@@ -49,6 +50,9 @@ class EvmReads(
         run(chain, priority, EstimateGas(net(chain), from, to, valueWei))
 
     suspend fun broadcast(chain: EvmChain, raw: ByteArray): String = run(chain, Priority.FOREGROUND, Broadcast(net(chain), raw))
+
+    /** What the pool, or else the owner's scheduler, knows about [providerId] now, or null when neither holds that provider. */
+    suspend fun statusOf(providerId: String): ProviderHealth? = pool.statusOf(providerId) ?: owner.statusOf(providerId)
 
     private suspend fun <T> run(chain: EvmChain, priority: Priority, req: Request<T>): T {
         val scheduler = if (settings().rpc.containsKey(chain.chainId)) owner else pool
