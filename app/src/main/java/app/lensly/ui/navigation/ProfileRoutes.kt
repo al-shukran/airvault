@@ -13,9 +13,11 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import app.lensly.app.AccountDraft
+import app.lensly.app.AccountProfile
 import app.lensly.app.StyleChange
 import app.lensly.app.StyleEdits
 import app.lensly.app.VaultHolder
+import app.lensly.app.VisualIdentity
 import app.lensly.app.WalletProfileDraft
 import app.lensly.app.WalletStore
 import app.lensly.app.autoAccountName
@@ -42,6 +44,12 @@ internal fun NavGraphBuilder.profileRoutes(navController: NavHostController, hol
         HiddenBackdrop { EditAccountRoute(navController, holder, entry.walletId(), entry.accountIndex()) }
     }
     composable(
+        HiddenRoute.EDIT_BITCOIN_ACCOUNT,
+        arguments = walletIdArguments() + navArgument(HiddenRoute.ACCOUNT_INDEX_ARG) { type = NavType.IntType },
+    ) { entry ->
+        HiddenBackdrop { EditBitcoinAccountRoute(navController, holder, entry.walletId(), entry.accountIndex()) }
+    }
+    composable(
         HiddenRoute.STYLE_ACCOUNTS,
         arguments = walletIdArguments() + navArgument(HiddenRoute.ACCOUNT_INDICES_ARG) { type = NavType.StringType },
     ) { entry ->
@@ -49,37 +57,101 @@ internal fun NavGraphBuilder.profileRoutes(navController: NavHostController, hol
     }
 }
 
-/** An account being edited: its draft, its Auto-Name, and the groups its wallet's other accounts already use. */
-private class AccountEditor(val draft: AccountDraft, val autoName: String, val groups: List<String>)
+/**
+ * An account being edited: its draft, its Auto-Name, the groups the accounts of its App already use, and the look it gets when it has
+ * none. An Ethereum account and a Bitcoin account are edited the same way, so both share [AccountProfileRoute].
+ */
+private class AccountEditor(
+    val draft: AccountDraft,
+    val autoName: String,
+    val groups: List<String>,
+    val generated: VisualIdentity,
+)
 
 /** A wallet being edited: its draft, its current name, and its place in the wallet list, which sets its generated look. */
 private class WalletEditor(val draft: WalletProfileDraft, val currentName: String, val position: Int)
 
 /**
- * The profile of account [index] of wallet [walletId]. The draft starts from what the account has, and the colour and icon it
+ * The profile of Ethereum account [index] of wallet [walletId]. The draft starts from what the account has, and the colour and icon it
  * does not have are the generated ones. An index the wallet does not have goes back without a screen.
  */
 @Composable
 private fun EditAccountRoute(navController: NavHostController, holder: VaultHolder, walletId: String, index: Int) {
+    AccountProfileRoute(
+        navController = navController,
+        holder = holder,
+        walletId = walletId,
+        index = index,
+        load = { store ->
+            val meta = store.meta(walletId)
+            if (meta == null || index !in 0 until meta.accountCount) {
+                null
+            } else {
+                AccountEditor(
+                    draft = AccountDraft.of(store.accountProfile(walletId, index), generatedIdentity(index)),
+                    autoName = autoAccountName(meta.autoNameBase, index),
+                    groups = store.accountProfiles(walletId, meta.accountCount).values.mapNotNull { it.group }.distinct().sorted(),
+                    generated = generatedIdentity(index),
+                )
+            }
+        },
+        save = { store, profile -> store.saveAccountProfile(walletId, index, profile) },
+    )
+}
+
+/**
+ * The profile of Bitcoin account [position] of wallet [walletId], where the position is the account's place in the wallet's Bitcoin
+ * accounts. It is edited as an Ethereum account is, and its look is generated from its position, as the Ethereum one is from its index.
+ */
+@Composable
+private fun EditBitcoinAccountRoute(navController: NavHostController, holder: VaultHolder, walletId: String, position: Int) {
+    AccountProfileRoute(
+        navController = navController,
+        holder = holder,
+        walletId = walletId,
+        index = position,
+        load = { store ->
+            val meta = store.meta(walletId)
+            val accounts = store.bitcoinAccounts(walletId)
+            val account = accounts.getOrNull(position)
+            if (meta == null || account == null) {
+                null
+            } else {
+                AccountEditor(
+                    draft = AccountDraft.of(account.profile, generatedIdentity(position)),
+                    autoName = autoAccountName(meta.autoNameBase, account.index),
+                    groups = accounts.mapNotNull { it.profile.group }.distinct().sorted(),
+                    generated = generatedIdentity(position),
+                )
+            }
+        },
+        save = { store, profile ->
+            val account = requireNotNull(store.bitcoinAccounts(walletId).getOrNull(position)) { "No Bitcoin account $position." }
+            store.saveBitcoinProfile(walletId, account, profile)
+        },
+    )
+}
+
+/**
+ * The profile editor of one account, shared by Ethereum and Bitcoin accounts. [load] reads the editor's state, or null when the account
+ * is gone, and [save] writes the profile on DONE. A save that the store refuses, because the profile does not fit, stays on the editor
+ * with the reason, so the owner can shorten it.
+ */
+@Composable
+private fun AccountProfileRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    walletId: String,
+    index: Int,
+    load: (WalletStore) -> AccountEditor?,
+    save: (WalletStore, AccountProfile) -> Unit,
+) {
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
     var editor by remember(walletId, index) { mutableStateOf<AccountEditor?>(null) }
     LaunchedEffect(walletId, index) {
         whileUnlocked(navController, holder) {
-            val store = WalletStore(session)
-            val loaded = withContext(Dispatchers.IO) {
-                val meta = store.meta(walletId)
-                if (meta == null || index !in 0 until meta.accountCount) {
-                    null
-                } else {
-                    AccountEditor(
-                        draft = AccountDraft.of(store.accountProfile(walletId, index), generatedIdentity(index)),
-                        autoName = autoAccountName(meta.autoNameBase, index),
-                        groups = store.accountProfiles(walletId, meta.accountCount)
-                            .values.mapNotNull { it.group }.distinct().sorted(),
-                    )
-                }
-            }
+            val loaded = withContext(Dispatchers.IO) { load(WalletStore(session)) }
             if (loaded == null) {
                 navController.popBackStack()
             } else {
@@ -90,11 +162,13 @@ private fun EditAccountRoute(navController: NavHostController, holder: VaultHold
     val current = editor ?: return
     var draft by remember(walletId, index) { mutableStateOf(current.draft) }
     var saving by remember(walletId, index) { mutableStateOf(false) }
+    var refusal by remember(walletId, index) { mutableStateOf<String?>(null) }
 
     AccountProfileScreen(
         draft = draft,
         autoName = current.autoName,
         groups = current.groups,
+        error = refusal,
         onFocus = { field -> draft = draft.focusOn(field) },
         onKey = { c -> if (!saving) draft = draft.typing(c) },
         onBackspace = { if (!saving) draft = draft.backspace() },
@@ -102,15 +176,21 @@ private fun EditAccountRoute(navController: NavHostController, holder: VaultHold
         onPickIcon = { icon -> draft = draft.withIcon(icon) },
         onPickGroup = { group -> draft = draft.withGroup(group) },
         onResetName = { draft = draft.resetName() },
-        onResetStyle = { draft = draft.resetStyle(generatedIdentity(index)) },
+        onResetStyle = { draft = draft.resetStyle(current.generated) },
         onSave = {
             if (!saving) {
                 saving = true
-                val profile = draft.toProfile(generatedIdentity(index))
+                refusal = null
+                val profile = draft.toProfile(current.generated)
                 scope.launch {
                     whileUnlocked(navController, holder) {
-                        withContext(Dispatchers.IO) { WalletStore(session).saveAccountProfile(walletId, index, profile) }
-                        navController.popBackStack()
+                        try {
+                            withContext(Dispatchers.IO) { save(WalletStore(session), profile) }
+                            navController.popBackStack()
+                        } catch (e: IllegalArgumentException) {
+                            refusal = e.message
+                            saving = false
+                        }
                     }
                 }
             }

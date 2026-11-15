@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import app.lensly.app.AccountProfile
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.SINGLE_KEY_NO_BITCOIN
 import app.lensly.app.WalletKind
@@ -15,6 +16,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,6 +41,7 @@ class BitcoinAccountsScreenTest {
         var generated = false
         var paired = false
         var scanned = false
+        var edited: Int? = null
     }
 
     /** The Bitcoin App of one wallet, with [accounts] as its Bitcoin accounts. */
@@ -62,6 +65,7 @@ class BitcoinAccountsScreenTest {
             onGenerate = { route.generated = true },
             onPair = { route.paired = true },
             onScan = { route.scanned = true },
+            onEditAccount = { route.edited = it },
         )
     }
 
@@ -169,6 +173,37 @@ class BitcoinAccountsScreenTest {
         compose.onNodeWithText("GENERATE ACCOUNTS").assertDoesNotExist()
         compose.onNodeWithContentDescription("App options").performClick()
         compose.onNodeWithText("Generate accounts").assertDoesNotExist()
+    }
+
+    @Test
+    fun aNamedAccountShowsItsNameAndLabelAndAnUnnamedOneItsAutoName() {
+        val named = nativeMainnet.copy(profile = AccountProfile(name = "Cold", label = "vault"))
+        compose.setContent {
+            LenslyTheme {
+                Bitcoin(Route(), accounts = listOf(named, taproot))
+            }
+        }
+
+        compose.onNodeWithText("COLD").assertIsDisplayed()
+        // The label chip is set in capitals, as every chip of the app is.
+        compose.onNodeWithText("VAULT").assertIsDisplayed()
+        // The taproot account has no name, so it shows the Auto-Name its wallet gives its index, as an Ethereum account does.
+        compose.onNodeWithText("SEED WALLET 0").assertIsDisplayed()
+    }
+
+    @Test
+    fun aPressOnAnAccountOffersItsProfileEditorForThatAccount() {
+        val route = Route()
+        compose.setContent {
+            LenslyTheme {
+                Bitcoin(route, accounts = accounts)
+            }
+        }
+
+        compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).performClick()
+        compose.onNodeWithText("Edit profile").performClick()
+        // The taproot account is the fourth one the wallet made, so its place is 3.
+        assertEquals(3, route.edited)
     }
 
     private companion object {
