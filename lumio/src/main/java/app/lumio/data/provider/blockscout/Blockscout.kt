@@ -21,7 +21,8 @@ import okhttp3.HttpUrl
 import okhttp3.Request as HttpRequest
 
 /**
- * Blockscout as a DATA provider. It serves the native balance of each chain in [BASES] from that chain's hosted instance. It is keyless: it sends no key.
+ * Blockscout as a DATA provider. It serves the native balance of each chain in [BASES] from that chain's hosted instance. An optional API key goes in
+ * the `apikey` query parameter, as the Blockscout docs show.
  *
  * Sources, read on 2026-11-15:
  * - Endpoint and answer: https://docs.blockscout.com/devs/apis/rpc/account. It gives `GET {instance}/api?module=account&action=balance&address={address}`,
@@ -32,13 +33,15 @@ import okhttp3.Request as HttpRequest
  *   say that figure applies to hosted instances, so the rate here stays well under it.
  * - Not listed: base.blockscout.com and arbitrum.blockscout.com answered with a bot-check page, and gnosis.blockscout.com and optimism.blockscout.com
  *   redirected to other domains. None of the four could be read, so none is mapped.
- * - No key is sent. https://docs.blockscout.com/devs/apis/rpc does not say how a key is passed, so no key parameter is guessed. The limits page says
- *   per-instance API access will be deprecated soon, so this plugin may need replacing.
+ * - Key: https://docs.blockscout.com/devs/blockscout-api.md shows the key as `apikey`, in the example URL
+ *   `https://api.blockscout.com/v2/api?chain_id=1&module=account&action=balance&address=0x...&apikey=proapi_xxx`. That is the hosted multichain API, not the
+ *   instance used here, so it is not verified that a key is accepted by the instance. The limits page says per-instance API access will be
+ *   deprecated soon, so this plugin may need replacing.
  */
 class BlockscoutProvider(private val bases: Map<String, String> = BASES) : Provider {
     override val id: String = "blockscout"
     override val kind: Kind = Kind.DATA
-    override val traits: Set<Trait> = setOf(Trait.KEYLESS)
+    override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean = op == Op.NATIVE_BALANCE && instanceOf(net) != null
 
@@ -48,18 +51,19 @@ class BlockscoutProvider(private val bases: Map<String, String> = BASES) : Provi
     override suspend fun <T> execute(req: Request<T>, cfg: ProviderConfig, http: Http): T {
         if (!supports(req.net, req.op, cfg)) throw ProviderError.Unsupported()
         return when (req) {
-            is NativeBalance -> balance(req, http) as T
+            is NativeBalance -> balance(req, cfg, http) as T
             else -> throw ProviderError.Unsupported()
         }
     }
 
-    private suspend fun balance(req: NativeBalance, http: Http): BigInteger {
+    private suspend fun balance(req: NativeBalance, cfg: ProviderConfig, http: Http): BigInteger {
         if (!EVM_ADDRESS.matches(req.address)) throw ProviderError.NotFound()
         val url = checkNotNull(instanceOf(req.net)).newBuilder()
             .addPathSegment("api")
             .addQueryParameter("module", "account")
             .addQueryParameter("action", "balance")
             .addQueryParameter("address", req.address)
+            .apply { cfg.apiKey?.trim()?.takeIf { it.isNotEmpty() }?.let { addQueryParameter("apikey", it) } }
             .build()
         return explorerBalance(fetchText(http.noRedirects(), HttpRequest.Builder().url(url).get().build(), banMs = null))
     }

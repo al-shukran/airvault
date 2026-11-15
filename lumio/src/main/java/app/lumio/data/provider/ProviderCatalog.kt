@@ -16,10 +16,10 @@ import app.lumio.data.rpc.RpcPlugins
  */
 object ProviderCatalog {
     /**
-     * The providers whose settings take an API key, and whose plugins send it. Blockscout and dRPC take none: Blockscout's docs name no key for the
-     * RPC-style API (https://docs.blockscout.com/devs/apis/requests-and-limits), and dRPC's pages named no keyed endpoint when this was checked.
+     * The providers whose settings take an API key, and whose plugins send it. dRPC takes none: its keyed endpoint format could not be confirmed from
+     * its docs when this was checked.
      */
-    val KEY_LISTED: Set<String> = setOf("blockchair", "3xpl", "routescan", "etherscan", "1rpc", "ankr", "alchemy")
+    val KEY_LISTED: Set<String> = setOf("blockchair", "3xpl", "routescan", "etherscan", "blockscout", "1rpc", "ankr", "alchemy")
 
     /** The chain-data providers, in their listed order. */
     fun dataProviders(): List<Provider> = listOf(
