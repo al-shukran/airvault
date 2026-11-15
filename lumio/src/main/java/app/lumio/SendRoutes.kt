@@ -126,10 +126,9 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    val url = requireNotNull(EvmCatalog.rpcFor(chain, ready.settings)) { "No RPC address is set for ${chain.name}." }
                     val to = SendInput.recipient(recipient)
                     val value = SendInput.amountWei(amount, chain.decimals, chain.symbol)
-                    EvmSend.prepare(app.evmRpc, url, chain, ready.from, index, to, value)
+                    EvmSend.prepare(app.evmReadsFor(checkNotNull(session)), chain, ready.from, index, to, value)
                 }
             }
             busy = false
@@ -159,7 +158,6 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
     }
 
     fun applySignature(current: SendStep.Scanning, ur: UR) {
-        val url = EvmCatalog.rpcFor(current.send.chain, ready.settings) ?: return
         scanBusy = true
         scope.launch {
             val signed = withContext(Dispatchers.IO) { runCatching { EvmSend.signed(current.send, current.requestId, ur) } }
@@ -171,7 +169,9 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
                     scanStatus = ownerWords(error, SIGNATURE_FAILED)
                 },
                 onSuccess = { raw ->
-                    val sent = withContext(Dispatchers.IO) { runCatching { EvmSend.broadcast(app.evmRpc, url, raw) } }
+                    val sent = withContext(Dispatchers.IO) {
+                        runCatching { EvmSend.broadcast(app.evmReadsFor(checkNotNull(session)), current.send.chain, raw) }
+                    }
                     scanBusy = false
                     sent.fold(
                         onFailure = { error ->

@@ -14,7 +14,7 @@ class PortfolioTotalsTest {
     private val monadTestnet = chain(10143L, "Monad Testnet", "MON", testnet = true)
 
     private fun chain(id: Long, name: String, symbol: String, testnet: Boolean) =
-        EvmChain(id, name, symbol, 18, testnet, explorerUrl = null, defaultRpc = null)
+        EvmChain(id, name, symbol, 18, testnet, explorerUrl = null)
 
     private fun holding(chain: EvmChain, wei: String, atMs: Long) = Holding(chain, BigInteger(wei), atMs)
 

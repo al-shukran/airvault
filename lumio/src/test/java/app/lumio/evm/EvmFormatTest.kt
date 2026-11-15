@@ -1,4 +1,7 @@
 package app.lumio.evm
+import org.junit.Assert.assertTrue
+import app.lumio.data.provider.ProviderError
+import app.lumio.data.rpc.parseQuantity
 
 import java.math.BigInteger
 import org.junit.Assert.assertEquals
@@ -41,8 +44,8 @@ class EvmFormatTest {
     }
 
     @Test
-    fun textThatIsNotAQuantityIsMalformed() {
-        val failure = assertThrows(RpcFailure::class.java) { parseQuantity("10") }
-        assertEquals(RpcFailure.Reason.MALFORMED, failure.reason)
+    fun textThatIsNotAQuantityIsAFatalAnswer() {
+        val failure = assertThrows(ProviderError::class.java) { parseQuantity("10") }
+        assertTrue(failure is ProviderError.Fatal)
     }
 }

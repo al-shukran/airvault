@@ -38,7 +38,6 @@ class EvmSendTest {
         decimals = 18,
         testnet = true,
         explorerUrl = "https://sepolia.etherscan.io",
-        defaultRpc = null,
     )
     private val wallet = HdWallet(Mnemonic.toSeed(EvmFixtures.artMnemonic))
     private val xpub = wallet.accountXpub()

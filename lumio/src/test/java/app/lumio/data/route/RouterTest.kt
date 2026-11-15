@@ -15,8 +15,11 @@ import org.junit.Test
 /** Which providers the router offers for a request, and in what order. */
 class RouterTest {
 
-    private val everyone = object : ProviderState {
-        override fun available(providerId: String, nowMs: Long): Boolean = true
+    private val everyone = coolingState()
+
+    /** A state in which the listed providers are cooling down and the rest are available. */
+    private fun coolingState(vararg cooling: String): ProviderState = object : ProviderState {
+        override fun available(providerId: String, nowMs: Long): Boolean = providerId !in cooling
 
         override fun score(providerId: String, nowMs: Long): Double = 0.0
     }
@@ -57,13 +60,7 @@ class RouterTest {
 
     @Test
     fun aCoolingOrOpenProviderIsNotOffered() {
-        val cooling = object : ProviderState {
-            override fun available(providerId: String, nowMs: Long): Boolean = providerId != "a"
-
-            override fun score(providerId: String, nowMs: Long): Double = 0.0
-        }
-
-        assertEquals(listOf("b"), route(listOf(FakeProvider("a"), FakeProvider("b")), state = cooling))
+        assertEquals(listOf("b"), route(listOf(FakeProvider("a"), FakeProvider("b")), state = coolingState("a")))
     }
 
     @Test
@@ -79,7 +76,7 @@ class RouterTest {
     }
 
     @Test
-    fun aBroadcastOnEvmOffersMevProtectedProvidersFirst() {
+    fun aBroadcastOnEvmOffersOnlyMevProtectedProvidersWhileOneIsHealthy() {
         val plain = FakeProvider("plain", ops = setOf(Op.BROADCAST), networks = setOf(ETH, BTC))
         val protectedRpc = FakeProvider(
             "protected",
@@ -89,8 +86,34 @@ class RouterTest {
         )
         val configs = mapOf("plain" to ProviderConfig(priority = 0), "protected" to ProviderConfig(priority = 1))
 
-        assertEquals(listOf("protected", "plain"), route(listOf(plain, protectedRpc), op = Op.BROADCAST, configs = configs))
+        assertEquals(listOf("protected"), route(listOf(plain, protectedRpc), op = Op.BROADCAST, configs = configs))
         assertEquals(listOf("plain", "protected"), route(listOf(plain, protectedRpc), net = BTC, op = Op.BROADCAST, configs = configs))
+    }
+
+    @Test
+    fun aBroadcastOnEvmOffersOtherProvidersOnlyWhileNoMevProviderIsHealthy() {
+        val plain = FakeProvider("plain", ops = setOf(Op.BROADCAST))
+        val protectedRpc = FakeProvider("protected", ops = setOf(Op.BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
+
+        assertEquals(listOf("plain"), route(listOf(plain, protectedRpc), op = Op.BROADCAST, state = coolingState("protected")))
+    }
+
+    @Test
+    fun aFallbackOnlyProviderIsOfferedOnlyWhenNoOtherProviderCanServe() {
+        val others = FakeProvider("others", ops = setOf(Op.NATIVE_BALANCE))
+        val fallback = FakeProvider("fallback", ops = setOf(Op.NATIVE_BALANCE), traits = setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY))
+
+        assertEquals(listOf("others"), route(listOf(fallback, others), op = Op.NATIVE_BALANCE))
+        assertEquals(listOf("fallback"), route(listOf(fallback, others), op = Op.NATIVE_BALANCE, state = coolingState("others")))
+    }
+
+    @Test
+    fun aFallbackOnlyProviderIsNotOfferedForABroadcastWhileAnMevProviderIsHealthy() {
+        val protectedRpc = FakeProvider("protected", ops = setOf(Op.BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
+        val fallback = FakeProvider("fallback", ops = setOf(Op.BROADCAST), traits = setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY))
+
+        assertEquals(listOf("protected"), route(listOf(fallback, protectedRpc), op = Op.BROADCAST))
+        assertEquals(listOf("fallback"), route(listOf(fallback, protectedRpc), op = Op.BROADCAST, state = coolingState("protected")))
     }
 
     @Test

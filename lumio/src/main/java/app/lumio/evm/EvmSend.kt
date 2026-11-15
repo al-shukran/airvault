@@ -8,6 +8,7 @@ import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.EthSignature
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
+import app.lumio.data.sched.Priority
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -87,24 +88,21 @@ object EvmSend {
     /**
      * Reads what a transfer of [valueWei] from [from] needs on [chain], and builds it: the balance, the pending nonce, the priority fee, a fee
      * cap of twice the next base fee plus the priority fee, and the gas. Throws IllegalArgumentException, or [RpcFailure], with the owner's
-     * words. It blocks on the endpoint, so the caller runs it off the main thread.
+     * words. It reads through the RPC scheduler, so the caller runs it off the main thread.
      */
-    fun prepare(
-        rpc: EvmRpc,
-        url: String,
+    suspend fun prepare(
+        reads: EvmReads,
         chain: EvmChain,
         from: String,
         index: Int,
         to: String,
         valueWei: BigInteger,
     ): PreparedSend {
-        rpc.requireChain(url, chain.chainId)
-        val balance = rpc.balance(url, from)
-        val nonce = rpc.pendingTransactionCount(url, from)
-        val priority = rpc.maxPriorityFee(url)
-        val feeCap = rpc.baseFee(url) * TWO + priority
-        val gas = gasFor(rpc, url, from, to, valueWei)
-        val send = PreparedSend(chain, index, from, to, valueWei, nonce, gas, feeCap, priority, balance)
+        val balance = reads.balance(chain, from, Priority.FOREGROUND)
+        val nonce = reads.nonce(chain, from, pending = true, Priority.FOREGROUND)
+        val fees = reads.fees(chain, Priority.FOREGROUND)
+        val gas = gasFor(reads, chain, from, to, valueWei)
+        val send = PreparedSend(chain, index, from, to, valueWei, nonce, gas, fees.baseFee * TWO + fees.priorityFee, fees.priorityFee, balance)
         require(send.maxCostWei <= balance) {
             "The balance is ${EvmFormat.amount(balance, chain.decimals, chain.symbol)}, but this send can cost up to " +
                 EvmFormat.amount(send.maxCostWei, chain.decimals, chain.symbol) + "."
@@ -144,12 +142,13 @@ object EvmSend {
     }
 
     /**
-     * Broadcasts the signed transaction [raw] on [url] and returns its hash. The endpoint must report the hash of [raw], so the owner is
-     * never sent to a transaction that Lumio did not sign.
+     * Broadcasts the signed transaction [raw] on [chain] and returns its hash. The endpoint must report the hash of [raw], so the owner is
+     * never sent to a transaction that Lumio did not sign. The broadcast is routed by the scheduler: with an MEV-protected provider healthy, only
+     * such a provider receives it.
      */
-    fun broadcast(rpc: EvmRpc, url: String, raw: ByteArray): String {
+    suspend fun broadcast(reads: EvmReads, chain: EvmChain, raw: ByteArray): String {
         val expected = "0x" + Hash.sha3(raw).toHex()
-        val reported = rpc.sendRawTransaction(url, raw)
+        val reported = reads.broadcast(chain, raw)
         if (reported != expected) {
             throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint reported a different transaction hash. Check the explorer before you send again.")
         }
@@ -160,8 +159,8 @@ object EvmSend {
     fun explorerLink(chain: EvmChain, hash: String): String? = chain.explorerUrl?.let { "$it/tx/$hash" }
 
     /** A transfer uses the endpoint's estimate. One that refuses to estimate uses the plain transfer gas, and the balance check still applies. */
-    private fun gasFor(rpc: EvmRpc, url: String, from: String, to: String, valueWei: BigInteger): BigInteger = try {
-        rpc.estimateGas(url, from, to, valueWei).max(TRANSFER)
+    private suspend fun gasFor(reads: EvmReads, chain: EvmChain, from: String, to: String, valueWei: BigInteger): BigInteger = try {
+        reads.estimateGas(chain, from, to, valueWei).max(TRANSFER)
     } catch (e: RpcFailure) {
         if (e.reason == RpcFailure.Reason.ERROR || e.reason == RpcFailure.Reason.MALFORMED) TRANSFER else throw e
     }
