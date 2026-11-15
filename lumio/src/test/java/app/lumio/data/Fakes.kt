@@ -4,6 +4,7 @@ import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
@@ -14,6 +15,7 @@ import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.TipHeight
 import app.lumio.data.provider.Trait
+import app.lumio.data.provider.explorer.ExplorerTx
 import java.math.BigInteger
 import kotlinx.coroutines.delay
 
@@ -78,6 +80,7 @@ class FakeProvider(
         is TipHeight -> 100L
         is NativeBalance -> BigInteger.ONE
         is Broadcast -> "0xtx"
+        is AddressTxHistory -> emptyList<ExplorerTx>()
         else -> error("No default answer for ${req.op}.")
     }
 }

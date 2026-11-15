@@ -4,6 +4,7 @@ import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.NativeBalance
@@ -12,16 +13,24 @@ import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.Trait
+import app.lumio.data.provider.explorer.ExplorerTx
 import app.lumio.data.provider.explorer.explorerBalance
+import app.lumio.data.provider.explorer.explorerNormalTxs
+import app.lumio.data.provider.explorer.explorerTokenTxs
+import app.lumio.data.provider.explorer.involving
 import app.lumio.data.provider.fetchText
 import app.lumio.data.provider.noRedirects
 import app.lumio.data.provider.providerBase
 import java.math.BigInteger
+import okhttp3.HttpUrl
 import okhttp3.Request as HttpRequest
 
 /**
- * Routescan as a DATA provider. It serves the native balance of the EVM mainnets in [CHAINS], through its Etherscan-compatible account API. It works
- * without a key. An optional key goes in the `apikey` header, so it never sits in a URL.
+ * Routescan as a DATA provider. It serves the native balance and the transaction history of the EVM mainnets in [CHAINS], through its
+ * Etherscan-compatible account API. It works without a key. An optional key goes in the `apikey` header, so it never sits in a URL.
+ *
+ * The history is the `txlist` and `tokentx` actions of https://docs.routescan.io/api/etherscan/accounts, read on 2026-11-16. The page gives the same
+ * path and parameters as the balance, with `address`, `page`, `offset` and `sort`. It states no maximum page size, and it names no log index.
  *
  * Sources, read on 2026-11-15:
  * - Endpoint and parameters: https://docs.routescan.io/api/etherscan/accounts. It gives
@@ -41,7 +50,8 @@ class RoutescanProvider : Provider {
     override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        op == Op.NATIVE_BALANCE && net.family == Family.EVM && !net.testnet && net.chain in CHAINS && providerBase(cfg.baseUrl, BASE) != null
+        (op == Op.NATIVE_BALANCE || op == Op.TX_HISTORY) && net.family == Family.EVM && !net.testnet && net.chain in CHAINS &&
+            providerBase(cfg.baseUrl, BASE) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = if (keyOf(cfg) == null) KEYLESS_LIMITS else KEYED_LIMITS
 
@@ -50,20 +60,14 @@ class RoutescanProvider : Provider {
         if (!supports(req.net, req.op, cfg)) throw ProviderError.Unsupported()
         return when (req) {
             is NativeBalance -> balance(req, cfg, http) as T
+            is AddressTxHistory -> txHistory(req, cfg, http) as T
             else -> throw ProviderError.Unsupported()
         }
     }
 
     private suspend fun balance(req: NativeBalance, cfg: ProviderConfig, http: Http): BigInteger {
         if (!EVM_ADDRESS.matches(req.address)) throw ProviderError.NotFound()
-        val url = checkNotNull(providerBase(cfg.baseUrl, BASE)).newBuilder()
-            .addPathSegment("v2")
-            .addPathSegment("network")
-            .addPathSegment("mainnet")
-            .addPathSegment("evm")
-            .addPathSegment(req.net.chain)
-            .addPathSegment("etherscan")
-            .addPathSegment("api")
+        val url = apiUrl(cfg, req.net.chain)
             .addQueryParameter("module", "account")
             .addQueryParameter("action", "balance")
             .addQueryParameter("address", req.address)
@@ -76,6 +80,44 @@ class RoutescanProvider : Provider {
             .build()
         return explorerBalance(fetchText(http.noRedirects(), request, banMs = null))
     }
+
+    /**
+     * The page of history: the normal transactions of the account, then its ERC-20 transfers. The second request is charged to the call's rate budget
+     * before it is sent, so the two together stay within the limit.
+     */
+    private suspend fun txHistory(req: AddressTxHistory, cfg: ProviderConfig, http: Http): List<ExplorerTx> {
+        val normal = explorerNormalTxs(fetchText(http.noRedirects(), historyRequest(req, cfg, "txlist"), banMs = null))
+        http.charge()
+        val tokens = explorerTokenTxs(fetchText(http.noRedirects(), historyRequest(req, cfg, "tokentx"), banMs = null))
+        val rows: List<ExplorerTx> = normal + tokens
+        return rows.involving(req.address)
+    }
+
+    private fun historyRequest(req: AddressTxHistory, cfg: ProviderConfig, action: String): HttpRequest {
+        val url = apiUrl(cfg, req.net.chain)
+            .addQueryParameter("module", "account")
+            .addQueryParameter("action", action)
+            .addQueryParameter("address", req.address)
+            .addQueryParameter("page", req.page.toString())
+            .addQueryParameter("offset", req.offset.toString())
+            .addQueryParameter("sort", "desc")
+            .build()
+        return HttpRequest.Builder()
+            .url(url)
+            .get()
+            .apply { keyOf(cfg)?.let { header("apikey", it) } }
+            .build()
+    }
+
+    /** The Etherscan-compatible account API of [chain], on the configured base. The caller adds the query. */
+    private fun apiUrl(cfg: ProviderConfig, chain: String): HttpUrl.Builder = checkNotNull(providerBase(cfg.baseUrl, BASE)).newBuilder()
+        .addPathSegment("v2")
+        .addPathSegment("network")
+        .addPathSegment("mainnet")
+        .addPathSegment("evm")
+        .addPathSegment(chain)
+        .addPathSegment("etherscan")
+        .addPathSegment("api")
 
     private fun keyOf(cfg: ProviderConfig): String? = cfg.apiKey?.trim()?.takeIf { it.isNotEmpty() }
 }
