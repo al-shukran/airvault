@@ -106,12 +106,9 @@ class WalletStoreBitcoinTest {
         val id = newWallet()
         val version = "0.1.0"
         val seed = Mnemonic.of(words).use { it.deriveSeed("") }
-        val expected = MultiAccountsExport.cbor(
-            HdWallet(seed).masterFingerprint,
-            BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET, accountIndex = 0),
-            HdWallet(seed).accountXpub(),
-            version,
-        )
+        val masterFingerprint = HdWallet(seed).masterFingerprint
+        val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint) }
+        val expected = MultiAccountsExport.cbor(masterFingerprint, keys, version)
 
         val scanner = UrScanner()
         store.keystoneNexusParts(id, version).forEach { scanner.receive(it) }

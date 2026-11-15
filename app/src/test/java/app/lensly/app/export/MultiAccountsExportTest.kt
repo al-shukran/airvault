@@ -1,7 +1,6 @@
 package app.lensly.app.export
 
-import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.app.WalletApp
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.wallet.HdWallet
@@ -22,8 +21,10 @@ import org.junit.Test
 class MultiAccountsExportTest {
     private val seed = hexBytes(SEED)
     private val wallet = HdWallet(seed)
-    private val ethereum = wallet.accountXpub()
-    private val bitcoin = BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET, accountIndex = 0)
+    private val masterFingerprint = wallet.masterFingerprint
+
+    /** The keys of every App in registry order, which is how the export of a wallet is built. */
+    private val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint) }
 
     @Test
     fun abandonAboutSeedHasTheDocumentedMasterFingerprint() {
@@ -32,12 +33,12 @@ class MultiAccountsExportTest {
 
     @Test
     fun cborIsByteForByteTheKeystoneReferenceEncoding() {
-        assertEquals(expectedHex(), MultiAccountsExport.cbor(wallet.masterFingerprint, bitcoin, ethereum, VERSION).toHex())
+        assertEquals(expectedHex(), MultiAccountsExport.cbor(masterFingerprint, keys, VERSION).toHex())
     }
 
     @Test
     fun mapCarriesTheFingerprintTheKeysAndTheDeviceFields() {
-        val root = Cbor.decode(MultiAccountsExport.cbor(wallet.masterFingerprint, bitcoin, ethereum, VERSION)) as Cbor.Dict
+        val root = Cbor.decode(MultiAccountsExport.cbor(masterFingerprint, keys, VERSION)) as Cbor.Dict
         assertEquals(0x73c5da0aL, (root.field(1) as Cbor.Uint).value)
         assertEquals("Lensly", (root.field(3) as Cbor.Text).value)
         assertEquals("73c5da0a", (root.field(4) as Cbor.Text).value)
@@ -46,14 +47,27 @@ class MultiAccountsExportTest {
 
     @Test
     fun keysAreTheFourBitcoinAccountsThenTheEthereumAccount() {
-        val root = Cbor.decode(MultiAccountsExport.cbor(wallet.masterFingerprint, bitcoin, ethereum, VERSION)) as Cbor.Dict
-        val keys = (root.field(2) as Cbor.Arr).items
-        assertEquals(listOf("44'/0'/0'", "49'/0'/0'", "84'/0'/0'", "86'/0'/0'", "44'/60'/0'"), keys.map(::originPath))
+        val root = Cbor.decode(MultiAccountsExport.cbor(masterFingerprint, keys, VERSION)) as Cbor.Dict
+        val exported = (root.field(2) as Cbor.Arr).items
+        assertEquals(listOf("44'/0'/0'", "49'/0'/0'", "84'/0'/0'", "86'/0'/0'", "44'/60'/0'"), exported.map(::originPath))
+    }
+
+    @Test
+    fun everyAppOfTheRegistryContributesItsKeysInOrder() {
+        val bitcoinOnly = WalletApp.BITCOIN.nexusKeys(seed, masterFingerprint)
+        val ethereumOnly = WalletApp.ETHEREUM.nexusKeys(seed, masterFingerprint)
+        assertEquals(4, bitcoinOnly.size)
+        assertEquals(1, ethereumOnly.size)
+        // Cbor nodes compare by identity, so the lists are compared through their encoded export.
+        assertContentEquals(
+            MultiAccountsExport.cbor(masterFingerprint, bitcoinOnly + ethereumOnly, VERSION),
+            MultiAccountsExport.cbor(masterFingerprint, keys, VERSION),
+        )
     }
 
     @Test
     fun framesDecodeBackToThePayloadUnderTheRegistryType() {
-        val parts = MultiAccountsExport.urParts(wallet.masterFingerprint, bitcoin, ethereum, VERSION)
+        val parts = MultiAccountsExport.urParts(masterFingerprint, keys, VERSION)
         assertTrue(parts.first().startsWith("UR:CRYPTO-MULTI-ACCOUNTS/"), parts.first().take(40))
         val scanner = UrScanner()
         for (frame in parts) {
@@ -66,10 +80,9 @@ class MultiAccountsExportTest {
     }
 
     @Test
-    fun rejectsBitcoinAccountsOfAnotherSeed() {
-        val other = BtcWatchOnly.accounts(ByteArray(16) { 7 }, BtcNetwork.MAINNET, accountIndex = 0)
+    fun rejectsAnExportWithNoKeys() {
         assertFailsWith<IllegalArgumentException> {
-            MultiAccountsExport.cbor(wallet.masterFingerprint, other, ethereum, VERSION)
+            MultiAccountsExport.cbor(masterFingerprint, emptyList(), VERSION)
         }
     }
 

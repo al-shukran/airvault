@@ -144,6 +144,13 @@ internal fun pairingParts(wallet: WalletMeta): List<String> = PairingExport.urPa
 )
 
 /**
+ * Whether the Keystone Nexus code cannot be built for [wallet]. Keystone Nexus imports the account keys of a seed phrase (HD) wallet, and
+ * a Single Key has none, so the step shows a notice instead of a code. Only the Keystone Nexus format asks for this.
+ */
+internal fun keystoneNeedsHdWallet(format: PairFormat?, wallet: WalletMeta?): Boolean =
+    format == PairFormat.KEYSTONE_NEXUS && wallet != null && wallet.accountXpub == null
+
+/**
  * PAIR WALLET, as the wizard. [walletId] names the wallet when the route was opened for one, as a wallet's own pairing action
  * does. Null means the owner opened it from the dock and chooses. It reads only public wallet data, so the open session is all
  * it needs. When the code is done, Home shows the confirmation and this route goes back to it.
@@ -241,6 +248,7 @@ internal fun PairWizard(
     val bitcoinReady = chosenNetworks.isNotEmpty()
     // Keystone Nexus needs the seed, so only a Mnemonic wallet, the one with an account public key, has a code.
     val keystoneReady = chosen?.accountXpub != null
+    val keystoneNeedsHd = keystoneNeedsHdWallet(format, chosen)
     // The code is built only when the owner reaches it, from public wallet data.
     val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, bitcoinReady, keystoneReady) {
         value = when {
@@ -269,6 +277,7 @@ internal fun PairWizard(
         frames = frames,
         bitcoinReady = bitcoinReady,
         bitcoinTestnet = BtcNetwork.TESTNET4 in chosenNetworks,
+        keystoneNeedsHd = keystoneNeedsHd,
         onPickWallet = { picked ->
             wallet = picked
             step = PairStep.APP
@@ -302,6 +311,8 @@ internal fun PairWizardScreen(
     bitcoinReady: Boolean = true,
     /** Whether the Bitcoin code holds a testnet account, which the code step marks with a Testnet chip. */
     bitcoinTestnet: Boolean = false,
+    /** Whether the chosen wallet is a Single Key, which has no account keys for a Keystone Nexus code. The steps show a notice instead. */
+    keystoneNeedsHd: Boolean = false,
     onPickWallet: (WalletMeta) -> Unit,
     onPickFormat: (PairFormat) -> Unit,
     onShowCode: () -> Unit,
@@ -317,7 +328,7 @@ internal fun PairWizardScreen(
                     onClick = onShowCode,
                     accent = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = format != PairFormat.BITCOIN || bitcoinReady,
+                    enabled = (format != PairFormat.BITCOIN || bitcoinReady) && !keystoneNeedsHd,
                 )
             }
         }
@@ -354,8 +365,18 @@ internal fun PairWizardScreen(
                     PairStep.WALLET -> WalletStep(wallets = wallets, profiles = profiles, onPick = onPickWallet)
                     PairStep.APP ->
                         if (wallet?.kind == WalletKind.SINGLE_KEY) SingleKeyNotice() else FormatStep(onPick = onPickFormat)
-                    PairStep.INSTRUCTIONS -> InstructionsStep(format = format, walletEntry = walletEntry, bitcoinReady = bitcoinReady)
-                    PairStep.CODE -> CodeStep(format = format, frames = frames, bitcoinTestnet = bitcoinTestnet)
+                    PairStep.INSTRUCTIONS -> InstructionsStep(
+                        format = format,
+                        walletEntry = walletEntry,
+                        bitcoinReady = bitcoinReady,
+                        keystoneNeedsHd = keystoneNeedsHd,
+                    )
+                    PairStep.CODE -> CodeStep(
+                        format = format,
+                        frames = frames,
+                        bitcoinTestnet = bitcoinTestnet,
+                        keystoneNeedsHd = keystoneNeedsHd,
+                    )
                 }
             }
         }
@@ -450,9 +471,22 @@ private fun SingleKeyNotice() {
     )
 }
 
+/**
+ * The Keystone Nexus notice for a Single Key. Keystone Nexus reads the account keys of an HD wallet, so a Single Key gets no code, and
+ * the step says why instead of waiting for one.
+ */
+@Composable
+private fun KeystoneNeedsHdNotice() {
+    InlineBanner(
+        title = "Needs an HD wallet",
+        message = "Keystone Nexus needs an HD wallet (seed phrase). A Single Key has no account keys to share.",
+        tone = BannerTone.Warning,
+    )
+}
+
 /** Step three: the steps for the chosen app, with a drawing of one phone scanning the other, and its Wallet Entry note. */
 @Composable
-private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, bitcoinReady: Boolean) {
+private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, bitcoinReady: Boolean, keystoneNeedsHd: Boolean) {
     PairIllustration(modifier = Modifier.fillMaxWidth())
     Spacer(Modifier.height(LenslySpacing.lg))
     if (format == null) return
@@ -474,6 +508,10 @@ private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, bit
             message = "This wallet has none yet. Add one with Generate accounts in its Bitcoin App, then pair it.",
             tone = BannerTone.Warning,
         )
+    }
+    if (keystoneNeedsHd) {
+        Spacer(Modifier.height(LenslySpacing.lg))
+        KeystoneNeedsHdNotice()
     }
     if (walletEntry != null) {
         Spacer(Modifier.height(LenslySpacing.lg))
@@ -531,7 +569,7 @@ private fun WalletEntryNote(entry: WalletEntry) {
  * Until the parts are ready, it says so.
  */
 @Composable
-private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?, bitcoinTestnet: Boolean) {
+private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?, bitcoinTestnet: Boolean, keystoneNeedsHd: Boolean) {
     if (format != null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // An EVM account carries the Ethereum logo, and a Bitcoin account the Bitcoin logo.
@@ -550,7 +588,9 @@ private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?, bit
         }
     }
     Spacer(Modifier.weight(1f))
-    if (frames == null) {
+    if (keystoneNeedsHd) {
+        KeystoneNeedsHdNotice()
+    } else if (frames == null) {
         LoadingState(label = "Preparing code")
     } else {
         AnimatedQr(parts = frames, modifier = Modifier.fillMaxWidth())
