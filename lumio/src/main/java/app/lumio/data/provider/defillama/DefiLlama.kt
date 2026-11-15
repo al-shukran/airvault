@@ -3,6 +3,7 @@ package app.lumio.data.provider.defillama
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
+import app.lumio.data.price.DefiLlamaChains
 import app.lumio.data.price.NativeCoins
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
@@ -12,6 +13,7 @@ import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
+import app.lumio.data.provider.TokenPrice
 import app.lumio.data.provider.Trait
 import app.lumio.data.provider.answerObject
 import app.lumio.data.provider.asObject
@@ -43,8 +45,14 @@ class DefiLlamaProvider : Provider {
     override val kind: Kind = Kind.DATA
     override val traits: Set<Trait> = setOf(Trait.KEYLESS)
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        op == Op.PRICE && NativeCoins.coinOf(net) != null && providerBase(cfg.baseUrl, BASE) != null
+    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean {
+        val priced = when (op) {
+            Op.PRICE -> NativeCoins.coinOf(net) != null
+            Op.TOKEN_PRICE -> DefiLlamaChains.prefixOf(net) != null
+            else -> false
+        }
+        return priced && providerBase(cfg.baseUrl, BASE) != null
+    }
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = LIMITS
 
@@ -52,14 +60,14 @@ class DefiLlamaProvider : Provider {
     override suspend fun <T> execute(req: Request<T>, cfg: ProviderConfig, http: Http): T {
         if (!supports(req.net, req.op, cfg)) throw ProviderError.Unsupported()
         return when (req) {
-            is NativePrice -> price(req, cfg, http) as T
+            is NativePrice -> price("coingecko:" + checkNotNull(NativeCoins.coinOf(req.net)), cfg, http) as T
+            is TokenPrice -> price(checkNotNull(DefiLlamaChains.prefixOf(req.net)) + ":" + req.contract, cfg, http) as T
             else -> throw ProviderError.Unsupported()
         }
     }
 
-    /** The price, then the 24-hour change. The second request takes its own token from the call's rate bucket. */
-    private suspend fun price(req: NativePrice, cfg: ProviderConfig, http: Http): PriceQuote {
-        val coin = "coingecko:" + checkNotNull(NativeCoins.coinOf(req.net))
+    /** The price of [coin], a `{chain}:{address}` or `coingecko:{id}` id, then its 24-hour change. The second request takes its own token from the call's rate bucket. */
+    private suspend fun price(coin: String, cfg: ProviderConfig, http: Http): PriceQuote {
         val base = checkNotNull(providerBase(cfg.baseUrl, BASE))
         val priceUrl = base.newBuilder().addPathSegment("prices").addPathSegment("current").addPathSegment(coin).build()
         val current = answerObject(fetchText(http.noRedirects(), get(priceUrl), banMs = null))

@@ -2,6 +2,7 @@ package app.lumio.data.rpc
 
 import app.lensly.core.wallet.toHex
 import app.lumio.data.provider.Broadcast
+import app.lumio.data.provider.ContractCall
 import app.lumio.data.provider.EstimateGas
 import app.lumio.data.provider.GasFees
 import app.lumio.data.provider.GasQuote
@@ -27,6 +28,7 @@ internal object EvmCalls {
     private const val MAX_LONG_BITS = 63
     private val ADDRESS = Regex("0x[0-9a-fA-F]{40}")
     private val HASH = Regex("0x[0-9a-f]{64}")
+    private val HEX_DATA = Regex("0x([0-9a-fA-F]{2})*")
     private val NO_PARAMS = JsonArray(emptyList())
 
     /**
@@ -54,6 +56,10 @@ internal object EvmCalls {
             }
             is GasFees -> gasFees { method, params -> call(method, params) }
             is Broadcast -> hash(call("eth_sendRawTransaction", strings("0x" + req.raw.toHex())))
+            is ContractCall -> {
+                val transaction = JsonObject(mapOf("to" to JsonPrimitive(req.to), "data" to JsonPrimitive(req.data)))
+                hexData(call("eth_call", JsonArray(listOf(transaction, JsonPrimitive(LATEST)))))
+            }
             else -> throw ProviderError.Unsupported()
         }
         return result as T
@@ -86,6 +92,13 @@ internal object EvmCalls {
         val value = quantity(element)
         if (value.bitLength() > MAX_LONG_BITS) throw ProviderError.Fatal("The endpoint reports a count that is too large.")
         return value.toLong()
+    }
+
+    /** The return data of a call: hex with a 0x prefix, `0x` for an empty answer. Any other value is a malformed answer. */
+    private fun hexData(element: JsonElement): String {
+        val text = stringOf(element)
+        if (!HEX_DATA.matches(text)) throw ProviderError.Fatal("The endpoint sent a value that is not hex data.")
+        return text
     }
 
     private fun hash(element: JsonElement): String {

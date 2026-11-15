@@ -3,11 +3,14 @@ package app.lumio.data.price
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.Codec
 import app.lumio.data.cache.CachePolicy
+import app.lumio.data.asset.AssetId
 import app.lumio.data.cache.jsonCodec
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.Request
+import app.lumio.data.provider.TokenPrice
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import kotlinx.coroutines.async
@@ -25,8 +28,8 @@ const val PRICE_TTL_MS = 60_000L
 data class Price(val usd: Double, val change24hPct: Double?, val asOfMs: Long, val stale: Boolean)
 
 /**
- * The USD prices of the native coins. A network is its own asset key, since each network has one native coin. Token prices will need their own key
- * when they are priced.
+ * The USD prices of the native coins and of the ERC-20 tokens that [AssetId] names. A native coin is priced by its network's CoinGecko id, and a token
+ * by its contract under its chain's DefiLlama prefix (see [DefiLlamaChains]). An asset with no price source is absent from the answer.
  *
  * A fresh price is reused from memory for [PRICE_TTL_MS]. Each price a source answers is also kept in the open vault's cache, so when no source
  * answers, the last one is returned with [Price.stale] set. While the vault is locked there is no cache, so only a live answer is returned.
@@ -45,18 +48,23 @@ class PriceRepository(
      * is absent from the map. A network whose sources all fail, and that has no kept price, is absent too.
      */
     suspend fun prices(nets: Collection<NetworkId>, priority: Priority = Priority.VISIBLE): Map<NetworkId, Price> = coroutineScope {
-        nets.toSet().map { net -> async { priceOf(net, priority)?.let { net to it } } }.awaitAll().filterNotNull().toMap()
+        nets.toSet().map { net -> async { priceOf(AssetId.Native(net), priority)?.let { net to it } } }.awaitAll().filterNotNull().toMap()
     }
 
-    private suspend fun priceOf(net: NetworkId, priority: Priority): Price? {
-        val coin = NativeCoins.coinOf(net) ?: return null
-        val key = "native-price:$coin"
+    /** The price of each of [assets] that has one, keyed by asset. The rules of [prices] hold for each asset. */
+    suspend fun assetPrices(assets: Collection<AssetId>, priority: Priority = Priority.VISIBLE): Map<AssetId, Price> = coroutineScope {
+        assets.toSet().map { asset -> async { priceOf(asset, priority)?.let { asset to it } } }.awaitAll().filterNotNull().toMap()
+    }
+
+    private suspend fun priceOf(asset: AssetId, priority: Priority): Price? {
+        val request = priceRequestOf(asset) ?: return null
+        val key = priceKeyOf(asset) ?: return null
         val codec = jsonCodec<PriceQuote>()
         val store = cache()
         // A price served from memory is returned as it is. Only a live answer from a source is written as the last price kept.
         store?.get(CachePolicy.ShortTtl(PRICE_TTL_MS), key)?.let { decodeOrNull(codec, it.value) }?.let { return it.toPrice(stale = false) }
         return try {
-            val quote = scheduler.run(NativePrice(net), priority)
+            val quote = scheduler.run(request, priority)
             store?.put(CachePolicy.ShortTtl(PRICE_TTL_MS), key, codec.encode(quote))
             store?.put(CachePolicy.LastKnown, key, codec.encode(quote))
             quote.toPrice(stale = false)
@@ -69,4 +77,16 @@ class PriceRepository(
     private fun decodeOrNull(codec: Codec<PriceQuote>, bytes: ByteArray): PriceQuote? = runCatching { codec.decode(bytes) }.getOrNull()
 
     private fun PriceQuote.toPrice(stale: Boolean): Price = Price(usd = usd, change24hPct = change24hPct, asOfMs = asOfMs, stale = stale)
+}
+
+/** The request that prices [asset], or null when no price source names it. */
+internal fun priceRequestOf(asset: AssetId): Request<PriceQuote>? = when (asset) {
+    is AssetId.Native -> NativeCoins.coinOf(asset.net)?.let { NativePrice(asset.net) }
+    is AssetId.Erc20 -> DefiLlamaChains.prefixOf(asset.net)?.let { TokenPrice(asset.net, asset.contract) }
+}
+
+/** The cache key of the price of [asset]. A native coin keeps the key it has always had, so a kept price still reads. Null when it has no price source. */
+internal fun priceKeyOf(asset: AssetId): String? = when (asset) {
+    is AssetId.Native -> NativeCoins.coinOf(asset.net)?.let { "native-price:$it" }
+    is AssetId.Erc20 -> DefiLlamaChains.prefixOf(asset.net)?.let { "token-price:$it:${asset.contract}" }
 }

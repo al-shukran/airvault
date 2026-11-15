@@ -8,6 +8,7 @@ import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Broadcast
+import app.lumio.data.provider.ContractCall
 import app.lumio.data.provider.DataPlugins
 import app.lumio.data.provider.EstimateGas
 import app.lumio.data.provider.GasFees
@@ -28,6 +29,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 
+/** A read-only call of a contract on a chain, as the chain answers it. [to] is the contract and [data] the encoded call; the answer is the return data in hex. */
+interface ContractReads {
+    suspend fun call(chain: EvmChain, to: String, data: String): String
+}
+
 /**
  * The EVM chain reads and broadcasts, routed by the scheduler. A chain whose RPC address the owner set reads only from that address, so the
  * owner's addresses never reach a public provider. Every other chain reads from the public pool: its DATA providers first, then its RPC providers.
@@ -41,7 +47,7 @@ class EvmReads(
     /** The pool that balance reads use while [preferRpc] holds. It has no explorers. Without it, [pool] serves every read. */
     private val rpcOnly: Scheduler = pool,
     private val preferRpc: () -> Boolean = { false },
-) {
+) : ContractReads {
     suspend fun balance(chain: EvmChain, address: String, priority: Priority = Priority.VISIBLE): BigInteger =
         run(chain, priority, NativeBalance(net(chain), address), if (preferRpc()) rpcOnly else pool)
 
@@ -54,6 +60,10 @@ class EvmReads(
         run(chain, priority, EstimateGas(net(chain), from, to, valueWei))
 
     suspend fun broadcast(chain: EvmChain, raw: ByteArray): String = run(chain, Priority.FOREGROUND, Broadcast(net(chain), raw))
+
+    /** The return data of a read-only call of [to] with [data] on [chain], in hex. Token balances and metadata are read this way. */
+    override suspend fun call(chain: EvmChain, to: String, data: String): String =
+        run(chain, Priority.VISIBLE, ContractCall(net(chain), to, data))
 
     /** What the pool, or else the owner's scheduler, knows about [providerId] now, or null when neither holds that provider. */
     suspend fun statusOf(providerId: String): ProviderHealth? = pool.statusOf(providerId) ?: owner.statusOf(providerId)
