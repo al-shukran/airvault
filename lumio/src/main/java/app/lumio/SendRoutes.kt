@@ -202,7 +202,7 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
     // A debug build can read a fixture in place of the camera, so the signature can be shown without one. Release builds have no fixture.
     LaunchedEffect(step) {
         val current = step
-        if (current is SendStep.Scanning) DebugBtcFixture.take()?.let { onSignatureText(current, it) }
+        if (current is SendStep.Scanning) DebugBtcFixture.take()?.split(' ')?.forEach { onSignatureText(current, it) }
     }
 
     fun openExplorer(url: String) {
