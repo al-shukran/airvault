@@ -38,6 +38,8 @@ import app.lumio.data.sched.Scheduler
 import app.lumio.evm.EvmReads
 import app.lumio.evm.EvmRpc
 import app.lumio.network.NetworkModeStore
+import app.lumio.tokens.Token
+import app.lumio.tokens.TokenCatalog
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
@@ -59,6 +61,9 @@ class LumioApp : Application(), CoverApplication {
 
     /** The chain registry, read from the catalogs in this APK. Debug builds include the debug testnets. */
     val registry: Registry by lazy { RegistryLoader.fromAssets(assets) }
+
+    /** The five major tokens of each mainnet chain, from the bundled list `assets/tokens/default-tokens.json`. */
+    val defaultTokens: List<Token> by lazy { TokenCatalog.parse(assets.open("tokens/default-tokens.json").bufferedReader().use { it.readText() }) }
 
     /** The HTTP stack that every RPC call shares: no redirects, and each call is bounded by a timeout. */
     val rpcHttp: Http by lazy { JsonRpc.newHttp() }

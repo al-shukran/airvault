@@ -10,6 +10,7 @@ import app.lumio.data.provider.Op
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
+import app.lumio.data.provider.TokenPrice
 import app.lumio.data.provider.Trait
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
@@ -127,5 +128,26 @@ class DefiLlamaProviderTest {
         assertTrue(provider.supports(ETH, Op.PRICE, ProviderConfig()))
         assertFalse(provider.supports(ETH, Op.NATIVE_BALANCE, ProviderConfig()))
         assertFalse(provider.supports(ETH, Op.PRICE, ProviderConfig(baseUrl = "http://example.org/")))
+    }
+
+    @Test
+    fun aTokenIsPricedByItsChainPrefixAndContractAndItsChangeIsAskedForToo() {
+        val usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        val coin = "ethereum:$usdc"
+        server.enqueue(MockResponse().setBody("""{"coins":{"$coin":{"price":0.9998,"symbol":"USDC","timestamp":1794774850,"confidence":0.999}}}"""))
+        server.enqueue(MockResponse().setBody("""{"coins":{"$coin":-0.01}}"""))
+
+        assertEquals(PriceQuote(usd = 0.9998, change24hPct = -0.01, asOfMs = 1_794_774_850_000L), call(TokenPrice(ETH, usdc)))
+        assertEquals("/prices/current/$coin", server.takeRequest().path)
+        assertEquals("/percentage/$coin?period=24h", server.takeRequest().path)
+    }
+
+    @Test
+    fun aTokenOnAChainWithoutAPrefixOrOnATestnetIsUnsupportedWithoutACall() {
+        val usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(NetworkId(Family.EVM, "250", testnet = false), usdc)) }
+        assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(NetworkId(Family.EVM, "1", testnet = true), usdc)) }
+        assertEquals(0, server.requestCount)
+        assertTrue(DefiLlamaProvider().supports(ETH, Op.TOKEN_PRICE, ProviderConfig()))
     }
 }

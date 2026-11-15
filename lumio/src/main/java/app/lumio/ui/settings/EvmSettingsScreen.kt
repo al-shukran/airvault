@@ -60,6 +60,7 @@ fun EvmSettingsSection(
     onResetRpc: (chainId: Long) -> Unit,
     onRemoveCustom: (chainId: Long) -> Unit,
     onAddCustom: (CustomChainInput, onDone: (String?) -> Unit) -> Unit,
+    onTokens: (chainId: Long) -> Unit = {},
 ) {
     var editing by remember { mutableStateOf<EvmChain?>(null) }
     var adding by remember { mutableStateOf(false) }
@@ -81,6 +82,7 @@ fun EvmSettingsSection(
             busy = busy,
             onEnabled = { on -> onEnabled(chain.chainId, on) },
             onEdit = { editing = chain },
+            onTokens = { onTokens(chain.chainId) },
             onReset = { onResetRpc(chain.chainId) },
             onRemove = { onRemoveCustom(chain.chainId) },
         )
@@ -152,6 +154,7 @@ private fun ChainRow(
     busy: Boolean,
     onEnabled: (Boolean) -> Unit,
     onEdit: () -> Unit,
+    onTokens: () -> Unit,
     onReset: () -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -175,6 +178,7 @@ private fun ChainRow(
                 horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                TextAction(text = "Tokens", onClick = onTokens, enabled = !busy)
                 TextAction(text = "Edit RPC", onClick = onEdit, enabled = !busy)
                 if (overridden) TextAction(text = "Reset", onClick = onReset, enabled = !busy)
                 if (custom) TextAction(text = "Remove", onClick = onRemove, enabled = !busy, destructive = true)
