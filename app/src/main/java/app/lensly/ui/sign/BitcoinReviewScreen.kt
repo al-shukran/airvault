@@ -99,7 +99,7 @@ fun BitcoinReviewScreen(
         )
         review.outputs.forEach { output ->
             FactRow(label = "Output ${output.index}") {
-                output.address?.let { AddressText(it) } ?: MutedText("No address. The script is not paid to an address.")
+                output.address?.let { AddressText(it, bitcoin = true) } ?: MutedText("No address. The script is not paid to an address.")
                 MonoText(btcText(output.amountSats))
                 if (output.isOwnChange) NoteText("Your change, at change index ${output.changeIndex}")
             }
