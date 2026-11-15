@@ -12,8 +12,17 @@ import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.Trait
 
-/** The operations an Esplora server serves. */
-private val ESPLORA_OPS = setOf(Op.ADDRESS_STATS, Op.ADDRESS_TXS, Op.ADDRESS_UTXOS, Op.TIP_HEIGHT, Op.FEE_ESTIMATES, Op.BLOCK, Op.TX)
+/** The operations an Esplora server serves. Broadcast is `POST /tx`, which every Esplora server takes. */
+private val ESPLORA_OPS = setOf(
+    Op.ADDRESS_STATS,
+    Op.ADDRESS_TXS,
+    Op.ADDRESS_UTXOS,
+    Op.TIP_HEIGHT,
+    Op.FEE_ESTIMATES,
+    Op.BLOCK,
+    Op.TX,
+    Op.BROADCAST,
+)
 
 /**
  * The rate each Esplora server is asked at by default. It is well under the rate that the scan needs for eight accounts, and the scheduler moves a

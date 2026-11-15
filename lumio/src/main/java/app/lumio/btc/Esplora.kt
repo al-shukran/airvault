@@ -127,6 +127,23 @@ internal object EsploraParse {
         return height
     }
 
+    /** The raw transaction, in hex, as `GET /tx/{txid}/hex` answers it. Lowercase, with an even number of digits. */
+    fun rawTx(text: String): String {
+        val hex = text.trim()
+        if (!HEX.matches(hex) || hex.length % 2 != 0) throw EsploraException("The server's answer is not a transaction in hex.")
+        return hex.lowercase()
+    }
+
+    /** The transaction id that `POST /tx` answers with: 64 hex digits of text. Lowercase. */
+    fun broadcastTxid(text: String): String {
+        val txid = text.trim()
+        if (!TXID.matches(txid)) throw EsploraException("The server's answer is not a transaction id.")
+        return txid.lowercase()
+    }
+
+    private val HEX = Regex("[0-9a-fA-F]+")
+    private val TXID = Regex("[0-9a-fA-F]{64}")
+
     fun feeEstimates(text: String): Map<Int, Double> = guard(text) { root ->
         root.entries.associate { (target, rate) ->
             val blocks = target.toIntOrNull() ?: throw IllegalArgumentException("fee target is not a number")

@@ -30,6 +30,7 @@ internal object LumioRoute {
     const val PAIR_REVIEW = "pair-review"
     const val BITCOIN_ACCOUNT = "bitcoin-account"
     const val SETTINGS = "settings"
+    const val BTC_SEND = "bitcoin-send"
 
     /** The argument of a paired wallet's routes: the wallet's ID. */
     const val WALLET_ARG = "walletId"
@@ -142,6 +143,9 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                 LumioBackdrop(selection) {
                     BitcoinAccountRoute(navController = navController, holder = holder, accountKey = key)
                 }
+            }
+            composable(LumioRoute.BTC_SEND) {
+                LumioBackdrop(selection) { BtcSendRoute(navController = navController, holder = holder, mode = selection.mode) }
             }
             composable(LumioRoute.SETTINGS) {
                 LumioBackdrop(selection) {

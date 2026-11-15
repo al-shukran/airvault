@@ -114,6 +114,7 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
             BtcPortfolio.refreshNotice(read = read, missed = missed, message = message)?.let { mapOf(net to it) }
         }.orEmpty(),
         onOpen = { ref -> navController.openHidden(accountRoute(ref.key)) },
+        onSend = { navController.navigate(LumioRoute.BTC_SEND) },
         onRefresh = ::refresh,
         onBack = { navController.popBackStack() },
     )

@@ -56,6 +56,7 @@ fun BitcoinPortfolioScreen(
     progress: String?,
     failures: Map<BtcNetwork, String>,
     onOpen: (BtcAccountRef) -> Unit,
+    onSend: () -> Unit,
     onRefresh: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -71,6 +72,8 @@ fun BitcoinPortfolioScreen(
             )
         },
     ) {
+        PillButton(text = "Send bitcoin", onClick = onSend, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(LenslySpacing.md))
         if (sections.isEmpty()) {
             EmptyState(
                 icon = LenslyIcons.Wallets,
