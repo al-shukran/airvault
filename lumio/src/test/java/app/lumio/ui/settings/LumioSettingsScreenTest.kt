@@ -45,6 +45,7 @@ class LumioSettingsScreenTest {
                             onAddCustom = { _, _ -> },
                         )
                     },
+                    onDataProviders = {},
                 )
             }
         }
@@ -57,6 +58,7 @@ class LumioSettingsScreenTest {
         compose.onNodeWithText("Addresses per wallet").assertExists()
         compose.onNodeWithText("Chains").assertExists()
         compose.onNodeWithText("Add custom chain", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Data providers", ignoreCase = true).assertExists()
     }
 
     @Test
@@ -67,6 +69,7 @@ class LumioSettingsScreenTest {
                     onBack = {},
                     bitcoin = {},
                     ethereum = {},
+                    onDataProviders = {},
                 )
             }
         }

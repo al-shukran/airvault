@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -22,6 +23,7 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.theme.LenslySpacing
+import app.lumio.R
 
 /**
  * Lumio's settings, in two sections. Bitcoin holds the Esplora server each Bitcoin network reads from, and Ethereum holds the EVM settings.
@@ -32,11 +34,25 @@ fun LumioSettingsScreen(
     onBack: () -> Unit,
     bitcoin: @Composable () -> Unit,
     ethereum: @Composable () -> Unit,
+    onDataProviders: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = "SETTINGS", modifier = modifier, onBack = onBack) {
         SettingsSection(title = "Bitcoin", content = bitcoin)
         SettingsSection(title = "Ethereum", content = ethereum)
+        SettingsSection(title = stringResource(R.string.settings_providers_heading)) {
+            Text(
+                stringResource(R.string.settings_providers_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            PillButton(
+                text = stringResource(R.string.settings_providers_open),
+                onClick = onDataProviders,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

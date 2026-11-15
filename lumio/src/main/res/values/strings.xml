@@ -1,4 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Lumio</string>
+
+    <string name="providers_title">DATA PROVIDERS</string>
+    <string name="providers_intro">Lumio reads chain data and sends transactions through these providers, in the order below. A provider that is off, or that needs a key you have not set, is skipped. API keys are sealed in this vault and stay hidden until you show them.</string>
+    <string name="providers_data_heading">Data</string>
+    <string name="providers_rpc_heading">RPC</string>
+    <string name="providers_mev_badge">MEV-protected</string>
+    <string name="providers_move_up">Move up</string>
+    <string name="providers_move_down">Move down</string>
+    <string name="providers_key_label">API key</string>
+    <string name="providers_key_show">Show</string>
+    <string name="providers_key_hide">Hide</string>
+    <string name="providers_key_save">Save key</string>
+    <string name="providers_key_clear">Clear key</string>
+    <string name="status_off">Off</string>
+    <string name="status_needs_key">Needs key</string>
+    <string name="status_not_active">Not in use</string>
+    <string name="status_circuit_open">Circuit open, retry in %1$d s</string>
+    <string name="status_cooling_down">Cooling down, %1$d s left</string>
+    <string name="status_healthy">Healthy, score %1$d</string>
+    <string name="status_ready">Ready, no calls yet</string>
+    <string name="settings_providers_heading">Providers</string>
+    <string name="settings_providers_body">Choose which data and RPC providers Lumio uses, their order, and their API keys.</string>
+    <string name="settings_providers_open">Data providers</string>
 </resources>

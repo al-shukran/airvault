@@ -4,6 +4,12 @@ package app.lumio.data.sched
 internal enum class Circuit { CLOSED, OPEN, HALF_OPEN }
 
 /**
+ * What the settings screen shows of one provider at one moment: its health [score], lower is healthier, or null before any call has reached it;
+ * the time left in a cooldown after a rate limit, [coolingMs]; and the time left in an open circuit, [circuitOpenMs]. Both times are zero when none applies.
+ */
+data class ProviderHealth(val score: Double?, val coolingMs: Long, val circuitOpenMs: Long)
+
+/**
  * What the scheduler knows about one provider: its cooldown after a rate limit, its circuit breaker, and its health score. Only the scheduler's
  * lock touches it.
  */
@@ -25,6 +31,13 @@ internal class Health {
         if (nowMs < cooldownUntil || probeInFlight) return false
         return circuit != Circuit.OPEN || nowMs >= openUntil
     }
+
+    /** What the settings screen shows of this provider at [nowMs]. Only the scheduler's lock calls it. */
+    fun snapshot(nowMs: Long): ProviderHealth = ProviderHealth(
+        score = score(nowMs),
+        coolingMs = (cooldownUntil - nowMs).coerceAtLeast(0L),
+        circuitOpenMs = if (circuit == Circuit.OPEN) (openUntil - nowMs).coerceAtLeast(0L) else 0L,
+    )
 
     /** Lower is healthier: the latency, plus penalties for errors and for recent rate limits. */
     fun score(nowMs: Long): Double {
