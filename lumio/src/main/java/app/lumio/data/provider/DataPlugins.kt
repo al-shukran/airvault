@@ -14,8 +14,11 @@ import app.lumio.data.provider.threexpl.ThreeXplProvider
  * the first of a call takes its own token from the keyless budget.
  */
 object DataPlugins {
-    /** The EVM balance providers. Etherscan is listed, but it serves nothing until a key is set. */
-    fun evm(): List<Provider> = listOf(
+    /**
+     * The EVM balance providers. Etherscan is listed, but it serves nothing until a key is set. With [preferRpc], the explorers are left out, so a
+     * balance read goes to the RPC providers only. Each explorer here serves native balances alone, so nothing else changes.
+     */
+    fun evm(preferRpc: Boolean = false): List<Provider> = if (preferRpc) emptyList() else listOf(
         RoutescanProvider(),
         EtherscanProvider(),
         BlockscoutProvider(),

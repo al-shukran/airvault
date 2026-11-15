@@ -1,6 +1,7 @@
 package app.lumio.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -69,6 +72,8 @@ fun DataProvidersScreen(
     onEnabled: (id: String, on: Boolean) -> Unit,
     onMove: (id: String, up: Boolean) -> Unit,
     onApiKey: (id: String, key: String) -> Unit,
+    preferRpc: Boolean = false,
+    onPreferRpc: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = stringResource(R.string.providers_title), modifier = modifier, onBack = onBack) {
@@ -77,8 +82,47 @@ fun DataProvidersScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        PrivacyNote(preferRpc, onPreferRpc)
         ProviderGroup(stringResource(R.string.providers_data_heading), data, onEnabled, onMove, onApiKey)
         ProviderGroup(stringResource(R.string.providers_rpc_heading), rpc, onEnabled, onMove, onApiKey)
+    }
+}
+
+/** Which providers see the addresses a balance read asks for, and the switch that keeps the explorers out of those reads. */
+@Composable
+private fun PrivacyNote(preferRpc: Boolean, onPreferRpc: (Boolean) -> Unit) {
+    Spacer(Modifier.height(LenslySpacing.lg))
+    Text(
+        stringResource(R.string.providers_privacy_heading),
+        modifier = Modifier.semantics { heading() },
+        style = MaterialTheme.typography.titleLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
+    Spacer(Modifier.height(LenslySpacing.sm))
+    Text(
+        stringResource(R.string.providers_privacy_body),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(LenslySpacing.md))
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.providers_prefer_rpc_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                stringResource(R.string.providers_prefer_rpc_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = preferRpc,
+            onCheckedChange = onPreferRpc,
+            modifier = Modifier.testTag("prefer-rpc"),
+        )
     }
 }
 
