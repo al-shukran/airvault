@@ -23,10 +23,13 @@ import app.lumio.data.esplora.CustomEsploraProvider
 import app.lumio.data.esplora.EsploraProtocol
 import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.net.NetworkId
+import app.lumio.data.price.PriceRepository
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.blockchair.BlockchairProvider
+import app.lumio.data.provider.coingecko.CoinGeckoProvider
+import app.lumio.data.provider.defillama.DefiLlamaProvider
 import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.scan.QueuedJob
 import app.lumio.data.scan.ScanQueue
@@ -115,6 +118,25 @@ class LumioApp : Application(), CoverApplication {
             cache = { lumioVault()?.cache },
         )
     }
+
+    /**
+     * The one scheduler of price calls: DefiLlama first, then CoinGecko as the fallback. It keeps its own rates and cooldowns, apart from the Bitcoin
+     * scheduler, and it reads the same cache and provider settings.
+     */
+    private val priceScheduler: Scheduler by lazy {
+        Scheduler(
+            providers = listOf(DefiLlamaProvider(), CoinGeckoProvider()),
+            configs = { lumioVault()?.configs().orEmpty() },
+            http = http,
+            clock = MonotonicClock,
+            random = Random.Default,
+            scope = scope,
+            cache = { lumioVault()?.cache },
+        )
+    }
+
+    /** The USD prices of the native coins and their 24-hour change. Each screen that shows a price reads them from here. */
+    val prices: PriceRepository by lazy { PriceRepository(priceScheduler) { lumioVault()?.cache } }
 
     /** The one queue of Bitcoin scan jobs. It reads the open vault's rows, and nothing while the vault is locked. */
     val scanQueue: ScanQueue by lazy { ScanQueue { lumioVault()?.scanRows } }
