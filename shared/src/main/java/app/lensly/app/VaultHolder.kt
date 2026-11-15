@@ -43,6 +43,7 @@ class VaultHolder(
             return false
         }
         session?.close()
+        attachment?.wipe()
         session = opened
         attachment = attach(opened)
         return true
@@ -54,9 +55,16 @@ class VaultHolder(
         epoch++
         session?.close()
         session = null
+        attachment?.wipe()
         attachment = null
     }
 }
 
-/** State that an app keeps for one open session, such as Lensly's reads of its wallets. [VaultHolder] drops it on lock. */
-interface SessionAttachment
+/**
+ * State that an app keeps for one open session, such as Lensly's reads of its wallets. [VaultHolder] wipes it and drops it on lock, and
+ * when a new session replaces the one it was kept for.
+ */
+interface SessionAttachment {
+    /** Drops everything kept for the session. Called once, by [VaultHolder], before the attachment is let go. */
+    fun wipe() {}
+}
