@@ -1,5 +1,9 @@
 package app.lensly.app
 
+import app.lensly.app.sign.BitcoinRecordFacts
+import app.lensly.app.sign.BitcoinRecordNotice
+import app.lensly.app.sign.BitcoinRecordOutput
+import app.lensly.app.sign.NoticeLevel
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
@@ -268,4 +272,67 @@ class ReviewHistoryTest {
 
     private fun ByteArray.containsBytes(needle: ByteArray): Boolean =
         (0..size - needle.size).any { start -> needle.indices.all { this[start + it] == needle[it] } }
+
+    private fun bitcoinReviewOf(atMs: Long) = ReviewRecord(
+        atMs = atMs,
+        outcome = ReviewOutcome.SIGNED,
+        kind = ReviewKind.BITCOIN_TRANSACTION,
+        chainId = null,
+        networkName = "Bitcoin testnet4",
+        accountIndex = 0,
+        address = null,
+        function = null,
+        to = null,
+        amount = "0.00030000 BTC",
+        tokenContract = null,
+        fee = emptyList(),
+        params = emptyList(),
+        origin = null,
+        refusal = null,
+        dataHash = "cd".repeat(32),
+        bitcoin = BitcoinRecordFacts(
+            scriptType = "Native segwit P2WPKH",
+            outputs = listOf(
+                BitcoinRecordOutput(address = "tb1qpaid", amountSats = 30_000L, isOwnChange = false),
+                BitcoinRecordOutput(address = null, amountSats = 0L, isOwnChange = false),
+                BitcoinRecordOutput(address = "tb1qchange", amountSats = 60_000L, isOwnChange = true),
+            ),
+            feeSats = 10_000L,
+            feeRateSatPerVb = 71.4,
+            notices = listOf(
+                BitcoinRecordNotice(NoticeLevel.WARN, "The fee is 33.3% of the amount sent to others."),
+                BitcoinRecordNotice(NoticeLevel.BLOCK, "Input 0 has no previous transaction."),
+            ),
+        ),
+    )
+
+    @Test
+    fun aBitcoinRecordIsListedWithEveryFactUnchanged() {
+        val wallet = newWallet("MAIN")
+
+        history.append(wallet, bitcoinReviewOf(atMs = 6_000L))
+
+        assertEquals(listOf(bitcoinReviewOf(atMs = 6_000L)), history.list(wallet))
+    }
+
+    @Test
+    fun aBitcoinRecordWithAnUnknownFeeKeepsItsNullsAndKindInTheWallet() {
+        val wallet = newWallet("MAIN")
+        val unknownFee = bitcoinReviewOf(atMs = 7_000L).copy(
+            bitcoin = bitcoinReviewOf(atMs = 7_000L).bitcoin?.copy(feeSats = null, feeRateSatPerVb = null, notices = emptyList()),
+        )
+
+        history.append(wallet, unknownFee)
+
+        assertEquals(listOf(unknownFee), history.list(wallet))
+    }
+
+    @Test
+    fun aVersionOneRecordReadsWithNoBitcoinFacts() {
+        // Version 1 ends after the data hash. An EVM record with no Bitcoin facts ends in one empty flag, which is dropped here.
+        val bytes = ReviewRecordCodec.encode(reviewOf(atMs = 8_000L))
+        val versionOne = bytes.copyOf(bytes.size - 1).also { it[0] = 1 }
+
+        assertEquals(reviewOf(atMs = 8_000L), ReviewRecordCodec.decode(versionOne))
+    }
 }

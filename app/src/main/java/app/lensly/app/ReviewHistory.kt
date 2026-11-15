@@ -1,5 +1,9 @@
 package app.lensly.app
 
+import app.lensly.app.sign.BitcoinRecordFacts
+import app.lensly.app.sign.BitcoinRecordNotice
+import app.lensly.app.sign.BitcoinRecordOutput
+import app.lensly.app.sign.NoticeLevel
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
@@ -61,12 +65,15 @@ class ReviewHistory(private val session: VaultSession) {
 /**
  * The binary layout of a Review Record, written the way [WalletRecords] writes its records: a version byte, then each field in
  * order. Text is a length and its UTF-8 bytes, so a long message fits, which DataOutputStream.writeUTF refuses past 64 KiB. Each
- * optional field is a flag, then its value when the flag is set.
+ * optional field is a flag, then its value when the flag is set. Version 2 appends the Bitcoin facts, which a version 1 record
+ * does not have, so it reads with none.
  */
 internal object ReviewRecordCodec {
-    private const val VERSION = 1
+    private const val VERSION = 2
     private const val MAX_TEXT_BYTES = 1 shl 20
     private const val MAX_ROWS = 256
+    private const val MAX_OUTPUTS = 4096
+    private const val MAX_NOTICES = 256
 
     fun encode(record: ReviewRecord): ByteArray = WalletRecords.writeBytes { out ->
         out.writeByte(VERSION)
@@ -86,11 +93,12 @@ internal object ReviewRecordCodec {
         out.writeOptional(record.origin) { writeText(it) }
         out.writeOptional(record.refusal) { writeText(it) }
         out.writeText(record.dataHash)
+        out.writeOptional(record.bitcoin) { writeBitcoin(it) }
     }
 
     fun decode(bytes: ByteArray): ReviewRecord = WalletRecords.readBytes(bytes) { input ->
         val version = input.readUnsignedByte()
-        require(version == VERSION) { "Unknown record version $version." }
+        require(version in 1..VERSION) { "Unknown record version $version." }
         val outcome = ReviewOutcome.fromWire(input.readUnsignedByte())
         val kind = ReviewKind.fromWire(input.readUnsignedByte())
         val atMs = input.readLong()
@@ -107,6 +115,7 @@ internal object ReviewRecordCodec {
         val origin = input.readOptional { readText() }
         val refusal = input.readOptional { readText() }
         val dataHash = input.readText()
+        val bitcoin = if (version >= 2) input.readOptional { readBitcoin() } else null
         ReviewRecord(
             atMs = atMs,
             outcome = outcome,
@@ -124,6 +133,7 @@ internal object ReviewRecordCodec {
             origin = origin,
             refusal = refusal,
             dataHash = dataHash,
+            bitcoin = bitcoin,
         )
     }
 
@@ -145,6 +155,40 @@ internal object ReviewRecordCodec {
         val size = readInt()
         require(size in 0..MAX_TEXT_BYTES) { "Text is out of range." }
         return String(ByteArray(size).also { readFully(it) }, Charsets.UTF_8)
+    }
+
+    private fun DataOutputStream.writeBitcoin(facts: BitcoinRecordFacts) {
+        writeText(facts.scriptType)
+        writeInt(facts.outputs.size)
+        facts.outputs.forEach { output ->
+            writeOptional(output.address) { writeText(it) }
+            writeLong(output.amountSats)
+            writeBoolean(output.isOwnChange)
+        }
+        writeOptional(facts.feeSats) { writeLong(it) }
+        writeOptional(facts.feeRateSatPerVb) { writeDouble(it) }
+        writeInt(facts.notices.size)
+        facts.notices.forEach { notice ->
+            writeByte(notice.level.wire)
+            writeText(notice.text)
+        }
+    }
+
+    private fun DataInputStream.readBitcoin(): BitcoinRecordFacts {
+        val scriptType = readText()
+        val outputCount = readInt()
+        require(outputCount in 0..MAX_OUTPUTS) { "Too many outputs." }
+        val outputs = List(outputCount) {
+            BitcoinRecordOutput(address = readOptional { readText() }, amountSats = readLong(), isOwnChange = readBoolean())
+        }
+        val feeSats = readOptional { readLong() }
+        val feeRateSatPerVb = readOptional { readDouble() }
+        val noticeCount = readInt()
+        require(noticeCount in 0..MAX_NOTICES) { "Too many notices." }
+        val notices = List(noticeCount) {
+            BitcoinRecordNotice(level = NoticeLevel.fromWire(readUnsignedByte()), text = readText())
+        }
+        return BitcoinRecordFacts(scriptType, outputs, feeSats, feeRateSatPerVb, notices)
     }
 
     private fun DataOutputStream.writeRows(rows: List<Pair<String, String>>) {

@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
+import app.lensly.DebugBtcFixture
 import app.lensly.app.VaultHolder
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.gate.PasswordBuffer
@@ -59,6 +60,10 @@ internal fun SignWalletRoute(
         },
     )
     val step by flow.state.collectAsState()
+    // A debug build may offer a fixture request to a wallet's sign screen, which reads it as the first scan. Release offers none.
+    LaunchedEffect(flow) {
+        if (walletId != null) DebugBtcFixture.take()?.let { flow.onScanned(it) }
+    }
     BackHandler { flow.back() }
     LaunchedEffect(step) {
         if (step == SignStep.Closed) navController.popBackStack()

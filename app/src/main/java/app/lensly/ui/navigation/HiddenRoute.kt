@@ -68,6 +68,8 @@ internal object HiddenRoute {
 
     // Bitcoin policy: how input amounts are verified and which online side may ask for a Bitcoin signature.
     const val BITCOIN_POLICY = "settings/bitcoin-policy"
+    // Fee warnings: the fee rate and the fee share above which a Bitcoin review shows a WARN notice. Reached from Settings.
+    const val BITCOIN_FEE_WARNINGS = "settings/bitcoin-fee-warnings"
     // Third-party licences: the notice the app ships, read only. Reached from About in Settings.
     const val LICENCES = "settings/licences"
     // Approved contracts: the signed whitelist, grouped by network. Read only, reached from Settings.
