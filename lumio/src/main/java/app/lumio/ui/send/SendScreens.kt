@@ -260,14 +260,14 @@ private fun NetworkHeader(chain: EvmChain) {
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+internal fun SectionLabel(text: String) {
     Spacer(Modifier.height(LenslySpacing.md))
     Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Spacer(Modifier.height(LenslySpacing.xs))
 }
 
 @Composable
-private fun ReviewField(label: String, value: String) {
+internal fun ReviewField(label: String, value: String) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
         Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)

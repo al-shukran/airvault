@@ -1,6 +1,7 @@
 package app.lumio.data.esplora
 
 import android.util.Log
+import app.lensly.core.wallet.toHex
 import app.lumio.BuildConfig
 import app.lumio.btc.EsploraException
 import app.lumio.btc.EsploraParse
@@ -8,15 +9,19 @@ import app.lumio.data.provider.AddressStats
 import app.lumio.data.provider.AddressTxs
 import app.lumio.data.provider.AddressUtxos
 import app.lumio.data.provider.Block
+import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.RawTx
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.TipHeight
 import app.lumio.data.provider.Tx
 import app.lumio.data.provider.Utxo
 import app.lumio.data.provider.fetchText
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request as HttpRequest
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * The Esplora HTTP API, the one that mempool.space and blockstream.info serve. One object serves every Esplora provider: a plugin passes the base
@@ -35,6 +40,9 @@ object EsploraProtocol {
     /** The tag of the debug-build request log. */
     const val LOG_TAG = "LumioEsplora"
 
+    /** The body type of a broadcast: the raw transaction as hex text. */
+    private val TEXT_PLAIN = "text/plain".toMediaType()
+
     /** Serves [req] from the Esplora server at [baseUrl], such as https://mempool.space/api. */
     suspend fun <T> execute(req: Request<T>, baseUrl: String, http: Http): T {
         val base = baseUrl.trimEnd('/')
@@ -48,6 +56,8 @@ object EsploraProtocol {
                 is FeeEstimates -> EsploraParse.feeEstimates(get(http, "$base/fee-estimates", notFoundIsAnswer = false))
                 is Block -> EsploraParse.block(get(http, "$base/block/${req.hash}", notFoundIsAnswer = true))
                 is Tx -> EsploraParse.txStatus(get(http, "$base/tx/${req.txid}", notFoundIsAnswer = true))
+                is RawTx -> EsploraParse.rawTx(get(http, "$base/tx/${req.txid}/hex", notFoundIsAnswer = true))
+                is Broadcast -> EsploraParse.broadcastTxid(post(http, "$base/tx", req.raw.toHex()))
                 else -> throw ProviderError.Unsupported()
             }
         } catch (e: EsploraException) {
@@ -61,8 +71,17 @@ object EsploraProtocol {
      * One GET through the shared transport, so the call is cancelled with the coroutine. Debug builds log one line per request: the host, the
      * outcome and the time. The path is never logged, since it names an address.
      */
-    private suspend fun get(http: Http, url: String, notFoundIsAnswer: Boolean): String {
-        val request = HttpRequest.Builder().url(url).header("Accept", "application/json, text/plain").get().build()
+    private suspend fun get(http: Http, url: String, notFoundIsAnswer: Boolean): String =
+        send(http, HttpRequest.Builder().url(url).header("Accept", "application/json, text/plain").get().build(), notFoundIsAnswer)
+
+    /** One POST of [body] as plain text, the form `POST /tx` takes a raw transaction in. A refusal is a [ProviderError.Fatal], never retried. */
+    private suspend fun post(http: Http, url: String, body: String): String = send(
+        http,
+        HttpRequest.Builder().url(url).header("Accept", "text/plain").post(body.toRequestBody(TEXT_PLAIN)).build(),
+        notFoundIsAnswer = false,
+    )
+
+    private suspend fun send(http: Http, request: HttpRequest, notFoundIsAnswer: Boolean): String {
         val started = System.nanoTime()
         return try {
             fetchText(http.client, request, banMs = null, notFoundIsAnswer = notFoundIsAnswer).also { logLine(request, "ok", started) }

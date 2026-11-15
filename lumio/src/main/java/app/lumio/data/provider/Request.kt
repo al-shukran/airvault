@@ -70,3 +70,10 @@ class Tx(net: NetworkId, val txid: String) : Request<EsploraTxStatus>(net, Op.TX
         require(BTC_HASH.matches(txid)) { "Not a transaction id." }
     }
 }
+
+/** The raw transaction [txid] in hex, as an Esplora server serves it. A send reads the transactions it spends this way. */
+class RawTx(net: NetworkId, val txid: String) : Request<String>(net, Op.TX) {
+    init {
+        require(BTC_HASH.matches(txid)) { "Not a transaction id." }
+    }
+}
