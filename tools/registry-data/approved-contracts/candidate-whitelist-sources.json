@@ -1,0 +1,599 @@
+[
+  {
+    "chainId": 1,
+    "contract": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+    "selector": "0xde0e9a3e",
+    "contractChecksum": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+    "source": "https://github.com/lidofinance/docs/blob/main/docs/deployed-contracts/index.md"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+    "selector": "0xea598cb0",
+    "contractChecksum": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+    "source": "https://github.com/lidofinance/docs/blob/main/docs/deployed-contracts/index.md"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "selector": "0x28530a47",
+    "contractChecksum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "selector": "0x573ade81",
+    "contractChecksum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "selector": "0x5a3b74b9",
+    "contractChecksum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "selector": "0x617ba037",
+    "contractChecksum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "selector": "0x69328dec",
+    "contractChecksum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "selector": "0xa415bcad",
+    "contractChecksum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+    "selector": "0xf2b9fdb8",
+    "contractChecksum": "0xA17581A9E3356d9A858b789D68B4d866e593aE94",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/weth/roots.json",
+    "implementationChecksum": "0x2a0c96f742DBe81BAb9B13628f7F070fF1a5C8f9",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+    "selector": "0xf3fef3a3",
+    "contractChecksum": "0xA17581A9E3356d9A858b789D68B4d866e593aE94",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/weth/roots.json",
+    "implementationChecksum": "0x2a0c96f742DBe81BAb9B13628f7F070fF1a5C8f9",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+    "selector": "0xa1903eab",
+    "contractChecksum": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+    "source": "https://github.com/lidofinance/docs/blob/main/docs/deployed-contracts/index.md",
+    "implementationChecksum": "0x028271E30a695c0527A0C50cA30603feD004cDb0",
+    "implementationEvidence": "docs: Lido deployed-contracts (stETH is not an EIP-1967 proxy)"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "selector": "0x2e1a7d4d",
+    "contractChecksum": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "selector": "0xd0e30db0",
+    "contractChecksum": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+    "selector": "0xf2b9fdb8",
+    "contractChecksum": "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/usdc/roots.json",
+    "implementationChecksum": "0x0B07565A8ef48170e15918b251EbD95109B23255",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+    "selector": "0xf3fef3a3",
+    "contractChecksum": "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/usdc/roots.json",
+    "implementationChecksum": "0x0B07565A8ef48170e15918b251EbD95109B23255",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x2e44e174f7d53f0212823acc11c01a11d58c5bcb",
+    "selector": "0xf2b9fdb8",
+    "contractChecksum": "0x2e44e174f7D53F0212823acC11C01A11d58c5bCB",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/optimism/usdc/roots.json",
+    "implementationChecksum": "0x4917850Edb144B42e74eBb573e1F2dc6F9BfcA9B",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x2e44e174f7d53f0212823acc11c01a11d58c5bcb",
+    "selector": "0xf3fef3a3",
+    "contractChecksum": "0x2e44e174f7D53F0212823acC11C01A11d58c5bCB",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/optimism/usdc/roots.json",
+    "implementationChecksum": "0x4917850Edb144B42e74eBb573e1F2dc6F9BfcA9B",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x4200000000000000000000000000000000000006",
+    "selector": "0x2e1a7d4d",
+    "contractChecksum": "0x4200000000000000000000000000000000000006",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x4200000000000000000000000000000000000006",
+    "selector": "0xd0e30db0",
+    "contractChecksum": "0x4200000000000000000000000000000000000006",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x28530a47",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "implementationChecksum": "0x4d48678DE6C79c3cbB3695CbCD89c50132815b74",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x573ade81",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "implementationChecksum": "0x4d48678DE6C79c3cbB3695CbCD89c50132815b74",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x5a3b74b9",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "implementationChecksum": "0x4d48678DE6C79c3cbB3695CbCD89c50132815b74",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x617ba037",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "implementationChecksum": "0x4d48678DE6C79c3cbB3695CbCD89c50132815b74",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x69328dec",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "implementationChecksum": "0x4d48678DE6C79c3cbB3695CbCD89c50132815b74",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 10,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0xa415bcad",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "implementationChecksum": "0x4d48678DE6C79c3cbB3695CbCD89c50132815b74",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 56,
+    "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+    "selector": "0x28530a47",
+    "contractChecksum": "0x6807dc923806fE8Fd134338EABCA509979a7e0cB",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "implementationChecksum": "0x35A50DbE75228E4F02608472a47f5548eD2C549f",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 56,
+    "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+    "selector": "0x573ade81",
+    "contractChecksum": "0x6807dc923806fE8Fd134338EABCA509979a7e0cB",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "implementationChecksum": "0x35A50DbE75228E4F02608472a47f5548eD2C549f",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 56,
+    "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+    "selector": "0x5a3b74b9",
+    "contractChecksum": "0x6807dc923806fE8Fd134338EABCA509979a7e0cB",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "implementationChecksum": "0x35A50DbE75228E4F02608472a47f5548eD2C549f",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 56,
+    "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+    "selector": "0x617ba037",
+    "contractChecksum": "0x6807dc923806fE8Fd134338EABCA509979a7e0cB",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "implementationChecksum": "0x35A50DbE75228E4F02608472a47f5548eD2C549f",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 56,
+    "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+    "selector": "0x69328dec",
+    "contractChecksum": "0x6807dc923806fE8Fd134338EABCA509979a7e0cB",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "implementationChecksum": "0x35A50DbE75228E4F02608472a47f5548eD2C549f",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 56,
+    "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+    "selector": "0xa415bcad",
+    "contractChecksum": "0x6807dc923806fE8Fd134338EABCA509979a7e0cB",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "implementationChecksum": "0x35A50DbE75228E4F02608472a47f5548eD2C549f",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 56,
+    "contract": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "selector": "0x2e1a7d4d",
+    "contractChecksum": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol"
+  },
+  {
+    "chainId": 56,
+    "contract": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "selector": "0xd0e30db0",
+    "contractChecksum": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol"
+  },
+  {
+    "chainId": 137,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x28530a47",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "implementationChecksum": "0x9a375fa209Ebb87832EB258bfAE02998Bf3641aA",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 137,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x573ade81",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "implementationChecksum": "0x9a375fa209Ebb87832EB258bfAE02998Bf3641aA",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 137,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x5a3b74b9",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "implementationChecksum": "0x9a375fa209Ebb87832EB258bfAE02998Bf3641aA",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 137,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x617ba037",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "implementationChecksum": "0x9a375fa209Ebb87832EB258bfAE02998Bf3641aA",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 137,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x69328dec",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "implementationChecksum": "0x9a375fa209Ebb87832EB258bfAE02998Bf3641aA",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 137,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0xa415bcad",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "implementationChecksum": "0x9a375fa209Ebb87832EB258bfAE02998Bf3641aA",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 137,
+    "contract": "0xf25212e676d1f7f89cd72ffee66158f541246445",
+    "selector": "0xf2b9fdb8",
+    "contractChecksum": "0xF25212E676D1F7F89Cd72fFEe66158f541246445",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/polygon/usdc/roots.json",
+    "implementationChecksum": "0xCB25eDf8178d36166564707A15B98862251928af",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 137,
+    "contract": "0xf25212e676d1f7f89cd72ffee66158f541246445",
+    "selector": "0xf3fef3a3",
+    "contractChecksum": "0xF25212E676D1F7F89Cd72fFEe66158f541246445",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/polygon/usdc/roots.json",
+    "implementationChecksum": "0xCB25eDf8178d36166564707A15B98862251928af",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0x4200000000000000000000000000000000000006",
+    "selector": "0x2e1a7d4d",
+    "contractChecksum": "0x4200000000000000000000000000000000000006",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0x4200000000000000000000000000000000000006",
+    "selector": "0xd0e30db0",
+    "contractChecksum": "0x4200000000000000000000000000000000000006",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+    "selector": "0x28530a47",
+    "contractChecksum": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "implementationChecksum": "0xf248Dd0AdB01e78043e8a423b8504c8129F11918",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+    "selector": "0x573ade81",
+    "contractChecksum": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "implementationChecksum": "0xf248Dd0AdB01e78043e8a423b8504c8129F11918",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+    "selector": "0x5a3b74b9",
+    "contractChecksum": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "implementationChecksum": "0xf248Dd0AdB01e78043e8a423b8504c8129F11918",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+    "selector": "0x617ba037",
+    "contractChecksum": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "implementationChecksum": "0xf248Dd0AdB01e78043e8a423b8504c8129F11918",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+    "selector": "0x69328dec",
+    "contractChecksum": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "implementationChecksum": "0xf248Dd0AdB01e78043e8a423b8504c8129F11918",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+    "selector": "0xa415bcad",
+    "contractChecksum": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "implementationChecksum": "0xf248Dd0AdB01e78043e8a423b8504c8129F11918",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0xb125e6687d4313864e53df431d5425969c15eb2f",
+    "selector": "0xf2b9fdb8",
+    "contractChecksum": "0xb125E6687d4313864e53df431d5425969c15Eb2F",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/base/usdc/roots.json",
+    "implementationChecksum": "0xB6ef22A5d7C3214C767b39213556e11E46fF8f3e",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 8453,
+    "contract": "0xb125e6687d4313864e53df431d5425969c15eb2f",
+    "selector": "0xf3fef3a3",
+    "contractChecksum": "0xb125E6687d4313864e53df431d5425969c15Eb2F",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/base/usdc/roots.json",
+    "implementationChecksum": "0xB6ef22A5d7C3214C767b39213556e11E46fF8f3e",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x28530a47",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "implementationChecksum": "0xa6E7d235A5B2fc7811d10669bbe20fA14B658A1e",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x573ade81",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "implementationChecksum": "0xa6E7d235A5B2fc7811d10669bbe20fA14B658A1e",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x5a3b74b9",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "implementationChecksum": "0xa6E7d235A5B2fc7811d10669bbe20fA14B658A1e",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x617ba037",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "implementationChecksum": "0xa6E7d235A5B2fc7811d10669bbe20fA14B658A1e",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x69328dec",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "implementationChecksum": "0xa6E7d235A5B2fc7811d10669bbe20fA14B658A1e",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0xa415bcad",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "implementationChecksum": "0xa6E7d235A5B2fc7811d10669bbe20fA14B658A1e",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+    "selector": "0x2e1a7d4d",
+    "contractChecksum": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "implementationChecksum": "0x8b194bEae1d3e0788A1a35173978001ACDFba668",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+    "selector": "0xd0e30db0",
+    "contractChecksum": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "implementationChecksum": "0x8b194bEae1d3e0788A1a35173978001ACDFba668",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x9c4ec768c28520b50860ea7a15bd7213a9ff58bf",
+    "selector": "0xf2b9fdb8",
+    "contractChecksum": "0x9c4ec768c28520B50860ea7a15bd7213a9fF58bf",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/arbitrum/usdc/roots.json",
+    "implementationChecksum": "0x9398741A8481787EE064293e2Da4aD795fA11b7a",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 42161,
+    "contract": "0x9c4ec768c28520b50860ea7a15bd7213a9ff58bf",
+    "selector": "0xf3fef3a3",
+    "contractChecksum": "0x9c4ec768c28520B50860ea7a15bd7213a9fF58bf",
+    "source": "https://github.com/compound-finance/comet/blob/main/deployments/arbitrum/usdc/roots.json",
+    "implementationChecksum": "0x9398741A8481787EE064293e2Da4aD795fA11b7a",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 43114,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x28530a47",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "implementationChecksum": "0x72573A9876566BA61657AF47eE09A40B592099f1",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 43114,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x573ade81",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "implementationChecksum": "0x72573A9876566BA61657AF47eE09A40B592099f1",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 43114,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x5a3b74b9",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "implementationChecksum": "0x72573A9876566BA61657AF47eE09A40B592099f1",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 43114,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x617ba037",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "implementationChecksum": "0x72573A9876566BA61657AF47eE09A40B592099f1",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 43114,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0x69328dec",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "implementationChecksum": "0x72573A9876566BA61657AF47eE09A40B592099f1",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 43114,
+    "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    "selector": "0xa415bcad",
+    "contractChecksum": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "implementationChecksum": "0x72573A9876566BA61657AF47eE09A40B592099f1",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 43114,
+    "contract": "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+    "selector": "0x2e1a7d4d",
+    "contractChecksum": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol"
+  },
+  {
+    "chainId": 43114,
+    "contract": "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+    "selector": "0xd0e30db0",
+    "contractChecksum": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol"
+  }
+]

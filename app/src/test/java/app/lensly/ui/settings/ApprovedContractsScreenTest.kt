@@ -1,6 +1,8 @@
 package app.lensly.ui.settings
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.core.registry.FeeModel
@@ -118,5 +120,38 @@ class ApprovedContractsScreenTest {
         show(listOf(proxy.copy(chainId = 10L)))
 
         compose.onNodeWithText("Chain 10").assertExists()
+    }
+
+    /** Taps the search field, then types [text] on the in-app keyboard, one key at a time. */
+    private fun typeIntoSearch(text: String) {
+        compose.onNodeWithTag(SEARCH_TAG).performClick()
+        text.forEach { compose.onNodeWithContentDescription(it.toString()).performClick() }
+    }
+
+    @Test
+    fun theSearchFieldNarrowsTheListToTheCallsThatMatch() {
+        show(listOf(swap, proxy))
+
+        typeIntoSearch("swapexact")
+
+        compose.onNodeWithText("swapExactTokensForTokens(uint256,uint256,address)").assertExists()
+        compose.onNodeWithText("stake(uint256,address)").assertDoesNotExist()
+    }
+
+    @Test
+    fun aQueryThatMatchesNothingSaysSoAndHidesEveryCall() {
+        show(listOf(swap, proxy))
+
+        typeIntoSearch("zzz")
+
+        compose.onNodeWithText("No approved call matches \"zzz\".").assertExists()
+        compose.onNodeWithText("swapExactTokensForTokens(uint256,uint256,address)").assertDoesNotExist()
+    }
+
+    @Test
+    fun aPopulatedListOffersTheOneAddAction() {
+        show(listOf(swap))
+
+        compose.onNodeWithText("UPDATE CATALOG").assertExists()
     }
 }
