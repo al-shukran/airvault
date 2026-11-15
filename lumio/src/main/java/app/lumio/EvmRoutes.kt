@@ -139,6 +139,7 @@ internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, 
         refreshing = refreshing,
         onRefresh = { refresh(ready.wallet) },
         onBack = { navController.popBackStack() },
+        onSend = { index -> navController.navigate(LumioRoute.send(walletId, index)) },
     )
 }
 

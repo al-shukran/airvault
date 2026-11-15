@@ -8,11 +8,11 @@ import com.sparrowwallet.hummingbird.UR
 object EthSignatureEncoder {
     const val DEFAULT_ORIGIN = "Lensly"
 
-    private const val UR_TYPE = "eth-signature"
+    internal const val UR_TYPE = "eth-signature"
     private const val UUID_TAG = 37L
-    private const val MIN_SIGNATURE_BYTES = 65
+    internal const val MIN_SIGNATURE_BYTES = 65
     // Legacy v (chainId * 2 + 35 + recId) is at most 8 bytes for any realistic chain ID.
-    private const val MAX_SIGNATURE_BYTES = 80
+    internal const val MAX_SIGNATURE_BYTES = 80
 
     /**
      * Uppercase frames for the response. [signature] is r (32) || s (32) || v. For typed transactions v is 0 or 1,
