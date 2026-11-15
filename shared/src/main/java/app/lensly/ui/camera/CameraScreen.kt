@@ -112,7 +112,7 @@ private const val FLIP_HINT_TEXT = "Can't switch camera while recording"
 private const val SHUTTER_FLASH_ALPHA = 0.7f
 private const val SHUTTER_FLASH_MS = 220
 
-/** How far a leftward swipe must travel to complete the thumbnail gesture. */
+/** How far a rightward swipe must travel to complete the thumbnail gesture. */
 internal val ENTRY_SWIPE_DISTANCE: Dp = 40.dp
 
 /**

@@ -40,12 +40,11 @@ const val ETHEREUM_APP_TAG = "app-ethereum"
 /**
  * Lumio's Home, which mirrors Lensly's: the paired wallets, and under each one its Apps, Bitcoin and Ethereum. [mode] is the side of the
  * networks on show, switched at the top with [onMode]. Each side lists only its own accounts and balances. [onBitcoin] opens a wallet's
- * Bitcoin portfolio and [onBalances] its Ethereum portfolio. [onSettings] opens Lumio's settings. [onLock] returns to the camera and locks
- * the vault. [onDelete] runs after the owner confirms a deletion.
+ * Bitcoin portfolio and [onBalances] its Ethereum portfolio. [onSettings] opens Lumio's settings. Home is the root screen, so it has no
+ * back arrow: the system back leaves it. [onDelete] runs after the owner confirms a deletion.
  */
 @Composable
 fun LumioHome(
-    onLock: () -> Unit,
     onPair: () -> Unit,
     wallets: List<PairedWallet>,
     onDelete: (PairedWallet) -> Unit,
@@ -60,7 +59,6 @@ fun LumioHome(
     LenslyScreen(
         title = "Lumio",
         modifier = modifier,
-        onBack = onLock,
         scrollable = wallets.isNotEmpty(),
         bottomAction = { PillButton(text = "Pair from Lensly", onClick = onPair) },
     ) {
