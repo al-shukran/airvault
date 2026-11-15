@@ -8,11 +8,12 @@ import org.junit.Test
 
 class WalletEntryTest {
     @Test
-    fun theShippedRegistryNamesRabbyAndMetaMaskWithTheirCodeFormats() {
+    fun theShippedRegistryNamesTheWalletsWithTheirCodeFormats() {
         val wallets = shippedRegistry().walletEntries().associateBy { it.name }
 
-        assertEquals(setOf("Rabby", "MetaMask"), wallets.keys)
+        assertEquals(setOf("Rabby", "MetaMask", "Keystone Nexus"), wallets.keys)
         assertTrue(wallets.values.all { "ur:eth-sign-request" in it.formats && it.limitations.isNotBlank() })
+        assertTrue("ur:crypto-multi-accounts" in wallets.getValue("Keystone Nexus").formats)
     }
 
     @Test
