@@ -1,10 +1,16 @@
 package app.lumio.btc
 
+import android.util.Log
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
+import app.lumio.BuildConfig
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
@@ -18,18 +24,36 @@ internal class UsedAddress(val index: Int, val address: String, val stats: Esplo
 internal class ChainScan(val used: List<UsedAddress>)
 
 /**
+ * The address statistics that one session has read, by server. A rescan asks again only for the addresses that need it (see [scanChain]).
+ * It is kept in memory and never saved, so a new session starts with an empty one.
+ */
+class AddressStatsCache {
+    private val byServer = ConcurrentHashMap<String, ConcurrentMap<String, EsploraAddressStats>>()
+
+    internal fun forServer(server: String): ConcurrentMap<String, EsploraAddressStats> = byServer.getOrPut(server) { ConcurrentHashMap() }
+}
+
+/**
  * Walks one chain of an account (receive or change) with the gap limit. It asks for each address in turn, and it stops once
  * [BtcAccount.GAP_LIMIT] addresses in a row have no history. A used address resets that count, so a gap shorter than the limit never
  * ends the walk.
+ *
+ * [memo] holds what an earlier walk of this session read. An address it found unused, and that lies before the last used address of that
+ * walk, is not asked again. The gap window after that address is asked again, since new activity shows there first.
  */
-internal suspend fun scanChain(addressAt: (Int) -> String, statsOf: (String) -> EsploraAddressStats): ChainScan {
+internal suspend fun scanChain(
+    addressAt: (Int) -> String,
+    statsOf: (String) -> EsploraAddressStats,
+    memo: ConcurrentMap<String, EsploraAddressStats> = ConcurrentHashMap(),
+): ChainScan {
     val used = mutableListOf<UsedAddress>()
+    val lastUsed = lastUsedIn(addressAt, memo)
     var unused = 0
     var index = 0
     while (unused < BtcAccount.GAP_LIMIT) {
         coroutineContext.ensureActive()
         val address = addressAt(index)
-        val stats = statsOf(address)
+        val stats = memo[address]?.takeIf { !it.used && index <= lastUsed } ?: statsOf(address).also { memo[address] = it }
         if (stats.used) {
             used += UsedAddress(index, address, stats)
             unused = 0
@@ -41,43 +65,67 @@ internal suspend fun scanChain(addressAt: (Int) -> String, statsOf: (String) -> 
     return ChainScan(used)
 }
 
+/** The last index that [memo] holds as used, counting up from index 0 while [memo] holds the address; -1 when none is used. */
+private fun lastUsedIn(addressAt: (Int) -> String, memo: Map<String, EsploraAddressStats>): Int {
+    var last = -1
+    var index = 0
+    while (true) {
+        val stats = memo[addressAt(index)] ?: return last
+        if (stats.used) last = index
+        index++
+    }
+}
+
 /**
- * Scans one account over [client], which reads from [server]. The receive and change chains are walked with the gap limit. Each used
- * address is then asked for its recent transactions and, when it may hold coins, for its unspent outputs. The balances are the sums over
- * the used addresses, with the confirmed and the unconfirmed side kept apart.
+ * Scans one account over [client], which reads from [server]. The receive and change chains are walked with the gap limit, both at once,
+ * so they share the two requests in flight that a host allows. The balances are the sums over the used addresses, with the confirmed and
+ * the unconfirmed side kept apart. An address with a balance is asked for its unspent outputs. The recent transactions are asked for only
+ * when [detail] is set, for the account's own view, so a portfolio scan never asks for them.
  */
-suspend fun scanAccount(ref: BtcAccountRef, client: EsploraClient, server: String, nowMs: Long): BtcSnapshot =
+suspend fun scanAccount(
+    ref: BtcAccountRef,
+    client: EsploraClient,
+    server: String,
+    nowMs: Long,
+    memo: ConcurrentMap<String, EsploraAddressStats> = ConcurrentHashMap(),
+    detail: Boolean = false,
+): BtcSnapshot =
     withContext(Dispatchers.IO) {
         val account = ref.account
         val tipHeight = client.tipHeight()
-        val receive = scanChain(account::receiveAddress, client::addressStats)
-        val change = scanChain(account::changeAddress, client::addressStats)
-        val used = receive.used + change.used
+        val (receiveWalk, changeWalk) = coroutineScope {
+            val receive = async { scanChain(account::receiveAddress, client::addressStats, memo) }
+            val change = async { scanChain(account::changeAddress, client::addressStats, memo) }
+            receive.await() to change.await()
+        }
+        val used = receiveWalk.used + changeWalk.used
         val owned = used.map { it.address }.toSet()
 
-        val txs = LinkedHashMap<String, EsploraTx>()
-        for (address in owned) {
-            ensureActive()
-            client.addressTxs(address).forEach { txs.putIfAbsent(it.txid, it) }
+        val recent: List<BtcTx> = if (!detail) emptyList() else {
+            val txs = LinkedHashMap<String, EsploraTx>()
+            for (address in owned) {
+                ensureActive()
+                client.addressTxs(address).forEach { txs.putIfAbsent(it.txid, it) }
+            }
+            txs.values
+                .map { tx -> BtcTx(tx.txid, netSats(tx, owned), tx.blockHeight, tx.blockTimeSec) }
+                .sortedWith(
+                    compareByDescending<BtcTx> { it.blockHeight ?: Long.MAX_VALUE }
+                        .thenByDescending { it.blockTimeSec ?: Long.MAX_VALUE }
+                        .thenBy { it.txid },
+                )
+                .take(RECENT_TX_COUNT)
         }
-        val recent = txs.values
-            .map { tx -> BtcTx(tx.txid, netSats(tx, owned), tx.blockHeight, tx.blockTimeSec) }
-            .sortedWith(
-                compareByDescending<BtcTx> { it.blockHeight ?: Long.MAX_VALUE }
-                    .thenByDescending { it.blockTimeSec ?: Long.MAX_VALUE }
-                    .thenBy { it.txid },
-            )
-            .take(RECENT_TX_COUNT)
 
-        // An address with no funded output left, and none in the mempool, holds no coins, so it is not asked.
+        // An address with no balance holds no coins, so it is not asked for its unspent outputs.
         val utxos = used
-            .filter { it.stats.chain.fundedCount > it.stats.chain.spentCount || it.stats.mempool.fundedCount > 0 }
+            .filter { it.stats.balance != 0L }
             .flatMap { hit ->
                 ensureActive()
                 client.addressUtxos(hit.address).map { BtcUtxo(it.txid, it.vout, it.valueSats, it.blockHeight) }
             }
 
-        val usedReceive = receive.used.map { it.index }.toSet()
+        val usedReceive = receiveWalk.used.map { it.index }.toSet()
         val nextIndex = generateSequence(0) { it + 1 }.first { it !in usedReceive }
         BtcSnapshot(
             key = ref.key,
@@ -111,23 +159,37 @@ private fun String?.isIn(owned: Set<String>): Boolean = this != null && this in 
 data class BtcScanReport(val fresh: Map<String, BtcSnapshot>, val failures: Map<BtcNetwork, String>)
 
 /**
- * Scans [refs] one after another and saves each result to [store]. When a network's server cannot be reached, its other accounts are
- * not tried, since each would wait on the same timeout: the failure is recorded once, and those accounts keep their cached scan.
+ * Scans [refs] one after another and saves each result to [store]. [memo] is the session's address cache, and [detail] also reads the
+ * recent transactions. [pause] does the waiting of a rate limit. When a network's server cannot be reached, or stays busy after its
+ * retries, its other accounts are not tried, since each would wait on the same answer: the failure is recorded once, and those accounts
+ * keep their cached scan. A portfolio scan keeps the transactions of the cached scan, since it does not read them.
  */
 suspend fun scanAll(
     refs: List<BtcAccountRef>,
     servers: Map<BtcNetwork, String>,
     store: BtcStore,
+    memo: AddressStatsCache = AddressStatsCache(),
+    detail: Boolean = false,
+    pause: (Long) -> Unit = { Thread.sleep(it) },
     nowMs: () -> Long,
 ): BtcScanReport {
     val fresh = LinkedHashMap<String, BtcSnapshot>()
     val failures = LinkedHashMap<BtcNetwork, String>()
+    val started = System.nanoTime()
     for (ref in refs) {
         val network = ref.account.network
         if (network in failures) continue
         val server = EsploraServers.baseUrl(network, servers)
         try {
-            val snapshot = scanAccount(ref, EsploraClient(server), server, nowMs())
+            val scanned = scanAccount(
+                ref,
+                EsploraClient(server, ESPLORA_REQUEST_INTERVAL_MS, pause),
+                server,
+                nowMs(),
+                memo.forServer(server),
+                detail,
+            )
+            val snapshot = if (detail) scanned else scanned.copy(transactions = cachedTransactions(store, ref, server))
             store.save(snapshot)
             fresh[ref.key] = snapshot
         } catch (e: IOException) {
@@ -138,8 +200,17 @@ suspend fun scanAll(
             }
         }
     }
+    // Debug builds only: one line per scan, read beside the request lines of the same tag.
+    if (BuildConfig.DEBUG) {
+        val ms = (System.nanoTime() - started) / 1_000_000
+        Log.d(ESPLORA_LOG_TAG, "scan done accounts=${refs.size} fresh=${fresh.size} ms=$ms failures=${failures.values}")
+    }
     return BtcScanReport(fresh, failures)
 }
+
+/** The transactions of the cached scan of [ref], when that scan is of the same account from the same server. */
+private fun cachedTransactions(store: BtcStore, ref: BtcAccountRef, server: String): List<BtcTx> =
+    store.snapshot(ref.key)?.takeIf { it.identity == ref.account.receiveAddress(0) && it.server == server }?.transactions.orEmpty()
 
 /** The host name of [baseUrl], for a message the owner can read. */
 internal fun hostOf(baseUrl: String): String = java.net.URI(baseUrl).host ?: baseUrl

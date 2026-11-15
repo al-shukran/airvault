@@ -1,5 +1,6 @@
 package app.lumio.btc
 
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -42,14 +43,21 @@ internal class FakeEsplora : Dispatcher() {
     /** Every request path, in the order it was asked for. */
     val paths = CopyOnWriteArrayList<String>()
 
+    /** Answers sent ahead of the rest, one per request, so a test can script a busy answer followed by a good one. */
+    val queued = ConcurrentLinkedQueue<MockResponse>()
+
     /** The addresses whose history was asked for, in order. The transaction and UTXO paths are not counted. */
     fun statsRequests(): List<String> = paths
         .filter { it.startsWith("/api/address/") && it.count { c -> c == '/' } == 3 }
         .map { it.substringAfterLast('/') }
 
+    /** The history requests for [addresses], in the order they were asked. The two chains run at once, so each is checked on its own. */
+    fun askedFor(addresses: List<String>): List<String> = statsRequests().filter { it in addresses }
+
     override fun dispatch(request: RecordedRequest): MockResponse {
         val path = request.path.orEmpty()
         paths += path
+        queued.poll()?.let { return it }
         if (status != 200) return MockResponse().setResponseCode(status)
         val parts = path.split("/")
         val body = when {
