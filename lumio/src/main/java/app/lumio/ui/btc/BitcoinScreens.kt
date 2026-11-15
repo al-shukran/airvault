@@ -36,21 +36,24 @@ import app.lumio.btc.BtcRow
 import app.lumio.btc.BtcSection
 import app.lumio.btc.BtcSnapshot
 import app.lumio.btc.BtcTx
-import app.lumio.btc.asOfText
 import app.lumio.btc.btcText
 import app.lumio.btc.confirmationsText
+import app.lumio.btc.isStale
 import app.lumio.btc.shortTxid
 import app.lumio.btc.signedBtcText
+import app.lumio.btc.updatedText
 import app.lumio.ui.pair.PairLabels
 
 /**
  * Bitcoin portfolio: one section per network, mainnet first. Each section totals its own accounts only, so mainnet and testnet4 are
- * never added together. [failures] names a network whose server could not be reached, with the reason; its rows show the last scan.
+ * never added together. [failures] names a network whose server could not be reached, with the reason; its rows show the last known balance.
+ * [progress] is the "Scanned n/N" text of a refresh that is running.
  */
 @Composable
 fun BitcoinPortfolioScreen(
     sections: List<BtcSection>,
     scanning: Boolean,
+    progress: String?,
     failures: Map<BtcNetwork, String>,
     onOpen: (BtcAccountRef) -> Unit,
     onRefresh: () -> Unit,
@@ -61,7 +64,7 @@ fun BitcoinPortfolioScreen(
         onBack = onBack,
         bottomAction = {
             PillButton(
-                text = if (scanning) "Scanning" else "Refresh",
+                text = progress ?: if (scanning) "Scanning" else "Refresh",
                 onClick = onRefresh,
                 enabled = !scanning,
                 modifier = Modifier.fillMaxWidth(),
@@ -135,7 +138,8 @@ fun BitcoinAccountScreen(
             if (snapshot.unconfirmedSats != 0L) {
                 Caption("Pending ${signedBtcText(snapshot.unconfirmedSats)}")
             }
-            Caption(asOfText(snapshot.scannedAtMs))
+            Caption(updatedText(snapshot.scannedAtMs))
+            if (isStale(snapshot.scannedAtMs, System.currentTimeMillis())) Caption("Stale")
         }
         Spacer(Modifier.height(LenslySpacing.lg))
         Label(if (snapshot == null) "Receive" else "Next unused receive address")
@@ -206,7 +210,8 @@ private fun AccountRow(row: BtcRow, onClick: () -> Unit) {
         } else {
             Text(btcText(snapshot.confirmedSats), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
             if (snapshot.unconfirmedSats != 0L) Caption("Pending ${signedBtcText(snapshot.unconfirmedSats)}")
-            Caption(asOfText(snapshot.scannedAtMs))
+            Caption(updatedText(snapshot.scannedAtMs))
+            if (isStale(snapshot.scannedAtMs, System.currentTimeMillis())) Caption("Stale")
         }
     }
 }

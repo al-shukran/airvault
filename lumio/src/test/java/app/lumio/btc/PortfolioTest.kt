@@ -11,7 +11,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
 
-/** Mainnet and testnet4 stay apart: their sections, their totals, their servers and their explorer links. */
+/** Mainnet and testnet4 stay apart: their sections, their totals, their owner's servers and their explorer links. */
 class PortfolioTest {
     private val seed = PairFixtures.seed
     private val mainnet = PairFixtures.account(seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT)
@@ -55,30 +55,28 @@ class PortfolioTest {
     }
 
     @Test
-    fun aCachedScanCountsOnlyForTheSameAccountFromTheServerNowUsed() {
-        val cached = snapshot(testnetRef, confirmed = 9L, unconfirmed = 0L, server = "https://mempool.space/testnet4/api")
+    fun aLastKnownBalanceCountsOnlyForTheSameAccount() {
+        val cached = snapshot(testnetRef, confirmed = 9L, unconfirmed = 0L)
         val lookup = { key: String -> if (key == testnetRef.key) cached else null }
 
-        val sameServer = BtcPortfolio.rows(listOf(testnetRef), lookup, emptyMap()).single()
-        assertEquals(cached, sameServer.snapshot)
-
-        val changedServer = BtcPortfolio.rows(
-            listOf(testnetRef),
-            lookup,
-            mapOf(BtcNetwork.TESTNET4 to "https://testnet.example.org/api"),
-        ).single()
-        assertNull(changedServer.snapshot, "a scan from another server is not shown")
+        assertEquals(cached, BtcPortfolio.rows(listOf(testnetRef), lookup).single().snapshot)
 
         val otherAccount = BtcAccountRef("wallet-1", PairFixtures.account(seed, BtcNetwork.TESTNET4, ScriptType.LEGACY))
-        assertNull(BtcPortfolio.rows(listOf(otherAccount), lookup, emptyMap()).single().snapshot)
+        assertNull(BtcPortfolio.rows(listOf(otherAccount), lookup).single().snapshot)
     }
 
     @Test
-    fun aCachedScanOfAnotherKeyOrIdentityIsNotShown() {
-        val otherKey = snapshot(testnetRef, confirmed = 1L, unconfirmed = 0L).copy(identity = "tb1qsomeoneelse")
-        val rows = BtcPortfolio.rows(listOf(testnetRef), { otherKey }, emptyMap())
+    fun aCachedScanOfAnotherIdentityIsNotShown() {
+        val otherIdentity = snapshot(testnetRef, confirmed = 1L, unconfirmed = 0L).copy(identity = "tb1qsomeoneelse")
+        val rows = BtcPortfolio.rows(listOf(testnetRef)) { otherIdentity }
 
         assertNull(rows.single().snapshot, "a cache whose first receive address differs belongs to another account")
+    }
+
+    @Test
+    fun aScanOlderThanTheTimeToLiveIsStale() {
+        assertFalse(isStale(scannedAtMs = 1_000L, nowMs = 60_999L, ttlMs = 60_000L))
+        assertTrue(isStale(scannedAtMs = 1_000L, nowMs = 61_001L, ttlMs = 60_000L))
     }
 
     @Test
@@ -124,15 +122,9 @@ class PortfolioTest {
         assertFalse(BtcPortfolio.explorerTxUrl(BtcNetwork.MAINNET, "abc").contains("testnet4"))
     }
 
-    private fun snapshot(
-        ref: BtcAccountRef,
-        confirmed: Long,
-        unconfirmed: Long,
-        server: String = EsploraServers.defaultFor(ref.account.network),
-    ) = BtcSnapshot(
+    private fun snapshot(ref: BtcAccountRef, confirmed: Long, unconfirmed: Long) = BtcSnapshot(
         key = ref.key,
         identity = ref.account.receiveAddress(0),
-        server = server,
         scannedAtMs = 1_000L,
         tipHeight = 850_000L,
         confirmedSats = confirmed,

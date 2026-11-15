@@ -19,6 +19,9 @@ fun asOfText(epochMs: Long, zone: ZoneId = ZoneId.systemDefault()): String {
     return "as of $time"
 }
 
+/** When a balance was last updated, in the device's time zone, such as "Updated 15 Nov 2026, 10:32". */
+fun updatedText(epochMs: Long, zone: ZoneId = ZoneId.systemDefault()): String = asOfText(epochMs, zone).replaceFirst("as of", "Updated")
+
 /** How many confirmations a transaction has, or that it is unconfirmed. */
 fun confirmationsText(confirmations: Long): String = when (confirmations) {
     0L -> "Unconfirmed"

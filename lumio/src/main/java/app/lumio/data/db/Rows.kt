@@ -24,6 +24,9 @@ interface KvDao {
     @Query("SELECT * FROM kv WHERE k = :k")
     suspend fun get(k: ByteArray): KvRow?
 
+    @Query("SELECT * FROM kv")
+    suspend fun all(): List<KvRow>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun put(row: KvRow)
 
