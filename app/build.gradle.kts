@@ -24,14 +24,6 @@ android {
         }
     }
 
-    sourceSets {
-        getByName("main") {
-            // The third-party notice and the font licences are kept in licenses/ at the repository root, and the app ships them
-            // as assets, so the Settings screen can show them.
-            assets.srcDir("../licenses")
-        }
-    }
-
     buildTypes {
         release {
             isMinifyEnabled = false

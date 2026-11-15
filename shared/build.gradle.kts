@@ -22,6 +22,14 @@ android {
         create("benchmark")
     }
 
+    sourceSets {
+        getByName("main") {
+            // The third-party notice and the font licences are kept in licenses/ at the repository root. Both apps read the notice
+            // from these shared assets, so the Settings screens of Lensly and Lumio show the same one.
+            assets.srcDir("../licenses")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

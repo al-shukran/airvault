@@ -1,6 +1,6 @@
-Third-party notices for Lensly
+Third-party notices for AirVault
 
-Lensly is built with the third-party libraries and fonts listed below. Each one is used under the licence named beside it. Where a licence asks for its text or its copyright notice to be kept with the software, that text is in this file, below the list. Lensly itself is licensed under the Apache License 2.0; see the License row in Settings.
+Lensly and Lumio are built with the third-party libraries and fonts listed below. Each one is used under the licence named beside it. Where a licence asks for its text or its copyright notice to be kept with the software, that text is in this file, below the list. Lensly and Lumio are each licensed under the Apache License 2.0.
 
 The list names the libraries whose code or native code is in the application. Libraries used only at build time or in tests are not listed.
 
@@ -13,6 +13,8 @@ Android Jetpack, Jetpack Compose, Material 3 and CameraX (androidx.*): Activity 
 Room 2.8.5 (androidx.room) and its SQLite driver (androidx.sqlite), the database under Lumio's cache and scan queue.
 
 Kotlin standard library 2.4.21, kotlinx-coroutines 1.11.0 and kotlinx-serialization 1.12.0 (JetBrains).
+
+Dagger 2.59 (Google) and atomicfu 0.28.0 (JetBrains).
 
 Guava 33.7.2-android and failureaccess 1.0.3 (Google).
 

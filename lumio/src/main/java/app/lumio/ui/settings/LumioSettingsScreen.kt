@@ -35,6 +35,7 @@ fun LumioSettingsScreen(
     bitcoin: @Composable () -> Unit,
     ethereum: @Composable () -> Unit,
     onDataProviders: () -> Unit,
+    onThirdPartyLicences: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = "SETTINGS", modifier = modifier, onBack = onBack) {
@@ -50,6 +51,19 @@ fun LumioSettingsScreen(
             PillButton(
                 text = stringResource(R.string.settings_providers_open),
                 onClick = onDataProviders,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        SettingsSection(title = stringResource(R.string.settings_about_heading)) {
+            Text(
+                stringResource(R.string.settings_licences_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            PillButton(
+                text = stringResource(R.string.settings_licences_open),
+                onClick = onThirdPartyLicences,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
