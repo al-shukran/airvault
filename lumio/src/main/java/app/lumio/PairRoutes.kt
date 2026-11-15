@@ -1,7 +1,7 @@
 package app.lumio
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -10,7 +10,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
@@ -78,7 +77,7 @@ internal fun HomeRoute(
  */
 @Composable
 internal fun PairScanRoute(navController: NavHostController, draft: PairDraft) {
-    val activity = LocalContext.current as? Activity
+    val activity = LocalActivity.current
     var scan by remember { mutableStateOf(PairScan()) }
     var progress by remember { mutableStateOf<Float?>(null) }
     var status by remember { mutableStateOf(SCAN_HINT) }
