@@ -138,3 +138,23 @@ timeouts and up to four attempts with backoff. Pass `--report` to write the repo
 `--out-networks` and `--out-tokens` it only reports.
 
 After integration, run `./gradlew :shared:testDebugUnitTest`. `ShippedRegistryDataTest` checks the shipped JSON.
+
+## Approved contracts (candidate)
+
+`approved-contracts/candidate-whitelist.json` holds the Registry Whitelist entries a signed package could carry. It is
+not shipped: `shared/src/main/assets/registry/whitelist.json` must stay empty, and only a signed offline package adds
+entries (see `tools/registry-pack/README.md`). The file is in the package's `whitelist` shape, so its `whitelist` list
+can be copied into an entries file.
+
+`approved-contracts/candidate-whitelist-sources.json` has one row per entry, in the same order, with the GitHub page it
+was read from, the EIP-55 checksum of the contract (and of the implementation for a proxy), and how the implementation
+was found. For a proxy the implementation is read from the EIP-1967 slot over JSON-RPC, so it is the implementation
+the proxy runs at the time of reading. Lido's stETH is not an EIP-1967 proxy, so its implementation comes from Lido's
+deployed-contracts page.
+
+`CandidateWhitelistTest` (shared) checks that the candidate loads through `RegistryLoader`, that every checksum matches,
+that every entry has one source row, and that every meaning names its protocol.
+
+Calls with a dynamic argument (`bytes`, arrays, structs) cannot be whitelisted: the entry format takes static types only.
+That covers the swap and bridge entry points of Uniswap, 1inch, 0x, CoW, Paraswap, Seaport, Across and Stargate.
+

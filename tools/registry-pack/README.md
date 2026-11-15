@@ -98,7 +98,7 @@ chain, contract and selector match an entry here.
 | `contract` | Lowercase `0x` address of the contract the call goes to. |
 | `selector` | Lowercase `0x` and 8 hex digits. Must be the Keccak-256 selector of `signature` (first four bytes). |
 | `signature` | The ABI signature, such as `swapExactTokensForTokens(uint256,uint256,address[],address,uint256)`. |
-| `meaning` | What the call does, in plain words. Printable, at most 240 characters. |
+| `meaning` | What the call does, in plain words. Printable, at most 240 characters. It begins with the protocol name and a colon, such as `Aave V3: deposit an asset into the pool.`; the application lists the call under that name. |
 | `proxy` | `null` for a contract that is not an upgradeable proxy. Otherwise `{ "implementationAddress": ..., "implementationCodeHash": ... }`, with at least one of the two set. |
 
 Each (`chainId`, `contract`, `selector`) appears once. A package's whitelist replaces the whitelist of the application as a
