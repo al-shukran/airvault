@@ -7,6 +7,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Op
 import app.lumio.data.provider.Trait
+import app.lumio.data.route.ProviderState
+import app.lumio.data.route.Router
 import java.math.BigInteger
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
@@ -90,14 +92,39 @@ class RpcProvidersTest {
     }
 
     @Test
-    fun onlyAlchemyClaimsMevProtectionInThePool() {
-        val withMev = RpcPlugins.pool().filter { Trait.MEV_PROTECTED in it.traits }.map { it.id }
-        assertEquals(listOf("alchemy"), withMev)
+    fun theMevProvidersInThePoolAreOneRpcPublicNodeAndKeyedAlchemy() {
+        val withMev = RpcPlugins.pool().filter { Trait.MEV_PROTECTED in it.traits }.map { it.id }.toSet()
+        assertEquals(setOf("1rpc", "publicnode", "alchemy"), withMev)
+        assertFalse(Trait.MEV_PROTECTED in Ankr().traits)
+        assertFalse(Trait.MEV_PROTECTED in DRpc().traits)
     }
 
     @Test
-    fun thePoolHoldsTheSixProvidersOfTheDesign() {
-        assertEquals(setOf("1rpc", "publicnode", "ankr", "drpc", "alchemy", "tenderly"), RpcPlugins.pool().map { it.id }.toSet())
+    fun thePoolHoldsTheProvidersOfTheDesignAndChainlist() {
+        assertEquals(
+            setOf("1rpc", "publicnode", "ankr", "drpc", "alchemy", "tenderly", "chainlist"),
+            RpcPlugins.pool().map { it.id }.toSet(),
+        )
+    }
+
+    @Test
+    fun aBroadcastGoesToTheMevProvidersBeforeAnkrOrDrpc() {
+        val everyone = stateWith(cooling = emptySet())
+        val router = Router(RpcPlugins.pool())
+        val keyed = mapOf("ankr" to ProviderConfig(apiKey = key))
+        fun offered(net: NetworkId, state: ProviderState): Set<String> =
+            router.route(net, Op.BROADCAST, keyed, state, nowMs = 0L, tried = emptySet(), excluded = emptySet()).map { it.id }.toSet()
+
+        assertEquals(setOf("1rpc", "publicnode"), offered(mainnet, everyone))
+        assertEquals(setOf("1rpc", "publicnode"), offered(base, everyone))
+        assertEquals(setOf("ankr", "drpc"), offered(mainnet, stateWith(cooling = setOf("1rpc", "publicnode"))))
+    }
+
+    /** A state in which the listed providers are cooling down and the rest are available. */
+    private fun stateWith(cooling: Set<String>): ProviderState = object : ProviderState {
+        override fun available(providerId: String, nowMs: Long): Boolean = providerId !in cooling
+
+        override fun score(providerId: String, nowMs: Long): Double = 0.0
     }
 
     @Test
