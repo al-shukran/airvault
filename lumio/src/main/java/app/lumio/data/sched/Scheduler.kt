@@ -51,7 +51,8 @@ enum class Priority(internal val rank: Int, val deadlineMs: Long) {
  *   and a failed one opens it again.
  * - [ProviderError.Unsupported] and [ProviderError.Fatal] skip the provider for that call only. [ProviderError.NotFound] is an answer.
  *
- * Each call has a deadline set by its [Priority], and one that runs past it fails as [ProviderError.Transient].
+ * Each call has a deadline set by its [Priority], and one that runs past it fails as [ProviderError.Transient]. A provider that sends more than one HTTP
+ * request in a call pays for each request after the first from the same token bucket (see [Http.charge]), so its requests stay within the rate.
  *
  * Time comes from [clock] and jitter from [random], so tests run in virtual time. [scope] runs the timers that wake waiting calls. [cache] is read
  * for the open vault, and it is null while the vault is locked, when only uncached calls can run.
@@ -119,7 +120,7 @@ class Scheduler(
             val grant = acquire(req, priority, excluded, tried, lastError)
             val started = clock.nowMs()
             val result = try {
-                Result.success(grant.provider.execute(req, grant.cfg, http))
+                Result.success(grant.provider.execute(req, grant.cfg, Http(http.client) { takeExtraToken(grant.lane) }))
             } catch (e: ProviderError) {
                 Result.failure(e)
             } catch (e: IOException) {
@@ -325,6 +326,23 @@ class Scheduler(
     }
 
     private suspend fun jitterMs(ceiling: Long): Long = mutex.withLock { random.nextLong(ceiling + 1) }
+
+    /**
+     * Takes one token from [lane] for a request beyond the first of a call, and waits until one is free. The call keeps its slot while it waits, and
+     * its deadline covers the wait.
+     */
+    private suspend fun takeExtraToken(lane: Lane) {
+        while (true) {
+            val waitMs = mutex.withLock {
+                val now = clock.nowMs()
+                val wait = lane.msUntilToken(now)
+                if (wait == 0L) lane.takeToken(now)
+                wait
+            }
+            if (waitMs == 0L) return
+            delay(waitMs)
+        }
+    }
 
     /** The jitter ceiling for attempt [n], counted from 1: the base doubled each time, up to the cap. */
     private fun backoffCeiling(n: Int): Long = minOf(CAP_MS, BASE_MS shl (n - 1).coerceIn(0, MAX_DOUBLINGS))
