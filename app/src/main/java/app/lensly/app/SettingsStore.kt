@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.ProxyPolicy
@@ -21,19 +22,23 @@ data class AppSettings(
     val bitcoinInputPolicy: InputVerificationPolicy = InputVerificationPolicy.STRICT,
     /** Which online side may ask for a Bitcoin signature. The default is the core default, ANY. */
     val bitcoinSigningSource: SigningSourcePolicy = SigningSourcePolicy.ANY,
+    /** The fee limits that make a Bitcoin review show a WARN notice. The default is the core default, 200 sat/vB and 10 per cent. */
+    val bitcoinFeeThresholds: BtcFeeThresholds = BtcFeeThresholds.DEFAULT,
 )
 
 /**
  * The owner's settings, stored as the vault record `settings` through [VaultSession.putVaultRecord]. The record is a
  * version byte (4), the Bulk Cap as its account count (int), the Proxy Policy code (byte), the shortest and the longest
  * hide delay in milliseconds (two ints), then the Bitcoin input verification code and the Bitcoin signing source code
- * (two bytes), in the same DataOutputStream style as the wallet records. Version 1 had only the Bulk Cap, so it reads with
- * the default policy; version 2 has no hide delay, so it reads with the default; version 3 has no Bitcoin policy, so it
- * reads with the core defaults.
+ * (two bytes), then the Bitcoin fee rate limit in sat/vB and the fee share limit in per cent (two ints), in the same
+ * DataOutputStream style as the wallet records. Version 1 had only the Bulk Cap, so it reads with the default policy; version
+ * 2 has no hide delay, so it reads with the default; version 3 has no Bitcoin policy, so it reads with the core defaults;
+ * version 4 has no fee limits, so it reads with the core defaults.
  *
  * A missing record, a damaged one, or an unknown version reads as the default, so a bad setting never blocks the vault.
  * A cap the app no longer offers, such as the retired 1,000, reads as 100, the largest cap offered. A hide delay outside
- * [HideDelay] reads as the default delay. A Bitcoin policy code this version does not know reads as its core default.
+ * [HideDelay] reads as the default delay. A Bitcoin policy code this version does not know reads as its core default. Fee
+ * limits outside the range [BtcFeeThresholds.of] accepts read as the core defaults.
  * A closed session still throws.
  */
 class SettingsStore(private val session: VaultSession) {
@@ -55,7 +60,8 @@ class SettingsStore(private val session: VaultSession) {
         const val VERSION_1 = 1
         const val VERSION_2 = 2
         const val VERSION_3 = 3
-        const val VERSION = 4
+        const val VERSION_4 = 4
+        const val VERSION = 5
 
         fun encode(settings: AppSettings): ByteArray {
             val buffer = ByteArrayOutputStream()
@@ -67,6 +73,8 @@ class SettingsStore(private val session: VaultSession) {
                 out.writeInt(settings.hideDelay.maxMs.toInt())
                 out.writeByte(settings.bitcoinInputPolicy.wire)
                 out.writeByte(settings.bitcoinSigningSource.wire)
+                out.writeInt(settings.bitcoinFeeThresholds.highFeeRateSatPerVb)
+                out.writeInt(settings.bitcoinFeeThresholds.feeSharePercent)
             }
             return buffer.toByteArray()
         }
@@ -90,15 +98,21 @@ class SettingsStore(private val session: VaultSession) {
                     HideDelay.DEFAULT
                 }
                 // Version 4 adds the Bitcoin policies. A code this version does not know reads as its core default.
-                val bitcoinInputPolicy = if (version >= VERSION) {
+                val bitcoinInputPolicy = if (version >= VERSION_4) {
                     InputVerificationPolicy.ofWire(input.readUnsignedByte()) ?: InputVerificationPolicy.STRICT
                 } else {
                     InputVerificationPolicy.STRICT
                 }
-                val bitcoinSigningSource = if (version >= VERSION) {
+                val bitcoinSigningSource = if (version >= VERSION_4) {
                     SigningSourcePolicy.ofWire(input.readUnsignedByte()) ?: SigningSourcePolicy.ANY
                 } else {
                     SigningSourcePolicy.ANY
+                }
+                // Version 5 adds the fee limits. Values outside their range read as the core defaults.
+                val bitcoinFeeThresholds = if (version >= VERSION) {
+                    BtcFeeThresholds.of(input.readInt(), input.readInt()) ?: BtcFeeThresholds.DEFAULT
+                } else {
+                    BtcFeeThresholds.DEFAULT
                 }
                 AppSettings(
                     bulkCap = bulkCap,
@@ -106,6 +120,7 @@ class SettingsStore(private val session: VaultSession) {
                     hideDelay = hideDelay,
                     bitcoinInputPolicy = bitcoinInputPolicy,
                     bitcoinSigningSource = bitcoinSigningSource,
+                    bitcoinFeeThresholds = bitcoinFeeThresholds,
                 )
             }
         } catch (e: IOException) {

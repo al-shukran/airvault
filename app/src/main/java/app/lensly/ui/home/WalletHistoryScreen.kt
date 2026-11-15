@@ -36,10 +36,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.app.VisualIdentity
+import app.lensly.app.sign.BitcoinRecordFacts
+import app.lensly.app.sign.NoticeLevel
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
@@ -50,6 +53,7 @@ import app.lensly.ui.sign.AddressText
 import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
 import app.lensly.ui.sign.MutedText
+import app.lensly.ui.sign.btcText
 import app.lensly.ui.sign.groupHex
 import app.lensly.ui.theme.LenslyError
 import app.lensly.ui.theme.LenslyMuted
@@ -65,10 +69,12 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 
 private const val EMPTY_BODY =
     "Each request you review on this wallet is listed here, with what you decided. The list stays on this device."
 private const val REQUEST_LABEL = "Request"
+private const val BITCOIN_LABEL = "Bitcoin transaction"
 
 /**
  * The Review Records of one wallet, newest first, under the day each was made. A row shows the outcome, the network, what the
@@ -148,11 +154,15 @@ internal fun HistoryRow(
             modifier = Modifier.size(24.dp),
         )
         Spacer(Modifier.width(LenslySpacing.sm))
-        ChainIcon(network = network, size = 24.dp)
+        if (record.kind == ReviewKind.BITCOIN_TRANSACTION) {
+            BitcoinIcon(size = 24.dp)
+        } else {
+            ChainIcon(network = network, size = 24.dp)
+        }
         Spacer(Modifier.width(LenslySpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = record.function ?: record.refusal ?: REQUEST_LABEL,
+                text = record.function ?: record.refusal ?: requestLabel(record),
                 style = MaterialTheme.typography.titleSmall,
                 color = LenslyOnSurface,
                 maxLines = 2,
@@ -218,6 +228,7 @@ internal fun HistoryDetailSheet(record: ReviewRecord, onDismiss: () -> Unit) {
             }
         }
         FactRow("Kind") { FactText(kindLabel(record.kind)) }
+        record.bitcoin?.let { facts -> BitcoinFacts(record, facts) }
         record.function?.let { function -> FactRow("Function") { FactText(function) } }
         record.to?.let { to -> FactRow("To") { AddressText(to) } }
         record.amount?.let { amount -> FactRow("Amount") { MonoText(amount) } }
@@ -233,6 +244,31 @@ internal fun HistoryDetailSheet(record: ReviewRecord, onDismiss: () -> Unit) {
 @Composable
 private fun FactText(text: String) {
     Text(text = text, style = MaterialTheme.typography.bodyMedium, color = LenslyOnSurface)
+}
+
+/**
+ * What a Bitcoin review showed: the account and its Script Type, each output with its address and amount, the fee and its rate, and every
+ * notice the review gave, as a warning or as the reason it was blocked.
+ */
+@Composable
+private fun BitcoinFacts(record: ReviewRecord, facts: BitcoinRecordFacts) {
+    record.accountIndex?.let { index -> FactRow("Account $index") { FactText(facts.scriptType) } }
+    facts.outputs.forEachIndexed { index, output ->
+        FactRow("Output $index") {
+            output.address?.let { AddressText(it) } ?: MutedText("No address. The script is not paid to an address.")
+            MonoText(btcText(output.amountSats))
+            if (output.isOwnChange) MutedText("Your change")
+        }
+    }
+    FactRow("Fee") {
+        MonoText(facts.feeSats?.let { "$it sat (${btcText(it)})" } ?: "Unknown")
+    }
+    FactRow("Fee rate") {
+        MonoText(facts.feeRateSatPerVb?.let { String.format(Locale.ROOT, "%.1f sat/vB", it) } ?: "Unknown")
+    }
+    facts.notices.forEach { notice ->
+        FactRow(if (notice.level == NoticeLevel.BLOCK) "Blocked" else "Warning") { FactText(notice.text) }
+    }
 }
 
 /** Label and value rows, as the review showed them. A value is in the monospace face, so each character can be compared by eye. */
@@ -266,9 +302,14 @@ internal fun outcomeLabel(outcome: ReviewOutcome): String = when (outcome) {
     ReviewOutcome.CANCELLED -> "Cancelled"
 }
 
+/** The title of a record that named no function and was not refused: a Bitcoin transaction, or a request. */
+private fun requestLabel(record: ReviewRecord): String =
+    if (record.kind == ReviewKind.BITCOIN_TRANSACTION) BITCOIN_LABEL else REQUEST_LABEL
+
 private fun kindLabel(kind: ReviewKind): String = when (kind) {
     ReviewKind.TRANSACTION -> "Transaction"
     ReviewKind.MESSAGE -> "Message"
+    ReviewKind.BITCOIN_TRANSACTION -> BITCOIN_LABEL
 }
 
 private fun networkLine(record: ReviewRecord): String = when {

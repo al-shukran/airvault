@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.ui.components.rememberKeyHaptics
@@ -82,6 +83,9 @@ internal const val CHART_NETWORK_LIMIT = 3
 
 /** The key of the Other segment. A network's key is its chain id, so the two cannot collide. */
 private const val OTHER_KEY = "other"
+
+/** The key of the Bitcoin segment, which counts the Bitcoin records that have no chain. */
+private const val BITCOIN_KEY = "bitcoin"
 
 /** One stacked segment: its key, its legend label, and how many records it counts over the window. */
 internal data class ChartSegment(val key: String, val label: String, val count: Int)
@@ -139,7 +143,10 @@ internal fun activityChart(
     return ActivityChart(days = days, segments = segments)
 }
 
-/** The App segments of [records]: the networks with the most records, then Other when any record is left for it. */
+/**
+ * The App segments of [records]: the networks with the most records, then Bitcoin for the Bitcoin records, then Other when any record
+ * is left for it.
+ */
 private fun appSegments(records: List<ReviewRecord>): List<ChartSegment> {
     val named = records
         .filter { it.chainId != null }
@@ -153,8 +160,10 @@ private fun appSegments(records: List<ReviewRecord>): List<ChartSegment> {
         }
         .sortedWith(compareByDescending<ChartSegment> { it.count }.thenBy { it.label })
         .take(CHART_NETWORK_LIMIT)
-    val otherCount = records.size - named.sumOf { it.count }
-    return if (otherCount > 0) named + ChartSegment(OTHER_KEY, "Other", otherCount) else named
+    val bitcoinCount = records.count { it.kind == ReviewKind.BITCOIN_TRANSACTION }
+    val withBitcoin = if (bitcoinCount > 0) named + ChartSegment(BITCOIN_KEY, "Bitcoin", bitcoinCount) else named
+    val otherCount = records.size - withBitcoin.sumOf { it.count }
+    return if (otherCount > 0) withBitcoin + ChartSegment(OTHER_KEY, "Other", otherCount) else withBitcoin
 }
 
 /** The day of [atMs] in [zone]. */

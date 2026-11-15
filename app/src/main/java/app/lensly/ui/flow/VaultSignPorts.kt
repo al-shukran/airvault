@@ -11,9 +11,11 @@ import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
+import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
+import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.visualIdentity
 import app.lensly.app.requestParser
@@ -127,6 +129,7 @@ internal class VaultSignPorts(
                 parsed,
                 settings.bitcoinInputPolicy,
                 settings.bitcoinSigningSource,
+                settings.bitcoinFeeThresholds,
             )
             BitcoinPrepared.Ready(walletId, parsed, reviewed)
         } catch (e: BtcRefusedException) {
@@ -174,6 +177,18 @@ internal class VaultSignPorts(
             throw e
         } catch (e: Exception) {
             // A closed or damaged vault, unwritable storage, or a record that cannot be written.
+            throw ReviewNotSaved()
+        }
+    }
+
+    /** Writes the Bitcoin [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
+    override suspend fun recordBitcoin(entry: BitcoinReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
+        val session = holder.openSession() ?: throw ReviewNotSaved()
+        try {
+            writeRecord(session, entry.walletId, bitcoinReviewRecordOf(entry, System.currentTimeMillis()))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             throw ReviewNotSaved()
         }
     }

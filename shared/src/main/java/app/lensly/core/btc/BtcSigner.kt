@@ -26,6 +26,7 @@ class BtcSigner(
     private val account: BtcAccount,
     private val inputPolicy: InputVerificationPolicy = InputVerificationPolicy.STRICT,
     private val sourcePolicy: SigningSourcePolicy = SigningSourcePolicy.ANY,
+    private val feeThresholds: BtcFeeThresholds = BtcFeeThresholds.DEFAULT,
 ) {
     /**
      * The review of [psbt]: every input with its verified amount and owner, every output with its own-change label, and the fee.
@@ -67,13 +68,18 @@ class BtcSigner(
         val inputTotal = inputs.sumOf { it.amountSats }
         val outputTotal = outputs.sumOf { it.amountSats }
         if (allVerified && outputTotal > inputTotal) refuse(BtcRefusal.OutputsExceedInputs)
+        val feeSats = if (allVerified) inputTotal - outputTotal else null
+        val estimatedVsize = BtcFeeRate.estimatedVsize(tx, account.scriptType)
+        // The share is taken of what leaves the owner's hands: every output that is not the owner's own change.
+        val paidSats = outputs.filterNot { it.isOwnChange }.sumOf { it.amountSats }
         return BtcReview(
             inputPolicy = inputPolicy,
             inputs = inputs,
             outputs = outputs,
-            feeSats = if (allVerified) inputTotal - outputTotal else null,
+            feeSats = feeSats,
             requiresConfirmation = inputPolicy == InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING && !allVerified,
-            estimatedVsize = BtcFeeRate.estimatedVsize(tx, account.scriptType),
+            estimatedVsize = estimatedVsize,
+            feeWarnings = feeSats?.let { feeThresholds.warnings(it, paidSats, estimatedVsize) }.orEmpty(),
         )
     }
 

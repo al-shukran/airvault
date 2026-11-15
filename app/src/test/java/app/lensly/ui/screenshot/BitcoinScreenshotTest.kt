@@ -5,11 +5,14 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcReview
 import app.lensly.core.btc.BtcReviewInput
 import app.lensly.core.btc.BtcReviewOutput
+import app.lensly.core.btc.BtcWarning
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.ui.sign.BitcoinReviewScreen
 import app.lensly.ui.settings.BitcoinPolicyScreen
+import app.lensly.ui.settings.FeeWarningBound
+import app.lensly.ui.settings.FeeWarningScreen
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
 import org.junit.Rule
@@ -52,6 +55,38 @@ class BitcoinScreenshotTest {
             onConfirmedChange = {},
             onApprove = {},
             onReject = {},
+        )
+    }
+
+    @Test
+    fun bitcoinReviewWithFeeWarnings() = compose.snapshot("bitcoin_review_fee_warnings") {
+        BitcoinReviewScreen(
+            review = warnedReview().copy(
+                feeWarnings = listOf(BtcWarning.HighFeeRate(285.7, 200), BtcWarning.HighFeeShare(41.7, 10)),
+            ),
+            network = BtcNetwork.TESTNET4,
+            scriptType = ScriptType.NATIVE_SEGWIT,
+            accountIndex = 0,
+            confirmed = false,
+            onConfirmedChange = {},
+            onApprove = {},
+            onReject = {},
+        )
+    }
+
+    @Test
+    fun feeWarningsAtTheirDefaults() = compose.snapshot("fee_warnings_defaults") {
+        FeeWarningScreen(
+            rate = "200",
+            share = "10",
+            focus = FeeWarningBound.RATE,
+            error = null,
+            ready = true,
+            onFocus = {},
+            onDigit = {},
+            onBackspace = {},
+            onSave = {},
+            onBack = {},
         )
     }
 

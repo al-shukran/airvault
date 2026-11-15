@@ -3,6 +3,7 @@ package app.lensly.app
 import app.lensly.app.export.MultiAccountsExport
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcAccountSelection
+import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcRefusal
@@ -387,6 +388,7 @@ class WalletStore(private val session: VaultSession) {
         psbt: Psbt,
         inputPolicy: InputVerificationPolicy,
         sourcePolicy: SigningSourcePolicy,
+        feeThresholds: BtcFeeThresholds = BtcFeeThresholds.DEFAULT,
     ): BitcoinReviewed {
         val stored = bitcoinAccounts(id)
         if (stored.isEmpty()) throw BtcRefusedException(BtcRefusal.NoStoredAccount)
@@ -394,7 +396,7 @@ class WalletStore(private val session: VaultSession) {
         try {
             val accounts = stored.map { BtcAccount.fromSeed(seed, it.network, it.scriptType, it.index) }
             val account = BtcAccountSelection.select(accounts, psbt)
-            val review = BtcSigner(account, inputPolicy, sourcePolicy).review(psbt)
+            val review = BtcSigner(account, inputPolicy, sourcePolicy, feeThresholds).review(psbt)
             val record = stored.first { it.key == Triple(account.scriptType, account.network, account.accountIndex) }
             return BitcoinReviewed(record, review)
         } finally {

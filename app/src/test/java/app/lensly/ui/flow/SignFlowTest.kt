@@ -1,6 +1,7 @@
 package app.lensly.ui.flow
 
 import app.lensly.app.export.PairingExport
+import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -129,6 +130,8 @@ private class FakePorts(
         signGate?.await()
         return pipeline.sign(ready, privateKey)
     }
+
+    override suspend fun recordBitcoin(entry: BitcoinReviewEntry): Unit = error("no Bitcoin request is expected here")
 
     override suspend fun record(entry: ReviewEntry) {
         beforeRecord(entry)

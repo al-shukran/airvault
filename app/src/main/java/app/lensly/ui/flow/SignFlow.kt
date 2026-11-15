@@ -1,6 +1,7 @@
 package app.lensly.ui.flow
 
 import app.lensly.app.BitcoinReviewed
+import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -115,6 +116,9 @@ interface SignFlowPorts {
     /** Writes [entry] as a Review Record of its wallet. Throws [ReviewNotSaved] when the record cannot be written. */
     suspend fun record(entry: ReviewEntry)
 
+    /** Writes the Bitcoin [entry] as a Review Record of its wallet. Throws [ReviewNotSaved] when the record cannot be written. */
+    suspend fun recordBitcoin(entry: BitcoinReviewEntry)
+
     /**
      * Reviews the Bitcoin request [psbt], the bytes the Parser Sandbox parsed, against wallet [walletId] with the owner's Bitcoin
      * policies. Throws [WalletUnavailable] when the wallet cannot be read.
@@ -137,8 +141,9 @@ interface SignFlowPorts {
  * A flow for one wallet ([walletId] set) checks the request against that wallet. A flow with no [walletId] finds the wallet
  * the request is for among all the wallets of the vault, and refuses to choose when none or several are.
  *
- * Each signature, and each refusal of a request that has a wallet, is written as a Review Record through [SignFlowPorts.record].
- * A reviewed request that is left unsigned is recorded as cancelled.
+ * Each signature, and each refusal of a request that has a wallet, is written as a Review Record through [SignFlowPorts.record], and
+ * a Bitcoin request is written through [SignFlowPorts.recordBitcoin] the same way. A reviewed request that is left unsigned is
+ * recorded as cancelled.
  *
  * [state] holds the current step. Calls that suspend run one at a time. [leave] ends the flow at once, and any call that
  * is still running then changes nothing.
@@ -182,7 +187,7 @@ class SignFlow(
                     current.value = scanning(READING)
                 }
                 is ScanReply.Complete -> if (accept(text)) publish(started, decide(started, reply.parsed))
-                is ScanReply.Bitcoin -> if (accept(text)) publish(started, decideBitcoin(reply.psbt))
+                is ScanReply.Bitcoin -> if (accept(text)) publish(started, decideBitcoin(started, reply.psbt))
             }
         }
     }
@@ -278,10 +283,18 @@ class SignFlow(
             is SignStep.Confirming -> step.ready
             else -> null
         }
+        val bitcoin = when (val step = current.value) {
+            is SignStep.BitcoinReview -> step.ready
+            is SignStep.BitcoinConfirming -> step.ready
+            else -> null
+        }
         epoch++
         current.value = SignStep.Closed
         reviewed?.let {
             recordQuietly(ReviewEntry(it.walletId, ReviewOutcome.CANCELLED, it.request, it, refusal = null))
+        }
+        bitcoin?.let {
+            recordBitcoinQuietly(BitcoinReviewEntry(it.walletId, ReviewOutcome.CANCELLED, psbtBytes(it), it.reviewed, refusal = null))
         }
     }
 
@@ -297,23 +310,23 @@ class SignFlow(
 
     /**
      * Reviews a complete Bitcoin request against the flow's wallet. A flow with no wallet refuses it: a Bitcoin review is checked
-     * against one wallet's Bitcoin accounts, so the owner scans from that wallet's sign screen.
+     * against one wallet's Bitcoin accounts, so the owner scans from that wallet's sign screen. A refusal is recorded under that wallet.
      */
-    private suspend fun decideBitcoin(psbt: ByteArray): SignStep {
+    private suspend fun decideBitcoin(started: Int, psbt: ByteArray): SignStep {
         val target = walletId ?: return SignStep.Refused(BITCOIN_NEEDS_WALLET)
         return try {
             when (val prepared = ports.bitcoinPrepare(target, psbt)) {
                 is BitcoinPrepared.Ready -> SignStep.BitcoinReview(prepared, confirmed = false)
-                is BitcoinPrepared.Refused -> SignStep.Refused(prepared.reason)
+                is BitcoinPrepared.Refused -> bitcoinRefusal(started, target, psbt, prepared.reason, reviewed = null)
             }
         } catch (e: WalletUnavailable) {
-            SignStep.Refused(WALLET_UNREADABLE)
+            bitcoinRefusal(started, target, psbt, WALLET_UNREADABLE, reviewed = null)
         }
     }
 
     /**
-     * Checks the App Password for a Bitcoin signature, then signs the reviewed request. Nothing is recorded for a Bitcoin request yet,
-     * so only the signature and the refusals are shown. The caller zeroes [password].
+     * Checks the App Password for a Bitcoin signature, then signs the reviewed request. A refusal is recorded with the review it came
+     * after. The caller zeroes [password].
      */
     private suspend fun confirmBitcoin(waiting: SignStep.BitcoinConfirming, password: CharArray) {
         if (waiting.busy) return
@@ -322,24 +335,56 @@ class SignFlow(
         val next = when (ports.checkPassword(password)) {
             PasswordCheck.Accepted -> signBitcoin(waiting, started)
             PasswordCheck.Rejected -> SignStep.BitcoinConfirming(waiting.ready, waiting.confirmed, busy = false)
-            PasswordCheck.Unavailable -> SignStep.Refused(VAULT_UNCHECKED)
+            PasswordCheck.Unavailable ->
+                bitcoinRefusal(started, waiting.ready.walletId, psbtBytes(waiting.ready), VAULT_UNCHECKED, waiting.ready.reviewed)
         }
         publish(started, next)
     }
 
-    /** Signs the reviewed Bitcoin request. A refusal, or a wallet that cannot be read, signs nothing and is shown as the reason. */
+    /**
+     * Signs the reviewed Bitcoin request. A refusal, or a wallet that cannot be read, signs nothing and is shown as the reason. The
+     * signature is recorded before it is returned, so no signature is shown without its record.
+     */
     private suspend fun signBitcoin(waiting: SignStep.BitcoinConfirming, started: Int): SignStep {
         if (started != epoch) return SignStep.Closed
-        return try {
-            SignStep.Signature(ports.bitcoinSign(waiting.ready, waiting.confirmed))
+        val ready = waiting.ready
+        val parts = try {
+            ports.bitcoinSign(ready, waiting.confirmed)
         } catch (e: WalletUnavailable) {
-            SignStep.Refused(WALLET_UNREADABLE)
+            return bitcoinRefusal(started, ready.walletId, psbtBytes(ready), WALLET_UNREADABLE, ready.reviewed)
         } catch (e: BtcRefusedException) {
-            SignStep.Refused(e.refusal.reason)
+            return bitcoinRefusal(started, ready.walletId, psbtBytes(ready), e.refusal.reason, ready.reviewed)
         } catch (e: IllegalArgumentException) {
-            SignStep.Refused(SIGN_REFUSED)
+            return bitcoinRefusal(started, ready.walletId, psbtBytes(ready), SIGN_REFUSED, ready.reviewed)
+        }
+        return try {
+            if (started != epoch) return SignStep.Closed
+            ports.recordBitcoin(BitcoinReviewEntry(ready.walletId, ReviewOutcome.SIGNED, psbtBytes(ready), ready.reviewed, refusal = null))
+            SignStep.Signature(parts)
+        } catch (e: ReviewNotSaved) {
+            SignStep.Refused(NOT_SAVED)
         }
     }
+
+    /**
+     * The step that shows a refusal of a Bitcoin request, recorded under [wallet] with the [reviewed] review it came after, if any. A
+     * refusal decided after the flow was left was never shown, so it is not recorded either.
+     */
+    private suspend fun bitcoinRefusal(
+        started: Int,
+        wallet: String,
+        psbt: ByteArray,
+        reason: String,
+        reviewed: BitcoinReviewed?,
+    ): SignStep.Refused {
+        if (started == epoch) {
+            recordBitcoinQuietly(BitcoinReviewEntry(wallet, ReviewOutcome.REFUSED, psbt, reviewed, refusal = reason))
+        }
+        return SignStep.Refused(reason)
+    }
+
+    /** The PSBT of [ready] as the Parser Sandbox wrote it, which is the request the review was made of. */
+    private fun psbtBytes(ready: BitcoinPrepared.Ready): ByteArray = Psbt.write(ready.psbt).toByteArray()
 
     /** Checks a complete request. Only the first complete request is decided, because scanning stops once it is. */
     private suspend fun decide(started: Int, parsed: ParsedRequest): SignStep {
@@ -426,6 +471,15 @@ class SignFlow(
     private suspend fun recordQuietly(entry: ReviewEntry) {
         try {
             ports.record(entry)
+        } catch (e: ReviewNotSaved) {
+            // Left out: the screen already shows the outcome, and nothing is signed for it.
+        }
+    }
+
+    /** Writes the Bitcoin [entry]. A write that fails is left out, as [recordQuietly] leaves one out. */
+    private suspend fun recordBitcoinQuietly(entry: BitcoinReviewEntry) {
+        try {
+            ports.recordBitcoin(entry)
         } catch (e: ReviewNotSaved) {
             // Left out: the screen already shows the outcome, and nothing is signed for it.
         }
