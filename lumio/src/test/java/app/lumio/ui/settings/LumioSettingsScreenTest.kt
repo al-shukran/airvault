@@ -25,6 +25,7 @@ class LumioSettingsScreenTest {
             LenslyTheme {
                 LumioSettingsScreen(
                     onBack = {},
+                    display = {},
                     bitcoin = {
                         BitcoinServersSettings(
                             mainnet = "https://mempool.space/api",
@@ -73,6 +74,7 @@ class LumioSettingsScreenTest {
             LenslyTheme {
                 LumioSettingsScreen(
                     onBack = {},
+                    display = {},
                     bitcoin = {},
                     ethereum = {},
                     onDataProviders = {},
@@ -91,6 +93,7 @@ class LumioSettingsScreenTest {
             LenslyTheme {
                 LumioSettingsScreen(
                     onBack = {},
+                    display = {},
                     bitcoin = {},
                     ethereum = {},
                     onDataProviders = {},
