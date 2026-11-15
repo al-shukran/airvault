@@ -35,10 +35,13 @@ partitions:
                  --tests 'app.lensly.ui.SecureWindowTest'
   app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
                  --tests 'app.lensly.core.vault.BackupExclusionTest'
-  lumio          :lumio:assembleDebug :lumio:testDebugUnitTest
+  lumio-a        :lumio:assembleDebug :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
+  lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.btc.*' --tests 'app.lumio.data.*'
+                 --tests 'app.lumio.evm.*' --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*'
   registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
-  ci             bash -n on every script, scripts/ci/check-ui-partitions.sh, then scripts/ci/check-test-network.sh (no Gradle)
+  ci             bash -n on every script, scripts/ci/check-ui-partitions.sh, scripts/ci/check-lumio-partitions.sh, then
+                 scripts/ci/check-test-network.sh (no Gradle)
 USAGE_END
 }
 
@@ -125,10 +128,21 @@ case "$partition" in
             --tests 'app.lensly.SmokeTest' \
             --tests 'app.lensly.core.vault.BackupExclusionTest'
         ;;
-    lumio)
-        # Lumio, the companion app: its debug APK and its Home test. Its cover, gate and theme come from :shared, which the
-        # shared partitions test.
-        ./gradlew :lumio:assembleDebug :lumio:testDebugUnitTest
+    # The app.lumio tests split in two so the lumio test job stays under its 5-minute cap (guideline 2.1). lumio-a holds the ui
+    # packages, which include the Roborazzi pixel tests, and assembles the debug APK. lumio-b holds the rest. A new lumio package,
+    # or a test class directly in app.lumio, must be added to ONE of the two arms. scripts/ci/check-lumio-partitions.sh (run by
+    # the ci partition) fails when one is in neither. Lumio's cover, gate and theme come from :shared, which the shared partitions test.
+    lumio-a)
+        ./gradlew :lumio:assembleDebug :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
+        ;;
+    lumio-b)
+        ./gradlew :lumio:testDebugUnitTest \
+            --tests 'app.lumio.LumioBackdropTest' \
+            --tests 'app.lumio.btc.*' \
+            --tests 'app.lumio.data.*' \
+            --tests 'app.lumio.evm.*' \
+            --tests 'app.lumio.network.*' \
+            --tests 'app.lumio.pair.*'
         ;;
     registry-pack)
         ./gradlew :tools:registry-pack:test
@@ -146,6 +160,7 @@ case "$partition" in
         done < <(find "$ROOT/scripts" -type f -name '*.sh' | sort)
         echo "run-partition: bash -n passed for $scripts script(s)"
         "$ROOT/scripts/ci/check-ui-partitions.sh"
+        "$ROOT/scripts/ci/check-lumio-partitions.sh"
         exec "$ROOT/scripts/ci/check-test-network.sh"
         ;;
     *)
