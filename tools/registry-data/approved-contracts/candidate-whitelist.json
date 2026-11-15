@@ -1,0 +1,1530 @@
+{
+  "whitelist": [
+    {
+      "chainId": 1,
+      "contract": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "selector": "0xde0e9a3e",
+      "signature": "unwrap(uint256)",
+      "meaning": "Lido wstETH: unwrap wstETH into stETH.",
+      "params": [
+        {
+          "name": "_wstETHAmount",
+          "type": "uint256",
+          "tokenRef": true
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "selector": "0xea598cb0",
+      "signature": "wrap(uint256)",
+      "meaning": "Lido wstETH: wrap stETH into wstETH.",
+      "params": [
+        {
+          "name": "_stETHAmount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "selector": "0x28530a47",
+      "signature": "setUserEMode(uint8)",
+      "meaning": "Aave V3: choose an efficiency mode category, 0 for none. It changes the borrowing limits of correlated assets.",
+      "proxy": {
+        "implementationAddress": "0x4295fe69b3e978eb511e4558b4407ad871612fcb"
+      },
+      "params": [
+        {
+          "name": "categoryId",
+          "type": "uint8"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "selector": "0x573ade81",
+      "signature": "repay(address,uint256,uint256,address)",
+      "meaning": "Aave V3: repay part or all of a borrowed asset. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x4295fe69b3e978eb511e4558b4407ad871612fcb"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "selector": "0x5a3b74b9",
+      "signature": "setUserUseReserveAsCollateral(address,bool)",
+      "meaning": "Aave V3: turn the use of a deposited asset as collateral on or off.",
+      "proxy": {
+        "implementationAddress": "0x4295fe69b3e978eb511e4558b4407ad871612fcb"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "useAsCollateral",
+          "type": "bool"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "selector": "0x617ba037",
+      "signature": "supply(address,uint256,address,uint16)",
+      "meaning": "Aave V3: deposit an asset into the pool to earn interest. It can be used as collateral.",
+      "proxy": {
+        "implementationAddress": "0x4295fe69b3e978eb511e4558b4407ad871612fcb"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "selector": "0x69328dec",
+      "signature": "withdraw(address,uint256,address)",
+      "meaning": "Aave V3: withdraw a deposited asset from the pool to an address.",
+      "proxy": {
+        "implementationAddress": "0x4295fe69b3e978eb511e4558b4407ad871612fcb"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "selector": "0xa415bcad",
+      "signature": "borrow(address,uint256,uint256,uint16,address)",
+      "meaning": "Aave V3: borrow an asset against your collateral. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x4295fe69b3e978eb511e4558b4407ad871612fcb"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "selector": "0xf2b9fdb8",
+      "signature": "supply(address,uint256)",
+      "meaning": "Compound V3: supply an asset to the market to earn interest.",
+      "proxy": {
+        "implementationAddress": "0x2a0c96f742dbe81bab9b13628f7f070ff1a5c8f9"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "selector": "0xf3fef3a3",
+      "signature": "withdraw(address,uint256)",
+      "meaning": "Compound V3: withdraw an asset from the market. Withdrawing more base asset than you supplied borrows the difference.",
+      "proxy": {
+        "implementationAddress": "0x2a0c96f742dbe81bab9b13628f7f070ff1a5c8f9"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "selector": "0xa1903eab",
+      "signature": "submit(address)",
+      "meaning": "Lido: stake the ETH sent with the call and receive stETH. The referral address may be zero.",
+      "proxy": {
+        "implementationAddress": "0x028271e30a695c0527a0c50ca30603fed004cdb0"
+      },
+      "params": [
+        {
+          "name": "_referral",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "selector": "0x2e1a7d4d",
+      "signature": "withdraw(uint256)",
+      "meaning": "WETH: unwrap WETH into the native coin.",
+      "params": [
+        {
+          "name": "wad",
+          "type": "uint256",
+          "tokenRef": true
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "selector": "0xd0e30db0",
+      "signature": "deposit()",
+      "meaning": "WETH: wrap the native coin into WETH. The call sends the native coin as value.",
+      "params": [],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "selector": "0xf2b9fdb8",
+      "signature": "supply(address,uint256)",
+      "meaning": "Compound V3: supply an asset to the market to earn interest.",
+      "proxy": {
+        "implementationAddress": "0x0b07565a8ef48170e15918b251ebd95109b23255"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "selector": "0xf3fef3a3",
+      "signature": "withdraw(address,uint256)",
+      "meaning": "Compound V3: withdraw an asset from the market. Withdrawing more base asset than you supplied borrows the difference.",
+      "proxy": {
+        "implementationAddress": "0x0b07565a8ef48170e15918b251ebd95109b23255"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 10,
+      "contract": "0x2e44e174f7d53f0212823acc11c01a11d58c5bcb",
+      "selector": "0xf2b9fdb8",
+      "signature": "supply(address,uint256)",
+      "meaning": "Compound V3: supply an asset to the market to earn interest.",
+      "proxy": {
+        "implementationAddress": "0x4917850edb144b42e74ebb573e1f2dc6f9bfca9b"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 10,
+      "contract": "0x2e44e174f7d53f0212823acc11c01a11d58c5bcb",
+      "selector": "0xf3fef3a3",
+      "signature": "withdraw(address,uint256)",
+      "meaning": "Compound V3: withdraw an asset from the market. Withdrawing more base asset than you supplied borrows the difference.",
+      "proxy": {
+        "implementationAddress": "0x4917850edb144b42e74ebb573e1f2dc6f9bfca9b"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 10,
+      "contract": "0x4200000000000000000000000000000000000006",
+      "selector": "0x2e1a7d4d",
+      "signature": "withdraw(uint256)",
+      "meaning": "WETH: unwrap WETH into the native coin.",
+      "params": [
+        {
+          "name": "wad",
+          "type": "uint256",
+          "tokenRef": true
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 10,
+      "contract": "0x4200000000000000000000000000000000000006",
+      "selector": "0xd0e30db0",
+      "signature": "deposit()",
+      "meaning": "WETH: wrap the native coin into WETH. The call sends the native coin as value.",
+      "params": [],
+      "upgradeable": false
+    },
+    {
+      "chainId": 10,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x28530a47",
+      "signature": "setUserEMode(uint8)",
+      "meaning": "Aave V3: choose an efficiency mode category, 0 for none. It changes the borrowing limits of correlated assets.",
+      "proxy": {
+        "implementationAddress": "0x4d48678de6c79c3cbb3695cbcd89c50132815b74"
+      },
+      "params": [
+        {
+          "name": "categoryId",
+          "type": "uint8"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 10,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x573ade81",
+      "signature": "repay(address,uint256,uint256,address)",
+      "meaning": "Aave V3: repay part or all of a borrowed asset. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x4d48678de6c79c3cbb3695cbcd89c50132815b74"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 10,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x5a3b74b9",
+      "signature": "setUserUseReserveAsCollateral(address,bool)",
+      "meaning": "Aave V3: turn the use of a deposited asset as collateral on or off.",
+      "proxy": {
+        "implementationAddress": "0x4d48678de6c79c3cbb3695cbcd89c50132815b74"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "useAsCollateral",
+          "type": "bool"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 10,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x617ba037",
+      "signature": "supply(address,uint256,address,uint16)",
+      "meaning": "Aave V3: deposit an asset into the pool to earn interest. It can be used as collateral.",
+      "proxy": {
+        "implementationAddress": "0x4d48678de6c79c3cbb3695cbcd89c50132815b74"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 10,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x69328dec",
+      "signature": "withdraw(address,uint256,address)",
+      "meaning": "Aave V3: withdraw a deposited asset from the pool to an address.",
+      "proxy": {
+        "implementationAddress": "0x4d48678de6c79c3cbb3695cbcd89c50132815b74"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 10,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0xa415bcad",
+      "signature": "borrow(address,uint256,uint256,uint16,address)",
+      "meaning": "Aave V3: borrow an asset against your collateral. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x4d48678de6c79c3cbb3695cbcd89c50132815b74"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 56,
+      "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+      "selector": "0x28530a47",
+      "signature": "setUserEMode(uint8)",
+      "meaning": "Aave V3: choose an efficiency mode category, 0 for none. It changes the borrowing limits of correlated assets.",
+      "proxy": {
+        "implementationAddress": "0x35a50dbe75228e4f02608472a47f5548ed2c549f"
+      },
+      "params": [
+        {
+          "name": "categoryId",
+          "type": "uint8"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 56,
+      "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+      "selector": "0x573ade81",
+      "signature": "repay(address,uint256,uint256,address)",
+      "meaning": "Aave V3: repay part or all of a borrowed asset. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x35a50dbe75228e4f02608472a47f5548ed2c549f"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 56,
+      "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+      "selector": "0x5a3b74b9",
+      "signature": "setUserUseReserveAsCollateral(address,bool)",
+      "meaning": "Aave V3: turn the use of a deposited asset as collateral on or off.",
+      "proxy": {
+        "implementationAddress": "0x35a50dbe75228e4f02608472a47f5548ed2c549f"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "useAsCollateral",
+          "type": "bool"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 56,
+      "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+      "selector": "0x617ba037",
+      "signature": "supply(address,uint256,address,uint16)",
+      "meaning": "Aave V3: deposit an asset into the pool to earn interest. It can be used as collateral.",
+      "proxy": {
+        "implementationAddress": "0x35a50dbe75228e4f02608472a47f5548ed2c549f"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 56,
+      "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+      "selector": "0x69328dec",
+      "signature": "withdraw(address,uint256,address)",
+      "meaning": "Aave V3: withdraw a deposited asset from the pool to an address.",
+      "proxy": {
+        "implementationAddress": "0x35a50dbe75228e4f02608472a47f5548ed2c549f"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 56,
+      "contract": "0x6807dc923806fe8fd134338eabca509979a7e0cb",
+      "selector": "0xa415bcad",
+      "signature": "borrow(address,uint256,uint256,uint16,address)",
+      "meaning": "Aave V3: borrow an asset against your collateral. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x35a50dbe75228e4f02608472a47f5548ed2c549f"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 56,
+      "contract": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+      "selector": "0x2e1a7d4d",
+      "signature": "withdraw(uint256)",
+      "meaning": "WBNB: unwrap WBNB into the native coin.",
+      "params": [
+        {
+          "name": "wad",
+          "type": "uint256",
+          "tokenRef": true
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 56,
+      "contract": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+      "selector": "0xd0e30db0",
+      "signature": "deposit()",
+      "meaning": "WBNB: wrap the native coin into WBNB. The call sends the native coin as value.",
+      "params": [],
+      "upgradeable": false
+    },
+    {
+      "chainId": 137,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x28530a47",
+      "signature": "setUserEMode(uint8)",
+      "meaning": "Aave V3: choose an efficiency mode category, 0 for none. It changes the borrowing limits of correlated assets.",
+      "proxy": {
+        "implementationAddress": "0x9a375fa209ebb87832eb258bfae02998bf3641aa"
+      },
+      "params": [
+        {
+          "name": "categoryId",
+          "type": "uint8"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 137,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x573ade81",
+      "signature": "repay(address,uint256,uint256,address)",
+      "meaning": "Aave V3: repay part or all of a borrowed asset. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x9a375fa209ebb87832eb258bfae02998bf3641aa"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 137,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x5a3b74b9",
+      "signature": "setUserUseReserveAsCollateral(address,bool)",
+      "meaning": "Aave V3: turn the use of a deposited asset as collateral on or off.",
+      "proxy": {
+        "implementationAddress": "0x9a375fa209ebb87832eb258bfae02998bf3641aa"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "useAsCollateral",
+          "type": "bool"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 137,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x617ba037",
+      "signature": "supply(address,uint256,address,uint16)",
+      "meaning": "Aave V3: deposit an asset into the pool to earn interest. It can be used as collateral.",
+      "proxy": {
+        "implementationAddress": "0x9a375fa209ebb87832eb258bfae02998bf3641aa"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 137,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x69328dec",
+      "signature": "withdraw(address,uint256,address)",
+      "meaning": "Aave V3: withdraw a deposited asset from the pool to an address.",
+      "proxy": {
+        "implementationAddress": "0x9a375fa209ebb87832eb258bfae02998bf3641aa"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 137,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0xa415bcad",
+      "signature": "borrow(address,uint256,uint256,uint16,address)",
+      "meaning": "Aave V3: borrow an asset against your collateral. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x9a375fa209ebb87832eb258bfae02998bf3641aa"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 137,
+      "contract": "0xf25212e676d1f7f89cd72ffee66158f541246445",
+      "selector": "0xf2b9fdb8",
+      "signature": "supply(address,uint256)",
+      "meaning": "Compound V3: supply an asset to the market to earn interest.",
+      "proxy": {
+        "implementationAddress": "0xcb25edf8178d36166564707a15b98862251928af"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 137,
+      "contract": "0xf25212e676d1f7f89cd72ffee66158f541246445",
+      "selector": "0xf3fef3a3",
+      "signature": "withdraw(address,uint256)",
+      "meaning": "Compound V3: withdraw an asset from the market. Withdrawing more base asset than you supplied borrows the difference.",
+      "proxy": {
+        "implementationAddress": "0xcb25edf8178d36166564707a15b98862251928af"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 8453,
+      "contract": "0x4200000000000000000000000000000000000006",
+      "selector": "0x2e1a7d4d",
+      "signature": "withdraw(uint256)",
+      "meaning": "WETH: unwrap WETH into the native coin.",
+      "params": [
+        {
+          "name": "wad",
+          "type": "uint256",
+          "tokenRef": true
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 8453,
+      "contract": "0x4200000000000000000000000000000000000006",
+      "selector": "0xd0e30db0",
+      "signature": "deposit()",
+      "meaning": "WETH: wrap the native coin into WETH. The call sends the native coin as value.",
+      "params": [],
+      "upgradeable": false
+    },
+    {
+      "chainId": 8453,
+      "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+      "selector": "0x28530a47",
+      "signature": "setUserEMode(uint8)",
+      "meaning": "Aave V3: choose an efficiency mode category, 0 for none. It changes the borrowing limits of correlated assets.",
+      "proxy": {
+        "implementationAddress": "0xf248dd0adb01e78043e8a423b8504c8129f11918"
+      },
+      "params": [
+        {
+          "name": "categoryId",
+          "type": "uint8"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 8453,
+      "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+      "selector": "0x573ade81",
+      "signature": "repay(address,uint256,uint256,address)",
+      "meaning": "Aave V3: repay part or all of a borrowed asset. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0xf248dd0adb01e78043e8a423b8504c8129f11918"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 8453,
+      "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+      "selector": "0x5a3b74b9",
+      "signature": "setUserUseReserveAsCollateral(address,bool)",
+      "meaning": "Aave V3: turn the use of a deposited asset as collateral on or off.",
+      "proxy": {
+        "implementationAddress": "0xf248dd0adb01e78043e8a423b8504c8129f11918"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "useAsCollateral",
+          "type": "bool"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 8453,
+      "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+      "selector": "0x617ba037",
+      "signature": "supply(address,uint256,address,uint16)",
+      "meaning": "Aave V3: deposit an asset into the pool to earn interest. It can be used as collateral.",
+      "proxy": {
+        "implementationAddress": "0xf248dd0adb01e78043e8a423b8504c8129f11918"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 8453,
+      "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+      "selector": "0x69328dec",
+      "signature": "withdraw(address,uint256,address)",
+      "meaning": "Aave V3: withdraw a deposited asset from the pool to an address.",
+      "proxy": {
+        "implementationAddress": "0xf248dd0adb01e78043e8a423b8504c8129f11918"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 8453,
+      "contract": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+      "selector": "0xa415bcad",
+      "signature": "borrow(address,uint256,uint256,uint16,address)",
+      "meaning": "Aave V3: borrow an asset against your collateral. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0xf248dd0adb01e78043e8a423b8504c8129f11918"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 8453,
+      "contract": "0xb125e6687d4313864e53df431d5425969c15eb2f",
+      "selector": "0xf2b9fdb8",
+      "signature": "supply(address,uint256)",
+      "meaning": "Compound V3: supply an asset to the market to earn interest.",
+      "proxy": {
+        "implementationAddress": "0xb6ef22a5d7c3214c767b39213556e11e46ff8f3e"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 8453,
+      "contract": "0xb125e6687d4313864e53df431d5425969c15eb2f",
+      "selector": "0xf3fef3a3",
+      "signature": "withdraw(address,uint256)",
+      "meaning": "Compound V3: withdraw an asset from the market. Withdrawing more base asset than you supplied borrows the difference.",
+      "proxy": {
+        "implementationAddress": "0xb6ef22a5d7c3214c767b39213556e11e46ff8f3e"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x28530a47",
+      "signature": "setUserEMode(uint8)",
+      "meaning": "Aave V3: choose an efficiency mode category, 0 for none. It changes the borrowing limits of correlated assets.",
+      "proxy": {
+        "implementationAddress": "0xa6e7d235a5b2fc7811d10669bbe20fa14b658a1e"
+      },
+      "params": [
+        {
+          "name": "categoryId",
+          "type": "uint8"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x573ade81",
+      "signature": "repay(address,uint256,uint256,address)",
+      "meaning": "Aave V3: repay part or all of a borrowed asset. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0xa6e7d235a5b2fc7811d10669bbe20fa14b658a1e"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x5a3b74b9",
+      "signature": "setUserUseReserveAsCollateral(address,bool)",
+      "meaning": "Aave V3: turn the use of a deposited asset as collateral on or off.",
+      "proxy": {
+        "implementationAddress": "0xa6e7d235a5b2fc7811d10669bbe20fa14b658a1e"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "useAsCollateral",
+          "type": "bool"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x617ba037",
+      "signature": "supply(address,uint256,address,uint16)",
+      "meaning": "Aave V3: deposit an asset into the pool to earn interest. It can be used as collateral.",
+      "proxy": {
+        "implementationAddress": "0xa6e7d235a5b2fc7811d10669bbe20fa14b658a1e"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x69328dec",
+      "signature": "withdraw(address,uint256,address)",
+      "meaning": "Aave V3: withdraw a deposited asset from the pool to an address.",
+      "proxy": {
+        "implementationAddress": "0xa6e7d235a5b2fc7811d10669bbe20fa14b658a1e"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0xa415bcad",
+      "signature": "borrow(address,uint256,uint256,uint16,address)",
+      "meaning": "Aave V3: borrow an asset against your collateral. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0xa6e7d235a5b2fc7811d10669bbe20fa14b658a1e"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+      "selector": "0x2e1a7d4d",
+      "signature": "withdraw(uint256)",
+      "meaning": "WETH: unwrap WETH into the native coin.",
+      "proxy": {
+        "implementationAddress": "0x8b194beae1d3e0788a1a35173978001acdfba668"
+      },
+      "params": [
+        {
+          "name": "wad",
+          "type": "uint256",
+          "tokenRef": true
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+      "selector": "0xd0e30db0",
+      "signature": "deposit()",
+      "meaning": "WETH: wrap the native coin into WETH. The call sends the native coin as value.",
+      "proxy": {
+        "implementationAddress": "0x8b194beae1d3e0788a1a35173978001acdfba668"
+      },
+      "params": [],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x9c4ec768c28520b50860ea7a15bd7213a9ff58bf",
+      "selector": "0xf2b9fdb8",
+      "signature": "supply(address,uint256)",
+      "meaning": "Compound V3: supply an asset to the market to earn interest.",
+      "proxy": {
+        "implementationAddress": "0x9398741a8481787ee064293e2da4ad795fa11b7a"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 42161,
+      "contract": "0x9c4ec768c28520b50860ea7a15bd7213a9ff58bf",
+      "selector": "0xf3fef3a3",
+      "signature": "withdraw(address,uint256)",
+      "meaning": "Compound V3: withdraw an asset from the market. Withdrawing more base asset than you supplied borrows the difference.",
+      "proxy": {
+        "implementationAddress": "0x9398741a8481787ee064293e2da4ad795fa11b7a"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 43114,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x28530a47",
+      "signature": "setUserEMode(uint8)",
+      "meaning": "Aave V3: choose an efficiency mode category, 0 for none. It changes the borrowing limits of correlated assets.",
+      "proxy": {
+        "implementationAddress": "0x72573a9876566ba61657af47ee09a40b592099f1"
+      },
+      "params": [
+        {
+          "name": "categoryId",
+          "type": "uint8"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 43114,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x573ade81",
+      "signature": "repay(address,uint256,uint256,address)",
+      "meaning": "Aave V3: repay part or all of a borrowed asset. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x72573a9876566ba61657af47ee09a40b592099f1"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 43114,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x5a3b74b9",
+      "signature": "setUserUseReserveAsCollateral(address,bool)",
+      "meaning": "Aave V3: turn the use of a deposited asset as collateral on or off.",
+      "proxy": {
+        "implementationAddress": "0x72573a9876566ba61657af47ee09a40b592099f1"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "useAsCollateral",
+          "type": "bool"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 43114,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x617ba037",
+      "signature": "supply(address,uint256,address,uint16)",
+      "meaning": "Aave V3: deposit an asset into the pool to earn interest. It can be used as collateral.",
+      "proxy": {
+        "implementationAddress": "0x72573a9876566ba61657af47ee09a40b592099f1"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 43114,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0x69328dec",
+      "signature": "withdraw(address,uint256,address)",
+      "meaning": "Aave V3: withdraw a deposited asset from the pool to an address.",
+      "proxy": {
+        "implementationAddress": "0x72573a9876566ba61657af47ee09a40b592099f1"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 43114,
+      "contract": "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      "selector": "0xa415bcad",
+      "signature": "borrow(address,uint256,uint256,uint16,address)",
+      "meaning": "Aave V3: borrow an asset against your collateral. Interest rate mode 2 is variable.",
+      "proxy": {
+        "implementationAddress": "0x72573a9876566ba61657af47ee09a40b592099f1"
+      },
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": true
+    },
+    {
+      "chainId": 43114,
+      "contract": "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+      "selector": "0x2e1a7d4d",
+      "signature": "withdraw(uint256)",
+      "meaning": "WAVAX: unwrap WAVAX into the native coin.",
+      "params": [
+        {
+          "name": "wad",
+          "type": "uint256",
+          "tokenRef": true
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 43114,
+      "contract": "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+      "selector": "0xd0e30db0",
+      "signature": "deposit()",
+      "meaning": "WAVAX: wrap the native coin into WAVAX. The call sends the native coin as value.",
+      "params": [],
+      "upgradeable": false
+    }
+  ]
+}
