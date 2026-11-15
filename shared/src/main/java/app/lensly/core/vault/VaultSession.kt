@@ -35,6 +35,9 @@ internal const val PAD_CAPACITY = 1024
 const val REVIEW_RECORD_PREFIX = "review-"
 
 private const val WALLET_KEY_BYTES = 32
+
+/** The length of a key from [VaultSession.deriveKey]. */
+private const val DERIVED_KEY_BYTES = 32
 internal const val BLOB_VERSION: Byte = 1
 private const val WALLET_ID_BYTES = 36
 private val WALLET_ID = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
@@ -62,7 +65,7 @@ internal object VaultRecordNames {
      * The record names the app writes. Removing a Decoy Vault keeps the files of these names under the real key and deletes
      * the other files. A new vault record name must be added here.
      */
-    val KNOWN: List<String> = listOf("settings", "btc-scan", "btc-servers", "lumio-evm-settings", "lumio-balance-cache")
+    val KNOWN: List<String> = listOf("settings", "btc-scan", "btc-servers", "lumio-evm-settings", "lumio-balance-cache", "lumio-providers")
 
     /** A record name the app can write. */
     val NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
@@ -715,6 +718,14 @@ class VaultSession constructor(
 
     /** A copy of the Vault Key, for [Vault.rekey] and the Duress Password operations. The caller zeroes it. */
     internal fun copyOfVaultKey(): ByteArray = synchronized(this) { requireOpen().copyOf() }
+
+    /**
+     * A key for [purpose], derived from the Vault Key with HKDF-SHA256 (RFC 5869), with [purpose] as the info. Each purpose gives its own key,
+     * and the key does not reveal the Vault Key. The caller zeroes the result.
+     */
+    fun deriveKey(purpose: String): ByteArray = synchronized(this) {
+        hkdfSha256(requireOpen(), salt = null, info = purpose.toByteArray(StandardCharsets.UTF_8), length = DERIVED_KEY_BYTES)
+    }
 
     /** The file that holds vault record [name] for this session. For tests only. */
     fun vaultRecordFileForTesting(name: String): File = synchronized(this) {
