@@ -35,6 +35,15 @@ internal object LumioRoute {
 
     /** The route of the EVM portfolio for [walletId]. */
     fun wallet(walletId: String): String = "wallet/$walletId"
+
+    /** The argument of the send's route: the index of the address that sends. */
+    const val SEND_INDEX_ARG = "index"
+
+    /** The send from one address of the wallet in [WALLET_ARG]. */
+    const val SEND = "send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+
+    /** The route of a send from address [index] of [walletId]. */
+    fun send(walletId: String, index: Int): String = "send/$walletId/$index"
 }
 
 /**
@@ -101,6 +110,17 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 HiddenBackdrop { WalletRoute(navController = navController, holder = holder, walletId = walletId) }
+            }
+            composable(
+                route = LumioRoute.SEND,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                HiddenBackdrop { SendRoute(navController = navController, holder = holder, walletId = walletId, index = index) }
             }
             composable(LumioRoute.EVM_SETTINGS) {
                 HiddenBackdrop { EvmSettingsRoute(navController = navController, holder = holder) }

@@ -49,6 +49,7 @@ fun WalletScreen(
     refreshing: Boolean,
     onRefresh: () -> Unit,
     onBack: () -> Unit,
+    onSend: (index: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(
@@ -107,7 +108,7 @@ fun WalletScreen(
         }
         SectionLabel("Addresses")
         rows.forEach { row ->
-            AddressCard(row = row, chains = chains)
+            AddressCard(row = row, chains = chains, onSend = { onSend(row.index) })
             Spacer(Modifier.height(LenslySpacing.sm))
         }
     }
@@ -143,7 +144,7 @@ private fun TotalsList(totals: List<Total>, emptyText: String) {
 }
 
 @Composable
-private fun AddressCard(row: AddressRow, chains: List<EvmChain>) {
+private fun AddressCard(row: AddressRow, chains: List<EvmChain>, onSend: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -156,6 +157,8 @@ private fun AddressCard(row: AddressRow, chains: List<EvmChain>) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(shortAddress(row.address), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.height(LenslySpacing.xs))
+        PillButton(text = "Send from this address", onClick = onSend, modifier = Modifier.fillMaxWidth(), enabled = chains.isNotEmpty())
         Spacer(Modifier.height(LenslySpacing.xs))
         chains.forEach { chain ->
             val read = row.reads[chain.chainId]

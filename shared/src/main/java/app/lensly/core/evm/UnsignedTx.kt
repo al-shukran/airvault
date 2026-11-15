@@ -49,7 +49,29 @@ data class UnsignedTx(
      * fields, so the payload is what gets signed when the review shows what is signed. Null when a field is not in that form:
      * a to that is not its checksum address, calldata that is not lowercase hex, or fees that do not fit the type.
      */
-    fun encode(): ByteArray? {
+    fun encode(): ByteArray? = payload(trailer = emptyList())
+
+    /**
+     * The signed raw transaction of this EIP-1559 transaction, for [signature] as r (32 bytes) || s (32 bytes) || v, where v is the
+     * recovery id, 0 or 1. It is 0x02 followed by the RLP of the fields of [encode] with yParity, r and s appended. Null when this is not
+     * an EIP-1559 transaction, when a field is not in canonical form, or when [signature] does not have that shape.
+     */
+    fun encodeSigned(signature: ByteArray): ByteArray? {
+        if (type != TxType.EIP1559 || signature.size != SIGNATURE_BYTES) return null
+        val yParity = signature[64].toInt()
+        if (yParity != 0 && yParity != 1) return null
+        return payload(
+            trailer = listOf(
+                rlpInteger(BigInteger.valueOf(yParity.toLong())),
+                rlpInteger(BigInteger(1, signature.copyOfRange(0, 32))),
+                rlpInteger(BigInteger(1, signature.copyOfRange(32, 64))),
+            ),
+        )
+    }
+
+    /** The payload of this transaction. [trailer] follows the fields of an EIP-1559 transaction, and it is empty for the unsigned payload. */
+    private fun payload(trailer: List<ByteArray>): ByteArray? {
+        if (trailer.isNotEmpty() && type != TxType.EIP1559) return null
         if (chainId.signum() <= 0 || nonce.signum() < 0 || value.signum() < 0 || gasLimit.signum() < 0) return null
         val address = to?.let { canonicalAddress(it) ?: return null } ?: ByteArray(0)
         val calldata = canonicalCalldata(data) ?: return null
@@ -81,7 +103,7 @@ data class UnsignedTx(
                         rlpInteger(chainId), rlpInteger(nonce), rlpInteger(maxPriorityFeePerGas), rlpInteger(maxFeePerGas),
                         rlpInteger(gasLimit), Rlp.encodeString(address), rlpInteger(value), Rlp.encodeString(calldata),
                         accessListRlp(accessList) ?: return null,
-                    ),
+                    ) + trailer,
                 )
             }
         }
@@ -93,6 +115,7 @@ data class UnsignedTx(
         private const val MAX_INTEGER_BYTES = 32
         private const val ADDRESS_BYTES = 20
         private const val STORAGE_KEY_BYTES = 32
+        private const val SIGNATURE_BYTES = 65
 
         /**
          * Decodes [signData] by [dataType]. Legacy (1) is the unsigned EIP-155 list

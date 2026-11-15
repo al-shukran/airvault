@@ -1,10 +1,12 @@
 package app.lumio.evm
 
+import app.lensly.core.wallet.toHex
 import java.io.IOException
 import java.math.BigInteger
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -44,9 +46,10 @@ object RpcUrl {
 }
 
 /**
- * A minimal JSON-RPC client for the three reads Lumio makes: eth_chainId, eth_getBalance and eth_getTransactionCount. Each request holds
- * public data only: an address and the block tag "latest". It follows no redirects, so an https address cannot turn into a plain one, and
- * every call is bounded by [timeoutMs]. The client never runs on the vault, and it has no key material to send.
+ * A minimal JSON-RPC client. It makes the reads that Lumio shows (eth_chainId, eth_getBalance and eth_getTransactionCount) and the reads
+ * that a send needs (the pending nonce, the fees and the gas estimate), and it broadcasts a signed transaction. Each request holds public
+ * data only: an address, an amount, or a signed transaction that anyone can broadcast. It follows no redirects, so an https address cannot
+ * turn into a plain one, and every call is bounded by [timeoutMs]. The client never runs on the vault, and it has no key material to send.
  */
 class EvmRpc(
     /** True only in a debug build: plain HTTP to the emulator's host address or to localhost. See [RpcUrl.validate]. */
@@ -64,7 +67,7 @@ class EvmRpc(
 
     /** The chain ID that the endpoint at [url] reports. */
     fun chainId(url: String): Long {
-        val id = quantity(url, "eth_chainId", emptyList())
+        val id = quantity(url, "eth_chainId", NO_PARAMS)
         if (id.bitLength() > MAX_LONG_BITS) throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint reports a chain ID that is too large.")
         return id.toLong()
     }
@@ -78,20 +81,68 @@ class EvmRpc(
     /** The native balance of [address] at the latest block, in wei. */
     fun balance(url: String, address: String): BigInteger {
         requireAddress(address)
-        return quantity(url, "eth_getBalance", listOf(address, LATEST))
+        return quantity(url, "eth_getBalance", strings(address, LATEST))
     }
 
     /** The transaction count (the nonce) of [address] at the latest block. It counts the transactions the address has sent. */
-    fun transactionCount(url: String, address: String): Long {
+    fun transactionCount(url: String, address: String): Long = count(url, address, LATEST)
+
+    /**
+     * The nonce of the next transaction from [address]: its count with the pending transactions included, so a send does not reuse the
+     * nonce of a transaction that is still waiting to be mined.
+     */
+    fun pendingTransactionCount(url: String, address: String): Long = count(url, address, PENDING)
+
+    /** The priority fee per gas that the endpoint suggests, in wei. */
+    fun maxPriorityFee(url: String): BigInteger = quantity(url, "eth_maxPriorityFeePerGas", NO_PARAMS)
+
+    /**
+     * The base fee per gas of the next block, in wei: the last of the base fees that eth_feeHistory reports for the newest block. A fee cap
+     * of twice this value stays valid through several full blocks, as the base fee rises by at most 12.5% a block.
+     */
+    fun baseFee(url: String): BigInteger {
+        val history = call(url, "eth_feeHistory", JsonArray(listOf(JsonPrimitive("0x1"), JsonPrimitive(LATEST), JsonArray(emptyList()))))
+        val base = ((history as? JsonObject)?.get("baseFeePerGas") as? JsonArray)?.lastOrNull()
+            ?: throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint gave no base fee.")
+        return parseQuantity(stringOf(base))
+    }
+
+    /** The gas that a transfer of [valueWei] from [from] to [to] uses, as the endpoint estimates it. */
+    fun estimateGas(url: String, from: String, to: String, valueWei: BigInteger): BigInteger {
+        requireAddress(from)
+        requireAddress(to)
+        require(valueWei.signum() >= 0) { "The amount must not be negative." }
+        val transfer = JsonObject(
+            mapOf(
+                "from" to JsonPrimitive(from),
+                "to" to JsonPrimitive(to),
+                "value" to JsonPrimitive("0x" + valueWei.toString(RADIX_HEX)),
+            ),
+        )
+        return quantity(url, "eth_estimateGas", JsonArray(listOf(transfer)))
+    }
+
+    /**
+     * Broadcasts the signed transaction [raw] and returns the hash that the endpoint reports, as 0x and 64 lowercase hex digits. An endpoint
+     * that refuses the transaction fails with [RpcFailure.Reason.ERROR].
+     */
+    fun sendRawTransaction(url: String, raw: ByteArray): String {
+        val hash = stringOf(call(url, "eth_sendRawTransaction", strings("0x" + raw.toHex()))).lowercase()
+        if (!HASH.matches(hash)) throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint sent a value that is not a transaction hash.")
+        return hash
+    }
+
+    private fun count(url: String, address: String, block: String): Long {
         requireAddress(address)
-        val count = quantity(url, "eth_getTransactionCount", listOf(address, LATEST))
+        val count = quantity(url, "eth_getTransactionCount", strings(address, block))
         if (count.bitLength() > MAX_LONG_BITS) throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint reports a count that is too large.")
         return count.toLong()
     }
 
-    private fun quantity(url: String, method: String, params: List<String>): BigInteger = parseQuantity(call(url, method, params))
+    private fun quantity(url: String, method: String, params: JsonArray): BigInteger = parseQuantity(stringOf(call(url, method, params)))
 
-    private fun call(url: String, method: String, params: List<String>): String {
+    /** The result member of the answer to [method]. An error object, or a missing or null result, is a failure. */
+    private fun call(url: String, method: String, params: JsonArray): JsonElement {
         val target = try {
             RpcUrl.validate(url, allowLocalHttp)
         } catch (e: IllegalArgumentException) {
@@ -102,7 +153,7 @@ class EvmRpc(
                 "jsonrpc" to JsonPrimitive("2.0"),
                 "id" to JsonPrimitive(1),
                 "method" to JsonPrimitive(method),
-                "params" to JsonArray(params.map { JsonPrimitive(it) }),
+                "params" to params,
             ),
         ).toString().toRequestBody(JSON_TYPE)
         val request = Request.Builder().url(target).post(body).build()
@@ -121,8 +172,8 @@ class EvmRpc(
         return resultOf(text)
     }
 
-    /** The string result of a JSON-RPC answer. An error object, a missing result or a non-string result is a failure. */
-    private fun resultOf(text: String): String {
+    /** The result member of a JSON-RPC answer. An error object, a missing result or a null result is a failure. */
+    private fun resultOf(text: String): JsonElement {
         val root = try {
             Json.parseToJsonElement(text) as? JsonObject
         } catch (e: Exception) {
@@ -130,10 +181,18 @@ class EvmRpc(
         } ?: throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint sent something that is not JSON-RPC.")
         val error = root["error"]
         if (error != null && error !is JsonNull) throw RpcFailure(RpcFailure.Reason.ERROR, "The endpoint returned a JSON-RPC error.")
-        val result = root["result"] as? JsonPrimitive
-        if (result == null || !result.isString) throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint sent no result.")
-        return result.content
+        val result = root["result"]
+        if (result == null || result is JsonNull) throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint sent no result.")
+        return result
     }
+
+    private fun stringOf(item: JsonElement): String {
+        val primitive = item as? JsonPrimitive
+        if (primitive == null || !primitive.isString) throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint sent no result.")
+        return primitive.content
+    }
+
+    private fun strings(vararg values: String): JsonArray = JsonArray(values.map { JsonPrimitive(it) })
 
     private fun requireAddress(address: String) {
         require(ADDRESS.matches(address)) { "Not an EVM address." }
@@ -144,10 +203,14 @@ class EvmRpc(
         const val DEFAULT_TIMEOUT_MS: Long = 10_000L
 
         private const val LATEST = "latest"
+        private const val PENDING = "pending"
+        private const val RADIX_HEX = 16
         private const val MAX_RESPONSE_BYTES = 64 * 1024
         private const val MAX_LONG_BITS = 63
         private val JSON_TYPE = "application/json".toMediaType()
         private val ADDRESS = Regex("0x[0-9a-fA-F]{40}")
+        private val HASH = Regex("0x[0-9a-f]{64}")
+        private val NO_PARAMS = JsonArray(emptyList())
     }
 }
 
