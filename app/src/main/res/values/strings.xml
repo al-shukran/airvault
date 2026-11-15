@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Lensly</string>
+    <string name="pair_format_lumio_label">LUMIO (AIRVAULT COMPANION)</string>
+    <string name="pair_format_lumio_instruction">Open Lumio → Pair wallet → scan</string>
+    <string name="pair_format_rabby_label">RABBY (AIRGAP VAULT)</string>
+    <string name="pair_format_rabby_instruction">In Rabby: Add address → Hardware wallet → AirGap Vault → Scan QR</string>
+    <string name="pair_format_metamask_label">METAMASK (QR-BASED)</string>
+    <string name="pair_format_metamask_instruction">Add account or hardware wallet → Hardware wallet → QR-based → Continue</string>
+    <string name="pair_format_keystone_label">KEYSTONE NEXUS (QR)</string>
+    <string name="pair_format_keystone_instruction">In Keystone Nexus, scan this code to add the Bitcoin and Ethereum accounts.</string>
+    <string name="pair_format_other_label">OTHER WALLET</string>
+    <string name="pair_format_other_instruction">In your wallet, add a hardware or QR-based account, then scan the code.</string>
+    <string name="pair_format_bitcoin_label">BITCOIN (WATCH-ONLY)</string>
+    <string name="pair_format_bitcoin_instruction">In your Bitcoin wallet, import the watch-only accounts by QR, then scan the code.</string>
+    <string name="pair_format_recommended">Recommended</string>
+    <string name="pair_code_ethereum">Ethereum</string>
+    <string name="pair_code_bitcoin">Bitcoin</string>
 </resources>

@@ -8,6 +8,7 @@ import app.lensly.app.WalletMeta
 import app.lensly.core.wallet.AccountXpub
 import app.lensly.ui.shippedRegistry
 import app.lensly.ui.theme.LenslyTheme
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -152,6 +153,83 @@ class PairWizardTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("WALLET ENTRY").assertDoesNotExist()
+    }
+
+    @Test
+    fun lumioIsTheFirstOnlineWalletAndTheRecommendedOne() {
+        assertEquals(PairFormat.LUMIO, PairFormat.entries.first())
+        assertEquals(listOf(PairFormat.LUMIO), PairFormat.entries.filter { it.recommended })
+
+        compose.setContent {
+            LenslyTheme {
+                PairWizard(
+                    wallets = listOf(mnemonic("w1", "Seed wallet")),
+                    profiles = emptyMap(),
+                    preselected = null,
+                    onDone = {},
+                    onLeave = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Step 2 of 4", ignoreCase = true).assertExists()
+        compose.onNodeWithText("LUMIO (AIRVAULT COMPANION)").assertExists()
+        compose.onNodeWithText("Recommended", ignoreCase = true).assertExists()
+    }
+
+    @Test
+    fun theLumioCodeOffersTheBitcoinCodeOnlyForAWalletWithABitcoinAccount() {
+        val wallet = mnemonic("w1", "Seed wallet")
+        compose.setContent {
+            LenslyTheme {
+                PairWizardScreen(
+                    step = PairStep.CODE,
+                    wallets = listOf(wallet),
+                    profiles = emptyMap(),
+                    wallet = wallet,
+                    format = PairFormat.LUMIO,
+                    frames = null,
+                    bitcoinReady = true,
+                    onPickWallet = {},
+                    onPickFormat = {},
+                    onShowCode = {},
+                    onDone = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Ethereum", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Bitcoin", ignoreCase = true).performClick()
+        compose.waitForIdle()
+        // The Bitcoin code is still being prepared, because no Bitcoin frames were given.
+        compose.onNodeWithText("Preparing code", ignoreCase = true).assertExists()
+    }
+
+    @Test
+    fun theLumioCodeHasNoBitcoinChoiceForAWalletWithoutABitcoinAccount() {
+        val wallet = mnemonic("w1", "Seed wallet")
+        compose.setContent {
+            LenslyTheme {
+                PairWizardScreen(
+                    step = PairStep.CODE,
+                    wallets = listOf(wallet),
+                    profiles = emptyMap(),
+                    wallet = wallet,
+                    format = PairFormat.LUMIO,
+                    frames = null,
+                    bitcoinReady = false,
+                    onPickWallet = {},
+                    onPickFormat = {},
+                    onShowCode = {},
+                    onDone = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Ethereum", ignoreCase = true).assertDoesNotExist()
+        compose.onNodeWithText("Bitcoin", ignoreCase = true).assertDoesNotExist()
     }
 
     private fun mnemonic(id: String, name: String) = WalletMeta(
