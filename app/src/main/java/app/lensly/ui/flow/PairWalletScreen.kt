@@ -1,6 +1,7 @@
 package app.lensly.ui.flow
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -43,10 +44,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.lensly.BuildConfig
+import app.lensly.R
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
@@ -96,36 +99,49 @@ internal const val PAIRED_MESSAGE = "Wallet paired"
 internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
 
 /**
- * The online wallets that pair with Lensly. The EVM ones all read the same ur:crypto-hdkey, so only the steps the owner follows
- * differ. [OTHER] stands for any wallet with a hardware or QR-based account, so its steps are the general ones. [BITCOIN] shares
- * the watch-only Bitcoin accounts of a wallet as a ur:crypto-account. [KEYSTONE_NEXUS] shares the Bitcoin and Ethereum accounts of a
- * wallet as a ur:crypto-multi-accounts, the import that Keystone Nexus reads.
+ * The online wallets that pair with Lensly, the first one recommended. The EVM ones all read the same ur:crypto-hdkey, so only the steps
+ * the owner follows differ. [LUMIO] is the AirVault companion app: it reads the Ethereum account key as a ur:crypto-hdkey and the Bitcoin
+ * accounts as a ur:crypto-account, so its code step offers both codes. [OTHER] stands for any wallet with a hardware or QR-based account,
+ * so its steps are the general ones. [BITCOIN] shares the watch-only Bitcoin accounts of a wallet as a ur:crypto-account.
+ * [KEYSTONE_NEXUS] shares the Bitcoin and Ethereum accounts of a wallet as a ur:crypto-multi-accounts, the import that Keystone Nexus reads.
  */
-internal enum class PairFormat(val label: String, val instruction: String, val walletName: String?) {
+internal enum class PairFormat(
+    @StringRes val labelRes: Int,
+    @StringRes val instructionRes: Int,
+    val walletName: String?,
+    val recommended: Boolean = false,
+) {
+    LUMIO(
+        labelRes = R.string.pair_format_lumio_label,
+        instructionRes = R.string.pair_format_lumio_instruction,
+        // Not in the Wallet Compatibility Registry, so there is no Wallet Entry note to show.
+        walletName = null,
+        recommended = true,
+    ),
     RABBY(
-        label = "RABBY (AIRGAP VAULT)",
-        instruction = "In Rabby: Add address → Hardware wallet → AirGap Vault → Scan QR",
+        labelRes = R.string.pair_format_rabby_label,
+        instructionRes = R.string.pair_format_rabby_instruction,
         walletName = "Rabby",
     ),
     METAMASK(
-        label = "METAMASK (QR-BASED)",
-        instruction = "Add account or hardware wallet → Hardware wallet → QR-based → Continue",
+        labelRes = R.string.pair_format_metamask_label,
+        instructionRes = R.string.pair_format_metamask_instruction,
         walletName = "MetaMask",
     ),
     KEYSTONE_NEXUS(
-        label = "KEYSTONE NEXUS (QR)",
-        instruction = "In Keystone Nexus, scan this code to add the Bitcoin and Ethereum accounts.",
+        labelRes = R.string.pair_format_keystone_label,
+        instructionRes = R.string.pair_format_keystone_instruction,
         walletName = "Keystone Nexus",
     ),
     OTHER(
-        label = "OTHER WALLET",
-        instruction = "In your wallet, add a hardware or QR-based account, then scan the code.",
+        labelRes = R.string.pair_format_other_label,
+        instructionRes = R.string.pair_format_other_instruction,
         // Not in the Wallet Compatibility Registry, so there is no Wallet Entry note to show.
         walletName = null,
     ),
     BITCOIN(
-        label = "BITCOIN (WATCH-ONLY)",
-        instruction = "In your Bitcoin wallet, import the watch-only accounts by QR, then scan the code.",
+        labelRes = R.string.pair_format_bitcoin_label,
+        instructionRes = R.string.pair_format_bitcoin_instruction,
         // Not an EVM wallet in the Wallet Compatibility Registry, so there is no Wallet Entry note to show.
         walletName = null,
     ),
@@ -258,6 +274,10 @@ internal fun PairWizard(
             else -> withContext(Dispatchers.Default) { pairingParts(chosen) }
         }
     }
+    // Lumio's second code, the Bitcoin accounts, the same frames as the Bitcoin format. It is read only for Lumio with a Bitcoin account.
+    val bitcoinFrames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, bitcoinReady) {
+        value = if (!inCode || chosen == null || format != PairFormat.LUMIO || !bitcoinReady) null else bitcoinParts(chosen)
+    }
     fun back() {
         when (step) {
             PairStep.WALLET -> onLeave()
@@ -275,6 +295,7 @@ internal fun PairWizard(
         format = format,
         walletEntry = format?.walletName?.let { name -> walletEntries.firstOrNull { it.name == name } },
         frames = frames,
+        bitcoinFrames = bitcoinFrames,
         bitcoinReady = bitcoinReady,
         bitcoinTestnet = BtcNetwork.TESTNET4 in chosenNetworks,
         keystoneNeedsHd = keystoneNeedsHd,
@@ -307,6 +328,8 @@ internal fun PairWizardScreen(
     /** The Wallet Entry of the chosen online wallet, or null when the registry has none. Its note shows on the instructions step. */
     walletEntry: WalletEntry? = null,
     frames: List<String>?,
+    /** Lumio's Bitcoin code, shown beside its Ethereum code [frames] when the chosen wallet holds a Bitcoin account. */
+    bitcoinFrames: List<String>? = null,
     /** Whether the chosen wallet holds a Bitcoin account. A Bitcoin code is offered only then. */
     bitcoinReady: Boolean = true,
     /** Whether the Bitcoin code holds a testnet account, which the code step marks with a Testnet chip. */
@@ -374,6 +397,8 @@ internal fun PairWizardScreen(
                     PairStep.CODE -> CodeStep(
                         format = format,
                         frames = frames,
+                        bitcoinFrames = bitcoinFrames,
+                        bitcoinReady = bitcoinReady,
                         bitcoinTestnet = bitcoinTestnet,
                         keystoneNeedsHd = keystoneNeedsHd,
                     )
@@ -491,7 +516,7 @@ private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, bit
     Spacer(Modifier.height(LenslySpacing.lg))
     if (format == null) return
     Text(
-        text = format.instruction,
+        text = stringResource(format.instructionRes),
         style = MaterialTheme.typography.titleSmall,
         color = LenslyOnSurface,
     )
@@ -569,31 +594,60 @@ private fun WalletEntryNote(entry: WalletEntry) {
  * Until the parts are ready, it says so.
  */
 @Composable
-private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?, bitcoinTestnet: Boolean, keystoneNeedsHd: Boolean) {
+private fun ColumnScope.CodeStep(
+    format: PairFormat?,
+    frames: List<String>?,
+    bitcoinFrames: List<String>?,
+    bitcoinReady: Boolean,
+    bitcoinTestnet: Boolean,
+    keystoneNeedsHd: Boolean,
+) {
+    // Lumio shows its Ethereum code first, and its Bitcoin code when the owner switches. Only a wallet with a Bitcoin account has one.
+    var showBitcoin by remember { mutableStateOf(false) }
+    val lumioBitcoin = format == PairFormat.LUMIO && bitcoinReady
+    val onBitcoin = format == PairFormat.BITCOIN || (lumioBitcoin && showBitcoin)
     if (format != null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // An EVM account carries the Ethereum logo, and a Bitcoin account the Bitcoin logo.
-            if (format == PairFormat.BITCOIN) BitcoinIcon(size = 16.dp) else AddressIcon(size = 16.dp)
+            if (onBitcoin) BitcoinIcon(size = 16.dp) else AddressIcon(size = 16.dp)
             Spacer(Modifier.width(LenslySpacing.xs))
             Text(
-                text = format.instruction,
+                text = stringResource(format.instructionRes),
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (format == PairFormat.BITCOIN && bitcoinTestnet) {
+            if (onBitcoin && bitcoinTestnet) {
                 Spacer(Modifier.width(LenslySpacing.xs))
                 PillChip(text = "Testnet")
             }
         }
     }
+    if (lumioBitcoin) {
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
+            PillButton(
+                text = stringResource(R.string.pair_code_ethereum),
+                onClick = { showBitcoin = false },
+                accent = !showBitcoin,
+                modifier = Modifier.weight(1f),
+            )
+            PillButton(
+                text = stringResource(R.string.pair_code_bitcoin),
+                onClick = { showBitcoin = true },
+                accent = showBitcoin,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
     Spacer(Modifier.weight(1f))
+    val parts = if (lumioBitcoin && showBitcoin) bitcoinFrames else frames
     if (keystoneNeedsHd) {
         KeystoneNeedsHdNotice()
-    } else if (frames == null) {
+    } else if (parts == null) {
         LoadingState(label = "Preparing code")
     } else {
-        AnimatedQr(parts = frames, modifier = Modifier.fillMaxWidth())
+        AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
     }
     Spacer(Modifier.weight(1f))
 }
@@ -622,14 +676,18 @@ private fun PairOptionCard(format: PairFormat, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
+            if (format.recommended) {
+                PillChip(text = stringResource(R.string.pair_format_recommended))
+                Spacer(Modifier.height(LenslySpacing.xs))
+            }
             Text(
-                text = format.label,
+                text = stringResource(format.labelRes),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(LenslySpacing.xxs))
             Text(
-                text = format.instruction,
+                text = stringResource(format.instructionRes),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
