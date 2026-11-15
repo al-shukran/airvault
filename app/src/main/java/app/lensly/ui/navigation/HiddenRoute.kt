@@ -1,5 +1,6 @@
 package app.lensly.ui.navigation
 
+import app.lensly.app.WalletApp
 import app.lensly.ui.camera.EntryGesture
 
 /**
@@ -20,10 +21,12 @@ internal object HiddenRoute {
     // Pairing wizard, from the dock. It starts at the wallet step, or at the app step when there is only one wallet.
     const val PAIR = "pair"
     const val DETAIL = "detail/{walletId}"
-    const val BULK = "bulk/{walletId}"
+    // One App of a wallet and its accounts. Reached from the App rows of the wallet detail.
+    const val APP = "app/{walletId}/{app}"
+    const val BULK = "bulk/{walletId}/{app}"
     const val EXPORT = "export/{walletId}"
     // Export of one or more accounts: each account's code and its plain-text fields. Reached from an account's options or from
-    // the selection of the wallet detail.
+    // the selection of an App.
     const val EXPORT_ACCOUNTS = "export-accounts/{walletId}/{indices}"
     const val SCAN = "scan/{walletId}"
     const val SCAN_ANY = "scan"
@@ -100,10 +103,14 @@ internal object HiddenRoute {
     const val WALLET_ID_ARG = "walletId"
     const val ACCOUNT_INDEX_ARG = "index"
     const val ACCOUNT_INDICES_ARG = "indices"
+    const val APP_ARG = "app"
 
     fun detail(walletId: String): String = "detail/$walletId"
 
-    fun bulk(walletId: String): String = "bulk/$walletId"
+    /** The bulk screen of [walletId], which starts on the chain of [app]. */
+    fun bulk(walletId: String, app: WalletApp): String = "bulk/$walletId/${app.routeId}"
+
+    fun app(walletId: String, app: WalletApp): String = "app/$walletId/${app.routeId}"
 
     fun export(walletId: String): String = "export/$walletId"
 

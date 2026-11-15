@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import app.lensly.app.AccountProfile
+import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.ProfileColour
 import app.lensly.app.ProfileIcon
 import app.lensly.app.WalletKind
@@ -25,8 +26,10 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.BulkCap
+import app.lensly.ui.home.BitcoinAccountsScreen
 import app.lensly.ui.home.BulkChain
 import app.lensly.ui.home.BulkGenerateScreen
+import app.lensly.ui.home.EthereumAccountsScreen
 import app.lensly.ui.home.HOME_SCROLL_TAG
 import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.ImportState
@@ -64,7 +67,8 @@ private const val FLING_MS = 1_000L
  * The home screens, one snapshot per state: Home (no wallets, two, five, with the debug notice, with the signing chart empty, by status,
  * by network and over seven days, with a backup needed for one wallet and for several, and with the logo collage still because the
  * animations are off), the Wallets list (five),
- * wallet detail (deriving, accounts, adding an account, Single Key), bulk generate (empty, ready, refused, running, failed),
+ * wallet detail with its Apps and with Single Key, the Ethereum App (deriving, accounts, adding an account), the Bitcoin App (accounts
+ * by script type and network, Single Key), bulk generate (empty, ready, refused, running, failed),
  * catalog import (idle, checking, installed, refused), and the placeholder. Record with :app:recordRoborazziDebug.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -199,16 +203,10 @@ class HomeScreensScreenshotTest {
     }
 
     @Test
-    fun walletDetailWhileAddressesDerive() = compose.snapshot("wallet_detail_deriving") {
-        detail(wallet = sampleWallets()[0], addresses = null)
-    }
-
-    @Test
-    fun walletDetailWithAccounts() = compose.snapshot("wallet_detail_accounts") {
-        detail(
+    fun walletDetailWithApps() = compose.snapshot("wallet_detail_apps") {
+        detailWallet(
             wallet = sampleWallets()[0],
-            addresses = sampleAddresses,
-            profiles = sampleProfiles,
+            bitcoinAccounts = sampleBitcoinAccounts.size,
             walletProfile = WalletProfile(
                 colour = ProfileColour.ORANGE,
                 icon = ProfileIcon.HOME,
@@ -219,13 +217,33 @@ class HomeScreensScreenshotTest {
     }
 
     @Test
-    fun walletDetailAddingAnAccount() = compose.snapshot("wallet_detail_adding") {
-        detail(wallet = sampleWallets()[0].copy(accountCount = 4), addresses = sampleAddresses)
+    fun walletDetailSingleKey() = compose.snapshot("wallet_detail_single_key") {
+        detailWallet(wallet = sampleWallets()[2], bitcoinAccounts = 0)
     }
 
     @Test
-    fun walletDetailSingleKey() = compose.snapshot("wallet_detail_single_key") {
-        detail(wallet = sampleWallets()[2], addresses = sampleAddresses.take(1))
+    fun ethereumAppWhileAddressesDerive() = compose.snapshot("ethereum_app_deriving") {
+        ethereumApp(wallet = sampleWallets()[0], addresses = null)
+    }
+
+    @Test
+    fun ethereumAppWithAccounts() = compose.snapshot("ethereum_app_accounts") {
+        ethereumApp(wallet = sampleWallets()[0], addresses = sampleAddresses, profiles = sampleProfiles)
+    }
+
+    @Test
+    fun ethereumAppAddingAnAccount() = compose.snapshot("ethereum_app_adding") {
+        ethereumApp(wallet = sampleWallets()[0].copy(accountCount = 4), addresses = sampleAddresses)
+    }
+
+    @Test
+    fun bitcoinAppWithAccounts() = compose.snapshot("bitcoin_app_accounts") {
+        bitcoinApp(wallet = sampleWallets()[0], accounts = sampleBitcoinAccounts)
+    }
+
+    @Test
+    fun bitcoinAppSingleKey() = compose.snapshot("bitcoin_app_single_key") {
+        bitcoinApp(wallet = sampleWallets()[2], accounts = emptyList())
     }
 
     @Test
@@ -408,31 +426,60 @@ class HomeScreensScreenshotTest {
     )
 
     @Composable
-    private fun detail(
+    private fun detailWallet(
         wallet: WalletMeta,
-        addresses: List<String>?,
-        profiles: Map<Int, AccountProfile> = emptyMap(),
+        bitcoinAccounts: Int,
         walletProfile: WalletProfile = WalletProfile(),
     ) {
         WalletDetailScreen(
             wallet = wallet,
-            addresses = addresses,
-            accountProfiles = profiles,
             walletProfile = walletProfile,
             walletPosition = 0,
+            bitcoinAccounts = bitcoinAccounts,
+            onBack = {},
+            onLock = {},
+            onOpenApp = {},
+            onShowSecret = {},
+            onHistory = {},
+            onEditWallet = {},
+            onDeleteWallet = {},
+        )
+    }
+
+    @Composable
+    private fun ethereumApp(
+        wallet: WalletMeta,
+        addresses: List<String>?,
+        profiles: Map<Int, AccountProfile> = emptyMap(),
+    ) {
+        EthereumAccountsScreen(
+            wallet = wallet,
+            addresses = addresses,
+            accountProfiles = profiles,
             onBack = {},
             onLock = {},
             onAddAccount = {},
             onBulkGenerate = {},
-            onShowSecret = {},
-            onHistory = {},
-            onEditWallet = {},
+            onPair = {},
+            onScan = {},
             onEditAccount = {},
             onExportAccounts = {},
             onRenameAccounts = {},
             onStyleAccounts = {},
             onResetAccountNames = {},
-            onDeleteWallet = {},
+        )
+    }
+
+    @Composable
+    private fun bitcoinApp(wallet: WalletMeta, accounts: List<BitcoinAccountRecord>) {
+        BitcoinAccountsScreen(
+            wallet = wallet,
+            accounts = accounts,
+            onBack = {},
+            onLock = {},
+            onGenerate = {},
+            onPair = {},
+            onScan = {},
         )
     }
 
@@ -549,6 +596,15 @@ class HomeScreensScreenshotTest {
         "0xF278A1B2C3D4E5F60718293A4B5C6D7E8F901CDB",
         "0x9A3B7C1D2E4F50617283940A1B2C3D4E5F60B7E2",
         "0x4C5D6E7F8091A2B3C4D5E6F708192A3B4C5D6E7F",
+    )
+
+    /** One Bitcoin account of each Script Type on mainnet and one on testnet4, so the filter and the network badges have rows to show. */
+    private val sampleBitcoinAccounts = listOf(
+        BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.LEGACY, 0, "1Lgcy0000000000000000000000000000000"),
+        BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.NESTED_SEGWIT, 0, "3Nst00000000000000000000000000000000"),
+        BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0, "bc1qnat00000000000000000000000000000000"),
+        BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.TAPROOT, 0, "bc1ptap0000000000000000000000000000000000000000000000000000"),
+        BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, "tb1qnat00000000000000000000000000000000"),
     )
 
     private val linea = NetworkEntry(59144L, "Linea", "ETH", 18, FeeModel.L2_ROLLUP, "Lineascan", false)

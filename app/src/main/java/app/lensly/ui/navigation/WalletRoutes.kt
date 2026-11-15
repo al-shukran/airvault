@@ -28,12 +28,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
 import app.lensly.app.AccountProfile
+import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.RegistryHolder
 import app.lensly.app.ReviewHistory
 import app.lensly.app.SaveState
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
+import app.lensly.app.WalletApp
 import app.lensly.app.WalletDraftViewModel
 import app.lensly.app.WalletListing
 import app.lensly.app.WalletKind
@@ -57,8 +59,11 @@ import app.lensly.ui.flow.PairWalletRoute
 import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.ActivityScreen
+import app.lensly.ui.home.BitcoinAccountsScreen
 import app.lensly.ui.home.BulkChain
 import app.lensly.ui.home.BulkGenerateScreen
+import app.lensly.ui.home.DEFAULT_BITCOIN
+import app.lensly.ui.home.EthereumAccountsScreen
 import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.effectiveCatalogSequence
 import app.lensly.ui.home.ImportState
@@ -114,8 +119,11 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     composable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DetailRoute(navController, holder, entry.walletId()) }
     }
-    composable(HiddenRoute.BULK, arguments = walletIdArguments()) { entry ->
-        HiddenBackdrop { BulkRoute(navController, holder, entry.walletId()) }
+    composable(HiddenRoute.APP, arguments = walletIdArguments() + appArgument()) { entry ->
+        HiddenBackdrop { AppRoute(navController, holder, entry.walletId(), entry.walletApp()) }
+    }
+    composable(HiddenRoute.BULK, arguments = walletIdArguments() + appArgument()) { entry ->
+        HiddenBackdrop { BulkRoute(navController, holder, entry.walletId(), entry.walletApp()) }
     }
     composable(HiddenRoute.EXPORT, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { PairWalletRoute(navController, holder, walletId = entry.walletId()) }
@@ -151,6 +159,13 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
 internal fun walletIdArguments() = listOf(navArgument(HiddenRoute.WALLET_ID_ARG) { type = NavType.StringType })
 
 internal fun NavBackStackEntry.walletId(): String = arguments?.getString(HiddenRoute.WALLET_ID_ARG).orEmpty()
+
+/** The argument of an App route: the name of one App. */
+internal fun appArgument() = navArgument(HiddenRoute.APP_ARG) { type = NavType.StringType }
+
+/** The App that a route names. A route that names no App is a navigation bug, so it fails loudly. */
+internal fun NavBackStackEntry.walletApp(): WalletApp =
+    requireNotNull(WalletApp.fromRouteId(arguments?.getString(HiddenRoute.APP_ARG))) { "The route names no App." }
 
 @Composable
 private fun HomeRoute(
@@ -621,18 +636,16 @@ private fun walletWriter(session: VaultSession, seedBackedUp: Boolean): WalletWr
 }
 
 /**
- * One wallet: its name, its accounts, and the actions. When the count changes, only the accounts the list does not have
- * yet are derived, so the rows already shown keep their addresses. "+ ACCOUNT" saves the new count first.
+ * The wallet screen of [walletId]: its name, its label and groups, its Apps with their account counts, and its options. The accounts
+ * are on the Apps, so this route reads the wallet, its profile, and how many Bitcoin accounts it has.
  */
 @Composable
 private fun DetailRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
     val session = rememberOpenSession(navController, holder) ?: return
-    val scope = rememberCoroutineScope()
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
-    var addresses by remember(walletId) { mutableStateOf<List<String>?>(null) }
-    var profiles by remember(walletId) { mutableStateOf<Map<Int, AccountProfile>>(emptyMap()) }
     var walletProfile by remember(walletId) { mutableStateOf(WalletProfile()) }
     var position by remember(walletId) { mutableIntStateOf(0) }
+    var bitcoinAccounts by remember(walletId) { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
@@ -646,6 +659,53 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
                 }
             }
             wallet = meta
+        }
+    }
+    LaunchedEffect(walletId) {
+        whileUnlocked(navController, holder) {
+            bitcoinAccounts = withContext(Dispatchers.IO) { WalletStore(session).bitcoinAccounts(walletId).size }
+        }
+    }
+
+    val shown = wallet ?: return
+    // The App rows wait for both counts, so a row never shows a zero that is about to change.
+    val bitcoin = bitcoinAccounts ?: return
+    WalletDetailScreen(
+        wallet = shown,
+        walletProfile = walletProfile,
+        walletPosition = position,
+        bitcoinAccounts = bitcoin,
+        onBack = { navController.popBackStack() },
+        onLock = { leaveHidden(navController, holder) },
+        onOpenApp = { app -> navController.navigate(HiddenRoute.app(walletId, app)) },
+        onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
+        onHistory = { navController.navigate(HiddenRoute.history(walletId)) },
+        onEditWallet = { navController.navigate(HiddenRoute.editWallet(walletId)) },
+        onDeleteWallet = { navController.navigate(HiddenRoute.deleteWallet(walletId)) },
+    )
+}
+
+/**
+ * One App of wallet [walletId]. Ethereum lists the EVM accounts with their addresses and profiles, and Bitcoin lists the Bitcoin
+ * accounts. Each is read from the open session when the screen is shown, so a run that comes back here shows its new accounts.
+ */
+@Composable
+private fun AppRoute(navController: NavHostController, holder: VaultHolder, walletId: String, app: WalletApp) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    val scope = rememberCoroutineScope()
+    var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
+    var addresses by remember(walletId) { mutableStateOf<List<String>?>(null) }
+    var profiles by remember(walletId) { mutableStateOf<Map<Int, AccountProfile>>(emptyMap()) }
+    var bitcoin by remember(walletId) { mutableStateOf<List<BitcoinAccountRecord>?>(null) }
+
+    LaunchedEffect(walletId) {
+        whileUnlocked(navController, holder) {
+            wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
+        }
+    }
+    LaunchedEffect(walletId) {
+        whileUnlocked(navController, holder) {
+            bitcoin = withContext(Dispatchers.IO) { WalletStore(session).bitcoinAccounts(walletId) }
         }
     }
     val current = wallet
@@ -667,43 +727,53 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     }
 
     val shown = current ?: return
-    WalletDetailScreen(
-        wallet = shown,
-        addresses = addresses,
-        accountProfiles = profiles,
-        walletProfile = walletProfile,
-        walletPosition = position,
-        onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
-        onAddAccount = {
-            scope.launch {
-                whileUnlocked(navController, holder) {
-                    wallet = withContext(Dispatchers.IO) { WalletStore(session).addAccount(walletId) }
-                }
-            }
-        },
-        onBulkGenerate = { navController.navigate(HiddenRoute.bulk(walletId)) },
-        onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
-        onHistory = { navController.navigate(HiddenRoute.history(walletId)) },
-        onEditWallet = { navController.navigate(HiddenRoute.editWallet(walletId)) },
-        onEditAccount = { index -> navController.navigate(HiddenRoute.editAccount(walletId, index)) },
-        onExportAccounts = { indices -> navController.navigate(HiddenRoute.exportAccounts(walletId, indices)) },
-        onRenameAccounts = { indices -> navController.navigate(HiddenRoute.renameAccounts(walletId, indices)) },
-        onStyleAccounts = { indices -> navController.navigate(HiddenRoute.styleAccounts(walletId, indices)) },
-        onResetAccountNames = { indices ->
-            scope.launch {
-                whileUnlocked(navController, holder) {
-                    // One write removes the selected names. The profiles are read again, so the rows show the Auto-Names.
-                    profiles = withContext(Dispatchers.IO) {
-                        val store = WalletStore(session)
-                        store.resetAccountNames(walletId, indices)
-                        store.accountProfiles(walletId, shown.accountCount)
+    when (app) {
+        WalletApp.ETHEREUM -> EthereumAccountsScreen(
+            wallet = shown,
+            addresses = addresses,
+            accountProfiles = profiles,
+            onBack = { navController.popBackStack() },
+            onLock = { leaveHidden(navController, holder) },
+            onAddAccount = {
+                scope.launch {
+                    whileUnlocked(navController, holder) {
+                        wallet = withContext(Dispatchers.IO) { WalletStore(session).addAccount(walletId) }
                     }
                 }
-            }
-        },
-        onDeleteWallet = { navController.navigate(HiddenRoute.deleteWallet(walletId)) },
-    )
+            },
+            onBulkGenerate = { navController.navigate(HiddenRoute.bulk(walletId, app)) },
+            onPair = { navController.navigate(HiddenRoute.export(walletId)) },
+            onScan = { navController.navigate(HiddenRoute.scan(walletId)) },
+            onEditAccount = { index -> navController.navigate(HiddenRoute.editAccount(walletId, index)) },
+            onExportAccounts = { indices -> navController.navigate(HiddenRoute.exportAccounts(walletId, indices)) },
+            onRenameAccounts = { indices -> navController.navigate(HiddenRoute.renameAccounts(walletId, indices)) },
+            onStyleAccounts = { indices -> navController.navigate(HiddenRoute.styleAccounts(walletId, indices)) },
+            onResetAccountNames = { indices ->
+                scope.launch {
+                    whileUnlocked(navController, holder) {
+                        // One write removes the selected names. The profiles are read again, so the rows show the Auto-Names.
+                        profiles = withContext(Dispatchers.IO) {
+                            val store = WalletStore(session)
+                            store.resetAccountNames(walletId, indices)
+                            store.accountProfiles(walletId, shown.accountCount)
+                        }
+                    }
+                }
+            },
+        )
+        WalletApp.BITCOIN -> {
+            val accounts = bitcoin ?: return
+            BitcoinAccountsScreen(
+                wallet = shown,
+                accounts = accounts,
+                onBack = { navController.popBackStack() },
+                onLock = { leaveHidden(navController, holder) },
+                onGenerate = { navController.navigate(HiddenRoute.bulk(walletId, app)) },
+                onPair = { navController.navigate(HiddenRoute.export(walletId)) },
+                onScan = { navController.navigate(HiddenRoute.scan(walletId)) },
+            )
+        }
+    }
 }
 
 /**
@@ -795,12 +865,12 @@ private fun ExportAccountsRoute(navController: NavHostController, holder: VaultH
 }
 
 /**
- * The bulk screen of one wallet. GENERATE runs [WalletStore.addAccounts] off the main thread, and its progress is
+ * The bulk screen of one wallet, which starts on the chain of [app]. GENERATE runs [WalletStore.addAccounts] off the main thread, and its progress is
  * shown. A finished run returns to the wallet, which reloads its accounts. A run that fails, or that finds the wallet
  * changed meanwhile, saves nothing, and the screen says so. Back is held while a run derives, so the owner waits.
  */
 @Composable
-private fun BulkRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
+private fun BulkRoute(navController: NavHostController, holder: VaultHolder, walletId: String, app: WalletApp) {
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
@@ -808,7 +878,10 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
     var digits by rememberSaveable { mutableStateOf("") }
     var running by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
-    var chain by remember(walletId) { mutableStateOf<BulkChain>(BulkChain.Evm) }
+    // The run starts on the chain of its App: Ethereum on EVM, Bitcoin on the default Bitcoin account.
+    var chain by remember(walletId, app) {
+        mutableStateOf<BulkChain>(if (app == WalletApp.BITCOIN) DEFAULT_BITCOIN else BulkChain.Evm)
+    }
     val derivedCount = remember { MutableStateFlow(0) }
     val derived by derivedCount.collectAsState()
 

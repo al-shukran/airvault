@@ -471,7 +471,7 @@ private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, bit
         Spacer(Modifier.height(LenslySpacing.lg))
         InlineBanner(
             title = "No Bitcoin account",
-            message = "This wallet has none yet. Add one with Generate accounts on the wallet, then pair it.",
+            message = "This wallet has none yet. Add one with Generate accounts in its Bitcoin App, then pair it.",
             tone = BannerTone.Warning,
         )
     }
@@ -513,7 +513,7 @@ private fun WalletEntryNote(entry: WalletEntry) {
         )
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
-            text = "Formats: ${entry.formats.joinToString(", ")}. Networks: ${entry.ecosystems.joinToString(", ")}.",
+            text = "Formats: ${entry.formats.joinToString(", ")}. Apps: ${entry.ecosystems.joinToString(", ")}.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
