@@ -21,6 +21,14 @@ private const val MAIN = "src/main/assets"
 private const val TEST_CONTRACT = "0x5555555555555555555555555555555555555555"
 private const val SWAP_SELECTOR = "0x6e17e9f6"
 private const val APPROVE_SELECTOR = "0x095ea7b3"
+private const val EXECUTE_SELECTOR = "0x09c5eabe"
+private const val HOP_SELECTOR = "0x756f4632"
+
+/** A call with one dynamic argument, which only a schema 3 package may approve. */
+private const val DYNAMIC_ENTRY = """{"chainId":4242,"contract":"0x5555555555555555555555555555555555555555","meaning":"Run a batch of commands on the test route","params":[{"name":"commands","type":"bytes"}],"proxy":null,"selector":"0x09c5eabe","signature":"execute(bytes)","upgradeable":false}"""
+
+/** A call with a named tuple argument, read field by field. */
+private const val TUPLE_ENTRY = """{"chainId":4242,"contract":"0x5555555555555555555555555555555555555555","meaning":"Hop through the test route","params":[{"name":"hop","type":"(address,uint24)","components":[{"name":"token","type":"address"},{"name":"fee","type":"uint24"}]}],"proxy":null,"selector":"0x756f4632","signature":"hop((address,uint24))","upgradeable":false}"""
 private const val PROXY_ENTRY = """{"chainId":4242,"contract":"0x6666666666666666666666666666666666666666","meaning":"Stake for a recipient","params":[{"name":"amount","type":"uint256","tokenRef":true},{"name":"recipient","type":"address"}],"proxy":{"implementationAddress":"0x7777777777777777777777777777777777777777","implementationCodeHash":null},"selector":"0x7acb7757","signature":"stake(uint256,address)","upgradeable":true}"""
 
 private fun failure(result: Result<*>): Throwable = assertNotNull(result.exceptionOrNull())
@@ -170,5 +178,43 @@ class WhitelistPackageTest {
 
         assertIs<RegistryUpdateException.NotNewer>(failure(older))
         assertNotNull(RegistryUpdate.withInstalled(baked, dir, keys).whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
+    }
+
+    @Test
+    fun aWhitelistEntryWithADynamicArgumentNeedsSchemaThree() {
+        val asSchemaTwo = TestPackages.payload(minSchemaVersion = 2, whitelist = DYNAMIC_ENTRY)
+        assertIs<RegistryUpdateException.Malformed>(failure(RegistryUpdate.verify(TestPackages.signed(asSchemaTwo), keys, baked)))
+
+        val asSchemaThree = TestPackages.payload(minSchemaVersion = 3, whitelist = DYNAMIC_ENTRY)
+        val parsed = RegistryUpdate.verify(TestPackages.signed(asSchemaThree), keys, baked).getOrThrow()
+        assertEquals(EXECUTE_SELECTOR, parsed.whitelist.single().selector)
+        assertEquals("bytes", parsed.whitelist.single().params.single().type)
+    }
+
+    @Test
+    fun aNamedTupleArgumentIsReadWithItsFieldNamesInSchemaThree() {
+        val payload = TestPackages.payload(minSchemaVersion = 3, whitelist = TUPLE_ENTRY)
+
+        val parsed = RegistryUpdate.verify(TestPackages.signed(payload), keys, baked).getOrThrow()
+
+        val hop = parsed.whitelist.single()
+        assertEquals(HOP_SELECTOR, hop.selector)
+        assertEquals(listOf("token", "fee"), hop.params.single().components?.map { it.name })
+    }
+
+    @Test
+    fun aNamedTupleNeedsSchemaThree() {
+        val payload = TestPackages.payload(minSchemaVersion = 2, whitelist = TUPLE_ENTRY)
+
+        assertIs<RegistryUpdateException.Malformed>(failure(RegistryUpdate.verify(TestPackages.signed(payload), keys, baked)))
+    }
+
+    @Test
+    fun aSchemaTwoPackageWithStaticArgumentsStillVerifies() {
+        val payload = TestPackages.payload(minSchemaVersion = 2, whitelist = TestPackages.LINEA_SWAP)
+
+        val parsed = RegistryUpdate.verify(TestPackages.signed(payload), keys, baked).getOrThrow()
+
+        assertEquals(SWAP_SELECTOR, parsed.whitelist.single().selector)
     }
 }

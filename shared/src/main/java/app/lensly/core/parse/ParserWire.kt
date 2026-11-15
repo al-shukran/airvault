@@ -8,13 +8,16 @@ import app.lensly.core.evm.TypedDataParser
 import app.lensly.core.evm.TypedField
 import app.lensly.core.evm.TypedValue
 import app.lensly.core.evm.UnsignedTx
+import app.lensly.core.registry.AbiValue
+import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
-import app.lensly.core.registry.StaticDecode
 import app.lensly.core.registry.WhitelistParam
+import app.lensly.core.registry.hexBytesOrNull
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
+import app.lensly.core.wallet.toHex
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.math.BigInteger
@@ -35,7 +38,7 @@ object ParserWire {
     const val SCAN = 1
 
     /** The method of a call that decodes the calldata of a whitelisted call. */
-    const val DECODE_STATIC = 2
+    const val DECODE_CALL = 2
 
     /** The largest reply the app accepts. It carries the data to sign, the calldata and an access list, each within its limit. */
     const val MAX_REPLY_BYTES = 256 * 1024
@@ -48,7 +51,12 @@ object ParserWire {
     private const val INCOMPLETE = 2
     private const val COMPLETE = 3
     private const val BITCOIN_PSBT = 4
-    private const val STATIC_OK = 1
+    private const val CALL_OK = 1
+
+    /** The tags of one decoded value on the wire: a static word, the bytes of a bytes or string, and the items of an array or tuple. */
+    private const val VALUE_WORD = 0
+    private const val VALUE_DYNAMIC = 1
+    private const val VALUE_ITEMS = 2
 
     /** The most a scanned PSBT may hold, as its serialized bytes. It is the same limit as the bytes of one signed request. */
     private const val MAX_PSBT_BYTES = ParserLimits.MAX_SIGN_DATA_BYTES
@@ -139,47 +147,48 @@ object ParserWire {
         reply
     }
 
-    fun encodeStaticRequest(calldata: ByteArray, params: List<WhitelistParam>): ByteArray = Out().apply {
+    fun encodeCallRequest(calldata: ByteArray, params: List<WhitelistParam>): ByteArray = Out().apply {
         int(VERSION)
-        int(DECODE_STATIC)
+        int(DECODE_CALL)
         blob(calldata, MAX_CALLDATA)
         count(params.size, MAX_CALL_PARAMS)
         params.forEach { param(it) }
     }.bytes()
 
-    fun decodeStaticRequest(payload: ByteArray): Pair<ByteArray, List<WhitelistParam>> = In(payload).run {
-        method(DECODE_STATIC)
+    fun decodeCallRequest(payload: ByteArray): Pair<ByteArray, List<WhitelistParam>> = In(payload).run {
+        method(DECODE_CALL)
         val calldata = blob(MAX_CALLDATA)
         val params = List(count(MAX_CALL_PARAMS)) { whitelistParam() }
         done()
         calldata to params
     }
 
-    fun encodeStaticReply(decoded: StaticDecode): ByteArray = Out().apply {
+    fun encodeCallReply(decoded: CallDecode): ByteArray = Out().apply {
         int(VERSION)
         when (decoded) {
-            is StaticDecode.Refused -> {
+            is CallDecode.Refused -> {
                 int(REFUSED)
                 text(decoded.reason)
             }
-            is StaticDecode.Ok -> {
-                int(STATIC_OK)
+            is CallDecode.Ok -> {
+                int(CALL_OK)
                 count(decoded.params.size, MAX_CALL_PARAMS)
                 decoded.params.forEach {
                     param(it.param)
-                    text(it.value)
+                    value(it.value)
                 }
             }
         }
     }.bytes()
 
-    /** Decodes and checks a static reply. Throws [WireException] for anything the schema or a limit refuses. */
-    fun decodeStaticReply(payload: ByteArray): StaticDecode = In(payload).run {
+    /** Decodes and checks a call reply. Throws [WireException] for anything the schema or a limit refuses. */
+    fun decodeCallReply(payload: ByteArray): CallDecode = In(payload).run {
         version()
+        val budget = DecodeBudget("ABI", ParserLimits.MAX_ABI_VALUES)
         val reply = when (int()) {
-            REFUSED -> StaticDecode.Refused(text())
-            STATIC_OK -> StaticDecode.Ok(List(count(MAX_CALL_PARAMS)) { DecodedParam(whitelistParam(), text()) })
-            else -> throw WireException("unknown static reply")
+            REFUSED -> CallDecode.Refused(text())
+            CALL_OK -> CallDecode.Ok(List(count(MAX_CALL_PARAMS)) { DecodedParam(whitelistParam(), valueOf(budget, depth = 0)) })
+            else -> throw WireException("unknown call reply")
         }
         done()
         reply
@@ -508,17 +517,56 @@ object ParserWire {
         text(param.name)
         text(param.type)
         flag(param.tokenRef)
+        optional(param.components) { fields ->
+            count(fields.size, MAX_CALL_PARAMS)
+            fields.forEach { param(it) }
+        }
     }
 
-    /** A whitelist parameter, built only when its name and type pass the checks of [WhitelistParam]. */
-    private fun In.whitelistParam(): WhitelistParam {
+    /** A whitelist parameter, built only when its name, type and field names pass the checks of [WhitelistParam]. */
+    private fun In.whitelistParam(depth: Int = 0): WhitelistParam {
+        if (depth > ParserLimits.MAX_ABI_DEPTH) throw WireException("parameters nest deeper than ${ParserLimits.MAX_ABI_DEPTH} levels")
         val name = text()
         val type = text()
         val tokenRef = flag()
+        val components = optional { List(count(MAX_CALL_PARAMS)) { whitelistParam(depth + 1) } }
         return try {
-            WhitelistParam(name, type, tokenRef)
+            WhitelistParam(name, type, tokenRef, components)
         } catch (e: IllegalArgumentException) {
-            throw WireException("not a static parameter")
+            throw WireException("not a valid parameter")
+        }
+    }
+
+    /** One decoded value: a tag, then a word, the bytes of a dynamic value, or the items of an array or tuple. */
+    private fun Out.value(value: AbiValue) {
+        when (value) {
+            is AbiValue.Word -> {
+                int(VALUE_WORD)
+                val word = hexBytesOrNull(value.hex)
+                if (word == null || word.size != MAX_WORD_BYTES) throw WireException("a word is not 32 bytes of hex")
+                blob(word, MAX_WORD_BYTES)
+            }
+            is AbiValue.Dynamic -> {
+                int(VALUE_DYNAMIC)
+                blob(hexBytesOrNull(value.hex) ?: throw WireException("bytes are not hex"), MAX_CALLDATA)
+            }
+            is AbiValue.Items -> {
+                int(VALUE_ITEMS)
+                count(value.items.size, ParserLimits.MAX_ABI_VALUES)
+                value.items.forEach { value(it) }
+            }
+        }
+    }
+
+    /** The value that [Out.value] wrote. [budget] counts every value of the reply, and [depth] is how deep this one sits. */
+    private fun In.valueOf(budget: DecodeBudget, depth: Int): AbiValue {
+        budget.charge()?.let { throw WireException(it) }
+        if (depth > ParserLimits.MAX_ABI_DEPTH) throw WireException("values nest deeper than ${ParserLimits.MAX_ABI_DEPTH} levels")
+        return when (int()) {
+            VALUE_WORD -> AbiValue.Word(exact(MAX_WORD_BYTES).toHex())
+            VALUE_DYNAMIC -> AbiValue.Dynamic(blob(MAX_CALLDATA).toHex())
+            VALUE_ITEMS -> AbiValue.Items(List(count(ParserLimits.MAX_ABI_VALUES)) { valueOf(budget, depth + 1) })
+            else -> throw WireException("unknown value")
         }
     }
 

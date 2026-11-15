@@ -73,8 +73,11 @@ class WhitelistEntryTest {
     }
 
     @Test
-    fun aDynamicParamTypeIsRefused() {
-        for (type in listOf("bytes", "string", "address[]", "uint256[]", "(address,uint256)")) {
+    fun aDynamicArrayOrTupleParamTypeIsAcceptedInItsCanonicalSpellingOnly() {
+        for (type in listOf("bytes", "string", "address[]", "uint256[]", "(address,uint256)", "(address,uint256)[2]")) {
+            assertEquals(type, WhitelistParam("route", type).type)
+        }
+        for (type in listOf("uint", "address ", "(address, uint256)", "uint256[01]", "()")) {
             assertFailsWith<IllegalArgumentException>(type) { WhitelistParam("route", type) }
         }
     }

@@ -46,7 +46,7 @@ The entries file is the source a package is built from. Entries may appear in an
 | Field | Meaning |
 | --- | --- |
 | `formatVersion` | Must be `2`. |
-| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `2` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. |
+| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `3` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. A package with a whitelist argument that is dynamic, an array or a tuple, or that names tuple fields, needs `3`. |
 | `sequence` | At least 1. The application refuses a package whose sequence is not higher than the last one it accepted. |
 | `createdAt` | ISO date, `yyyy-mm-dd`. |
 | `networks` | Networks the package adds. A package cannot add a testnet. |
@@ -90,14 +90,18 @@ A wallet entry is a support statement, never a condition for signing. The pairin
 ### Whitelist entries
 
 A whitelist entry approves one contract call that Lensly cannot decode. The application signs such a call only when its
-chain, contract and selector match an entry here.
+chain, contract and selector match an entry here. Its calldata is decoded from `params` and shown in full, and it is signed only
+when re-encoding the decoded values gives back the calldata exactly. Each offset, length and count must lie inside the calldata,
+and a decode that would read more values than the limit is refused. A `bytes` or `string` argument, an array and a tuple are
+laid out as the Solidity ABI lays them out, and they need `minSchemaVersion` 3.
 
 | Field | Meaning |
 | --- | --- |
 | `chainId` | Chain the entry applies to. It must be baked into the application or added by this package. |
 | `contract` | Lowercase `0x` address of the contract the call goes to. |
 | `selector` | Lowercase `0x` and 8 hex digits. Must be the Keccak-256 selector of `signature` (first four bytes). |
-| `signature` | The ABI signature, such as `swapExactTokensForTokens(uint256,uint256,address[],address,uint256)`. |
+| `signature` | The canonical ABI signature, such as `swapExactTokensForTokens(uint256,uint256,address[],address,uint256)`. Each type is spelled in its canonical form: `uint256` and never `uint`, `address[]`, `bytes32[2]`, and `(address,uint24)` with no spaces. Types nest at most 8 levels, and a fixed array holds at most 512 items. |
+| `params` | One entry per argument, in signature order. Each has a `name` (printable, at most 64 characters), a `type` (equal to that argument's type in the signature), an optional `tokenRef` (default `false`, and `true` only for a top-level `uint`, which is then shown as a quantity of the contract's token), and optional `components` (schema 3). A tuple argument may name its fields in `components`: one entry per field, in field order, each with its own `name`, `type`, and `components` when that field is a tuple. |
 | `meaning` | What the call does, in plain words. Printable, at most 240 characters. It begins with the protocol name and a colon, such as `Aave V3: deposit an asset into the pool.`; the application lists the call under that name. |
 | `proxy` | `null` for a contract that is not an upgradeable proxy. Otherwise `{ "implementationAddress": ..., "implementationCodeHash": ... }`, with at least one of the two set. |
 

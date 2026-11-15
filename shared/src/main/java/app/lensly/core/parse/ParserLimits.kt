@@ -47,6 +47,15 @@ object ParserLimits {
     /** The most calls one multicall may read in the Parser Sandbox, nested ones included. It bounds a batch whose offsets overlap. */
     const val MAX_NESTED_NODES = 256
 
+    /** The deepest nesting of an ABI type: arrays and tuples inside one another, as a whitelist entry may declare them. */
+    const val MAX_ABI_DEPTH = 8
+
+    /** The longest fixed-length array an ABI type may declare. A calldata of [MAX_CALLDATA_BYTES] holds that many words. */
+    const val MAX_ABI_ARRAY_LENGTH = MAX_CALLDATA_BYTES / 32
+
+    /** The most values one whitelisted call may decode to: every argument, array item and tuple field counted. */
+    const val MAX_ABI_VALUES = 1024
+
     /** The deepest nesting of an EIP-712 document, counting its objects and arrays. */
     const val MAX_TYPED_DEPTH = 8
     /** The most JSON values one EIP-712 document may hold. */

@@ -1,6 +1,27 @@
 [
   {
     "chainId": 1,
+    "contract": "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",
+    "selector": "0x3593564c",
+    "contractChecksum": "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD",
+    "source": "https://github.com/Uniswap/universal-router/blob/main/deploy-addresses/mainnet.json"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+    "selector": "0x3593564c",
+    "contractChecksum": "0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af",
+    "source": "https://github.com/Uniswap/universal-router/blob/main/deploy-addresses/mainnet.json"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+    "selector": "0x04e45aaf",
+    "contractChecksum": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+    "source": "https://github.com/Uniswap/smart-order-router/blob/main/src/util/addresses.ts"
+  },
+  {
+    "chainId": 1,
     "contract": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
     "selector": "0xde0e9a3e",
     "contractChecksum": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
@@ -66,6 +87,13 @@
     "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
     "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
     "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x9008d19f58aabd9ed0d60971565aa8510560ab41",
+    "selector": "0xec6cb13f",
+    "contractChecksum": "0x9008D19f58AAbD9eD0D60971565AA8510560ab41",
+    "source": "https://github.com/cowprotocol/contracts/blob/main/networks.json"
   },
   {
     "chainId": 1,
