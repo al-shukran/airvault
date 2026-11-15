@@ -56,6 +56,5 @@ class NetworkModeTest {
         decimals = 18,
         testnet = testnet,
         explorerUrl = null,
-        defaultRpc = null,
     )
 }
