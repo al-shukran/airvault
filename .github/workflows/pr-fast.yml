@@ -236,6 +236,28 @@ jobs:
       - name: Run ${{ matrix.partition }}
         run: ./scripts/ci/run-partition.sh "${{ matrix.partition }}"
 
+  # Lumio's lint runs in its own job, not in the test job: lintDebug on top of the lumio partition took the test job past its 5-minute cap (PR 181
+  # ran 5m17s). The lumio filter is the same as the lumio partition's, and pr-ok counts a skip as a pass.
+  lint:
+    needs: changes
+    if: needs.changes.result == 'success' && contains(fromJSON(needs.changes.outputs.partitions), 'lumio')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Lint lumio
+        run: ./gradlew :lumio:lintDebug
+
   secrets:
     runs-on: ubuntu-24.04
     timeout-minutes: 3
@@ -311,25 +333,30 @@ jobs:
 
   pr-ok: # the single required check
     if: always()
-    needs: [changes, test, secrets, dependency_review, test_network]
+    needs: [changes, test, lint, secrets, dependency_review, test_network]
     runs-on: ubuntu-24.04
     steps:
       - name: Aggregate results
         env:
           CHANGES: ${{ needs.changes.result }}
           TEST: ${{ needs.test.result }}
+          LINT: ${{ needs.lint.result }}
           SECRETS: ${{ needs.secrets.result }}
           DEPENDENCY_REVIEW: ${{ needs.dependency_review.result }}
           TEST_NETWORK: ${{ needs.test_network.result }}
         run: |
-          printf 'changes=%s test=%s secrets=%s dependency_review=%s test_network=%s\n' \
-            "$CHANGES" "$TEST" "$SECRETS" "$DEPENDENCY_REVIEW" "$TEST_NETWORK"
-          # test is skipped when no partition changed, and dependency review is skipped when
+          printf 'changes=%s test=%s lint=%s secrets=%s dependency_review=%s test_network=%s\n' \
+            "$CHANGES" "$TEST" "$LINT" "$SECRETS" "$DEPENDENCY_REVIEW" "$TEST_NETWORK"
+          # test and lint are skipped when no partition changed, and dependency review is skipped when
           # no dependency file changed or DEPENDENCY_GRAPH_ENABLED is not 'true'; both count as
           # a pass. Once the variable is set, a failing dependency review fails this check.
           case "$TEST" in
             success | skipped) ;;
             *) echo "test partition failed or was cancelled"; exit 1 ;;
+          esac
+          case "$LINT" in
+            success | skipped) ;;
+            *) echo "lumio lint failed or was cancelled"; exit 1 ;;
           esac
           case "$DEPENDENCY_REVIEW" in
             success | skipped) ;;
