@@ -12,6 +12,7 @@ import app.lumio.data.db.LumioDatabase
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.TipHeight
 import app.lumio.data.sched.Scheduler
+import java.io.File
 import kotlin.random.Random
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -44,7 +45,7 @@ class CacheTest {
     @Test
     fun shortTtlValuesExpireAfterTheirTimeToLive() = runBlocking {
         val clock = FakeClock(1_000L)
-        val database = LumioDatabase.open(context, "ttl.db")
+        val database = LumioDatabase.open(context, File(tmp.root, "ttl.db"))
         val cache = Cache(database.kv(), keys(), clock)
         val policy = CachePolicy.ShortTtl(ttlMs = 60_000L)
 
@@ -59,11 +60,11 @@ class CacheTest {
 
     @Test
     fun immutableValuesSurviveAReopenOfTheDatabase() = runBlocking {
-        val database = LumioDatabase.open(context, "reopen.db")
+        val database = LumioDatabase.open(context, File(tmp.root, "reopen.db"))
         Cache(database.kv(), keys(), FakeClock(1L)).put(CachePolicy.Immutable, "block:42", "header".toByteArray())
         database.close()
 
-        val reopened = LumioDatabase.open(context, "reopen.db")
+        val reopened = LumioDatabase.open(context, File(tmp.root, "reopen.db"))
         val entry = Cache(reopened.kv(), keys(), FakeClock(2L)).get(CachePolicy.Immutable, "block:42")
         reopened.close()
 
@@ -73,16 +74,16 @@ class CacheTest {
     @Test
     fun valuesAreUnreadableWithoutTheVaultKeyAndAreNeverStoredInTheClear() = runBlocking {
         val marker = "plain-marker-8731"
-        val database = LumioDatabase.open(context, "sealed.db")
+        val database = LumioDatabase.open(context, File(tmp.root, "sealed.db"))
         Cache(database.kv(), keys(seed = 1), FakeClock(1L)).put(CachePolicy.Immutable, "tx:cafe", marker.toByteArray())
         database.close()
 
-        val file = context.getDatabasePath("sealed.db").readBytes()
+        val file = File(tmp.root, "sealed.db").readBytes()
         assertTrue(file.isNotEmpty())
         assertFalse(file.containsBytes(marker.toByteArray()))
         assertFalse(file.containsBytes("tx:cafe".toByteArray()))
 
-        val reopened = LumioDatabase.open(context, "sealed.db")
+        val reopened = LumioDatabase.open(context, File(tmp.root, "sealed.db"))
         assertNull(Cache(reopened.kv(), keys(seed = 2), FakeClock(2L)).get(CachePolicy.Immutable, "tx:cafe"))
         reopened.close()
     }
@@ -90,7 +91,7 @@ class CacheTest {
     @Test
     fun theLeastRecentlyUsedImmutableValueGoesFirstWhenTheCapIsReached() = runBlocking {
         val clock = FakeClock(0L)
-        val database = LumioDatabase.open(context, "lru.db")
+        val database = LumioDatabase.open(context, File(tmp.root, "lru.db"))
         val cache = Cache(database.kv(), keys(), clock, immutableCapBytes = 300L)
         val value = ByteArray(100) { 1 }
 
@@ -109,7 +110,7 @@ class CacheTest {
     @Test
     fun lastKnownValuesStayUntilReplacedAndKeepTheirTime() = runBlocking {
         val clock = FakeClock(5_000L)
-        val database = LumioDatabase.open(context, "last.db")
+        val database = LumioDatabase.open(context, File(tmp.root, "last.db"))
         val cache = Cache(database.kv(), keys(), clock)
         val name = "wallet-1|eth|0xabc"
 
@@ -126,8 +127,9 @@ class CacheTest {
 
     @Test
     fun aCachedResultIsServedBeforeAnyProviderIsRouted() = runBlocking {
-        val database = LumioDatabase.open(context, "routing.db")
+        val database = LumioDatabase.open(context, File(tmp.root, "routing.db"))
         val provider = FakeProvider("a")
+        val cache = Cache(database.kv(), keys(), FakeClock(1L))
         val scheduler = Scheduler(
             providers = listOf(provider),
             configs = { emptyMap() },
@@ -135,7 +137,7 @@ class CacheTest {
             clock = MonotonicClock,
             random = Random(3),
             scope = this,
-            cache = Cache(database.kv(), keys(), FakeClock(1L)),
+            cache = { cache },
         )
         val use = CacheUse(CachePolicy.ShortTtl(), "tip", LongCodec)
 

@@ -2,6 +2,7 @@ package app.lumio.btc
 
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
+import app.lumio.data.cache.DEFAULT_SHORT_TTL_MS
 
 /** One paired Bitcoin account and the wallet it came from. [key] names it in the cache and in the screen routes. */
 data class BtcAccountRef(val walletId: String, val account: BtcWatchOnlyAccount) {
@@ -18,14 +19,13 @@ data class BtcUtxo(val txid: String, val vout: Int, val valueSats: Long, val blo
 data class BtcTx(val txid: String, val netSats: Long, val blockHeight: Long?, val blockTimeSec: Long?)
 
 /**
- * The result of the last scan of one account. The portfolio shows it, and the vault caches it. [scannedAtMs] dates it, and [tipHeight] is the
- * best block the scan saw, which the confirmations are counted from. [server] is the base URL it came from, and [identity] is the account's
- * first receive address, so a cached copy is used only for the same account from the same server.
+ * The result of the last scan of one account: its last known balance. The portfolio shows it at once, and the cache keeps it until a newer scan
+ * replaces it. [scannedAtMs] dates it, and [tipHeight] is the best block the scan saw, which the confirmations are counted from. [identity] is the
+ * account's first receive address, so a stored copy is used only for the same account.
  */
 data class BtcSnapshot(
     val key: String,
     val identity: String,
-    val server: String,
     val scannedAtMs: Long,
     val tipHeight: Long,
     val confirmedSats: Long,
@@ -39,6 +39,12 @@ data class BtcSnapshot(
     fun confirmations(tx: BtcTx): Long = tx.blockHeight?.let { maxOf(0L, tipHeight - it + 1) } ?: 0L
 }
 
+/**
+ * True when a balance dated [scannedAtMs] is older than [ttlMs] at [nowMs]. A stale balance still shows, with a marker, until a scan replaces it.
+ * The default TTL is the one the cache uses for live values.
+ */
+fun isStale(scannedAtMs: Long, nowMs: Long, ttlMs: Long = DEFAULT_SHORT_TTL_MS): Boolean = nowMs - scannedAtMs > ttlMs
+
 /** One network's part of the portfolio. Its totals hold that network's accounts only: mainnet and testnet4 are never summed. */
 data class BtcSection(val network: BtcNetwork, val rows: List<BtcRow>) {
     /** Confirmed satoshis of this network's scanned accounts. An account with no scan yet adds nothing. */
@@ -48,22 +54,17 @@ data class BtcSection(val network: BtcNetwork, val rows: List<BtcRow>) {
     val unconfirmedSats: Long get() = rows.sumOf { it.snapshot?.unconfirmedSats ?: 0L }
 }
 
-/** One account of the portfolio, with its last scan when it has one. */
+/** One account of the portfolio, with its last known scan when it has one. */
 data class BtcRow(val ref: BtcAccountRef, val snapshot: BtcSnapshot?)
 
 /** The portfolio: one section per network that holds an account, mainnet first. There is no total across networks. */
 object BtcPortfolio {
     /**
-     * The rows of [refs], each with its cached scan when that scan still applies. A cached scan applies only to the same account, and only
-     * when it came from the server that the account's network reads from now. So a changed server, or a wallet that was deleted and paired
-     * again, shows no old numbers.
+     * The rows of [refs], each with its last known scan when that scan is of the same account. A wallet that was deleted and paired again shows no
+     * old numbers, because its first receive address differs.
      */
-    fun rows(refs: List<BtcAccountRef>, cached: (String) -> BtcSnapshot?, servers: Map<BtcNetwork, String>): List<BtcRow> =
-        refs.map { ref ->
-            val server = EsploraServers.baseUrl(ref.account.network, servers)
-            val snapshot = cached(ref.key)?.takeIf { it.identity == ref.account.receiveAddress(0) && it.server == server }
-            BtcRow(ref, snapshot)
-        }
+    fun rows(refs: List<BtcAccountRef>, cached: (String) -> BtcSnapshot?): List<BtcRow> =
+        refs.map { ref -> BtcRow(ref, cached(ref.key)?.takeIf { it.identity == ref.account.receiveAddress(0) }) }
 
     fun sections(rows: List<BtcRow>): List<BtcSection> = BtcNetwork.entries.mapNotNull { network ->
         rows.filter { it.ref.account.network == network }

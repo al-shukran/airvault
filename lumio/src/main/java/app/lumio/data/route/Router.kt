@@ -50,9 +50,10 @@ class Router(private val providers: List<Provider>) {
         tried: Set<String>,
         excluded: Set<String>,
     ): List<Provider> {
-        val eligible = providers.filter { p ->
-            p.id !in excluded && isEligible(p, net, op, configs) && state.available(p.id, nowMs)
-        }
+        // An enabled owner's server ([Trait.OWN_SERVER]) takes its network for itself: while it is enabled, no public provider serves that network,
+        // so the owner's addresses never reach a third party. When it is cooling, the call waits for it rather than going elsewhere.
+        val found = providers.filter { p -> p.id !in excluded && isEligible(p, net, op, configs) }
+        val eligible = found.filter { Trait.OWN_SERVER in it.traits }.ifEmpty { found }.filter { p -> state.available(p.id, nowMs) }
         val protectedOnly = op == Op.BROADCAST && net.family == Family.EVM && eligible.any { Trait.MEV_PROTECTED in it.traits }
         val offered = if (protectedOnly) eligible.filter { Trait.MEV_PROTECTED in it.traits } else eligible
         val others = offered.filter { Trait.FALLBACK_ONLY !in it.traits }

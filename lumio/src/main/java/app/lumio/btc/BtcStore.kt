@@ -1,7 +1,7 @@
 package app.lumio.btc
 
-import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.vault.VaultSession
+import app.lumio.data.cache.Cache
+import app.lumio.data.cache.CachePolicy
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -9,70 +9,44 @@ import java.io.DataOutputStream
 import java.io.IOException
 
 /**
- * The Bitcoin data that Lumio keeps in its vault: the last scan of each account, and the Esplora servers the owner chose. Both are vault
- * records, not wallet records, so they are sealed under the vault key and erased with it. A record that cannot be read reads as empty:
- * a cache that is lost costs a scan, and a server setting that is lost falls back to the defaults.
+ * The last known balance of each account: its last scan, kept in the Lumio cache under the last-known policy. It stays until a newer scan replaces
+ * it. A screen reads it at once when it opens, so a balance shows before any server answers.
  */
-class BtcStore(private val session: VaultSession) {
+class BtcStore(private val cache: Cache) {
 
-    /** The cached scan of the account [key], or null when there is none, or the cache does not read. */
-    fun snapshot(key: String): BtcSnapshot? = readSnapshots()[key]
-
-    /** Stores [snapshot] in place of the earlier scan of its account. A vault that is closed keeps the old cache. */
-    @Synchronized
-    fun save(snapshot: BtcSnapshot): Boolean = try {
-        val all = readSnapshots().toMutableMap()
-        all[snapshot.key] = snapshot
-        session.putVaultRecord(SCAN_RECORD, SnapshotCodec.encode(all.values))
-        true
-    } catch (e: IllegalStateException) {
-        false
+    /** The last scan of the account [key], or null when there is none, or the stored copy does not read. */
+    suspend fun snapshot(key: String): BtcSnapshot? = try {
+        cache.get(CachePolicy.LastKnown, nameOf(key))?.let { SnapshotCodec.decode(it.value).values.firstOrNull() }
+    } catch (e: IOException) {
+        null
+    } catch (e: IllegalArgumentException) {
+        null
     }
 
-    /** Drops the cached scans of accounts that are no longer paired, so a deleted wallet leaves nothing behind. */
-    @Synchronized
-    fun retain(keys: Set<String>) {
-        val all = readSnapshots()
-        if (all.keys.all { it in keys }) return
-        try {
-            session.putVaultRecord(SCAN_RECORD, SnapshotCodec.encode(all.values.filter { it.key in keys }))
-        } catch (e: IllegalStateException) {
-            // The vault is closed. The next open drops them.
+    /** Stores [snapshot] in place of the earlier scan of its account. */
+    suspend fun save(snapshot: BtcSnapshot) {
+        cache.put(CachePolicy.LastKnown, nameOf(snapshot.key), SnapshotCodec.encode(listOf(snapshot)))
+    }
+
+    /** Drops the stored scans of accounts that are no longer paired, so a deleted wallet leaves no balance behind. [keys] are the paired accounts. */
+    suspend fun retain(keys: Set<String>) {
+        cache.retainStored(CachePolicy.LastKnown) { bytes ->
+            try {
+                SnapshotCodec.decode(bytes).keys.all { it in keys }
+            } catch (e: IOException) {
+                false
+            } catch (e: IllegalArgumentException) {
+                false
+            }
         }
     }
 
-    /** The owner's server overrides, by network. A network with no entry reads its default server. */
-    fun servers(): Map<BtcNetwork, String> = try {
-        session.getVaultRecord(SERVERS_RECORD)?.let { ServerCodec.decode(it) } ?: emptyMap()
-    } catch (e: IllegalStateException) {
-        emptyMap()
-    }
-
-    /** Stores [overrides] in place of the earlier ones. A network missing from [overrides] reads its default from now on. */
-    @Synchronized
-    fun saveServers(overrides: Map<BtcNetwork, String>) {
-        session.putVaultRecord(SERVERS_RECORD, ServerCodec.encode(overrides))
-    }
-
-    private fun readSnapshots(): Map<String, BtcSnapshot> = try {
-        session.getVaultRecord(SCAN_RECORD)?.let { SnapshotCodec.decode(it) } ?: emptyMap()
-    } catch (e: IllegalStateException) {
-        emptyMap()
-    } catch (e: IOException) {
-        emptyMap()
-    } catch (e: IllegalArgumentException) {
-        emptyMap()
-    }
-
-    private companion object {
-        const val SCAN_RECORD = "btc-scan"
-        const val SERVERS_RECORD = "btc-servers"
-    }
+    private fun nameOf(key: String): String = "btc-scan/$key"
 }
 
-/** The scan cache record: a version byte, the count, then each snapshot in full, in DataOutputStream style. */
+/** The snapshot record: a version byte, the count, then each snapshot in full, in DataOutputStream style. */
 private object SnapshotCodec {
-    private const val VERSION = 1
+    private const val VERSION = 2
     private const val MAX_ENTRIES = 256
     private const val MAX_LIST = 100_000
 
@@ -84,7 +58,6 @@ private object SnapshotCodec {
             for (s in snapshots) {
                 out.writeUTF(s.key)
                 out.writeUTF(s.identity)
-                out.writeUTF(s.server)
                 out.writeLong(s.scannedAtMs)
                 out.writeLong(s.tipHeight)
                 out.writeLong(s.confirmedSats)
@@ -117,7 +90,6 @@ private object SnapshotCodec {
         List(count) {
             val key = input.readUTF()
             val identity = input.readUTF()
-            val server = input.readUTF()
             val scannedAtMs = input.readLong()
             val tipHeight = input.readLong()
             val confirmedSats = input.readLong()
@@ -137,7 +109,6 @@ private object SnapshotCodec {
             BtcSnapshot(
                 key = key,
                 identity = identity,
-                server = server,
                 scannedAtMs = scannedAtMs,
                 tipHeight = tipHeight,
                 confirmedSats = confirmedSats,
@@ -159,35 +130,5 @@ private object SnapshotCodec {
         val present = input.readBoolean()
         val value = input.readLong()
         return if (present) value else null
-    }
-}
-
-/** The servers record: a version byte, the count, then each override as a network code and its base URL. */
-private object ServerCodec {
-    private const val VERSION = 1
-
-    fun encode(overrides: Map<BtcNetwork, String>): ByteArray {
-        val bytes = ByteArrayOutputStream()
-        DataOutputStream(bytes).use { out ->
-            out.writeByte(VERSION)
-            out.writeInt(overrides.size)
-            for ((network, url) in overrides) {
-                out.writeByte(network.ordinal)
-                out.writeUTF(url)
-            }
-        }
-        return bytes.toByteArray()
-    }
-
-    fun decode(bytes: ByteArray): Map<BtcNetwork, String> = DataInputStream(ByteArrayInputStream(bytes)).use { input ->
-        require(input.readUnsignedByte() == VERSION) { "unknown servers version" }
-        val count = input.readInt()
-        require(count in 0..BtcNetwork.entries.size) { "server count out of range" }
-        buildMap {
-            repeat(count) {
-                val network = BtcNetwork.entries.getOrNull(input.readUnsignedByte()) ?: throw IllegalArgumentException("unknown network")
-                put(network, input.readUTF())
-            }
-        }
     }
 }
