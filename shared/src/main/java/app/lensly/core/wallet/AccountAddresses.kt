@@ -27,6 +27,16 @@ object AccountAddresses {
     }
 
     /**
+     * The addresses of m/44'/60'/0'/0/0 until [count] for the account described by [xpub], in index order. The external chain is
+     * derived once for all of them, so a list costs one point multiplication per address, not three. Each entry is [addressAt].
+     */
+    fun addresses(xpub: AccountXpub, count: Int): List<String> {
+        require(count >= 0) { "count must not be negative" }
+        val external = externalChain(xpub)
+        return (0 until count).map { index -> addressOf(publicChild(external, index).point) }
+    }
+
+    /**
      * The public extended key of m/44'/60'/0'/0/[index] for the account described by [xpub], from public data alone. Its
      * parent fingerprint is the fingerprint of m/44'/60'/0'/0, and its address is [addressAt] for the same index.
      */

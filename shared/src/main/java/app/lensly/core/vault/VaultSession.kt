@@ -426,6 +426,30 @@ class VaultSession constructor(
     }
 
     /**
+     * The bytes of each record in [names] of wallet [walletId] that exists, by name. A record that is absent, or a name no wallet folder
+     * holds, is left out, as [getRecord] gives null for it. The Per-Wallet Key is unwrapped once for all of them, so reading many records
+     * costs one Keystore call, not one per record.
+     */
+    fun getRecords(walletId: String, names: Collection<String>): Map<String, ByteArray> {
+        synchronized(this) {
+            val key = requireOpen()
+            requireWalletId(walletId)
+            val files = names.filter { WalletFolder.holds(it) }.distinct()
+                .associateWith { name -> recordFile(walletId, name) }
+                .filterValues { it.isFile }
+            if (files.isEmpty()) return emptyMap()
+            val walletKey = unwrapWalletKey(key, walletId) ?: return emptyMap()
+            try {
+                return files.mapNotNull { (name, file) ->
+                    WalletFolder.open(walletKey, walletId, name, file.readBytes())?.let { name to it }
+                }.toMap()
+            } finally {
+                Arrays.fill(walletKey, 0)
+            }
+        }
+    }
+
+    /**
      * Erases record [name] of wallet [walletId]: its file is overwritten with random bytes, so the record no longer reads and the folder
      * keeps its shape. Does nothing if the record does not exist, or if the wallet is not this session's.
      */

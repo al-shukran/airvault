@@ -27,7 +27,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
-import app.lensly.app.AccountProfile
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.RegistryHolder
@@ -687,57 +686,49 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
 
 /**
  * One App of wallet [walletId]. Ethereum lists the EVM accounts with their addresses and profiles, and Bitcoin lists the Bitcoin
- * accounts. Each is read from the open session when the screen is shown, so a run that comes back here shows its new accounts.
+ * accounts. The Ethereum view is kept by the open session while no write has passed it, so a visit shows its list at once. Otherwise
+ * it is read off the main thread, and the screen shows its frame, and the addresses as they are derived. A run that comes back here
+ * reads the view again, so it shows its new accounts.
  */
 @Composable
 private fun AppRoute(navController: NavHostController, holder: VaultHolder, walletId: String, app: WalletApp) {
     val session = rememberOpenSession(navController, holder) ?: return
+    val reads = holder.sessionReads() ?: return
     val scope = rememberCoroutineScope()
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
-    var addresses by remember(walletId) { mutableStateOf<List<String>?>(null) }
-    var profiles by remember(walletId) { mutableStateOf<Map<Int, AccountProfile>>(emptyMap()) }
+    var ethereum by remember(walletId) { mutableStateOf(reads.cachedEthereumAccounts(walletId)) }
     var bitcoin by remember(walletId) { mutableStateOf<List<BitcoinAccountRecord>?>(null) }
 
-    LaunchedEffect(walletId) {
+    LaunchedEffect(walletId, app) {
         whileUnlocked(navController, holder) {
-            wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
-        }
-    }
-    LaunchedEffect(walletId) {
-        whileUnlocked(navController, holder) {
-            bitcoin = withContext(Dispatchers.IO) { WalletStore(session).bitcoinAccounts(walletId) }
-        }
-    }
-    val current = wallet
-    LaunchedEffect(walletId, current?.accountCount) {
-        if (current != null) {
-            whileUnlocked(navController, holder) {
-                // The profiles come first, so a row never shows a default name or look that a profile replaces.
-                profiles = withContext(Dispatchers.IO) {
-                    WalletStore(session).accountProfiles(walletId, current.accountCount)
+            if (app == WalletApp.ETHEREUM) {
+                if (ethereum == null) {
+                    // The metadata comes first, so the App's frame shows while the addresses are derived.
+                    wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
+                    ethereum = withContext(Dispatchers.IO) { reads.ethereumAccounts(walletId) }
                 }
-                // Only the accounts the list does not have yet are derived. The rows already shown keep their addresses.
-                val known = addresses.orEmpty()
-                addresses = withContext(Dispatchers.IO) {
-                    val store = WalletStore(session)
-                    known + (known.size until current.accountCount).map { index -> store.accountAddress(walletId, index) }
-                }
+            } else {
+                wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
+                bitcoin = withContext(Dispatchers.IO) { WalletStore(session).bitcoinAccounts(walletId) }
             }
         }
     }
-
-    val shown = current ?: return
+    val shown = ethereum?.meta ?: wallet ?: return
     when (app) {
         WalletApp.ETHEREUM -> EthereumAccountsScreen(
             wallet = shown,
-            addresses = addresses,
-            accountProfiles = profiles,
+            addresses = ethereum?.addresses,
+            accountProfiles = ethereum?.profiles.orEmpty(),
             onBack = { navController.popBackStack() },
             onLock = { leaveHidden(navController, holder) },
             onAddAccount = {
                 scope.launch {
                     whileUnlocked(navController, holder) {
-                        wallet = withContext(Dispatchers.IO) { WalletStore(session).addAccount(walletId) }
+                        // The write moves the session's write count, so the view is read again with the new account.
+                        ethereum = withContext(Dispatchers.IO) {
+                            WalletStore(session).addAccount(walletId)
+                            reads.ethereumAccounts(walletId)
+                        }
                     }
                 }
             },
@@ -751,11 +742,10 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
             onResetAccountNames = { indices ->
                 scope.launch {
                     whileUnlocked(navController, holder) {
-                        // One write removes the selected names. The profiles are read again, so the rows show the Auto-Names.
-                        profiles = withContext(Dispatchers.IO) {
-                            val store = WalletStore(session)
-                            store.resetAccountNames(walletId, indices)
-                            store.accountProfiles(walletId, shown.accountCount)
+                        // One write removes the selected names. The view is read again, so the rows show the Auto-Names.
+                        ethereum = withContext(Dispatchers.IO) {
+                            WalletStore(session).resetAccountNames(walletId, indices)
+                            reads.ethereumAccounts(walletId)
                         }
                     }
                 }

@@ -75,6 +75,12 @@ data class WalletMeta(
     val seedBackedUp: Boolean = true,
 )
 
+/**
+ * The public view of a wallet's Ethereum accounts: its metadata, the profiles of the accounts that have one, by index, and the address
+ * of each account, in order. It holds no secret, so the session may keep it until the vault locks.
+ */
+class EthereumAccounts(val meta: WalletMeta, val profiles: Map<Int, AccountProfile>, val addresses: List<String>)
+
 /** The secret part of a wallet, as it is stored. */
 sealed interface WalletSecret {
     /**
@@ -477,6 +483,36 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
+     * The Ethereum view of wallet [id]: its metadata, its account profiles and the address of every account, read in two batches. The
+     * metadata and base name come in the first, and the profiles in the second, so the Keystore unwraps the wallet's key twice in all,
+     * not once per account. A Mnemonic wallet's addresses come from its public account key, and a Single Key wallet's from its key,
+     * which is read and zeroed here. Null if the wallet does not exist or its metadata cannot be read.
+     */
+    fun ethereumAccounts(id: String): EthereumAccounts? {
+        val head = session.getRecords(id, listOf(WalletRecords.META, WalletRecords.BASE_NAME))
+        val metaBytes = head[WalletRecords.META] ?: return null
+        val meta = try {
+            WalletRecords.decodeMeta(id, metaBytes)
+        } catch (e: IOException) {
+            return null
+        } catch (e: IllegalArgumentException) {
+            return null
+        }
+        val wallet = meta.copy(autoNameBase = decodedBaseName(head[WalletRecords.BASE_NAME]) ?: meta.name)
+        val count = wallet.accountCount
+        val profileBytes = session.getRecords(id, (0 until count).map { index -> WalletRecords.accountRecord(index) })
+        val profiles = (0 until count).mapNotNull { index ->
+            decodedProfile(profileBytes[WalletRecords.accountRecord(index)]).takeUnless { it.isEmpty }?.let { index to it }
+        }.toMap()
+        val addresses = when (wallet.kind) {
+            WalletKind.MNEMONIC -> AccountAddresses.addresses(requireNotNull(wallet.accountXpub), count)
+            // A Single Key wallet has exactly one account, and its address comes from its key. The key is zeroed by addresses().
+            WalletKind.SINGLE_KEY -> if (count == 1) addresses(id, count = 1) else emptyList()
+        }
+        return EthereumAccounts(wallet, profiles, addresses)
+    }
+
+    /**
      * Renames wallet [id] to [name], trimmed, and returns the updated metadata. Only the META record changes, so the
      * secret, the account public key and every account keep what they were. Account names are not rewritten.
      *
@@ -526,8 +562,10 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /** The name the wallet had at creation, from its record, or null if it has no readable record. */
-    private fun storedBaseName(id: String): String? {
-        val bytes = session.getRecord(id, WalletRecords.BASE_NAME) ?: return null
+    private fun storedBaseName(id: String): String? = decodedBaseName(session.getRecord(id, WalletRecords.BASE_NAME))
+
+    private fun decodedBaseName(bytes: ByteArray?): String? {
+        if (bytes == null) return null
         return try {
             WalletRecords.decodeName(bytes)
         } catch (e: IOException) {
@@ -541,8 +579,11 @@ class WalletStore(private val session: VaultSession) {
      * The profile of account [index] of wallet [id]: its Display Name, colour, icon, label and group. A null field is the
      * default. An account with no record, or with a record that cannot be read, has an empty profile and shows its defaults.
      */
-    fun accountProfile(id: String, index: Int): AccountProfile {
-        val bytes = session.getRecord(id, WalletRecords.accountRecord(index)) ?: return AccountProfile()
+    fun accountProfile(id: String, index: Int): AccountProfile =
+        decodedProfile(session.getRecord(id, WalletRecords.accountRecord(index)))
+
+    private fun decodedProfile(bytes: ByteArray?): AccountProfile {
+        if (bytes == null) return AccountProfile()
         return try {
             WalletRecords.decodeAccountProfile(bytes)
         } catch (e: IOException) {
