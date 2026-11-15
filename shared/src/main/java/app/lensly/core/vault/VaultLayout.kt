@@ -87,7 +87,7 @@ internal object VaultKeyFile {
 
     /** Parses `vault.key`. Any other size or magic is damaged, or a layout this app does not read. */
     fun decode(bytes: ByteArray): Contents {
-        val damaged = VaultException("The vault key file is damaged or not in a format this app reads.")
+        val damaged = VaultException("The vault key file is damaged or not in a format this application reads.")
         if (bytes.size < PREFIX_BYTES || !bytes.copyOf(4).contentEquals(MAGIC)) throw damaged
         return when {
             bytes[4] == VERSION && bytes.size == FILE_BYTES -> Contents(

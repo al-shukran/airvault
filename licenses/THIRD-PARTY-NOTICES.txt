@@ -2,7 +2,7 @@ Third-party notices for Lensly
 
 Lensly is built with the third-party libraries and fonts listed below. Each one is used under the licence named beside it. Where a licence asks for its text or its copyright notice to be kept with the software, that text is in this file, below the list. Lensly itself is licensed under the Apache License 2.0; see the License row in Settings.
 
-The list names the libraries whose code or native code is in the app. Libraries used only at build time or in tests are not listed.
+The list names the libraries whose code or native code is in the application. Libraries used only at build time or in tests are not listed.
 
 Libraries and fonts:
 
@@ -80,7 +80,7 @@ Reactive Streams 1.0.3 (reactive-streams-jvm). The project's LICENSE file names 
 
 SIL Open Font License 1.1:
 
-Doto (Doto Project Authors) and Space Mono (Space Mono Project Authors), the app's fonts. Their full texts are quoted below.
+Doto (Doto Project Authors) and Space Mono (Space Mono Project Authors), the application's fonts. Their full texts are quoted below.
 
 Licence texts:
 

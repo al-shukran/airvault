@@ -9,18 +9,18 @@ sealed class RegistryUpdateException(message: String) : Exception(message) {
     class BadSignature : RegistryUpdateException("the signature does not verify with the key the package names")
 
     /** The package names a signing key this build does not trust. [keyId] is 16 hexadecimal characters. */
-    class UnknownKey(val keyId: String) : RegistryUpdateException("signing key $keyId is not trusted by this app")
+    class UnknownKey(val keyId: String) : RegistryUpdateException("signing key $keyId is not trusted by this application")
 
     /** The package names a signing key that is listed as revoked. [keyId] is 16 hexadecimal characters. */
     class RevokedKey(val keyId: String) : RegistryUpdateException("signing key $keyId has been revoked")
 
     /** The package needs a newer catalog schema than this app interprets. */
     class Incompatible(val required: Long, val supported: Long) :
-        RegistryUpdateException("package needs catalog schema $required; this app reads up to $supported")
+        RegistryUpdateException("package needs catalog schema $required; this application reads up to $supported")
 
     /** The package is in a registry format version this app does not read: [version] is the one it states. */
     class UnsupportedFormat(val version: Long, val supported: Long) :
-        RegistryUpdateException("registry format version $version is not supported; this app reads version $supported")
+        RegistryUpdateException("registry format version $version is not supported; this application reads version $supported")
 
     /** An entry has a value outside its rules, such as decimals above 36 or a malformed contract address. */
     class InvalidEntry(message: String) : RegistryUpdateException(message)

@@ -53,7 +53,7 @@ data class ChangeCopy(
 ) {
     companion object {
         val APP_PASSWORD = ChangeCopy(
-            title = "App Password",
+            title = "Application Password",
             newHeadline = "NEW PASSWORD",
             newHint = "$MIN_PASSWORD_LENGTH+ characters, hard to guess",
             changedText = "The new password opens the vault now. The old one does not.",
@@ -62,7 +62,7 @@ data class ChangeCopy(
         val DURESS_PASSWORD = ChangeCopy(
             title = "Duress Password",
             newHeadline = "NEW PASSWORD",
-            newHint = "$MIN_PASSWORD_LENGTH+ characters, not your App Password",
+            newHint = "$MIN_PASSWORD_LENGTH+ characters, not your Application Password",
             changedText = "The Duress Password is set. The old one does not open anything.",
         )
     }
@@ -165,7 +165,7 @@ private fun StatusSlot(state: ChangePasswordState) {
         val error = state.error
         when {
             state.busy -> LoadingState(
-                label = if (state.step == ChangeStep.Confirm) "Changing the App Password" else "Checking the password",
+                label = if (state.step == ChangeStep.Confirm) "Changing the Application Password" else "Checking the password",
             )
             error != null -> InlineBanner(message = error.sentence(), tone = BannerTone.Error)
         }
@@ -225,7 +225,7 @@ private fun PolicyError.sentence(): String = when (this) {
     PolicyError.TooShort -> "Use $MIN_PASSWORD_LENGTH or more characters."
     PolicyError.TooWeak -> "Too easy to guess. Add more variety."
     PolicyError.Mismatch -> "The two passwords do not match. Try again."
-    PolicyError.SameAsApp -> "That is the App Password. Choose another."
+    PolicyError.SameAsApp -> "That is the Application Password. Choose another."
 }
 
 private val HEADLINE_HEIGHT = 136.dp

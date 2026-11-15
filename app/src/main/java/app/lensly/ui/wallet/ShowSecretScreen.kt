@@ -47,7 +47,7 @@ import app.lensly.ui.theme.LenslyWarning
 import app.lensly.ui.theme.SpaceMonoFamily
 
 private const val TITLE = "Show secret"
-private const val SHOW_PROMPT = "Enter your App Password to show the secret."
+private const val SHOW_PROMPT = "Enter your Application Password to show the secret."
 
 /** The three steps: App Password, warning, and the secret. */
 private const val STEP_COUNT = 3

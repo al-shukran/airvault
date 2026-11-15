@@ -247,7 +247,7 @@ internal class ReviewPool(private val dir: File, private val vaultKey: ByteArray
     /** The plain payload of a pool file. Its size is fixed, so a file of another size is damaged. */
     private fun openFile(key: ByteArray, aad: ByteArray, bytes: ByteArray): ByteArray {
         if (bytes.size != ReviewPoolFormat.FILE_BYTES || bytes[0] != ReviewPoolFormat.VERSION) {
-            throw VaultException("A Review Record pool file is damaged or not in a format this app reads.")
+            throw VaultException("A Review Record pool file is damaged or not in a format this application reads.")
         }
         return try {
             Aead.open(key, aad, bytes.copyOfRange(1, bytes.size))

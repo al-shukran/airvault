@@ -58,7 +58,7 @@ sealed class BtcRefusal {
 
     /** The Signing Source Policy is Companion only, and this request does not carry the Companion App's marker. */
     data object SourceExcluded : BtcRefusal() {
-        override val reason: String = "Only the Companion App may ask for a Bitcoin signature, and this request is not from it."
+        override val reason: String = "Only the Companion Application may ask for a Bitcoin signature, and this request is not from it."
     }
 
     /** The input has no previous transaction, or under the active policy its amount cannot be verified. */

@@ -51,7 +51,7 @@ fun UnlockScreen(
         ) {
             Spacer(Modifier.height(LenslySpacing.lg))
             Text(
-                text = "APP PASSWORD",
+                text = "APPLICATION PASSWORD",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

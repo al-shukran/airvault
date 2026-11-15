@@ -114,6 +114,6 @@ class ProxyPolicyScreenTest {
             }
         }
 
-        compose.onNodeWithText("Enter your App Password to save this policy.").assertExists()
+        compose.onNodeWithText("Enter your Application Password to save this policy.").assertExists()
     }
 }

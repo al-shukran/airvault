@@ -17,7 +17,7 @@ Run commands assume the wrapper at the repo root.
 - **Purpose:** pure logic: derivation, encoding, parsing, policy, state machines.
 - **Scope:** `core/*` and pure view-model code. No Android types.
 - **Tools:** JUnit 4 (`junit` 4.13.2, in the catalog), `kotlin-test`.
-- **Files:** `shared/src/test/java/app/lensly/core/<pkg>/<Subject>Test.kt`; fixtures in `shared/src/test/resources/`. Test helpers that both apps' tests use live in `shared/src/testFixtures/`.
+- **Files:** `shared/src/test/java/app/lensly/core/<pkg>/<Subject>Test.kt`; fixtures in `shared/src/test/resources/`. Test helpers that both applications' tests use live in `shared/src/testFixtures/`.
 - **Run:** `./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*'`
 
 ### 1.2 Integration (Robolectric)
@@ -57,12 +57,12 @@ Run commands assume the wrapper at the repo root.
 
 - **Automated (emulator, CI):** create wallet, export the `crypto-hdkey` UR, scan injected `eth-sign-request` frames, review, sign, show the `eth-signature` UR. Tools: Compose test plus UI Automator (`androidx.test.uiautomator:uiautomator`). Camera input comes from a `FrameSource` seam fed by fixture frames in `app/src/androidTest/assets/ur/`. The seam is a Phase 1.5 deliverable; `CameraController` binds CameraX directly today.
 - **Run:** `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=app.lensly.e2e.WalletSignFlowTest`
-- **Manual (release checklist, not CI):** on a physical phone, import Lensly's export into Rabby, then MetaMask, through the hardware-wallet (Keystone-style) flow. Use a public test mnemonic and a faucet-funded account on Monad testnet (chain ID 10143; confirm before the run). Sign a transaction through Lensly's QR round trip and confirm it broadcasts. Record date, app commit, and wallet version.
+- **Manual (release checklist, not CI):** on a physical phone, import Lensly's export into Rabby, then MetaMask, through the hardware-wallet (Keystone-style) flow. Use a public test mnemonic and a faucet-funded account on Monad testnet (chain ID 10143; confirm before the run). Sign a transaction through Lensly's QR round trip and confirm it broadcasts. Record date, application commit, and wallet version.
 
 ### 1.7 Performance
 
 - **Microbenchmark** (`androidx.benchmark:benchmark-junit4`): Argon2 calibration targets about 1 s on the reference device (accept 0.8 to 1.2 s); the calibrated parameters are stored with the vault. QR decode rate of `UrScanner` over fixture frames, in frames per second.
-- **Macrobenchmark** (`androidx.benchmark:benchmark-macro-junit4`): cold start via `StartupTimingMetric`. It lives in the separate `:benchmark` module (`com.android.test`, targeting `:app`'s `benchmark` variant), because a macrobenchmark launches the installed app from outside.
+- **Macrobenchmark** (`androidx.benchmark:benchmark-macro-junit4`): cold start via `StartupTimingMetric`. It lives in the separate `:benchmark` module (`com.android.test`, targeting `:app`'s `benchmark` variant), because a macrobenchmark launches the installed application from outside.
 - **Rules:** run only on a `benchmark` build type. Gate on the reference device only, at more than 10% regression from its baseline. Emulator numbers are trend data.
 - **Run:** `./gradlew :app:connectedBenchmarkAndroidTest` (microbenchmarks) and `./gradlew :benchmark:connectedBenchmarkAndroidTest` (macrobenchmarks, needs a device)
 
@@ -77,7 +77,7 @@ Run commands assume the wrapper at the repo root.
 
 - **Compose semantics:** interactive nodes have text or a `contentDescription`; assert with `onNodeWithContentDescription`, `assertHasClickAction()`, and a 48 dp minimum size.
 - **Accessibility Test Framework:** Espresso `AccessibilityChecks.enable()` (`androidx.test.espresso:espresso-accessibility`) in instrumented tests. Phase 1.5 first verifies it reports Compose nodes; if not, rely on semantics assertions plus a manual TalkBack pass per release.
-- **Contrast:** dark-only app. A pure JVM test computes WCAG 2.x ratios for each foreground/background pair in `ui/theme/Color.kt`: 4.5:1 for body text, 3:1 for large text and UI components.
+- **Contrast:** dark-only application. A pure JVM test computes WCAG 2.x ratios for each foreground/background pair in `ui/theme/Color.kt`: 4.5:1 for body text, 3:1 for large text and UI components.
 
 ### 1.10 Regression
 
@@ -307,17 +307,17 @@ Durations are estimates, to be measured in Phase 1.5.
 
 Where the shipped build differs from the text above:
 
-- **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The app still targets Java 17.
+- **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The application still targets Java 17.
 - **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
 - **`ui` and pixels:** the `ui-a` and `ui-b` partitions pass `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly via `verifyRoborazziDebug`.
 - **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and `dependency_review` in `pr-fast.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/heyaibi/lensly/settings/security_analysis.
 - **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
 - **Fuzz isolation:** Jazzer and Robolectric cannot share a JVM. Running a fuzz target first corrupts the Robolectric sandbox, and later Robolectric tests fail with `NoClassDefFoundError: JazzerInternal`. The fuzz tests therefore sit behind `-PfuzzLane`, which `run-partition.sh`, `fuzz-nightly.sh` and `nightly.yml` each pass in a separate Gradle invocation.
-- **Benchmark lane:** the benchmark variant needs `benchmarkImplementation` so `androidx.benchmark.IsolationActivity` merges into the app APK; without it every run fails with "Unable to resolve activity for androidx.benchmark.IsolationActivity". The lane runs only `app.lensly.benchmark.*`. Baselines need a manual AOT compile on a reference device, because a Gradle run reinstalls and clears the compiled code; the procedure is in `app/src/androidTest/benchmark-baselines/README.md`.
+- **Benchmark lane:** the benchmark variant needs `benchmarkImplementation` so `androidx.benchmark.IsolationActivity` merges into the application APK; without it every run fails with "Unable to resolve activity for androidx.benchmark.IsolationActivity". The lane runs only `app.lensly.benchmark.*`. Baselines need a manual AOT compile on a reference device, because a Gradle run reinstalls and clears the compiled code; the procedure is in `app/src/androidTest/benchmark-baselines/README.md`.
 - **Macrobenchmark:** lives in the separate `:benchmark` module (`com.android.test`). Baselines must be recorded on the reference device.
 - **Cache warm:** `scripts/ci/cache-warm.yml` warms the Gradle cache on pushes to `master` and `phase-1-5`. A cold branch previously hit the 3-minute job cap.
 - **E2E:** the `FrameSource` seam plus `app.lensly.e2e.WalletSignFlowTest` are verified on an API 36 arm64 emulator. The `/run-*` comment commands only work once the workflow exists on the default branch.
-- **Policy, `FixtureDecoder` in `src/main`:** `FixtureDecoder` and the public `frameSource` parameter ship in `src/main` so the E2E can feed frames through the real decoder. This is a deliberate exception to §3; moving it to `src/test` would change the app's camera API.
+- **Policy, `FixtureDecoder` in `src/main`:** `FixtureDecoder` and the public `frameSource` parameter ship in `src/main` so the E2E can feed frames through the real decoder. This is a deliberate exception to §3; moving it to `src/test` would change the application's camera API.
 - **Policy, benchmark gate scope:** the 10% gate enforces only on the reference device (`--reference-device`, or `BENCHMARK_REFERENCE_DEVICE=1`). Elsewhere it prints "no verdict" and never passes silently.
 - **Policy, required check:** `pr-ok` is the required check; `master` and `phase-1-5` are protected and require it, and admins may bypass.
 - **Policy, `/run-fuzz` and `/run-perf`:** `/run-fuzz` runs each Jazzer target for 60 seconds; `/run-perf` runs on the self-hosted `android-ref` runner, not an emulator.

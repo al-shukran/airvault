@@ -47,7 +47,7 @@ class UnlockScreenTest {
     fun aTapOutsideHidesTheKeyboardAndATapOnTheFieldBringsItBack() {
         setUnlock()
 
-        compose.onNodeWithText("APP PASSWORD").performClick()
+        compose.onNodeWithText("APPLICATION PASSWORD").performClick()
         compose.waitUntilKeyboardHidden()
 
         compose.onNodeWithContentDescription("Password empty").performClick()
@@ -59,7 +59,7 @@ class UnlockScreenTest {
         setUnlock()
         compose.onNodeWithContentDescription("a").performClick()
 
-        compose.onNodeWithText("APP PASSWORD").performClick()
+        compose.onNodeWithText("APPLICATION PASSWORD").performClick()
         compose.waitUntilKeyboardHidden()
 
         compose.onNodeWithContentDescription("1 characters entered").performClick()
