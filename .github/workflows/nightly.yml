@@ -202,13 +202,15 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          # Trend data, not the reference-device gate; androidx.benchmark aborts on an emulator without this.
+          # Trend data, not the reference-device gate; androidx.benchmark aborts on an emulator without EMULATOR.
+          # NOT-AOT-COMPILED: the CI emulator runs the app without a profile-guided AOT compile, so the runner refuses
+          # to time it. Suppressed for the same reason as EMULATOR: these numbers are trend data, never a gate.
           # The package filter keeps a11y/e2e/vault out of the run. The `class` argument takes exact class names; the
-          # earlier `.*` glob named no class, which is the likely reason the step failed before any benchmark ran.
+          # earlier `.*` glob named no class, so no benchmark ever ran.
           script: >-
             ./gradlew :app:connectedBenchmarkAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.package=app.lensly.benchmark
-            -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
+            -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR,NOT-AOT-COMPILED
 
       # TEMPORARY DIAGNOSTIC (remove once the benchmark job is green): print the benchmark results of a failed run.
       - name: Print benchmark results (diagnostic)
