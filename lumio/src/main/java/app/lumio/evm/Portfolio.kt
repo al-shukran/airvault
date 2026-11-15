@@ -23,48 +23,36 @@ data class AddressRow(val index: Int, val address: String, val reads: Map<Long, 
 data class Holding(val chain: EvmChain, val wei: BigInteger, val atMs: Long)
 
 /**
- * Reads the balances and nonces of one wallet's addresses on the given chains. A chain whose endpoint is missing, unreachable, malformed or
- * serves another chain is reported as a [ChainFailure] and gives no reads. Chains run side by side. The addresses of one chain are read in
- * order, and the first failure ends that chain, so an offline device waits for one timeout per chain, not one per address.
+ * Reads the balances and nonces of one wallet's addresses on the given chains through [reads]. A chain that the pool cannot serve, or whose
+ * endpoint fails, is reported as a [ChainFailure] and gives no reads. Chains run side by side. The addresses of one chain are read in order, and
+ * the first failure ends that chain, so an offline device waits for one failure per chain, not one per address.
  */
 class PortfolioRefresh(
-    private val rpc: EvmRpc,
+    private val reads: EvmReads,
     private val nowMs: () -> Long = System::currentTimeMillis,
 ) {
     /** The reads that succeeded for a wallet, and the chains that failed. */
     class WalletReads(val reads: List<CachedBalance>, val failures: List<ChainFailure>)
 
-    suspend fun wallet(
-        walletId: String,
-        account: AccountXpub,
-        count: Int,
-        chains: List<EvmChain>,
-        rpcFor: (EvmChain) -> String?,
-    ): WalletReads = coroutineScope {
-        val results = chains.map { chain ->
-            async(Dispatchers.IO) { readChain(walletId, account, count, chain, rpcFor(chain)) }
-        }.awaitAll()
+    suspend fun wallet(walletId: String, account: AccountXpub, count: Int, chains: List<EvmChain>): WalletReads = coroutineScope {
+        val results = chains.map { chain -> async { readChain(walletId, account, count, chain) } }.awaitAll()
         WalletReads(results.flatMap { it.reads }, results.mapNotNull { it.failure })
     }
 
-    private fun readChain(walletId: String, account: AccountXpub, count: Int, chain: EvmChain, url: String?): ChainResult {
-        if (url == null) return ChainResult(emptyList(), ChainFailure(chain.chainId, "No RPC address is set for ${chain.name}."))
-        return try {
-            rpc.requireChain(url, chain.chainId)
-            val reads = Portfolio.addresses(account, count).map { address ->
-                CachedBalance(
-                    walletId = walletId,
-                    chainId = chain.chainId,
-                    address = address,
-                    wei = rpc.balance(url, address).toString(),
-                    nonce = rpc.transactionCount(url, address),
-                    atMs = nowMs(),
-                )
-            }
-            ChainResult(reads, null)
-        } catch (e: RpcFailure) {
-            ChainResult(emptyList(), ChainFailure(chain.chainId, e.message ?: "The endpoint failed."))
+    private suspend fun readChain(walletId: String, account: AccountXpub, count: Int, chain: EvmChain): ChainResult = try {
+        val fresh = Portfolio.addresses(account, count).map { address ->
+            CachedBalance(
+                walletId = walletId,
+                chainId = chain.chainId,
+                address = address,
+                wei = reads.balance(chain, address).toString(),
+                nonce = reads.nonce(chain, address, pending = false),
+                atMs = nowMs(),
+            )
         }
+        ChainResult(fresh, null)
+    } catch (e: RpcFailure) {
+        ChainResult(emptyList(), ChainFailure(chain.chainId, e.message ?: "The endpoint failed."))
     }
 
     private class ChainResult(val reads: List<CachedBalance>, val failure: ChainFailure?)
@@ -101,25 +89,25 @@ object Portfolio {
     }
 
     /**
-     * Reads [wallets] on [chains] and stores the reads in the cache of [session]. The cache is read and written once for all wallets. Wallets
-     * without an EVM account key are skipped. Reads of addresses that are no longer shown are dropped. Returns each wallet's chain failures.
+     * Reads [wallets] on [chains] through [reads] and stores the reads in the cache of [session]. The cache is read and written once for all
+     * wallets. Wallets without an EVM account key are skipped. Reads of addresses that are no longer shown are dropped. Returns each wallet's chain failures.
      */
     suspend fun refresh(
         session: VaultSession,
         wallets: List<PairedWallet>,
         settings: EvmSettings,
         chains: List<EvmChain>,
-        rpc: EvmRpc,
+        reads: EvmReads,
         nowMs: () -> Long = System::currentTimeMillis,
     ): Map<String, List<ChainFailure>> = lock.withLock {
-        val refresher = PortfolioRefresh(rpc, nowMs)
+        val refresher = PortfolioRefresh(reads, nowMs)
         var cache = withContext(Dispatchers.IO) { BalanceCache.read(session) }
         val failures = LinkedHashMap<String, List<ChainFailure>>()
         for (wallet in wallets) {
             val account = wallet.evm ?: continue
-            val reads = refresher.wallet(wallet.id, account, settings.addressCount, chains) { EvmCatalog.rpcFor(it, settings) }
-            cache = merged(cache, wallet.id, addresses(account, settings.addressCount).toSet(), reads.reads)
-            failures[wallet.id] = reads.failures
+            val result = refresher.wallet(wallet.id, account, settings.addressCount, chains)
+            cache = merged(cache, wallet.id, addresses(account, settings.addressCount).toSet(), result.reads)
+            failures[wallet.id] = result.failures
         }
         withContext(Dispatchers.IO) { BalanceCache.write(session, cache) }
         failures

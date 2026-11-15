@@ -1,0 +1,205 @@
+package app.lumio.data.rpc
+
+import app.lumio.data.config.Limits
+import app.lumio.data.config.ProviderConfig
+import app.lumio.data.net.Family
+import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.Http
+import app.lumio.data.provider.Kind
+import app.lumio.data.provider.Op
+import app.lumio.data.provider.Provider
+import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.Request
+import app.lumio.data.provider.Trait
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/** The operations an EVM RPC provider serves: balances, nonces, fees, gas estimates and broadcasts. */
+private val EVM_OPS = setOf(Op.NATIVE_BALANCE, Op.NONCE, Op.RPC_CALL, Op.FEE_ESTIMATES, Op.BROADCAST)
+
+/** A key as it goes into a URL path. Only letters, digits, '-' and '_' pass, so a key can never change the host or the path. */
+private val KEY = Regex("[A-Za-z0-9_-]{1,128}")
+
+/** Free public endpoints publish no request rate, so these are modest starting rates that the config can raise. */
+private val PUBLIC_LIMITS = Limits(rps = 4.0, burst = 8, maxConcurrent = 4)
+private val KEYLESS_ALCHEMY = Limits(rps = 2.0, burst = 4, maxConcurrent = 2)
+private val KEYED_ALCHEMY = Limits(rps = 15.0, burst = 30, maxConcurrent = 8)
+private val TENDERLY_LIMITS = Limits(rps = 2.0, burst = 4, maxConcurrent = 2)
+
+/**
+ * An EVM JSON-RPC provider. [endpoint] gives the address that serves a network under a config. Null means the provider has none for it, and then
+ * [supports] is false, so the router never offers that network to the provider. The request mapping, the shared client and the owner's failure
+ * words are the same for every provider. A Solana provider adds its own [endpoint] and request mapping for `Family.SOL`, and nothing here changes.
+ */
+abstract class EvmRpcProvider(
+    override val id: String,
+    override val traits: Set<Trait>,
+    private val limits: Limits,
+) : Provider {
+    override val kind: Kind = Kind.RPC
+
+    /** Whether calls may use plain HTTP to a local host. Only the owner's own address in a debug build says yes. */
+    protected open val allowLocalHttp: Boolean get() = false
+
+    /** The address that serves [net] under [cfg], or null when this provider has none for it. */
+    abstract fun endpoint(net: NetworkId, cfg: ProviderConfig): String?
+
+    /** Whether the endpoint serves [op] under [cfg]. Every EVM operation, unless a provider says otherwise. */
+    open fun serves(op: Op, cfg: ProviderConfig): Boolean = true
+
+    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
+        net.family == Family.EVM && op in EVM_OPS && serves(op, cfg) && endpoint(net, cfg) != null
+
+    override fun defaultLimits(cfg: ProviderConfig): Limits = limits
+
+    override suspend fun <T> execute(req: Request<T>, cfg: ProviderConfig, http: Http): T {
+        val url = endpoint(req.net, cfg) ?: throw ProviderError.Unsupported()
+        return withContext(Dispatchers.IO) { EvmCalls.execute(http.client, url, allowLocalHttp, req) }
+    }
+}
+
+/**
+ * 1RPC. Keyless: `https://public.1rpc.io/<network>`. With an API key: `https://1rpc.io/<API_KEY>/<network>`, the key in the path before the
+ * network. Docs: https://docs.1rpc.io/using-the-web3-api/networks and https://docs.1rpc.io/using-the-web3-api/getting-started. The docs claim
+ * privacy (metadata masking, no request storage), not MEV protection, so the provider carries no MEV trait. Free limits: none stated for public
+ * endpoints. The Starter plan allows 1,000 requests a day (https://docs.1rpc.io/using-the-web3-api/payment).
+ */
+class OneRpc : EvmRpcProvider("1rpc", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.PRIVACY), PUBLIC_LIMITS) {
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
+        val slug = SLUGS[net.chain] ?: return null
+        val key = cfg.apiKey ?: return "https://public.1rpc.io/$slug"
+        return if (KEY.matches(key)) "https://1rpc.io/$key/$slug" else null
+    }
+
+    private companion object {
+        /** The slugs of the EVM rows in https://docs.1rpc.io/using-the-web3-api/networks, keyed by chain ID. */
+        val SLUGS = mapOf(
+            "1" to "eth", "10" to "op", "25" to "cro", "40" to "telos/evm", "56" to "bnb", "66" to "oktc", "100" to "gnosis",
+            "130" to "unichain", "146" to "sonic", "169" to "manta", "204" to "opbnb", "250" to "ftm", "288" to "boba/eth",
+            "324" to "zksync2-era", "592" to "astr", "999" to "hyperliquid", "1101" to "polygon/zkevm", "1116" to "core",
+            "1284" to "glmr", "1313161554" to "aurora", "1666600000" to "one", "4217" to "tempo", "4326" to "megaeth",
+            "5000" to "mantle", "8217" to "klay", "8453" to "base", "11155111" to "sepolia", "23294" to "oasis/sapphire",
+            "34443" to "mode", "42161" to "arb", "42220" to "celo", "42262" to "oasis/emerald", "43114" to "avax/c",
+            "59144" to "linea", "137" to "matic", "534352" to "scroll", "560048" to "hoodi",
+        )
+    }
+}
+
+/**
+ * PublicNode. Keyless: `https://<network>.publicnode.com`, and PublicNode offers no key option. Docs: https://publicnode.com/, which lists the
+ * chains by host and tags the service "privacy first RPC endpoints". The page makes no MEV claim, so the provider carries no MEV trait. It states
+ * no rate limit.
+ */
+class PublicNode : EvmRpcProvider("publicnode", setOf(Trait.KEYLESS, Trait.PRIVACY), PUBLIC_LIMITS) {
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.chain]?.let { "https://$it.publicnode.com" }
+
+    private companion object {
+        /** The hosts that https://publicnode.com/ lists for these chains, keyed by chain ID. */
+        val SLUGS = mapOf(
+            "1" to "ethereum", "25" to "cronos", "56" to "bsc", "137" to "polygon", "1329" to "sei", "2222" to "kava",
+            "8453" to "base", "80094" to "berachain",
+        )
+    }
+}
+
+/**
+ * Ankr. Keyed only: `https://rpc.ankr.com/<chain>/<API_KEY>`, the key as the last path segment. Docs:
+ * https://www.ankr.com/docs/rpc-service/getting-started/basics-premium/ gives `https://rpc.ankr.com/eth/<key>`. The public address refuses a request
+ * without a key ("Unauthorized: You must authenticate your request with an API key"), so no keyless endpoint is claimed. The docs list only `eth`.
+ * They make no MEV or privacy claim, and state no free limit.
+ */
+class Ankr : EvmRpcProvider("ankr", setOf(Trait.KEY_REQUIRED), PUBLIC_LIMITS) {
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
+        val slug = SLUGS[net.chain] ?: return null
+        val key = cfg.apiKey ?: return null
+        return if (KEY.matches(key)) "https://rpc.ankr.com/$slug/$key" else null
+    }
+
+    private companion object {
+        val SLUGS = mapOf("1" to "eth")
+    }
+}
+
+/**
+ * dRPC. Keyless: `https://<network>.drpc.org`. Docs: https://drpc.org/docs/ (its chain pages cover the networks below) and https://drpc.org/llms.txt.
+ * The keyed address format and the public rate limit were not readable from any page this build could fetch, so no key option is offered. The
+ * index lists "MEV Protection: Frontrunning and sandwich attack protection", but that page's text was not readable, so no MEV trait is set. Each
+ * chain's endpoint answered with its chain ID when probed. BNB Smart Chain is listed in the docs but its endpoint was rate limited when probed, so
+ * it is not mapped.
+ */
+class DRpc : EvmRpcProvider("drpc", setOf(Trait.KEYLESS), PUBLIC_LIMITS) {
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.chain]?.let { "https://$it.drpc.org" }
+
+    private companion object {
+        /** The chain pages that https://drpc.org/llms.txt indexes, and the slug each endpoint uses. */
+        val SLUGS = mapOf(
+            "1" to "eth", "10" to "optimism", "137" to "polygon", "250" to "fantom", "5000" to "mantle", "8453" to "base",
+            "42161" to "arbitrum", "42220" to "celo", "43114" to "avalanche", "80094" to "berachain",
+        )
+    }
+}
+
+/**
+ * Alchemy. Keyed: `https://<network>.g.alchemy.com/v2/<API_KEY>`, the key in the path (https://www.alchemy.com/docs/reference/ethereum-api-endpoints).
+ * Keyless: `https://<network>.g.alchemy.com/public`, the public tier that https://www.alchemy.com/overviews/private-rpc-endpoint describes as open to
+ * anyone. It answers for the four networks below, and reports the others as not enabled. MEV protection (https://www.alchemy.com/docs/reference/mev-protection)
+ * is automatic on Ethereum, Arbitrum, BNB Smart Chain and Base for the standard endpoint, and that page names no keyless endpoint. The overview says it is
+ * given "only to customers who send their write traffic exclusively through us". So a broadcast uses this provider only with a key. Free limits: the public
+ * tier is "Low, shared across all callers". The keyed free plan allows 15 requests per second (https://www.alchemy.com/overviews/private-rpc-endpoint).
+ */
+class Alchemy : EvmRpcProvider("alchemy", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.MEV_PROTECTED), KEYLESS_ALCHEMY) {
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
+        val slug = SLUGS[net.chain] ?: return null
+        val key = cfg.apiKey ?: return "https://$slug.g.alchemy.com/public"
+        return if (KEY.matches(key)) "https://$slug.g.alchemy.com/v2/$key" else null
+    }
+
+    override fun serves(op: Op, cfg: ProviderConfig): Boolean = op != Op.BROADCAST || cfg.apiKey != null
+
+    override fun defaultLimits(cfg: ProviderConfig): Limits = if (cfg.apiKey == null) KEYLESS_ALCHEMY else KEYED_ALCHEMY
+
+    private companion object {
+        val SLUGS = mapOf("1" to "eth-mainnet", "56" to "bnb-mainnet", "8453" to "base-mainnet", "42161" to "arb-mainnet")
+    }
+}
+
+/**
+ * Tenderly's public gateway. Keyless: `https://<network>.gateway.tenderly.co`. The Node RPC overview (https://docs.tenderly.co/node-rpc/overview.md)
+ * gives that form and says every network is reachable without an access key. The docs name `mainnet` for Ethereum, and only Ethereum is mapped.
+ * Other gateway slugs answered when probed, but the supported-networks page did not load, so they are not claimed. The overview makes no MEV or
+ * privacy claim. The limits are 1 GB of response data a day for each IP address, and an eth_getLogs call returns at most 3,000 results. The
+ * provider is FALLBACK_ONLY: the router offers it only when no other provider can serve the request.
+ */
+class Tenderly : EvmRpcProvider("tenderly", setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY), TENDERLY_LIMITS) {
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.chain]?.let { "https://$it.gateway.tenderly.co" }
+
+    private companion object {
+        val SLUGS = mapOf("1" to "mainnet")
+    }
+}
+
+/**
+ * The owner's own RPC address for each chain, from EVM settings, as [ProviderConfig.chainUrls] keyed by chain name. It serves only the chains the
+ * owner set, and [app.lumio.evm.EvmReads] sends those chains here alone, so the owner's addresses never reach a public provider. It makes no MEV or
+ * privacy claim, and it states no limit, so its rates are the defaults.
+ */
+class CustomRpc(override val allowLocalHttp: Boolean) : EvmRpcProvider(ID, emptySet(), PUBLIC_LIMITS) {
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
+        val raw = cfg.chainUrls[net.chain] ?: return null
+        return try {
+            RpcUrl.validate(raw, allowLocalHttp)
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
+    companion object {
+        /** The provider id. It keys this provider's config in the vault record. */
+        const val ID = "custom"
+    }
+}
+
+/** The providers of the public pool. The router ranks them, so their order here does not matter. */
+object RpcPlugins {
+    fun pool(): List<Provider> = listOf(OneRpc(), PublicNode(), Ankr(), DRpc(), Alchemy(), Tenderly())
+}

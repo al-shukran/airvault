@@ -28,13 +28,15 @@ internal fun isEligible(p: Provider, net: NetworkId, op: Op, configs: Map<String
 
 /**
  * Chooses the providers for one request, best first. A provider is a candidate when [isEligible] holds and [ProviderState] says it is available.
- * The candidates sort by:
- * 1. a provider that this request already failed on transiently goes last, so a retry moves to the next candidate;
- * 2. for BROADCAST on an EVM network, MEV-protected providers first;
- * 3. for balance reads, DATA providers before RPC providers;
- * 4. the priority in the config, lower first;
- * 5. the health score, then the id.
- * Providers that tie on the first four share the calls by smooth weighted round robin, so the config weights split the load.
+ * Then:
+ * 1. for BROADCAST on an EVM network, while a candidate is MEV-protected, no other candidate is offered: a transaction never goes to a provider
+ *    that does not protect it while a protected provider is healthy;
+ * 2. a FALLBACK_ONLY provider is offered only when no other candidate is left, so it never serves while another provider can;
+ * 3. a provider that this request already failed on transiently goes after the others, so a retry moves to the next candidate;
+ * 4. for balance reads, DATA providers before RPC providers;
+ * 5. the priority in the config, lower first;
+ * 6. the health score, then the id.
+ * Providers that tie on 3 to 5 share the calls by smooth weighted round robin, so the config weights split the load.
  */
 class Router(private val providers: List<Provider>) {
     private val rotation = HashMap<String, Long>()
@@ -51,11 +53,14 @@ class Router(private val providers: List<Provider>) {
         val eligible = providers.filter { p ->
             p.id !in excluded && isEligible(p, net, op, configs) && state.available(p.id, nowMs)
         }
-        if (eligible.isEmpty()) return emptyList()
-        val ranked = eligible.sortedWith(
+        val protectedOnly = op == Op.BROADCAST && net.family == Family.EVM && eligible.any { Trait.MEV_PROTECTED in it.traits }
+        val offered = if (protectedOnly) eligible.filter { Trait.MEV_PROTECTED in it.traits } else eligible
+        val others = offered.filter { Trait.FALLBACK_ONLY !in it.traits }
+        val candidates = others.ifEmpty { offered }
+        if (candidates.isEmpty()) return emptyList()
+        val ranked = candidates.sortedWith(
             compareBy<Provider>(
                 { if (it.id in tried) 1 else 0 },
-                { mevRank(it, net, op) },
                 { kindRank(it, op) },
                 { configs[it.id]?.priority ?: 0 },
                 { state.score(it.id, nowMs) },
@@ -63,17 +68,14 @@ class Router(private val providers: List<Provider>) {
             ),
         )
         val leader = ranked.first()
-        val tie = ranked.takeWhile { rankOf(it, net, op, configs, tried) == rankOf(leader, net, op, configs, tried) }
+        val tie = ranked.takeWhile { rankOf(it, op, configs, tried) == rankOf(leader, op, configs, tried) }
         if (tie.size == 1) return ranked
         val chosen = pickByWeight(tie, net, op, configs)
         return listOf(chosen) + ranked.filter { it !== chosen }
     }
 
-    private fun rankOf(p: Provider, net: NetworkId, op: Op, configs: Map<String, ProviderConfig>, tried: Set<String>): List<Int> =
-        listOf(if (p.id in tried) 1 else 0, mevRank(p, net, op), kindRank(p, op), configs[p.id]?.priority ?: 0)
-
-    private fun mevRank(p: Provider, net: NetworkId, op: Op): Int =
-        if (op == Op.BROADCAST && net.family == Family.EVM && Trait.MEV_PROTECTED !in p.traits) 1 else 0
+    private fun rankOf(p: Provider, op: Op, configs: Map<String, ProviderConfig>, tried: Set<String>): List<Int> =
+        listOf(if (p.id in tried) 1 else 0, kindRank(p, op), configs[p.id]?.priority ?: 0)
 
     private fun kindRank(p: Provider, op: Op): Int =
         if ((op == Op.NATIVE_BALANCE || op == Op.TOKEN_BALANCES) && p.kind == Kind.RPC) 1 else 0
