@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.lensly.ui.components.AddressIcon
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.AppTitle
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DetailTopBar
@@ -164,7 +165,12 @@ private fun AddressSection(row: AddressRow, chains: List<EvmChain>, onSend: () -
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(shortAddress(row.address), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        AddressText(
+            address = row.address,
+            shown = shortAddress(row.address),
+            icon = false,
+            style = MaterialTheme.typography.titleSmall,
+        )
         Spacer(Modifier.height(LenslySpacing.xs))
         chains.forEach { chain ->
             val read = row.reads[chain.chainId]

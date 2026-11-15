@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.AddressIcon
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.DotHeadline
@@ -163,10 +164,11 @@ fun KeyAddressScreen(
                 Spacer(Modifier.width(LenslySpacing.xs))
                 WalletEyebrow("Account 1")
             }
-            Text(
-                text = groupedAddress(address),
+            AddressText(
+                address = address,
+                shown = groupedAddress(address),
                 style = MaterialTheme.typography.bodyLarge.copy(fontFamily = SpaceMonoFamily),
-                color = MaterialTheme.colorScheme.onSurface,
+                icon = false,
             )
         }
     }

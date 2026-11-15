@@ -30,12 +30,6 @@ private fun assumedEighteen(wei: BigInteger): String {
 }
 
 /**
- * Splits an address into 4-character groups separated by spaces. The full address is kept. Text
- * wraps only at the spaces, so no group is cut in half.
- */
-internal fun groupAddress(address: String): String = address.chunked(4).joinToString(" ")
-
-/**
  * Splits hexadecimal [hex] (no 0x prefix) into groups of [size] digits separated by spaces. Every digit is kept, and text
  * wraps only at the spaces.
  */

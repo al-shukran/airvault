@@ -40,6 +40,7 @@ import app.lensly.app.autoAccountName
 import app.lensly.app.visualIdentity
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
@@ -47,7 +48,6 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillSize
@@ -296,9 +296,10 @@ private fun BitcoinAccountRow(
                 Spacer(Modifier.height(LenslySpacing.xxs))
                 PillChip(text = scriptRowLabel(account.scriptType))
                 Spacer(Modifier.height(LenslySpacing.xxs))
-                Text(
-                    text = groupedInFours(account.firstReceiveAddress),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+                AddressText(
+                    address = account.firstReceiveAddress,
+                    shown = groupedInFours(account.firstReceiveAddress),
+                    icon = false,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

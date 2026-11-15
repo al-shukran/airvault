@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.core.btc.BtcNetwork
+import app.lensly.ui.components.AddressField
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
@@ -31,9 +32,11 @@ import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.btc.BtcAccountRef
+import app.lumio.btc.BtcSendInput
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.btcText
 import app.lumio.ui.pair.PairLabels
+import app.lumio.ui.send.ReviewAddress
 import app.lumio.ui.send.ReviewField
 import app.lumio.ui.send.SectionLabel
 
@@ -95,13 +98,13 @@ fun BtcSendFormScreen(
         }
 
         SectionLabel("Send to")
-        OutlinedTextField(
+        val network = selected?.account?.network
+        AddressField(
             value = recipient,
             onValueChange = onRecipient,
-            label = { Text("Recipient address") },
-            singleLine = true,
+            label = "Recipient address",
+            validate = { text -> network?.let { btcRecipientError(text, it) } },
             enabled = !busy,
-            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(LenslySpacing.sm))
         OutlinedTextField(
@@ -156,7 +159,7 @@ fun BtcSendReviewScreen(
     ) {
         NetworkHeader(plan.network)
         ReviewField("From", "${PairLabels.scriptType(plan.account.scriptType)}, ${plan.account.path.asString('\'')}")
-        ReviewField("To", plan.recipient)
+        ReviewAddress("To", plan.recipient)
         ReviewField("Amount", btcText(plan.amountSats))
         ReviewField("Fee", "${btcText(plan.feeSats)}, at ${rateText(plan.feeRateSatPerVb)} sat/vB for about ${plan.vsize} vB")
         ReviewField(
@@ -244,6 +247,11 @@ fun BtcSendSentScreen(
         }
     }
 }
+
+/** Why [text] is not an address of [network], or null when it is one. The words are the ones the send refuses with. */
+internal fun btcRecipientError(text: String, network: BtcNetwork): String? = runCatching { BtcSendInput.recipient(text, network) }
+    .exceptionOrNull()
+    ?.let { it.message ?: "Enter a valid recipient address." }
 
 @Composable
 private fun AccountChoice(ref: BtcAccountRef, selected: Boolean, onSelect: () -> Unit) {

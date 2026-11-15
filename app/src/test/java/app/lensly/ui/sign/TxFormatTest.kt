@@ -1,5 +1,6 @@
 package app.lensly.ui.sign
 
+import app.lensly.ui.components.groupAddress
 import java.math.BigInteger
 import org.junit.Test
 import kotlin.test.assertEquals
