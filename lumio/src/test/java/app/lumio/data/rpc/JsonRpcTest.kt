@@ -105,6 +105,15 @@ class JsonRpcTest {
     }
 
     @Test
+    fun aRefusalForTheBalanceSaysSo() {
+        for (message in listOf("insufficient funds for gas * price + value: balance 0", "Signer had insufficient balance")) {
+            val failure = refusal(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"$message"}}"""))
+            assertTrue(failure is ProviderError.Fatal)
+            assertEquals(JsonRpc.INSUFFICIENT_FUNDS_MESSAGE, failure.message)
+        }
+    }
+
+    @Test
     fun anAnswerThatIsNotJsonIsFatal() {
         assertTrue(refusal(MockResponse().setBody("<html>")) is ProviderError.Fatal)
     }
