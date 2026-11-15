@@ -14,3 +14,6 @@ local.properties
 # Throwaway test-wallet backup; never commit
 seed.md
 *.key
+
+# Generated screen gallery (tools/gallery/build-gallery.sh)
+/out/
