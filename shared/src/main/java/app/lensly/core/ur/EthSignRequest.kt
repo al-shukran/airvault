@@ -56,8 +56,8 @@ class EthSignRequest(
         // The other fields are small, so the whole payload has a fixed headroom above the sign data. The Parser Sandbox's
         // wire format bounds the origin by it, so an origin the decoder accepts always crosses the wire.
         const val MAX_PAYLOAD_BYTES = MAX_SIGN_DATA_BYTES + 4096
-        private const val UUID_TAG = 37L
-        private const val KEYPATH_TAG = 304L
+        internal const val UUID_TAG = 37L
+        internal const val KEYPATH_TAG = 304L
         private const val MAX_PATH_STEPS = 16
         private const val MAX_INDEX = Int.MAX_VALUE.toLong()
         private const val MAX_FINGERPRINT = 0xFFFFFFFFL
