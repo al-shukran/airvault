@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import app.lensly.BuildConfig
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
@@ -97,7 +98,8 @@ internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
 /**
  * The online wallets that pair with Lensly. The EVM ones all read the same ur:crypto-hdkey, so only the steps the owner follows
  * differ. [OTHER] stands for any wallet with a hardware or QR-based account, so its steps are the general ones. [BITCOIN] shares
- * the watch-only Bitcoin accounts of a wallet as a ur:crypto-account.
+ * the watch-only Bitcoin accounts of a wallet as a ur:crypto-account. [KEYSTONE_NEXUS] shares the Bitcoin and Ethereum accounts of a
+ * wallet as a ur:crypto-multi-accounts, the import that Keystone Nexus reads.
  */
 internal enum class PairFormat(val label: String, val instruction: String, val walletName: String?) {
     RABBY(
@@ -109,6 +111,11 @@ internal enum class PairFormat(val label: String, val instruction: String, val w
         label = "METAMASK (QR-BASED)",
         instruction = "Add account or hardware wallet → Hardware wallet → QR-based → Continue",
         walletName = "MetaMask",
+    ),
+    KEYSTONE_NEXUS(
+        label = "KEYSTONE NEXUS (QR)",
+        instruction = "In Keystone Nexus, scan this code to add the Bitcoin and Ethereum accounts.",
+        walletName = "Keystone Nexus",
     ),
     OTHER(
         label = "OTHER WALLET",
@@ -186,6 +193,12 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
                 WalletStore(requireNotNull(session) { "The vault is locked." }).bitcoinWatchOnlyParts(meta.id)
             }
         },
+        keystoneParts = { meta ->
+            withContext(Dispatchers.IO) {
+                WalletStore(requireNotNull(session) { "The vault is locked." })
+                    .keystoneNexusParts(meta.id, BuildConfig.VERSION_NAME)
+            }
+        },
         onDone = {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             navController.getBackStackEntry(LenslyRoute.HIDDEN).savedStateHandle[HiddenRoute.NOTICE] = PAIRED_MESSAGE
@@ -214,6 +227,8 @@ internal fun PairWizard(
     bitcoinNetworks: Map<String, Set<BtcNetwork>> = emptyMap(),
     /** The Bitcoin code of a wallet with a Bitcoin account: its frames, read off the main thread. */
     bitcoinParts: suspend (WalletMeta) -> List<String> = { emptyList() },
+    /** The Keystone Nexus code of a wallet: its multi-accounts frames, read off the main thread. */
+    keystoneParts: suspend (WalletMeta) -> List<String> = { emptyList() },
     modifier: Modifier = Modifier,
 ) {
     val skipsWalletStep = preselected != null || wallets.size == 1
@@ -224,11 +239,14 @@ internal fun PairWizard(
     val inCode = step == PairStep.CODE
     val chosenNetworks = chosen?.let { bitcoinNetworks[it.id] }.orEmpty()
     val bitcoinReady = chosenNetworks.isNotEmpty()
+    // Keystone Nexus needs the seed, so only a Mnemonic wallet, the one with an account public key, has a code.
+    val keystoneReady = chosen?.accountXpub != null
     // The code is built only when the owner reaches it, from public wallet data.
-    val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, bitcoinReady) {
+    val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, bitcoinReady, keystoneReady) {
         value = when {
             !inCode || chosen == null -> null
             format == PairFormat.BITCOIN -> if (bitcoinReady) bitcoinParts(chosen) else null
+            format == PairFormat.KEYSTONE_NEXUS -> if (keystoneReady) keystoneParts(chosen) else null
             else -> withContext(Dispatchers.Default) { pairingParts(chosen) }
         }
     }
