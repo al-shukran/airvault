@@ -761,6 +761,7 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
                 onGenerate = { navController.navigate(HiddenRoute.bulk(walletId, app)) },
                 onPair = { navController.navigate(HiddenRoute.export(walletId)) },
                 onScan = { navController.navigate(HiddenRoute.scan(walletId)) },
+                onEditAccount = { position -> navController.navigate(HiddenRoute.editBitcoinAccount(walletId, position)) },
             )
         }
     }

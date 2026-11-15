@@ -55,6 +55,7 @@ fun PairReviewScreen(
 ) {
     val accounts = pairing.apps.firstOrNull { it.app == PairImport.ETHEREUM }?.accounts.orEmpty()
     val bitcoin = PairImport.bitcoinAccountsOf(pairing)
+    val bitcoinNames = pairing.apps.firstOrNull { it.app == PairImport.BITCOIN }?.accounts.orEmpty().associateBy { it.key }
     LenslyScreen(
         title = "REVIEW PAIRING",
         onBack = onCancel,
@@ -76,7 +77,7 @@ fun PairReviewScreen(
         }
         ReviewHeader(title = pairing.name, fingerprint = pairing.fingerprint)
         if (accounts.isNotEmpty()) EthereumReview(xpub = PairImport.ethereumKeyOf(pairing), accounts = accounts)
-        if (bitcoin.isNotEmpty()) BitcoinReview(accounts = bitcoin)
+        if (bitcoin.isNotEmpty()) BitcoinReview(accounts = bitcoin, names = bitcoinNames)
         error?.let {
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -115,22 +116,37 @@ private fun EthereumAccountReview(xpub: AccountXpub, account: PairingAccount) {
     }
 }
 
+/** The Bitcoin accounts of a pairing. [names] holds the name, label and group of each one, by its key's place in the pairing. */
 @Composable
-private fun BitcoinReview(accounts: List<BtcWatchOnlyAccount>) {
+private fun BitcoinReview(accounts: List<BtcWatchOnlyAccount>, names: Map<Int, PairingAccount>) {
     Spacer(Modifier.height(LenslySpacing.md))
     PillChip(text = PairLabels.family(PairFamily.BITCOIN))
     ReviewField("Accounts", "${accounts.size}")
-    accounts.forEach { account -> BitcoinAccountReview(account) }
+    accounts.forEachIndexed { key, account -> BitcoinAccountReview(account, names[key]) }
 }
 
 @Composable
-private fun BitcoinAccountReview(account: BtcWatchOnlyAccount) {
+private fun BitcoinAccountReview(account: BtcWatchOnlyAccount, named: PairingAccount?) {
     val address = remember(account) { account.receiveAddress(0) }
     Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
+        named?.name?.let { name ->
+            Text(name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.height(LenslySpacing.xxs))
+        }
         Row {
             PillChip(text = PairLabels.network(account.network))
             Spacer(Modifier.width(LenslySpacing.xs))
             PillChip(text = PairLabels.scriptType(account.scriptType))
+        }
+        val label = named?.label
+        val group = named?.group
+        if (label != null || group != null) {
+            Spacer(Modifier.height(LenslySpacing.xxs))
+            Row {
+                label?.let { PillChip(text = it) }
+                if (label != null && group != null) Spacer(Modifier.width(LenslySpacing.xs))
+                group?.let { PillChip(text = it) }
+            }
         }
         ReviewField("Path", account.path.asString('\''))
         ReviewField("First address", address)

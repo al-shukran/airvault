@@ -13,9 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -310,7 +307,7 @@ fun EthereumAccountsScreen(
 
 /** A group's name over its accounts, with the count of them. The ungrouped accounts are headed "Ungrouped". */
 @Composable
-private fun GroupHeader(name: String, count: Int) {
+internal fun GroupHeader(name: String, count: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -411,19 +408,3 @@ private fun PendingAccountRow(modifier: Modifier = Modifier) {
     }
 }
 
-/** The options of one account: its address goes out as a code, or its profile is edited. The address is public. */
-@Composable
-private fun AccountOptionsSheet(
-    name: String,
-    identity: VisualIdentity,
-    address: String,
-    onDismiss: () -> Unit,
-    onExport: () -> Unit,
-    onEdit: () -> Unit,
-) {
-    OptionsSheet(onDismiss = onDismiss) {
-        SheetHeader(name = name, identity = identity, address = address)
-        SheetOption(icon = Icons.Filled.Share, label = "Export address", onClick = onExport)
-        SheetOption(icon = Icons.Filled.Edit, label = "Edit profile", onClick = onEdit)
-    }
-}

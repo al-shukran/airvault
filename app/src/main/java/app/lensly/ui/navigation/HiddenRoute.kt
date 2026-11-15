@@ -44,6 +44,8 @@ internal object HiddenRoute {
     // Profiles: a wallet's name, colour, icon, label and groups, one account's, and the style of a batch of accounts.
     const val EDIT_WALLET = "edit-wallet/{walletId}"
     const val EDIT_ACCOUNT = "edit-account/{walletId}/{index}"
+    // One Bitcoin account's profile. The index is its place in the wallet's Bitcoin accounts, which only grow, so it stays put.
+    const val EDIT_BITCOIN_ACCOUNT = "edit-bitcoin/{walletId}/{index}"
     const val STYLE_ACCOUNTS = "style-accounts/{walletId}/{indices}"
     // Renames: a batch of accounts' Display Names, on the shared name screen.
     const val RENAME_ACCOUNTS = "rename-accounts/{walletId}/{indices}"
@@ -133,6 +135,8 @@ internal object HiddenRoute {
     fun editWallet(walletId: String): String = "edit-wallet/$walletId"
 
     fun editAccount(walletId: String, index: Int): String = "edit-account/$walletId/$index"
+
+    fun editBitcoinAccount(walletId: String, position: Int): String = "edit-bitcoin/$walletId/$position"
 
     /** The style route of the accounts in [indices], as the same comma-separated list that the batch rename uses. */
     fun styleAccounts(walletId: String, indices: Collection<Int>): String =

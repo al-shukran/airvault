@@ -69,6 +69,22 @@ class PairImportRoundTripTest {
     }
 
     @Test
+    fun theBitcoinAccountsWithTheirNamesLabelsAndGroupsRoundTrip() {
+        val bitcoinAccounts = PairFixtures.allAccounts(PairFixtures.seed)
+        val named = listOf(
+            PairingAccount(key = 2, child = null, name = "Cold", label = "vault", group = "Long term"),
+            PairingAccount(key = 0, child = null, name = "Savings 0", label = null, group = null),
+        )
+        val bitcoinApp = PairingApp(app = "bitcoin", keys = bitcoinAccounts.map { PairingKey.bitcoinAccount(it) }, accounts = named)
+        val sent = pairing(ethereum(listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null))), bitcoinApp)
+
+        val read = pairingOf(PairingCodec.urParts(sent))
+
+        assertEquals(named, read.apps.single { it.app == "bitcoin" }.accounts)
+        assertEquals(bitcoinAccounts.map { it.descriptor }, PairImport.bitcoinAccountsOf(read).map { it.descriptor })
+    }
+
+    @Test
     fun theWholePairingOfEveryAppRoundTripsAsAnAnimatedCode() {
         val bitcoinAccounts = PairFixtures.allAccounts(PairFixtures.seed)
         val accounts = (0 until 40).map { index ->

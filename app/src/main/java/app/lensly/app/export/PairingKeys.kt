@@ -1,5 +1,6 @@
 package app.lensly.app.export
 
+import app.lensly.app.AccountProfile
 import app.lensly.app.WalletStore
 import app.lensly.app.autoAccountName
 import app.lensly.core.btc.BtcWatchOnly
@@ -24,14 +25,7 @@ object EthereumPairingKeys : PairingKeys {
         val key = PairingKey.ethereumAccount(HdWallet(seed).accountXpub())
         val profiles = store.accountProfiles(id, meta.accountCount)
         val accounts = (0 until meta.accountCount).map { index ->
-            val profile = profiles[index]
-            PairingAccount(
-                key = 0,
-                child = index,
-                name = fitBytes(profile?.name ?: autoAccountName(meta.autoNameBase, index), PairingCodec.MAX_NAME_BYTES),
-                label = profile?.label?.let { fitBytes(it, PairingCodec.MAX_LABEL_BYTES) },
-                group = profile?.group?.let { fitBytes(it, PairingCodec.MAX_LABEL_BYTES) },
-            )
+            namedAccount(key = 0, child = index, profile = profiles[index], autoName = autoAccountName(meta.autoNameBase, index))
         }
         return PairingApp(app = routeId, keys = listOf(key), accounts = accounts)
     }
@@ -39,17 +33,38 @@ object EthereumPairingKeys : PairingKeys {
 
 /**
  * The Bitcoin App: the watch-only keys of every account index the wallet holds on each network, with the four Script Types of each index,
- * as the Keystone Nexus export has them. Lensly gives a Bitcoin account no name, label or group yet, so the accounts carry none.
+ * as the Keystone Nexus export has them. Each key is one account, and it carries the name, label and group the owner gave the stored
+ * Bitcoin account of the same Script Type, network and index. A key with no stored account carries its Auto-Name and nothing else.
  */
 object BitcoinPairingKeys : PairingKeys {
     override fun paired(routeId: String, store: WalletStore, id: String, seed: ByteArray): PairingApp {
-        val indices = store.bitcoinAccounts(id).map { it.network to it.index }.distinct()
-        val keys = indices.flatMap { (network, index) -> BtcWatchOnly.accounts(seed, network, accountIndex = index) }
-            .map { PairingKey.bitcoinAccount(it) }
-        val accounts = keys.indices.map { index -> PairingAccount(key = index, child = null, name = null, label = null, group = null) }
+        val meta = requireNotNull(store.meta(id)) { "No wallet $id." }
+        val stored = store.bitcoinAccounts(id)
+        val profiles = stored.associate { it.key to it.profile }
+        val indices = stored.map { it.network to it.index }.distinct()
+        val entries = indices.flatMap { (network, index) ->
+            BtcWatchOnly.accounts(seed, network, accountIndex = index).map { account -> account to index }
+        }
+        val keys = entries.map { (account, _) -> PairingKey.bitcoinAccount(account) }
+        val accounts = entries.mapIndexed { key, (account, index) ->
+            val profile = profiles[Triple(account.scriptType, account.network, index)]
+            namedAccount(key = key, child = null, profile = profile, autoName = autoAccountName(meta.autoNameBase, index))
+        }
         return PairingApp(app = routeId, keys = keys, accounts = accounts)
     }
 }
+
+/**
+ * The pairing account of one key or address index: its Display Name, or [autoName] when the owner gave it none, and its label and group,
+ * each cut to the room a pairing gives it. Ethereum accounts and Bitcoin accounts are named the same way.
+ */
+private fun namedAccount(key: Int, child: Int?, profile: AccountProfile?, autoName: String): PairingAccount = PairingAccount(
+    key = key,
+    child = child,
+    name = fitBytes(profile?.name ?: autoName, PairingCodec.MAX_NAME_BYTES),
+    label = profile?.label?.let { fitBytes(it, PairingCodec.MAX_LABEL_BYTES) },
+    group = profile?.group?.let { fitBytes(it, PairingCodec.MAX_LABEL_BYTES) },
+)
 
 /**
  * [text] cut to at most [maxBytes] UTF-8 bytes, at a character boundary. Every name Lensly stores is within the limit, so only a name of

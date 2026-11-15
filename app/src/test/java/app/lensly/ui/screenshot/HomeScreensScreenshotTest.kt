@@ -480,6 +480,7 @@ class HomeScreensScreenshotTest {
             onGenerate = {},
             onPair = {},
             onScan = {},
+            onEditAccount = {},
         )
     }
 

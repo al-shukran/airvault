@@ -17,6 +17,7 @@ import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.vault.VaultSession
+import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
 import app.lensly.core.wallet.BulkPolicy
@@ -123,8 +124,10 @@ sealed interface WalletSecret {
  * - `base-name`, version 1: the wallet's name at creation (UTF), which its accounts' Auto-Names are built from. It is
  *   written once, at creation, and before the first rename of a wallet that has none. A wallet without one uses its
  *   current name.
- * - `bitcoin`, version 1: the count (int), then each Bitcoin account: its network as its BIP44 coin type (byte), its Script Type as
- *   its BIP43 purpose (byte), its index (int) and its first receive address (UTF). A wallet with no record has no Bitcoin account.
+ * - `bitcoin`, version 2: the count (int), then each Bitcoin account: its network as its BIP44 coin type (byte), its Script Type as
+ *   its BIP43 purpose (byte), its index (int), its first receive address (UTF), and a byte that is 1 when it has a profile, which then
+ *   follows in the layout of an account record. Version 1 is the same record without the profiles, and it still loads. A wallet with no
+ *   record has no Bitcoin account. The record is one fixed size, so the profiles share the room the accounts leave.
  *
  * Encoded bytes are zeroed after they are written or parsed, including the internal buffer of the stream
  * that produced them. The Strings for the words and the passphrase cannot be zeroed. They are dropped as soon
@@ -340,13 +343,42 @@ class WalletStore(private val session: VaultSession) {
             seed.fill(0)
         }
         return synchronized(session) {
-            if (bitcoinAccounts(id) != existing) {
+            // The profiles are read again here, so a name saved while the run derived is kept. A change of accounts is not.
+            val current = bitcoinAccounts(id)
+            if (current.map { it.key } != existing.map { it.key }) {
                 null
             } else {
-                session.putRecord(id, WalletRecords.BITCOIN, WalletRecords.encodeBitcoinAccounts(existing + derived))
+                putBitcoinAccounts(id, current + derived)
                 derived
             }
         }
+    }
+
+    /**
+     * Saves the profile of Bitcoin account [account] of wallet [id]: its Display Name, colour, icon, label and group, as an Ethereum account's
+     * profile is saved. The account is found by its key, and its address and every other account keep what they were. A blank name is the
+     * Auto-Name, as it is for an Ethereum account.
+     *
+     * @throws IllegalArgumentException if a name, label or group is not valid, the wallet holds no such account, or the Bitcoin record would
+     * no longer fit. Nothing is saved then.
+     */
+    fun saveBitcoinProfile(id: String, account: BitcoinAccountRecord, profile: AccountProfile) {
+        val clean = profile.checked()
+        synchronized(session) {
+            val current = bitcoinAccounts(id)
+            require(current.any { it.key == account.key }) { "Wallet $id holds no such Bitcoin account." }
+            putBitcoinAccounts(id, current.map { if (it.key == account.key) it.copy(profile = clean) else it })
+        }
+    }
+
+    /**
+     * Writes the Bitcoin record of wallet [id] as [accounts]. The record has a fixed size, so a write that would not fit is refused before
+     * anything is written, and the record is left as it was.
+     */
+    private fun putBitcoinAccounts(id: String, accounts: List<BitcoinAccountRecord>) {
+        val bytes = WalletRecords.encodeBitcoinAccounts(accounts)
+        require(bytes.size <= WalletRecordNames.BITCOIN_CAPACITY) { NO_ROOM_FOR_BITCOIN }
+        session.putRecord(id, WalletRecords.BITCOIN, bytes)
     }
 
     /**
@@ -823,6 +855,8 @@ class WalletStore(private val session: VaultSession) {
 
     private companion object {
         const val SINGLE_KEY_ONE_ACCOUNT = "A Single Key wallet has exactly one account and cannot generate more."
+        const val NO_ROOM_FOR_BITCOIN =
+            "The Bitcoin accounts of this wallet take too much room to save. Clear a name, label or group on one of them."
     }
 }
 
@@ -856,7 +890,10 @@ internal object WalletRecords {
     /** The version of an account profile that holds more than a name. Version 1 holds the Display Name alone. */
     private const val ACCOUNT_PROFILE_VERSION = 2
     private const val WALLET_PROFILE_VERSION = 1
-    private const val BITCOIN_VERSION = 1
+
+    /** The Bitcoin record's layout: version 2 holds each account's profile, and version 1 has none. Version 2 is written now. */
+    private const val BITCOIN_VERSION_WITHOUT_PROFILES = 1
+    private const val BITCOIN_VERSION = 2
 
     /** The fields of an account profile, one bit each. The flags byte says which ones follow, in this order. */
     private const val FIELD_NAME = 1
@@ -898,7 +935,10 @@ internal object WalletRecords {
      * An account profile record: the version byte, a flags byte, then each field the flags name, in the order of the
      * [FIELD_NAME] bits. A colour and an icon take one byte each, as their codes.
      */
-    fun encodeAccountProfile(profile: AccountProfile): ByteArray = writeBytes { out ->
+    fun encodeAccountProfile(profile: AccountProfile): ByteArray = writeBytes { out -> writeAccountProfile(out, profile) }
+
+    /** Writes [profile] as an account record does: the version byte, a flags byte, then each field the flags name. */
+    private fun writeAccountProfile(out: DataOutputStream, profile: AccountProfile) {
         out.writeByte(ACCOUNT_PROFILE_VERSION)
         out.writeByte(
             fieldBit(profile.name != null, FIELD_NAME) or
@@ -918,7 +958,10 @@ internal object WalletRecords {
      * Reads an account profile. A version 1 record is the Display Name alone, as renaming wrote it before profiles, so it
      * reads as a name with no style. A colour or icon code this build does not know reads as the default.
      */
-    fun decodeAccountProfile(bytes: ByteArray): AccountProfile = readBytes(bytes) { input ->
+    fun decodeAccountProfile(bytes: ByteArray): AccountProfile = readBytes(bytes) { input -> readAccountProfile(input) }
+
+    /** Reads one account profile from [input], in the layout [writeAccountProfile] writes. */
+    private fun readAccountProfile(input: DataInputStream): AccountProfile =
         when (val version = input.readUnsignedByte()) {
             NAME_VERSION -> AccountProfile(name = displayNameOf(input.readUTF()))
             ACCOUNT_PROFILE_VERSION -> {
@@ -933,7 +976,6 @@ internal object WalletRecords {
             }
             else -> throw IllegalArgumentException("Unknown record version $version.")
         }
-    }
 
     /**
      * A wallet profile record: the version byte, a flags byte for the colour, icon and label, those fields that are set, then
@@ -972,8 +1014,9 @@ internal object WalletRecords {
 
     /**
      * The Bitcoin accounts record: the version byte, the count (int), then each account: its network as its BIP44 coin type (byte),
-     * its Script Type as its BIP43 purpose (byte), its index (int) and its first receive address (UTF). Two accounts with one Script
-     * Type, network and index are refused, both when written and when read.
+     * its Script Type as its BIP43 purpose (byte), its index (int), its first receive address (UTF), and whether it has a profile (a
+     * byte, 1 when it does), with the profile after it. Two accounts with one Script Type, network and index are refused, both when
+     * written and when read.
      */
     fun encodeBitcoinAccounts(accounts: List<BitcoinAccountRecord>): ByteArray {
         require(accounts.map { it.key }.distinct().size == accounts.size) {
@@ -988,13 +1031,16 @@ internal object WalletRecords {
                 out.writeByte(account.scriptType.purpose)
                 out.writeInt(account.index)
                 out.writeUTF(account.firstReceiveAddress)
+                out.writeBoolean(!account.profile.isEmpty)
+                if (!account.profile.isEmpty) writeAccountProfile(out, account.profile)
             }
         }
     }
 
+    /** The accounts of a Bitcoin record, with their profiles. A version 1 record has none, so each account reads with an empty profile. */
     fun decodeBitcoinAccounts(bytes: ByteArray): List<BitcoinAccountRecord> = readBytes(bytes) { input ->
         val version = input.readUnsignedByte()
-        require(version == BITCOIN_VERSION) { "Unknown record version $version." }
+        require(version == BITCOIN_VERSION || version == BITCOIN_VERSION_WITHOUT_PROFILES) { "Unknown record version $version." }
         val count = input.readInt()
         require(count >= 0) { "Account count out of range." }
         val accounts = List(count) {
@@ -1006,7 +1052,9 @@ internal object WalletRecords {
                 ?: throw IllegalArgumentException("Unknown script type.")
             val index = input.readInt()
             require(index >= 0) { "Account index out of range." }
-            BitcoinAccountRecord(network, scriptType, index, input.readUTF())
+            val address = input.readUTF()
+            val profile = if (version == BITCOIN_VERSION && input.readBoolean()) readAccountProfile(input) else AccountProfile()
+            BitcoinAccountRecord(network, scriptType, index, address, profile)
         }
         require(accounts.map { it.key }.distinct().size == accounts.size) { "Duplicate Bitcoin account." }
         accounts

@@ -29,7 +29,9 @@ import app.lensly.app.TextEdit
 import app.lensly.app.VisualIdentity
 import app.lensly.app.WALLET_MAX_GROUPS
 import app.lensly.app.WalletProfileDraft
+import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.BottomSlot
+import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
@@ -63,6 +65,8 @@ fun AccountProfileScreen(
     onResetStyle: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The reason a save was refused, shown above the fields until the next save. Null when there is none. */
+    error: String? = null,
 ) {
     val focused = draft.focus != null
     val unfocus = { onFocus(null) }
@@ -75,6 +79,10 @@ fun AccountProfileScreen(
             },
         ) {
             ProfileHeader(identity = VisualIdentity(draft.colour, draft.icon), title = draft.name.ifEmpty { autoName })
+            if (error != null) {
+                Spacer(Modifier.height(LenslySpacing.md))
+                InlineBanner(message = error, tone = BannerTone.Error)
+            }
             Spacer(Modifier.height(LenslySpacing.lg))
             ProfileFieldRow(
                 label = "Name",

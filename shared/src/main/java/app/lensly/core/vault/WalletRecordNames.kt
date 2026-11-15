@@ -11,6 +11,9 @@ object WalletRecordNames {
     /** The wallet's Bitcoin record, 8192 bytes. */
     val BITCOIN: String = WalletFolder.BITCOIN
 
+    /** The plaintext size of the Bitcoin record. A record that holds more is refused when it is written. */
+    val BITCOIN_CAPACITY: Int = WalletFolder.BITCOIN_CAPACITY
+
     /** The record of account [index], 256 bytes. */
     fun account(index: Int): String = WalletFolder.accountName(index)
 }
