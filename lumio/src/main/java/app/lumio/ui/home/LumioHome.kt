@@ -2,9 +2,7 @@ package app.lumio.ui.home
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,24 +18,30 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
+import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
+import app.lumio.ui.network.NetworkSwitch
+import app.lumio.ui.network.label
 import app.lumio.ui.pair.PairLabels
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
+
+/** The test tags of a wallet's two App rows. */
+const val BITCOIN_APP_TAG = "app-bitcoin"
+const val ETHEREUM_APP_TAG = "app-ethereum"
 
 /**
- * Lumio's Home: the paired wallets, each with its name, its family and its networks, and the action that pairs a wallet from Lensly.
- * [onLock] returns to the camera and locks the vault. [onDelete] runs after the owner confirms a deletion. [onBitcoin] opens the Bitcoin
- * portfolio, which is offered once a wallet holds a Bitcoin account. [onSettings] opens Lumio's settings. [onBalances] opens a wallet's EVM
- * balances, and [onEvmSettings] opens the EVM settings.
+ * Lumio's Home, which mirrors Lensly's: the paired wallets, and under each one its Apps, Bitcoin and Ethereum. [mode] is the side of the
+ * networks on show, switched at the top with [onMode]. Each side lists only its own accounts and balances. [onBitcoin] opens a wallet's
+ * Bitcoin portfolio and [onBalances] its Ethereum portfolio. [onSettings] opens Lumio's settings. [onLock] returns to the camera and locks
+ * the vault. [onDelete] runs after the owner confirms a deletion.
  */
 @Composable
 fun LumioHome(
@@ -45,11 +49,12 @@ fun LumioHome(
     onPair: () -> Unit,
     wallets: List<PairedWallet>,
     onDelete: (PairedWallet) -> Unit,
+    mode: NetworkMode,
+    onMode: (NetworkMode) -> Unit,
     modifier: Modifier = Modifier,
-    onBitcoin: () -> Unit = {},
-    onSettings: () -> Unit = {},
+    onBitcoin: (PairedWallet) -> Unit = {},
     onBalances: (PairedWallet) -> Unit = {},
-    onEvmSettings: () -> Unit = {},
+    onSettings: () -> Unit = {},
 ) {
     var pendingDelete by remember { mutableStateOf<PairedWallet?>(null) }
     LenslyScreen(
@@ -59,6 +64,8 @@ fun LumioHome(
         scrollable = wallets.isNotEmpty(),
         bottomAction = { PillButton(text = "Pair from Lensly", onClick = onPair) },
     ) {
+        NetworkSwitch(mode = mode, onChange = onMode)
+        Spacer(Modifier.height(LenslySpacing.md))
         if (wallets.isEmpty()) {
             EmptyState(
                 icon = LenslyIcons.Wallets,
@@ -66,18 +73,18 @@ fun LumioHome(
                 body = "Pair a wallet from Lensly to see its balances and history here.",
             )
         } else {
-            if (wallets.any { it.bitcoin.isNotEmpty() }) {
-                BitcoinEntry(onClick = onBitcoin)
-                Spacer(Modifier.height(LenslySpacing.sm))
-            }
             wallets.forEach { wallet ->
-                PairedWalletRow(wallet = wallet, onBalances = { onBalances(wallet) }, onDelete = { pendingDelete = wallet })
+                PairedWalletCard(
+                    wallet = wallet,
+                    mode = mode,
+                    onBitcoin = { onBitcoin(wallet) },
+                    onBalances = { onBalances(wallet) },
+                    onDelete = { pendingDelete = wallet },
+                )
                 Spacer(Modifier.height(LenslySpacing.sm))
             }
         }
         PillButton(text = "Settings", onClick = onSettings)
-        Spacer(Modifier.height(LenslySpacing.sm))
-        PillButton(text = "EVM settings", onClick = onEvmSettings)
     }
     pendingDelete?.let { wallet ->
         AlertDialog(
@@ -100,27 +107,19 @@ fun LumioHome(
     }
 }
 
-/** The row that opens the Bitcoin portfolio. Each network it holds is named on the row, and the networks are never added together. */
+/**
+ * A paired wallet and its Apps, as Lensly lists them. Bitcoin is listed when the wallet holds an account on the chosen side, and Ethereum
+ * when it holds an account key, since every EVM network is in both sides. A wallet with neither on this side says so.
+ */
 @Composable
-private fun BitcoinEntry(onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(LenslyRadius.md))
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(LenslySpacing.md),
-    ) {
-        Text("Bitcoin", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-        Text(
-            "Mainnet and testnet4 accounts, each network on its own",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun PairedWalletRow(wallet: PairedWallet, onBalances: () -> Unit, onDelete: () -> Unit) {
+private fun PairedWalletCard(
+    wallet: PairedWallet,
+    mode: NetworkMode,
+    onBitcoin: () -> Unit,
+    onBalances: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val bitcoinAccounts = wallet.bitcoin.count { mode.holds(it.network) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -133,26 +132,54 @@ private fun PairedWalletRow(wallet: PairedWallet, onBalances: () -> Unit, onDele
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(LenslySpacing.xs))
-        Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-            wallet.families.forEach { family -> PillChip(text = PairLabels.family(family)) }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-            networkLabels(wallet).forEach { label -> PillChip(text = label) }
-        }
         Spacer(Modifier.height(LenslySpacing.sm))
-        Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-            if (wallet.evm != null) PillButton(text = "Balances", onClick = onBalances)
-            PillButton(text = "Delete", onClick = onDelete)
+        if (bitcoinAccounts == 0 && wallet.evm == null) {
+            Text(
+                "No accounts on ${mode.label()} in this wallet",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(LenslySpacing.sm))
         }
+        if (bitcoinAccounts > 0) {
+            AppRow(
+                title = "Bitcoin",
+                caption = "${accountsText(bitcoinAccounts)} on ${mode.label()}",
+                tag = BITCOIN_APP_TAG,
+                onClick = onBitcoin,
+            )
+            Spacer(Modifier.height(LenslySpacing.xs))
+        }
+        if (wallet.evm != null) {
+            AppRow(
+                title = "Ethereum",
+                caption = "Balances on ${mode.label().lowercase()} networks",
+                tag = ETHEREUM_APP_TAG,
+                onClick = onBalances,
+            )
+            Spacer(Modifier.height(LenslySpacing.sm))
+        }
+        PillButton(text = "Delete", onClick = onDelete)
     }
 }
 
+/** One App of a wallet: its name, and what it shows on the chosen side. A tap opens that App's portfolio. */
+@Composable
+private fun AppRow(title: String, caption: String, tag: String, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(LenslyRadius.md))
+            .clickable(role = Role.Button, onClick = onClick)
+            .testTag(tag)
+            .padding(LenslySpacing.md),
+    ) {
+        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        Text(caption, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private fun accountsText(count: Int): String = if (count == 1) "1 account" else "$count accounts"
+
 /** The test tag of the confirm button of a deletion. */
 const val DELETE_CONFIRM_TAG = "delete-confirm"
-
-/** The network badges of a wallet: every EVM network for an account key, and each Bitcoin network its Accounts are on. */
-private fun networkLabels(wallet: PairedWallet): List<String> = buildList {
-    if (wallet.evm != null) add("All EVM networks")
-    wallet.bitcoin.map { it.network }.distinct().forEach { add(PairLabels.network(it)) }
-}

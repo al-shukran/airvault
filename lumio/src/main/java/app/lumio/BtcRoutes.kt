@@ -29,7 +29,7 @@ import app.lumio.data.sched.Priority
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.btc.BitcoinAccountScreen
 import app.lumio.ui.btc.BitcoinPortfolioScreen
-import app.lumio.ui.settings.LumioSettingsScreen
+import app.lumio.ui.settings.BitcoinServersSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,7 +46,7 @@ internal fun bitcoinRefs(session: VaultSession): List<BtcAccountRef> = try {
  * follows the jobs' events, so each balance updates as soon as its account finishes. "Scanned n/N" counts the accounts settled in this refresh.
  */
 @Composable
-internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder) {
+internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
     val session = holder.openSession()
     LaunchedEffect(session == null) {
         if (session == null) navController.openHidden(GateRoutes.GATE)
@@ -54,8 +54,8 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder)
     if (session == null) return
     val app = LocalContext.current.applicationContext as LumioApp
     val scope = rememberCoroutineScope()
-    val net = app.selectedBtcNetwork()
-    val netId = net.networkId()
+    // The network of the side the owner chose. It is read from the vault, off the main thread, when the portfolio opens or refreshes.
+    var net by remember { mutableStateOf(BtcNetwork.MAINNET) }
     var refs by remember { mutableStateOf<List<BtcAccountRef>>(emptyList()) }
     var rows by remember { mutableStateOf<List<BtcRow>>(emptyList()) }
     var settled by remember { mutableStateOf(emptySet<String>()) }
@@ -68,16 +68,20 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder)
         failure = null
         settled = emptySet()
         scope.launch {
-            val accounts = withContext(Dispatchers.IO) { accountsOf(session, net) }
+            val chosen = withContext(Dispatchers.IO) { app.selectedBtcNetwork(session) }
+            net = chosen
+            val accounts = withContext(Dispatchers.IO) { accountsOf(session, chosen, walletId) }
             refs = accounts
-            withContext(Dispatchers.IO) { queueScans(app.scanQueue, accounts, netId, Priority.VISIBLE) }
-            app.startScan(netId).join()
+            withContext(Dispatchers.IO) { queueScans(app.scanQueue, accounts, chosen.networkId(), Priority.VISIBLE) }
+            app.startScan(chosen.networkId()).join()
             scanning = false
         }
     }
 
     LaunchedEffect(session) {
-        val accounts = withContext(Dispatchers.IO) { accountsOf(session, net) }
+        val chosen = withContext(Dispatchers.IO) { app.selectedBtcNetwork(session) }
+        net = chosen
+        val accounts = withContext(Dispatchers.IO) { accountsOf(session, chosen, walletId) }
         refs = accounts
         rows = withContext(Dispatchers.IO) { rowsOf(app.lumioVault(), accounts) }
         refresh()
@@ -167,9 +171,12 @@ internal fun BitcoinAccountRoute(navController: NavHostController, holder: Vault
     )
 }
 
-/** Lumio's settings: the Esplora server of each Bitcoin network. A save that the servers refuse keeps the screen open with the reason. */
+/**
+ * The Bitcoin section of the settings: the Esplora server of each Bitcoin network. A save that the servers refuse keeps the section open with
+ * the reason. A save that they accept leaves the settings, as it always has.
+ */
 @Composable
-internal fun LumioSettingsRoute(navController: NavHostController, holder: VaultHolder) {
+internal fun BitcoinSettingsRoute(navController: NavHostController, holder: VaultHolder) {
     val session = holder.openSession()
     LaunchedEffect(session == null) {
         if (session == null) navController.openHidden(GateRoutes.GATE)
@@ -201,7 +208,7 @@ internal fun LumioSettingsRoute(navController: NavHostController, holder: VaultH
         }
     }
 
-    LumioSettingsScreen(
+    BitcoinServersSettings(
         mainnet = EsploraServers.baseUrl(BtcNetwork.MAINNET, current),
         testnet4 = EsploraServers.baseUrl(BtcNetwork.TESTNET4, current),
         error = error,
@@ -211,7 +218,6 @@ internal fun LumioSettingsRoute(navController: NavHostController, holder: VaultH
             parsed.getOrNull()?.let { saveServers(it, leave = true) }
         },
         onReset = { saveServers(emptyMap(), leave = false) },
-        onBack = { navController.popBackStack() },
     )
 }
 
@@ -250,9 +256,9 @@ internal fun withOverrides(configs: Map<String, ProviderConfig>, overrides: Map<
             CustomEsploraProvider.idFor(network.networkId().chain) to ProviderConfig(baseUrl = url)
         }
 
-/** The accounts of [net] in [session]. */
-private fun accountsOf(session: VaultSession, net: BtcNetwork): List<BtcAccountRef> =
-    bitcoinRefs(session).filter { it.account.network == net }
+/** The accounts of the wallet [walletId] on the network [net], in [session]. */
+private fun accountsOf(session: VaultSession, net: BtcNetwork, walletId: String): List<BtcAccountRef> =
+    bitcoinRefs(session).filter { it.walletId == walletId && it.account.network == net }
 
 /** The rows of [refs], each with its last known balance from the open vault. A locked or decoy vault has none, so its rows show no balance. */
 private suspend fun rowsOf(vault: LumioVault?, refs: List<BtcAccountRef>): List<BtcRow> {

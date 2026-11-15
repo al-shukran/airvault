@@ -33,6 +33,7 @@ import app.lumio.evm.SendInput
 import app.lumio.evm.SignatureScan
 import app.lumio.evm.SignatureStep
 import app.lumio.pair.PairedWallet
+import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.send.SendReviewScreen
@@ -88,7 +89,7 @@ private const val REQUEST_ID_BYTES = 16
  * answers its own request from the account that sends.
  */
 @Composable
-internal fun SendRoute(navController: NavHostController, holder: VaultHolder, walletId: String, index: Int) {
+internal fun SendRoute(navController: NavHostController, holder: VaultHolder, walletId: String, index: Int, mode: NetworkMode) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
     val session = holder.openSession()
@@ -96,8 +97,8 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
     val scope = rememberCoroutineScope()
-    val load by produceState<SendLoad?>(initialValue = null, session, walletId, index) {
-        value = if (session == null) null else withContext(Dispatchers.IO) { loadSend(app, session, walletId, index) }
+    val load by produceState<SendLoad?>(initialValue = null, session, walletId, index, mode) {
+        value = if (session == null) null else withContext(Dispatchers.IO) { loadSend(app, session, walletId, index, mode) }
     }
     if (load is SendLoad.Missing) {
         LaunchedEffect(Unit) { navController.popBackStack() }
@@ -272,13 +273,16 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
     }
 }
 
-/** Reads the send's wallet, address and chains from the open vault. It runs off the main thread. */
-private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, index: Int): SendLoad = runCatching {
+/**
+ * Reads the send's wallet, address and chains from the open vault. The chains are the enabled ones on the side [mode] chooses, as on the
+ * wallet's portfolio. It runs off the main thread.
+ */
+private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, index: Int, mode: NetworkMode): SendLoad = runCatching {
     val wallet = PairedWallets.list(session).firstOrNull { it.id == walletId } ?: return@runCatching SendLoad.Missing
     val account = wallet.evm ?: return@runCatching SendLoad.Missing
     val settings = EvmSettingsStore.read(session)
     if (index !in 0 until settings.addressCount) return@runCatching SendLoad.Missing
-    val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled }
+    val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
     SendLoad.Ready(SendContext(wallet, AccountAddresses.addressAt(account, index), settings, chains))
 }.getOrDefault(SendLoad.Missing)
 

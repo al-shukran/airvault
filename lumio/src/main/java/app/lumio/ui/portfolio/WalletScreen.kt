@@ -30,16 +30,19 @@ import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmFormat
 import app.lumio.evm.Total
 import app.lumio.evm.Totals
+import app.lumio.network.NetworkMode
+import app.lumio.ui.network.label
 import java.math.BigInteger
 
 /**
- * The portfolio of one paired wallet. Mainnet and testnet totals sit in two lists, so a testnet balance is never shown as part of a mainnet
- * one. Below them, each shown address lists its balance on every enabled chain, with the time of its read. [failures] names the chains that
- * did not refresh; their cached reads stay on the screen.
+ * The portfolio of one paired wallet on the side [mode] chooses. Its total is the side's own, and the other side is not shown, so a testnet
+ * balance is never shown as part of a mainnet one. Below it, each shown address lists its balance on every enabled chain of that side, with
+ * the time of its read. [failures] names the chains that did not refresh; their cached reads stay on the screen.
  */
 @Composable
 fun WalletScreen(
     walletName: String,
+    mode: NetworkMode,
     hasEvm: Boolean,
     chains: List<EvmChain>,
     rows: List<AddressRow>,
@@ -78,8 +81,8 @@ fun WalletScreen(
         if (chains.isEmpty()) {
             EmptyState(
                 icon = LenslyIcons.Wallets,
-                title = "No chains are on",
-                body = "Turn a chain on in EVM settings to read its balances.",
+                title = "No ${mode.label().lowercase()} chains are on",
+                body = "Turn a chain on in Settings to read its balances.",
             )
             return@LenslyScreen
         }
@@ -95,10 +98,11 @@ fun WalletScreen(
             )
             Spacer(Modifier.height(LenslySpacing.sm))
         }
-        SectionLabel("Mainnet")
-        TotalsList(totals.mainnet, emptyText = "No mainnet balance read yet.")
-        SectionLabel("Testnet")
-        TotalsList(totals.testnet, emptyText = "No testnet balance read yet.")
+        SectionLabel(mode.label())
+        TotalsList(
+            totals = if (mode == NetworkMode.TESTNET) totals.testnet else totals.mainnet,
+            emptyText = "No ${mode.label().lowercase()} balance read yet.",
+        )
         totals.oldestMs?.let {
             Text(
                 "Oldest read ${EvmFormat.asOf(it)}",
