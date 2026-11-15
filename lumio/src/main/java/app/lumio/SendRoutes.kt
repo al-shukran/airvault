@@ -77,6 +77,7 @@ private sealed interface SendStep {
 
 private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
 private const val SCAN_READING = "Reading the signature. Keep the camera on it."
+private const val SCAN_SENDING = "Signature read. Sending the transaction to the network."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
 private const val SIGNATURE_FAILED = "That code could not be used. Scan the signature again."
@@ -161,6 +162,8 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
 
     fun applySignature(current: SendStep.Scanning, ur: UR) {
         scanBusy = true
+        scanProgress = 1f
+        scanStatus = SCAN_SENDING
         scope.launch {
             val signed = withContext(Dispatchers.IO) { runCatching { EvmSend.signed(current.send, current.requestId, ur) } }
             signed.fold(
