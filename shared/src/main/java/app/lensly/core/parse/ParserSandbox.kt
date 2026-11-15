@@ -4,8 +4,8 @@ import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.evm.TypedDataParser
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.registry.ContractCall
-import app.lensly.core.registry.StaticAbiDecoder
-import app.lensly.core.registry.StaticDecode
+import app.lensly.core.registry.AbiDecoder
+import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
@@ -70,7 +70,7 @@ interface RequestParser {
     fun scan(parts: List<String>): ScanReply
 
     /** Decodes the calldata of a whitelisted call with the static [params] its registry entry declares. */
-    fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode
+    fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode
 }
 
 /**
@@ -95,8 +95,8 @@ object InProcessParser : RequestParser {
         }
     }
 
-    override fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode =
-        StaticAbiDecoder.decode(calldata, params)
+    override fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode =
+        AbiDecoder.decode(calldata, params)
 
     /** The reply for a complete `ur:crypto-psbt`: its PSBT, parsed here in the sandbox, or a refusal when it does not parse. */
     private fun bitcoinReply(ur: UR): ScanReply = try {
@@ -131,9 +131,9 @@ object InProcessParser : RequestParser {
 internal fun answer(parser: RequestParser, method: Int, payload: ByteArray): ByteArray = try {
     when (method) {
         ParserWire.SCAN -> ParserWire.encodeScanReply(parser.scan(ParserWire.decodeScanRequest(payload)))
-        ParserWire.DECODE_STATIC -> {
-            val (calldata, params) = ParserWire.decodeStaticRequest(payload)
-            ParserWire.encodeStaticReply(parser.decodeStatic(calldata, params))
+        ParserWire.DECODE_CALL -> {
+            val (calldata, params) = ParserWire.decodeCallRequest(payload)
+            ParserWire.encodeCallReply(parser.decodeCall(calldata, params))
         }
         else -> ParserWire.encodeRefusal(CANNOT_BE_READ)
     }
@@ -167,9 +167,9 @@ class SandboxedParser(
         ask(ParserWire.SCAN, { ParserWire.encodeScanRequest(parts) }, ParserWire::decodeScanReply)
             ?: ScanReply.Refused(CANNOT_BE_READ)
 
-    override fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode =
-        ask(ParserWire.DECODE_STATIC, { ParserWire.encodeStaticRequest(calldata, params) }, ParserWire::decodeStaticReply)
-            ?: StaticDecode.Refused(CANNOT_BE_READ)
+    override fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode =
+        ask(ParserWire.DECODE_CALL, { ParserWire.encodeCallRequest(calldata, params) }, ParserWire::decodeCallReply)
+            ?: CallDecode.Refused(CANNOT_BE_READ)
 
     /** The checked reply to one call, or null when there is none to trust. */
     private fun <T> ask(method: Int, encode: () -> ByteArray, decode: (ByteArray) -> T): T? {

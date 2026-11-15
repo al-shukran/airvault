@@ -58,17 +58,26 @@ class CallEncodingTest {
             WhitelistParam("salt", "bytes32"),
         )
         val data = calldata("12345678", word(alice), word("0x3e8"), word("0x1"), "f".repeat(62) + "fb", "33".repeat(32))
-        val decoded = assertIs<StaticDecode.Ok>(StaticAbiDecoder.decode(data, params)).params
+        val decoded = assertIs<CallDecode.Ok>(AbiDecoder.decode(data, params)).params
 
-        assertContentEquals(data.copyOfRange(4, data.size), assertNotNull(StaticAbiDecoder.encode(decoded)))
+        assertContentEquals(data.copyOfRange(4, data.size), assertNotNull(AbiDecoder.encode(decoded)))
     }
 
     @Test
-    fun aStaticValueThatTheDecoderWouldNotWriteHasNoEncoding() {
-        val amount = WhitelistParam("amount", "uint256")
+    fun aValueThatDoesNotFitItsTypeHasNoEncoding() {
+        val small = WhitelistParam("v", "uint8")
         val owner = WhitelistParam("owner", "address")
+        val highBytes = "ff" + word(alice).drop(2)
 
-        assertNull(StaticAbiDecoder.encode(listOf(DecodedParam(amount, "01"))), "a leading zero")
-        assertNull(StaticAbiDecoder.encode(listOf(DecodedParam(owner, "0x" + "ab".repeat(20)))), "an address not checksummed")
+        assertNull(AbiDecoder.encode(listOf(DecodedParam(small, AbiValue.Word(word("0x100")))))), "a uint8 wider than 8 bits")
+        assertNull(AbiDecoder.encode(listOf(DecodedParam(owner, AbiValue.Word(highBytes)))), "an address with high bytes")
+        assertNull(AbiDecoder.encode(listOf(DecodedParam(owner, AbiValue.Dynamic("00")))), "a dynamic value for a static type")
+    }
+
+    @Test
+    fun aValueWithTheWrongShapeHasNoEncoding() {
+        val items = WhitelistParam("path", "address[2]")
+
+        assertNull(AbiDecoder.encode(listOf(DecodedParam(items, AbiValue.Items(listOf(AbiValue.Word(word(alice))))))), "one item of two")
     }
 }

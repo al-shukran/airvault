@@ -6,37 +6,54 @@ import org.web3j.crypto.Hash
 
 private val SELECTOR_PATTERN = Regex("0x[0-9a-f]{8}")
 private val HASH_PATTERN = Regex("0x[0-9a-f]{64}")
-private val SIGNATURE_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]*\\((?:[a-z0-9\\[\\]]+(?:,[a-z0-9\\[\\]]+)*)?\\)")
-private val INTEGER_TYPES = (8..256 step 8).flatMap { listOf("uint$it", "int$it") }.toSet()
-private val BYTES_TYPES = (1..32).map { "bytes$it" }.toSet()
-
-/** True for an ABI type whose value is one 32-byte word: address, bool, uintN, intN or bytesN. */
-internal fun isStaticType(type: String): Boolean =
-    type == "address" || type == "bool" || type in INTEGER_TYPES || type in BYTES_TYPES
-
-/** The ABI types of [signature], in order, such as [address, uint256] for transfer(address,uint256). */
-internal fun signatureTypes(signature: String): List<String> =
-    signature.substringAfter('(').substringBefore(')').split(',').filter { it.isNotEmpty() }
 
 /**
- * One static argument of a whitelisted call. [name] is the ABI argument name, [type] is its static ABI type, and
- * [tokenRef] marks a uint amount that is a quantity of the contract's own token when the contract is in the registry.
+ * One argument of a whitelisted call. [name] is the ABI argument name, and [type] is its canonical ABI type, such as uint256, address[],
+ * bytes, string or (address,uint24). [tokenRef] marks a uint amount that is a quantity of the contract's own token when the contract is in
+ * the registry. [components] names the fields of the tuple at the base of [type], under any arrays, in field order. Each field's [type]
+ * must be the type of that field, and [components] is null when the entry names none, so the fields are shown by position.
  */
 @Serializable
 data class WhitelistParam(
     val name: String,
     val type: String,
     val tokenRef: Boolean = false,
+    val components: List<WhitelistParam>? = null,
 ) {
     init {
         require(name.isNotBlank()) { "param name must not be blank" }
-        require(isStaticType(type)) { "param type must be a static ABI type: $type" }
+        val parsed = requireNotNull(AbiTypes.parse(type)) { "param type must be a canonical ABI type: $type" }
+        if (tokenRef) require(type.startsWith("uint") && parsed is AtomicType) { "only a uint param can be a token amount: $name" }
+        components?.let { fields ->
+            var base: AbiType = parsed
+            while (base is ArrayType) base = base.element
+            val tuple = requireNotNull(base as? TupleType) { "param $name names components, but $type is not a tuple" }
+            require(fields.size == tuple.components.size) {
+                "param $name names ${fields.size} components for ${tuple.components.size} fields"
+            }
+            fields.forEachIndexed { index, field ->
+                require(field.type == tuple.components[index].canonical) {
+                    "component ${field.name} must be ${tuple.components[index].canonical}"
+                }
+            }
+            requireNoTokenRefs(fields)
+        }
+    }
+
+    private companion object {
+        /** A token amount is a top-level argument, so no field of a tuple may carry the mark. */
+        fun requireNoTokenRefs(fields: List<WhitelistParam>) {
+            for (field in fields) {
+                require(!field.tokenRef) { "component ${field.name} cannot be a token amount" }
+                field.components?.let(::requireNoTokenRefs)
+            }
+        }
     }
 }
 
 /**
  * One contract call the signed whitelist approves although Lensly cannot decode it. An entry pairs a contract with a Function
- * Selector on one network, and says in [meaning] what the call does. [signature] is the function's ABI signature, and its
+ * Selector on one network, and says in [meaning] what the call does. [signature] is the function's canonical ABI signature, and its
  * Keccak-256 hash must start with [selector], so the name shown for a selector is the one the selector really has. A target that
  * is an upgradeable proxy carries its [proxy] binding and sets [upgradeable]. The [params] name and type every argument, so the
  * calldata is decoded and shown in full before signing.
@@ -48,7 +65,7 @@ data class WhitelistEntry(
     val contract: String,
     /** Lowercase 0x-prefixed 4-byte Function Selector. */
     val selector: String,
-    /** The ABI signature, such as transfer(address,uint256). */
+    /** The canonical ABI signature, such as transfer(address,uint256) or swap(address[],(uint256,bool)). */
     val signature: String,
     /** What the call does, in plain words. */
     val meaning: String,
@@ -63,13 +80,14 @@ data class WhitelistEntry(
         require(chainId > 0) { "chainId must be positive: $chainId" }
         require(CONTRACT_PATTERN.matches(contract)) { "contract must be 0x followed by 40 lowercase hex digits: $contract" }
         require(SELECTOR_PATTERN.matches(selector)) { "selector must be 0x followed by 8 lowercase hex digits: $selector" }
-        require(SIGNATURE_PATTERN.matches(signature)) { "signature must look like name(type,type): $signature" }
+        val types = requireNotNull(AbiTypes.signature(signature)) {
+            "signature must be a canonical ABI signature, such as name(type,type): $signature"
+        }.second
         require(selector == selectorOf(signature)) { "selector $selector is not the selector of $signature" }
         require(meaning.isNotBlank()) { "meaning must not be blank" }
-        val types = signatureTypes(signature)
         require(params.size == types.size) { "params must name every argument of $signature" }
         params.forEachIndexed { index, param ->
-            require(param.type == types[index]) { "param ${param.name} must be ${types[index]} in $signature" }
+            require(param.type == types[index].canonical) { "param ${param.name} must be ${types[index].canonical} in $signature" }
         }
         if (upgradeable) require(proxy != null) { "an upgradeable entry must name its proxy binding" }
         if (proxy != null) require(upgradeable) { "a proxy binding belongs to an upgradeable entry" }

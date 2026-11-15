@@ -1,6 +1,6 @@
 package app.lensly.core.parse
 
-import app.lensly.core.registry.StaticDecode
+import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
@@ -31,7 +31,7 @@ class SandboxedParserTest {
         val parser = SandboxedParser(sandbox)
 
         assertEquals(ScanReply.Refused(CANNOT_BE_READ), parser.scan(TEXT))
-        assertEquals(StaticDecode.Refused(CANNOT_BE_READ), parser.decodeStatic(ByteArray(4), emptyList()))
+        assertEquals(CallDecode.Refused(CANNOT_BE_READ), parser.decodeCall(ByteArray(4), emptyList()))
         assertEquals(2, sandbox.resets)
     }
 
@@ -68,7 +68,7 @@ class SandboxedParserTest {
             assertEquals(ScanReply.Refused(CANNOT_BE_READ), parser.scan(TEXT), "a reply of ${reply.size} bytes")
         }
         val staticReply = SandboxedParser(ScriptedSandbox { _, _ -> byteArrayOf(0, 0, 0, 1) })
-        assertEquals(StaticDecode.Refused(CANNOT_BE_READ), staticReply.decodeStatic(ByteArray(4), emptyList()))
+        assertEquals(CallDecode.Refused(CANNOT_BE_READ), staticReply.decodeCall(ByteArray(4), emptyList()))
     }
 
     @Test
@@ -84,7 +84,7 @@ class SandboxedParserTest {
         val failing = object : RequestParser {
             override fun scan(parts: List<String>): ScanReply = throw OutOfMemoryError("test")
 
-            override fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode =
+            override fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode =
                 throw IllegalStateException("test")
         }
 

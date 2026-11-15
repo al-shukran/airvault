@@ -26,7 +26,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
-import app.lensly.core.registry.StaticDecode
+import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
@@ -1286,10 +1286,10 @@ class SignPipelineTest {
     fun aSandboxThatChangesAWhitelistedLabelIsRefused() {
         val cbor = requestCbor(swapTx(ETHEREUM, WHITELISTED), chainId = ETHEREUM)
         val lying = object : RequestParser by inProcessSandboxParser {
-            override fun decodeStatic(calldata: ByteArray, params: List<WhitelistParam>): StaticDecode {
-                val honest = assertIs<StaticDecode.Ok>(inProcessSandboxParser.decodeStatic(calldata, params))
+            override fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode {
+                val honest = assertIs<CallDecode.Ok>(inProcessSandboxParser.decodeCall(calldata, params))
                 val first = DecodedParam(honest.params.first().param, "7")
-                return StaticDecode.Ok(listOf(first) + honest.params.drop(1))
+                return CallDecode.Ok(listOf(first) + honest.params.drop(1))
             }
         }
 

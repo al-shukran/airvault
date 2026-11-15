@@ -20,7 +20,10 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.callCount
 import app.lensly.core.parse.deepestLevel
 import app.lensly.core.parse.encodesAs
+import app.lensly.core.registry.AbiDecoder
+import app.lensly.core.registry.AbiRows
 import app.lensly.core.registry.Amounts
+import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
 import app.lensly.core.registry.DenylistEntry
@@ -30,8 +33,6 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
-import app.lensly.core.registry.StaticAbiDecoder
-import app.lensly.core.registry.StaticDecode
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.ur.DataType
@@ -277,20 +278,20 @@ class SignPipeline(
         if (entry.upgradeable && proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) {
             return GapOutcome.Refused(ANY_PROXY_REFUSAL, call)
         }
-        val decoded = when (val result = parser.decodeStatic(calldata, entry.params)) {
-            is StaticDecode.Ok -> result.params
-            is StaticDecode.Refused -> return GapOutcome.Refused(result.reason, call)
+        val decoded = when (val result = parser.decodeCall(calldata, entry.params)) {
+            is CallDecode.Ok -> result.params
+            is CallDecode.Refused -> return GapOutcome.Refused(result.reason, call)
         }
         // The sandbox must answer with exactly the params the entry declares, in their order.
         if (decoded.map { it.param } != entry.params) return GapOutcome.Refused(CANNOT_BE_READ, call)
         // The labels are shown only when the decoded values are exactly the arguments that get signed.
-        if (StaticAbiDecoder.encode(decoded)?.contentEquals(argumentsOf(calldata)) != true) {
+        if (AbiDecoder.encode(decoded)?.contentEquals(argumentsOf(calldata)) != true) {
             return GapOutcome.Refused(CANNOT_BE_READ, call)
         }
         val token = registry.token(target.chainId, contract)
         return GapOutcome.Approved(
             function = entry.signature.substringBefore('('),
-            params = decoded.map { paramValue(it, token) },
+            params = decoded.flatMap { argumentRows(it, token) },
             whitelisted = WhitelistedCall(entry.signature, entry.meaning, call),
         )
     }
@@ -386,19 +387,13 @@ class SignPipeline(
         listOfNotNull(multicall.deadline?.let { "deadline (uint256)" to it.toString() })
 
     /**
-     * One decoded argument as the review lists it: its name and type, then its full value. A tokenRef uint named amount,
-     * value or wad also shows its quantity in the registered token's decimals.
+     * The rows one decoded argument shows: its name, type and full value, and one row per item of an array or field of a tuple, as
+     * [AbiRows] lays them out. A tokenRef uint named amount, value or wad also shows its quantity in the registered token's decimals.
      */
-    private fun paramValue(decoded: DecodedParam, token: TokenEntry?): Pair<String, String> {
-        val param = decoded.param
-        val value = if (param.tokenRef && token != null && param.type.startsWith("uint") && param.name in AMOUNT_PARAMS) {
-            // The value came from the sandbox, so it is shown as it is when it is not a number.
-            decoded.value.toBigIntegerOrNull()?.let { amountText(it, token) } ?: decoded.value
-        } else {
-            decoded.value
+    private fun argumentRows(decoded: DecodedParam, token: TokenEntry?): List<Pair<String, String>> =
+        AbiRows.of(decoded) { amount ->
+            if (token != null && decoded.param.name in AMOUNT_PARAMS) amountText(amount, token) else null
         }
-        return "${param.name} (${param.type})" to value
-    }
 
     /** The arguments of [calldata], which is what follows its selector. A calldata shorter than a selector has none. */
     private fun argumentsOf(calldata: ByteArray): ByteArray =

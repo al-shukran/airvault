@@ -1,5 +1,7 @@
 package app.lensly.core.registry.update
 
+import app.lensly.core.registry.AbiTypes
+import app.lensly.core.registry.AtomicType
 import app.lensly.core.registry.DenylistCondition
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
@@ -44,9 +46,15 @@ internal object PackageFormat {
      * The newest catalog schema this app interprets. A package states the schema it needs in `minSchemaVersion`, and one that
      * needs a newer schema is refused as [RegistryUpdateException.Incompatible] before its entries are read. Schema 2 adds the
      * denylist and the wallets, so an older app refuses a package that carries them instead of failing on unknown fields.
+     * Schema 3 adds dynamic, array and tuple arguments to whitelist entries, and the names of tuple fields. The format itself
+     * (`LRP2`, formatVersion 2) does not change: a package that uses none of these still reads as it did, and one that does
+     * states schema 3, so an app that reads only schema 2 refuses it as Incompatible.
      */
-    const val SCHEMA_VERSION = 2L
+    const val SCHEMA_VERSION = 3L
     const val MAX_BYTES = 1 shl 20
+
+    /** The schema that adds dynamic, array and tuple arguments and named tuple fields to whitelist entries. */
+    private const val ARGUMENTS_SCHEMA = 3L
 
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
     private val MAGIC_PREFIX = "LRP".toByteArray(StandardCharsets.US_ASCII)
@@ -251,12 +259,17 @@ internal object PackageFormat {
                     signature = record.signature,
                     meaning = record.meaning,
                     proxy = record.proxy?.let { ProxyBinding(it.implementationAddress, it.implementationCodeHash) },
-                    params = record.params.map { WhitelistParam(it.name, it.type, it.tokenRef) },
+                    params = record.params.map { it.toParam() },
                     upgradeable = record.upgradeable,
                 )
             } catch (e: IllegalArgumentException) {
                 throw RegistryUpdateException.InvalidEntry("whitelist ${record.signature}: ${e.message}")
             }
+        }
+        if (whitelist.any { entry -> entry.params.any { AbiTypes.parse(it.type) !is AtomicType || it.components != null } } &&
+            dto.minSchemaVersion < ARGUMENTS_SCHEMA
+        ) {
+            throw RegistryUpdateException.Malformed("a whitelist entry with dynamic, array or tuple arguments needs minSchemaVersion 3")
         }
         return RegistryPackage(
             sequence = dto.sequence,
@@ -321,7 +334,11 @@ internal object PackageFormat {
         val name: String,
         val type: String,
         val tokenRef: Boolean = false,
-    )
+        /** Optional. Names the fields of the tuple at the base of [type]. Needs minSchemaVersion 3. */
+        val components: List<ParamRecord>? = null,
+    ) {
+        fun toParam(): WhitelistParam = WhitelistParam(name, type, tokenRef, components?.map { it.toParam() })
+    }
 
     @Serializable
     private class ProxyRecord(
