@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only. Plain HTTP is allowed to the emulator's host address and to this machine, the only plain-HTTP addresses that
+     RpcUrl accepts in a debug build. Release builds never merge this file, so they keep the platform default: no cleartext. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
