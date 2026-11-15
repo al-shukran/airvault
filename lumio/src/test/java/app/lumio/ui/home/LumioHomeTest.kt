@@ -1,16 +1,23 @@
 package app.lumio.ui.home
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.theme.LenslyTheme
+import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallet
 import org.junit.Assert.assertEquals
@@ -21,7 +28,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Lumio's Home: the empty state, the pairing action, the paired wallets, and the delete that asks first. */
+/** Lumio's Home: the empty state, the pairing action, the network switch, each wallet's Apps, and the delete that asks first. */
 @RunWith(RobolectricTestRunner::class)
 class LumioHomeTest {
 
@@ -56,16 +63,59 @@ class LumioHomeTest {
     }
 
     @Test
-    fun aPairedWalletShowsItsNameFingerprintFamilyAndNetworks() {
-        setHome(wallets = listOf(wallet(name = "Demo", withBitcoin = true)))
+    fun mainnetIsTheSideOnShowWhenTheHomeOpens() {
+        setHome(wallets = listOf(wallet(name = "Demo", bitcoin = bothSides())))
 
-        compose.onNodeWithText("Demo").assertExists()
-        compose.onNodeWithText("Fingerprint 1a2b3c4d").assertExists()
-        compose.onNodeWithText("EVM").assertExists()
-        compose.onNodeWithText("BITCOIN").assertExists()
-        compose.onNodeWithText("ALL EVM NETWORKS").assertExists()
-        compose.onNodeWithText("MAINNET").assertExists()
-        compose.onNodeWithText("TESTNET").assertExists()
+        compose.onNodeWithText("Mainnet", ignoreCase = true).assertIsSelected()
+        text("1 account on Mainnet").assertExists()
+        text("Balances on mainnet networks").assertExists()
+        text("4 accounts on Testnet").assertDoesNotExist()
+    }
+
+    @Test
+    fun theSwitchShowsOnlyTheChosenSide() {
+        val testnetAccounts = BtcWatchOnly.accounts(PairFixtures.seed, BtcNetwork.TESTNET4).size
+        setHome(wallets = listOf(wallet(name = "Demo", bitcoin = bothSides())))
+
+        compose.onNodeWithText("Testnet", ignoreCase = true).performClick()
+
+        compose.onNodeWithText("Testnet", ignoreCase = true).assertIsSelected()
+        text("$testnetAccounts accounts on Testnet").assertExists()
+        text("Balances on testnet networks").assertExists()
+        text("1 account on Mainnet").assertDoesNotExist()
+        text("Balances on mainnet networks").assertDoesNotExist()
+
+        compose.onNodeWithText("Mainnet", ignoreCase = true).performClick()
+
+        text("1 account on Mainnet").assertExists()
+        text("$testnetAccounts accounts on Testnet").assertDoesNotExist()
+    }
+
+    @Test
+    fun aWalletWithOnlyTestnetBitcoinHasNoBitcoinAppOnMainnet() {
+        val demo = wallet(name = "Demo", bitcoin = BtcWatchOnly.accounts(PairFixtures.seed, BtcNetwork.TESTNET4), evm = false)
+        setHome(wallets = listOf(demo))
+
+        text("No accounts on Mainnet in this wallet").assertExists()
+        compose.onNodeWithTag(BITCOIN_APP_TAG).assertDoesNotExist()
+
+        compose.onNodeWithText("Testnet", ignoreCase = true).performClick()
+
+        compose.onNodeWithTag(BITCOIN_APP_TAG).assertExists()
+    }
+
+    @Test
+    fun tappingAnAppOpensThatWalletsPortfolio() {
+        var bitcoinOf: PairedWallet? = null
+        var balancesOf: PairedWallet? = null
+        val demo = wallet(name = "Demo", bitcoin = bothSides())
+        setHome(wallets = listOf(demo), onBitcoin = { bitcoinOf = it }, onBalances = { balancesOf = it })
+
+        compose.onNodeWithTag(BITCOIN_APP_TAG).performClick()
+        compose.onNodeWithTag(ETHEREUM_APP_TAG).performClick()
+
+        assertEquals(demo, bitcoinOf)
+        assertEquals(demo, balancesOf)
     }
 
     @Test
@@ -95,32 +145,46 @@ class LumioHomeTest {
         compose.onNodeWithText("Demo").assertExists()
     }
 
-    private fun wallet(name: String, withBitcoin: Boolean = false): PairedWallet {
-        val hd = HdWallet(PairFixtures.seed)
-        val accounts = if (withBitcoin) {
-            BtcWatchOnly.accounts(PairFixtures.seed, BtcNetwork.TESTNET4) + listOf(PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.TAPROOT))
-        } else {
-            emptyList()
-        }
-        return PairedWallet(
+    /** The text of a row. The rows are clickable, so their texts stay in the unmerged tree. */
+    private fun text(text: String) = compose.onNodeWithText(text, useUnmergedTree = true)
+
+    /** One Bitcoin account of each script type on testnet4, and the Taproot account on mainnet. */
+    private fun bothSides(): List<BtcWatchOnlyAccount> =
+        BtcWatchOnly.accounts(PairFixtures.seed, BtcNetwork.TESTNET4) +
+            PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.TAPROOT)
+
+    private fun wallet(name: String, bitcoin: List<BtcWatchOnlyAccount> = emptyList(), evm: Boolean = true): PairedWallet =
+        PairedWallet(
             id = "wallet-$name",
             name = name,
             fingerprint = 0x1a2b3c4dL,
             createdAtMs = 1L,
-            evm = hd.accountXpub(),
-            bitcoin = accounts,
+            evm = if (evm) HdWallet(PairFixtures.seed).accountXpub() else null,
+            bitcoin = bitcoin,
         )
-    }
 
     private fun setHome(
         wallets: List<PairedWallet>,
+        initial: NetworkMode = NetworkMode.MAINNET,
         onLock: () -> Unit = {},
         onPair: () -> Unit = {},
         onDelete: (PairedWallet) -> Unit = {},
+        onBitcoin: (PairedWallet) -> Unit = {},
+        onBalances: (PairedWallet) -> Unit = {},
     ) {
         compose.setContent {
             LenslyTheme {
-                LumioHome(onLock = onLock, onPair = onPair, wallets = wallets, onDelete = onDelete)
+                var mode by remember { mutableStateOf(initial) }
+                LumioHome(
+                    onLock = onLock,
+                    onPair = onPair,
+                    wallets = wallets,
+                    onDelete = onDelete,
+                    mode = mode,
+                    onMode = { mode = it },
+                    onBitcoin = onBitcoin,
+                    onBalances = onBalances,
+                )
             }
         }
     }
