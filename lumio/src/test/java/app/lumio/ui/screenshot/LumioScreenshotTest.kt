@@ -17,6 +17,7 @@ import app.lumio.btc.BtcSection
 import app.lumio.evm.AddressRow
 import app.lumio.evm.CachedBalance
 import app.lumio.evm.EvmChain
+import app.lumio.data.config.DisplaySettings
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.Total
 import app.lumio.evm.Totals
@@ -32,6 +33,7 @@ import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.portfolio.WalletScreen
 import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.settings.BitcoinServersSettings
+import app.lumio.ui.settings.DisplaySettingsSection
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.LumioSettingsScreen
@@ -170,6 +172,16 @@ class LumioScreenshotTest {
     fun settings() = compose.snapshot("settings") {
         LumioSettingsScreen(
             onBack = {},
+            display = {
+                DisplaySettingsSection(
+                    settings = DisplaySettings(),
+                    notice = null,
+                    onShowTotal = {},
+                    onShowAssets = {},
+                    onMinimumUsd = {},
+                    onHideSpam = {},
+                )
+            },
             bitcoin = {
                 BitcoinServersSettings(
                     mainnet = "https://mempool.space/api",

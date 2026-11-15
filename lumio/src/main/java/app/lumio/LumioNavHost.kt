@@ -160,6 +160,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                 LumioBackdrop(selection) {
                     LumioSettingsScreen(
                         onBack = { navController.popBackStack() },
+                        display = { DisplaySettingsRoute(navController = navController, holder = holder) },
                         bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
                         ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
                         onDataProviders = { navController.navigate(LumioRoute.DATA_PROVIDERS) },
