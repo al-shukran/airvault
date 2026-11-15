@@ -13,6 +13,7 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.configOf
 import app.lumio.data.config.orderedIds
@@ -35,7 +36,7 @@ import kotlinx.coroutines.withContext
 private const val STATUS_POLL_MS = 2_000L
 
 /** The two groups of rows, read in one pass. */
-private class ProviderLists(val data: List<ProviderRow>, val rpc: List<ProviderRow>)
+private class ProviderLists(val data: List<ProviderRow>, val rpc: List<ProviderRow>, val preferRpc: Boolean)
 
 /**
  * The Data providers screen in the Hidden Area. It reads the saved settings and each provider's health from the schedulers, and it writes each change
@@ -84,6 +85,8 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
             change { writable.updateConfigs { configs -> withMoved(configs, group, id, up) } }
         },
         onApiKey = { id, key -> change { writable.updateConfigs { configs -> withApiKey(configs, id, key) } } },
+        preferRpc = current.preferRpc,
+        onPreferRpc = { on -> change { PreferRpcStore.write(writable.session, on) } },
     )
 }
 
@@ -95,6 +98,7 @@ private suspend fun readLists(app: LumioApp, vault: LumioVault): ProviderLists {
     return ProviderLists(
         data = rowsOf(ProviderCatalog.dataProviders(), configs, healthOf),
         rpc = rowsOf(ProviderCatalog.rpcProviders(BuildConfig.DEBUG), configs, healthOf),
+        preferRpc = PreferRpcStore.read(vault.session),
     )
 }
 

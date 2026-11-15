@@ -156,4 +156,28 @@ class DataProvidersScreenTest {
 
         compose.onNodeWithTag("reveal-1rpc").assertIsOn()
     }
+
+    @Test
+    fun thePreferRpcSwitchReportsItsNewState() {
+        var reported: Boolean? = null
+        compose.setContent {
+            LenslyTheme {
+                DataProvidersScreen(
+                    data = listOf(etherscan),
+                    rpc = listOf(oneRpc),
+                    onBack = {},
+                    onEnabled = { _, _ -> },
+                    onMove = { _, _ -> },
+                    onApiKey = { _, _ -> },
+                    preferRpc = false,
+                    onPreferRpc = { reported = it },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Explorers and privacy", ignoreCase = true).assertExists()
+        compose.onNodeWithTag("prefer-rpc").performClick()
+
+        assertEquals(true, reported)
+    }
 }

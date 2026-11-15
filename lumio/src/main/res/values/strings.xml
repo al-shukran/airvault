@@ -26,4 +26,8 @@
     <string name="settings_about_heading">About</string>
     <string name="settings_licences_body">Every library and font AirVault ships, with the licence each one is used under.</string>
     <string name="settings_licences_open">Third-party licences</string>
+    <string name="providers_privacy_heading">Explorers and privacy</string>
+    <string name="providers_privacy_body">Balance reads on EVM chains ask the first provider that answers. Routescan, Etherscan, Blockscout and 3xpl are explorers, and Blockchair serves Ethereum too. Every provider that is asked for a read sees the address it is asked about, and so does each RPC provider that a read reaches. Etherscan answers only with a key of your own. A chain whose RPC address you set in EVM settings is read from that address alone, so no public provider sees it.</string>
+    <string name="providers_prefer_rpc_title">Prefer RPC over explorers</string>
+    <string name="providers_prefer_rpc_body">On: balance reads use the RPC providers only, so no explorer sees them. Off is the default, and the explorers are asked first.</string>
 </resources>

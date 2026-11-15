@@ -3,6 +3,7 @@ package app.lumio.evm
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.ProviderConfig
+import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
@@ -37,9 +38,12 @@ class EvmReads(
     private val owner: Scheduler,
     private val settings: () -> EvmSettings,
     private val deadlineMs: Long = DEADLINE_MS,
+    /** The pool that balance reads use while [preferRpc] holds. It has no explorers. Without it, [pool] serves every read. */
+    private val rpcOnly: Scheduler = pool,
+    private val preferRpc: () -> Boolean = { false },
 ) {
     suspend fun balance(chain: EvmChain, address: String, priority: Priority = Priority.VISIBLE): BigInteger =
-        run(chain, priority, NativeBalance(net(chain), address))
+        run(chain, priority, NativeBalance(net(chain), address), if (preferRpc()) rpcOnly else pool)
 
     suspend fun nonce(chain: EvmChain, address: String, pending: Boolean, priority: Priority = Priority.VISIBLE): Long =
         run(chain, priority, Nonce(net(chain), address, pending))
@@ -54,8 +58,8 @@ class EvmReads(
     /** What the pool, or else the owner's scheduler, knows about [providerId] now, or null when neither holds that provider. */
     suspend fun statusOf(providerId: String): ProviderHealth? = pool.statusOf(providerId) ?: owner.statusOf(providerId)
 
-    private suspend fun <T> run(chain: EvmChain, priority: Priority, req: Request<T>): T {
-        val scheduler = if (settings().rpc.containsKey(chain.chainId)) owner else pool
+    private suspend fun <T> run(chain: EvmChain, priority: Priority, req: Request<T>, publicPool: Scheduler = pool): T {
+        val scheduler = if (settings().rpc.containsKey(chain.chainId)) owner else publicPool
         return try {
             withTimeout(deadlineMs) { scheduler.run(req, priority) }
         } catch (e: ProviderError) {
@@ -84,6 +88,10 @@ class EvmReads(
                 pool = Scheduler(DataPlugins.evm() + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope),
                 owner = Scheduler(listOf(CustomRpc(allowLocalHttp)), configs, http, MonotonicClock, Random.Default, scope),
                 settings = settings,
+                rpcOnly = Scheduler(
+                    DataPlugins.evm(preferRpc = true) + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope,
+                ),
+                preferRpc = { PreferRpcStore.read(session) },
             )
         }
 
