@@ -56,18 +56,6 @@ jobs:
           done
           exit 1
 
-      # TEMPORARY DIAGNOSTIC (remove before merge): keep the Roborazzi diffs of a failed run.
-      - name: Upload Roborazzi diffs (diagnostic)
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: roborazzi-diffs
-          path: |
-            app/build/outputs/roborazzi
-            app/build/reports/roborazzi
-            app/build/test-results/testDebugUnitTest
-          if-no-files-found: warn
-
       # The fuzz targets replay their committed seeds in a second invocation, with -PfuzzLane. They must not
       # share a JVM with the Robolectric tests above: Jazzer and Robolectric cannot (see the note in
       # shared/build.gradle.kts). The 15-minute real fuzzing stays in the `fuzz` job below.
@@ -143,17 +131,6 @@ jobs:
             ./gradlew :app:connectedDebugAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.notPackage=app.lensly.benchmark
 
-      # TEMPORARY DIAGNOSTIC (remove before merge): keep the connected-test reports of a failed run.
-      - name: Upload connected-test reports (diagnostic)
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: connected-instrumented
-          path: |
-            app/build/outputs/androidTest-results
-            app/build/reports/androidTests
-          if-no-files-found: warn
-
   e2e:
     # Guideline 1.6: the wallet sign flow on an emulator, separate from `instrumented` so one
     # error report names the layer.
@@ -190,17 +167,6 @@ jobs:
           script: >-
             ./gradlew :app:connectedDebugAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.class=app.lensly.e2e.WalletSignFlowTest
-
-      # TEMPORARY DIAGNOSTIC (remove before merge): keep the connected-test reports of a failed run.
-      - name: Upload connected-test reports (diagnostic)
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: connected-e2e
-          path: |
-            app/build/outputs/androidTest-results
-            app/build/reports/androidTests
-          if-no-files-found: warn
 
   benchmark:
     # Guideline 1.7: emulator numbers are trend data only. The 10% gate needs the reference
@@ -242,17 +208,6 @@ jobs:
             ./gradlew :app:connectedBenchmarkAndroidTest
             "-Pandroid.testInstrumentationRunnerArguments.class=app.lensly.benchmark.*"
             -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
-
-      # TEMPORARY DIAGNOSTIC (remove before merge): keep the connected-test reports of a failed run.
-      - name: Upload connected-test reports (diagnostic)
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: connected-benchmark
-          path: |
-            app/build/outputs/androidTest-results
-            app/build/reports/androidTests
-          if-no-files-found: warn
 
       - name: Confirm trend-only
         run: echo "Emulator results are trend data; the 10% gate runs on the reference device only."

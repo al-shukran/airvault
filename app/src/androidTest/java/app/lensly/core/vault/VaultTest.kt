@@ -152,9 +152,9 @@ class VaultTest {
             assertNotNull(session.getRecord(wallet, "secret"))
 
             session.deleteWallet(wallet)
-            assertNull(session.getRecord(wallet, "secret"))
+            // The folder stays as an unused slot of random bytes, so its record must not read back as the plaintext.
+            assertNull(readOrNull(session, wallet, "secret"))
             assertFalse(session.listWallets().contains(wallet))
-            assertFalse(File(vaultRoot, "wallets/$wallet").exists())
             session.close()
         }
     }
@@ -166,17 +166,25 @@ class VaultTest {
             val session = unlocked(vault.unlock(PASSWORD.toCharArray()))
             val wallet = session.createWallet()
             session.putRecord(wallet, "secret", byteArrayOf(5, 6, 7))
-            val recordFile = File(vaultRoot, "wallets/$wallet/seed.bin")
+            val recordFile = File(vaultRoot, "wallets/$wallet/secret.bin")
             val ciphertext = recordFile.readBytes()
 
             session.deleteWallet(wallet)
             // Put the old ciphertext back on its own. Without the wallet key it must not decrypt.
             File(vaultRoot, "wallets/$wallet").mkdirs()
             recordFile.writeBytes(ciphertext)
-            assertNull(session.getRecord(wallet, "secret"))
+            assertNull(readOrNull(session, wallet, "secret"))
             session.close()
         }
     }
+
+    /** The record's bytes, or null when the session refuses to return them: an absent record, or a failed authentication. */
+    private fun readOrNull(session: VaultSession, wallet: String, name: String): ByteArray? =
+        try {
+            session.getRecord(wallet, name)
+        } catch (e: VaultException) {
+            null
+        }
 
     @Test
     fun tamperedFailureFileLocksForTheCapEvenWithTheCorrectPassword() {

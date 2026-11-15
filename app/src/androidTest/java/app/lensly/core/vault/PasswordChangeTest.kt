@@ -63,14 +63,14 @@ class PasswordChangeTest {
             session.putRecord(wallet, "profile", PROFILE)
             session.putVaultRecord("settings", SETTINGS)
             val walletKeyBefore = File(vaultRoot, "wallets/$wallet/pwk.bin").readBytes()
-            val seedBefore = File(vaultRoot, "wallets/$wallet/seed.bin").readBytes()
+            val secretBefore = File(vaultRoot, "wallets/$wallet/secret.bin").readBytes()
 
             assertEquals(CreateResult.Created, vault.rekey(session, NEW.toCharArray()))
             session.close()
 
             // Only the vault key file changed. The per-wallet key and the record files are the same bytes.
             assertArrayEquals(walletKeyBefore, File(vaultRoot, "wallets/$wallet/pwk.bin").readBytes())
-            assertArrayEquals(seedBefore, File(vaultRoot, "wallets/$wallet/seed.bin").readBytes())
+            assertArrayEquals(secretBefore, File(vaultRoot, "wallets/$wallet/secret.bin").readBytes())
 
             clock.advance(FailureDelay.LEARNING_CAP_MS)
             val reopened = unlocked(vault.unlock(NEW.toCharArray()))
