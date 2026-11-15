@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 // Lumio, the companion app. It shares the camera cover, the gate and the theme with Lensly through :shared, and it has its own manifest,
@@ -85,6 +86,10 @@ dependencies {
     // Balances and nonces come from a public JSON-RPC endpoint over HTTPS. OkHttp is the client web3j already ships, at the same version.
     implementation(libs.okhttp)
 
+    // The cache and the scan queue are one Room database in the app's private storage. Room's processor runs through KSP.
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+
     // The pairing codes are read as UR and Bitcoin key types, the same libraries :shared reads them with.
     implementation(libs.sparrowwallet.hummingbird)
     implementation(libs.bitcoin.kmp)
@@ -98,6 +103,8 @@ dependencies {
 
     // The Esplora tests answer from a local MockWebServer, never from the network.
     testImplementation(libs.okhttp.mockwebserver)
+    // The scheduler and cache tests run in virtual time.
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.robolectric)
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:$junitJupiter")

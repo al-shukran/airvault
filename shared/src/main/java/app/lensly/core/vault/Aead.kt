@@ -11,7 +11,7 @@ import javax.crypto.spec.SecretKeySpec
  *
  * The `open` functions throw [javax.crypto.AEADBadTagException] when the key, the AAD or the blob is wrong.
  */
-internal object Aead {
+object Aead {
     const val IV_BYTES = 12
     private const val TAG_BITS = 128
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
