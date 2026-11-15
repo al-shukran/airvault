@@ -47,6 +47,23 @@ class HdWallet(seed: ByteArray) {
         parentFingerprint = fingerprint(coinNode),
     )
 
+    /**
+     * The public key of m/44'/60'/0'/0, the Ledger Legacy key of the account. Its parent is the account key m/44'/60'/0'. Public data only.
+     */
+    fun legacyChainXpub(): AccountXpub {
+        val node = Bip32ECKeyPair.deriveKeyPair(account, intArrayOf(0))
+        return AccountXpub(compressedPublicKey(node), node.chainCode, fingerprint(account))
+    }
+
+    /**
+     * The public key of m/44'/60'/0'/0/0, the Ledger Live key of the account. Its parent is m/44'/60'/0'/0. Public data only.
+     */
+    fun ledgerLiveXpub(): AccountXpub {
+        val node = externalKey(0)
+        val parent = Bip32ECKeyPair.deriveKeyPair(account, intArrayOf(0))
+        return AccountXpub(compressedPublicKey(node), node.chainCode, fingerprint(parent))
+    }
+
     /** EIP-55 checksummed address of m/44'/60'/0'/0/[index]. */
     fun address(index: Int): String = addressOf(externalKey(index))
 
