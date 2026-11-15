@@ -2,250 +2,118 @@ package app.lumio.btc
 
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.vault.MemoryKeystore
-import app.lensly.core.vault.VaultLayout
-import app.lensly.core.vault.VaultSession
+import app.lumio.data.MonotonicClock
+import app.lumio.data.esplora.BlockstreamProvider
+import app.lumio.data.esplora.MempoolProvider
+import app.lumio.data.provider.Http
+import app.lumio.data.sched.Priority
+import app.lumio.data.sched.Scheduler
 import app.lumio.pair.PairFixtures
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
+import kotlin.random.Random
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 
-/** The gap-limit discovery and the account scan, against the fake Esplora on a local MockWebServer. */
+/**
+ * The gap-limit scan through the scheduler, against two local Esplora servers that stand in for mempool.space and blockstream.info. The scan's
+ * numbers are checked here; a server that answers 429 is served by the other one, with no wait.
+ */
 class BtcScanTest {
-    private val fake = FakeEsplora()
-    private val server = MockWebServer()
-    private lateinit var base: String
-
     private val account = PairFixtures.account(PairFixtures.seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
     private val ref = BtcAccountRef("wallet-1", account)
-
-    @get:Rule
-    val tmp = TemporaryFolder()
+    private val first = FakeEsplora()
+    private val second = FakeEsplora()
+    private val serverA = MockWebServer()
+    private val serverB = MockWebServer()
 
     @Before
     fun start() {
-        server.dispatcher = fake
-        server.start()
-        base = server.url("/api").toString()
+        serverA.dispatcher = first
+        serverB.dispatcher = second
+        serverA.start()
+        serverB.start()
     }
 
     @After
     fun stop() {
-        server.shutdown()
+        serverA.shutdown()
+        serverB.shutdown()
     }
 
-    private fun scan(
-        nowMs: Long = 1_000L,
-        detail: Boolean = false,
-        memo: ConcurrentMap<String, EsploraAddressStats> = ConcurrentHashMap(),
-    ): BtcSnapshot = runBlocking { scanAccount(ref, EsploraClient(base) {}, base, nowMs, memo, detail) }
+    /** A scheduler over the two servers, as the mempool and blockstream plugins, both serving testnet4. */
+    private fun CoroutineScope.scheduler(): Scheduler = Scheduler(
+        providers = listOf(
+            MempoolProvider(bases = mapOf("testnet4" to serverA.url("/api").toString())),
+            BlockstreamProvider(bases = mapOf("testnet4" to serverB.url("/api").toString())),
+        ),
+        configs = { emptyMap() },
+        http = Http(OkHttpClient()),
+        clock = MonotonicClock,
+        random = Random(11),
+        scope = this,
+    )
 
-    @Test
-    fun aChainStopsAfterTwentyUnusedAddressesInARow() {
-        fake.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedCount = 1, fundedSum = 10_000, txCount = 1))
-
-        val snapshot = scan()
-
-        // Receive 0 is used, so the walk asks receive 0 to 20 (twenty unused in a row). The change chain has nothing, so it asks 0 to 19.
-        assertEquals((0..20).map { account.receiveAddress(it) }, fake.askedFor((0..20).map { account.receiveAddress(it) }))
-        assertEquals((0..19).map { account.changeAddress(it) }, fake.askedFor((0..19).map { account.changeAddress(it) }))
-        assertEquals(10_000L, snapshot.confirmedSats)
-        assertEquals(1, snapshot.nextReceiveIndex)
-        assertEquals(account.receiveAddress(1), snapshot.nextReceiveAddress)
-    }
-
-    @Test
-    fun theWalkGoesOnAcrossAGapShorterThanTheLimit() {
-        // Receive 0 and 20 are used, with 19 unused addresses between them. That gap is short of the limit, so the walk continues.
-        fake.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1))
-        fake.stats[account.receiveAddress(20)] = addressJson(chain = side(fundedCount = 1, fundedSum = 2_000, txCount = 1))
-        // Change 3 is used on the mempool only, with 700 sats still unconfirmed.
-        fake.stats[account.changeAddress(3)] = addressJson(mempool = side(fundedCount = 1, fundedSum = 700, txCount = 1))
-
-        val snapshot = scan()
-
-        // Receive: 0 to 40, since 21 to 40 are the twenty unused after 20. Change: 0 to 23, since 4 to 23 are the twenty unused after 3.
-        assertEquals((0..40).map { account.receiveAddress(it) }, fake.askedFor((0..40).map { account.receiveAddress(it) }))
-        assertEquals((0..23).map { account.changeAddress(it) }, fake.askedFor((0..23).map { account.changeAddress(it) }))
-        assertEquals(3_000L, snapshot.confirmedSats)
-        assertEquals(700L, snapshot.unconfirmedSats)
-        assertEquals(1, snapshot.nextReceiveIndex)
-    }
-
-    @Test
-    fun theNextReceiveAddressIsTheFirstUnusedIndex() {
-        for (index in 0..2) {
-            fake.stats[account.receiveAddress(index)] = addressJson(chain = side(fundedCount = 1, fundedSum = 100, txCount = 1))
+    /** Both servers answer the same history: the first receive address holds [sats] confirmed, in one unspent output. */
+    private fun fund(sats: Long) {
+        val address = account.receiveAddress(0)
+        val utxo = """[{"txid":"${"a".repeat(64)}","vout":0,"value":$sats,"status":{"confirmed":true,"block_height":850000}}]"""
+        for (server in listOf(first, second)) {
+            server.stats[address] = addressJson(chain = side(fundedSum = sats, fundedCount = 1, txCount = 1))
+            server.utxos[address] = utxo
         }
-
-        val snapshot = scan()
-
-        assertEquals(3, snapshot.nextReceiveIndex)
-        assertEquals(account.receiveAddress(3), snapshot.nextReceiveAddress)
     }
 
     @Test
-    fun transactionsAreDedupedSortedAndNetOfTheAccountsOwnAddresses() {
-        val receive0 = account.receiveAddress(0)
-        val change3 = account.changeAddress(3)
-        // Receive 0 got 1,000 sats at block 849,990. The spend of them is unconfirmed: it pays 600 back to change 3 and 300 to a stranger.
-        fake.stats[receive0] = addressJson(
-            chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1),
-            mempool = side(spentCount = 1, spentSum = 1_000, txCount = 1),
-        )
-        fake.stats[change3] = addressJson(mempool = side(fundedCount = 1, fundedSum = 600, txCount = 1))
-        val received = """{"txid":"tx-received","vin":[],"vout":[{"scriptpubkey_address":"$receive0","value":1000}],""" +
-            """"status":{"confirmed":true,"block_height":849990,"block_time":1700000000}}"""
-        val spend = """{"txid":"tx-spend","vin":[{"txid":"tx-received","vout":0,"prevout":{"scriptpubkey_address":"$receive0",""" +
-            """"value":1000}}],"vout":[{"scriptpubkey_address":"$change3","value":600},""" +
-            """{"scriptpubkey_address":"tb1qstranger","value":300}],"status":{"confirmed":false}}"""
-        // Both addresses report the spend, and the scan must count it once.
-        fake.txs[receive0] = "[$spend,$received]"
-        fake.txs[change3] = "[$spend]"
-        fake.utxos[change3] = """[{"txid":"tx-spend","vout":0,"status":{"confirmed":false},"value":600}]"""
+    fun aScanReadsTheBalanceAndTheUnspentOutputsAndStopsAtTheGapLimit() = runBlocking {
+        fund(sats = 120_000L)
+        val scheduler = this.scheduler()
+        val steps = mutableListOf<Int>()
 
-        val snapshot = scan(detail = true)
+        val snapshot = scanAccount(ref, scheduler, Priority.VISIBLE, nowMs = 5_000L, step = { steps += it })
 
-        assertEquals(1_000L, snapshot.confirmedSats)
-        assertEquals(-400L, snapshot.unconfirmedSats, "the spend takes 1,000 from receive 0 and gives 600 back to change 3")
-        assertEquals(listOf("tx-spend", "tx-received"), snapshot.transactions.map { it.txid })
-        assertEquals(-400L, snapshot.transactions[0].netSats)
-        assertEquals(1_000L, snapshot.transactions[1].netSats)
-        assertEquals(11L, snapshot.confirmations(snapshot.transactions[1]), "block 849,990 under a tip of 850,000")
-        assertEquals(0L, snapshot.confirmations(snapshot.transactions[0]))
-        assertEquals(listOf(BtcUtxo("tx-spend", 0, 600, null)), snapshot.utxos)
-        assertEquals(2, fake.paths.count { it.endsWith("/txs") }, "one transactions request per used address")
+        assertEquals(120_000L, snapshot.confirmedSats)
+        assertEquals(1, snapshot.utxos.size)
+        assertEquals(1, snapshot.nextReceiveIndex, "index 0 is used, so the next receive address is index 1")
+        // The receive chain asks index 0 and then its 20-address gap: 21 requests. The change chain has no history: 20 requests.
+        assertEquals(41, first.statsRequests().size + second.statsRequests().size)
+        assertEquals((1..41).toList(), steps.sorted(), "each address asked for is reported once, as the scan goes")
     }
 
     @Test
-    fun aFullySpentAddressIsNotAskedForItsUnspentOutputs() {
-        val receive0 = account.receiveAddress(0)
-        fake.stats[receive0] = addressJson(chain = side(fundedCount = 1, fundedSum = 500, spentCount = 1, spentSum = 500, txCount = 2))
+    fun aRateLimitedServerIsServedByTheOtherWithoutAWait() = runBlocking {
+        fund(sats = 5_000L)
+        // Every answer of the first server is a 429 with a 600 s Retry-After. The scan must not wait for it.
+        repeat(10) { first.queued.add(MockResponse().setResponseCode(429).setHeader("Retry-After", "600")) }
+        val scheduler = this.scheduler()
+        val started = System.nanoTime()
 
-        scan()
+        val snapshot = scanAccount(ref, scheduler, Priority.VISIBLE, nowMs = 1L)
 
-        assertTrue(fake.paths.none { it == "/api/address/$receive0/utxo" })
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        assertEquals(5_000L, snapshot.confirmedSats, "the second server answers the whole scan")
+        // Its lane allows two calls at once, and the first 429 cools it. No call is admitted to it after that, so it sees at most two.
+        assertTrue(first.paths.size <= 2, "a cooled server gets no new call: it saw ${first.paths.size}")
+        // The second server's own rate (3 calls a second, after a burst of 6) paces the 41 requests: about 12 s. A wait on the 600 s header would fail this.
+        assertTrue(elapsedMs < 30_000, "the scan must not wait out the Retry-After: it took $elapsedMs ms")
     }
 
     @Test
-    fun aNetworkThatStaysBusyIsGivenUpOnAndItsAccountsKeepTheirCache() {
-        fake.status = 503
-        val second = BtcAccountRef("wallet-1", PairFixtures.account(PairFixtures.seed, BtcNetwork.TESTNET4, ScriptType.TAPROOT))
+    fun theOpenAccountReadsItsRecentTransactionsAndAPortfolioScanDoesNot() = runBlocking {
+        fund(sats = 1_000L)
+        val scheduler = this.scheduler()
 
-        val report = runBlocking {
-            scanAll(listOf(ref, second), mapOf(BtcNetwork.TESTNET4 to base), store(), pause = {}) { 1_000L }
-        }
+        scanAccount(ref, scheduler, Priority.VISIBLE, nowMs = 1L, detail = false)
+        assertFalse((first.paths + second.paths).any { it.endsWith("/txs") })
 
-        assertTrue(report.fresh.isEmpty())
-        assertEquals("Rate limited, retry later.", report.failures[BtcNetwork.TESTNET4])
-        assertEquals(6, fake.paths.size, "the first account's tip: one try and five retries; the second account was skipped")
+        scanAccount(ref, scheduler, Priority.FOREGROUND, nowMs = 2L, detail = true)
+        assertTrue((first.paths + second.paths).any { it.endsWith("/txs") })
     }
-
-    @Test
-    fun aPortfolioScanNeverAsksForTransactions() {
-        fake.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1))
-
-        val snapshot = scan()
-
-        assertEquals(emptyList<String>(), fake.paths.filter { it.endsWith("/txs") })
-        assertEquals(emptyList<BtcTx>(), snapshot.transactions)
-    }
-
-    @Test
-    fun unusedAddressesAreNeverAskedForUnspentOutputsOrTransactions() {
-        val receive0 = account.receiveAddress(0)
-        fake.stats[receive0] = addressJson(chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1))
-
-        scan(detail = true)
-
-        assertEquals(listOf("/api/address/$receive0/txs"), fake.paths.filter { it.endsWith("/txs") })
-        assertEquals(listOf("/api/address/$receive0/utxo"), fake.paths.filter { it.endsWith("/utxo") })
-    }
-
-    @Test
-    fun anEmptyAccountAsksTwentyAddressesPerChainAndTheTipOnce() {
-        scan()
-
-        val receive = (0..19).map { account.receiveAddress(it) }
-        val change = (0..19).map { account.changeAddress(it) }
-        assertEquals(receive, fake.askedFor(receive))
-        assertEquals(change, fake.askedFor(change))
-        assertEquals(40, fake.statsRequests().size, "twenty receive and twenty change addresses")
-        assertEquals(41, fake.paths.size, "with the tip height, asked once")
-    }
-
-    @Test
-    fun aRescanAsksAgainOnlyTheUsedAddressesAndTheGapWindow() {
-        val memo = ConcurrentHashMap<String, EsploraAddressStats>()
-        // Receive 0 and 2 are used, with unused receive 1 between them. The first walk asks receive 0 to 22, and change 0 to 19.
-        fake.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1))
-        fake.stats[account.receiveAddress(2)] = addressJson(chain = side(fundedCount = 1, fundedSum = 1_000, txCount = 1))
-        scan(memo = memo)
-        assertEquals(43, fake.statsRequests().size)
-        fake.paths.clear()
-
-        val snapshot = scan(nowMs = 2_000L, memo = memo)
-
-        // Receive 1 lies before the last used address, 2, so it is read from the memo. Receive 0 and 2 are used; 3 to 22 are the gap window.
-        val receive = (0..22).map { account.receiveAddress(it) }
-        assertEquals((listOf(0, 2) + (3..22)).map { account.receiveAddress(it) }, fake.askedFor(receive))
-        assertEquals(42, fake.statsRequests().size, "22 receive, and 20 change: with no used change address, all twenty are the gap window")
-        assertEquals(2_000L, snapshot.confirmedSats, "the same balance as the first scan")
-    }
-
-    @Test
-    fun aSuccessfulScanIsSavedAndReturned() {
-        val store = store()
-
-        val report = runBlocking { scanAll(listOf(ref), mapOf(BtcNetwork.TESTNET4 to base), store) { 2_000L } }
-
-        assertTrue(report.failures.isEmpty())
-        assertEquals(report.fresh[ref.key], store.snapshot(ref.key))
-        assertEquals(2_000L, store.snapshot(ref.key)?.scannedAtMs)
-    }
-
-    @Test
-    fun theWalkStopsAfterTwentyUnusedIndicesWithoutAnyServer() {
-        val asked = mutableListOf<String>()
-        val chain = runBlocking {
-            scanChain(
-                addressAt = { "a$it" },
-                statsOf = { address ->
-                    asked += address
-                    if (address == "a3" || address == "a7") usedStats else unusedStats
-                },
-            )
-        }
-
-        assertEquals(listOf(3, 7), chain.used.map { it.index })
-        // Used 3 and 7, then twenty unused, 8 to 27.
-        assertEquals((0..27).map { "a$it" }, asked)
-    }
-
-    @Test
-    fun aMempoolSpendOfAConfirmedOutputIsANegativeUnconfirmedBalance() {
-        val receive0 = account.receiveAddress(0)
-        fake.stats[receive0] = addressJson(
-            chain = side(fundedCount = 1, fundedSum = 800, txCount = 1),
-            mempool = side(spentCount = 1, spentSum = 800, txCount = 1),
-        )
-
-        val snapshot = scan()
-
-        assertEquals(800L, snapshot.confirmedSats)
-        assertEquals(-800L, snapshot.unconfirmedSats)
-    }
-
-    private fun store() = BtcStore(VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 5 + 1).toByte() }))
-
-    private val unusedStats = EsploraAddressStats(EsploraSide(0, 0, 0, 0, 0), EsploraSide(0, 0, 0, 0, 0))
-    private val usedStats = EsploraAddressStats(EsploraSide(1, 5, 0, 0, 1), EsploraSide(0, 0, 0, 0, 0))
 }

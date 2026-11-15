@@ -12,7 +12,7 @@ enum class Kind { DATA, RPC }
  * What a provider promises about itself. Routing reads these traits, and no call changes them. [FALLBACK_ONLY] marks a provider that serves a
  * network only when no other provider can serve it now.
  */
-enum class Trait { KEYLESS, KEY_OPTIONAL, KEY_REQUIRED, MEV_PROTECTED, PRIVACY, ESPLORA_COMPAT, FALLBACK_ONLY }
+enum class Trait { KEYLESS, KEY_OPTIONAL, KEY_REQUIRED, MEV_PROTECTED, PRIVACY, ESPLORA_COMPAT, FALLBACK_ONLY, OWN_SERVER }
 
 /** The operations a request can name. A provider declares, per network, which of them it serves. */
 enum class Op {

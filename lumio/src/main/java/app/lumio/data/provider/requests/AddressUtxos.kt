@@ -1,11 +1,13 @@
 package app.lumio.data.provider
 
 import app.lumio.data.net.NetworkId
+import kotlinx.serialization.Serializable
 
 /**
  * One unspent Bitcoin output. [valueSats] is in satoshis. [blockHeight] is null while the output is unconfirmed.
  * The package is `app.lumio.data.provider` because [Request] is sealed, and its subclasses must share its package.
  */
+@Serializable
 data class Utxo(val txid: String, val vout: Int, val valueSats: Long, val blockHeight: Long?)
 
 /**

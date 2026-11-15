@@ -41,8 +41,11 @@ interface Codec<T> {
     fun decode(bytes: ByteArray): T
 }
 
-/** A result's cache key and policy, with the codec for its type. The scheduler reads and fills the cache with it. */
-class CacheUse<T>(val policy: CachePolicy, val key: String, val codec: Codec<T>)
+/**
+ * A result's cache key and policy, with the codec for its type. The scheduler reads and fills the cache with it. [keep] says whether a fresh result
+ * is stored at all: a confirmed transaction is kept for good only once it has enough confirmations, for example.
+ */
+class CacheUse<T>(val policy: CachePolicy, val key: String, val codec: Codec<T>, val keep: (T) -> Boolean = { true })
 
 /**
  * The two keys of the cache. [mac] names the entries, and [enc] seals their values. Both come from the open vault session, so a locked vault
@@ -90,6 +93,47 @@ class Cache(
                 evictImmutable()
             }
             CachePolicy.LastKnown -> putStored(LAST_KNOWN, key, value)
+        }
+    }
+
+    /**
+     * Deletes each stored entry of [policy] whose value [keep] rejects, and each one that does not open. The owner's data for a wallet that is no
+     * longer paired is removed this way: its balances are kept only while [keep] accepts them. Values with a short time to live are not stored.
+     */
+    suspend fun retainStored(policy: CachePolicy, keep: (ByteArray) -> Boolean) {
+        val code = when (policy) {
+            is CachePolicy.ShortTtl -> return
+            CachePolicy.Immutable -> IMMUTABLE
+            CachePolicy.LastKnown -> LAST_KNOWN
+        }
+        for (row in dao.all()) {
+            if (row.policy != code) continue
+            val value = try {
+                Aead.open(keys.enc, aad(row.k, row.policy), row.v)
+            } catch (e: GeneralSecurityException) {
+                null
+            } catch (e: IllegalArgumentException) {
+                null
+            }
+            if (value == null || !keep(value)) dao.delete(row.k)
+        }
+    }
+
+    /**
+     * Deletes every stored entry that does not open under [keys]: one sealed under an older key, or one that a damaged file left unreadable. Run once
+     * when the vault opens, so the database never keeps bytes that no session can read.
+     */
+    suspend fun purgeUnreadable() {
+        for (row in dao.all()) {
+            val opens = try {
+                Aead.open(keys.enc, aad(row.k, row.policy), row.v)
+                true
+            } catch (e: GeneralSecurityException) {
+                false
+            } catch (e: IllegalArgumentException) {
+                false
+            }
+            if (!opens) dao.delete(row.k)
         }
     }
 

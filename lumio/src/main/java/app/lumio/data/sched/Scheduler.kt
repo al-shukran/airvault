@@ -20,19 +20,24 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 
-/** How urgent a provider call is. When a slot frees, the most urgent waiting call takes it. */
+/**
+ * How urgent a provider call is. When a slot frees, the most urgent waiting call takes it. [deadlineMs] is how long a call of this priority may take
+ * in all, waits included, before it fails as [ProviderError.Transient]. A call on screen gives up sooner than a background scan.
+ */
 @Serializable
-enum class Priority(internal val rank: Int) {
-    FOREGROUND(0),
-    VISIBLE(1),
-    BACKGROUND(2),
+enum class Priority(internal val rank: Int, val deadlineMs: Long) {
+    FOREGROUND(0, 30_000L),
+    VISIBLE(1, 30_000L),
+    BACKGROUND(2, 120_000L),
 }
 
 /**
@@ -46,7 +51,10 @@ enum class Priority(internal val rank: Int) {
  *   and a failed one opens it again.
  * - [ProviderError.Unsupported] and [ProviderError.Fatal] skip the provider for that call only. [ProviderError.NotFound] is an answer.
  *
- * Time comes from [clock] and jitter from [random], so tests run in virtual time. [scope] runs the timers that wake waiting calls.
+ * Each call has a deadline set by its [Priority], and one that runs past it fails as [ProviderError.Transient].
+ *
+ * Time comes from [clock] and jitter from [random], so tests run in virtual time. [scope] runs the timers that wake waiting calls. [cache] is read
+ * for the open vault, and it is null while the vault is locked, when only uncached calls can run.
  */
 class Scheduler(
     providers: List<Provider>,
@@ -55,7 +63,7 @@ class Scheduler(
     private val clock: Clock,
     private val random: Random,
     private val scope: CoroutineScope,
-    private val cache: Cache? = null,
+    private val cache: () -> Cache? = { null },
 ) {
     private val all: List<Provider> = providers.toList()
     private val router = Router(all)
@@ -77,17 +85,28 @@ class Scheduler(
     }
 
     /**
-     * Serves [req] at [priority]. With [cacheUse], a stored value is returned without a call, and a value that a provider returns is stored.
+     * Serves [req] at [priority]. With [cacheUse] and an open cache, a stored value is returned without a call, and a value that a provider returns
+     * is stored when [CacheUse.keep] accepts it. Without a cache the request is simply sent.
      *
-     * @throws ProviderError.Unsupported when no enabled provider can serve the request. Otherwise it throws the error of the last candidate.
+     * @throws ProviderError.Unsupported when no enabled provider can serve the request. Otherwise it throws the error of the last candidate, and
+     * [ProviderError.Transient] when the call passes its deadline.
      */
     suspend fun <T> run(req: Request<T>, priority: Priority = Priority.VISIBLE, cacheUse: CacheUse<T>? = null): T {
-        val store = if (cacheUse == null) null else checkNotNull(cache) { "A cache use needs a cache on the scheduler." }
+        val store = if (cacheUse == null) null else cache()
         if (cacheUse != null && store != null && cacheUse.policy !is CachePolicy.LastKnown) {
-            store.get(cacheUse.policy, cacheUse.key)?.let { return cacheUse.codec.decode(it.value) }
+            store.get(cacheUse.policy, cacheUse.key)?.let { entry ->
+                // A stored value that does not decode is a miss: the call is made again and the value replaced.
+                runCatching { cacheUse.codec.decode(entry.value) }.onSuccess { return it }
+            }
         }
-        val value = call(req, priority)
-        if (cacheUse != null && store != null) store.put(cacheUse.policy, cacheUse.key, cacheUse.codec.encode(value))
+        val value = try {
+            withTimeout(priority.deadlineMs) { call(req, priority) }
+        } catch (e: TimeoutCancellationException) {
+            throw ProviderError.Transient(e)
+        }
+        if (cacheUse != null && store != null && cacheUse.keep(value)) {
+            store.put(cacheUse.policy, cacheUse.key, cacheUse.codec.encode(value))
+        }
         return value
     }
 
