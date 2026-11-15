@@ -29,7 +29,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.theme.LenslyRadius
@@ -39,76 +38,67 @@ import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 
 /**
- * The EVM settings. [onEnabled], [onSetRpc], [onResetRpc], [onRemoveCustom], [onAddCustom] and [onAddressCount] report a change to the
- * caller, which writes it. A change that is refused reports its words through the callback it was given, and the dialog stays open.
- * [notice] shows a refusal that is not tied to a dialog. [busy] holds every change until the last one has finished.
+ * The Ethereum section of the settings: how many addresses each wallet shows, which chains are read, the RPC address of each chain, and the
+ * custom chains. [onEnabled], [onSetRpc], [onResetRpc], [onRemoveCustom], [onAddCustom] and [onAddressCount] report a change to the caller,
+ * which writes it. A change that is refused reports its words through the callback it was given, and the dialog stays open. [notice] shows a
+ * refusal that is not tied to a dialog. [busy] holds every change until the last one has finished.
  */
 @Composable
-fun EvmSettingsScreen(
+fun EvmSettingsSection(
     settings: EvmSettings,
     chains: List<EvmChain>,
     busy: Boolean,
     notice: String?,
-    onBack: () -> Unit,
     onAddressCount: (Int) -> Unit,
     onEnabled: (chainId: Long, on: Boolean) -> Unit,
     onSetRpc: (chainId: Long, raw: String, onDone: (String?) -> Unit) -> Unit,
     onResetRpc: (chainId: Long) -> Unit,
     onRemoveCustom: (chainId: Long) -> Unit,
     onAddCustom: (CustomChainInput, onDone: (String?) -> Unit) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     var editing by remember { mutableStateOf<EvmChain?>(null) }
     var adding by remember { mutableStateOf(false) }
-    LenslyScreen(
-        title = "EVM SETTINGS",
-        modifier = modifier,
-        onBack = onBack,
-        bottomAction = {
-            PillButton(
-                text = "Add custom chain",
-                onClick = { adding = true },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !busy,
-            )
-        },
-    ) {
-        notice?.let {
-            InlineBanner(message = it, tone = BannerTone.Error)
-            Spacer(Modifier.height(LenslySpacing.sm))
-        }
-        SectionLabel("Addresses per wallet")
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-            PillButton(
-                text = "-",
-                onClick = { onAddressCount(settings.addressCount - 1) },
-                enabled = !busy && settings.addressCount > 1,
-            )
-            Text(
-                "${settings.addressCount}",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            PillButton(
-                text = "+",
-                onClick = { onAddressCount(settings.addressCount + 1) },
-                enabled = !busy && settings.addressCount < EvmSettings.MAX_ADDRESS_COUNT,
-            )
-        }
-        SectionLabel("Chains")
-        chains.forEach { chain ->
-            ChainRow(
-                chain = chain,
-                settings = settings,
-                busy = busy,
-                onEnabled = { on -> onEnabled(chain.chainId, on) },
-                onEdit = { editing = chain },
-                onReset = { onResetRpc(chain.chainId) },
-                onRemove = { onRemoveCustom(chain.chainId) },
-            )
-            Spacer(Modifier.height(LenslySpacing.sm))
-        }
+    notice?.let {
+        InlineBanner(message = it, tone = BannerTone.Error)
+        Spacer(Modifier.height(LenslySpacing.sm))
     }
+    SectionLabel("Addresses per wallet")
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
+        PillButton(
+            text = "-",
+            onClick = { onAddressCount(settings.addressCount - 1) },
+            enabled = !busy && settings.addressCount > 1,
+        )
+        Text(
+            "${settings.addressCount}",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        PillButton(
+            text = "+",
+            onClick = { onAddressCount(settings.addressCount + 1) },
+            enabled = !busy && settings.addressCount < EvmSettings.MAX_ADDRESS_COUNT,
+        )
+    }
+    SectionLabel("Chains")
+    chains.forEach { chain ->
+        ChainRow(
+            chain = chain,
+            settings = settings,
+            busy = busy,
+            onEnabled = { on -> onEnabled(chain.chainId, on) },
+            onEdit = { editing = chain },
+            onReset = { onResetRpc(chain.chainId) },
+            onRemove = { onRemoveCustom(chain.chainId) },
+        )
+        Spacer(Modifier.height(LenslySpacing.sm))
+    }
+    PillButton(
+        text = "Add custom chain",
+        onClick = { adding = true },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !busy,
+    )
     editing?.let { chain ->
         RpcDialog(
             chain = chain,

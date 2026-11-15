@@ -33,6 +33,7 @@ import app.lumio.data.scan.ScanRunner
 import app.lumio.data.sched.Scheduler
 import app.lumio.evm.EvmReads
 import app.lumio.evm.EvmRpc
+import app.lumio.network.NetworkModeStore
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
@@ -121,11 +122,14 @@ class LumioApp : Application(), CoverApplication {
     /** The open vault's Lumio state, or null while the vault is locked, or for a decoy vault, which keeps none. */
     fun lumioVault(): LumioVault? = vaultHolder.sessionAttachment() as? LumioVault
 
-    /** The Bitcoin network whose accounts scan now. Until the owner's network choice is stored, it is mainnet. */
-    fun selectedBtcNetwork(): BtcNetwork = BtcNetwork.MAINNET
+    /**
+     * The Bitcoin network of the side the owner chose, read from [session]. Only its scan jobs run, so testnet4 and mainnet never scan together.
+     * Until a choice is stored, it is mainnet.
+     */
+    fun selectedBtcNetwork(session: VaultSession): BtcNetwork = NetworkModeStore.read(session).btcNetwork()
 
-    /** The network id of [selectedBtcNetwork]. */
-    fun selectedNetwork(): NetworkId = selectedBtcNetwork().networkId()
+    /** The network id of [selectedBtcNetwork] for [session]. */
+    fun selectedNetwork(session: VaultSession): NetworkId = selectedBtcNetwork(session).networkId()
 
     /**
      * Runs a pass over the pending scan jobs of the selected network, on the application's own scope, so the pass goes on when the screen that
@@ -151,7 +155,7 @@ class LumioApp : Application(), CoverApplication {
             vault.cache.purgeUnreadable()
             scanQueue.purgeUnreadable()
             vault.store.retain(bitcoinRefs(session).map { it.key }.toSet())
-            scanRunner.pass(selectedNetwork())
+            scanRunner.pass(selectedNetwork(session))
         }
         return vault
     }

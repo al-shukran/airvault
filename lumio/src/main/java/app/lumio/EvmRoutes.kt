@@ -29,10 +29,11 @@ import app.lumio.evm.Portfolio
 import app.lumio.evm.PortfolioTotals
 import app.lumio.evm.RpcFailure
 import app.lumio.evm.Totals
+import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.portfolio.WalletScreen
-import app.lumio.ui.settings.EvmSettingsScreen
+import app.lumio.ui.settings.EvmSettingsSection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,13 +59,13 @@ private class SettingsState(val settings: EvmSettings, val chains: List<EvmChain
 private fun catalogOf(app: LumioApp, settings: EvmSettings): List<EvmChain> = EvmCatalog.chains(app.registry, settings)
 
 /**
- * The portfolio of [walletId] from the open vault and its balance cache. Runs off the main thread. It reads no network: the cached reads
- * are shown with the time each was read.
+ * The portfolio of [walletId] on the side [mode] chooses, from the open vault and its balance cache. Runs off the main thread. It reads no
+ * network: the cached reads are shown with the time each was read.
  */
-private fun loadPortfolio(app: LumioApp, session: VaultSession, walletId: String): PortfolioState {
+private fun loadPortfolio(app: LumioApp, session: VaultSession, walletId: String, mode: NetworkMode): PortfolioState {
     val wallet = PairedWallets.list(session).firstOrNull { it.id == walletId } ?: return PortfolioState.Missing
     val settings = EvmSettingsStore.read(session)
-    val chains = catalogOf(app, settings).filter { it.chainId in settings.enabled }
+    val chains = catalogOf(app, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
     val cache = BalanceCache.read(session)
     val account = wallet.evm
     val rows = if (account == null) emptyList() else Portfolio.rows(wallet.id, account, settings.addressCount, chains, cache)
@@ -73,21 +74,21 @@ private fun loadPortfolio(app: LumioApp, session: VaultSession, walletId: String
 }
 
 /**
- * Reads [wallet]'s enabled chains from the RPC addresses of the vault's settings and stores the reads in the cache. Returns the chains
- * that failed. The vault reads and writes block, so the caller runs it off the main thread.
+ * Reads [wallet]'s enabled chains on the side [mode] chooses, from the RPC addresses of the vault's settings, and stores the reads in the
+ * cache. Returns the chains that failed. The vault reads and writes block, so the caller runs it off the main thread.
  */
-private suspend fun refreshWallet(app: LumioApp, session: VaultSession, wallet: PairedWallet): List<ChainFailure> {
+private suspend fun refreshWallet(app: LumioApp, session: VaultSession, wallet: PairedWallet, mode: NetworkMode): List<ChainFailure> {
     val settings = EvmSettingsStore.read(session)
-    val chains = catalogOf(app, settings).filter { it.chainId in settings.enabled }
+    val chains = catalogOf(app, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
     return Portfolio.refresh(session, listOf(wallet), settings, chains, app.evmReadsFor(session))[wallet.id].orEmpty()
 }
 
 /**
- * The portfolio of one paired wallet. It reads the balances from the cache when it opens, then reads them again from each enabled chain's
- * RPC address. A chain that fails keeps its cached read and is named on the screen.
+ * The portfolio of one paired wallet on the side [mode] chooses. It reads the balances from the cache when it opens, then reads them again
+ * from each enabled chain on that side. A chain that fails keeps its cached read and is named on the screen.
  */
 @Composable
-internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
+internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -98,11 +99,11 @@ internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, 
     var refreshing by remember { mutableStateOf(false) }
     var failures by remember { mutableStateOf<List<ChainFailure>>(emptyList()) }
     var problem by remember { mutableStateOf<String?>(null) }
-    val state by produceState<PortfolioState?>(initialValue = null, session, walletId, version) {
+    val state by produceState<PortfolioState?>(initialValue = null, session, walletId, mode, version) {
         value = if (session == null) {
             null
         } else {
-            withContext(Dispatchers.IO) { runCatching { loadPortfolio(app, session, walletId) }.getOrDefault(PortfolioState.Missing) }
+            withContext(Dispatchers.IO) { runCatching { loadPortfolio(app, session, walletId, mode) }.getOrDefault(PortfolioState.Missing) }
         }
     }
     val ready = (state as? PortfolioState.Ready)?.view
@@ -115,7 +116,7 @@ internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, 
         if (session == null || refreshing || wallet.evm == null) return
         refreshing = true
         scope.launch {
-            val outcome = withContext(Dispatchers.IO) { runCatching { refreshWallet(app, session, wallet) }.getOrNull() }
+            val outcome = withContext(Dispatchers.IO) { runCatching { refreshWallet(app, session, wallet, mode) }.getOrNull() }
             failures = outcome.orEmpty()
             problem = if (outcome == null) "The balances could not be saved. Try again." else null
             refreshing = false
@@ -130,6 +131,7 @@ internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, 
     if (ready == null) return
     WalletScreen(
         walletName = ready.wallet.name,
+        mode = mode,
         hasEvm = ready.wallet.evm != null,
         chains = ready.chains,
         rows = ready.rows,
@@ -144,8 +146,9 @@ internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, 
 }
 
 /**
- * The EVM settings: how many addresses each wallet shows, which chains are read, the RPC address of each chain, and the custom chains.
- * Each change is written to the vault when it is valid. A change that needs the endpoint waits for it, and the screen says why it failed.
+ * The Ethereum section of the settings: how many addresses each wallet shows, which chains are read, the RPC address of each chain, and the
+ * custom chains. Each change is written to the vault when it is valid. A change that needs the endpoint waits for it, and the section says
+ * why it failed.
  */
 @Composable
 internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHolder) {
@@ -202,12 +205,11 @@ internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHol
         }
     }
 
-    EvmSettingsScreen(
+    EvmSettingsSection(
         settings = current.settings,
         chains = current.chains,
         busy = busy,
         notice = notice,
-        onBack = { navController.popBackStack() },
         onAddressCount = { count -> change({ s, _ -> EvmEdits.setAddressCount(s, count) }) },
         onEnabled = { chainId, on -> change({ s, _ -> EvmEdits.setEnabled(s, chainId, on) }) },
         onSetRpc = { chainId, raw, onDone -> change({ s, rpc -> EvmEdits.setRpc(s, chainId, raw, rpc) }, onDone) },
