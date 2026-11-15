@@ -27,8 +27,9 @@ import okhttp3.HttpUrl
 import okhttp3.Request as HttpRequest
 
 /**
- * DefiLlama as a PRICE provider. It serves the USD price and the 24-hour change of the native coins that [NativeCoins] names. It is keyless and
- * sends no key. A price request names only the coin, never an address.
+ * DefiLlama as a PRICE provider. It serves the USD price and the 24-hour change of the native coins that [NativeCoins] names, and of the ERC-20
+ * tokens on a chain that [DefiLlamaChains] has a prefix for. It is keyless and sends no key. A price request names only the coin, which for a token
+ * is its contract, never an owner's address.
  *
  * Sources, read on 2026-11-16:
  * - Documentation: https://api-docs.defillama.com/llms-free.txt, and its OpenAPI file https://api-docs.defillama.com/defillama-openapi-free.json. Both
