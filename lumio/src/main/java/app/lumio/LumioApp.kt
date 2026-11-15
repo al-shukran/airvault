@@ -26,6 +26,7 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.blockchair.BlockchairProvider
 import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.scan.QueuedJob
 import app.lumio.data.scan.ScanQueue
@@ -87,9 +88,19 @@ class LumioApp : Application(), CoverApplication {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /** The Esplora providers. Each owner's server is a provider of its own network, so its address never reaches another network. */
+    /**
+     * The Esplora providers, then Blockchair as the last fallback: a FALLBACK_ONLY provider serves a Bitcoin read only when no other provider can
+     * serve it now. Blockchair serves UTXO reads only, so address statistics still need an Esplora provider. Each owner's server is a provider of
+     * its own network, so its address never reaches another network.
+     */
     private val providers: List<Provider> by lazy {
-        listOf(MempoolProvider(), BlockstreamProvider(), CustomEsploraProvider("mainnet"), CustomEsploraProvider("testnet4"))
+        listOf(
+            MempoolProvider(),
+            BlockstreamProvider(),
+            BlockchairProvider(fallbackOnly = true),
+            CustomEsploraProvider("mainnet"),
+            CustomEsploraProvider("testnet4"),
+        )
     }
 
     /** The one scheduler of Bitcoin data calls. It reads the open vault's cache and provider settings, and has neither while the vault is locked. */

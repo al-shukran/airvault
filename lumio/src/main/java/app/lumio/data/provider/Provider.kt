@@ -20,8 +20,15 @@ enum class Op {
     NATIVE_BALANCE, NONCE, TOKEN_BALANCES, TX_HISTORY, BROADCAST, RPC_CALL,
 }
 
-/** The one HTTP stack for providers: the OkHttp client that the app already ships. */
-class Http(val client: OkHttpClient)
+/**
+ * The one HTTP stack for providers: the OkHttp client that the app already ships. The scheduler gives each call its own [Http]. The call's first
+ * request is paid by the token its admission took, and a provider that sends more requests in one call calls [charge] before each of the rest.
+ * Each of those takes a token from the call's rate bucket and waits until one is free. Outside the scheduler, [charge] does nothing.
+ */
+class Http(val client: OkHttpClient, private val chargeToken: suspend () -> Unit = {}) {
+    /** Takes one token from the call's rate bucket for a request beyond the first. */
+    suspend fun charge() = chargeToken()
+}
 
 /**
  * A chain-data or RPC source. A provider maps each typed [Request] to its own API and throws [ProviderError] for each failure. The scheduler

@@ -116,6 +116,22 @@ class BlockchairProviderTest {
     }
 
     @Test
+    fun eachPageAfterTheFirstIsChargedBeforeItIsSent() {
+        server.enqueue(MockResponse().setBody(outputPage(listOf(output(1, 800_000, 1)))))
+        server.enqueue(MockResponse().setBody(outputPage(listOf(output(2, 800_000, 2)))))
+        server.enqueue(MockResponse().setBody(outputPage(emptyList())))
+        var charges = 0
+        val charged = Http(OkHttpClient.Builder().callTimeout(5, TimeUnit.SECONDS).build()) { charges++ }
+
+        val utxos = runBlocking { provider.execute(AddressUtxos(BTC, btcAddress), cfg(), charged) }
+
+        assertEquals(2, utxos.size)
+        assertEquals(3, server.requestCount)
+        // The first page's request is the one the scheduler admitted. The second and third each take a charge first.
+        assertEquals(2, charges)
+    }
+
+    @Test
     fun aNativeBalanceIsWeiAsAnExactInteger() {
         server.enqueue(MockResponse().setBody("""{"data":{"$ethAddress":{"address":{"balance":"1500000000000000000"}}},"context":{"code":200}}"""))
 

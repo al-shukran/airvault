@@ -31,7 +31,8 @@ import okhttp3.Request as HttpRequest
 
 /**
  * Blockchair as a DATA provider. It serves the Bitcoin mainnet unspent outputs and the Ethereum mainnet native balance. It is keyless by
- * default, and it takes an optional key from the config.
+ * default, and it takes an optional key from the config. [fallbackOnly] marks it FALLBACK_ONLY, for the Bitcoin scheduler, which offers it only when
+ * no other provider can serve the read at that moment. The EVM pool keeps it as an ordinary DATA provider.
  *
  * Sources, read on 2026-11-15:
  * - Official: https://blockchair.com/api/docs and https://blockchair.com/api/plans. Both answer HTTP 401 with a browser challenge to a client
@@ -47,10 +48,11 @@ import okhttp3.Request as HttpRequest
  * Not supported: Bitcoin testnets and Sepolia, which the changelog does not give as current. Address statistics (ADDRESS_STATS), because the
  * dashboard's chain and mempool sides are not documented in a form that could be split without guessing.
  */
-class BlockchairProvider : Provider {
+class BlockchairProvider(fallbackOnly: Boolean = false) : Provider {
     override val id: String = "blockchair"
     override val kind: Kind = Kind.DATA
-    override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
+    override val traits: Set<Trait> =
+        if (fallbackOnly) setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.FALLBACK_ONLY) else setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
         chainOf(net, op) != null && providerBase(cfg.baseUrl, BASE) != null
@@ -82,13 +84,15 @@ class BlockchairProvider : Provider {
 
     /**
      * Every unspent output of the address. Pages are read until one comes back empty, so a server that answers fewer rows than asked
-     * cannot end the list early. A set longer than [MAX_PAGES] pages is refused rather than cut short.
+     * cannot end the list early. A set longer than [MAX_PAGES] pages is refused rather than cut short. The scheduler paid for the first page's
+     * request, so each later page is charged before it is sent: N pages cost N tokens of the keyless budget.
      */
     private suspend fun utxos(req: AddressUtxos, cfg: ProviderConfig, http: Http): List<Utxo> {
         if (!BTC_ADDRESS.matches(req.address)) throw ProviderError.NotFound()
         val all = ArrayList<Utxo>()
         var offset = 0
-        repeat(MAX_PAGES) {
+        repeat(MAX_PAGES) { index ->
+            if (index > 0) http.charge()
             val page = fetch(http, cfg, "bitcoin", req.address, mapOf("limit" to "0,$PAGE", "offset" to "0,$offset"))
             val rows = row(answerObject(page))["utxo"].asArray()
             if (rows.isEmpty()) return all
