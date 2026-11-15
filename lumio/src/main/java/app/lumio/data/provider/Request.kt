@@ -6,6 +6,7 @@ import app.lumio.btc.EsploraTx
 import app.lumio.btc.EsploraTxStatus
 import app.lumio.data.net.NetworkId
 import java.math.BigInteger
+import kotlinx.serialization.Serializable
 
 /** A Bitcoin address: letters and digits only, so a request can never carry a path separator into a URL. */
 private val BTC_ADDRESS = Regex("[A-Za-z0-9]{14,90}")
@@ -36,6 +37,18 @@ class GasFees(net: NetworkId) : Request<GasQuote>(net, Op.FEE_ESTIMATES)
 
 /** A fee quote, both in wei per gas: the next block's base fee and the suggested priority fee. */
 data class GasQuote(val baseFee: BigInteger, val priorityFee: BigInteger)
+
+/**
+ * The USD price of the native coin of [net]. Only a network with a price coin is priced: see `app.lumio.data.price.NativeCoins`. A testnet has none.
+ */
+class NativePrice(net: NetworkId) : Request<PriceQuote>(net, Op.PRICE)
+
+/**
+ * A USD price for one coin: [usd] per coin, the change over the last 24 hours in percent ([change24hPct] is null when the source gives none), and
+ * [asOfMs], the time the source gives for the price, in epoch milliseconds. It is stored in the cache, so it is serializable.
+ */
+@Serializable
+data class PriceQuote(val usd: Double, val change24hPct: Double?, val asOfMs: Long)
 
 /** Broadcasts the signed transaction [raw] and returns its hash as the endpoint reports it. */
 class Broadcast(net: NetworkId, val raw: ByteArray) : Request<String>(net, Op.BROADCAST)

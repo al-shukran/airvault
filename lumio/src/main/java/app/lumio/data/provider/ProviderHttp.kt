@@ -13,6 +13,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl
@@ -137,6 +138,14 @@ internal fun answerObject(text: String): JsonObject {
 internal fun JsonElement?.asObject(): JsonObject = this as? JsonObject ?: throw ProviderError.Fatal(SHAPE_MESSAGE)
 
 internal fun JsonElement?.asArray(): JsonArray = this as? JsonArray ?: throw ProviderError.Fatal(SHAPE_MESSAGE)
+
+/** A finite decimal number, written as a JSON number. A string, a null, or a value that is not finite is refused. */
+internal fun JsonElement?.decimal(): Double {
+    val primitive = this as? JsonPrimitive ?: throw ProviderError.Fatal(SHAPE_MESSAGE)
+    val value = if (primitive.isString) null else primitive.doubleOrNull
+    if (value == null || !value.isFinite()) throw ProviderError.Fatal(SHAPE_MESSAGE)
+    return value
+}
 
 /** The text of a JSON value, whether it was written as a string or a number. */
 internal fun JsonElement?.text(): String = (this as? JsonPrimitive)?.contentOrNull ?: throw ProviderError.Fatal(SHAPE_MESSAGE)
