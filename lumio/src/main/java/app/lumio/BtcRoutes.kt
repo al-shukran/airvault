@@ -13,6 +13,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.btc.AddressStatsCache
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcPortfolio
 import app.lumio.btc.BtcRow
@@ -26,6 +27,9 @@ import app.lumio.ui.settings.LumioSettingsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** The address statistics this session has read. The portfolio and an account's own view share them, and they are never saved. */
+private val btcAddressStats = AddressStatsCache()
 
 /** Every Bitcoin account of the open vault, with the wallet it came from. A vault that cannot be read has none. */
 internal fun bitcoinRefs(session: VaultSession): List<BtcAccountRef> = try {
@@ -58,7 +62,7 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder)
             val refs = withContext(Dispatchers.IO) { bitcoinRefs(session) }
             val report = withContext(Dispatchers.IO) {
                 store.retain(refs.map { it.key }.toSet())
-                scanAll(refs, store.servers(), store) { System.currentTimeMillis() }
+                scanAll(refs, store.servers(), store, btcAddressStats) { System.currentTimeMillis() }
             }
             rows = withContext(Dispatchers.IO) { BtcPortfolio.rows(refs, store::snapshot, store.servers()) }
             failures = report.failures
@@ -101,7 +105,7 @@ internal fun BitcoinAccountRoute(navController: NavHostController, holder: Vault
         scanning = true
         scope.launch {
             val report = withContext(Dispatchers.IO) {
-                scanAll(listOf(ref), store.servers(), store) { System.currentTimeMillis() }
+                scanAll(listOf(ref), store.servers(), store, btcAddressStats, detail = true) { System.currentTimeMillis() }
             }
             row = withContext(Dispatchers.IO) { BtcPortfolio.rows(listOf(ref), store::snapshot, store.servers()).single() }
             failure = report.failures[ref.account.network]

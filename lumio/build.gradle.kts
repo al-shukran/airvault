@@ -61,6 +61,8 @@ android {
         unitTests {
             // Robolectric renders Compose screens from the merged resources (fonts, themes).
             isIncludeAndroidResources = true
+            // The request log calls android.util.Log, which the plain JVM tests read as its defaults.
+            isReturnDefaultValues = true
         }
     }
 }

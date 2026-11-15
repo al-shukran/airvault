@@ -5,6 +5,11 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
+import android.util.Log
+import app.lumio.BuildConfig
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Semaphore
+import kotlin.random.Random
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -14,6 +19,12 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
+
+/** The tag of the debug-build request log, read with `adb logcat -s LumioEsplora`. */
+internal const val ESPLORA_LOG_TAG = "LumioEsplora"
+
+/** The least gap between two requests to one host, so a scan's bursts stay under the server's 429 limit. */
+internal const val ESPLORA_REQUEST_INTERVAL_MS = 250L
 
 /** One side of an address's history, in satoshis: the confirmed chain, or the mempool. */
 data class EsploraSide(
@@ -31,6 +42,9 @@ data class EsploraSide(
 data class EsploraAddressStats(val chain: EsploraSide, val mempool: EsploraSide) {
     /** True once the address has appeared in any transaction, confirmed or not. The gap-limit scan counts an address that is not used. */
     val used: Boolean get() = chain.txCount + mempool.txCount > 0
+
+    /** The coins the address holds, confirmed and unconfirmed. Zero means it holds none, so its unspent outputs are not asked for. */
+    val balance: Long get() = chain.net + mempool.net
 }
 
 /** The previous output an input spends. [address] is null for a script with no address. */
@@ -62,8 +76,17 @@ class EsploraException(message: String, cause: Throwable? = null) : IOException(
  * wallet needs, over the base URL it is given, with a 10-second connect and read timeout. An answer is size-capped and parsed strictly:
  * a damaged answer is an [EsploraException], never a partial result. Only the network's own [baseUrl] is ever asked, and the addresses
  * in the paths are checked to be plain Bitcoin address characters first.
+ *
+ * A busy answer, HTTP 429 or 503, and a connection that gives no answer are retried up to five times. A Retry-After in seconds is waited
+ * out, and otherwise the wait is an exponential backoff with jitter, 1s, 2s, 4s and so on. A server that is still busy is refused with a
+ * "Rate limited, retry later." message. At most two requests are in flight to one host, across every client in the process, and with
+ * [intervalMs] set, two requests to one host start at least that far apart. [pause] does the waiting, and tests replace it.
  */
-class EsploraClient(baseUrl: String) {
+class EsploraClient(
+    baseUrl: String,
+    private val intervalMs: Long = 0L,
+    private val pause: (Long) -> Unit = { Thread.sleep(it) },
+) {
     private val base = baseUrl.trimEnd('/')
 
     /** The confirmed and mempool history of [address]. */
@@ -82,17 +105,51 @@ class EsploraClient(baseUrl: String) {
     fun feeEstimates(): Map<Int, Double> = EsploraParse.feeEstimates(get("/fee-estimates"))
 
     private fun get(path: String): String {
-        val connection = URI(base + path).toURL().openConnection() as HttpURLConnection
+        val host = hostOf(base)
+        val gate = gates.getOrPut(host) { Semaphore(MAX_IN_FLIGHT) }
+        if (BuildConfig.DEBUG) Log.d(ESPLORA_LOG_TAG, "queue host=$host path=$path")
+        gate.acquire()
         try {
-            connection.connectTimeout = TIMEOUT_MS
-            connection.readTimeout = TIMEOUT_MS
-            connection.useCaches = false
-            connection.setRequestProperty("Accept", "application/json, text/plain")
-            val code = connection.responseCode
-            if (code !in 200..299) throw EsploraException("The server answered HTTP $code.")
-            return connection.inputStream.use { readBounded(it) }.toString(Charsets.UTF_8)
+            var retry = 0
+            while (true) {
+                val slot = reserveSlot(host, intervalMs)
+                if (slot > 0) pause(slot)
+                val connection = URI(base + path).toURL().openConnection() as HttpURLConnection
+                val started = System.nanoTime()
+                var code = 0
+                var wait = 0L
+                var transport: IOException? = null
+                if (BuildConfig.DEBUG) Log.d(ESPLORA_LOG_TAG, "send host=$host path=$path retry=$retry")
+                try {
+                    connection.connectTimeout = CONNECT_TIMEOUT_MS
+                    connection.readTimeout = READ_TIMEOUT_MS
+                    connection.useCaches = false
+                    connection.setRequestProperty("Accept", "application/json, text/plain")
+                    code = connection.responseCode
+                    if (code in 200..299) return connection.inputStream.use { readBounded(it) }.toString(Charsets.UTF_8)
+                    if (code !in BUSY_CODES) throw EsploraException("The server answered HTTP $code.")
+                    wait = backoffMs(retry, connection.getHeaderField("Retry-After")) ?: throw EsploraException(RATE_LIMITED)
+                } catch (e: EsploraException) {
+                    throw e
+                } catch (e: IOException) {
+                    // No usable answer, from a timeout or a reset: the network is often the fault, so it is tried again like a busy answer.
+                    transport = e
+                    wait = exponentialMs(retry)
+                } finally {
+                    connection.disconnect()
+                    // Debug builds only: one line per request, so a slow or throttled scan can be read off logcat. status 0 is no answer.
+                    if (BuildConfig.DEBUG) {
+                        val ms = (System.nanoTime() - started) / 1_000_000
+                        val error = transport?.javaClass?.simpleName ?: "-"
+                        Log.d(ESPLORA_LOG_TAG, "host=$host path=$path status=$code ms=$ms retry=$retry wait=$wait error=$error")
+                    }
+                }
+                if (retry == MAX_RETRIES) throw transport ?: EsploraException(RATE_LIMITED)
+                pause(wait)
+                retry++
+            }
         } finally {
-            connection.disconnect()
+            gate.release()
         }
     }
 
@@ -102,13 +159,55 @@ class EsploraClient(baseUrl: String) {
     }
 
     private companion object {
-        const val TIMEOUT_MS = 10_000
+        const val CONNECT_TIMEOUT_MS = 5_000
+        const val READ_TIMEOUT_MS = 8_000
 
         /** The largest answer Lumio reads. The longest history page is far below it. */
         const val MAX_BODY_BYTES = 4 shl 20
 
         /** Base58 and bech32 addresses are plain letters and digits. */
         val ADDRESS = Regex("[A-Za-z0-9]{14,90}")
+
+        /** The in-flight limit of each host, shared by every client, so the requests of all accounts together stay at two. */
+        val gates = ConcurrentHashMap<String, Semaphore>()
+        const val MAX_IN_FLIGHT = 2
+        const val MAX_RETRIES = 5
+        const val MAX_WAIT_MS = 30_000L
+        const val RATE_LIMITED = "Rate limited, retry later."
+        val BUSY_CODES = setOf(429, 503)
+
+        /** The next request slot of each host, so that requests to one host start at least the interval apart. */
+        val nextSlot = HashMap<String, Long>()
+
+        /**
+         * The wait before the request to [host] may start, in milliseconds. It books the slot after the last one booked for [host], so the
+         * requests of every client in the process stay [intervalMs] apart. Zero when the interval is off or the slot is free.
+         */
+        fun reserveSlot(host: String, intervalMs: Long): Long {
+            if (intervalMs <= 0) return 0
+            synchronized(nextSlot) {
+                val now = System.currentTimeMillis()
+                val slot = maxOf(now, nextSlot[host] ?: now)
+                nextSlot[host] = slot + intervalMs
+                return slot - now
+            }
+        }
+
+        /**
+         * The wait before retry [retry], counted from 0. A Retry-After in seconds is the wait when the server gives one. Otherwise the wait
+         * is [exponentialMs]. Null when the server asks for longer than [MAX_WAIT_MS], so the scan gives up at once rather than hold the screen.
+         */
+        fun backoffMs(retry: Int, retryAfter: String?): Long? {
+            val seconds = retryAfter?.trim()?.toLongOrNull()
+            if (seconds != null) return (seconds * 1_000).takeIf { it in 0..MAX_WAIT_MS }
+            return exponentialMs(retry)
+        }
+
+        /** The backoff before retry [retry], counted from 0: 1s, 2s, 4s and so on, capped at [MAX_WAIT_MS], jittered to between half of that and all of it. */
+        fun exponentialMs(retry: Int): Long {
+            val nominal = minOf(1_000L shl retry, MAX_WAIT_MS)
+            return nominal / 2 + Random.nextLong(nominal / 2 + 1)
+        }
 
         fun readBounded(input: InputStream): ByteArray {
             val out = ByteArrayOutputStream()
