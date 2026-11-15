@@ -128,6 +128,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                         selection = selection,
                         listVersion = listVersion,
                         onChanged = { listVersion++ },
+                        onLock = ::lock,
                     )
                 }
             }

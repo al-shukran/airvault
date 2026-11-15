@@ -12,15 +12,6 @@ enum class EntropyMode(
     fun accepts(symbol: Char): Boolean = symbols.indexOf(symbol) >= 0
 }
 
-/**
- * Upper-cases [hex], splits it into groups of four, and joins [groupsPerLine] groups per line. A
- * 64-character hash gives four lines with four groups each.
- */
-fun formatHexLines(hex: String, groupsPerLine: Int = 4): List<String> {
-    require(groupsPerLine > 0) { "groupsPerLine must be positive" }
-    return hex.uppercase().chunked(4).chunked(groupsPerLine) { line -> line.joinToString(" ") }
-}
-
 /** The first [groups] groups of [hex] and an ellipsis, e.g. "A1B2 C3D4 E5F6 7890…". */
 fun previewHex(hex: String, groups: Int = 4): String =
     hex.uppercase().chunked(4).take(groups).joinToString(" ") + "…"

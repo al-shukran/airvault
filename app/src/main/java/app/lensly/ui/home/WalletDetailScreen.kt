@@ -18,26 +18,22 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -54,6 +50,7 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.visualIdentity
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
@@ -317,32 +314,6 @@ private fun SecretWarning(title: String, onCancel: () -> Unit, onReveal: () -> U
             modifier = Modifier.weight(1f),
             style = WalletPillStyle.Accent,
         )
-    }
-}
-
-/**
- * The top bar of a wallet screen or an App screen: Back, Lock, and the options icon, which [optionsLabel] names for a reader of
- * the screen.
- */
-@Composable
-internal fun DetailTopBar(onBack: () -> Unit, onLock: () -> Unit, onOptions: () -> Unit, optionsLabel: String) {
-    val haptics = rememberKeyHaptics()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = LenslySpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack, modifier = Modifier.tapHaptic(haptics)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = LenslyOnSurface)
-        }
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick = onLock, modifier = Modifier.tapHaptic(haptics)) {
-            Icon(Icons.Filled.Lock, contentDescription = "Lock", tint = LenslyOnSurface)
-        }
-        IconButton(onClick = onOptions, modifier = Modifier.tapHaptic(haptics)) {
-            Icon(Icons.Filled.MoreVert, contentDescription = optionsLabel, tint = LenslyOnSurface)
-        }
     }
 }
 

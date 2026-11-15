@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.roborazzi)
 }
 
 // Lumio, the companion app. It shares the camera cover, the gate and the theme with Lensly through :shared, and it has its own manifest,
@@ -68,6 +69,12 @@ android {
     }
 }
 
+// Screenshot tests write PNGs here, and they are committed. Record with :lumio:recordRoborazziDebug;
+// check against the committed PNGs with :lumio:verifyRoborazziDebug.
+roborazzi {
+    outputDir.set(file("src/test/screenshots"))
+}
+
 val junitJupiter = "5.14.4"
 
 // Robolectric reads FileDescriptor state through jdk.internal.access, which the JDK does not export to unnamed modules. The same
@@ -106,6 +113,9 @@ dependencies {
     // The scheduler and cache tests run in virtual time.
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.compose.ui.test.junit4)
+    // The goldens of the screens: Roborazzi captures from the same Robolectric compose rule as the behaviour tests.
+    testImplementation(libs.roborazzi.core)
+    testImplementation(libs.roborazzi.compose)
     testImplementation(libs.robolectric)
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:$junitJupiter")
     testRuntimeOnly(platform("org.junit:junit-bom:$junitJupiter"))

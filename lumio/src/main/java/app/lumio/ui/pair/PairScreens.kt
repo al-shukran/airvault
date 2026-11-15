@@ -20,9 +20,10 @@ import app.lensly.core.wallet.AccountXpub
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.qr.ScanScreen
+import app.lensly.ui.wallet.WalletPill
+import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.pair.PairFamily
 import app.lumio.pair.PairImport
@@ -58,7 +59,12 @@ fun PairReviewScreen(
         title = "REVIEW PAIRING",
         onBack = onCancel,
         bottomAction = {
-            PillButton(text = if (alreadyPaired) "Update" else "Save", onClick = onSave, modifier = Modifier.fillMaxWidth())
+            WalletPill(
+                text = if (alreadyPaired) "Update" else "Save",
+                onClick = onSave,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+            )
         },
     ) {
         if (alreadyPaired) {

@@ -1,6 +1,5 @@
 package app.lumio.ui.portfolio
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,22 +7,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.AddressIcon
+import app.lensly.ui.components.AppTitle
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.PillChip
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.wallet.WalletEyebrow
+import app.lensly.ui.wallet.WalletPill
+import app.lensly.ui.wallet.WalletPillStyle
+import app.lensly.ui.wallet.WalletScaffold
 import app.lumio.evm.AddressRow
 import app.lumio.evm.ChainFailure
 import app.lumio.evm.EvmChain
@@ -35,9 +37,10 @@ import app.lumio.ui.network.label
 import java.math.BigInteger
 
 /**
- * The portfolio of one paired wallet on the side [mode] chooses. Its total is the side's own, and the other side is not shown, so a testnet
- * balance is never shown as part of a mainnet one. Below it, each shown address lists its balance on every enabled chain of that side, with
- * the time of its read. [failures] names the chains that did not refresh; their cached reads stay on the screen.
+ * The portfolio of one paired wallet's Ethereum App on the side [mode] chooses. Its total is the side's own, and the other side is not shown,
+ * so a testnet balance is never shown as part of a mainnet one. Below it, each shown address lists its balance on every enabled chain of that
+ * side, with the time of its read, and a row that opens the send from that address. [failures] names the chains that did not refresh; their
+ * cached reads stay on the screen. Refresh is the one primary action; while a read runs, a status line says so.
  */
 @Composable
 fun WalletScreen(
@@ -54,29 +57,32 @@ fun WalletScreen(
     onBack: () -> Unit,
     onSend: (index: Int) -> Unit,
     modifier: Modifier = Modifier,
+    onLock: () -> Unit = {},
 ) {
-    LenslyScreen(
-        title = "PORTFOLIO",
+    WalletScaffold(
         modifier = modifier,
-        onBack = onBack,
-        bottomAction = {
-            PillButton(
-                text = if (refreshing) "Reading" else "Refresh",
+        footer = {
+            WalletPill(
+                text = "Refresh",
                 onClick = onRefresh,
                 modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
                 enabled = hasEvm && !refreshing,
             )
+            Spacer(Modifier.height(LenslySpacing.xs))
         },
     ) {
-        Text(walletName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        DetailTopBar(onBack = onBack, onLock = onLock)
+        AppTitle(logo = { size -> AddressIcon(size = size) }, name = "Ethereum", walletName = walletName)
         Spacer(Modifier.height(LenslySpacing.sm))
+        if (refreshing) Caption("Reading the network")
         if (!hasEvm) {
             EmptyState(
                 icon = LenslyIcons.Wallets,
                 title = "No EVM account",
                 body = "This wallet has no Ethereum account, so it has no EVM balances to show.",
             )
-            return@LenslyScreen
+            return@WalletScaffold
         }
         if (chains.isEmpty()) {
             EmptyState(
@@ -84,7 +90,7 @@ fun WalletScreen(
                 title = "No ${mode.label().lowercase()} chains are on",
                 body = "Turn a chain on in Settings to read its balances.",
             )
-            return@LenslyScreen
+            return@WalletScaffold
         }
         problem?.let {
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -104,25 +110,27 @@ fun WalletScreen(
             emptyText = "No ${mode.label().lowercase()} balance read yet.",
         )
         totals.oldestMs?.let {
-            Text(
-                "Oldest read ${EvmFormat.asOf(it)}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Caption("Oldest read ${EvmFormat.asOf(it)}")
         }
         SectionLabel("Addresses")
         rows.forEach { row ->
-            AddressCard(row = row, chains = chains, onSend = { onSend(row.index) })
-            Spacer(Modifier.height(LenslySpacing.sm))
+            AddressSection(row = row, chains = chains, onSend = { onSend(row.index) })
         }
     }
 }
 
+/** The label of a block on the screen, such as the side or the addresses. */
 @Composable
 private fun SectionLabel(text: String) {
     Spacer(Modifier.height(LenslySpacing.md))
-    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    WalletEyebrow(text)
     Spacer(Modifier.height(LenslySpacing.xs))
+}
+
+/** A line of muted text: a status, a time, or a caption. */
+@Composable
+private fun Caption(text: String) {
+    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -147,22 +155,16 @@ private fun TotalsList(totals: List<Total>, emptyText: String) {
     }
 }
 
+/** One address: its balance on each chain of the side, then the row that sends from it. */
 @Composable
-private fun AddressCard(row: AddressRow, chains: List<EvmChain>, onSend: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(LenslyRadius.md))
-            .padding(LenslySpacing.md),
-    ) {
+private fun AddressSection(row: AddressRow, chains: List<EvmChain>, onSend: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.sm)) {
         Text(
             "Address ${row.index + 1}",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(shortAddress(row.address), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-        Spacer(Modifier.height(LenslySpacing.xs))
-        PillButton(text = "Send from this address", onClick = onSend, modifier = Modifier.fillMaxWidth(), enabled = chains.isNotEmpty())
         Spacer(Modifier.height(LenslySpacing.xs))
         chains.forEach { chain ->
             val read = row.reads[chain.chainId]
@@ -192,6 +194,11 @@ private fun AddressCard(row: AddressRow, chains: List<EvmChain>, onSend: () -> U
             }
         }
     }
+    SettingsRow(
+        title = "Send from this address",
+        onClick = onSend,
+        enabled = chains.isNotEmpty(),
+    )
 }
 
 /** The address as the screen shows it: the start and the end, which is enough to tell two addresses apart. */

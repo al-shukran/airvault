@@ -14,20 +14,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.SettingsRow
+import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.wallet.WalletPill
+import app.lensly.ui.wallet.WalletPillStyle
 import app.lumio.R
 
 /**
- * Lumio's settings, in two sections. Bitcoin holds the Esplora server each Bitcoin network reads from, and Ethereum holds the EVM settings.
- * [bitcoin] and [ethereum] are the contents of the two sections, and each keeps its own state.
+ * Lumio's settings, in three sections. Bitcoin holds the Esplora server each Bitcoin network reads from, Ethereum holds the EVM settings, and
+ * Providers is a row that opens the data providers. [bitcoin] and [ethereum] are the contents of the two sections, and each keeps its own state.
  */
 @Composable
 fun LumioSettingsScreen(
@@ -39,19 +40,13 @@ fun LumioSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = "SETTINGS", modifier = modifier, onBack = onBack) {
-        SettingsSection(title = "Bitcoin", content = bitcoin)
-        SettingsSection(title = "Ethereum", content = ethereum)
+        SettingsSection(title = "Bitcoin") { bitcoin() }
+        SettingsSection(title = "Ethereum") { ethereum() }
         SettingsSection(title = stringResource(R.string.settings_providers_heading)) {
-            Text(
-                stringResource(R.string.settings_providers_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(LenslySpacing.md))
-            PillButton(
-                text = stringResource(R.string.settings_providers_open),
+            SettingsRow(
+                title = stringResource(R.string.settings_providers_open),
+                description = stringResource(R.string.settings_providers_body),
                 onClick = onDataProviders,
-                modifier = Modifier.fillMaxWidth(),
             )
         }
         SettingsSection(title = stringResource(R.string.settings_about_heading)) {
@@ -70,23 +65,10 @@ fun LumioSettingsScreen(
     }
 }
 
-@Composable
-private fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Spacer(Modifier.height(LenslySpacing.lg))
-    Text(
-        title,
-        modifier = Modifier.semantics { heading() },
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.onSurface,
-    )
-    Spacer(Modifier.height(LenslySpacing.xs))
-    content()
-}
-
 /**
  * The Bitcoin section: the Esplora server that each Bitcoin network reads from. [mainnet] and [testnet4] show the address in use, the default or
  * the owner's. [error] is shown when the last save was refused. [onSave] receives the two texts as the owner typed them, and [onReset] puts both
- * networks back on their defaults.
+ * networks back on their defaults. Save is the section's one filled action; reset is a row.
  */
 @Composable
 fun BitcoinServersSettings(
@@ -127,7 +109,11 @@ fun BitcoinServersSettings(
         InlineBanner(message = it, tone = BannerTone.Error)
     }
     Spacer(Modifier.height(LenslySpacing.md))
-    PillButton(text = "Save", onClick = { onSave(mainnetText, testnetText) }, modifier = Modifier.fillMaxWidth())
-    Spacer(Modifier.height(LenslySpacing.sm))
-    PillButton(text = "Reset to defaults", onClick = onReset)
+    WalletPill(
+        text = "Save",
+        onClick = { onSave(mainnetText, testnetText) },
+        modifier = Modifier.fillMaxWidth(),
+        style = WalletPillStyle.Primary,
+    )
+    SettingsRow(title = "Reset to defaults", onClick = onReset)
 }

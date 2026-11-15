@@ -30,7 +30,7 @@ jobs:
       # One gradle invocation for the test, lint and screenshot gates. --continue keeps going after the first
       # failure so one run reports every broken gate.
       - name: Nightly gates
-        run: ./gradlew test lintDebug verifyRoborazziDebug --continue
+        run: ./gradlew test lintDebug verifyRoborazziDebug :lumio:verifyRoborazziDebug --continue
 
       # OWASP dependency-check (guideline 1.8) runs in three steps after the gates, so one run still reports every
       # broken gate. It needs the NVD database. The database is cached per ISO week in the plugin's data directory,

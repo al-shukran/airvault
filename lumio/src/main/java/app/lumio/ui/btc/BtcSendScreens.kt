@@ -24,9 +24,11 @@ import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.qr.AnimatedQr
+import app.lensly.ui.wallet.WalletPill
+import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcSendPlan
@@ -63,10 +65,11 @@ fun BtcSendFormScreen(
         title = "SEND BITCOIN",
         onBack = onBack,
         bottomAction = {
-            PillButton(
-                text = if (busy) "Reading the network" else "Review",
+            WalletPill(
+                text = "Review",
                 onClick = onReview,
                 modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
                 enabled = !busy && selected != null,
             )
         },
@@ -78,6 +81,13 @@ fun BtcSendFormScreen(
                 body = "Pair a wallet from Lensly with a Bitcoin account to send from it.",
             )
             return@LenslyScreen
+        }
+        if (busy) {
+            Text(
+                "Reading the network",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         SectionLabel("From")
         accounts.forEach { ref ->
@@ -136,7 +146,12 @@ fun BtcSendReviewScreen(
         title = "REVIEW SEND",
         onBack = onBack,
         bottomAction = {
-            PillButton(text = "Sign with Lensly", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
+            WalletPill(
+                text = "Sign with Lensly",
+                onClick = onConfirm,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+            )
         },
     ) {
         NetworkHeader(plan.network)
@@ -176,7 +191,12 @@ fun BtcSignRequestScreen(
         onBack = onBack,
         scrollable = false,
         bottomAction = {
-            PillButton(text = "Scan Lensly's signature", onClick = onScan, modifier = Modifier.fillMaxWidth())
+            WalletPill(
+                text = "Scan Lensly's signature",
+                onClick = onScan,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+            )
         },
     ) {
         NetworkHeader(network)
@@ -206,13 +226,18 @@ fun BtcSendSentScreen(
     LenslyScreen(
         title = "SENT",
         bottomAction = {
-            PillButton(text = "Done", onClick = onDone, modifier = Modifier.fillMaxWidth())
+            WalletPill(
+                text = "Done",
+                onClick = onDone,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+            )
         },
     ) {
         NetworkHeader(network)
         ReviewField("Transaction id", txid)
         Spacer(Modifier.height(LenslySpacing.md))
-        PillButton(text = "View on explorer", onClick = onOpenExplorer, modifier = Modifier.fillMaxWidth())
+        SettingsRow(title = "View on explorer", onClick = onOpenExplorer)
         notice?.let {
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(message = it, tone = BannerTone.Error)
