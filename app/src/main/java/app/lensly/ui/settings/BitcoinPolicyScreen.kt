@@ -114,5 +114,5 @@ internal fun signingSourceLabel(source: SigningSourcePolicy): String = when (sou
 /** What a signing source policy means, shown under the choices. */
 internal fun signingSourceDescription(source: SigningSourcePolicy): String = when (source) {
     SigningSourcePolicy.ANY -> "Any online wallet that reads a code format the vault decodes may ask for a Bitcoin signature."
-    SigningSourcePolicy.COMPANION_ONLY -> "Only a PSBT that the Lumio companion app marked may be signed. Other requests are refused."
+    SigningSourcePolicy.COMPANION_ONLY -> "Only a PSBT that the Lumio companion application marked may be signed. Other requests are refused."
 }

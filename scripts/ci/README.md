@@ -89,7 +89,7 @@ Duration comes from each `@FuzzTest` annotation: `maxDuration = "15m"`, which Ja
 ## Macrobenchmarks — `:benchmark`
 
 Cold start of `app.lensly.MainActivity` through `StartupTimingMetric` (guideline 1.7). Macrobenchmarks launch the
-installed app and measure it from the outside, so they live in their own `com.android.test` module that targets
+installed application and measure it from the outside, so they live in their own `com.android.test` module that targets
 `:app`'s `benchmark` variant. Nothing in `:app` depends on it, so the PR lanes (`:app:testDebugUnitTest`,
 `:app:assembleDebug`, `:app:verifyRoborazziDebug`) never configure or build it.
 
@@ -107,7 +107,7 @@ iterations or startup mode invalidates a recorded baseline. Results are written 
 scripts/ci/benchmark-gate.sh benchmark/build/outputs/androidTest-results/benchmark/<run>/benchmarkData.json
 ```
 
-Emulator numbers are trend data only. Only a physical reference device records a baseline, and it needs the app's
+Emulator numbers are trend data only. Only a physical reference device records a baseline, and it needs the application's
 `benchmark` variant installed, which `connectedBenchmarkAndroidTest` does for you.
 
 ## Benchmark gate — `benchmark-gate.sh [--record] [--reference-device] <result.json>`

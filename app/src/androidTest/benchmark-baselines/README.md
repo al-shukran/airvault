@@ -9,7 +9,7 @@ values would make the gate meaningless. The directory holds this README only unt
 ## Why recording is a manual procedure
 
 AndroidX Benchmark refuses to time interpreted code. A run on a freshly installed APK aborts with
-`NOT-AOT-COMPILED` until the app package has been ahead-of-time compiled, which on a device means:
+`NOT-AOT-COMPILED` until the application package has been ahead-of-time compiled, which on a device means:
 
 ```bash
 adb shell cmd package compile -m speed -f app.lensly
@@ -26,21 +26,21 @@ data, and baseline recording is the manual sequence below.
 Run on the reference device, plugged in, at room temperature, on an otherwise idle phone, with no charger plugged
 into the USB port of the host if the phone charges through it (charging heats the phone and skews timings).
 
-The microbenchmarks live in `app/src/androidTest` (`app.lensly.benchmark.*`). They need two APKs: the app's
+The microbenchmarks live in `app/src/androidTest` (`app.lensly.benchmark.*`). They need two APKs: the application's
 `benchmark` variant, and the instrumentation APK. `androidx.benchmark.junit4` is on the benchmark variant's runtime on
-purpose, because `AndroidBenchmarkRunner` launches `androidx.benchmark.IsolationActivity` inside the app under test:
-without it on the app side the manifest merge misses the activity and every run dies with "Unable to resolve activity
+purpose, because `AndroidBenchmarkRunner` launches `androidx.benchmark.IsolationActivity` inside the application under test:
+without it on the application side the manifest merge misses the activity and every run dies with "Unable to resolve activity
 for androidx.benchmark.IsolationActivity".
 
 ```bash
 # 1. Build both APKs (no device needed).
 ./gradlew :app:assembleBenchmark :app:assembleBenchmarkAndroidTest
 
-# 2. Install the app first, then the test APK, onto the reference device.
+# 2. Install the application first, then the test APK, onto the reference device.
 adb install -r -t app/build/outputs/apk/benchmark/app-benchmark.apk
 adb install -r -t app/build/outputs/apk/androidTest/benchmark/app-benchmark-androidTest.apk
 
-# 3. AOT-compile the app in speed mode. This is the step a Gradle run cannot keep, because a Gradle run reinstalls.
+# 3. AOT-compile the application in speed mode. This is the step a Gradle run cannot keep, because a Gradle run reinstalls.
 adb shell cmd package compile -m speed -f app.lensly
 
 # 4. Run only the benchmark classes, so the a11y, e2e and vault tests stay out of the run.
@@ -48,7 +48,7 @@ adb shell am instrument -w \
     -e class 'app.lensly.benchmark.*' \
     app.lensly.test/androidx.benchmark.junit4.AndroidBenchmarkRunner
 
-# 5. Pull the result JSON. `am instrument` writes it to the app's external media directory, and the file name is
+# 5. Pull the result JSON. `am instrument` writes it to the application's external media directory, and the file name is
 #    timestamped, so take the newest one.
 adb shell ls -t /sdcard/Android/media/app.lensly/ | head -1
 adb pull /sdcard/Android/media/app.lensly/<newest>-benchmarkData.json /tmp/benchmarkData.json

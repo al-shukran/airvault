@@ -51,7 +51,7 @@ class VaultHeader(
             val buffer = ByteBuffer.wrap(bytes)
             val magic = ByteArray(MAGIC.size).also { buffer.get(it) }
             if (!magic.contentEquals(MAGIC) || buffer.get() != VERSION) {
-                throw VaultException("The vault header is not in a format this app reads.")
+                throw VaultException("The vault header is not in a format this application reads.")
             }
             val kdf = KdfParams(
                 memoryKiB = buffer.getInt(),

@@ -1,7 +1,7 @@
 # Release checklist
 
 Run before tagging a release. Everything here needs a person, a physical phone, and a watch or a second device. CI does
-not and cannot cover it. Record the run in the release PR: date, app commit, phone model, Android version, wallet
+not and cannot cover it. Record the run in the release PR: date, application commit, phone model, Android version, wallet
 versions.
 
 ## 1. Wallet round trip: Rabby, then MetaMask
@@ -25,7 +25,7 @@ Run, for Rabby:
 - [ ] Check that Rabby shows the same address as Lensly for account 0.
 - [ ] In Rabby, send a small transaction on chain 10143 to any address, and approve it with the hardware-wallet flow.
 - [ ] Lensly shows the scan screen; scan Rabby's request. Read the review: chain, from, to, amount, fee, nonce.
-- [ ] Approve with the App Password, scan the signature back into Rabby, and confirm Rabby broadcasts it.
+- [ ] Approve with the Application Password, scan the signature back into Rabby, and confirm Rabby broadcasts it.
 - [ ] Open the explorer and confirm the transaction is mined. Record the transaction hash.
 
 Then uninstall the test wallet from Rabby and repeat every step above in **MetaMask**. Do not reuse a profile.
@@ -37,7 +37,7 @@ Record:
 | Wallet version | | |
 | Broadcast (hash) | | |
 | Date | | |
-| App commit | | |
+| Application commit | | |
 | Phone / Android | | |
 
 Stop the release if either wallet cannot pair, or if a review in Lensly shows a field that differs from the wallet's own
@@ -56,7 +56,7 @@ Run on the same phone, with the release build.
       must come last. Note any control read out of order.
 - [ ] Check the small targets listed in [accessibility.md](accessibility.md): every keypad key and every keyboard key
       must be reachable and announce itself. They are narrower than 48 dp by design, so confirm they can still be hit.
-- [ ] Type an App Password with TalkBack on: the field must announce the character count and must never read the
+- [ ] Type an Application Password with TalkBack on: the field must announce the character count and must never read the
       characters.
 - [ ] On the scan screen, confirm the progress and the status line are announced when they change.
 - [ ] On the review, confirm every fact is read before APPROVE, and that APPROVE stays announced as disabled until it is
@@ -71,7 +71,7 @@ Record:
 | Field | Value |
 | --- | --- |
 | Date | |
-| App commit | |
+| Application commit | |
 | Phone / Android | |
 | TalkBack version | |
 | Issues filed | |

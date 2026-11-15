@@ -1,6 +1,6 @@
 # Registry data tools
 
-These scripts rebuild the mainnet catalogs that ship in the app:
+These scripts rebuild the mainnet catalogs that ship in the application:
 
 - `shared/src/main/assets/registry/networks.json`
 - `shared/src/main/assets/registry/tokens.json`

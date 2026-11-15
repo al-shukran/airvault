@@ -177,9 +177,9 @@ class WalletSignFlowTest {
         // The hold fills on the real frame clock while the finger is down, and signs when it is full. The step only
         // moves on after that, so the finger is lifted once the App Password step is shown.
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).performTouchInput { down(center) }
-        awaitStep(flow, "the App Password step") { it is SignStep.Confirming }
+        awaitStep(flow, "the Application Password step") { it is SignStep.Confirming }
         compose.onRoot().performTouchInput { up() }
-        compose.onNodeWithText("Enter your App Password to sign.").assertExists()
+        compose.onNodeWithText("Enter your Application Password to sign.").assertExists()
         typePassword(PASSWORD)
         compose.onNodeWithContentDescription("${PASSWORD.length} characters entered").assertExists()
         compose.onNodeWithContentDescription("Done").performClick()

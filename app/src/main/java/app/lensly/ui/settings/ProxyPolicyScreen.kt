@@ -97,7 +97,7 @@ fun ProxyPolicyScreen(
             onLock = onLock,
             modifier = modifier,
             title = TITLE,
-            prompt = "Enter your App Password to save this policy.",
+            prompt = "Enter your Application Password to save this policy.",
             stepCount = STEP_COUNT,
             step = 2,
         )

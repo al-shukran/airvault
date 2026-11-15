@@ -24,7 +24,7 @@ npm run convert -- --src /path/to/.inbox
 ```
 
 Only `chains/`, `tokens/` and `assets/lensly.svg` are read. Then run `./gradlew :app:assembleDebug`. The generated
-files are committed, so the app builds without these tools.
+files are committed, so the application builds without these tools.
 
 ## Rules
 
@@ -32,7 +32,7 @@ files are committed, so the app builds without these tools.
 - A larger icon is simplified, with curves flattened and nearby points merged, until it is under 30 KB. An icon that
   still cannot get under 30 KB is dropped. The script prints every simplified and dropped icon.
 - Filters (blur and shadow) are removed, because VectorDrawable cannot draw them.
-- Black fills and strokes are drawn in white. The app is dark only, so black would vanish against the background.
+- Black fills and strokes are drawn in white. The application is dark only, so black would vanish against the background.
 - Names: `chain_<slug>` with `-` replaced by `_`, `token_<symbol>`, `logo_lensly`, and the adaptive launcher layers
   `ic_launcher_background`, `ic_launcher_foreground` and `ic_launcher_monochrome`.
 - `ic_unknown_token.xml` is drawn by hand and is not generated.

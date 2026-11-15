@@ -144,7 +144,7 @@ private const val KEY_CLEANUP_NOTICE = "Wallet deleted. Key cleanup at next unlo
 
 private val DELETE_WALLET_COPY = ShredCopy(
     title = "Delete wallet",
-    prompt = "Enter your App Password to delete this wallet.",
+    prompt = "Enter your Application Password to delete this wallet.",
     warningTitle = "Cannot be recovered",
     warning = "This wallet and its accounts are erased from this device. It cannot be recovered without its backup: " +
         "the recovery phrase and passphrase, or the single key. Check that the backup is safe before you delete.",
@@ -153,16 +153,16 @@ private val DELETE_WALLET_COPY = ShredCopy(
 
 private val WIPE_COPY = ShredCopy(
     title = "Wipe",
-    prompt = "Enter your App Password to wipe the vault.",
+    prompt = "Enter your Application Password to wipe the vault.",
     warningTitle = "Erases everything",
-    warning = "Every wallet, every account and the App Password are erased from this device. Only the backups of " +
-        "your wallets can bring them back. The app then asks for a new App Password.",
+    warning = "Every wallet, every account and the Application Password are erased from this device. Only the backups of " +
+        "your wallets can bring them back. The application then asks for a new Application Password.",
     action = "Wipe",
 )
 
 private val REMOVE_DURESS_COPY = ShredCopy(
     title = "Duress Password",
-    prompt = "Enter your App Password to remove the Duress Password.",
+    prompt = "Enter your Application Password to remove the Duress Password.",
     warningTitle = "Cannot be recovered",
     warning = "The Duress Password stops opening anything, and the wallets it opened are erased from this device. " +
         "Your wallets stay.",
