@@ -31,6 +31,7 @@ internal object LumioRoute {
     const val BITCOIN_ACCOUNT = "bitcoin-account"
     const val SETTINGS = "settings"
     const val BTC_SEND = "bitcoin-send"
+    const val DATA_PROVIDERS = "settings/providers"
 
     /** The argument of a paired wallet's routes: the wallet's ID. */
     const val WALLET_ARG = "walletId"
@@ -153,8 +154,12 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                         onBack = { navController.popBackStack() },
                         bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
                         ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
+                        onDataProviders = { navController.navigate(LumioRoute.DATA_PROVIDERS) },
                     )
                 }
+            }
+            composable(LumioRoute.DATA_PROVIDERS) {
+                LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }
             }
             composable(
                 route = LumioRoute.WALLET,

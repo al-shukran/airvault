@@ -85,6 +85,18 @@ class Scheduler(
     }
 
     /**
+     * What this scheduler knows about [providerId] now, or null when it does not hold that provider. The lock keeps the read from racing the calls,
+     * so the settings screen may call it from any coroutine.
+     */
+    suspend fun statusOf(providerId: String): ProviderHealth? {
+        if (all.none { it.id == providerId }) return null
+        return mutex.withLock {
+            val now = clock.nowMs()
+            health[providerId]?.snapshot(now) ?: ProviderHealth(score = null, coolingMs = 0L, circuitOpenMs = 0L)
+        }
+    }
+
+    /**
      * Serves [req] at [priority]. With [cacheUse] and an open cache, a stored value is returned without a call, and a value that a provider returns
      * is stored when [CacheUse.keep] accepts it. Without a cache the request is simply sent.
      *
