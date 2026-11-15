@@ -116,7 +116,7 @@ fun FailureCapScreen(
             onLock = onLock,
             modifier = modifier,
             title = TITLE,
-            prompt = "Enter your App Password to save this lockout.",
+            prompt = "Enter your Application Password to save this lockout.",
             stepCount = STEP_COUNT,
             step = 2,
         )
@@ -154,7 +154,7 @@ private fun ChooseContent(
         DotHeadline(text = "LONGEST WAIT")
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
-            text = "When someone enters a wrong App Password, Lensly makes them wait before the next try. Each wrong try " +
+            text = "When someone enters a wrong Application Password, Lensly makes them wait before the next try. Each wrong try " +
                 "doubles the wait: 10 s, 20 s, 40 s… This setting sets the longest wait.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -55,7 +55,7 @@ internal fun PolicyError.message(): String = when (this) {
     PolicyError.TooShort -> "NEEDS $MIN_PASSWORD_LENGTH+ CHARACTERS"
     PolicyError.TooWeak -> "TOO EASY TO GUESS. ADD VARIETY."
     PolicyError.Mismatch -> "DOES NOT MATCH. TRY AGAIN."
-    PolicyError.SameAsApp -> "THAT IS THE APP PASSWORD. CHOOSE ANOTHER."
+    PolicyError.SameAsApp -> "THAT IS THE APPLICATION PASSWORD. CHOOSE ANOTHER."
 }
 
 /**

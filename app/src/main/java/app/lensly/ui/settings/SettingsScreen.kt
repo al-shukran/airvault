@@ -137,19 +137,19 @@ fun SettingsScreen(
                 onClick = onEntryGesture,
             )
             SettingsRow(
-                title = "Change App Password",
+                title = "Change Application Password",
                 description = "Enter the current password, then the new one twice. Your wallets stay as they are.",
                 onClick = onChangePassword,
             )
             // The same two rows show in the real vault and in a decoy, so the decoy's Settings look identical.
             SettingsRow(
                 title = "Duress Password",
-                description = "A second password. Enter the App Password, then the new one twice.",
+                description = "A second password. Enter the Application Password, then the new one twice.",
                 onClick = onDuressPassword,
             )
             SettingsRow(
                 title = "Remove Duress Password",
-                description = "Enter the App Password. The second password stops opening anything.",
+                description = "Enter the Application Password. The second password stops opening anything.",
                 onClick = onRemoveDuressPassword,
             )
         }
@@ -199,7 +199,7 @@ fun SettingsScreen(
             SettingsRow(
                 title = "Wrong password lockout",
                 description = failureDelayCap?.let {
-                    "${it.summary}. The longest wait after a wrong App Password."
+                    "${it.summary}. The longest wait after a wrong Application Password."
                 } ?: "Reading the saved lockout…",
                 onClick = onFailureDelayCap,
                 loading = failureDelayCap == null,
@@ -266,7 +266,7 @@ fun SettingsScreen(
         SettingsSection("Wipe") {
             SettingsRow(
                 title = "Wipe the vault",
-                description = "Erase every wallet and the App Password from this device. A new App Password is set up next.",
+                description = "Erase every wallet and the Application Password from this device. A new Application Password is set up next.",
                 onClick = onWipe,
             )
         }
@@ -276,7 +276,7 @@ fun SettingsScreen(
             SettingsRow(title = "License", description = "Apache License 2.0. The text is in the LICENSE file.")
             SettingsRow(
                 title = "Third-party licences",
-                description = "Every library and font the app ships, with the licence it is used under.",
+                description = "Every library and font the application ships, with the licence it is used under.",
                 onClick = onThirdPartyLicences,
             )
         }

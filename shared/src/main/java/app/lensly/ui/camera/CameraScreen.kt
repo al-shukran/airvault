@@ -510,7 +510,7 @@ fun CameraUnavailable(onRetry: () -> Unit, modifier: Modifier = Modifier) {
         ErrorState(
             icon = CameraIcons.Camera,
             title = "Camera unavailable",
-            body = "Another app may be using the camera. Close it, then try again.",
+            body = "Another application may be using the camera. Close it, then try again.",
             actionLabel = "Try again",
             onAction = onRetry,
         )

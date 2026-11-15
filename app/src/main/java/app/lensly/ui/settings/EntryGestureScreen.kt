@@ -71,7 +71,7 @@ fun EntryGestureScreen(
             PillButton(text = "Lock", onClick = onLock)
         }
         Text(
-            text = "The gesture opens the hidden area from the camera. To change it, enter your App Password, then perform " +
+            text = "The gesture opens the hidden area from the camera. To change it, enter your Application Password, then perform " +
                 "the new gesture once. It is saved only after it works.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

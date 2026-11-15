@@ -506,7 +506,7 @@ class SignFlow(
         const val NO_REQUEST_ID = "Request has no ID"
         const val KEY_MISMATCH = "Key does not match account"
         const val WALLET_UNREADABLE = "The wallet could not be read. Nothing was signed."
-        const val VAULT_UNCHECKED = "The App Password could not be checked. Nothing was signed."
+        const val VAULT_UNCHECKED = "The Application Password could not be checked. Nothing was signed."
         const val NOT_SAVED = "The review could not be saved, so the signature is not shown."
         const val SIGN_REFUSED = "The request could not be signed."
         const val BITCOIN_NEEDS_WALLET = "Open the wallet this Bitcoin request spends from, then scan it on that wallet's sign screen."

@@ -59,7 +59,7 @@ fun ConfirmPasswordScreen(
             },
         ) {
             Text(
-                text = "Enter your App Password to sign.",
+                text = "Enter your Application Password to sign.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -1,7 +1,7 @@
 # registry-pack
 
-Builds, verifies and signs the offline registry packages that the app installs from removable storage
-(`Settings > Update catalog`). The app reader is `shared/src/main/java/app/lensly/core/registry/update/`, and the
+Builds, verifies and signs the offline registry packages that the application installs from removable storage
+(`Settings > Update catalog`). The application reader is `shared/src/main/java/app/lensly/core/registry/update/`, and the
 two must agree on the wire format (`LRP2`, see `PackageFormat.kt`).
 
 ```
@@ -32,7 +32,7 @@ AES-256-GCM. The AES key comes from scrypt (N = 2^17, r = 8, p = 1). A lost pass
 2. Add that entry to `shared/src/main/assets/registry/trusted-keys.json` with `"status": "active"`.
 3. Sign packages with `build --key <dir>/release.key`.
 
-Rotation: list the new key as `active` and sign with it, then set the old key's `status` to `revoked`. The app refuses a
+Rotation: list the new key as `active` and sign with it, then set the old key's `status` to `revoked`. The application refuses a
 package from a revoked key, including one already installed. The installed sequence stays recorded, so an older package
 still cannot be installed.
 
@@ -46,21 +46,21 @@ The entries file is the source a package is built from. Entries may appear in an
 | Field | Meaning |
 | --- | --- |
 | `formatVersion` | Must be `2`. |
-| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `2` is the newest the app reads. A package with a `denylist` or `wallets` list needs `2`. |
-| `sequence` | At least 1. The app refuses a package whose sequence is not higher than the last one it accepted. |
+| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `2` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. |
+| `sequence` | At least 1. The application refuses a package whose sequence is not higher than the last one it accepted. |
 | `createdAt` | ISO date, `yyyy-mm-dd`. |
 | `networks` | Networks the package adds. A package cannot add a testnet. |
-| `tokens` | Tokens the package adds. Each token's chain must be baked into the app or added by this package. |
+| `tokens` | Tokens the package adds. Each token's chain must be baked into the application or added by this package. |
 | `whitelist` | Optional. The contract calls that may be signed despite a Decode Gap (see below). |
-| `denylist` | Optional. Known-dangerous requests that get a warning or a refusal (see below). Omitted, the app keeps its built-in list; `[]` clears it. |
-| `wallets` | Optional. The Wallet Compatibility Registry: online wallets and their code formats (see below). Omitted, the app keeps its built-in list; `[]` clears it. |
+| `denylist` | Optional. Known-dangerous requests that get a warning or a refusal (see below). Omitted, the application keeps its built-in list; `[]` clears it. |
+| `wallets` | Optional. The Wallet Compatibility Registry: online wallets and their code formats (see below). Omitted, the application keeps its built-in list; `[]` clears it. |
 
-The app applies a package's `whitelist`, `denylist` and `wallets` only when its `sequence` is higher than the built-in catalog's.
-A list the package omits keeps the app's own.
+The application applies a package's `whitelist`, `denylist` and `wallets` only when its `sequence` is higher than the built-in catalog's.
+A list the package omits keeps the application's own.
 
 ### Denylist entries
 
-A denylist entry marks a request as known-dangerous. Before signing, the app shows the reason on the review and asks the owner to
+A denylist entry marks a request as known-dangerous. Before signing, the application shows the reason on the review and asks the owner to
 tick a check. A `BLOCK` entry refuses the request instead.
 
 | Field | Meaning |
@@ -89,20 +89,20 @@ A wallet entry is a support statement, never a condition for signing. The pairin
 
 ### Whitelist entries
 
-A whitelist entry approves one contract call that Lensly cannot decode. The app signs such a call only when its
+A whitelist entry approves one contract call that Lensly cannot decode. The application signs such a call only when its
 chain, contract and selector match an entry here.
 
 | Field | Meaning |
 | --- | --- |
-| `chainId` | Chain the entry applies to. It must be baked into the app or added by this package. |
+| `chainId` | Chain the entry applies to. It must be baked into the application or added by this package. |
 | `contract` | Lowercase `0x` address of the contract the call goes to. |
 | `selector` | Lowercase `0x` and 8 hex digits. Must be the Keccak-256 selector of `signature` (first four bytes). |
 | `signature` | The ABI signature, such as `swapExactTokensForTokens(uint256,uint256,address[],address,uint256)`. |
 | `meaning` | What the call does, in plain words. Printable, at most 240 characters. |
 | `proxy` | `null` for a contract that is not an upgradeable proxy. Otherwise `{ "implementationAddress": ..., "implementationCodeHash": ... }`, with at least one of the two set. |
 
-Each (`chainId`, `contract`, `selector`) appears once. A package's whitelist replaces the whitelist of the app as a
-whole, and an empty or missing `whitelist` leaves the app with no whitelisted calls. The `whitelist` key is omitted from
+Each (`chainId`, `contract`, `selector`) appears once. A package's whitelist replaces the whitelist of the application as a
+whole, and an empty or missing `whitelist` leaves the application with no whitelisted calls. The `whitelist` key is omitted from
 the canonical payload when the list is empty.
 
 ## Samples

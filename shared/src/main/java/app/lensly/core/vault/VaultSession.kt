@@ -790,7 +790,7 @@ internal fun encodeBlob(sealed: ByteArray): ByteArray = byteArrayOf(BLOB_VERSION
 
 internal fun decodeBlob(bytes: ByteArray): ByteArray {
     if (bytes.size < 1 + Aead.IV_BYTES + 16 || bytes[0] != BLOB_VERSION) {
-        throw VaultException("A wallet file is damaged or not in a format this app reads.")
+        throw VaultException("A wallet file is damaged or not in a format this application reads.")
     }
     return bytes.copyOfRange(1, bytes.size)
 }

@@ -112,7 +112,7 @@ private fun EntryGestureChangeRoute(navController: NavHostController, holder: Va
             onLock = { leaveHidden(navController, holder) },
             modifier = Modifier,
             title = "Hidden entry gesture",
-            prompt = "Enter your App Password to change the gesture.",
+            prompt = "Enter your Application Password to change the gesture.",
             stepCount = GESTURE_STEP_COUNT,
         )
         is EntryGestureStep.Practice -> EntryGesturePracticeStep(

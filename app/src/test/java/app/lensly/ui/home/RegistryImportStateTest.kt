@@ -25,7 +25,7 @@ class RegistryImportStateTest {
     @Test
     fun anUnsupportedFormatNamesTheVersionThisAppReads() {
         assertEquals(
-            "Registry format version 1 is not supported. This app reads format version 2.",
+            "Registry format version 1 is not supported. This application reads format version 2.",
             refusalReason(RegistryUpdateException.UnsupportedFormat(version = 1, supported = 2)),
         )
     }
