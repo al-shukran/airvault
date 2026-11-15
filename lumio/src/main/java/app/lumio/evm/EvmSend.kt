@@ -8,6 +8,7 @@ import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.EthSignature
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
+import app.lumio.DebugEvmFunds
 import app.lumio.data.sched.Priority
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigDecimal
@@ -98,7 +99,8 @@ object EvmSend {
         to: String,
         valueWei: BigInteger,
     ): PreparedSend {
-        val balance = reads.balance(chain, from, Priority.FOREGROUND)
+        // Debug builds only: a funded balance for the check, so the send reaches its signature and its broadcast. Release builds read the network.
+        val balance = DebugEvmFunds.balance() ?: reads.balance(chain, from, Priority.FOREGROUND)
         val nonce = reads.nonce(chain, from, pending = true, Priority.FOREGROUND)
         val fees = reads.fees(chain, Priority.FOREGROUND)
         val gas = gasFor(reads, chain, from, to, valueWei)

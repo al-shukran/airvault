@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import app.lensly.DebugBtcFixture
 import app.lensly.app.VaultHolder
 import app.lensly.app.export.partsOf
 import app.lensly.core.ur.EthSignRequestEncoder
@@ -196,6 +197,12 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
             is SignatureStep.Complete -> applySignature(current, result.ur)
             SignatureStep.Ignored -> Unit
         }
+    }
+
+    // A debug build can read a fixture in place of the camera, so the signature can be shown without one. Release builds have no fixture.
+    LaunchedEffect(step) {
+        val current = step
+        if (current is SendStep.Scanning) DebugBtcFixture.take()?.let { onSignatureText(current, it) }
     }
 
     fun openExplorer(url: String) {
