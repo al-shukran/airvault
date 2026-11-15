@@ -58,6 +58,8 @@ internal fun HomeRoute(
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         onBitcoin = { navController.openHidden(LumioRoute.BITCOIN) },
         onSettings = { navController.openHidden(LumioRoute.SETTINGS) },
+        onBalances = { wallet -> navController.navigate(LumioRoute.wallet(wallet.id)) },
+        onEvmSettings = { navController.navigate(LumioRoute.EVM_SETTINGS) },
         wallets = wallets,
         onDelete = { wallet ->
             if (session != null) {
