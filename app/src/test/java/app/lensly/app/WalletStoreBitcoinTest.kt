@@ -1,13 +1,16 @@
 package app.lensly.app
 
 import app.lensly.app.export.MultiAccountsExport
+import app.lensly.app.export.PairingAccount
+import app.lensly.app.export.PairingCodec
+import app.lensly.app.export.PairingKey
+import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcRefusal
 import app.lensly.core.btc.BtcRefusedException
-import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.InputVerificationPolicy.STRICT
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.SigningSourcePolicy
@@ -18,7 +21,6 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
-import com.sparrowwallet.hummingbird.UREncoder
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlin.test.assertContentEquals
@@ -97,7 +99,8 @@ class WalletStoreBitcoinTest {
         val id = newWallet()
 
         assertTrue(store.bitcoinAccounts(id).isEmpty())
-        assertFailsWith<IllegalArgumentException> { store.bitcoinWatchOnlyParts(id) }
+        // The pairing still covers the wallet: its Bitcoin App is listed with no keys, so Lumio drops any Bitcoin account it held.
+        assertTrue(pairingOf(store.pairingParts(id)).apps.single { it.app == "bitcoin" }.keys.isEmpty())
     }
 
     @Test
@@ -177,7 +180,7 @@ class WalletStoreBitcoinTest {
         }
         assertEquals(SINGLE_KEY_NO_BITCOIN, refusal.message)
         assertTrue(store.bitcoinAccounts(id).isEmpty())
-        assertFailsWith<IllegalArgumentException> { store.bitcoinWatchOnlyParts(id) }
+        assertFailsWith<IllegalArgumentException> { store.pairingParts(id) }
     }
 
     @Test
@@ -191,37 +194,66 @@ class WalletStoreBitcoinTest {
     }
 
     @Test
-    fun theWatchOnlyExportCarriesEveryScriptTypeOfEachNetworkTheWalletHolds() {
+    fun thePairingCarriesEveryScriptTypeOfEachNetworkTheWalletHolds() {
         val id = newWallet()
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1, cap)
         store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.TESTNET4, 1, cap)
 
-        val scanner = UrScanner()
-        store.bitcoinWatchOnlyParts(id).forEach { scanner.receive(it) }
-        val ur = assertNotNull(scanner.result())
-        val accounts = BtcWatchOnly.parseCryptoAccount(UREncoder.encode(ur))
+        val keys = bitcoinKeysOf(id)
 
-        assertEquals(8, accounts.size)
+        assertEquals(8, keys.size)
         val allTypes = ScriptType.entries.toSet()
-        assertEquals(allTypes, accounts.filter { it.network == BtcNetwork.MAINNET }.map { it.scriptType }.toSet())
-        assertEquals(allTypes, accounts.filter { it.network == BtcNetwork.TESTNET4 }.map { it.scriptType }.toSet())
+        assertEquals(allTypes, keys.filter { networkOf(it) == BtcNetwork.MAINNET }.map { scriptTypeOf(it) }.toSet())
+        assertEquals(allTypes, keys.filter { networkOf(it) == BtcNetwork.TESTNET4 }.map { scriptTypeOf(it) }.toSet())
     }
 
     @Test
-    fun theWatchOnlyExportCarriesEveryStoredAccountIndex() {
+    fun thePairingCarriesEveryStoredAccountIndex() {
         val id = newWallet()
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 3, cap)
 
-        val scanner = UrScanner()
-        store.bitcoinWatchOnlyParts(id).forEach { scanner.receive(it) }
-        val accounts = BtcWatchOnly.parseCryptoAccount(UREncoder.encode(assertNotNull(scanner.result())))
-
         // Indices 0, 1 and 2 on mainnet, with each of the four Script Types at every index.
-        assertEquals(12, accounts.size)
+        val keys = bitcoinKeysOf(id)
+
+        assertEquals(12, keys.size)
+        assertEquals(setOf(0, 1, 2), keys.map { (it.path[2] - DeterministicWallet.hardenedKeyIndex).toInt() }.toSet())
+    }
+
+    @Test
+    fun thePairingNamesEveryEthereumAccountAsLenslyShowsIt() {
+        val id = store.create(name = "Savings", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        store.addAccount(id)
+        store.saveAccountProfile(id, 0, AccountProfile(name = "Cold", label = "vault", group = "Long term"))
+
+        val pairing = pairingOf(store.pairingParts(id))
+
+        assertEquals("Savings", pairing.name)
+        val ethereum = pairing.apps.single { it.app == "ethereum" }
+        val seed = Mnemonic.of(words).use { it.deriveSeed("") }
+        assertTrue(ethereum.keys.single().publicKey.contentEquals(HdWallet(seed).accountXpub().publicKey))
         assertEquals(
-            setOf(0, 1, 2),
-            accounts.map { (it.path.path[2] - DeterministicWallet.hardenedKeyIndex).toInt() }.toSet(),
+            listOf(
+                PairingAccount(key = 0, child = 0, name = "Cold", label = "vault", group = "Long term"),
+                PairingAccount(key = 0, child = 1, name = "Savings 1", label = null, group = null),
+            ),
+            ethereum.accounts,
         )
+    }
+
+    /** The Bitcoin keys of wallet [id], from the pairing that Lensly builds for it. */
+    private fun bitcoinKeysOf(id: String): List<PairingKey> = pairingOf(store.pairingParts(id)).apps.single { it.app == "bitcoin" }.keys
+
+    private fun networkOf(key: PairingKey): BtcNetwork =
+        BtcNetwork.entries.single { it.coinType.toLong() == key.path[1] - DeterministicWallet.hardenedKeyIndex }
+
+    private fun scriptTypeOf(key: PairingKey): ScriptType =
+        ScriptType.entries.single { it.purpose.toLong() == key.path[0] - DeterministicWallet.hardenedKeyIndex }
+
+    /** The pairing that [parts] carry, read as the online companion reads it. */
+    private fun pairingOf(parts: List<String>): PairingPayload {
+        val scanner = UrScanner()
+        parts.forEach { scanner.receive(it) }
+        return PairingCodec.fromUr(assertNotNull(scanner.result()))
     }
 
     @Test

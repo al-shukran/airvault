@@ -57,11 +57,9 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletStore
 import app.lensly.app.export.PairingExport
-import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.registry.WalletEntry
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.LoadingState
@@ -99,11 +97,10 @@ internal const val PAIRED_MESSAGE = "Wallet paired"
 internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
 
 /**
- * The online wallets that pair with Lensly, the first one recommended. The EVM ones all read the same ur:crypto-hdkey, so only the steps
- * the owner follows differ. [LUMIO] is the AirVault companion app: it reads the Ethereum account key as a ur:crypto-hdkey and the Bitcoin
- * accounts as a ur:crypto-account, so its code step offers both codes. [OTHER] stands for any wallet with a hardware or QR-based account,
- * so its steps are the general ones. [BITCOIN] shares the watch-only Bitcoin accounts of a wallet as a ur:crypto-account.
- * [KEYSTONE_NEXUS] shares the Bitcoin and Ethereum accounts of a wallet as a ur:crypto-multi-accounts, the import that Keystone Nexus reads.
+ * The online wallets that pair with Lensly, the first one recommended. Each one is paired with one code for the whole wallet, so an App
+ * is never paired on its own. [LUMIO] is the AirVault companion app: it reads the AirVault pairing, which holds the keys and names of every
+ * App of the wallet. [KEYSTONE_NEXUS] reads the same keys of every App, as a ur:crypto-multi-accounts. [RABBY] and [METAMASK] read only the
+ * Ethereum account key, as a ur:crypto-hdkey, because they hold no Bitcoin account.
  */
 internal enum class PairFormat(
     @StringRes val labelRes: Int,
@@ -132,18 +129,6 @@ internal enum class PairFormat(
         labelRes = R.string.pair_format_keystone_label,
         instructionRes = R.string.pair_format_keystone_instruction,
         walletName = "Keystone Nexus",
-    ),
-    OTHER(
-        labelRes = R.string.pair_format_other_label,
-        instructionRes = R.string.pair_format_other_instruction,
-        // Not in the Wallet Compatibility Registry, so there is no Wallet Entry note to show.
-        walletName = null,
-    ),
-    BITCOIN(
-        labelRes = R.string.pair_format_bitcoin_label,
-        instructionRes = R.string.pair_format_bitcoin_instruction,
-        // Not an EVM wallet in the Wallet Compatibility Registry, so there is no Wallet Entry note to show.
-        walletName = null,
     ),
 }
 
@@ -184,17 +169,6 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
     val walletEntries by produceState(initialValue = emptyList<WalletEntry>(), context) {
         value = withContext(Dispatchers.IO) { RegistryHolder.get(context).walletEntries() }
     }
-    // The Bitcoin networks each wallet holds an account on, read off the main thread. A wallet with none has no Bitcoin code.
-    val bitcoinNetworks by produceState(initialValue = emptyMap<String, Set<BtcNetwork>>(), session, listing) {
-        value = if (session == null || listing == null) {
-            emptyMap()
-        } else {
-            withContext(Dispatchers.IO) {
-                val store = WalletStore(session)
-                listing.wallets.associate { wallet -> wallet.id to store.bitcoinAccounts(wallet.id).map { it.network }.toSet() }
-            }
-        }
-    }
     if (listing == null) {
         // The wallets are read off the main thread. Until they arrive, the screen says so instead of staying blank.
         PairLoading(label = "Loading wallets", onBack = { navController.popBackStack() })
@@ -210,10 +184,9 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
         profiles = listing.profiles,
         preselected = preselected,
         walletEntries = walletEntries,
-        bitcoinNetworks = bitcoinNetworks,
-        bitcoinParts = { meta ->
+        lumioParts = { meta ->
             withContext(Dispatchers.IO) {
-                WalletStore(requireNotNull(session) { "The vault is locked." }).bitcoinWatchOnlyParts(meta.id)
+                WalletStore(requireNotNull(session) { "The vault is locked." }).pairingParts(meta.id)
             }
         },
         keystoneParts = { meta ->
@@ -246,10 +219,8 @@ internal fun PairWizard(
     onDone: () -> Unit,
     onLeave: () -> Unit,
     walletEntries: List<WalletEntry> = emptyList(),
-    /** The Bitcoin networks each wallet holds an account on, by wallet id. A wallet with none has no Bitcoin code to show. */
-    bitcoinNetworks: Map<String, Set<BtcNetwork>> = emptyMap(),
-    /** The Bitcoin code of a wallet with a Bitcoin account: its frames, read off the main thread. */
-    bitcoinParts: suspend (WalletMeta) -> List<String> = { emptyList() },
+    /** The AirVault pairing of a wallet: the keys and names of every App it holds, in one code, read off the main thread. */
+    lumioParts: suspend (WalletMeta) -> List<String> = { emptyList() },
     /** The Keystone Nexus code of a wallet: its multi-accounts frames, read off the main thread. */
     keystoneParts: suspend (WalletMeta) -> List<String> = { emptyList() },
     modifier: Modifier = Modifier,
@@ -260,23 +231,18 @@ internal fun PairWizard(
     var step by remember { mutableStateOf(if (skipsWalletStep) PairStep.APP else PairStep.WALLET) }
     val chosen = wallet
     val inCode = step == PairStep.CODE
-    val chosenNetworks = chosen?.let { bitcoinNetworks[it.id] }.orEmpty()
-    val bitcoinReady = chosenNetworks.isNotEmpty()
-    // Keystone Nexus needs the seed, so only a Mnemonic wallet, the one with an account public key, has a code.
-    val keystoneReady = chosen?.accountXpub != null
+    // The AirVault and Keystone Nexus codes need the seed's account keys, so only a Mnemonic wallet, the one with an account public key,
+    // has a code.
+    val hasAccountKeys = chosen?.accountXpub != null
     val keystoneNeedsHd = keystoneNeedsHdWallet(format, chosen)
     // The code is built only when the owner reaches it, from public wallet data.
-    val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, bitcoinReady, keystoneReady) {
+    val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, hasAccountKeys) {
         value = when {
             !inCode || chosen == null -> null
-            format == PairFormat.BITCOIN -> if (bitcoinReady) bitcoinParts(chosen) else null
-            format == PairFormat.KEYSTONE_NEXUS -> if (keystoneReady) keystoneParts(chosen) else null
+            format == PairFormat.LUMIO -> if (hasAccountKeys) lumioParts(chosen) else null
+            format == PairFormat.KEYSTONE_NEXUS -> if (hasAccountKeys) keystoneParts(chosen) else null
             else -> withContext(Dispatchers.Default) { pairingParts(chosen) }
         }
-    }
-    // Lumio's second code, the Bitcoin accounts, the same frames as the Bitcoin format. It is read only for Lumio with a Bitcoin account.
-    val bitcoinFrames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, bitcoinReady) {
-        value = if (!inCode || chosen == null || format != PairFormat.LUMIO || !bitcoinReady) null else bitcoinParts(chosen)
     }
     fun back() {
         when (step) {
@@ -295,9 +261,6 @@ internal fun PairWizard(
         format = format,
         walletEntry = format?.walletName?.let { name -> walletEntries.firstOrNull { it.name == name } },
         frames = frames,
-        bitcoinFrames = bitcoinFrames,
-        bitcoinReady = bitcoinReady,
-        bitcoinTestnet = BtcNetwork.TESTNET4 in chosenNetworks,
         keystoneNeedsHd = keystoneNeedsHd,
         onPickWallet = { picked ->
             wallet = picked
@@ -328,12 +291,6 @@ internal fun PairWizardScreen(
     /** The Wallet Entry of the chosen online wallet, or null when the registry has none. Its note shows on the instructions step. */
     walletEntry: WalletEntry? = null,
     frames: List<String>?,
-    /** Lumio's Bitcoin code, shown beside its Ethereum code [frames] when the chosen wallet holds a Bitcoin account. */
-    bitcoinFrames: List<String>? = null,
-    /** Whether the chosen wallet holds a Bitcoin account. A Bitcoin code is offered only then. */
-    bitcoinReady: Boolean = true,
-    /** Whether the Bitcoin code holds a testnet account, which the code step marks with a Testnet chip. */
-    bitcoinTestnet: Boolean = false,
     /** Whether the chosen wallet is a Single Key, which has no account keys for a Keystone Nexus code. The steps show a notice instead. */
     keystoneNeedsHd: Boolean = false,
     onPickWallet: (WalletMeta) -> Unit,
@@ -351,7 +308,7 @@ internal fun PairWizardScreen(
                     onClick = onShowCode,
                     accent = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = (format != PairFormat.BITCOIN || bitcoinReady) && !keystoneNeedsHd,
+                    enabled = !keystoneNeedsHd,
                 )
             }
         }
@@ -391,15 +348,11 @@ internal fun PairWizardScreen(
                     PairStep.INSTRUCTIONS -> InstructionsStep(
                         format = format,
                         walletEntry = walletEntry,
-                        bitcoinReady = bitcoinReady,
                         keystoneNeedsHd = keystoneNeedsHd,
                     )
                     PairStep.CODE -> CodeStep(
                         format = format,
                         frames = frames,
-                        bitcoinFrames = bitcoinFrames,
-                        bitcoinReady = bitcoinReady,
-                        bitcoinTestnet = bitcoinTestnet,
                         keystoneNeedsHd = keystoneNeedsHd,
                     )
                 }
@@ -511,7 +464,7 @@ private fun KeystoneNeedsHdNotice() {
 
 /** Step three: the steps for the chosen app, with a drawing of one phone scanning the other, and its Wallet Entry note. */
 @Composable
-private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, bitcoinReady: Boolean, keystoneNeedsHd: Boolean) {
+private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, keystoneNeedsHd: Boolean) {
     PairIllustration(modifier = Modifier.fillMaxWidth())
     Spacer(Modifier.height(LenslySpacing.lg))
     if (format == null) return
@@ -526,14 +479,6 @@ private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, bit
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    if (format == PairFormat.BITCOIN && !bitcoinReady) {
-        Spacer(Modifier.height(LenslySpacing.lg))
-        InlineBanner(
-            title = "No Bitcoin account",
-            message = "This wallet has none yet. Add one with Generate accounts in its Bitcoin App, then pair it.",
-            tone = BannerTone.Warning,
-        )
-    }
     if (keystoneNeedsHd) {
         Spacer(Modifier.height(LenslySpacing.lg))
         KeystoneNeedsHdNotice()
@@ -594,22 +539,10 @@ private fun WalletEntryNote(entry: WalletEntry) {
  * Until the parts are ready, it says so.
  */
 @Composable
-private fun ColumnScope.CodeStep(
-    format: PairFormat?,
-    frames: List<String>?,
-    bitcoinFrames: List<String>?,
-    bitcoinReady: Boolean,
-    bitcoinTestnet: Boolean,
-    keystoneNeedsHd: Boolean,
-) {
-    // Lumio shows its Ethereum code first, and its Bitcoin code when the owner switches. Only a wallet with a Bitcoin account has one.
-    var showBitcoin by remember { mutableStateOf(false) }
-    val lumioBitcoin = format == PairFormat.LUMIO && bitcoinReady
-    val onBitcoin = format == PairFormat.BITCOIN || (lumioBitcoin && showBitcoin)
+private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?, keystoneNeedsHd: Boolean) {
     if (format != null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // An EVM account carries the Ethereum logo, and a Bitcoin account the Bitcoin logo.
-            if (onBitcoin) BitcoinIcon(size = 16.dp) else AddressIcon(size = 16.dp)
+            AddressIcon(size = 16.dp)
             Spacer(Modifier.width(LenslySpacing.xs))
             Text(
                 text = stringResource(format.instructionRes),
@@ -617,37 +550,15 @@ private fun ColumnScope.CodeStep(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (onBitcoin && bitcoinTestnet) {
-                Spacer(Modifier.width(LenslySpacing.xs))
-                PillChip(text = "Testnet")
-            }
-        }
-    }
-    if (lumioBitcoin) {
-        Spacer(Modifier.height(LenslySpacing.sm))
-        Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-            PillButton(
-                text = stringResource(R.string.pair_code_ethereum),
-                onClick = { showBitcoin = false },
-                accent = !showBitcoin,
-                modifier = Modifier.weight(1f),
-            )
-            PillButton(
-                text = stringResource(R.string.pair_code_bitcoin),
-                onClick = { showBitcoin = true },
-                accent = showBitcoin,
-                modifier = Modifier.weight(1f),
-            )
         }
     }
     Spacer(Modifier.weight(1f))
-    val parts = if (lumioBitcoin && showBitcoin) bitcoinFrames else frames
     if (keystoneNeedsHd) {
         KeystoneNeedsHdNotice()
-    } else if (parts == null) {
+    } else if (frames == null) {
         LoadingState(label = "Preparing code")
     } else {
-        AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        AnimatedQr(parts = frames, modifier = Modifier.fillMaxWidth())
     }
     Spacer(Modifier.weight(1f))
 }

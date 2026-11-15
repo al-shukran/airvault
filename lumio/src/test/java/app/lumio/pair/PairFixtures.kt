@@ -1,5 +1,6 @@
 package app.lumio.pair
 
+import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
@@ -41,5 +42,5 @@ internal fun scanToEnd(parts: List<String>): ScanStep {
 }
 
 /** The pairing that [parts] complete. Fails the test when they refuse or do not complete. */
-internal fun pairingOf(parts: List<String>): Pairing = (scanToEnd(parts) as? ScanStep.Complete)?.pairing
+internal fun pairingOf(parts: List<String>): PairingPayload = (scanToEnd(parts) as? ScanStep.Complete)?.pairing
     ?: error("The code was refused: ${scanToEnd(parts)}")

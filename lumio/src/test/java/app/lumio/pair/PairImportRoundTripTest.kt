@@ -1,10 +1,12 @@
 package app.lumio.pair
 
-import app.lensly.app.export.PairingExport
-import app.lensly.core.btc.BtcAccount
+import app.lensly.app.export.PairingAccount
+import app.lensly.app.export.PairingApp
+import app.lensly.app.export.PairingCodec
+import app.lensly.app.export.PairingKey
+import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcWatchOnly
-import app.lensly.core.btc.ScriptType
+import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.toHex
@@ -12,58 +14,80 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Lensly's exports, encoded by the producers in :shared, read by Lumio's scan and importer. Each case compares what was imported. */
+/** Lensly's pairing, encoded by the producer in :shared and read by Lumio's scan and importer. Each case compares what was imported. */
 class PairImportRoundTripTest {
 
-    @Test
-    fun theEthereumAccountKeyRoundTrips() {
-        val wallet = HdWallet(PairFixtures.seed)
-        val pairing = pairingOf(PairingExport.urParts(wallet, name = "Demo")) as Pairing.Evm
+    private fun ethereum(accounts: List<PairingAccount>) = PairingApp(
+        app = "ethereum",
+        keys = listOf(PairingKey.ethereumAccount(HdWallet(PairFixtures.seed).accountXpub())),
+        accounts = accounts,
+    )
 
-        assertEquals(wallet.masterFingerprint.toLong() and 0xFFFFFFFFL, pairing.fingerprint)
-        assertEquals("Demo", pairing.name)
-        assertEquals(wallet.accountXpub().publicKey.toHex(), pairing.xpub.publicKey.toHex())
-        assertEquals(wallet.accountXpub().chainCode.toHex(), pairing.xpub.chainCode.toHex())
-        assertEquals(wallet.accountXpub().parentFingerprint, pairing.xpub.parentFingerprint)
-        assertEquals(wallet.address(0), AccountAddresses.addressAt(pairing.xpub, 0))
+    private fun bitcoin(accounts: List<BtcWatchOnlyAccount>) = PairingApp(
+        app = "bitcoin",
+        keys = accounts.map { PairingKey.bitcoinAccount(it) },
+        accounts = accounts.indices.map { PairingAccount(key = it, child = null, name = null, label = null, group = null) },
+    )
+
+    private fun pairing(vararg apps: PairingApp) = PairingPayload(
+        fingerprint = HdWallet(PairFixtures.seed).masterFingerprint.toLong() and 0xFFFFFFFFL,
+        name = "Demo",
+        apps = apps.toList(),
+    )
+
+    @Test
+    fun theEthereumAccountsWithTheirNamesLabelsAndGroupsRoundTrip() {
+        val sent = pairing(
+            ethereum(
+                listOf(
+                    PairingAccount(key = 0, child = 0, name = "Savings", label = "cold", group = "Long term"),
+                    PairingAccount(key = 0, child = 1, name = "Trading", label = null, group = "Hot"),
+                ),
+            ),
+        )
+
+        val read = pairingOf(PairingCodec.urParts(sent))
+
+        assertEquals(sent.fingerprint, read.fingerprint)
+        assertEquals("Demo", read.name)
+        assertEquals(sent.apps.single().accounts, read.apps.single { it.app == "ethereum" }.accounts)
+        val xpub = PairImport.ethereumKeyOf(read)
+        assertEquals(HdWallet(PairFixtures.seed).accountXpub().publicKey.toHex(), xpub.publicKey.toHex())
+        assertEquals(HdWallet(PairFixtures.seed).address(1), AccountAddresses.addressAt(xpub, 1))
     }
 
     @Test
     fun eachScriptTypeOnEachNetworkRoundTrips() {
-        for (network in BtcNetwork.entries) {
-            for (scriptType in ScriptType.entries) {
-                val label = "$network $scriptType"
-                val source = PairFixtures.account(PairFixtures.seed, network, scriptType)
-                val accounts = (pairingOf(BtcWatchOnly.cryptoAccountParts(listOf(source))) as Pairing.Bitcoin).accounts
-                val imported = accounts.single()
+        val accounts = PairFixtures.allAccounts(PairFixtures.seed)
+        val sent = pairing(ethereum(listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null))), bitcoin(accounts))
 
-                assertEquals(label, source.network, imported.network)
-                assertEquals(label, source.scriptType, imported.scriptType)
-                assertEquals(label, source.masterFingerprint, imported.masterFingerprint)
-                assertEquals(label, source.path.path, imported.path.path)
-                assertEquals(label, source.xpub.publickeybytes, imported.xpub.publickeybytes)
-                assertEquals(label, source.xpub.chaincode, imported.xpub.chaincode)
-                assertEquals(label, source.descriptor, imported.descriptor)
-                assertEquals(label, BtcAccount.fromSeed(PairFixtures.seed, network, scriptType).receiveAddress(0), imported.receiveAddress(0))
-            }
-        }
+        val imported = PairImport.bitcoinAccountsOf(pairingOf(PairingCodec.urParts(sent)))
+
+        assertEquals(accounts.map { it.descriptor }, imported.map { it.descriptor })
+        assertEquals(accounts.map { it.receiveAddress(0) }, imported.map { it.receiveAddress(0) })
+        assertEquals(setOf(BtcNetwork.MAINNET, BtcNetwork.TESTNET4), imported.map { it.network }.toSet())
     }
 
     @Test
-    fun theBitcoinExportWithBothNetworksRoundTripsAsAnAnimatedCode() {
-        val parts = BtcWatchOnly.cryptoAccountParts(PairFixtures.allAccounts(PairFixtures.seed))
-        assertTrue("an export of eight accounts is animated", parts.size > 1)
+    fun theWholePairingOfEveryAppRoundTripsAsAnAnimatedCode() {
+        val bitcoinAccounts = PairFixtures.allAccounts(PairFixtures.seed)
+        val accounts = (0 until 40).map { index ->
+            PairingAccount(key = 0, child = index, name = "Account $index", label = "label $index", group = if (index % 2 == 0) "Even" else null)
+        }
+        val parts = PairingCodec.urParts(pairing(ethereum(accounts), bitcoin(bitcoinAccounts)))
+        assertTrue("a long pairing is animated", parts.size > 1)
 
-        val pairing = pairingOf(parts) as Pairing.Bitcoin
+        val read = pairingOf(parts)
 
-        assertEquals(PairFixtures.allAccounts(PairFixtures.seed).map { it.descriptor }, pairing.accounts.map { it.descriptor })
-        assertEquals(setOf(BtcNetwork.MAINNET, BtcNetwork.TESTNET4), pairing.accounts.map { it.network }.toSet())
-        assertEquals(ScriptType.entries.toSet(), pairing.accounts.map { it.scriptType }.toSet())
+        assertEquals(listOf("ethereum", "bitcoin"), read.apps.map { it.app })
+        assertEquals(accounts, read.apps.single { it.app == "ethereum" }.accounts)
+        assertEquals(bitcoinAccounts.map { it.descriptor }, PairImport.bitcoinAccountsOf(read).map { it.descriptor })
     }
 
     @Test
     fun theScanReportsProgressUntilTheAnimatedCodeIsWhole() {
-        val parts = BtcWatchOnly.cryptoAccountParts(PairFixtures.allAccounts(PairFixtures.seed))
+        val accounts = listOf(PairingAccount(key = 0, child = 0, name = "Demo 0", label = null, group = null))
+        val parts = PairingCodec.urParts(pairing(ethereum(accounts), bitcoin(PairFixtures.allAccounts(PairFixtures.seed))))
         val scan = PairScan()
         val steps = parts.map { scan.onText(it) }
 
