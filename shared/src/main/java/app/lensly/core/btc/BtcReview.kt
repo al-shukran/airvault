@@ -19,6 +19,8 @@ data class BtcReview(
     val requiresConfirmation: Boolean,
     /** The virtual size of the request once signed, estimated from the unsigned transaction. See [BtcFeeRate]. */
     val estimatedVsize: Long,
+    /** The fee WARN notices, against the owner's [BtcFeeThresholds]. Empty while the fee is unknown. */
+    val feeWarnings: List<BtcWarning> = emptyList(),
 ) {
     /** True when every input amount was verified against its previous transaction. */
     val allInputsVerified: Boolean

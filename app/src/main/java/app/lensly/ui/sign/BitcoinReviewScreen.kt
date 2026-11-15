@@ -140,9 +140,16 @@ internal fun btcText(sats: Long): String {
 internal fun warningText(warning: BtcWarning): String = when (warning) {
     is BtcWarning.ExternalInputs -> "${warning.count} input(s) belong to another signer. Lensly does not sign them."
     is BtcWarning.UnverifiedAmounts ->
-        "${warning.count} input amount(s) come from a witness UTXO only. They are not verified, so the fee is unknown until they are confirmed."
+        "${warning.count} input amount(s) come from a witness UTXO only. They are not verified, so the fee is unknown until " +
+            "they are confirmed."
     is BtcWarning.UnknownChange ->
         "${warning.count} output(s) name a key of this wallet but do not pay this account's change. Check where they go."
+    is BtcWarning.HighFeeRate ->
+        "The fee rate is ${String.format(Locale.ROOT, "%.1f", warning.satPerVb)} sat/vB, above your limit of " +
+            "${warning.thresholdSatPerVb} sat/vB."
+    is BtcWarning.HighFeeShare ->
+        "The fee is ${String.format(Locale.ROOT, "%.1f", warning.percent)}% of the amount sent to others, above your limit " +
+            "of ${warning.thresholdPercent}%."
 }
 
 private const val SATS_PER_BTC = 100_000_000L

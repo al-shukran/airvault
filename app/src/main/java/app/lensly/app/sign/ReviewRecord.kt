@@ -1,10 +1,16 @@
 package app.lensly.app.sign
 
+import app.lensly.app.BitcoinReviewed
+import app.lensly.core.btc.warnings
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
+import app.lensly.ui.sign.btcText
+import app.lensly.ui.sign.networkName
+import app.lensly.ui.sign.scriptTypeName
+import app.lensly.ui.sign.warningText
 import java.security.MessageDigest
 
 /** What a Review Record says was decided. */
@@ -28,7 +34,10 @@ enum class ReviewOutcome(val wire: Int) {
 /** What was reviewed. Typed data is a message too: it is signed as one, never sent as a transaction. */
 enum class ReviewKind(val wire: Int) {
     TRANSACTION(0),
-    MESSAGE(1);
+    MESSAGE(1),
+
+    /** A Bitcoin PSBT. Its facts are in [ReviewRecord.bitcoin]. */
+    BITCOIN_TRANSACTION(2);
 
     companion object {
         /** The kind stored as [wire] in a record. An unknown value is refused. */
@@ -36,6 +45,39 @@ enum class ReviewKind(val wire: Int) {
             ?: throw IllegalArgumentException("Unknown review kind.")
     }
 }
+
+/** Whether a notice of a Bitcoin review only warns, or blocks the request. */
+enum class NoticeLevel(val wire: Int) {
+    /** A warning the owner read on the review. Signing was still allowed. */
+    WARN(0),
+
+    /** The reason the request was refused, after the review or before it. Nothing was signed. */
+    BLOCK(1);
+
+    companion object {
+        /** The level stored as [wire] in a record. An unknown value is refused. */
+        fun fromWire(wire: Int): NoticeLevel = entries.firstOrNull { it.wire == wire }
+            ?: throw IllegalArgumentException("Unknown notice level.")
+    }
+}
+
+/** One notice a Bitcoin review showed, with its words as shown. */
+data class BitcoinRecordNotice(val level: NoticeLevel, val text: String)
+
+/** One output of a Bitcoin request, as the review showed it. [address] is null for a script with no address. */
+data class BitcoinRecordOutput(val address: String?, val amountSats: Long, val isOwnChange: Boolean)
+
+/**
+ * What a Bitcoin review showed of its PSBT. A record of any other request has none. [scriptType] is the Script Type of the account, as
+ * shown. The fee is null while an input amount is unverified, and so is its rate.
+ */
+data class BitcoinRecordFacts(
+    val scriptType: String,
+    val outputs: List<BitcoinRecordOutput>,
+    val feeSats: Long?,
+    val feeRateSatPerVb: Double?,
+    val notices: List<BitcoinRecordNotice>,
+)
 
 /**
  * The device's own record of one review: what the owner was shown, what was decided, and when. It holds no key material. The
@@ -72,6 +114,8 @@ data class ReviewRecord(
     val refusal: String?,
     /** The SHA-256 of the reviewed data, in hex. */
     val dataHash: String,
+    /** What a Bitcoin review showed of the PSBT. Null for every other record. */
+    val bitcoin: BitcoinRecordFacts? = null,
 )
 
 /**
@@ -85,6 +129,63 @@ class ReviewEntry(
     val ready: Prepared.Ready?,
     val refusal: String?,
 )
+
+/**
+ * What the Bitcoin sign flow showed and decided for one PSBT of wallet [walletId]. [reviewed] is the review the owner saw, when the
+ * request got one. [refusal] is the reason, for a refusal. [psbt] is the PSBT as the Parser Sandbox wrote it, and its SHA-256 is kept.
+ */
+class BitcoinReviewEntry(
+    val walletId: String,
+    val outcome: ReviewOutcome,
+    val psbt: ByteArray,
+    val reviewed: BitcoinReviewed?,
+    val refusal: String?,
+)
+
+/**
+ * The Review Record of the Bitcoin request [entry], written at [atMs]. The record keeps the account, its Script Type and network, each
+ * output, the fee and its rate, and every notice the review showed. A refusal after the review adds its reason as a BLOCK notice.
+ */
+fun bitcoinReviewRecordOf(entry: BitcoinReviewEntry, atMs: Long): ReviewRecord {
+    val reviewed = entry.reviewed
+    val review = reviewed?.review
+    val notices = buildList {
+        review?.warnings()?.forEach { add(BitcoinRecordNotice(NoticeLevel.WARN, warningText(it))) }
+        if (entry.outcome == ReviewOutcome.REFUSED && review != null) {
+            entry.refusal?.let { add(BitcoinRecordNotice(NoticeLevel.BLOCK, it)) }
+        }
+    }
+    return ReviewRecord(
+        atMs = atMs,
+        outcome = entry.outcome,
+        kind = ReviewKind.BITCOIN_TRANSACTION,
+        chainId = null,
+        networkName = reviewed?.account?.network?.let { "Bitcoin ${networkName(it).lowercase()}" },
+        accountIndex = reviewed?.account?.index,
+        address = null,
+        function = null,
+        to = null,
+        amount = review?.let { btcText(it.outputs.filterNot { output -> output.isOwnChange }.sumOf { output -> output.amountSats }) },
+        tokenContract = null,
+        fee = emptyList(),
+        params = emptyList(),
+        origin = null,
+        refusal = entry.refusal,
+        dataHash = bitcoinDataHash(entry.psbt),
+        bitcoin = reviewed?.let { shown ->
+            BitcoinRecordFacts(
+                scriptType = scriptTypeName(shown.account.scriptType),
+                outputs = shown.review.outputs.map { BitcoinRecordOutput(it.address, it.amountSats, it.isOwnChange) },
+                feeSats = shown.review.feeSats,
+                feeRateSatPerVb = shown.review.feeRateSatPerVb,
+                notices = notices,
+            )
+        },
+    )
+}
+
+/** The SHA-256 of the PSBT bytes [psbt], in hex. */
+fun bitcoinDataHash(psbt: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(psbt).toHex()
 
 /**
  * The Review Record of [entry], written at [atMs]. A review gives the facts the owner saw. Without one, the chain and its network

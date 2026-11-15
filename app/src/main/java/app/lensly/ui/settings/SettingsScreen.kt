@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.HideDelay
+import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.DenylistEntry
@@ -107,6 +108,8 @@ fun SettingsScreen(
     bitcoinInputPolicy: InputVerificationPolicy? = null,
     bitcoinSigningSource: SigningSourcePolicy? = null,
     onBitcoinPolicy: () -> Unit = {},
+    bitcoinFeeThresholds: BtcFeeThresholds? = null,
+    onBitcoinFeeWarnings: () -> Unit = {},
     onThirdPartyLicences: () -> Unit = {},
     onUpdateCatalog: () -> Unit,
     onWipe: () -> Unit,
@@ -181,6 +184,14 @@ fun SettingsScreen(
                 } ?: "Reading the saved policy…",
                 onClick = onBitcoinPolicy,
                 loading = policies == null,
+            )
+            SettingsRow(
+                title = "Fee warnings",
+                description = bitcoinFeeThresholds?.let {
+                    "Warn above ${it.highFeeRateSatPerVb} sat/vB, or when the fee is over ${it.feeSharePercent}% of the amount sent."
+                } ?: "Reading the saved limits…",
+                onClick = onBitcoinFeeWarnings,
+                loading = bitcoinFeeThresholds == null,
             )
         }
 

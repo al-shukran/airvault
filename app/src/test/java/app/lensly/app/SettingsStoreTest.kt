@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.ProxyPolicy
@@ -359,5 +360,120 @@ class SettingsStoreTest {
         assertEquals(SigningSourcePolicy.COMPANION_ONLY, loaded.bitcoinSigningSource)
         assertEquals(HideDelay(250, 4_000), loaded.hideDelay)
         session.close()
+    }
+
+    /** Runs [block] on a fresh session of the vault, and closes the session afterwards. */
+    private fun <T> withVault(block: (VaultSession) -> T): T {
+        val session = open()
+        try {
+            return block(session)
+        } finally {
+            session.close()
+        }
+    }
+
+    /** The settings record as version 4 writes it: every field of version 3, then the Bitcoin policies, and no fee limits. */
+    private fun recordV4(accounts: Int, policyCode: Int, shortestMs: Int, longestMs: Int, inputCode: Int, sourceCode: Int): ByteArray {
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(4)
+            out.writeInt(accounts)
+            out.writeByte(policyCode)
+            out.writeInt(shortestMs)
+            out.writeInt(longestMs)
+            out.writeByte(inputCode)
+            out.writeByte(sourceCode)
+        }
+        return buffer.toByteArray()
+    }
+
+    /** The settings record as version 5 writes it, with the fee rate and fee share limits after the Bitcoin policies. */
+    private fun recordV5(rate: Int, share: Int): ByteArray {
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(5)
+            out.writeInt(BulkCap.TWENTY.accounts)
+            out.writeByte(ProxyPolicy.WARN_AND_CONFIRM.code)
+            out.writeInt(HideDelay.DEFAULT.minMs.toInt())
+            out.writeInt(HideDelay.DEFAULT.maxMs.toInt())
+            out.writeByte(InputVerificationPolicy.STRICT.wire)
+            out.writeByte(SigningSourcePolicy.ANY.wire)
+            out.writeInt(rate)
+            out.writeInt(share)
+        }
+        return buffer.toByteArray()
+    }
+
+    @Test
+    fun aVaultWithNoSavedSettingsReadsTheDefaultFeeLimits() {
+        assertEquals(BtcFeeThresholds.DEFAULT, withVault { SettingsStore(it).load().bitcoinFeeThresholds })
+    }
+
+    @Test
+    fun savedFeeLimitsAreReadBackAfterTheVaultReopens() {
+        val limits = BtcFeeThresholds(highFeeRateSatPerVb = 350, feeSharePercent = 25)
+        withVault { session -> SettingsStore(session).save(AppSettings(bitcoinFeeThresholds = limits)) }
+
+        assertEquals(limits, withVault { SettingsStore(it).load().bitcoinFeeThresholds })
+    }
+
+    @Test
+    fun everyFeeLimitAtItsEdgesRoundTrips() {
+        for (limits in listOf(BtcFeeThresholds(1, 1), BtcFeeThresholds(10_000, 100))) {
+            withVault { session -> SettingsStore(session).save(AppSettings(bitcoinFeeThresholds = limits)) }
+            assertEquals(limits, withVault { SettingsStore(it).load().bitcoinFeeThresholds }, "limits $limits")
+        }
+    }
+
+    @Test
+    fun savingTheFeeLimitsKeepsTheOtherSettings() {
+        val saved = AppSettings(
+            bulkCap = BulkCap.TWENTY,
+            proxyPolicy = ProxyPolicy.WARN_AND_CONFIRM,
+            bitcoinInputPolicy = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED,
+            bitcoinSigningSource = SigningSourcePolicy.COMPANION_ONLY,
+        )
+        withVault { session -> SettingsStore(session).save(saved) }
+        withVault { session ->
+            SettingsStore(session).let { store ->
+                store.save(store.load().copy(bitcoinFeeThresholds = BtcFeeThresholds(5, 5)))
+            }
+        }
+
+        val loaded = withVault { SettingsStore(it).load() }
+        assertEquals(saved.copy(bitcoinFeeThresholds = BtcFeeThresholds(5, 5)), loaded)
+    }
+
+    @Test
+    fun aVersionFourRecordReadsWithTheDefaultFeeLimitsAndKeepsItsPolicies() {
+        withVault { session ->
+            session.putVaultRecord(
+                "settings",
+                recordV4(
+                    accounts = BulkCap.TWENTY.accounts,
+                    policyCode = ProxyPolicy.WARN_AND_CONFIRM.code,
+                    shortestMs = 100,
+                    longestMs = 500,
+                    inputCode = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED.wire,
+                    sourceCode = SigningSourcePolicy.COMPANION_ONLY.wire,
+                ),
+            )
+            val loaded = SettingsStore(session).load()
+            assertEquals(BtcFeeThresholds.DEFAULT, loaded.bitcoinFeeThresholds)
+            assertEquals(InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED, loaded.bitcoinInputPolicy)
+            assertEquals(SigningSourcePolicy.COMPANION_ONLY, loaded.bitcoinSigningSource)
+        }
+    }
+
+    @Test
+    fun feeLimitsOutsideTheirRangesReadAsTheDefaultsAndKeepTheRest() {
+        for ((rate, share) in listOf(0 to 10, 10_001 to 10, 200 to 0, 200 to 101)) {
+            withVault { session ->
+                session.putVaultRecord("settings", recordV5(rate, share))
+                val loaded = SettingsStore(session).load()
+                assertEquals(BtcFeeThresholds.DEFAULT, loaded.bitcoinFeeThresholds, "limits $rate and $share")
+                assertEquals(InputVerificationPolicy.STRICT, loaded.bitcoinInputPolicy)
+            }
+        }
     }
 }

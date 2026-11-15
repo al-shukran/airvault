@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import app.lensly.DebugBtcFixture
 import app.lensly.DebugLaunch
 import app.lensly.ui.theme.LenslyTheme
 
@@ -37,7 +38,10 @@ abstract class CoverActivity : ComponentActivity() {
         )
 
         // A recreated activity (rotation) still has the launch intent, so only a fresh launch counts.
-        if (savedInstanceState == null) requestDebugHidden(intent)
+        if (savedInstanceState == null) {
+            requestDebugHidden(intent)
+            DebugBtcFixture.offer(intent)
+        }
 
         setContent {
             LenslyTheme {
@@ -54,6 +58,7 @@ abstract class CoverActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         requestDebugHidden(intent)
+        DebugBtcFixture.offer(intent)
     }
 
     private fun requestDebugHidden(intent: Intent) {

@@ -2,8 +2,10 @@ package app.lensly.ui.flow
 
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
+import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
+import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.WalletView
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
@@ -91,6 +93,92 @@ class SignFlowBitcoinTest {
     }
 
     @Test
+    fun aSignedBitcoinRequestIsRecordedAsSignedWithTheReviewItWasSignedUnder() {
+        val psbt = bitcoinRequest()
+        val frames = BtcPsbt.encodeUrParts(psbt)
+        val ports = BitcoinPorts(prepared = { readyOf(psbt) }, signed = { _, _ -> frames }, passwordAccepted = true)
+        val flow = SignFlow(ports, BTC_WALLET_ID)
+        scanAll(flow, BtcPsbt.encodeUrParts(psbt))
+        flow.approve()
+
+        runBlocking { flow.confirm("the password".toCharArray()) }
+
+        assertEquals(frames, assertIs<SignStep.Signature>(flow.state.value).parts)
+        val entry = ports.recorded.single()
+        assertEquals(BTC_WALLET_ID, entry.walletId)
+        assertEquals(ReviewOutcome.SIGNED, entry.outcome)
+        assertEquals(null, entry.refusal)
+        assertContentEquals(Psbt.write(psbt).toByteArray(), entry.psbt)
+        assertEquals(30_000L, entry.reviewed?.review?.outputs?.filterNot { it.isOwnChange }?.sumOf { it.amountSats })
+    }
+
+    @Test
+    fun aSignatureWhoseRecordCannotBeWrittenIsNotShown() {
+        val psbt = bitcoinRequest()
+        val ports = BitcoinPorts(
+            prepared = { readyOf(psbt) },
+            signed = { _, _ -> BtcPsbt.encodeUrParts(psbt) },
+            passwordAccepted = true,
+            recordFails = true,
+        )
+        val flow = SignFlow(ports, BTC_WALLET_ID)
+        scanAll(flow, BtcPsbt.encodeUrParts(psbt))
+        flow.approve()
+
+        runBlocking { flow.confirm("the password".toCharArray()) }
+
+        assertIs<SignStep.Refused>(flow.state.value)
+    }
+
+    @Test
+    fun aBitcoinReviewLeftUnsignedIsRecordedAsCancelled() {
+        val psbt = bitcoinRequest()
+        val ports = BitcoinPorts(prepared = { readyOf(psbt) })
+        val flow = SignFlow(ports, BTC_WALLET_ID)
+        scanAll(flow, BtcPsbt.encodeUrParts(psbt))
+
+        runBlocking { flow.leave() }
+
+        val entry = ports.recorded.single()
+        assertEquals(ReviewOutcome.CANCELLED, entry.outcome)
+        assertEquals(null, entry.refusal)
+        assertEquals(true, entry.reviewed != null)
+    }
+
+    @Test
+    fun aBitcoinRequestTheRulesRefuseIsRecordedAsRefusedWithItsReason() {
+        val psbt = bitcoinRequest()
+        val ports = BitcoinPorts(prepared = { BitcoinPrepared.Refused(BtcRefusal.NetworkMismatch.reason) })
+        val flow = SignFlow(ports, BTC_WALLET_ID)
+        scanAll(flow, BtcPsbt.encodeUrParts(psbt))
+
+        val entry = ports.recorded.single()
+        assertEquals(ReviewOutcome.REFUSED, entry.outcome)
+        assertEquals(BtcRefusal.NetworkMismatch.reason, entry.refusal)
+        assertEquals(null, entry.reviewed)
+    }
+
+    @Test
+    fun aBitcoinSigningRefusalIsRecordedWithTheReviewItCameAfter() {
+        val psbt = bitcoinRequest()
+        val ports = BitcoinPorts(
+            prepared = { readyOf(psbt) },
+            signed = { _, _ -> throw BtcRefusedException(BtcRefusal.ConfirmationRequired) },
+            passwordAccepted = true,
+        )
+        val flow = SignFlow(ports, BTC_WALLET_ID)
+        scanAll(flow, BtcPsbt.encodeUrParts(psbt))
+        flow.approve()
+
+        runBlocking { flow.confirm("the password".toCharArray()) }
+
+        val entry = ports.recorded.single()
+        assertEquals(ReviewOutcome.REFUSED, entry.outcome)
+        assertEquals(BtcRefusal.ConfirmationRequired.reason, entry.refusal)
+        assertEquals(true, entry.reviewed != null)
+    }
+
+    @Test
     fun unverifiedAmountsWaitForTheOwnersConfirmationBeforeApproval() {
         val psbt = bitcoinRequest(withPreviousTransaction = false)
         val flow = SignFlow(
@@ -153,8 +241,10 @@ private class BitcoinPorts(
     private val prepared: (ByteArray) -> BitcoinPrepared = { error("no review is expected") },
     private val signed: (BitcoinPrepared.Ready, Boolean) -> List<String> = { _, _ -> error("no signature is expected") },
     var passwordAccepted: Boolean = false,
+    private val recordFails: Boolean = false,
 ) : SignFlowPorts {
     val preparedBytes = mutableListOf<ByteArray>()
+    val recorded = mutableListOf<BitcoinReviewEntry>()
     var signCalls = 0
 
     override suspend fun wallets(): List<WalletView> = emptyList()
@@ -170,7 +260,12 @@ private class BitcoinPorts(
 
     override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> = error("an EVM request is not expected")
 
-    override suspend fun record(entry: ReviewEntry): Unit = error("no Review Record is written for a Bitcoin request")
+    override suspend fun record(entry: ReviewEntry): Unit = error("no EVM Review Record is written for a Bitcoin request")
+
+    override suspend fun recordBitcoin(entry: BitcoinReviewEntry) {
+        if (recordFails) throw ReviewNotSaved()
+        recorded += entry
+    }
 
     override suspend fun bitcoinPrepare(walletId: String, psbt: ByteArray): BitcoinPrepared {
         preparedBytes += psbt
