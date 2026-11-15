@@ -76,6 +76,9 @@ tasks.withType<Test>().configureEach {
 dependencies {
     implementation(project(":shared"))
 
+    // The Esplora client reads JSON with the kotlinx.serialization library that :shared already ships in the APK.
+    implementation(libs.kotlinx.serialization.json)
+
     // The pairing codes are read as UR and Bitcoin key types, the same libraries :shared reads them with.
     implementation(libs.sparrowwallet.hummingbird)
     implementation(libs.bitcoin.kmp)
@@ -86,6 +89,9 @@ dependencies {
     testImplementation(libs.secp256k1.kmp.jni.jvm)
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
+
+    // The Esplora tests answer from a local MockWebServer, never from the network.
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.robolectric)
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:$junitJupiter")
