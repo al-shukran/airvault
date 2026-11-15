@@ -20,11 +20,11 @@ enum class EntryGesture(
         region = EntryRegion.VIEWFINDER,
     ),
 
-    /** Press and hold the gallery thumbnail, then swipe left without lifting. */
+    /** Press and hold the gallery thumbnail, then swipe right without lifting. */
     THUMBNAIL_HOLD_SWIPE(
         storedId = 2,
-        title = "Hold the gallery thumbnail, then swipe left",
-        description = "Press and hold the gallery thumbnail, then swipe left without lifting your finger.",
+        title = "Hold the gallery thumbnail, then swipe right",
+        description = "Press and hold the gallery thumbnail, then swipe right without lifting your finger.",
         region = EntryRegion.THUMBNAIL,
     ),
 

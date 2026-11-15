@@ -189,13 +189,13 @@ class EntryGesturePadTest {
     }
 
     @Test
-    fun aLongPressOnTheThumbnailThenASwipeLeftCompletesTheThumbnailGesture() {
+    fun aLongPressOnTheThumbnailThenASwipeRightCompletesTheThumbnailGesture() {
         showPad(EntryGesture.THUMBNAIL_HOLD_SWIPE)
 
         compose.onNodeWithContentDescription("Open gallery").performTouchInput {
             down(center)
             advanceEventTime(700)
-            moveTo(Offset(center.x - 200f, center.y))
+            moveTo(Offset(center.x + 200f, center.y))
             up()
         }
 
@@ -218,7 +218,7 @@ class EntryGesturePadTest {
         compose.onNodeWithContentDescription("Open gallery").performTouchInput {
             down(center)
             advanceEventTime(100)
-            moveTo(Offset(center.x - 200f, center.y))
+            moveTo(Offset(center.x + 200f, center.y))
             advanceEventTime(700)
             up()
         }
@@ -301,7 +301,7 @@ class EntryGesturePadTest {
         compose.onNodeWithContentDescription("Open gallery").performTouchInput {
             down(center)
             advanceEventTime(700)
-            moveTo(Offset(center.x - 200f, center.y))
+            moveTo(Offset(center.x + 200f, center.y))
             up()
         }
 

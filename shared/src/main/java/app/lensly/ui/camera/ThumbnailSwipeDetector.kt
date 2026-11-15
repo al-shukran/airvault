@@ -3,11 +3,11 @@ package app.lensly.ui.camera
 import kotlin.math.abs
 
 /**
- * Pure state machine for the thumbnail gesture: press and hold the gallery thumbnail, then, without lifting, swipe left.
+ * Pure state machine for the thumbnail gesture: press and hold the gallery thumbnail, then, without lifting, swipe right.
  *
  * 1. A finger lands on the thumbnail and stays within [slopPx] of where it landed until [longPressMs] has passed.
- * 2. Then it moves left by at least [swipePx], mostly sideways. Before the long press completes, a move beyond [slopPx]
- *    is a drag and cancels the gesture. After it, a move to the right cancels too.
+ * 2. Then it moves right by at least [swipePx], mostly sideways. Before the long press completes, a move beyond [slopPx]
+ *    is a drag and cancels the gesture. After it, a move to the left cancels too.
  *
  * Positions are in pixels and times are monotonic milliseconds. The detector shows, logs and vibrates nothing.
  */
@@ -44,9 +44,9 @@ class ThumbnailSwipeDetector(
             if (timeMs - downAtMs < longPressMs) return cancelled()
             stage = Stage.HELD
         }
-        // Held: a leftward swipe completes it, and a move to the right cancels it.
-        if (dx > slopPx) return cancelled()
-        if (-dx >= swipePx && abs(dy) < -dx) {
+        // Held: a rightward swipe completes it, and a move to the left cancels it.
+        if (dx < -slopPx) return cancelled()
+        if (dx >= swipePx && abs(dy) < dx) {
             stage = Stage.IDLE
             return true
         }

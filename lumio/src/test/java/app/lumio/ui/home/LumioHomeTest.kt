@@ -53,13 +53,10 @@ class LumioHomeTest {
     }
 
     @Test
-    fun theBackArrowLocksAndLeavesTheHome() {
-        var locked = false
-        setHome(wallets = emptyList(), onLock = { locked = true })
+    fun homeHasNoBackArrow() {
+        setHome(wallets = emptyList())
 
-        compose.onNodeWithContentDescription("Back").performClick()
-
-        assertTrue(locked)
+        compose.onNodeWithContentDescription("Back").assertDoesNotExist()
     }
 
     @Test
@@ -166,7 +163,6 @@ class LumioHomeTest {
     private fun setHome(
         wallets: List<PairedWallet>,
         initial: NetworkMode = NetworkMode.MAINNET,
-        onLock: () -> Unit = {},
         onPair: () -> Unit = {},
         onDelete: (PairedWallet) -> Unit = {},
         onBitcoin: (PairedWallet) -> Unit = {},
@@ -176,7 +172,6 @@ class LumioHomeTest {
             LenslyTheme {
                 var mode by remember { mutableStateOf(initial) }
                 LumioHome(
-                    onLock = onLock,
                     onPair = onPair,
                     wallets = wallets,
                     onDelete = onDelete,
