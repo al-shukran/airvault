@@ -7,10 +7,15 @@ import app.lumio.data.Clock
 import app.lumio.data.WallClock
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
+import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.db.LumioDatabase
 import app.lumio.data.scan.ScanRows
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * What Lumio keeps for one open vault: the cache, the scan job rows, the last known balances and the provider settings. Every key in it comes
@@ -46,6 +51,22 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
     @Synchronized
     fun updateConfigs(change: (Map<String, ProviderConfig>) -> Map<String, ProviderConfig>) {
         saveConfigs(change(providerConfigs))
+    }
+
+    private val displayState = MutableStateFlow(DisplaySettingsStore.read(session))
+
+    /** The display settings of this vault, as they were last saved or read. Home collects it, and the settings screen changes it. */
+    val display: StateFlow<DisplaySettings> = displayState.asStateFlow()
+
+    /**
+     * Saves the display settings that [change] makes of the current ones, in one write, and then publishes them to [display]. A write that fails
+     * throws, and [display] keeps the settings it had.
+     */
+    @Synchronized
+    fun updateDisplay(change: (DisplaySettings) -> DisplaySettings) {
+        val next = change(displayState.value)
+        DisplaySettingsStore.write(session, next)
+        displayState.value = next
     }
 
     private companion object {
