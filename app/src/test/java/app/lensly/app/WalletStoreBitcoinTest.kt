@@ -1,7 +1,9 @@
 package app.lensly.app
 
 import app.lensly.app.export.MultiAccountsExport
+import app.lensly.app.export.LabelledPairingGolden
 import app.lensly.app.export.PairingAccount
+import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
@@ -239,6 +241,160 @@ class WalletStoreBitcoinTest {
             ethereum.accounts,
         )
     }
+
+    @Test
+    fun aBitcoinProfileIsStoredWithItsAccountAndReadBack() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)
+        val profile = AccountProfile(name = "Cold", colour = ProfileColour.TEAL, icon = ProfileIcon.BANK, label = "vault", group = "Long term")
+
+        store.saveBitcoinProfile(id, store.bitcoinAccounts(id)[1], profile)
+
+        // A new store over the same session reads what was written, and the account that has no profile keeps its defaults.
+        val read = WalletStore(session).bitcoinAccounts(id)
+        assertEquals(listOf(AccountProfile(), profile), read.map { it.profile })
+        // The record reads back to the same accounts and profiles.
+        assertEquals(read, WalletRecords.decodeBitcoinAccounts(WalletRecords.encodeBitcoinAccounts(read)))
+    }
+
+    @Test
+    fun renamingLabellingAndGroupingABitcoinAccountChangesOnlyTheFieldAsked() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 1, cap)
+        val address = store.bitcoinAccounts(id).single().firstReceiveAddress
+        fun current(): AccountProfile = store.bitcoinAccounts(id).single().profile
+        fun save(profile: AccountProfile) = store.saveBitcoinProfile(id, store.bitcoinAccounts(id).single(), profile)
+
+        save(current().copy(name = "Cold"))
+        assertEquals(AccountProfile(name = "Cold"), current())
+        save(current().copy(label = "vault"))
+        assertEquals(AccountProfile(name = "Cold", label = "vault"), current())
+        save(current().copy(group = "Long term"))
+        assertEquals(AccountProfile(name = "Cold", label = "vault", group = "Long term"), current())
+        // A rename keeps the label and the group.
+        save(current().copy(name = "Hot"))
+        assertEquals(AccountProfile(name = "Hot", label = "vault", group = "Long term"), current())
+        // Clearing the label keeps the name and the group.
+        save(current().copy(label = null))
+        assertEquals(AccountProfile(name = "Hot", group = "Long term"), current())
+        // A name that is only blank is refused, and a null name is the Auto-Name again.
+        assertFailsWith<IllegalArgumentException> { save(current().copy(name = "  ")) }
+        save(current().copy(name = null))
+        assertEquals(AccountProfile(group = "Long term"), current())
+
+        assertEquals(address, store.bitcoinAccounts(id).single().firstReceiveAddress)
+    }
+
+    @Test
+    fun aProfileOfABitcoinAccountTheWalletDoesNotHoldIsRefused() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1, cap)
+        val stranger = BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 7, "bc1qstranger")
+
+        assertFailsWith<IllegalArgumentException> { store.saveBitcoinProfile(id, stranger, AccountProfile(name = "Ghost")) }
+        assertTrue(store.bitcoinAccounts(id).all { it.profile.isEmpty })
+    }
+
+    @Test
+    fun aSavedBitcoinProfileSurvivesMoreAccountsBeingAdded() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1, cap)
+        val named = AccountProfile(name = "Cold", label = "vault")
+        store.saveBitcoinProfile(id, store.bitcoinAccounts(id).single(), named)
+
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)
+
+        val held = store.bitcoinAccounts(id)
+        assertEquals(listOf(0, 1, 2), held.map { it.index })
+        assertEquals(listOf(named, AccountProfile(), AccountProfile()), held.map { it.profile })
+    }
+
+    @Test
+    fun aProfileThatDoesNotFitTheBitcoinRecordIsRefusedAndTheAccountKeepsItsOwn() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 100, BulkCap.HUNDRED.accounts)
+        val long = AccountProfile(name = "N".repeat(32), label = "L".repeat(16), group = "G".repeat(16))
+
+        // Each account takes a long profile in turn, until the record of the wallet has no room for one more.
+        val refusal = (0 until 100).firstNotNullOfOrNull { position ->
+            try {
+                store.saveBitcoinProfile(id, store.bitcoinAccounts(id)[position], long)
+                null
+            } catch (e: IllegalArgumentException) {
+                e
+            }
+        }
+
+        val refused = assertNotNull(refusal, "a full record refuses one more profile")
+        assertTrue(refused.message.orEmpty().contains("too much room"), refused.message)
+        val saved = store.bitcoinAccounts(id).count { it.profile == long }
+        assertTrue(saved in 10 until 100, "a record holds more than ten long profiles, and fewer than a hundred: $saved")
+        assertEquals(100, store.bitcoinAccounts(id).size)
+        assertEquals(AccountProfile(), store.bitcoinAccounts(id)[saved].profile)
+    }
+
+    @Test
+    fun aVersionOneBitcoinRecordLoadsWithEmptyProfiles() {
+        // Version 1 holds the account fields alone, as the record was written before profiles.
+        val versionOne = WalletRecords.writeBytes { out ->
+            out.writeByte(1)
+            out.writeInt(1)
+            out.writeByte(BtcNetwork.MAINNET.coinType)
+            out.writeByte(ScriptType.NATIVE_SEGWIT.purpose)
+            out.writeInt(0)
+            out.writeUTF("bc1qexample")
+        }
+
+        assertEquals(
+            listOf(BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0, "bc1qexample")),
+            WalletRecords.decodeBitcoinAccounts(versionOne),
+        )
+    }
+
+    @Test
+    fun theBitcoinPairingCarriesTheNamesLabelsAndGroupsOfItsAccounts() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)
+        store.saveBitcoinProfile(id, store.bitcoinAccounts(id)[0], AccountProfile(name = "Cold", label = "vault", group = "Long term"))
+
+        val bitcoin = pairingOf(store.pairingParts(id)).apps.single { it.app == "bitcoin" }
+
+        // The named account carries its profile. An account with none carries its Auto-Name, as an Ethereum account does, and so does an
+        // account of a Script Type the owner never generated, since the pairing has every Script Type of each index.
+        assertEquals(Triple("Cold", "vault", "Long term"), bitcoinAccountOf(bitcoin, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 0).labelled())
+        assertEquals(Triple("Test 1", null, null), bitcoinAccountOf(bitcoin, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1).labelled())
+        assertEquals(Triple("Test 0", null, null), bitcoinAccountOf(bitcoin, ScriptType.TAPROOT, BtcNetwork.MAINNET, 0).labelled())
+        assertEquals(bitcoin.keys.size, bitcoin.accounts.size)
+        assertTrue(bitcoin.accounts.all { it.child == null })
+    }
+
+    @Test
+    fun theLabelledPairingIsTheFixtureLumioReads() {
+        // Lumio reads these same frames in its own pairing test. A change here is a change to what Lumio is sent, so re-record the fixture
+        // only when the pairing itself changes.
+        val id = store.create(name = "Savings", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        store.addAccount(id)
+        store.saveAccountProfile(id, 0, AccountProfile(name = "Cold", label = "vault", group = "Long term"))
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)
+        store.saveBitcoinProfile(
+            id,
+            store.bitcoinAccounts(id)[0],
+            AccountProfile(name = "Cold BTC", colour = ProfileColour.TEAL, label = "vault", group = "Long term"),
+        )
+
+        assertEquals(LabelledPairingGolden.FRAMES, store.pairingParts(id))
+    }
+
+    /** The pairing account of the Bitcoin key on [scriptType], [network] and account [index], in the pairing [app]. */
+    private fun bitcoinAccountOf(app: PairingApp, scriptType: ScriptType, network: BtcNetwork, index: Int): PairingAccount {
+        val key = app.keys.indexOfFirst { key ->
+            scriptTypeOf(key) == scriptType && networkOf(key) == network && key.path[2] == DeterministicWallet.hardened(index.toLong())
+        }
+        assertTrue(key >= 0, "the pairing holds the key of $scriptType on $network at $index")
+        return app.accounts.single { it.key == key }
+    }
+
+    private fun PairingAccount.labelled(): Triple<String?, String?, String?> = Triple(name, label, group)
 
     /** The Bitcoin keys of wallet [id], from the pairing that Lensly builds for it. */
     private fun bitcoinKeysOf(id: String): List<PairingKey> = pairingOf(store.pairingParts(id)).apps.single { it.app == "bitcoin" }.keys

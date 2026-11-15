@@ -21,12 +21,16 @@ data class BitcoinReviewed(
  *
  * An account is unique inside its wallet by its Script Type, network and index. The same index on two networks is two keys, since
  * each network has its own coin type in the path.
+ *
+ * [profile] is the name, colour, icon, label and group the owner gave the account, as an Ethereum account has them. A null field is the
+ * default, and it is stored inside the wallet's Bitcoin record with the account.
  */
 data class BitcoinAccountRecord(
     val network: BtcNetwork,
     val scriptType: ScriptType,
     val index: Int,
     val firstReceiveAddress: String,
+    val profile: AccountProfile = AccountProfile(),
 ) {
     /** The identity of the account inside its wallet. */
     val key: Triple<ScriptType, BtcNetwork, Int>
