@@ -25,6 +25,16 @@ internal object LumioRoute {
     const val BITCOIN = "bitcoin"
     const val BITCOIN_ACCOUNT = "bitcoin-account"
     const val SETTINGS = "settings"
+    const val EVM_SETTINGS = "evm-settings"
+
+    /** The argument of the EVM portfolio's route: the paired wallet's ID. */
+    const val WALLET_ARG = "walletId"
+
+    /** The EVM portfolio's route, with the wallet's ID as [WALLET_ARG]. */
+    const val WALLET = "wallet/{$WALLET_ARG}"
+
+    /** The route of the EVM portfolio for [walletId]. */
+    fun wallet(walletId: String): String = "wallet/$walletId"
 }
 
 /**
@@ -41,8 +51,8 @@ internal class PairDraft {
 
 /**
  * Lumio's navigation: the camera cover and the gate that Lensly shares, around the companion's Hidden Area. The Hidden Area opens on the
- * gate and then shows Home. From Home the owner pairs a wallet from Lensly, through the scan and the review, and each paired wallet can be
- * deleted from Home.
+ * gate and then shows Home. From Home the owner pairs a wallet from Lensly, through the scan and the review, opens a paired wallet's EVM
+ * balances, changes the EVM settings, and deletes a paired wallet.
  *
  * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
  */
@@ -84,6 +94,16 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             }
             composable(LumioRoute.SETTINGS) {
                 HiddenBackdrop { LumioSettingsRoute(navController = navController, holder = holder) }
+            }
+            composable(
+                route = LumioRoute.WALLET,
+                arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                HiddenBackdrop { WalletRoute(navController = navController, holder = holder, walletId = walletId) }
+            }
+            composable(LumioRoute.EVM_SETTINGS) {
+                HiddenBackdrop { EvmSettingsRoute(navController = navController, holder = holder) }
             }
             composable(LumioRoute.PAIR_REVIEW) {
                 BackHandler {

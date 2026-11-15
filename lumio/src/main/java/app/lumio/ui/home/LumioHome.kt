@@ -36,7 +36,8 @@ import androidx.compose.ui.unit.dp
 /**
  * Lumio's Home: the paired wallets, each with its name, its family and its networks, and the action that pairs a wallet from Lensly.
  * [onLock] returns to the camera and locks the vault. [onDelete] runs after the owner confirms a deletion. [onBitcoin] opens the Bitcoin
- * portfolio, which is offered once a wallet holds a Bitcoin account. [onSettings] opens Lumio's settings.
+ * portfolio, which is offered once a wallet holds a Bitcoin account. [onSettings] opens Lumio's settings. [onBalances] opens a wallet's EVM
+ * balances, and [onEvmSettings] opens the EVM settings.
  */
 @Composable
 fun LumioHome(
@@ -47,6 +48,8 @@ fun LumioHome(
     modifier: Modifier = Modifier,
     onBitcoin: () -> Unit = {},
     onSettings: () -> Unit = {},
+    onBalances: (PairedWallet) -> Unit = {},
+    onEvmSettings: () -> Unit = {},
 ) {
     var pendingDelete by remember { mutableStateOf<PairedWallet?>(null) }
     LenslyScreen(
@@ -68,11 +71,13 @@ fun LumioHome(
                 Spacer(Modifier.height(LenslySpacing.sm))
             }
             wallets.forEach { wallet ->
-                PairedWalletRow(wallet = wallet, onDelete = { pendingDelete = wallet })
+                PairedWalletRow(wallet = wallet, onBalances = { onBalances(wallet) }, onDelete = { pendingDelete = wallet })
                 Spacer(Modifier.height(LenslySpacing.sm))
             }
         }
         PillButton(text = "Settings", onClick = onSettings)
+        Spacer(Modifier.height(LenslySpacing.sm))
+        PillButton(text = "EVM settings", onClick = onEvmSettings)
     }
     pendingDelete?.let { wallet ->
         AlertDialog(
@@ -115,7 +120,7 @@ private fun BitcoinEntry(onClick: () -> Unit) {
 }
 
 @Composable
-private fun PairedWalletRow(wallet: PairedWallet, onDelete: () -> Unit) {
+private fun PairedWalletRow(wallet: PairedWallet, onBalances: () -> Unit, onDelete: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -136,7 +141,10 @@ private fun PairedWalletRow(wallet: PairedWallet, onDelete: () -> Unit) {
             networkLabels(wallet).forEach { label -> PillChip(text = label) }
         }
         Spacer(Modifier.height(LenslySpacing.sm))
-        PillButton(text = "Delete", onClick = onDelete)
+        Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
+            if (wallet.evm != null) PillButton(text = "Balances", onClick = onBalances)
+            PillButton(text = "Delete", onClick = onDelete)
+        }
     }
 }
 
