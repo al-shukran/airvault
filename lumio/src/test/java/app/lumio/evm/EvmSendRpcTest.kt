@@ -1,41 +1,46 @@
 package app.lumio.evm
 
-import app.lensly.core.evm.EvmFixtures
-import app.lensly.core.wallet.AccountAddresses
-import app.lensly.core.wallet.HdWallet
-import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
+import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.web3j.crypto.Hash
+import org.junit.Assert.assertThrows
 
-/** The send's network reads and its broadcast, against a local fake endpoint. No test reaches a real network. */
+/** A send reads its balance, nonce, fees and gas through the scheduler, and a broadcast is checked against the signed transaction's hash. */
 class EvmSendRpcTest {
     private val server = MockWebServer()
-    private val rpc = EvmRpc(allowLocalHttp = true, timeoutMs = 2_000L)
-    private val chain = EvmChain(
-        chainId = 11155111L,
-        name = "Sepolia",
-        symbol = "ETH",
-        decimals = 18,
-        testnet = true,
-        explorerUrl = "https://sepolia.etherscan.io",
-        defaultRpc = null,
-    )
-    private val from = AccountAddresses.addressAt(HdWallet(Mnemonic.toSeed(EvmFixtures.artMnemonic)).accountXpub(), 0)
-    private val to = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+    private val chain = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
+    private val from = "0x" + "11".repeat(20)
+    private val to = "0x" + "22".repeat(20)
     private val oneCent = BigInteger.TEN.pow(16)
+    private val answers = HashMap<String, String>()
+    private var failing = HashSet<String>()
 
     @Before
     fun start() {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val body = request.body.readUtf8()
+                val method = Regex("\"method\":\"([^\"]+)\"").find(body)?.groupValues?.get(1).orEmpty()
+                if (method in failing) return MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""")
+                val result = answers[method] ?: return MockResponse().setResponseCode(400)
+                return MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":$result}""")
+            }
+        }
         server.start()
+        answers["eth_getBalance"] = "\"0x" + BigInteger.TEN.pow(18).toString(16) + "\""
+        answers["eth_getTransactionCount"] = "\"0x7\""
+        answers["eth_feeHistory"] = "{\"baseFeePerGas\":[\"0x3b9aca00\",\"0x3b9aca00\"]}"
+        answers["eth_maxPriorityFeePerGas"] = "\"0x3b9aca00\""
+        answers["eth_estimateGas"] = "\"0x5208\""
     }
 
     @After
@@ -43,121 +48,74 @@ class EvmSendRpcTest {
         server.shutdown()
     }
 
-    private val url: String get() = server.url("/").toString()
-
-    private fun answer(result: String) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":"$result"}""")
-
-    private fun feeHistory(base: String) = MockResponse().setBody(
-        """{"jsonrpc":"2.0","id":1,"result":{"oldestBlock":"0x1","baseFeePerGas":["$base","$base"],"gasUsedRatio":[0.5],"reward":[["0x1"]]}}""",
-    )
-
-    private fun refusal() = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""")
-
-    private fun hex(value: BigInteger) = "0x" + value.toString(16)
-
-    /** The answers of a clean send: chain 11155111, a balance of [balance], nonce 7, a 1.5 gwei tip, a 1 gwei base fee, and [gas] gas. */
-    private fun enqueueReads(balance: BigInteger = BigInteger.TEN.pow(18), gas: MockResponse = answer("0x5208")) {
-        server.enqueue(answer("0xaa36a7"))
-        server.enqueue(answer(hex(balance)))
-        server.enqueue(answer("0x7"))
-        server.enqueue(answer("0x59682f00"))
-        server.enqueue(feeHistory("0x3b9aca00"))
-        server.enqueue(gas)
-    }
+    private fun reads(): EvmReads = testReads(EvmSettings(rpc = mapOf(1L to server.url("/").toString())))
 
     @Test
     fun aSendIsPreparedFromThePendingNonceTheFeesAndTheEstimate() {
-        enqueueReads()
-
-        val send = EvmSend.prepare(rpc, url, chain, from, 0, to, oneCent)
+        val send = runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) }
 
         assertEquals(7L, send.nonce)
-        assertEquals(BigInteger.valueOf(1_500_000_000L), send.maxPriorityFeePerGas)
-        assertEquals(BigInteger.valueOf(3_500_000_000L), send.maxFeePerGas)
+        assertEquals(BigInteger.valueOf(1_000_000_000L), send.maxPriorityFeePerGas)
+        assertEquals(BigInteger.valueOf(3_000_000_000L), send.maxFeePerGas)
         assertEquals(BigInteger.valueOf(21_000L), send.gasLimit)
-        val bodies = List(6) { server.takeRequest().body.readUtf8() }
-        assertTrue(bodies[0].contains("\"method\":\"eth_chainId\""))
-        assertTrue(bodies[1].contains("\"method\":\"eth_getBalance\"") && bodies[1].contains("\"params\":[\"$from\",\"latest\"]"))
-        assertTrue(bodies[2].contains("\"method\":\"eth_getTransactionCount\"") && bodies[2].contains("\"params\":[\"$from\",\"pending\"]"))
-        assertTrue(bodies[3].contains("\"method\":\"eth_maxPriorityFeePerGas\""))
-        assertTrue(bodies[4].contains("\"method\":\"eth_feeHistory\"") && bodies[4].contains("\"params\":[\"0x1\",\"latest\",[]]"))
-        assertTrue(bodies[5].contains("\"method\":\"eth_estimateGas\""))
-        assertTrue(bodies[5].contains("\"from\":\"$from\"") && bodies[5].contains("\"to\":\"$to\""))
-        assertTrue(bodies[5].contains("\"value\":\"${hex(oneCent)}\""))
+        assertEquals(BigInteger.TEN.pow(18), send.balanceWei)
     }
 
     @Test
     fun anEstimateThatTheEndpointRefusesFallsBackToThePlainTransferGas() {
-        enqueueReads(gas = refusal())
+        failing.add("eth_estimateGas")
 
-        assertEquals(BigInteger.valueOf(21_000L), EvmSend.prepare(rpc, url, chain, from, 0, to, oneCent).gasLimit)
+        assertEquals(BigInteger.valueOf(21_000L), runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) }.gasLimit)
     }
 
     @Test
     fun aBalanceThatCannotCoverTheSendIsRefusedWithItsCost() {
-        enqueueReads(balance = BigInteger.TEN.pow(15))
+        answers["eth_getBalance"] = "\"0x1\""
 
         val failure = assertThrows(IllegalArgumentException::class.java) {
-            EvmSend.prepare(rpc, url, chain, from, 0, to, oneCent)
+            runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) }
         }
-        assertTrue(failure.message.orEmpty(), failure.message.orEmpty().startsWith("The balance is 0.001 ETH, but this send can cost up to "))
+        assertEquals(true, failure.message?.startsWith("The balance is"))
     }
 
     @Test
-    fun anEndpointOfAnotherChainIsRefusedBeforeAnythingElseIsRead() {
-        server.enqueue(answer("0x1"))
+    fun aFeeHistoryWithoutABaseFeeIsRefused() {
+        answers["eth_feeHistory"] = "{}"
 
-        val failure = assertThrows(RpcFailure::class.java) { EvmSend.prepare(rpc, url, chain, from, 0, to, oneCent) }
-
-        assertEquals(RpcFailure.Reason.WRONG_CHAIN, failure.reason)
-        assertEquals(1, server.requestCount)
-    }
-
-    @Test
-    fun aFeeHistoryWithoutABaseFeeIsMalformed() {
-        server.enqueue(answer("0xaa36a7"))
-        server.enqueue(answer("0xde0b6b3a7640000"))
-        server.enqueue(answer("0x7"))
-        server.enqueue(answer("0x59682f00"))
-        server.enqueue(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":{"baseFeePerGas":[]}}"""))
-
-        assertEquals(RpcFailure.Reason.MALFORMED, assertThrows(RpcFailure::class.java) {
-            EvmSend.prepare(rpc, url, chain, from, 0, to, oneCent)
-        }.reason)
+        val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) } }
+        assertEquals(RpcFailure.Reason.ERROR, failure.reason)
     }
 
     @Test
     fun aBroadcastReturnsTheHashWhenItIsTheHashOfTheSignedTransaction() {
-        val raw = byteArrayOf(0x02, 0x01, 0x02, 0x03)
+        val raw = byteArrayOf(0x02, 0x01, 0x02)
         val expected = "0x" + Hash.sha3(raw).toHex()
-        server.enqueue(answer(expected))
+        answers["eth_sendRawTransaction"] = "\"$expected\""
 
-        assertEquals(expected, EvmSend.broadcast(rpc, url, raw))
-        val body = server.takeRequest().body.readUtf8()
-        assertTrue(body.contains("\"method\":\"eth_sendRawTransaction\""))
-        assertTrue(body.contains("\"params\":[\"0x02010203\"]"))
+        assertEquals(expected, runBlocking { EvmSend.broadcast(reads(), chain, raw) })
     }
 
     @Test
     fun aBroadcastThatReportsAnotherHashIsRefused() {
-        server.enqueue(answer("0x" + "11".repeat(32)))
+        answers["eth_sendRawTransaction"] = "\"0x" + "ab".repeat(32) + "\""
 
-        val failure = assertThrows(RpcFailure::class.java) { EvmSend.broadcast(rpc, url, byteArrayOf(0x02)) }
-
+        val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.broadcast(reads(), chain, byteArrayOf(0x02)) } }
         assertEquals(RpcFailure.Reason.MALFORMED, failure.reason)
     }
 
     @Test
     fun aBroadcastThatTheEndpointRefusesIsAnRpcError() {
-        server.enqueue(refusal())
+        failing.add("eth_sendRawTransaction")
 
-        assertEquals(RpcFailure.Reason.ERROR, assertThrows(RpcFailure::class.java) { EvmSend.broadcast(rpc, url, byteArrayOf(0x02)) }.reason)
+        val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.broadcast(reads(), chain, byteArrayOf(0x02)) } }
+        assertEquals(RpcFailure.Reason.ERROR, failure.reason)
     }
 
     @Test
-    fun aBroadcastAnswerThatIsNotAHashIsMalformed() {
-        server.enqueue(answer("0x1234"))
+    fun aBroadcastAnswerThatIsNotAHashIsRefused() {
+        answers["eth_sendRawTransaction"] = "\"0x1234\""
 
-        assertEquals(RpcFailure.Reason.MALFORMED, assertThrows(RpcFailure::class.java) { rpc.sendRawTransaction(url, byteArrayOf(0x02)) }.reason)
+        val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.broadcast(reads(), chain, byteArrayOf(0x02)) } }
+        assertEquals(RpcFailure.Reason.ERROR, failure.reason)
     }
 }

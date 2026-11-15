@@ -79,7 +79,7 @@ private fun loadPortfolio(app: LumioApp, session: VaultSession, walletId: String
 private suspend fun refreshWallet(app: LumioApp, session: VaultSession, wallet: PairedWallet): List<ChainFailure> {
     val settings = EvmSettingsStore.read(session)
     val chains = catalogOf(app, settings).filter { it.chainId in settings.enabled }
-    return Portfolio.refresh(session, listOf(wallet), settings, chains, app.evmRpc)[wallet.id].orEmpty()
+    return Portfolio.refresh(session, listOf(wallet), settings, chains, app.evmReadsFor(session))[wallet.id].orEmpty()
 }
 
 /**

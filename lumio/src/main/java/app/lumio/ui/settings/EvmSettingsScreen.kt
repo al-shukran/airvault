@@ -112,7 +112,7 @@ fun EvmSettingsScreen(
     editing?.let { chain ->
         RpcDialog(
             chain = chain,
-            initial = settings.rpc[chain.chainId] ?: chain.defaultRpc.orEmpty(),
+            initial = settings.rpc[chain.chainId].orEmpty(),
             onSave = { raw, onDone -> onSetRpc(chain.chainId, raw, onDone) },
             onDismiss = { editing = null },
         )
@@ -165,14 +165,14 @@ private fun ChainRow(
         }
         Spacer(Modifier.height(LenslySpacing.xs))
         Text(
-            "RPC: ${settings.rpc[chain.chainId] ?: chain.defaultRpc ?: "none set"}",
+            "RPC: ${settings.rpc[chain.chainId] ?: "public endpoints"}",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(LenslySpacing.xs))
         Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
             PillButton(text = "Edit RPC", onClick = onEdit, enabled = !busy)
-            if (overridden && chain.defaultRpc != null) PillButton(text = "Reset", onClick = onReset, enabled = !busy)
+            if (overridden) PillButton(text = "Reset", onClick = onReset, enabled = !busy)
             if (custom) PillButton(text = "Remove", onClick = onRemove, enabled = !busy)
         }
     }

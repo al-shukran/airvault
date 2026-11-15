@@ -35,13 +35,12 @@ class PortfolioCacheTest {
         server.shutdown()
     }
 
-    /** Answers the three reads from a fake endpoint: chain 1, one ETH, three transactions. */
+    /** Answers the two reads from a fake endpoint: one ETH and three transactions on chain 1. */
     private fun answerWithOneEther() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val body = request.body.readUtf8()
                 val result = when {
-                    body.contains("eth_chainId") -> "0x1"
                     body.contains("eth_getBalance") -> "0xde0b6b3a7640000"
                     body.contains("eth_getTransactionCount") -> "0x3"
                     else -> return MockResponse().setResponseCode(400)
@@ -52,7 +51,7 @@ class PortfolioCacheTest {
         server.start()
     }
 
-    private val mainnet = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null, defaultRpc = null)
+    private val mainnet = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
     private val wallet = PairedWallet(
         id = "w1",
         name = "Demo",
@@ -66,10 +65,10 @@ class PortfolioCacheTest {
     fun aRefreshStoresEachShownAddressAndAnOfflineRefreshKeepsItsReadTime() {
         answerWithOneEther()
         val settings = EvmSettings(addressCount = 2, enabled = setOf(1L), rpc = mapOf(1L to server.url("/").toString()))
-        val rpc = EvmRpc(allowLocalHttp = true, timeoutMs = 2_000L)
+        val reads = testReads(settings)
 
         val online = runBlocking {
-            Portfolio.refresh(session, listOf(wallet), settings, listOf(mainnet), rpc, nowMs = { 1_000L })
+            Portfolio.refresh(session, listOf(wallet), settings, listOf(mainnet), reads, nowMs = { 1_000L })
         }
 
         assertEquals(emptyList<ChainFailure>(), online["w1"])
@@ -79,7 +78,7 @@ class PortfolioCacheTest {
 
         server.shutdown()
         val offline = runBlocking {
-            Portfolio.refresh(session, listOf(wallet), settings, listOf(mainnet), rpc, nowMs = { 2_000L })
+            Portfolio.refresh(session, listOf(wallet), settings, listOf(mainnet), reads, nowMs = { 2_000L })
         }
 
         assertEquals(1L, offline["w1"]!!.single().chainId)
