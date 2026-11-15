@@ -59,6 +59,7 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
     var refs by remember { mutableStateOf<List<BtcAccountRef>>(emptyList()) }
     var rows by remember { mutableStateOf<List<BtcRow>>(emptyList()) }
     var settled by remember { mutableStateOf(emptySet<String>()) }
+    var unreached by remember { mutableStateOf(emptySet<String>()) }
     var failure by remember { mutableStateOf<String?>(null) }
     var scanning by remember { mutableStateOf(false) }
 
@@ -67,6 +68,7 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
         scanning = true
         failure = null
         settled = emptySet()
+        unreached = emptySet()
         scope.launch {
             val chosen = withContext(Dispatchers.IO) { app.selectedBtcNetwork(session) }
             net = chosen
@@ -94,7 +96,10 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
                 is ScanEvent.Progress -> return@collect
             }
             settled = settled + key
-            if (event is ScanEvent.Failed) failure = event.message
+            if (event is ScanEvent.Failed) {
+                unreached = unreached + key
+                failure = event.message
+            }
             rows = withContext(Dispatchers.IO) { rowsOf(app.lumioVault(), refs) }
         }
     }
@@ -102,7 +107,12 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
         sections = BtcPortfolio.sections(rows),
         scanning = scanning,
         progress = if (scanning) "Scanned ${refs.count { it.key in settled }}/${refs.size}" else null,
-        failures = failure?.let { mapOf(net to it) }.orEmpty(),
+        failures = failure?.let { message ->
+            // A refresh that read some accounts shows what it read, and says which accounts it could not reach, instead of a network-wide error.
+            val missed = refs.count { it.key in unreached }
+            val read = refs.count { it.key in settled && it.key !in unreached }
+            BtcPortfolio.refreshNotice(read = read, missed = missed, message = message)?.let { mapOf(net to it) }
+        }.orEmpty(),
         onOpen = { ref -> navController.openHidden(accountRoute(ref.key)) },
         onRefresh = ::refresh,
         onBack = { navController.popBackStack() },

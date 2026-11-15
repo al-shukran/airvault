@@ -20,6 +20,9 @@ object EvmCatalog {
     /** Custom chains use the EVM default of 18 decimals, because the form does not ask for another value. */
     private const val CUSTOM_DECIMALS = 18
 
+    /** Monad testnet is the app's primary testnet, so the Testnet side lists it first. Every other chain keeps its place. */
+    const val PRIMARY_TESTNET_ID = 10143L
+
     fun chains(registry: Registry, settings: EvmSettings): List<EvmChain> {
         val builtIn = registry.networks().map { network ->
             EvmChain(
@@ -36,6 +39,10 @@ object EvmCatalog {
         val custom = settings.custom
             .filter { it.chainId !in builtInIds }
             .map { c -> EvmChain(c.chainId, c.name, c.symbol, CUSTOM_DECIMALS, c.testnet, explorerUrl = null) }
-        return builtIn + custom
+        return primaryTestnetFirst(builtIn + custom)
     }
+
+    /** A stable sort: the primary testnet moves to the front of the testnet side, and every other chain keeps its place. */
+    internal fun primaryTestnetFirst(chains: List<EvmChain>): List<EvmChain> =
+        chains.sortedBy { if (it.testnet && it.chainId == PRIMARY_TESTNET_ID) 0 else 1 }
 }

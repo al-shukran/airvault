@@ -44,7 +44,7 @@ class EvmSettingsTest {
 
     @Test
     fun theDefaultsShowMainnetAndSepolia() {
-        assertEquals(setOf(1L, 11155111L), EvmSettings().enabled)
+        assertEquals(setOf(1L, 10143L, 11155111L), EvmSettings().enabled)
         assertEquals(5, EvmSettings().addressCount)
     }
 

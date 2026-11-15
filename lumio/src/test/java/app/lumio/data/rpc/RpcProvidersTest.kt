@@ -54,7 +54,16 @@ class RpcProvidersTest {
         assertEquals("https://ethereum.publicnode.com", PublicNode().endpoint(mainnet, ProviderConfig()))
         assertEquals("https://base.publicnode.com", PublicNode().endpoint(base, ProviderConfig()))
         assertEquals("https://ethereum.publicnode.com", PublicNode().endpoint(mainnet, ProviderConfig(apiKey = key)))
-        assertNull(PublicNode().endpoint(NetworkId(Family.EVM, "11155111", testnet = true), ProviderConfig()))
+        assertNull(PublicNode().endpoint(NetworkId(Family.EVM, "999999", testnet = false), ProviderConfig()))
+    }
+
+    @Test
+    fun sepoliaIsServedByPublicNodeAndTenderlyButNotByOneRpcsFreePlan() {
+        val sepolia = NetworkId(Family.EVM, "11155111", testnet = true)
+        assertEquals("https://ethereum-sepolia-rpc.publicnode.com", PublicNode().endpoint(sepolia, ProviderConfig()))
+        assertEquals("https://sepolia.gateway.tenderly.co", Tenderly().endpoint(sepolia, ProviderConfig()))
+        assertNull(OneRpc().endpoint(sepolia, ProviderConfig()))
+        assertNull(OneRpc().endpoint(sepolia, ProviderConfig(apiKey = key)))
     }
 
     @Test
