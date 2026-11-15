@@ -224,7 +224,7 @@ internal fun HistoryDetailSheet(record: ReviewRecord, onDismiss: () -> Unit) {
         FactRow("Network") { FactText(networkLine(record)) }
         record.address?.let { address ->
             FactRow(if (record.accountIndex == null) "Account" else "Account ${record.accountIndex}") {
-                AddressText(address)
+                AddressText(address, bitcoin = record.bitcoin != null)
             }
         }
         FactRow("Kind") { FactText(kindLabel(record.kind)) }
@@ -255,7 +255,7 @@ private fun BitcoinFacts(record: ReviewRecord, facts: BitcoinRecordFacts) {
     record.accountIndex?.let { index -> FactRow("Account $index") { FactText(facts.scriptType) } }
     facts.outputs.forEachIndexed { index, output ->
         FactRow("Output $index") {
-            output.address?.let { AddressText(it) } ?: MutedText("No address. The script is not paid to an address.")
+            output.address?.let { AddressText(it, bitcoin = true) } ?: MutedText("No address. The script is not paid to an address.")
             MonoText(btcText(output.amountSats))
             if (output.isOwnChange) MutedText("Your change")
         }
