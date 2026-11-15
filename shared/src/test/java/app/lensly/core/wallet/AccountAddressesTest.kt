@@ -25,6 +25,13 @@ class AccountAddressesTest {
     }
 
     @Test
+    fun aListOfAddressesIsTheAddressAtEachIndex() {
+        val xpub = WALLET.accountXpub()
+        assertEquals((0..5).map { AccountAddresses.addressAt(xpub, it) }, AccountAddresses.addresses(xpub, 6))
+        assertEquals(emptyList(), AccountAddresses.addresses(xpub, 0))
+    }
+
+    @Test
     fun theAddressOfAPrivateKeyIsTheAddressOfItsAccount() {
         for (index in 0..2) {
             val key = WALLET.privateKey(index)
@@ -39,6 +46,11 @@ class AccountAddressesTest {
     @Test
     fun aNegativeIndexIsRefused() {
         assertFailsWith<IllegalArgumentException> { AccountAddresses.addressAt(WALLET.accountXpub(), -1) }
+    }
+
+    @Test
+    fun aNegativeCountIsRefused() {
+        assertFailsWith<IllegalArgumentException> { AccountAddresses.addresses(WALLET.accountXpub(), -1) }
     }
 
     @Test
