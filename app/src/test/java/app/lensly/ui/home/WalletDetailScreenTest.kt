@@ -1,24 +1,14 @@
 package app.lensly.ui.home
 
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
-import app.lensly.app.AccountProfile
-import app.lensly.app.ProfileColour
+import app.lensly.app.WalletApp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
@@ -34,9 +24,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The wallet detail screen. Adding an account keeps the scroll position and appends its row. Each row shows its full address.
- * A long press, or a tap, on an account opens its options. The wallet's options open from the overflow icon or a long press on
- * the header, and showing the secret asks for a warning first.
+ * The wallet screen. It lists the two Apps with their account counts, and a tap on an App opens it. The wallet's options open from the
+ * overflow icon or a long press on the header. They hold the wallet's own actions, and showing the secret asks for a warning first.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -45,162 +34,94 @@ class WalletDetailScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
-    /** What the route keeps for the wallet while the screen is open: the account count, and the addresses derived so far. */
-    private class Route(accounts: Int) {
-        var count by mutableIntStateOf(accounts)
-        var addresses by mutableStateOf(List(accounts, ::addressAt))
-        var exported: List<Int> = emptyList()
-        var edited = -1
+    /** What the route keeps while the wallet screen is open: the App last opened, and the secret or history that was asked for. */
+    private class Route {
+        var opened: WalletApp? = null
         var revealed = false
         var historyOpened = false
-
-        /** Derives the address of the account the list does not have yet, as the route does after the count changes. */
-        fun deriveNext() {
-            addresses = addresses + addressAt(addresses.size)
-        }
     }
 
+    /** The wallet screen of one wallet with [accounts] Ethereum accounts and [bitcoin] Bitcoin accounts. */
     @Composable
-    private fun Detail(route: Route, listState: LazyListState, kind: WalletKind = WalletKind.MNEMONIC) {
+    private fun Detail(route: Route, accounts: Int, bitcoin: Int, kind: WalletKind = WalletKind.MNEMONIC) {
         WalletDetailScreen(
             wallet = WalletMeta(
                 id = "w1",
                 name = "Seed wallet",
                 createdAtMs = 0L,
                 deviceGenerated = true,
-                accountCount = route.count,
+                accountCount = accounts,
                 masterFingerprintHex = "1a2b3c4d",
                 accountXpub = null,
                 kind = kind,
                 autoNameBase = "Seed wallet",
             ),
-            addresses = route.addresses,
-            accountProfiles = profiles,
             walletProfile = WalletProfile(),
             walletPosition = 0,
+            bitcoinAccounts = bitcoin,
             onBack = {},
             onLock = {},
-            onAddAccount = { route.count += 1 },
-            onBulkGenerate = {},
+            onOpenApp = { app -> route.opened = app },
             onShowSecret = { route.revealed = true },
             onHistory = { route.historyOpened = true },
             onEditWallet = {},
-            onEditAccount = { route.edited = it },
-            onExportAccounts = { route.exported = it },
-            onRenameAccounts = {},
-            onStyleAccounts = {},
-            onResetAccountNames = {},
             onDeleteWallet = {},
-            listState = listState,
         )
     }
 
     @Test
-    fun addingAnAccountKeepsTheScrollPositionAndAppendsTheRow() {
-        // Twelve accounts, with the list scrolled into the middle, so the "Add account" row is still on screen.
-        val route = Route(accounts = 12)
-        lateinit var listState: LazyListState
+    fun theWalletListsItsTwoAppsWithTheirAccountCounts() {
         compose.setContent {
             LenslyTheme {
-                listState = rememberLazyListState()
-                LaunchedEffect(Unit) { listState.scrollToItem(4, 30) }
-                Detail(route, listState)
-            }
-        }
-        compose.waitForIdle()
-        val before = compose.runOnIdle { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-        assertTrue("the list starts scrolled, so the test can see it move", before.first > 0)
-
-        compose.onNodeWithText("ADD ACCOUNT").performClick()
-        compose.waitForIdle()
-        // The new account is counted, and its row waits for its address. The rows already shown stay as they were.
-        compose.onAllNodesWithText("DERIVING ADDRESS").assertCountEquals(1)
-        compose.onAllNodesWithText(groupedAddress(addressAt(12))).assertCountEquals(0)
-        assertEquals(13, route.count)
-        assertEquals(before, compose.runOnIdle { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset })
-
-        compose.runOnIdle { route.deriveNext() }
-        compose.waitForIdle()
-        compose.onAllNodesWithText(groupedAddress(addressAt(12))).assertCountEquals(1)
-        compose.onAllNodesWithText("DERIVING ADDRESS").assertCountEquals(0)
-        assertEquals(before, compose.runOnIdle { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset })
-    }
-
-    @Test
-    fun everyAccountRowShowsItsFullAddress() {
-        val route = Route(accounts = 3)
-        compose.setContent {
-            LenslyTheme {
-                Detail(route, rememberLazyListState())
+                Detail(Route(), accounts = 3, bitcoin = 2)
             }
         }
 
-        route.addresses.forEach { address ->
-            compose.onNodeWithText(groupedAddress(address)).assertExists()
-        }
-        compose.onAllNodesWithText("…", substring = true).assertCountEquals(0)
+        compose.onNodeWithText("BITCOIN").assertIsDisplayed()
+        compose.onNodeWithText("2 accounts").assertIsDisplayed()
+        compose.onNodeWithText("ETHEREUM").assertIsDisplayed()
+        compose.onNodeWithText("3 accounts").assertIsDisplayed()
     }
 
     @Test
-    fun aLongPressOnAnAccountOpensItsExportAndEditOptions() {
-        val route = Route(accounts = 3)
+    fun tappingAnAppOpensIt() {
+        val route = Route()
         compose.setContent {
             LenslyTheme {
-                Detail(route, rememberLazyListState())
+                Detail(route, accounts = 3, bitcoin = 2)
             }
         }
 
-        compose.onNodeWithText("MAIN").performTouchInput { longClick() }
-        compose.onNodeWithText("Export address").assertIsDisplayed()
-        compose.onNodeWithText("Edit profile").assertIsDisplayed()
-
-        compose.onNodeWithText("Export address").performClick()
-        assertEquals(listOf(0), route.exported)
+        compose.onNodeWithText("BITCOIN").performClick()
+        assertEquals(WalletApp.BITCOIN, route.opened)
+        compose.onNodeWithText("ETHEREUM").performClick()
+        assertEquals(WalletApp.ETHEREUM, route.opened)
     }
 
     @Test
-    fun exportingASelectionSendsEachSelectedAccountOnceInListOrder() {
-        val route = Route(accounts = 5)
+    fun theWalletOptionsHoldTheWalletActionsAndNoAccountActions() {
         compose.setContent {
             LenslyTheme {
-                Detail(route, rememberLazyListState())
-            }
-        }
-
-        compose.onNodeWithContentDescription("Wallet options").performClick()
-        compose.onNodeWithText("Select accounts").performClick()
-        compose.onNodeWithText(groupedAddress(addressAt(4))).performClick()
-        compose.onNodeWithText(groupedAddress(addressAt(1))).performClick()
-        compose.onNodeWithText(groupedAddress(addressAt(3))).performClick()
-        compose.onNodeWithText("3 SELECTED").assertIsDisplayed()
-
-        compose.onNodeWithText("EXPORT").performClick()
-        assertEquals(listOf(1, 3, 4), route.exported)
-    }
-
-    @Test
-    fun theOverflowIconOpensTheWalletOptions() {
-        val route = Route(accounts = 3)
-        compose.setContent {
-            LenslyTheme {
-                Detail(route, rememberLazyListState())
+                Detail(Route(), accounts = 3, bitcoin = 2)
             }
         }
 
         compose.onNodeWithContentDescription("Wallet options").performClick()
         compose.onNodeWithText("Edit wallet profile").assertIsDisplayed()
-        compose.onNodeWithText("Generate accounts").assertIsDisplayed()
-        compose.onNodeWithText("Select accounts").assertIsDisplayed()
         compose.onNodeWithText("History").assertIsDisplayed()
+        compose.onNodeWithText("Show secret phrase").assertIsDisplayed()
         compose.onNodeWithText("Delete wallet").assertIsDisplayed()
+        // Generating, selecting, pairing and signing are on each App, so the wallet's options do not hold them.
+        compose.onNodeWithText("Generate accounts").assertDoesNotExist()
+        compose.onNodeWithText("Select accounts").assertDoesNotExist()
     }
 
     @Test
     fun theHistoryOptionOpensTheHistoryOfTheWallet() {
-        val route = Route(accounts = 1)
+        val route = Route()
         compose.setContent {
             LenslyTheme {
-                Detail(route, rememberLazyListState())
+                Detail(route, accounts = 1, bitcoin = 0)
             }
         }
 
@@ -212,10 +133,9 @@ class WalletDetailScreenTest {
 
     @Test
     fun aLongPressOnTheWalletHeaderOpensTheWalletOptions() {
-        val route = Route(accounts = 3)
         compose.setContent {
             LenslyTheme {
-                Detail(route, rememberLazyListState())
+                Detail(Route(), accounts = 3, bitcoin = 2)
             }
         }
 
@@ -225,10 +145,10 @@ class WalletDetailScreenTest {
 
     @Test
     fun showingTheSecretAsksForAWarningBeforeItOpens() {
-        val route = Route(accounts = 3)
+        val route = Route()
         compose.setContent {
             LenslyTheme {
-                Detail(route, rememberLazyListState())
+                Detail(route, accounts = 3, bitcoin = 2)
             }
         }
 
@@ -248,25 +168,16 @@ class WalletDetailScreenTest {
     }
 
     @Test
-    fun aSingleKeyWalletHasNoAddOrGenerateAction() {
-        val route = Route(accounts = 1)
+    fun aSingleKeyWalletShowsItsOneAccountAndItsPrivateKey() {
         compose.setContent {
             LenslyTheme {
-                Detail(route, rememberLazyListState(), kind = WalletKind.SINGLE_KEY)
+                Detail(Route(), accounts = 1, bitcoin = 0, kind = WalletKind.SINGLE_KEY)
             }
         }
 
-        compose.onNodeWithText("ADD ACCOUNT").assertDoesNotExist()
+        compose.onNodeWithText("1 account").assertIsDisplayed()
+        compose.onNodeWithText("0 accounts").assertIsDisplayed()
         compose.onNodeWithContentDescription("Wallet options").performClick()
-        compose.onNodeWithText("Generate accounts").assertDoesNotExist()
-        compose.onNodeWithText("Select accounts").assertDoesNotExist()
         compose.onNodeWithText("Show private key").assertIsDisplayed()
     }
-
 }
-
-/** Account 0 has a name, so a test can find its row. The other accounts show their Auto-Names. */
-private val profiles = mapOf(0 to AccountProfile(name = "Main", colour = ProfileColour.BLUE, label = "Everyday"))
-
-/** A distinct address for account [index], in the shape the app shows: 0x and forty hex digits. */
-private fun addressAt(index: Int): String = "0x%040X".format(0x1000 + index)

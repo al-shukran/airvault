@@ -182,7 +182,7 @@ private fun addsLabel(baseName: String, range: IntRange): String {
 }
 
 /** The Bitcoin run a tap on the Bitcoin pill starts with: Native Segwit on mainnet, the default for new Accounts. */
-private val DEFAULT_BITCOIN = BulkChain.Bitcoin(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET)
+internal val DEFAULT_BITCOIN = BulkChain.Bitcoin(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET)
 
 /**
  * The chain of the run, picked before the Count: Ethereum, or Bitcoin with its Script Type and network. The Script Type and the network
