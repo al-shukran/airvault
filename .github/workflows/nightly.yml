@@ -212,12 +212,6 @@ jobs:
             -Pandroid.testInstrumentationRunnerArguments.package=app.lensly.benchmark
             -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR,NOT-AOT-COMPILED
 
-      # TEMPORARY DIAGNOSTIC (remove once the benchmark job is green): print the benchmark results of a failed run.
-      - name: Print benchmark results (diagnostic)
-        if: failure()
-        run: |
-          find app/build/outputs/androidTest-results -name '*.xml' -exec head -c 60000 {} \; 2>/dev/null || echo "no test results"
-
       - name: Confirm trend-only
         run: echo "Emulator results are trend data; the 10% gate runs on the reference device only."
 
