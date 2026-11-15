@@ -26,18 +26,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,7 +59,7 @@ import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurfaceHigh
 import app.lensly.ui.wallet.WALLET_GUTTER
-import app.lensly.ui.wallet.WalletWarningChip
+import app.lensly.ui.components.HomeTopBar
 import kotlinx.coroutines.delay
 
 /** The test tag of the Scan to sign button. */
@@ -70,9 +67,6 @@ internal const val HOME_SCAN_TAG = "home-scan"
 
 /** The test tag of the scrolling content under the top bar. */
 internal const val HOME_SCROLL_TAG = "home-scroll"
-
-/** The top bar: the wordmark and the lock. */
-private val HEADER_HEIGHT = 56.dp
 
 private val SCAN_HEIGHT = 56.dp
 
@@ -149,7 +143,7 @@ fun WalletHomeScreen(
     val fadeHeight = DOCK_BAR_HEIGHT + LenslySpacing.xs + DOCK_FADE + navBottom
     Box(modifier = modifier.fillMaxSize().background(LenslyBlack)) {
         Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-            HomeHeader(debugNotice = debugNotice, onLock = onLock)
+            HomeTopBar(wordmark = "LENSLY", onLock = onLock, debugNotice = debugNotice)
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -237,36 +231,6 @@ fun WalletHomeScreen(
             onEdit = onEdit,
             onPair = onPair,
         )
-    }
-}
-
-/**
- * The top bar: the Lensly wordmark in the dot-matrix face, on the left, and the lock as an icon button on the right. Settings is in the
- * dock. A debug build that runs on a software keystore shows its warning as a chip beside the wordmark, so the content keeps its place.
- */
-@Composable
-private fun HomeHeader(debugNotice: String?, onLock: () -> Unit) {
-    val haptics = rememberKeyHaptics()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(HEADER_HEIGHT)
-            .padding(horizontal = WALLET_GUTTER),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "LENSLY",
-            style = MaterialTheme.typography.headlineSmall,
-            color = LenslyOnSurface,
-        )
-        if (debugNotice != null) {
-            Spacer(Modifier.width(LenslySpacing.sm))
-            WalletWarningChip(text = debugNotice)
-        }
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick = onLock, modifier = Modifier.tapHaptic(haptics)) {
-            Icon(imageVector = Icons.Filled.Lock, contentDescription = "Lock the vault", tint = LenslyOnSurface)
-        }
     }
 }
 

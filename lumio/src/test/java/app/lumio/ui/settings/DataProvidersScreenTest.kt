@@ -1,6 +1,8 @@
 package app.lumio.ui.settings
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -82,8 +84,8 @@ class DataProvidersScreenTest {
     fun theDataAndRpcGroupsRenderTheirProviders() {
         show()
 
-        compose.onNodeWithText("Data").assertExists()
-        compose.onNodeWithText("RPC").assertExists()
+        compose.onNodeWithText("Data", ignoreCase = true).assertExists()
+        compose.onNodeWithText("RPC", ignoreCase = true).assertExists()
         compose.onNodeWithText("etherscan").assertExists()
         compose.onNodeWithText("mempool").assertExists()
         compose.onNodeWithText("1rpc").assertExists()
@@ -150,8 +152,8 @@ class DataProvidersScreenTest {
     fun theKeyIsHiddenUntilItsRevealToggleIsTapped() {
         show()
 
-        compose.onNodeWithTag("reveal-1rpc").performClick()
+        compose.onNodeWithTag("reveal-1rpc").assertIsOff().performClick()
 
-        compose.onNodeWithText("Hide", ignoreCase = true).assertExists()
+        compose.onNodeWithTag("reveal-1rpc").assertIsOn()
     }
 }

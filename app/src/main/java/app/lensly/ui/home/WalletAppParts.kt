@@ -2,7 +2,6 @@ package app.lensly.ui.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,12 +26,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.lensly.app.WalletApp
 import app.lensly.ui.components.AddressIcon
+import app.lensly.ui.components.AppTitle
 import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.rememberKeyHaptics
@@ -41,8 +39,6 @@ import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.wallet.DotText
-import app.lensly.ui.wallet.WalletEyebrow
 
 /** How many accounts an App holds, in words a reader takes in at a glance: "1 account", "3 accounts". */
 internal fun accountCountLabel(count: Int): String = if (count == 1) "1 account" else "$count accounts"
@@ -62,19 +58,7 @@ internal fun AppIcon(app: WalletApp, size: Dp, modifier: Modifier = Modifier) {
  */
 @Composable
 internal fun AppHeader(app: WalletApp, walletName: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Spacer(Modifier.height(LenslySpacing.lg))
-        WalletEyebrow(walletName, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(LenslySpacing.xs))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AppIcon(app = app, size = 40.dp)
-            Spacer(Modifier.width(LenslySpacing.sm))
-            DotText(text = app.label.uppercase(), modifier = Modifier.weight(1f), fontSize = 32.sp)
-        }
-    }
+    AppTitle(logo = { size -> AppIcon(app = app, size = size) }, name = app.label, walletName = walletName)
 }
 
 /** The last row of an App's accounts: a dashed outline with a plus, which [label] names, such as "ADD ACCOUNT". */

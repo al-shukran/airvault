@@ -48,17 +48,17 @@ private const val DISABLED_ALPHA = 0.4f
 private val ERROR_HEIGHT = 24.dp
 
 /** Visual role of a [WalletPill]. Primary is the single white call to action. */
-internal enum class WalletPillStyle { Primary, Secondary, Outline, Accent }
+enum class WalletPillStyle { Primary, Secondary, Outline, Accent }
 
 /** Height and type scale of a [WalletPill]. */
-internal enum class WalletPillSize { Compact, Regular, Large }
+enum class WalletPillSize { Compact, Regular, Large }
 
 /**
  * Fully rounded button used across the wallet flow. The label is uppercased. A disabled pill keeps its
  * place in the layout but ignores taps.
  */
 @Composable
-internal fun WalletPill(
+fun WalletPill(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -132,7 +132,7 @@ internal fun WalletPill(
  * children use `Modifier.weight`.
  */
 @Composable
-internal fun WalletScaffold(
+fun WalletScaffold(
     modifier: Modifier = Modifier,
     scrollable: Boolean = true,
     footer: @Composable ColumnScope.() -> Unit = {},
@@ -156,14 +156,14 @@ internal fun WalletScaffold(
 }
 
 /** Horizontal page gutter, matching the gate screens. */
-internal val WALLET_GUTTER = 16.dp
+val WALLET_GUTTER = 16.dp
 
 /**
  * Small muted label above a headline, such as "SEED CEREMONY". A label that may be long can be cut with [maxLines] and
  * [overflow].
  */
 @Composable
-internal fun WalletEyebrow(
+fun WalletEyebrow(
     text: String,
     modifier: Modifier = Modifier,
     maxLines: Int = Int.MAX_VALUE,
@@ -181,7 +181,7 @@ internal fun WalletEyebrow(
 
 /** Outlined warning chip in the warning amber. Use it for risks that must not be missed. */
 @Composable
-internal fun WalletWarningChip(text: String, modifier: Modifier = Modifier) {
+fun WalletWarningChip(text: String, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(percent = 50)
     Box(
         modifier = modifier
@@ -201,7 +201,7 @@ internal fun WalletWarningChip(text: String, modifier: Modifier = Modifier) {
  * jump when an error appears or clears. Pass null for an empty slot.
  */
 @Composable
-internal fun WalletError(message: String?, modifier: Modifier = Modifier) {
+fun WalletError(message: String?, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -221,7 +221,7 @@ internal fun WalletError(message: String?, modifier: Modifier = Modifier) {
 
 /** Dot-matrix text for counters, check words and recent entries. */
 @Composable
-internal fun DotText(
+fun DotText(
     text: String,
     modifier: Modifier = Modifier,
     fontSize: TextUnit = 28.sp,
@@ -238,7 +238,7 @@ internal fun DotText(
 
 /** A full hash, grouped in fours, four groups to a line, so it can be compared by eye. */
 @Composable
-internal fun HashLines(hex: String, modifier: Modifier = Modifier) {
+fun HashLines(hex: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
         for (line in formatHexLines(hex)) {
             Text(

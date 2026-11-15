@@ -13,6 +13,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
+import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.navigation.openHidden
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcPortfolio
@@ -54,6 +55,7 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
     if (session == null) return
     val app = LocalContext.current.applicationContext as LumioApp
     val scope = rememberCoroutineScope()
+    var walletName by remember { mutableStateOf("") }
     // The network of the side the owner chose. It is read from the vault, off the main thread, when the portfolio opens or refreshes.
     var net by remember { mutableStateOf(BtcNetwork.MAINNET) }
     var refs by remember { mutableStateOf<List<BtcAccountRef>>(emptyList()) }
@@ -81,6 +83,7 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
     }
 
     LaunchedEffect(session) {
+        walletName = withContext(Dispatchers.IO) { walletNameOf(session, walletId) }
         val chosen = withContext(Dispatchers.IO) { app.selectedBtcNetwork(session) }
         net = chosen
         val accounts = withContext(Dispatchers.IO) { accountsOf(session, chosen, walletId) }
@@ -104,6 +107,7 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
         }
     }
     BitcoinPortfolioScreen(
+        walletName = walletName,
         sections = BtcPortfolio.sections(rows),
         scanning = scanning,
         progress = if (scanning) "Scanned ${refs.count { it.key in settled }}/${refs.size}" else null,
@@ -117,6 +121,7 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
         onSend = { navController.navigate(LumioRoute.BTC_SEND) },
         onRefresh = ::refresh,
         onBack = { navController.popBackStack() },
+        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -137,6 +142,7 @@ internal fun BitcoinAccountRoute(navController: NavHostController, holder: Vault
     var row by remember { mutableStateOf<BtcRow?>(null) }
     var scanning by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
+    var walletName by remember { mutableStateOf("") }
 
     fun refresh(target: BtcAccountRef) {
         if (scanning) return
@@ -157,6 +163,7 @@ internal fun BitcoinAccountRoute(navController: NavHostController, holder: Vault
             return@LaunchedEffect
         }
         ref = found
+        walletName = withContext(Dispatchers.IO) { walletNameOf(session, found.walletId) }
         row = withContext(Dispatchers.IO) { rowOf(app.lumioVault(), found) }
         refresh(found)
     }
@@ -174,11 +181,13 @@ internal fun BitcoinAccountRoute(navController: NavHostController, holder: Vault
     }
     val current = row ?: return
     BitcoinAccountScreen(
+        walletName = walletName,
         row = current,
         scanning = scanning,
         failure = failure,
         onRefresh = { refresh(current.ref) },
         onBack = { navController.popBackStack() },
+        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -295,3 +304,7 @@ private suspend fun queueScans(queue: ScanQueue, refs: List<BtcAccountRef>, net:
         }
     }
 }
+
+/** The name of the paired wallet [walletId] in [session], or an empty name when the wallet is gone. */
+private fun walletNameOf(session: VaultSession, walletId: String): String =
+    PairedWallets.list(session).firstOrNull { it.id == walletId }?.name.orEmpty()

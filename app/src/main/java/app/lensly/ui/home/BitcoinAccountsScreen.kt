@@ -15,12 +15,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,6 +32,7 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.InlineBanner

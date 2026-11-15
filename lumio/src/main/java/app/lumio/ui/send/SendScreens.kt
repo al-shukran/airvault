@@ -24,8 +24,11 @@ import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.wallet.WalletEyebrow
+import app.lensly.ui.wallet.WalletPill
+import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.theme.LenslySpacing
@@ -60,10 +63,11 @@ fun SendFormScreen(
         title = "SEND",
         onBack = onBack,
         bottomAction = {
-            PillButton(
-                text = if (busy) "Reading the network" else "Review",
+            WalletPill(
+                text = "Review",
                 onClick = onReview,
                 modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
                 enabled = !busy && selected != null,
             )
         },
@@ -75,6 +79,13 @@ fun SendFormScreen(
                 body = "Turn a chain on in EVM settings to send on it.",
             )
             return@LenslyScreen
+        }
+        if (busy) {
+            Text(
+                "Reading the network",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         SectionLabel("From")
         Text(fromLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -124,7 +135,12 @@ fun SendReviewScreen(
         title = "REVIEW SEND",
         onBack = onBack,
         bottomAction = {
-            PillButton(text = "Sign with Lensly", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
+            WalletPill(
+                text = "Sign with Lensly",
+                onClick = onConfirm,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+            )
         },
     ) {
         NetworkHeader(chain)
@@ -164,7 +180,12 @@ fun SignRequestScreen(
         onBack = onBack,
         scrollable = false,
         bottomAction = {
-            PillButton(text = "Scan Lensly's signature", onClick = onScan, modifier = Modifier.fillMaxWidth())
+            WalletPill(
+                text = "Scan Lensly's signature",
+                onClick = onScan,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+            )
         },
     ) {
         NetworkHeader(send.chain)
@@ -209,14 +230,19 @@ fun SendSentScreen(
     LenslyScreen(
         title = "SENT",
         bottomAction = {
-            PillButton(text = "Done", onClick = onDone, modifier = Modifier.fillMaxWidth())
+            WalletPill(
+                text = "Done",
+                onClick = onDone,
+                modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+            )
         },
     ) {
         NetworkHeader(chain)
         ReviewField("Transaction hash", hash)
         if (explorerUrl != null) {
             Spacer(Modifier.height(LenslySpacing.md))
-            PillButton(text = "View on explorer", onClick = onOpenExplorer, modifier = Modifier.fillMaxWidth())
+            SettingsRow(title = "View on explorer", onClick = onOpenExplorer)
         }
         notice?.let {
             Spacer(Modifier.height(LenslySpacing.md))
@@ -262,7 +288,7 @@ private fun NetworkHeader(chain: EvmChain) {
 @Composable
 internal fun SectionLabel(text: String) {
     Spacer(Modifier.height(LenslySpacing.md))
-    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    WalletEyebrow(text)
     Spacer(Modifier.height(LenslySpacing.xs))
 }
 
