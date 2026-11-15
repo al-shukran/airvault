@@ -56,4 +56,16 @@ class DataPluginsRoutingTest {
         assertTrue(order.isNotEmpty())
         assertTrue(order.none { it in dataIds })
     }
+
+    @Test
+    fun preferRpcTakesTheExplorersOutOfABalanceRead() {
+        assertTrue(DataPlugins.evm(preferRpc = true).isEmpty())
+
+        val order = Router(DataPlugins.evm(preferRpc = true) + RpcPlugins.pool())
+            .route(ETH, Op.NATIVE_BALANCE, emptyMap(), everyone, nowMs = 0L, tried = emptySet(), excluded = emptySet())
+            .map { it.id }
+
+        assertTrue(order.isNotEmpty())
+        assertTrue(order.all { it in rpcIds })
+    }
 }

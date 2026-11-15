@@ -59,8 +59,11 @@ class EvmBalanceFallbackTest {
 
     private fun rpcBalance(wei: Int) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":"0x${wei.toString(16)}"}""")
 
-    /** The EVM reads with Routescan as the DATA provider and the owner's Ethereum RPC address as the RPC provider. */
-    private fun reads(clock: FakeClock = FakeClock()): EvmReads {
+    /**
+     * The EVM reads with Routescan as the DATA provider and the owner's Ethereum RPC address as the RPC provider. With [preferRpc], balance reads
+     * take the RPC-only pool, which has no Routescan.
+     */
+    private fun reads(clock: FakeClock = FakeClock(), preferRpc: Boolean = false): EvmReads {
         val configs = mapOf(
             "routescan" to ProviderConfig(baseUrl = data.url("/").toString()),
             CustomRpc.ID to ProviderConfig(chainUrls = mapOf("1" to rpc.url("/").toString())),
@@ -70,6 +73,8 @@ class EvmBalanceFallbackTest {
             pool = Scheduler(listOf(RoutescanProvider(), CustomRpc(allowLocalHttp = true)), { configs }, http, clock, Random(7), scope),
             owner = Scheduler(emptyList(), { configs }, http, clock, Random(7), scope),
             settings = { EvmSettings() },
+            rpcOnly = Scheduler(listOf(CustomRpc(allowLocalHttp = true)), { configs }, http, clock, Random(7), scope),
+            preferRpc = { preferRpc },
         )
     }
 
@@ -109,6 +114,16 @@ class EvmBalanceFallbackTest {
         clock.now = 61_000L
         assertEquals(BigInteger.valueOf(9), reads.balance(chain, address))
         assertEquals(2, data.requestCount)
+        assertEquals(1, rpc.requestCount)
+    }
+
+    @Test
+    fun preferRpcSendsTheBalanceReadToTheRpcProviderOnly() = runBlocking {
+        data.dispatcher = answers(dataBalance("7"))
+        rpc.dispatcher = answers(rpcBalance(42))
+
+        assertEquals(BigInteger.valueOf(42), reads(preferRpc = true).balance(chain, address))
+        assertEquals(0, data.requestCount)
         assertEquals(1, rpc.requestCount)
     }
 }
