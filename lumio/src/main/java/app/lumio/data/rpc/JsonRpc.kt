@@ -56,6 +56,12 @@ object JsonRpc {
 
     /** The wording of an error that says the endpoint does not serve the chain or the method on its plan, such as "chain is not available on free plan". */
     private val NOT_SERVED = Regex("not (available|enabled|supported)|free plan", RegexOption.IGNORE_CASE)
+
+    /** The wording of a node that refuses a transaction for its balance: "insufficient funds for gas * price + value" (Geth) or "Signer had insufficient balance" (Monad). */
+    private val INSUFFICIENT_FUNDS = Regex("insufficient (funds|balance)", RegexOption.IGNORE_CASE)
+
+    /** What the owner reads when the node refuses a transaction for its balance. */
+    const val INSUFFICIENT_FUNDS_MESSAGE = "The network refused the transaction: the account does not hold enough for the amount and the fee."
     private val JSON_TYPE = "application/json".toMediaType()
 
     /** The HTTP stack for RPC calls: no redirects, and each call bounded by [timeoutMs]. */
@@ -117,6 +123,7 @@ object JsonRpc {
             val message = (fields?.get("message") as? JsonPrimitive)?.content.orEmpty()
             if (code == RATE_LIMITED_CODE || message.contains("rate limit", ignoreCase = true)) throw ProviderError.RateLimited()
             if (code == METHOD_NOT_FOUND_CODE || NOT_SERVED.containsMatchIn(message)) throw ProviderError.Unsupported()
+            if (INSUFFICIENT_FUNDS.containsMatchIn(message)) throw ProviderError.Fatal(INSUFFICIENT_FUNDS_MESSAGE)
             throw ProviderError.Fatal("The endpoint returned a JSON-RPC error.")
         }
         val result = root["result"]
