@@ -1,7 +1,7 @@
 package app.lumio
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +12,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
@@ -116,7 +115,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             composable(LumioRoute.HOME) {
                 // Home is the root screen and has no back arrow. System back locks the vault first, so leaving the app never
                 // leaves the vault open, then closes the app as Android does at a root screen.
-                val activity = LocalContext.current as? Activity
+                val activity = LocalActivity.current
                 BackHandler {
                     lock()
                     activity?.finish()
