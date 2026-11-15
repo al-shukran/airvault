@@ -80,7 +80,8 @@ abstract class EvmRpcProvider(
  * network. Docs: https://docs.1rpc.io/using-the-web3-api/networks and https://docs.1rpc.io/using-the-web3-api/getting-started. The docs claim
  * privacy (metadata masking, no request storage). The keyless address serves 1RPC++, the MEV-protected mode of 1RPC, so the provider carries the
  * MEV trait. The pages cited here do not name that mode; the claim rests on the provider review of 2026-11-15. Free limits: none stated for public
- * endpoints. The Starter plan allows 1,000 requests a day (https://docs.1rpc.io/using-the-web3-api/payment).
+ * endpoints. The Starter plan allows 1,000 requests a day (https://docs.1rpc.io/using-the-web3-api/payment). Sepolia is not mapped: the free
+ * plan answers `eth_getBalance` on `sepolia` with JSON-RPC error 35, "chain is not available on free plan" (probed 2026-11-15).
  */
 class OneRpc : EvmRpcProvider("1rpc", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.PRIVACY, Trait.MEV_PROTECTED), PUBLIC_LIMITS) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
@@ -96,7 +97,7 @@ class OneRpc : EvmRpcProvider("1rpc", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, T
             "130" to "unichain", "146" to "sonic", "169" to "manta", "204" to "opbnb", "250" to "ftm", "288" to "boba/eth",
             "324" to "zksync2-era", "592" to "astr", "999" to "hyperliquid", "1101" to "polygon/zkevm", "1116" to "core",
             "1284" to "glmr", "1313161554" to "aurora", "1666600000" to "one", "4217" to "tempo", "4326" to "megaeth",
-            "5000" to "mantle", "8217" to "klay", "8453" to "base", "11155111" to "sepolia", "23294" to "oasis/sapphire",
+            "5000" to "mantle", "8217" to "klay", "8453" to "base", "23294" to "oasis/sapphire",
             "34443" to "mode", "42161" to "arb", "42220" to "celo", "42262" to "oasis/emerald", "43114" to "avax/c",
             "59144" to "linea", "137" to "matic", "534352" to "scroll", "560048" to "hoodi",
         )
@@ -115,7 +116,7 @@ class PublicNode : EvmRpcProvider("publicnode", setOf(Trait.KEYLESS, Trait.PRIVA
         /** The hosts that https://publicnode.com/ lists for these chains, keyed by chain ID. */
         val SLUGS = mapOf(
             "1" to "ethereum", "25" to "cronos", "56" to "bsc", "137" to "polygon", "1329" to "sei", "2222" to "kava",
-            "8453" to "base", "80094" to "berachain",
+            "8453" to "base", "80094" to "berachain", "11155111" to "ethereum-sepolia-rpc",
         )
     }
 }
@@ -185,14 +186,15 @@ class Alchemy : EvmRpcProvider("alchemy", setOf(Trait.KEYLESS, Trait.KEY_OPTIONA
  * Tenderly's public gateway. Keyless: `https://<network>.gateway.tenderly.co`. The Node RPC overview (https://docs.tenderly.co/node-rpc/overview.md)
  * gives that form and says every network is reachable without an access key. The docs name `mainnet` for Ethereum, and only Ethereum is mapped.
  * Other gateway slugs answered when probed, but the supported-networks page did not load, so they are not claimed. The overview makes no MEV or
- * privacy claim. The limits are 1 GB of response data a day for each IP address, and an eth_getLogs call returns at most 3,000 results. The
+ * privacy claim. Sepolia is served under the same form, as `sepolia`, and answered the balance, nonce, fee and gas reads when probed on 2026-11-15.
+ * The limits are 1 GB of response data a day for each IP address, and an eth_getLogs call returns at most 3,000 results. The
  * provider is FALLBACK_ONLY: the router offers it only when no other provider can serve the request.
  */
 class Tenderly : EvmRpcProvider("tenderly", setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY), TENDERLY_LIMITS) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.chain]?.let { "https://$it.gateway.tenderly.co" }
 
     private companion object {
-        val SLUGS = mapOf("1" to "mainnet")
+        val SLUGS = mapOf("1" to "mainnet", "11155111" to "sepolia")
     }
 }
 

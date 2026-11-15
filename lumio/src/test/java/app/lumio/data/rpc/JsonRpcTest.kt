@@ -157,4 +157,21 @@ class JsonRpcTest {
             RpcUrl.validate("https://" + "a".repeat(600) + ".example.org", allowLocalHttp = false)
         }
     }
+
+    @Test
+    fun aRetryAfterIsCappedAtTheOneCapEveryProviderShares() {
+        val failure = refusal(MockResponse().setResponseCode(429).addHeader("Retry-After", "7200"))
+
+        assertEquals(3_600_000L, (failure as ProviderError.RateLimited).retryAfterMs)
+    }
+
+    @Test
+    fun anErrorThatSaysTheChainIsNotServedOnThePlanIsUnsupportedNotFatal() {
+        val planRefusal = """{"jsonrpc":"2.0","id":1,"error":{"code":35,"message":"chain is not available on free plan, please upgrade to paid plan"}}"""
+        val noSuchMethod = """{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"the method does not exist"}}"""
+
+        assertTrue(refusal(MockResponse().setBody(planRefusal)) is ProviderError.Unsupported)
+        assertTrue(refusal(MockResponse().setBody(noSuchMethod)) is ProviderError.Unsupported)
+        assertTrue(refusal(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""")) is ProviderError.Fatal)
+    }
 }

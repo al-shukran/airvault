@@ -2,6 +2,7 @@ package app.lumio.data.rpc
 
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.failureFor
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
@@ -15,7 +16,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
 
 /**
  * The RPC addresses Lumio accepts. HTTPS only. Plain HTTP is accepted only for the emulator's host address and this machine, and only in a
@@ -52,6 +52,10 @@ object JsonRpc {
 
     private const val MAX_RESPONSE_BYTES = 64 * 1024
     private const val RATE_LIMITED_CODE = -32005
+    private const val METHOD_NOT_FOUND_CODE = -32601
+
+    /** The wording of an error that says the endpoint does not serve the chain or the method on its plan, such as "chain is not available on free plan". */
+    private val NOT_SERVED = Regex("not (available|enabled|supported)|free plan", RegexOption.IGNORE_CASE)
     private val JSON_TYPE = "application/json".toMediaType()
 
     /** The HTTP stack for RPC calls: no redirects, and each call bounded by [timeoutMs]. */
@@ -68,8 +72,9 @@ object JsonRpc {
 
     /**
      * The result member of the answer to [method] with [params] at [url]. Blocking, so run it off the main thread. A 429, or a JSON-RPC error
-     * that names a rate limit, is [ProviderError.RateLimited]; a 5xx, a timeout or a dropped connection is [ProviderError.Transient]; anything
-     * else that fails is [ProviderError.Fatal].
+     * that names a rate limit, is [ProviderError.RateLimited]; a 5xx, a timeout or a dropped connection is [ProviderError.Transient]; an error
+     * that says the endpoint does not serve the method or the chain is [ProviderError.Unsupported], so the caller moves on without a penalty;
+     * anything else that fails is [ProviderError.Fatal].
      */
     fun call(client: OkHttpClient, url: String, method: String, params: JsonArray, allowLocalHttp: Boolean): JsonElement {
         val target = try {
@@ -88,7 +93,7 @@ object JsonRpc {
         val request = Request.Builder().url(target).post(body).build()
         val text = try {
             client.newCall(request).execute().use { response ->
-                throwForStatus(response)
+                if (!response.isSuccessful) throw failureFor(response.code, response.header("Retry-After"), banMs = null)
                 response.peekBody(MAX_RESPONSE_BYTES + 1L).string()
             }
         } catch (e: IOException) {
@@ -96,16 +101,6 @@ object JsonRpc {
         }
         if (text.length > MAX_RESPONSE_BYTES) throw ProviderError.Fatal("The endpoint's answer is too large.")
         return resultOf(text)
-    }
-
-    private fun throwForStatus(response: Response) {
-        when (val code = response.code) {
-            in 200..299 -> Unit
-            429 -> throw ProviderError.RateLimited(response.header("Retry-After")?.trim()?.toLongOrNull()?.times(1_000L))
-            408, in 500..599 -> throw ProviderError.Transient()
-            in 300..399 -> throw ProviderError.Fatal("The endpoint redirected, and redirects are not followed.")
-            else -> throw ProviderError.Fatal("The endpoint answered HTTP $code.")
-        }
     }
 
     /** The result member of a JSON-RPC answer. An error object that names a rate limit is rate limited, any other error object, a missing result or a null result is a failure. */
@@ -121,6 +116,7 @@ object JsonRpc {
             val code = (fields?.get("code") as? JsonPrimitive)?.content?.toIntOrNull()
             val message = (fields?.get("message") as? JsonPrimitive)?.content.orEmpty()
             if (code == RATE_LIMITED_CODE || message.contains("rate limit", ignoreCase = true)) throw ProviderError.RateLimited()
+            if (code == METHOD_NOT_FOUND_CODE || NOT_SERVED.containsMatchIn(message)) throw ProviderError.Unsupported()
             throw ProviderError.Fatal("The endpoint returned a JSON-RPC error.")
         }
         val result = root["result"]

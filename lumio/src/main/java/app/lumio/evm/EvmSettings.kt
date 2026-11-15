@@ -28,8 +28,11 @@ data class EvmSettings(
         const val DEFAULT_ADDRESS_COUNT = 5
         const val MAX_ADDRESS_COUNT = 20
 
-        /** Ethereum mainnet and Sepolia, so a new vault shows its balances on a mainnet and on a testnet at once. */
-        val DEFAULT_ENABLED: Set<Long> = setOf(1L, 11155111L)
+        /**
+         * Ethereum mainnet, then the testnets: Monad testnet, the primary testnet, and Sepolia. A new vault shows its balances on a mainnet and on
+         * testnets at once. Monad is in the registry of debug builds only, so a release build ignores it.
+         */
+        val DEFAULT_ENABLED: Set<Long> = setOf(1L, 10143L, 11155111L)
 
         /** The vault record that holds these settings. */
         const val RECORD = "lumio-evm-settings"
