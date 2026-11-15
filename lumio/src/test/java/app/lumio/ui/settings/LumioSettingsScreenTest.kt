@@ -50,13 +50,13 @@ class LumioSettingsScreenTest {
             }
         }
 
-        compose.onNodeWithText("Bitcoin").assertExists()
-        compose.onNodeWithText("Ethereum").assertExists()
+        compose.onNodeWithText("Bitcoin", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Ethereum", ignoreCase = true).assertExists()
         compose.onNodeWithText("Mainnet").assertExists()
         compose.onNodeWithText("Save", ignoreCase = true).assertExists()
         compose.onNodeWithText("Reset to defaults", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Addresses per wallet").assertExists()
-        compose.onNodeWithText("Chains").assertExists()
+        compose.onNodeWithText("Addresses per wallet", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Chains", ignoreCase = true).assertExists()
         compose.onNodeWithText("Add custom chain", ignoreCase = true).assertExists()
         compose.onNodeWithText("Data providers", ignoreCase = true).assertExists()
     }

@@ -35,6 +35,7 @@ import app.lensly.ui.camera.EntryGesturePad
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics

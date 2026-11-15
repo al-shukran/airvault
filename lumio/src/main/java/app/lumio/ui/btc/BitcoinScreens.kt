@@ -1,35 +1,37 @@
 package app.lumio.ui.btc
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
+import app.lensly.ui.components.AppTitle
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.BitcoinIcon
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.ListRow
+import app.lensly.ui.components.RowArrow
+import app.lensly.ui.components.SettingsItem
+import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.qr.AnimatedQr
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.wallet.WalletEyebrow
+import app.lensly.ui.wallet.WalletPill
+import app.lensly.ui.wallet.WalletPillStyle
+import app.lensly.ui.wallet.WalletScaffold
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcPortfolio
 import app.lumio.btc.BtcRow
@@ -45,12 +47,13 @@ import app.lumio.btc.updatedText
 import app.lumio.ui.pair.PairLabels
 
 /**
- * Bitcoin portfolio: one section per network, mainnet first. Each section totals its own accounts only, so mainnet and testnet4 are
- * never added together. [failures] names a network whose server could not be reached, with the reason; its rows show the last known balance.
- * [progress] is the "Scanned n/N" text of a refresh that is running.
+ * Bitcoin portfolio of one paired wallet: one section per network, mainnet first. Each section totals its own accounts only, so mainnet and
+ * testnet4 are never added together. Send bitcoin is a row, and Refresh is the one primary action. [failures] names a network whose server
+ * could not be reached, with the reason; its rows show the last known balance. [progress] is the "Scanned n/N" text of a refresh that is running.
  */
 @Composable
 fun BitcoinPortfolioScreen(
+    walletName: String,
     sections: List<BtcSection>,
     scanning: Boolean,
     progress: String?,
@@ -59,20 +62,27 @@ fun BitcoinPortfolioScreen(
     onSend: () -> Unit,
     onRefresh: () -> Unit,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLock: () -> Unit = {},
 ) {
-    LenslyScreen(
-        title = "BITCOIN",
-        onBack = onBack,
-        bottomAction = {
-            PillButton(
-                text = progress ?: if (scanning) "Scanning" else "Refresh",
+    WalletScaffold(
+        modifier = modifier,
+        footer = {
+            WalletPill(
+                text = "Refresh",
                 onClick = onRefresh,
-                enabled = !scanning,
                 modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+                enabled = !scanning,
             )
+            Spacer(Modifier.height(LenslySpacing.xs))
         },
     ) {
-        PillButton(text = "Send bitcoin", onClick = onSend, modifier = Modifier.fillMaxWidth())
+        DetailTopBar(onBack = onBack, onLock = onLock)
+        AppTitle(logo = { size -> BitcoinIcon(size = size) }, name = "Bitcoin", walletName = walletName)
+        Spacer(Modifier.height(LenslySpacing.sm))
+        if (scanning) Caption(progress ?: "Scanning")
+        SettingsRow(title = "Send bitcoin", description = "From one of this wallet's accounts", onClick = onSend)
         Spacer(Modifier.height(LenslySpacing.md))
         if (sections.isEmpty()) {
             EmptyState(
@@ -89,10 +99,9 @@ fun BitcoinPortfolioScreen(
             NetworkHeader(section.network)
             Spacer(Modifier.height(LenslySpacing.xs))
             SectionTotals(section)
-            Spacer(Modifier.height(LenslySpacing.sm))
+            Spacer(Modifier.height(LenslySpacing.xs))
             section.rows.forEach { row ->
                 AccountRow(row = row, onClick = { onOpen(row.ref) })
-                Spacer(Modifier.height(LenslySpacing.sm))
             }
             Spacer(Modifier.height(LenslySpacing.lg))
         }
@@ -102,31 +111,40 @@ fun BitcoinPortfolioScreen(
 /**
  * One Bitcoin account: its balance, the address to receive on with its QR code, its unspent outputs and its recent transactions. Each
  * transaction opens on mempool.space. [failure] says why the last refresh did not reach the server; the balance shown is then the cache.
+ * Refresh is the one primary action, and a status line shows while the scan runs.
  */
 @Composable
 fun BitcoinAccountScreen(
+    walletName: String,
     row: BtcRow,
     scanning: Boolean,
     failure: String?,
     onRefresh: () -> Unit,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLock: () -> Unit = {},
 ) {
     val account = row.ref.account
     val snapshot = row.snapshot
     val uriHandler = LocalUriHandler.current
     val receive = snapshot?.nextReceiveAddress ?: account.receiveAddress(0)
-    LenslyScreen(
-        title = "BITCOIN",
-        onBack = onBack,
-        bottomAction = {
-            PillButton(
-                text = if (scanning) "Scanning" else "Refresh",
+    WalletScaffold(
+        modifier = modifier,
+        footer = {
+            WalletPill(
+                text = "Refresh",
                 onClick = onRefresh,
-                enabled = !scanning,
                 modifier = Modifier.fillMaxWidth(),
+                style = WalletPillStyle.Primary,
+                enabled = !scanning,
             )
+            Spacer(Modifier.height(LenslySpacing.xs))
         },
     ) {
+        DetailTopBar(onBack = onBack, onLock = onLock)
+        AppTitle(logo = { size -> BitcoinIcon(size = size) }, name = "Bitcoin", walletName = walletName)
+        Spacer(Modifier.height(LenslySpacing.sm))
+        if (scanning) Caption("Scanning")
         AccountHeader(account)
         Spacer(Modifier.height(LenslySpacing.md))
         failure?.let {
@@ -166,10 +184,8 @@ fun BitcoinAccountScreen(
                 TransactionRow(
                     snapshot = snapshot,
                     tx = tx,
-                    network = account.network,
                     onOpen = { uriHandler.openUri(BtcPortfolio.explorerTxUrl(account.network, tx.txid)) },
                 )
-                Spacer(Modifier.height(LenslySpacing.sm))
             }
         }
     }
@@ -178,7 +194,7 @@ fun BitcoinAccountScreen(
 @Composable
 private fun NetworkHeader(network: BtcNetwork) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-        Text(networkTitle(network), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+        WalletEyebrow(networkTitle(network))
         if (network == BtcNetwork.TESTNET4) PillChip(text = PairLabels.network(network))
     }
 }
@@ -194,27 +210,26 @@ private fun SectionTotals(section: BtcSection) {
     }
 }
 
+/** One account as a list row: its script type, its path and its last known balance. A tap opens the account. */
 @Composable
 private fun AccountRow(row: BtcRow, onClick: () -> Unit) {
     val account = row.ref.account
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(LenslyRadius.md))
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(LenslySpacing.md),
-    ) {
-        Text(PairLabels.scriptType(account.scriptType), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-        Caption(account.path.asString('\''))
-        Spacer(Modifier.height(LenslySpacing.xs))
-        val snapshot = row.snapshot
-        if (snapshot == null) {
-            Caption("Not scanned yet")
-        } else {
-            Text(btcText(snapshot.confirmedSats), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-            if (snapshot.unconfirmedSats != 0L) Caption("Pending ${signedBtcText(snapshot.unconfirmedSats)}")
-            Caption(updatedText(snapshot.scannedAtMs))
-            if (isStale(snapshot.scannedAtMs, System.currentTimeMillis())) Caption("Stale")
+    SettingsItem {
+        ListRow(onClick = onClick) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(PairLabels.scriptType(account.scriptType), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                Caption(account.path.asString('\''))
+                val snapshot = row.snapshot
+                if (snapshot == null) {
+                    Caption("Not scanned yet")
+                } else {
+                    Text(btcText(snapshot.confirmedSats), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                    if (snapshot.unconfirmedSats != 0L) Caption("Pending ${signedBtcText(snapshot.unconfirmedSats)}")
+                    Caption(updatedText(snapshot.scannedAtMs))
+                    if (isStale(snapshot.scannedAtMs, System.currentTimeMillis())) Caption("Stale")
+                }
+            }
+            RowArrow()
         }
     }
 }
@@ -229,31 +244,31 @@ private fun AccountHeader(account: BtcWatchOnlyAccount) {
     Caption(account.path.asString('\''))
 }
 
+/** One transaction as a list row. A tap opens it on mempool.space. */
 @Composable
-private fun TransactionRow(snapshot: BtcSnapshot, tx: BtcTx, network: BtcNetwork, onOpen: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(LenslyRadius.md))
-            .clickable(role = Role.Button, onClickLabel = "Open on mempool.space", onClick = onOpen)
-            .padding(LenslySpacing.md),
-    ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(signedBtcText(tx.netSats), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-            Text(
-                confirmationsText(snapshot.confirmations(tx)),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+private fun TransactionRow(snapshot: BtcSnapshot, tx: BtcTx, onOpen: () -> Unit) {
+    SettingsItem {
+        ListRow(onClick = onOpen) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(signedBtcText(tx.netSats), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        confirmationsText(snapshot.confirmations(tx)),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Caption(shortTxid(tx.txid))
+                Caption("Open on mempool.space")
+            }
+            RowArrow()
         }
-        Caption(shortTxid(tx.txid))
-        Caption("Open on mempool.space")
     }
 }
 
 @Composable
 private fun Label(text: String) {
-    Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    WalletEyebrow(text)
 }
 
 @Composable

@@ -46,6 +46,7 @@ internal fun HomeRoute(
     selection: NetworkSelection,
     listVersion: Int,
     onChanged: () -> Unit,
+    onLock: () -> Unit,
 ) {
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -59,6 +60,7 @@ internal fun HomeRoute(
         value = if (session == null) emptyList() else onVault(emptyList()) { PairedWallets.list(session) }
     }
     LumioHome(
+        onLock = onLock,
         // A push, not openHidden: openHidden pops everything above the hidden graph, Home included, so Save could not return to Home.
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         onBitcoin = { wallet -> navController.navigate(LumioRoute.bitcoin(wallet.id)) },

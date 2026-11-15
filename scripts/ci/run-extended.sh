@@ -4,7 +4,7 @@
 # kinds:
 #   instrumented       1.3  :app:connectedDebugAndroidTest
 #   e2e                1.6  :app:connectedDebugAndroidTest -P...class=app.lensly.e2e.WalletSignFlowTest
-#   screenshot-testing 1.5  :app:verifyRoborazziDebug
+#   screenshot-testing 1.5  :app:verifyRoborazziDebug, then :lumio:verifyRoborazziDebug
 #   perf               1.7  :app:connectedBenchmarkAndroidTest (reference device, self-hosted runner)
 #   security           1.8  :app:lintDebug + :app:dependencyCheckAnalyze, then check-manifest.sh (10 to 15 min)
 #   fuzz               1.8  scripts/ci/fuzz-nightly.sh --seconds 60 (real fuzzing, all four targets)
@@ -64,6 +64,9 @@ case "$kind" in
         ls "$ROOT"/app/src/test/screenshots/*.png >/dev/null 2>&1 ||
             not_configured "Roborazzi goldens under app/src/test/screenshots (guideline 1.5)"
         ./gradlew :app:verifyRoborazziDebug
+        # The companion app's goldens (the Lumio screens) are checked in the same step.
+        ls "$ROOT"/lumio/src/test/screenshots/*.png >/dev/null 2>&1 &&
+            ./gradlew :lumio:verifyRoborazziDebug
         ;;
     perf)
         grep -q 'benchmark' "$ROOT/app/build.gradle.kts" ||
