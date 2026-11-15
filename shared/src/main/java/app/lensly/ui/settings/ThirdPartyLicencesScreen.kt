@@ -1,5 +1,6 @@
 package app.lensly.ui.settings
 
+import android.content.Context
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,9 +17,27 @@ import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-/** The notice the build packs into the app's assets. Its source is licenses/THIRD-PARTY-NOTICES.txt in the repository. */
-internal const val THIRD_PARTY_NOTICE_PATH = "THIRD-PARTY-NOTICES.txt"
+/**
+ * The notice the build packs into the shared assets, for both Lensly and Lumio. Its source is licenses/THIRD-PARTY-NOTICES.txt in the
+ * repository, and the font licences sit beside it in the same folder.
+ */
+private const val THIRD_PARTY_NOTICE_PATH = "THIRD-PARTY-NOTICES.txt"
+
+/**
+ * The notice's blocks, read from the assets off the main thread, or one line saying the notice could not be read. Both apps show the same
+ * notice, since they bundle the same libraries from :shared.
+ */
+suspend fun readThirdPartyNotice(context: Context): List<NoticeBlock> = withContext(Dispatchers.IO) {
+    try {
+        noticeBlocks(context.assets.open(THIRD_PARTY_NOTICE_PATH).bufferedReader().use { it.readText() })
+    } catch (e: IOException) {
+        listOf(NoticeBlock("The third-party licences could not be read.", heading = false))
+    }
+}
 
 /** One block of the notice: a heading, or a paragraph of text. */
 data class NoticeBlock(val text: String, val heading: Boolean)

@@ -24,4 +24,7 @@
     <string name="settings_providers_heading">Providers</string>
     <string name="settings_providers_body">Choose which data and RPC providers Lumio uses, their order, and their API keys.</string>
     <string name="settings_providers_open">Data providers</string>
+    <string name="settings_about_heading">About</string>
+    <string name="settings_licences_body">Every library and font AirVault ships, with the licence each one is used under.</string>
+    <string name="settings_licences_open">Third-party licences</string>
 </resources>

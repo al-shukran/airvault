@@ -26,7 +26,7 @@ class ThirdPartyLicencesTest {
 
     @Test
     fun shippedNoticeKeepsEveryLicenceText() {
-        // Gradle runs unit tests in the app module, so the repository's licenses/ folder is one level up.
+        // Gradle runs unit tests in the shared module, so the repository's licenses/ folder is one level up.
         val notice = File("../licenses/THIRD-PARTY-NOTICES.txt").readText()
         // libsecp256k1 is shipped as a native library, and its MIT text must come with it.
         assertTrue(notice.contains("libsecp256k1-jni.so"))
@@ -39,6 +39,21 @@ class ThirdPartyLicencesTest {
         assertTrue(notice.contains("Bouncy Castle"))
         assertTrue(notice.contains("MIT No Attribution"))
         assertTrue(notice.contains("SIL OPEN FONT LICENSE Version 1.1"))
+    }
+
+    @Test
+    fun shippedNoticeListsEveryLibraryLumioBundles() {
+        // Lumio's own dependencies (OkHttp, Room, Hummingbird, bitcoin-kmp, kotlinx-serialization) and the libraries :shared brings in,
+        // each under the name the notice gives it. The notice is shown on the Licences screen of both apps.
+        val listed = noticeBlocks(File("../licenses/THIRD-PARTY-NOTICES.txt").readText()).joinToString("\n") { it.text }
+        val bundled = listOf(
+            "OkHttp", "Okio", "Room", "kotlinx-serialization", "Hummingbird", "bitcoin-kmp", "secp256k1-kmp", "web3j",
+            "Bouncy Castle", "zxcvbn4j", "ZXing core", "zxing-cpp", "CameraX", "Jackson", "Dagger", "atomicfu", "Tuweni",
+            "cbor", "jc-kzg-4844", "jnr-posix", "Reactive Streams", "SLF4J", "web3icons", "Doto", "Space Mono",
+        )
+        for (library in bundled) {
+            assertTrue(listed.contains(library), "The notice does not list $library")
+        }
     }
 
     @Test

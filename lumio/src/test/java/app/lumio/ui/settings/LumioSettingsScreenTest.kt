@@ -2,8 +2,11 @@ package app.lumio.ui.settings
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.theme.LenslyTheme
 import app.lumio.evm.EvmSettings
+import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,6 +49,7 @@ class LumioSettingsScreenTest {
                         )
                     },
                     onDataProviders = {},
+                    onThirdPartyLicences = {},
                 )
             }
         }
@@ -59,6 +63,26 @@ class LumioSettingsScreenTest {
         compose.onNodeWithText("Chains").assertExists()
         compose.onNodeWithText("Add custom chain", ignoreCase = true).assertExists()
         compose.onNodeWithText("Data providers", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Third-party licences", ignoreCase = true).assertExists()
+    }
+
+    @Test
+    fun theThirdPartyLicencesRowOpensTheLicences() {
+        var opened = false
+        compose.setContent {
+            LenslyTheme {
+                LumioSettingsScreen(
+                    onBack = {},
+                    bitcoin = {},
+                    ethereum = {},
+                    onDataProviders = {},
+                    onThirdPartyLicences = { opened = true },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Third-party licences", ignoreCase = true).performScrollTo().performClick()
+        assertTrue(opened)
     }
 
     @Test
@@ -70,6 +94,7 @@ class LumioSettingsScreenTest {
                     bitcoin = {},
                     ethereum = {},
                     onDataProviders = {},
+                    onThirdPartyLicences = {},
                 )
             }
         }
