@@ -8,7 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import app.lensly.ui.navigation.CoverNavHost
 import app.lensly.ui.navigation.HiddenBackdrop
 import app.lensly.ui.navigation.hiddenArea
@@ -20,6 +22,9 @@ internal object LumioRoute {
     const val HOME = "home"
     const val PAIR_SCAN = "pair-scan"
     const val PAIR_REVIEW = "pair-review"
+    const val BITCOIN = "bitcoin"
+    const val BITCOIN_ACCOUNT = "bitcoin-account"
+    const val SETTINGS = "settings"
 }
 
 /**
@@ -66,6 +71,19 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             }
             composable(LumioRoute.PAIR_SCAN) {
                 PairScanRoute(navController = navController, draft = draft)
+            }
+            composable(LumioRoute.BITCOIN) {
+                HiddenBackdrop { BitcoinRoute(navController = navController, holder = holder) }
+            }
+            composable(
+                route = "${LumioRoute.BITCOIN_ACCOUNT}/{account}",
+                arguments = listOf(navArgument("account") { type = NavType.StringType }),
+            ) { entry ->
+                val key = entry.arguments?.getString("account").orEmpty()
+                HiddenBackdrop { BitcoinAccountRoute(navController = navController, holder = holder, accountKey = key) }
+            }
+            composable(LumioRoute.SETTINGS) {
+                HiddenBackdrop { LumioSettingsRoute(navController = navController, holder = holder) }
             }
             composable(LumioRoute.PAIR_REVIEW) {
                 BackHandler {
