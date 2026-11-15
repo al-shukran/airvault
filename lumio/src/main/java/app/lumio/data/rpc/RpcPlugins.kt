@@ -21,7 +21,7 @@ private val EVM_OPS = setOf(Op.NATIVE_BALANCE, Op.NONCE, Op.RPC_CALL, Op.FEE_EST
 private val KEY = Regex("[A-Za-z0-9_-]{1,128}")
 
 /** Free public endpoints publish no request rate, so these are modest starting rates that the config can raise. */
-private val PUBLIC_LIMITS = Limits(rps = 4.0, burst = 8, maxConcurrent = 4)
+internal val PUBLIC_LIMITS = Limits(rps = 4.0, burst = 8, maxConcurrent = 4)
 private val KEYLESS_ALCHEMY = Limits(rps = 2.0, burst = 4, maxConcurrent = 2)
 private val KEYED_ALCHEMY = Limits(rps = 15.0, burst = 30, maxConcurrent = 8)
 private val TENDERLY_LIMITS = Limits(rps = 2.0, burst = 4, maxConcurrent = 2)
@@ -44,27 +44,45 @@ abstract class EvmRpcProvider(
     /** The address that serves [net] under [cfg], or null when this provider has none for it. */
     abstract fun endpoint(net: NetworkId, cfg: ProviderConfig): String?
 
+    /** The addresses that serve [net] under [cfg], in the order a call tries them. One address for most providers. */
+    open fun endpoints(net: NetworkId, cfg: ProviderConfig): List<String> = listOfNotNull(endpoint(net, cfg))
+
     /** Whether the endpoint serves [op] under [cfg]. Every EVM operation, unless a provider says otherwise. */
     open fun serves(op: Op, cfg: ProviderConfig): Boolean = true
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        net.family == Family.EVM && op in EVM_OPS && serves(op, cfg) && endpoint(net, cfg) != null
+        net.family == Family.EVM && op in EVM_OPS && serves(op, cfg) && endpoints(net, cfg).isNotEmpty()
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = limits
 
+    /**
+     * Tries each address in order. A rate limit or a transient failure moves the call to the next address, and the last failure is thrown when
+     * none answers. Any other failure ends the call at once, because another address would give the same answer.
+     */
     override suspend fun <T> execute(req: Request<T>, cfg: ProviderConfig, http: Http): T {
-        val url = endpoint(req.net, cfg) ?: throw ProviderError.Unsupported()
-        return withContext(Dispatchers.IO) { EvmCalls.execute(http.client, url, allowLocalHttp, req) }
+        val urls = endpoints(req.net, cfg).ifEmpty { throw ProviderError.Unsupported() }
+        var failure: ProviderError? = null
+        for (url in urls) {
+            try {
+                return withContext(Dispatchers.IO) { EvmCalls.execute(http.client, url, allowLocalHttp, req) }
+            } catch (e: ProviderError.RateLimited) {
+                failure = e
+            } catch (e: ProviderError.Transient) {
+                failure = e
+            }
+        }
+        throw failure ?: ProviderError.Unsupported()
     }
 }
 
 /**
  * 1RPC. Keyless: `https://public.1rpc.io/<network>`. With an API key: `https://1rpc.io/<API_KEY>/<network>`, the key in the path before the
  * network. Docs: https://docs.1rpc.io/using-the-web3-api/networks and https://docs.1rpc.io/using-the-web3-api/getting-started. The docs claim
- * privacy (metadata masking, no request storage), not MEV protection, so the provider carries no MEV trait. Free limits: none stated for public
+ * privacy (metadata masking, no request storage). The keyless address serves 1RPC++, the MEV-protected mode of 1RPC, so the provider carries the
+ * MEV trait. The pages cited here do not name that mode; the claim rests on the provider review of 2026-11-15. Free limits: none stated for public
  * endpoints. The Starter plan allows 1,000 requests a day (https://docs.1rpc.io/using-the-web3-api/payment).
  */
-class OneRpc : EvmRpcProvider("1rpc", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.PRIVACY), PUBLIC_LIMITS) {
+class OneRpc : EvmRpcProvider("1rpc", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.PRIVACY, Trait.MEV_PROTECTED), PUBLIC_LIMITS) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
         val slug = SLUGS[net.chain] ?: return null
         val key = cfg.apiKey ?: return "https://public.1rpc.io/$slug"
@@ -87,10 +105,10 @@ class OneRpc : EvmRpcProvider("1rpc", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, T
 
 /**
  * PublicNode. Keyless: `https://<network>.publicnode.com`, and PublicNode offers no key option. Docs: https://publicnode.com/, which lists the
- * chains by host and tags the service "privacy first RPC endpoints". The page makes no MEV claim, so the provider carries no MEV trait. It states
- * no rate limit.
+ * chains by host, tags the service "privacy first RPC endpoints", and shows an MEV-protected notice on its front page. The provider carries the
+ * MEV trait for that service (MEV-Blocker). The trait covers the provider as a whole, so it is not checked chain by chain. It states no rate limit.
  */
-class PublicNode : EvmRpcProvider("publicnode", setOf(Trait.KEYLESS, Trait.PRIVACY), PUBLIC_LIMITS) {
+class PublicNode : EvmRpcProvider("publicnode", setOf(Trait.KEYLESS, Trait.PRIVACY, Trait.MEV_PROTECTED), PUBLIC_LIMITS) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.chain]?.let { "https://$it.publicnode.com" }
 
     private companion object {
@@ -201,5 +219,5 @@ class CustomRpc(override val allowLocalHttp: Boolean) : EvmRpcProvider(ID, empty
 
 /** The providers of the public pool. The router ranks them, so their order here does not matter. */
 object RpcPlugins {
-    fun pool(): List<Provider> = listOf(OneRpc(), PublicNode(), Ankr(), DRpc(), Alchemy(), Tenderly())
+    fun pool(): List<Provider> = listOf(OneRpc(), PublicNode(), Ankr(), DRpc(), Alchemy(), Tenderly(), ChainlistRpc())
 }
