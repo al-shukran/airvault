@@ -37,7 +37,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.components.AddressIcon
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.InlineBanner
@@ -523,12 +523,10 @@ private fun TypedFieldLine(row: TypedRow) {
         MutedText("${row.label} · ${row.type}".uppercase())
         if (value != null) {
             Spacer(Modifier.height(LenslySpacing.xxs))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isEvmAddress(value)) {
-                    AddressIcon(size = 16.dp)
-                    Spacer(Modifier.width(LenslySpacing.xs))
-                }
-                MonoText(text = if (isEvmAddress(value)) groupAddress(value) else value, modifier = Modifier.weight(1f))
+            if (isEvmAddress(value)) {
+                AddressText(address = value)
+            } else {
+                MonoText(text = value)
             }
         }
     }
@@ -625,12 +623,10 @@ private fun LabelledValue(label: String, value: String) {
     Column(modifier = Modifier.padding(bottom = LenslySpacing.xs)) {
         MutedText(label.uppercase())
         Spacer(Modifier.height(LenslySpacing.xxs))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (isEvmAddress(value)) {
-                AddressIcon(size = 16.dp)
-                Spacer(Modifier.width(LenslySpacing.xs))
-            }
-            MonoText(text = if (isEvmAddress(value)) groupAddress(value) else value, modifier = Modifier.weight(1f))
+        if (isEvmAddress(value)) {
+            AddressText(address = value)
+        } else {
+            MonoText(text = value)
         }
     }
 }

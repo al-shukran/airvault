@@ -27,6 +27,7 @@ import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.pair.PairFamily
 import app.lumio.pair.PairImport
+import app.lumio.ui.send.ReviewAddress
 
 /** The camera scan for a pairing code. [progress] shows for an animated code, and [status] says what the scan is doing. */
 @Composable
@@ -112,7 +113,7 @@ private fun EthereumAccountReview(xpub: AccountXpub, account: PairingAccount) {
                 account.group?.let { PillChip(text = it) }
             }
         }
-        ReviewField("First address", address)
+        ReviewAddress("First address", address)
     }
 }
 
@@ -149,7 +150,7 @@ private fun BitcoinAccountReview(account: BtcWatchOnlyAccount, named: PairingAcc
             }
         }
         ReviewField("Path", account.path.asString('\''))
-        ReviewField("First address", address)
+        ReviewAddress("First address", address)
     }
 }
 

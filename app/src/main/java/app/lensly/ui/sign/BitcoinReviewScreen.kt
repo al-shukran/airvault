@@ -15,6 +15,7 @@ import app.lensly.core.btc.BtcReview
 import app.lensly.core.btc.BtcWarning
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.warnings
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen

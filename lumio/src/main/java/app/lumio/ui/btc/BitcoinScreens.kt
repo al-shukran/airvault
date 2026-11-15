@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.AppTitle
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.BitcoinIcon
@@ -164,7 +165,7 @@ fun BitcoinAccountScreen(
         }
         Spacer(Modifier.height(LenslySpacing.lg))
         Label(if (snapshot == null) "Receive" else "Next unused receive address")
-        Text(receive, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+        AddressText(address = receive, shown = receive, icon = false, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(LenslySpacing.sm))
         AnimatedQr(parts = listOf(receive), modifier = Modifier.fillMaxWidth(), keepCase = true)
         if (snapshot == null) {

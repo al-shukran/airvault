@@ -50,6 +50,7 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.visualIdentity
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
@@ -61,7 +62,6 @@ import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.theme.LenslyError
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
 import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lensly.ui.wallet.WalletEyebrow
@@ -362,9 +362,10 @@ internal fun SheetHeader(name: String, identity: VisualIdentity, address: String
             )
             if (address != null) {
                 Spacer(Modifier.height(LenslySpacing.xxs))
-                Text(
-                    text = groupedAddress(address),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+                AddressText(
+                    address = address,
+                    shown = groupedAddress(address),
+                    icon = false,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
