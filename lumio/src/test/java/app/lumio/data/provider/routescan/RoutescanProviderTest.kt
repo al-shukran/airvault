@@ -1,0 +1,160 @@
+package app.lumio.data.provider.routescan
+
+import app.lumio.data.ETH
+import app.lumio.data.config.ProviderConfig
+import app.lumio.data.net.Family
+import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.Http
+import app.lumio.data.provider.NativeBalance
+import app.lumio.data.provider.Op
+import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.Request
+import java.math.BigInteger
+import java.util.concurrent.TimeUnit
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * The Routescan plugin against a local MockWebServer. The success answer has the shape that the live API gave on 2026-11-15. The others are written in
+ * the shapes its docs and that probe show. No test reaches a network.
+ */
+class RoutescanProviderTest {
+    private val server = MockWebServer()
+    private val provider = RoutescanProvider()
+    private val http = Http(OkHttpClient.Builder().callTimeout(5, TimeUnit.SECONDS).build())
+    private val ethAddress = "0x" + "ab".repeat(20)
+
+    @Before
+    fun start() {
+        server.start()
+    }
+
+    @After
+    fun stop() {
+        server.shutdown()
+    }
+
+    private fun cfg(key: String? = null) = ProviderConfig(baseUrl = server.url("/").toString(), apiKey = key)
+
+    private fun <T> call(req: Request<T>, cfg: ProviderConfig = cfg()): T = runBlocking { provider.execute(req, cfg, http) }
+
+    @Test
+    fun theNativeBalanceIsWeiFromTheEtherscanCompatiblePath() {
+        server.enqueue(MockResponse().setBody("""{"status":"1","message":"OK","result":"4774551794456062094343"}"""))
+
+        assertEquals(BigInteger("4774551794456062094343"), call(NativeBalance(ETH, ethAddress)))
+        val request = server.takeRequest()
+        val url = request.requestUrl!!
+        assertEquals("/v2/network/mainnet/evm/1/etherscan/api", url.encodedPath)
+        assertEquals("account", url.queryParameter("module"))
+        assertEquals("balance", url.queryParameter("action"))
+        assertEquals(ethAddress, url.queryParameter("address"))
+        assertEquals("latest", url.queryParameter("tag"))
+        assertNull(request.getHeader("apikey"))
+    }
+
+    @Test
+    fun aKeyGoesInTheApikeyHeaderAndNeverInTheUrl() {
+        server.enqueue(MockResponse().setBody("""{"status":"1","message":"OK","result":"1"}"""))
+
+        call(NativeBalance(ETH, ethAddress), cfg(key = "KEY-123"))
+
+        val request = server.takeRequest()
+        assertEquals("KEY-123", request.getHeader("apikey"))
+        assertNull(request.requestUrl!!.queryParameter("apikey"))
+    }
+
+    @Test
+    fun aRetryAfterHeaderIsTheCooldownInMilliseconds() {
+        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "30"))
+
+        assertEquals(30_000L, assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ETH, ethAddress)) }.retryAfterMs)
+    }
+
+    @Test
+    fun aRateLimitAnsweredInTheBodyIsCooledWithNoFixedWait() {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"status":"0","message":"NOTOK","result":"Max rate limit reached, please use API Key for higher rate limit"}""",
+            ),
+        )
+
+        assertNull(assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ETH, ethAddress)) }.retryAfterMs)
+    }
+
+    @Test
+    fun aChainTheApiAnswersAsNotSupportedIsUnsupportedNotAFailure() {
+        server.enqueue(MockResponse().setBody("""{"status":"0","message":"chain not supported","result":null}"""))
+
+        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(ETH, ethAddress)) }
+    }
+
+    @Test
+    fun aChainOutsideTheProbedListAndATestnetAreUnsupportedAndNeverCalled() {
+        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Family.EVM, "8453", testnet = false), ethAddress)) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Family.EVM, "1", testnet = true), ethAddress)) }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun aRefusedQueryIsFatalAndTheMessageHoldsNoKey() {
+        server.enqueue(MockResponse().setBody("""{"status":"0","message":"NOTOK","result":"Invalid querystring request"}"""))
+
+        val e = assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ETH, ethAddress), cfg(key = "KEY-123")) }
+        assertFalse(e.message.orEmpty().contains("KEY-123"))
+    }
+
+    @Test
+    fun aServerErrorIsTransient() {
+        server.enqueue(MockResponse().setResponseCode(503))
+
+        assertFailsWith<ProviderError.Transient> { call(NativeBalance(ETH, ethAddress)) }
+    }
+
+    @Test
+    fun malformedAnswersAreTransientOrFatal() {
+        server.enqueue(MockResponse().setBody("<html>portal</html>"))
+        server.enqueue(MockResponse().setBody("""{"status":"1","message":"OK","result":"1.5"}"""))
+        server.enqueue(MockResponse().setBody("""{"message":"OK"}"""))
+
+        assertFailsWith<ProviderError.Transient> { call(NativeBalance(ETH, ethAddress)) }
+        assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ETH, ethAddress)) }
+        assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ETH, ethAddress)) }
+    }
+
+    @Test
+    fun aMalformedAddressIsNotFoundAndIsNeverSent() {
+        assertFailsWith<ProviderError.NotFound> { call(NativeBalance(ETH, "../../etc")) }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun theSupportTableHoldsTheProbedMainnetsAndTheNativeBalanceOnly() {
+        val c = cfg()
+        assertTrue(provider.supports(ETH, Op.NATIVE_BALANCE, c))
+        assertTrue(provider.supports(NetworkId(Family.EVM, "5000", testnet = false), Op.NATIVE_BALANCE, c))
+        assertFalse(provider.supports(NetworkId(Family.EVM, "8453", testnet = false), Op.NATIVE_BALANCE, c))
+        assertFalse(provider.supports(ETH, Op.NONCE, c))
+        assertFalse(provider.supports(NetworkId(Family.BTC, "mainnet", testnet = false), Op.NATIVE_BALANCE, c))
+    }
+
+    @Test
+    fun aPlainHttpBaseToAnotherHostIsNotSupported() {
+        assertFalse(provider.supports(ETH, Op.NATIVE_BALANCE, ProviderConfig(baseUrl = "http://example.org/")))
+    }
+
+    @Test
+    fun theKeyedPlanHasItsOwnLimits() {
+        assertTrue(provider.defaultLimits(cfg(key = "KEY-123")).rps > provider.defaultLimits(cfg()).rps)
+    }
+}

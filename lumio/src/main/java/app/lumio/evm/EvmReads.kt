@@ -7,6 +7,7 @@ import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Broadcast
+import app.lumio.data.provider.DataPlugins
 import app.lumio.data.provider.EstimateGas
 import app.lumio.data.provider.GasFees
 import app.lumio.data.provider.GasQuote
@@ -27,8 +28,8 @@ import kotlinx.coroutines.withTimeout
 
 /**
  * The EVM chain reads and broadcasts, routed by the scheduler. A chain whose RPC address the owner set reads only from that address, so the
- * owner's addresses never reach a public provider. Every other chain reads from the public pool. A failure reaches the caller as [RpcFailure],
- * and a call that runs past [deadlineMs] fails as unreachable.
+ * owner's addresses never reach a public provider. Every other chain reads from the public pool: its DATA providers first, then its RPC providers.
+ * A failure reaches the caller as [RpcFailure], and a call that runs past [deadlineMs] fails as unreachable.
  */
 class EvmReads(
     private val pool: Scheduler,
@@ -76,7 +77,7 @@ class EvmReads(
                 saved + (CustomRpc.ID to (saved[CustomRpc.ID] ?: ProviderConfig()).copy(chainUrls = owner))
             }
             return EvmReads(
-                pool = Scheduler(RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope),
+                pool = Scheduler(DataPlugins.evm() + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope),
                 owner = Scheduler(listOf(CustomRpc(allowLocalHttp)), configs, http, MonotonicClock, Random.Default, scope),
                 settings = settings,
             )
