@@ -66,6 +66,16 @@ object BtcPortfolio {
     fun rows(refs: List<BtcAccountRef>, cached: (String) -> BtcSnapshot?): List<BtcRow> =
         refs.map { ref -> BtcRow(ref, cached(ref.key)?.takeIf { it.identity == ref.account.receiveAddress(0) }) }
 
+    /**
+     * The notice a refresh shows for one network, or null when every account was read. When some accounts were read and others were not, the
+     * notice names the accounts that were missed, and their rows keep their last known balance. [message] is shown alone when none was read.
+     */
+    fun refreshNotice(read: Int, missed: Int, message: String): String? = when {
+        missed == 0 -> null
+        read == 0 -> message
+        else -> "$missed of ${read + missed} accounts could not be reached. Their last known balances are shown."
+    }
+
     fun sections(rows: List<BtcRow>): List<BtcSection> = BtcNetwork.entries.mapNotNull { network ->
         rows.filter { it.ref.account.network == network }
             .sortedBy { it.ref.account.scriptType.ordinal }

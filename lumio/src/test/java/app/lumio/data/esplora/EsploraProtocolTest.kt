@@ -12,6 +12,7 @@ import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Op
+import app.lumio.data.provider.retryAfterMs
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
 import app.lumio.data.provider.Tx
@@ -101,11 +102,17 @@ class EsploraProtocolTest {
 
     @Test
     fun aRetryAfterHeaderIsReadAsSecondsOrNothing() {
-        assertEquals(12_000L, EsploraProtocol.retryAfterMs("12", nowMs = 0L))
-        assertNull(EsploraProtocol.retryAfterMs("", nowMs = 0L))
-        assertNull(EsploraProtocol.retryAfterMs("soon", nowMs = 0L))
-        assertNull(EsploraProtocol.retryAfterMs("-1", nowMs = 0L))
-        assertNull(EsploraProtocol.retryAfterMs(null, nowMs = 0L))
+        assertEquals(12_000L, retryAfterMs("12", nowMs = 0L))
+        assertNull(retryAfterMs("", nowMs = 0L))
+        assertNull(retryAfterMs("soon", nowMs = 0L))
+        assertNull(retryAfterMs("-1", nowMs = 0L))
+        assertNull(retryAfterMs(null, nowMs = 0L))
+    }
+
+    @Test
+    fun aRetryAfterLongerThanTheOneCapIsCutToIt() {
+        assertEquals(3_600_000L, retryAfterMs("7200", nowMs = 0L))
+        assertEquals(3_600_000L, retryAfterMs("999999999", nowMs = 0L))
     }
 
     @Test
@@ -139,10 +146,10 @@ class EsploraProtocolTest {
     }
 
     @Test
-    fun anAnswerOverTheSizeCapIsFatal(): Unit = runBlocking {
+    fun anAnswerOverTheSizeCapIsTransientSoItIsNeverCutShort(): Unit = runBlocking {
         reply(200, "x".repeat((4 shl 20) + 1))
 
-        assertFailsWith<ProviderError.Fatal> { EsploraProtocol.execute(AddressTxs(testnet4, address), base(), http) }
+        assertFailsWith<ProviderError.Transient> { EsploraProtocol.execute(AddressTxs(testnet4, address), base(), http) }
     }
 
     @Test
