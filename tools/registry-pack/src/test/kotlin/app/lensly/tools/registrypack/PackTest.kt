@@ -6,11 +6,13 @@ import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission
+import java.security.MessageDigest
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -19,6 +21,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+
+/** SHA-256 of the payload of the whitelist sample, as the schema 2 packer wrote it. */
+private const val SCHEMA_2_WHITELIST_PAYLOAD_SHA256 = "344bf968ce501ff5f2f73e8755d853b1b6db980d7303fd7dd0d05966c0bd5905"
 
 /** Paths are relative to :tools:registry-pack, the working directory for its unit tests. */
 class PackTest {
@@ -123,7 +128,7 @@ class PackTest {
             "nativeDecimals above 36" to source.copy(networks = listOf(network.copy(nativeDecimals = 37))),
             "sequence zero" to source.copy(sequence = 0),
             "formatVersion one" to source.copy(formatVersion = 1),
-            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 3),
+            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 4),
             "minSchemaVersion zero" to source.copy(minSchemaVersion = 0),
             "impossible date" to source.copy(createdAt = "2026-02-30"),
             "control character in name" to source.copy(networks = listOf(network.copy(name = "Li\u0007nea"))),
@@ -244,9 +249,6 @@ class PackTest {
             ),
             "whitelist chainId zero" to whitelistSource.copy(whitelist = listOf(entry.copy(chainId = 0))),
             "repeated whitelist entry" to whitelistSource.copy(whitelist = listOf(entry, entry.copy(meaning = "Again"))),
-            "dynamic param type" to whitelistSource.copy(
-                whitelist = listOf(entry.copy(params = entry.params.dropLast(1) + ParamDto("to", "address[]"))),
-            ),
             "param type of another type" to whitelistSource.copy(
                 whitelist = listOf(entry.copy(params = entry.params.mapIndexed { index, param ->
                     if (index == 0) param.copy(type = "address") else param
@@ -264,6 +266,125 @@ class PackTest {
                 Pack.build(json.encodeToString(PackageDto.serializer(), content), seed)
             }
         }
+    }
+
+    /** An entries file for [content], as the packer reads it. */
+    private fun entriesJson(content: PackageDto): String = json.encodeToString(PackageDto.serializer(), content)
+
+    /** A whitelist entry for [params], named by the signature those types spell, with its Keccak-256 selector. */
+    private fun entryWith(params: List<ParamDto>): WhitelistDto {
+        val signature = "f(" + params.joinToString(",") { it.type } + ")"
+        return WhitelistDto(
+            chainId = 1,
+            contract = "0x5555555555555555555555555555555555555555",
+            selector = selectorOf(signature),
+            signature = signature,
+            meaning = "Test call with typed arguments.",
+            params = params,
+            upgradeable = false,
+        )
+    }
+
+    /** The whitelist sample with one entry for [params], at [minSchemaVersion]. */
+    private fun withEntry(params: List<ParamDto>, minSchemaVersion: Int = 3): PackageDto =
+        whitelistSource.copy(minSchemaVersion = minSchemaVersion, whitelist = listOf(entryWith(params)))
+
+    @Test
+    fun dynamicTupleAndArrayArgumentsRoundTripThroughASchemaThreePackage() {
+        val content = withEntry(
+            listOf(
+                ParamDto("commands", "bytes"),
+                ParamDto("path", "address[]"),
+                ParamDto(
+                    "hops",
+                    "(address,uint24)[]",
+                    components = listOf(ParamDto("token", "address"), ParamDto("fee", "uint24")),
+                ),
+                ParamDto("pair", "(uint256,bytes)", components = listOf(ParamDto("amount", "uint256"), ParamDto("data", "bytes"))),
+                ParamDto("grid", "bytes32[2]"),
+            ),
+        )
+
+        val (bytes, built) = Pack.build(entriesJson(content), seed)
+
+        assertEquals(content, built)
+        assertEquals(content, Pack.verify(bytes, publicKey))
+    }
+
+    @Test
+    fun aDynamicOrTupleArgumentIsRefusedBelowSchemaThree() {
+        val needsThree = listOf(
+            listOf(ParamDto("commands", "bytes")),
+            listOf(ParamDto("path", "address[]")),
+            listOf(ParamDto("pair", "(uint256,address)", components = listOf(ParamDto("amount", "uint256"), ParamDto("to", "address")))),
+        )
+        for (params in needsThree) {
+            for (schema in listOf(1, 2)) {
+                assertFailsWith<IllegalArgumentException>("${params.single().type} at minSchemaVersion $schema") {
+                    Pack.build(entriesJson(withEntry(params, minSchemaVersion = schema)), seed)
+                }
+            }
+            Pack.build(entriesJson(withEntry(params, minSchemaVersion = 3)), seed)
+        }
+    }
+
+    @Test
+    fun onlyTheCanonicalSpellingOfAnArgumentTypeIsAccepted() {
+        val spellings = listOf(
+            "uint", "uint7", "uint257", "int0", "bytes0", "bytes33", "Address", "address ", "uint256 []", "uint256[]x",
+            "uint256[01]", "uint256[0]", "uint256[513]", "address[][", "(address, uint24)", "()", "(address,)",
+        )
+        for (type in spellings) {
+            assertFailsWith<IllegalArgumentException>(type) {
+                Pack.build(entriesJson(withEntry(listOf(ParamDto("v", type)))), seed)
+            }
+        }
+    }
+
+    @Test
+    fun theTypeParserAcceptsCanonicalTypesAndStopsAtItsLimits() {
+        for (type in listOf("uint8", "int256", "bytes32", "bytes", "string", "address[]", "bytes32[2]", "(address,uint24)[]")) {
+            assertEquals(type, AbiSyntax.type(type)?.canonical)
+        }
+        assertEquals(listOf("bool", "(uint256,bytes)[]"), AbiSyntax.signature("f(bool,(uint256,bytes)[])")?.second?.map { it.canonical })
+        assertEquals(
+            "uint256" + "[]".repeat(AbiSyntax.MAX_DEPTH),
+            AbiSyntax.type("uint256" + "[]".repeat(AbiSyntax.MAX_DEPTH))?.canonical,
+        )
+        assertNull(AbiSyntax.type("uint256" + "[]".repeat(AbiSyntax.MAX_DEPTH + 1)))
+        assertNull(AbiSyntax.type("(".repeat(9) + "uint256" + ")".repeat(9)))
+        assertEquals("uint256[${AbiSyntax.MAX_ARRAY_LENGTH}]", AbiSyntax.type("uint256[${AbiSyntax.MAX_ARRAY_LENGTH}]")?.canonical)
+        assertNull(AbiSyntax.type("uint256[${AbiSyntax.MAX_ARRAY_LENGTH + 1}]"))
+    }
+
+    @Test
+    fun namedTupleFieldsMustMatchTheTupleTheyNameFieldByField() {
+        val pair = "(address,uint24)"
+        val cases = mapOf(
+            "fewer names than fields" to listOf(ParamDto("hop", pair, components = listOf(ParamDto("token", "address")))),
+            "a field of another type" to listOf(
+                ParamDto("hop", pair, components = listOf(ParamDto("token", "address"), ParamDto("fee", "uint256"))),
+            ),
+            "components on a word" to listOf(ParamDto("amount", "uint256", components = listOf(ParamDto("x", "uint256")))),
+            "a token amount inside a tuple" to listOf(
+                ParamDto("hop", pair, components = listOf(ParamDto("token", "address"), ParamDto("fee", "uint24", tokenRef = true))),
+            ),
+            "a token amount that is not a uint" to listOf(ParamDto("token", "address", tokenRef = true)),
+            "a token amount that is an array" to listOf(ParamDto("amounts", "uint256[]", tokenRef = true)),
+        )
+        for ((label, params) in cases) {
+            assertFailsWith<IllegalArgumentException>(label) { Pack.build(entriesJson(withEntry(params)), seed) }
+        }
+    }
+
+    @Test
+    fun aSchemaTwoStaticWhitelistKeepsItsPayloadBytes() {
+        // The payload of samples/example-whitelist-entries.json as the schema 2 packer wrote it, before schema 3 existed. An entry
+        // with no dynamic, array or tuple argument must still be written as those bytes.
+        val payload = Pack.canonicalPayload(whitelistSource)
+
+        assertEquals(1096, payload.size)
+        assertEquals(SCHEMA_2_WHITELIST_PAYLOAD_SHA256, MessageDigest.getInstance("SHA-256").digest(payload).toHex())
     }
 
     @Test

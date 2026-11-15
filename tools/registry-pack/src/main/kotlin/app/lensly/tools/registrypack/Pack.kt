@@ -77,12 +77,17 @@ data class WhitelistDto(
     val upgradeable: Boolean,
 )
 
-/** One static argument of a whitelisted call: its name, its static ABI type, and whether it is a token amount. */
+/**
+ * One argument of a whitelisted call: its name, its canonical ABI type, and whether it is a token amount. A tuple argument may name
+ * its fields in [components], in field order. Dynamic, array and tuple arguments need minSchemaVersion 3.
+ */
 @Serializable
 data class ParamDto(
     val name: String,
     val type: String,
     val tokenRef: Boolean = false,
+    /** Names the fields of the tuple at the base of [type], under any arrays. Omitted when the entry names none. */
+    val components: List<ParamDto>? = null,
 )
 
 /** The implementation a whitelisted proxy is bound to: its address, its code hash, or both. */
@@ -129,7 +134,10 @@ enum class FeeModel { L1, L2_ROLLUP }
 internal object Pack {
     const val FORMAT_VERSION = 2
     /** The newest catalog schema the app reads. A package may not need a newer one. */
-    const val SCHEMA_VERSION = 2
+    const val SCHEMA_VERSION = 3
+
+    /** The schema that adds dynamic, array and tuple arguments, and the names of tuple fields, to whitelist entries. */
+    private const val ARGUMENTS_SCHEMA = 3
     const val MAX_BYTES = 1 shl 20
 
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
@@ -144,18 +152,7 @@ internal object Pack {
     private val CONTRACT = Regex("0x[0-9a-f]{40}")
     private val SELECTOR = Regex("0x[0-9a-f]{8}")
     private val CODE_HASH = Regex("0x[0-9a-f]{64}")
-    private val SIGNATURE = Regex("[A-Za-z_][A-Za-z0-9_]*\\((?:[a-z0-9\\[\\]]+(?:,[a-z0-9\\[\\]]+)*)?\\)")
-    private val INTEGER_TYPES = (8..256 step 8).flatMap { listOf("uint$it", "int$it") }.toSet()
-    private val BYTES_TYPES = (1..32).map { "bytes$it" }.toSet()
     private val json = Json
-
-    /** The ABI types of [signature], in order. */
-    private fun signatureTypes(signature: String): List<String> =
-        signature.substringAfter('(').substringBefore(')').split(',').filter { it.isNotEmpty() }
-
-    /** True for an ABI type whose value is one 32-byte word. */
-    private fun isStaticType(type: String): Boolean =
-        type == "address" || type == "bool" || type in INTEGER_TYPES || type in BYTES_TYPES
 
     /** Builds a signed package from entries JSON. The same entries and seed always give the same bytes. */
     fun build(entriesJson: String, seed: ByteArray): Pair<ByteArray, PackageDto> {
@@ -233,9 +230,7 @@ internal object Pack {
         "chainId" to entry.chainId,
         "contract" to entry.contract,
         "meaning" to entry.meaning,
-        "params" to entry.params.map {
-            mapOf("name" to it.name, "tokenRef" to it.tokenRef, "type" to it.type)
-        },
+        "params" to entry.params.map(::paramMap),
         "proxy" to entry.proxy?.let {
             mapOf("implementationAddress" to it.implementationAddress, "implementationCodeHash" to it.implementationCodeHash)
         },
@@ -243,6 +238,14 @@ internal object Pack {
         "signature" to entry.signature,
         "upgradeable" to entry.upgradeable,
     )
+
+    /** One argument as the payload writes it. The fields it names are written only when it names some, so an entry without them keeps its bytes. */
+    private fun paramMap(param: ParamDto): Map<String, Any?> = buildMap<String, Any?> {
+        put("name", param.name)
+        put("tokenRef", param.tokenRef)
+        put("type", param.type)
+        param.components?.let { put("components", it.map(::paramMap)) }
+    }
 
     private fun networkMap(network: NetworkDto): Map<String, Any?> = mapOf(
         "chainId" to network.chainId,
@@ -308,26 +311,17 @@ internal object Pack {
             require(CONTRACT.matches(entry.contract)) {
                 "whitelist contract must be 0x followed by 40 lowercase hex digits: ${entry.contract}"
             }
-            require(SIGNATURE.matches(entry.signature)) {
-                "whitelist signature must look like name(type,type): ${entry.signature}"
+            val (_, types) = requireNotNull(AbiSyntax.signature(entry.signature)) {
+                "whitelist signature must be a canonical ABI signature, such as name(type,type): ${entry.signature}"
             }
             require(SELECTOR.matches(entry.selector) && entry.selector == selectorOf(entry.signature)) {
                 "whitelist selector ${entry.selector} is not the Keccak-256 selector of ${entry.signature}"
             }
             requireText("whitelist ${entry.signature} meaning", entry.meaning, MAX_MEANING)
-            val types = signatureTypes(entry.signature)
             require(entry.params.size == types.size) {
                 "whitelist ${entry.signature}: params must name every argument"
             }
-            entry.params.forEachIndexed { index, param ->
-                requireText("whitelist ${entry.signature} param name", param.name)
-                require(param.type == types[index]) {
-                    "whitelist ${entry.signature}: param ${param.name} must be ${types[index]}"
-                }
-                require(isStaticType(param.type)) {
-                    "whitelist ${entry.signature}: param type must be a static ABI type: ${param.type}"
-                }
-            }
+            entry.params.forEachIndexed { index, param -> validateParam(entry.signature, param, types[index], top = true) }
             require(!entry.upgradeable || entry.proxy != null) {
                 "whitelist ${entry.signature}: an upgradeable entry must name its proxy binding"
             }
@@ -350,12 +344,41 @@ internal object Pack {
                 }
             }
         }
+        // A dynamic, array or tuple argument, or a named tuple field, needs schema 3. The application refuses it at schema 2.
+        val needsArgumentSchema = content.whitelist.any { entry ->
+            entry.params.any { param -> param.components != null || AbiSyntax.type(param.type) !is AbiType.Atomic }
+        }
+        require(!needsArgumentSchema || content.minSchemaVersion >= ARGUMENTS_SCHEMA) {
+            "a whitelist entry with dynamic, array or tuple arguments needs minSchemaVersion $ARGUMENTS_SCHEMA"
+        }
         val newLists = content.denylist != null || content.wallets != null
         require(!newLists || content.minSchemaVersion >= 2) { "a denylist or wallets list needs minSchemaVersion 2" }
         content.denylist?.forEachIndexed { index, entry -> validateDenylist(index + 1, entry) }
         content.wallets?.let { wallets ->
             require(wallets.map { it.name }.distinct().size == wallets.size) { "a wallet appears more than once (same name)" }
             wallets.forEach(::validateWallet)
+        }
+    }
+
+    /**
+     * Checks one argument against its type in the signature, as the application does. A token amount is a top-level uint. A tuple that
+     * names its fields names each one with the type the tuple gives it, and a field can be neither a token amount nor unnamed.
+     */
+    private fun validateParam(signature: String, param: ParamDto, type: AbiType, top: Boolean) {
+        val what = "whitelist $signature: param ${param.name}"
+        requireText("whitelist $signature param name", param.name)
+        require(param.type == type.canonical) { "$what must be ${type.canonical}" }
+        require(!param.tokenRef || (top && type is AbiType.Atomic && type.canonical.startsWith("uint"))) {
+            "$what: only a top-level uint can be a token amount"
+        }
+        param.components?.let { fields ->
+            var base = type
+            while (base is AbiType.ArrayOf) base = base.element
+            val tuple = requireNotNull(base as? AbiType.TupleOf) { "$what names components, but ${type.canonical} is not a tuple" }
+            require(fields.size == tuple.components.size) {
+                "$what names ${fields.size} components for ${tuple.components.size} fields"
+            }
+            fields.forEachIndexed { index, field -> validateParam(signature, field, tuple.components[index], top = false) }
         }
     }
 

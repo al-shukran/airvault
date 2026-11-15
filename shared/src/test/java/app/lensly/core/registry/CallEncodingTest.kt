@@ -69,7 +69,7 @@ class CallEncodingTest {
         val owner = WhitelistParam("owner", "address")
         val highBytes = "ff" + word(alice).drop(2)
 
-        assertNull(AbiDecoder.encode(listOf(DecodedParam(small, AbiValue.Word(word("0x100")))))), "a uint8 wider than 8 bits")
+        assertNull(AbiDecoder.encode(listOf(DecodedParam(small, AbiValue.Word(word("0x100"))))), "a uint8 wider than 8 bits")
         assertNull(AbiDecoder.encode(listOf(DecodedParam(owner, AbiValue.Word(highBytes)))), "an address with high bytes")
         assertNull(AbiDecoder.encode(listOf(DecodedParam(owner, AbiValue.Dynamic("00")))), "a dynamic value for a static type")
     }
