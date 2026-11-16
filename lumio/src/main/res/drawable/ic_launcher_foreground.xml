@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Lumio's launcher mark: a lens, a white ring with the accent red at its centre. It sits inside the 66 dp safe zone. -->
+<!-- Lumio's launcher glyph: the mark of ic_lumio_mark, scaled 2.4 and centred on (54, 54). Its corners sit 30 units from the centre, inside the 66 dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:pathData="M54,25 A29,29 0 1,1 53.99,25 Z" />
-    <path
-        android:fillColor="#D71921"
-        android:pathData="M54,44 A10,10 0 1,1 53.99,44 Z" />
+    <group
+        android:scaleX="2.4"
+        android:scaleY="2.4"
+        android:translateX="25.2"
+        android:translateY="26.4">
+        <path
+            android:fillColor="#D71921"
+            android:pathData="M4,2h4.5v14.5H20V21H4Z" />
+        <path
+            android:fillColor="#D71921"
+            android:pathData="M16.75,9.25a2.5,2.5 0 1,1 -5,0a2.5,2.5 0 1,1 5,0Z" />
+    </group>
 </vector>
