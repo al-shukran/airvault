@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
@@ -26,10 +27,14 @@ import app.lensly.ui.navigation.leaveHidden
 import app.lumio.network.NetworkMode
 import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.settings.LumioSettingsScreen
+import app.lumio.ui.shell.LumioTab
+import app.lumio.ui.shell.LumioTabFrame
+import app.lumio.ui.transactions.TransactionsScreen
 
 /** Lumio's own routes inside its Hidden Area. The gate's routes are shared, see `app.lensly.ui.navigation.GateRoutes`. */
 internal object LumioRoute {
     const val HOME = "home"
+    const val TRANSACTIONS = "transactions"
     const val PAIR_SCAN = "pair-scan"
     const val PAIR_REVIEW = "pair-review"
     const val BITCOIN_ACCOUNT = "bitcoin-account"
@@ -80,6 +85,31 @@ internal object LumioRoute {
 
     /** The route of a send from address [index] of [walletId]. */
     fun send(walletId: String, index: Int): String = "send/$walletId/$index"
+
+    /** The argument of a coin's page: the coin's ID, such as "EVM-1". */
+    const val ASSET_ARG = "assetId"
+
+    /** A coin's page, with its ID as [ASSET_ARG]. */
+    const val ASSET = "asset/{$ASSET_ARG}"
+
+    /** The route of the page of the coin [assetId]. */
+    fun asset(assetId: String): String = "asset/$assetId"
+
+    /** The kind of a receive to an Ethereum account: its key is the wallet's ID. */
+    const val KIND_EVM = "evm"
+
+    /** The kind of a receive to a Bitcoin account: its key is the account's key. */
+    const val KIND_BTC = "btc"
+
+    /** The arguments of a receive's route: its [RECEIVE_KIND_ARG] and its [RECEIVE_KEY_ARG]. */
+    const val RECEIVE_KIND_ARG = "kind"
+    const val RECEIVE_KEY_ARG = "key"
+
+    /** The receive page of one account. */
+    const val RECEIVE = "receive/{$RECEIVE_KIND_ARG}/{$RECEIVE_KEY_ARG}"
+
+    /** The route of the receive page of the account [key] of [kind], which is [KIND_EVM] or [KIND_BTC]. */
+    fun receive(kind: String, key: String): String = "receive/$kind/$key"
 }
 
 /**
@@ -117,9 +147,25 @@ internal fun LumioBackdrop(selection: NetworkSelection, content: @Composable () 
 }
 
 /**
- * Lumio's navigation: the camera cover and the gate that Lensly shares, around the companion's Hidden Area. The Hidden Area opens on the
- * gate and then shows Home. From Home the owner pairs a wallet from Lensly, through the scan and the review, opens a paired wallet's Apps
- * (Bitcoin and Ethereum), changes the settings, and deletes a paired wallet.
+ * Opens [tab]. The tabs are root screens: a tab opens over Home, and Home is never popped by a tab, so the stack holds Home and at most one tab
+ * above it.
+ */
+internal fun NavHostController.openTab(tab: LumioTab) {
+    val route = when (tab) {
+        LumioTab.HOME -> LumioRoute.HOME
+        LumioTab.TRANSACTIONS -> LumioRoute.TRANSACTIONS
+        LumioTab.SETTINGS -> LumioRoute.SETTINGS
+    }
+    navigate(route) {
+        popUpTo(LumioRoute.HOME) { inclusive = false }
+        launchSingleTop = true
+    }
+}
+
+/**
+ * Lumio's navigation: the camera cover and the gate that Lensly shares, around the companion's Hidden Area. The Hidden Area opens on the gate and
+ * then shows Home. Home, Transactions and Settings are the tabs. From Home the owner sends or receives, opens an asset, and pairs a wallet from Lensly
+ * through the scan and the review. Settings holds the display and the servers, and the wallets, which can be deleted there.
  *
  * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
  */
@@ -127,7 +173,7 @@ internal fun LumioBackdrop(selection: NetworkSelection, content: @Composable () 
 fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
     val draft = remember { PairDraft() }
     val selection = remember { NetworkSelection() }
-    // Counts the saves and deletions, so Home reads the paired wallets again.
+    // Counts the saves and deletions, so Home and Settings read the paired wallets again.
     var listVersion by remember { mutableIntStateOf(0) }
     CoverNavHost(debugHiddenRequest = debugHiddenRequest, modifier = modifier) { navController, holder ->
         fun lock() {
@@ -144,14 +190,22 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     activity?.finish()
                 }
                 LumioBackdrop(selection) {
-                    HomeRoute(
-                        navController = navController,
-                        holder = holder,
-                        selection = selection,
-                        listVersion = listVersion,
-                        onChanged = { listVersion++ },
-                        onLock = ::lock,
-                    )
+                    LumioTabFrame(selected = LumioTab.HOME, onSelect = { navController.openTab(it) }) {
+                        HomeRoute(
+                            navController = navController,
+                            holder = holder,
+                            selection = selection,
+                            listVersion = listVersion,
+                            onLock = ::lock,
+                        )
+                    }
+                }
+            }
+            composable(LumioRoute.TRANSACTIONS) {
+                LumioBackdrop(selection) {
+                    LumioTabFrame(selected = LumioTab.TRANSACTIONS, onSelect = { navController.openTab(it) }) {
+                        TransactionsScreen()
+                    }
                 }
             }
             composable(LumioRoute.PAIR_SCAN) {
@@ -180,16 +234,26 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             }
             composable(LumioRoute.SETTINGS) {
                 LumioBackdrop(selection) {
-                    LumioSettingsScreen(
-                        onBack = { navController.popBackStack() },
-                        display = { DisplaySettingsRoute(navController = navController, holder = holder) },
-                        bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
-                        ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
-                        entryGesture = LocalContext.current.entryGestureHolder().current,
-                        onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
-                        onDataProviders = { navController.navigate(LumioRoute.DATA_PROVIDERS) },
-                        onThirdPartyLicences = { navController.navigate(LumioRoute.LICENCES) },
-                    )
+                    LumioTabFrame(selected = LumioTab.SETTINGS, onSelect = { navController.openTab(it) }) {
+                        LumioSettingsScreen(
+                            onBack = null,
+                            display = { DisplaySettingsRoute(navController = navController, holder = holder) },
+                            wallets = {
+                                WalletsSettingsRoute(
+                                    navController = navController,
+                                    holder = holder,
+                                    listVersion = listVersion,
+                                    onChanged = { listVersion++ },
+                                )
+                            },
+                            bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
+                            ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
+                            entryGesture = LocalContext.current.entryGestureHolder().current,
+                            onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
+                            onDataProviders = { navController.navigate(LumioRoute.DATA_PROVIDERS) },
+                            onThirdPartyLicences = { navController.navigate(LumioRoute.LICENCES) },
+                        )
+                    }
                 }
             }
             entryGestureRoutes(navController = navController, holder = holder, selection = selection)
@@ -226,6 +290,28 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                 val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
                 LumioBackdrop(selection) {
                     SendRoute(navController = navController, holder = holder, walletId = walletId, index = index, mode = selection.mode)
+                }
+            }
+            composable(
+                route = LumioRoute.ASSET,
+                arguments = listOf(navArgument(LumioRoute.ASSET_ARG) { type = NavType.StringType }),
+            ) { entry ->
+                val assetId = entry.arguments?.getString(LumioRoute.ASSET_ARG).orEmpty()
+                LumioBackdrop(selection) {
+                    AssetRoute(navController = navController, holder = holder, assetId = assetId, selection = selection)
+                }
+            }
+            composable(
+                route = LumioRoute.RECEIVE,
+                arguments = listOf(
+                    navArgument(LumioRoute.RECEIVE_KIND_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.RECEIVE_KEY_ARG) { type = NavType.StringType },
+                ),
+            ) { entry ->
+                val kind = entry.arguments?.getString(LumioRoute.RECEIVE_KIND_ARG).orEmpty()
+                val key = entry.arguments?.getString(LumioRoute.RECEIVE_KEY_ARG).orEmpty()
+                LumioBackdrop(selection) {
+                    ReceiveRoute(navController = navController, holder = holder, kind = kind, key = key)
                 }
             }
             composable(LumioRoute.PAIR_REVIEW) {

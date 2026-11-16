@@ -29,14 +29,15 @@ import app.lensly.ui.wallet.WalletPillStyle
 import app.lumio.R
 
 /**
- * Lumio's settings. Home holds what Home shows, Bitcoin holds the Esplora server each Bitcoin network reads from, Ethereum holds the EVM
- * settings, Entry holds the Hidden Entry Gesture that the camera cover uses (the same choice as Lensly's), and Providers is a row that opens
- * the data providers. [display], [bitcoin] and [ethereum] are the contents of the three sections, and each keeps its own state. [entryGesture]
- * is the gesture the camera uses now, and [onEntryGesture] opens the choice of another.
+ * Lumio's settings. Home holds what Home shows, Wallets holds the pairing and deletion of wallets when [wallets] is given, Bitcoin holds the Esplora
+ * server each Bitcoin network reads from, Ethereum holds the EVM settings, Entry holds the Hidden Entry Gesture that the camera cover uses (the same
+ * choice as Lensly's), and Providers is a row that opens the data providers. [display], [bitcoin], [ethereum] and [wallets] are the contents of the
+ * sections, and each keeps its own state. [entryGesture] is the gesture the camera uses now, and [onEntryGesture] opens the choice of another. [onBack]
+ * adds a back arrow; the settings tab has none, because the tab bar moves between the screens.
  */
 @Composable
 fun LumioSettingsScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     display: @Composable () -> Unit,
     bitcoin: @Composable () -> Unit,
     ethereum: @Composable () -> Unit,
@@ -45,9 +46,11 @@ fun LumioSettingsScreen(
     modifier: Modifier = Modifier,
     entryGesture: EntryGesture = EntryGesture.DEFAULT,
     onEntryGesture: () -> Unit = {},
+    wallets: (@Composable () -> Unit)? = null,
 ) {
     LenslyScreen(title = "SETTINGS", modifier = modifier, onBack = onBack) {
         SettingsSection(title = "Home") { display() }
+        wallets?.let { section -> SettingsSection(title = "Wallets") { section() } }
         SettingsSection(title = "Bitcoin") { bitcoin() }
         SettingsSection(title = "Ethereum") { ethereum() }
         SettingsSection(title = "Entry") {

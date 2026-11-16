@@ -35,9 +35,11 @@ import app.lumio.data.scan.QueuedJob
 import app.lumio.data.scan.ScanQueue
 import app.lumio.data.scan.ScanRunner
 import app.lumio.data.sched.Scheduler
+import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmReads
 import app.lumio.evm.EvmRpc
 import app.lumio.network.NetworkModeStore
+import app.lumio.tokens.CustomTokenStore
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenCatalog
 import java.io.File
@@ -81,6 +83,13 @@ class LumioApp : Application(), CoverApplication {
     fun evmReadsFor(session: VaultSession): EvmReads {
         evmReads?.takeIf { it.first === session }?.let { return it.second }
         return EvmReads.open(session, rpcHttp, rpcScope, allowLocalHttp = BuildConfig.DEBUG).also { evmReads = session to it }
+    }
+
+    /** The tokens each EVM chain reads for [session]: the bundled defaults, then the owner's own. The owner's list is read once, here. */
+    fun tokensFor(session: VaultSession): (EvmChain) -> List<Token> {
+        val defaults = defaultTokens
+        val custom = CustomTokenStore.read(session)
+        return { chain -> TokenCatalog.onChain(defaults, custom, chain.chainId) }
     }
 
     /** The one HTTP client of Bitcoin data. Every Esplora provider of this process shares its connection pool. */

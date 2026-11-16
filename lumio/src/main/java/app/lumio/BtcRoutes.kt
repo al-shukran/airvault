@@ -281,20 +281,20 @@ private fun accountsOf(session: VaultSession, net: BtcNetwork, walletId: String)
     bitcoinRefs(session).filter { it.walletId == walletId && it.account.network == net }
 
 /** The rows of [refs], each with its last known balance from the open vault. A locked or decoy vault has none, so its rows show no balance. */
-private suspend fun rowsOf(vault: LumioVault?, refs: List<BtcAccountRef>): List<BtcRow> {
+internal suspend fun rowsOf(vault: LumioVault?, refs: List<BtcAccountRef>): List<BtcRow> {
     if (vault == null) return refs.map { BtcRow(it, null) }
     val cached = refs.mapNotNull { ref -> vault.store.snapshot(ref.key)?.let { ref.key to it } }.toMap()
     return BtcPortfolio.rows(refs) { key -> cached[key] }
 }
 
 /** The row of [ref], with its last known balance. */
-private suspend fun rowOf(vault: LumioVault?, ref: BtcAccountRef): BtcRow = rowsOf(vault, listOf(ref)).single()
+internal suspend fun rowOf(vault: LumioVault?, ref: BtcAccountRef): BtcRow = rowsOf(vault, listOf(ref)).single()
 
 /**
  * Queues one scan job for each account in [refs] that has none, and raises a queued job to [priority] when it is less urgent than that. A job is
  * never queued twice, so the queue holds one job per account.
  */
-private suspend fun queueScans(queue: ScanQueue, refs: List<BtcAccountRef>, net: NetworkId, priority: Priority) {
+internal suspend fun queueScans(queue: ScanQueue, refs: List<BtcAccountRef>, net: NetworkId, priority: Priority) {
     val pending = queue.pending()
     for (ref in refs) {
         val queued = pending.firstOrNull { it.job.accountRef == ref.key }

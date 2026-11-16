@@ -4,189 +4,274 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcWatchOnly
-import app.lensly.core.btc.BtcWatchOnlyAccount
-import app.lensly.core.btc.ScriptType
-import app.lensly.core.wallet.HdWallet
+import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
+import app.lumio.data.config.AssetSort
+import app.lumio.data.config.AssetSortKey
+import app.lumio.data.config.DisplaySettings
+import app.lumio.data.net.Family
+import app.lumio.data.net.NetworkId
+import app.lumio.home.AccountOption
+import app.lumio.home.HomeAsset
+import app.lumio.home.Masking
+import app.lumio.home.NativeAsset
+import app.lumio.home.PickTarget
 import app.lumio.network.NetworkMode
-import app.lumio.pair.PairFixtures
-import app.lumio.pair.PairedWallet
+import java.math.BigDecimal
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
-/** Lumio's Home: the empty state, the pairing action, the network switch, each wallet's Apps, and the delete that asks first. */
+/**
+ * Lumio's Home: the total and its eye, the sort sheet that saves the order, the list above the minimum, the rows, the pickers of Send and Receive,
+ * the side, the lock, and the notices.
+ */
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = SCREENSHOT_QUALIFIERS)
 class LumioHomeTest {
 
     @get:Rule
     val compose = createComposeRule()
 
     @Test
-    fun saysThatNoWalletIsPairedYet() {
-        setHome(wallets = emptyList())
+    fun theTotalIsMaskedUntilTheOwnerRevealsItWithoutChangingTheSetting() {
+        var saved: DisplaySettings? = null
+        setHome(onSaved = { saved = it })
 
-        compose.onNodeWithText("No wallets paired yet", ignoreCase = true).assertExists()
+        compose.onNodeWithTag(HOME_TOTAL_TAG).assertTextEquals(Masking.MASK)
+        compose.onNodeWithTag(HOME_REVEAL_TAG).performClick()
+        compose.onNodeWithTag(HOME_TOTAL_TAG).assertTextEquals("\$1,234.56")
+        compose.onNodeWithTag(HOME_REVEAL_TAG).performClick()
+        compose.onNodeWithTag(HOME_TOTAL_TAG).assertTextEquals(Masking.MASK)
+        assertEquals(null, saved)
     }
 
     @Test
-    fun thePairActionIsEnabledAndOpensTheScan() {
-        var paired = false
-        setHome(wallets = emptyList(), onPair = { paired = true })
+    fun theTotalShowsWhenTheSettingIsOnAndTheEyeIsGone() {
+        setHome(settings = DisplaySettings(showTotal = true))
 
-        compose.onNodeWithText("Pair from Lensly", ignoreCase = true).assertIsEnabled().performClick()
+        compose.onNodeWithTag(HOME_TOTAL_TAG).assertTextEquals("\$1,234.56")
+        compose.onNodeWithTag(HOME_REVEAL_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun aTotalWithNoPriceIsADashAndSaysSo() {
+        setHome(assets = listOf(testnetCoin()), settings = DisplaySettings(showTotal = true))
+
+        compose.onNodeWithTag(HOME_TOTAL_TAG).assertTextEquals("—")
+        compose.onNodeWithText("No price yet").assertExists()
+    }
+
+    @Test
+    fun assetsBelowTheMinimumAreHiddenAndAnUnpricedAssetIsNot() {
+        setHome(assets = listOf(ethereum(), dust(), testnetCoin()))
+
+        compose.onNodeWithTag(assetRowTag("EVM-1")).assertExists()
+        compose.onNodeWithTag(assetRowTag("EVM-10")).assertDoesNotExist()
+        compose.onNodeWithTag(assetRowTag("EVM-11155111")).assertExists()
+    }
+
+    @Test
+    fun aRowShowsItsBalanceItsValueItsChangeAndTheTestnetBadge() {
+        setHome(assets = listOf(ethereum(change = 1.25), testnetCoin()))
+
+        compose.onNodeWithTag(assetRowTag("EVM-1")).assertTextContains("1.5")
+        compose.onNodeWithTag(assetRowTag("EVM-1")).assertTextContains("\$1,234.56")
+        compose.onNodeWithTag(assetRowTag("EVM-1")).assertTextContains("+1.25%")
+        compose.onAllNodesWithText("TESTNET", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun theSortSheetSavesTheKeyAndThenTheDirection() {
+        var saved: DisplaySettings? = null
+        setHome(onSaved = { saved = it })
+
+        compose.onNodeWithTag(HOME_SORT_TAG).performClick()
+        compose.onNodeWithText("Name").performClick()
+        compose.onNodeWithText("Ascending").performClick()
+
+        assertEquals(AssetSort(AssetSortKey.NAME, descending = false), saved?.sort)
+    }
+
+    @Test
+    fun aTapOnAnAssetOpensItsPage() {
+        var opened: HomeAsset? = null
+        setHome(onAsset = { opened = it })
+
+        compose.onNodeWithTag(assetRowTag("EVM-1")).performClick()
+
+        assertEquals("EVM-1", opened?.id)
+    }
+
+    @Test
+    fun withNoWalletTheHomeSaysSoAndOffersPairing() {
+        var paired = false
+        setHome(assets = emptyList(), hasWallets = false, onPair = { paired = true })
+
+        compose.onNodeWithText("No wallets paired yet", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Pair from Lensly", ignoreCase = true).performClick()
 
         assertTrue(paired)
     }
 
     @Test
-    fun homeHasNoBackButtonAndTheLockLocks() {
-        var locked = false
-        setHome(wallets = emptyList(), onLock = { locked = true })
+    fun sendOpensThePickerAndAPickStartsThatSend() {
+        var picked: AccountOption? = null
+        val option = AccountOption(PickTarget.Evm("w1"), "Ethereum", "Demo")
+        setHome(sendOptions = listOf(option), onSend = { picked = it })
 
-        compose.onNodeWithContentDescription("Back").assertDoesNotExist()
+        compose.onNodeWithTag(HOME_SEND_TAG).performClick()
+        compose.onNodeWithTag(pickRowTag(0)).performClick()
+
+        assertEquals(option, picked)
+    }
+
+    @Test
+    fun receiveOpensThePickerWithItsOwnOptions() {
+        var picked: AccountOption? = null
+        val option = AccountOption(PickTarget.BitcoinAccount("w1_MAINNET_TAPROOT"), "Bitcoin taproot", "Demo")
+        setHome(receiveOptions = listOf(option), onReceive = { picked = it })
+
+        compose.onNodeWithTag(HOME_RECEIVE_TAG).performClick()
+        compose.onNodeWithText("Bitcoin taproot").assertExists()
+        compose.onNodeWithTag(pickRowTag(0)).performClick()
+
+        assertEquals(option, picked)
+    }
+
+    @Test
+    fun theLockLocksAndTheSideSwitchesFromHome() {
+        var locked = false
+        var side: NetworkMode? = null
+        setHome(onLock = { locked = true }, onMode = { side = it })
+
         compose.onNodeWithContentDescription("Lock the vault").performClick()
+        compose.onNodeWithText("Testnet").performClick()
 
         assertTrue(locked)
+        assertEquals(NetworkMode.TESTNET, side)
     }
 
     @Test
-    fun mainnetIsTheSideOnShowWhenTheHomeOpens() {
-        setHome(wallets = listOf(wallet(name = "Demo", bitcoin = bothSides())))
+    fun hiddenBalancesAreMaskedWhenTheSettingForAssetsIsOff() {
+        setHome(settings = DisplaySettings(showAssets = false))
 
-        compose.onNodeWithText("Mainnet", ignoreCase = true).assertIsSelected()
-        text("1 account on Mainnet").assertExists()
-        text("Balances on mainnet networks").assertExists()
-        text("4 accounts on Testnet").assertDoesNotExist()
+        compose.onNodeWithTag(assetRowTag("EVM-1")).assertTextContains(Masking.MASK)
     }
 
     @Test
-    fun theSwitchShowsOnlyTheChosenSide() {
-        val testnetAccounts = BtcWatchOnly.accounts(PairFixtures.seed, BtcNetwork.TESTNET4).size
-        setHome(wallets = listOf(wallet(name = "Demo", bitcoin = bothSides())))
+    fun aKeptPriceSaysWhenItWasRead() {
+        setHome(staleSinceMs = STALE_SINCE_MS)
 
-        compose.onNodeWithText("Testnet", ignoreCase = true).performClick()
-
-        compose.onNodeWithText("Testnet", ignoreCase = true).assertIsSelected()
-        text("$testnetAccounts accounts on Testnet").assertExists()
-        text("Balances on testnet networks").assertExists()
-        text("1 account on Mainnet").assertDoesNotExist()
-        text("Balances on mainnet networks").assertDoesNotExist()
-
-        compose.onNodeWithText("Mainnet", ignoreCase = true).performClick()
-
-        text("1 account on Mainnet").assertExists()
-        text("$testnetAccounts accounts on Testnet").assertDoesNotExist()
+        compose.onNodeWithText("Last known prices from", substring = true).assertExists()
     }
 
     @Test
-    fun aWalletWithOnlyTestnetBitcoinHasNoBitcoinAppOnMainnet() {
-        val demo = wallet(name = "Demo", bitcoin = BtcWatchOnly.accounts(PairFixtures.seed, BtcNetwork.TESTNET4), evm = false)
-        setHome(wallets = listOf(demo))
+    fun aRefreshThatDidNotAnswerSaysSo() {
+        setHome(notice = "Some balances could not be refreshed. The last known balances are shown.")
 
-        text("No accounts on Mainnet in this wallet").assertExists()
-        compose.onNodeWithTag(BITCOIN_APP_TAG).assertDoesNotExist()
-
-        compose.onNodeWithText("Testnet", ignoreCase = true).performClick()
-
-        compose.onNodeWithTag(BITCOIN_APP_TAG).assertExists()
+        compose.onNodeWithText("Some balances could not be refreshed", substring = true).assertExists()
     }
 
     @Test
-    fun tappingAnAppOpensThatWalletsPortfolio() {
-        var bitcoinOf: PairedWallet? = null
-        var balancesOf: PairedWallet? = null
-        val demo = wallet(name = "Demo", bitcoin = bothSides())
-        setHome(wallets = listOf(demo), onBitcoin = { bitcoinOf = it }, onBalances = { balancesOf = it })
+    fun theTestnetSideMarksItsCoinsAsTestnet() {
+        setHome(mode = NetworkMode.TESTNET, assets = listOf(testnetCoin()))
 
-        compose.onNodeWithTag(BITCOIN_APP_TAG).performClick()
-        compose.onNodeWithTag(ETHEREUM_APP_TAG).performClick()
-
-        assertEquals(demo, bitcoinOf)
-        assertEquals(demo, balancesOf)
+        compose.onAllNodesWithText("TESTNET", useUnmergedTree = true).assertCountEquals(1)
     }
 
-    @Test
-    fun deletingAWalletAsksFirstAndDeletesOnConfirm() {
-        var deleted: PairedWallet? = null
-        val demo = wallet(name = "Demo")
-        setHome(wallets = listOf(demo), onDelete = { deleted = it })
+    private fun ethereum(change: Double? = null) = NativeAsset(
+        id = "EVM-1",
+        symbol = "ETH",
+        name = "Ethereum",
+        network = NetworkId(Family.EVM, "1", testnet = false),
+        balance = BigDecimal("1.5"),
+        usd = 1234.56,
+        change24h = change,
+    )
 
-        compose.onNodeWithText("Delete", ignoreCase = true).performClick()
-        compose.onNodeWithText("Delete Demo?").assertExists()
-        assertNull(deleted)
+    private fun dust() = NativeAsset(
+        id = "EVM-10",
+        symbol = "ETH",
+        name = "Optimism",
+        network = NetworkId(Family.EVM, "10", testnet = false),
+        balance = BigDecimal("0.0001"),
+        usd = 0.5,
+    )
 
-        compose.onNodeWithTag(DELETE_CONFIRM_TAG).performClick()
+    private fun testnetCoin() = NativeAsset(
+        id = "EVM-11155111",
+        symbol = "ETH",
+        name = "Sepolia",
+        network = NetworkId(Family.EVM, "11155111", testnet = true),
+        balance = BigDecimal("0.25"),
+    )
 
-        assertEquals(demo, deleted)
-    }
-
-    @Test
-    fun cancellingADeletionKeepsTheWallet() {
-        var deleted: PairedWallet? = null
-        setHome(wallets = listOf(wallet(name = "Demo")), onDelete = { deleted = it })
-
-        compose.onNodeWithText("Delete", ignoreCase = true).performClick()
-        compose.onNodeWithText("Cancel").performClick()
-
-        assertNull(deleted)
-        compose.onNodeWithText("Demo").assertExists()
-    }
-
-    /** The text of a row. The rows are clickable, so their texts stay in the unmerged tree. */
-    private fun text(text: String) = compose.onNodeWithText(text, useUnmergedTree = true)
-
-    /** One Bitcoin account of each script type on testnet4, and the Taproot account on mainnet. */
-    private fun bothSides(): List<BtcWatchOnlyAccount> =
-        BtcWatchOnly.accounts(PairFixtures.seed, BtcNetwork.TESTNET4) +
-            PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.TAPROOT)
-
-    private fun wallet(name: String, bitcoin: List<BtcWatchOnlyAccount> = emptyList(), evm: Boolean = true): PairedWallet =
-        PairedWallet(
-            id = "wallet-$name",
-            name = name,
-            fingerprint = 0x1a2b3c4dL,
-            createdAtMs = 1L,
-            evm = if (evm) HdWallet(PairFixtures.seed).accountXpub() else null,
-            bitcoin = bitcoin,
-        )
-
+    /**
+     * Home with its settings held in state, as the app holds them: a saved change is applied, so the sheet shows the new order. [onSaved] receives the
+     * settings after each save.
+     */
     private fun setHome(
-        wallets: List<PairedWallet>,
-        initial: NetworkMode = NetworkMode.MAINNET,
+        assets: List<HomeAsset> = listOf(ethereum()),
+        settings: DisplaySettings = DisplaySettings(),
+        mode: NetworkMode = NetworkMode.MAINNET,
+        hasWallets: Boolean = true,
+        staleSinceMs: Long? = null,
+        notice: String? = null,
+        sendOptions: List<AccountOption> = emptyList(),
+        receiveOptions: List<AccountOption> = emptyList(),
         onLock: () -> Unit = {},
+        onMode: (NetworkMode) -> Unit = {},
+        onAsset: (HomeAsset) -> Unit = {},
         onPair: () -> Unit = {},
-        onDelete: (PairedWallet) -> Unit = {},
-        onBitcoin: (PairedWallet) -> Unit = {},
-        onBalances: (PairedWallet) -> Unit = {},
+        onSend: (AccountOption) -> Unit = {},
+        onReceive: (AccountOption) -> Unit = {},
+        onSaved: (DisplaySettings) -> Unit = {},
     ) {
         compose.setContent {
             LenslyTheme {
-                var mode by remember { mutableStateOf(initial) }
+                var current by remember { mutableStateOf(settings) }
                 LumioHome(
-                    onLock = onLock,
-                    onPair = onPair,
-                    wallets = wallets,
-                    onDelete = onDelete,
+                    assets = assets,
+                    settings = current,
                     mode = mode,
-                    onMode = { mode = it },
-                    onBitcoin = onBitcoin,
-                    onBalances = onBalances,
+                    onMode = onMode,
+                    onUpdateDisplay = { change ->
+                        current = change(current)
+                        onSaved(current)
+                    },
+                    onLock = onLock,
+                    onAsset = onAsset,
+                    onPair = onPair,
+                    hasWallets = hasWallets,
+                    refreshing = false,
+                    onRefresh = {},
+                    staleSinceMs = staleSinceMs,
+                    notice = notice,
+                    sendOptions = sendOptions,
+                    receiveOptions = receiveOptions,
+                    onSend = onSend,
+                    onReceive = onReceive,
                 )
             }
         }
+    }
+
+    private companion object {
+        /** A time before the test's clock, so the stale caption names a date. */
+        const val STALE_SINCE_MS = 1_800_000_000_000L
     }
 }
