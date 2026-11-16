@@ -74,6 +74,7 @@ fun DataProvidersScreen(
     onApiKey: (id: String, key: String) -> Unit,
     preferRpc: Boolean = false,
     onPreferRpc: (Boolean) -> Unit = {},
+    prices: List<ProviderRow> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = stringResource(R.string.providers_title), modifier = modifier, onBack = onBack) {
@@ -84,6 +85,9 @@ fun DataProvidersScreen(
         )
         PrivacyNote(preferRpc, onPreferRpc)
         ProviderGroup(stringResource(R.string.providers_data_heading), data, onEnabled, onMove, onApiKey)
+        if (prices.isNotEmpty()) {
+            ProviderGroup(stringResource(R.string.providers_prices_heading), prices, onEnabled, onMove, onApiKey)
+        }
         ProviderGroup(stringResource(R.string.providers_rpc_heading), rpc, onEnabled, onMove, onApiKey)
     }
 }
