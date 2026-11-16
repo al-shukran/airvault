@@ -41,7 +41,7 @@ class NetworksScreenTest {
     private fun show(networks: List<NetworkEntry>, tokens: List<TokenEntry> = emptyList()) {
         compose.setContent {
             LenslyTheme {
-                NetworksScreen(networks = networks, tokens = tokens, onBack = {}, onLock = {})
+                NetworksScreen(networks = networks, tokens = tokens, onBack = {})
             }
         }
     }

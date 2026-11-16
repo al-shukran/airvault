@@ -437,7 +437,6 @@ class HomeScreensScreenshotTest {
             walletPosition = 0,
             bitcoinAccounts = bitcoinAccounts,
             onBack = {},
-            onLock = {},
             onOpenApp = {},
             onShowSecret = {},
             onHistory = {},
@@ -457,7 +456,6 @@ class HomeScreensScreenshotTest {
             addresses = addresses,
             accountProfiles = profiles,
             onBack = {},
-            onLock = {},
             onAddAccount = {},
             onBulkGenerate = {},
             onPair = {},
@@ -476,7 +474,6 @@ class HomeScreensScreenshotTest {
             wallet = wallet,
             accounts = accounts,
             onBack = {},
-            onLock = {},
             onGenerate = {},
             onPair = {},
             onScan = {},
@@ -506,7 +503,6 @@ class HomeScreensScreenshotTest {
             onPreset = {},
             onGenerate = {},
             onBack = {},
-            onLock = {},
             chain = chain,
             bitcoinAllowed = bitcoinAllowed,
         )
@@ -518,7 +514,6 @@ class HomeScreensScreenshotTest {
             state = state,
             onChooseFile = {},
             onBack = {},
-            onLock = {},
         )
     }
 

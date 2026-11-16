@@ -53,6 +53,5 @@ private fun FailureCapSnapshot(step: FailureCapStep, saved: FailureCapChoice?, s
         onBackspace = {},
         onSubmit = {},
         onBack = {},
-        onLock = {},
     )
 }

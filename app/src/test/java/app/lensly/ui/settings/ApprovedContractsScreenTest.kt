@@ -69,7 +69,6 @@ class ApprovedContractsScreenTest {
                     networks = listOf(ethereum),
                     onUpdateCatalog = onUpdateCatalog,
                     onBack = {},
-                    onLock = {},
                 )
             }
         }

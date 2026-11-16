@@ -481,7 +481,6 @@ class LumioScreenshotTest {
             onReceive = {},
             onAccount = {},
             onBack = {},
-            onLock = {},
         )
     }
 
@@ -515,7 +514,6 @@ class LumioScreenshotTest {
             onReceive = {},
             onAccount = {},
             onBack = {},
-            onLock = {},
         )
     }
 
@@ -538,7 +536,6 @@ class LumioScreenshotTest {
             onReceive = {},
             onAccount = {},
             onBack = {},
-            onLock = {},
         )
     }
 

@@ -207,7 +207,6 @@ private fun SettingsPreview(onBack: () -> Unit) {
         versionName = "preview",
         versionCode = 0,
         onBack = onBack,
-        onLock = onBack,
     )
 }
 

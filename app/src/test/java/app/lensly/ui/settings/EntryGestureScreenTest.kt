@@ -27,7 +27,7 @@ class EntryGestureScreenTest {
     private fun showList(current: EntryGesture, onChoose: (EntryGesture) -> Unit) {
         compose.setContent {
             LenslyTheme {
-                EntryGestureScreen(current = current, onChoose = onChoose, onBack = {}, onLock = {})
+                EntryGestureScreen(current = current, onChoose = onChoose, onBack = {})
             }
         }
     }

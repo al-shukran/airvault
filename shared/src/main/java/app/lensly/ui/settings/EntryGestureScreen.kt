@@ -34,7 +34,6 @@ import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.camera.EntryGesturePad
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
@@ -45,7 +44,6 @@ import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurface
 import app.lensly.ui.wallet.StepHeader
-import app.lensly.ui.wallet.WalletEyebrow
 
 /** A change of the gesture has two steps: the App Password, then the practice. */
 private const val CHANGE_STEP_COUNT = 2
@@ -60,17 +58,9 @@ fun EntryGestureScreen(
     current: EntryGesture,
     onChoose: (EntryGesture) -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = "Hidden entry gesture", modifier = modifier, onBack = onBack) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            WalletEyebrow("Gesture", modifier = Modifier.weight(1f))
-            PillButton(text = "Lock", onClick = onLock)
-        }
         Text(
             text = "The gesture opens the hidden area from the camera. To change it, enter your Application Password, then perform " +
                 "the new gesture once. It is saved only after it works.",
@@ -168,11 +158,10 @@ fun EntryGesturePracticeStep(
     gesture: EntryGesture,
     onPerformed: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = "Hidden entry gesture", modifier = modifier, onBack = onBack, scrollable = false) {
-        StepHeader(step = 2, onLock = onLock, count = CHANGE_STEP_COUNT)
+        StepHeader(step = 2, count = CHANGE_STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
         DotHeadline(text = "Practice")
         Spacer(Modifier.height(LenslySpacing.sm))

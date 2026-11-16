@@ -55,7 +55,6 @@ class BulkGenerateScreenTest {
                     onPreset = {},
                     onGenerate = {},
                     onBack = {},
-                    onLock = {},
                 )
             }
         }

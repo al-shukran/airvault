@@ -40,7 +40,6 @@ fun ShredScreen(
     onSubmit: () -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (step) {
@@ -51,7 +50,6 @@ fun ShredScreen(
             onBackspace = onBackspace,
             onSubmit = onSubmit,
             onBack = onBack,
-            onLock = onLock,
             modifier = modifier,
             title = copy.title,
             prompt = copy.prompt,
@@ -62,7 +60,6 @@ fun ShredScreen(
             copy = copy,
             onConfirm = onConfirm,
             onBack = onBack,
-            onLock = onLock,
             modifier = modifier,
         )
         is ShredStep.Ended -> Unit
@@ -75,7 +72,6 @@ private fun ConfirmStep(
     copy: ShredCopy,
     onConfirm: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier,
 ) {
     LenslyScreen(
@@ -104,7 +100,7 @@ private fun ConfirmStep(
             }
         },
     ) {
-        StepHeader(step = 2, onLock = onLock, count = SHRED_STEP_COUNT)
+        StepHeader(step = 2, count = SHRED_STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
         DotHeadline(text = "WARNING")
         Spacer(Modifier.height(LenslySpacing.lg))

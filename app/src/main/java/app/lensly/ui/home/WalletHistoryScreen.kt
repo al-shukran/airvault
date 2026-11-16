@@ -12,13 +12,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,10 +43,10 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.ChainIcon
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.rememberKeyHaptics
-import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
@@ -96,14 +94,8 @@ fun WalletHistoryScreen(
     val haptics = rememberKeyHaptics()
     var open by remember { mutableStateOf<ReviewRecord?>(null) }
     WalletScaffold(modifier = modifier, scrollable = false) {
-        Row(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs)) {
-            IconButton(onClick = onBack, modifier = Modifier.tapHaptic(haptics)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = LenslyOnSurface)
-            }
-        }
+        DetailTopBar(title = "History", onBack = onBack)
         Spacer(Modifier.height(LenslySpacing.lg))
-        WalletEyebrow("History")
-        Spacer(Modifier.height(LenslySpacing.xs))
         DotText(text = walletName.uppercase(), fontSize = 40.sp)
         Spacer(Modifier.height(LenslySpacing.sm))
         if (records.isEmpty()) {

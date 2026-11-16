@@ -30,7 +30,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
@@ -43,7 +42,6 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.theme.LenslyMuted
@@ -52,7 +50,6 @@ import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurface
-import app.lensly.ui.wallet.WalletEyebrow
 
 /** The filters of the Networks screen: every network, the mainnets, or the testnets. */
 internal enum class NetworkFilter(val label: String) {
@@ -93,7 +90,6 @@ fun NetworksScreen(
     networks: List<NetworkEntry>,
     tokens: List<TokenEntry>,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var filter by remember { mutableStateOf(NetworkFilter.ALL) }
@@ -104,7 +100,6 @@ fun NetworksScreen(
     LenslyScreen(title = "Networks", modifier = modifier, onBack = onBack, scrollable = false) {
         CatalogIntro(
             text = "Lensly can sign for these networks offline. Others are signed with a warning.",
-            onLock = onLock,
         )
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md),
@@ -142,16 +137,9 @@ fun NetworksScreen(
     }
 }
 
-/** The line under a catalog screen's title: the eyebrow with the Lock button beside it, then what the list means. */
+/** The line under a catalog screen's title: what the list means. */
 @Composable
-internal fun CatalogIntro(text: String, onLock: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        WalletEyebrow("Offline vault", modifier = Modifier.weight(1f))
-        PillButton(text = "Lock", onClick = onLock)
-    }
+internal fun CatalogIntro(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,

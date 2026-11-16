@@ -61,7 +61,6 @@ fun ApprovedContractsScreen(
     networks: List<NetworkEntry>,
     onUpdateCatalog: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -85,7 +84,6 @@ fun ApprovedContractsScreen(
             CatalogIntro(
                 text = "Calls on these contracts are signed although Lensly cannot decode them. Each one shows its approved " +
                     "meaning before you sign.",
-                onLock = onLock,
             )
             if (entries.isEmpty()) {
                 Spacer(Modifier.height(LenslySpacing.lg))

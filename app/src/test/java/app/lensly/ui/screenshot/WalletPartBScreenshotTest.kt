@@ -206,7 +206,6 @@ class WalletPartBScreenshotTest {
             onMove = {},
             onSelect = {},
             onDone = {},
-            onLock = {},
         )
     }
 

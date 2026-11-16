@@ -14,10 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +29,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
@@ -41,16 +36,15 @@ import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.app.visualIdentity
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.rememberKeyHaptics
-import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletScaffold
 
@@ -97,15 +91,9 @@ fun ActivityScreen(
         .filter { filter.outcome == null || it.record.outcome == filter.outcome }
         .sortedByDescending { it.record.atMs }
     WalletScaffold(modifier = modifier, scrollable = false) {
-        Row(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs)) {
-            IconButton(onClick = onBack, modifier = Modifier.tapHaptic(haptics)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = LenslyOnSurface)
-            }
-        }
+        DetailTopBar(title = "Activity", onBack = onBack)
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Reviews")
-        Spacer(Modifier.height(LenslySpacing.xs))
-        DotText(text = "ACTIVITY", fontSize = 40.sp)
         Spacer(Modifier.height(LenslySpacing.sm))
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),

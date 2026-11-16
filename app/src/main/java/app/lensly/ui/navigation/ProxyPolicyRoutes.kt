@@ -106,7 +106,6 @@ internal fun ProxyPolicyRoute(navController: NavHostController, holder: VaultHol
                 is ProxyPolicyStep.Password -> if (!current.busy) backToChoose()
             }
         },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 

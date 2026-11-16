@@ -32,7 +32,6 @@ class ProxyPolicyScreenshotTest {
             onBackspace = {},
             onSubmit = {},
             onBack = {},
-            onLock = {},
         )
     }
 
@@ -49,7 +48,6 @@ class ProxyPolicyScreenshotTest {
             onBackspace = {},
             onSubmit = {},
             onBack = {},
-            onLock = {},
         )
     }
 }

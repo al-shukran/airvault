@@ -20,20 +20,16 @@ import app.lensly.core.registry.update.RegistryPackage
 import app.lensly.core.registry.update.RegistryUpdateException
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ChainIcon
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.TokenIcon
-import app.lensly.ui.components.rememberKeyHaptics
-import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySuccess
 import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WalletEyebrow
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillSize
-import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.wallet.WalletScaffold
 
 /** What the import screen shows: nothing chosen yet, a package being checked, an accepted package, or a refusal. */
@@ -91,10 +87,8 @@ fun RegistryImportScreen(
     state: ImportState,
     onChooseFile: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = rememberKeyHaptics()
     WalletScaffold(
         modifier = modifier,
         footer = {
@@ -109,28 +103,7 @@ fun RegistryImportScreen(
             )
         },
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = LenslySpacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            WalletPill(
-                text = "Back",
-                onClick = onBack,
-                modifier = Modifier.tapHaptic(haptics),
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
-            )
-            Spacer(Modifier.weight(1f))
-            WalletPill(
-                text = "Lock",
-                onClick = onLock,
-                modifier = Modifier.tapHaptic(haptics),
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
-            )
-        }
+        DetailTopBar(title = "Update catalog", onBack = onBack)
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Offline catalog")
         Spacer(Modifier.height(LenslySpacing.xs))

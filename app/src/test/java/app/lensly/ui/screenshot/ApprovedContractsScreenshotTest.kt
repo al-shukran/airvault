@@ -60,11 +60,11 @@ class ApprovedContractsScreenshotTest {
 
     @Test
     fun empty() = compose.snapshot("approved_contracts_empty") {
-        ApprovedContractsScreen(entries = emptyList(), networks = emptyList(), onUpdateCatalog = {}, onBack = {}, onLock = {})
+        ApprovedContractsScreen(entries = emptyList(), networks = emptyList(), onUpdateCatalog = {}, onBack = {})
     }
 
     @Test
     fun populated() = compose.snapshot("approved_contracts_populated") {
-        ApprovedContractsScreen(entries = approvals, networks = listOf(ethereum), onUpdateCatalog = {}, onBack = {}, onLock = {})
+        ApprovedContractsScreen(entries = approvals, networks = listOf(ethereum), onUpdateCatalog = {}, onBack = {})
     }
 }

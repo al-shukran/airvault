@@ -14,7 +14,6 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
-import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.navigation.openHidden
 import app.lumio.evm.AddressRow
 import app.lumio.evm.BalanceCache
@@ -148,7 +147,6 @@ internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, 
         onRefresh = { refresh(ready.wallet) },
         onBack = { navController.popBackStack() },
         onSend = { index -> navController.navigate(LumioRoute.send(walletId, index)) },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 

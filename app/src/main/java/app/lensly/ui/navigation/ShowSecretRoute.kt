@@ -110,10 +110,6 @@ internal fun ShowSecretRoute(navController: NavHostController, holder: VaultHold
                 flow.leave(ClearReason.DONE)
             }
         },
-        onLock = {
-            flow.leave(ClearReason.LOCKED)
-            leaveHidden(navController, holder)
-        },
     )
 }
 

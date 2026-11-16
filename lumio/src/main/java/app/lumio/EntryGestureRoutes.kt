@@ -13,7 +13,6 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.navigation.GateRoutes
-import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.settings.EntryGestureChangeScreen
 import app.lensly.ui.settings.EntryGestureScreen
@@ -46,7 +45,6 @@ private fun EntryGestureChoiceRoute(navController: NavHostController, holder: Va
         current = LocalContext.current.entryGestureHolder().current,
         onChoose = { gesture -> navController.navigate(LumioRoute.entryGestureChange(gesture)) },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -64,7 +62,6 @@ private fun EntryGestureChangeRoute(navController: NavHostController, holder: Va
         onSaved = { navController.popBackStack(LumioRoute.ENTRY_GESTURE, inclusive = false) },
         onUnavailable = { navController.openHidden(GateRoutes.UNAVAILABLE) },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 

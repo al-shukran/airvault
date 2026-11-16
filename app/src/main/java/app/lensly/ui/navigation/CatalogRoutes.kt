@@ -46,7 +46,6 @@ private fun ApprovedContractsRoute(navController: NavHostController, holder: Vau
         networks = catalog.networks,
         onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -58,7 +57,6 @@ private fun NetworksRoute(navController: NavHostController, holder: VaultHolder)
         networks = catalog.networks,
         tokens = catalog.tokens,
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -70,7 +68,6 @@ private fun TokensRoute(navController: NavHostController, holder: VaultHolder) {
         networks = catalog.networks,
         tokens = catalog.tokens,
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 

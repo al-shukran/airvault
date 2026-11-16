@@ -93,7 +93,6 @@ fun WalletDetailScreen(
     walletPosition: Int,
     bitcoinAccounts: Int,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     onOpenApp: (WalletApp) -> Unit,
     onShowSecret: () -> Unit,
     onHistory: () -> Unit,
@@ -109,8 +108,8 @@ fun WalletDetailScreen(
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
             item(key = "top-bar") {
                 DetailTopBar(
+                    title = "Wallet",
                     onBack = onBack,
-                    onLock = onLock,
                     onOptions = { optionsOpen = true },
                     optionsLabel = "Wallet options",
                 )
