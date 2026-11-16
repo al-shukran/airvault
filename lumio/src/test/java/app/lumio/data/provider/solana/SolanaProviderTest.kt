@@ -13,6 +13,8 @@ import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RecentBlockhash
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.SolanaAddressHistory
+import app.lumio.data.provider.SolanaSignatureStatus
+import app.lumio.data.provider.SolanaStatus
 import app.lumio.data.provider.SolanaTx
 import app.lumio.data.provider.SplBalance
 import app.lumio.data.provider.SplTokenBalances
@@ -291,6 +293,58 @@ class SolanaProviderTest {
         assertNull(CustomSolanaRpc("devnet", allowLocalHttp = false).endpoint(devnet, ProviderConfig()))
         assertNull(CustomSolanaRpc("devnet", allowLocalHttp = false).endpoint(mainnet, https))
         assertEquals(setOf(Trait.OWN_SERVER), CustomSolanaRpc("devnet", allowLocalHttp = false).traits)
+    }
+
+    @Test
+    fun theSignatureStatusIsNullUntilTheNetworkKnowsItAndReadsItsConfirmation() {
+        server.enqueue(answer("""{"context":{"slot":1},"value":[null]}"""))
+        assertNull(call(SolanaSignatureStatus(devnet, firstSignature)))
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("\"method\":\"getSignatureStatuses\""))
+        assertTrue(body.contains("[[\"$firstSignature\"],{\"searchTransactionHistory\":true}]"))
+
+        server.enqueue(answer("""{"context":{"slot":2},"value":[{"slot":2,"confirmations":null,"err":null,"confirmationStatus":"processed"}]}"""))
+        assertEquals(SolanaStatus(confirmed = false, failed = false), call(SolanaSignatureStatus(devnet, firstSignature)))
+
+        server.enqueue(answer("""{"context":{"slot":3},"value":[{"slot":3,"confirmations":null,"err":null,"confirmationStatus":"confirmed"}]}"""))
+        assertEquals(SolanaStatus(confirmed = true, failed = false), call(SolanaSignatureStatus(devnet, firstSignature)))
+
+        server.enqueue(
+            answer(
+                """{"context":{"slot":4},"value":[{"slot":4,"confirmations":null,"err":{"InstructionError":[0,{"Custom":1}]},""" +
+                    """"confirmationStatus":"finalized"}]}""",
+            ),
+        )
+        assertEquals(SolanaStatus(confirmed = true, failed = true), call(SolanaSignatureStatus(devnet, firstSignature)))
+    }
+
+    @Test
+    fun aTooManyRequestsStatusReadIsSentAgainAfterTheBackOff() {
+        server.enqueue(rateLimited())
+        server.enqueue(answer("""{"context":{"slot":1},"value":[null]}"""))
+
+        assertNull(call(SolanaSignatureStatus(devnet, firstSignature)))
+        assertEquals(listOf(500L), waits)
+        assertEquals(1, charges)
+    }
+
+    @Test
+    fun aBlockhashThatHasExpiredIsRefusedWithTheWordsForTheOwner() {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Transaction simulation failed: Blockhash not found","data":{}}}""",
+            ),
+        )
+
+        val failure = assertFailsWith<ProviderError.Fatal> { call(Broadcast(devnet, byteArrayOf(1))) }
+
+        assertEquals(JsonRpc.BLOCKHASH_EXPIRED_MESSAGE, failure.message)
+    }
+
+    @Test
+    fun aSignatureThatIsNotASolanaSignatureIsRefusedBeforeAnyCall() {
+        assertFailsWith<IllegalArgumentException> { SolanaSignatureStatus(devnet, "abc") }
+        assertEquals(0, server.requestCount)
     }
 
     @Test
