@@ -80,11 +80,15 @@ internal object LumioRoute {
     /** The argument of the send's route: the index of the address that sends. */
     const val SEND_INDEX_ARG = "index"
 
-    /** The send from one address of the wallet in [WALLET_ARG]. */
-    const val SEND = "send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+    /** The optional argument of the send's route: the chain ID the form starts on. Absent, the form starts on its first chain. */
+    const val SEND_CHAIN_ARG = "chain"
 
-    /** The route of a send from address [index] of [walletId]. */
-    fun send(walletId: String, index: Int): String = "send/$walletId/$index"
+    /** The send from one address of the wallet in [WALLET_ARG], starting on the chain in [SEND_CHAIN_ARG] when one is given. */
+    const val SEND = "send/{$WALLET_ARG}/{$SEND_INDEX_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}"
+
+    /** The route of a send from address [index] of [walletId], starting on [chainId] when it is given. */
+    fun send(walletId: String, index: Int, chainId: Long? = null): String =
+        "send/$walletId/$index" + (chainId?.let { "?$SEND_CHAIN_ARG=$it" }.orEmpty())
 
     /** The argument of a coin's page: the coin's ID, such as "EVM-1". */
     const val ASSET_ARG = "assetId"
@@ -111,6 +115,9 @@ internal object LumioRoute {
     /** The route of the receive page of the account [key] of [kind], which is [KIND_EVM] or [KIND_BTC]. */
     fun receive(kind: String, key: String): String = "receive/$kind/$key"
 }
+
+/** The chain argument of a send that names no chain. Chain IDs are never zero. */
+private const val NO_CHAIN = 0L
 
 /**
  * The pairing that a scan has read and the owner has not saved yet. It holds public data only, and it is dropped on save, on cancel and on
@@ -284,12 +291,21 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.SEND_CHAIN_ARG) { type = NavType.LongType; defaultValue = NO_CHAIN },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                val chain = entry.arguments?.getLong(LumioRoute.SEND_CHAIN_ARG) ?: NO_CHAIN
                 LumioBackdrop(selection) {
-                    SendRoute(navController = navController, holder = holder, walletId = walletId, index = index, mode = selection.mode)
+                    SendRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        index = index,
+                        mode = selection.mode,
+                        preferredChainId = chain.takeIf { it != NO_CHAIN },
+                    )
                 }
             }
             composable(

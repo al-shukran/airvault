@@ -137,6 +137,9 @@ object HomeFormat {
     /** A balance in whole coins with its trailing zeros dropped, such as "0.5" or "0". */
     fun coins(balance: BigDecimal): String = balance.stripTrailingZeros().toPlainString()
 
+    /** A price per coin: two decimals from one dollar up, and six below it, so a small price keeps its digits, such as "$0.000123". */
+    fun price(value: Double): String = if (value >= 1.0) usd(value) else String.format(Locale.ROOT, "\$%.6f", value)
+
     /** A change over 24 hours in percent with its sign, such as "+1.25%" or "-0.40%". */
     fun change(percent: Double): String = String.format(Locale.ROOT, "%+.2f%%", percent)
 }
