@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 /** The chain families Lumio reads. */
 @Serializable
-enum class Family { BTC, EVM, SOL }
+enum class Family { BTC, EVM, SOL, ALGO }
 
 /**
  * One network: its [family], its [chain] name ("mainnet", "testnet4", or an EVM chain id such as "1"), and whether it is a [testnet]. A
