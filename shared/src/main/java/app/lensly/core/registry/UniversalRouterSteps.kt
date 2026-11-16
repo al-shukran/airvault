@@ -138,7 +138,8 @@ internal object UniversalRouterSteps {
         0x0c -> unwrapWeth(input, call)
         0x0d -> permit2TransferBatch(input, call)
         0x0e -> balanceCheck(input, call)
-        else -> Step(listOf("Uniswap v4 swap: its actions are shown as raw bytes under Details"))
+        0x10 -> v4Swap(input, call)
+        else -> null
     }
 
     private fun v3Swap(input: ByteArray, call: StepCall, exactIn: Boolean): Step? {
@@ -309,6 +310,10 @@ internal object UniversalRouterSteps {
         val minimum = values[2].word()
         return Step(listOf("Require $owner to hold at least ${call.amount(minimum, token)}"))
     }
+
+    /** The steps of a v4 swap, one per action, or null when any of its actions cannot be read. */
+    private fun v4Swap(input: ByteArray, call: StepCall): Step? =
+        V4SwapSteps.describe(input, call)?.let { Step(it.lines, it.warnings) }
 
     /** The recipient a command names: the signer for the flag 0x…01, the router for 0x…02, and the address otherwise. */
     private fun recipientName(call: StepCall, address: String): String = when (address) {

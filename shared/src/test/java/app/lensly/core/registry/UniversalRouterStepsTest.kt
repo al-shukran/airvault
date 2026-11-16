@@ -109,14 +109,17 @@ class UniversalRouterStepsTest {
     }
 
     @Test
-    fun aV4SwapIsNamedAndItsActionsStayRawUnderDetails() {
-        // Transaction 0x5ea7fc9a, on Universal Router V2: Permit2 permit for the router, then the v4 swap at command 0x10.
+    fun aV4SwapReadsEachActionAsAStep() {
+        // Transaction 0x5ea7fc9a, on Universal Router V2 (block 26425582): Permit2 permit for the router, then the v4 swap at command 0x10,
+        // which is one swap, one settle and one take.
         val steps = assertNotNull(stepsOf(StepVectors.UR_V2_V4, UR_V2))
 
         assertEquals(
             listOf(
                 "Approve the Universal Router to spend 0xc8Fb…8888 amount 7756377918158211619 base units until 2026-11-16 05:46 UTC",
-                "Uniswap v4 swap: its actions are shown as raw bytes under Details",
+                "Swap exactly 7756377918158211619 base units of 0xc8Fb…8888 for ≥ 0.000736805214329485 ETH via Uniswap v4 (0%)",
+                "Pay all 0xc8Fb…8888 the router owes from you to Uniswap v4 (at most 7756377918158211619 base units of 0xc8Fb…8888)",
+                "Take all ETH owed to the router from Uniswap v4 to you",
             ),
             steps.lines,
         )
@@ -154,7 +157,9 @@ class UniversalRouterStepsTest {
         val v4 = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(0x90.toByte()), listOf(ByteArray(0))))
 
         assertEquals(listOf("Transfer 7 base units of 0x3fC2…0EAD from the router to you"), steps.lines)
-        assertEquals(listOf("Uniswap v4 swap: its actions are shown as raw bytes under Details"), v4.lines)
+        // An empty v4 input does not decode, so the command is shown raw with a warning, and it gets no allow-revert note.
+        assertEquals(listOf("Command 0x10 could not be read: raw input 0x"), v4.lines)
+        assertEquals(listOf("Lensly cannot read the input of command 0x10. Its raw input is under Details."), v4.warnings)
         assertEquals(emptyList(), steps.warnings)
     }
 
