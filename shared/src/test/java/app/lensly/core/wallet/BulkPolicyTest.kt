@@ -29,29 +29,6 @@ class BulkPolicyTest {
     }
 
     @Test
-    fun thePresetsAreTheCapAndTenAndTwenty() {
-        assertEquals(listOf(10, 20), BulkPolicy.presetsFor(20))
-        assertEquals(listOf(10, 20, 50), BulkPolicy.presetsFor(50))
-        assertEquals(listOf(10, 20, 100), BulkPolicy.presetsFor(100))
-    }
-
-    @Test
-    fun aPresetIsNeverAboveTheCapAndNeverRepeated() {
-        // The cap itself is one of the candidates, so it is the only preset under a cap below 10.
-        assertEquals(listOf(10, 15), BulkPolicy.presetsFor(15))
-        assertEquals(listOf(5), BulkPolicy.presetsFor(5))
-    }
-
-    @Test
-    fun everyPresetIsAValidCountUnderItsCap() {
-        for (cap in BulkCap.entries) {
-            for (preset in BulkPolicy.presetsFor(cap.accounts)) {
-                assertEquals(CountCheck.Valid(preset), BulkPolicy.checkCount(preset, cap.accounts), "preset $preset")
-            }
-        }
-    }
-
-    @Test
     fun aCountFromOneUpToTheCapIsValid() {
         assertEquals(CountCheck.Valid(1), BulkPolicy.checkCount(1, cap = 100))
         assertEquals(CountCheck.Valid(100), BulkPolicy.checkCount(100, cap = 100))
@@ -74,34 +51,62 @@ class BulkPolicyTest {
     }
 
     @Test
-    fun aHundredCapRefusesOneHundredAndOneAndAllowsOneHundred() {
-        val cap = BulkCap.HUNDRED.accounts
-        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkCount(101, cap))
-        assertEquals(CountCheck.Valid(100), BulkPolicy.checkCount(100, cap))
-    }
-
-    @Test
-    fun aTypedCountCanReachTheLargestCap() {
-        assertEquals("100", BulkPolicy.appendDigit("10", '0'))
-        assertEquals(CountCheck.Valid(100), BulkPolicy.checkCount("100".toInt(), BulkCap.HUNDRED.accounts))
-        assertEquals(3, BulkPolicy.MAX_DIGITS)
-    }
-
-    @Test
-    fun aTypedCountStopsAtTheLargestCapsDigits() {
-        assertEquals("100", BulkPolicy.appendDigit("100", '0'))
-        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkCount("999".toInt(), BulkCap.HUNDRED.accounts))
-    }
-
-    @Test
     fun aCountBelowOneIsRefused() {
         assertEquals(CountCheck.TooFew, BulkPolicy.checkCount(0, cap = 100))
         assertEquals(CountCheck.TooFew, BulkPolicy.checkCount(-5, cap = 100))
     }
 
     @Test
-    fun noTypedCountIsMissingNotRefused() {
+    fun noCountTypedIsMissingNotRefused() {
         assertEquals(CountCheck.Missing, BulkPolicy.checkCount(null, cap = 100))
+    }
+
+    @Test
+    fun anEmptyCountFieldIsMissingNotRefused() {
+        assertEquals(CountCheck.Missing, BulkPolicy.checkTyped("", cap = 100))
+        assertEquals(CountCheck.Missing, BulkPolicy.checkTyped("", cap = 20))
+    }
+
+    @Test
+    fun aTypedCountIsBoundedByTheCap() {
+        assertEquals(CountCheck.Valid(1), BulkPolicy.checkTyped("1", cap = 100))
+        assertEquals(CountCheck.Valid(100), BulkPolicy.checkTyped("100", cap = 100))
+        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkTyped("101", cap = 100))
+        assertEquals(CountCheck.Valid(20), BulkPolicy.checkTyped("20", cap = 20))
+        assertEquals(CountCheck.TooMany(20), BulkPolicy.checkTyped("21", cap = 20))
+    }
+
+    @Test
+    fun aTypedZeroIsTooFew() {
+        assertEquals(CountCheck.TooFew, BulkPolicy.checkTyped("0", cap = 100))
+        assertEquals(CountCheck.TooFew, BulkPolicy.checkTyped("000", cap = 100))
+    }
+
+    @Test
+    fun aLeadingZeroDoesNotChangeTheCount() {
+        assertEquals(CountCheck.Valid(7), BulkPolicy.checkTyped("007", cap = 100))
+    }
+
+    @Test
+    fun theSameTypedCountIsRecheckedWhenTheCapChanges() {
+        // "50" is refused under the 20 cap, then accepted once the Bulk Cap is raised in Settings.
+        assertEquals(CountCheck.TooMany(20), BulkPolicy.checkTyped("50", cap = 20))
+        assertEquals(CountCheck.Valid(50), BulkPolicy.checkTyped("50", cap = 50))
+        assertEquals(CountCheck.Valid(50), BulkPolicy.checkTyped("50", cap = 100))
+    }
+
+    @Test
+    fun textWithAnythingButDigitsIsMissing() {
+        assertEquals(CountCheck.Missing, BulkPolicy.checkTyped("1a", cap = 100))
+        assertEquals(CountCheck.Missing, BulkPolicy.checkTyped("-5", cap = 100))
+        assertEquals(CountCheck.Missing, BulkPolicy.checkTyped(" 5", cap = 100))
+        assertEquals(CountCheck.Missing, BulkPolicy.checkTyped("5.0", cap = 100))
+    }
+
+    @Test
+    fun aCountTooLargeForAnIntIsAboveEveryCap() {
+        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkTyped("99999999999999", cap = 100))
+        assertEquals(CountCheck.TooMany(100), BulkPolicy.checkTyped("999999999", cap = 100))
     }
 
     @Test
@@ -134,34 +139,5 @@ class BulkPolicyTest {
     @Test
     fun aNegativeStartIsRefused() {
         assertFailsWith<IllegalArgumentException> { BulkPolicy.indexRange(-1, 1) }
-    }
-
-    @Test
-    fun typingDigitsBuildsTheCount() {
-        assertEquals("1", BulkPolicy.appendDigit("", '1'))
-        assertEquals("12", BulkPolicy.appendDigit("1", '2'))
-        assertEquals("120", BulkPolicy.appendDigit("12", '0'))
-    }
-
-    @Test
-    fun aLeadingZeroIsReplacedNotKept() {
-        assertEquals("0", BulkPolicy.appendDigit("", '0'))
-        assertEquals("7", BulkPolicy.appendDigit("0", '7'))
-        assertEquals("0", BulkPolicy.appendDigit("0", '0'))
-    }
-
-    @Test
-    fun aZeroCanFollowOtherDigits() {
-        assertEquals("10", BulkPolicy.appendDigit("1", '0'))
-    }
-
-    @Test
-    fun typingStopsAtTheDigitLimit() {
-        assertEquals("1234", BulkPolicy.appendDigit("1234", '5'))
-    }
-
-    @Test
-    fun aNonDigitIsRefused() {
-        assertFailsWith<IllegalArgumentException> { BulkPolicy.appendDigit("1", 'a') }
     }
 }

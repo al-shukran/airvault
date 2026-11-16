@@ -1,28 +1,12 @@
 package app.lensly.core.wallet
 
 /**
- * The rules of a Bulk Run: the Count a run may ask for, the Bulk Cap that bounds it, the presets, and the index range
- * that the new accounts take. The cap is the owner's setting ([BulkCap]), so every check takes it as an argument.
- * Nothing here touches keys or storage, so every rule is tested on the JVM.
+ * The rules of a Bulk Run: the Count a run may ask for, the Bulk Cap that bounds it, and the index range that the new accounts take.
+ * The cap is the owner's setting ([BulkCap]), so every check takes it as an argument. Nothing here touches keys or storage, so every
+ * rule is tested on the JVM.
  */
 object BulkPolicy {
-    /** The Counts every bulk screen offers, before the cap is added to them. */
-    private val FIXED_PRESETS: List<Int> = listOf(10, 20)
-
-    /**
-     * The Counts one tap away on the bulk screen under [cap]: 10, 20 and the cap itself, distinct, sorted, and never
-     * above the cap. A cap of 20 offers 10 and 20, a cap of 50 offers 10, 20 and 50, and a cap of 100 offers 10, 20
-     * and 100. Each one is a valid Count under [cap].
-     */
-    fun presetsFor(cap: Int): List<Int> = (FIXED_PRESETS + cap).filter { it <= cap }.distinct().sorted()
-
-    /**
-     * The most digits a typed Count takes: enough digits to write the largest [BulkCap], so the owner can always type
-     * up to whichever cap is set. It follows the caps, so a larger cap needs no change here.
-     */
-    val MAX_DIGITS: Int = BulkCap.entries.maxOf { it.accounts }.toString().length
-
-    /** The outcome of [checkCount]. */
+    /** The outcome of [checkCount] and [checkTyped]. */
     sealed interface CountCheck {
         /** No Count has been typed yet. */
         data object Missing : CountCheck
@@ -37,12 +21,22 @@ object BulkPolicy {
         data class Valid(val count: Int) : CountCheck
     }
 
-    /** Checks a typed [count] against 1 and the configured [cap]. Null means that no Count has been typed. */
+    /** Checks a Count against 1 and the configured [cap]. Null means that no Count has been typed. */
     fun checkCount(count: Int?, cap: Int): CountCheck = when {
         count == null -> CountCheck.Missing
         count < 1 -> CountCheck.TooFew
         count > cap -> CountCheck.TooMany(cap)
         else -> CountCheck.Valid(count)
+    }
+
+    /**
+     * Checks the Count as it is typed into the count field under [cap]. Empty text, or text with anything but digits, is
+     * [CountCheck.Missing]: the field takes digits only, so such text is no Count. Digits too large for an Int are above every cap,
+     * so they are [CountCheck.TooMany]. A leading zero does not change the Count: "007" is 7.
+     */
+    fun checkTyped(text: String, cap: Int): CountCheck {
+        if (text.isEmpty() || !text.all { it in '0'..'9' }) return CountCheck.Missing
+        return checkCount(text.toIntOrNull() ?: Int.MAX_VALUE, cap)
     }
 
     /**
@@ -59,15 +53,5 @@ object BulkPolicy {
         require(count >= 1) { "a run makes at least 1 account" }
         require(existing.toLong() + count <= Int.MAX_VALUE) { "the account count cannot pass Int.MAX_VALUE" }
         return existing until existing + count
-    }
-
-    /**
-     * The Count after typing [digit] onto [digits]. A leading zero is replaced rather than kept, so "0" then "5" reads
-     * "5". Typing stops at [MAX_DIGITS].
-     */
-    fun appendDigit(digits: String, digit: Char): String {
-        require(digit in '0'..'9') { "a Count takes digits only" }
-        if (digits.length >= MAX_DIGITS) return digits
-        return if (digits == "0") digit.toString() else digits + digit
     }
 }

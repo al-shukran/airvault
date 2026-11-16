@@ -107,16 +107,19 @@ fun BitcoinAccountsScreen(
     fun accountIdentity(position: Int): VisualIdentity =
         visualIdentity(accounts[position].profile.colour, accounts[position].profile.icon, position)
 
-    WalletScaffold(modifier = modifier, scrollable = false) {
+    WalletScaffold(
+        modifier = modifier,
+        scrollable = false,
+        topBar = {
+            DetailTopBar(
+                title = "Bitcoin accounts",
+                onBack = onBack,
+                onOptions = { sheetOpen = true },
+                optionsLabel = "App options",
+            )
+        },
+    ) {
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            item(key = "top-bar") {
-                DetailTopBar(
-                    title = "Bitcoin accounts",
-                    onBack = onBack,
-                    onOptions = { sheetOpen = true },
-                    optionsLabel = "App options",
-                )
-            }
             item(key = "app") { AppHeader(app = WalletApp.BITCOIN, walletName = wallet.name) }
             item(key = "accounts-header") {
                 Column(modifier = Modifier.fillMaxWidth()) {

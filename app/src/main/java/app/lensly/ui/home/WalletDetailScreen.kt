@@ -104,16 +104,19 @@ fun WalletDetailScreen(
     var optionsOpen by remember { mutableStateOf(false) }
     val identity: VisualIdentity = visualIdentity(walletProfile.colour, walletProfile.icon, walletPosition)
 
-    WalletScaffold(modifier = modifier, scrollable = false) {
+    WalletScaffold(
+        modifier = modifier,
+        scrollable = false,
+        topBar = {
+            DetailTopBar(
+                title = "Wallet",
+                onBack = onBack,
+                onOptions = { optionsOpen = true },
+                optionsLabel = "Wallet options",
+            )
+        },
+    ) {
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            item(key = "top-bar") {
-                DetailTopBar(
-                    title = "Wallet",
-                    onBack = onBack,
-                    onOptions = { optionsOpen = true },
-                    optionsLabel = "Wallet options",
-                )
-            }
             item(key = "wallet") {
                 Column(
                     modifier = Modifier

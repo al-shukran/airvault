@@ -102,8 +102,8 @@ fun RegistryImportScreen(
                 enabled = state !is ImportState.Checking,
             )
         },
+        topBar = { DetailTopBar(title = "Update catalog", onBack = onBack) },
     ) {
-        DetailTopBar(title = "Update catalog", onBack = onBack)
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Offline catalog")
         Spacer(Modifier.height(LenslySpacing.xs))
