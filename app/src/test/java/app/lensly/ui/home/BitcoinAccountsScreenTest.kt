@@ -55,7 +55,7 @@ class BitcoinAccountsScreenTest {
                 deviceGenerated = true,
                 accountCount = 1,
                 masterFingerprintHex = "1a2b3c4d",
-                accountXpub = null,
+                accountKeys = emptyList(),
                 kind = kind,
                 autoNameBase = "Seed wallet",
             ),

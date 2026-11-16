@@ -7,6 +7,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import org.junit.Test
+import kotlin.test.assertTrue
 
 class WalletRecordsTest {
     private val id = "11111111-2222-3333-4444-555555555555"
@@ -29,7 +30,7 @@ class WalletRecordsTest {
             deviceGenerated = true,
             accountCount = 3,
             masterFingerprintHex = "3442193e",
-            accountXpub = xpub,
+            accountKeys = List(3) { xpub },
         )
 
         val decoded = WalletRecords.decodeMeta(meta.id, WalletRecords.encodeMeta(meta))
@@ -40,7 +41,8 @@ class WalletRecordsTest {
         assertEquals(meta.accountCount, decoded.accountCount)
         assertEquals(meta.masterFingerprintHex, decoded.masterFingerprintHex)
         assertEquals(WalletKind.MNEMONIC, decoded.kind)
-        val decodedXpub = requireNotNull(decoded.accountXpub)
+        assertEquals(3, decoded.accountKeys.size)
+        val decodedXpub = decoded.accountKeys.first()
         assertContentEquals(xpub.publicKey, decodedXpub.publicKey)
         assertContentEquals(xpub.chainCode, decodedXpub.chainCode)
         assertEquals(xpub.parentFingerprint, decodedXpub.parentFingerprint)
@@ -55,7 +57,7 @@ class WalletRecordsTest {
             deviceGenerated = false,
             accountCount = 1,
             masterFingerprintHex = null,
-            accountXpub = null,
+            accountKeys = emptyList(),
             kind = WalletKind.SINGLE_KEY,
         )
 
@@ -65,11 +67,11 @@ class WalletRecordsTest {
         assertEquals("Imported", decoded.name)
         assertEquals(1, decoded.accountCount)
         assertNull(decoded.masterFingerprintHex)
-        assertNull(decoded.accountXpub)
+        assertTrue(decoded.accountKeys.isEmpty())
     }
 
     @Test
-    fun aVersionOneMetaRecordWithoutAKindLoadsAsAMnemonicWallet() {
+    fun aVersionOneMetaRecordIsRefused() {
         val legacy = LegacyWalletRecords.meta(
             name = "Savings",
             createdAtMs = 1_800_000_000_123L,
@@ -79,18 +81,7 @@ class WalletRecordsTest {
             xpub = xpub,
         )
 
-        val decoded = WalletRecords.decodeMeta(id, legacy)
-
-        assertEquals(WalletKind.MNEMONIC, decoded.kind)
-        assertEquals("Savings", decoded.name)
-        assertEquals(1_800_000_000_123L, decoded.createdAtMs)
-        assertEquals(true, decoded.deviceGenerated)
-        assertEquals(3, decoded.accountCount)
-        assertEquals("3442193e", decoded.masterFingerprintHex)
-        val decodedXpub = requireNotNull(decoded.accountXpub)
-        assertContentEquals(xpub.publicKey, decodedXpub.publicKey)
-        assertContentEquals(xpub.chainCode, decodedXpub.chainCode)
-        assertEquals(xpub.parentFingerprint, decodedXpub.parentFingerprint)
+        assertFailsWith<IllegalArgumentException> { WalletRecords.decodeMeta(id, legacy) }
     }
 
     @Test
@@ -103,7 +94,7 @@ class WalletRecordsTest {
                 deviceGenerated = false,
                 accountCount = 1,
                 masterFingerprintHex = null,
-                accountXpub = null,
+                accountKeys = emptyList(),
                 kind = WalletKind.SINGLE_KEY,
             ),
         )

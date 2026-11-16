@@ -57,7 +57,7 @@ class PortfolioCacheTest {
         name = "Demo",
         fingerprint = 1L,
         createdAtMs = 0L,
-        evm = HdWallet(PairFixtures.seed).accountXpub(),
+        evmAccounts = PairFixtures.evmAccounts(2),
         bitcoin = emptyList(),
     )
 

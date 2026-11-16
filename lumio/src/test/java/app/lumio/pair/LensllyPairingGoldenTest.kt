@@ -7,6 +7,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.UrScanner
 import fr.acinq.bitcoin.DeterministicWallet
+import kotlin.test.assertFailsWith
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -29,8 +30,8 @@ class LensllyPairingGoldenTest {
         assertEquals("Savings", payload.name)
         assertEquals(
             listOf(
-                PairingAccount(key = 0, child = 0, name = "Cold", label = "vault", group = "Long term"),
-                PairingAccount(key = 0, child = 1, name = "Savings 1", label = null, group = null),
+                PairingAccount(key = 0, child = null, name = "Cold", label = "vault", group = "Long term"),
+                PairingAccount(key = 1, child = null, name = "Savings 1", label = null, group = null),
             ),
             payload.apps.single { it.app == PairImport.ETHEREUM }.accounts,
         )
@@ -58,18 +59,10 @@ class LensllyPairingGoldenTest {
     }
 
     @Test
-    fun lumioStillReadsTheVersionOneCodeOfTheSameWallet() {
-        val version1 = imported(LabelledPairingGolden.V1_FRAMES)
-        val version2 = imported()
+    fun lumioRefusesTheVersionOneCodeWithTheUpdateMessage() {
+        val reason = assertFailsWith<PairingRefusal> { imported(LabelledPairingGolden.V1_FRAMES) }.message
 
-        assertEquals(version2.fingerprint, version1.fingerprint)
-        assertEquals(version2.name, version1.name)
-        assertEquals(version2.addressBook, version1.addressBook)
-        assertEquals(version2.apps.map { it.accounts }, version1.apps.map { it.accounts })
-        assertEquals(
-            version2.apps.map { app -> app.keys.map { it.publicKey.toList() } },
-            version1.apps.map { app -> app.keys.map { it.publicKey.toList() } },
-        )
+        assertEquals("This pairing uses format 1, and this app reads format 3. Update the app, then pair again.", reason)
     }
 
     /** The place, among the Bitcoin accounts of [payload], of the mainnet account on [scriptType] at account [index]. */

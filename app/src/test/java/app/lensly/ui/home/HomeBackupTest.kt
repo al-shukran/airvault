@@ -15,7 +15,7 @@ class HomeBackupTest {
         deviceGenerated = true,
         accountCount = 1,
         masterFingerprintHex = null,
-        accountXpub = null,
+        accountKeys = emptyList(),
         seedBackedUp = backedUp,
     )
 

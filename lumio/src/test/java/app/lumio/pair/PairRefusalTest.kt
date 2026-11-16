@@ -76,12 +76,12 @@ class PairRefusalTest {
     @Test
     fun aNewerVersionOfThePairingIsRefusedByItsVersion() {
         val newer = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(3), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(4), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
         )
 
         val reason = refusalOf(UR(PairingCodec.UR_TYPE, newer))
 
-        assertTrue(reason, reason.contains("format 3"))
+        assertTrue(reason, reason.contains("format 4"))
         assertTrue(reason, reason.contains("Update the app"))
     }
 
@@ -92,15 +92,17 @@ class PairRefusalTest {
 
     @Test
     fun aNameWithAControlCharacterIsRefused() {
-        val name = Cbor.encode(
+        val body = Cbor.encode(
             Cbor.Dict(
                 listOf(
-                    Cbor.Uint(1) to Cbor.Uint(1),
                     Cbor.Uint(2) to Cbor.Uint(1),
                     Cbor.Uint(3) to Cbor.Text("De\nmo"),
                     Cbor.Uint(4) to Cbor.Arr(emptyList()),
                 ),
             ),
+        )
+        val name = Cbor.encode(
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(3), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(body))),
         )
 
         assertEquals("This is not a pairing code from Lensly.", refusalOf(UR(PairingCodec.UR_TYPE, name)))
@@ -115,26 +117,28 @@ class PairRefusalTest {
 
     @Test
     fun anEthereumKeyOffTheAccountPathIsRefusedBecauseOnlyTheAccountKeyPairs() {
-        val address = PairingKey.ethereumAccount(HdWallet(PairFixtures.seed).accountXpub()).copy(
-            path = listOf(0x8000002CL, 0x8000003CL, 0x80000000L, 0L, 0L),
-            depth = 5,
+        val address = PairingKey.ethereumAddress(0, PairFixtures.addressKey(PairFixtures.seed, 0)).copy(
+            path = listOf(0x8000002CL, 0x8000003CL, 0x80000000L),
+            depth = 3,
         )
 
         val reason = refusalOf(codeOf(pairing(ethereumApp(key = address, accounts = listOf(account(0))))))
 
-        assertTrue(reason, reason.contains("m/44'/60'/0'"))
+        assertTrue(reason, reason.contains("m/44'/60'/N'"))
     }
 
     @Test
-    fun anEthereumAccountWithoutAnAddressIndexIsRefused() {
-        val reason = refusalOf(codeOf(pairing(ethereumApp(accounts = listOf(PairingAccount(0, null, "Demo", null, null))))))
+    fun anEthereumKeyOfAnotherAccountIsRefused() {
+        val otherAccount = PairingKey.ethereumAddress(1, PairFixtures.addressKey(PairFixtures.seed, 1))
 
-        assertTrue(reason, reason.contains("no address index"))
+        val reason = refusalOf(codeOf(pairing(ethereumApp(key = otherAccount, accounts = listOf(account(0))))))
+
+        assertTrue(reason, reason.contains("address key of its account"))
     }
 
     @Test
     fun ethereumAccountsNotNumberedFromZeroAreRefused() {
-        val reason = refusalOf(codeOf(pairing(ethereumApp(accounts = listOf(account(0), account(2))))))
+        val reason = refusalOf(codeOf(pairing(ethereumApp(accounts = listOf(account(1), account(0))))))
 
         assertTrue(reason, reason.contains("not numbered 0 to n-1"))
     }
@@ -202,9 +206,13 @@ class PairRefusalTest {
     )
 
     private fun ethereumApp(
-        key: PairingKey = PairingKey.ethereumAccount(HdWallet(PairFixtures.seed).accountXpub()),
+        key: PairingKey? = null,
         accounts: List<PairingAccount> = listOf(account(0)),
-    ) = PairingApp(app = "ethereum", keys = listOf(key), accounts = accounts)
+    ) = PairingApp(
+        app = "ethereum",
+        keys = key?.let { listOf(it) } ?: accounts.indices.map { PairingKey.ethereumAddress(it, PairFixtures.addressKey(PairFixtures.seed, it)) },
+        accounts = accounts,
+    )
 
     private fun bitcoinApp(accounts: List<PairingAccount>) = PairingApp(app = "bitcoin", keys = emptyList(), accounts = accounts)
 
@@ -214,7 +222,7 @@ class PairRefusalTest {
         accounts = keys.indices.map { PairingAccount(key = it, child = null, name = null, label = null, group = null) },
     )
 
-    private fun account(index: Int) = PairingAccount(key = 0, child = index, name = "Demo $index", label = null, group = null)
+    private fun account(index: Int) = PairingAccount(key = index, child = null, name = "Demo $index", label = null, group = null)
 
     /** An account key on the Ethereum account path, with [privateFlag] and [key] as given. */
     private fun hdKey(privateFlag: Boolean?, key: ByteArray): CryptoHDKey = CryptoHDKey(

@@ -4,6 +4,7 @@ import app.lensly.app.AccountProfile
 import app.lensly.app.WalletStore
 import app.lensly.app.autoAccountName
 import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 
 /**
@@ -16,18 +17,21 @@ interface PairingKeys {
 }
 
 /**
- * The Ethereum App: the account key m/44'/60'/0', and one account for each address index the wallet holds. Each account carries the name
- * Lensly shows for it, its Auto-Name when it has none, and its label and group.
+ * The Ethereum App: one key for each account, the address key m/44'/60'/N'/0/0 of account N, and one account for each of them. Each account
+ * carries the name Lensly shows for it, its Auto-Name when it has none, and its label and group.
  */
 object EthereumPairingKeys : PairingKeys {
     override fun paired(routeId: String, store: WalletStore, id: String, seed: ByteArray): PairingApp {
         val meta = requireNotNull(store.meta(id)) { "No wallet $id." }
-        val key = PairingKey.ethereumAccount(HdWallet(seed).accountXpub())
+        val wallet = HdWallet(seed)
+        val keys = (0 until meta.accountCount).map { account ->
+            PairingKey.ethereumAddress(account, AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
+        }
         val profiles = store.accountProfiles(id, meta.accountCount)
         val accounts = (0 until meta.accountCount).map { index ->
-            namedAccount(key = 0, child = index, profile = profiles[index], autoName = autoAccountName(meta.autoNameBase, index))
+            namedAccount(key = index, child = null, profile = profiles[index], autoName = autoAccountName(meta.autoNameBase, index))
         }
-        return PairingApp(app = routeId, keys = listOf(key), accounts = accounts)
+        return PairingApp(app = routeId, keys = keys, accounts = accounts)
     }
 }
 

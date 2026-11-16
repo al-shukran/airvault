@@ -75,8 +75,13 @@ class PairingCodecTest {
         e.message.orEmpty()
     }
 
-    private fun rawPayload(vararg entries: Pair<Long, Cbor>): ByteArray =
-        Cbor.encode(Cbor.Dict(entries.map { (key, value) -> Cbor.Uint(key) to value }))
+    /**
+     * The version-3 envelope of a body whose fields are [entries] (keys 2 to 5). A key 1 in [entries] is not a body field, so it is left out.
+     */
+    private fun rawPayload(vararg entries: Pair<Long, Cbor>): ByteArray {
+        val body = Cbor.encode(Cbor.Dict(entries.filter { it.first != 1L }.map { (key, value) -> Cbor.Uint(key) to value }))
+        return Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(3), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(body))))
+    }
 
     /** The payload that [bytes] hold once they are encoded without compression and decoded again. */
     private fun roundTrip(payload: PairingPayload): PairingPayload = PairingCodec.decode(PairingCodec.encode(payload, null), null)
@@ -143,24 +148,31 @@ class PairingCodecTest {
 
     @Test
     fun aNewerVersionIsRefusedByItsVersionEvenWithFieldsItDoesNotKnow() {
-        val newer = rawPayload(
-            1L to Cbor.Uint(3),
-            2L to Cbor.Uint(1),
-            3L to Cbor.Text("Demo"),
-            4L to Cbor.Arr(emptyList()),
-            9L to Cbor.Text("a field from the future"),
+        val newer = Cbor.encode(
+            Cbor.Dict(
+                listOf(
+                    Cbor.Uint(1) to Cbor.Uint(4),
+                    Cbor.Uint(6) to Cbor.Uint(0),
+                    Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)),
+                    Cbor.Uint(9) to Cbor.Text("a field from the future"),
+                ),
+            ),
         )
 
         val message = refusalOf { PairingCodec.decode(newer, null) }
 
-        assertTrue(message, message.contains("format 3"))
+        assertTrue(message, message.contains("format 4"))
         assertTrue(message, message.contains("Update the app"))
     }
 
     @Test
     fun aVersionZeroAndAMissingVersionAreNotAPairing() {
         val notAPairing = "This is not a pairing code from Lensly."
-        assertEquals(notAPairing, refusalOf { PairingCodec.decode(rawPayload(1L to Cbor.Uint(0)), null) })
+        val versionZero = Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(0), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(ByteArray(0)))))
+        assertEquals(
+            "This pairing uses format 0, and this app reads format 3. Update the app, then pair again.",
+            refusalOf { PairingCodec.decode(versionZero, null) },
+        )
         assertEquals(notAPairing, refusalOf { PairingCodec.decode(rawPayload(2L to Cbor.Uint(1)), null) })
         assertEquals(notAPairing, refusalOf { PairingCodec.decode(byteArrayOf(0x01, 0x02), null) })
     }
@@ -262,11 +274,11 @@ class PairingCodecTest {
     }
 
     @Test
-    fun aVersionOnePairingStillReadsAndTheSameContentRoundTripsAsVersionTwo() {
-        val golden = PairingCodec.fromUr(scanned(LabelledPairingGolden.V1_FRAMES), null)
-
-        assertTrue(golden.addressBook.isEmpty())
-        assertSamePayload(golden, roundTrip(golden))
+    fun aVersionOnePairingIsRefusedWithTheUpdateMessage() {
+        assertEquals(
+            "This pairing uses format 1, and this app reads format 3. Update the app, then pair again.",
+            refusalOf { PairingCodec.fromUr(scanned(LabelledPairingGolden.V1_FRAMES), null) },
+        )
     }
 
     @Test
@@ -352,7 +364,7 @@ class PairingCodecTest {
         val envelope = Cbor.encode(
             Cbor.Dict(
                 listOf(
-                    Cbor.Uint(1) to Cbor.Uint(2),
+                    Cbor.Uint(1) to Cbor.Uint(3),
                     Cbor.Uint(6) to Cbor.Uint(0),
                     Cbor.Uint(7) to Cbor.Bytes(ByteArray(PairingCodec.MAX_BODY_BYTES + 1)),
                 ),
@@ -377,12 +389,12 @@ class PairingCodecTest {
     @Test
     fun aVersionTwoEnvelopeWithAnUnknownEncodingOrAnExtraKeyIsRefused() {
         val unknownEncoding = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(2), Cbor.Uint(6) to Cbor.Uint(1), Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)))),
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(3), Cbor.Uint(6) to Cbor.Uint(1), Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)))),
         )
         val extraKey = Cbor.encode(
             Cbor.Dict(
                 listOf(
-                    Cbor.Uint(1) to Cbor.Uint(2),
+                    Cbor.Uint(1) to Cbor.Uint(3),
                     Cbor.Uint(6) to Cbor.Uint(0),
                     Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)),
                     Cbor.Uint(8) to Cbor.Uint(0),

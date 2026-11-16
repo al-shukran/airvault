@@ -160,7 +160,7 @@ class WalletDashboardTest {
             deviceGenerated = true,
             accountCount = 1,
             masterFingerprintHex = "%08x".format(index),
-            accountXpub = null,
+            accountKeys = emptyList(),
             kind = WalletKind.MNEMONIC,
             autoNameBase = "Wallet $index",
         )

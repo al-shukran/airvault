@@ -67,8 +67,8 @@ private fun loadPortfolio(app: LumioApp, session: VaultSession, walletId: String
     val settings = EvmSettingsStore.read(session)
     val chains = catalogOf(app, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
     val cache = BalanceCache.read(session)
-    val account = wallet.evm
-    val rows = if (account == null) emptyList() else Portfolio.rows(wallet.id, account, settings.addressCount, chains, cache)
+    val keys = wallet.evmKeys
+    val rows = if (keys.isEmpty()) emptyList() else Portfolio.rows(wallet.id, keys, settings.addressCount, chains, cache)
     val totals = PortfolioTotals.of(Portfolio.holdings(listOf(wallet), settings.addressCount, chains, cache))
     return PortfolioState.Ready(PortfolioView(wallet, chains, rows, totals))
 }
@@ -117,7 +117,7 @@ internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, 
     }
 
     fun refresh(wallet: PairedWallet) {
-        if (session == null || refreshing || wallet.evm == null) return
+        if (session == null || refreshing || wallet.evmKeys.isEmpty()) return
         refreshing = true
         scope.launch {
             val outcome = withContext(Dispatchers.IO) { runCatching { refreshWallet(app, session, wallet, mode) }.getOrNull() }
@@ -136,7 +136,7 @@ internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, 
     WalletScreen(
         walletName = ready.wallet.name,
         mode = mode,
-        hasEvm = ready.wallet.evm != null,
+        hasEvm = ready.wallet.evmKeys.isNotEmpty(),
         chains = ready.chains,
         rows = ready.rows,
         totals = ready.totals,

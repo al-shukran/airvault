@@ -406,7 +406,7 @@ class LumioScreenshotTest {
             onBack = {},
             wallets = {
                 WalletsSettings(
-                    wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evm = null, bitcoin = emptyList())),
+                    wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList())),
                     onPair = {},
                     onDelete = {},
                 )
@@ -420,7 +420,7 @@ class LumioScreenshotTest {
             onBack = {},
             wallets = {
                 AddressBookRows(
-                    wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evm = null, bitcoin = emptyList())),
+                    wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList())),
                     onAddressBook = {},
                 )
             },
@@ -517,7 +517,7 @@ class LumioScreenshotTest {
                 apps = listOf(
                     PairingApp(
                         app = PairImport.ETHEREUM,
-                        keys = listOf(PairingKey.ethereumAccount(HdWallet(PairFixtures.seed).accountXpub())),
+                        keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.addressKey(PairFixtures.seed, 0))),
                         accounts = listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null)),
                     ),
                 ),

@@ -362,14 +362,14 @@ private sealed interface ReceiveLoad {
 private suspend fun receiveOf(app: LumioApp, session: VaultSession, kind: String, key: String): ReceiveLoad? = when (kind) {
     LumioRoute.KIND_EVM -> {
         val wallet = PairedWallets.list(session).firstOrNull { it.id == key }
-        val account = wallet?.evm
+        val account = wallet?.evmKeys?.firstOrNull()
         if (wallet == null || account == null) {
             null
         } else {
             ReceiveLoad.Ready(
                 walletName = wallet.name,
                 detail = "Ethereum and every EVM network, address 1",
-                address = AccountAddresses.addressAt(account, 0),
+                address = AccountAddresses.addressOfKey(account),
                 bitcoin = false,
             )
         }

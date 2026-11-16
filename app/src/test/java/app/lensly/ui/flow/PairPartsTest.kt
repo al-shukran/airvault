@@ -20,7 +20,7 @@ class PairPartsTest {
         deviceGenerated = false,
         accountCount = 1,
         masterFingerprintHex = fingerprintHex,
-        accountXpub = WALLET.accountXpub(),
+        accountKeys = listOf(WALLET.accountXpub()),
     )
 
     @Test
@@ -57,7 +57,7 @@ class PairPartsTest {
             deviceGenerated = false,
             accountCount = 1,
             masterFingerprintHex = null,
-            accountXpub = null,
+            accountKeys = emptyList(),
             kind = WalletKind.SINGLE_KEY,
         )
         assertFailsWith<IllegalArgumentException> { pairingParts(singleKey) }

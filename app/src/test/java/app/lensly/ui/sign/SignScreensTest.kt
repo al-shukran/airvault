@@ -655,7 +655,7 @@ class RefusalScreensTest {
             derivationPath = listOf(
                 PathStep(44, true),
                 PathStep(60, true),
-                PathStep(0, true),
+                PathStep(1, true),
                 PathStep(0, false),
                 PathStep(0, false),
             ),
@@ -677,7 +677,7 @@ class RefusalScreensTest {
 
         compose.onNodeWithText("No wallet in this vault matches this request").assertExists()
         compose.onNodeWithText("1A2B3C4D").assertExists()
-        compose.onNodeWithText("m/44'/60'/0'/0/0").assertExists()
+        compose.onNodeWithText("m/44'/60'/1'/0/0").assertExists()
         compose.onNodeWithText("SCAN AGAIN").performClick()
         assertEquals(1, scannedAgain)
     }

@@ -19,8 +19,8 @@ class PairImportRoundTripTest {
 
     private fun ethereum(accounts: List<PairingAccount>) = PairingApp(
         app = "ethereum",
-        keys = listOf(PairingKey.ethereumAccount(HdWallet(PairFixtures.seed).accountXpub())),
-        accounts = accounts,
+        keys = accounts.indices.map { PairingKey.ethereumAddress(it, PairFixtures.addressKey(PairFixtures.seed, it)) },
+        accounts = accounts.mapIndexed { index, account -> account.copy(key = index, child = null) },
     )
 
     private fun bitcoin(accounts: List<BtcWatchOnlyAccount>) = PairingApp(
@@ -40,8 +40,8 @@ class PairImportRoundTripTest {
         val sent = pairing(
             ethereum(
                 listOf(
-                    PairingAccount(key = 0, child = 0, name = "Savings", label = "cold", group = "Long term"),
-                    PairingAccount(key = 0, child = 1, name = "Trading", label = null, group = "Hot"),
+                    PairingAccount(key = 0, child = null, name = "Savings", label = "cold", group = "Long term"),
+                    PairingAccount(key = 0, child = null, name = "Trading", label = null, group = "Hot"),
                 ),
             ),
         )
@@ -51,15 +51,29 @@ class PairImportRoundTripTest {
         assertEquals(sent.fingerprint, read.fingerprint)
         assertEquals("Demo", read.name)
         assertEquals(sent.apps.single().accounts, read.apps.single { it.app == "ethereum" }.accounts)
-        val xpub = PairImport.ethereumKeyOf(read)
-        assertEquals(HdWallet(PairFixtures.seed).accountXpub().publicKey.toHex(), xpub.publicKey.toHex())
-        assertEquals(HdWallet(PairFixtures.seed).address(1), AccountAddresses.addressAt(xpub, 1))
+        val xpub = PairImport.ethereumAccountKeysOf(read).first()
+        assertEquals(PairFixtures.addressKey(PairFixtures.seed, 0).publicKey.toHex(), xpub.publicKey.toHex())
+        assertEquals(HdWallet(PairFixtures.seed).address(1), AccountAddresses.addressOfKey(PairImport.ethereumAccountKeysOf(read)[1]))
+    }
+
+    @Test
+    fun theAccountsZeroToTwoShowTheAddressesThatLenslyShows() {
+        val sent = pairing(
+            ethereum(List(3) { index -> PairingAccount(key = index, child = null, name = "Demo $index", label = null, group = null) }),
+        )
+
+        val keys = PairImport.ethereumAccountKeysOf(pairingOf(PairingCodec.urParts(sent, brotli = null)))
+
+        assertEquals(3, keys.size)
+        for (account in 0..2) {
+            assertEquals("account $account", HdWallet(PairFixtures.seed).address(account), AccountAddresses.addressOfKey(keys[account]))
+        }
     }
 
     @Test
     fun eachScriptTypeOnEachNetworkRoundTrips() {
         val accounts = PairFixtures.allAccounts(PairFixtures.seed)
-        val sent = pairing(ethereum(listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null))), bitcoin(accounts))
+        val sent = pairing(ethereum(listOf(PairingAccount(key = 0, child = null, name = null, label = null, group = null))), bitcoin(accounts))
 
         val imported = PairImport.bitcoinAccountsOf(pairingOf(PairingCodec.urParts(sent, brotli = null)))
 
@@ -76,7 +90,7 @@ class PairImportRoundTripTest {
             PairingAccount(key = 0, child = null, name = "Savings 0", label = null, group = null),
         )
         val bitcoinApp = PairingApp(app = "bitcoin", keys = bitcoinAccounts.map { PairingKey.bitcoinAccount(it) }, accounts = named)
-        val sent = pairing(ethereum(listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null))), bitcoinApp)
+        val sent = pairing(ethereum(listOf(PairingAccount(key = 0, child = null, name = null, label = null, group = null))), bitcoinApp)
 
         val read = pairingOf(PairingCodec.urParts(sent, brotli = null))
 
@@ -88,7 +102,7 @@ class PairImportRoundTripTest {
     fun theWholePairingOfEveryAppRoundTripsAsAnAnimatedCode() {
         val bitcoinAccounts = PairFixtures.allAccounts(PairFixtures.seed)
         val accounts = (0 until 40).map { index ->
-            PairingAccount(key = 0, child = index, name = "Account $index", label = "label $index", group = if (index % 2 == 0) "Even" else null)
+            PairingAccount(key = index, child = null, name = "Account $index", label = "label $index", group = if (index % 2 == 0) "Even" else null)
         }
         val parts = PairingCodec.urParts(pairing(ethereum(accounts), bitcoin(bitcoinAccounts)), brotli = null)
         assertTrue("a long pairing is animated", parts.size > 1)
@@ -102,7 +116,7 @@ class PairImportRoundTripTest {
 
     @Test
     fun theScanReportsProgressUntilTheAnimatedCodeIsWhole() {
-        val accounts = listOf(PairingAccount(key = 0, child = 0, name = "Demo 0", label = null, group = null))
+        val accounts = listOf(PairingAccount(key = 0, child = null, name = "Demo 0", label = null, group = null))
         val parts = PairingCodec.urParts(pairing(ethereum(accounts), bitcoin(PairFixtures.allAccounts(PairFixtures.seed))), brotli = null)
         val scan = PairScan()
         val steps = parts.map { scan.onText(it) }

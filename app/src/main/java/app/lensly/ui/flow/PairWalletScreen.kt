@@ -137,7 +137,7 @@ internal enum class PairFormat(
  * "Lensly" when it has no name. Public data only. The fingerprint is stored as hex, so it is read as an unsigned value.
  */
 internal fun pairingParts(wallet: WalletMeta): List<String> = PairingExport.urParts(
-    xpub = requireNotNull(wallet.accountXpub) { "Only a Mnemonic wallet has an account public key." },
+    xpub = requireNotNull(wallet.accountKeys.firstOrNull()) { "Only a Mnemonic wallet has an account public key." },
     masterFingerprint = requireNotNull(wallet.masterFingerprintHex) { "Only a Mnemonic wallet has a fingerprint." }
         .toLong(16)
         .toInt(),
@@ -149,7 +149,7 @@ internal fun pairingParts(wallet: WalletMeta): List<String> = PairingExport.urPa
  * a Single Key has none, so the step shows a notice instead of a code. Only the Keystone Nexus format asks for this.
  */
 internal fun keystoneNeedsHdWallet(format: PairFormat?, wallet: WalletMeta?): Boolean =
-    format == PairFormat.KEYSTONE_NEXUS && wallet != null && wallet.accountXpub == null
+    format == PairFormat.KEYSTONE_NEXUS && wallet != null && wallet.accountKeys.isEmpty()
 
 /**
  * PAIR WALLET, as the wizard. [walletId] names the wallet when the route was opened for one, as a wallet's own pairing action
@@ -233,7 +233,7 @@ internal fun PairWizard(
     val inCode = step == PairStep.CODE
     // The AirVault and Keystone Nexus codes need the seed's account keys, so only a Mnemonic wallet, the one with an account public key,
     // has a code.
-    val hasAccountKeys = chosen?.accountXpub != null
+    val hasAccountKeys = chosen?.accountKeys?.isNotEmpty() == true
     val keystoneNeedsHd = keystoneNeedsHdWallet(format, chosen)
     // The code is built only when the owner reaches it, from public wallet data.
     val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, hasAccountKeys) {

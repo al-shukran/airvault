@@ -119,7 +119,7 @@ internal fun sampleWallets(): List<WalletMeta> = listOf(
         deviceGenerated = true,
         accountCount = 3,
         masterFingerprintHex = "1a2b3c4d",
-        accountXpub = null,
+        accountKeys = emptyList(),
     ),
     WalletMeta(
         id = SAMPLE_WALLET_TWO,
@@ -128,7 +128,7 @@ internal fun sampleWallets(): List<WalletMeta> = listOf(
         deviceGenerated = false,
         accountCount = 1,
         masterFingerprintHex = null,
-        accountXpub = null,
+        accountKeys = emptyList(),
         kind = WalletKind.SINGLE_KEY,
     ),
 )

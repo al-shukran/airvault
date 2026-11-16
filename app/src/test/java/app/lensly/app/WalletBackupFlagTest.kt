@@ -13,6 +13,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import kotlin.test.assertFailsWith
 
 /**
  * The seed backed-up flag: what a create, a restore and an import store, how a record from before the flag reads, and how the draft
@@ -91,7 +92,7 @@ class WalletBackupFlagTest {
     }
 
     @Test
-    fun aVersionTwoMetaRecordWithoutTheFlagReadsAsBackedUp() {
+    fun aVersionTwoMetaRecordIsRefused() {
         val bytes = ByteArrayOutputStream().also { buffer ->
             DataOutputStream(buffer).use { out ->
                 out.writeByte(2)
@@ -103,10 +104,7 @@ class WalletBackupFlagTest {
             }
         }.toByteArray()
 
-        val meta = WalletRecords.decodeMeta("old", bytes)
-
-        assertEquals(WalletKind.SINGLE_KEY, meta.kind)
-        assertTrue(meta.seedBackedUp)
+        assertFailsWith<IllegalArgumentException> { WalletRecords.decodeMeta("old", bytes) }
     }
 
     @Test

@@ -274,7 +274,7 @@ class WalletSignFlowTest {
             nowMs = 0L,
         )
         val meta = requireNotNull(store.meta(id)) { "the wallet record must read back" }
-        val xpub = requireNotNull(meta.accountXpub) { "a Mnemonic wallet has its account public key" }
+        val xpub = meta.accountKeys.first()
         val fingerprint = requireNotNull(meta.masterFingerprintHex) { "a Mnemonic wallet has a fingerprint" }
             .toLong(16)
             .toInt()

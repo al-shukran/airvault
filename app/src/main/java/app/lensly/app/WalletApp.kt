@@ -24,8 +24,9 @@ enum class WalletApp(
     BITCOIN(label = "Bitcoin", routeId = "bitcoin", nexus = BitcoinNexusKeys, pairing = BitcoinPairingKeys),
     ETHEREUM(label = "Ethereum", routeId = "ethereum", nexus = EthereumNexusKeys, pairing = EthereumPairingKeys);
 
-    /** The public keys this App contributes to the Keystone Nexus export of a wallet whose seed is [seed]. */
-    fun nexusKeys(seed: ByteArray, masterFingerprint: Int): List<Cbor> = nexus.hdKeys(seed, masterFingerprint)
+    /** The public keys this App contributes to the Keystone Nexus export of a wallet whose seed is [seed] and that has [accountCount] accounts. */
+    fun nexusKeys(seed: ByteArray, masterFingerprint: Int, accountCount: Int): List<Cbor> =
+        nexus.hdKeys(seed, masterFingerprint, accountCount)
 
     /** The keys and accounts this App contributes to the AirVault pairing of wallet [id], whose seed is [seed]. */
     fun pairedApp(store: WalletStore, id: String, seed: ByteArray): PairingApp = pairing.paired(routeId, store, id, seed)

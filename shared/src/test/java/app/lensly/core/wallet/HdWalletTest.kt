@@ -25,7 +25,7 @@ class HdWalletTest {
 
     @Test
     fun privateKeyZeroMatchesVector() {
-        // Same viem vector: private key for m/44'/60'/0'/0/0.
+        // Same viem vector: the private key of account 0.
         val key = artWallet.privateKey(0)
         try {
             assertEquals("1053fae1b3ac64f178bcc21026fd06a3f4544ec2f35338b001f02d1d8efa3d5f", key.toHex())
@@ -35,13 +35,14 @@ class HdWalletTest {
     }
 
     @Test
-    fun laterIndexesMatchVectors() {
-        // viem reference vectors for the 12-word "abandon x11 about" mnemonic, empty passphrase.
-        // The 12-word seed is used only here, to exercise indexes 1 and 2.
+    fun ledgerLiveAccountsZeroToTwoMatchTheKnownAnswers() {
+        // The public 12-word test mnemonic "abandon x11 about", empty passphrase. Account N is the Ledger Live address m/44'/60'/N'/0/0.
+        // The 12-word seed is used only here.
         val twelveWords = List(11) { "abandon" } + "about"
         val wallet = HdWallet(MnemonicUtils.generateSeed(twelveWords.joinToString(" "), ""))
-        assertEquals("0x6Fac4D18c912343BF86fa7049364Dd4E424Ab9C0", wallet.address(1))
-        assertEquals("0xb6716976A3ebe8D39aCEB04372f22Ff8e6802D7A", wallet.address(2))
+        assertEquals("0x9858EfFD232B4033E47d90003D41EC34EcaEda94", wallet.address(0))
+        assertEquals("0x78839F6054d7ed13918bAe0473BA31b1Ca9D7265", wallet.address(1))
+        assertEquals("0x07B5FdfEB4E11826D233403Fe8Db0611CCF4c231", wallet.address(2))
     }
 
     @Test
@@ -63,24 +64,24 @@ class HdWalletTest {
     fun parentFingerprintIsFingerprintOfCoinNode() {
         val hardened = Bip32ECKeyPair.HARDENED_BIT
         val master = Bip32ECKeyPair.generateKeyPair(Mnemonic.toSeed(artMnemonic))
-        val account = Bip32ECKeyPair.deriveKeyPair(master, intArrayOf(44 or hardened, 60 or hardened, 0 or hardened))
-        assertEquals(account.parentFingerprint, artWallet.accountXpub().parentFingerprint)
+        val account = Bip32ECKeyPair.deriveKeyPair(master, intArrayOf(44 or hardened, 60 or hardened, 2 or hardened))
+        assertEquals(account.parentFingerprint, artWallet.accountXpub(2).parentFingerprint)
     }
 
     @Test
     fun accountXpubDerivesSameKeysAsPrivateDerivation() {
-        val xpub = artWallet.accountXpub()
-        assertEquals(33, xpub.publicKey.size)
-        assertEquals(32, xpub.chainCode.size)
+        for (account in listOf(0, 2)) {
+            val xpub = artWallet.accountXpub(account)
+            assertEquals(33, xpub.publicKey.size)
+            assertEquals(32, xpub.chainCode.size)
 
-        // Public derivation of m/44'/60'/0'/0/i from the xpub alone must equal the private derivation.
-        val external = publicChild(Node(xpub.publicKey, xpub.chainCode), 0)
-        for (index in listOf(0, 3)) {
-            val child = publicChild(external, index)
-            val privateKey = artWallet.privateKey(index)
+            // Public derivation of m/44'/60'/N'/0/0 from the account key alone must equal the private derivation.
+            val external = publicChild(Node(xpub.publicKey, xpub.chainCode), 0)
+            val child = publicChild(external, 0)
+            val privateKey = artWallet.privateKey(account)
             try {
                 val expected = CURVE.g.multiply(BigInteger(1, privateKey)).normalize().getEncoded(true)
-                assertContentEquals(expected, child.publicKey)
+                assertContentEquals(expected, child.publicKey, "account $account")
             } finally {
                 privateKey.fill(0)
             }
