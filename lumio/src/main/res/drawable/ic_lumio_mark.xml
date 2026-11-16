@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Lumio mark: an L with a point of light in its crook, in the suite's accent red. It is the launcher glyph (ic_launcher_foreground.xml), and the mark beside the Home wordmark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#D71921"
+        android:pathData="M4,2h4.5v14.5H20V21H4Z" />
+    <path
+        android:fillColor="#D71921"
+        android:pathData="M16.75,9.25a2.5,2.5 0 1,1 -5,0a2.5,2.5 0 1,1 5,0Z" />
+</vector>

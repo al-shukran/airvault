@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lumio's themed-icon layer: the same glyph as ic_launcher_foreground.xml in one colour, which the launcher tints. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="2.4"
+        android:scaleY="2.4"
+        android:translateX="25.2"
+        android:translateY="26.4">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M4,2h4.5v14.5H20V21H4Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M16.75,9.25a2.5,2.5 0 1,1 -5,0a2.5,2.5 0 1,1 5,0Z" />
+    </group>
+</vector>
