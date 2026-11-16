@@ -8,9 +8,12 @@ internal const val WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
 internal const val USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7"
 internal const val LINK = "0x514910771af9ca656af840dff83e8264ecf986ca"
 internal const val ETHG = "0x3fc29836e84e471a053d2d9e80494a867d670ead"
+internal const val WBTC = "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599"
 internal const val SIGNER = "0x0bf93ea5a1fa4ce3dd22c7ffd314462d3869777f"
 
-/** Ethereum with USDC, WETH, USDT and LINK. ETHG and UNI are not registered, so the steps show them as an address and a raw amount. */
+/**
+ * Ethereum with USDC, WETH, USDT, LINK and WBTC. ETHG and UNI are not registered, so the steps show them as an address and a raw amount.
+ */
 internal val STEP_REGISTRY = Registry(
     networks = listOf(NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", false)),
     tokens = listOf(
@@ -18,6 +21,7 @@ internal val STEP_REGISTRY = Registry(
         TokenEntry(1, WETH, "WETH", "Wrapped Ether", 18),
         TokenEntry(1, USDT, "USDT", "Tether USD", 6),
         TokenEntry(1, LINK, "LINK", "Chainlink", 18),
+        TokenEntry(1, WBTC, "WBTC", "Wrapped Bitcoin", 8),
     ),
 )
 

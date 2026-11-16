@@ -14,6 +14,9 @@ private const val AAVE_POOL = "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
 private const val CUSDC_V3 = "0xc3d688b66703497daa19211eedff47f25384cdc3"
 private const val LIDO = "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
 private const val WETH_CONTRACT = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+private const val CWETH_V3 = "0xa17581a9e3356d9a858b789d68b4d866e593ae94"
+private const val WSTETH = "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+private const val LIDO_QUEUE = "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1"
 private const val STRANGER = "0x0000000000000000000000000000000000000abc"
 private const val FUZZ_ROUNDS = 2000
 
@@ -45,6 +48,42 @@ private val AAVE_COLLATERAL = listOf(WhitelistParam("asset", "address"), Whiteli
 private val COMPOUND_ASSET_AMOUNT = listOf(WhitelistParam("asset", "address"), WhitelistParam("amount", "uint256"))
 private val ONE_ADDRESS = listOf(WhitelistParam("_referral", "address"))
 private val ONE_AMOUNT = listOf(WhitelistParam("wad", "uint256"))
+private const val AAVE_GATEWAY = "0xd01607c3c5ecaba394d8be377a08590149325722"
+private val AAVE_GATEWAY_DEPOSIT = listOf(
+    WhitelistParam("unused", "address"),
+    WhitelistParam("onBehalfOf", "address"),
+    WhitelistParam("referralCode", "uint16"),
+)
+private val AAVE_GATEWAY_WITHDRAW = listOf(
+    WhitelistParam("unused", "address"),
+    WhitelistParam("amount", "uint256"),
+    WhitelistParam("to", "address"),
+)
+private val AAVE_GATEWAY_BORROW = listOf(
+    WhitelistParam("unused", "address"),
+    WhitelistParam("amount", "uint256"),
+    WhitelistParam("referralCode", "uint16"),
+)
+private val AAVE_GATEWAY_REPAY = listOf(
+    WhitelistParam("unused", "address"),
+    WhitelistParam("amount", "uint256"),
+    WhitelistParam("onBehalfOf", "address"),
+)
+private val AAVE_REPAY_WITH_ATOKENS = listOf(
+    WhitelistParam("asset", "address"),
+    WhitelistParam("amount", "uint256"),
+    WhitelistParam("interestRateMode", "uint256"),
+)
+private val AAVE_REPAY_WITH_PERMIT = listOf(
+    WhitelistParam("asset", "address"),
+    WhitelistParam("amount", "uint256"),
+    WhitelistParam("interestRateMode", "uint256"),
+    WhitelistParam("onBehalfOf", "address"),
+    WhitelistParam("deadline", "uint256"),
+    WhitelistParam("permitV", "uint8"),
+    WhitelistParam("permitR", "bytes32"),
+    WhitelistParam("permitS", "bytes32"),
+)
 
 /** The steps of a real [calldata] to [contract], decoded with [params] as the sandbox decodes an approved call. */
 private fun stepsOf(
@@ -301,6 +340,259 @@ class ProtocolStepsTest {
             assertEquals(1, steps.lines.size)
             assertTrue(steps.lines.single().startsWith("Supply "), steps.lines.single())
         }
+    }
+
+    @Test
+    fun anAaveGatewayDepositOfEthNamesTheWrappedSupply() {
+        // Transaction 0x9bce9274, Aave V3 WETH gateway: deposit 5 ETH on behalf of the sender.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.GW_DEPOSIT_ETH,
+                AAVE_GATEWAY,
+                "0x474cf53d",
+                "depositETH(address,address,uint16)",
+                AAVE_GATEWAY_DEPOSIT,
+                from = "0xf135fbe76eb10c7c74e21b30e1ce61bd1feec1c5",
+                sent = BigInteger("5000000000000000000"),
+            ),
+        )
+
+        assertEquals(listOf("Supply 5 ETH to Aave V3 as WETH on behalf of you"), steps.lines)
+        assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun anAaveGatewayWithdrawOfTheWholeBalanceSaysAll() {
+        // Transaction 0x9cd1c2e6, Aave V3 WETH gateway: withdraw the whole aWETH balance (2^256 - 1) to the sender.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.GW_WITHDRAW_ALL_ETH,
+                AAVE_GATEWAY,
+                "0x80500d20",
+                "withdrawETH(address,uint256,address)",
+                AAVE_GATEWAY_WITHDRAW,
+                from = "0x1cdc6b515b35a6433352915a29122c2b27a88dfb",
+            ),
+        )
+
+        assertEquals(listOf("Withdraw all ETH from Aave V3 to you"), steps.lines)
+        assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun anAaveGatewayBorrowOfEthIsAtTheVariableRateAndSentToTheSigner() {
+        // Transaction 0x1cc94f96, Aave V3 WETH gateway: borrow 1,300 ETH with no referral code.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.GW_BORROW_ETH,
+                AAVE_GATEWAY,
+                "0xe74f7b85",
+                "borrowETH(address,uint256,uint16)",
+                AAVE_GATEWAY_BORROW,
+                from = "0xca686974913389d42f3c5f61010503daccdb487a",
+            ),
+        )
+
+        assertEquals(listOf("Borrow 1,300 ETH from Aave V3 at a variable rate, sent to you"), steps.lines)
+        assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun anAaveGatewayRepayOfEthSaysTheCapAndTheRefund() {
+        // Transaction 0x3b88e523, Aave V3 WETH gateway: repay up to 7.7 ETH on behalf of the sender, sending the same 7.7 ETH.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.GW_REPAY_ETH,
+                AAVE_GATEWAY,
+                "0xbcc3c255",
+                "repayETH(address,uint256,address)",
+                AAVE_GATEWAY_REPAY,
+                from = "0xdb98176d578f63d7043c761ac406a32cda81fccc",
+                sent = BigInteger("7700000000000000000"),
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                "Repay up to 7.7 ETH to Aave V3 at a variable rate on behalf of you, sending 7.7 ETH (any excess is refunded)",
+            ),
+            steps.lines,
+        )
+    }
+
+    @Test
+    fun anAaveRepayWithATokensNamesTheSuppliedAsset() {
+        // Transaction 0xae37b43c, Aave V3 Pool: repay 0.0052 WBTC at the variable rate with the WBTC the sender supplied.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.POOL_REPAY_WITH_ATOKENS,
+                AAVE_POOL,
+                "0x2dad97d4",
+                "repayWithATokens(address,uint256,uint256)",
+                AAVE_REPAY_WITH_ATOKENS,
+                from = "0xc1af26b176ff6a984a434e8038c45f9dc4954afb",
+            ),
+        )
+
+        assertEquals(listOf("Repay 0.0052 WBTC to Aave V3 at a variable rate, paid from your supplied WBTC"), steps.lines)
+        assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun anAaveRepayWithAPermitIsApprovedBySignature() {
+        // Transaction 0x37c2db38, Aave V3 Pool: repay 9,531.486401 USDC at the variable rate on behalf of the sender, with a permit.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.POOL_REPAY_WITH_PERMIT,
+                AAVE_POOL,
+                "0xee3e210b",
+                "repayWithPermit(address,uint256,uint256,address,uint256,uint8,bytes32,bytes32)",
+                AAVE_REPAY_WITH_PERMIT,
+                from = "0xc468315a2df54f9c076bd5cfe5002ba211f74ca6",
+            ),
+        )
+
+        assertEquals(
+            listOf("Repay 9,531.486401 USDC to Aave V3 at a variable rate on behalf of you, approved by a signed permit"),
+            steps.lines,
+        )
+        assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun anAaveEfficiencyModeSaysTheCategoryAndWarns() {
+        // Transaction 0x417247b8, Aave V3 Pool: setUserEMode to category 1.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.POOL_SET_EMODE,
+                AAVE_POOL,
+                "0x28530a47",
+                "setUserEMode(uint8)",
+                listOf(WhitelistParam("categoryId", "uint8")),
+                from = "0x7b29eefe495a94aa9a3afd2770f549e0c7167c5c",
+            ),
+        )
+
+        assertEquals(listOf("Set efficiency mode on Aave V3 to category 1"), steps.lines)
+        assertEquals(
+            listOf("Efficiency mode changes the limits and liquidation thresholds of your Aave V3 positions"),
+            steps.warnings,
+        )
+    }
+
+    @Test
+    fun anAaveSupplyWithAPermitIsApprovedBySignature() {
+        // Transaction 0xf8d3cce7, Aave V3 Pool: supply 400,000 USDC on behalf of the sender, with a signed permit.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.POOL_SUPPLY_WITH_PERMIT,
+                AAVE_POOL,
+                "0x02c205f0",
+                "supplyWithPermit(address,uint256,address,uint16,uint256,uint8,bytes32,bytes32)",
+                listOf(
+                    WhitelistParam("asset", "address"),
+                    WhitelistParam("amount", "uint256"),
+                    WhitelistParam("onBehalfOf", "address"),
+                    WhitelistParam("referralCode", "uint16"),
+                    WhitelistParam("deadline", "uint256"),
+                    WhitelistParam("permitV", "uint8"),
+                    WhitelistParam("permitR", "bytes32"),
+                    WhitelistParam("permitS", "bytes32"),
+                ),
+                from = "0xba0e4165cf59aa8c9c5720fb85e48e777891c2d1",
+            ),
+        )
+
+        assertEquals(listOf("Supply 400,000 USDC to Aave V3 on behalf of you, approved by a signed permit"), steps.lines)
+        assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun aCompoundWithdrawToAnotherAccountWarns() {
+        // Transaction 0xaf636d76, Compound V3 cWETHv3: withdraw 0.371294586194255254 WETH to 0x5eD4…C592, which is not the sender.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.COMPOUND_WITHDRAW_TO,
+                CWETH_V3,
+                "0xc3b35a7e",
+                "withdrawTo(address,address,uint256)",
+                listOf(
+                    WhitelistParam("to", "address"),
+                    WhitelistParam("asset", "address"),
+                    WhitelistParam("amount", "uint256"),
+                ),
+                from = "0x96a56cd396d47a533930840a6165fc41a64d979a",
+            ),
+        )
+
+        assertEquals(listOf("Withdraw 0.371294586194255254 WETH from Compound V3 (cWETHv3) to 0x5eD4…C592"), steps.lines)
+        assertEquals(listOf("This withdraws to 0x5eD4…C592, not you"), steps.warnings)
+    }
+
+    @Test
+    fun aWstEthWrapNamesTheStEthAmountByItsAddress() {
+        // Transaction 0x10435947, wstETH: wrap 5 stETH, which is not a registered token, so its amount is shown in base units.
+        val steps = assertNotNull(
+            stepsOf(StepVectors.WSTETH_WRAP, WSTETH, "0xea598cb0", "wrap(uint256)", ONE_AMOUNT, from = "0x1bb1ea7d387c142ab874715f50741cadcfcfc407"),
+        )
+
+        assertEquals(listOf("Wrap 5000000000000000000 base units of 0xae7a…fE84 into wstETH"), steps.lines)
+        assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun aWstEthUnwrapNamesTheWstEthAmountByItsAddress() {
+        // Transaction 0x91ecabe3, wstETH: unwrap 434956435649819 base units of wstETH.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.WSTETH_UNWRAP,
+                WSTETH,
+                "0xde0e9a3e",
+                "unwrap(uint256)",
+                ONE_AMOUNT,
+                from = "0xd2a7199276b18998d06d873e0adfd9be41e31395",
+            ),
+        )
+
+        assertEquals(listOf("Unwrap 434956435649819 base units of 0x7f39…2Ca0 into stETH"), steps.lines)
+    }
+
+    @Test
+    fun aLidoWithdrawalRequestIsOwnedByTheSigner() {
+        // Transaction 0x64fba57a, Lido withdrawal queue: request one withdrawal of 8708677820110489 base units of stETH, owned by the sender.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.LIDO_REQUEST_WITHDRAWALS,
+                LIDO_QUEUE,
+                "0xd6681042",
+                "requestWithdrawals(uint256[],address)",
+                listOf(WhitelistParam("_amounts", "uint256[]"), WhitelistParam("_owner", "address")),
+                from = "0x296d78ff818393cfbc1623c6a77926e28f02b3b3",
+            ),
+        )
+
+        assertEquals(
+            listOf("Request a withdrawal of 8708677820110489 base units of 0xae7a…fE84 as ETH for you"),
+            steps.lines,
+        )
+        assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun aLidoWithdrawalClaimPaysTheSigner() {
+        // Transaction 0x204a1d84, Lido withdrawal queue: claim the ETH of withdrawal request 141654.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.LIDO_CLAIM_WITHDRAWALS,
+                LIDO_QUEUE,
+                "0xe3afe0a3",
+                "claimWithdrawals(uint256[],uint256[])",
+                listOf(WhitelistParam("_requestIds", "uint256[]"), WhitelistParam("_hints", "uint256[]")),
+                from = "0xe58688afcc92132337158eea09ecae37dfc6db06",
+            ),
+        )
+
+        assertEquals(listOf("Claim the ETH of Lido withdrawal request #141654 to you"), steps.lines)
     }
 
     private companion object {
