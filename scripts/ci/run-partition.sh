@@ -145,6 +145,7 @@ case "$partition" in
             --tests 'app.lumio.EntryGestureSettingTest' \
             --tests 'app.lumio.CoverLockTest' \
             --tests 'app.lumio.btc.*' \
+            --tests 'app.lumio.chains.*' \
             --tests 'app.lumio.data.*' \
             --tests 'app.lumio.demo.*' \
             --tests 'app.lumio.evm.*' \
