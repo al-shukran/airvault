@@ -7,6 +7,7 @@ import app.lumio.btc.networkId
 import app.lumio.btc.scanAccount
 import app.lumio.data.net.NetworkId
 import app.lumio.data.sched.Priority
+import app.lumio.demo.DemoPortfolio
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.Portfolio
@@ -53,6 +54,7 @@ object TxSync {
      * the transactions of every address it uses. Call it off the main thread.
      */
     suspend fun run(app: LumioApp, vault: LumioVault, plan: TxSyncPlan, onStored: () -> Unit) {
+        if (DemoPortfolio.isOn()) return
         val history = app.txHistory(vault)
         for (read in plan.evm) {
             attempt { history.refresh(read.net, read.address) }

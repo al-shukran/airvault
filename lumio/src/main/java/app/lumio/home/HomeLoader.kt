@@ -8,6 +8,7 @@ import app.lumio.btc.networkId
 import app.lumio.data.asset.AssetId
 import app.lumio.data.price.Price
 import app.lumio.data.sched.Priority
+import app.lumio.demo.DemoPortfolio
 import app.lumio.evm.BalanceCache
 import app.lumio.evm.ChainFailure
 import app.lumio.evm.EvmCatalog
@@ -35,6 +36,7 @@ internal object HomeLoader {
      * It reads no network.
      */
     suspend fun cached(app: LumioApp, session: VaultSession, mode: NetworkMode): List<HomeAsset> = withContext(Dispatchers.IO) {
+        DemoPortfolio.homeAssets(mode)?.let { return@withContext it }
         val settings = EvmSettingsStore.read(session)
         val chains = evmChains(app, settings, mode)
         val wallets = PairedWallets.list(session)
@@ -57,6 +59,7 @@ internal object HomeLoader {
      * each wallet on those chains. Returns the chains that did not answer. Their cached reads stay as they were.
      */
     suspend fun refreshEvm(app: LumioApp, session: VaultSession, mode: NetworkMode): List<ChainFailure> = withContext(Dispatchers.IO) {
+        if (DemoPortfolio.isOn()) return@withContext emptyList()
         val settings = EvmSettingsStore.read(session)
         val chains = evmChains(app, settings, mode)
         val wallets = PairedWallets.list(session).filter { it.evm != null }
@@ -77,6 +80,7 @@ internal object HomeLoader {
      * read the scans as they land.
      */
     suspend fun scanBitcoin(app: LumioApp, session: VaultSession, mode: NetworkMode) {
+        if (DemoPortfolio.isOn()) return
         val refs = withContext(Dispatchers.IO) { bitcoinRefs(session).filter { mode.holds(it.account.network) } }
         if (refs.isEmpty()) return
         val net = mode.btcNetwork().networkId()
