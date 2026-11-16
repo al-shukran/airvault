@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -27,14 +28,21 @@ import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.price.ChartRange
 import app.lumio.data.price.Price
+import app.lumio.data.price.PriceSeries
 import app.lumio.data.scan.ScanEvent
+import app.lumio.data.tx.LumioTx
+import app.lumio.data.tx.TxAssetRef
+import app.lumio.data.tx.TxQuery
 import app.lumio.home.AccountOption
 import app.lumio.home.HomeAccounts
 import app.lumio.home.HomeAsset
 import app.lumio.home.HomeAssets
 import app.lumio.home.HomeLoader
+import app.lumio.home.TokenAsset
 import app.lumio.home.PickTarget
+import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
@@ -47,6 +55,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** How many transactions the asset page lists, the newest first. */
+private const val ASSET_TX_PAGE = 50
 
 /** The notice Home shows when a read did not answer. The last known balances stay on the list. */
 private const val REFRESH_NOTICE = "Some balances could not be refreshed. The last known balances are shown."
@@ -149,7 +160,10 @@ internal fun HomeRoute(
     )
 }
 
-/** The page of one coin: its balance and value on the side, and the accounts that hold it. Missing when the coin is not on the side. */
+/**
+ * The page of one coin: its balance and value, its price chart, its transactions, and the actions that send and receive it. Missing when the coin is
+ * not on the side. The coin and its accounts are read from the vault, and the chart and the prices from the price repository.
+ */
 @Composable
 internal fun AssetRoute(navController: NavHostController, holder: VaultHolder, assetId: String, selection: NetworkSelection) {
     val app = LocalContext.current.applicationContext as LumioApp
@@ -167,10 +181,7 @@ internal fun AssetRoute(navController: NavHostController, holder: VaultHolder, a
             AssetLoad.Missing
         } else {
             val priced = HomeAssets.priced(listOf(asset), HomeLoader.prices(app, balances)).single()
-            val wallets = withContext(Dispatchers.IO) { PairedWallets.list(open) }
-            val hidden = withContext(Dispatchers.IO) { !DisplaySettingsStore.read(open).showAssets }
-            val entry = withContext(Dispatchers.IO) { networkEntryOf(app, asset.network) }
-            AssetLoad.Ready(priced, entry, HomeAccounts.holding(priced, wallets), hidden)
+            withContext(Dispatchers.IO) { assetPageOf(app, open, mode, priced) }
         }
     }
     when (val current = load) {
@@ -179,17 +190,72 @@ internal fun AssetRoute(navController: NavHostController, holder: VaultHolder, a
             LaunchedEffect(Unit) { navController.popBackStack() }
             return
         }
-        is AssetLoad.Ready -> AssetScreen(
-            asset = current.asset,
-            entry = current.entry,
-            accounts = current.accounts,
-            hidden = current.hidden,
-            onAccount = { option -> accountRoute(option.target)?.let { navController.navigate(it) } },
-            onBack = { navController.popBackStack() },
-            onLock = { leaveHidden(navController, holder) },
-        )
+        is AssetLoad.Ready -> AssetPage(navController = navController, holder = holder, app = app, current = current)
     }
 }
+
+/**
+ * The page of [current]'s coin once it is read. Its chart is read for the range the owner picks, and each range is read again only when it is not kept
+ * in memory. The actions open the send and receive of the coin, with the chain of an EVM coin already chosen.
+ */
+@Composable
+private fun AssetPage(navController: NavHostController, holder: VaultHolder, app: LumioApp, current: AssetLoad.Ready) {
+    var range by rememberSaveable { mutableStateOf(ChartRange.H24) }
+    var chart by remember { mutableStateOf<ChartLoad>(ChartLoad.Loading) }
+    LaunchedEffect(current.asset.assetId, range) {
+        chart = ChartLoad.Loading
+        val series = withContext(Dispatchers.IO) { app.prices.chart(current.asset.assetId, range) }
+        chart = ChartLoad.Done(series)
+    }
+    val loaded = chart
+    AssetScreen(
+        asset = current.asset,
+        entry = current.entry,
+        hidden = current.hidden,
+        range = range,
+        onRange = { range = it },
+        series = (loaded as? ChartLoad.Done)?.series,
+        chartLoading = loaded is ChartLoad.Loading,
+        transactions = current.transactions,
+        sendOptions = current.sendOptions,
+        receiveOptions = current.receiveOptions,
+        accounts = current.accounts,
+        onSend = { option -> sendRoute(option.target, chainIdOf(current.asset))?.let { navController.navigate(it) } },
+        onReceive = { option -> receiveRoute(option.target)?.let { navController.navigate(it) } },
+        onAccount = { option -> accountRoute(option.target)?.let { navController.navigate(it) } },
+        onBack = { navController.popBackStack() },
+        onLock = { leaveHidden(navController, holder) },
+    )
+}
+
+/**
+ * What the page of [asset] reads from the open vault: its accounts, its transactions, its settings and its registry entry, and the Send and Receive
+ * options for it. It reads no network. The transactions are the coin's on its network, in every account, and spam only when the owner shows it.
+ */
+private suspend fun assetPageOf(app: LumioApp, session: VaultSession, mode: NetworkMode, asset: HomeAsset): AssetLoad.Ready {
+    val wallets = PairedWallets.list(session)
+    val bitcoin = bitcoinRefs(session)
+    val settings = DisplaySettingsStore.read(session)
+    val transactions = app.lumioVault()?.txs?.page(assetTxQuery(asset, settings), 0, ASSET_TX_PAGE).orEmpty()
+    return AssetLoad.Ready(
+        asset = asset,
+        entry = networkEntryOf(app, asset.network),
+        accounts = HomeAccounts.holding(asset, wallets),
+        hidden = !settings.showAssets,
+        transactions = transactions,
+        sendOptions = HomeAccounts.sendFor(asset, mode, wallets, bitcoin),
+        receiveOptions = HomeAccounts.receiveFor(asset, wallets, bitcoin),
+    )
+}
+
+/** The query of the transactions of [asset]: its coin on its network, in every account. */
+private fun assetTxQuery(asset: HomeAsset, settings: DisplaySettings): TxQuery = TxQuery(
+    assets = setOf(TxAssetRef(asset.network, (asset as? TokenAsset)?.contract)),
+    includeSpam = !settings.hideSpam,
+)
+
+/** The chain ID of an EVM coin, which starts its send, or null for a Bitcoin coin. */
+private fun chainIdOf(asset: HomeAsset): Long? = if (asset.network.family == Family.EVM) asset.network.chain.toLongOrNull() else null
 
 /** The page that receives to one account, read from the vault. Missing when the account is not in the open vault. */
 @Composable
@@ -246,7 +312,7 @@ internal fun WalletsSettingsRoute(navController: NavHostController, holder: Vaul
     )
 }
 
-/** The state of [AssetRoute]: the coin, or missing when it is not on the side. */
+/** The state of [AssetRoute]: the coin with what its page shows, or missing when it is not on the side. */
 private sealed interface AssetLoad {
     data object Missing : AssetLoad
 
@@ -255,7 +321,17 @@ private sealed interface AssetLoad {
         val entry: NetworkEntry?,
         val accounts: List<AccountOption>,
         val hidden: Boolean,
+        val transactions: List<LumioTx>,
+        val sendOptions: List<AccountOption>,
+        val receiveOptions: List<AccountOption>,
     ) : AssetLoad
+}
+
+/** The state of the price chart on the page: being read, or read with the series a source gave, which is null when none answered. */
+private sealed interface ChartLoad {
+    data object Loading : ChartLoad
+
+    class Done(val series: PriceSeries?) : ChartLoad
 }
 
 /** The state of [ReceiveRoute]: the address and what it belongs to, or missing when the account is not in the open vault. */
@@ -304,9 +380,9 @@ private suspend fun receiveOf(app: LumioApp, session: VaultSession, kind: String
 private fun networkEntryOf(app: LumioApp, network: NetworkId): NetworkEntry? =
     if (network.family == Family.EVM) app.registry.networks().firstOrNull { it.chainId.toString() == network.chain } else null
 
-/** The route of a Send from [target], or null when the target does not send. */
-internal fun sendRoute(target: PickTarget): String? = when (target) {
-    is PickTarget.Evm -> LumioRoute.send(target.walletId, 0)
+/** The route of a Send from [target], or null when the target does not send. [chainId] starts the form on that chain. */
+internal fun sendRoute(target: PickTarget, chainId: Long? = null): String? = when (target) {
+    is PickTarget.Evm -> LumioRoute.send(target.walletId, 0, chainId)
     PickTarget.Bitcoin -> LumioRoute.BTC_SEND
     is PickTarget.BitcoinAccount, is PickTarget.BitcoinWallet -> null
 }

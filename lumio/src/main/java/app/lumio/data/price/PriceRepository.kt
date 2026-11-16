@@ -7,6 +7,7 @@ import app.lumio.data.asset.AssetId
 import app.lumio.data.cache.jsonCodec
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.NativePrice
+import app.lumio.data.provider.PriceChart
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -15,10 +16,14 @@ import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.coroutineScope
 
 /** How long a fresh price is reused from memory before the next call. */
 const val PRICE_TTL_MS = 60_000L
+
+/** How long a kept price chart is reused from memory before it is read again, so a 24-hour chart does not stay stale for the whole session. */
+const val CHART_TTL_MS = 300_000L
 
 /**
  * A USD price of a network's native coin: [usd] per coin, the change over 24 hours in percent ([change24hPct] is null when the source gives none),
@@ -43,6 +48,9 @@ class PriceRepository(
     private val scheduler: Scheduler,
     private val cache: () -> Cache?,
 ) {
+    /** The charts this session has read, with points. They are public prices and are kept in memory only, for [CHART_TTL_MS]. */
+    private val charts = ConcurrentHashMap<ChartKey, KeptChart>()
+
     /**
      * The price of each network in [nets] that has one, keyed by network. A network with no price, such as a testnet or a network with no price coin,
      * is absent from the map. A network whose sources all fail, and that has no kept price, is absent too.
@@ -55,6 +63,28 @@ class PriceRepository(
     suspend fun assetPrices(assets: Collection<AssetId>, priority: Priority = Priority.VISIBLE): Map<AssetId, Price> = coroutineScope {
         assets.toSet().map { asset -> async { priceOf(asset, priority)?.let { asset to it } } }.awaitAll().filterNotNull().toMap()
     }
+
+    /**
+     * The USD price points of [asset] over [range], ending at [nowMs]. A series with no points means the source has no price in the window. Null means no
+     * source answered, such as a testnet coin or a source that is down. A series with points is kept in memory for the session, and read again once it
+     * is [CHART_TTL_MS] old. The request goes through the scheduler, so the price providers' rate limits and cooldowns apply.
+     */
+    suspend fun chart(asset: AssetId, range: ChartRange, priority: Priority = Priority.VISIBLE, nowMs: Long = System.currentTimeMillis()): PriceSeries? {
+        val key = ChartKey(asset, range)
+        charts[key]?.takeIf { nowMs - it.atMs < CHART_TTL_MS }?.let { return it.series }
+        val series = try {
+            scheduler.run(PriceChart(asset, range, nowMs), priority)
+        } catch (e: ProviderError) {
+            return null
+        }
+        if (series.points.isNotEmpty()) charts[key] = KeptChart(series, nowMs)
+        return series
+    }
+
+    private data class ChartKey(val asset: AssetId, val range: ChartRange)
+
+    /** A chart as the repository kept it, and the time it was read, in epoch milliseconds. */
+    private class KeptChart(val series: PriceSeries, val atMs: Long)
 
     private suspend fun priceOf(asset: AssetId, priority: Priority): Price? {
         val request = priceRequestOf(asset) ?: return null

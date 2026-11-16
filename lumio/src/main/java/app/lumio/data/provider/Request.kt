@@ -4,7 +4,10 @@ import app.lumio.btc.EsploraAddressStats
 import app.lumio.btc.EsploraBlock
 import app.lumio.btc.EsploraTx
 import app.lumio.btc.EsploraTxStatus
+import app.lumio.data.asset.AssetId
 import app.lumio.data.net.NetworkId
+import app.lumio.data.price.ChartRange
+import app.lumio.data.price.PriceSeries
 import java.math.BigInteger
 import kotlinx.serialization.Serializable
 
@@ -68,6 +71,12 @@ class TokenPrice(net: NetworkId, val contract: String) : Request<PriceQuote>(net
         require(TOKEN_CONTRACT.matches(contract)) { "A token contract is 0x and 40 lowercase hex digits." }
     }
 }
+
+/**
+ * The USD price points of [asset] over [range], ending at [nowMs] (epoch milliseconds). The answer may hold no points when the source has no price in
+ * the window. It is kept in memory by the price repository for the session, and never written to the cache.
+ */
+class PriceChart(val asset: AssetId, val range: ChartRange, val nowMs: Long) : Request<PriceSeries>(asset.net, Op.PRICE_CHART)
 
 /**
  * A read-only contract call on an EVM network: [data] is the call's encoded input (a selector and its arguments) sent to [to], at the latest
