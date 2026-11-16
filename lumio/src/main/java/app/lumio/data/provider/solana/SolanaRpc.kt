@@ -18,6 +18,9 @@ import kotlinx.coroutines.delay
 /** The Solana devnet cluster, as the chain name "devnet" of the Solana family. */
 val SOLANA_DEVNET = NetworkId(Family.SOL, "devnet", testnet = true)
 
+/** The Solana mainnet-beta cluster, as the chain name "mainnet-beta" of the Solana family. */
+val SOLANA_MAINNET = NetworkId(Family.SOL, "mainnet-beta", testnet = false)
+
 /** The operations a Solana RPC provider serves: balances, blockhashes, history, token balances and broadcasts. */
 private val SOLANA_OPS = setOf(Op.NATIVE_BALANCE, Op.BLOCKHASH, Op.TX_HISTORY, Op.TOKEN_BALANCES, Op.BROADCAST)
 
@@ -52,15 +55,18 @@ abstract class SolanaRpcProvider(
 }
 
 /**
- * The public Solana devnet endpoint, keyless: `https://api.devnet.solana.com`. It takes no key, so the provider never sends one, and it uses the
- * public-pool rates.
+ * The public Solana endpoints, keyless: `https://api.devnet.solana.com` and `https://api.mainnet-beta.solana.com`. They take no key, so the provider
+ * never sends one, and they use the public-pool rates.
  */
 class SolanaRpc : SolanaRpcProvider("solana", setOf(Trait.KEYLESS)) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = if (net.family == Family.SOL) ENDPOINTS[net.chain] else null
 
     companion object {
         /** The public endpoint of each Solana cluster, by chain name. */
-        val ENDPOINTS: Map<String, String> = mapOf("devnet" to "https://api.devnet.solana.com")
+        val ENDPOINTS: Map<String, String> = mapOf(
+            "devnet" to "https://api.devnet.solana.com",
+            "mainnet-beta" to "https://api.mainnet-beta.solana.com",
+        )
     }
 }
 
