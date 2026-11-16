@@ -159,7 +159,7 @@ class WalletScreensScreenshotTest {
     }
 
     @Test
-    fun accountSolanaSendComingSoon() = compose.snapshot("account_solana") {
+    fun accountSolanaSend() = compose.snapshot("account_solana") {
         AccountScreen(
             walletName = "Demo",
             account = solana,
