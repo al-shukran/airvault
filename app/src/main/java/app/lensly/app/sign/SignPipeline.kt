@@ -24,6 +24,7 @@ import app.lensly.core.registry.AbiDecoder
 import app.lensly.core.registry.AbiRows
 import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.CallDecode
+import app.lensly.core.registry.CallSteps
 import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
 import app.lensly.core.registry.DenylistEntry
@@ -98,12 +99,14 @@ data class UndecodedCall(
 
 /**
  * A call Lensly cannot decode that the signed whitelist approves. [signature] and [meaning] are the approved facts, and [call]
- * is the whole call. The review shows all of it before the owner confirms.
+ * is the whole call. [steps] are the human-readable steps of a call Lensly describes, such as a Universal Router batch, and null for
+ * any other. The review shows all of it before the owner confirms.
  */
 data class WhitelistedCall(
     val signature: String,
     val meaning: String,
     val call: UndecodedCall,
+    val steps: CallSteps? = null,
 )
 
 /**
@@ -249,14 +252,20 @@ class SignPipeline(
             is GapOutcome.Approved -> ready(
                 target,
                 target.review(function = gap.function, toAddress = checksum(contract), params = gap.params)
-                    .copy(whitelisted = gap.whitelisted),
+                    .copy(whitelisted = gap.whitelisted, warnings = gap.warnings),
                 tx,
             )
         }
 
     /** What the whitelist decides for an undecodable call: approved, with the facts its review shows, or refused with its reason. */
     private sealed interface GapOutcome {
-        class Approved(val function: String, val params: List<Pair<String, String>>, val whitelisted: WhitelistedCall) : GapOutcome
+        class Approved(
+            val function: String,
+            val params: List<Pair<String, String>>,
+            val whitelisted: WhitelistedCall,
+            /** The warnings of the steps, which the review shows in its warning list. */
+            val warnings: List<String>,
+        ) : GapOutcome
 
         class Refused(val reason: String, val call: UndecodedCall) : GapOutcome
     }
@@ -289,10 +298,21 @@ class SignPipeline(
             return GapOutcome.Refused(CANNOT_BE_READ, call)
         }
         val token = registry.token(target.chainId, contract)
+        val steps = CallSteps.describe(
+            registry,
+            target.chainId,
+            contract,
+            entry.selector,
+            entry.signature,
+            target.address,
+            value,
+            decoded,
+        )
         return GapOutcome.Approved(
             function = entry.signature.substringBefore('('),
             params = decoded.flatMap { argumentRows(it, token) },
-            whitelisted = WhitelistedCall(entry.signature, entry.meaning, call),
+            whitelisted = WhitelistedCall(entry.signature, entry.meaning, call, steps),
+            warnings = steps?.warnings.orEmpty(),
         )
     }
 
@@ -366,8 +386,15 @@ class SignPipeline(
                 }
                 else -> when (val gap = whitelistedGap(target, contract, inner.calldata, inner.value ?: tx.value)) {
                     is GapOutcome.Refused -> return Prepared.Refused(gap.reason, gap.call)
-                    is GapOutcome.Approved ->
-                        rows += NestedCall(level, shown, gap.function, flags + gap.params, gap.whitelisted, denylisted = denied)
+                    is GapOutcome.Approved -> rows += NestedCall(
+                        depth = level,
+                        target = shown,
+                        function = gap.function,
+                        params = flags + gap.params,
+                        whitelisted = gap.whitelisted,
+                        warnings = gap.warnings,
+                        denylisted = denied,
+                    )
                 }
             }
         }
