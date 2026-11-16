@@ -1,6 +1,5 @@
 package app.lensly.app
 
-import app.lensly.app.export.MultiAccountsExport
 import app.lensly.app.export.LabelledPairingGolden
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
@@ -30,7 +29,6 @@ import fr.acinq.bitcoin.Satoshi
 import fr.acinq.bitcoin.Script
 import fr.acinq.bitcoin.TxOut
 import fr.acinq.bitcoin.psbt.Psbt
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
@@ -111,24 +109,6 @@ class WalletStoreBitcoinTest {
         assertTrue(store.bitcoinAccounts(id).isEmpty())
         // The pairing still covers the wallet: its Bitcoin App is listed with no keys, so Lumio drops any Bitcoin account it held.
         assertTrue(pairingOf(store.pairingParts(id, null)).apps.single { it.app == "bitcoin" }.keys.isEmpty())
-    }
-
-    @Test
-    fun theKeystoneExportCarriesTheMainnetAccountsAndTheEthereumAccountWithoutAnyBitcoinAccountAdded() {
-        // A wallet with no stored Bitcoin account still exports the four mainnet account 0 keys, as Keystone Nexus reads them.
-        val id = newWallet()
-        val version = "0.1.0"
-        val seed = Mnemonic.of(words).use { it.deriveSeed("") }
-        val masterFingerprint = HdWallet(seed).masterFingerprint
-        val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint, 1) }
-        val expected = MultiAccountsExport.cbor(masterFingerprint, keys, version)
-
-        val scanner = UrScanner()
-        store.keystoneNexusParts(id, version).forEach { scanner.receive(it) }
-        val ur = assertNotNull(scanner.result())
-
-        assertEquals("crypto-multi-accounts", ur.type)
-        assertContentEquals(expected, ur.cborBytes)
     }
 
     @Test

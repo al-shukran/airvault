@@ -99,7 +99,7 @@ internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
 /**
  * The online wallets that pair with Lensly, the first one recommended. Each one is paired with one code for the whole wallet, so an App
  * is never paired on its own. [LUMIO] is the AirVault companion app: it reads the AirVault pairing, which holds the keys and names of every
- * App of the wallet. [KEYSTONE_NEXUS] reads the same keys of every App, as a ur:crypto-multi-accounts. [RABBY] and [METAMASK] read only the
+ * App of the wallet. [RABBY] and [METAMASK] read only the
  * Ethereum account keys, as a ur:crypto-multi-accounts too, because they hold no Bitcoin account.
  */
 internal enum class PairFormat(
@@ -125,11 +125,6 @@ internal enum class PairFormat(
         instructionRes = R.string.pair_format_metamask_instruction,
         walletName = "MetaMask",
     ),
-    KEYSTONE_NEXUS(
-        labelRes = R.string.pair_format_keystone_label,
-        instructionRes = R.string.pair_format_keystone_instruction,
-        walletName = "Keystone Nexus",
-    ),
 }
 
 /**
@@ -145,13 +140,6 @@ internal fun pairingParts(wallet: WalletMeta): List<String> = PairingExport.urPa
     version = BuildConfig.VERSION_NAME,
     name = wallet.name.ifBlank { DEFAULT_PAIR_NAME },
 )
-
-/**
- * Whether the Keystone Nexus code cannot be built for [wallet]. Keystone Nexus imports the account keys of a seed phrase (HD) wallet, and
- * a Single Key has none, so the step shows a notice instead of a code. Only the Keystone Nexus format asks for this.
- */
-internal fun keystoneNeedsHdWallet(format: PairFormat?, wallet: WalletMeta?): Boolean =
-    format == PairFormat.KEYSTONE_NEXUS && wallet != null && wallet.accountKeys.isEmpty()
 
 /**
  * PAIR WALLET, as the wizard. [walletId] names the wallet when the route was opened for one, as a wallet's own pairing action
@@ -191,12 +179,6 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
                 WalletStore(requireNotNull(session) { "The vault is locked." }).pairingParts(meta.id)
             }
         },
-        keystoneParts = { meta ->
-            withContext(Dispatchers.IO) {
-                WalletStore(requireNotNull(session) { "The vault is locked." })
-                    .keystoneNexusParts(meta.id, BuildConfig.VERSION_NAME)
-            }
-        },
         onDone = {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             navController.getBackStackEntry(LenslyRoute.HIDDEN).savedStateHandle[HiddenRoute.NOTICE] = PAIRED_MESSAGE
@@ -223,8 +205,6 @@ internal fun PairWizard(
     walletEntries: List<WalletEntry> = emptyList(),
     /** The AirVault pairing of a wallet: the keys and names of every App it holds, in one code, read off the main thread. */
     lumioParts: suspend (WalletMeta) -> List<String> = { emptyList() },
-    /** The Keystone Nexus code of a wallet: its multi-accounts frames, read off the main thread. */
-    keystoneParts: suspend (WalletMeta) -> List<String> = { emptyList() },
     modifier: Modifier = Modifier,
 ) {
     val skipsWalletStep = preselected != null || wallets.size == 1
@@ -233,16 +213,13 @@ internal fun PairWizard(
     var step by remember { mutableStateOf(if (skipsWalletStep) PairStep.APP else PairStep.WALLET) }
     val chosen = wallet
     val inCode = step == PairStep.CODE
-    // The AirVault and Keystone Nexus codes need the seed's account keys, so only a Mnemonic wallet, the one with an account public key,
-    // has a code.
+    // The AirVault code needs the seed's account keys, so only a Mnemonic wallet, the one with an account public key, has a code.
     val hasAccountKeys = chosen?.accountKeys?.isNotEmpty() == true
-    val keystoneNeedsHd = keystoneNeedsHdWallet(format, chosen)
     // The code is built only when the owner reaches it, from public wallet data.
     val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, hasAccountKeys) {
         value = when {
             !inCode || chosen == null -> null
             format == PairFormat.LUMIO -> if (hasAccountKeys) lumioParts(chosen) else null
-            format == PairFormat.KEYSTONE_NEXUS -> if (hasAccountKeys) keystoneParts(chosen) else null
             else -> withContext(Dispatchers.Default) { pairingParts(chosen) }
         }
     }
@@ -263,7 +240,6 @@ internal fun PairWizard(
         format = format,
         walletEntry = format?.walletName?.let { name -> walletEntries.firstOrNull { it.name == name } },
         frames = frames,
-        keystoneNeedsHd = keystoneNeedsHd,
         onPickWallet = { picked ->
             wallet = picked
             step = PairStep.APP
@@ -293,8 +269,6 @@ internal fun PairWizardScreen(
     /** The Wallet Entry of the chosen online wallet, or null when the registry has none. Its note shows on the instructions step. */
     walletEntry: WalletEntry? = null,
     frames: List<String>?,
-    /** Whether the chosen wallet is a Single Key, which has no account keys for a Keystone Nexus code. The steps show a notice instead. */
-    keystoneNeedsHd: Boolean = false,
     onPickWallet: (WalletMeta) -> Unit,
     onPickFormat: (PairFormat) -> Unit,
     onShowCode: () -> Unit,
@@ -310,7 +284,6 @@ internal fun PairWizardScreen(
                     onClick = onShowCode,
                     accent = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !keystoneNeedsHd,
                 )
             }
         }
@@ -347,16 +320,8 @@ internal fun PairWizardScreen(
                     PairStep.WALLET -> WalletStep(wallets = wallets, profiles = profiles, onPick = onPickWallet)
                     PairStep.APP ->
                         if (wallet?.kind == WalletKind.SINGLE_KEY) SingleKeyNotice() else FormatStep(onPick = onPickFormat)
-                    PairStep.INSTRUCTIONS -> InstructionsStep(
-                        format = format,
-                        walletEntry = walletEntry,
-                        keystoneNeedsHd = keystoneNeedsHd,
-                    )
-                    PairStep.CODE -> CodeStep(
-                        format = format,
-                        frames = frames,
-                        keystoneNeedsHd = keystoneNeedsHd,
-                    )
+                    PairStep.INSTRUCTIONS -> InstructionsStep(format = format, walletEntry = walletEntry)
+                    PairStep.CODE -> CodeStep(format = format, frames = frames)
                 }
             }
         }
@@ -451,22 +416,9 @@ private fun SingleKeyNotice() {
     )
 }
 
-/**
- * The Keystone Nexus notice for a Single Key. Keystone Nexus reads the account keys of an HD wallet, so a Single Key gets no code, and
- * the step says why instead of waiting for one.
- */
-@Composable
-private fun KeystoneNeedsHdNotice() {
-    InlineBanner(
-        title = "Needs an HD wallet",
-        message = "Keystone Nexus needs an HD wallet (seed phrase). A Single Key has no account keys to share.",
-        tone = BannerTone.Warning,
-    )
-}
-
 /** Step three: the steps for the chosen app, with a drawing of one phone scanning the other, and its Wallet Entry note. */
 @Composable
-private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, keystoneNeedsHd: Boolean) {
+private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?) {
     PairIllustration(modifier = Modifier.fillMaxWidth())
     Spacer(Modifier.height(LenslySpacing.lg))
     if (format == null) return
@@ -481,10 +433,6 @@ private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?, key
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    if (keystoneNeedsHd) {
-        Spacer(Modifier.height(LenslySpacing.lg))
-        KeystoneNeedsHdNotice()
-    }
     if (walletEntry != null) {
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEntryNote(entry = walletEntry)
@@ -541,7 +489,7 @@ private fun WalletEntryNote(entry: WalletEntry) {
  * Until the parts are ready, it says so.
  */
 @Composable
-private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?, keystoneNeedsHd: Boolean) {
+private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?) {
     if (format != null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AddressIcon(size = 16.dp)
@@ -555,9 +503,7 @@ private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?, key
         }
     }
     Spacer(Modifier.weight(1f))
-    if (keystoneNeedsHd) {
-        KeystoneNeedsHdNotice()
-    } else if (frames == null) {
+    if (frames == null) {
         LoadingState(label = "Preparing code")
     } else {
         AnimatedQr(parts = frames, modifier = Modifier.fillMaxWidth())
