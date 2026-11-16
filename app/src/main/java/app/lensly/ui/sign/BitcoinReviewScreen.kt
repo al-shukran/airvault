@@ -1,15 +1,12 @@
 package app.lensly.ui.sign
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
 import app.lensly.app.AddressNotes
 import app.lensly.app.notesOf
 import app.lensly.core.btc.BtcNetwork
@@ -17,18 +14,19 @@ import app.lensly.core.btc.BtcReview
 import app.lensly.core.btc.BtcWarning
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.warnings
-import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.theme.LenslySpacing
 import java.util.Locale
 
+/** The check that unlocks signing when a review has unverified amounts. */
+private const val UNVERIFIED_CHECK = "I have checked the unverified input amounts"
+
 /**
- * The Bitcoin review, the counterpart of [TxReviewScreen]: every input and output of the request, the fee and the fee rate, the
- * network and the Script Type, and the warnings the review holds. A warning is shown on the review. HOLD TO SIGN is off while the review
- * asks for a confirmation of its unverified amounts and the owner has not given it. REJECT is always enabled.
+ * The Bitcoin review, the counterpart of [TxReviewScreen]. The header names the network and the account. A sentence says what the
+ * request sends and to whom, and a short list under it gives the fee, the fee rate, the total and the change. Every warning sits in
+ * one banner, and the check on unverified amounts sits inside that banner. Hold to sign is off until the owner ticks it. The inputs,
+ * the outputs and the transaction start collapsed. REJECT is always enabled.
  *
  * [confirmed] is the owner's check of the unverified amounts, and [onConfirmedChange] reports a change of it.
  */
@@ -46,77 +44,69 @@ fun BitcoinReviewScreen(
     /** What the Address Book and the wallet's own accounts say of each output address, keyed by app.lensly.app.addressKeyOf. */
     addressNotes: Map<String, AddressNotes> = emptyMap(),
 ) {
-    LenslyScreen(
-        title = "Bitcoin",
-        modifier = modifier,
-        bottomAction = {
-            if (review.requiresConfirmation) {
-                CheckRow(
-                    label = "I have checked the unverified input amounts",
-                    checked = confirmed,
-                    onCheckedChange = onConfirmedChange,
+    // A different request starts with its details collapsed and its check unticked, so nothing carries over from the last one.
+    key(review) {
+        LenslyScreen(
+            title = "Review",
+            modifier = modifier,
+            bottomAction = {
+                ReviewActions(
+                    hint = if (review.requiresConfirmation && !confirmed) "Tick the checkbox above to sign" else null,
+                    approvable = !review.requiresConfirmation || confirmed,
+                    onApprove = onApprove,
+                    onReject = onReject,
                 )
+            },
+        ) {
+            ReviewChips(
+                network = networkName(network),
+                testnet = network == BtcNetwork.TESTNET4,
+                account = "Account $accountIndex",
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            ReviewSummary(sentence = btcSentence(review, addressNotes), facts = btcFacts(review))
+            Spacer(Modifier.height(LenslySpacing.md))
+            RiskBanner(items = btcRiskItems(review, confirmed, onConfirmedChange))
+            Spacer(Modifier.height(LenslySpacing.md))
+            DetailsSection(title = "Inputs") {
+                review.inputs.forEach { input ->
+                    ReviewFactRow(label = "Input ${input.index}", value = btcText(input.amountSats))
+                    if (input.ownerPath != null) {
+                        NoteText("Owned by this wallet, so Lensly signs it")
+                    } else {
+                        NoteText("Not owned by this account, so Lensly does not sign it")
+                    }
+                    if (!input.amountVerified) NoteText("Amount not verified against its previous transaction")
+                    Spacer(Modifier.height(LenslySpacing.sm))
+                }
+            }
+            DetailsSection(title = "Outputs") {
+                review.outputs.forEach { output ->
+                    ReviewFactRow(label = "Output ${output.index}", value = btcText(output.amountSats))
+                    val address = output.address
+                    if (address != null) {
+                        ReviewAddress(address = address, notes = addressNotes.notesOf(address), bitcoin = true)
+                    } else {
+                        NoteText("No address. The script is not paid to an address.")
+                    }
+                    if (output.isOwnChange) NoteText("Your change, at change index ${output.changeIndex}")
+                    Spacer(Modifier.height(LenslySpacing.sm))
+                }
+            }
+            DetailsSection(title = "Transaction") {
+                ReviewFactRow(label = "Script type", value = scriptTypeName(scriptType), mono = false)
+                ReviewFactRow(
+                    label = "Fee",
+                    value = review.feeSats?.let { "$it sat" } ?: "Unknown",
+                    mono = review.feeSats != null,
+                )
+                ReviewFactRow(label = "Estimated size", value = "${review.estimatedVsize} vB")
+                NoteText("Estimated from the unsigned request, so the signed size may differ by a few vbytes.")
+                if (review.feeSats == null) {
+                    NoteText("Unknown until every input amount is verified or confirmed.")
+                }
                 Spacer(Modifier.height(LenslySpacing.sm))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
-            ) {
-                RejectPill(onClick = onReject, modifier = Modifier.weight(1f))
-                HoldToSignButton(
-                    enabled = !review.requiresConfirmation || confirmed,
-                    onSign = onApprove,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        },
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-            PillChip(text = networkName(network))
-            PillChip(text = scriptTypeName(scriptType))
-            PillChip(text = "Account $accountIndex")
-        }
-        Spacer(Modifier.height(LenslySpacing.md))
-        review.warnings().forEach { warning ->
-            InlineBanner(message = warningText(warning), tone = BannerTone.Error, title = "Warning")
-            Spacer(Modifier.height(LenslySpacing.sm))
-        }
-        Text(
-            text = "Inputs",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        review.inputs.forEach { input ->
-            FactRow(label = "Input ${input.index}") {
-                MonoText(btcText(input.amountSats))
-                if (input.ownerPath != null) {
-                    NoteText("Owned by this wallet, so Lensly signs it")
-                } else {
-                    MutedText("Not owned by this account, so Lensly does not sign it")
-                }
-                if (!input.amountVerified) MutedText("Amount not verified against its previous transaction")
-            }
-        }
-        Text(
-            text = "Outputs",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        review.outputs.forEach { output ->
-            FactRow(label = "Output ${output.index}") {
-                output.address?.let { AddressText(it, bitcoin = true) } ?: MutedText("No address. The script is not paid to an address.")
-                output.address?.let { address -> addressNotes.notesOf(address)?.let { AddressNotesBlock(it) } }
-                MonoText(btcText(output.amountSats))
-                if (output.isOwnChange) NoteText("Your change, at change index ${output.changeIndex}")
-            }
-        }
-        FactRow(label = "Fee") {
-            MonoText(review.feeSats?.let { "$it sat (${btcText(it)})" } ?: "Unknown")
-            if (review.feeSats == null) MutedText("Unknown until every input amount is verified or confirmed.")
-        }
-        FactRow(label = "Fee rate") {
-            MonoText(review.feeRateSatPerVb?.let { String.format(Locale.ROOT, "%.1f sat/vB", it) } ?: "Unknown")
-            MutedText("Estimated from the unsigned request, so the signed size may differ by a few vbytes.")
         }
     }
 }
@@ -142,6 +132,96 @@ internal fun btcText(sats: Long): String {
     return "$sign${magnitude / SATS_PER_BTC}.${(magnitude % SATS_PER_BTC).toString().padStart(8, '0')} BTC"
 }
 
+/** An amount in BTC with no zeros at its end, for the summary sentence. Only the trailing zeros go, so the value stays exact. */
+internal fun btcShort(sats: Long): String = btcText(sats).removeSuffix(" BTC").trimEnd('0').trimEnd('.') + " BTC"
+
+/** An address shortened to its first and last characters, for the summary sentence. The full address is in the details. */
+internal fun shortAddress(address: String): String =
+    if (address.length <= SHORT_ADDRESS_LIMIT) address else "${address.take(10)}...${address.takeLast(6)}"
+
+/** Sats the request sends to others: every output that is not the wallet's change. */
+internal fun BtcReview.sentToOthersSats(): Long = outputs.filterNot { it.isOwnChange }.sumOf { it.amountSats }
+
+/** Sats the request returns to this Account as change. */
+internal fun BtcReview.changeBackSats(): Long = outputs.filter { it.isOwnChange }.sumOf { it.amountSats }
+
+/** What leaves the wallet: the sats sent to others, plus the fee. Null while the fee is unknown. */
+internal fun BtcReview.totalSats(): Long? = feeSats?.let { sentToOthersSats() + it }
+
+/**
+ * The summary sentence: the verb, the amount sent to others, and the counterparty. A single outside output names its counterparty by
+ * its Address Book name, or else by its short address, and several are counted. A request that pays nothing outside the wallet says so.
+ */
+internal fun btcSentence(review: BtcReview, notes: Map<String, AddressNotes>): AnnotatedString {
+    val others = review.outputs.filterNot { it.isOwnChange }
+    return buildAnnotatedString {
+        when (others.size) {
+            0 -> append("Pay nothing outside this wallet")
+            1 -> {
+                val output = others.single()
+                val address = output.address
+                append("Send ")
+                appendMono(btcShort(output.amountSats))
+                append(" to ")
+                val name = address?.let { notes.notesOf(it)?.shownName() }
+                when {
+                    name != null -> append(name)
+                    address != null -> appendMono(shortAddress(address))
+                    else -> append("a script with no address")
+                }
+            }
+            else -> {
+                append("Send ")
+                appendMono(btcShort(review.sentToOthersSats()))
+                append(" to ${others.size} addresses")
+            }
+        }
+    }
+}
+
+/**
+ * The key/value list under the sentence. The fee, the fee rate and the total are unknown while an input amount is unverified, and they
+ * say so in words. The change back is "None" when the request returns no change.
+ */
+internal fun btcFacts(review: BtcReview): List<ReviewFact> {
+    val fee = review.feeSats
+    val rate = review.feeRateSatPerVb
+    val total = review.totalSats()
+    val change = review.changeBackSats()
+    return listOf(
+        ReviewFact(label = "Network fee", value = fee?.let(::btcText) ?: "Unknown", mono = fee != null),
+        ReviewFact(
+            label = "Fee rate",
+            value = rate?.let { String.format(Locale.ROOT, "%.1f sat/vB", it) } ?: "Unknown",
+            mono = rate != null,
+        ),
+        ReviewFact(label = "Total", value = total?.let(::btcText) ?: "Unknown", mono = total != null),
+        ReviewFact(label = "Change back", value = if (change > 0) btcText(change) else "None", mono = change > 0),
+    )
+}
+
+/**
+ * The rows of the risk banner: each warning of the review, in the order the review holds them. The owner's check on the unverified
+ * amounts sits inside that row, when the review asks for one.
+ */
+private fun btcRiskItems(review: BtcReview, confirmed: Boolean, onConfirmedChange: (Boolean) -> Unit): List<RiskItem> =
+    review.warnings().map { warning ->
+        val check = if (warning is BtcWarning.UnverifiedAmounts && review.requiresConfirmation) {
+            RiskCheck(label = UNVERIFIED_CHECK, checked = confirmed, onCheckedChange = onConfirmedChange)
+        } else {
+            null
+        }
+        RiskItem(text = warningText(warning), tone = warningTone(warning), check = check)
+    }
+
+/**
+ * How severe a warning is. Unverified amounts are red, because a fee cannot be checked while they stand. The rest are amber.
+ */
+internal fun warningTone(warning: BtcWarning): BannerTone = when (warning) {
+    is BtcWarning.UnverifiedAmounts -> BannerTone.Error
+    is BtcWarning.ExternalInputs, is BtcWarning.UnknownChange, is BtcWarning.HighFeeRate, is BtcWarning.HighFeeShare -> BannerTone.Warning
+}
+
 /** The words a warning shows on the review. */
 internal fun warningText(warning: BtcWarning): String = when (warning) {
     is BtcWarning.ExternalInputs -> "${warning.count} input(s) belong to another signer. Lensly does not sign them."
@@ -159,3 +239,6 @@ internal fun warningText(warning: BtcWarning): String = when (warning) {
 }
 
 private const val SATS_PER_BTC = 100_000_000L
+
+/** Addresses longer than this are shortened in the summary sentence. */
+private const val SHORT_ADDRESS_LIMIT = 16
