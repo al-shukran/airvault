@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.theme.LenslyAccent
@@ -106,8 +107,8 @@ internal fun HoldToSignButton(
                 .background(LenslyAccent),
         )
         Text(
-            text = "HOLD TO SIGN",
-            style = MaterialTheme.typography.labelLarge,
+            text = "Hold to sign",
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
             color = if (enabled) LenslyBlack else colors.onSurfaceVariant,
         )
     }
