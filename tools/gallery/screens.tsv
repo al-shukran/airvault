@@ -7,6 +7,7 @@
 app	account_export	Account export	account_export_*
 app	account_profile	Account profile	profile_edit_account*
 app	activity	Activity	activity_records
+app	address_book	Address book	address_book_list address_book_form_*
 app	approved_contracts	Approved contracts	approved_contracts_*
 app	account_name	Account name	account_name_reset_screen
 app	bitcoin_accounts	Bitcoin accounts	bitcoin_app_*
@@ -63,18 +64,23 @@ app	wallet_name	Wallet name	wallet_name_*
 app	wallet_profile	Wallet profile	profile_edit_wallet
 app	wallet_start	Wallet start	wallet_start_screen
 app	wallets	Wallets	wallets_*
-lumio	home	Home	home_empty home_wallet_mainnet home_wallet_testnet
+lumio	home	Home	home_empty home_testnet home_total_shown home_total_hidden home_sort_sheet
 lumio	ethereum_portfolio	Ethereum portfolio	ethereum_portfolio ethereum_portfolio_empty ethereum_portfolio_loading ethereum_portfolio_error
 lumio	bitcoin_portfolio	Bitcoin portfolio	bitcoin_portfolio bitcoin_portfolio_testnet bitcoin_portfolio_empty bitcoin_portfolio_loading bitcoin_portfolio_error
 lumio	bitcoin_account	Bitcoin account	bitcoin_account
+lumio	asset	Asset page	asset_*
 lumio	ethereum_send	Ethereum send	ethereum_send_form ethereum_send_review ethereum_send_review_error ethereum_send_sign_request
 lumio	ethereum_broadcast	Ethereum broadcast	ethereum_broadcast_*
 lumio	bitcoin_send	Bitcoin send	bitcoin_send_form bitcoin_send_review bitcoin_send_review_error bitcoin_send_sign_request
 lumio	bitcoin_broadcast	Bitcoin broadcast	bitcoin_broadcast_*
-lumio	settings	Settings	settings
+lumio	ethereum_token_send	Token send	ethereum_token_send_*
+lumio	advanced_sheet	Advanced sheet	bitcoin_advanced_sheet ethereum_advanced_sheet ethereum_advanced_sheet_error
+lumio	transactions	Transactions	transactions_*
+lumio	transaction_detail	Transaction detail	transaction_detail*
+lumio	settings	Settings	settings settings_entry_gesture
 lumio	address_book	Address book	address_book address_book_empty
 lumio	evm	Ethereum settings and custom chains	evm_settings_custom_chain evm_add_custom_chain_dialog evm_edit_rpc_dialog
-lumio	data_providers	Data providers	data_providers data_providers_statuses
+lumio	data_providers	Data providers	data_providers data_providers_statuses data_providers_prices
 lumio	licences	Third-party licences	licences licences_loading
 lumio	network_switch	Network controls	network_switch_mainnet network_switch_testnet_banner
 lumio	pair_scan	Pair scan	pair_scan_idle pair_scan_reading
