@@ -15,6 +15,7 @@ app	bitcoin_policy	Bitcoin policy	bitcoin_policy_*
 app	bitcoin_review	Bitcoin review	bitcoin_review_*
 app	bulk_generate	Bulk generate	bulk_generate_*
 app	components	Shared components	feedback_states inline_banners screen_frame_with_buttons
+app	setting_controls	Setting controls	setting_controls_*
 app	camera	Camera	camera_*
 app	ceremony_choice	Ceremony choice	ceremony_choice*
 app	ceremony_result	Ceremony result	ceremony_result
