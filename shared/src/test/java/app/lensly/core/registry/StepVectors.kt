@@ -502,4 +502,24 @@ internal object StepVectors {
         "0000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000b2617246d0c6c0087f1870" +
         "3d576831899ca94f0100000000000000000000000000000000000000000000000000000000"
 
+    /**
+     * Compound V3 supplyTo: 9,301 USDC to the base market, credited to 0xC5Cd…Cc46, which is not the sender.
+     * Transaction 0xd5d495126cd5a39ac6ef549f60e246c3b38c704c0736a8f2f2aa510a04231cbb, from 0x399ee7da8beeacf852a4f578de2cb340abddbdb4.
+     * Block 26400105, status ok, read from the RPC node and matched to the explorer.
+     */
+    const val COMPOUND_SUPPLY_TO_USDC =
+        "0x4232cd63000000000000000000000000c5cd3abe92d857ecfb73e86de0f8a3ed3239cc460000000000000000000000" +
+        "00a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000" +
+        "022a61ff40"
+
+    /**
+     * Compound V3 withdrawFrom: all USDC of 0x02D2…4113, paid to the sender, which the account lets act for it.
+     * Transaction 0x4680103d85d05986c8a589dd6478fca79b496b9eebb00ffa853d03764554fb48, from 0x6567ce7829a9d7037722b1aca8b50fab4716d58f.
+     * Block 26186550, status ok in the explorer. The RPC node does not serve this receipt, so only the explorer copy is checked.
+     */
+    const val COMPOUND_WITHDRAW_FROM_USDC =
+        "0x2644131800000000000000000000000002d2c77cc1dc1e5656f40489c7b8df62474d41130000000000000000000000" +
+        "006567ce7829a9d7037722b1aca8b50fab4716d58f000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0" +
+        "ce3606eb48ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+
 }

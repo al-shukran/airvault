@@ -739,6 +739,24 @@
   },
   {
     "chainId": 1,
+    "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+    "selector": "0x4232cd63",
+    "contractChecksum": "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+    "source": "https://github.com/compound-finance/comet/blob/f766f51583c23acc33b2a7824654ef2029a96804/contracts/CometMainInterface.sol",
+    "implementationChecksum": "0x0B07565A8ef48170e15918b251EbD95109B23255",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+    "selector": "0x26441318",
+    "contractChecksum": "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+    "source": "https://github.com/compound-finance/comet/blob/f766f51583c23acc33b2a7824654ef2029a96804/contracts/CometMainInterface.sol",
+    "implementationChecksum": "0x0B07565A8ef48170e15918b251EbD95109B23255",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
     "contract": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
     "selector": "0xc3b35a7e",
     "contractChecksum": "0xA17581A9E3356d9A858b789D68B4d866e593aE94",

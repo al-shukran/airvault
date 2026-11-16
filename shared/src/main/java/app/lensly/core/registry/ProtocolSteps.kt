@@ -10,7 +10,8 @@ import java.math.BigInteger
  *
  * Aave's interest rate mode 2 is variable and 1 is stable, and any other mode is shown with a warning, since the pool reverts on it. An
  * amount of 2^256 - 1 is the whole balance for a withdrawal or a repayment, and it is shown as "all". The permit variants of the Aave pool,
- * the Aave WETH gateway, the Compound withdrawal to another account, and the Lido withdrawal queue are approved on Ethereum only.
+ * the Aave WETH gateway, the Compound calls that move a balance to or from another account, and the Lido withdrawal queue are approved on
+ * Ethereum only.
  */
 internal object ProtocolSteps {
     /** A call the approval names: its signature, and the steps it reads. */
@@ -173,6 +174,34 @@ internal object ProtocolSteps {
         },
     )
 
+    /**
+     * The calls that move a Compound market balance to or from another account, approved on Ethereum. Each names the account it pays or
+     * takes from, and the review warns when that account is not the signer.
+     */
+    private fun compoundAccounts(market: CompoundMarket): Map<String, Known> = mapOf(
+        "0x4232cd63" to Known("supplyTo(address,address,uint256)") { c ->
+            val dst = c.address(0)
+            val asset = c.address(1)
+            val collateral = if (asset == market.base) "" else " as collateral"
+            val recipient = if (dst == c.from) "" else " for ${shortAddress(dst)}"
+            val warnings = if (dst == c.from) emptyList() else listOf("This supplies to ${shortAddress(dst)}, not you")
+            CallSteps(listOf("Supply ${c.amount(c.uint(2), asset)}$collateral to Compound V3 (${market.symbol})$recipient"), warnings)
+        },
+        "0x26441318" to Known("withdrawFrom(address,address,address,uint256)") { c ->
+            val src = c.address(0)
+            val to = c.address(1)
+            val asset = c.address(2)
+            val collateral = if (asset == market.base) "" else " collateral"
+            val account = if (src == c.from) "" else " of ${shortAddress(src)}"
+            val line = "Withdraw ${amountOrAll(c, c.uint(3), asset)}$collateral from Compound V3 (${market.symbol})$account to ${c.who(to)}"
+            val warnings = buildList {
+                if (src != c.from) add("This withdraws from ${shortAddress(src)}, not you")
+                if (to != c.from) add("This withdraws to ${shortAddress(to)}, not you")
+            }
+            CallSteps(listOf(line), warnings)
+        },
+    )
+
     private val LIDO: Map<String, Known> = mapOf(
         "0xa1903eab" to Known("submit(address)") { c ->
             val referral = c.address(0)
@@ -233,7 +262,7 @@ internal object ProtocolSteps {
         put(1L to AAVE_POOL_MAINNET, AAVE + AAVE_PERMIT)
         put(1L to AAVE_WETH_GATEWAY, AAVE_GATEWAY)
         COMPOUND_MARKETS.forEach { (key, market) ->
-            put(key, compound(market) + if (key.first == 1L) compoundWithdrawTo(market) else emptyMap())
+            put(key, compound(market) + if (key.first == 1L) compoundWithdrawTo(market) + compoundAccounts(market) else emptyMap())
         }
         WRAPPED_NATIVE.forEach { put(it, WRAPPED) }
         put(1L to LIDO_CONTRACT, LIDO)
