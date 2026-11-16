@@ -19,6 +19,7 @@ import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallets
 import app.lumio.queueScans
 import app.lumio.rowsOf
+import app.lumio.tokens.CustomTokenStore
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenPortfolio
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +42,9 @@ internal object HomeLoader {
         val tokensOf = app.tokensFor(session)
         val tokenCache = TokenBalanceCache.read(session)
         val tokens = wallets.flatMap { TokenPortfolio.holdings(it, settings.addressCount, chains, tokensOf, tokenCache) }
-        HomeBalances.evm(chains, holdings) + HomeBalances.bitcoin(bitcoinRows(app, session, mode)) + HomeBalances.tokens(tokens)
+        val owned = CustomTokenStore.read(session)
+        HomeBalances.evm(chains, holdings) + HomeBalances.bitcoin(bitcoinRows(app, session, mode)) +
+            HomeBalances.tokens(tokens, isKnown = app::isKnownToken, isCustom = { network, contract -> CustomTokenStore.holds(owned, network, contract) })
     }
 
     /** The prices of the coins of [assets], keyed by asset. An asset with no price, or whose sources do not answer, is absent. */

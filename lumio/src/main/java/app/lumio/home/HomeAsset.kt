@@ -47,7 +47,8 @@ data class NativeAsset(
 
 /**
  * An ERC-20 token on one EVM network, summed over the wallets and addresses that hold it. [contract] is its lowercase contract address, and [name] is
- * the network's name, as it is for a native coin. Its price is applied by [HomeAssets.priced] from its contract.
+ * the network's name, as it is for a native coin. Its price is applied by [HomeAssets.priced] from its contract. [known] is false for a token that neither the
+ * registry nor the bundled default list names: the owner added it, or someone else sent it. [custom] is true for a token the owner added to the list.
  */
 data class TokenAsset(
     override val id: String,
@@ -58,6 +59,8 @@ data class TokenAsset(
     override val balance: BigDecimal,
     override val usd: Double? = null,
     override val change24h: Double? = null,
+    val known: Boolean = true,
+    val custom: Boolean = false,
 ) : HomeAsset {
     override val testnet: Boolean get() = network.testnet
     override val assetId: AssetId get() = AssetId.Erc20(network, contract)
@@ -76,6 +79,17 @@ object HomeAssets {
      */
     fun visible(assets: List<HomeAsset>, minimumUsd: Double): List<HomeAsset> =
         assets.filter { asset -> asset.usd?.let { it >= minimumUsd } ?: true }
+
+    /**
+     * [assets] without the spam, when [hideSpam] is on. Spam is a mainnet token that neither the registry nor the default list names, that the owner did
+     * not add, and that has no price. A price means a market trades the token, so a priced token stays. A testnet token never has a price, and a
+     * token the owner added is theirs, so both stay, and so does every coin that Lumio knows.
+     */
+    fun withoutSpam(assets: List<HomeAsset>, hideSpam: Boolean): List<HomeAsset> =
+        if (!hideSpam) assets else assets.filter { !isSpam(it) }
+
+    private fun isSpam(asset: HomeAsset): Boolean =
+        asset is TokenAsset && !asset.known && !asset.custom && !asset.testnet && asset.usd == null
 
     /**
      * The assets in the order [sort] gives. An asset that lacks the sort value, an unpriced asset or one with no 24-hour change, comes after the others

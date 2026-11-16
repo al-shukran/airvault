@@ -59,7 +59,11 @@ object HomeBalances {
      * The ERC-20 tokens of [holdings], summed over the wallets and addresses that hold each one on its chain. A token whose sum is zero is not an
      * asset, so Home lists only the tokens the owner holds.
      */
-    fun tokens(holdings: List<TokenHolding>): List<TokenAsset> = holdings
+    fun tokens(
+        holdings: List<TokenHolding>,
+        isKnown: (NetworkId, String) -> Boolean = { _, _ -> true },
+        isCustom: (NetworkId, String) -> Boolean = { _, _ -> false },
+    ): List<TokenAsset> = holdings
         .groupBy { it.chain.chainId to it.token.contract }
         .values
         .map { reads ->
@@ -73,6 +77,8 @@ object HomeBalances {
                 network = network,
                 contract = first.token.contract,
                 balance = BigDecimal(units).movePointLeft(first.token.decimals),
+                known = isKnown(network, first.token.contract),
+                custom = isCustom(network, first.token.contract),
             )
         }
         .filter { it.balance.signum() > 0 }

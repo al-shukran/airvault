@@ -102,6 +102,7 @@ suspend fun scanAccount(
     memo: ConcurrentMap<String, EsploraAddressStats> = ConcurrentHashMap(),
     detail: Boolean = false,
     step: suspend (Int) -> Unit = {},
+    onTxs: suspend (address: String, txs: List<EsploraTx>, tipHeight: Long) -> Unit = { _, _, _ -> },
 ): BtcSnapshot = coroutineScope {
     val account = ref.account
     val net = account.network.networkId()
@@ -131,11 +132,13 @@ suspend fun scanAccount(
     val recent: List<BtcTx> = if (!detail) emptyList() else {
         val txs = LinkedHashMap<String, EsploraTx>()
         for (address in owned) {
-            scheduler.run(
+            val listed = scheduler.run(
                 AddressTxs(net, address),
                 priority,
                 CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "txs/${net.chain}/$address", jsonCodec()),
-            ).forEach { txs.putIfAbsent(it.txid, it) }
+            )
+            onTxs(address, listed, tipHeight)
+            listed.forEach { txs.putIfAbsent(it.txid, it) }
         }
         txs.values
             .map { tx -> BtcTx(tx.txid, netSats(tx, owned), tx.blockHeight, tx.blockTimeSec) }
