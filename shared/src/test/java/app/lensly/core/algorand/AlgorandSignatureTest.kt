@@ -1,6 +1,6 @@
 package app.lensly.core.algorand
 
-import app.lensly.core.solana.SolanaSigner
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.toHex
 import kotlin.test.assertContentEquals
@@ -24,10 +24,10 @@ class AlgorandSignatureTest {
         val key = LedgerEd25519.algorandAccount(seed(), 0)
         try {
             assertEquals(ACCOUNT_0_PUBLIC_KEY, key.publicKey.toHex())
-            val signature = SolanaSigner.sign(key.kL, signed)
-            assertEquals(SolanaSigner.SIGNATURE_BYTES, signature.size)
-            assertTrue(SolanaSigner.verify(key.publicKey, signed, signature))
-            assertTrue(SolanaSigner.verify(hexToBytes(ACCOUNT_0_PUBLIC_KEY), signed, signature))
+            val signature = Ed25519Signer.sign(key.kL, signed)
+            assertEquals(Ed25519Signer.SIGNATURE_BYTES, signature.size)
+            assertTrue(Ed25519Signer.verify(key.publicKey, signed, signature))
+            assertTrue(Ed25519Signer.verify(hexToBytes(ACCOUNT_0_PUBLIC_KEY), signed, signature))
         } finally {
             key.wipe()
         }
@@ -40,9 +40,9 @@ class AlgorandSignatureTest {
         val key = LedgerEd25519.algorandAccount(seed(), 0)
         val other = LedgerEd25519.algorandAccount(seed(), 1)
         try {
-            val signature = SolanaSigner.sign(key.kL, signed)
-            assertFalse(SolanaSigner.verify(other.publicKey, signed, signature))
-            assertFalse(SolanaSigner.verify(key.publicKey, payment.raw, signature))
+            val signature = Ed25519Signer.sign(key.kL, signed)
+            assertFalse(Ed25519Signer.verify(other.publicKey, signed, signature))
+            assertFalse(Ed25519Signer.verify(key.publicKey, payment.raw, signature))
         } finally {
             key.wipe()
             other.wipe()

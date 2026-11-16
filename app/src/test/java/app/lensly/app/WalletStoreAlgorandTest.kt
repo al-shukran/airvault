@@ -5,7 +5,7 @@ import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.algorand.AlgorandRequestCheck
 import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.bytesToSign
-import app.lensly.core.solana.SolanaSigner
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.ur.PathStep
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
@@ -165,7 +165,7 @@ class WalletStoreAlgorandTest {
 
         val signature = store.algorandSign(id, review)
 
-        assertTrue(SolanaSigner.verify(store.algorandKeys(id).single(), bytesToSign(review.signData), signature))
+        assertTrue(Ed25519Signer.verify(store.algorandKeys(id).single(), bytesToSign(review.signData), signature))
     }
 
     @Test

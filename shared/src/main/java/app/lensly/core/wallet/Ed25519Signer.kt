@@ -1,14 +1,16 @@
-package app.lensly.core.solana
+package app.lensly.core.wallet
 
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
-import org.bouncycastle.crypto.signers.Ed25519Signer
+import org.bouncycastle.crypto.signers.Ed25519Signer as BcEd25519Signer
 
 /**
- * Ed25519 for Solana. A Solana signature is the Ed25519 signature of the message bytes as they are, with no prefix and no hash. The
- * private key is the 32-byte SLIP-0010 key of the account ([app.lensly.core.wallet.Slip10Ed25519]). Nothing here keeps a key.
+ * Ed25519 for every chain that signs with it. The signature is over the bytes as they are, with no prefix and no hash: a Solana
+ * signature covers the message bytes, and an Algorand signature covers "TX" followed by the transaction bytes ([bytesToSign]). The
+ * private key is 32 bytes: the SLIP-0010 key of a Solana account ([Slip10Ed25519]), or the kL of an Algorand account
+ * ([app.lensly.core.algorand.LedgerEd25519]). Nothing here keeps a key.
  */
-object SolanaSigner {
+object Ed25519Signer {
     /** The size of an Ed25519 private key or public key. */
     const val KEY_BYTES = 32
 
@@ -21,7 +23,7 @@ object SolanaSigner {
      */
     fun sign(privateKey: ByteArray, message: ByteArray): ByteArray {
         require(privateKey.size == KEY_BYTES) { "An Ed25519 private key is 32 bytes." }
-        val signer = Ed25519Signer()
+        val signer = BcEd25519Signer()
         signer.init(true, Ed25519PrivateKeyParameters(privateKey, 0))
         signer.update(message, 0, message.size)
         return signer.generateSignature()
@@ -36,7 +38,7 @@ object SolanaSigner {
     /** True when [signature] is the Ed25519 signature of [message] by [publicKey]. A malformed key or signature is false. */
     fun verify(publicKey: ByteArray, message: ByteArray, signature: ByteArray): Boolean {
         if (publicKey.size != KEY_BYTES || signature.size != SIGNATURE_BYTES) return false
-        val verifier = Ed25519Signer()
+        val verifier = BcEd25519Signer()
         verifier.init(false, Ed25519PublicKeyParameters(publicKey, 0))
         verifier.update(message, 0, message.size)
         return verifier.verifySignature(signature)

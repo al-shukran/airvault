@@ -21,7 +21,7 @@ import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.solana.SolanaSigner
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
@@ -654,7 +654,7 @@ class WalletStore(private val session: VaultSession) {
                 val key = node.privateKey()
                 try {
                     if (!node.publicKey().contentEquals(stored)) throw IllegalArgumentException(SOLANA_KEY_MISMATCH)
-                    SolanaSigner.sign(key, message)
+                    Ed25519Signer.sign(key, message)
                 } finally {
                     key.fill(0)
                 }
@@ -668,7 +668,7 @@ class WalletStore(private val session: VaultSession) {
      * Signs the reviewed Algorand [review] with the account it was reviewed under, and returns the 64-byte Ed25519 signature of "TX"
      * followed by the reviewed bytes. The seed and the key are zeroed before this returns. The derived key must be the public key the
      * wallet stores for that account, and the review must name that key, or nothing is signed. BouncyCastle keeps its own copy of the
-     * key, as [SolanaSigner] notes.
+     * key, as [Ed25519Signer] notes.
      *
      * @throws IllegalArgumentException when the wallet has no such Algorand account, the review names another key, or the derived key
      * is not the stored key.
@@ -681,7 +681,7 @@ class WalletStore(private val session: VaultSession) {
             val key = LedgerEd25519.algorandAccount(seed, review.accountIndex)
             try {
                 if (!key.publicKey.contentEquals(stored)) throw IllegalArgumentException(ALGORAND_KEY_MISMATCH)
-                return SolanaSigner.sign(key.kL, bytesToSign(review.signData))
+                return Ed25519Signer.sign(key.kL, bytesToSign(review.signData))
             } finally {
                 key.wipe()
             }

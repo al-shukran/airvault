@@ -3,7 +3,7 @@ package app.lumio.send.solana
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaMessage
 import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.solana.SolanaSigner
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaTransaction
 import app.lensly.core.solana.SolanaTransfer
 import app.lensly.core.ur.PathStep
@@ -188,11 +188,11 @@ class SolanaSendTest {
     @Test
     fun aSignatureFromLensOverThePlanIsAssembledIntoTheSignedTransaction() {
         val plan = plan()
-        val signature = SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)
+        val signature = Ed25519Signer.sign(privateKeyOf(accountIndex), plan.message)
 
         val signed = SolanaSend.signed(plan, answerOf(requestId, signature))
 
-        assertEquals(SolanaSigner.SIGNATURE_BYTES, signature.size)
+        assertEquals(Ed25519Signer.SIGNATURE_BYTES, signature.size)
         assertEquals(Base58.encode(signature), signed.signature)
         assertContentEquals(SolanaTransaction.signed(listOf(signature), plan.message), signed.raw)
     }
@@ -200,7 +200,7 @@ class SolanaSendTest {
     @Test
     fun aSignatureForAnotherRequestIsRefused() {
         val plan = plan()
-        val signature = SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)
+        val signature = Ed25519Signer.sign(privateKeyOf(accountIndex), plan.message)
         val otherRequest = ByteArray(16) { 0x33 }
 
         val refusal = assertFailsWith<IllegalArgumentException> { SolanaSend.signed(plan, answerOf(otherRequest, signature)) }
@@ -211,7 +211,7 @@ class SolanaSendTest {
     @Test
     fun aSignatureByAnotherKeyIsRefusedBeforeAnythingIsSent() {
         val plan = plan()
-        val byAccountZero = SolanaSigner.sign(privateKeyOf(0), plan.message)
+        val byAccountZero = Ed25519Signer.sign(privateKeyOf(0), plan.message)
 
         val refusal = assertFailsWith<IllegalArgumentException> { SolanaSend.signed(plan, answerOf(requestId, byAccountZero)) }
 
@@ -222,7 +222,7 @@ class SolanaSendTest {
     @Test
     fun aSignatureOverOtherBytesIsRefusedEvenByTheRightKey() {
         val plan = plan()
-        val overOtherBytes = SolanaSigner.sign(privateKeyOf(accountIndex), plan.message + byteArrayOf(0))
+        val overOtherBytes = Ed25519Signer.sign(privateKeyOf(accountIndex), plan.message + byteArrayOf(0))
 
         assertFailsWith<IllegalArgumentException> { SolanaSend.signed(plan, answerOf(requestId, overOtherBytes)) }
     }
@@ -239,7 +239,7 @@ class SolanaSendTest {
     @Test
     fun theSignedTransactionIsSentAsBase64AndItsSignatureIsConfirmed() = runBlocking {
         val plan = plan()
-        val signed = SolanaSend.signed(plan, answerOf(requestId, SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)))
+        val signed = SolanaSend.signed(plan, answerOf(requestId, Ed25519Signer.sign(privateKeyOf(accountIndex), plan.message)))
         server.enqueue(answer("\"${signed.signature}\""))
 
         val reported = SolanaSend.broadcast(scheduler(), SOLANA_DEVNET, signed)
@@ -256,7 +256,7 @@ class SolanaSendTest {
     @Test
     fun aNetworkThatReportsAnotherSignatureIsNotTrusted() {
         val plan = plan()
-        val signed = SolanaSend.signed(plan, answerOf(requestId, SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)))
+        val signed = SolanaSend.signed(plan, answerOf(requestId, Ed25519Signer.sign(privateKeyOf(accountIndex), plan.message)))
         server.enqueue(answer("\"${"2".repeat(88)}\""))
 
         runBlocking {
@@ -267,7 +267,7 @@ class SolanaSendTest {
     @Test
     fun anExpiredBlockhashIsReportedWithTheWordsForTheOwner() = runBlocking {
         val plan = plan()
-        val signed = SolanaSend.signed(plan, answerOf(requestId, SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)))
+        val signed = SolanaSend.signed(plan, answerOf(requestId, Ed25519Signer.sign(privateKeyOf(accountIndex), plan.message)))
         server.enqueue(
             MockResponse().setBody(
                 """{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Transaction simulation failed: Blockhash not found","data":{}}}""",

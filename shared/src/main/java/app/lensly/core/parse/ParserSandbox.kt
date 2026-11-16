@@ -1,5 +1,7 @@
 package app.lensly.core.parse
 
+import app.lensly.core.algorand.AlgoTxnDecoder
+import app.lensly.core.algorand.AlgoTxnException
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.evm.TypedDataParser
 import app.lensly.core.evm.UnsignedTx
@@ -8,6 +10,8 @@ import app.lensly.core.registry.AbiDecoder
 import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.solana.SolanaMessage
+import app.lensly.core.ur.AlgoSignRequest
+import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.SolSignRequest
@@ -51,6 +55,12 @@ sealed interface ScanReply {
      * is a transaction, so a request that does not parse never gets here.
      */
     data class Solana(val payload: ByteArray) : ScanReply
+
+    /**
+     * The new text completes a `ur:algo-sign-request`. [payload] is its CBOR. The sandbox has parsed it, and has read its transaction when
+     * it is one, so a request that does not parse never gets here.
+     */
+    data class Algorand(val payload: ByteArray) : ScanReply
 
     /** The request cannot be read. [reason] says why, in plain words. */
     data class Refused(val reason: String) : ScanReply
@@ -98,6 +108,7 @@ object InProcessParser : RequestParser {
         val ur = scanner.result() ?: return ScanReply.Incomplete(scanner.progress)
         if (ur.type == BtcPsbt.UR_TYPE) return bitcoinReply(ur)
         if (ur.type == SolSignRequest.UR_TYPE) return solanaReply(ur)
+        if (ur.type == AlgoSignRequest.UR_TYPE) return algorandReply(ur)
         if (ur.type != EthSignRequest.UR_TYPE) return ScanReply.Refused(UNSUPPORTED_CODE)
         return when (val decoded = EthSignRequest.decode(ur.cborBytes)) {
             is EthSignRequest.Result.Ok -> ScanReply.Complete(parsedOf(decoded.request))
@@ -128,6 +139,25 @@ object InProcessParser : RequestParser {
             (SolanaMessage.decode(request.signData) as? SolanaMessage.Result.Rejected)?.let { return ScanReply.Refused(it.reason) }
         }
         return ScanReply.Solana(ur.cborBytes)
+    }
+
+    /**
+     * The reply for a complete `ur:algo-sign-request`: its CBOR, when the request parses and, for a transaction, the transaction decodes
+     * too. Otherwise the reason it is refused. A message is answered without a transaction read, and the review refuses it.
+     */
+    private fun algorandReply(ur: UR): ScanReply {
+        val request = when (val decoded = AlgoSignRequest.decode(ur.cborBytes)) {
+            is AlgoSignRequest.Result.Ok -> decoded.request
+            is AlgoSignRequest.Result.Rejected -> return ScanReply.Refused(decoded.reason)
+        }
+        if (request.signType == AlgoSignType.TRANSACTION) {
+            try {
+                AlgoTxnDecoder.decode(request.signData)
+            } catch (e: AlgoTxnException) {
+                return ScanReply.Refused(e.message ?: "The transaction could not be read.")
+            }
+        }
+        return ScanReply.Algorand(ur.cborBytes)
     }
 
     /**

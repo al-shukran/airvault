@@ -1,5 +1,6 @@
 package app.lensly.ui.flow
 
+import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
@@ -12,8 +13,9 @@ import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.solana.SolanaSigner
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaWarning
+import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignatureEncoder
@@ -52,7 +54,7 @@ class SignFlowSolanaTest {
         flow.confirm("the password".toCharArray())
 
         val signature = assertIs<SignStep.Signature>(flow.state.value).parts
-        assertTrue(SolanaSigner.verify(SOLANA_KEYS[0], transfer(), signatureOf(signature)))
+        assertTrue(Ed25519Signer.verify(SOLANA_KEYS[0], transfer(), signatureOf(signature)))
         assertEquals(listOf(ReviewOutcome.SIGNED), ports.records.map { it.outcome })
         assertEquals(1, ports.signCalls)
     }
@@ -181,7 +183,7 @@ class SignFlowSolanaTest {
             signCalls++
             val key = SolanaAccount.node(SEED, ready.review.accountIndex).use { it.privateKey() }
             try {
-                val signature = SolanaSigner.sign(key, ready.request.signData)
+                val signature = Ed25519Signer.sign(key, ready.request.signData)
                 return partsOf(SolSignatureEncoder.encode(assertNotNull(ready.request.requestId), signature))
             } finally {
                 key.fill(0)
@@ -191,6 +193,15 @@ class SignFlowSolanaTest {
         override suspend fun recordSolana(entry: SolanaReviewEntry) {
             records += entry
         }
+
+        override suspend fun algorandPrepare(walletId: String, request: AlgoSignRequest): AlgorandPrepared =
+            error("an Algorand request is not expected in the Solana tests")
+
+        override suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String> =
+            error("an Algorand request is not expected in the Solana tests")
+
+        override suspend fun recordAlgorand(entry: AlgorandReviewEntry): Unit =
+            error("an Algorand request is not expected in the Solana tests")
     }
 
     private companion object {
