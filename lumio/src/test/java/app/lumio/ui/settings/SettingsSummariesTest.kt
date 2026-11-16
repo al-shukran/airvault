@@ -34,6 +34,13 @@ class SettingsSummariesTest {
     }
 
     @Test
+    fun theWalletsRowCountsThePairedWallets() {
+        assertEquals("No wallets paired", walletsSummary(0))
+        assertEquals("1 wallet paired", walletsSummary(1))
+        assertEquals("3 wallets paired", walletsSummary(3))
+    }
+
+    @Test
     fun theAddressBookRowCountsWalletsAndAddresses() {
         assertEquals("No wallets paired", addressBookSummary(wallets = 0, addresses = 0))
         assertEquals("1 wallet · 1 saved address", addressBookSummary(wallets = 1, addresses = 1))
@@ -88,6 +95,7 @@ class SettingsSummariesTest {
                 SettingsPage.TRANSACTIONS,
                 SettingsPage.NETWORKS,
                 SettingsPage.PROVIDERS,
+                SettingsPage.WALLETS,
                 SettingsPage.ADDRESS_BOOK,
                 SettingsPage.SECURITY,
                 SettingsPage.ABOUT,
@@ -102,7 +110,7 @@ class SettingsSummariesTest {
 
         assertEquals(SettingsPage.DEVELOPER, rows.last().page)
         assertEquals("Demo portfolio on", rows.last().summary)
-        assertEquals(8, rows.size)
+        assertEquals(9, rows.size)
     }
 
     @Test

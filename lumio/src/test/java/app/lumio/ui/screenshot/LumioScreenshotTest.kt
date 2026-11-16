@@ -3,6 +3,7 @@ package app.lumio.ui.screenshot
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.app.export.PairingAccount
@@ -17,8 +18,12 @@ import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.camera.EntryGesture
+import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.screenshot.snapshot
+import app.lensly.ui.settings.ChangePasswordScreen
+import app.lensly.ui.settings.ChangePasswordState
+import app.lensly.ui.settings.ChangeStep
 import app.lensly.ui.theme.LenslyBlack
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcRow
@@ -54,6 +59,7 @@ import app.lumio.tokens.Token
 import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.settings.BitcoinServersSettings
 import app.lumio.ui.settings.AboutSettingsPage
+import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
 import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.ui.settings.DisplaySettingsPage
@@ -67,6 +73,7 @@ import app.lumio.ui.settings.SecuritySettingsPage
 import app.lumio.ui.settings.SettingsFacts
 import app.lumio.ui.settings.TransactionsSettingsPage
 import app.lumio.ui.settings.WalletsSettings
+import app.lumio.ui.settings.WalletsSettingsPage
 import app.lumio.ui.settings.settingsRows
 import java.io.File
 import java.math.BigDecimal
@@ -311,6 +318,12 @@ class LumioScreenshotTest {
         )
     }
 
+    /** The App Password change screen as Lumio opens it. The screen takes no input in a golden, so its callbacks do nothing. */
+    @Composable
+    private fun LumioChangePasswordScreen(state: ChangePasswordState) {
+        ChangePasswordScreen(state = state, onKey = {}, onBackspace = {}, onSubmit = {}, onBack = {}, onDone = {})
+    }
+
     /** The top-level list: one row per page with its state, and the Developer row last, as the debug build shows it. */
     @Test
     fun settings() = compose.snapshot("settings") {
@@ -330,6 +343,7 @@ class LumioScreenshotTest {
                 developer = "Demo portfolio on",
             ),
             onOpen = {},
+            onBack = {},
         )
     }
 
@@ -387,15 +401,27 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsAddressBook() = compose.snapshot("settings_address_book") {
-        AddressBookSettingsPage(
+    fun settingsWallets() = compose.snapshot("settings_wallets") {
+        WalletsSettingsPage(
             onBack = {},
             wallets = {
                 WalletsSettings(
                     wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evm = null, bitcoin = emptyList())),
                     onPair = {},
-                    onAddressBook = {},
                     onDelete = {},
+                )
+            },
+        )
+    }
+
+    @Test
+    fun settingsAddressBook() = compose.snapshot("settings_address_book") {
+        AddressBookSettingsPage(
+            onBack = {},
+            wallets = {
+                AddressBookRows(
+                    wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evm = null, bitcoin = emptyList())),
+                    onAddressBook = {},
                 )
             },
         )
@@ -407,6 +433,7 @@ class LumioScreenshotTest {
             entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
             lock = LockSettings(),
             onEntryGesture = {},
+            onChangePassword = {},
             onIdleMinutes = {},
             onLockWhenSwitching = {},
             onBack = {},
@@ -419,10 +446,27 @@ class LumioScreenshotTest {
             entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
             lock = LockSettings(idleMinutes = 5, lockWhenSwitchingApps = true),
             onEntryGesture = {},
+            onChangePassword = {},
             onIdleMinutes = {},
             onLockWhenSwitching = {},
             onBack = {},
         )
+    }
+
+    /** The App Password change that Security opens: its first step, a refused new password, and the finished change. */
+    @Test
+    fun settingsChangePassword() = compose.snapshot("settings_change_password") {
+        LumioChangePasswordScreen(ChangePasswordState(step = ChangeStep.Current, length = 6))
+    }
+
+    @Test
+    fun settingsChangePasswordRefused() = compose.snapshot("settings_change_password_refused") {
+        LumioChangePasswordScreen(ChangePasswordState(step = ChangeStep.New, length = 4, error = PolicyError.TooShort))
+    }
+
+    @Test
+    fun settingsChangePasswordChanged() = compose.snapshot("settings_change_password_changed") {
+        LumioChangePasswordScreen(ChangePasswordState(changed = true))
     }
 
     @Test

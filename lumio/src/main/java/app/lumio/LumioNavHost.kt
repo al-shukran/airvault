@@ -43,14 +43,18 @@ internal object LumioRoute {
     const val DATA_PROVIDERS = "settings/providers"
     const val LICENCES = "settings/licences"
 
-    /** The pages of the settings list below the list: Display, Transactions, Networks, the address books, Security, About and Developer. */
+    /** The pages of the settings list below the list: Display, Transactions, Networks, Wallets, the address books, Security, About and Developer. */
     const val SETTINGS_DISPLAY = "settings/display"
     const val SETTINGS_TRANSACTIONS = "settings/transactions"
     const val SETTINGS_NETWORKS = "settings/networks"
+    const val SETTINGS_WALLETS = "settings/wallets"
     const val SETTINGS_ADDRESSES = "settings/addresses"
     const val SETTINGS_SECURITY = "settings/security"
     const val SETTINGS_ABOUT = "settings/about"
     const val SETTINGS_DEVELOPER = "settings/developer"
+
+    /** The App Password change, opened from the Security page. */
+    const val CHANGE_PASSWORD = "settings/security/password"
 
     /** The route of the settings page [page]. Data providers keeps its own route, as its screen does. */
     fun settingsPage(page: SettingsPage): String = when (page) {
@@ -58,6 +62,7 @@ internal object LumioRoute {
         SettingsPage.TRANSACTIONS -> SETTINGS_TRANSACTIONS
         SettingsPage.NETWORKS -> SETTINGS_NETWORKS
         SettingsPage.PROVIDERS -> DATA_PROVIDERS
+        SettingsPage.WALLETS -> SETTINGS_WALLETS
         SettingsPage.ADDRESS_BOOK -> SETTINGS_ADDRESSES
         SettingsPage.SECURITY -> SETTINGS_SECURITY
         SettingsPage.ABOUT -> SETTINGS_ABOUT
@@ -336,6 +341,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                 lockChoices = lockChoices,
             )
             entryGestureRoutes(navController = navController, holder = holder, selection = selection)
+            changePasswordRoutes(navController = navController, holder = holder, selection = selection)
             composable(LumioRoute.DATA_PROVIDERS) {
                 LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }
             }

@@ -26,6 +26,7 @@ fun settingsRows(facts: SettingsFacts, gesture: EntryGesture, version: String, d
     SettingsRowState(SettingsPage.TRANSACTIONS, transactionsSummary(facts.display.hideSpam)),
     SettingsRowState(SettingsPage.NETWORKS, networksSummary(facts.chainsOn, facts.customBitcoin)),
     SettingsRowState(SettingsPage.PROVIDERS, providersSummary(facts.providersOn, facts.providersTotal)),
+    SettingsRowState(SettingsPage.WALLETS, walletsSummary(facts.wallets)),
     SettingsRowState(SettingsPage.ADDRESS_BOOK, addressBookSummary(facts.wallets, facts.addresses)),
     SettingsRowState(SettingsPage.SECURITY, securitySummary(gesture)),
     SettingsRowState(SettingsPage.ABOUT, aboutSummary(version)),

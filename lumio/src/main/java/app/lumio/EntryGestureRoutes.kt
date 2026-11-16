@@ -65,9 +65,9 @@ private fun EntryGestureChangeRoute(navController: NavHostController, holder: Va
     )
 }
 
-/** True while the vault is open. While it is locked, the gate takes over, as on every Lumio screen. */
+/** True while the vault is open. While it is locked, the gate takes over, as on every Lumio screen. Shared by the Lumio routes that need the vault open. */
 @Composable
-private fun rememberGateSession(navController: NavHostController, holder: VaultHolder): Boolean {
+internal fun rememberGateSession(navController: NavHostController, holder: VaultHolder): Boolean {
     val open = holder.openSession() != null
     LaunchedEffect(open) {
         if (!open) navController.openHidden(GateRoutes.GATE)

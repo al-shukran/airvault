@@ -8,6 +8,8 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -163,5 +165,41 @@ class EvmSettingsTest {
 
         assertTrue(updated.rpc.isEmpty())
         assertEquals(setOf(1L), updated.enabled)
+    }
+
+    private val oldRpc = "https://old.example.org"
+
+    @Test
+    fun anRpcThatServesTheChainIsSavedAfterTheCheck() {
+        EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to oldRpc)))
+        server.enqueue(answer("0x1"))
+
+        val refusal = EvmSettingsStore.change(session, rpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r) }
+
+        assertNull(refusal)
+        assertEquals(url, EvmSettingsStore.read(session).rpc[1L])
+    }
+
+    @Test
+    fun anRpcThatServesAnotherChainIsRefusedAndTheOldAddressStays() {
+        EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to oldRpc)))
+        server.enqueue(answer("0x2"))
+
+        val refusal = EvmSettingsStore.change(session, rpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r) }
+
+        assertEquals("The endpoint reports chain 2, not 1.", refusal)
+        assertEquals(oldRpc, EvmSettingsStore.read(session).rpc[1L])
+    }
+
+    @Test
+    fun anAddressThatIsNotHttpsIsRefusedBeforeAnyRequestAndTheOldAddressStays() {
+        EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to oldRpc)))
+        val releaseRpc = EvmRpc(allowLocalHttp = false, timeoutMs = 2_000L)
+
+        val refusal = EvmSettingsStore.change(session, releaseRpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r) }
+
+        assertNotNull(refusal)
+        assertEquals(0, server.requestCount)
+        assertEquals(oldRpc, EvmSettingsStore.read(session).rpc[1L])
     }
 }
