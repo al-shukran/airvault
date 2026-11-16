@@ -1,7 +1,9 @@
 package app.lumio.pair
 
+import app.lensly.app.AddressBookEntry
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcWatchOnlyAccount
+import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.AccountXpub
@@ -15,6 +17,7 @@ data class PairedAccount(val index: Int, val name: String?, val label: String?, 
 /**
  * A paired wallet: one Lensly wallet, identified by its master fingerprint, with the public data of its Apps. It holds no key material. [evm]
  * is the Ethereum account key and [evmAccounts] the Ethereum accounts under it. [bitcoin] holds the watch-only Bitcoin Accounts, if any.
+ * [addressBook] is the Address Book that Lensly sent with the pairing, in the order it was sent. It is empty when there is none.
  */
 data class PairedWallet(
     val id: String,
@@ -24,6 +27,7 @@ data class PairedWallet(
     val evm: AccountXpub?,
     val bitcoin: List<BtcWatchOnlyAccount>,
     val evmAccounts: List<PairedAccount> = emptyList(),
+    val addressBook: List<AddressBookEntry> = emptyList(),
 ) {
     val families: Set<PairFamily>
         get() = buildSet {
@@ -43,20 +47,32 @@ data class PairSaved(val id: String, val created: Boolean)
  */
 object PairedWallets {
 
-    /** The paired wallets, oldest first. A folder that does not read as a pairing is left out. */
-    fun list(session: VaultSession): List<PairedWallet> = session.listWallets()
-        .mapNotNull { id -> read(session, id) }
-        .sortedBy { it.createdAtMs }
+    /**
+     * The paired wallets, oldest first, each with its Address Book. A folder that does not read as a pairing is left out. A book that cannot
+     * be read leaves the wallets listed without one, and the next pairing still refuses to replace a book it cannot read.
+     */
+    fun list(session: VaultSession): List<PairedWallet> {
+        val books: Map<String, List<AddressBookEntry>> = try {
+            PairAddressBooks.load(session)
+        } catch (e: VaultException) {
+            emptyMap()
+        }
+        return session.listWallets()
+            .mapNotNull { id -> read(session, id)?.copy(addressBook = books[id].orEmpty()) }
+            .sortedBy { it.createdAtMs }
+    }
 
     /**
-     * Stores [pairing], as Lensly exported it. Lensly is the source of truth: the names, labels and groups, the accounts and the keys replace
-     * what Lumio held for the same fingerprint, so an account that Lensly no longer lists is removed. A new fingerprint makes a new wallet.
+     * Stores [pairing], as Lensly exported it. Lensly is the source of truth: the names, labels and groups, the accounts, the keys and the
+     * Address Book replace what Lumio held for the same fingerprint, so an account or an entry that Lensly no longer lists is removed. A new
+     * fingerprint makes a new wallet.
      */
     fun save(session: VaultSession, pairing: PairingPayload, nowMs: Long): PairSaved {
         val paired = list(session).firstOrNull { it.fingerprint == pairing.fingerprint }
         val id = paired?.id ?: session.createWallet()
         try {
             session.putRecords(id, recordsFor(pairing, createdAtMs = paired?.createdAtMs ?: nowMs), deletesFor(pairing))
+            PairAddressBooks.replace(session, id, pairing.addressBook)
         } catch (e: Throwable) {
             if (paired == null) session.deleteWallet(id)
             throw e
@@ -64,9 +80,10 @@ object PairedWallets {
         return PairSaved(id, created = paired == null)
     }
 
-    /** Erases the paired wallet [id] and its records. The folder keeps its shape, as every wallet folder does. */
+    /** Erases the paired wallet [id], its records and its Address Book. The folder keeps its shape, as every wallet folder does. */
     fun delete(session: VaultSession, id: String) {
         session.deleteWallet(id)
+        PairAddressBooks.replace(session, id, emptyList())
     }
 
     /** The records that hold [pairing], written in one step: the META record, an account record for each Ethereum account, and the Bitcoin record. */

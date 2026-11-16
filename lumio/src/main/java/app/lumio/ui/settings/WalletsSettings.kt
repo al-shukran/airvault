@@ -24,12 +24,21 @@ const val DELETE_CONFIRM_TAG = "delete-confirm"
 /** The test tag of a wallet's delete row, by the wallet's ID. */
 fun deleteWalletTag(walletId: String): String = "delete-$walletId"
 
+/** The test tag of a wallet's Address Book row, by the wallet's ID. */
+fun addressBookTag(walletId: String): String = "address-book-$walletId"
+
+private fun addressBookDescription(count: Int): String = when (count) {
+    0 -> "No saved addresses"
+    1 -> "1 saved address"
+    else -> "$count saved addresses"
+}
+
 /**
- * The Wallets section of the settings: a row that pairs a wallet from Lensly, then each paired wallet with its fingerprint and a delete row in the
- * error colour. A deletion asks first, and it erases only Lumio's watch-only copy. The wallet in Lensly is not changed.
+ * The Wallets section of the settings: a row that pairs a wallet from Lensly, then each paired wallet with its fingerprint, its Address Book
+ * and a delete row in the error colour. A deletion asks first, and it erases only Lumio's watch-only copy. The wallet in Lensly is not changed.
  */
 @Composable
-fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onDelete: (PairedWallet) -> Unit) {
+fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onAddressBook: (PairedWallet) -> Unit, onDelete: (PairedWallet) -> Unit) {
     var pendingDelete by remember { mutableStateOf<PairedWallet?>(null) }
     SettingsRow(
         title = "Pair from Lensly",
@@ -48,6 +57,12 @@ fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onDelete: (
         SettingsRow(
             title = wallet.name,
             description = "Fingerprint ${PairLabels.fingerprint(wallet.fingerprint)}",
+        )
+        SettingsRow(
+            title = "Address book",
+            description = addressBookDescription(wallet.addressBook.size),
+            onClick = { onAddressBook(wallet) },
+            modifier = Modifier.testTag(addressBookTag(wallet.id)),
         )
         SettingsRow(
             title = "Delete ${wallet.name}",

@@ -304,6 +304,7 @@ internal fun WalletsSettingsRoute(navController: NavHostController, holder: Vaul
     WalletsSettings(
         wallets = wallets,
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
+        onAddressBook = { wallet -> navController.navigate(LumioRoute.addressBook(wallet.id)) },
         onDelete = { wallet ->
             if (session != null) {
                 scope.launch {

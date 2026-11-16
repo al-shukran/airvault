@@ -319,6 +319,7 @@ internal fun SendRoute(
         is SendStep.Review -> SendReviewScreen(
             send = current.send,
             suggested = suggested ?: current.send,
+            addressBook = ready.wallet.addressBook,
             notice = notice,
             onSave = { edited ->
                 notice = null

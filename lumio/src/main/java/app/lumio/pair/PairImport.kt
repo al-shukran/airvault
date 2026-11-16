@@ -1,5 +1,7 @@
 package app.lumio.pair
 
+import app.lensly.app.AddressBookEntry
+import app.lensly.app.canonicalAddressOf
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingKey
@@ -43,6 +45,7 @@ object PairImport {
     private const val NO_ETHEREUM = "The code holds no Ethereum account key."
     private const val NOT_ACCOUNT_KEY = "The code's Ethereum key is not the account key m/44'/60'/0'."
     private const val BAD_KEY = "The code's public key is not valid."
+    private const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid Ethereum or Bitcoin address."
 
     /**
      * The pairing that [ur] carries, checked for Lumio.
@@ -66,7 +69,15 @@ object PairImport {
         }
         checkEthereum(payload.apps.firstOrNull { it.app == ETHEREUM } ?: throw PairingRefusal(NO_ETHEREUM))
         payload.apps.firstOrNull { it.app == BITCOIN }?.let { checkBitcoin(payload.fingerprint, it) }
-        return payload
+        return payload.copy(addressBook = addressBookOf(payload.addressBook))
+    }
+
+    /**
+     * The Address Book entries with each address in its canonical form. An entry whose address is neither a valid Ethereum nor a valid
+     * Bitcoin address refuses the whole code, so Lumio never keeps a name for an address it cannot read. The count is bounded by the codec.
+     */
+    private fun addressBookOf(book: List<AddressBookEntry>): List<AddressBookEntry> = book.map { entry ->
+        entry.copy(address = canonicalAddressOf(entry.address) ?: throw PairingRefusal(BAD_ADDRESS))
     }
 
     /** One account key, on the Ethereum account path, with the accounts numbered 0 to n-1 under it. */

@@ -1,5 +1,6 @@
 package app.lumio.pair
 
+import app.lensly.app.AddressBookEntry
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingKey
@@ -170,12 +171,77 @@ class PairedWalletsTest {
     private fun account(index: Int, name: String?, label: String? = null, group: String? = null) =
         PairingAccount(key = 0, child = index, name = name, label = label, group = group)
 
-    /** The pairing of [seed] with its Ethereum accounts, and its Bitcoin accounts when [bitcoin] is not empty. */
+    @Test
+    fun aPairingsAddressBookIsStoredWithItsWalletAndListedWithIt() {
+        PairedWallets.save(
+            session,
+            payload(accounts = listOf(account(0, "Savings")), addressBook = listOf(ADDRESS_BOOK_ALICE, ADDRESS_BOOK_COLD)),
+            nowMs = 100L,
+        )
+
+        assertEquals(listOf(ADDRESS_BOOK_ALICE, ADDRESS_BOOK_COLD), PairedWallets.list(session).single().addressBook)
+    }
+
+    @Test
+    fun repairingReplacesTheAddressBookAndDoesNotMergeIt() {
+        PairedWallets.save(
+            session,
+            payload(accounts = listOf(account(0, "Savings")), addressBook = listOf(ADDRESS_BOOK_ALICE, ADDRESS_BOOK_COLD)),
+            nowMs = 100L,
+        )
+
+        PairedWallets.save(session, payload(accounts = listOf(account(0, "Savings")), addressBook = listOf(ADDRESS_BOOK_FAUCET)), nowMs = 200L)
+        assertEquals(listOf(ADDRESS_BOOK_FAUCET), PairedWallets.list(session).single().addressBook)
+
+        PairedWallets.save(session, payload(accounts = listOf(account(0, "Savings"))), nowMs = 300L)
+        assertEquals(emptyList<AddressBookEntry>(), PairedWallets.list(session).single().addressBook)
+    }
+
+    @Test
+    fun eachWalletKeepsItsOwnAddressBook() {
+        val otherSeed = ByteArray(16) { (it * 13 + 5).toByte() }
+        PairedWallets.save(
+            session,
+            payload(name = "Demo", accounts = listOf(account(0, "Savings")), addressBook = listOf(ADDRESS_BOOK_ALICE)),
+            nowMs = 100L,
+        )
+        PairedWallets.save(
+            session,
+            payload(name = "Other", accounts = listOf(account(0, "Savings")), seed = otherSeed, addressBook = listOf(ADDRESS_BOOK_COLD)),
+            nowMs = 200L,
+        )
+
+        PairedWallets.save(
+            session,
+            payload(name = "Demo", accounts = listOf(account(0, "Savings")), addressBook = listOf(ADDRESS_BOOK_FAUCET)),
+            nowMs = 300L,
+        )
+
+        val books = PairedWallets.list(session).associate { it.name to it.addressBook }
+        assertEquals(mapOf("Demo" to listOf(ADDRESS_BOOK_FAUCET), "Other" to listOf(ADDRESS_BOOK_COLD)), books)
+    }
+
+    @Test
+    fun deletingAWalletRemovesItsAddressBook() {
+        val saved = PairedWallets.save(
+            session,
+            payload(accounts = listOf(account(0, "Savings")), addressBook = listOf(ADDRESS_BOOK_ALICE)),
+            nowMs = 100L,
+        )
+
+        PairedWallets.delete(session, saved.id)
+
+        assertEquals(emptyList<PairedWallet>(), PairedWallets.list(session))
+        assertEquals(emptyMap<String, List<AddressBookEntry>>(), PairAddressBooks.load(session))
+    }
+
+    /** The pairing of [seed] with its Ethereum accounts, its Bitcoin accounts when [bitcoin] is not empty, and its Address Book. */
     private fun payload(
         name: String = "Demo",
         accounts: List<PairingAccount>,
         bitcoin: List<BtcWatchOnlyAccount> = emptyList(),
         seed: ByteArray = PairFixtures.seed,
+        addressBook: List<AddressBookEntry> = emptyList(),
     ): PairingPayload {
         val wallet = HdWallet(seed)
         val apps = mutableListOf(
@@ -188,6 +254,11 @@ class PairedWalletsTest {
                 accounts = bitcoin.indices.map { PairingAccount(key = it, child = null, name = null, label = null, group = null) },
             )
         }
-        return PairingPayload(fingerprint = wallet.masterFingerprint.toLong() and 0xFFFFFFFFL, name = name, apps = apps)
+        return PairingPayload(
+            fingerprint = wallet.masterFingerprint.toLong() and 0xFFFFFFFFL,
+            name = name,
+            apps = apps,
+            addressBook = addressBook,
+        )
     }
 }
