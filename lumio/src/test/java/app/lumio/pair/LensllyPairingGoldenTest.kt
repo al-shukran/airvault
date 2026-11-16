@@ -16,9 +16,9 @@ import org.junit.Test
  */
 class LensllyPairingGoldenTest {
 
-    private fun imported(): PairingPayload {
+    private fun imported(frames: List<String> = LabelledPairingGolden.FRAMES): PairingPayload {
         val scanner = UrScanner()
-        LabelledPairingGolden.FRAMES.forEach { scanner.receive(it) }
+        frames.forEach { scanner.receive(it) }
         return PairImport.of(requireNotNull(scanner.result()))
     }
 
@@ -54,6 +54,21 @@ class LensllyPairingGoldenTest {
         assertEquals(
             PairingAccount(key = unnamed, child = null, name = "Savings 0", label = null, group = null),
             bitcoin.accounts.single { it.key == unnamed },
+        )
+    }
+
+    @Test
+    fun lumioStillReadsTheVersionOneCodeOfTheSameWallet() {
+        val version1 = imported(LabelledPairingGolden.V1_FRAMES)
+        val version2 = imported()
+
+        assertEquals(version2.fingerprint, version1.fingerprint)
+        assertEquals(version2.name, version1.name)
+        assertEquals(version2.addressBook, version1.addressBook)
+        assertEquals(version2.apps.map { it.accounts }, version1.apps.map { it.accounts })
+        assertEquals(
+            version2.apps.map { app -> app.keys.map { it.publicKey.toList() } },
+            version1.apps.map { app -> app.keys.map { it.publicKey.toList() } },
         )
     }
 

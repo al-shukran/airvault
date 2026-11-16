@@ -109,7 +109,7 @@ class WalletStoreBitcoinTest {
 
         assertTrue(store.bitcoinAccounts(id).isEmpty())
         // The pairing still covers the wallet: its Bitcoin App is listed with no keys, so Lumio drops any Bitcoin account it held.
-        assertTrue(pairingOf(store.pairingParts(id)).apps.single { it.app == "bitcoin" }.keys.isEmpty())
+        assertTrue(pairingOf(store.pairingParts(id, null)).apps.single { it.app == "bitcoin" }.keys.isEmpty())
     }
 
     @Test
@@ -189,7 +189,7 @@ class WalletStoreBitcoinTest {
         }
         assertEquals(SINGLE_KEY_NO_BITCOIN, refusal.message)
         assertTrue(store.bitcoinAccounts(id).isEmpty())
-        assertFailsWith<IllegalArgumentException> { store.pairingParts(id) }
+        assertFailsWith<IllegalArgumentException> { store.pairingParts(id, null) }
     }
 
     @Test
@@ -234,7 +234,7 @@ class WalletStoreBitcoinTest {
         store.addAccount(id)
         store.saveAccountProfile(id, 0, AccountProfile(name = "Cold", label = "vault", group = "Long term"))
 
-        val pairing = pairingOf(store.pairingParts(id))
+        val pairing = pairingOf(store.pairingParts(id, null))
 
         assertEquals("Savings", pairing.name)
         val ethereum = pairing.apps.single { it.app == "ethereum" }
@@ -364,7 +364,7 @@ class WalletStoreBitcoinTest {
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)
         store.saveBitcoinProfile(id, store.bitcoinAccounts(id)[0], AccountProfile(name = "Cold", label = "vault", group = "Long term"))
 
-        val bitcoin = pairingOf(store.pairingParts(id)).apps.single { it.app == "bitcoin" }
+        val bitcoin = pairingOf(store.pairingParts(id, null)).apps.single { it.app == "bitcoin" }
 
         // The named account carries its profile. An account with none carries its Auto-Name, as an Ethereum account does, and so does an
         // account of a Script Type the owner never generated, since the pairing has every Script Type of each index.
@@ -389,7 +389,7 @@ class WalletStoreBitcoinTest {
             AccountProfile(name = "Cold BTC", colour = ProfileColour.TEAL, label = "vault", group = "Long term"),
         )
 
-        assertEquals(LabelledPairingGolden.FRAMES, store.pairingParts(id))
+        assertEquals(LabelledPairingGolden.FRAMES, store.pairingParts(id, null))
     }
 
     /** The pairing account of the Bitcoin key on [scriptType], [network] and account [index], in the pairing [app]. */
@@ -404,7 +404,7 @@ class WalletStoreBitcoinTest {
     private fun PairingAccount.labelled(): Triple<String?, String?, String?> = Triple(name, label, group)
 
     /** The Bitcoin keys of wallet [id], from the pairing that Lensly builds for it. */
-    private fun bitcoinKeysOf(id: String): List<PairingKey> = pairingOf(store.pairingParts(id)).apps.single { it.app == "bitcoin" }.keys
+    private fun bitcoinKeysOf(id: String): List<PairingKey> = pairingOf(store.pairingParts(id, null)).apps.single { it.app == "bitcoin" }.keys
 
     private fun networkOf(key: PairingKey): BtcNetwork =
         BtcNetwork.entries.single { it.coinType.toLong() == key.path[1] - DeterministicWallet.hardenedKeyIndex }
@@ -416,7 +416,7 @@ class WalletStoreBitcoinTest {
     private fun pairingOf(parts: List<String>): PairingPayload {
         val scanner = UrScanner()
         parts.forEach { scanner.receive(it) }
-        return PairingCodec.fromUr(assertNotNull(scanner.result()))
+        return PairingCodec.fromUr(assertNotNull(scanner.result()), null)
     }
 
     @Test
