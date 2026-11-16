@@ -53,6 +53,36 @@ class BulkerStepsTest {
     }
 
     @Test
+    fun aWithdrawOfAnAssetFromAMarketNamesTheMarketTheAmountAndTheSigner() {
+        // Transaction 0xdc8c9f32: supplies 0.24552811 WBTC to cUSDCv3, then withdraws 5,399 USDC from it to the sender.
+        val steps = assertNotNull(stepsOf(StepVectors.BULKER_SUPPLY_ASSET_WITHDRAW_ASSET, "0x1801c32e5fa1f52fb6f387c4c9fb2f03488024b5"))
+
+        assertEquals(
+            listOf(
+                "Supply 0.24552811 WBTC as collateral to Compound V3 (cUSDCv3) for you",
+                "Withdraw 5,399 USDC from Compound V3 (cUSDCv3) to you",
+            ),
+            steps.lines,
+        )
+        assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun aWithdrawToAnotherAccountWarns() {
+        // The same transaction read for another signer, so its withdrawal pays an account that is not the signer.
+        val steps = assertNotNull(stepsOf(StepVectors.BULKER_SUPPLY_ASSET_WITHDRAW_ASSET, "0x0000000000000000000000000000000000000abc"))
+
+        assertEquals(
+            listOf(
+                "Supply 0.24552811 WBTC as collateral to Compound V3 (cUSDCv3) for 0x1801…24B5",
+                "Withdraw 5,399 USDC from Compound V3 (cUSDCv3) to 0x1801…24B5",
+            ),
+            steps.lines,
+        )
+        assertEquals(listOf("This withdraws to 0x1801…24B5, not you"), steps.warnings)
+    }
+
+    @Test
     fun anActionLenslyDoesNotReadIsShownRawAndWarns() {
         // Transaction 0x5ab615b0, Compound V3 bulker: ACTION_SUPPLY_STETH, which is not a base bulker action, then a native withdrawal.
         val steps = assertNotNull(stepsOf(StepVectors.BULKER_SUPPLY_STETH, "0xe6705fccaf951870ef24463c88a81f31610efba4"))
@@ -62,6 +92,31 @@ class BulkerStepsTest {
             steps.warnings.contains("Lensly cannot read bulker action ACTION_SUPPLY_STETH. Its raw input is under Details."),
             steps.warnings.toString(),
         )
+    }
+
+    @Test
+    fun randomWithdrawAssetArgumentsAreReadOrWarnAndNeverThrow() {
+        val random = Random(20261119)
+        val name = "ACTION_WITHDRAW_ASSET".toByteArray(Charsets.US_ASCII).copyOf(WORD).toHex()
+        val markets = listOf(
+            "c3d688b66703497daa19211eedff47f25384cdc3",
+            "a17581a9e3356d9a858b789d68b4d866e593ae94",
+            "3afdc9bca9213a35503b077a6072f3d0d5ab0840",
+        )
+        repeat(FUZZ_ROUNDS) {
+            // The market word is a known market half the time, so the withdrawal is read. The other words are random.
+            val market = if (random.nextBoolean()) markets[random.nextInt(markets.size)] else random.nextBytes(20).toHex()
+            val data = market.padStart(WORD * 2, '0') + List(3) { random.nextBytes(WORD).toHex() }.joinToString("")
+            val params = listOf(
+                DecodedParam(BULKER_PARAMS[0], AbiValue.Items(listOf(AbiValue.Word(name)))),
+                DecodedParam(BULKER_PARAMS[1], AbiValue.Items(listOf(AbiValue.Dynamic(data)))),
+            )
+
+            val steps = assertNotNull(
+                CallSteps.describe(STEP_REGISTRY, 1, BULKER, BULKER_SELECTOR, BULKER_SIGNATURE, SIGNER, BigInteger.ZERO, params),
+            )
+            assertTrue(steps.lines.isNotEmpty() || steps.warnings.isNotEmpty(), steps.lines.toString())
+        }
     }
 
     @Test

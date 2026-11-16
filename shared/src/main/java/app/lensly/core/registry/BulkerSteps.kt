@@ -5,7 +5,7 @@ import app.lensly.core.wallet.toHex
 /**
  * Steps for `invoke(bytes32[],bytes[])` on the Compound V3 bulker that Ethereum mainnet uses. The bulker runs each action in order for the
  * signer. An action is named by an ASCII word, and its data is the ABI encoding of that action's arguments, read with the same bounded
- * decoder as a whitelisted call. Lensly reads three actions: supply an asset, supply the native coin, and withdraw the native coin, each on a
+ * decoder as a whitelisted call. Lensly reads four actions: supply an asset, supply the native coin, withdraw an asset, and withdraw the native coin, each on a
  * market it knows. Any other action, or a market it does not know, is shown as raw data, and the review warns. The names and layouts are
  * those of contracts/bulkers/BaseBulker.sol in compound-finance/comet at f766f515.
  */
@@ -38,6 +38,7 @@ internal object BulkerSteps {
     private fun actionFor(name: String?, call: StepCall): Action? = when (name) {
         "ACTION_SUPPLY_ASSET" -> Action(MARKET_AND_TO_AND_ASSET_AND_AMOUNT) { v -> supplyAsset(call, v) }
         "ACTION_SUPPLY_NATIVE_TOKEN" -> Action(MARKET_AND_TO_AND_AMOUNT) { v -> supplyNative(call, v) }
+        "ACTION_WITHDRAW_ASSET" -> Action(MARKET_AND_TO_AND_ASSET_AND_AMOUNT) { v -> withdrawAsset(call, v) }
         "ACTION_WITHDRAW_NATIVE_TOKEN" -> Action(MARKET_AND_TO_AND_AMOUNT) { v -> withdrawNative(call, v) }
         else -> null
     }
@@ -122,5 +123,17 @@ internal object BulkerSteps {
         val what = if (amount == ContractCall.MAX_UINT256) "all ${call.network.nativeSymbol}" else call.nativeAmount(amount)
         val warnings = if (to == call.from) emptyList() else listOf("This withdraws to ${shortAddress(to)}, not you")
         return CallSteps(listOf("Withdraw $what from Compound V3 (${market.symbol}) to ${call.who(to)}"), warnings)
+    }
+
+    /** A withdrawal of any asset the market holds, from the signer's balance to [to]. A market it does not know is not described. */
+    private fun withdrawAsset(call: StepCall, v: List<AbiValue>): CallSteps? {
+        val market = ProtocolSteps.compoundMarket(MAINNET, v[0].address()) ?: return null
+        val to = v[1].address()
+        val asset = v[2].address()
+        val amount = v[3].word()
+        val collateral = if (asset == market.base) "" else " collateral"
+        val what = if (amount == ContractCall.MAX_UINT256) "all ${call.symbolOf(asset)}" else call.amount(amount, asset)
+        val warnings = if (to == call.from) emptyList() else listOf("This withdraws to ${shortAddress(to)}, not you")
+        return CallSteps(listOf("Withdraw $what$collateral from Compound V3 (${market.symbol}) to ${call.who(to)}"), warnings)
     }
 }
