@@ -50,8 +50,8 @@ object AlgoAddress {
         return out.copyOfRange(out.size - CHECKSUM_BYTES, out.size)
     }
 
-    /** RFC 4648 base32 of [bytes], without padding. */
-    private fun base32(bytes: ByteArray): String {
+    /** RFC 4648 base32 of [bytes], without padding. The transaction IDs of [AlgoSignedTxn] use it too. */
+    internal fun base32(bytes: ByteArray): String {
         val out = StringBuilder()
         var buffer = 0
         var bits = 0
