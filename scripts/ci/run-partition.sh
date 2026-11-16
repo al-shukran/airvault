@@ -36,8 +36,9 @@ partitions:
   app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
                  --tests 'app.lensly.core.vault.BackupExclusionTest'
   lumio-a        :lumio:assembleDebug :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
-  lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.btc.*' --tests 'app.lumio.data.*'
-                 --tests 'app.lumio.evm.*' --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*' --tests 'app.lumio.tokens.*'
+  lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.EntryGestureSettingTest'
+                 --tests 'app.lumio.btc.*' --tests 'app.lumio.data.*' --tests 'app.lumio.evm.*' --tests 'app.lumio.home.*'
+                 --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*' --tests 'app.lumio.send.*' --tests 'app.lumio.tokens.*'
   registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
   ci             bash -n on every script, scripts/ci/check-ui-partitions.sh, scripts/ci/check-lumio-partitions.sh, then
@@ -130,19 +131,24 @@ case "$partition" in
         ;;
     # The app.lumio tests split in two so the lumio test job stays under its 5-minute cap (guideline 2.1). lumio-a holds the ui
     # packages, which include the Roborazzi pixel tests, and assembles the debug APK. lumio-b holds the rest. A new lumio package,
-    # or a test class directly in app.lumio, must be added to ONE of the two arms. scripts/ci/check-lumio-partitions.sh (run by
-    # the ci partition) fails when one is in neither. Lumio's cover, gate and theme come from :shared, which the shared partitions test.
+    # or a test class directly in app.lumio, must be added to ONE of the two arms. scripts/ci/check-lumio-partitions.sh fails when
+    # one is in neither. lumio-a runs it first, so a PR that adds a package fails on every lumio PR, not only when scripts change.
+    # Lumio's cover, gate and theme come from :shared, which the shared partitions test.
     lumio-a)
+        "$ROOT/scripts/ci/check-lumio-partitions.sh"
         ./gradlew :lumio:assembleDebug :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
         ;;
     lumio-b)
         ./gradlew :lumio:testDebugUnitTest \
             --tests 'app.lumio.LumioBackdropTest' \
+            --tests 'app.lumio.EntryGestureSettingTest' \
             --tests 'app.lumio.btc.*' \
             --tests 'app.lumio.data.*' \
             --tests 'app.lumio.evm.*' \
+            --tests 'app.lumio.home.*' \
             --tests 'app.lumio.network.*' \
             --tests 'app.lumio.pair.*' \
+            --tests 'app.lumio.send.*' \
             --tests 'app.lumio.tokens.*'
         ;;
     registry-pack)
