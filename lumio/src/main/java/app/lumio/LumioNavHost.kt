@@ -12,22 +12,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import app.lensly.app.entryGestureHolder
 import app.lensly.app.export.PairingPayload
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.navigation.CoverNavHost
 import app.lensly.ui.navigation.HiddenBackdrop
 import app.lensly.ui.navigation.hiddenArea
 import app.lensly.ui.navigation.leaveHidden
-import app.lumio.demo.DemoPortfolio
 import app.lumio.network.NetworkMode
 import app.lumio.ui.network.TestnetBanner
-import app.lumio.ui.settings.LumioSettingsScreen
+import app.lumio.ui.settings.SettingsPage
 import app.lumio.ui.shell.LumioTab
 import app.lumio.ui.shell.LumioTabFrame
 
@@ -42,6 +39,27 @@ internal object LumioRoute {
     const val BTC_SEND = "bitcoin-send"
     const val DATA_PROVIDERS = "settings/providers"
     const val LICENCES = "settings/licences"
+
+    /** The pages of the settings list below the list: Display, Transactions, Networks, the address books, Security, About and Developer. */
+    const val SETTINGS_DISPLAY = "settings/display"
+    const val SETTINGS_TRANSACTIONS = "settings/transactions"
+    const val SETTINGS_NETWORKS = "settings/networks"
+    const val SETTINGS_ADDRESSES = "settings/addresses"
+    const val SETTINGS_SECURITY = "settings/security"
+    const val SETTINGS_ABOUT = "settings/about"
+    const val SETTINGS_DEVELOPER = "settings/developer"
+
+    /** The route of the settings page [page]. Data providers keeps its own route, as its screen does. */
+    fun settingsPage(page: SettingsPage): String = when (page) {
+        SettingsPage.DISPLAY -> SETTINGS_DISPLAY
+        SettingsPage.TRANSACTIONS -> SETTINGS_TRANSACTIONS
+        SettingsPage.NETWORKS -> SETTINGS_NETWORKS
+        SettingsPage.PROVIDERS -> DATA_PROVIDERS
+        SettingsPage.ADDRESS_BOOK -> SETTINGS_ADDRESSES
+        SettingsPage.SECURITY -> SETTINGS_SECURITY
+        SettingsPage.ABOUT -> SETTINGS_ABOUT
+        SettingsPage.DEVELOPER -> SETTINGS_DEVELOPER
+    }
 
     /** The argument of the tokens route: the chain ID whose tokens the screen lists. */
     const val CHAIN_ARG = "chainId"
@@ -192,7 +210,7 @@ internal fun NavHostController.openTab(tab: LumioTab) {
 /**
  * Lumio's navigation: the camera cover and the gate that Lensly shares, around the companion's Hidden Area. The Hidden Area opens on the gate and
  * then shows Home. Home, Transactions and Settings are the tabs. From Home the owner sends or receives, opens an asset, and pairs a wallet from Lensly
- * through the scan and the review. Settings holds the display and the servers, and the wallets, which can be deleted there.
+ * through the scan and the review. Settings is a list of pages, each its own screen: Display, Transactions, Networks (the servers and the chains), Data providers, Address book (the wallets), Security, About and, in a debug build, Developer.
  *
  * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
  */
@@ -275,29 +293,17 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             composable(LumioRoute.SETTINGS) {
                 LumioBackdrop(selection) {
                     LumioTabFrame(selected = LumioTab.SETTINGS, onSelect = { navController.openTab(it) }) {
-                        LumioSettingsScreen(
-                            onBack = null,
-                            display = { DisplaySettingsRoute(navController = navController, holder = holder) },
-                            wallets = {
-                                WalletsSettingsRoute(
-                                    navController = navController,
-                                    holder = holder,
-                                    listVersion = listVersion,
-                                    onChanged = { listVersion++ },
-                                )
-                            },
-                            transactions = { CommentBackupRoute(holder = holder) },
-                            bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
-                            ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
-                            entryGesture = LocalContext.current.entryGestureHolder().current,
-                            onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
-                            onDataProviders = { navController.navigate(LumioRoute.DATA_PROVIDERS) },
-                            onThirdPartyLicences = { navController.navigate(LumioRoute.LICENCES) },
-                            developer = DemoPortfolio.developerSection { listVersion++ },
-                        )
+                        SettingsRoute(navController = navController, holder = holder, listVersion = listVersion)
                     }
                 }
             }
+            settingsPageRoutes(
+                navController = navController,
+                holder = holder,
+                selection = selection,
+                listVersion = listVersion,
+                onChanged = { listVersion++ },
+            )
             entryGestureRoutes(navController = navController, holder = holder, selection = selection)
             composable(LumioRoute.DATA_PROVIDERS) {
                 LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }

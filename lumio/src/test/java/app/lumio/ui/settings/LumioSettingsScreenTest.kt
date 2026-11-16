@@ -1,132 +1,72 @@
 package app.lumio.ui.settings
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.theme.LenslyTheme
-import app.lumio.evm.EvmSettings
-import kotlin.test.assertTrue
+import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Lumio's settings: one screen with a Bitcoin section and an Ethereum section. */
+/** The top-level list of Lumio's settings: one chevron row per page, each with its state under the title, and no Save. */
 @RunWith(RobolectricTestRunner::class)
 class LumioSettingsScreenTest {
 
     @get:Rule
     val compose = createComposeRule()
 
-    @Test
-    fun theBitcoinAndEthereumSectionsRenderOnOneScreen() {
-        compose.setContent {
-            LenslyTheme {
-                LumioSettingsScreen(
-                    onBack = {},
-                    display = {},
-                    bitcoin = {
-                        BitcoinServersSettings(
-                            mainnet = "https://mempool.space/api",
-                            testnet4 = "https://mempool.space/testnet4/api",
-                            error = null,
-                            onSave = { _, _ -> },
-                            onReset = {},
-                        )
-                    },
-                    ethereum = {
-                        EvmSettingsSection(
-                            settings = EvmSettings(),
-                            chains = emptyList(),
-                            busy = false,
-                            notice = null,
-                            onAddressCount = {},
-                            onEnabled = { _, _ -> },
-                            onSetRpc = { _, _, _ -> },
-                            onResetRpc = {},
-                            onRemoveCustom = {},
-                            onAddCustom = { _, _ -> },
-                        )
-                    },
-                    onDataProviders = {},
-                    onThirdPartyLicences = {},
-                )
-            }
-        }
+    private val rows = listOf(
+        SettingsRowState(SettingsPage.DISPLAY, "Total hidden · min \$1.00"),
+        SettingsRowState(SettingsPage.TRANSACTIONS, "Spam and scams hidden"),
+        SettingsRowState(SettingsPage.NETWORKS, "3 chains on · Bitcoin default"),
+        SettingsRowState(SettingsPage.PROVIDERS, "7 of 9 sources on"),
+        SettingsRowState(SettingsPage.ADDRESS_BOOK, "1 wallet · 2 saved addresses"),
+        SettingsRowState(SettingsPage.SECURITY, "Entry gesture: Two-finger double tap"),
+        SettingsRowState(SettingsPage.ABOUT, "Version 0.1.0"),
+    )
 
-        compose.onNodeWithText("Bitcoin", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Ethereum", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Mainnet").assertExists()
-        compose.onNodeWithText("Save", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Reset to defaults", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Addresses per wallet", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Chains", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Add custom chain", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Data providers", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Third-party licences", ignoreCase = true).assertExists()
+    @Test
+    fun theListShowsEachPageWithItsStateUnderItsTitle() {
+        compose.setContent { LenslyTheme { LumioSettingsScreen(rows = rows, onOpen = {}) } }
+
+        for (row in rows) {
+            compose.onNodeWithText(row.page.title).assertExists()
+            compose.onNodeWithText(row.summary).assertExists()
+        }
     }
 
     @Test
-    fun theThirdPartyLicencesRowOpensTheLicences() {
-        var opened = false
-        compose.setContent {
-            LenslyTheme {
-                LumioSettingsScreen(
-                    onBack = {},
-                    display = {},
-                    bitcoin = {},
-                    ethereum = {},
-                    onDataProviders = {},
-                    onThirdPartyLicences = { opened = true },
-                )
-            }
-        }
+    fun theListHasNoSaveAndNoDeveloperRowInRelease() {
+        compose.setContent { LenslyTheme { LumioSettingsScreen(rows = rows, onOpen = {}) } }
 
-        compose.onNodeWithText("Third-party licences", ignoreCase = true).performScrollTo().performClick()
-        assertTrue(opened)
+        compose.onAllNodesWithText("Save", ignoreCase = true).assertCountEquals(0)
+        compose.onNodeWithText("Developer").assertDoesNotExist()
     }
 
     @Test
-    fun theHiddenEntryGestureRowShowsTheSavedGestureAndOpensTheChoice() {
-        var opened = false
-        compose.setContent {
-            LenslyTheme {
-                LumioSettingsScreen(
-                    onBack = {},
-                    display = {},
-                    bitcoin = {},
-                    ethereum = {},
-                    onDataProviders = {},
-                    onThirdPartyLicences = {},
-                    entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
-                    onEntryGesture = { opened = true },
-                )
-            }
-        }
+    fun tappingARowOpensItsPage() {
+        var opened: SettingsPage? = null
+        compose.setContent { LenslyTheme { LumioSettingsScreen(rows = rows, onOpen = { opened = it }) } }
 
-        compose.onNodeWithText("Hidden entry gesture").performScrollTo()
-        compose.onNodeWithText(EntryGesture.THUMBNAIL_HOLD_SWIPE.title).assertExists()
-        compose.onNodeWithText("Hidden entry gesture").performClick()
-        assertTrue(opened)
+        compose.onNodeWithText("Security").performScrollTo().performClick()
+
+        assertEquals(SettingsPage.SECURITY, opened)
     }
 
     @Test
-    fun theEvmSettingsButtonIsGone() {
-        compose.setContent {
-            LenslyTheme {
-                LumioSettingsScreen(
-                    onBack = {},
-                    display = {},
-                    bitcoin = {},
-                    ethereum = {},
-                    onDataProviders = {},
-                    onThirdPartyLicences = {},
-                )
-            }
-        }
+    fun theDeveloperRowIsListedLastWhenTheBuildGivesIt() {
+        val withDeveloper = rows + SettingsRowState(SettingsPage.DEVELOPER, "Demo portfolio on")
+        var opened: SettingsPage? = null
+        compose.setContent { LenslyTheme { LumioSettingsScreen(rows = withDeveloper, onOpen = { opened = it }) } }
 
-        compose.onNodeWithText("EVM settings", ignoreCase = true).assertDoesNotExist()
+        compose.onNodeWithText("Demo portfolio on").performScrollTo().assertExists()
+        compose.onNodeWithText("Developer").performScrollTo().performClick()
+
+        assertEquals(SettingsPage.DEVELOPER, opened)
     }
 }

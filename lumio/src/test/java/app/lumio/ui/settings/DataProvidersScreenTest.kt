@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextReplacement
 import app.lensly.ui.theme.LenslyTheme
 import org.junit.Assert.assertEquals
@@ -111,7 +112,8 @@ class DataProvidersScreenTest {
     fun aKeyFieldShowsOnlyForAProviderThatTakesAKey() {
         show()
 
-        compose.onAllNodesWithText("Save key", ignoreCase = true).assertCountEquals(2)
+        compose.onNodeWithTag("key-etherscan").assertExists()
+        compose.onNodeWithTag("key-1rpc").assertExists()
         compose.onNodeWithTag("key-mempool").assertDoesNotExist()
     }
 
@@ -138,14 +140,30 @@ class DataProvidersScreenTest {
     }
 
     @Test
-    fun aTypedKeyIsSavedAndClearedKeyIsReportedAsBlank() {
+    fun aTypedKeyIsSavedWhenTheOwnerPressesDoneNotWhileTyping() {
         show()
 
         compose.onNodeWithTag("key-etherscan").performTextReplacement("k-99")
-        compose.onNodeWithTag("save-key-etherscan").performClick()
+        assertEquals(emptyList<Pair<String, String>>(), keys)
+
+        compose.onNodeWithTag("key-etherscan").performImeAction()
+        assertEquals(listOf("etherscan" to "k-99"), keys)
+    }
+
+    @Test
+    fun clearedKeyIsReportedAsBlank() {
+        show()
+
         compose.onNodeWithTag("clear-key-1rpc").performClick()
 
-        assertEquals(listOf("etherscan" to "k-99", "1rpc" to ""), keys)
+        assertEquals(listOf("1rpc" to ""), keys)
+    }
+
+    @Test
+    fun noKeyFieldHasASaveButton() {
+        show()
+
+        compose.onAllNodesWithText("Save key", ignoreCase = true).assertCountEquals(0)
     }
 
     @Test

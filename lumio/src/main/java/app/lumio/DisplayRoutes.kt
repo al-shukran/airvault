@@ -14,38 +14,71 @@ import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettings
-import app.lumio.ui.settings.DisplaySettingsSection
+import app.lumio.ui.settings.DisplaySettingsPage
+import app.lumio.ui.settings.TransactionsSettingsPage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** The Home section of the settings, read from and written to the display settings of the open vault. */
+/** The display settings as the open vault publishes them, the notice of a refused change, and the change itself. */
+private class DisplayChange(
+    val settings: DisplaySettings,
+    val notice: String?,
+    val change: ((DisplaySettings) -> DisplaySettings) -> Unit,
+)
+
+/**
+ * The display settings of the open vault, with a way to change them. A change is written off the main thread, after the changes made before it, and a
+ * write that the vault refuses sets the notice. Null while the vault is not open.
+ */
 @Composable
-internal fun DisplaySettingsRoute(navController: NavHostController, holder: VaultHolder) {
+private fun rememberDisplayChange(navController: NavHostController, holder: VaultHolder): DisplayChange? {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
     val scope = rememberCoroutineScope()
+    val writes = remember { Mutex() }
     var notice by remember { mutableStateOf<String?>(null) }
-    val vault = app.lumioVault() ?: return
-    val settings by vault.display.collectAsState()
-
-    // A change is saved off the main thread. The screen shows it once the vault has saved it.
-    fun change(transform: (DisplaySettings) -> DisplaySettings) {
+    val vault = app.lumioVault()
+    val fallback = remember { MutableStateFlow(DisplaySettings()) }
+    val settings by (vault?.display ?: fallback).collectAsState()
+    if (vault == null) return null
+    return DisplayChange(settings, notice) { transform ->
         scope.launch {
-            val saved = withContext(Dispatchers.IO) { runCatching { vault.updateDisplay(transform) }.isSuccess }
+            val saved = writes.withLock { withContext(Dispatchers.IO) { runCatching { vault.updateDisplay(transform) }.isSuccess } }
             notice = if (saved) null else "The setting could not be saved. Try again."
         }
     }
+}
 
-    DisplaySettingsSection(
-        settings = settings,
-        notice = notice,
-        onShowTotal = { on -> change { it.copy(showTotal = on) } },
-        onShowAssets = { on -> change { it.copy(showAssets = on) } },
-        onMinimumUsd = { amount -> change { it.copy(minimumUsd = amount) } },
-        onHideSpam = { on -> change { it.copy(hideSpam = on) } },
+/** The Display page of the settings: what Home shows. */
+@Composable
+internal fun DisplaySettingsRoute(navController: NavHostController, holder: VaultHolder) {
+    val display = rememberDisplayChange(navController, holder) ?: return
+    DisplaySettingsPage(
+        settings = display.settings,
+        notice = display.notice,
+        onShowTotal = { on -> display.change { it.copy(showTotal = on) } },
+        onShowAssets = { on -> display.change { it.copy(showAssets = on) } },
+        onMinimumUsd = { amount -> display.change { it.copy(minimumUsd = amount) } },
+        onBack = { navController.popBackStack() },
+    )
+}
+
+/** The Transactions page of the settings: the spam filter, then the backup of the comments. */
+@Composable
+internal fun TransactionsSettingsRoute(navController: NavHostController, holder: VaultHolder) {
+    val display = rememberDisplayChange(navController, holder) ?: return
+    TransactionsSettingsPage(
+        hideSpam = display.settings.hideSpam,
+        notice = display.notice,
+        onHideSpam = { on -> display.change { it.copy(hideSpam = on) } },
+        onBack = { navController.popBackStack() },
+        comments = { CommentBackupRoute(holder = holder) },
     )
 }

@@ -30,6 +30,8 @@ import app.lumio.ui.settings.providerStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** How often the screen reads the schedulers again, so a cooldown or an open circuit counts down on screen. */
@@ -70,13 +72,14 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
     val dataIds = remember { ProviderCatalog.dataProviders().map { it.id } }
     val priceIds = remember { ProviderCatalog.priceProviders().map { it.id } }
     val rpcIds = remember { ProviderCatalog.rpcProviders(BuildConfig.DEBUG).map { it.id } }
+    val writes = remember { Mutex() }
     val current = lists ?: return
     val writable = vault ?: return
 
-    // Runs one write off the main thread, then reads the lists again.
+    // Runs one write off the main thread, after the writes made before it, then reads the lists again.
     fun change(write: () -> Unit) {
         scope.launch {
-            withContext(Dispatchers.IO) { runCatching(write) }
+            writes.withLock { withContext(Dispatchers.IO) { runCatching(write) } }
             version++
         }
     }
