@@ -19,14 +19,17 @@ import app.lumio.demo.DemoPortfolio
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.settings.AboutSettingsPage
+import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
 import app.lumio.ui.settings.DeveloperSettingsPage
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.NetworksSettingsPage
 import app.lumio.ui.settings.SecuritySettingsPage
 import app.lumio.ui.settings.SettingsFacts
+import app.lumio.ui.settings.WalletsSettingsPage
 import app.lumio.ui.settings.providerCounts
 import app.lumio.ui.settings.settingsRows
+import app.lumio.ui.shell.LumioTab
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -56,6 +59,8 @@ internal fun SettingsRoute(navController: NavHostController, holder: VaultHolder
     LumioSettingsScreen(
         rows = settingsRows(current, gesture, BuildConfig.VERSION_NAME, developer),
         onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
+        // The list is a tab over Home, so its back arrow returns to Home.
+        onBack = { navController.openTab(LumioTab.HOME) },
     )
 }
 
@@ -93,9 +98,17 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     composable(LumioRoute.SETTINGS_NETWORKS) {
         LumioBackdrop(selection) { NetworksSettingsRoute(navController = navController, holder = holder) }
     }
+    composable(LumioRoute.SETTINGS_WALLETS) {
+        LumioBackdrop(selection) {
+            WalletsSettingsPage(
+                onBack = { navController.popBackStack() },
+                wallets = { WalletsSettingsRoute(navController = navController, holder = holder, listVersion = listVersion, onChanged = onChanged) },
+            )
+        }
+    }
     composable(LumioRoute.SETTINGS_ADDRESSES) {
         LumioBackdrop(selection) {
-            AddressBookSettingsRoute(navController = navController, holder = holder, listVersion = listVersion, onChanged = onChanged)
+            AddressBookSettingsRoute(navController = navController, holder = holder, listVersion = listVersion)
         }
     }
     composable(LumioRoute.SETTINGS_SECURITY) {
@@ -119,20 +132,21 @@ private fun NetworksSettingsRoute(navController: NavHostController, holder: Vaul
     )
 }
 
-/** The Address book page: the paired wallets with their address books, which [WalletsSettingsRoute] draws. */
+/** The Address book page: each paired wallet, which opens that wallet's address book. The wallets are read again when the list changes. */
 @Composable
-private fun AddressBookSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onChanged: () -> Unit) {
+private fun AddressBookSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int) {
+    val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
     AddressBookSettingsPage(
         onBack = { navController.popBackStack() },
         wallets = {
-            WalletsSettingsRoute(navController = navController, holder = holder, listVersion = listVersion, onChanged = onChanged)
+            AddressBookRows(wallets = wallets, onAddressBook = { wallet -> navController.navigate(LumioRoute.addressBook(wallet.id)) })
         },
     )
 }
 
 /**
- * The Security page: the Hidden Entry Gesture, whose row opens the choice shared through :shared, and the lock. Each choice applies as the
- * owner makes it.
+ * The Security page: the Hidden Entry Gesture, whose row opens the choice shared through :shared, the App Password, whose row opens its
+ * change, and the lock. Each choice applies as the owner makes it.
  */
 @Composable
 private fun SecuritySettingsRoute(navController: NavHostController, lockChoices: LockSettingsState) {
@@ -140,6 +154,7 @@ private fun SecuritySettingsRoute(navController: NavHostController, lockChoices:
         entryGesture = LocalContext.current.entryGestureHolder().current,
         lock = lockChoices.settings,
         onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
+        onChangePassword = { navController.navigate(LumioRoute.CHANGE_PASSWORD) },
         onIdleMinutes = { minutes -> lockChoices.change { it.copy(idleMinutes = minutes) } },
         onLockWhenSwitching = { on -> lockChoices.change { it.copy(lockWhenSwitchingApps = on) } },
         onBack = { navController.popBackStack() },

@@ -34,11 +34,12 @@ private fun addressBookDescription(count: Int): String = when (count) {
 }
 
 /**
- * The Wallets section of the settings: a row that pairs a wallet from Lensly, then each paired wallet with its fingerprint, its Address Book
- * and a delete row in the error colour. A deletion asks first, and it erases only Lumio's watch-only copy. The wallet in Lensly is not changed.
+ * The Wallets page: a row that pairs a wallet from Lensly, then each paired wallet with its fingerprint and a delete row in the error colour.
+ * A deletion asks first, and it erases only Lumio's watch-only copy. The wallet in Lensly is not changed. A wallet's address book is on the
+ * Address book page, not here.
  */
 @Composable
-fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onAddressBook: (PairedWallet) -> Unit, onDelete: (PairedWallet) -> Unit) {
+fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onDelete: (PairedWallet) -> Unit) {
     var pendingDelete by remember { mutableStateOf<PairedWallet?>(null) }
     SettingsRow(
         title = "Pair from Lensly",
@@ -57,12 +58,6 @@ fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onAddressBo
         SettingsRow(
             title = wallet.name,
             description = "Fingerprint ${PairLabels.fingerprint(wallet.fingerprint)}",
-        )
-        SettingsRow(
-            title = "Address book",
-            description = addressBookDescription(wallet.addressBook.size),
-            onClick = { onAddressBook(wallet) },
-            modifier = Modifier.testTag(addressBookTag(wallet.id)),
         )
         SettingsRow(
             title = "Delete ${wallet.name}",
@@ -88,6 +83,28 @@ fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onAddressBo
                 }
             },
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+        )
+    }
+}
+
+/**
+ * The Address book rows: each paired wallet, with how many addresses its book holds. A tap on a wallet opens its book, which is read only.
+ */
+@Composable
+fun AddressBookRows(wallets: List<PairedWallet>, onAddressBook: (PairedWallet) -> Unit) {
+    if (wallets.isEmpty()) {
+        Text(
+            text = "No wallets paired yet.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    wallets.forEach { wallet ->
+        SettingsRow(
+            title = wallet.name,
+            description = addressBookDescription(wallet.addressBook.size),
+            onClick = { onAddressBook(wallet) },
+            modifier = Modifier.testTag(addressBookTag(wallet.id)),
         )
     }
 }
