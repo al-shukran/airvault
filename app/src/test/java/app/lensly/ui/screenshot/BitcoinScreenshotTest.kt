@@ -59,6 +59,21 @@ class BitcoinScreenshotTest {
     }
 
     @Test
+    fun bitcoinReviewBlockedWhileItsDetailsAreFolded() = compose.snapshot("bitcoin_review_blocked") {
+        // The request fits on screen, yet Hold to sign is off and says to open the details, where its one warning is read.
+        BitcoinReviewScreen(
+            review = externalInputReview(),
+            network = BtcNetwork.TESTNET4,
+            scriptType = ScriptType.NATIVE_SEGWIT,
+            accountIndex = 0,
+            confirmed = false,
+            onConfirmedChange = {},
+            onApprove = {},
+            onReject = {},
+        )
+    }
+
+    @Test
     fun bitcoinReviewWithFeeWarnings() = compose.snapshot("bitcoin_review_fee_warnings") {
         BitcoinReviewScreen(
             review = warnedReview().copy(
@@ -126,6 +141,18 @@ private fun cleanReview() = BtcReview(
     feeSats = 10_000L,
     requiresConfirmation = false,
     estimatedVsize = 141L,
+)
+
+/** The clean request with a second input that another signer owns: a plain warning, which the owner reads in the details. */
+private fun externalInputReview() = cleanReview().copy(
+    inputs = listOf(
+        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownPath(0)),
+        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null),
+    ),
+    outputs = listOf(
+        BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
+        BtcReviewOutput(1, "tb1qexampleexampleexampleexampleexample1", 110_000L, isOwnChange = true, changeIndex = 0),
+    ),
 )
 
 /**

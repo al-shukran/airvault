@@ -232,6 +232,9 @@ private fun urBatchSample() = sampleNativeReview.copy(
     ),
 )
 
+/** A native transfer with one warning and no check. Short enough to fit on screen, so only the details stand between it and signing. */
+private val shortWarningSample = sampleNativeReview.copy(fee = listOf("Max fee" to "52.5 gwei"), feeNote = null)
+
 private const val REVIEW_TAG = "lensly-scrolled-review"
 private const val REVIEW_DENSITY = 1.75f
 
@@ -372,6 +375,12 @@ class SignScreenshotTest {
     @Test
     fun reviewPersonalMessage() = compose.snapshotSettled("tx_review_message") {
         TxReviewScreen(review = sampleMessageReview, onApprove = {}, onReject = {})
+    }
+
+    @Test
+    fun reviewWithAWarningIsBlockedWhileItsDetailsAreFolded() = compose.snapshotSettled("tx_review_blocked") {
+        // The review fits on screen, yet Hold to sign is off and says to open the details: the warning is read there.
+        TxReviewScreen(review = shortWarningSample, onApprove = {}, onReject = {})
     }
 
     @Test

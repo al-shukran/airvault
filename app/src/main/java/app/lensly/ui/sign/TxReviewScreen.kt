@@ -5,30 +5,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -42,7 +32,6 @@ import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.settings.protocolOfMeaning
-import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.SpaceMonoFamily
@@ -65,9 +54,11 @@ private const val UPGRADE_TEXT =
  * come the network fee, the total and who requested it. Every warning sits in one banner, and each check the review asks for sits in
  * the row it belongs to. The details start collapsed: the parameters, the calls, the transaction, and the raw data.
  *
- * The hold-to-sign control stays disabled until the user has scrolled to the end, so no fact can be skipped, and until every check is
- * ticked. A list that fits on screen counts as read. A personal message ([SIGN_MESSAGE_FUNCTION]) shows its text whole, under the banner,
- * since the text is what is signed. A whitelisted call takes its approved meaning as its sentence. REJECT is always enabled.
+ * The hold-to-sign control stays disabled until the user has read the review, and until every check is ticked. A review with no warning is
+ * read once its list is scrolled to the end or fits on screen. A review with a warning is read only once a details section is open and
+ * the list is then at its end or fits, so the warning is read where it is explained. A personal message ([SIGN_MESSAGE_FUNCTION]) shows
+ * its text whole, under the banner, since the text is what is signed. A whitelisted call takes its approved meaning as its sentence.
+ * REJECT is always enabled.
  */
 @Composable
 fun TxReviewScreen(
@@ -76,26 +67,13 @@ fun TxReviewScreen(
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scroll = rememberScrollState()
     val isMessage = review.function == SIGN_MESSAGE_FUNCTION
     // The To row names the recipient, or the contract of a whitelisted or decoded call. A message has none.
     val showTo = !isMessage && review.toAddress.isNotEmpty()
-    var viewportPx by remember { mutableIntStateOf(0) }
-    var contentPx by remember { mutableIntStateOf(0) }
-    val atEnd by remember {
-        derivedStateOf { scroll.maxValue > 0 && scroll.value >= scroll.maxValue }
-    }
-    val fits by remember {
-        derivedStateOf { viewportPx > 0 && contentPx in 1..viewportPx }
-    }
-    // Sticky once reached, and reset when a different transaction is shown.
-    var everyFactShown by remember(review) { mutableStateOf(false) }
-    LaunchedEffect(atEnd, fits) {
-        if (atEnd || fits) everyFactShown = true
-    }
+    val read = rememberReviewRead(review, review.hasWarnings)
     // The checks the review asks for, such as the chain ID and contract outside the registry. They reset with the review.
     var checked by remember(review) { mutableStateOf(emptySet<ReviewCheck>()) }
-    val approvable = review.canApprove(everyFactShown, checked)
+    val approvable = review.canApprove(read.read, checked)
 
     LenslyScreen(
         title = "Review",
@@ -103,106 +81,83 @@ fun TxReviewScreen(
         scrollable = false,
         bottomAction = {
             ReviewActions(
-                hint = reviewHint(review, everyFactShown, checked),
+                hint = reviewHint(review, read, checked),
                 approvable = approvable,
                 onApprove = onApprove,
                 onReject = onReject,
             )
         },
     ) {
-        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .onSizeChanged { viewportPx = it.height }
-                    .verticalScroll(scroll),
-            ) {
-                Column(modifier = Modifier.fillMaxWidth().onSizeChanged { contentPx = it.height }) {
-                    ReviewChips(
-                        network = review.networkName,
-                        testnet = review.network?.testnet == true,
-                        account = review.fromAccountLabel,
-                        networkIcon = { ChainIcon(network = review.network, size = 16.dp) },
-                    )
-                    Spacer(Modifier.height(LenslySpacing.md))
-                    ReviewSummary(
-                        sentence = evmSentence(review),
-                        facts = evmFacts(review),
-                        icon = if (review.amount.isNotEmpty()) amountIcon(review) else null,
-                    )
-                    Spacer(Modifier.height(LenslySpacing.md))
-                    RiskBanner(
-                        items = evmRiskItems(review, checked) { check, on ->
-                            checked = if (on) checked + check else checked - check
-                        },
-                    )
-                    Spacer(Modifier.height(LenslySpacing.md))
-                    if (isMessage) {
-                        MessageBlock(review)
-                        Spacer(Modifier.height(LenslySpacing.md))
-                    }
-                    // A call Lensly describes lists its steps in view, since the steps say what the call does.
-                    review.whitelisted?.steps?.lines?.takeIf { it.isNotEmpty() }?.let { lines ->
-                        NumberedSteps(lines)
-                        Spacer(Modifier.height(LenslySpacing.sm))
-                    }
-                    if (!isMessage && review.typed == null) {
-                        DetailsSection(title = "Parameters") {
-                            ParameterFields(review.params, review.addressNotes)
-                        }
-                    }
-                    review.typed?.let { typed ->
-                        DetailsSection(title = "Domain") {
-                            typed.domain.forEach { (name, value) ->
-                                ReviewField(label = name, value = value, notes = review.addressNotes.notesOf(value))
-                            }
-                        }
-                        DetailsSection(title = "Fields") {
-                            typed.fields.forEach { row -> TypedFieldRow(row, review.addressNotes) }
-                        }
-                    }
-                    if (review.nested.isNotEmpty()) {
-                        DetailsSection(title = "Calls") {
-                            review.nested.forEach { call -> NestedCallView(call, review.addressNotes) }
-                        }
-                    }
-                    DetailsSection(title = "Transaction") {
-                        TransactionFields(review, showTo)
-                    }
-                    review.whitelisted?.let { whitelisted ->
-                        DetailsSection(title = "Raw data") {
-                            RawDataFields(whitelisted)
-                        }
-                    }
-                    Spacer(Modifier.height(LenslySpacing.md))
+        ReviewBody(read) {
+            ReviewChips(
+                network = review.networkName,
+                testnet = review.network?.testnet == true,
+                account = review.fromAccountLabel,
+                networkIcon = { ChainIcon(network = review.network, size = 16.dp) },
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            ReviewSummary(
+                sentence = evmSentence(review),
+                facts = evmFacts(review),
+                icon = if (review.amount.isNotEmpty()) amountIcon(review) else null,
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            RiskBanner(
+                items = evmRiskItems(review, checked) { check, on ->
+                    checked = if (on) checked + check else checked - check
+                },
+            )
+            Spacer(Modifier.height(LenslySpacing.md))
+            if (isMessage) {
+                MessageBlock(review)
+                Spacer(Modifier.height(LenslySpacing.md))
+            }
+            // A call Lensly describes lists its steps in view, since the steps say what the call does.
+            review.whitelisted?.steps?.lines?.takeIf { it.isNotEmpty() }?.let { lines ->
+                NumberedSteps(lines)
+                Spacer(Modifier.height(LenslySpacing.sm))
+            }
+            if (!isMessage && review.typed == null) {
+                DetailsSection(title = "Parameters", onOpen = read::openDetails) {
+                    ParameterFields(review.params, review.addressNotes)
                 }
             }
-            // A fade over the cut-off edge while more facts lie below, so the list reads as scrolling, not clipped.
-            if (!atEnd) {
-                ScrollFade(modifier = Modifier.align(Alignment.BottomCenter))
+            review.typed?.let { typed ->
+                DetailsSection(title = "Domain", onOpen = read::openDetails) {
+                    typed.domain.forEach { (name, value) ->
+                        ReviewField(label = name, value = value, notes = review.addressNotes.notesOf(value))
+                    }
+                }
+                DetailsSection(title = "Fields", onOpen = read::openDetails) {
+                    typed.fields.forEach { row -> TypedFieldRow(row, review.addressNotes) }
+                }
             }
+            if (review.nested.isNotEmpty()) {
+                DetailsSection(title = "Calls", onOpen = read::openDetails) {
+                    review.nested.forEach { call -> NestedCallView(call, review.addressNotes) }
+                }
+            }
+            DetailsSection(title = "Transaction", onOpen = read::openDetails) {
+                TransactionFields(review, showTo)
+            }
+            review.whitelisted?.let { whitelisted ->
+                DetailsSection(title = "Raw data", onOpen = read::openDetails) {
+                    RawDataFields(whitelisted)
+                }
+            }
+            Spacer(Modifier.height(LenslySpacing.md))
         }
     }
 }
 
-/** The fade at the bottom of the fact list. It runs from transparent to the page colour, so it sits over the content. */
-@Composable
-private fun ScrollFade(modifier: Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(LenslySpacing.xl)
-            .background(Brush.verticalGradient(listOf(Color.Transparent, LenslyBlack))),
-    )
-}
-
 /**
- * The line above the buttons. It names what still stands between the owner and signing, and it is empty when nothing does.
+ * The line above the buttons. It names what still stands between the owner and signing, and it is empty when nothing does: the read of
+ * the review first, then the checks the review asks for.
  */
-private fun reviewHint(review: TxReview, everyFactShown: Boolean, checked: Set<ReviewCheck>): String? {
+private fun reviewHint(review: TxReview, read: ReviewRead, checked: Set<ReviewCheck>): String? {
+    readHint(read, review.hasWarnings)?.let { return it }
     val owed = review.requiredChecks.count { it !in checked }
     return when {
-        !everyFactShown -> "Scroll to the end to review everything"
         owed == 1 -> "Tick the checkbox above to sign"
         owed > 1 -> "Tick the checkboxes above to sign"
         else -> null
