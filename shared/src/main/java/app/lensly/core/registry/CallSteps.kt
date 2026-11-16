@@ -35,6 +35,7 @@ data class CallSteps(val lines: List<String>, val warnings: List<String>) {
                 UniversalRouterSteps.describe(call, selector.lowercase(), signature)
                     ?: ProtocolSteps.describe(call, selector.lowercase(), signature)
                     ?: BulkerSteps.describe(call, selector.lowercase(), signature)
+                    ?: CowSteps.describe(call, selector.lowercase(), signature)
             } catch (e: RuntimeException) {
                 CallSteps(emptyList(), listOf(UNREADABLE_CALL))
             }

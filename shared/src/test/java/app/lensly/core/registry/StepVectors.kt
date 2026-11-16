@@ -3,7 +3,7 @@ package app.lensly.core.registry
 /**
  * Real Ethereum mainnet calldata for the step tests, each the input of the transaction named in its comment. Every transaction succeeded
  * on chain. The vectors above the DEC2b block were read from the block on a public RPC node and matched against the block explorer's copy.
- * The DEC2b vectors were read from the block on a public RPC node, and their block explorer copy was not checked.
+ * The DEC2b and DEC2c vectors were read from the block on a public RPC node, and their block explorer copy was not checked.
  */
 internal object StepVectors {
     /**
@@ -386,5 +386,15 @@ internal object StepVectors {
         "000000000100000000000000000000000000000000000000000000000000000000000229560000000000000000000000" +
         "000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000" +
         "0000000500"
+
+    /**
+     * CoW settlement: setPreSignature signing an order owned by the sender.
+     * Transaction 0x0f29ddc85885ecd5583c0da4153ca4865d0b39d681dcba20e4872146339a892a, from 0xdc7f593958ef44914f806a3196a869ed471cafc1, to 0x9008d19f58aabd9ed0d60971565aa8510560ab41.
+     */
+    const val COW_PRESIGN_ORDER =
+        "0xec6cb13f00000000000000000000000000000000000000000000000000000000000000400000000000000000000000" +
+        "000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000" +
+        "000000003891534a42a731bf5c3dc105cd8b7d5b28c4159209d90db698fa33033b85f58843dc7f593958ef44914f806a" +
+        "3196a869ed471cafc16afa7be70000000000000000"
 
 }
