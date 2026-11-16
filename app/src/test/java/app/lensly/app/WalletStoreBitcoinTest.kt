@@ -23,12 +23,18 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
+import fr.acinq.bitcoin.Bitcoin
+import fr.acinq.bitcoin.ByteVector
 import fr.acinq.bitcoin.DeterministicWallet
+import fr.acinq.bitcoin.Satoshi
+import fr.acinq.bitcoin.Script
+import fr.acinq.bitcoin.TxOut
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.After
 import org.junit.Before
@@ -47,6 +53,7 @@ class WalletStoreBitcoinTest {
     val tmp = TemporaryFolder()
 
     private val words = List(23) { "abandon" } + "art"
+    private val otherWords = List(23) { "zoo" } + "vote"
     private val cap = BulkCap.DEFAULT.accounts
     private lateinit var session: VaultSession
     private lateinit var store: WalletStore
@@ -488,6 +495,70 @@ class WalletStoreBitcoinTest {
             store.bitcoinReview(id, requestFrom(walletAccount(BtcNetwork.MAINNET, 0)), STRICT, SigningSourcePolicy.ANY)
         }
         assertEquals(BtcRefusal.NoStoredAccount, refused.refusal)
+    }
+
+    @Test
+    fun anOutputPayingTheFirstReceiveAddressOfAnotherWalletIsNamedWithThatWallet() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        val savings = store.create(name = "Savings", deviceGenerated = false, words = otherWords, passphrase = null, nowMs = 2L)
+        store.addBitcoinAccounts(savings, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        val other = BtcAccount.fromSeed(Mnemonic.toSeed(otherWords), BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+        val account = walletAccount(BtcNetwork.TESTNET4, 0)
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val psbt = BtcFixtures.psbt(
+            listOf(spend),
+            listOf(payingAddress(other.receiveAddress(0), 30_000L), payingAddress(account.changeAddress(0), 60_000L)),
+        )
+
+        val reviewed = store.bitcoinReview(id, psbt, STRICT, SigningSourcePolicy.ANY)
+
+        val named = assertNotNull(reviewed.addressNotes.notesOf(other.receiveAddress(0))?.internal)
+        assertEquals("Savings", named.walletName)
+        assertEquals(autoAccountName(assertNotNull(store.meta(savings)).autoNameBase, 0), named.autoName)
+    }
+
+    @Test
+    fun anOutputPayingTheSigningWalletsOwnAccountIsNamedWithoutAnotherWallet() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        val savings = store.create(name = "Savings", deviceGenerated = false, words = otherWords, passphrase = null, nowMs = 2L)
+        store.addBitcoinAccounts(savings, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        val account = walletAccount(BtcNetwork.TESTNET4, 0)
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val psbt = BtcFixtures.psbt(
+            listOf(spend),
+            listOf(payingAddress(account.receiveAddress(0), 30_000L), payingAddress(account.changeAddress(0), 60_000L)),
+        )
+
+        val reviewed = store.bitcoinReview(id, psbt, STRICT, SigningSourcePolicy.ANY)
+
+        val own = assertNotNull(reviewed.addressNotes.notesOf(account.receiveAddress(0))?.internal)
+        assertNull(own.walletName)
+    }
+
+    @Test
+    fun anOutputToAnAddressNoAccountOfTheVaultHoldsIsNotNamed() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        // A seed no wallet of the vault holds: the same words with another passphrase.
+        val outsider = BtcAccount.fromSeed(Mnemonic.toSeed(otherWords, passphrase = "outside"), BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+        val account = walletAccount(BtcNetwork.TESTNET4, 0)
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val psbt = BtcFixtures.psbt(
+            listOf(spend),
+            listOf(payingAddress(outsider.receiveAddress(0), 30_000L), payingAddress(account.changeAddress(0), 60_000L)),
+        )
+
+        val reviewed = store.bitcoinReview(id, psbt, STRICT, SigningSourcePolicy.ANY)
+
+        assertNull(reviewed.addressNotes.notesOf(outsider.receiveAddress(0)))
+    }
+
+    /** An output of [amount] sat that pays [address] on Testnet4, the way a request names the address it pays. */
+    private fun payingAddress(address: String, amount: Long): TxOut {
+        val script = Bitcoin.addressToPublicKeyScript(BtcNetwork.TESTNET4.chain.chainHash, address).right
+        return TxOut(Satoshi(amount), ByteVector(Script.write(checkNotNull(script))))
     }
 
     /** The account [index] of the wallet's own seed, on [network] and in Native Segwit. */
