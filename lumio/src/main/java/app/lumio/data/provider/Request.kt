@@ -138,3 +138,37 @@ class RawTx(net: NetworkId, val txid: String) : Request<String>(net, Op.TX) {
         require(BTC_HASH.matches(txid)) { "Not a transaction id." }
     }
 }
+
+/** An Algorand transaction id: 52 characters of the base32 alphabet, as algod writes it. */
+internal val ALGORAND_TXID = Regex("[A-Z2-7]{52}")
+
+/**
+ * The parameters that algod suggests for the next transaction on [net]: the genesis, the round it starts from, and the fees. The answer is
+ * [AlgorandSuggestedParams].
+ */
+class AlgorandParams(net: NetworkId) : Request<AlgorandSuggestedParams>(net, Op.SUGGESTED_PARAMS)
+
+/**
+ * What algod suggests for a new transaction: [genesisId] and [genesisHash] name the network, [lastRound] is the first round the transaction is
+ * valid in, [feePerByte] is the fee per byte of the signed transaction, and [minFee] is the least fee a transaction may pay, in microAlgos.
+ */
+data class AlgorandSuggestedParams(
+    val genesisId: String,
+    val genesisHash: ByteArray,
+    val lastRound: Long,
+    val feePerByte: Long,
+    val minFee: Long,
+)
+
+/** The pending state of the transaction [txid] (see [ALGORAND_TXID]) in the node's pool. */
+class AlgorandPendingTx(net: NetworkId, val txid: String) : Request<AlgorandPendingInfo>(net, Op.PENDING_TX) {
+    init {
+        require(ALGORAND_TXID.matches(txid)) { "Not an Algorand transaction id." }
+    }
+}
+
+/**
+ * The pool's state of a transaction: [confirmedRound] is 0 while it is pending and the round that confirmed it after, and [poolError] is what the
+ * node says when it refused the transaction, or an empty text.
+ */
+data class AlgorandPendingInfo(val confirmedRound: Long, val poolError: String)
