@@ -2,6 +2,7 @@ package app.lensly.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,10 +22,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lensly.app.WalletMeta
 import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.RowArrow
+import app.lensly.ui.components.rememberKeyHaptics
+import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
@@ -38,9 +42,10 @@ internal const val HOME_BACKUP_TAG = "home-backup"
 internal fun walletsNeedingBackup(wallets: List<WalletMeta>): List<WalletMeta> = wallets.filterNot { it.seedBackedUp }
 
 /**
- * The backup panel, shown while a wallet's seed phrase is not backed up. It has a warm edge, a shield, one line on why, and one action:
- * [onBackup] opens the Show Secret flow for the first of [wallets]. It has no dismiss, so it stays until the seed is backed up. With more
- * than one wallet to back up, the title counts them. [wallets] is never empty.
+ * The backup panel, shown while a wallet's seed phrase is not backed up. It is one tappable card with a warm edge, a shield, one line on
+ * why, and a chevron, and no button inside it. A tap runs [onBackup] for the first of [wallets], which opens the Show Secret flow. It has
+ * no dismiss, so it stays until the seed is backed up. With more than one wallet to back up, the title counts them. [wallets] is never
+ * empty.
  */
 @Composable
 internal fun BackupPanel(
@@ -49,6 +54,7 @@ internal fun BackupPanel(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(LenslyRadius.lg)
+    val haptics = rememberKeyHaptics()
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -56,6 +62,8 @@ internal fun BackupPanel(
             .clip(shape)
             .background(LenslySurfaceContainer)
             .border(1.dp, LenslyWarning.copy(alpha = 0.6f), shape)
+            .tapHaptic(haptics)
+            .clickable(role = Role.Button, onClick = { onBackup(wallets.first().id) })
             .padding(LenslySpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -76,19 +84,18 @@ internal fun BackupPanel(
         Spacer(Modifier.width(LenslySpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = if (wallets.size == 1) "Back up 24 words" else "Back up ${wallets.size} wallets",
+                text = if (wallets.size == 1) "Back up your 24 words" else "Back up ${wallets.size} wallets",
                 style = MaterialTheme.typography.titleSmall,
                 color = LenslyOnSurface,
             )
             Spacer(Modifier.height(LenslySpacing.xxs))
             Text(
-                // A no-break space keeps "24 words" on one line.
-                text = "If this phone is lost, the 24 words are the only way back.",
+                text = "If this phone is lost, these words are the only way back.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Spacer(Modifier.width(LenslySpacing.sm))
-        PillButton(text = "Back up", onClick = { onBackup(wallets.first().id) })
+        RowArrow()
     }
 }
