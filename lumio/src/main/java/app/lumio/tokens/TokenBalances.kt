@@ -8,6 +8,16 @@ import java.math.BigInteger
 /** The balances of ERC-20 tokens, read from a chain's RPC pool. */
 internal object TokenBalances {
     /**
+     * The balance of [owner] in the token at [contract] on [chain], in its base units, read live before a send. A reply that does not decode is
+     * refused. An endpoint failure throws [RpcFailure] with the endpoint's words.
+     */
+    suspend fun balance(reads: ContractReads, chain: EvmChain, owner: String, contract: String): BigInteger = try {
+        Abi.uint(Abi.bytes(reads.call(chain, contract, Erc20.balanceOf(owner))))
+    } catch (e: AbiException) {
+        throw RpcFailure(RpcFailure.Reason.MALFORMED, "The token balance could not be read. Try again.")
+    }
+
+    /**
      * The balance of [owner] in each of [contracts] on [chain], in the token's base units. One Multicall3 call reads them all. A chain without
      * Multicall3 answers that call with no data, or with an error, and then each contract is read with its own balanceOf call.
      *

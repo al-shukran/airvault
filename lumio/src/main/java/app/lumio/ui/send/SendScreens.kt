@@ -42,6 +42,7 @@ import app.lumio.evm.EvmAdvanced
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmFormat
 import app.lumio.evm.PreparedSend
+import app.lumio.evm.SendAsset
 import app.lumio.evm.SendInput
 
 private const val TESTNET_LABEL = "TESTNET"
@@ -50,8 +51,9 @@ private const val TESTNET_LABEL = "TESTNET"
 internal const val RECIPIENT_SCAN_HINT = "Point the camera at an address or a payment code."
 
 /**
- * The send form: the address that sends, the chain (only the chains that are on), the recipient and the amount. [notice] is why the last
- * attempt did not go through. [busy] holds the review until the endpoint has answered.
+ * The send form: the address that sends, the chain (only the chains that are on), the asset of that chain (the native coin or a token the address
+ * holds), the recipient and the amount in that asset. [notice] is why the last attempt did not go through. [busy] holds the review until the
+ * endpoint has answered.
  */
 @Composable
 fun SendFormScreen(
@@ -60,6 +62,9 @@ fun SendFormScreen(
     chains: List<EvmChain>,
     selectedChainId: Long?,
     onSelectChain: (Long) -> Unit,
+    assets: List<SendAsset>,
+    selectedAsset: SendAsset?,
+    onSelectAsset: (SendAsset) -> Unit,
     recipient: String,
     onRecipient: (String) -> Unit,
     onScan: () -> Unit,
@@ -113,6 +118,11 @@ fun SendFormScreen(
             ChainRow(chain = chain, selected = chain.chainId == selected?.chainId, onSelect = { onSelectChain(chain.chainId) })
         }
 
+        SectionLabel("Asset")
+        assets.forEach { asset ->
+            AssetRow(asset = asset, selected = asset.token?.contract == selectedAsset?.token?.contract, onSelect = { onSelectAsset(asset) })
+        }
+
         SectionLabel("Send to")
         AddressField(
             value = recipient,
@@ -126,7 +136,7 @@ fun SendFormScreen(
         OutlinedTextField(
             value = amount,
             onValueChange = onAmount,
-            label = { Text("Amount in ${selected?.symbol.orEmpty()}") },
+            label = { Text("Amount in ${selectedAsset?.symbol ?: selected?.symbol.orEmpty()}") },
             singleLine = true,
             enabled = !busy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -167,15 +177,34 @@ fun SendReviewScreen(
         },
     ) {
         NetworkHeader(chain)
+        val token = send.token
+        if (token != null) {
+            Text(
+                "Send ${EvmFormat.amount(send.valueWei, token.decimals, token.symbol)} to ${send.to}",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(LenslySpacing.sm))
+        }
         ReviewAddress("From", send.from)
         ReviewAddress("To", send.to)
-        ReviewField("Amount", EvmFormat.amount(send.valueWei, chain.decimals, chain.symbol))
+        if (token == null) {
+            ReviewField("Amount", EvmFormat.amount(send.valueWei, chain.decimals, chain.symbol))
+        } else {
+            ReviewField("Amount", EvmFormat.amount(send.valueWei, token.decimals, token.symbol))
+            ReviewAddress("Token contract", send.tx.to ?: token.contract)
+        }
         ReviewField("Fee, at most", EvmFormat.amount(send.maxFeeWei, chain.decimals, chain.symbol))
         ReviewField("Fee cap per gas", "${Amounts.format(send.maxFeePerGas, GWEI_DECIMALS)} gwei")
         ReviewField("Priority fee per gas", "${Amounts.format(send.maxPriorityFeePerGas, GWEI_DECIMALS)} gwei")
         ReviewField("Gas limit", send.gasLimit.toString())
         ReviewField("Nonce", send.nonce.toString())
-        ReviewField("Balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
+        if (token == null) {
+            ReviewField("Balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
+        } else {
+            ReviewField("Balance", send.tokenBalance?.let { EvmFormat.amount(it, token.decimals, token.symbol) }.orEmpty())
+            ReviewField("Gas balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
+        }
         EvmAdvanced.warnings(suggested, send).forEach { warning ->
             Spacer(Modifier.height(LenslySpacing.xs))
             InlineBanner(message = warning, tone = BannerTone.Warning)
@@ -321,6 +350,36 @@ private fun ChainRow(chain: EvmChain, selected: Boolean, onSelect: () -> Unit) {
         )
         if (chain.testnet) PillChip(text = TESTNET_LABEL)
     }
+}
+
+/** One coin of the asset picker: its symbol, and what the sending address holds of it. */
+@Composable
+private fun AssetRow(asset: SendAsset, selected: Boolean, onSelect: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+            .padding(vertical = LenslySpacing.xxs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Spacer(Modifier.width(LenslySpacing.xs))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(asset.symbol, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                assetDetail(asset),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** What the picker says under a coin: the native coin, the token's balance on this address, or that none is held. */
+private fun assetDetail(asset: SendAsset): String {
+    val token = asset.token ?: return "Native coin"
+    val balance = asset.balance ?: return "No balance on this address"
+    return "Balance " + EvmFormat.amount(balance, token.decimals, token.symbol)
 }
 
 /** The chain's name, with a TESTNET label when it is a testnet. */

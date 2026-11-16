@@ -37,8 +37,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The asset page's state: a hidden balance shows only the mask, a coin with no price data shows the empty chart, a token has no Send, and a single
- * account is taken at once. The page is shown with fixed data, and no test reaches a network.
+ * The asset page's state: a hidden balance shows only the mask, a coin with no price data shows the empty chart, a token is sent from its accounts
+ * like a coin, and a single account is taken at once. The page is shown with fixed data, and no test reaches a network.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -130,11 +130,20 @@ class AssetScreenTest {
     }
 
     @Test
-    fun aTokenCannotBeSentAndThePageSaysWhy() {
+    fun aTokenIsSentFromTheAccountThatHoldsIt() {
+        var sent: AccountOption? = null
+        show(asset = token, sendOptions = listOf(wallet), onSend = { sent = it })
+
+        compose.onNodeWithTag(ASSET_SEND_TAG).performClick()
+
+        assertEquals(wallet, sent)
+    }
+
+    @Test
+    fun aTokenWithNoAccountThatCanSendItHasNoSendAction() {
         show(asset = token, sendOptions = emptyList(), receiveOptions = listOf(wallet))
 
         compose.onNodeWithTag(ASSET_SEND_TAG).assertIsNotEnabled()
-        compose.onNodeWithTag(ASSET_TOKEN_NOTE_TAG).assertExists()
     }
 
     @Test
