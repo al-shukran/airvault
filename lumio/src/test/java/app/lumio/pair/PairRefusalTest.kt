@@ -76,12 +76,12 @@ class PairRefusalTest {
     @Test
     fun aNewerVersionOfThePairingIsRefusedByItsVersion() {
         val newer = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(2), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(3), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
         )
 
         val reason = refusalOf(UR(PairingCodec.UR_TYPE, newer))
 
-        assertTrue(reason, reason.contains("format 2"))
+        assertTrue(reason, reason.contains("format 3"))
         assertTrue(reason, reason.contains("Update the app"))
     }
 
@@ -193,7 +193,7 @@ class PairRefusalTest {
         return error.message.orEmpty()
     }
 
-    private fun codeOf(payload: PairingPayload): UR = UR(PairingCodec.UR_TYPE, PairingCodec.encode(payload))
+    private fun codeOf(payload: PairingPayload): UR = UR(PairingCodec.UR_TYPE, PairingCodec.encode(payload, brotli = null))
 
     private fun pairing(vararg apps: PairingApp) = PairingPayload(
         fingerprint = HdWallet(PairFixtures.seed).masterFingerprint.toLong() and 0xFFFFFFFFL,

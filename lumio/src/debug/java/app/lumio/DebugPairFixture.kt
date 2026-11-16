@@ -22,16 +22,23 @@ import app.lensly.core.wallet.Mnemonic
  */
 internal object DebugPairFixture {
     private const val EXTRA = "debugPairFixture"
+    private const val PARTS_EXTRA = "debugPairParts"
     private const val UINT32_MASK = 0xFFFFFFFFL
 
     /** The 24-word BIP39 test vector of 256 zero bits. */
     private val WORDS = ("abandon ".repeat(23) + "art").split(" ")
     private val seed: ByteArray by lazy { Mnemonic.of(WORDS).use { it.deriveSeed("") } }
 
-    /** The frames of the named fixture in the order a scan reads them, or null when [intent] names none. */
-    fun partsFor(intent: Intent?): List<String>? = when (intent?.getStringExtra(EXTRA)) {
-        "lensly" -> PairingCodec.urParts(payload())
-        else -> null
+    /**
+     * The frames a scan reads, in order, or null when [intent] names none: the named fixture, or the space-separated frames of [PARTS_EXTRA].
+     * The second is how frames that a debug build shows on screen reach the scan without a camera.
+     */
+    fun partsFor(intent: Intent?): List<String>? {
+        intent?.getStringExtra(PARTS_EXTRA)?.let { parts -> return parts.trim().split(' ').filter { it.isNotEmpty() } }
+        return when (intent?.getStringExtra(EXTRA)) {
+            "lensly" -> PairingCodec.urParts(payload(), brotli = null)
+            else -> null
+        }
     }
 
     private fun payload(): PairingPayload {

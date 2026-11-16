@@ -1,5 +1,7 @@
 package app.lensly.app
 
+import app.lensly.app.export.BrotliCompressor
+import app.lensly.app.export.BrotliEncoder
 import app.lensly.app.export.MultiAccountsExport
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
@@ -406,11 +408,12 @@ class WalletStore(private val session: VaultSession) {
      * [WalletApp], in its order, with the names, labels and groups Lensly shows for them. Lumio replaces what it holds for the wallet with
      * it, so Lensly is the source of truth. The Address Book goes with it, the first [PairingCodec.MAX_ADDRESS_BOOK] entries in the order they
      * were added. A book that cannot be read fails the pairing, so Lumio never replaces its book with an empty one. The seed is derived for
-     * the pairing and zeroed after it. The pairing asks for no App Password, and it carries public data only.
+     * the pairing and zeroed after it. [brotli] compresses the body of the code: Lensly passes its encoder, and null stores the body as it is,
+     * which the JVM tests use. The pairing asks for no App Password, and it carries public data only.
      *
      * @throws IllegalArgumentException if the wallet is missing or is a Single Key, which has no account key to pair.
      */
-    fun pairingParts(id: String): List<String> {
+    fun pairingParts(id: String, brotli: BrotliCompressor? = BrotliEncoder): List<String> {
         val meta = requireNotNull(meta(id)) { "No wallet $id." }
         require(meta.kind == WalletKind.MNEMONIC) { "A Single Key has no account key to pair." }
         val secret = mnemonicSecret(id)
@@ -420,7 +423,7 @@ class WalletStore(private val session: VaultSession) {
             val apps = WalletApp.entries.map { app -> app.pairedApp(this, id, seed) }
             val name = fitBytes(meta.name.ifBlank { DEFAULT_PAIRING_NAME }, PairingCodec.MAX_NAME_BYTES)
             val book = AddressBookStore(session).load().take(PairingCodec.MAX_ADDRESS_BOOK)
-            return PairingCodec.urParts(PairingPayload(fingerprint = fingerprint, name = name, apps = apps, addressBook = book))
+            return PairingCodec.urParts(PairingPayload(fingerprint = fingerprint, name = name, apps = apps, addressBook = book), brotli)
         } finally {
             seed.fill(0)
         }

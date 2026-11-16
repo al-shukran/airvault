@@ -221,6 +221,8 @@ dependencies {
     androidTestImplementation(libs.sparrowwallet.hummingbird)
     // The Brotli round trip of BrotliEncoder reads its streams back with the decoder Lumio ships.
     androidTestImplementation(libs.brotli.dec)
+    // The demo pairing and its golden frames are shared with :shared's tests.
+    androidTestImplementation(testFixtures(project(":shared")))
 
     // AndroidX Benchmark puts `androidx.benchmark.IsolationActivity` in the *app* APK's manifest, not the test APK's:
     // AndroidBenchmarkRunner launches it by name in the app under test. So the library has to be on the benchmark

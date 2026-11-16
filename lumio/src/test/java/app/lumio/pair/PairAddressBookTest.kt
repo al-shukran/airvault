@@ -83,7 +83,7 @@ class PairAddressBookTest {
         )
     }
 
-    private fun codeOf(payload: PairingPayload): UR = UR(PairingCodec.UR_TYPE, PairingCodec.encode(payload))
+    private fun codeOf(payload: PairingPayload): UR = UR(PairingCodec.UR_TYPE, PairingCodec.encode(payload, brotli = null))
 
     private fun refusalOf(payload: PairingPayload): String = assertFailsWith<PairingRefusal> { PairImport.of(codeOf(payload)) }.message.orEmpty()
 

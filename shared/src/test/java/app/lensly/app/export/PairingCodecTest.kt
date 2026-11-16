@@ -63,6 +63,7 @@ class PairingCodecTest {
             }
             assertEquals(want.accounts, got.accounts)
         }
+        assertEquals(expected.addressBook, actual.addressBook)
     }
 
     /** Refusal text of [block], which must throw an IllegalArgumentException. */
@@ -77,11 +78,35 @@ class PairingCodecTest {
     private fun rawPayload(vararg entries: Pair<Long, Cbor>): ByteArray =
         Cbor.encode(Cbor.Dict(entries.map { (key, value) -> Cbor.Uint(key) to value }))
 
+    /** The payload that [bytes] hold once they are encoded without compression and decoded again. */
+    private fun roundTrip(payload: PairingPayload): PairingPayload = PairingCodec.decode(PairingCodec.encode(payload, null), null)
+
+    /** The UR that [parts] scan back to, which must be a complete code. */
+    private fun scanned(parts: List<String>): UR {
+        val scanner = UrScanner()
+        parts.forEach { scanner.receive(it) }
+        return requireNotNull(scanner.result())
+    }
+
+    /** The encoding flag (key 6) of a version-2 envelope. */
+    private fun encodingOf(envelope: ByteArray): Long =
+        ((Cbor.decode(envelope, app.lensly.core.parse.DecodeBudget("CBOR", 1024)) as Cbor.Dict)
+            .entries.single { (key, _) -> (key as Cbor.Uint).value == 6L }.second as Cbor.Uint).value
+
+    /** One Address Book entry as a version-1 payload carries it. */
+    private fun addressItem(seed: Int): Cbor = Cbor.Dict(
+        listOf(
+            Cbor.Uint(1) to Cbor.Text("id-$seed"),
+            Cbor.Uint(2) to Cbor.Text("0x" + "%040x".format(seed)),
+            Cbor.Uint(3) to Cbor.Text("Alice"),
+        ),
+    )
+
     @Test
     fun namesLabelsAndGroupsRoundTrip() {
         val payload = sample()
 
-        assertSamePayload(payload, PairingCodec.decode(PairingCodec.encode(payload)))
+        assertSamePayload(payload, roundTrip(payload))
     }
 
     @Test
@@ -92,7 +117,7 @@ class PairingCodecTest {
             apps = listOf(PairingApp("ethereum", listOf(key(4, ethereumPath)), listOf(PairingAccount(0, 0, null, null, null)))),
         )
 
-        val back = PairingCodec.decode(PairingCodec.encode(payload))
+        val back = roundTrip(payload)
 
         assertNull(back.apps.single().accounts.single().name)
         assertNull(back.apps.single().accounts.single().label)
@@ -110,46 +135,41 @@ class PairingCodecTest {
             name = "Long",
             apps = listOf(PairingApp("ethereum", listOf(key(5, ethereumPath)), accounts)),
         )
-        val parts = PairingCodec.urParts(payload)
+        val parts = PairingCodec.urParts(payload, null)
         assertTrue("a long pairing is animated", parts.size > 1)
 
-        val scanner = UrScanner()
-        parts.forEach { scanner.receive(it) }
-        val ur = scanner.result()
-
-        assertTrue("the scanner completes the code", ur != null)
-        assertSamePayload(payload, PairingCodec.fromUr(ur!!))
+        assertSamePayload(payload, PairingCodec.fromUr(scanned(parts), null))
     }
 
     @Test
     fun aNewerVersionIsRefusedByItsVersionEvenWithFieldsItDoesNotKnow() {
         val newer = rawPayload(
-            1L to Cbor.Uint(2),
+            1L to Cbor.Uint(3),
             2L to Cbor.Uint(1),
             3L to Cbor.Text("Demo"),
             4L to Cbor.Arr(emptyList()),
             9L to Cbor.Text("a field from the future"),
         )
 
-        val message = refusalOf { PairingCodec.decode(newer) }
+        val message = refusalOf { PairingCodec.decode(newer, null) }
 
-        assertTrue(message, message.contains("format 2"))
+        assertTrue(message, message.contains("format 3"))
         assertTrue(message, message.contains("Update the app"))
     }
 
     @Test
     fun aVersionZeroAndAMissingVersionAreNotAPairing() {
         val notAPairing = "This is not a pairing code from Lensly."
-        assertEquals(notAPairing, refusalOf { PairingCodec.decode(rawPayload(1L to Cbor.Uint(0))) })
-        assertEquals(notAPairing, refusalOf { PairingCodec.decode(rawPayload(2L to Cbor.Uint(1))) })
-        assertEquals(notAPairing, refusalOf { PairingCodec.decode(byteArrayOf(0x01, 0x02)) })
+        assertEquals(notAPairing, refusalOf { PairingCodec.decode(rawPayload(1L to Cbor.Uint(0)), null) })
+        assertEquals(notAPairing, refusalOf { PairingCodec.decode(rawPayload(2L to Cbor.Uint(1)), null) })
+        assertEquals(notAPairing, refusalOf { PairingCodec.decode(byteArrayOf(0x01, 0x02), null) })
     }
 
     @Test
     fun anotherUrTypeIsRefused() {
-        val other = UR("crypto-hdkey", PairingCodec.encode(sample()))
+        val other = UR("crypto-hdkey", PairingCodec.encode(sample(), null))
 
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.fromUr(other) })
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.fromUr(other, null) })
     }
 
     @Test
@@ -162,7 +182,7 @@ class PairingCodecTest {
             7L to Cbor.Text("extra"),
         )
 
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes) })
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes, null) })
     }
 
     @Test
@@ -185,7 +205,7 @@ class PairingCodecTest {
         )
         val bytes = rawPayload(1L to Cbor.Uint(1), 2L to Cbor.Uint(1), 3L to Cbor.Text("Demo"), 4L to Cbor.Arr(listOf(app)))
 
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes) })
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes, null) })
     }
 
     @Test
@@ -196,7 +216,7 @@ class PairingCodecTest {
             apps = listOf(PairingApp("ethereum", listOf(key(6, ethereumPath)), listOf(PairingAccount(1, 0, null, null, null)))),
         )
 
-        assertTrue(refusalOf { PairingCodec.encode(broken) }.contains("key the App does not hold"))
+        assertTrue(refusalOf { PairingCodec.encode(broken, null) }.contains("key the App does not hold"))
     }
 
     @Test
@@ -209,26 +229,10 @@ class PairingCodecTest {
             }),
         )
 
-        assertTrue(refusalOf { PairingCodec.encode(withControl) }.contains("1 to ${PairingCodec.MAX_NAME_BYTES} bytes"))
-        assertTrue(refusalOf { PairingCodec.encode(tooLong) }.contains("1 to ${PairingCodec.MAX_NAME_BYTES} bytes"))
-        assertTrue(refusalOf { PairingCodec.encode(longGroup) }.contains("1 to ${PairingCodec.MAX_LABEL_BYTES} bytes"))
+        assertTrue(refusalOf { PairingCodec.encode(withControl, null) }.contains("1 to ${PairingCodec.MAX_NAME_BYTES} bytes"))
+        assertTrue(refusalOf { PairingCodec.encode(tooLong, null) }.contains("1 to ${PairingCodec.MAX_NAME_BYTES} bytes"))
+        assertTrue(refusalOf { PairingCodec.encode(longGroup, null) }.contains("1 to ${PairingCodec.MAX_LABEL_BYTES} bytes"))
     }
-
-    /** The UR that [parts] scan back to, which must be a complete code. */
-    private fun scanned(parts: List<String>): UR {
-        val scanner = UrScanner()
-        parts.forEach { scanner.receive(it) }
-        return requireNotNull(scanner.result())
-    }
-
-    /** One Address Book entry as a payload carries it, under [seed]. */
-    private fun addressItem(seed: Int): Cbor = Cbor.Dict(
-        listOf(
-            Cbor.Uint(1) to Cbor.Text("id-$seed"),
-            Cbor.Uint(2) to Cbor.Text("0x" + "%040x".format(seed)),
-            Cbor.Uint(3) to Cbor.Text("Alice"),
-        ),
-    )
 
     @Test
     fun anAddressBookRoundTripsWithALabelAbsentWhenThereIsNone() {
@@ -239,18 +243,30 @@ class PairingCodecTest {
             ),
         )
 
-        val back = PairingCodec.decode(PairingCodec.encode(payload))
-
-        assertSamePayload(payload, back)
-        assertEquals(payload.addressBook, back.addressBook)
+        assertSamePayload(payload, roundTrip(payload))
     }
 
     @Test
-    fun aPairingWithoutAnAddressBookIsTheSameCodeAsBefore() {
-        val golden = PairingCodec.fromUr(scanned(LabelledPairingGolden.FRAMES))
+    fun aPackedUuidAndChecksumAddressReadBackAsWritten() {
+        val checksum = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+        val entries = listOf(AddressBookEntry(id = "5f0c2a1e-0001-4b7d-8c2e-9a1f3b5d7e90", address = checksum, name = "Alice", label = null))
+        val payload = sample().copy(addressBook = entries)
+
+        assertEquals(entries, roundTrip(payload).addressBook)
+        // The same entry with a lower-case address and an upper-case id is text, so it is larger.
+        val asText = sample().copy(
+            addressBook = listOf(AddressBookEntry(id = "5F0C2A1E-0001-4B7D-8C2E-9A1F3B5D7E90", address = checksum.lowercase(), name = "Alice", label = null)),
+        )
+        assertEquals(asText.addressBook, roundTrip(asText).addressBook)
+        assertTrue(PairingCodec.encode(payload, null).size < PairingCodec.encode(asText, null).size)
+    }
+
+    @Test
+    fun aVersionOnePairingStillReadsAndTheSameContentRoundTripsAsVersionTwo() {
+        val golden = PairingCodec.fromUr(scanned(LabelledPairingGolden.V1_FRAMES), null)
 
         assertTrue(golden.addressBook.isEmpty())
-        assertEquals(LabelledPairingGolden.FRAMES, PairingCodec.urParts(golden))
+        assertSamePayload(golden, roundTrip(golden))
     }
 
     @Test
@@ -261,10 +277,10 @@ class PairingCodecTest {
         }
         val payload = sample().copy(addressBook = book)
 
-        val parts = PairingCodec.urParts(payload)
+        val parts = PairingCodec.urParts(payload, null)
 
         assertTrue("a full book is animated", parts.size > 1)
-        val back = PairingCodec.fromUr(scanned(parts))
+        val back = PairingCodec.fromUr(scanned(parts), null)
         assertEquals(book, back.addressBook)
         assertSamePayload(payload, back)
     }
@@ -274,7 +290,7 @@ class PairingCodecTest {
         val tooMany = sample().copy(
             addressBook = List(PairingCodec.MAX_ADDRESS_BOOK + 1) { i -> AddressBookEntry("id-$i", "0x" + "%040x".format(i), "Alice", null) },
         )
-        assertTrue(refusalOf { PairingCodec.encode(tooMany) }.contains("at most ${PairingCodec.MAX_ADDRESS_BOOK} Address Book entries"))
+        assertTrue(refusalOf { PairingCodec.encode(tooMany, null) }.contains("at most ${PairingCodec.MAX_ADDRESS_BOOK} Address Book entries"))
 
         fun payloadWithBook(count: Int) = rawPayload(
             1L to Cbor.Uint(1),
@@ -284,8 +300,8 @@ class PairingCodecTest {
             5L to Cbor.Arr(List(count) { i -> addressItem(i) }),
         )
 
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(payloadWithBook(PairingCodec.MAX_ADDRESS_BOOK + 1)) })
-        assertEquals(PairingCodec.MAX_ADDRESS_BOOK, PairingCodec.decode(payloadWithBook(PairingCodec.MAX_ADDRESS_BOOK)).addressBook.size)
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(payloadWithBook(PairingCodec.MAX_ADDRESS_BOOK + 1), null) })
+        assertEquals(PairingCodec.MAX_ADDRESS_BOOK, PairingCodec.decode(payloadWithBook(PairingCodec.MAX_ADDRESS_BOOK), null).addressBook.size)
     }
 
     @Test
@@ -298,11 +314,83 @@ class PairingCodecTest {
             4L to Cbor.Arr(emptyList()),
             5L to Cbor.Arr(listOf(missingAddress)),
         )
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes) })
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes, null) })
 
         val longName = sample().copy(
             addressBook = listOf(AddressBookEntry("id-1", "0x" + "a".repeat(40), "n".repeat(PairingCodec.MAX_ENTRY_NAME_BYTES + 1), null)),
         )
-        assertTrue(refusalOf { PairingCodec.encode(longName) }.contains("1 to ${PairingCodec.MAX_ENTRY_NAME_BYTES} bytes"))
+        assertTrue(refusalOf { PairingCodec.encode(longName, null) }.contains("1 to ${PairingCodec.MAX_ENTRY_NAME_BYTES} bytes"))
+    }
+
+    @Test
+    fun aCompressedBodyIsKeptOnlyWhenItIsSmaller() {
+        val big = PairingCodec.encode(sample(), DeflateStandIn)
+        val tiny = PairingCodec.encode(PairingPayload(fingerprint = 1L, name = "A", apps = emptyList()), DeflateStandIn)
+
+        assertEquals(2L, encodingOf(big))
+        assertEquals(0L, encodingOf(tiny))
+        assertSamePayload(sample(), PairingCodec.decode(big, DeflateStandIn))
+    }
+
+    @Test
+    fun aCompressedBodyIsRefusedWithoutADecompressor() {
+        val compressed = PairingCodec.encode(sample(), DeflateStandIn)
+
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(compressed, null) })
+    }
+
+    @Test
+    fun aBodyThatInflatesPastTheBoundIsRefused() {
+        val compressed = PairingCodec.encode(sample(), DeflateStandIn)
+        val inflatesTooMuch = BrotliDecompressor { _, _ -> ByteArray(PairingCodec.MAX_BODY_BYTES + 1) }
+
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(compressed, inflatesTooMuch) })
+    }
+
+    @Test
+    fun aStoredBodyOverTheBoundIsRefusedAndAnEncoderNeverWritesOne() {
+        val envelope = Cbor.encode(
+            Cbor.Dict(
+                listOf(
+                    Cbor.Uint(1) to Cbor.Uint(2),
+                    Cbor.Uint(6) to Cbor.Uint(0),
+                    Cbor.Uint(7) to Cbor.Bytes(ByteArray(PairingCodec.MAX_BODY_BYTES + 1)),
+                ),
+            ),
+        )
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(envelope, null) })
+
+        val huge = sample().copy(
+            apps = List(PairingCodec.MAX_APPS) { index ->
+                PairingApp(
+                    app = "app-$index",
+                    keys = listOf(key(index + 10, ethereumPath)),
+                    accounts = List(PairingCodec.MAX_ACCOUNTS) { child ->
+                        PairingAccount(0, child, "n".repeat(PairingCodec.MAX_NAME_BYTES), "l".repeat(PairingCodec.MAX_LABEL_BYTES), "g".repeat(PairingCodec.MAX_LABEL_BYTES))
+                    },
+                )
+            },
+        )
+        assertTrue(refusalOf { PairingCodec.encode(huge, null) }.contains("larger than ${PairingCodec.MAX_BODY_BYTES} bytes"))
+    }
+
+    @Test
+    fun aVersionTwoEnvelopeWithAnUnknownEncodingOrAnExtraKeyIsRefused() {
+        val unknownEncoding = Cbor.encode(
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(2), Cbor.Uint(6) to Cbor.Uint(1), Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)))),
+        )
+        val extraKey = Cbor.encode(
+            Cbor.Dict(
+                listOf(
+                    Cbor.Uint(1) to Cbor.Uint(2),
+                    Cbor.Uint(6) to Cbor.Uint(0),
+                    Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)),
+                    Cbor.Uint(8) to Cbor.Uint(0),
+                ),
+            ),
+        )
+
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(unknownEncoding, DeflateStandIn) })
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(extraKey, DeflateStandIn) })
     }
 }

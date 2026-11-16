@@ -59,7 +59,7 @@ class WalletStorePairingBookTest {
     private fun pairingOf(parts: List<String>): PairingPayload {
         val scanner = UrScanner()
         parts.forEach { scanner.receive(it) }
-        return PairingCodec.fromUr(requireNotNull(scanner.result()))
+        return PairingCodec.fromUr(requireNotNull(scanner.result()), null)
     }
 
     @Test
@@ -68,14 +68,14 @@ class WalletStorePairingBookTest {
         val book = listOf(entry(0, label = "Exchange"), entry(1))
         book.forEach { AddressBookStore(session).put(it) }
 
-        assertEquals(book, pairingOf(store.pairingParts(id)).addressBook)
+        assertEquals(book, pairingOf(store.pairingParts(id, null)).addressBook)
     }
 
     @Test
     fun aWalletWithoutEntriesPairsWithNone() {
         val id = newWallet()
 
-        assertTrue(pairingOf(store.pairingParts(id)).addressBook.isEmpty())
+        assertTrue(pairingOf(store.pairingParts(id, null)).addressBook.isEmpty())
     }
 
     @Test
@@ -85,7 +85,7 @@ class WalletStorePairingBookTest {
         val book = AddressBookStore(session)
         saved.forEach { book.put(it) }
 
-        assertEquals(saved.take(PairingCodec.MAX_ADDRESS_BOOK), pairingOf(store.pairingParts(id)).addressBook)
+        assertEquals(saved.take(PairingCodec.MAX_ADDRESS_BOOK), pairingOf(store.pairingParts(id, null)).addressBook)
     }
 
     @Test
@@ -93,6 +93,6 @@ class WalletStorePairingBookTest {
         val id = newWallet()
         session.putVaultRecord("address-book", byteArrayOf(9))
 
-        assertThrows(VaultException::class.java) { store.pairingParts(id) }
+        assertThrows(VaultException::class.java) { store.pairingParts(id, null) }
     }
 }
