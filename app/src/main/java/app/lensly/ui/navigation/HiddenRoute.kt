@@ -64,9 +64,8 @@ internal object HiddenRoute {
     const val DURESS_REMOVE = "settings/duress/remove"
     // Failure Delay cap: a choice, a warning below 10 s, then the App Password. Reached from Settings.
     const val FAILURE_CAP = "settings/failure-cap"
-    // Hidden tiles: the shortest or the longest delay of the dice and coin tiles, each reached from its own Settings row.
-    const val HIDE_DELAY_SHORTEST = "settings/hide-delay/shortest"
-    const val HIDE_DELAY_LONGEST = "settings/hide-delay/longest"
+    // Hide delay: the shortest and the longest delay of the dice and coin tiles, as two number fields. Reached from Settings.
+    const val HIDE_DELAY = "settings/hide-delay"
 
     // Bitcoin policy: how input amounts are verified and which online side may ask for a Bitcoin signature.
     const val BITCOIN_POLICY = "settings/bitcoin-policy"

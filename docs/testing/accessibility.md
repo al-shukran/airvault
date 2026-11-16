@@ -62,7 +62,6 @@ the highest-risk controls it asserts:
 | Control | Label | 48 dp |
 | --- | --- | --- |
 | Password field (`PasswordField`) | "Password empty" or "N characters entered" | not a target |
-| Numeric keypad keys (`NumericKeypad`) | each digit, and "Backspace" | height |
 | Password keyboard keys (`SecureKeyboard`) | letters, "Shift", "Space", "Backspace", "Done", "Symbols" | height |
 | Screen frame back button (`LenslyScreen`) | "Back" | width and height |
 

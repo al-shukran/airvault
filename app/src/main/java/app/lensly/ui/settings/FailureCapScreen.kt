@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,17 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.core.vault.FailureDelay
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.SliderSetting
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.PasswordStep
@@ -41,10 +38,10 @@ private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 3_600_000L
 
 /**
- * The wrong password lockout caps the owner may choose. [capMs] is null for Default, the spec default: 10 s during the learning
- * period and 60 s after it. The others are caps the owner sets, from 1 s to 1 h.
+ * The wrong password lockout caps the owner may choose, from 1 s to 1 h. The default is [DEFAULT], 1 min: the cap a vault that has
+ * never saved one uses, which the slider captions as Default. [capMs] is the longest wait after a wrong try.
  */
-enum class FailureCapChoice(val label: String, val capMs: Long?) {
+enum class FailureCapChoice(val label: String, val capMs: Long) {
     ONE_SECOND("1 s", 1_000L),
     FIVE_SECONDS("5 s", 5_000L),
     TEN_SECONDS("10 s", 10_000L),
@@ -52,16 +49,21 @@ enum class FailureCapChoice(val label: String, val capMs: Long?) {
     ONE_MINUTE("1 min", 60_000L),
     FIVE_MINUTES("5 min", 300_000L),
     FIFTEEN_MINUTES("15 min", 900_000L),
-    ONE_HOUR("1 h", 3_600_000L),
-    DEFAULT("Default", null);
+    ONE_HOUR("1 h", 3_600_000L);
 
-    /** The settings row's value, such as "Up to 1 min". Default names the wait it stands for. */
+    /** The settings row's value, such as "Up to 1 min". The default cap says so. */
     val summary: String
-        get() = "Up to ${formatWait(capMs ?: FailureDelay.DEFAULT_CAP_MS)}" + if (capMs == null) " (default)" else ""
+        get() = "Up to ${formatWait(capMs)}" + if (capMs == FailureDelay.DEFAULT_CAP_MS) " (default)" else ""
 
     companion object {
-        /** The choice a saved cap stands for. The app saves only these caps, so any other value reads as Default. */
-        fun of(capMs: Long?): FailureCapChoice = entries.firstOrNull { it.capMs == capMs } ?: DEFAULT
+        /** The default cap, 1 min, which a vault that has never saved one uses. */
+        val DEFAULT: FailureCapChoice = ONE_MINUTE
+
+        /** The choice a saved cap stands for. A missing cap is the default. The app saves only these caps, so any other value reads as the default. */
+        fun of(capMs: Long?): FailureCapChoice {
+            val cap = capMs ?: FailureDelay.DEFAULT_CAP_MS
+            return entries.firstOrNull { it.capMs == cap } ?: DEFAULT
+        }
     }
 }
 
@@ -75,11 +77,12 @@ sealed interface FailureCapStep {
 }
 
 /**
- * The wrong password lockout, which is the Failure Delay cap, in two steps. On the first, the owner picks the longest wait. The
- * screen shows the waits that follow each wrong try under the pick, and a cap below 10 s shows the spec warning, and Continue
+ * The wrong password lockout, which is the Failure Delay cap, in two steps. On the first, the owner picks the longest wait on a slider.
+ * The screen shows the waits that follow each wrong try under the pick, and a cap below 10 s shows the spec warning, and Continue
  * then reads "Continue anyway", so the owner confirms it. The second step asks for the App Password, and the caller checks it
- * before anything is saved. [saved] is the cap in force, null while it is read. [selected] is the owner's pick, or null before
- * one is made, and the saved cap is shown until then. Continue is off until the pick differs from the saved cap.
+ * before anything is saved, because the lockout is a security setting. [saved] is the cap in force, null while it is read.
+ * [selected] is the owner's pick, or null before one is made, and the saved cap is shown until then. Continue is off until the pick
+ * differs from the saved cap.
  */
 @Composable
 fun FailureCapScreen(
@@ -147,8 +150,6 @@ private fun ChooseContent(
     ) {
         StepHeader(step = 1, count = STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "LONGEST WAIT")
-        Spacer(Modifier.height(LenslySpacing.sm))
         Text(
             text = "When someone enters a wrong Application Password, Lensly makes them wait before the next try. Each wrong try " +
                 "doubles the wait: 10 s, 20 s, 40 s… This setting sets the longest wait.",
@@ -161,24 +162,14 @@ private fun ChooseContent(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(LenslySpacing.lg))
-        // Two pills to a row: the labels such as "15 min" need the room.
-        for (row in CHOICE_ROWS) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = LenslySpacing.xs),
-                horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-            ) {
-                for (choice in row) {
-                    PillButton(
-                        text = choice.label,
-                        onClick = { onSelect(choice) },
-                        modifier = Modifier.weight(1f).semantics { selected = choice == shown },
-                        accent = choice == shown,
-                    )
-                }
-                if (row.size < 2) Spacer(Modifier.weight(1f))
-            }
-        }
+        SliderSetting(
+            title = "Longest wait",
+            options = FailureCapChoice.entries,
+            selected = shown,
+            label = { it.label },
+            onSelect = onSelect,
+            caption = { if (it.capMs == FailureDelay.DEFAULT_CAP_MS) "Default" else null },
+        )
         if (shown != null) {
             Spacer(Modifier.height(LenslySpacing.md))
             WaitSteps(choice = shown)
@@ -202,12 +193,12 @@ private fun ChooseContent(
 @Composable
 private fun WaitSteps(choice: FailureCapChoice) {
     val steps = waitSteps(choice)
-    val cap = choice.capMs ?: FailureDelay.DEFAULT_CAP_MS
+    val cap = choice.capMs
     val tallest = steps.max()
     val description = "Waits after wrong tries: " + steps.joinToString(", ") { formatWait(it) }
     Column(modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description }) {
         Text(
-            text = "WAIT AFTER EACH WRONG TRY",
+            text = "Wait after each wrong try",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -257,7 +248,7 @@ private const val STEP_TRIES = 5
  * past the 7-day learning period, so each wait is the one the choice sets, not the 10 s cap of the first week.
  */
 internal fun waitSteps(choice: FailureCapChoice): List<Long> {
-    val policy = FailureDelay(vaultCreatedWallMs = 0L, configuredCapMs = choice.capMs ?: FailureDelay.DEFAULT_CAP_MS)
+    val policy = FailureDelay(vaultCreatedWallMs = 0L, configuredCapMs = choice.capMs)
     return (1..STEP_TRIES).map { policy.delayFor(it, nowWallMs = FailureDelay.LEARNING_PERIOD_MS) }
 }
 
@@ -270,7 +261,6 @@ internal fun formatWait(ms: Long): String = when {
 
 private const val TITLE = "Wrong password lockout"
 private const val STEP_COUNT = 2
-private val CHOICE_ROWS = FailureCapChoice.entries.chunked(2)
 /** The height of the tallest bar, of the area that holds a step's label and bar, and of the shortest bar. */
 private val BAR_MAX: Dp = 56.dp
 private val STEPS_AREA: Dp = 80.dp

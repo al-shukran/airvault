@@ -18,11 +18,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.BuildConfig
 import app.lensly.app.AppSettings
 import app.lensly.app.HideDelay
-import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.app.DecoyVault
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
+import app.lensly.app.withFeeRate
+import app.lensly.app.withFeeShare
+import app.lensly.app.withHideDelayMax
+import app.lensly.app.withHideDelayMin
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.ProxyPolicy
@@ -45,9 +48,7 @@ import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
 import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.BitcoinPolicyScreen
-import app.lensly.ui.settings.FeeWarningBound
 import app.lensly.ui.settings.FeeWarningScreen
-import app.lensly.ui.settings.HideDelayBound
 import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.SettingsScreen
 import app.lensly.ui.settings.NoticeBlock
@@ -67,8 +68,7 @@ internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, ho
     composable(HiddenRoute.DURESS) { HiddenBackdrop { ChangePasswordRoute(navController, holder, duress = true) } }
     composable(HiddenRoute.DURESS_REMOVE) { HiddenBackdrop { RemoveDuressRoute(navController, holder) } }
     composable(HiddenRoute.FAILURE_CAP) { HiddenBackdrop { FailureCapRoute(navController, holder) } }
-    composable(HiddenRoute.HIDE_DELAY_SHORTEST) { HiddenBackdrop { HideDelayRoute(navController, holder, HideDelayBound.SHORTEST) } }
-    composable(HiddenRoute.HIDE_DELAY_LONGEST) { HiddenBackdrop { HideDelayRoute(navController, holder, HideDelayBound.LONGEST) } }
+    composable(HiddenRoute.HIDE_DELAY) { HiddenBackdrop { HideDelayRoute(navController, holder) } }
     composable(HiddenRoute.BITCOIN_POLICY) { HiddenBackdrop { BitcoinPolicyRoute(navController, holder) } }
     composable(HiddenRoute.BITCOIN_FEE_WARNINGS) { HiddenBackdrop { BitcoinFeeWarningRoute(navController, holder) } }
     composable(HiddenRoute.PROXY_POLICY) { HiddenBackdrop { ProxyPolicyRoute(navController, holder) } }
@@ -142,11 +142,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         onBitcoinPolicy = { navController.navigate(HiddenRoute.BITCOIN_POLICY) },
         bitcoinFeeThresholds = settings?.bitcoinFeeThresholds,
         onBitcoinFeeWarnings = { navController.navigate(HiddenRoute.BITCOIN_FEE_WARNINGS) },
-        onHideDelay = { bound ->
-            navController.navigate(
-                if (bound == HideDelayBound.SHORTEST) HiddenRoute.HIDE_DELAY_SHORTEST else HiddenRoute.HIDE_DELAY_LONGEST,
-            )
-        },
+        onHideDelay = { navController.navigate(HiddenRoute.HIDE_DELAY) },
         onUpdateCatalog = { navController.navigate(HiddenRoute.CATALOG) },
         onThirdPartyLicences = { navController.navigate(HiddenRoute.LICENCES) },
         onWipe = { navController.navigate(HiddenRoute.WIPE) },
@@ -170,67 +166,34 @@ private fun LicencesRoute(navController: NavHostController) {
 }
 
 /**
- * The shortest or the longest hide delay of the dice and coin tiles. Both bounds are kept on one screen, so the range is
- * checked as a whole: SAVE refuses a range outside 0 to [HideDelay.LIMIT_MS] or with the shortest above the longest, and says
- * why. A saved range is read back when the screen opens and written with the rest of the settings.
+ * The shortest and the longest hide delay of the dice and coin tiles, as two number fields on one screen. Each number is saved as it
+ * is typed while the range stays one Settings accepts, so the screen never shows a range that is not saved. The saved range is read
+ * back when the screen opens.
  */
 @Composable
-private fun HideDelayRoute(navController: NavHostController, holder: VaultHolder, start: HideDelayBound) {
+private fun HideDelayRoute(navController: NavHostController, holder: VaultHolder) {
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
-    var focus by remember { mutableStateOf(start) }
-    var shortest by remember { mutableStateOf("") }
-    var longest by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    var ready by remember { mutableStateOf(false) }
+    var shortest by remember { mutableStateOf<Int?>(null) }
+    var longest by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(session) {
         whileUnlocked(navController, holder) {
             val saved = withContext(Dispatchers.IO) { SettingsStore(session).load().hideDelay }
-            shortest = saved.minMs.toString()
-            longest = saved.maxMs.toString()
-            ready = true
+            shortest = saved.minMs.toInt()
+            longest = saved.maxMs.toInt()
         }
     }
     HideDelayScreen(
         shortest = shortest,
         longest = longest,
-        focus = focus,
-        error = error,
-        ready = ready,
-        onFocus = {
-            focus = it
-            error = null
+        onShortest = { min ->
+            shortest = min
+            scope.launch { writeSettings(navController, holder, session) { it.withHideDelayMin(min.toLong()) } }
         },
-        onDigit = { digit ->
-            if (focus == HideDelayBound.SHORTEST) shortest = typed(shortest, digit) else longest = typed(longest, digit)
-            error = null
-        },
-        onBackspace = {
-            if (focus == HideDelayBound.SHORTEST) shortest = shortest.dropLast(1) else longest = longest.dropLast(1)
-            error = null
-        },
-        onSave = {
-            val min = shortest.toLongOrNull()
-            val max = longest.toLongOrNull()
-            val range = if (min == null || max == null) null else HideDelay.of(min, max)
-            if (range == null) {
-                error = if (min == null || max == null) {
-                    "Enter both delays in milliseconds."
-                } else {
-                    "A delay runs from 0 to ${HideDelay.LIMIT_MS} ms, and the shortest cannot be longer than the longest."
-                }
-            } else {
-                scope.launch {
-                    whileUnlocked(navController, holder) {
-                        withContext(Dispatchers.IO) {
-                            // Only the hide delay changes, so the saved Bulk Cap and Proxy Policy are kept.
-                            SettingsStore(session).let { store -> store.load().copy(hideDelay = range).also(store::save) }
-                        }
-                        navController.popBackStack()
-                    }
-                }
-            }
+        onLongest = { max ->
+            longest = max
+            scope.launch { writeSettings(navController, holder, session) { it.withHideDelayMax(max.toLong()) } }
         },
         onBack = { navController.popBackStack() },
     )
@@ -277,44 +240,23 @@ private val settingsWrites = Mutex()
 
 /**
  * Applies [change] to the saved settings and writes them, keeping every other saved setting. The screen has already shown the change.
- * The write waits for the writes before it, and does nothing if the vault is locked.
+ * A null from [change] means the value is refused, so nothing is written. The write waits for the writes before it, and does nothing
+ * if the vault is locked.
  */
 private suspend fun writeSettings(
     navController: NavHostController,
     holder: VaultHolder,
     session: VaultSession,
-    change: (AppSettings) -> AppSettings,
+    change: (AppSettings) -> AppSettings?,
 ) {
     settingsWrites.withLock {
         whileUnlocked(navController, holder) {
             withContext(Dispatchers.IO) {
-                SettingsStore(session).let { store -> store.load().let(change).also(store::save) }
+                SettingsStore(session).let { store -> store.load().let(change)?.also(store::save) }
             }
         }
     }
 }
-
-/** The digits typed so far with [digit] added. A count is at most four digits, and a leading zero is not kept. */
-private fun typed(digits: String, digit: Char): String = typed(digits, digit, MAX_DELAY_DIGITS)
-
-/** The digits typed so far with [digit] added, at most [maxDigits] of them, and a leading zero is not kept. */
-private fun typed(digits: String, digit: Char, maxDigits: Int): String = when {
-    digits.length >= maxDigits -> digits
-    digits == "0" -> digit.toString()
-    else -> digits + digit
-}
-
-/** Four digits hold the longest delay the owner may set, 5000 ms. */
-private const val MAX_DELAY_DIGITS = 4
-
-/** Five digits hold the highest fee rate a limit may be set to, 10,000 sat/vB. Three hold the highest share, 100 per cent. */
-private const val MAX_RATE_DIGITS = 5
-private const val MAX_SHARE_DIGITS = 3
-
-/** The reason SAVE refuses fee limits that are missing or outside their ranges. */
-private const val FEE_LIMITS_ERROR =
-    "A fee rate runs from ${BtcFeeThresholds.MIN_RATE_SAT_PER_VB} to ${BtcFeeThresholds.MAX_RATE_SAT_PER_VB} sat/vB, " +
-        "and a fee share from ${BtcFeeThresholds.MIN_SHARE_PERCENT} to ${BtcFeeThresholds.MAX_SHARE_PERCENT} per cent."
 
 /** The saved hide delay, or the default when the vault cannot be read. The dice and coin screens start from it. */
 internal suspend fun readHideDelay(holder: VaultHolder): HideDelay = withContext(Dispatchers.IO) {
@@ -327,66 +269,33 @@ internal suspend fun readHideDelay(holder: VaultHolder): HideDelay = withContext
 }
 
 /**
- * The fee limits of a Bitcoin review: the fee rate and the fee share above which it shows a WARN notice. Both are kept on one screen, so
- * SAVE checks them together and writes them with the rest of the settings. The saved limits are read back when the screen opens.
+ * The fee warnings of a Bitcoin review: the fee rate and the fee share above which it shows a WARN notice. Each limit is saved as it
+ * changes, and only that limit is written, so the other saved settings are kept. The saved limits are read back when the screen opens.
  */
 @Composable
 private fun BitcoinFeeWarningRoute(navController: NavHostController, holder: VaultHolder) {
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
-    var focus by remember { mutableStateOf(FeeWarningBound.RATE) }
-    var rate by remember { mutableStateOf("") }
-    var share by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    var ready by remember { mutableStateOf(false) }
+    var rate by remember { mutableStateOf<Int?>(null) }
+    var share by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(session) {
         whileUnlocked(navController, holder) {
             val saved = withContext(Dispatchers.IO) { SettingsStore(session).load().bitcoinFeeThresholds }
-            rate = saved.highFeeRateSatPerVb.toString()
-            share = saved.feeSharePercent.toString()
-            ready = true
+            rate = saved.highFeeRateSatPerVb
+            share = saved.feeSharePercent
         }
     }
     FeeWarningScreen(
         rate = rate,
         share = share,
-        focus = focus,
-        error = error,
-        ready = ready,
-        onFocus = {
-            focus = it
-            error = null
+        onRate = { value ->
+            rate = value
+            scope.launch { writeSettings(navController, holder, session) { it.withFeeRate(value) } }
         },
-        onDigit = { digit ->
-            if (focus == FeeWarningBound.RATE) {
-                rate = typed(rate, digit, MAX_RATE_DIGITS)
-            } else {
-                share = typed(share, digit, MAX_SHARE_DIGITS)
-            }
-            error = null
-        },
-        onBackspace = {
-            if (focus == FeeWarningBound.RATE) rate = rate.dropLast(1) else share = share.dropLast(1)
-            error = null
-        },
-        onSave = {
-            val thresholds = BtcFeeThresholds.of(rate.toIntOrNull() ?: 0, share.toIntOrNull() ?: 0)
-            if (thresholds == null) {
-                error = FEE_LIMITS_ERROR
-            } else {
-                scope.launch {
-                    whileUnlocked(navController, holder) {
-                        withContext(Dispatchers.IO) {
-                            // Only the fee limits change, so every other saved setting is kept.
-                            SettingsStore(session).let { store ->
-                                store.load().copy(bitcoinFeeThresholds = thresholds).also(store::save)
-                            }
-                        }
-                        navController.popBackStack()
-                    }
-                }
-            }
+        onShare = { value ->
+            share = value
+            scope.launch { writeSettings(navController, holder, session) { it.withFeeShare(value) } }
         },
         onBack = { navController.popBackStack() },
     )

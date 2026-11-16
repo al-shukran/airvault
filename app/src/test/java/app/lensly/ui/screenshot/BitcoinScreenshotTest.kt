@@ -11,7 +11,6 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.ui.sign.BitcoinReviewScreen
 import app.lensly.ui.settings.BitcoinPolicyScreen
-import app.lensly.ui.settings.FeeWarningBound
 import app.lensly.ui.settings.FeeWarningScreen
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
@@ -92,15 +91,10 @@ class BitcoinScreenshotTest {
     @Test
     fun feeWarningsAtTheirDefaults() = compose.snapshot("fee_warnings_defaults") {
         FeeWarningScreen(
-            rate = "200",
-            share = "10",
-            focus = FeeWarningBound.RATE,
-            error = null,
-            ready = true,
-            onFocus = {},
-            onDigit = {},
-            onBackspace = {},
-            onSave = {},
+            rate = 200,
+            share = 10,
+            onRate = {},
+            onShare = {},
             onBack = {},
         )
     }
