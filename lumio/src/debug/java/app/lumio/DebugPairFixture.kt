@@ -1,6 +1,7 @@
 package app.lumio
 
 import android.content.Intent
+import app.lensly.app.AddressBookEntry
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
@@ -54,6 +55,12 @@ internal object DebugPairFixture {
                     keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
                     accounts = bitcoin.indices.map { PairingAccount(key = it, child = null, name = null, label = null, group = null) },
                 ),
+            ),
+            // Public example addresses, one per chain form, so the Address Book screen has entries to show.
+            addressBook = listOf(
+                AddressBookEntry("5f0c2a1e-0001", "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", "Alice", "Savings"),
+                AddressBookEntry("5f0c2a1e-0002", "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", "Cold storage", null),
+                AddressBookEntry("5f0c2a1e-0003", "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7", "Testnet faucet", "Testnet4"),
             ),
         )
     }

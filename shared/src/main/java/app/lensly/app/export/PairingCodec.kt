@@ -1,5 +1,6 @@
 package app.lensly.app.export
 
+import app.lensly.app.AddressBookEntry
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.parse.DecodeBudget
 import app.lensly.core.parse.ParserLimits
@@ -59,8 +60,16 @@ data class PairingAccount(
 /** One App of a wallet, as the pairing carries it: its route id, which is its name on the wire, with the keys and accounts it holds. */
 data class PairingApp(val app: String, val keys: List<PairingKey>, val accounts: List<PairingAccount>)
 
-/** The pairing of one wallet: its master fingerprint, its name, and the keys and accounts of every App it holds. */
-data class PairingPayload(val fingerprint: Long, val name: String, val apps: List<PairingApp>)
+/**
+ * The pairing of one wallet: its master fingerprint, its name, the keys and accounts of every App it holds, and the Address Book that
+ * Lensly sends with it. [addressBook] is empty when the owner saved no entries, and a code without entries carries no book.
+ */
+data class PairingPayload(
+    val fingerprint: Long,
+    val name: String,
+    val apps: List<PairingApp>,
+    val addressBook: List<AddressBookEntry> = emptyList(),
+)
 
 /**
  * The AirVault pairing: the code Lensly shows for a wallet, one for all of its Apps, so the online companion imports every account and its
@@ -68,10 +77,14 @@ data class PairingPayload(val fingerprint: Long, val name: String, val apps: Lis
  * not know, so it never reads a newer layout as its own. The payload holds public data only: keys, chain codes, paths and names.
  *
  * The layout, version 1, with integer keys:
- *  - payload: { 1: version, 2: fingerprint (uint32), 3: name, 4: [app] }
+ *  - payload: { 1: version, 2: fingerprint (uint32), 3: name, 4: [app], 5: [address] (optional: absent when the Address Book is empty) }
  *  - app: { 1: app id, 2: [key], 3: [account] }
  *  - key: { 1: [path component (uint32)], 2: depth, 3: parent fingerprint (uint32), 4: public key (33 bytes), 5: chain code (32 bytes) }
  *  - account: { 1: key index, 2: child index (optional), 3: name (optional), 4: label (optional), 5: group (optional) }
+ *  - address: { 1: id, 2: address, 3: name, 4: label (optional) }, one Address Book entry as Lensly saved it
+ *
+ * Key 5 of the payload was added to version 1 without a new version. A reader of an earlier build reads only keys 1 to 4, so it refuses a
+ * code that carries an Address Book, as it refuses any key it does not know. A code with an empty book is the same code as before.
  */
 object PairingCodec {
     /** The UR type of the pairing. */
@@ -91,6 +104,14 @@ object PairingCodec {
      */
     const val MAX_NAME_BYTES = 96
     const val MAX_LABEL_BYTES = 64
+
+    /** The most Address Book entries one pairing carries. Lensly sends the first of them, and the owner is told when it leaves the rest out. */
+    const val MAX_ADDRESS_BOOK = 500
+
+    /** The longest entry id and address, and the longest entry name, in UTF-8 bytes: a UUID, an address, and 32 characters at four bytes. */
+    const val MAX_ID_BYTES = 64
+    const val MAX_ADDRESS_BYTES = 64
+    const val MAX_ENTRY_NAME_BYTES = 128
 
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
     private const val UINT32_MAX = 0xFFFFFFFFL
@@ -116,16 +137,15 @@ object PairingCodec {
     /** The CBOR bytes of [payload], which must be valid. */
     fun encode(payload: PairingPayload): ByteArray {
         validate(payload)
-        return Cbor.encode(
-            Cbor.Dict(
-                listOf(
-                    uint(1) to uint(VERSION),
-                    uint(2) to uint(payload.fingerprint),
-                    uint(3) to Cbor.Text(payload.name),
-                    uint(4) to Cbor.Arr(payload.apps.map { app -> encodeApp(app) }),
-                ),
-            ),
+        val fields = mutableListOf(
+            uint(1) to uint(VERSION),
+            uint(2) to uint(payload.fingerprint),
+            uint(3) to Cbor.Text(payload.name),
+            uint(4) to Cbor.Arr(payload.apps.map { app -> encodeApp(app) }),
         )
+        // An empty book is left out, so a pairing without entries is the code an earlier build wrote.
+        if (payload.addressBook.isNotEmpty()) fields += uint(5) to Cbor.Arr(payload.addressBook.map { encodeAddress(it) })
+        return Cbor.encode(Cbor.Dict(fields))
     }
 
     /**
@@ -150,11 +170,12 @@ object PairingCodec {
         }
         if (version != VERSION) refuse()
         return try {
-            val fields = fieldsOf(root as Cbor.Dict, 1L..4L)
+            val fields = fieldsOf(root as Cbor.Dict, 1L..5L)
             PairingPayload(
                 fingerprint = uintValue(required(fields, 2L), UINT32_MAX),
                 name = text(required(fields, 3L), MAX_NAME_BYTES),
                 apps = items(required(fields, 4L), MAX_APPS).map { decodeApp(it) },
+                addressBook = fields[5L]?.let { book -> items(book, MAX_ADDRESS_BOOK).map { decodeAddress(it) } } ?: emptyList(),
             ).also { validate(it) }
         } catch (e: IllegalArgumentException) {
             throw IllegalArgumentException(NOT_A_PAIRING, e)
@@ -219,6 +240,26 @@ object PairingCodec {
         )
     }
 
+    private fun encodeAddress(entry: AddressBookEntry): Cbor {
+        val entries = mutableListOf<Pair<Cbor, Cbor>>(
+            uint(1) to Cbor.Text(entry.id),
+            uint(2) to Cbor.Text(entry.address),
+            uint(3) to Cbor.Text(entry.name),
+        )
+        entry.label?.let { entries += uint(4) to Cbor.Text(it) }
+        return Cbor.Dict(entries)
+    }
+
+    private fun decodeAddress(item: Cbor): AddressBookEntry {
+        val fields = fieldsOf(item as? Cbor.Dict ?: refuse(), 1L..4L)
+        return AddressBookEntry(
+            id = text(required(fields, 1L), MAX_ID_BYTES),
+            address = text(required(fields, 2L), MAX_ADDRESS_BYTES),
+            name = text(required(fields, 3L), MAX_ENTRY_NAME_BYTES),
+            label = fields[4L]?.let { text(it, MAX_LABEL_BYTES) },
+        )
+    }
+
     /** Checks the invariants of [payload], so an encoder never writes a code a reader would refuse. */
     private fun validate(payload: PairingPayload) {
         require(payload.fingerprint in 0..UINT32_MAX) { "The fingerprint is a uint32." }
@@ -243,6 +284,14 @@ object PairingCodec {
                 account.label?.let { require(isPlainText(it, MAX_LABEL_BYTES)) { "A label is 1 to $MAX_LABEL_BYTES bytes." } }
                 account.group?.let { require(isPlainText(it, MAX_LABEL_BYTES)) { "A group is 1 to $MAX_LABEL_BYTES bytes." } }
             }
+        }
+        require(payload.addressBook.size <= MAX_ADDRESS_BOOK) { "A pairing carries at most $MAX_ADDRESS_BOOK Address Book entries." }
+        for (entry in payload.addressBook) {
+            require(isPlainText(entry.id, MAX_ID_BYTES) && isPlainText(entry.address, MAX_ADDRESS_BYTES)) {
+                "An Address Book entry's id or address is out of range."
+            }
+            require(isPlainText(entry.name, MAX_ENTRY_NAME_BYTES)) { "An Address Book name is 1 to $MAX_ENTRY_NAME_BYTES bytes." }
+            entry.label?.let { require(isPlainText(it, MAX_LABEL_BYTES)) { "An Address Book label is 1 to $MAX_LABEL_BYTES bytes." } }
         }
     }
 

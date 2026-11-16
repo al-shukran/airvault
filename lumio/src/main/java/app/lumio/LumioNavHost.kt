@@ -76,6 +76,11 @@ internal object LumioRoute {
     /** The route of the EVM portfolio of [walletId]. */
     fun wallet(walletId: String): String = "wallet/$walletId"
 
+    /** The route of the read-only Address Book of [walletId], opened from the wallet's row in Settings. */
+    const val ADDRESS_BOOK = "settings/address-book/{$WALLET_ARG}"
+
+    fun addressBook(walletId: String): String = "settings/address-book/$walletId"
+
     /** The argument of the send's route: the index of the address that sends. */
     const val SEND_INDEX_ARG = "index"
 
@@ -304,6 +309,13 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             ) { entry ->
                 val chainId = entry.arguments?.getLong(LumioRoute.CHAIN_ARG) ?: 0L
                 LumioBackdrop(selection) { AddTokenRoute(navController = navController, holder = holder, chainId = chainId) }
+            }
+            composable(
+                route = LumioRoute.ADDRESS_BOOK,
+                arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                LumioBackdrop(selection) { AddressBookRoute(navController = navController, holder = holder, walletId = walletId) }
             }
             composable(
                 route = LumioRoute.WALLET,

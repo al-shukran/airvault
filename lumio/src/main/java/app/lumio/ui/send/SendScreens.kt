@@ -22,6 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import app.lensly.app.AddressBookEntry
+import app.lensly.app.addressNotesOf
 import app.lensly.core.registry.Amounts
 import app.lensly.ui.components.AddressField
 import app.lensly.ui.components.AddressText
@@ -161,6 +163,7 @@ fun SendReviewScreen(
     onSave: (PreparedSend) -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit,
+    addressBook: List<AddressBookEntry> = emptyList(),
 ) {
     val chain = send.chain
     var advanced by remember { mutableStateOf(false) }
@@ -187,7 +190,7 @@ fun SendReviewScreen(
             Spacer(Modifier.height(LenslySpacing.sm))
         }
         ReviewAddress("From", send.from)
-        ReviewAddress("To", send.to)
+        ReviewAddress("To", send.to, name = addressNotesOf(send.to, emptyMap(), addressBook)?.entry?.name)
         if (token == null) {
             ReviewField("Amount", EvmFormat.amount(send.valueWei, chain.decimals, chain.symbol))
         } else {
@@ -410,11 +413,15 @@ internal fun ReviewField(label: String, value: String) {
     }
 }
 
-/** A [ReviewField] whose value is an address: the same label and text, with the copy action. */
+/**
+ * A [ReviewField] whose value is an address: the same label and text, with the copy action. A [name] from the Address Book is shown above
+ * the address, so the owner sees whom it is for.
+ */
 @Composable
-internal fun ReviewAddress(label: String, address: String) {
+internal fun ReviewAddress(label: String, address: String, name: String? = null) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
         Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        name?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
         AddressText(address = address, shown = address, icon = false, style = MaterialTheme.typography.bodyMedium)
     }
 }
