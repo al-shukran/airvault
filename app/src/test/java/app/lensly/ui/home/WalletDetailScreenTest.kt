@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -59,6 +60,7 @@ class WalletDetailScreenTest {
             walletProfile = WalletProfile(),
             walletPosition = 0,
             bitcoinAccounts = bitcoin,
+            solanaAccounts = 0,
             onBack = {},
             onOpenApp = { app -> route.opened = app },
             onShowSecret = { route.revealed = true },
@@ -175,7 +177,8 @@ class WalletDetailScreenTest {
         }
 
         compose.onNodeWithText("1 account").assertIsDisplayed()
-        compose.onNodeWithText("0 accounts").assertIsDisplayed()
+        // The Bitcoin and Solana rows both hold no account, so the count of 0 is shown twice.
+        compose.onAllNodesWithText("0 accounts")[0].assertIsDisplayed()
         compose.onNodeWithContentDescription("Wallet options").performClick()
         compose.onNodeWithText("Show private key").assertIsDisplayed()
     }

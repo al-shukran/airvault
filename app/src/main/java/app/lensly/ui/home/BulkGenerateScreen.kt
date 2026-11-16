@@ -37,6 +37,9 @@ sealed interface BulkChain {
 
     /** Bitcoin accounts of [scriptType] on [network]. */
     data class Bitcoin(val scriptType: ScriptType, val network: BtcNetwork) : BulkChain
+
+    /** Solana accounts, m/44'/501'/N', numbered after the Solana accounts the wallet already has. */
+    data object Solana : BulkChain
 }
 
 /**
@@ -130,7 +133,7 @@ fun BulkGenerateScreen(
         if (count != null) {
             Text(
                 text = when (chain) {
-                    BulkChain.Evm -> addsLabel(autoNameBase, BulkPolicy.indexRange(existingAccounts, count))
+                    BulkChain.Evm, BulkChain.Solana -> addsLabel(autoNameBase, BulkPolicy.indexRange(existingAccounts, count))
                     is BulkChain.Bitcoin -> bitcoinAddsLabel(chain.scriptType, count)
                 },
                 style = MaterialTheme.typography.bodyLarge,
@@ -169,6 +172,7 @@ private fun generateLabel(count: Int?): String = when (count) {
 /** The App, as the subtitle: Ethereum on every EVM network, or Bitcoin. The network and Script Type of a run are chosen below it. */
 private fun subtitle(chain: BulkChain): String = when (chain) {
     BulkChain.Evm -> "Ethereum · all networks"
+    BulkChain.Solana -> "Solana"
     is BulkChain.Bitcoin -> "Bitcoin"
 }
 
@@ -205,6 +209,7 @@ internal fun runBulk(
     onProgress: (Int) -> Unit,
 ): Boolean = when (chain) {
     BulkChain.Evm -> store.addAccounts(id, count, cap, onProgress) != null
+    BulkChain.Solana -> store.addSolanaAccounts(id, count, cap, onProgress) != null
     is BulkChain.Bitcoin -> store.addBitcoinAccounts(
         id,
         chain.scriptType,

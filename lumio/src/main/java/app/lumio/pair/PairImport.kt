@@ -32,12 +32,16 @@ object PairImport {
     /** The Apps Lumio watches. Another App in a pairing is left out, because Lumio cannot show its accounts. */
     const val ETHEREUM = "ethereum"
     const val BITCOIN = "bitcoin"
+    const val SOLANA = "solana"
 
     /** The most Ethereum accounts a wallet keeps in Lumio: one account record each, and the folder holds this many. */
     const val MAX_ETHEREUM_ACCOUNTS = 100
 
     /** The most Bitcoin keys a wallet keeps in Lumio: its Bitcoin record holds this many. */
     const val MAX_BITCOIN_KEYS = 96
+
+    /** The most Solana accounts a wallet keeps in Lumio: its Solana record holds this many. */
+    const val MAX_SOLANA_ACCOUNTS = 100
 
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
     private const val OLDER_CODE =
@@ -46,6 +50,7 @@ object PairImport {
     private const val NOT_ACCOUNT_KEY = "The code's Ethereum key is not the address key of its account, m/44'/60'/N'/0/0."
     private const val BAD_KEY = "The code's public key is not valid."
     private const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid Ethereum or Bitcoin address."
+    private const val NOT_SOLANA_KEY = "The code's Solana key is not the key of its account, m/44'/501'/N'."
 
     /**
      * The pairing that [ur] carries, checked for Lumio.
@@ -69,6 +74,7 @@ object PairImport {
         }
         checkEthereum(payload.apps.firstOrNull { it.app == ETHEREUM } ?: throw PairingRefusal(NO_ETHEREUM))
         payload.apps.firstOrNull { it.app == BITCOIN }?.let { checkBitcoin(payload.fingerprint, it) }
+        payload.apps.firstOrNull { it.app == SOLANA }?.let { checkSolana(it) }
         return payload.copy(addressBook = addressBookOf(payload.addressBook))
     }
 
@@ -110,6 +116,27 @@ object PairImport {
             val account = key.toBitcoinAccount(fingerprint) ?: throw PairingRefusal("The code's path is not a Bitcoin account path.")
             checkKey { account.receiveAddress(0) }
         }
+    }
+
+    /** Each Solana key is the Ed25519 key of account N at m/44'/501'/N', for the accounts numbered 0 to n-1, in order. */
+    private fun checkSolana(app: PairingApp) {
+        if (app.accounts.size > MAX_SOLANA_ACCOUNTS) {
+            throw PairingRefusal("The code carries ${app.accounts.size} Solana accounts. Lumio pairs up to $MAX_SOLANA_ACCOUNTS.")
+        }
+        if (app.keys.size != app.accounts.size) throw PairingRefusal(NOT_SOLANA_KEY)
+        if (app.accounts.map { it.key } != app.accounts.indices.toList()) {
+            throw PairingRefusal("The code's Solana accounts are not numbered 0 to n-1.")
+        }
+        app.keys.forEachIndexed { account, key ->
+            val valid = key.path == solanaPathOf(account) && key.depth == SOLANA_DEPTH && key.publicKey[0] == PairingKey.ED25519_PREFIX
+            if (!valid) throw PairingRefusal(NOT_SOLANA_KEY)
+        }
+    }
+
+    /** The public key of each Solana account of a validated pairing, in account order: the key of account N is at index N. */
+    internal fun solanaPublicKeysOf(payload: PairingPayload): List<ByteArray> {
+        val app = payload.apps.firstOrNull { it.app == SOLANA } ?: return emptyList()
+        return app.keys.map { key -> key.publicKey.copyOfRange(1, key.publicKey.size) }
     }
 
     /** The address key of each Ethereum account of a validated pairing, in account order: the key of account N is at index N. */
@@ -174,6 +201,13 @@ object PairImport {
         return PairingRefusal(OLDER_CODE)
     }
 
+    /** The path of the Solana key of account [account]: m/44'/501'/[account]'. */
+    private fun solanaPathOf(account: Int): List<Long> = listOf(
+        DeterministicWallet.hardened(44),
+        DeterministicWallet.hardened(501),
+        DeterministicWallet.hardened(account.toLong()),
+    )
+
     /** The path of the address key of Ethereum account [account]: m/44'/60'/[account]'/0/0. */
     private fun ethereumPathOf(account: Int): List<Long> = listOf(
         DeterministicWallet.hardened(44),
@@ -183,4 +217,5 @@ object PairImport {
         0L,
     )
     private const val ETHEREUM_DEPTH = 5
+    private const val SOLANA_DEPTH = 3
 }

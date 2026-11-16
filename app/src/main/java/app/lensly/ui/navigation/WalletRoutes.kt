@@ -42,6 +42,7 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
 import app.lensly.app.WalletStore
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.app.WalletWriter
 import app.lensly.app.export.AccountExport
 import app.lensly.app.export.AccountExportView
@@ -65,6 +66,7 @@ import app.lensly.ui.home.BulkChain
 import app.lensly.ui.home.BulkGenerateScreen
 import app.lensly.ui.home.DEFAULT_BITCOIN
 import app.lensly.ui.home.EthereumAccountsScreen
+import app.lensly.ui.home.SolanaAccountsScreen
 import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.effectiveCatalogSequence
 import app.lensly.ui.home.ImportState
@@ -665,6 +667,7 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     var walletProfile by remember(walletId) { mutableStateOf(WalletProfile()) }
     var position by remember(walletId) { mutableIntStateOf(0) }
     var bitcoinAccounts by remember(walletId) { mutableStateOf<Int?>(null) }
+    var solanaAccounts by remember(walletId) { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
@@ -683,17 +686,20 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
             bitcoinAccounts = withContext(Dispatchers.IO) { WalletStore(session).bitcoinAccounts(walletId).size }
+            solanaAccounts = withContext(Dispatchers.IO) { WalletStore(session).solanaKeys(walletId).size }
         }
     }
 
     val shown = wallet ?: return
-    // The App rows wait for both counts, so a row never shows a zero that is about to change.
+    // The App rows wait for every count, so a row never shows a zero that is about to change.
     val bitcoin = bitcoinAccounts ?: return
+    val solana = solanaAccounts ?: return
     WalletDetailScreen(
         wallet = shown,
         walletProfile = walletProfile,
         walletPosition = position,
         bitcoinAccounts = bitcoin,
+        solanaAccounts = solana,
         onBack = { navController.popBackStack() },
         onOpenApp = { app -> navController.navigate(HiddenRoute.app(walletId, app)) },
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
@@ -717,6 +723,7 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
     var ethereum by remember(walletId) { mutableStateOf(reads.cachedEthereumAccounts(walletId)) }
     var bitcoin by remember(walletId) { mutableStateOf<List<BitcoinAccountRecord>?>(null) }
+    var solana by remember(walletId) { mutableStateOf<List<ByteArray>?>(null) }
 
     LaunchedEffect(walletId, app) {
         whileUnlocked(navController, holder) {
@@ -726,6 +733,9 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
                     wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
                     ethereum = withContext(Dispatchers.IO) { reads.ethereumAccounts(walletId) }
                 }
+            } else if (app == WalletApp.SOLANA) {
+                wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
+                solana = withContext(Dispatchers.IO) { WalletStore(session).solanaKeys(walletId) }
             } else {
                 wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
                 bitcoin = withContext(Dispatchers.IO) { WalletStore(session).bitcoinAccounts(walletId) }
@@ -769,6 +779,29 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
                 }
             },
         )
+        WalletApp.SOLANA -> {
+            val keys = solana ?: return
+            SolanaAccountsScreen(
+                wallet = shown,
+                addresses = keys.map { SolanaAccount.addressOf(it) },
+                onBack = { navController.popBackStack() },
+                onAddAccount = {
+                    scope.launch {
+                        whileUnlocked(navController, holder) {
+                            // The write moves the Solana record, so the list is read again and shows the new account.
+                            solana = withContext(Dispatchers.IO) {
+                                val cap = SettingsStore(session).load().bulkCap.accounts
+                                WalletStore(session).addSolanaAccounts(walletId, 1, cap)
+                                WalletStore(session).solanaKeys(walletId)
+                            }
+                        }
+                    }
+                },
+                onBulkGenerate = { navController.navigate(HiddenRoute.bulk(walletId, app)) },
+                onPair = { navController.navigate(HiddenRoute.export(walletId)) },
+                onScan = { navController.navigate(HiddenRoute.scan(walletId)) },
+            )
+        }
         WalletApp.BITCOIN -> {
             val accounts = bitcoin ?: return
             BitcoinAccountsScreen(
@@ -890,8 +923,15 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
     var failure by remember { mutableStateOf<String?>(null) }
     // The run starts on the chain of its App: Ethereum on EVM, Bitcoin on the default Bitcoin account.
     var chain by remember(walletId, app) {
-        mutableStateOf<BulkChain>(if (app == WalletApp.BITCOIN) DEFAULT_BITCOIN else BulkChain.Evm)
+        mutableStateOf<BulkChain>(
+            when (app) {
+                WalletApp.BITCOIN -> DEFAULT_BITCOIN
+                WalletApp.SOLANA -> BulkChain.Solana
+                WalletApp.ETHEREUM -> BulkChain.Evm
+            },
+        )
     }
+    var solanaCount by remember(walletId) { mutableStateOf<Int?>(null) }
     val derivedCount = remember { MutableStateFlow(0) }
     val derived by derivedCount.collectAsState()
 
@@ -908,12 +948,21 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
             bulkCap = withContext(Dispatchers.IO) { SettingsStore(session).load().bulkCap }
         }
     }
+    LaunchedEffect(walletId, app) {
+        if (app == WalletApp.SOLANA) {
+            whileUnlocked(navController, holder) {
+                solanaCount = withContext(Dispatchers.IO) { WalletStore(session).solanaKeys(walletId).size }
+            }
+        }
+    }
     val shown = wallet ?: return
     val cap = bulkCap ?: return
+    // A Solana run numbers after the Solana accounts, and every other run after the wallet's accounts.
+    val existing = if (app == WalletApp.SOLANA) (solanaCount ?: return) else shown.accountCount
 
     BackHandler(enabled = running) {}
     BulkGenerateScreen(
-        existingAccounts = shown.accountCount,
+        existingAccounts = existing,
         autoNameBase = shown.autoNameBase,
         cap = cap,
         digits = digits,
@@ -929,7 +978,7 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
             val count = (check as? BulkPolicy.CountCheck.Valid)?.count
             val chosenRun = chain
             // A Bitcoin run needs a seed. The screen disables GENERATE for a Single Key, and this refuses it too.
-            if (running || count == null || (chosenRun is BulkChain.Bitcoin && shown.kind != WalletKind.MNEMONIC)) {
+            if (running || count == null || (chosenRun !is BulkChain.Evm && shown.kind != WalletKind.MNEMONIC)) {
                 return@generate
             }
             running = true

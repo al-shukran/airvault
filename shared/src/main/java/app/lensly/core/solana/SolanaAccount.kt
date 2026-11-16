@@ -17,6 +17,15 @@ object SolanaAccount {
         return Slip10Ed25519.derive(seed, path).use { it.publicKey() }
     }
 
+    /** The 32-byte SLIP-0010 chain code of account [index]. It is public, and a Solana pairing key carries it. [seed] is the caller's. */
+    fun chainCode(seed: ByteArray, index: Int): ByteArray {
+        val path = intArrayOf(Slip10Ed25519.hardened(44), Slip10Ed25519.hardened(501), Slip10Ed25519.hardened(index))
+        return Slip10Ed25519.derive(seed, path).use { it.chainCode() }
+    }
+
     /** The base58 address of account [index]. */
-    fun address(seed: ByteArray, index: Int): String = Base58.encode(publicKey(seed, index))
+    fun address(seed: ByteArray, index: Int): String = addressOf(publicKey(seed, index))
+
+    /** The base58 address of a 32-byte public key, which is the address itself with no checksum. */
+    fun addressOf(publicKey: ByteArray): String = Base58.encode(publicKey)
 }

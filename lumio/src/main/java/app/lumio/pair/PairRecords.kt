@@ -22,6 +22,10 @@ internal object PairRecords {
 
     /** The layout of the Bitcoin record. */
     private const val BITCOIN_VERSION: Byte = 1
+
+    /** The layout of the Solana record: the count, then the 32-byte public key of each account. */
+    private const val SOLANA_VERSION: Byte = 1
+    private const val SOLANA_KEY_BYTES = 32
     private const val PUBLIC_KEY_BYTES = 33
     private const val CHAIN_CODE_BYTES = 32
     private const val FINGERPRINT_BYTES = 4
@@ -118,6 +122,23 @@ internal object PairRecords {
         )
         require(position == bytes.size) { "Not an account record." }
         return account
+    }
+
+    /** The SOLANA record: the count, then the public key of each Solana account, which is an Ed25519 key of 32 bytes. Public data only. */
+    fun encodeSolana(keys: List<ByteArray>): ByteArray {
+        require(keys.size in 1..PairImport.MAX_SOLANA_ACCOUNTS) { "A wallet holds 1 to ${PairImport.MAX_SOLANA_ACCOUNTS} Solana accounts." }
+        require(keys.all { it.size == SOLANA_KEY_BYTES }) { "Not a Solana key." }
+        val buffer = ByteBuffer.allocate(2 + keys.size * SOLANA_KEY_BYTES).put(SOLANA_VERSION).put(keys.size.toByte())
+        keys.forEach { buffer.put(it) }
+        return buffer.array()
+    }
+
+    /** The public keys of a SOLANA record, in account order. A record that is not one it can read in full is refused. */
+    fun decodeSolana(bytes: ByteArray): List<ByteArray> {
+        require(bytes.size >= 2 && bytes[0] == SOLANA_VERSION) { "Not a Solana record." }
+        val count = bytes[1].toInt() and UNSIGNED_BYTE_MASK
+        require(count in 1..PairImport.MAX_SOLANA_ACCOUNTS && bytes.size == 2 + count * SOLANA_KEY_BYTES) { "Not a Solana record." }
+        return List(count) { index -> bytes.copyOfRange(2 + index * SOLANA_KEY_BYTES, 2 + (index + 1) * SOLANA_KEY_BYTES) }
     }
 
     /** The BITCOIN record: each watch-only Account's network, Script Type, path and extended public key. */

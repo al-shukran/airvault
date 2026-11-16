@@ -7,6 +7,8 @@ import app.lensly.app.export.EthereumPairingKeys
 import app.lensly.app.export.NexusKeys
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingKeys
+import app.lensly.app.export.SolanaNexusKeys
+import app.lensly.app.export.SolanaPairingKeys
 import app.lensly.core.ur.Cbor
 
 /**
@@ -22,7 +24,8 @@ enum class WalletApp(
     private val pairing: PairingKeys,
 ) {
     BITCOIN(label = "Bitcoin", routeId = "bitcoin", nexus = BitcoinNexusKeys, pairing = BitcoinPairingKeys),
-    ETHEREUM(label = "Ethereum", routeId = "ethereum", nexus = EthereumNexusKeys, pairing = EthereumPairingKeys);
+    ETHEREUM(label = "Ethereum", routeId = "ethereum", nexus = EthereumNexusKeys, pairing = EthereumPairingKeys),
+    SOLANA(label = "Solana", routeId = "solana", nexus = SolanaNexusKeys, pairing = SolanaPairingKeys);
 
     /** The public keys this App contributes to the Keystone Nexus export of a wallet whose seed is [seed] and that has [accountCount] accounts. */
     fun nexusKeys(seed: ByteArray, masterFingerprint: Int, accountCount: Int): List<Cbor> =
