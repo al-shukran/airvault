@@ -806,9 +806,16 @@ class SignPipeline(
         fun tokenAmount(raw: BigInteger, token: TokenEntry?): String =
             if (token == null) raw.toString() else Amounts.format(raw, token.decimals)
 
-        /** A uint argument as the review lists it: the exact integer, and for a known token its formatted amount as well. */
+        /**
+         * A uint argument as the review lists it: the exact integer, and for a known token its formatted amount as well. An unknown
+         * token's integer is raw base units with no known decimals, so it is labelled that way and does not read as a token amount.
+         */
         fun amountText(raw: BigInteger, token: TokenEntry?): String =
-            if (token == null) raw.toString() else "$raw (${Amounts.format(raw, token.decimals)} ${token.symbol})"
+            if (token == null) {
+                "$raw $UNKNOWN_UNIT (unknown token, decimals unknown)"
+            } else {
+                "$raw (${Amounts.format(raw, token.decimals)} ${token.symbol})"
+            }
 
         /** i when [path] is exactly m/44'/60'/0'/0/i, otherwise null. */
         fun accountIndexOf(path: List<PathStep>): Int? {
