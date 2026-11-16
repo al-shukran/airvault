@@ -76,6 +76,12 @@ internal object HiddenRoute {
     const val LICENCES = "settings/licences"
     // Approved contracts: the signed whitelist, grouped by network. Read only, reached from Settings.
     const val APPROVED_CONTRACTS = "settings/approved"
+    // The Address Book: the list from Settings, the form for a new entry (filled with an address when one is given), and the form for an entry.
+    const val ADDRESS_BOOK = "settings/address-book"
+    const val ADDRESS_BOOK_ADD = "settings/address-book/add?address={address}"
+    const val ADDRESS_BOOK_EDIT = "settings/address-book/entry/{entryId}"
+    const val ADDRESS_ARG = "address"
+    const val ENTRY_ID_ARG = "entryId"
     // Proxy policy: a choice of how whitelisted proxies are handled, then the App Password. Reached from Settings.
     const val PROXY_POLICY = "settings/proxy-policy"
     // Wipe: the App Password again, a warning with its confirmation, then every file. Reached from Settings.
@@ -110,6 +116,12 @@ internal object HiddenRoute {
     const val APP_ARG = "app"
 
     fun detail(walletId: String): String = "detail/$walletId"
+
+    /** The form for a new Address Book entry, filled with [address] when one is given. */
+    fun addressBookAdd(address: String = ""): String = "settings/address-book/add?address=$address"
+
+    /** The form for the Address Book entry [id]. */
+    fun addressBookEdit(id: String): String = "settings/address-book/entry/$id"
 
     /** The bulk screen of [walletId], which starts on the chain of [app]. */
     fun bulk(walletId: String, app: WalletApp): String = "bulk/$walletId/${app.routeId}"

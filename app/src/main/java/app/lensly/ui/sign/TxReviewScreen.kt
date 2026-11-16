@@ -37,6 +37,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.lensly.app.AddressNotes
+import app.lensly.app.notesOf
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ChainIcon
@@ -155,6 +157,7 @@ fun TxReviewScreen(
                     if (!isMessage && review.whitelisted == null && review.toAddress.isNotEmpty()) {
                         FactRow(label = "To") {
                             AddressText(address = review.toAddress)
+                            review.addressNotes.notesOf(review.toAddress)?.let { AddressNotesBlock(it) }
                         }
                     }
                     review.tokenContract?.let { contract ->
@@ -187,7 +190,7 @@ fun TxReviewScreen(
                     if (isMessage) {
                         MessageFacts(review)
                     } else if (typed != null) {
-                        TypedDataFacts(typed)
+                        TypedDataFacts(typed, review.addressNotes)
                     } else {
                         FactRow(label = "Parameters") {
                             if (review.params.isEmpty()) {
@@ -501,7 +504,7 @@ internal fun CheckRow(label: String, checked: Boolean, onCheckedChange: (Boolean
  * The fields keep their nesting, so a struct's members sit under its header, one level in.
  */
 @Composable
-private fun TypedDataFacts(typed: TypedReview) {
+private fun TypedDataFacts(typed: TypedReview, notes: Map<String, AddressNotes>) {
     FactRow(label = "Domain") {
         typed.domain.forEach { (name, value) -> LabelledValue(label = name, value = value) }
     }
@@ -511,13 +514,13 @@ private fun TypedDataFacts(typed: TypedReview) {
         }
     }
     FactRow(label = "Fields") {
-        typed.fields.forEach { row -> TypedFieldLine(row) }
+        typed.fields.forEach { row -> TypedFieldLine(row, notes) }
     }
 }
 
 /** One line of a typed message, indented by its depth. A header line names a struct or an array and its type. */
 @Composable
-private fun TypedFieldLine(row: TypedRow) {
+private fun TypedFieldLine(row: TypedRow, notes: Map<String, AddressNotes>) {
     val value = row.value
     Column(modifier = Modifier.padding(start = (row.depth * 12).dp, bottom = LenslySpacing.xs)) {
         MutedText("${row.label} · ${row.type}".uppercase())
@@ -525,6 +528,7 @@ private fun TypedFieldLine(row: TypedRow) {
             Spacer(Modifier.height(LenslySpacing.xxs))
             if (isEvmAddress(value)) {
                 AddressText(address = value)
+                notes.notesOf(value)?.let { AddressNotesBlock(it) }
             } else {
                 MonoText(text = value)
             }
@@ -619,7 +623,7 @@ private fun NestedCallView(call: NestedCall) {
 
 /** One argument of a call: its name above its value. An address is shown in groups of four, so it can be compared by eye. */
 @Composable
-private fun LabelledValue(label: String, value: String) {
+internal fun LabelledValue(label: String, value: String) {
     Column(modifier = Modifier.padding(bottom = LenslySpacing.xs)) {
         MutedText(label.uppercase())
         Spacer(Modifier.height(LenslySpacing.xxs))

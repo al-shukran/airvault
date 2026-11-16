@@ -10,6 +10,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import app.lensly.app.AddressNotes
+import app.lensly.app.notesOf
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcReview
 import app.lensly.core.btc.BtcWarning
@@ -41,6 +43,8 @@ fun BitcoinReviewScreen(
     onApprove: () -> Unit,
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
+    /** What the Address Book and the wallet's own accounts say of each output address, keyed by app.lensly.app.addressKeyOf. */
+    addressNotes: Map<String, AddressNotes> = emptyMap(),
 ) {
     LenslyScreen(
         title = "Bitcoin",
@@ -101,6 +105,7 @@ fun BitcoinReviewScreen(
         review.outputs.forEach { output ->
             FactRow(label = "Output ${output.index}") {
                 output.address?.let { AddressText(it, bitcoin = true) } ?: MutedText("No address. The script is not paid to an address.")
+                output.address?.let { address -> addressNotes.notesOf(address)?.let { AddressNotesBlock(it) } }
                 MonoText(btcText(output.amountSats))
                 if (output.isOwnChange) NoteText("Your change, at change index ${output.changeIndex}")
             }

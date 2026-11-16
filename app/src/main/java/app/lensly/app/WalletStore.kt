@@ -438,6 +438,7 @@ class WalletStore(private val session: VaultSession) {
         inputPolicy: InputVerificationPolicy,
         sourcePolicy: SigningSourcePolicy,
         feeThresholds: BtcFeeThresholds = BtcFeeThresholds.DEFAULT,
+        book: List<AddressBookEntry> = emptyList(),
     ): BitcoinReviewed {
         val stored = bitcoinAccounts(id)
         if (stored.isEmpty()) throw BtcRefusedException(BtcRefusal.NoStoredAccount)
@@ -447,9 +448,27 @@ class WalletStore(private val session: VaultSession) {
             val account = BtcAccountSelection.select(accounts, psbt)
             val review = BtcSigner(account, inputPolicy, sourcePolicy, feeThresholds).review(psbt)
             val record = stored.first { it.key == Triple(account.scriptType, account.network, account.accountIndex) }
-            return BitcoinReviewed(record, review)
+            val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, ownBitcoinAccounts(id, stored, accounts), book)
+            return BitcoinReviewed(record, review, notes)
         } finally {
             seed.fill(0)
+        }
+    }
+
+    /**
+     * The Bitcoin accounts of wallet [id] that [accounts] derives, keyed by the receive and change addresses within the gap limit. Only
+     * this wallet's accounts are read, since only its seed is open for a review.
+     */
+    private fun ownBitcoinAccounts(id: String, stored: List<BitcoinAccountRecord>, accounts: List<BtcAccount>): Map<String, InternalAccount> {
+        val base = meta(id)?.autoNameBase.orEmpty()
+        return buildMap {
+            stored.zip(accounts).forEach { (record, account) ->
+                val internal = InternalAccount(record.profile.name, autoAccountName(base, record.index), record.profile.label)
+                for (index in 0 until BtcAccount.GAP_LIMIT) {
+                    put(addressKeyOf(account.receiveAddress(index)), internal)
+                    put(addressKeyOf(account.changeAddress(index)), internal)
+                }
+            }
         }
     }
 

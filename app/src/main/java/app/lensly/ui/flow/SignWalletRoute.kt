@@ -96,6 +96,7 @@ internal fun SignWalletRoute(
             network = shown.ready.reviewed.account.network,
             scriptType = shown.ready.reviewed.account.scriptType,
             accountIndex = shown.ready.reviewed.account.index,
+            addressNotes = shown.ready.reviewed.addressNotes,
             confirmed = shown.confirmed,
             onConfirmedChange = flow::confirmUnverified,
             onApprove = flow::approve,

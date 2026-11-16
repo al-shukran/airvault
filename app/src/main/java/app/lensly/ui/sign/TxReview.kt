@@ -1,5 +1,6 @@
 package app.lensly.ui.sign
 
+import app.lensly.app.AddressNotes
 import app.lensly.app.VisualIdentity
 import app.lensly.app.generatedIdentity
 import app.lensly.app.sign.WhitelistedCall
@@ -120,6 +121,8 @@ data class TxReview(
     val nested: List<NestedCall> = emptyList(),
     /** What a typed data (EIP-712) review shows: the domain, the Permit summary and every field. Null for any other request. */
     val typed: TypedReview? = null,
+    /** What the Address Book and the device's accounts say of the addresses shown, keyed by [app.lensly.app.addressKeyOf]. Empty when none. */
+    val addressNotes: Map<String, AddressNotes> = emptyMap(),
 ) {
     /**
      * True when the chain or the token is outside the registry. Such a review carries the registry warning, and APPROVE

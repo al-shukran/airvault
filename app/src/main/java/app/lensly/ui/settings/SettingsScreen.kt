@@ -91,6 +91,7 @@ fun SettingsScreen(
     onNetworks: () -> Unit,
     onTokens: () -> Unit,
     onApprovedContracts: () -> Unit = {},
+    onAddressBook: () -> Unit = {},
     proxyPolicy: ProxyPolicy? = null,
     onProxyPolicy: () -> Unit = {},
     hideDelay: HideDelay? = null,
@@ -235,6 +236,13 @@ fun SettingsScreen(
             }
         }
 
+        SettingsSection("Address book") {
+            SettingsRow(
+                title = "Address book",
+                description = "Saved addresses, each with a name and a label",
+                onClick = onAddressBook,
+            )
+        }
         SettingsSection("Whitelist") {
             SettingsRow(
                 title = "Approved contracts",
