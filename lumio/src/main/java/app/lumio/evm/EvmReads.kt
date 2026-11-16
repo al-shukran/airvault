@@ -56,8 +56,14 @@ class EvmReads(
 
     suspend fun fees(chain: EvmChain, priority: Priority = Priority.VISIBLE): GasQuote = run(chain, priority, GasFees(net(chain)))
 
-    suspend fun estimateGas(chain: EvmChain, from: String, to: String, valueWei: BigInteger, priority: Priority = Priority.VISIBLE): BigInteger =
-        run(chain, priority, EstimateGas(net(chain), from, to, valueWei))
+    suspend fun estimateGas(
+        chain: EvmChain,
+        from: String,
+        to: String,
+        valueWei: BigInteger,
+        data: String = "0x",
+        priority: Priority = Priority.VISIBLE,
+    ): BigInteger = run(chain, priority, EstimateGas(net(chain), from, to, valueWei, data))
 
     suspend fun broadcast(chain: EvmChain, raw: ByteArray): String = run(chain, Priority.FOREGROUND, Broadcast(net(chain), raw))
 

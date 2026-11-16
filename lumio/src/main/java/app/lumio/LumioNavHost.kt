@@ -83,12 +83,17 @@ internal object LumioRoute {
     /** The optional argument of the send's route: the chain ID the form starts on. Absent, the form starts on its first chain. */
     const val SEND_CHAIN_ARG = "chain"
 
-    /** The send from one address of the wallet in [WALLET_ARG], starting on the chain in [SEND_CHAIN_ARG] when one is given. */
-    const val SEND = "send/{$WALLET_ARG}/{$SEND_INDEX_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}"
+    /** The optional argument of the send's route: the contract of the ERC-20 token the form starts on. Absent, it starts on the native coin. */
+    const val SEND_TOKEN_ARG = "token"
 
-    /** The route of a send from address [index] of [walletId], starting on [chainId] when it is given. */
-    fun send(walletId: String, index: Int, chainId: Long? = null): String =
-        "send/$walletId/$index" + (chainId?.let { "?$SEND_CHAIN_ARG=$it" }.orEmpty())
+    /** The send from one address of the wallet in [WALLET_ARG], starting on the chain and the token in the optional arguments when they are given. */
+    const val SEND = "send/{$WALLET_ARG}/{$SEND_INDEX_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}&$SEND_TOKEN_ARG={$SEND_TOKEN_ARG}"
+
+    /** The route of a send from address [index] of [walletId], starting on [chainId] and on the token [token] when they are given. */
+    fun send(walletId: String, index: Int, chainId: Long? = null, token: String? = null): String {
+        val query = listOfNotNull(chainId?.let { "$SEND_CHAIN_ARG=$it" }, token?.let { "$SEND_TOKEN_ARG=$it" })
+        return "send/$walletId/$index" + if (query.isEmpty()) "" else "?" + query.joinToString("&")
+    }
 
     /** The argument of a coin's page: the coin's ID, such as "EVM-1". */
     const val ASSET_ARG = "assetId"
@@ -292,11 +297,13 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
                     navArgument(LumioRoute.SEND_CHAIN_ARG) { type = NavType.LongType; defaultValue = NO_CHAIN },
+                    navArgument(LumioRoute.SEND_TOKEN_ARG) { type = NavType.StringType; defaultValue = "" },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
                 val chain = entry.arguments?.getLong(LumioRoute.SEND_CHAIN_ARG) ?: NO_CHAIN
+                val token = entry.arguments?.getString(LumioRoute.SEND_TOKEN_ARG).orEmpty()
                 LumioBackdrop(selection) {
                     SendRoute(
                         navController = navController,
@@ -305,6 +312,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                         index = index,
                         mode = selection.mode,
                         preferredChainId = chain.takeIf { it != NO_CHAIN },
+                        preferredToken = token.takeIf { it.isNotEmpty() },
                     )
                 }
             }

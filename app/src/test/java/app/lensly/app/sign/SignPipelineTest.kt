@@ -966,9 +966,25 @@ class SignPipelineTest {
         assertEquals("approve", review.function)
         assertEquals(listOf(UNLIMITED_UNKNOWN), review.warnings)
         assertEquals(listOf("spender", "value"), review.params.map { it.first })
-        assertEquals(ContractCall.MAX_UINT256.toString(), review.params.last().second)
+        assertEquals(
+            "${ContractCall.MAX_UINT256} base units (unknown token, decimals unknown)",
+            review.params.last().second,
+        )
         assertNull(review.token)
         assertTrue(review.needsRegistryConfirmation)
+    }
+
+    @Test
+    fun unknownTokenTransferListsItsValueAsRawBaseUnitsNotAsATokenAmount() {
+        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.valueOf(123_456))
+        val tx = eip1559Tx(chainId = ETHEREUM, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
+        val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
+
+        assertEquals(
+            listOf("to" to RECIPIENT, "value" to "123456 base units (unknown token, decimals unknown)"),
+            review.params,
+        )
+        assertEquals("123456 base units", "${review.amount} ${review.symbol}")
     }
 
     @Test
@@ -1341,8 +1357,15 @@ class SignPipelineTest {
         val ready = assertIs<Prepared.Ready>(batch(batchData(listOf(approve, transfer))))
 
         assertEquals(listOf("approve", "transfer"), ready.review.nested.map { it.function })
-        assertEquals(listOf("spender" to RECIPIENT, "value" to "10"), ready.review.nested[0].params)
-        assertEquals(listOf("to" to RECIPIENT, "value" to "1"), ready.review.nested[1].params)
+        // Both calls move or approve an unregistered token, so each value is raw base units.
+        assertEquals(
+            listOf("spender" to RECIPIENT, "value" to "10 base units (unknown token, decimals unknown)"),
+            ready.review.nested[0].params,
+        )
+        assertEquals(
+            listOf("to" to RECIPIENT, "value" to "1 base units (unknown token, decimals unknown)"),
+            ready.review.nested[1].params,
+        )
         // The router is not a registered token, so its approval needs the registry check, as a lone approval of it would.
         assertEquals(listOf(ReviewCheck.REGISTRY), ready.review.requiredChecks)
     }

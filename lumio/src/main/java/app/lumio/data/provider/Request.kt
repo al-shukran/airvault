@@ -41,8 +41,16 @@ class NativeBalance(net: NetworkId, val address: String) : Request<BigInteger>(n
 /** The transaction count of [address]: the nonce of the next transaction when [pending] is true, else the count at the latest block. */
 class Nonce(net: NetworkId, val address: String, val pending: Boolean) : Request<Long>(net, Op.NONCE)
 
-/** The gas that a transfer of [valueWei] from [from] to [to] uses, as the endpoint estimates it. */
-class EstimateGas(net: NetworkId, val from: String, val to: String, val valueWei: BigInteger) : Request<BigInteger>(net, Op.RPC_CALL)
+/**
+ * The gas that a call of [to] with [valueWei] and [data] from [from] uses, as the endpoint estimates it. A native transfer has no data; an ERC-20
+ * transfer calls the token contract with its transfer data and no value.
+ */
+class EstimateGas(net: NetworkId, val from: String, val to: String, val valueWei: BigInteger, val data: String = "0x") :
+    Request<BigInteger>(net, Op.RPC_CALL) {
+    init {
+        require(HEX_DATA.matches(data)) { "The call data is not hex." }
+    }
+}
 
 /** The base fee of the next block and the priority fee that the endpoint suggests. */
 class GasFees(net: NetworkId) : Request<GasQuote>(net, Op.FEE_ESTIMATES)
