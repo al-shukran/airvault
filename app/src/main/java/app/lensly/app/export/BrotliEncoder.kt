@@ -2,12 +2,18 @@ package app.lensly.app.export
 
 /**
  * Google's Brotli encoder: the C library built from brotli v1.2.1 in src/main/cpp, called through a JNI wrapper. Only Lensly links it, so
- * Lumio never carries the encoder. The settings of the pairing's Brotli stream are chosen by [PairingCodec].
+ * Lumio never carries the encoder. It compresses the body of a version-2 pairing at quality 11 and window 22, the settings [PairingCodec]
+ * documents.
  */
-object BrotliEncoder {
+object BrotliEncoder : BrotliCompressor {
+    private const val QUALITY = 11
+    private const val LGWIN = 22
+
     init {
         System.loadLibrary("brotlienc_jni")
     }
+
+    override fun compress(bytes: ByteArray): ByteArray = encode(bytes, QUALITY, LGWIN)
 
     /**
      * [input] as one Brotli stream, at [quality] (0 to 11) and window [lgwin] (10 to 24).

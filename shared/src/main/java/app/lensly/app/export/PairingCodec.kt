@@ -1,6 +1,7 @@
 package app.lensly.app.export
 
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.evmAddressOf
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.parse.DecodeBudget
 import app.lensly.core.parse.ParserLimits
@@ -9,6 +10,8 @@ import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.AccountXpub
 import com.sparrowwallet.hummingbird.UR
+import java.nio.ByteBuffer
+import java.util.UUID
 
 /**
  * One watch-only key of an App: a secp256k1 public key at [path], with the depth and parent fingerprint of its BIP32 node. Public data only.
@@ -71,27 +74,48 @@ data class PairingPayload(
     val addressBook: List<AddressBookEntry> = emptyList(),
 )
 
+/** Compresses the body of a version-2 pairing. Lensly passes Google's Brotli encoder. */
+fun interface BrotliCompressor {
+    fun compress(bytes: ByteArray): ByteArray
+}
+
+/**
+ * Decompresses the body of a version-2 pairing. It stops at [maxBytes], and it throws IllegalArgumentException for a body that would be
+ * larger, so a small code cannot make its reader hold a large body. Lumio passes its Brotli decoder.
+ */
+fun interface BrotliDecompressor {
+    fun decompress(bytes: ByteArray, maxBytes: Int): ByteArray
+}
+
 /**
  * The AirVault pairing: the code Lensly shows for a wallet, one for all of its Apps, so the online companion imports every account and its
- * names at once. The code is a `ur:airvault-pairing`, animated when it is long. Its CBOR map is versioned: a reader refuses a version it does
+ * names at once. The code is a `ur:airvault-pairing`, animated when it is long. Its CBOR is versioned: a reader refuses a version it does
  * not know, so it never reads a newer layout as its own. The payload holds public data only: keys, chain codes, paths and names.
  *
- * The layout, version 1, with integer keys:
- *  - payload: { 1: version, 2: fingerprint (uint32), 3: name, 4: [app], 5: [address] (optional: absent when the Address Book is empty) }
+ * The layout, version 2, with integer keys. The code's CBOR is an envelope:
+ *  - envelope: { 1: version (2), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
+ *  - body, once it is decompressed: { 2: fingerprint (uint32), 3: name, 4: [app], 5: [address] (optional: absent when the Address Book is empty) }
  *  - app: { 1: app id, 2: [key], 3: [account] }
  *  - key: { 1: [path component (uint32)], 2: depth, 3: parent fingerprint (uint32), 4: public key (33 bytes), 5: chain code (32 bytes) }
  *  - account: { 1: key index, 2: child index (optional), 3: name (optional), 4: label (optional), 5: group (optional) }
- *  - address: { 1: id, 2: address, 3: name, 4: label (optional) }, one Address Book entry as Lensly saved it
+ *  - address: { 1: id, 2: address, 3: name, 4: label (optional) }, one Address Book entry. An id that is a lower-case UUID is 16 bytes, and an
+ *    address that is an EVM address in checksum form is 20 bytes. Any other id or address is text.
  *
- * Key 5 of the payload was added to version 1 without a new version. A reader of an earlier build reads only keys 1 to 4, so it refuses a
- * code that carries an Address Book, as it refuses any key it does not know. A code with an empty book is the same code as before.
+ * Version 1, which earlier builds wrote, is the same payload map without the envelope, with text for every id and address. A reader still
+ * reads it. Key 5 of the payload was added to version 1 without a new version: a reader of an earlier build reads only keys 1 to 4, so it
+ * refuses a code that carries an Address Book, as it refuses any key it does not know. A code with an empty book is the same code as before.
+ *
+ * The body is at most [MAX_BODY_BYTES] bytes, compressed or not. The encoder keeps it compressed only when that makes it smaller.
  */
 object PairingCodec {
     /** The UR type of the pairing. */
     const val UR_TYPE = "airvault-pairing"
 
-    /** The layout version this build writes and reads. */
-    const val VERSION = 1L
+    /** The layout version this build writes. It reads version 1 as well. */
+    const val VERSION = 2L
+
+    /** The largest body in bytes, compressed or not. A reader refuses a larger body, so a body it decompresses is bounded by this. */
+    const val MAX_BODY_BYTES = 512 * 1024
 
     /** The most Apps one pairing carries, and the most keys and accounts one App carries. */
     const val MAX_APPS = 8
@@ -119,40 +143,49 @@ object PairingCodec {
     private const val MAX_PATH = 16
     private const val PUBLIC_KEY_BYTES = 33
     private const val CHAIN_CODE_BYTES = 32
+    private const val UUID_BYTES = 16
+    private const val EVM_ADDRESS_BYTES = 20
+    private const val ENCODING_RAW = 0L
+    private const val ENCODING_BROTLI = 2L
     private val APP_ID = Regex("[a-z0-9-]{1,32}")
 
-    /** The frames of the pairing [payload]: one code when it fits, otherwise the uncoded parts of an animated code. */
-    fun urParts(payload: PairingPayload): List<String> =
-        partsOf(framesOf(UR(UR_TYPE, encode(payload)), DEFAULT_MAX_FRAGMENT))
+    /**
+     * The frames of the pairing [payload]: one code when it fits, otherwise the uncoded parts of an animated code. [brotli] compresses
+     * the body. Null stores the body as it is, which a reader of this version also reads.
+     */
+    fun urParts(payload: PairingPayload, brotli: BrotliCompressor?): List<String> =
+        partsOf(framesOf(UR(UR_TYPE, encode(payload, brotli)), DEFAULT_MAX_FRAGMENT))
 
     /**
-     * The pairing that [ur] carries.
+     * The pairing that [ur] carries. [brotli] decompresses a compressed body, and null refuses such a body.
      * @throws IllegalArgumentException with a message the owner can read, when [ur] is not a pairing, holds an unknown version, or breaks the layout.
      */
-    fun fromUr(ur: UR): PairingPayload {
+    fun fromUr(ur: UR, brotli: BrotliDecompressor?): PairingPayload {
         require(ur.type.equals(UR_TYPE, ignoreCase = true)) { NOT_A_PAIRING }
-        return decode(ur.cborBytes)
+        return decode(ur.cborBytes, brotli)
     }
 
-    /** The CBOR bytes of [payload], which must be valid. */
-    fun encode(payload: PairingPayload): ByteArray {
+    /**
+     * The CBOR bytes of [payload], which must be valid. The body is compressed with [brotli] when that makes it smaller, and stored as it
+     * is otherwise. Null stores it as it is.
+     */
+    fun encode(payload: PairingPayload, brotli: BrotliCompressor?): ByteArray {
         validate(payload)
-        val fields = mutableListOf(
-            uint(1) to uint(VERSION),
-            uint(2) to uint(payload.fingerprint),
-            uint(3) to Cbor.Text(payload.name),
-            uint(4) to Cbor.Arr(payload.apps.map { app -> encodeApp(app) }),
+        val body = Cbor.encode(Cbor.Dict(bodyFields(payload)))
+        require(body.size <= MAX_BODY_BYTES) { "The pairing is larger than $MAX_BODY_BYTES bytes." }
+        val packed = brotli?.compress(body)
+        val (encoding, stored) = if (packed != null && packed.size < body.size) ENCODING_BROTLI to packed else ENCODING_RAW to body
+        return Cbor.encode(
+            Cbor.Dict(listOf(uint(1) to uint(VERSION), uint(6) to uint(encoding), uint(7) to Cbor.Bytes(stored))),
         )
-        // An empty book is left out, so a pairing without entries is the code an earlier build wrote.
-        if (payload.addressBook.isNotEmpty()) fields += uint(5) to Cbor.Arr(payload.addressBook.map { encodeAddress(it) })
-        return Cbor.encode(Cbor.Dict(fields))
     }
 
     /**
      * The pairing that [bytes] encode. The version is read first, so a newer layout is refused by its version and not by its fields.
+     * [brotli] decompresses a compressed body, and null refuses one.
      * @throws IllegalArgumentException with a message the owner can read.
      */
-    fun decode(bytes: ByteArray): PairingPayload {
+    fun decode(bytes: ByteArray, brotli: BrotliDecompressor?): PairingPayload {
         val root = try {
             Cbor.decode(bytes, DecodeBudget("CBOR", ParserLimits.MAX_PAIRING_ITEMS))
         } catch (e: Exception) {
@@ -168,18 +201,62 @@ object PairingCodec {
                 "This pairing uses format $version, and this app reads format $VERSION. Update the app, then pair again.",
             )
         }
-        if (version != VERSION) refuse()
         return try {
-            val fields = fieldsOf(root as Cbor.Dict, 1L..5L)
-            PairingPayload(
-                fingerprint = uintValue(required(fields, 2L), UINT32_MAX),
-                name = text(required(fields, 3L), MAX_NAME_BYTES),
-                apps = items(required(fields, 4L), MAX_APPS).map { decodeApp(it) },
-                addressBook = fields[5L]?.let { book -> items(book, MAX_ADDRESS_BOOK).map { decodeAddress(it) } } ?: emptyList(),
-            ).also { validate(it) }
+            when (version) {
+                1L -> payloadOf(fieldsOf(root as Cbor.Dict, 1L..5L), packed = false)
+                2L -> payloadOf(bodyFieldsOf(root as Cbor.Dict, brotli), packed = true)
+                else -> refuse()
+            }
         } catch (e: IllegalArgumentException) {
             throw IllegalArgumentException(NOT_A_PAIRING, e)
         }
+    }
+
+    /** The fields 2 to 5 of a version-2 body, read from its envelope [root] and decompressed with [brotli] when it is compressed. */
+    private fun bodyFieldsOf(root: Cbor.Dict, brotli: BrotliDecompressor?): Map<Long, Cbor> {
+        val envelope = fieldsOf(root, 1L..7L)
+        if (envelope.keys != setOf(1L, 6L, 7L)) refuse()
+        val stored = byteString(required(envelope, 7L), MAX_BODY_BYTES)
+        val body = when (uintValue(required(envelope, 6L), ENCODING_BROTLI)) {
+            ENCODING_RAW -> stored
+            ENCODING_BROTLI -> try {
+                (brotli ?: refuse()).decompress(stored, MAX_BODY_BYTES)
+            } catch (e: IllegalArgumentException) {
+                refuse()
+            }
+            else -> refuse()
+        }
+        if (body.size > MAX_BODY_BYTES) refuse()
+        val decoded = try {
+            Cbor.decode(body, DecodeBudget("CBOR", ParserLimits.MAX_PAIRING_ITEMS))
+        } catch (e: Exception) {
+            refuse()
+        }
+        return fieldsOf(decoded as? Cbor.Dict ?: refuse(), 2L..5L)
+    }
+
+    /** The pairing of the fields 2 to 5 of a body. [packed] is version 2, whose ids and addresses may be packed. */
+    private fun payloadOf(fields: Map<Long, Cbor>, packed: Boolean): PairingPayload {
+        val payload = PairingPayload(
+            fingerprint = uintValue(required(fields, 2L), UINT32_MAX),
+            name = text(required(fields, 3L), MAX_NAME_BYTES),
+            apps = items(required(fields, 4L), MAX_APPS).map { decodeApp(it) },
+            addressBook = fields[5L]?.let { book -> items(book, MAX_ADDRESS_BOOK).map { decodeAddress(it, packed) } } ?: emptyList(),
+        )
+        validate(payload)
+        return payload
+    }
+
+    /** The fields of a body, in key order: the body of a version-2 code, which carries no version of its own. */
+    private fun bodyFields(payload: PairingPayload): List<Pair<Cbor, Cbor>> {
+        val fields = mutableListOf(
+            uint(2) to uint(payload.fingerprint),
+            uint(3) to Cbor.Text(payload.name),
+            uint(4) to Cbor.Arr(payload.apps.map { app -> encodeApp(app) }),
+        )
+        // An empty book is left out, so a pairing without entries carries no key 5.
+        if (payload.addressBook.isNotEmpty()) fields += uint(5) to Cbor.Arr(payload.addressBook.map { encodeAddress(it) })
+        return fields
     }
 
     private fun encodeApp(app: PairingApp): Cbor = Cbor.Dict(
@@ -242,22 +319,54 @@ object PairingCodec {
 
     private fun encodeAddress(entry: AddressBookEntry): Cbor {
         val entries = mutableListOf<Pair<Cbor, Cbor>>(
-            uint(1) to Cbor.Text(entry.id),
-            uint(2) to Cbor.Text(entry.address),
+            uint(1) to entryIdItem(entry.id),
+            uint(2) to entryAddressItem(entry.address),
             uint(3) to Cbor.Text(entry.name),
         )
         entry.label?.let { entries += uint(4) to Cbor.Text(it) }
         return Cbor.Dict(entries)
     }
 
-    private fun decodeAddress(item: Cbor): AddressBookEntry {
+    /** A lower-case UUID is packed as its 16 bytes. Any other id stays text, so the id that is read back is the one that was written. */
+    private fun entryIdItem(id: String): Cbor {
+        val uuid = runCatching { UUID.fromString(id) }.getOrNull()
+        if (uuid == null || uuid.toString() != id) return Cbor.Text(id)
+        val bytes = ByteBuffer.allocate(UUID_BYTES).putLong(uuid.mostSignificantBits).putLong(uuid.leastSignificantBits).array()
+        return Cbor.Bytes(bytes)
+    }
+
+    /** An EVM address in checksum form is packed as its 20 bytes. Any other address stays text. */
+    private fun entryAddressItem(address: String): Cbor {
+        if (evmAddressOf(address) != address) return Cbor.Text(address)
+        return Cbor.Bytes(ByteArray(EVM_ADDRESS_BYTES) { i -> address.substring(2 + 2 * i, 4 + 2 * i).toInt(16).toByte() })
+    }
+
+    private fun decodeAddress(item: Cbor, packed: Boolean): AddressBookEntry {
         val fields = fieldsOf(item as? Cbor.Dict ?: refuse(), 1L..4L)
         return AddressBookEntry(
-            id = text(required(fields, 1L), MAX_ID_BYTES),
-            address = text(required(fields, 2L), MAX_ADDRESS_BYTES),
+            id = entryId(required(fields, 1L), packed),
+            address = entryAddress(required(fields, 2L), packed),
             name = text(required(fields, 3L), MAX_ENTRY_NAME_BYTES),
             label = fields[4L]?.let { text(it, MAX_LABEL_BYTES) },
         )
+    }
+
+    /** An entry's id: a packed id is the 16 bytes of a UUID, and any other id is text. */
+    private fun entryId(item: Cbor, packed: Boolean): String {
+        val bytes = (item as? Cbor.Bytes)?.value
+        if (bytes == null || !packed) return text(item, MAX_ID_BYTES)
+        if (bytes.size != UUID_BYTES) refuse()
+        val buffer = ByteBuffer.wrap(bytes)
+        return UUID(buffer.long, buffer.long).toString()
+    }
+
+    /** An entry's address: a packed address is the 20 bytes of an EVM address, in checksum form, and any other address is text. */
+    private fun entryAddress(item: Cbor, packed: Boolean): String {
+        val bytes = (item as? Cbor.Bytes)?.value
+        if (bytes == null || !packed) return text(item, MAX_ADDRESS_BYTES)
+        if (bytes.size != EVM_ADDRESS_BYTES) refuse()
+        val hex = bytes.joinToString("") { byte -> "%02x".format(byte) }
+        return evmAddressOf("0x$hex") ?: refuse()
     }
 
     /** Checks the invariants of [payload], so an encoder never writes a code a reader would refuse. */
@@ -332,6 +441,13 @@ object PairingCodec {
     private fun bytes(item: Cbor, size: Int): ByteArray {
         val value = (item as? Cbor.Bytes)?.value ?: refuse()
         if (value.size != size) refuse()
+        return value
+    }
+
+    /** A byte string of at most [maxBytes] bytes. */
+    private fun byteString(item: Cbor, maxBytes: Int): ByteArray {
+        val value = (item as? Cbor.Bytes)?.value ?: refuse()
+        if (value.size > maxBytes) refuse()
         return value
     }
 

@@ -63,7 +63,7 @@ object PairImport {
 
     private fun checked(ur: UR): PairingPayload {
         val payload = try {
-            PairingCodec.fromUr(ur)
+            PairingCodec.fromUr(ur, BrotliDecoder)
         } catch (e: IllegalArgumentException) {
             throw PairingRefusal(e.message ?: NOT_A_PAIRING)
         }

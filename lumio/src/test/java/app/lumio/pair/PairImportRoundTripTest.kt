@@ -46,7 +46,7 @@ class PairImportRoundTripTest {
             ),
         )
 
-        val read = pairingOf(PairingCodec.urParts(sent))
+        val read = pairingOf(PairingCodec.urParts(sent, brotli = null))
 
         assertEquals(sent.fingerprint, read.fingerprint)
         assertEquals("Demo", read.name)
@@ -61,7 +61,7 @@ class PairImportRoundTripTest {
         val accounts = PairFixtures.allAccounts(PairFixtures.seed)
         val sent = pairing(ethereum(listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null))), bitcoin(accounts))
 
-        val imported = PairImport.bitcoinAccountsOf(pairingOf(PairingCodec.urParts(sent)))
+        val imported = PairImport.bitcoinAccountsOf(pairingOf(PairingCodec.urParts(sent, brotli = null)))
 
         assertEquals(accounts.map { it.descriptor }, imported.map { it.descriptor })
         assertEquals(accounts.map { it.receiveAddress(0) }, imported.map { it.receiveAddress(0) })
@@ -78,7 +78,7 @@ class PairImportRoundTripTest {
         val bitcoinApp = PairingApp(app = "bitcoin", keys = bitcoinAccounts.map { PairingKey.bitcoinAccount(it) }, accounts = named)
         val sent = pairing(ethereum(listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null))), bitcoinApp)
 
-        val read = pairingOf(PairingCodec.urParts(sent))
+        val read = pairingOf(PairingCodec.urParts(sent, brotli = null))
 
         assertEquals(named, read.apps.single { it.app == "bitcoin" }.accounts)
         assertEquals(bitcoinAccounts.map { it.descriptor }, PairImport.bitcoinAccountsOf(read).map { it.descriptor })
@@ -90,7 +90,7 @@ class PairImportRoundTripTest {
         val accounts = (0 until 40).map { index ->
             PairingAccount(key = 0, child = index, name = "Account $index", label = "label $index", group = if (index % 2 == 0) "Even" else null)
         }
-        val parts = PairingCodec.urParts(pairing(ethereum(accounts), bitcoin(bitcoinAccounts)))
+        val parts = PairingCodec.urParts(pairing(ethereum(accounts), bitcoin(bitcoinAccounts)), brotli = null)
         assertTrue("a long pairing is animated", parts.size > 1)
 
         val read = pairingOf(parts)
@@ -103,7 +103,7 @@ class PairImportRoundTripTest {
     @Test
     fun theScanReportsProgressUntilTheAnimatedCodeIsWhole() {
         val accounts = listOf(PairingAccount(key = 0, child = 0, name = "Demo 0", label = null, group = null))
-        val parts = PairingCodec.urParts(pairing(ethereum(accounts), bitcoin(PairFixtures.allAccounts(PairFixtures.seed))))
+        val parts = PairingCodec.urParts(pairing(ethereum(accounts), bitcoin(PairFixtures.allAccounts(PairFixtures.seed))), brotli = null)
         val scan = PairScan()
         val steps = parts.map { scan.onText(it) }
 
