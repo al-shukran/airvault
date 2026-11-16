@@ -31,6 +31,7 @@ import app.lumio.evm.CachedBalance
 import app.lumio.evm.EvmChain
 import app.lumio.data.config.DisplaySettings
 import app.lumio.evm.EvmSettings
+import app.lumio.evm.SendAsset
 import app.lumio.evm.Total
 import app.lumio.evm.Totals
 import app.lumio.home.HomeAsset
@@ -46,6 +47,7 @@ import app.lumio.ui.home.AssetSortSheetContent
 import app.lumio.ui.home.LumioHome
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.portfolio.WalletScreen
+import app.lumio.tokens.Token
 import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.settings.BitcoinServersSettings
 import app.lumio.ui.settings.DisplaySettingsSection
@@ -90,6 +92,8 @@ class LumioScreenshotTest {
     private val sepolia = EvmChain(11155111L, "Sepolia", "ETH", 18, true, null)
     private val chains = listOf(ethereum, sepolia)
     private val address = "0x" + "a1".repeat(20)
+    private val usdc = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
+    private val assets = listOf(SendAsset(ethereum, null, null), SendAsset(ethereum, usdc, BigInteger.valueOf(1_250_500_000L)))
 
     @Test
     fun homeWithoutWallets() = compose.snapshot("home_empty") {
@@ -228,10 +232,37 @@ class LumioScreenshotTest {
             chains = chains,
             selectedChainId = 1L,
             onSelectChain = {},
+            assets = assets,
+            selectedAsset = assets.first(),
+            onSelectAsset = {},
             recipient = "",
             onRecipient = {},
             onScan = {},
             amount = "",
+            onAmount = {},
+            busy = false,
+            notice = null,
+            onReview = {},
+            onBack = {},
+        )
+    }
+
+    /** The form as an asset page starts it: USDC chosen on Ethereum, with the recipient and the amount in USDC. */
+    @Test
+    fun ethereumTokenSendForm() = compose.snapshot("ethereum_token_send_form") {
+        SendFormScreen(
+            fromLabel = "Address 1",
+            fromAddress = address,
+            chains = chains,
+            selectedChainId = 1L,
+            onSelectChain = {},
+            assets = assets,
+            selectedAsset = assets[1],
+            onSelectAsset = {},
+            recipient = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
+            onRecipient = {},
+            onScan = {},
+            amount = "12.5",
             onAmount = {},
             busy = false,
             notice = null,
@@ -406,7 +437,7 @@ class LumioScreenshotTest {
         )
     }
 
-    /** A token's page: its chart over a month, its transaction, and Receive, since a token cannot be sent yet. */
+    /** A token's page: its chart over a month, its transaction, and Send and Receive, both from the account that holds it. */
     @Test
     fun assetToken() = compose.snapshot("asset_token") {
         AssetScreen(
@@ -429,7 +460,7 @@ class LumioScreenshotTest {
             transactions = listOf(
                 assetTx(3, TxDirection.IN, "1250500000", NOW - 7_200_000L, TxAsset(usdcMainnet, "USDC", "USD Coin", 6)),
             ),
-            sendOptions = emptyList(),
+            sendOptions = listOf(demoWallet),
             receiveOptions = listOf(demoWallet),
             accounts = listOf(demoWallet),
             onSend = {},

@@ -67,15 +67,11 @@ const val ASSET_CHART_EMPTY_TAG = "asset-chart-empty"
 const val ASSET_SEND_TAG = "asset-send"
 const val ASSET_RECEIVE_TAG = "asset-receive"
 
-/** The test tag of the note that a token cannot be sent yet. */
-const val ASSET_TOKEN_NOTE_TAG = "asset-token-note"
-
 /** The test tag of the line that stands in for the transactions when there are none. */
 const val ASSET_TX_EMPTY_TAG = "asset-tx-empty"
 
 private const val CHART_LOADING = "Loading the price chart."
 private const val CHART_EMPTY = "No price data for this range."
-private const val TOKEN_NOTE = "Sending a token is not built yet. Receive works on its network."
 private const val NO_VALUE = "—"
 
 /** The two actions of the page, which open a picker when more than one account can take them. */
@@ -186,15 +182,6 @@ fun AssetScreen(
                 modifier = Modifier.weight(1f).testTag(ASSET_RECEIVE_TAG),
                 style = WalletPillStyle.Outline,
                 enabled = receiveOptions.isNotEmpty(),
-            )
-        }
-        if (asset is TokenAsset) {
-            Spacer(Modifier.height(LenslySpacing.xs))
-            Text(
-                text = TOKEN_NOTE,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(ASSET_TOKEN_NOTE_TAG),
             )
         }
         Spacer(Modifier.height(LenslySpacing.lg))

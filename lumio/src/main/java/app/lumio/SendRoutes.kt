@@ -30,6 +30,7 @@ import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.evm.PreparedSend
 import app.lumio.evm.RpcFailure
+import app.lumio.evm.SendAssets
 import app.lumio.evm.SendInput
 import app.lumio.evm.SignatureScan
 import app.lumio.evm.SignatureStep
@@ -37,6 +38,10 @@ import app.lumio.pair.PairedWallet
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallets
 import app.lumio.send.EvmPaymentCode
+import app.lumio.tokens.Token
+import app.lumio.tokens.TokenBalanceCache
+import app.lumio.tokens.TokenHolding
+import app.lumio.tokens.TokenPortfolio
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendFormScreen
@@ -50,12 +55,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** What a send reads from the open vault: the wallet, the address that sends, the settings, and the chains that are on. */
+/**
+ * What a send reads from the open vault: the wallet, the address that sends, the settings, the chains that are on, the tokens each chain lists,
+ * and the tokens that the sending address holds in the balance cache.
+ */
 private class SendContext(
     val wallet: PairedWallet,
     val from: String,
     val settings: EvmSettings,
     val chains: List<EvmChain>,
+    val tokensOf: (EvmChain) -> List<Token>,
+    val held: List<TokenHolding>,
 )
 
 /** [Missing] when the wallet, its EVM account or the address is not in the open vault, otherwise the context. */
@@ -94,7 +104,8 @@ private const val REQUEST_ID_BYTES = 16
 /**
  * A send from one address of a paired wallet: the form, the review, the request that Lensly signs, the scan of its signature, and the
  * transaction that is sent. Lumio holds no key. It builds the transaction from public reads, and it broadcasts only a signature that
- * answers its own request from the account that sends.
+ * answers its own request from the account that sends. [preferredChainId] and [preferredToken] start the form on that chain and that
+ * ERC-20 token, as an asset's page does; without a token the form starts on the native coin.
  */
 @Composable
 internal fun SendRoute(
@@ -104,6 +115,7 @@ internal fun SendRoute(
     index: Int,
     mode: NetworkMode,
     preferredChainId: Long? = null,
+    preferredToken: String? = null,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
@@ -125,6 +137,8 @@ internal fun SendRoute(
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     var chainId by remember { mutableStateOf(preferredChainId) }
+    // The contract of the token the send moves, or null for the native coin of the chain.
+    var contract by remember { mutableStateOf(preferredToken) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     var scan by remember { mutableStateOf(SignatureScan()) }
@@ -136,17 +150,22 @@ internal fun SendRoute(
     var suggested by remember { mutableStateOf<PreparedSend?>(null) }
 
     val selectedChain = ready.chains.firstOrNull { it.chainId == chainId } ?: ready.chains.firstOrNull()
+    // The coins the chain offers: the native coin, the tokens held here, and the preferred token. The send moves the chosen one, native by default.
+    val assets = selectedChain?.let { chain ->
+        SendAssets.onChain(chain, ready.tokensOf(chain), ready.held, preferredToken.takeIf { chain.chainId == preferredChainId })
+    }.orEmpty()
+    val asset = assets.firstOrNull { it.token?.contract == contract } ?: assets.firstOrNull()
 
     fun review() {
-        val chain = selectedChain ?: return
+        val selected = asset ?: return
         busy = true
         notice = null
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     val to = SendInput.recipient(recipient)
-                    val value = SendInput.amountWei(amount, chain.decimals, chain.symbol)
-                    EvmSend.prepare(app.evmReadsFor(checkNotNull(session)), chain, ready.from, index, to, value)
+                    val value = SendInput.amountWei(amount, selected.decimals, selected.symbol)
+                    EvmSend.prepare(app.evmReadsFor(checkNotNull(session)), selected.chain, ready.from, index, to, value, selected.token)
                 }
             }
             busy = false
@@ -160,13 +179,16 @@ internal fun SendRoute(
         }
     }
 
-    /** A scanned recipient fills To, and the amount when the form has none. A code that is refused keeps the camera on, with the words why. */
+    /**
+     * A scanned recipient fills To, and the amount when the form has none. A payment code's amount is in the native coin, so it fills the amount
+     * only for the native coin. A code that is refused keeps the camera on, with the words why.
+     */
     fun onRecipientText(text: String) {
         val chain = selectedChain ?: return
         runCatching { EvmPaymentCode.read(text, chain) }
             .onSuccess { payment ->
                 recipient = payment.address
-                if (payment.amount != null && amount.isBlank()) amount = payment.amount
+                if (payment.amount != null && amount.isBlank() && asset?.token == null) amount = payment.amount
                 notice = null
                 step = SendStep.Form
             }
@@ -269,7 +291,13 @@ internal fun SendRoute(
             fromAddress = ready.from,
             chains = ready.chains,
             selectedChainId = selectedChain?.chainId,
-            onSelectChain = { chainId = it },
+            onSelectChain = {
+                chainId = it
+                contract = null
+            },
+            assets = assets,
+            selectedAsset = asset,
+            onSelectAsset = { contract = it.token?.contract },
             recipient = recipient,
             onRecipient = { recipient = it },
             onScan = {
@@ -330,8 +358,8 @@ internal fun SendRoute(
 }
 
 /**
- * Reads the send's wallet, address and chains from the open vault. The chains are the enabled ones on the side [mode] chooses, as on the
- * wallet's portfolio. It runs off the main thread.
+ * Reads the send's wallet, address and chains from the open vault, with the tokens each chain lists and the tokens the address holds in the
+ * balance cache. The chains are the enabled ones on the side [mode] chooses, as on the wallet's portfolio. It runs off the main thread.
  */
 private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, index: Int, mode: NetworkMode): SendLoad = runCatching {
     val wallet = PairedWallets.list(session).firstOrNull { it.id == walletId } ?: return@runCatching SendLoad.Missing
@@ -339,7 +367,10 @@ private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, ind
     val settings = EvmSettingsStore.read(session)
     if (index !in 0 until settings.addressCount) return@runCatching SendLoad.Missing
     val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
-    SendLoad.Ready(SendContext(wallet, AccountAddresses.addressAt(account, index), settings, chains))
+    val from = AccountAddresses.addressAt(account, index)
+    val tokensOf = app.tokensFor(session)
+    val held = TokenPortfolio.holdingsAt(wallet.id, from, chains, tokensOf, TokenBalanceCache.read(session))
+    SendLoad.Ready(SendContext(wallet, from, settings, chains, tokensOf, held))
 }.getOrDefault(SendLoad.Missing)
 
 /** The words a failure shows: the owner's words for a refusal (an invalid input, a signature that is not this one, an endpoint's answer), else [fallback]. */

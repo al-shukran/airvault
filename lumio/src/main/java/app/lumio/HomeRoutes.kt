@@ -220,7 +220,10 @@ private fun AssetPage(navController: NavHostController, holder: VaultHolder, app
         sendOptions = current.sendOptions,
         receiveOptions = current.receiveOptions,
         accounts = current.accounts,
-        onSend = { option -> sendRoute(option.target, chainIdOf(current.asset))?.let { navController.navigate(it) } },
+        onSend = { option ->
+            val token = (current.asset as? TokenAsset)?.contract
+            sendRoute(option.target, chainIdOf(current.asset), token)?.let { navController.navigate(it) }
+        },
         onReceive = { option -> receiveRoute(option.target)?.let { navController.navigate(it) } },
         onAccount = { option -> accountRoute(option.target)?.let { navController.navigate(it) } },
         onBack = { navController.popBackStack() },
@@ -380,9 +383,12 @@ private suspend fun receiveOf(app: LumioApp, session: VaultSession, kind: String
 private fun networkEntryOf(app: LumioApp, network: NetworkId): NetworkEntry? =
     if (network.family == Family.EVM) app.registry.networks().firstOrNull { it.chainId.toString() == network.chain } else null
 
-/** The route of a Send from [target], or null when the target does not send. [chainId] starts the form on that chain. */
-internal fun sendRoute(target: PickTarget, chainId: Long? = null): String? = when (target) {
-    is PickTarget.Evm -> LumioRoute.send(target.walletId, 0, chainId)
+/**
+ * The route of a Send from [target], or null when the target does not send. [chainId] starts the form on that chain, and [token] on that ERC-20
+ * contract, so an asset's page starts on the coin it shows.
+ */
+internal fun sendRoute(target: PickTarget, chainId: Long? = null, token: String? = null): String? = when (target) {
+    is PickTarget.Evm -> LumioRoute.send(target.walletId, 0, chainId, token)
     PickTarget.Bitcoin -> LumioRoute.BTC_SEND
     is PickTarget.BitcoinAccount, is PickTarget.BitcoinWallet -> null
 }

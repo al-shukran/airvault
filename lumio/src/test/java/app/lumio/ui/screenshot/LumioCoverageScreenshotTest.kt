@@ -59,6 +59,7 @@ import app.lumio.evm.EvmSend
 import app.lumio.evm.PreparedSend
 import app.lumio.evm.Total
 import app.lumio.evm.Totals
+import app.lumio.tokens.Token
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
@@ -456,6 +457,27 @@ class LumioCoverageScreenshotTest {
     @Test
     fun ethereumSendReview() = compose.snapshot("ethereum_send_review") {
         SendReviewScreen(send = ethSend, suggested = ethSend, notice = null, onSave = {}, onConfirm = {}, onBack = {})
+    }
+
+    /** A token send of 12.5 USDC: the review's headline names the amount and the recipient, and the token contract is shown. */
+    private val usdcSend: PreparedSend = PreparedSend(
+        chain = ethereum,
+        index = 0,
+        from = from,
+        to = RECIPIENT,
+        valueWei = BigInteger.valueOf(12_500_000L),
+        nonce = 7,
+        gasLimit = BigInteger.valueOf(65_000),
+        maxFeePerGas = BigInteger.valueOf(30_000_000_000L),
+        maxPriorityFeePerGas = BigInteger.valueOf(1_500_000_000L),
+        balanceWei = BigInteger.TEN.pow(18),
+        token = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6),
+        tokenBalance = BigInteger.valueOf(1_250_500_000L),
+    )
+
+    @Test
+    fun ethereumTokenSendReview() = compose.snapshot("ethereum_token_send_review") {
+        SendReviewScreen(send = usdcSend, suggested = usdcSend, notice = null, onSave = {}, onConfirm = {}, onBack = {})
     }
 
     @Test
