@@ -4,6 +4,7 @@ import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import kotlin.random.Random
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -144,17 +145,55 @@ class UniversalRouterStepsTest {
     }
 
     @Test
-    fun theAllowRevertFlagIsSaidOnTheStepAndTheCommandIsReadWithoutIt() {
-        // 0x85 is TRANSFER (0x05) with the allow-revert flag. ETHG is unregistered, so its amount is raw.
-        val input = abiAddressWord(ETHG) + abiAddressWord(SIGNER) + abiWord(BigInteger.valueOf(7L))
+    fun theAllowRevertFlagGetsNoNoteOnACommandThatRevertsTheBatchItself() {
+        // 0x85 is TRANSFER (0x05) and 0x90 is V4_SWAP, each with the allow-revert flag. Both revert the batch on failure whatever the
+        // flag, so neither gets a note. ETHG is unregistered, so its amount is raw.
+        val transfer = abiAddressWord(ETHG) + abiAddressWord(SIGNER) + abiWord(BigInteger.valueOf(7L))
 
-        val steps = assertNotNull(stepsOfParts(UR_V1_2, byteArrayOf(0x85.toByte()), listOf(input)))
+        val steps = assertNotNull(stepsOfParts(UR_V1_2, byteArrayOf(0x85.toByte()), listOf(transfer)))
+        val v4 = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(0x90.toByte()), listOf(ByteArray(0))))
 
-        assertEquals(
-            listOf("Transfer 7 base units of 0x3fC2…0EAD from the router to you (if it fails, the rest of the batch still runs)"),
-            steps.lines,
-        )
+        assertEquals(listOf("Transfer 7 base units of 0x3fC2…0EAD from the router to you"), steps.lines)
+        assertEquals(listOf("Uniswap v4 swap: its actions are shown as raw bytes under Details"), v4.lines)
         assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun theAllowRevertFlagIsSaidOnABalanceCheckOnBothDialects() {
+        // 0x8e is BALANCE_CHECK_ERC20 with the allow-revert flag. A short balance returns success=false, so the batch goes on.
+        val input = abiAddressWord(SIGNER) + abiAddressWord(ETHG) + abiWord(BigInteger.valueOf(7L))
+
+        listOf(UR_V1_2, UR_V2).forEach { contract ->
+            val steps = assertNotNull(stepsOfParts(contract, byteArrayOf(0x8e.toByte()), listOf(input)))
+
+            assertEquals(
+                listOf("Require you to hold at least 7 base units of 0x3fC2…0EAD (if it fails, the rest of the batch still runs)"),
+                steps.lines,
+            )
+        }
+    }
+
+    @Test
+    fun theAllowRevertFlagIsSaidOnAPermitOnlyWhereItIsACallToPermit2() {
+        // 0x8a is PERMIT2_PERMIT with the allow-revert flag. V2 calls Permit2 with `.call`, so a failed permit returns success=false.
+        // V1.2 calls Permit2 directly, so the permit reverts the batch and gets no note.
+        val input = abiAddressWord(USDC) + abiWord(BigInteger.TEN.pow(6)) + abiWord(BigInteger.valueOf(1_800_000_000L)) +
+            abiWord(BigInteger.ZERO) + abiAddressWord(UR_V2) + abiWord(BigInteger.ZERO) +
+            abiWord(BigInteger.valueOf(7L * ABI_WORD)) + abiWord(BigInteger.ZERO)
+
+        val v2 = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(0x8a.toByte()), listOf(input))).lines.single()
+        val v1 = assertNotNull(stepsOfParts(UR_V1_2, byteArrayOf(0x8a.toByte()), listOf(input))).lines.single()
+
+        assertTrue(v2.endsWith("(if it fails, the rest of the batch still runs)"), v2)
+        assertFalse(v1.contains("if it fails"), v1)
+    }
+
+    @Test
+    fun aCommandLenslyDoesNotReadGetsNoNote() {
+        // 0x91 is command 0x11, V3_POSITION_MANAGER_PERMIT, which Lensly does not read yet. Its step says nothing about the flag.
+        val steps = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(0x91.toByte()), listOf(byteArrayOf(0x11, 0x22))))
+
+        assertEquals(listOf("Unknown command 0x11: raw input 0x1122"), steps.lines)
     }
 
     @Test

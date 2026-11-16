@@ -83,12 +83,24 @@ internal object UniversalRouterSteps {
         val warnings = ArrayList<String>()
         commands.indices.forEach { index ->
             val command = commands[index].toInt() and 0xff
-            val note = if (command and ALLOW_REVERT_FLAG != 0) ALLOW_REVERT_NOTE else ""
-            val step = stepOf(dialect, command and COMMAND_MASK, inputs[index], call)
+            val type = command and COMMAND_MASK
+            val note = if (command and ALLOW_REVERT_FLAG != 0 && failsWithoutRevert(dialect, type)) ALLOW_REVERT_NOTE else ""
+            val step = stepOf(dialect, type, inputs[index], call)
             lines += step.lines.map { it + note }
             warnings += step.warnings
         }
         return CallSteps(lines, warnings)
+    }
+
+    /**
+     * Whether a failure of this command comes back as success=false, which the allow-revert flag lets the batch pass. Every other command
+     * reverts the batch on failure, flag or not. The Permit2 permits are a `.call` in V2 and a direct call in V1.2, which reverts. A command
+     * Lensly does not read is not listed, so its step gets no note.
+     */
+    private fun failsWithoutRevert(dialect: Dialect, type: Int): Boolean = when (type) {
+        0x0e -> true
+        0x03, 0x0a -> dialect == Dialect.V2
+        else -> false
     }
 
     /** The lines and warnings of one command. */
