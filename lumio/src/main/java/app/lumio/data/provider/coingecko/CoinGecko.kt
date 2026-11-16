@@ -24,8 +24,9 @@ import kotlinx.serialization.json.JsonObject
 import okhttp3.Request as HttpRequest
 
 /**
- * CoinGecko as a PRICE provider, the fallback behind DefiLlama. It is FALLBACK_ONLY, so the router offers it when DefiLlama cannot serve a price at
- * that moment. It works without a key. An optional demo key, from the provider's settings, goes in the `x-cg-demo-api-key` header, never in the URL.
+ * CoinGecko as a PRICE provider. It needs a demo key from the provider's settings, so it is eligible only while that key is set and the provider is
+ * enabled ([Trait.KEY_REQUIRED]). Its place against DefiLlama is its priority in the settings. The key goes in the `x-cg-demo-api-key` header, never in
+ * the URL.
  *
  * Sources, read on 2026-11-16:
  * - Endpoint and fields: https://docs.coingecko.com/reference/simple-price (the demo copy is at https://docs.coingecko.com/demo/reference/simple-price).
@@ -39,7 +40,7 @@ import okhttp3.Request as HttpRequest
 class CoinGeckoProvider : Provider {
     override val id: String = "coingecko"
     override val kind: Kind = Kind.DATA
-    override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.FALLBACK_ONLY)
+    override val traits: Set<Trait> = setOf(Trait.KEY_REQUIRED)
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
         op == Op.PRICE && NativeCoins.coinOf(net) != null && providerBase(cfg.baseUrl, BASE) != null

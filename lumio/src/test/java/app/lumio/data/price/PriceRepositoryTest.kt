@@ -1,6 +1,5 @@
 package app.lumio.data.price
 
-import app.lumio.data.BTC
 import app.lumio.data.ETH
 import app.lumio.data.FakeClock
 import app.lumio.data.FakeKvDao
@@ -16,9 +15,8 @@ import app.lumio.data.provider.Http
 import app.lumio.data.provider.Op
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.Provider
+import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError
-import app.lumio.data.provider.coingecko.CoinGeckoProvider
-import app.lumio.data.provider.defillama.DefiLlamaProvider
 import app.lumio.data.sched.Scheduler
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
@@ -63,17 +61,22 @@ class PriceRepositoryTest {
         server.shutdown()
     }
 
-    /** The repository over [providers], with the local server as each provider's base, and [kept] as the open vault's cache. */
-    private fun repository(providers: List<Provider>, kept: Cache? = store): PriceRepository {
-        val configs = mapOf(
-            "defillama" to ProviderConfig(baseUrl = server.url("/").toString(), limits = fast),
-            "coingecko" to ProviderConfig(baseUrl = server.url("/cg/api/v3/").toString(), limits = fast),
-        )
+    /**
+     * The repository over [providers], with the local server as each provider's base, [saved] as the owner's settings (with the price defaults of
+     * [ProviderCatalog.withDefaults]), and [kept] as the open vault's cache.
+     */
+    private fun repository(providers: List<Provider>, saved: Map<String, ProviderConfig> = emptyMap(), kept: Cache? = store): PriceRepository {
+        val urls = mapOf("defillama" to server.url("/").toString(), "coingecko" to server.url("/cg/api/v3/").toString())
+        val configs = ProviderCatalog.withDefaults(saved).mapValues { (id, cfg) -> cfg.copy(baseUrl = urls[id], limits = fast) }
         val scheduler = Scheduler(providers, { configs }, http, clock, Random(7), scope) { kept }
         return PriceRepository(scheduler) { kept }
     }
 
-    private fun live(): List<Provider> = listOf(DefiLlamaProvider(), CoinGeckoProvider())
+    private fun live(): List<Provider> = ProviderCatalog.priceProviders()
+
+    /** A CoinGecko key that is set, and enabled unless [enabled] is false. */
+    private fun keyed(enabled: Boolean = true): Map<String, ProviderConfig> =
+        mapOf("coingecko" to ProviderConfig(enabled = enabled, apiKey = "demo-key"))
 
     private fun priceOf(price: String, timestamp: Long): MockResponse = MockResponse().setBody(
         """{"coins":{"coingecko:ethereum":{"price":$price,"symbol":"ETH","timestamp":$timestamp,"confidence":0.999}}}""",
@@ -82,16 +85,61 @@ class PriceRepositoryTest {
     private fun changeOf(value: String): MockResponse = MockResponse().setBody("""{"coins":{"coingecko:ethereum":$value}}""")
 
     @Test
-    fun aRateLimitedDefiLlamaFallsBackToCoinGeckoAndStaysCooledForTheNextRead() = runBlocking {
-        routes.on("prices", MockResponse().setResponseCode(429).setHeader("Retry-After", "60"))
-        routes.on("cg", MockResponse().setBody("""{"ethereum":{"usd":1827.5,"usd_24h_change":0.41,"last_updated_at":1794774853}}"""))
-        routes.on("cg", MockResponse().setBody("""{"bitcoin":{"usd":64976,"usd_24h_change":-0.62,"last_updated_at":1794774860}}"""))
+    fun withNoKeyOnlyDefiLlamaIsAskedAndCoinGeckoIsNever() = runBlocking {
+        routes.on("prices", priceOf("1831.25", 1_794_774_850L))
+        routes.on("percentage", changeOf("0.5"))
         val repository = repository(live())
 
-        assertEquals(Price(usd = 1827.5, change24hPct = 0.41, asOfMs = 1_794_774_853_000L, stale = false), repository.prices(listOf(ETH))[ETH])
-        assertEquals(Price(usd = 64976.0, change24hPct = -0.62, asOfMs = 1_794_774_860_000L, stale = false), repository.prices(listOf(BTC))[BTC])
+        assertEquals(1_831.25, repository.prices(listOf(ETH))[ETH]!!.usd, 0.0)
         assertEquals(1, routes.calls("prices"))
-        assertEquals(2, routes.calls("cg"))
+        assertEquals(0, routes.calls("cg"))
+    }
+
+    @Test
+    fun withAKeyCoinGeckoIsAskedFirstAndNoDefiLlamaCallIsMade() = runBlocking {
+        routes.on("cg", MockResponse().setBody("""{"ethereum":{"usd":1827.5,"usd_24h_change":0.41,"last_updated_at":1794774853}}"""))
+        val repository = repository(live(), saved = keyed())
+
+        assertEquals(Price(usd = 1827.5, change24hPct = 0.41, asOfMs = 1_794_774_853_000L, stale = false), repository.prices(listOf(ETH))[ETH])
+        assertEquals(1, routes.calls("cg"))
+        assertEquals(0, routes.calls("prices"))
+        assertEquals(listOf("demo-key"), routes.keysSent())
+    }
+
+    @Test
+    fun withAKeyARateLimitedCoinGeckoFallsBackToDefiLlamaAndStaysCooled() = runBlocking {
+        routes.on("cg", MockResponse().setResponseCode(429).setHeader("Retry-After", "600"))
+        routes.on("prices", priceOf("1827.5", 1_794_774_850L), priceOf("1828.0", 1_794_774_900L))
+        routes.on("percentage", changeOf("0.41"), changeOf("0.42"))
+        val repository = repository(live(), saved = keyed())
+
+        assertEquals(1_827.5, repository.prices(listOf(ETH))[ETH]!!.usd, 0.0)
+        clock.now += 61_000L
+        assertEquals(1_828.0, repository.prices(listOf(ETH))[ETH]!!.usd, 0.0)
+        assertEquals(1, routes.calls("cg"))
+        assertEquals(2, routes.calls("prices"))
+    }
+
+    @Test
+    fun withAKeyAFailedCoinGeckoAnswerFallsBackToDefiLlama() = runBlocking {
+        routes.on("cg", MockResponse().setBody("""{"ethereum":{"usd":0,"usd_24h_change":0.41,"last_updated_at":1794774853}}"""))
+        routes.on("prices", priceOf("1831.25", 1_794_774_850L))
+        routes.on("percentage", changeOf("0.5"))
+        val repository = repository(live(), saved = keyed())
+
+        assertEquals(1_831.25, repository.prices(listOf(ETH))[ETH]!!.usd, 0.0)
+        assertEquals(1, routes.calls("cg"))
+        assertEquals(1, routes.calls("prices"))
+    }
+
+    @Test
+    fun withAKeyButCoinGeckoSwitchedOffDefiLlamaAloneAnswers() = runBlocking {
+        routes.on("prices", priceOf("1831.25", 1_794_774_850L))
+        routes.on("percentage", changeOf("0.5"))
+        val repository = repository(live(), saved = keyed(enabled = false))
+
+        assertEquals(1_831.25, repository.prices(listOf(ETH))[ETH]!!.usd, 0.0)
+        assertEquals(0, routes.calls("cg"))
     }
 
     @Test
@@ -169,6 +217,7 @@ class PriceRepositoryTest {
     private class Routes : Dispatcher() {
         private val queues = HashMap<String, ArrayDeque<MockResponse>>()
         private val counts = HashMap<String, Int>()
+        private val keys = ArrayList<String?>()
 
         @Synchronized
         fun on(route: String, vararg answers: MockResponse) {
@@ -181,10 +230,15 @@ class PriceRepositoryTest {
         @Synchronized
         fun total(): Int = counts.values.sum()
 
+        /** The CoinGecko key header of each call to CoinGecko, in order. */
+        @Synchronized
+        fun keysSent(): List<String?> = keys.toList()
+
         @Synchronized
         override fun dispatch(request: RecordedRequest): MockResponse {
             val route = routeOf(request.path.orEmpty())
             counts[route] = calls(route) + 1
+            if (route == "cg") keys.add(request.getHeader("x-cg-demo-api-key"))
             return queues[route]?.removeFirstOrNull() ?: MockResponse().setResponseCode(500)
         }
 

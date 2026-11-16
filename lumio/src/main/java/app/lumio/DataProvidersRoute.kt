@@ -35,8 +35,13 @@ import kotlinx.coroutines.withContext
 /** How often the screen reads the schedulers again, so a cooldown or an open circuit counts down on screen. */
 private const val STATUS_POLL_MS = 2_000L
 
-/** The two groups of rows, read in one pass. */
-private class ProviderLists(val data: List<ProviderRow>, val rpc: List<ProviderRow>, val preferRpc: Boolean)
+/** The three groups of rows, read in one pass. */
+private class ProviderLists(
+    val data: List<ProviderRow>,
+    val prices: List<ProviderRow>,
+    val rpc: List<ProviderRow>,
+    val preferRpc: Boolean,
+)
 
 /**
  * The Data providers screen in the Hidden Area. It reads the saved settings and each provider's health from the schedulers, and it writes each change
@@ -63,6 +68,7 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
         }
     }
     val dataIds = remember { ProviderCatalog.dataProviders().map { it.id } }
+    val priceIds = remember { ProviderCatalog.priceProviders().map { it.id } }
     val rpcIds = remember { ProviderCatalog.rpcProviders(BuildConfig.DEBUG).map { it.id } }
     val current = lists ?: return
     val writable = vault ?: return
@@ -77,26 +83,35 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
 
     DataProvidersScreen(
         data = current.data,
+        prices = current.prices,
         rpc = current.rpc,
         onBack = { navController.popBackStack() },
-        onEnabled = { id, on -> change { writable.updateConfigs { configs -> withEnabled(configs, id, on) } } },
+        // Each write starts from the defaults-filled settings, so a price provider never saves a default as a plain 0.
+        onEnabled = { id, on -> change { writable.updateConfigs { saved -> withEnabled(ProviderCatalog.withDefaults(saved), id, on) } } },
         onMove = { id, up ->
-            val group = if (id in dataIds) dataIds else rpcIds
-            change { writable.updateConfigs { configs -> withMoved(configs, group, id, up) } }
+            val group = when (id) {
+                in dataIds -> dataIds
+                in priceIds -> priceIds
+                else -> rpcIds
+            }
+            change { writable.updateConfigs { saved -> withMoved(ProviderCatalog.withDefaults(saved), group, id, up) } }
         },
-        onApiKey = { id, key -> change { writable.updateConfigs { configs -> withApiKey(configs, id, key) } } },
+        onApiKey = { id, key -> change { writable.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key) } } },
         preferRpc = current.preferRpc,
         onPreferRpc = { on -> change { PreferRpcStore.write(writable.session, on) } },
     )
 }
 
-/** Reads both groups of rows: each provider's settings, and its status from whichever scheduler holds it. */
+/** Reads the three groups of rows: each provider's settings, and its status from whichever scheduler holds it. */
 private suspend fun readLists(app: LumioApp, vault: LumioVault): ProviderLists {
-    val configs = vault.configs()
+    val configs = ProviderCatalog.withDefaults(vault.configs())
     val evm = app.evmReadsFor(vault.session)
-    val healthOf: suspend (String) -> ProviderHealth? = { id -> app.scheduler.statusOf(id) ?: evm.statusOf(id) }
+    val healthOf: suspend (String) -> ProviderHealth? = { id ->
+        app.scheduler.statusOf(id) ?: app.priceScheduler.statusOf(id) ?: evm.statusOf(id)
+    }
     return ProviderLists(
         data = rowsOf(ProviderCatalog.dataProviders(), configs, healthOf),
+        prices = rowsOf(ProviderCatalog.priceProviders(), configs, healthOf),
         rpc = rowsOf(ProviderCatalog.rpcProviders(BuildConfig.DEBUG), configs, healthOf),
         preferRpc = PreferRpcStore.read(vault.session),
     )
