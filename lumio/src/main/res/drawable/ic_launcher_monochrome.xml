@@ -1,20 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Lumio's themed-icon layer: the same glyph as ic_launcher_foreground.xml in one colour, which the launcher tints. -->
+<!-- Lumio's themed-icon layer: the glyph of ic_launcher_foreground.xml as one silhouette, which the launcher tints. The SVG drop shadow is left out, since only the alpha is used. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:scaleX="2.4"
-        android:scaleY="2.4"
-        android:translateX="25.2"
-        android:translateY="26.4">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M4,2h4.5v14.5H20V21H4Z" />
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M16.75,9.25a2.5,2.5 0 1,1 -5,0a2.5,2.5 0 1,1 5,0Z" />
-    </group>
+    <!-- The body, with its slot and the lens ring cut out; the centre of the lens stays. -->
+    <path
+        android:pathData="M29.996,47.894 C29.996,44.652 32.617,42.031 35.859,42.031 L44.412,42.031 L48.413,37.41 L59.725,37.41 L63.726,42.031 L72.141,42.031 C75.383,42.031 78.004,44.652 78.004,47.894 L78.004,70.932 C78.004,74.243 75.383,76.864 72.141,76.864 L35.859,76.864 C32.617,76.864 29.996,74.243 29.996,70.932 L29.996,47.894 Z M39.032,46.101 L35.032,46.101 C34.46,46.101 33.997,46.564 33.997,47.135 C33.997,47.707 34.46,48.17 35.032,48.17 L39.032,48.17 C39.604,48.17 40.067,47.707 40.067,47.135 C40.067,46.564 39.604,46.101 39.032,46.101 Z M54,71.208 C60.705,71.208 66.14,65.773 66.14,59.068 C66.14,52.363 60.705,46.928 54,46.928 C47.295,46.928 41.86,52.363 41.86,59.068 C41.86,65.773 47.295,71.208 54,71.208 Z M54,66.517 C58.114,66.517 61.449,63.182 61.449,59.068 C61.449,54.954 58.114,51.619 54,51.619 C49.886,51.619 46.551,54.954 46.551,59.068 C46.551,63.182 49.886,66.517 54,66.517 Z"
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+    />
+    <path
+        android:pathData="M70.761,32.581 L71.313,28.994 M74.141,33.616 L76.279,30.788"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.655"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+    />
+    <!-- The photo card, solid, over the body. -->
+    <path
+        android:pathData="M74.22,65.665 L62.808,63.652 C61.382,63.401 60.023,64.353 59.771,65.778 L58.19,74.745 C57.939,76.171 58.891,77.53 60.316,77.781 L71.728,79.794 C73.154,80.045 74.514,79.093 74.765,77.668 L76.346,68.701 C76.597,67.275 75.645,65.916 74.22,65.665 Z"
+        android:fillColor="#FFFFFF"
+    />
 </vector>
