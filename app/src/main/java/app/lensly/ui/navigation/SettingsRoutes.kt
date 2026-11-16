@@ -33,6 +33,7 @@ import app.lensly.core.vault.PolicyReason
 import app.lensly.core.vault.PolicyResult
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
+import app.lensly.core.vault.VaultSession
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.flow.PasswordCheck
@@ -55,6 +56,8 @@ import app.lensly.ui.settings.readThirdPartyNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** The Settings screen and the App Password change, in the hidden graph. */
@@ -235,7 +238,7 @@ private fun HideDelayRoute(navController: NavHostController, holder: VaultHolder
 
 /**
  * The Bitcoin policies: how input amounts are verified and which online side may ask for a Bitcoin signature. The saved choices are read
- * back when the screen opens, and SAVE writes both with the rest of the settings. Only these two change, so the other saved settings stay.
+ * back when the screen opens. A tap applies its choice at once, and only that field of the saved settings is written.
  */
 @Composable
 private fun BitcoinPolicyRoute(navController: NavHostController, holder: VaultHolder) {
@@ -257,24 +260,38 @@ private fun BitcoinPolicyRoute(navController: NavHostController, holder: VaultHo
         inputPolicy = inputPolicy,
         signingSource = signingSource,
         ready = ready,
-        onInputPolicy = { inputPolicy = it },
-        onSigningSource = { signingSource = it },
-        onSave = {
-            scope.launch {
-                whileUnlocked(navController, holder) {
-                    withContext(Dispatchers.IO) {
-                        SettingsStore(session).let { store ->
-                            store.load()
-                                .copy(bitcoinInputPolicy = inputPolicy, bitcoinSigningSource = signingSource)
-                                .also(store::save)
-                        }
-                    }
-                    navController.popBackStack()
-                }
-            }
+        onInputPolicy = { policy ->
+            inputPolicy = policy
+            scope.launch { writeSettings(navController, holder, session) { it.copy(bitcoinInputPolicy = policy) } }
+        },
+        onSigningSource = { source ->
+            signingSource = source
+            scope.launch { writeSettings(navController, holder, session) { it.copy(bitcoinSigningSource = source) } }
         },
         onBack = { navController.popBackStack() },
     )
+}
+
+/** Serialises the writes of the saved settings, so two quick changes cannot overwrite each other. */
+private val settingsWrites = Mutex()
+
+/**
+ * Applies [change] to the saved settings and writes them, keeping every other saved setting. The screen has already shown the change.
+ * The write waits for the writes before it, and does nothing if the vault is locked.
+ */
+private suspend fun writeSettings(
+    navController: NavHostController,
+    holder: VaultHolder,
+    session: VaultSession,
+    change: (AppSettings) -> AppSettings,
+) {
+    settingsWrites.withLock {
+        whileUnlocked(navController, holder) {
+            withContext(Dispatchers.IO) {
+                SettingsStore(session).let { store -> store.load().let(change).also(store::save) }
+            }
+        }
+    }
 }
 
 /** The digits typed so far with [digit] added. A count is at most four digits, and a leading zero is not kept. */
