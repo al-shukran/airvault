@@ -5,7 +5,7 @@ import app.lumio.LumioApp
 import app.lumio.bitcoinRefs
 import app.lumio.btc.BtcRow
 import app.lumio.btc.networkId
-import app.lumio.data.net.NetworkId
+import app.lumio.data.asset.AssetId
 import app.lumio.data.price.Price
 import app.lumio.data.sched.Priority
 import app.lumio.evm.BalanceCache
@@ -19,6 +19,8 @@ import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallets
 import app.lumio.queueScans
 import app.lumio.rowsOf
+import app.lumio.tokens.TokenBalanceCache
+import app.lumio.tokens.TokenPortfolio
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -27,22 +29,29 @@ import kotlinx.coroutines.withContext
  * prices, the Ethereum balances and the Bitcoin scans. Every vault read and every database read runs off the main thread.
  */
 internal object HomeLoader {
-    /** The native balances of [mode]'s side from the vault: the balance cache for Ethereum and the last scans for Bitcoin. It reads no network. */
-    suspend fun cached(app: LumioApp, session: VaultSession, mode: NetworkMode): List<NativeAsset> = withContext(Dispatchers.IO) {
+    /**
+     * The balances of [mode]'s side from the vault, native and token: the balance cache for Ethereum, the token cache, and the last scans for Bitcoin.
+     * It reads no network.
+     */
+    suspend fun cached(app: LumioApp, session: VaultSession, mode: NetworkMode): List<HomeAsset> = withContext(Dispatchers.IO) {
         val settings = EvmSettingsStore.read(session)
         val chains = evmChains(app, settings, mode)
-        val holdings = Portfolio.holdings(PairedWallets.list(session), settings.addressCount, chains, BalanceCache.read(session))
-        HomeBalances.evm(chains, holdings) + HomeBalances.bitcoin(bitcoinRows(app, session, mode))
+        val wallets = PairedWallets.list(session)
+        val holdings = Portfolio.holdings(wallets, settings.addressCount, chains, BalanceCache.read(session))
+        val tokensOf = app.tokensFor(session)
+        val tokenCache = TokenBalanceCache.read(session)
+        val tokens = wallets.flatMap { TokenPortfolio.holdings(it, settings.addressCount, chains, tokensOf, tokenCache) }
+        HomeBalances.evm(chains, holdings) + HomeBalances.bitcoin(bitcoinRows(app, session, mode)) + HomeBalances.tokens(tokens)
     }
 
-    /** The prices of the networks of [assets], keyed by network. A network with no price, or whose sources do not answer, is absent. */
-    suspend fun prices(app: LumioApp, assets: List<NativeAsset>): Map<NetworkId, Price> = withContext(Dispatchers.IO) {
-        app.prices.prices(assets.map { it.network }.distinct())
+    /** The prices of the coins of [assets], keyed by asset. An asset with no price, or whose sources do not answer, is absent. */
+    suspend fun prices(app: LumioApp, assets: List<HomeAsset>): Map<AssetId, Price> = withContext(Dispatchers.IO) {
+        app.prices.assetPrices(assets.map { it.assetId }.distinct())
     }
 
     /**
-     * Reads the enabled Ethereum chains of [mode]'s side for every paired wallet, and keeps the reads in the balance cache. Returns the chains that did
-     * not answer. Their cached reads stay as they were.
+     * Reads the enabled Ethereum chains of [mode]'s side for every paired wallet, and keeps the reads in the balance cache, then reads the tokens of
+     * each wallet on those chains. Returns the chains that did not answer. Their cached reads stay as they were.
      */
     suspend fun refreshEvm(app: LumioApp, session: VaultSession, mode: NetworkMode): List<ChainFailure> = withContext(Dispatchers.IO) {
         val settings = EvmSettingsStore.read(session)
@@ -51,7 +60,12 @@ internal object HomeLoader {
         if (chains.isEmpty() || wallets.isEmpty()) {
             emptyList()
         } else {
-            Portfolio.refresh(session, wallets, settings, chains, app.evmReadsFor(session)).values.flatten()
+            val reads = app.evmReadsFor(session)
+            val failures = Portfolio.refresh(session, wallets, settings, chains, reads).values.flatten()
+            // A token that fails keeps its earlier read, so the native result stands on its own.
+            val tokensOf = app.tokensFor(session)
+            for (wallet in wallets) TokenPortfolio.refresh(session, wallet, settings, chains, tokensOf, reads)
+            failures
         }
     }
 

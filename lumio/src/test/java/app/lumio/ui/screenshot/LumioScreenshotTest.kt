@@ -35,6 +35,7 @@ import app.lumio.evm.Total
 import app.lumio.evm.Totals
 import app.lumio.home.HomeAsset
 import app.lumio.home.NativeAsset
+import app.lumio.home.TokenAsset
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
@@ -346,12 +347,25 @@ class LumioScreenshotTest {
         )
     }
 
-    /** The coins of a mainnet side: two priced above the minimum, one priced below it, which Home hides. */
+    /** The USDC contract on Ethereum, which Home lists as a token. */
+    private val usdcMainnet = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+
+    /** The coins and a token of a mainnet side: one priced below the minimum, which Home hides. */
     private fun homeAssets(): List<HomeAsset> = listOf(
         NativeAsset("BTC-mainnet", "BTC", "Bitcoin", NetworkId(Family.BTC, "mainnet", testnet = false), BigDecimal("0.0425"), 4012.5, -0.4),
         NativeAsset("EVM-1", "ETH", "Ethereum", NetworkId(Family.EVM, "1", testnet = false), BigDecimal("1.2345"), 3950.12, 1.25),
         NativeAsset("EVM-8453", "ETH", "Base", NetworkId(Family.EVM, "8453", testnet = false), BigDecimal("0.5"), 1975.0, 1.25),
         NativeAsset("EVM-10", "ETH", "Optimism", NetworkId(Family.EVM, "10", testnet = false), BigDecimal("0.0001"), 0.3, 0.1),
+        TokenAsset(
+            id = TokenAsset.idOf(NetworkId(Family.EVM, "1", testnet = false), usdcMainnet),
+            symbol = "USDC",
+            name = "Ethereum",
+            network = NetworkId(Family.EVM, "1", testnet = false),
+            contract = usdcMainnet,
+            balance = BigDecimal("1250.5"),
+            usd = 1250.5,
+            change24h = 0.02,
+        ),
     )
 
     /** The coins of a testnet side, which have no price. */

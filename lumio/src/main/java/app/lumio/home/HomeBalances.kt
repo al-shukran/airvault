@@ -7,6 +7,7 @@ import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.evm.EvmChain
 import app.lumio.evm.Holding
+import app.lumio.tokens.TokenHolding
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -53,6 +54,28 @@ object HomeBalances {
                 balance = BigDecimal.valueOf(sats).movePointLeft(BTC_DECIMALS),
             )
         }
+
+    /**
+     * The ERC-20 tokens of [holdings], summed over the wallets and addresses that hold each one on its chain. A token whose sum is zero is not an
+     * asset, so Home lists only the tokens the owner holds.
+     */
+    fun tokens(holdings: List<TokenHolding>): List<TokenAsset> = holdings
+        .groupBy { it.chain.chainId to it.token.contract }
+        .values
+        .map { reads ->
+            val first = reads.first()
+            val network = NetworkId(Family.EVM, first.chain.chainId.toString(), first.chain.testnet)
+            val units = reads.fold(BigInteger.ZERO) { sum, read -> sum + read.amount }
+            TokenAsset(
+                id = TokenAsset.idOf(network, first.token.contract),
+                symbol = first.token.symbol,
+                name = first.chain.name,
+                network = network,
+                contract = first.token.contract,
+                balance = BigDecimal(units).movePointLeft(first.token.decimals),
+            )
+        }
+        .filter { it.balance.signum() > 0 }
 
     private const val BTC_DECIMALS = 8
 }

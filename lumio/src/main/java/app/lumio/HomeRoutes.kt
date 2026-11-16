@@ -22,6 +22,7 @@ import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.navigation.openHidden
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcSnapshot
+import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.data.net.Family
@@ -30,9 +31,9 @@ import app.lumio.data.price.Price
 import app.lumio.data.scan.ScanEvent
 import app.lumio.home.AccountOption
 import app.lumio.home.HomeAccounts
+import app.lumio.home.HomeAsset
 import app.lumio.home.HomeAssets
 import app.lumio.home.HomeLoader
-import app.lumio.home.NativeAsset
 import app.lumio.home.PickTarget
 import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairedWallet
@@ -73,8 +74,8 @@ internal fun HomeRoute(
     val display by (vault?.display ?: fallback).collectAsState()
     val scope = rememberCoroutineScope()
     val mode = selection.mode
-    var balances by remember { mutableStateOf<List<NativeAsset>>(emptyList()) }
-    var prices by remember { mutableStateOf<Map<NetworkId, Price>>(emptyMap()) }
+    var balances by remember { mutableStateOf<List<HomeAsset>>(emptyList()) }
+    var prices by remember { mutableStateOf<Map<AssetId, Price>>(emptyMap()) }
     var wallets by remember { mutableStateOf<List<PairedWallet>>(emptyList()) }
     var bitcoinAccounts by remember { mutableStateOf<List<BtcAccountRef>>(emptyList()) }
     var entries by remember { mutableStateOf<Map<Long, NetworkEntry>>(emptyMap()) }
@@ -250,7 +251,7 @@ private sealed interface AssetLoad {
     data object Missing : AssetLoad
 
     class Ready(
-        val asset: NativeAsset,
+        val asset: HomeAsset,
         val entry: NetworkEntry?,
         val accounts: List<AccountOption>,
         val hidden: Boolean,

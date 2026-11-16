@@ -1,5 +1,6 @@
 package app.lumio.home
 
+import app.lumio.data.asset.AssetId
 import app.lumio.data.config.AssetSort
 import app.lumio.data.config.AssetSortKey
 import app.lumio.data.net.NetworkId
@@ -8,13 +9,12 @@ import java.math.BigDecimal
 import java.util.Locale
 
 /**
- * An asset that Home lists: one coin on one network. [id] names it for as long as a list shows it, and it is the key of the asset page. [symbol]
- * is the coin and [name] the network it is on. [balance] is the amount in whole coins. [usd] is the value in dollars, null when no price is known,
- * and [change24h] the change over 24 hours in percent, null when no source gives one. [testnet] is true on a testnet, which never has a price.
- *
- * Home lists native coins only. A token asset carries the same members, so the list, its sort and its total take it without change.
+ * An asset that Home lists: one coin on one network, the native coin or an ERC-20 token. [id] names it for as long as a list shows it, and it is the
+ * key of the asset page. [symbol] is the coin and [name] the network it is on. [balance] is the amount in whole coins. [usd] is the value in dollars,
+ * null when no price is known, and [change24h] the change over 24 hours in percent, null when no source gives one. [testnet] is true on a testnet,
+ * which never has a price. [assetId] is what the price is of.
  */
-interface HomeAsset {
+sealed interface HomeAsset {
     val id: String
     val symbol: String
     val name: String
@@ -23,6 +23,7 @@ interface HomeAsset {
     val usd: Double?
     val change24h: Double?
     val testnet: Boolean
+    val assetId: AssetId
 }
 
 /** The native coin of one network, summed over the paired accounts that hold it. Its price is applied by [HomeAssets.priced]. */
@@ -36,10 +37,34 @@ data class NativeAsset(
     override val change24h: Double? = null,
 ) : HomeAsset {
     override val testnet: Boolean get() = network.testnet
+    override val assetId: AssetId get() = AssetId.Native(network)
 
     companion object {
         /** The id of the native coin of [network]: its family and chain, such as "EVM-1" for Ethereum or "BTC-mainnet" for Bitcoin. */
         fun idOf(network: NetworkId): String = "${network.family.name}-${network.chain}"
+    }
+}
+
+/**
+ * An ERC-20 token on one EVM network, summed over the wallets and addresses that hold it. [contract] is its lowercase contract address, and [name] is
+ * the network's name, as it is for a native coin. Its price is applied by [HomeAssets.priced] from its contract.
+ */
+data class TokenAsset(
+    override val id: String,
+    override val symbol: String,
+    override val name: String,
+    override val network: NetworkId,
+    val contract: String,
+    override val balance: BigDecimal,
+    override val usd: Double? = null,
+    override val change24h: Double? = null,
+) : HomeAsset {
+    override val testnet: Boolean get() = network.testnet
+    override val assetId: AssetId get() = AssetId.Erc20(network, contract)
+
+    companion object {
+        /** The id of [contract] on [network], such as "EVM-1-0xa0b8...". */
+        fun idOf(network: NetworkId, contract: String): String = "${network.family.name}-${network.chain}-$contract"
     }
 }
 
@@ -67,15 +92,16 @@ object HomeAssets {
     fun totalUsd(assets: List<HomeAsset>): Double? = assets.mapNotNull { it.usd }.takeIf { it.isNotEmpty() }?.sum()
 
     /**
-     * [balances] with [prices] applied. The value in dollars is the balance times the network's price, and the 24-hour change is the price's. A
-     * network with no price keeps neither.
+     * [assets] with [prices] applied, each priced by its [HomeAsset.assetId]. The value in dollars is the balance times the price, and the 24-hour
+     * change is the price's. An asset with no price keeps neither.
      */
-    fun priced(balances: List<NativeAsset>, prices: Map<NetworkId, Price>): List<NativeAsset> = balances.map { asset ->
-        val price = prices[asset.network]
-        if (price == null) {
-            asset.copy(usd = null, change24h = null)
-        } else {
-            asset.copy(usd = asset.balance.toDouble() * price.usd, change24h = price.change24hPct)
+    fun priced(assets: List<HomeAsset>, prices: Map<AssetId, Price>): List<HomeAsset> = assets.map { asset ->
+        val price = prices[asset.assetId]
+        val usd = price?.let { asset.balance.toDouble() * it.usd }
+        val change = price?.change24hPct
+        when (asset) {
+            is NativeAsset -> asset.copy(usd = usd, change24h = change)
+            is TokenAsset -> asset.copy(usd = usd, change24h = change)
         }
     }
 
@@ -83,8 +109,8 @@ object HomeAssets {
      * The time of the oldest kept price among the prices of [assets], or null when none of them is kept from an earlier read. Home shows it as the
      * time the prices are from.
      */
-    fun staleSinceMs(assets: List<HomeAsset>, prices: Map<NetworkId, Price>): Long? =
-        assets.mapNotNull { prices[it.network] }.filter { it.stale }.minOfOrNull { it.asOfMs }
+    fun staleSinceMs(assets: List<HomeAsset>, prices: Map<AssetId, Price>): Long? =
+        assets.mapNotNull { prices[it.assetId] }.filter { it.stale }.minOfOrNull { it.asOfMs }
 
     private fun <T : Comparable<T>> ordered(assets: List<HomeAsset>, descending: Boolean, value: (HomeAsset) -> T?): List<HomeAsset> {
         val (withValue, withoutValue) = assets.partition { value(it) != null }

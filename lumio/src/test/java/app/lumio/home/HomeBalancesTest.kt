@@ -5,10 +5,14 @@ import app.lensly.core.btc.ScriptType
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcRow
 import app.lumio.btc.BtcSnapshot
+import app.lumio.data.asset.AssetId
 import app.lumio.data.net.Family
+import app.lumio.data.net.NetworkId
 import app.lumio.evm.EvmChain
 import app.lumio.evm.Holding
 import app.lumio.pair.PairFixtures
+import app.lumio.tokens.Token
+import app.lumio.tokens.TokenHolding
 import java.math.BigDecimal
 import java.math.BigInteger
 import org.junit.Assert.assertEquals
@@ -16,11 +20,13 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The native balances Home lists, built from the vault's reads. A coin with no read is not an asset. */
+/** The native balances and the token balances Home lists, built from the vault's reads. A coin with no read is not an asset. */
 class HomeBalancesTest {
     private val ethereum = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
     private val sepolia = EvmChain(11155111L, "Sepolia", "ETH", 18, testnet = true, explorerUrl = null)
     private val base = EvmChain(8453L, "Base", "ETH", 18, testnet = false, explorerUrl = null)
+    private val usdcMainnet = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+    private val usdcBase = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 
     @Test
     fun anEthereumChainSumsEveryAddressAndSkipsAChainWithNoRead() {
@@ -74,6 +80,46 @@ class HomeBalancesTest {
         val testnet = PairFixtures.account(PairFixtures.seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
 
         assertTrue(HomeBalances.bitcoin(listOf(BtcRow(BtcAccountRef("wallet-a", testnet), null))).isEmpty())
+    }
+
+    @Test
+    fun aTokenSumsEveryAddressOfEveryWalletOnItsChainInItsDecimals() {
+        val usdc = Token(1L, usdcMainnet, "USDC", "USD Coin", decimals = 6)
+        val usdcOnBase = Token(8453L, usdcBase, "USDC", "USD Coin", decimals = 6)
+        val holdings = listOf(
+            TokenHolding(ethereum, usdc, BigInteger("1500000"), atMs = 1L),
+            TokenHolding(ethereum, usdc, BigInteger("500000"), atMs = 2L),
+            TokenHolding(base, usdcOnBase, BigInteger("250000000"), atMs = 3L),
+        )
+
+        val tokens = HomeBalances.tokens(holdings)
+
+        assertEquals(listOf("EVM-1-$usdcMainnet", "EVM-8453-$usdcBase"), tokens.map { it.id })
+        assertEquals(0, BigDecimal("2").compareTo(tokens[0].balance))
+        assertEquals(0, BigDecimal("250").compareTo(tokens[1].balance))
+        assertEquals("USDC", tokens[0].symbol)
+        assertEquals("Ethereum", tokens[0].name)
+        assertEquals(NetworkId(Family.EVM, "1", testnet = false), tokens[0].network)
+        assertEquals(usdcMainnet, tokens[0].contract)
+        assertEquals(AssetId.Erc20(NetworkId(Family.EVM, "1", testnet = false), usdcMainnet), tokens[0].assetId)
+    }
+
+    @Test
+    fun aTokenWithAZeroBalanceIsNotAnAsset() {
+        val usdc = Token(1L, usdcMainnet, "USDC", "USD Coin", decimals = 6)
+
+        assertTrue(HomeBalances.tokens(listOf(TokenHolding(ethereum, usdc, BigInteger.ZERO, atMs = 1L))).isEmpty())
+        assertTrue(HomeBalances.tokens(emptyList()).isEmpty())
+    }
+
+    @Test
+    fun aTokenOnATestnetIsMarkedAsATestnet() {
+        val tokenOnSepolia = Token(11155111L, usdcMainnet, "TUSDC", "Test USDC", decimals = 6)
+
+        val asset = HomeBalances.tokens(listOf(TokenHolding(sepolia, tokenOnSepolia, BigInteger.ONE, atMs = 1L))).single()
+
+        assertTrue(asset.testnet)
+        assertEquals(0, BigDecimal("0.000001").compareTo(asset.balance))
     }
 
     private fun snapshot(key: String, confirmed: Long, pending: Long) = BtcSnapshot(
