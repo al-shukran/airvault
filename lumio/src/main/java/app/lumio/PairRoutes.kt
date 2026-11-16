@@ -12,15 +12,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
-import app.lensly.ui.navigation.GateRoutes
-import app.lensly.ui.navigation.openHidden
-import app.lumio.network.NetworkMode
-import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairScan
-import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.ScanStep
-import app.lumio.ui.home.LumioHome
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
 import kotlinx.coroutines.Dispatchers
@@ -34,54 +28,6 @@ private const val SAVE_FAILED = "The pairing could not be saved. Try again."
 
 /** The pause between the frames of the debug fixture, long enough for the progress to show. */
 private const val FIXTURE_FRAME_MS = 350L
-
-/**
- * Home: the paired wallets of the open vault, the Mainnet and Testnet switch, and the actions that pair or delete one. Home opens on the side
- * the owner chose last, which is read from the vault, and a switch is written back to it.
- */
-@Composable
-internal fun HomeRoute(
-    navController: NavHostController,
-    holder: VaultHolder,
-    selection: NetworkSelection,
-    listVersion: Int,
-    onChanged: () -> Unit,
-    onLock: () -> Unit,
-) {
-    val session = holder.openSession()
-    LaunchedEffect(session == null) {
-        if (session == null) navController.openHidden(GateRoutes.GATE)
-    }
-    LaunchedEffect(session) {
-        if (session != null) selection.mode = onVault(NetworkMode.MAINNET) { NetworkModeStore.read(session) }
-    }
-    val scope = rememberCoroutineScope()
-    val wallets by produceState<List<PairedWallet>>(initialValue = emptyList(), session, listVersion) {
-        value = if (session == null) emptyList() else onVault(emptyList()) { PairedWallets.list(session) }
-    }
-    LumioHome(
-        onLock = onLock,
-        // A push, not openHidden: openHidden pops everything above the hidden graph, Home included, so Save could not return to Home.
-        onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
-        onBitcoin = { wallet -> navController.navigate(LumioRoute.bitcoin(wallet.id)) },
-        onSettings = { navController.openHidden(LumioRoute.SETTINGS) },
-        onBalances = { wallet -> navController.navigate(LumioRoute.wallet(wallet.id)) },
-        wallets = wallets,
-        mode = selection.mode,
-        onMode = { mode ->
-            selection.mode = mode
-            if (session != null) scope.launch { onVault(Unit) { NetworkModeStore.write(session, mode) } }
-        },
-        onDelete = { wallet ->
-            if (session != null) {
-                scope.launch {
-                    onVault(Unit) { PairedWallets.delete(session, wallet.id) }
-                    onChanged()
-                }
-            }
-        },
-    )
-}
 
 /**
  * The scan for a pairing code. Each frame goes through [PairScan]. A complete pairing opens the review, and a refused code is reported
@@ -186,7 +132,7 @@ internal fun PairReviewRoute(
  * Runs [block] off the main thread, and returns [default] when it cannot read: the lock may have closed the session under it, and a Home
  * that shows nothing is better than a crash.
  */
-private suspend fun <T> onVault(default: T, block: () -> T): T = withContext(Dispatchers.IO) {
+internal suspend fun <T> onVault(default: T, block: () -> T): T = withContext(Dispatchers.IO) {
     try {
         block()
     } catch (e: Exception) {

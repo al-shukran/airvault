@@ -33,8 +33,6 @@ import app.lumio.evm.Totals
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
-import app.lumio.tokens.CustomTokenStore
-import app.lumio.tokens.TokenCatalog
 import app.lumio.tokens.TokenPortfolio
 import app.lumio.ui.portfolio.WalletScreen
 import app.lumio.ui.settings.EvmSettingsSection
@@ -87,9 +85,7 @@ private suspend fun refreshWallet(app: LumioApp, session: VaultSession, wallet: 
     val reads = app.evmReadsFor(session)
     val failures = Portfolio.refresh(session, listOf(wallet), settings, chains, reads)[wallet.id].orEmpty()
     // The token reads follow the native ones. A token that fails keeps its earlier read, so the native result stands on its own.
-    val defaults = app.defaultTokens
-    val custom = CustomTokenStore.read(session)
-    TokenPortfolio.refresh(session, wallet, settings, chains, { TokenCatalog.onChain(defaults, custom, it.chainId) }, reads)
+    TokenPortfolio.refresh(session, wallet, settings, chains, app.tokensFor(session), reads)
     return failures
 }
 
