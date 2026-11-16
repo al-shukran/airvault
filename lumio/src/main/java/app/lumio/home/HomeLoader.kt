@@ -5,6 +5,9 @@ import app.lumio.LumioApp
 import app.lumio.bitcoinRefs
 import app.lumio.btc.BtcRow
 import app.lumio.btc.networkId
+import app.lumio.chains.NativeBalanceCache
+import app.lumio.chains.NativeBalances
+import app.lumio.chains.NativeFailure
 import app.lumio.data.asset.AssetId
 import app.lumio.data.price.Price
 import app.lumio.data.sched.Priority
@@ -17,6 +20,7 @@ import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.evm.Portfolio
 import app.lumio.network.NetworkMode
+import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.queueScans
 import app.lumio.rowsOf
@@ -32,8 +36,8 @@ import kotlinx.coroutines.withContext
  */
 internal object HomeLoader {
     /**
-     * The balances of [mode]'s side from the vault, native and token: the balance cache for Ethereum, the token cache, and the last scans for Bitcoin.
-     * It reads no network.
+     * The balances of [mode]'s side from the vault, native and token: the balance cache for Ethereum, Algorand and Solana, the token cache, and the last
+     * scans for Bitcoin. It reads no network.
      */
     suspend fun cached(app: LumioApp, session: VaultSession, mode: NetworkMode): List<HomeAsset> = withContext(Dispatchers.IO) {
         DemoPortfolio.homeAssets(mode)?.let { return@withContext it }
@@ -45,7 +49,7 @@ internal object HomeLoader {
         val tokenCache = TokenBalanceCache.read(session)
         val tokens = wallets.flatMap { TokenPortfolio.holdings(it, settings.addressCount, chains, tokensOf, tokenCache) }
         val owned = CustomTokenStore.read(session)
-        HomeBalances.evm(chains, holdings) + HomeBalances.bitcoin(bitcoinRows(app, session, mode)) +
+        HomeBalances.evm(chains, holdings) + HomeBalances.bitcoin(bitcoinRows(app, session, mode)) + nativeCached(session, wallets, mode) +
             HomeBalances.tokens(tokens, isKnown = app::isKnownToken, isCustom = { network, contract -> CustomTokenStore.holds(owned, network, contract) })
     }
 
@@ -74,6 +78,25 @@ internal object HomeLoader {
             failures
         }
     }
+
+    /**
+     * Reads the Algorand and Solana balances of [mode]'s side for every paired wallet, and keeps the reads in the balance cache. Returns the reads that did
+     * not answer. Their cached balances stay as they were.
+     */
+    suspend fun refreshNative(app: LumioApp, session: VaultSession, mode: NetworkMode): List<NativeFailure> = withContext(Dispatchers.IO) {
+        if (DemoPortfolio.isOn()) return@withContext emptyList()
+        val coins = NativeBalances.coinsOf(mode)
+        val wallets = PairedWallets.list(session).filter { it.algorand.isNotEmpty() || it.solana.isNotEmpty() }
+        if (coins.isEmpty() || wallets.isEmpty()) {
+            emptyList()
+        } else {
+            NativeBalances.refresh(session, wallets, coins, app.nativeSchedulerFor(session))
+        }
+    }
+
+    /** The Algorand and Solana coins of [mode]'s side that the balance cache holds for [wallets]. It reads no network. */
+    internal fun nativeCached(session: VaultSession, wallets: List<PairedWallet>, mode: NetworkMode): List<HomeAsset> =
+        HomeBalances.nativeCoins(wallets, NativeBalanceCache.read(session), NativeBalances.coinsOf(mode))
 
     /**
      * Queues a scan of each Bitcoin account of [mode]'s side, and runs the scans. The scan queue reports each account as it finishes, so Home can

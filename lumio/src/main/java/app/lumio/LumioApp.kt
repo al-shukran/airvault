@@ -16,6 +16,7 @@ import app.lensly.core.vault.VaultSession
 import app.lumio.btc.AddressStatsCache
 import app.lumio.btc.networkId
 import app.lumio.btc.scanJob
+import app.lumio.chains.NativeBalances
 import app.lumio.data.MonotonicClock
 import app.lumio.data.WallClock
 import app.lumio.data.config.LockSettingsStore
@@ -95,6 +96,18 @@ class LumioApp : Application(), CoverApplication {
     fun evmReadsFor(session: VaultSession): EvmReads {
         evmReads?.takeIf { it.first === session }?.let { return it.second }
         return EvmReads.open(session, rpcHttp, rpcScope, allowLocalHttp = BuildConfig.DEBUG).also { evmReads = session to it }
+    }
+
+    private var nativeScheduler: Pair<VaultSession, Scheduler>? = null
+
+    /**
+     * The scheduler of the Algorand and Solana balance reads of [session]. It is built once per unlocked session, so it keeps its health and rates across
+     * refreshes, as the EVM reads do.
+     */
+    @Synchronized
+    fun nativeSchedulerFor(session: VaultSession): Scheduler {
+        nativeScheduler?.takeIf { it.first === session }?.let { return it.second }
+        return NativeBalances.schedulerOf(session, rpcHttp, rpcScope, allowLocalHttp = BuildConfig.DEBUG).also { nativeScheduler = session to it }
     }
 
     /** The tokens each EVM chain reads for [session]: the bundled defaults, then the owner's own. The owner's list is read once, here. */
