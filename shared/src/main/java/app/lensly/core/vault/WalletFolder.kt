@@ -52,6 +52,12 @@ internal object WalletFolder {
     /** The plaintext the Solana record holds: a version, a count and 100 public keys of 32 bytes, with room to spare. */
     const val SOLANA_CAPACITY = 4096
 
+    /** The record of the wallet's Algorand accounts: the public key of each, 32 bytes. It holds no secret. */
+    const val ALGORAND = "algorand"
+
+    /** The plaintext the Algorand record holds: a version, a count and 100 public keys of 32 bytes, with room to spare. */
+    const val ALGORAND_CAPACITY = 4096
+
     /**
      * The plaintext the META record holds: the wallet's facts, and the public account key of each of its accounts, at 73 bytes each. At
      * the largest Bulk Cap of 100 accounts, that is well inside this capacity.
@@ -86,6 +92,7 @@ internal object WalletFolder {
         PROFILE to 512,
         BITCOIN to BITCOIN_CAPACITY,
         SOLANA to SOLANA_CAPACITY,
+        ALGORAND to ALGORAND_CAPACITY,
     )
 
     /**
@@ -100,7 +107,8 @@ internal object WalletFolder {
     private val random = SecureRandom()
 
     /** The record names a wallet folder holds, in file order: the fixed records, then the account records. */
-    val NAMES: List<String> = listOf(META, SECRET, BASE_NAME, PROFILE, BITCOIN, SOLANA) + (0 until ACCOUNT_SLOTS).map { accountName(it) }
+    val NAMES: List<String> =
+        listOf(META, SECRET, BASE_NAME, PROFILE, BITCOIN, SOLANA, ALGORAND) + (0 until ACCOUNT_SLOTS).map { accountName(it) }
 
     /** The name of the record of account [index]. */
     fun accountName(index: Int): String = ACCOUNT_PREFIX + index

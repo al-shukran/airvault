@@ -52,6 +52,7 @@ internal fun AppIcon(app: WalletApp, size: Dp, modifier: Modifier = Modifier) {
         WalletApp.BITCOIN -> BitcoinIcon(size = size, modifier = modifier)
         WalletApp.ETHEREUM -> AddressIcon(size = size, modifier = modifier)
         WalletApp.SOLANA -> SolanaIcon(size = size, modifier = modifier)
+        WalletApp.ALGORAND -> AlgorandIcon(size = size, modifier = modifier)
     }
 }
 
@@ -74,6 +75,29 @@ internal fun SolanaIcon(size: Dp, modifier: Modifier = Modifier) {
             }
             drawPath(path, color = LenslyOnSurface)
         }
+    }
+}
+
+/** The Algorand mark beside an Algorand account: a triangle with a bar across it. It is decorative: the text beside it names the account. */
+@Composable
+internal fun AlgorandIcon(size: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(size)) {
+        val width = this.size.width
+        val height = this.size.height
+        val stroke = height * 0.12f
+        val triangle = Path().apply {
+            moveTo(width / 2f, height * 0.08f)
+            lineTo(width * 0.94f, height * 0.92f)
+            lineTo(width * 0.06f, height * 0.92f)
+            close()
+        }
+        drawPath(triangle, color = LenslyOnSurface, style = Stroke(width = stroke))
+        drawLine(
+            color = LenslyOnSurface,
+            start = Offset(width * 0.3f, height * 0.62f),
+            end = Offset(width * 0.7f, height * 0.62f),
+            strokeWidth = stroke,
+        )
     }
 }
 

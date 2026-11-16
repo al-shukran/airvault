@@ -40,6 +40,9 @@ sealed interface BulkChain {
 
     /** Solana accounts, m/44'/501'/N', numbered after the Solana accounts the wallet already has. */
     data object Solana : BulkChain
+
+    /** Algorand accounts, the Ledger Algorand key of m/44'/283'/N'/0/0, numbered after the Algorand accounts the wallet already has. */
+    data object Algorand : BulkChain
 }
 
 /**
@@ -133,7 +136,7 @@ fun BulkGenerateScreen(
         if (count != null) {
             Text(
                 text = when (chain) {
-                    BulkChain.Evm, BulkChain.Solana -> addsLabel(autoNameBase, BulkPolicy.indexRange(existingAccounts, count))
+                    BulkChain.Evm, BulkChain.Solana, BulkChain.Algorand -> addsLabel(autoNameBase, BulkPolicy.indexRange(existingAccounts, count))
                     is BulkChain.Bitcoin -> bitcoinAddsLabel(chain.scriptType, count)
                 },
                 style = MaterialTheme.typography.bodyLarge,
@@ -173,6 +176,7 @@ private fun generateLabel(count: Int?): String = when (count) {
 private fun subtitle(chain: BulkChain): String = when (chain) {
     BulkChain.Evm -> "Ethereum · all networks"
     BulkChain.Solana -> "Solana"
+    BulkChain.Algorand -> "Algorand"
     is BulkChain.Bitcoin -> "Bitcoin"
 }
 
@@ -210,6 +214,7 @@ internal fun runBulk(
 ): Boolean = when (chain) {
     BulkChain.Evm -> store.addAccounts(id, count, cap, onProgress) != null
     BulkChain.Solana -> store.addSolanaAccounts(id, count, cap, onProgress) != null
+    BulkChain.Algorand -> store.addAlgorandAccounts(id, count, cap, onProgress) != null
     is BulkChain.Bitcoin -> store.addBitcoinAccounts(
         id,
         chain.scriptType,
