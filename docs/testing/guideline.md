@@ -99,7 +99,7 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 
 | Partition | Triggers (paths) | Selector |
 |---|---|---|
-| `core-wallet` | `shared`: `core/wallet/**`, its tests, `vectors/bip39/**`, `vectors/bip32/**` | `:shared` `app.lensly.core.wallet.*` |
+| `core-wallet` | `shared`: `core/wallet/**`, `core/solana/**`, `core/algorand/**`, their tests, `vectors/bip39/**`, `vectors/bip32/**` | `:shared` `app.lensly.core.wallet.*`, `app.lensly.core.solana.*`, `app.lensly.core.algorand.*` |
 | `core-ur-evm` | `shared`: `core/ur/**`, `core/evm/**`, their tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**`, `fuzz/**`, `fuzz-seeds/**` | `:shared` `app.lensly.core.ur.*`, `app.lensly.core.evm.*` and `app.lensly.fuzz.*` |
 | `core-vault` | `shared`: `core/vault/**`, its tests | `:shared` `app.lensly.core.vault.*` (`BackupExclusionTest` runs in `app`) |
 | `core-registry` | `shared`: `core/registry/**`, its tests, the shipped catalogs under `assets/registry/` | `:shared` `app.lensly.core.registry.*` |
@@ -150,6 +150,10 @@ jobs:
             core-wallet:
               - 'shared/src/main/java/app/lensly/core/wallet/**'
               - 'shared/src/test/java/app/lensly/core/wallet/**'
+              - 'shared/src/main/java/app/lensly/core/solana/**'
+              - 'shared/src/test/java/app/lensly/core/solana/**'
+              - 'shared/src/main/java/app/lensly/core/algorand/**'
+              - 'shared/src/test/java/app/lensly/core/algorand/**'
               - 'shared/src/test/resources/vectors/bip39/**'
               - 'shared/src/test/resources/vectors/bip32/**'
               - 'build.gradle.kts'

@@ -18,7 +18,7 @@ usage() {
 usage: scripts/ci/run-partition.sh <partition>
 
 partitions:
-  core-wallet    :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*'
+  core-wallet    :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*' --tests 'app.lensly.core.solana.*' --tests 'app.lensly.core.algorand.*'
   core-ur-evm    :shared:testDebugUnitTest --tests 'app.lensly.core.ur.*' --tests 'app.lensly.core.evm.*'
                  (then a second invocation, -PfuzzLane: app.lensly.fuzz.* covers UR/CBOR, eth-sign and RLP)
   core-parse     :shared:testDebugUnitTest --tests 'app.lensly.core.parse.*'
@@ -55,7 +55,8 @@ partition="$1"
 
 case "$partition" in
     core-wallet)
-        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*'
+        # Gradle ORs repeated --tests filters. algorand has no tests on master yet; solana and wallet keep the task non-empty.
+        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*' --tests 'app.lensly.core.solana.*' --tests 'app.lensly.core.algorand.*'
         ;;
     core-ur-evm)
         # Gradle ORs repeated --tests filters. evm landed after the 2.2 table was written.
