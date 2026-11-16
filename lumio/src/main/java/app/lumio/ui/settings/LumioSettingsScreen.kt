@@ -48,6 +48,7 @@ fun LumioSettingsScreen(
     onEntryGesture: () -> Unit = {},
     wallets: (@Composable () -> Unit)? = null,
     transactions: (@Composable () -> Unit)? = null,
+    developer: (@Composable () -> Unit)? = null,
 ) {
     LenslyScreen(title = "SETTINGS", modifier = modifier, onBack = onBack) {
         SettingsSection(title = "Home") { display() }
@@ -82,6 +83,8 @@ fun LumioSettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+        // The Developer section is last. The debug build passes it; the release build passes nothing, so no row is drawn.
+        developer?.let { section -> SettingsSection(title = "Developer") { section() } }
     }
 }
 

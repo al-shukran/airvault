@@ -24,6 +24,7 @@ import app.lensly.ui.navigation.CoverNavHost
 import app.lensly.ui.navigation.HiddenBackdrop
 import app.lensly.ui.navigation.hiddenArea
 import app.lensly.ui.navigation.leaveHidden
+import app.lumio.demo.DemoPortfolio
 import app.lumio.network.NetworkMode
 import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.settings.LumioSettingsScreen
@@ -292,6 +293,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                             onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
                             onDataProviders = { navController.navigate(LumioRoute.DATA_PROVIDERS) },
                             onThirdPartyLicences = { navController.navigate(LumioRoute.LICENCES) },
+                            developer = DemoPortfolio.developerSection { listVersion++ },
                         )
                     }
                 }
