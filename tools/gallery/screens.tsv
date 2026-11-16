@@ -72,6 +72,7 @@ lumio	ethereum_broadcast	Ethereum broadcast	ethereum_broadcast_*
 lumio	bitcoin_send	Bitcoin send	bitcoin_send_form bitcoin_send_review bitcoin_send_review_error bitcoin_send_sign_request
 lumio	bitcoin_broadcast	Bitcoin broadcast	bitcoin_broadcast_*
 lumio	settings	Settings	settings
+lumio	address_book	Address book	address_book address_book_empty
 lumio	evm	Ethereum settings and custom chains	evm_settings_custom_chain evm_add_custom_chain_dialog evm_edit_rpc_dialog
 lumio	data_providers	Data providers	data_providers data_providers_statuses
 lumio	licences	Third-party licences	licences licences_loading

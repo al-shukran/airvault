@@ -404,8 +404,9 @@ class WalletStore(private val session: VaultSession) {
     /**
      * The frames of the AirVault pairing of wallet [id]: one `ur:airvault-pairing` that holds the keys and accounts of every App in
      * [WalletApp], in its order, with the names, labels and groups Lensly shows for them. Lumio replaces what it holds for the wallet with
-     * it, so Lensly is the source of truth. The seed is derived for the pairing and zeroed after it. The pairing asks for no App Password,
-     * and it carries public data only.
+     * it, so Lensly is the source of truth. The Address Book goes with it, the first [PairingCodec.MAX_ADDRESS_BOOK] entries in the order they
+     * were added. A book that cannot be read fails the pairing, so Lumio never replaces its book with an empty one. The seed is derived for
+     * the pairing and zeroed after it. The pairing asks for no App Password, and it carries public data only.
      *
      * @throws IllegalArgumentException if the wallet is missing or is a Single Key, which has no account key to pair.
      */
@@ -418,7 +419,8 @@ class WalletStore(private val session: VaultSession) {
             val fingerprint = HdWallet(seed).masterFingerprint.toLong() and UINT32_MASK
             val apps = WalletApp.entries.map { app -> app.pairedApp(this, id, seed) }
             val name = fitBytes(meta.name.ifBlank { DEFAULT_PAIRING_NAME }, PairingCodec.MAX_NAME_BYTES)
-            return PairingCodec.urParts(PairingPayload(fingerprint = fingerprint, name = name, apps = apps))
+            val book = AddressBookStore(session).load().take(PairingCodec.MAX_ADDRESS_BOOK)
+            return PairingCodec.urParts(PairingPayload(fingerprint = fingerprint, name = name, apps = apps, addressBook = book))
         } finally {
             seed.fill(0)
         }

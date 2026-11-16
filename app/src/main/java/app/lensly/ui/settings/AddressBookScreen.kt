@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.export.PairingCodec
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
@@ -54,6 +55,10 @@ fun AddressBookScreen(
                 title = "No saved addresses",
                 body = "Add an address here, or from a Review Record in the history.",
             )
+        }
+        if (entries.size > PairingCodec.MAX_ADDRESS_BOOK) {
+            MutedText("Lumio pairs the first ${PairingCodec.MAX_ADDRESS_BOOK} entries, in the order they were added. The rest are not sent.")
+            Spacer(Modifier.height(LenslySpacing.md))
         }
         entries.sortedBy { it.name.lowercase() }.forEach { entry ->
             ListRow(onClick = { onOpen(entry) }) {

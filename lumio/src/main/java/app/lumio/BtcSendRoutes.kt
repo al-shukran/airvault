@@ -32,6 +32,8 @@ import app.lumio.data.provider.ProviderError
 import app.lumio.data.sched.Priority
 import app.lumio.evm.SignatureScan
 import app.lumio.network.NetworkMode
+import app.lumio.pair.PairedWallet
+import app.lumio.pair.PairedWallets
 import app.lumio.evm.SignatureStep
 import app.lumio.send.BtcPaymentCode
 import app.lumio.ui.btc.BtcSendFormScreen
@@ -90,6 +92,10 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
     // Only the accounts of the side the owner chose. A mainnet send never offers a testnet account, and a testnet send never a mainnet one.
     val refs by produceState<List<BtcAccountRef>?>(initialValue = null, session, mode) {
         value = withContext(Dispatchers.IO) { bitcoinRefs(session).filter { mode.holds(it.account.network) } }
+    }
+    // The paired wallets, for the names of the review: the Address Book of the wallet that holds the plan's account.
+    val wallets by produceState<List<PairedWallet>>(initialValue = emptyList(), session) {
+        value = onVault(emptyList()) { PairedWallets.list(session) }
     }
     val accounts = refs ?: return
 
@@ -300,6 +306,7 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
         is BtcSendStep.Review -> BtcSendReviewScreen(
             plan = current.plan,
             suggestedRate = suggestedRate ?: current.plan.feeRateSatPerVb,
+            addressBook = wallets.firstOrNull { it.fingerprint == current.plan.account.masterFingerprint }?.addressBook.orEmpty(),
             notice = notice,
             onSave = { rate -> saveFeeRate(current.plan, rate) },
             onConfirm = { confirm(current.plan) },
