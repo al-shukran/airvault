@@ -60,18 +60,6 @@ sealed interface SignStep {
     data object Closed : SignStep
 }
 
-/** The result of checking the App Password. */
-enum class PasswordCheck {
-    /** The password is right. The check opened a session only to prove it, and that session is already closed. */
-    Accepted,
-
-    /** The password is wrong, or a failure delay is running. The owner cannot tell which. */
-    Rejected,
-
-    /** The vault could not be checked, for example because its stored state is damaged. */
-    Unavailable,
-}
-
 /** The wallet cannot be read right now: its vault is closed or damaged, or its record is missing. */
 class WalletUnavailable : Exception("The wallet could not be read.")
 
