@@ -33,6 +33,7 @@ data class CallSteps(val lines: List<String>, val warnings: List<String>) {
             // An approved call whose arguments do not have the shape its entry names warns, and never reaches the sign flow as a crash.
             return try {
                 UniversalRouterSteps.describe(call, selector.lowercase(), signature)
+                    ?: SwapRouterSteps.describe(call, selector.lowercase(), signature)
                     ?: ProtocolSteps.describe(call, selector.lowercase(), signature)
                     ?: BulkerSteps.describe(call, selector.lowercase(), signature)
                     ?: CowSteps.describe(call, selector.lowercase(), signature)

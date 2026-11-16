@@ -161,8 +161,10 @@ Ethereum mainnet: the address has code, and the Keccak-256 selector of the signa
 
 - Uniswap Universal Router V2 (`0x66a9893c...`) and V1.2 (`0x3fC91A3a...`), `execute(bytes,bytes[],uint256)`. Addresses from
   `deploy-addresses/mainnet.json` in `Uniswap/universal-router`; the signature from `contracts/interfaces/IUniversalRouter.sol`.
-- Uniswap SwapRouter02 (`0x68b34658...`), `exactInputSingle` with its struct fields. Fields from `IV3SwapRouter.sol` in
-  `Uniswap/swap-router-contracts`; address from the default in `Uniswap/smart-order-router`'s `src/util/addresses.ts`.
+- Uniswap SwapRouter02 (`0x68b34658...`): `exactInputSingle`, `exactInput`, `exactOutputSingle`, `exactOutput`,
+  `multicall(bytes[])`, `multicall(uint256,bytes[])`, `unwrapWETH9(uint256,address)` and `refundETH()`, with their struct fields.
+  Fields from `IV3SwapRouter.sol` and `MulticallExtended.sol` in `Uniswap/swap-router-contracts`, and from `Multicall.sol` and
+  `PeripheryPayments.sol` in `Uniswap/v3-periphery`; address from the default in `Uniswap/smart-order-router`'s `src/util/addresses.ts`.
 - CoW Protocol settlement (`0x9008D19f...`), `setPreSignature(bytes,bool)`. Address from `networks.json` in
   `cowprotocol/contracts`; signature from `src/contracts/mixins/GPv2Signing.sol`.
 
