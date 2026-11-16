@@ -200,7 +200,8 @@ fun NumberField(
 /**
  * A setting with a few choices, shown as one row, "[label] · [value]", with an arrow. A tap opens a dialog of radio rows. A
  * choice is applied at once and closes the dialog, and Cancel closes it without a change. [value] is null while the saved choice is
- * read, and the row then shows a progress mark. [description] says what the setting does, and [dialogTitle] names the dialog.
+ * read, and the row then shows a progress mark. [description] says what the setting does, and [dialogTitle] names the dialog. A row
+ * that is not [enabled] is dimmed and does not open.
  */
 @Composable
 fun <T> ChoiceDialogRow(
@@ -213,10 +214,11 @@ fun <T> ChoiceDialogRow(
     modifier: Modifier = Modifier,
     description: String? = null,
     dialogTitle: String = label,
+    enabled: Boolean = true,
 ) {
     var open by remember { mutableStateOf(false) }
     SettingsItem {
-        ListRow(onClick = { open = true }, enabled = value != null, modifier = modifier) {
+        ListRow(onClick = { open = true }, enabled = enabled && value != null, modifier = modifier) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (value == null) label else "$label · $value",
