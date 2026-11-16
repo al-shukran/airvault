@@ -11,6 +11,9 @@ import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.algorand.AlgorandAccount
+import app.lensly.core.algorand.AlgorandRequestReview
+import app.lensly.core.algorand.LedgerEd25519
+import app.lensly.core.algorand.bytesToSign
 import app.lensly.core.btc.BtcRefusal
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.btc.BtcSigner
@@ -661,6 +664,32 @@ class WalletStore(private val session: VaultSession) {
         }
     }
 
+    /**
+     * Signs the reviewed Algorand [review] with the account it was reviewed under, and returns the 64-byte Ed25519 signature of "TX"
+     * followed by the reviewed bytes. The seed and the key are zeroed before this returns. The derived key must be the public key the
+     * wallet stores for that account, and the review must name that key, or nothing is signed. BouncyCastle keeps its own copy of the
+     * key, as [SolanaSigner] notes.
+     *
+     * @throws IllegalArgumentException when the wallet has no such Algorand account, the review names another key, or the derived key
+     * is not the stored key.
+     */
+    fun algorandSign(id: String, review: AlgorandRequestReview): ByteArray {
+        val stored = algorandKeys(id).getOrNull(review.accountIndex) ?: throw IllegalArgumentException(NO_ALGORAND_ACCOUNT)
+        require(review.signer.contentEquals(stored)) { REVIEW_OTHER_ACCOUNT }
+        val seed = seedOf(id)
+        try {
+            val key = LedgerEd25519.algorandAccount(seed, review.accountIndex)
+            try {
+                if (!key.publicKey.contentEquals(stored)) throw IllegalArgumentException(ALGORAND_KEY_MISMATCH)
+                return SolanaSigner.sign(key.kL, bytesToSign(review.signData))
+            } finally {
+                key.wipe()
+            }
+        } finally {
+            seed.fill(0)
+        }
+    }
+
     /** The BIP39 seed of wallet [id], which the caller zeroes. Throws for a wallet that is missing or is a Single Key. */
     private fun seedOf(id: String): ByteArray {
         val secret = mnemonicSecret(id)
@@ -1054,6 +1083,9 @@ class WalletStore(private val session: VaultSession) {
         const val SINGLE_KEY_NO_SOLANA = "A Single Key wallet has no seed, so it cannot hold Solana accounts."
         const val NO_ROOM_FOR_ALGORAND = "The Algorand accounts of this wallet take too much room to save."
         const val SINGLE_KEY_NO_ALGORAND = "A Single Key wallet has no seed, so it cannot hold Algorand accounts."
+        const val NO_ALGORAND_ACCOUNT = "This wallet has no such Algorand account."
+        const val ALGORAND_KEY_MISMATCH = "Key does not match account"
+        const val REVIEW_OTHER_ACCOUNT = "This review is for an account other than the one it is signed with."
     }
 }
 

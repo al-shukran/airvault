@@ -263,9 +263,9 @@ class AlgoTxnDecoderTest {
     private fun vector(name: String): AlgoTxnVectors.Valid = AlgoTxnVectors.valid().single { it.name == name }
 }
 
-private val KEY_A = hexToBytes("7491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538")
-private val KEY_B = hexToBytes("c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615d")
-private val KEY_C = hexToBytes("8d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d219a165d006d")
+internal val KEY_A = hexToBytes("7491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538")
+internal val KEY_B = hexToBytes("c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615d")
+internal val KEY_C = hexToBytes("8d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d219a165d006d")
 private val GENESIS_HASH = java.util.Base64.getDecoder().decode("SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=")
 
 /** The decoded fields in the shape of a vector's `expected` object. */
@@ -323,11 +323,11 @@ private fun assetFields(): MutableMap<String, ByteArray> = linkedMapOf(
 )
 
 /** A payment built from the base fields; a null change removes that field. */
-private fun paymentWith(vararg changes: Pair<String, ByteArray?>): ByteArray =
+internal fun paymentWith(vararg changes: Pair<String, ByteArray?>): ByteArray =
     canonical(applied(paymentFields(), changes))
 
 /** An asset transfer built from the base fields; a null change removes that field. */
-private fun assetWith(vararg changes: Pair<String, ByteArray?>): ByteArray =
+internal fun assetWith(vararg changes: Pair<String, ByteArray?>): ByteArray =
     canonical(applied(assetFields(), changes))
 
 private fun applied(
@@ -367,7 +367,7 @@ private fun uint(value: Long): ByteArray = when {
     else -> byteArrayOf(0xcf.toByte()) + be(value, 8)
 }
 
-private fun str(text: String): ByteArray {
+internal fun str(text: String): ByteArray {
     val bytes = text.toByteArray(Charsets.UTF_8)
     val header = when {
         bytes.size < 32 -> byteArrayOf((0xa0 or bytes.size).toByte())
@@ -377,7 +377,7 @@ private fun str(text: String): ByteArray {
     return header + bytes
 }
 
-private fun bin(bytes: ByteArray): ByteArray {
+internal fun bin(bytes: ByteArray): ByteArray {
     val header = if (bytes.size < 256) {
         byteArrayOf(0xc4.toByte(), bytes.size.toByte())
     } else {
