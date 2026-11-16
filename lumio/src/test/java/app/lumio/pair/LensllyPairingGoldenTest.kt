@@ -6,6 +6,7 @@ import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.UrScanner
+import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.DeterministicWallet
 import kotlin.test.assertFailsWith
 import org.junit.Assert.assertEquals
@@ -17,10 +18,23 @@ import org.junit.Test
  */
 class LensllyPairingGoldenTest {
 
-    private fun imported(frames: List<String> = LabelledPairingGolden.FRAMES): PairingPayload {
+    private fun imported(frames: List<String> = LabelledPairingGolden.FRAMES): PairingPayload = PairImport.of(scanned(frames))
+
+    private fun scanned(frames: List<String>): UR {
         val scanner = UrScanner()
         frames.forEach { scanner.receive(it) }
-        return PairImport.of(requireNotNull(scanner.result()))
+        return requireNotNull(scanner.result())
+    }
+
+    /**
+     * The code of [ur] with its version set to [version]. A version-4 envelope is a map of three entries whose first entry is `1: 4`, so the
+     * version is the third byte, after the map header `A3` and the key `01`. Only that byte changes, so the body is the same.
+     */
+    private fun withVersion(ur: UR, version: Int): UR {
+        val bytes = ur.cborBytes.copyOf()
+        require(bytes[0] == 0xA3.toByte() && bytes[1] == 0x01.toByte() && bytes[2] == 0x04.toByte()) { "Not a version-4 envelope." }
+        bytes[2] = version.toByte()
+        return UR(ur.type, bytes)
     }
 
     @Test
@@ -62,7 +76,29 @@ class LensllyPairingGoldenTest {
     fun lumioRefusesTheVersionOneCodeWithTheUpdateMessage() {
         val reason = assertFailsWith<PairingRefusal> { imported(LabelledPairingGolden.V1_FRAMES) }.message
 
-        assertEquals("This pairing uses format 1, and this app reads format 4. Update the app, then pair again.", reason)
+        assertEquals("This pairing uses format 1, and this app reads format 5. Update the app, then pair again.", reason)
+    }
+
+    @Test
+    fun lumioStillAcceptsTheVersionFourCodeOfAnEarlierLensly() {
+        val payload = imported(LabelledPairingGolden.V4_FRAMES)
+
+        assertEquals("Savings", payload.name)
+        assertEquals(
+            listOf(
+                PairingAccount(key = 0, child = null, name = "Cold", label = "vault", group = "Long term"),
+                PairingAccount(key = 1, child = null, name = "Savings 1", label = null, group = null),
+            ),
+            payload.apps.single { it.app == PairImport.ETHEREUM }.accounts,
+        )
+    }
+
+    @Test
+    fun lumioStillAcceptsTheVersionThreeCodeWithTheSameFields() {
+        val payload = PairImport.of(withVersion(scanned(LabelledPairingGolden.V4_FRAMES), version = 3))
+
+        assertEquals("Savings", payload.name)
+        assertEquals(2, payload.apps.single { it.app == PairImport.ETHEREUM }.accounts.size)
     }
 
     /** The place, among the Bitcoin accounts of [payload], of the mainnet account on [scriptType] at account [index]. */

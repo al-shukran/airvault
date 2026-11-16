@@ -26,6 +26,10 @@ internal object PairRecords {
     /** The layout of the Solana record: the count, then the 32-byte public key of each account. */
     private const val SOLANA_VERSION: Byte = 1
     private const val SOLANA_KEY_BYTES = 32
+
+    /** The layout of the Algorand record: the count, then the 32-byte public key of each account. */
+    private const val ALGORAND_VERSION: Byte = 1
+    private const val ALGORAND_KEY_BYTES = 32
     private const val PUBLIC_KEY_BYTES = 33
     private const val CHAIN_CODE_BYTES = 32
     private const val FINGERPRINT_BYTES = 4
@@ -139,6 +143,24 @@ internal object PairRecords {
         val count = bytes[1].toInt() and UNSIGNED_BYTE_MASK
         require(count in 1..PairImport.MAX_SOLANA_ACCOUNTS && bytes.size == 2 + count * SOLANA_KEY_BYTES) { "Not a Solana record." }
         return List(count) { index -> bytes.copyOfRange(2 + index * SOLANA_KEY_BYTES, 2 + (index + 1) * SOLANA_KEY_BYTES) }
+    }
+
+    /** The ALGORAND record: the count, then the public key of each Algorand account, which is an Ed25519 key of 32 bytes. Public data only. */
+    fun encodeAlgorand(keys: List<ByteArray>): ByteArray {
+        val limit = PairImport.MAX_ALGORAND_ACCOUNTS
+        require(keys.size in 1..limit) { "A wallet holds 1 to $limit Algorand accounts." }
+        require(keys.all { it.size == ALGORAND_KEY_BYTES }) { "Not an Algorand key." }
+        val buffer = ByteBuffer.allocate(2 + keys.size * ALGORAND_KEY_BYTES).put(ALGORAND_VERSION).put(keys.size.toByte())
+        keys.forEach { buffer.put(it) }
+        return buffer.array()
+    }
+
+    /** The public keys of an ALGORAND record, in account order. A record that is not one it can read in full is refused. */
+    fun decodeAlgorand(bytes: ByteArray): List<ByteArray> {
+        require(bytes.size >= 2 && bytes[0] == ALGORAND_VERSION) { "Not an Algorand record." }
+        val count = bytes[1].toInt() and UNSIGNED_BYTE_MASK
+        require(count in 1..PairImport.MAX_ALGORAND_ACCOUNTS && bytes.size == 2 + count * ALGORAND_KEY_BYTES) { "Not an Algorand record." }
+        return List(count) { index -> bytes.copyOfRange(2 + index * ALGORAND_KEY_BYTES, 2 + (index + 1) * ALGORAND_KEY_BYTES) }
     }
 
     /** The BITCOIN record: each watch-only Account's network, Script Type, path and extended public key. */

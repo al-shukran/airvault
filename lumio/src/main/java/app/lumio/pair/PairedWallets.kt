@@ -9,7 +9,7 @@ import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.AccountXpub
 
 /** The chain families a paired wallet can hold. */
-enum class PairFamily { EVM, BITCOIN, SOLANA }
+enum class PairFamily { EVM, BITCOIN, SOLANA, ALGORAND }
 
 /**
  * One Ethereum account of a paired wallet, as Lensly names it: its number N, which is its key's account m/44'/60'/N'/0/0, the public [key] of that
@@ -22,6 +22,7 @@ data class PairedAccount(val index: Int, val key: AccountXpub, val name: String?
  * are the Ethereum accounts, each with the public key of its one address. [bitcoin] holds the watch-only Bitcoin Accounts, if any.
  * [addressBook] is the Address Book that Lensly sent with the pairing, in the order it was sent. It is empty when there is none.
  * [solana] holds the public key of each Solana account, 32 bytes, in account order. Lumio shows each one's base58 address.
+ * [algorand] holds the public key of each Algorand account, 32 bytes, in account order. Lumio shows each one's address.
  */
 data class PairedWallet(
     val id: String,
@@ -32,6 +33,7 @@ data class PairedWallet(
     val evmAccounts: List<PairedAccount> = emptyList(),
     val addressBook: List<AddressBookEntry> = emptyList(),
     val solana: List<ByteArray> = emptyList(),
+    val algorand: List<ByteArray> = emptyList(),
 ) {
     /** The public key of each Ethereum account, in account order. Empty when the wallet holds no Ethereum account. */
     val evmKeys: List<AccountXpub>
@@ -42,6 +44,7 @@ data class PairedWallet(
             if (evmAccounts.isNotEmpty()) add(PairFamily.EVM)
             if (bitcoin.isNotEmpty()) add(PairFamily.BITCOIN)
             if (solana.isNotEmpty()) add(PairFamily.SOLANA)
+            if (algorand.isNotEmpty()) add(PairFamily.ALGORAND)
         }
 }
 
@@ -114,19 +117,22 @@ object PairedWallets {
         if (bitcoin.isNotEmpty()) records[WalletRecordNames.BITCOIN] = PairRecords.encodeBitcoin(bitcoin)
         val solana = PairImport.solanaPublicKeysOf(pairing)
         if (solana.isNotEmpty()) records[WalletRecordNames.SOLANA] = PairRecords.encodeSolana(solana)
+        val algorand = PairImport.algorandPublicKeysOf(pairing)
+        if (algorand.isNotEmpty()) records[WalletRecordNames.ALGORAND] = PairRecords.encodeAlgorand(algorand)
         return records
     }
 
     /**
-     * The records of [pairing] that a wallet holding it must not keep: the account records past its last account, and the Bitcoin and Solana
-     * records when the pairing holds none of those accounts.
+     * The records of [pairing] that a wallet holding it must not keep: the account records past its last account, and the Bitcoin, Solana and
+     * Algorand records when the pairing holds none of those accounts.
      */
     private fun deletesFor(pairing: PairingPayload): List<String> {
         val count = pairing.apps.first { it.app == PairImport.ETHEREUM }.accounts.size
         val accounts = (count until PairImport.MAX_ETHEREUM_ACCOUNTS).map { WalletRecordNames.account(it) }
         val bitcoin = if (PairImport.bitcoinAccountsOf(pairing).isEmpty()) listOf(WalletRecordNames.BITCOIN) else emptyList()
         val solana = if (PairImport.solanaPublicKeysOf(pairing).isEmpty()) listOf(WalletRecordNames.SOLANA) else emptyList()
-        return accounts + bitcoin + solana
+        val algorand = if (PairImport.algorandPublicKeysOf(pairing).isEmpty()) listOf(WalletRecordNames.ALGORAND) else emptyList()
+        return accounts + bitcoin + solana + algorand
     }
 
     /** The paired wallet in folder [id], or null when the folder is not one (another folder kind, or a damaged record). */
@@ -140,6 +146,7 @@ object PairedWallets {
             ?.let { PairRecords.decodeBitcoin(it, meta.fingerprint) }
             .orEmpty()
         val solana = session.getRecord(id, WalletRecordNames.SOLANA)?.let { PairRecords.decodeSolana(it) }.orEmpty()
+        val algorand = session.getRecord(id, WalletRecordNames.ALGORAND)?.let { PairRecords.decodeAlgorand(it) }.orEmpty()
         PairedWallet(
             id = id,
             name = meta.name,
@@ -148,6 +155,7 @@ object PairedWallets {
             bitcoin = bitcoin,
             evmAccounts = accounts,
             solana = solana,
+            algorand = algorand,
         )
     } catch (e: IllegalArgumentException) {
         null

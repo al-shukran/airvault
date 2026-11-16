@@ -49,10 +49,11 @@ object LedgerEd25519 {
     /**
      * An account key. [publicKey] is the 32-byte Ed25519 key the device shows, and [AlgoAddress.encode] turns it into
      * the address. [kL] is the 32-byte seed the device signs with. [kR] is the other half of the extended key,
-     * which only child derivation uses. [kL] and [kR] are secret; the caller calls [wipe] when it is done.
+     * which only child derivation uses. [chainCode] is the 32-byte chain code at the end of the path. Like a BIP32 chain code it is public,
+     * and a pairing carries it. [kL] and [kR] are secret; the caller calls [wipe] when it is done.
      */
-    class Key internal constructor(val publicKey: ByteArray, val kL: ByteArray, val kR: ByteArray) {
-        /** Zeroes [kL] and [kR]. The public key is not secret and is left as it is. */
+    class Key internal constructor(val publicKey: ByteArray, val kL: ByteArray, val kR: ByteArray, val chainCode: ByteArray) {
+        /** Zeroes [kL] and [kR]. The public key and the chain code are not secret and are left as they are. */
         fun wipe() {
             kL.fill(0)
             kR.fill(0)
@@ -68,11 +69,10 @@ object LedgerEd25519 {
         require(account >= 0) { "account must be 0 or more" }
         val path = intArrayOf(hardened(44), hardened(283), hardened(account), 0, 0)
         val (extended, chain) = derive(seed, path)
-        chain.fill(0)
         val kL = extended.copyOfRange(0, 32)
         val kR = extended.copyOfRange(32, 64)
         extended.fill(0)
-        return Key(publicKey(kL), kL, kR)
+        return Key(publicKey(kL), kL, kR, chain)
     }
 
     /** The RFC 8032 public key of the seed [kL]: clamp(SHA-512(kL)[0..32]) times the base point. */

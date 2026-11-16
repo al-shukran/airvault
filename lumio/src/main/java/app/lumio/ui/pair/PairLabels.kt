@@ -10,6 +10,7 @@ internal object PairLabels {
         PairFamily.EVM -> "EVM"
         PairFamily.BITCOIN -> "Bitcoin"
         PairFamily.SOLANA -> "Solana"
+        PairFamily.ALGORAND -> "Algorand"
     }
 
     fun network(network: BtcNetwork): String = when (network) {
