@@ -192,14 +192,15 @@ fun TxReviewScreen(
                     } else if (typed != null) {
                         TypedDataFacts(typed, review.addressNotes)
                     } else {
-                        FactRow(label = "Parameters") {
-                            if (review.params.isEmpty()) {
-                                MutedText("None")
-                            } else {
-                                review.params.forEach { (name, value) ->
-                                    LabelledValue(label = name, value = value)
-                                }
+                        val steps = review.whitelisted?.steps?.lines?.takeIf { it.isNotEmpty() }
+                        if (steps != null) {
+                            // A call Lensly describes shows its steps first, and its raw arguments behind Details.
+                            FactRow(label = "Steps") { NumberedSteps(steps) }
+                            FactRow(label = "Details") {
+                                DetailsToggle { ParameterRows(review.params) }
                             }
+                        } else {
+                            FactRow(label = "Parameters") { ParameterRows(review.params) }
                         }
                         if (review.nested.isNotEmpty()) {
                             FactRow(label = "Calls") {
@@ -612,13 +613,66 @@ private fun NestedCallView(call: NestedCall) {
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        call.params.forEach { (name, value) -> LabelledValue(label = name, value = value) }
+        val steps = call.whitelisted?.steps?.lines?.takeIf { it.isNotEmpty() }
+        if (steps != null) {
+            NumberedSteps(steps)
+            DetailsToggle { call.params.forEach { (name, value) -> LabelledValue(label = name, value = value) } }
+        } else {
+            call.params.forEach { (name, value) -> LabelledValue(label = name, value = value) }
+        }
         call.note?.let { note -> NoteText(note) }
         call.whitelisted?.let { whitelisted ->
             Spacer(Modifier.height(LenslySpacing.xs))
             WhitelistedCallBlock(whitelisted)
         }
     }
+}
+
+/** The arguments of a call, or "None" when it has none. */
+@Composable
+private fun ParameterRows(params: List<Pair<String, String>>) {
+    if (params.isEmpty()) {
+        MutedText("None")
+    } else {
+        params.forEach { (name, value) -> LabelledValue(label = name, value = value) }
+    }
+}
+
+/** The steps of a decoded call, numbered in the order they run. Each step is one sentence, and it wraps when it must. */
+@Composable
+private fun NumberedSteps(lines: List<String>) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        lines.forEachIndexed { index, line ->
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = LenslySpacing.sm)) {
+                MutedText("${index + 1}.")
+                Spacer(Modifier.width(LenslySpacing.sm))
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+/** The raw arguments of a decoded call, folded away behind a row that opens them. The steps above them are what the eye reads first. */
+@Composable
+private fun DetailsToggle(content: @Composable () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = { open = !open })
+            .padding(vertical = LenslySpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MutedText("ARGUMENTS")
+        Spacer(Modifier.weight(1f))
+        MutedText(if (open) "HIDE" else "SHOW")
+    }
+    if (open) content()
 }
 
 /** One argument of a call: its name above its value. An address is shown in groups of four, so it can be compared by eye. */
