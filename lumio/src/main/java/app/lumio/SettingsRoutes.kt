@@ -82,6 +82,7 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     selection: NetworkSelection,
     listVersion: Int,
     onChanged: () -> Unit,
+    lockChoices: LockSettingsState,
 ) {
     composable(LumioRoute.SETTINGS_DISPLAY) {
         LumioBackdrop(selection) { DisplaySettingsRoute(navController = navController, holder = holder) }
@@ -98,7 +99,7 @@ internal fun NavGraphBuilder.settingsPageRoutes(
         }
     }
     composable(LumioRoute.SETTINGS_SECURITY) {
-        LumioBackdrop(selection) { SecuritySettingsRoute(navController = navController) }
+        LumioBackdrop(selection) { SecuritySettingsRoute(navController = navController, lockChoices = lockChoices) }
     }
     composable(LumioRoute.SETTINGS_ABOUT) {
         LumioBackdrop(selection) { AboutSettingsRoute(navController = navController) }
@@ -129,12 +130,18 @@ private fun AddressBookSettingsRoute(navController: NavHostController, holder: V
     )
 }
 
-/** The Security page: the Hidden Entry Gesture. Its row opens the choice, which is Lensly's screen shared through :shared. */
+/**
+ * The Security page: the Hidden Entry Gesture, whose row opens the choice shared through :shared, and the lock. Each choice applies as the
+ * owner makes it.
+ */
 @Composable
-private fun SecuritySettingsRoute(navController: NavHostController) {
+private fun SecuritySettingsRoute(navController: NavHostController, lockChoices: LockSettingsState) {
     SecuritySettingsPage(
         entryGesture = LocalContext.current.entryGestureHolder().current,
+        lock = lockChoices.settings,
         onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
+        onIdleMinutes = { minutes -> lockChoices.change { it.copy(idleMinutes = minutes) } },
+        onLockWhenSwitching = { on -> lockChoices.change { it.copy(lockWhenSwitchingApps = on) } },
         onBack = { navController.popBackStack() },
     )
 }

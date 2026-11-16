@@ -83,7 +83,7 @@ lumio	settings	Settings: display	settings_display
 lumio	settings	Settings: transactions	settings_transactions
 lumio	settings	Settings: networks	settings_networks
 lumio	settings	Settings: address book	settings_address_book
-lumio	settings	Settings: security	settings_security
+lumio	settings	Settings: security	settings_security settings_security_switching
 lumio	settings	Settings: about	settings_about
 lumio	settings	Settings: developer	settings_developer
 lumio	address_book	Address book	address_book address_book_empty

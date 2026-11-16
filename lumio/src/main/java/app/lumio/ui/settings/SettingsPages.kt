@@ -13,9 +13,11 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.components.SettingsSwitchRow
+import app.lensly.ui.components.SliderSetting
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.R
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.LockSettings
 
 /** The Display page: what Home shows. Each control applies as the owner changes it, and [notice] shows a change that the vault refused. */
 @Composable
@@ -79,9 +81,19 @@ fun AddressBookSettingsPage(onBack: () -> Unit, wallets: @Composable () -> Unit)
     }
 }
 
-/** The Security page: the Hidden Entry Gesture. The row opens the choice of another gesture, which asks for the App Password first. */
+/**
+ * The Security page: the Hidden Entry Gesture, whose row opens the choice of another gesture (it asks for the App Password first), and the
+ * lock: the inactivity timeout, and the switch that locks when the app is switched away from. Each control applies as the owner changes it.
+ */
 @Composable
-fun SecuritySettingsPage(entryGesture: EntryGesture, onEntryGesture: () -> Unit, onBack: () -> Unit) {
+fun SecuritySettingsPage(
+    entryGesture: EntryGesture,
+    lock: LockSettings,
+    onEntryGesture: () -> Unit,
+    onIdleMinutes: (Int) -> Unit,
+    onLockWhenSwitching: (Boolean) -> Unit,
+    onBack: () -> Unit,
+) {
     SettingsPageScreen(SettingsPage.SECURITY, onBack) {
         SettingsSection(title = "Entry") {
             SettingsRow(title = "Hidden entry gesture", description = entryGesture.title, onClick = onEntryGesture)
@@ -92,7 +104,36 @@ fun SecuritySettingsPage(entryGesture: EntryGesture, onEntryGesture: () -> Unit,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        SettingsSection(title = "Lock") {
+            SliderSetting(
+                title = "Lock after inactivity",
+                options = LockSettings.IDLE_CHOICES,
+                selected = lock.idleMinutes,
+                label = ::idleLabel,
+                onSelect = onIdleMinutes,
+                caption = { minutes -> if (minutes == LockSettings.DEFAULT_IDLE_MINUTES) "Default" else null },
+            )
+            Text(
+                "Lumio locks after this long without a touch, in the background too.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(LenslySpacing.sm))
+            SettingsSwitchRow(
+                title = "Lock when switching apps",
+                description = "Lumio locks as soon as you leave it. Off, it stays unlocked until the inactivity lock.",
+                checked = lock.lockWhenSwitchingApps,
+                onCheckedChange = onLockWhenSwitching,
+            )
+        }
     }
+}
+
+/** A choice of the idle lock as the owner reads it: "1 minute", "30 minutes", "1 hour". */
+private fun idleLabel(minutes: Int): String = when (minutes) {
+    1 -> "1 minute"
+    60 -> "1 hour"
+    else -> "$minutes minutes"
 }
 
 /** The About page: the version of the app, and the licences of what it ships. */

@@ -3,6 +3,7 @@ package app.lensly.ui.navigation
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.SystemClock
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -13,7 +14,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -43,14 +46,14 @@ object LenslyRoute {
     const val HIDDEN = "hidden"
 }
 
-/** Idle time in the hidden area after which the vault locks and the owner returns to the camera. */
+/** Idle time in the hidden area after which Lensly's vault locks. It is the timeout of [LockPolicy.LENSLY]. */
 const val INACTIVITY_LOCK_MS = 2 * 60 * 1000L
 
 /**
  * The camera cover and the navigation around it, which Lensly and Lumio share. It opens on the camera. The hidden area is entered by the
- * viewfinder gesture, and it is the only place the vault is unlocked. Leaving the foreground, going idle, or pressing LOCK all lock the
- * vault and return to the camera. [hidden] adds the app's own hidden area, which starts with [hiddenArea]. [lockVault] is what the
- * top bar's lock icon does, and [leaveHidden] by default.
+ * viewfinder gesture, and it is the only place the vault is unlocked. Pressing LOCK, or leaving the hidden area, locks the vault and
+ * returns to the camera. [lockPolicy] says what else locks it: leaving the foreground, and the idle timeout. [hidden] adds the app's own
+ * hidden area, which starts with [hiddenArea]. [lockVault] is what the top bar's lock icon does, and [leaveHidden] by default.
  *
  * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
  */
@@ -59,14 +62,15 @@ fun CoverNavHost(
     debugHiddenRequest: Int = 0,
     modifier: Modifier = Modifier,
     lockVault: (NavHostController, VaultHolder) -> Unit = ::leaveHidden,
+    lockPolicy: LockPolicy = LockPolicy.LENSLY,
     hidden: NavGraphBuilder.(NavHostController, VaultHolder) -> Unit,
 ) {
     val holder = LocalContext.current.vaultHolder()
     val entryGestures = LocalContext.current.entryGestureHolder()
     val navController = rememberNavController()
-    ReturnToCameraWhenBackgrounded(navController, holder)
+    ReturnToCameraWhenBackgrounded(navController, holder, lockPolicy)
     OpenHiddenOnDebugLaunch(navController, debugHiddenRequest)
-    val touchModifier = InactivityLock(navController, holder)
+    val touchModifier = InactivityLock(navController, holder, lockPolicy)
 
     Box(modifier = modifier.fillMaxSize().then(touchModifier)) {
         CompositionLocalProvider(LocalVaultLock provides { lockVault(navController, holder) }) {
@@ -99,24 +103,41 @@ fun CoverNavHost(
 }
 
 /**
- * Locks the vault after [INACTIVITY_LOCK_MS] without a touch while the hidden area is showing. Returns a modifier that
- * records every touch, so the countdown restarts with each one.
+ * Locks the vault once [LockPolicy.idleTimeoutMs] pass without a touch while the hidden area is showing. The countdown starts when the
+ * hidden area opens, restarts with each touch, and keeps running in the background. It waits while an own launch is open, when the
+ * policy keeps those unlocked. Returns a modifier that records every touch. [clock] reads the time in milliseconds: the app uses the
+ * elapsed real time, and a test supplies its own clock.
  */
 @Composable
-fun InactivityLock(navController: NavHostController, holder: VaultHolder): Modifier {
+fun InactivityLock(
+    navController: NavHostController,
+    holder: VaultHolder,
+    policy: LockPolicy = LockPolicy.LENSLY,
+    clock: () -> Long = { SystemClock.elapsedRealtime() },
+): Modifier {
+    val lifecycleOwner = LocalLifecycleOwner.current
     val entry by navController.currentBackStackEntryAsState()
     val inHidden = entry?.destination.inHiddenGraph()
-    var touches by remember { mutableIntStateOf(0) }
-    LaunchedEffect(inHidden, touches) {
-        if (inHidden) {
-            delay(INACTIVITY_LOCK_MS)
-            leaveHidden(navController, holder)
-        }
+    val enteredAt = remember(inHidden) { clock() }
+    var lastTouch by remember { mutableLongStateOf(0L) }
+    // Coming back to the foreground checks the countdown again: a process that was frozen or asleep has missed its timer.
+    var resumes by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_START) resumes++ }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val launchOpen = PickerStop.openCount > 0
+    LaunchedEffect(inHidden, lastTouch, resumes, policy, launchOpen) {
+        if (!inHidden || LockRules.idlePaused(policy, launchOpen)) return@LaunchedEffect
+        val remaining = LockRules.idleRemainingMs(policy, enteredAt, lastTouch, PickerStop.lastReturnMs, clock())
+        if (remaining > 0) delay(remaining)
+        leaveHidden(navController, holder)
     }
     return Modifier.pointerInput(Unit) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false)
-            touches++
+            lastTouch = clock()
         }
     }
 }
@@ -132,20 +153,22 @@ private fun OpenHiddenOnDebugLaunch(navController: NavHostController, request: I
 }
 
 /**
- * Whenever the app leaves the foreground, the vault locks and the back stack returns to the camera, so the app always
- * reopens on the camera. Configuration changes such as rotation also stop the activity, so they are excluded.
+ * When the policy locks on a stop ([LockPolicy.lockWhenBackgrounded]), leaving the foreground locks the vault and the back stack returns
+ * to the camera, so the app reopens on the camera. Configuration changes such as rotation also stop the activity, so they are excluded,
+ * and a stop that an own launch causes never locks.
  */
 @Composable
-fun ReturnToCameraWhenBackgrounded(navController: NavHostController, holder: VaultHolder) {
+fun ReturnToCameraWhenBackgrounded(navController: NavHostController, holder: VaultHolder, policy: LockPolicy = LockPolicy.LENSLY) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
+    val current by rememberUpdatedState(policy)
     DisposableEffect(lifecycleOwner, navController) {
         val observer = LifecycleEventObserver { _, event ->
             val rotating = context.findActivity()?.isChangingConfigurations == true
             if (event == Lifecycle.Event.ON_STOP && !rotating) {
-                // The document picker stops the app once on purpose. Its stop does not lock the vault.
-                if (PickerStop.takeStop()) return@LifecycleEventObserver
-                leaveHidden(navController, holder)
+                // The document picker and the other launches of the app stop it on purpose. Their stop does not lock the vault.
+                val causedByLaunch = PickerStop.takeStop()
+                if (LockRules.lockOnStop(current, causedByOwnLaunch = causedByLaunch)) leaveHidden(navController, holder)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

@@ -18,6 +18,7 @@ import app.lumio.btc.networkId
 import app.lumio.btc.scanJob
 import app.lumio.data.MonotonicClock
 import app.lumio.data.WallClock
+import app.lumio.data.config.LockSettingsStore
 import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.db.LumioDatabase
 import app.lumio.data.esplora.BlockstreamProvider
@@ -68,6 +69,9 @@ import okhttp3.OkHttpClient
 class LumioApp : Application(), CoverApplication {
     override val vaultHolder: VaultHolder by lazy { VaultHolder(Vault(this), attach = ::openVault) }
     override val entryGestureHolder: EntryGestureHolder by lazy { EntryGestureHolder(EntryGestureStore.open(this)) }
+
+    /** The lock choices of Settings → Security. They sit outside the vault, because the cover reads them before the vault opens. */
+    val lockSettings: LockSettingsStore by lazy { LockSettingsStore.open(this) }
 
     /** The chain registry, read from the catalogs in this APK. Debug builds include the debug testnets. */
     val registry: Registry by lazy { RegistryLoader.fromAssets(assets) }
