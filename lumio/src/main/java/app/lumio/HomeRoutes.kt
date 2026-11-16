@@ -16,6 +16,7 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.TokenEntry
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.ui.navigation.GateRoutes
@@ -89,6 +90,8 @@ internal fun HomeRoute(
     var wallets by remember { mutableStateOf<List<PairedWallet>>(emptyList()) }
     var bitcoinAccounts by remember { mutableStateOf<List<BtcAccountRef>>(emptyList()) }
     var entries by remember { mutableStateOf<Map<Long, NetworkEntry>>(emptyMap()) }
+    // The registry's tokens by asset ID, so a token row shows its own logo. The ID is the one TokenAsset gives the token.
+    var tokenEntries by remember { mutableStateOf<Map<String, TokenEntry>>(emptyMap()) }
     var refreshing by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
 
@@ -109,6 +112,9 @@ internal fun HomeRoute(
     var refreshTick by remember { mutableIntStateOf(0) }
     LaunchedEffect(session, mode, listVersion, refreshTick) {
         entries = withContext(Dispatchers.IO) { app.registry.networks().associateBy { it.chainId } }
+        tokenEntries = withContext(Dispatchers.IO) {
+            app.registry.tokens().associateBy { TokenAsset.idOf(NetworkId(Family.EVM, it.chainId.toString(), testnet = false), it.contract) }
+        }
         wallets = withContext(Dispatchers.IO) { PairedWallets.list(session) }
         bitcoinAccounts = withContext(Dispatchers.IO) { bitcoinRefs(session).filter { mode.holds(it.account.network) } }
         balances = readOrNull { HomeLoader.cached(app, session, mode) } ?: balances
@@ -156,6 +162,7 @@ internal fun HomeRoute(
         networkEntry = { asset ->
             if (asset.network.family == Family.EVM) asset.network.chain.toLongOrNull()?.let { entries[it] } else null
         },
+        tokenEntry = { asset -> tokenEntries[asset.id] },
     )
 }
 

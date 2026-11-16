@@ -82,7 +82,7 @@ fun ChainIcon(network: NetworkEntry?, size: Dp, modifier: Modifier = Modifier) {
             backdrop = spec.backdrop,
             modifier = modifier,
         )
-        is ChainIconSpec.Monogram -> Monogram(letter = spec.letter, size = size, modifier = modifier)
+        is ChainIconSpec.Monogram -> LetterMonogram(letter = spec.letter, size = size, modifier = modifier)
     }
 }
 
@@ -93,11 +93,11 @@ private val monogramRing: Dp = 1.dp
 private const val MONOGRAM_LETTER_SHARE = 0.6f
 
 /**
- * A network with no logo: its letter in the dot-matrix face, inside a thin circle in the muted foreground colour. It takes
- * the same [size] as a logo, so it lines up with the other icons.
+ * A letter in the dot-matrix face, inside a thin circle in the muted foreground colour. It marks a network with no logo, and
+ * a token with no logo: the neutral letter avatar. It takes the same [size] as a logo, so it lines up with the other icons.
  */
 @Composable
-private fun Monogram(letter: String, size: Dp, modifier: Modifier = Modifier) {
+fun LetterMonogram(letter: String, size: Dp, modifier: Modifier = Modifier) {
     val ring = MaterialTheme.colorScheme.onSurfaceVariant
     val letterSize = (size.value * MONOGRAM_LETTER_SHARE).sp
     Box(

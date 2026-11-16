@@ -12,6 +12,9 @@ import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.BtcWatchOnlyAccount
+import app.lensly.core.registry.Registry
+import app.lensly.core.registry.RegistryLoader
+import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
@@ -64,6 +67,7 @@ import app.lumio.ui.settings.SettingsFacts
 import app.lumio.ui.settings.TransactionsSettingsPage
 import app.lumio.ui.settings.WalletsSettings
 import app.lumio.ui.settings.settingsRows
+import java.io.File
 import java.math.BigDecimal
 import java.math.BigInteger
 import org.junit.Rule
@@ -135,6 +139,8 @@ class LumioScreenshotTest {
             refreshing = false,
             onRefresh = {},
             staleSinceMs = NOW,
+            networkEntry = { asset -> homeNetworkEntry(asset) },
+            tokenEntry = { asset -> homeTokenEntries[asset.id] },
         )
     }
 
@@ -152,6 +158,8 @@ class LumioScreenshotTest {
             hasWallets = true,
             refreshing = false,
             onRefresh = {},
+            networkEntry = { asset -> homeNetworkEntry(asset) },
+            tokenEntry = { asset -> homeTokenEntries[asset.id] },
         )
     }
 
@@ -169,6 +177,7 @@ class LumioScreenshotTest {
             hasWallets = true,
             refreshing = false,
             onRefresh = {},
+            networkEntry = { asset -> homeNetworkEntry(asset) },
         )
     }
 
@@ -571,6 +580,23 @@ class LumioScreenshotTest {
     /** The USDC contract on Ethereum, which Home lists as a token. */
     private val usdcMainnet = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 
+    /** The registry of the shared assets, read the way the registry tests read it, so Home's goldens show the logos the app ships. */
+    private val homeRegistry: Registry = RegistryLoader.load { path ->
+        listOf("../shared/src/main/assets", "../shared/src/debug/assets")
+            .map { File(it, path) }
+            .firstOrNull(File::isFile)
+            ?.readText()
+    }
+
+    /** The registry's chain entry of an EVM coin on Home, or null for Bitcoin. */
+    private fun homeNetworkEntry(asset: HomeAsset) =
+        if (asset.network.family == Family.EVM) asset.network.chain.toLongOrNull()?.let { homeRegistry.network(it) } else null
+
+    /** The registry's token entries by asset ID, as Home keeps them. */
+    private val homeTokenEntries: Map<String, TokenEntry> = homeRegistry.tokens().associateBy {
+        TokenAsset.idOf(NetworkId(Family.EVM, it.chainId.toString(), testnet = false), it.contract)
+    }
+
     /** The coins and a token of a mainnet side: one priced below the minimum, which Home hides. */
     private fun homeAssets(): List<HomeAsset> = listOf(
         NativeAsset("BTC-mainnet", "BTC", "Bitcoin", NetworkId(Family.BTC, "mainnet", testnet = false), BigDecimal("0.0425"), 4012.5, -0.4),
@@ -586,6 +612,16 @@ class LumioScreenshotTest {
             balance = BigDecimal("1250.5"),
             usd = 1250.5,
             change24h = 0.02,
+        ),
+        TokenAsset(
+            id = TokenAsset.idOf(NetworkId(Family.EVM, "1", testnet = false), "0x" + "c3".repeat(20)),
+            symbol = "XYZ",
+            name = "Ethereum",
+            network = NetworkId(Family.EVM, "1", testnet = false),
+            contract = "0x" + "c3".repeat(20),
+            balance = BigDecimal("40"),
+            usd = 12.0,
+            known = false,
         ),
     )
 
