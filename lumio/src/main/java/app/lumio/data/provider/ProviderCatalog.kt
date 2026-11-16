@@ -59,7 +59,7 @@ object ProviderCatalog {
     fun rpcProviders(allowLocalHttp: Boolean): List<Provider> = RpcPlugins.pool() + CustomRpc(allowLocalHttp)
 
     /**
-     * The Solana providers: the public devnet endpoint, then the owner's own devnet RPC. They serve the Solana family only, so no EVM read reaches them,
+     * The Solana providers: the public endpoints (mainnet-beta and devnet), then the owner's own devnet RPC. They serve the Solana family only, so no EVM read reaches them,
      * and the settings screens do not list them yet.
      */
     fun solanaProviders(allowLocalHttp: Boolean): List<Provider> = listOf(SolanaRpc(), CustomSolanaRpc(SOLANA_DEVNET.chain, allowLocalHttp))

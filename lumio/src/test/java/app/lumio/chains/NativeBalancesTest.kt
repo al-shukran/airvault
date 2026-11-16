@@ -8,10 +8,16 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lumio.data.FakeProvider
 import app.lumio.data.MonotonicClock
+import app.lumio.data.net.Family
+import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Op
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
+import app.lumio.data.provider.algorand.AlgorandAlgod
 import app.lumio.data.provider.solana.SOLANA_DEVNET
+import app.lumio.data.provider.solana.SOLANA_MAINNET
+import app.lumio.data.provider.solana.SolanaRpc
 import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.sched.Scheduler
 import app.lumio.home.HomeFormat
@@ -43,8 +49,8 @@ class NativeBalancesTest {
     val tmp = TemporaryFolder()
 
     private val session by lazy { VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 5 + 1).toByte() }) }
-    private val algorand = FakeProvider(id = "algorand", networks = setOf(ALGORAND_TESTNET), ops = setOf(Op.NATIVE_BALANCE))
-    private val solana = FakeProvider(id = "solana", networks = setOf(SOLANA_DEVNET), ops = setOf(Op.NATIVE_BALANCE))
+    private val algorand = FakeProvider(id = "algorand", networks = setOf(ALGORAND_TESTNET, ALGORAND_MAINNET), ops = setOf(Op.NATIVE_BALANCE))
+    private val solana = FakeProvider(id = "solana", networks = setOf(SOLANA_DEVNET, SOLANA_MAINNET), ops = setOf(Op.NATIVE_BALANCE))
     private val scheduler = Scheduler(
         listOf(algorand, solana),
         { emptyMap() },
@@ -77,6 +83,10 @@ class NativeBalancesTest {
     /** The lines Home shows for the testnet side: each amount in its coin's unit, with the symbol. */
     private fun homeLines(wallets: List<PairedWallet>): List<String> =
         HomeLoader.nativeCached(session, wallets, NetworkMode.TESTNET).map { HomeFormat.coins(it.balance) + " " + it.symbol }
+
+    /** The lines Home shows for the mainnet side: each amount in its coin's unit, with the symbol. */
+    private fun mainnetLines(wallets: List<PairedWallet>): List<String> =
+        HomeLoader.nativeCached(session, wallets, NetworkMode.MAINNET).map { HomeFormat.coins(it.balance) + " " + it.symbol }
 
     @Test
     fun aRefreshStoresEachCoinAndHomeListsItInItsOwnUnit() {
@@ -111,15 +121,45 @@ class NativeBalancesTest {
     }
 
     @Test
-    fun theMainnetSideReadsNoAlgorandOrSolanaCoin() {
+    fun eachSideReadsExactlyItsTwoCoinsAtTheirPublicEndpoints() {
+        assertEquals(
+            listOf(
+                Triple(ALGORAND_MAINNET, "ALGO", "https://mainnet-api.algonode.cloud"),
+                Triple(SOLANA_MAINNET, "SOL", "https://api.mainnet-beta.solana.com"),
+            ),
+            NativeBalances.coinsOf(NetworkMode.MAINNET).map { Triple(it.network, it.symbol, endpointOf(it.network)) },
+        )
+        assertEquals(
+            listOf(
+                Triple(ALGORAND_TESTNET, "ALGO", "https://testnet-api.algonode.cloud"),
+                Triple(SOLANA_DEVNET, "SOL", "https://api.devnet.solana.com"),
+            ),
+            NativeBalances.coinsOf(NetworkMode.TESTNET).map { Triple(it.network, it.symbol, endpointOf(it.network)) },
+        )
+    }
+
+    /** The public endpoint that serves [network], from the provider tables. */
+    private fun endpointOf(network: NetworkId): String = when (network.family) {
+        Family.ALGO -> AlgorandAlgod.ENDPOINTS.getValue(network.chain)
+        Family.SOL -> SolanaRpc.ENDPOINTS.getValue(network.chain)
+        else -> error("not a native family: $network")
+    }
+
+    @Test
+    fun theMainnetSideReadsTheMainnetCoins() {
         val wallets = pairedWallets()
+        algorand.outcomes.add(BigInteger("2500000"))
+        solana.outcomes.add(BigInteger("500000000"))
 
         val failures = runBlocking {
             NativeBalances.refresh(session, wallets, NativeBalances.coinsOf(NetworkMode.MAINNET), scheduler, nowMs = { 1_000L })
         }
 
         assertTrue(failures.isEmpty())
-        assertEquals(0, algorand.calls + solana.calls)
-        assertTrue(HomeLoader.nativeCached(session, wallets, NetworkMode.MAINNET).isEmpty())
+        assertEquals(1, algorand.calls)
+        assertEquals(1, solana.calls)
+        assertEquals(listOf(ALGORAND_MAINNET, SOLANA_MAINNET), NativeBalanceCache.read(session).map { it.network })
+        assertEquals(listOf("2.5 ALGO", "0.5 SOL"), mainnetLines(wallets))
+        assertTrue(HomeLoader.nativeCached(session, wallets, NetworkMode.TESTNET).isEmpty())
     }
 }

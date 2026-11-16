@@ -11,8 +11,10 @@ import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import app.lumio.data.provider.solana.SOLANA_DEVNET
+import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import app.lumio.network.NetworkMode
@@ -31,10 +33,12 @@ import kotlinx.coroutines.withContext
 data class NativeCoin(val network: NetworkId, val symbol: String, val name: String, val decimals: Int)
 
 /**
- * The Algorand and Solana coins that Lumio reads: the testnet and the devnet that each family defaults to. Mainnet is not read yet. A coin shows on the
- * side of its network, as the EVM and Bitcoin coins do.
+ * The Algorand and Solana coins that Lumio reads: the mainnet and the testnet of each family, each on the side of its network, as the EVM and Bitcoin
+ * coins are. Each coin is read at the public endpoint of its network (see `AlgorandAlgod.ENDPOINTS` and `SolanaRpc.ENDPOINTS`).
  */
 val NATIVE_COINS: List<NativeCoin> = listOf(
+    NativeCoin(ALGORAND_MAINNET, symbol = "ALGO", name = "Algorand", decimals = 6),
+    NativeCoin(SOLANA_MAINNET, symbol = "SOL", name = "Solana", decimals = 9),
     NativeCoin(ALGORAND_TESTNET, symbol = "ALGO", name = "Algorand testnet", decimals = 6),
     NativeCoin(SOLANA_DEVNET, symbol = "SOL", name = "Solana devnet", decimals = 9),
 )
@@ -50,7 +54,7 @@ object NativeBalances {
     /** One refresh at a time: a second request waits, and then reads the cache the first one wrote. */
     private val lock = Mutex()
 
-    /** The coins of [mode]'s side. The mainnet side has none yet, since Lumio reads only the testnet and devnet coins. */
+    /** The coins of [mode]'s side: the mainnet pair on the mainnet side, the testnet and devnet pair on the testnet side. */
     fun coinsOf(mode: NetworkMode): List<NativeCoin> = NATIVE_COINS.filter { mode.holds(it.network.testnet) }
 
     /**
