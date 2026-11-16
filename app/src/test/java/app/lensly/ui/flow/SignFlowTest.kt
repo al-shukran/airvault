@@ -7,6 +7,7 @@ import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.SolanaReviewEntry
+import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.parse.CANNOT_BE_READ
@@ -21,6 +22,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
+import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
@@ -156,6 +158,14 @@ private class FakePorts(
         error("a Solana request is not expected in the EVM tests")
 
     override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = error("a Solana request is not expected in the EVM tests")
+
+    override suspend fun algorandPrepare(walletId: String, request: AlgoSignRequest): AlgorandPrepared =
+        error("an Algorand request is not expected in the EVM tests")
+
+    override suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String> =
+        error("an Algorand request is not expected in the EVM tests")
+
+    override suspend fun recordAlgorand(entry: AlgorandReviewEntry): Unit = error("an Algorand request is not expected in the EVM tests")
 }
 
 /** A ur:eth-sign-request for a personal message on account 0, the way a wallet sends it. */

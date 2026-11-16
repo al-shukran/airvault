@@ -23,6 +23,7 @@ import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
 import app.lensly.ui.sign.BitcoinReviewScreen
+import app.lensly.ui.sign.AlgorandReviewScreen
 import app.lensly.ui.sign.SolanaReviewScreen
 import app.lensly.ui.sign.NoMatchingWalletScreen
 import app.lensly.ui.sign.SignRefusedScreen
@@ -110,6 +111,12 @@ internal fun SignWalletRoute(
             onReject = flow::leave,
         )
         is SignStep.SolanaConfirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
+        is SignStep.AlgorandReview -> AlgorandReviewScreen(
+            review = shown.ready.review,
+            onApprove = flow::approve,
+            onReject = flow::leave,
+        )
+        is SignStep.AlgorandConfirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
         is SignStep.Signature -> ShowQrScreen(
             title = "SIGNATURE",
             subtitle = "Scan this with your online wallet",

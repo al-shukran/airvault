@@ -1,11 +1,16 @@
 package app.lensly.core.algorand
 
 import app.lensly.core.algorand.AlgorandRequestCheck.CLAWBACK_REFUSED
+import app.lensly.core.algorand.AlgorandRequestCheck.DIFFERENT_ADDRESS
+import app.lensly.core.algorand.AlgorandRequestCheck.GENESIS_HASH_MISMATCH
+import app.lensly.core.algorand.AlgorandRequestCheck.NOT_A_TRANSACTION
 import app.lensly.core.algorand.AlgorandRequestCheck.NOT_THIS_SENDER
 import app.lensly.core.algorand.AlgorandRequestCheck.PATH_REFUSED
 import app.lensly.core.algorand.AlgorandRequestCheck.REKEY_REFUSED
 import app.lensly.core.algorand.AlgorandRequestCheck.UNKNOWN_ACCOUNT
 import app.lensly.core.algorand.AlgorandRequestCheck.UNKNOWN_NETWORK
+import app.lensly.core.ur.AlgoSignRequest
+import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -109,9 +114,47 @@ class AlgorandRequestCheckTest {
 
     @Test
     fun onlyTheTestnetAndMainnetGenesisIdsAreSigned() {
-        assertEquals(AlgorandNetwork.MAINNET, reviewOf(paymentWith("gen" to str("mainnet-v1.0"))).network)
+        val mainnet = paymentWith("gen" to str("mainnet-v1.0"), "gh" to bin(MAINNET_GENESIS_HASH))
+        assertEquals(AlgorandNetwork.MAINNET, reviewOf(mainnet).network)
         assertEquals(UNKNOWN_NETWORK, refusalOf(paymentWith("gen" to str("betanet-v1.0"))))
         assertEquals(UNKNOWN_NETWORK, refusalOf(paymentWith("gen" to null)))
+    }
+
+    @Test
+    fun theGenesisHashPinsAreThePublishedHashesOfTestnetAndMainnet() {
+        // Read from /v2/transactions/params on testnet-api.algonode.cloud and mainnet-api.algonode.cloud, and checked against
+        // testnet-api.4160.nodely.dev and mainnet-api.4160.nodely.dev.
+        assertContentEquals(TESTNET_GENESIS_HASH, AlgorandNetwork.TESTNET.genesisHash)
+        assertContentEquals(MAINNET_GENESIS_HASH, AlgorandNetwork.MAINNET.genesisHash)
+    }
+
+    @Test
+    fun aGenesisHashThatIsNotTheNetworksIsRefused() {
+        assertEquals(GENESIS_HASH_MISMATCH, refusalOf(paymentWith("gh" to bin(MAINNET_GENESIS_HASH))))
+        assertEquals(GENESIS_HASH_MISMATCH, refusalOf(paymentWith("gen" to str("mainnet-v1.0"))))
+        assertEquals(GENESIS_HASH_MISMATCH, refusalOf(assetWith("gh" to bin(MAINNET_GENESIS_HASH))))
+        val oneBitOff = TESTNET_GENESIS_HASH.copyOf().also { it[31] = (it[31].toInt() xor 1).toByte() }
+        assertEquals(GENESIS_HASH_MISMATCH, refusalOf(paymentWith("gh" to bin(oneBitOff))))
+    }
+
+    @Test
+    fun aGenesisHashThatIsTheNetworksIsReviewed() {
+        assertEquals(AlgorandNetwork.TESTNET, reviewOf(paymentWith()).network)
+        val mainnet = paymentWith("gen" to str("mainnet-v1.0"), "gh" to bin(MAINNET_GENESIS_HASH))
+        assertEquals(AlgorandNetwork.MAINNET, reviewOf(mainnet).network)
+    }
+
+    @Test
+    fun aMemberOfAGroupIsFlaggedWithTheGroupWarningAndIsStillReviewed() {
+        val group = ByteArray(32) { 3 }
+
+        val review = reviewOf(paymentWith("grp" to bin(group)))
+
+        assertContentEquals(group, review.txn.group)
+        assertEquals(listOf(AlgorandWarning.GROUP), review.warnings)
+        val closeAndGroup = paymentWith("grp" to bin(group), "close" to bin(KEY_C))
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO, AlgorandWarning.GROUP), reviewOf(closeAndGroup).warnings)
+        assertEquals(emptyList(), reviewOf(paymentWith()).warnings)
     }
 
     @Test
@@ -143,6 +186,45 @@ class AlgorandRequestCheckTest {
         // The signing input with its "TX" tag is not a transaction: a request that passes the tag in is refused.
         assertIs<AlgorandRequestCheck.Result.Refused>(checkOf(bytesToSign(paymentWith()), listOf(KEY_A)))
     }
+
+    @Test
+    fun aDecodedRequestIsCheckedAsItsTransactionAndItsPath() {
+        val review = assertIs<AlgorandRequestCheck.Result.Ok>(AlgorandRequestCheck.check(algoRequest(paymentWith()), listOf(KEY_A))).review
+
+        assertEquals(0, review.accountIndex)
+        assertContentEquals(ByteArray(16) { 7 }, review.requestId)
+    }
+
+    @Test
+    fun aMessageToSignIsRefusedBecauseLenslySignsOnlyTransactions() {
+        val request = algoRequest(paymentWith(), signType = AlgoSignType.MESSAGE)
+
+        val checked = AlgorandRequestCheck.check(request, listOf(KEY_A))
+        assertEquals(NOT_A_TRANSACTION, assertIs<AlgorandRequestCheck.Result.Refused>(checked).reason)
+    }
+
+    @Test
+    fun anAddressTheRequestNamesMustBeTheSigningAccountsOrNoneAtAll() {
+        fun named(address: String) = AlgorandRequestCheck.check(algoRequest(paymentWith(), address = address), listOf(KEY_A))
+
+        assertIs<AlgorandRequestCheck.Result.Ok>(named(""))
+        assertIs<AlgorandRequestCheck.Result.Ok>(named(AlgoAddress.encode(KEY_A)))
+        assertEquals(DIFFERENT_ADDRESS, assertIs<AlgorandRequestCheck.Result.Refused>(named(AlgoAddress.encode(KEY_B))).reason)
+    }
+
+    private fun algoRequest(
+        signData: ByteArray,
+        signType: AlgoSignType = AlgoSignType.TRANSACTION,
+        address: String = "",
+    ): AlgoSignRequest = AlgoSignRequest(
+        requestId = ByteArray(16) { 7 },
+        signData = signData,
+        derivationPath = algoPath(),
+        sourceFingerprint = null,
+        address = address,
+        origin = "lumio",
+        signType = signType,
+    )
 
     @Test
     fun accountIndexOfReadsOnlyTheAlgorandPath() {
@@ -185,3 +267,7 @@ class AlgorandRequestCheckTest {
         account: Int = 0,
     ): String = assertIs<AlgorandRequestCheck.Result.Refused>(checkOf(raw, keys, account)).reason
 }
+
+/** The genesis hashes of testnet-v1.0 and mainnet-v1.0, as the node APIs publish them. */
+private val TESTNET_GENESIS_HASH = java.util.Base64.getDecoder().decode("SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=")
+private val MAINNET_GENESIS_HASH = java.util.Base64.getDecoder().decode("wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=")

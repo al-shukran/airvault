@@ -11,14 +11,15 @@ import app.lensly.app.sign.algorandRows
 import app.lensly.app.sign.algorandSentence
 import app.lensly.app.sign.algorandWarningText
 import app.lensly.core.algorand.AlgorandRequestReview
+import app.lensly.core.algorand.AlgorandWarning
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
 
 /**
  * The Algorand review, the counterpart of [SolanaReviewScreen]. The header names the network and the signing account. One sentence says
- * what the transaction does, with its fee under it. A close-to warning sits in a banner at the error tone. A request with a warning is
- * signed only after its details are read to the end. REJECT is always enabled.
+ * what the transaction does, with its fee under it. A close-to warning sits in a banner at the error tone, and a group warning at the
+ * warning tone. A request with a warning is signed only after its details are read to the end. REJECT is always enabled.
  */
 @Composable
 fun AlgorandReviewScreen(
@@ -58,7 +59,7 @@ fun AlgorandReviewScreen(
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
                 RiskBanner(
-                    items = review.warnings.map { RiskItem(text = algorandWarningText(review, it), tone = BannerTone.Error) },
+                    items = review.warnings.map { RiskItem(text = algorandWarningText(review, it), tone = algorandWarningTone(it)) },
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
                 DetailsSection(title = "Transaction", onOpen = read::openDetails) {
@@ -67,4 +68,10 @@ fun AlgorandReviewScreen(
             }
         }
     }
+}
+
+/** The tone of a warning's banner: a close-to warning is an error, and a group warning is only a warning. */
+private fun algorandWarningTone(warning: AlgorandWarning): BannerTone = when (warning) {
+    AlgorandWarning.CLOSE_TO -> BannerTone.Error
+    AlgorandWarning.GROUP -> BannerTone.Warning
 }

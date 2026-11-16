@@ -14,6 +14,7 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
+import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
@@ -24,9 +25,11 @@ import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.reviewRecordOf
+import app.lensly.app.sign.algorandReviewRecordOf
 import app.lensly.app.sign.solanaReviewRecordOf
 import app.lensly.app.visualIdentity
 import app.lensly.app.requestParser
+import app.lensly.core.algorand.AlgorandRequestCheck
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.parse.NOT_A_PSBT
@@ -34,6 +37,8 @@ import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.solana.SolanaRequestCheck
+import app.lensly.core.ur.AlgoSignRequest
+import app.lensly.core.ur.AlgoSignatureEncoder
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.vault.UnlockResult
@@ -52,6 +57,9 @@ private const val BITCOIN_UNREADABLE = "This Bitcoin request could not be review
 
 /** The refusal of a Solana request to a Single Key wallet, which has no Solana accounts. Nothing is signed for it. */
 private const val SOLANA_NO_ACCOUNTS = "This wallet has no Solana accounts."
+
+/** The refusal of an Algorand request to a Single Key wallet, which has no Algorand accounts. Nothing is signed for it. */
+private const val ALGORAND_NO_ACCOUNTS = "This wallet has no Algorand accounts."
 
 /**
  * The app's [SignFlowPorts]. Wallet reads go through the open session, and only [privateKey] reads a secret. The address check
@@ -270,6 +278,55 @@ internal class VaultSignPorts(
         val session = holder.openSession() ?: throw ReviewNotSaved()
         try {
             writeRecord(session, entry.walletId, solanaReviewRecordOf(entry, System.currentTimeMillis()))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw ReviewNotSaved()
+        }
+    }
+
+    /**
+     * Reviews the Algorand [request] against wallet [walletId]. The request must name the wallet's master fingerprint, and the review uses
+     * the Algorand public keys the wallet stores, so the seed is not read here. A request the rules refuse is [AlgorandPrepared.Refused].
+     */
+    override suspend fun algorandPrepare(walletId: String, request: AlgoSignRequest): AlgorandPrepared = withContext(Dispatchers.IO) {
+        val wallet = readWallet { session ->
+            val listed = WalletStore(session).list()
+            val position = listed.indexOfFirst { it.id == walletId }
+            if (position < 0) null else viewOf(session, listed[position], position)
+        }
+        val masterFingerprint = wallet.masterFingerprint ?: return@withContext AlgorandPrepared.Refused(ALGORAND_NO_ACCOUNTS)
+        val sourceFingerprint = request.sourceFingerprint
+            ?: return@withContext AlgorandPrepared.Refused("The request does not say which wallet it is for")
+        if (sourceFingerprint != masterFingerprint) return@withContext AlgorandPrepared.Refused("This request is for a different wallet")
+        val keys = readWallet { WalletStore(it).algorandKeys(walletId) }
+        when (val checked = AlgorandRequestCheck.check(request, keys)) {
+            is AlgorandRequestCheck.Result.Ok -> AlgorandPrepared.Ready(walletId, request, checked.review)
+            is AlgorandRequestCheck.Result.Refused -> AlgorandPrepared.Refused(checked.reason)
+        }
+    }
+
+    /**
+     * Signs the reviewed Algorand request with the account it was reviewed under, and returns its `ur:algo-signature` frames, which carry the
+     * account's public key. The seed and the key are zeroed inside [WalletStore].
+     */
+    override suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String> = withContext(Dispatchers.Default) {
+        val session = holder.openSession() ?: throw WalletUnavailable()
+        try {
+            val signature = WalletStore(session).algorandSign(ready.walletId, ready.review)
+            partsOf(AlgoSignatureEncoder.encode(ready.request.requestId, signature, publicKey = ready.review.signer))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            throw WalletUnavailable()
+        }
+    }
+
+    /** Writes the Algorand [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
+    override suspend fun recordAlgorand(entry: AlgorandReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
+        val session = holder.openSession() ?: throw ReviewNotSaved()
+        try {
+            writeRecord(session, entry.walletId, algorandReviewRecordOf(entry, System.currentTimeMillis()))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

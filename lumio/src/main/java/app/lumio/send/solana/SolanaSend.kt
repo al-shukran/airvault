@@ -1,7 +1,7 @@
 package app.lumio.send.solana
 
 import app.lensly.app.export.partsOf
-import app.lensly.core.solana.SolanaSigner
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaTransaction
 import app.lensly.core.solana.SolanaTransfer
 import app.lensly.core.ur.PathStep
@@ -142,7 +142,7 @@ object SolanaSend {
             is SolSignature.Result.Rejected -> throw IllegalArgumentException("This code is not a signature from Lensly.")
         }
         require(answer.requestId.contentEquals(plan.requestId)) { "This signature is for a different request." }
-        require(SolanaSigner.verify(plan.account.key, plan.message, answer.signature)) {
+        require(Ed25519Signer.verify(plan.account.key, plan.message, answer.signature)) {
             "This signature does not match the account. Scan the signature that Lensly shows for this send."
         }
         return SolanaSignedSend(

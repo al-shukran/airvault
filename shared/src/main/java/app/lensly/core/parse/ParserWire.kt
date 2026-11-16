@@ -14,6 +14,7 @@ import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.registry.hexBytesOrNull
+import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
@@ -53,6 +54,7 @@ object ParserWire {
     private const val COMPLETE = 3
     private const val BITCOIN_PSBT = 4
     private const val SOLANA_REQUEST = 5
+    private const val ALGORAND_REQUEST = 6
     private const val CALL_OK = 1
 
     /** The tags of one decoded value on the wire: a static word, the bytes of a bytes or string, and the items of an array or tuple. */
@@ -65,6 +67,9 @@ object ParserWire {
 
     /** The most a scanned Solana request may hold, as its CBOR. It is the codec's own limit for one sol-sign-request. */
     private const val MAX_SOLANA_PAYLOAD_BYTES = SolSignRequest.MAX_PAYLOAD_BYTES
+
+    /** The most a scanned Algorand request may hold, as its CBOR. It is the codec's own limit for one algo-sign-request. */
+    private const val MAX_ALGORAND_PAYLOAD_BYTES = AlgoSignRequest.MAX_PAYLOAD_BYTES
 
     private const val NO_TRANSACTION = 0
     private const val TRANSACTION_OK = 1
@@ -138,6 +143,10 @@ object ParserWire {
                 int(SOLANA_REQUEST)
                 blob(reply.payload, MAX_SOLANA_PAYLOAD_BYTES)
             }
+            is ScanReply.Algorand -> {
+                int(ALGORAND_REQUEST)
+                blob(reply.payload, MAX_ALGORAND_PAYLOAD_BYTES)
+            }
         }
     }.bytes()
 
@@ -151,6 +160,7 @@ object ParserWire {
             COMPLETE -> ScanReply.Complete(parsedOf())
             BITCOIN_PSBT -> ScanReply.Bitcoin(blob(MAX_PSBT_BYTES))
             SOLANA_REQUEST -> ScanReply.Solana(blob(MAX_SOLANA_PAYLOAD_BYTES))
+            ALGORAND_REQUEST -> ScanReply.Algorand(blob(MAX_ALGORAND_PAYLOAD_BYTES))
             else -> throw WireException("unknown scan reply")
         }
         done()
