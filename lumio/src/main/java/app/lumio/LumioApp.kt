@@ -188,10 +188,14 @@ class LumioApp : Application(), CoverApplication {
     fun txHistory(vault: LumioVault): TxHistory {
         val session = vault.session
         val chains = EvmCatalog.chains(registry, EvmSettingsStore.read(session))
+        val owned = CustomTokenStore.read(session)
         return TxHistory(
             scheduler = scheduler,
             store = vault.txs,
-            spam = TxSpam { network, contract -> isKnownToken(network, contract) },
+            spam = TxSpam(
+                isKnownToken = { network, contract -> isKnownToken(network, contract) },
+                isCustomToken = { network, contract -> CustomTokenStore.holds(owned, network, contract) },
+            ),
             nativeAsset = { net ->
                 chains.firstOrNull { net.family == Family.EVM && it.chainId.toString() == net.chain }
                     ?.let { TxAsset(contract = null, symbol = it.symbol, name = it.name, decimals = it.decimals) }

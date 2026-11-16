@@ -7,8 +7,9 @@ import java.math.BigInteger
 enum class SpamReason { ZERO_VALUE, DUST, LOOKALIKE, NAME }
 
 /**
- * The spam heuristic. It judges only the ERC-20 transfers of tokens that the registry does not list, which [isKnownToken] answers. A native coin and a
- * listed token are never flagged. A transfer of an unlisted token is flagged when it:
+ * The spam heuristic. It judges only the ERC-20 transfers of mainnet tokens that the registry does not list ([isKnownToken]) and the owner did not add
+ * ([isCustomToken]). A native coin, a listed token, a token the owner added and any testnet transfer are never flagged. A transfer of an unlisted token is
+ * flagged when it:
  * - moves no value ([SpamReason.ZERO_VALUE]), or less than one millionth of a whole token ([SpamReason.DUST]);
  * - is received from an address that looks like one the account has dealt with: the same first four and last four hex digits as a known address, but a
  *   different address ([SpamReason.LOOKALIKE]). This is the address-poisoning pattern: it sends from a lookalike and waits for the holder to copy the
@@ -17,11 +18,14 @@ enum class SpamReason { ZERO_VALUE, DUST, LOOKALIKE, NAME }
  *
  * [knownCounterparties] are the addresses that the account has dealt with, and the caller reads them from the store, never from the transaction itself.
  */
-class TxSpam(private val isKnownToken: (NetworkId, String) -> Boolean) {
+class TxSpam(
+    private val isKnownToken: (NetworkId, String) -> Boolean,
+    private val isCustomToken: (NetworkId, String) -> Boolean,
+) {
     /** The reasons that flag [tx]. The set is empty when the transaction is not spam. */
     fun reasons(tx: LumioTx, knownCounterparties: Set<String>): Set<SpamReason> {
         val contract = tx.asset.contract ?: return emptySet()
-        if (isKnownToken(tx.network, contract)) return emptySet()
+        if (tx.network.testnet || isKnownToken(tx.network, contract) || isCustomToken(tx.network, contract)) return emptySet()
         return buildSet {
             if (tx.amount.signum() == 0) {
                 add(SpamReason.ZERO_VALUE)

@@ -12,6 +12,7 @@ import app.lumio.data.tx.TxSpam
 import app.lumio.data.tx.TxStore
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSend
+import app.lumio.tokens.CustomTokenStore
 import java.math.BigDecimal
 
 /**
@@ -35,7 +36,12 @@ internal suspend fun txDetailOf(app: LumioApp, vault: LumioVault, account: Strin
     val chain = chains[tx.network]
     val asset = assetIdOf(tx)
     val price = app.prices.assetPrices(listOf(asset))[asset]
-    val reasons = TxSpam { network, contract -> app.isKnownToken(network, contract) }.reasons(tx, vault.txs.counterparties(account))
+    val owned = CustomTokenStore.read(vault.session)
+    val spam = TxSpam(
+        isKnownToken = { network, contract -> app.isKnownToken(network, contract) },
+        isCustomToken = { network, contract -> CustomTokenStore.holds(owned, network, contract) },
+    )
+    val reasons = spam.reasons(tx, vault.txs.counterparties(account))
     return TxDetail(
         tx = tx,
         usd = price?.let { BigDecimal(tx.amount).movePointLeft(tx.asset.decimals).toDouble() * it.usd },

@@ -66,6 +66,16 @@ class CustomTokenStoreTest {
 
         assertEquals(emptyList(), CustomTokenStore.read(session))
     }
+
+    @Test
+    fun holdsMatchesTheChainAndTheContractWithoutCase() {
+        val mainnet = NetworkId(Family.EVM, "1", testnet = false)
+        val sepolia = NetworkId(Family.EVM, "11155111", testnet = true)
+
+        assertTrue(CustomTokenStore.holds(listOf(usdc), mainnet, USDC.uppercase()))
+        assertTrue(!CustomTokenStore.holds(listOf(usdc), sepolia, USDC))
+        assertTrue(!CustomTokenStore.holds(emptyList(), mainnet, USDC))
+    }
 }
 
 /** The cache of token reads: a refresh replaces the reads it reads again, keeps the rest, and drops an address that is no longer shown. */

@@ -1,6 +1,8 @@
 package app.lumio.data.tx
 
 import app.lumio.data.ETH
+import app.lumio.data.net.Family
+import app.lumio.data.net.NetworkId
 import java.math.BigInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -16,7 +18,8 @@ class TxSpamTest {
     private val friend = "0x1234" + "a".repeat(32) + "9f9f"
     private val lookalike = "0x1234" + "b".repeat(32) + "9f9f"
     private val stranger = "0x5678" + "c".repeat(32) + "0a0a"
-    private val spam = TxSpam { _, contract -> contract == listedToken }
+    private val testnet = NetworkId(Family.EVM, "11155111", testnet = true)
+    private val spam = TxSpam(isKnownToken = { _, contract -> contract == listedToken }, isCustomToken = { _, _ -> false })
 
     private fun token(
         from: String = stranger,
@@ -26,9 +29,10 @@ class TxSpamTest {
         symbol: String = "USDC",
         decimals: Int = 6,
         direction: TxDirection = TxDirection.IN,
+        network: NetworkId = ETH,
     ): LumioTx = LumioTx(
         id = "EVM:1:$hash:$contract",
-        network = ETH,
+        network = network,
         account = account,
         hash = hash,
         timestampMs = 0L,
@@ -53,6 +57,20 @@ class TxSpamTest {
         val native = token(amount = BigInteger.ZERO).copy(asset = TxAsset(null, "ETH", "Ether", 18))
 
         assertTrue(spam.reasons(native, setOf(friend)).isEmpty())
+    }
+
+    @Test
+    fun aTestnetTransferIsNeverSpam() {
+        assertTrue(spam.reasons(token(amount = BigInteger.ZERO, network = testnet), emptySet()).isEmpty())
+        assertTrue(spam.reasons(token(from = lookalike, network = testnet), setOf(friend)).isEmpty())
+    }
+
+    @Test
+    fun aTokenTheOwnerAddedIsNeverSpam() {
+        val owned = TxSpam(isKnownToken = { _, _ -> false }, isCustomToken = { _, contract -> contract == usdc })
+
+        assertTrue(owned.reasons(token(amount = BigInteger.ZERO), emptySet()).isEmpty())
+        assertTrue(owned.reasons(token(from = lookalike), setOf(friend)).isEmpty())
     }
 
     @Test

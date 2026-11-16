@@ -86,7 +86,7 @@ class TxHistoryTest {
     private fun history(scheduler: Scheduler, preferRpc: Boolean = false) = TxHistory(
         scheduler = scheduler,
         store = store,
-        spam = TxSpam { _, contract -> contract == listed },
+        spam = TxSpam(isKnownToken = { _, contract -> contract == listed }, isCustomToken = { _, _ -> false }),
         nativeAsset = { if (it.family == Family.EVM) native else null },
         preferRpc = { preferRpc },
         clock = clock,
