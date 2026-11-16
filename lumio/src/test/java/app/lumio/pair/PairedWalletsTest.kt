@@ -1,5 +1,7 @@
 package app.lumio.pair
 
+import app.lensly.core.wallet.AccountAddresses
+
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
@@ -47,11 +49,11 @@ class PairedWalletsTest {
         assertEquals(saved.id, listed.id)
         assertEquals("Demo", listed.name)
         assertEquals(
-            listOf(PairedAccount(0, "Savings", "cold", "Long term"), PairedAccount(1, "Trading", null, "Hot")),
+            listOf(PairedAccount(0, PairFixtures.addressKey(PairFixtures.seed, 0), "Savings", "cold", "Long term"), PairedAccount(1, PairFixtures.addressKey(PairFixtures.seed, 1), "Trading", null, "Hot")),
             listed.evmAccounts,
         )
         assertEquals(setOf(PairFamily.EVM), listed.families)
-        assertEquals(HdWallet(PairFixtures.seed).accountXpub().publicKey.toHex(), requireNotNull(listed.evm).publicKey.toHex())
+        assertEquals(PairFixtures.addressKey(PairFixtures.seed, 0).publicKey.toHex(), listed.evmKeys.first().publicKey.toHex())
     }
 
     @Test
@@ -74,7 +76,7 @@ class PairedWalletsTest {
 
         PairedWallets.save(session, payload(accounts = listOf(account(0, "Cold store"))), nowMs = 200L)
 
-        assertEquals(listOf(PairedAccount(0, "Cold store", null, null)), PairedWallets.list(session).single().evmAccounts)
+        assertEquals(listOf(PairedAccount(0, PairFixtures.addressKey(PairFixtures.seed, 0), "Cold store", null, null)), PairedWallets.list(session).single().evmAccounts)
     }
 
     @Test
@@ -83,7 +85,7 @@ class PairedWalletsTest {
 
         PairedWallets.save(session, payload(accounts = listOf(account(0, "Savings"))), nowMs = 200L)
 
-        assertEquals(listOf(PairedAccount(0, "Savings", null, null)), PairedWallets.list(session).single().evmAccounts)
+        assertEquals(listOf(PairedAccount(0, PairFixtures.addressKey(PairFixtures.seed, 0), "Savings", null, null)), PairedWallets.list(session).single().evmAccounts)
     }
 
     @Test
@@ -98,7 +100,7 @@ class PairedWalletsTest {
 
         val listed = PairedWallets.list(session).single()
         assertEquals(listOf(0, 1), listed.evmAccounts.map { it.index })
-        assertEquals(listOf(PairedAccount(1, "B", null, null)), listed.evmAccounts.filter { it.index == 1 })
+        assertEquals(listOf(PairedAccount(1, PairFixtures.addressKey(PairFixtures.seed, 1), "B", null, null)), listed.evmAccounts.filter { it.index == 1 })
     }
 
     @Test
@@ -108,7 +110,7 @@ class PairedWalletsTest {
         PairedWallets.save(session, payload(accounts = listOf(account(0, "A"), account(1, "B"), account(2, "C", "x", null))), nowMs = 200L)
 
         assertEquals(
-            listOf(PairedAccount(0, "A", null, null), PairedAccount(1, "B", null, null), PairedAccount(2, "C", "x", null)),
+            listOf(PairedAccount(0, PairFixtures.addressKey(PairFixtures.seed, 0), "A", null, null), PairedAccount(1, PairFixtures.addressKey(PairFixtures.seed, 1), "B", null, null), PairedAccount(2, PairFixtures.addressKey(PairFixtures.seed, 2), "C", "x", null)),
             PairedWallets.list(session).single().evmAccounts,
         )
     }
@@ -122,7 +124,7 @@ class PairedWalletsTest {
         val listed = PairedWallets.list(session).single()
         assertEquals(setOf(PairFamily.EVM, PairFamily.BITCOIN), listed.families)
         assertEquals(8, listed.bitcoin.size)
-        assertEquals(HdWallet(PairFixtures.seed).accountXpub().publicKey.toHex(), requireNotNull(listed.evm).publicKey.toHex())
+        assertEquals(PairFixtures.addressKey(PairFixtures.seed, 0).publicKey.toHex(), listed.evmKeys.first().publicKey.toHex())
     }
 
     @Test
@@ -244,8 +246,13 @@ class PairedWalletsTest {
         addressBook: List<AddressBookEntry> = emptyList(),
     ): PairingPayload {
         val wallet = HdWallet(seed)
+        val numbered = accounts.mapIndexed { index, account -> account.copy(key = index, child = null) }
         val apps = mutableListOf(
-            PairingApp(app = "ethereum", keys = listOf(PairingKey.ethereumAccount(wallet.accountXpub())), accounts = accounts),
+            PairingApp(
+                app = "ethereum",
+                keys = numbered.indices.map { PairingKey.ethereumAddress(it, AccountAddresses.addressXpub(wallet.accountXpub(it), 0)) },
+                accounts = numbered,
+            ),
         )
         if (bitcoin.isNotEmpty()) {
             apps += PairingApp(

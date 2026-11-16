@@ -18,7 +18,7 @@ import java.nio.ByteBuffer
  */
 internal object PairRecords {
     /** The layout of the META and account records. A record of an older layout is not read as a pairing. */
-    private const val VERSION: Byte = 2
+    private const val VERSION: Byte = 3
 
     /** The layout of the Bitcoin record. */
     private const val BITCOIN_VERSION: Byte = 1
@@ -31,34 +31,37 @@ internal object PairRecords {
     private const val BITCOIN_ACCOUNT_HEADER_BYTES = 3
     private const val BITCOIN_ACCOUNT_TAIL_BYTES = 1 + FINGERPRINT_BYTES + PUBLIC_KEY_BYTES + CHAIN_CODE_BYTES
 
-    /** The META record's fixed part: the version, the fingerprint, the creation time and the name's length. */
+    /** The META record's fixed part before the name: the version, the fingerprint, the creation time and the name's length. */
     private const val META_HEADER_BYTES = 1 + FINGERPRINT_BYTES + 8 + 1
 
-    /** The META record's key part: the number of Ethereum accounts, the account key's public key, chain code and parent fingerprint. */
-    private const val META_KEY_BYTES = 1 + PUBLIC_KEY_BYTES + CHAIN_CODE_BYTES + FINGERPRINT_BYTES
+    /** The META record's account count, which follows the name. */
+    private const val META_COUNT_BYTES = 1
+
+    /** One account's key in the META record: its public key, chain code and parent fingerprint. */
+    private const val META_KEY_BYTES = PUBLIC_KEY_BYTES + CHAIN_CODE_BYTES + FINGERPRINT_BYTES
 
     /**
-     * The META record: the wallet's master fingerprint, when Lumio first paired it, its creation time, its name, the number of its Ethereum
-     * accounts, and its Ethereum account key m/44'/60'/0'.
+     * The META record: the wallet's master fingerprint, when Lumio first paired it, its creation time, its name, and the public key of each of
+     * its Ethereum accounts. The key of account N is the address key m/44'/60'/N'/0/0, so the number of accounts is the number of keys.
      */
-    class Meta(val fingerprint: Long, val createdAtMs: Long, val name: String, val accountCount: Int, val evm: AccountXpub)
+    class Meta(val fingerprint: Long, val createdAtMs: Long, val name: String, val accountKeys: List<AccountXpub>)
 
     fun encodeMeta(meta: Meta): ByteArray {
         val name = meta.name.toByteArray(Charsets.UTF_8)
         require(name.size in 1..PairingCodec.MAX_NAME_BYTES) { "A wallet name holds 1 to ${PairingCodec.MAX_NAME_BYTES} bytes." }
-        require(meta.accountCount in 1..PairImport.MAX_ETHEREUM_ACCOUNTS) { "A wallet holds 1 to ${PairImport.MAX_ETHEREUM_ACCOUNTS} accounts." }
-        require(meta.evm.publicKey.size == PUBLIC_KEY_BYTES && meta.evm.chainCode.size == CHAIN_CODE_BYTES) { "Not an account key." }
-        return ByteBuffer.allocate(META_HEADER_BYTES + name.size + META_KEY_BYTES)
+        require(meta.accountKeys.size in 1..PairImport.MAX_ETHEREUM_ACCOUNTS) { "A wallet holds 1 to ${PairImport.MAX_ETHEREUM_ACCOUNTS} accounts." }
+        val buffer = ByteBuffer.allocate(META_HEADER_BYTES + name.size + META_COUNT_BYTES + meta.accountKeys.size * META_KEY_BYTES)
             .put(VERSION)
             .putInt(meta.fingerprint.toInt())
             .putLong(meta.createdAtMs)
             .put(name.size.toByte())
             .put(name)
-            .put(meta.accountCount.toByte())
-            .put(meta.evm.publicKey)
-            .put(meta.evm.chainCode)
-            .putInt(meta.evm.parentFingerprint)
-            .array()
+            .put(meta.accountKeys.size.toByte())
+        for (key in meta.accountKeys) {
+            require(key.publicKey.size == PUBLIC_KEY_BYTES && key.chainCode.size == CHAIN_CODE_BYTES) { "Not an account key." }
+            buffer.put(key.publicKey).put(key.chainCode).putInt(key.parentFingerprint)
+        }
+        return buffer.array()
     }
 
     fun decodeMeta(bytes: ByteArray): Meta {
@@ -68,17 +71,19 @@ internal object PairRecords {
         val fingerprint = buffer.int.toLong() and UINT32_MASK
         val createdAtMs = buffer.long
         val length = buffer.get().toInt() and UNSIGNED_BYTE_MASK
-        require(length in 1..PairingCodec.MAX_NAME_BYTES && bytes.size == META_HEADER_BYTES + length + META_KEY_BYTES) {
-            "Not a pairing record."
-        }
+        require(length in 1..PairingCodec.MAX_NAME_BYTES && buffer.remaining() > length + META_COUNT_BYTES) { "Not a pairing record." }
         val name = String(bytes, buffer.position(), length, Charsets.UTF_8)
         buffer.position(buffer.position() + length)
         val accountCount = buffer.get().toInt() and UNSIGNED_BYTE_MASK
-        require(accountCount in 1..PairImport.MAX_ETHEREUM_ACCOUNTS) { "Not a pairing record." }
-        val publicKey = ByteArray(PUBLIC_KEY_BYTES).also { buffer.get(it) }
-        val chainCode = ByteArray(CHAIN_CODE_BYTES).also { buffer.get(it) }
-        val parent = buffer.int
-        return Meta(fingerprint, createdAtMs, name, accountCount, AccountXpub(publicKey, chainCode, parent))
+        require(accountCount in 1..PairImport.MAX_ETHEREUM_ACCOUNTS && buffer.remaining() == accountCount * META_KEY_BYTES) {
+            "Not a pairing record."
+        }
+        val keys = List(accountCount) {
+            val publicKey = ByteArray(PUBLIC_KEY_BYTES).also { buffer.get(it) }
+            val chainCode = ByteArray(CHAIN_CODE_BYTES).also { buffer.get(it) }
+            AccountXpub(publicKey, chainCode, buffer.int)
+        }
+        return Meta(fingerprint, createdAtMs, name, keys)
     }
 
     /** One Ethereum account's record: the name, label and group that Lensly gave it. An absent field is stored with length 0. */

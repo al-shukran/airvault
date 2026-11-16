@@ -43,7 +43,7 @@ object PairImport {
     private const val OLDER_CODE =
         "This code is from an older Lensly, which does not carry the names of the accounts. Pair the wallet again from Lensly's Pair wallet."
     private const val NO_ETHEREUM = "The code holds no Ethereum account key."
-    private const val NOT_ACCOUNT_KEY = "The code's Ethereum key is not the account key m/44'/60'/0'."
+    private const val NOT_ACCOUNT_KEY = "The code's Ethereum key is not the address key of its account, m/44'/60'/N'/0/0."
     private const val BAD_KEY = "The code's public key is not valid."
     private const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid Ethereum or Bitcoin address."
 
@@ -80,17 +80,22 @@ object PairImport {
         entry.copy(address = canonicalAddressOf(entry.address) ?: throw PairingRefusal(BAD_ADDRESS))
     }
 
-    /** One account key, on the Ethereum account path, with the accounts numbered 0 to n-1 under it. */
+    /**
+     * One key for each Ethereum account: the address key of account N at m/44'/60'/N'/0/0, for the accounts numbered 0 to n-1, in order.
+     */
     private fun checkEthereum(app: PairingApp) {
-        val key = app.keys.singleOrNull() ?: throw PairingRefusal(NO_ETHEREUM)
-        if (key.path != ETHEREUM_PATH || key.depth != ETHEREUM_DEPTH) throw PairingRefusal(NOT_ACCOUNT_KEY)
-        if (app.accounts.isEmpty()) throw PairingRefusal(NO_ETHEREUM)
+        if (app.keys.isEmpty() || app.accounts.isEmpty()) throw PairingRefusal(NO_ETHEREUM)
         if (app.accounts.size > MAX_ETHEREUM_ACCOUNTS) {
             throw PairingRefusal("The code carries ${app.accounts.size} Ethereum accounts. Lumio pairs up to $MAX_ETHEREUM_ACCOUNTS.")
         }
-        val children = app.accounts.map { it.child ?: throw PairingRefusal("An Ethereum account has no address index.") }
-        if (children.sorted() != children.indices.toList()) throw PairingRefusal("The code's Ethereum accounts are not numbered 0 to n-1.")
-        checkKey { AccountAddresses.addressAt(key.toEthereumXpub(), 0) }
+        if (app.keys.size != app.accounts.size) throw PairingRefusal(NOT_ACCOUNT_KEY)
+        if (app.accounts.map { it.key } != app.accounts.indices.toList()) {
+            throw PairingRefusal("The code's Ethereum accounts are not numbered 0 to n-1.")
+        }
+        app.keys.forEachIndexed { account, key ->
+            if (key.path != ethereumPathOf(account) || key.depth != ETHEREUM_DEPTH) throw PairingRefusal(NOT_ACCOUNT_KEY)
+            checkKey { AccountAddresses.addressOfKey(key.toEthereumXpub()) }
+        }
     }
 
     /** Each Bitcoin key on a Bitcoin account path, once, with a receive address that the key derives. */
@@ -107,10 +112,10 @@ object PairImport {
         }
     }
 
-    /** The Ethereum account key of a validated pairing, the key every Ethereum account derives from. */
-    internal fun ethereumKeyOf(payload: PairingPayload): AccountXpub {
-        val key = requireNotNull(payload.apps.firstOrNull { it.app == ETHEREUM }?.keys?.singleOrNull()) { NO_ETHEREUM }
-        return key.toEthereumXpub()
+    /** The address key of each Ethereum account of a validated pairing, in account order: the key of account N is at index N. */
+    internal fun ethereumAccountKeysOf(payload: PairingPayload): List<AccountXpub> {
+        val app = requireNotNull(payload.apps.firstOrNull { it.app == ETHEREUM }) { NO_ETHEREUM }
+        return app.keys.map { it.toEthereumXpub() }
     }
 
     /** The watch-only Bitcoin accounts of a validated pairing, each on its network and Script Type, with the fingerprint of the wallet. */
@@ -169,10 +174,13 @@ object PairImport {
         return PairingRefusal(OLDER_CODE)
     }
 
-    private val ETHEREUM_PATH: List<Long> = listOf(
+    /** The path of the address key of Ethereum account [account]: m/44'/60'/[account]'/0/0. */
+    private fun ethereumPathOf(account: Int): List<Long> = listOf(
         DeterministicWallet.hardened(44),
         DeterministicWallet.hardened(60),
-        DeterministicWallet.hardened(0),
+        DeterministicWallet.hardened(account.toLong()),
+        0L,
+        0L,
     )
-    private const val ETHEREUM_DEPTH = 3
+    private const val ETHEREUM_DEPTH = 5
 }

@@ -31,7 +31,7 @@ class AccountExportTest {
             deviceGenerated = true,
             accountCount = 5,
             masterFingerprintHex = artWallet.masterFingerprintHex,
-            accountXpub = artWallet.accountXpub(),
+            accountKeys = (0 until 5).map { artWallet.accountXpub(it) },
             kind = WalletKind.MNEMONIC,
             autoNameBase = "Seed wallet",
         )
@@ -46,7 +46,7 @@ class AccountExportTest {
             deviceGenerated = false,
             accountCount = 1,
             masterFingerprintHex = null,
-            accountXpub = null,
+            accountKeys = emptyList(),
             kind = WalletKind.SINGLE_KEY,
             autoNameBase = "Key",
         )
@@ -60,9 +60,9 @@ class AccountExportTest {
     }
 
     @Test
-    fun theDerivationPathIsTheExternalChainOfTheAccount() {
-        assertEquals("m/44'/60'/0'/0/0", AccountExport.derivationPath(0))
-        assertEquals("m/44'/60'/0'/0/3", AccountExport.derivationPath(3))
+    fun theDerivationPathIsTheAddressOfTheAccount() {
+        assertEquals("m/44'/60'/1'/0/0", AccountExport.derivationPath(1))
+        assertEquals("m/44'/60'/3'/0/0", AccountExport.derivationPath(3))
     }
 
     @Test
@@ -79,7 +79,7 @@ class AccountExportTest {
             listOf("Derivation path", "Depth", "Public key", "Chain code", "Parent fingerprint", "Master fingerprint"),
             view.fields.map { it.first },
         )
-        assertEquals("m/44'/60'/0'/0/3", fields.getValue("Derivation path"))
+        assertEquals("m/44'/60'/3'/0/0", fields.getValue("Derivation path"))
         assertEquals("5", fields.getValue("Depth"))
         // 33 bytes and 32 bytes in hex, and 4 bytes of fingerprint: nothing is cut short.
         assertEquals(66, fields.getValue("Public key").length)
@@ -109,14 +109,14 @@ class AccountExportTest {
 
     /**
      * Round trip, for accounts 0 and 3: the code is scanned and decoded again. The key it carries must be the key that web3j derives
-     * from the seed along m/44'/60'/0'/0/[index], with its chain code, its origin path and depth, the master fingerprint, and the
-     * fingerprint of m/44'/60'/0'/0 as its parent. The address of that private key must be the address shown.
+     * from the seed along m/44'/60'/[index]'/0/0, with its chain code, its origin path and depth, the master fingerprint, and the
+     * fingerprint of m/44'/60'/[index]'/0 as its parent. The address of that private key must be the address shown.
      */
     @Test
     fun theCodeOfEachAccountDecodesToItsOwnAddressKey() {
         val master = Bip32ECKeyPair.generateKeyPair(Mnemonic.toSeed(artMnemonic))
-        val external = Bip32ECKeyPair.deriveKeyPair(master, pathComponents("m/44'/60'/0'/0"))
         for (index in listOf(0, 3)) {
+            val external = Bip32ECKeyPair.deriveKeyPair(master, pathComponents("m/44'/60'/$index'/0"))
             val view = AccountExport.view(artMeta, index, artWallet.address(index))
             val key = decodeKey(view.parts)
             val child = Bip32ECKeyPair.deriveKeyPair(master, pathComponents(AccountExport.derivationPath(index)))
@@ -126,7 +126,7 @@ class AccountExportTest {
             assertContentEquals(hash160Prefix(external.publicKeyPoint.getEncoded(true)), key.parentFingerprint, "index $index")
             assertContentEquals(hash160Prefix(master.publicKeyPoint.getEncoded(true)), key.origin.sourceFingerprint, "index $index")
             assertEquals(5, key.origin.depth, "index $index")
-            assertEquals(listOf(44, 60, 0, 0, index), key.origin.components.map { (it as IndexPathComponent).index })
+            assertEquals(listOf(44, 60, index, 0, 0), key.origin.components.map { (it as IndexPathComponent).index })
             assertEquals(
                 listOf(true, true, true, false, false),
                 key.origin.components.map { (it as IndexPathComponent).isHardened },
@@ -152,7 +152,7 @@ class AccountExportTest {
     /** The first four bytes of HASH160 of [publicKey], the BIP32 fingerprint. */
     private fun hash160Prefix(publicKey: ByteArray): ByteArray = Hash.sha256hash160(publicKey).copyOfRange(0, 4)
 
-    /** The components of a path such as "m/44'/60'/0'/0/3", with a hardened step as the BIP32 hardened number. */
+    /** The components of a path such as "m/44'/60'/3'/0/0", with a hardened step as the BIP32 hardened number. */
     private fun pathComponents(path: String): IntArray = path.removePrefix("m/").split("/").map { step ->
         if (step.endsWith("'")) step.dropLast(1).toInt() or Bip32ECKeyPair.HARDENED_BIT else step.toInt()
     }.toIntArray()

@@ -52,7 +52,7 @@ class WalletDetailScreenTest {
                 deviceGenerated = true,
                 accountCount = accounts,
                 masterFingerprintHex = "1a2b3c4d",
-                accountXpub = null,
+                accountKeys = emptyList(),
                 kind = kind,
                 autoNameBase = "Seed wallet",
             ),

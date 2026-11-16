@@ -32,10 +32,10 @@ class TxSyncPlanTest {
         name = "Demo",
         fingerprint = 1L,
         createdAtMs = 0L,
-        evm = HdWallet(PairFixtures.seed).accountXpub(),
+        evmAccounts = PairFixtures.evmAccounts(2),
         bitcoin = emptyList(),
     )
-    private val walletWithoutEthereum = wallet.copy(evm = null)
+    private val walletWithoutEthereum = wallet.copy(evmAccounts = emptyList())
     private val btcMainnet = BtcAccountRef("wallet-1", PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.TAPROOT))
     private val btcTestnet = BtcAccountRef("wallet-1", PairFixtures.account(PairFixtures.seed, BtcNetwork.TESTNET4, ScriptType.TAPROOT))
     private val settings = EvmSettings(addressCount = 2, enabled = setOf(1L, 11155111L, 10143L))
@@ -67,7 +67,7 @@ class TxSyncPlanTest {
     @Test
     fun eachAddressOfEachWalletIsReadOnEachEnabledChainOfTheSide() {
         val read = plan(NetworkMode.TESTNET)
-        val expected = Portfolio.addresses(wallet.evm!!, 2)
+        val expected = Portfolio.addresses(wallet.evmKeys, 2)
         val sepoliaReads = read.evm.filter { it.net.chain == "11155111" }.map { it.address }
         assertEquals(expected, sepoliaReads)
         assertEquals(2 * 2, read.evm.size)

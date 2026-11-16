@@ -248,9 +248,9 @@ internal class VaultSignPorts(
             }
             when (meta.kind) {
                 WalletKind.MNEMONIC -> {
-                    val xpub = meta.accountXpub
+                    val keys = meta.accountKeys
                     val fingerprint = meta.masterFingerprintHex?.toLongOrNull(16)?.toInt()
-                    if (xpub == null || fingerprint == null) {
+                    if (keys.size != meta.accountCount || fingerprint == null) {
                         null
                     } else {
                         WalletView(
@@ -260,7 +260,7 @@ internal class VaultSignPorts(
                             autoNameBase = meta.autoNameBase,
                             accountNames = accountNames,
                             accountLabels = accountLabels,
-                            addressAt = { index -> AccountAddresses.addressAt(xpub, index) },
+                            addressAt = { index -> AccountAddresses.addressAt(keys[index], 0) },
                             name = meta.name,
                             identity = identity,
                             accountIdentity = accountIdentity,

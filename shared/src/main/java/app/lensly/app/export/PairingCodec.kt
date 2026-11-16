@@ -27,13 +27,16 @@ data class PairingKey(
     companion object {
         private const val HARDENED = 0x80000000L
 
-        /** The Ethereum account key m/44'/60'/0' of [xpub], which holds the addresses of every Ethereum account. */
-        fun ethereumAccount(xpub: AccountXpub): PairingKey = PairingKey(
-            path = listOf(HARDENED + 44, HARDENED + 60, HARDENED),
-            depth = 3,
-            parentFingerprint = xpub.parentFingerprint.toLong() and 0xFFFFFFFFL,
-            publicKey = xpub.publicKey,
-            chainCode = xpub.chainCode,
+        /**
+         * The Ethereum key of account [account]: the address key m/44'/60'/[account]'/0/0 that [addressKey] describes. The account's address
+         * is the one this key controls, so a reader shows it with no derivation.
+         */
+        fun ethereumAddress(account: Int, addressKey: AccountXpub): PairingKey = PairingKey(
+            path = listOf(HARDENED + 44, HARDENED + 60, HARDENED + account, 0, 0),
+            depth = 5,
+            parentFingerprint = addressKey.parentFingerprint.toLong() and 0xFFFFFFFFL,
+            publicKey = addressKey.publicKey,
+            chainCode = addressKey.chainCode,
         )
 
         /** The watch-only key of a Bitcoin account: its path, depth, parent fingerprint and public key, as [account] holds them. */
@@ -48,9 +51,9 @@ data class PairingKey(
 }
 
 /**
- * One account of an App. [key] is the index of the App's key the account derives from. [child] is the address index under that key, for an
- * App whose accounts are addresses under one key (Ethereum), or null when the key is the account itself (Bitcoin). [name], [label] and
- * [group] are what the owner gave the account in Lensly, or null when there is none.
+ * One account of an App. [key] is the index of the App's key the account derives from. [child] is the address index under that key, which no
+ * App uses now: an Ethereum account is its own key, and a Bitcoin account is its key. It is null in a code this build writes. [name], [label]
+ * and [group] are what the owner gave the account in Lensly, or null when there is none.
  */
 data class PairingAccount(
     val key: Int,
@@ -92,8 +95,8 @@ fun interface BrotliDecompressor {
  * names at once. The code is a `ur:airvault-pairing`, animated when it is long. Its CBOR is versioned: a reader refuses a version it does
  * not know, so it never reads a newer layout as its own. The payload holds public data only: keys, chain codes, paths and names.
  *
- * The layout, version 2, with integer keys. The code's CBOR is an envelope:
- *  - envelope: { 1: version (2), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
+ * The layout, version 3, with integer keys. The code's CBOR is an envelope:
+ *  - envelope: { 1: version (3), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
  *  - body, once it is decompressed: { 2: fingerprint (uint32), 3: name, 4: [app], 5: [address] (optional: absent when the Address Book is empty) }
  *  - app: { 1: app id, 2: [key], 3: [account] }
  *  - key: { 1: [path component (uint32)], 2: depth, 3: parent fingerprint (uint32), 4: public key (33 bytes), 5: chain code (32 bytes) }
@@ -101,9 +104,10 @@ fun interface BrotliDecompressor {
  *  - address: { 1: id, 2: address, 3: name, 4: label (optional) }, one Address Book entry. An id that is a lower-case UUID is 16 bytes, and an
  *    address that is an EVM address in checksum form is 20 bytes. Any other id or address is text.
  *
- * Version 1, which earlier builds wrote, is the same payload map without the envelope, with text for every id and address. A reader still
- * reads it. Key 5 of the payload was added to version 1 without a new version: a reader of an earlier build reads only keys 1 to 4, so it
- * refuses a code that carries an Address Book, as it refuses any key it does not know. A code with an empty book is the same code as before.
+ * Version 3 changed the Ethereum App: each account is its own key, the address key m/44'/60'/N'/0/0 of account N (see
+ * [PairingKey.ethereumAddress]), and an account names its key with no child index. Versions 1 and 2 held one account key with the accounts
+ * under it as children, so this version refuses them, with the message that asks for an update. A code with an empty Address Book is the
+ * same code as before.
  *
  * The body is at most [MAX_BODY_BYTES] bytes, compressed or not. The encoder keeps it compressed only when that makes it smaller.
  */
@@ -111,8 +115,11 @@ object PairingCodec {
     /** The UR type of the pairing. */
     const val UR_TYPE = "airvault-pairing"
 
-    /** The layout version this build writes. It reads version 1 as well. */
-    const val VERSION = 2L
+    /**
+     * The layout version this build writes and reads. A code of any other version is refused with the message that asks for an update: an
+     * earlier version's Ethereum keys are account keys, which this version does not read as accounts.
+     */
+    const val VERSION = 3L
 
     /** The largest body in bytes, compressed or not. A reader refuses a larger body, so a body it decompresses is bounded by this. */
     const val MAX_BODY_BYTES = 512 * 1024
@@ -196,17 +203,13 @@ object PairingCodec {
             ?.firstOrNull { (key, _) -> (key as? Cbor.Uint)?.value == 1L }
             ?.let { (_, value) -> (value as? Cbor.Uint)?.value }
             ?: refuse()
-        if (version > VERSION) {
+        if (version != VERSION) {
             throw IllegalArgumentException(
                 "This pairing uses format $version, and this app reads format $VERSION. Update the app, then pair again.",
             )
         }
         return try {
-            when (version) {
-                1L -> payloadOf(fieldsOf(root as Cbor.Dict, 1L..5L), packed = false)
-                2L -> payloadOf(bodyFieldsOf(root as Cbor.Dict, brotli), packed = true)
-                else -> refuse()
-            }
+            payloadOf(bodyFieldsOf(root, brotli), packed = true)
         } catch (e: IllegalArgumentException) {
             throw IllegalArgumentException(NOT_A_PAIRING, e)
         }

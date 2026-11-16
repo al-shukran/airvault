@@ -19,12 +19,12 @@ class BulkRunTest {
     }
 
     @Test
-    fun theFirstAccountsMatchTheStandardVectors() {
+    fun theFirstAccountsMatchTheLedgerLiveVectors() {
         assertEquals(
             listOf(
                 "0x9858EfFD232B4033E47d90003D41EC34EcaEda94",
-                "0x6Fac4D18c912343BF86fa7049364Dd4E424Ab9C0",
-                "0xb6716976A3ebe8D39aCEB04372f22Ff8e6802D7A",
+                "0x78839F6054d7ed13918bAe0473BA31b1Ca9D7265",
+                "0x07B5FdfEB4E11826D233403Fe8Db0611CCF4c231",
             ),
             BulkRun.addresses(HdWallet(seed), 0..2),
         )
@@ -49,12 +49,18 @@ class BulkRunTest {
     }
 
     @Test
-    fun bulkAccountsMatchTheAddressesOfThePublicXpub() {
+    fun bulkAccountKeysAreTheAccountKeysOfTheirIndexes() {
+        val single = HdWallet(seed)
+        val keys = BulkRun.accountKeys(HdWallet(seed), 3 until 6)
+        assertEquals((3 until 6).map { single.accountXpub(it).publicKey.toList() }, keys.map { it.publicKey.toList() })
+    }
+
+    @Test
+    fun bulkAccountsMatchTheAddressesOfTheirAccountKeys() {
         val wallet = HdWallet(seed)
-        val xpub = wallet.accountXpub()
         val bulk = BulkRun.addresses(wallet, 0 until 10)
         bulk.forEachIndexed { index, address ->
-            assertEquals(AccountAddresses.addressAt(xpub, index), address, "index $index")
+            assertEquals(AccountAddresses.addressAt(wallet.accountXpub(index), 0), address, "index $index")
         }
     }
 

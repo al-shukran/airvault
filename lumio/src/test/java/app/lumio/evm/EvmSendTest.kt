@@ -139,7 +139,7 @@ class EvmSendTest {
         assertEquals(DataType.TYPED_TRANSACTION, parsed.dataType)
         assertEquals(11155111L, parsed.chainId)
         assertEquals(
-            listOf(PathStep(44, true), PathStep(60, true), PathStep(0, true), PathStep(0, false), PathStep(2, false)),
+            listOf(PathStep(44, true), PathStep(60, true), PathStep(2, true), PathStep(0, false), PathStep(0, false)),
             parsed.derivationPath,
         )
         assertEquals(wallet.masterFingerprint, parsed.sourceFingerprint)
@@ -266,7 +266,7 @@ class EvmSendTest {
     @Test
     fun theDerivationPathIsTheAccountPathOfTheIndex() {
         assertEquals(
-            listOf(PathStep(44, true), PathStep(60, true), PathStep(0, true), PathStep(0, false), PathStep(4, false)),
+            listOf(PathStep(44, true), PathStep(60, true), PathStep(4, true), PathStep(0, false), PathStep(0, false)),
             EvmSend.derivationPath(4),
         )
     }

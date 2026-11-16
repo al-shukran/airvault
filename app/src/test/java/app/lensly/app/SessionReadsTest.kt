@@ -91,7 +91,7 @@ class SessionReadsTest {
         val after = requireNotNull(reads.ethereumAccounts(id))
         assertEquals(2, after.addresses.size)
         assertEquals(store.accountAddress(id, 1), after.addresses[1])
-        assertEquals(AccountAddresses.addressAt(requireNotNull(after.meta.accountXpub), 1), after.addresses[1])
+        assertEquals(AccountAddresses.addressAt(after.meta.accountKeys[1], 0), after.addresses[1])
     }
 
     @Test

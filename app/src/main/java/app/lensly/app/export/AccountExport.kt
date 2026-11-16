@@ -10,8 +10,8 @@ import app.lensly.core.wallet.toHex
  * What one account's export shows: its address and derivation path, the frames of its code, and the fields of the plain-text
  * view. Public data only.
  *
- * [parts] is the code. A Mnemonic account's code is the ur:crypto-hdkey of its own address key, m/44'/60'/0'/0/[index], with the
- * full path as its origin, depth 5, and the fingerprint of m/44'/60'/0'/0 as its parent. It carries no private key, and an online
+ * [parts] is the code. A Mnemonic account's code is the ur:crypto-hdkey of its own address key, m/44'/60'/[index]'/0/0, with the
+ * full path as its origin, depth 5, and the fingerprint of m/44'/60'/[index]'/0 as its parent. It carries no private key, and an online
  * wallet can derive the address from it. A Single Key has no account key, so its code is its address alone and it has no path or
  * fields.
  *
@@ -19,7 +19,7 @@ import app.lensly.core.wallet.toHex
  */
 data class AccountExportView(
     val address: String,
-    /** The full derivation path, m/44'/60'/0'/0/[index], or null for a Single Key. */
+    /** The full derivation path, m/44'/60'/[index]'/0/0, or null for a Single Key. */
     val derivationPath: String?,
     val parts: List<String>,
     val fields: List<Pair<String, String>>,
@@ -30,10 +30,10 @@ object AccountExport {
     private const val DEFAULT_NAME = "Lensly"
     private const val ADDRESS_DEPTH = 5
 
-    /** The derivation path of account [index] of a Mnemonic wallet, m/44'/60'/0'/0/[index]. */
+    /** The derivation path of account [index] of a Mnemonic wallet, m/44'/60'/[index]'/0/0. */
     fun derivationPath(index: Int): String {
         require(index >= 0) { "index must be a non-hardened child number (0 until 2^31)" }
-        return "m/44'/60'/0'/0/$index"
+        return "m/44'/60'/$index'/0/0"
     }
 
     /**
@@ -41,13 +41,13 @@ object AccountExport {
      * when the wallet has none.
      */
     fun view(wallet: WalletMeta, index: Int, address: String): AccountExportView {
-        val xpub = wallet.accountXpub
+        val accountKey = wallet.accountKeys.getOrNull(index)
         val masterFingerprint = wallet.masterFingerprintHex?.toLong(16)?.toInt()
-        if (wallet.kind != WalletKind.MNEMONIC || xpub == null || masterFingerprint == null) {
+        if (wallet.kind != WalletKind.MNEMONIC || accountKey == null || masterFingerprint == null) {
             return AccountExportView(address = address, derivationPath = null, parts = listOf(address), fields = emptyList())
         }
         val path = derivationPath(index)
-        val key = AccountAddresses.addressXpub(xpub, index)
+        val key = AccountAddresses.addressXpub(accountKey, 0)
         return AccountExportView(
             address = address,
             derivationPath = path,
@@ -58,7 +58,7 @@ object AccountExport {
                     masterFp = masterFingerprint,
                     parentFp = key.parentFingerprint,
                     name = wallet.name.ifBlank { DEFAULT_NAME },
-                    origin = CryptoHdKeyEncoder.ACCOUNT_ORIGIN + listOf(0, index),
+                    origin = CryptoHdKeyEncoder.ACCOUNT_ORIGIN.dropLast(1) + listOf(index or Int.MIN_VALUE, 0, 0),
                     depth = ADDRESS_DEPTH,
                 ),
             ),

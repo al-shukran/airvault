@@ -94,9 +94,9 @@ object TokenPortfolio {
         reads: ContractReads,
         nowMs: () -> Long = System::currentTimeMillis,
     ) {
-        val account = wallet.evm ?: return
+        val keys = wallet.evmKeys.takeIf { it.isNotEmpty() } ?: return
         lock.withLock {
-            val addresses = Portfolio.addresses(account, settings.addressCount)
+            val addresses = Portfolio.addresses(keys, settings.addressCount)
             coroutineScope {
                 chains.map { chain ->
                     async { readChain(session, wallet.id, addresses, chain, tokensOf(chain), reads, nowMs) }
@@ -159,8 +159,7 @@ object TokenPortfolio {
         tokensOf: (EvmChain) -> List<Token>,
         cache: List<CachedTokenBalance>,
     ): List<TokenHolding> {
-        val account = wallet.evm ?: return emptyList()
-        return Portfolio.addresses(account, count).flatMap { address -> holdingsAt(wallet.id, address, chains, tokensOf, cache) }
+        return Portfolio.addresses(wallet.evmKeys, count).flatMap { address -> holdingsAt(wallet.id, address, chains, tokensOf, cache) }
     }
 
     /** The cached token balances of one [address] of the wallet [walletId] on [chains], for the tokens [tokensOf] lists. */

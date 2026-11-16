@@ -8,23 +8,31 @@ import org.web3j.crypto.Keys
 import org.web3j.utils.Numeric
 
 /**
- * A public extended key, enough to derive receiving addresses without the seed. It is the account key m/44'/60'/0', or an address
- * key m/44'/60'/0'/0/i from [AccountAddresses.addressXpub], which names its own path.
+ * A public extended key, enough to derive addresses without the seed. It is the account key m/44'/60'/N' of an account, or the address
+ * key m/44'/60'/N'/0/0 of that account, which [AccountAddresses.addressXpub] derives from it.
  */
 class AccountXpub(
     /** 33-byte compressed secp256k1 public key of the key's path. */
     val publicKey: ByteArray,
     /** 32-byte BIP32 chain code of the key's path. */
     val chainCode: ByteArray,
-    /** Fingerprint of the parent key: m/44'/60' for the account key, m/44'/60'/0'/0 for an address key. */
+    /** Fingerprint of the parent key: m/44'/60' for an account key, m/44'/60'/N'/0 for an address key. */
     val parentFingerprint: Int,
-)
+) {
+    /** Two keys are equal when they hold the same public key, chain code and parent fingerprint. */
+    override fun equals(other: Any?): Boolean = other is AccountXpub &&
+        publicKey.contentEquals(other.publicKey) && chainCode.contentEquals(other.chainCode) && parentFingerprint == other.parentFingerprint
+
+    override fun hashCode(): Int = (publicKey.contentHashCode() * 31 + chainCode.contentHashCode()) * 31 + parentFingerprint
+}
 
 /**
- * Ethereum BIP32 wallet on m/44'/60'/0'/0/i, built from a BIP39 seed (16 to 64 bytes).
+ * Ethereum BIP32 wallet on the Ledger Live paths, built from a BIP39 seed (16 to 64 bytes). Account N is m/44'/60'/N', and its one
+ * address is m/44'/60'/N'/0/0, the address that Ledger Live shows for account N. A seed phrase restored on a Ledger gives the same
+ * addresses.
  *
- * The derived key objects held here cannot be wiped. The only key material returned as a byte array
- * is [privateKey], and the caller must zero it.
+ * The derived key objects held here cannot be wiped. The only key material returned as a byte array is [privateKey], and the caller
+ * must zero it.
  */
 class HdWallet(seed: ByteArray) {
     init {
@@ -33,7 +41,6 @@ class HdWallet(seed: ByteArray) {
 
     private val master: Bip32ECKeyPair = Bip32ECKeyPair.generateKeyPair(seed)
     private val coinNode: Bip32ECKeyPair = Bip32ECKeyPair.deriveKeyPair(master, intArrayOf(hardened(44), hardened(60)))
-    private val account: Bip32ECKeyPair = Bip32ECKeyPair.deriveKeyPair(coinNode, intArrayOf(hardened(0)))
 
     /** First 4 bytes of HASH160 of the master compressed public key, as a big-endian Int. */
     val masterFingerprint: Int = fingerprint(master)
@@ -41,39 +48,24 @@ class HdWallet(seed: ByteArray) {
     /** [masterFingerprint] as 8 lowercase hex characters. */
     val masterFingerprintHex: String = "%08x".format(masterFingerprint)
 
-    fun accountXpub(): AccountXpub = AccountXpub(
-        publicKey = compressedPublicKey(account),
-        chainCode = account.chainCode,
-        parentFingerprint = fingerprint(coinNode),
-    )
-
-    /**
-     * The public key of m/44'/60'/0'/0, the Ledger Legacy key of the account. Its parent is the account key m/44'/60'/0'. Public data only.
-     */
-    fun legacyChainXpub(): AccountXpub {
-        val node = Bip32ECKeyPair.deriveKeyPair(account, intArrayOf(0))
-        return AccountXpub(compressedPublicKey(node), node.chainCode, fingerprint(account))
+    /** The public account key of account [account], m/44'/60'/[account]' (depth 3). Public data only. Account 0 is the default. */
+    fun accountXpub(account: Int = 0): AccountXpub {
+        val node = accountNode(account)
+        return AccountXpub(compressedPublicKey(node), node.chainCode, fingerprint(coinNode))
     }
 
-    /**
-     * The public key of m/44'/60'/0'/0/0, the Ledger Live key of the account. Its parent is m/44'/60'/0'/0. Public data only.
-     */
-    fun ledgerLiveXpub(): AccountXpub {
-        val node = externalKey(0)
-        val parent = Bip32ECKeyPair.deriveKeyPair(account, intArrayOf(0))
-        return AccountXpub(compressedPublicKey(node), node.chainCode, fingerprint(parent))
+    /** EIP-55 checksummed address of account [account], m/44'/60'/[account]'/0/0. */
+    fun address(account: Int): String = addressOf(addressNode(account))
+
+    /** 32-byte private key of account [account], m/44'/60'/[account]'/0/0. The caller must zero the returned array. */
+    fun privateKey(account: Int): ByteArray = Numeric.toBytesPadded(addressNode(account).privateKey, PRIVATE_KEY_BYTES)
+
+    private fun accountNode(account: Int): Bip32ECKeyPair {
+        require(account >= 0) { "account must be a non-hardened account number (0 until 2^31)" }
+        return Bip32ECKeyPair.deriveKeyPair(coinNode, intArrayOf(hardened(account)))
     }
 
-    /** EIP-55 checksummed address of m/44'/60'/0'/0/[index]. */
-    fun address(index: Int): String = addressOf(externalKey(index))
-
-    /** 32-byte private key of m/44'/60'/0'/0/[index]. The caller must zero the returned array. */
-    fun privateKey(index: Int): ByteArray = Numeric.toBytesPadded(externalKey(index).privateKey, PRIVATE_KEY_BYTES)
-
-    private fun externalKey(index: Int): Bip32ECKeyPair {
-        require(index >= 0) { "index must be a non-hardened child number (0 until 2^31)" }
-        return Bip32ECKeyPair.deriveKeyPair(account, intArrayOf(0, index))
-    }
+    private fun addressNode(account: Int): Bip32ECKeyPair = Bip32ECKeyPair.deriveKeyPair(accountNode(account), intArrayOf(0, 0))
 
     private companion object {
         const val MIN_SEED_BYTES = 16

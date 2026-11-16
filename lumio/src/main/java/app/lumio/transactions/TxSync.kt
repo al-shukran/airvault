@@ -38,10 +38,9 @@ object TxSync {
         bitcoin: List<BtcAccountRef>,
     ): TxSyncPlan {
         val side = chains.filter { it.chainId in settings.enabled && mode.holds(it) }
-        val accounts = wallets.mapNotNull { it.evm }
         val evm = side.flatMap { chain ->
-            accounts.flatMap { account ->
-                Portfolio.addresses(account, settings.addressCount).map { HistoryRead(evmNetwork(chain), it) }
+            wallets.flatMap { wallet ->
+                Portfolio.addresses(wallet.evmKeys, settings.addressCount).map { HistoryRead(evmNetwork(chain), it) }
             }
         }
         val networks = side.mapTo(HashSet()) { evmNetwork(it) } + mode.btcNetwork().networkId()

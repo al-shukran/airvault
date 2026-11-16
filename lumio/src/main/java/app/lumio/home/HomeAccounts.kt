@@ -32,7 +32,7 @@ object HomeAccounts {
      * The sources a Send can start from on the side [mode]: each wallet's Ethereum account, and the Bitcoin send when the side holds a Bitcoin account.
      */
     fun sendFrom(mode: NetworkMode, wallets: List<PairedWallet>, bitcoin: List<BtcAccountRef>): List<AccountOption> = buildList {
-        wallets.filter { it.evm != null }.forEach { wallet ->
+        wallets.filter { it.evmKeys.isNotEmpty() }.forEach { wallet ->
             add(AccountOption(PickTarget.Evm(wallet.id), "Ethereum", wallet.name))
         }
         if (bitcoin.isNotEmpty()) {
@@ -44,7 +44,7 @@ object HomeAccounts {
      * The addresses a Receive can show on the side [mode]: each wallet's first Ethereum address, and each Bitcoin account of the side.
      */
     fun receiveFor(wallets: List<PairedWallet>, bitcoin: List<BtcAccountRef>): List<AccountOption> = buildList {
-        wallets.filter { it.evm != null }.forEach { wallet ->
+        wallets.filter { it.evmKeys.isNotEmpty() }.forEach { wallet ->
             add(AccountOption(PickTarget.Evm(wallet.id), "Ethereum", "${wallet.name}, address 1"))
         }
         bitcoin.forEach { ref ->
@@ -59,7 +59,7 @@ object HomeAccounts {
      */
     fun holding(asset: HomeAsset, wallets: List<PairedWallet>): List<AccountOption> = wallets.mapNotNull { wallet ->
         when (asset.network.family) {
-            Family.EVM -> if (wallet.evm != null) AccountOption(PickTarget.Evm(wallet.id), "Ethereum", wallet.name) else null
+            Family.EVM -> if (wallet.evmKeys.isNotEmpty()) AccountOption(PickTarget.Evm(wallet.id), "Ethereum", wallet.name) else null
             Family.BTC -> if (wallet.bitcoin.any { it.network.networkId() == asset.network }) {
                 AccountOption(PickTarget.BitcoinWallet(wallet.id), "Bitcoin", wallet.name)
             } else {

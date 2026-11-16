@@ -18,6 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.web3j.utils.Numeric
+import kotlin.test.assertTrue
 
 /** Storage round trips for both wallet kinds, and the load of a wallet written before kinds existed. */
 class WalletStoreKindTest {
@@ -58,7 +59,7 @@ class WalletStoreKindTest {
         assertEquals(false, meta.deviceGenerated)
         assertEquals(1, meta.accountCount)
         assertNull(meta.masterFingerprintHex)
-        assertNull(meta.accountXpub)
+        assertTrue(meta.accountKeys.isEmpty())
         assertEquals(listOf(id), store.list().map { it.id })
     }
 
@@ -101,39 +102,6 @@ class WalletStoreKindTest {
     }
 
     @Test
-    fun aMnemonicWalletWrittenBeforeKindsStillLoads() {
-        val wallet = HdWallet(Mnemonic.toSeed(words))
-        val id = writeLegacyMnemonicWallet(accountCount = 2)
-
-        val meta = assertNotNull(store.meta(id))
-        assertEquals(WalletKind.MNEMONIC, meta.kind)
-        assertEquals("Old", meta.name)
-        assertEquals(2, meta.accountCount)
-        assertEquals(wallet.masterFingerprintHex, meta.masterFingerprintHex)
-        assertContentEquals(wallet.accountXpub().publicKey, requireNotNull(meta.accountXpub).publicKey)
-        assertEquals(listOf(id), store.list().map { it.id })
-        assertIs<WalletSecret.Mnemonic>(store.secret(id))
-        assertEquals(listOf(wallet.address(0), wallet.address(1)), store.addresses(id, 2))
-    }
-
-    @Test
-    fun aMnemonicWalletWrittenBeforeKindsKeepsItsKindWhenItIsSaved() {
-        val id = writeLegacyMnemonicWallet(accountCount = 1)
-
-        val updated = store.addAccount(id)
-
-        assertEquals(WalletKind.MNEMONIC, updated.kind)
-        assertEquals(2, updated.accountCount)
-        val reloaded = assertNotNull(store.meta(id))
-        assertEquals(WalletKind.MNEMONIC, reloaded.kind)
-        assertEquals(2, reloaded.accountCount)
-        assertContentEquals(
-            HdWallet(Mnemonic.toSeed(words)).accountXpub().publicKey,
-            requireNotNull(reloaded.accountXpub).publicKey,
-        )
-    }
-
-    @Test
     fun anAccountOfAMnemonicWalletIsTheAddressOfItsIndex() {
         val wallet = HdWallet(Mnemonic.toSeed(words))
         val id = store.create(name = "Seed", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
@@ -144,11 +112,10 @@ class WalletStoreKindTest {
     }
 
     @Test
-    fun anAccountOfALegacyMnemonicWalletIsTheAddressOfItsIndex() {
-        val wallet = HdWallet(Mnemonic.toSeed(words))
+    fun aMnemonicWalletWrittenBeforeTheAccountKeysIsNotLoaded() {
         val id = writeLegacyMnemonicWallet(accountCount = 2)
 
-        assertEquals(wallet.address(1), store.accountAddress(id, 1))
+        assertNull(store.meta(id))
     }
 
     @Test

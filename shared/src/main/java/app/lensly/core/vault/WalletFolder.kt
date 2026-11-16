@@ -47,6 +47,12 @@ internal object WalletFolder {
     const val BITCOIN_CAPACITY = 8192
 
     /**
+     * The plaintext the META record holds: the wallet's facts, and the public account key of each of its accounts, at 73 bytes each. At
+     * the largest Bulk Cap of 100 accounts, that is well inside this capacity.
+     */
+    const val META_CAPACITY = 8192
+
+    /**
      * The account records a wallet can hold: accounts 0 to ACCOUNT_SLOTS - 1. Every folder holds all of them, so the count is fixed.
      * It is the largest Bulk Cap, so the first 100 accounts of a wallet can each be named and styled.
      */
@@ -67,7 +73,7 @@ internal object WalletFolder {
      * The plaintext each fixed record can hold. A record that does not fit is refused. The Bitcoin record holds 100 accounts, the largest
      * a wallet keeps, at up to 70 bytes each with its header, and what is left of [BITCOIN_CAPACITY] is for their profiles.
      */
-    private val CAPACITY: Map<String, Int> = mapOf(META to 256, SECRET to 2048, BASE_NAME to 128, PROFILE to 512, BITCOIN to BITCOIN_CAPACITY)
+    private val CAPACITY: Map<String, Int> = mapOf(META to META_CAPACITY, SECRET to 2048, BASE_NAME to 128, PROFILE to 512, BITCOIN to BITCOIN_CAPACITY)
 
     /**
      * The inner layer of `pwk.bin`: the Per-Wallet Key sealed under the Vault Key. An earlier build wrote this alone as the whole file, so

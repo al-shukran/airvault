@@ -20,7 +20,7 @@ class HomeAccountsTest {
         name = "Demo",
         fingerprint = 1L,
         createdAtMs = 1L,
-        evm = HdWallet(PairFixtures.seed).accountXpub(),
+        evmAccounts = PairFixtures.evmAccounts(),
         bitcoin = emptyList(),
     )
     private val bitcoinOnly = PairedWallet(
@@ -28,7 +28,7 @@ class HomeAccountsTest {
         name = "Bitcoin only",
         fingerprint = 2L,
         createdAtMs = 2L,
-        evm = null,
+        evmAccounts = emptyList(),
         bitcoin = BtcWatchOnly.accounts(PairFixtures.seed, BtcNetwork.MAINNET),
     )
     private val mainnetRefs = bitcoinOnly.bitcoin.map { BtcAccountRef(bitcoinOnly.id, it) }

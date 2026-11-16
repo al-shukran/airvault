@@ -12,33 +12,26 @@ import org.web3j.crypto.Keys
 /**
  * Ethereum addresses from public data.
  *
- * [addressAt] derives m/44'/60'/0'/0/i from an [AccountXpub] with BIP32 public derivation, so an address can be shown
- * without the seed. [addressOfPrivateKey] gives the address that a private key controls. The sign flow uses it to check
- * that the key it loaded belongs to the account on the review.
+ * Account N has one address, m/44'/60'/N'/0/0. [addressAt] derives it from the account key m/44'/60'/N' with BIP32 public derivation, so an
+ * address can be shown without the seed. [addressOfKey] gives the address that an address key controls, with no derivation. [addressOfPrivateKey]
+ * gives the address that a private key controls. The sign flow uses it to check that the key it loaded belongs to the account on the review.
  */
 object AccountAddresses {
     private val curve = SECNamedCurves.getByName("secp256k1")
     private val curveOrder: BigInteger = curve.n
 
-    /** EIP-55 address of m/44'/60'/0'/0/[index] for the account described by [xpub]. [index] must not be hardened. */
+    /**
+     * EIP-55 address of m/44'/60'/N'/0/[index] for the account key of account N that [xpub] describes. The account's own address is index 0.
+     * [index] must not be hardened.
+     */
     fun addressAt(xpub: AccountXpub, index: Int): String {
         require(index >= 0) { "index must be a non-hardened child number (0 until 2^31)" }
         return addressOf(publicChild(externalChain(xpub), index).point)
     }
 
     /**
-     * The addresses of m/44'/60'/0'/0/0 until [count] for the account described by [xpub], in index order. The external chain is
-     * derived once for all of them, so a list costs one point multiplication per address, not three. Each entry is [addressAt].
-     */
-    fun addresses(xpub: AccountXpub, count: Int): List<String> {
-        require(count >= 0) { "count must not be negative" }
-        val external = externalChain(xpub)
-        return (0 until count).map { index -> addressOf(publicChild(external, index).point) }
-    }
-
-    /**
-     * The public extended key of m/44'/60'/0'/0/[index] for the account described by [xpub], from public data alone. Its
-     * parent fingerprint is the fingerprint of m/44'/60'/0'/0, and its address is [addressAt] for the same index.
+     * The public address key of m/44'/60'/N'/0/[index] for the account key that [xpub] describes, from public data alone. Its parent
+     * fingerprint is the fingerprint of m/44'/60'/N'/0, and its address is [addressAt] for the same index.
      */
     fun addressXpub(xpub: AccountXpub, index: Int): AccountXpub {
         require(index >= 0) { "index must be a non-hardened child number (0 until 2^31)" }
@@ -51,7 +44,13 @@ object AccountAddresses {
         )
     }
 
-    /** The external chain m/44'/60'/0'/0 of the account, checked before it is derived. */
+    /** EIP-55 address that the public key of [xpub] controls. [xpub] is an address key, such as the one [addressXpub] gives. */
+    fun addressOfKey(xpub: AccountXpub): String {
+        require(xpub.publicKey.size == COMPRESSED_KEY_BYTES) { "compressed public key must be 33 bytes" }
+        return addressOf(curve.curve.decodePoint(xpub.publicKey))
+    }
+
+    /** The external chain m/44'/60'/N'/0 of the account, checked before it is derived. */
     private fun externalChain(xpub: AccountXpub): Node {
         require(xpub.publicKey.size == COMPRESSED_KEY_BYTES) { "compressed public key must be 33 bytes" }
         require(xpub.chainCode.size == CHAIN_CODE_BYTES) { "chain code must be 32 bytes" }

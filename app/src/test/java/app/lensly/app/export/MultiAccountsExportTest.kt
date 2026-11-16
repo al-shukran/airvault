@@ -25,7 +25,8 @@ class MultiAccountsExportTest {
     private val masterFingerprint = wallet.masterFingerprint
 
     /** The keys of every App in registry order, which is how the export of a wallet is built. */
-    private val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint) }
+    private val accounts = 2
+    private val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint, accounts) }
 
     @Test
     fun abandonAboutSeedHasTheDocumentedMasterFingerprint() {
@@ -53,9 +54,9 @@ class MultiAccountsExportTest {
     }
 
     @Test
-    fun keysAreTheBitcoinAccountsThenTheEthereumAccountAndItsTwoLedgerKeys() {
+    fun keysAreTheBitcoinAccountsThenOneEthereumKeyPerAccount() {
         assertEquals(
-            listOf("44'/0'/0'", "49'/0'/0'", "84'/0'/0'", "86'/0'/0'", "44'/60'/0'", "44'/60'/0'/0", "44'/60'/0'/0/0"),
+            listOf("44'/0'/0'", "49'/0'/0'", "84'/0'/0'", "86'/0'/0'", "44'/60'/0'", "44'/60'/1'"),
             exportedKeys().map { pathText(it.field(6)) },
         )
     }
@@ -75,26 +76,21 @@ class MultiAccountsExportTest {
             assertNotNull(key.optional(4L))
             assertNull(key.optional(10L))
         }
-        // Ethereum account key: children 0/*, a chain code, and the note account.standard.
-        assertEquals("0/*", pathText(items[4].field(7)))
-        assertEquals(0L, depthOf(items[4].field(7)))
-        assertNotNull(items[4].optional(4L))
-        assertEquals("account.standard", (items[4].field(10) as Cbor.Text).value)
-        // The Ledger keys: no chain code and no children, and their notes.
-        assertEquals("account.ledger_legacy", (items[5].field(10) as Cbor.Text).value)
-        assertEquals("account.ledger_live", (items[6].field(10) as Cbor.Text).value)
-        for (key in items.drop(5)) {
-            assertNull(key.optional(4L))
-            assertNull(key.optional(7L))
+        // Ethereum account keys: children 0/0 (the address of the account), a chain code, and the note account.ledger_live.
+        for (key in items.drop(4)) {
+            assertEquals("0/0", pathText(key.field(7)))
+            assertEquals(0L, depthOf(key.field(7)))
+            assertNotNull(key.optional(4L))
+            assertEquals("account.ledger_live", (key.field(10) as Cbor.Text).value)
         }
     }
 
     @Test
     fun everyAppOfTheRegistryContributesItsKeysInOrder() {
-        val bitcoinOnly = WalletApp.BITCOIN.nexusKeys(seed, masterFingerprint)
-        val ethereumOnly = WalletApp.ETHEREUM.nexusKeys(seed, masterFingerprint)
+        val bitcoinOnly = WalletApp.BITCOIN.nexusKeys(seed, masterFingerprint, accounts)
+        val ethereumOnly = WalletApp.ETHEREUM.nexusKeys(seed, masterFingerprint, accounts)
         assertEquals(4, bitcoinOnly.size)
-        assertEquals(3, ethereumOnly.size)
+        assertEquals(accounts, ethereumOnly.size)
         // Cbor nodes compare by identity, so the lists are compared through their encoded export.
         assertContentEquals(
             MultiAccountsExport.cbor(masterFingerprint, bitcoinOnly + ethereumOnly, VERSION),

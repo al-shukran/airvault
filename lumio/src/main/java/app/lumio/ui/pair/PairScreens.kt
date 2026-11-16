@@ -77,7 +77,7 @@ fun PairReviewScreen(
             Spacer(Modifier.height(LenslySpacing.md))
         }
         ReviewHeader(title = pairing.name, fingerprint = pairing.fingerprint)
-        if (accounts.isNotEmpty()) EthereumReview(xpub = PairImport.ethereumKeyOf(pairing), accounts = accounts)
+        if (accounts.isNotEmpty()) EthereumReview(keys = PairImport.ethereumAccountKeysOf(pairing), accounts = accounts)
         if (bitcoin.isNotEmpty()) BitcoinReview(accounts = bitcoin, names = bitcoinNames)
         error?.let {
             Spacer(Modifier.height(LenslySpacing.md))
@@ -87,18 +87,18 @@ fun PairReviewScreen(
 }
 
 @Composable
-private fun EthereumReview(xpub: AccountXpub, accounts: List<PairingAccount>) {
+private fun EthereumReview(keys: List<AccountXpub>, accounts: List<PairingAccount>) {
     Spacer(Modifier.height(LenslySpacing.md))
     PillChip(text = PairLabels.family(PairFamily.EVM))
     ReviewField("Network", "All EVM networks")
     ReviewField("Accounts", "${accounts.size}")
-    accounts.sortedBy { it.child }.forEach { account -> EthereumAccountReview(xpub = xpub, account = account) }
+    accounts.sortedBy { it.key }.forEach { account -> EthereumAccountReview(xpub = keys[account.key], account = account) }
 }
 
 @Composable
 private fun EthereumAccountReview(xpub: AccountXpub, account: PairingAccount) {
-    val index = account.child ?: return
-    val address = remember(xpub, index) { AccountAddresses.addressAt(xpub, index) }
+    val index = account.key
+    val address = remember(xpub) { AccountAddresses.addressOfKey(xpub) }
     Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
         Text(
             text = account.name ?: "Account $index",

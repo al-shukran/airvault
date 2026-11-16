@@ -21,7 +21,7 @@ class PairDemoBrotliGoldenTest {
         val read = PairImport.of(ur)
         val expected = DemoPairingGolden.payload()
 
-        assertTrue("the code is ${ur.cborBytes.size} bytes", ur.cborBytes.size <= 3600)
+        assertTrue("the code is ${ur.cborBytes.size} bytes", ur.cborBytes.size <= 4608)
         assertEquals(expected.fingerprint, read.fingerprint)
         assertEquals(expected.name, read.name)
         assertEquals(expected.addressBook, read.addressBook)

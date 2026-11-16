@@ -11,7 +11,7 @@ import org.web3j.crypto.Sign
 object EvmFixtures {
     val artMnemonic: List<String> = List(23) { "abandon" } + "art"
 
-    /** m/44'/60'/0'/0/0 for the "abandon ... art" mnemonic. The viem reference vector gives this key and address. */
+    /** The address of account 0 for the "abandon ... art" mnemonic. The viem reference vector gives this key and address. */
     val artKey: ByteArray by lazy { HdWallet(Mnemonic.toSeed(artMnemonic)).privateKey(0) }
     const val ART_ADDRESS = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
 
