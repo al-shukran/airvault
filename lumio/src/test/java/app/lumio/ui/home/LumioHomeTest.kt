@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -13,6 +14,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.performScrollToIndex
+import app.lensly.ui.components.HOME_LOCK_TAG
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
 import app.lumio.data.config.AssetSort
@@ -85,13 +89,30 @@ class LumioHomeTest {
     }
 
     @Test
-    fun aRowShowsItsBalanceItsValueItsChangeAndTheTestnetBadge() {
-        setHome(assets = listOf(ethereum(change = 1.25), testnetCoin()))
+    fun aRowShowsItsBalanceItsValueAndItsChange() {
+        setHome(assets = listOf(ethereum(change = 1.25)))
 
         compose.onNodeWithTag(assetRowTag("EVM-1")).assertTextContains("1.5")
         compose.onNodeWithTag(assetRowTag("EVM-1")).assertTextContains("\$1,234.56")
         compose.onNodeWithTag(assetRowTag("EVM-1")).assertTextContains("+1.25%")
-        compose.onAllNodesWithText("TESTNET", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun aTestnetRowHasNoChipAndNamesItsNetwork() {
+        setHome(mode = NetworkMode.TESTNET, assets = listOf(testnetCoin()))
+
+        compose.onNodeWithTag(assetRowTag("EVM-11155111")).assertTextContains("Sepolia")
+        compose.onAllNodesWithText("TESTNET", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun theTopBarStaysAboveTheListWhenItScrollsOnMainnet() {
+        assertTopBarStaysWhileScrolled(NetworkMode.MAINNET)
+    }
+
+    @Test
+    fun theTopBarStaysAboveTheListWhenItScrollsOnTestnet() {
+        assertTopBarStaysWhileScrolled(NetworkMode.TESTNET)
     }
 
     @Test
@@ -186,12 +207,28 @@ class LumioHomeTest {
         compose.onNodeWithText("Some balances could not be refreshed", substring = true).assertExists()
     }
 
-    @Test
-    fun theTestnetSideMarksItsCoinsAsTestnet() {
-        setHome(mode = NetworkMode.TESTNET, assets = listOf(testnetCoin()))
+    /** Home with enough rows to scroll, then scrolled to its last row: the lock in the top bar is still on screen. */
+    private fun assertTopBarStaysWhileScrolled(mode: NetworkMode) {
+        val many = (1..40).map { i ->
+            NativeAsset(
+                id = "EVM-$i",
+                symbol = "ETH",
+                name = "Chain $i",
+                network = NetworkId(Family.EVM, i.toString(), testnet = mode == NetworkMode.TESTNET),
+                balance = BigDecimal("1"),
+                usd = 100.0,
+            )
+        }
+        setHome(assets = many, mode = mode)
 
-        compose.onAllNodesWithText("TESTNET", useUnmergedTree = true).assertCountEquals(1)
+        // Four rows come before the assets (the side, the total, the actions and the header), so index 43 is the last asset.
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(LAST_ROW_INDEX)
+
+        compose.onNodeWithTag(HOME_SEND_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(HOME_LOCK_TAG).assertIsDisplayed()
     }
+
+    private val LAST_ROW_INDEX = 43
 
     private fun ethereum(change: Double? = null) = NativeAsset(
         id = "EVM-1",
