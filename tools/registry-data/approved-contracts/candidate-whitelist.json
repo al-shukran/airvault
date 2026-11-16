@@ -2029,6 +2029,60 @@
     },
     {
       "chainId": 1,
+      "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "selector": "0x4232cd63",
+      "signature": "supplyTo(address,address,uint256)",
+      "meaning": "Compound V3: supply an asset to a market for another account, which the market then credits to that account. The account is shown when it is not you.",
+      "params": [
+        {
+          "name": "dst",
+          "type": "address"
+        },
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "proxy": {
+        "implementationAddress": "0x0b07565a8ef48170e15918b251ebd95109b23255"
+      },
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "selector": "0x26441318",
+      "signature": "withdrawFrom(address,address,address,uint256)",
+      "meaning": "Compound V3: withdraw an asset from one account to another, by an account the source lets act for it. Shown with both accounts when either is not you.",
+      "params": [
+        {
+          "name": "src",
+          "type": "address"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "proxy": {
+        "implementationAddress": "0x0b07565a8ef48170e15918b251ebd95109b23255"
+      },
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
       "contract": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
       "selector": "0xc3b35a7e",
       "signature": "withdrawTo(address,address,uint256)",
