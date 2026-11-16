@@ -15,5 +15,9 @@ local.properties
 seed.md
 *.key
 
+# Registry release signing key and its passphrase (tools/registry-pack/sign-candidate.sh reads them from outside the repo); never commit
+registry-release.*
+*.passphrase
+
 # Generated screen gallery (tools/gallery/build-gallery.sh)
 /out/

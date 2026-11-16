@@ -1,5 +1,7 @@
 package app.lensly.core.registry
 
+import app.lensly.core.registry.update.RegistryUpdate
+import app.lensly.core.registry.update.TrustedKeys
 import app.lensly.ui.components.chainIconDrawables
 import app.lensly.ui.components.tokenIconDrawables
 import java.io.File
@@ -29,8 +31,19 @@ class ShippedRegistryDataTest {
     }
 
     @Test
-    fun theShippedWhitelistApprovesNoCallSoOnlyAnOfflineUpdateCanAddOne() {
-        assertTrue(registry.whitelistEntries().isEmpty(), "whitelist.json must ship empty")
+    fun theShippedWhitelistJsonStaysEmptySoEveryApprovalComesFromTheSignedBundle() {
+        assertTrue(registry.whitelistEntries().isEmpty(), "whitelist.json must ship empty; approvals ship in registry/bundled.lrp only")
+    }
+
+    @Test
+    fun theBundledPackageVerifiesWithThePinnedReleaseKeyAndApprovesExactlyTheVerifiedCalls() {
+        val releaseOnly = TrustedKeys.load { path -> File(MAIN, path).takeIf { it.isFile }?.readText() }
+        val bytes = File(MAIN, BUNDLED_PATH).readBytes()
+
+        val bundled = RegistryUpdate.verify(bytes, releaseOnly, registry).getOrThrow()
+
+        assertEquals(1L, bundled.sequence)
+        assertEquals(VERIFIED_CALLS, bundled.whitelist.map { "${it.chainId} ${it.contract} ${it.selector}" }.sorted())
     }
 
     @Test
@@ -128,7 +141,23 @@ class ShippedRegistryDataTest {
     private companion object {
         const val MAIN = "src/main/assets"
         const val DEBUG = "src/debug/assets"
+        const val BUNDLED_PATH = "registry/bundled.lrp"
         val CONTRACT = Regex("0x[0-9a-f]{40}")
         val TESTNET_TRUE = Regex("\"testnet\"\\s*:\\s*true")
+
+        /** The calls tools/registry-pack/sign-candidate.sh signs (verified-selectors.txt), as chainId, contract and selector. */
+        val VERIFIED_CALLS = listOf(
+            "1 0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad 0x3593564c",
+            "1 0x66a9893cc07d91d95644aedd05d03f95e1dba8af 0x3593564c",
+            "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0x04e45aaf",
+            "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0x09b81346",
+            "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0x12210e8a",
+            "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0x49404b7c",
+            "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0x5023b4df",
+            "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0x5ae401dc",
+            "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0xac9650d8",
+            "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0xb858183f",
+            "1 0x9008d19f58aabd9ed0d60971565aa8510560ab41 0xec6cb13f",
+        ).sorted()
     }
 }

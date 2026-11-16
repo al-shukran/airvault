@@ -36,6 +36,23 @@ Rotation: list the new key as `active` and sign with it, then set the old key's 
 package from a revoked key, including one already installed. The installed sequence stays recorded, so an older package
 still cannot be installed.
 
+The release key in use is pinned in `shared/src/main/assets/registry/trusted-keys.json`. Its passphrase is in the macOS keychain
+(service `lensly-registry-release`, account `registry-release`); its key file and fingerprint are in the keys folder outside the repository.
+
+## Shipped bundle
+
+`shared/src/main/assets/registry/bundled.lrp` is the signed package the application ships with its approved contracts. Build it with:
+
+```
+tools/registry-pack/sign-candidate.sh --sequence <N> [--created yyyy-mm-dd]
+```
+
+The script keeps only the entries listed in `tools/registry-data/approved-contracts/verified-selectors.txt` from
+`candidate-whitelist.json`, writes the entries file in a scratch directory, builds and verifies the package, and refuses a key that is
+not pinned as active. Each line of the selection must match exactly one candidate entry. Bump `--sequence` whenever the content
+changes: the application installs the bundle on first load (`RegistryHolder`), through the same checks as an offline update, and an
+equal or older sequence is refused.
+
 The development key is listed in `shared/src/debug/assets/registry/trusted-keys.debug.json`. Only debug builds read that
 file. Never list a development key in the release file.
 
