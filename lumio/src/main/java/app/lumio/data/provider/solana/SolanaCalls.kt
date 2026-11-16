@@ -6,7 +6,10 @@ import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RecentBlockhash
 import app.lumio.data.provider.Request
+import app.lumio.data.provider.SOLANA_SIGNATURE
 import app.lumio.data.provider.SolanaAddressHistory
+import app.lumio.data.provider.SolanaSignatureStatus
+import app.lumio.data.provider.SolanaStatus
 import app.lumio.data.provider.SolanaTx
 import app.lumio.data.provider.SplBalance
 import app.lumio.data.provider.SplTokenBalances
@@ -38,9 +41,6 @@ internal const val MAX_WAIT_MS = 4_000L
 /** A public key, which is also the size of a blockhash: 32 bytes in base58, so 32 to 44 characters. */
 private val PUBLIC_KEY = Regex("[1-9A-HJ-NP-Za-km-z]{32,44}")
 
-/** A transaction signature: 64 bytes in base58, so 86 to 88 characters. */
-private val SIGNATURE = Regex("[1-9A-HJ-NP-Za-km-z]{86,88}")
-
 /** The classic SPL token program. Token-2022 accounts are not read. */
 private const val SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 
@@ -67,12 +67,13 @@ internal class SolanaCalls(
     /** The answer to [req] from the endpoint at [url]. Throws [ProviderError] for a failure of the endpoint. */
     @Suppress("UNCHECKED_CAST")
     suspend fun <T> execute(req: Request<T>): T {
-        val result: Any = when (req) {
+        val result: Any? = when (req) {
             is NativeBalance -> lamports(address(req.address))
             is RecentBlockhash -> blockhash()
             is Broadcast -> broadcast(req.raw)
             is SolanaAddressHistory -> history(req)
             is SplTokenBalances -> tokenBalances(address(req.owner))
+            is SolanaSignatureStatus -> status(req.signature)
             else -> throw ProviderError.Unsupported()
         }
         return result as T
@@ -89,7 +90,7 @@ internal class SolanaCalls(
     /** `sendTransaction` with the signed bytes in base64. The answer is the signature of the transaction. */
     private suspend fun broadcast(raw: ByteArray): String {
         val params = JsonArray(listOf(JsonPrimitive(Base64.getEncoder().encodeToString(raw)), options("encoding" to JsonPrimitive("base64"))))
-        return call("sendTransaction", params).matching(SIGNATURE)
+        return call("sendTransaction", params).matching(SOLANA_SIGNATURE)
     }
 
     /**
@@ -100,7 +101,7 @@ internal class SolanaCalls(
         val params = JsonArray(listOf(JsonPrimitive(req.address), options("limit" to JsonPrimitive(req.limit))))
         return call("getSignaturesForAddress", params).asArray().map { row ->
             val fields = row.asObject()
-            val signature = fields["signature"].matching(SIGNATURE)
+            val signature = fields["signature"].matching(SOLANA_SIGNATURE)
             val transactionParams = JsonArray(
                 listOf(
                     JsonPrimitive(signature),
@@ -153,6 +154,24 @@ internal class SolanaCalls(
                 decimals = tokenAmount["decimals"].whole(0, 255L).toInt(),
             )
         }
+    }
+
+    /**
+     * `getSignatureStatuses` for [signature], with the history searched so an older signature is found. The answer is null while the network does not
+     * know the signature. A status is confirmed at `confirmed` or `finalized`, and failed when its `err` is set.
+     */
+    private suspend fun status(signature: String): SolanaStatus? {
+        val params = JsonArray(
+            listOf(
+                JsonArray(listOf(JsonPrimitive(signature))),
+                options("searchTransactionHistory" to JsonPrimitive(true)),
+            ),
+        )
+        val row = call("getSignatureStatuses", params).asObject()["value"].asArray().firstOrNull()
+        if (row == null || row is JsonNull) return null
+        val fields = row.asObject()
+        val level = fields["confirmationStatus"].present()?.text()
+        return SolanaStatus(confirmed = level == "confirmed" || level == "finalized", failed = fields["err"].present() != null)
     }
 
     /** One JSON-RPC call. A 429 is sent again after [waitFor] while [MAX_RETRIES] allows, and then the last [ProviderError.RateLimited] is thrown. */
