@@ -8,17 +8,17 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 
 /**
- * The Keystone multi-accounts export that Keystone Nexus imports: one `ur:crypto-multi-accounts` whose account keys are the
- * [NexusKeys] of the wallet's Apps. The layout is KeystoneHQ's ur-registry 0.8.1 (src/extended/CryptoMultiAccounts.ts): a top-level map,
+ * The `ur:crypto-multi-accounts` export: one UR whose account keys are the crypto-hdkey items it is given, such as the Ethereum App's
+ * keys ([EthereumNexusKeys]). The layout is KeystoneHQ's ur-registry 0.8.1 (src/extended/CryptoMultiAccounts.ts): a top-level map,
  * untagged, {1: master fingerprint (uint32), 2: [crypto-hdkey, tag 303], 3: device, 4: device ID, 5: version}. Each key is a
  * crypto-hdkey of an account's public key, chain code, origin keypath with the master fingerprint and depth, and parent fingerprint.
  * It carries public data only, never the seed or a private key.
  */
 object MultiAccountsExport {
-    /** The UR type that Keystone Nexus reads. */
+    /** The UR type of the export. */
     const val UR_TYPE = "crypto-multi-accounts"
 
-    /** The device label. Lensly names itself here, so it does not claim to be a Keystone device. */
+    /** The device label. Lensly names itself here. */
     const val DEVICE = "Lensly"
 
     private const val HDKEY_TAG = 303L
@@ -55,7 +55,7 @@ object MultiAccountsExport {
 
     /**
      * The device ID of the export: the first 20 bytes of SHA-256 over the ASCII tag "lensly-device" followed by the master fingerprint as
-     * 4 big-endian bytes, written as 40 lowercase hex digits. Keystone's device writes a 40-digit device ID too, derived from its serial.
+     * 4 big-endian bytes, written as 40 lowercase hex digits.
      */
     fun deviceId(masterFingerprint: Int): String {
         val digest = MessageDigest.getInstance("SHA-256")

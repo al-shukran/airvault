@@ -2,7 +2,6 @@ package app.lensly.app
 
 import app.lensly.app.export.BrotliCompressor
 import app.lensly.app.export.BrotliEncoder
-import app.lensly.app.export.MultiAccountsExport
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
 import app.lensly.app.export.fitBytes
@@ -449,27 +448,6 @@ class WalletStore(private val session: VaultSession) {
         val bytes = WalletRecords.encodeBitcoinAccounts(accounts)
         require(bytes.size <= WalletRecordNames.BITCOIN_CAPACITY) { NO_ROOM_FOR_BITCOIN }
         session.putRecord(id, WalletRecords.BITCOIN, bytes)
-    }
-
-    /**
-     * The frames of the Keystone multi-accounts export that Keystone Nexus imports for wallet [id]: the account keys of every App in
-     * [WalletApp], in its order (the Bitcoin mainnet account 0 on each Script Type, then the Ethereum account key of each account, m/44'/60'/N').
-     * [version] is the app version the export names. The seed is derived for the export and zeroed after it. The export asks for no App
-     * Password, as the other pairing exports do, and it carries public data only.
-     *
-     * @throws IllegalArgumentException if the wallet is missing or is a Single Key, which has no seed to derive from.
-     */
-    fun keystoneNexusParts(id: String, version: String): List<String> {
-        val secret = mnemonicSecret(id)
-        val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
-        try {
-            val masterFingerprint = HdWallet(seed).masterFingerprint
-            val accounts = requireNotNull(meta(id)) { "No wallet $id." }.accountCount
-            val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint, accounts) }
-            return MultiAccountsExport.urParts(masterFingerprint, keys, version)
-        } finally {
-            seed.fill(0)
-        }
     }
 
     /**

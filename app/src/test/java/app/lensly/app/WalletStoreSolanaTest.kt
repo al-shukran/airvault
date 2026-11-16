@@ -1,6 +1,5 @@
 package app.lensly.app
 
-import app.lensly.app.export.SolanaNexusKeys
 import app.lensly.app.export.SolanaPairingKeys
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.vault.MemoryKeystore
@@ -11,7 +10,6 @@ import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -121,10 +119,9 @@ class WalletStoreSolanaTest {
     }
 
     @Test
-    fun theSolanaAppIsListedAfterEthereumAndContributesNoNexusKeys() {
+    fun theSolanaAppIsListedAfterEthereum() {
         assertEquals(listOf(WalletApp.BITCOIN, WalletApp.ETHEREUM, WalletApp.SOLANA), WalletApp.entries)
         assertEquals(WalletApp.SOLANA, WalletApp.fromRouteId("solana"))
-        assertTrue(SolanaNexusKeys.hdKeys(seed(), 0, 2).isEmpty())
     }
 
     private fun hardened(index: Long): Long = 0x80000000L + index

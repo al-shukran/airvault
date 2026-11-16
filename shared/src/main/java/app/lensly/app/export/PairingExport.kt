@@ -4,7 +4,7 @@ import app.lensly.core.wallet.AccountXpub
 
 /**
  * The pairing export that Rabby and MetaMask import: ur:crypto-multi-accounts with one Ledger Live key for each Ethereum account, the
- * keys the Keystone Nexus export gives the Ethereum App (see [EthereumNexusKeys]). Account N's key is m/44'/60'/N' with the children 0/0
+ * Ethereum App's keys (see [EthereumNexusKeys]). Account N's key is m/44'/60'/N' with the children 0/0
  * that reach its address. It carries public material only, never the seed or any private key.
  */
 object PairingExport {
