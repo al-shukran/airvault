@@ -83,6 +83,22 @@ class PriceChartRepositoryTest {
     }
 
     @Test
+    fun aKeptChartIsReadAgainOnceItIsOlderThanTheTtl() {
+        server.enqueue(answer(point(1_799_998_800L, "1840.5")))
+        server.enqueue(answer(point(1_799_998_800L, "1841.0")))
+        val repository = repository()
+
+        val first = runBlocking { repository.chart(AssetId.Native(ETH), ChartRange.H24, nowMs = now) }
+        val justBefore = runBlocking { repository.chart(AssetId.Native(ETH), ChartRange.H24, nowMs = now + CHART_TTL_MS - 1) }
+        val afterTtl = runBlocking { repository.chart(AssetId.Native(ETH), ChartRange.H24, nowMs = now + CHART_TTL_MS) }
+
+        assertEquals(1_840.5, assertNotNull(first).points.single().usd)
+        assertEquals(first, justBefore)
+        assertEquals(1_841.0, assertNotNull(afterTtl).points.single().usd)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
     fun aDifferentRangeIsAskedForItsOwnWindow() {
         server.enqueue(answer(point(1_799_998_800L, "1840.5")))
         server.enqueue(answer(point(1_799_998_800L, "1841.0")))
