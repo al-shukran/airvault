@@ -132,7 +132,8 @@ class EthSignRequest(
             return bytes
         }
 
-        private fun keyPathOf(item: Cbor): Pair<List<PathStep>, Int?> {
+        /** Reads a tag 304 keypath. Shared with [SolSignRequest], which adds its own hardened-only rule. */
+        internal fun keyPathOf(item: Cbor): Pair<List<PathStep>, Int?> {
             val tagged = item as? Cbor.Tagged
             if (tagged == null || tagged.tag != KEYPATH_TAG) malformed("derivationPath must be a tag 304 keypath")
             val fields = fieldsOf(tagged.value)
