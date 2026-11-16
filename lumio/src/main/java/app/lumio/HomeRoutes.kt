@@ -123,11 +123,12 @@ internal fun HomeRoute(
         try {
             readOrNull { HomeLoader.prices(app, balances) }?.let { prices = it }
             val ethereum = readOrNull { HomeLoader.refreshEvm(app, session, mode) }
+            val nativeFailures = readOrNull { HomeLoader.refreshNative(app, session, mode) }
             readOrNull { HomeLoader.cached(app, session, mode) }?.let { balances = it }
             readOrNull { HomeLoader.scanBitcoin(app, session, mode) }
             readOrNull { HomeLoader.cached(app, session, mode) }?.let { balances = it }
             readOrNull { HomeLoader.prices(app, balances) }?.let { prices = it }
-            if (ethereum == null || ethereum.isNotEmpty()) notice = REFRESH_NOTICE
+            if (ethereum == null || ethereum.isNotEmpty() || nativeFailures == null || nativeFailures.isNotEmpty()) notice = REFRESH_NOTICE
         } finally {
             refreshing = false
         }

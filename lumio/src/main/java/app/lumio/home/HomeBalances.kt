@@ -3,10 +3,14 @@ package app.lumio.home
 import app.lensly.core.btc.BtcNetwork
 import app.lumio.btc.BtcRow
 import app.lumio.btc.networkId
+import app.lumio.chains.CachedNativeBalance
+import app.lumio.chains.NativeBalances
+import app.lumio.chains.NativeCoin
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.evm.EvmChain
 import app.lumio.evm.Holding
+import app.lumio.pair.PairedWallet
 import app.lumio.tokens.TokenHolding
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -82,6 +86,31 @@ object HomeBalances {
             )
         }
         .filter { it.balance.signum() > 0 }
+
+    /**
+     * The Algorand and Solana coin of each of [coins] that has a read in [cache] for an address of [wallets], summed over the wallets and their addresses. A
+     * coin with no read is not an asset, so it is never shown as zero.
+     */
+    fun nativeCoins(wallets: List<PairedWallet>, cache: List<CachedNativeBalance>, coins: List<NativeCoin>): List<NativeAsset> {
+        val byKey = cache.associateBy { it.key }
+        return coins.mapNotNull { coin ->
+            val reads = wallets.flatMap { wallet ->
+                NativeBalances.addresses(wallet, coin.network).mapNotNull { address -> byKey[Triple(wallet.id, coin.network, address)] }
+            }
+            if (reads.isEmpty()) {
+                null
+            } else {
+                val base = reads.fold(BigInteger.ZERO) { sum, read -> sum + BigInteger(read.amount) }
+                NativeAsset(
+                    id = NativeAsset.idOf(coin.network),
+                    symbol = coin.symbol,
+                    name = coin.name,
+                    network = coin.network,
+                    balance = BigDecimal(base).movePointLeft(coin.decimals),
+                )
+            }
+        }
+    }
 
     private const val BTC_DECIMALS = 8
 }
