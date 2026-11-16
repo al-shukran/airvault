@@ -33,14 +33,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.BitcoinIcon
-import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.HomeTopBar
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.theme.LenslyError
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
@@ -51,13 +49,13 @@ import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillStyle
 import app.lumio.data.config.AssetSort
 import app.lumio.data.config.DisplaySettings
-import app.lumio.data.net.Family
 import app.lumio.evm.EvmFormat
 import app.lumio.home.AccountOption
 import app.lumio.home.HomeAsset
 import app.lumio.home.HomeAssets
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
+import app.lumio.home.TokenAsset
 import app.lumio.network.NetworkMode
 import app.lumio.ui.network.NetworkSwitch
 import app.lumio.ui.network.label
@@ -114,6 +112,7 @@ fun LumioHome(
     onSend: (AccountOption) -> Unit = {},
     onReceive: (AccountOption) -> Unit = {},
     networkEntry: (HomeAsset) -> NetworkEntry? = { null },
+    tokenEntry: (HomeAsset) -> TokenEntry? = { null },
 ) {
     var revealed by remember { mutableStateOf(false) }
     var sortOpen by remember { mutableStateOf(false) }
@@ -128,66 +127,74 @@ fun LumioHome(
     val total = HomeAssets.totalUsd(assets)
     val shown = HomeAssets.sorted(HomeAssets.visible(HomeAssets.withoutSpam(assets, settings.hideSpam), settings.minimumUsd), settings.sort)
 
-    PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = modifier.fillMaxSize()) {
-        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LenslySpacing.lg)) {
-            item(key = "top") { HomeTopBar(wordmark = "LUMIO", onLock = onLock, mark = { LumioMark() }) }
-            item(key = "mode") {
-                NetworkSwitch(
-                    mode = mode,
-                    onChange = onMode,
-                    modifier = Modifier.padding(horizontal = WALLET_GUTTER, vertical = LenslySpacing.xs),
-                )
-            }
-            item(key = "total") {
-                TotalBlock(
-                    total = total,
-                    hidden = !settings.showTotal && !revealed,
-                    canReveal = !settings.showTotal,
-                    onReveal = { revealed = !revealed },
-                    reading = refreshing,
-                    staleSinceMs = staleSinceMs,
-                )
-            }
-            item(key = "actions") {
-                ActionRow(onSend = { sendOpen = true }, onReceive = { receiveOpen = true })
-            }
-            item(key = "header") { ListHeader(sort = settings.sort, onSort = { sortOpen = true }) }
-            notice?.let { message ->
-                item(key = "notice") {
-                    InlineBanner(
-                        message = message,
-                        tone = BannerTone.Warning,
+    Column(modifier = modifier.fillMaxSize()) {
+        // The top bar stays above the list on both sides, so the lock and the wordmark stay in reach while the list scrolls.
+        HomeTopBar(wordmark = "LUMIO", onLock = onLock, mark = { LumioMark() })
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxWidth().weight(1f),
+        ) {
+            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LenslySpacing.lg)) {
+                item(key = "mode") {
+                    NetworkSwitch(
+                        mode = mode,
+                        onChange = onMode,
                         modifier = Modifier.padding(horizontal = WALLET_GUTTER, vertical = LenslySpacing.xs),
                     )
                 }
-            }
-            when {
-                !hasWallets -> item(key = "empty") {
-                    EmptyState(
-                        icon = LenslyIcons.Wallets,
-                        title = "No wallets paired yet",
-                        body = "Pair a wallet from Lensly to see its balances here.",
-                        actionLabel = "Pair from Lensly",
-                        onAction = onPair,
-                        modifier = Modifier.padding(horizontal = WALLET_GUTTER),
+                item(key = "total") {
+                    TotalBlock(
+                        total = total,
+                        hidden = !settings.showTotal && !revealed,
+                        canReveal = !settings.showTotal,
+                        onReveal = { revealed = !revealed },
+                        reading = refreshing,
+                        staleSinceMs = staleSinceMs,
                     )
                 }
-                shown.isEmpty() -> item(key = "none") {
-                    Text(
-                        text = emptyListText(refreshing, assets.isNotEmpty(), settings.minimumUsd),
-                        modifier = Modifier.padding(horizontal = WALLET_GUTTER, vertical = LenslySpacing.md),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                item(key = "actions") {
+                    ActionRow(onSend = { sendOpen = true }, onReceive = { receiveOpen = true })
+                }
+                item(key = "header") { ListHeader(sort = settings.sort, onSort = { sortOpen = true }) }
+                notice?.let { message ->
+                    item(key = "notice") {
+                        InlineBanner(
+                            message = message,
+                            tone = BannerTone.Warning,
+                            modifier = Modifier.padding(horizontal = WALLET_GUTTER, vertical = LenslySpacing.xs),
+                        )
+                    }
+                }
+                when {
+                    !hasWallets -> item(key = "empty") {
+                        EmptyState(
+                            icon = LenslyIcons.Wallets,
+                            title = "No wallets paired yet",
+                            body = "Pair a wallet from Lensly to see its balances here.",
+                            actionLabel = "Pair from Lensly",
+                            onAction = onPair,
+                            modifier = Modifier.padding(horizontal = WALLET_GUTTER),
+                        )
+                    }
+                    shown.isEmpty() -> item(key = "none") {
+                        Text(
+                            text = emptyListText(refreshing, assets.isNotEmpty(), settings.minimumUsd),
+                            modifier = Modifier.padding(horizontal = WALLET_GUTTER, vertical = LenslySpacing.md),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                items(shown, key = { it.id }) { asset ->
+                    AssetRow(
+                        asset = asset,
+                        network = networkEntry(asset),
+                        token = tokenEntry(asset),
+                        settings = settings,
+                        onClick = { onAsset(asset) },
                     )
                 }
-            }
-            items(shown, key = { it.id }) { asset ->
-                AssetRow(
-                    asset = asset,
-                    entry = networkEntry(asset),
-                    settings = settings,
-                    onClick = { onAsset(asset) },
-                )
             }
         }
     }
@@ -331,7 +338,7 @@ private fun ListHeader(sort: AssetSort, onSort: () -> Unit) {
  * settings hide assets. A coin with no price shows a dash for its value and no change.
  */
 @Composable
-private fun AssetRow(asset: HomeAsset, entry: NetworkEntry?, settings: DisplaySettings, onClick: () -> Unit) {
+private fun AssetRow(asset: HomeAsset, network: NetworkEntry?, token: TokenEntry?, settings: DisplaySettings, onClick: () -> Unit) {
     val hidden = !settings.showAssets
     Row(
         modifier = Modifier
@@ -342,17 +349,10 @@ private fun AssetRow(asset: HomeAsset, entry: NetworkEntry?, settings: DisplaySe
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
     ) {
-        if (asset.network.family == Family.BTC) {
-            BitcoinIcon(size = LOGO_SIZE)
-        } else {
-            ChainIcon(network = entry, size = LOGO_SIZE)
-        }
+        AssetIcon(spec = assetIconSpec(asset, network, token), size = LOGO_SIZE)
         Column(modifier = Modifier.weight(1f)) {
             Text(asset.symbol, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-                Text(asset.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (asset.testnet) PillChip(text = "Testnet")
-            }
+            Text(asset.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
