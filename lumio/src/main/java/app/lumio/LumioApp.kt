@@ -26,10 +26,9 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.price.PriceRepository
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Provider
+import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.blockchair.BlockchairProvider
-import app.lumio.data.provider.coingecko.CoinGeckoProvider
-import app.lumio.data.provider.defillama.DefiLlamaProvider
 import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.scan.QueuedJob
 import app.lumio.data.scan.ScanQueue
@@ -125,13 +124,13 @@ class LumioApp : Application(), CoverApplication {
     }
 
     /**
-     * The one scheduler of price calls: DefiLlama first, then CoinGecko as the fallback. It keeps its own rates and cooldowns, apart from the Bitcoin
-     * scheduler, and it reads the same cache and provider settings.
+     * The one scheduler of price calls. CoinGecko is asked first only while it has a key and is enabled, and DefiLlama answers otherwise or when
+     * CoinGecko fails. It keeps its own rates and cooldowns, apart from the Bitcoin scheduler, and it reads the same cache and provider settings.
      */
-    private val priceScheduler: Scheduler by lazy {
+    internal val priceScheduler: Scheduler by lazy {
         Scheduler(
-            providers = listOf(DefiLlamaProvider(), CoinGeckoProvider()),
-            configs = { lumioVault()?.configs().orEmpty() },
+            providers = ProviderCatalog.priceProviders(),
+            configs = { ProviderCatalog.withDefaults(lumioVault()?.configs().orEmpty()) },
             http = http,
             clock = MonotonicClock,
             random = Random.Default,

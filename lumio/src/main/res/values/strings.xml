@@ -5,6 +5,7 @@
     <string name="providers_title">DATA PROVIDERS</string>
     <string name="providers_intro">Lumio reads chain data and sends transactions through these providers, in the order below. A provider that is off, or that needs a key you have not set, is skipped. API keys are sealed in this vault and stay hidden until you show them.</string>
     <string name="providers_data_heading">Data</string>
+    <string name="providers_prices_heading">Prices</string>
     <string name="providers_rpc_heading">RPC</string>
     <string name="providers_mev_badge">MEV-protected</string>
     <string name="providers_move_up">Move up</string>

@@ -110,10 +110,9 @@ class CoinGeckoProviderTest {
     }
 
     @Test
-    fun theProviderIsAFallbackWhoseKeyIsOptional() {
+    fun theProviderNeedsItsKeyAndIsNotAFallback() {
         val provider = CoinGeckoProvider()
-        assertTrue(Trait.FALLBACK_ONLY in provider.traits)
-        assertTrue(Trait.KEY_OPTIONAL in provider.traits)
+        assertEquals(setOf(Trait.KEY_REQUIRED), provider.traits)
         assertTrue(provider.supports(BTC, Op.PRICE, ProviderConfig()))
         assertFalse(provider.supports(BTC, Op.NATIVE_BALANCE, ProviderConfig()))
         assertFalse(provider.defaultLimits(ProviderConfig()) == provider.defaultLimits(ProviderConfig(apiKey = "k")))

@@ -248,6 +248,23 @@ class LumioScreenshotTest {
         )
     }
 
+    /** The Prices group alone, first on screen so the capture shows it: CoinGecko needs its key, DefiLlama is keyless and healthy. */
+    @Test
+    fun dataProvidersPrices() = compose.snapshot("data_providers_prices") {
+        DataProvidersScreen(
+            data = emptyList(),
+            prices = listOf(
+                providerRow("coingecko", acceptsKey = true, status = ProviderStatus.NeedsKey, canMoveUp = false),
+                providerRow("defillama", acceptsKey = false, status = ProviderStatus.Healthy(95.0), canMoveDown = false),
+            ),
+            rpc = emptyList(),
+            onBack = {},
+            onEnabled = { _, _ -> },
+            onMove = { _, _ -> },
+            onApiKey = { _, _ -> },
+        )
+    }
+
     @Test
     fun pairReview() = compose.snapshot("pair_review") {
         PairReviewScreen(
