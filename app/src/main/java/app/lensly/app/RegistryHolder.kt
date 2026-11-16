@@ -7,6 +7,7 @@ import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.update.RegistryCatalog
 import app.lensly.core.registry.update.RegistryPackage
 import app.lensly.core.registry.update.RegistryUpdate
+import app.lensly.core.registry.update.TrustedKey
 import app.lensly.core.registry.update.TrustedKeys
 import java.io.File
 import java.io.FileNotFoundException
@@ -19,6 +20,9 @@ import java.io.FileNotFoundException
 object RegistryHolder {
     /** Directory under noBackupFilesDir where [RegistryUpdate.install] stores an accepted package. */
     private const val INSTALLED_DIR = "registry"
+
+    /** The signed package the APK ships (shared assets), installed on first load when it is newer than the stored one. */
+    private const val BUNDLED_PATH = "registry/bundled.lrp"
 
     private var catalog: RegistryCatalog? = null
 
@@ -47,7 +51,22 @@ object RegistryHolder {
         val assets = context.assets
         val baked = RegistryLoader.fromAssets(assets)
         val trustedKeys = TrustedKeys.load { path -> readAsset(assets, path) }
-        return RegistryCatalog(baked, File(context.noBackupFilesDir, INSTALLED_DIR), trustedKeys)
+        val dir = File(context.noBackupFilesDir, INSTALLED_DIR)
+        installBundled(assets, baked, trustedKeys, dir)
+        return RegistryCatalog(baked, dir, trustedKeys)
+    }
+
+    /**
+     * Installs the signed package the APK ships, through the same checks as an offline update: its signature, its key, and its
+     * sequence against the stored one. An equal or older bundled package is refused, so a newer package from storage stays in effect.
+     */
+    private fun installBundled(assets: AssetManager, baked: Registry, trustedKeys: List<TrustedKey>, dir: File) {
+        val bytes = try {
+            assets.open(BUNDLED_PATH).use { it.readBytes() }
+        } catch (e: FileNotFoundException) {
+            return
+        }
+        RegistryUpdate.install(bytes, trustedKeys, baked, dir)
     }
 
     private fun readAsset(assets: AssetManager, path: String): String? = try {

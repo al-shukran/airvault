@@ -159,6 +159,10 @@ Entries may take dynamic arguments (`bytes`, `string`, arrays and tuples) and na
 a package (see `tools/registry-pack/README.md`). The swap and bridge entries added with schema 3 are these, each checked on
 Ethereum mainnet: the address has code, and the Keccak-256 selector of the signature appears in its bytecode.
 
+The entries in `verified-selectors.txt` (the two Uniswap Universal Router `execute` entries, the eight SwapRouter02 entries and CoW
+`setPreSignature`, eleven in all) are the ones that ship: `tools/registry-pack/sign-candidate.sh` signs them into `shared/src/main/assets/registry/bundled.lrp`.
+The other candidate entries (Aave, Compound, Lido, WETH) have no verification note, so they stay out of the bundle.
+
 - Uniswap Universal Router V2 (`0x66a9893c...`) and V1.2 (`0x3fC91A3a...`), `execute(bytes,bytes[],uint256)`. Addresses from
   `deploy-addresses/mainnet.json` in `Uniswap/universal-router`; the signature from `contracts/interfaces/IUniversalRouter.sol`.
 - Uniswap SwapRouter02 (`0x68b34658...`): `exactInputSingle`, `exactInput`, `exactOutputSingle`, `exactOutput`,

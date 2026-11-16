@@ -1,4 +1,10 @@
 {
-  "note": "RELEASE KEY SLOT. Empty on purpose: no release key exists yet, so a release build accepts no registry package. To fill it, follow 'Release key' in tools/registry-pack/README.md and add the entry that keygen prints to the list below.",
-  "keys": []
+  "note": "RELEASE KEYS. Each entry is a public key this build accepts registry packages from. The key that signs the shipped bundled package (registry/bundled.lrp) is pinned here: created 2026-11-16 with tools/registry-pack keygen; its private half is kept outside the repository. Rotation: add the new key as active and sign with it, then set the old key to revoked. Test keys never go in this file (see the debug source set).",
+  "keys": [
+    {
+      "id": "3c209f38eacc250c",
+      "publicKey": "91f1d61c25da829f852c2bb521bbaea4164f5d73b2582d30ff1c65b5a0ac94e8",
+      "status": "active"
+    }
+  ]
 }
