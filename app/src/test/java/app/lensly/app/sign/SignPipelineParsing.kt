@@ -25,6 +25,8 @@ fun SignPipeline.prepare(ur: UR, wallet: WalletView): Prepared =
         is ScanReply.Refused -> Prepared.Refused(reply.reason)
         // A PSBT is a Bitcoin request, which the EVM pipeline does not sign.
         is ScanReply.Bitcoin -> Prepared.Refused(UNSUPPORTED_CODE)
+        // A Solana request is reviewed by the Solana check, not the EVM pipeline.
+        is ScanReply.Solana -> Prepared.Refused(UNSUPPORTED_CODE)
         ScanReply.NotPart, is ScanReply.Incomplete -> error("A single frame is a whole request or a refusal")
     }
 

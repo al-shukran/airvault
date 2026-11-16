@@ -12,6 +12,7 @@ import app.lensly.app.sign.matchWallet
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.wallet.AccountAddresses
 import fr.acinq.bitcoin.psbt.Psbt
@@ -176,6 +177,7 @@ class SignFlow(
                 }
                 is ScanReply.Complete -> if (accept(text)) publish(started, decide(started, reply.parsed))
                 is ScanReply.Bitcoin -> if (accept(text)) publish(started, decideBitcoin(started, reply.psbt))
+                is ScanReply.Solana -> current.value = SignStep.Refused(UNSUPPORTED_CODE)
             }
         }
     }
