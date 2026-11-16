@@ -19,6 +19,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.lensly.app.export.PairingAccount
@@ -62,6 +63,7 @@ import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
 import app.lumio.ui.btc.BitcoinPortfolioScreen
+import app.lumio.ui.btc.BtcAdvancedFields
 import app.lumio.ui.btc.BtcSendReviewScreen
 import app.lumio.ui.btc.BtcSendSentScreen
 import app.lumio.ui.btc.BtcSignRequestScreen
@@ -70,6 +72,7 @@ import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
 import app.lumio.ui.portfolio.WalletScreen
+import app.lumio.ui.send.AdvancedSendFields
 import app.lumio.ui.send.SendSentScreen
 import app.lumio.ui.send.SendReviewScreen
 import app.lumio.ui.send.SignRequestScreen
@@ -388,12 +391,17 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun bitcoinSendReview() = compose.snapshot("bitcoin_send_review") {
-        BtcSendReviewScreen(plan = btcPlan, notice = null, onConfirm = {}, onBack = {})
+        BtcSendReviewScreen(plan = btcPlan, suggestedRate = 2.0, notice = null, onSave = {}, onConfirm = {}, onBack = {})
     }
 
     @Test
     fun bitcoinSendReviewRequestFailed() = compose.snapshot("bitcoin_send_review_error") {
-        BtcSendReviewScreen(plan = btcPlan, notice = REQUEST_FAILED, onConfirm = {}, onBack = {})
+        BtcSendReviewScreen(plan = btcPlan, suggestedRate = 2.0, notice = REQUEST_FAILED, onSave = {}, onConfirm = {}, onBack = {})
+    }
+
+    @Test
+    fun bitcoinAdvancedSheet() = compose.snapshot("bitcoin_advanced_sheet") {
+        BtcAdvancedFields(suggestedRate = 2.0, rate = 9.0, onSave = {}, onCancel = {})
     }
 
     @Test
@@ -447,12 +455,36 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun ethereumSendReview() = compose.snapshot("ethereum_send_review") {
-        SendReviewScreen(send = ethSend, notice = null, onConfirm = {}, onBack = {})
+        SendReviewScreen(send = ethSend, suggested = ethSend, notice = null, onSave = {}, onConfirm = {}, onBack = {})
     }
 
     @Test
     fun ethereumSendReviewRequestFailed() = compose.snapshot("ethereum_send_review_error") {
-        SendReviewScreen(send = ethSend, notice = REQUEST_FAILED, onConfirm = {}, onBack = {})
+        SendReviewScreen(send = ethSend, suggested = ethSend, notice = REQUEST_FAILED, onSave = {}, onConfirm = {}, onBack = {})
+    }
+
+    /** The advanced sheet as the owner leaves it: a nonce below the pending one and a fee cap four times the suggested one, both warned. */
+    @Test
+    fun ethereumAdvancedSheet() = compose.snapshot("ethereum_advanced_sheet") {
+        val edited = ethSend.withFees(
+            nonce = 6,
+            gasLimit = BigInteger.valueOf(21_000),
+            maxFeePerGas = BigInteger.valueOf(120_000_000_000L),
+            maxPriorityFeePerGas = BigInteger.valueOf(1_500_000_000L),
+        )
+        AdvancedSendFields(suggested = ethSend, current = edited, onSave = {}, onCancel = {})
+    }
+
+    /** The advanced sheet with a gas limit below a transfer's: the field says why, and Save is off. */
+    @Test
+    fun ethereumAdvancedSheetRefused() = compose.snapshot(
+        name = "ethereum_advanced_sheet_error",
+        beforeCapture = {
+            onNodeWithText("21000").performTextReplacement("20000")
+            mainClock.advanceTimeBy(1_000)
+        },
+    ) {
+        AdvancedSendFields(suggested = ethSend, current = ethSend, onSave = {}, onCancel = {})
     }
 
     @Test

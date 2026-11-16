@@ -25,6 +25,7 @@ import app.lumio.btc.BtcPortfolio
 import app.lumio.btc.BtcSend
 import app.lumio.btc.BtcSendInput
 import app.lumio.btc.BtcSendPlan
+import app.lumio.btc.BtcSpendable
 import app.lumio.btc.networkId
 import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.ProviderError
@@ -32,10 +33,13 @@ import app.lumio.data.sched.Priority
 import app.lumio.evm.SignatureScan
 import app.lumio.network.NetworkMode
 import app.lumio.evm.SignatureStep
+import app.lumio.send.BtcPaymentCode
 import app.lumio.ui.btc.BtcSendFormScreen
 import app.lumio.ui.btc.BtcSendReviewScreen
 import app.lumio.ui.btc.BtcSendSentScreen
 import app.lumio.ui.btc.BtcSignRequestScreen
+import app.lumio.ui.send.RECIPIENT_SCAN_HINT
+import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SignatureScanScreen
 import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +49,9 @@ import kotlinx.coroutines.withContext
 /** The screens of a Bitcoin send, in the order the owner goes through them. */
 private sealed interface BtcSendStep {
     data object Form : BtcSendStep
+
+    /** The camera reads a recipient: an address, or a payment code that fills the form. */
+    data object ScanRecipient : BtcSendStep
 
     class Review(val plan: BtcSendPlan) : BtcSendStep
 
@@ -99,6 +106,9 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
     var scanStatus by remember { mutableStateOf(SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
     var sentNotice by remember { mutableStateOf<String?>(null) }
+    // The server's fee estimate for the network, and the coins the send may spend. The review's Advanced sheet re-plans on these.
+    var suggestedRate by remember { mutableStateOf<Double?>(null) }
+    var spendable by remember { mutableStateOf<BtcSpendable?>(null) }
 
     val selected = accounts.firstOrNull { it.key == accountKey } ?: accounts.firstOrNull()
     val network = selected?.account?.network
@@ -109,7 +119,9 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
         val estimates = runCatching {
             withContext(Dispatchers.IO) { app.scheduler.run(FeeEstimates(net.networkId()), Priority.FOREGROUND) }
         }.getOrNull() ?: return@LaunchedEffect
-        val suggested = BtcSend.suggestedFeeRate(estimates).toLong().toString()
+        val rate = BtcSend.suggestedFeeRate(estimates)
+        suggestedRate = rate
+        val suggested = rate.toLong().toString()
         feeSuggestion = "Starts at $suggested sat/vB, the server's estimate for about three blocks. Change it if you like."
         if (feeRate.isBlank()) feeRate = suggested
     }
@@ -125,16 +137,49 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
                     val sats = BtcSendInput.amountSats(amount)
                     val rate = BtcSendInput.feeRate(feeRate)
                     // Debug builds only: the pairing fixture's testnet4 coins, which no server holds. Release builds always read the network.
-                    val spendable = DebugSpendFixture.spendable(ref.account) ?: BtcSend.spendable(ref.account, app.scheduler)
-                    BtcSend.plan(ref.account, spendable, to, sats, rate)
+                    val pool = DebugSpendFixture.spendable(ref.account) ?: BtcSend.spendable(ref.account, app.scheduler)
+                    pool to BtcSend.plan(ref.account, pool, to, sats, rate)
                 }
             }
             busy = false
             outcome.fold(
-                onSuccess = { plan -> step = BtcSendStep.Review(plan) },
+                onSuccess = { (pool, plan) ->
+                    spendable = pool
+                    step = BtcSendStep.Review(plan)
+                },
                 onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
             )
         }
+    }
+
+    /** The send rebuilt at [rate] from the same coins, as the review's Advanced sheet saves it. A refused rate keeps the review and says why. */
+    fun saveFeeRate(current: BtcSendPlan, rate: Double) {
+        val pool = spendable ?: return
+        scope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching { BtcSend.plan(current.account, pool, current.recipient, current.amountSats, rate) }
+            }
+            outcome.fold(
+                onSuccess = { plan ->
+                    notice = null
+                    step = BtcSendStep.Review(plan)
+                },
+                onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
+            )
+        }
+    }
+
+    /** A scanned recipient fills To, and the amount when the form has none. A code that is refused keeps the camera on, with the words why. */
+    fun onRecipientText(text: String) {
+        val net = network ?: return
+        runCatching { BtcPaymentCode.read(text, net) }
+            .onSuccess { payment ->
+                recipient = payment.address
+                if (payment.amount != null && amount.isBlank()) amount = payment.amount
+                notice = null
+                step = BtcSendStep.Form
+            }
+            .onFailure { error -> scanStatus = ownerWords(error, RECIPIENT_SCAN_HINT) }
     }
 
     fun confirm(plan: BtcSendPlan) {
@@ -213,6 +258,7 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
     BackHandler {
         when (val current = step) {
             BtcSendStep.Form, is BtcSendStep.Sent -> navController.popBackStack()
+            BtcSendStep.ScanRecipient -> step = BtcSendStep.Form
             is BtcSendStep.Review -> {
                 notice = null
                 step = BtcSendStep.Form
@@ -232,6 +278,10 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
             onSelect = { accountKey = it },
             recipient = recipient,
             onRecipient = { recipient = it },
+            onScan = {
+                scanStatus = RECIPIENT_SCAN_HINT
+                step = BtcSendStep.ScanRecipient
+            },
             amount = amount,
             onAmount = { amount = it },
             feeRate = feeRate,
@@ -242,9 +292,16 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
             onReview = ::review,
             onBack = { navController.popBackStack() },
         )
+        BtcSendStep.ScanRecipient -> RecipientScanScreen(
+            status = scanStatus,
+            onText = ::onRecipientText,
+            onCancel = { step = BtcSendStep.Form },
+        )
         is BtcSendStep.Review -> BtcSendReviewScreen(
             plan = current.plan,
+            suggestedRate = suggestedRate ?: current.plan.feeRateSatPerVb,
             notice = notice,
+            onSave = { rate -> saveFeeRate(current.plan, rate) },
             onConfirm = { confirm(current.plan) },
             onBack = {
                 notice = null

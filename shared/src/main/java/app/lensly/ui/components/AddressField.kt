@@ -3,7 +3,10 @@ package app.lensly.ui.components
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -17,7 +20,8 @@ internal const val CLIPBOARD_EMPTY = "The clipboard has no text."
 /**
  * A field for an address the owner types or pastes. The Paste action at its end replaces the field with the clipboard's text, trimmed.
  * [validate] returns the words that say why a value is not an address of the network, or null when it is one. The words show under the
- * field once it has text, and the field is marked as an error while they show.
+ * field once it has text, and the field is marked as an error while they show. [onScan], when given, adds a scan action beside Paste
+ * that opens the camera; the caller decides what the scan fills in.
  */
 @Composable
 fun AddressField(
@@ -27,6 +31,7 @@ fun AddressField(
     validate: (String) -> String?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    onScan: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val error = if (value.isEmpty()) null else validate(value)
@@ -44,11 +49,18 @@ fun AddressField(
         isError = error != null,
         supportingText = supporting,
         trailingIcon = {
-            TextButton(
-                onClick = { pasteAddress(context, onValueChange) },
-                enabled = enabled,
-            ) {
-                Text("Paste")
+            Row {
+                TextButton(
+                    onClick = { pasteAddress(context, onValueChange) },
+                    enabled = enabled,
+                ) {
+                    Text("Paste")
+                }
+                if (onScan != null) {
+                    IconButton(onClick = onScan, enabled = enabled) {
+                        Icon(LenslyIcons.QrScan, contentDescription = "Scan a QR code")
+                    }
+                }
             }
         },
         modifier = modifier.fillMaxWidth(),

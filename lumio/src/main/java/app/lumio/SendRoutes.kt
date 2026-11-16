@@ -36,6 +36,9 @@ import app.lumio.evm.SignatureStep
 import app.lumio.pair.PairedWallet
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallets
+import app.lumio.send.EvmPaymentCode
+import app.lumio.ui.send.RECIPIENT_SCAN_HINT
+import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.send.SendReviewScreen
 import app.lumio.ui.send.SendSentScreen
@@ -65,6 +68,9 @@ private sealed interface SendLoad {
 /** The screens of a send, in the order the owner goes through them. */
 private sealed interface SendStep {
     data object Form : SendStep
+
+    /** The camera reads a recipient: an address, or a payment code that fills the form. */
+    data object ScanRecipient : SendStep
 
     class Review(val send: PreparedSend) : SendStep
 
@@ -119,6 +125,8 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
     var scanStatus by remember { mutableStateOf(SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
     var sentNotice by remember { mutableStateOf<String?>(null) }
+    // The send the network prepared. The review's Advanced sheet edits a copy of it, and the warnings compare against it.
+    var suggested by remember { mutableStateOf<PreparedSend?>(null) }
 
     val selectedChain = ready.chains.firstOrNull { it.chainId == chainId } ?: ready.chains.firstOrNull()
 
@@ -136,10 +144,26 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
             }
             busy = false
             outcome.fold(
-                onSuccess = { send -> step = SendStep.Review(send) },
+                onSuccess = { send ->
+                    suggested = send
+                    step = SendStep.Review(send)
+                },
                 onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
             )
         }
+    }
+
+    /** A scanned recipient fills To, and the amount when the form has none. A code that is refused keeps the camera on, with the words why. */
+    fun onRecipientText(text: String) {
+        val chain = selectedChain ?: return
+        runCatching { EvmPaymentCode.read(text, chain) }
+            .onSuccess { payment ->
+                recipient = payment.address
+                if (payment.amount != null && amount.isBlank()) amount = payment.amount
+                notice = null
+                step = SendStep.Form
+            }
+            .onFailure { error -> scanStatus = ownerWords(error, RECIPIENT_SCAN_HINT) }
     }
 
     fun confirm(send: PreparedSend) {
@@ -219,6 +243,7 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
     BackHandler {
         when (val current = step) {
             SendStep.Form, is SendStep.Sent -> navController.popBackStack()
+            SendStep.ScanRecipient -> step = SendStep.Form
             is SendStep.Review -> {
                 notice = null
                 step = SendStep.Form
@@ -240,6 +265,10 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
             onSelectChain = { chainId = it },
             recipient = recipient,
             onRecipient = { recipient = it },
+            onScan = {
+                scanStatus = RECIPIENT_SCAN_HINT
+                step = SendStep.ScanRecipient
+            },
             amount = amount,
             onAmount = { amount = it },
             busy = busy,
@@ -247,9 +276,19 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
             onReview = ::review,
             onBack = { navController.popBackStack() },
         )
+        SendStep.ScanRecipient -> RecipientScanScreen(
+            status = scanStatus,
+            onText = ::onRecipientText,
+            onCancel = { step = SendStep.Form },
+        )
         is SendStep.Review -> SendReviewScreen(
             send = current.send,
+            suggested = suggested ?: current.send,
             notice = notice,
+            onSave = { edited ->
+                notice = null
+                step = SendStep.Review(edited)
+            },
             onConfirm = { confirm(current.send) },
             onBack = {
                 notice = null
