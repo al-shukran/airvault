@@ -77,8 +77,8 @@ fun BitcoinPortfolioScreen(
             )
             Spacer(Modifier.height(LenslySpacing.xs))
         },
+        topBar = { DetailTopBar(title = "Bitcoin", onBack = onBack) },
     ) {
-        DetailTopBar(title = "Bitcoin", onBack = onBack)
         AppTitle(logo = { size -> BitcoinIcon(size = size) }, name = "Bitcoin", walletName = walletName)
         Spacer(Modifier.height(LenslySpacing.sm))
         if (scanning) Caption(progress ?: "Scanning")
@@ -139,8 +139,8 @@ fun BitcoinAccountScreen(
             )
             Spacer(Modifier.height(LenslySpacing.xs))
         },
+        topBar = { DetailTopBar(title = "Bitcoin account", onBack = onBack) },
     ) {
-        DetailTopBar(title = "Bitcoin account", onBack = onBack)
         AppTitle(logo = { size -> BitcoinIcon(size = size) }, name = "Bitcoin", walletName = walletName)
         Spacer(Modifier.height(LenslySpacing.sm))
         if (scanning) Caption("Scanning")

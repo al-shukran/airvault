@@ -33,8 +33,10 @@ fun ReceiveScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    WalletScaffold(modifier = modifier) {
-        DetailTopBar(title = "Receive", onBack = onBack)
+    WalletScaffold(
+        modifier = modifier,
+        topBar = { DetailTopBar(title = "Receive", onBack = onBack) },
+    ) {
         AppTitle(
             logo = { size -> if (bitcoin) BitcoinIcon(size = size) else AddressIcon(size = size) },
             name = "Receive",

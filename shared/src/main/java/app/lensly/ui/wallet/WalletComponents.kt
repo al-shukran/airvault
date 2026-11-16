@@ -126,32 +126,39 @@ fun WalletPill(
 }
 
 /**
- * Page frame for every wallet screen: safe-drawing insets, the page gutter, and a [footer] pinned
- * under the content. With [scrollable] the content scrolls when it is taller than the space left, so
- * it still fits a 720x1600 screen. Without it the content takes the remaining height, which lets
- * children use `Modifier.weight`.
+ * Page frame for every wallet screen, laid out as LenslyScreen lays out its pages: safe-drawing insets, then the [topBar] on the full
+ * width, pinned above the content. The content and the [footer] sit inside the page gutter, and the [footer] sits under the content.
+ * With [scrollable] the content scrolls when it is taller than the space left, so it still fits a 720x1600 screen. Without it the
+ * content takes the remaining height, which lets children use `Modifier.weight`.
  */
 @Composable
 fun WalletScaffold(
     modifier: Modifier = Modifier,
     scrollable: Boolean = true,
+    topBar: @Composable () -> Unit = {},
     footer: @Composable ColumnScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = WALLET_GUTTER),
+            .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
+        topBar()
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                .padding(horizontal = WALLET_GUTTER),
             content = content,
         )
-        footer()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = WALLET_GUTTER),
+            content = footer,
+        )
     }
 }
 

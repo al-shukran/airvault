@@ -110,16 +110,19 @@ fun EthereumAccountsScreen(
     fun accountIdentity(index: Int): VisualIdentity =
         visualIdentity(accountProfiles[index]?.colour, accountProfiles[index]?.icon, index)
 
-    WalletScaffold(modifier = modifier, scrollable = false) {
+    WalletScaffold(
+        modifier = modifier,
+        scrollable = false,
+        topBar = {
+            DetailTopBar(
+                title = "Ethereum accounts",
+                onBack = onBack,
+                onOptions = { sheet = AppSheet.Options },
+                optionsLabel = "App options",
+            )
+        },
+    ) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
-            item(key = "top-bar") {
-                DetailTopBar(
-                    title = "Ethereum accounts",
-                    onBack = onBack,
-                    onOptions = { sheet = AppSheet.Options },
-                    optionsLabel = "App options",
-                )
-            }
             item(key = "app") { AppHeader(app = WalletApp.ETHEREUM, walletName = wallet.name) }
             item(key = "accounts-header") {
                 Column(modifier = Modifier.fillMaxWidth()) {

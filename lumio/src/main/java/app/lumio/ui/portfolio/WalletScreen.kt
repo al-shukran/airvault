@@ -71,8 +71,8 @@ fun WalletScreen(
             )
             Spacer(Modifier.height(LenslySpacing.xs))
         },
+        topBar = { DetailTopBar(title = "Ethereum", onBack = onBack) },
     ) {
-        DetailTopBar(title = "Ethereum", onBack = onBack)
         AppTitle(logo = { size -> AddressIcon(size = size) }, name = "Ethereum", walletName = walletName)
         Spacer(Modifier.height(LenslySpacing.sm))
         if (refreshing) Caption("Reading the network")

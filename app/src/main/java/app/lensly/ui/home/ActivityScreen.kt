@@ -90,8 +90,11 @@ fun ActivityScreen(
     val shown = records
         .filter { filter.outcome == null || it.record.outcome == filter.outcome }
         .sortedByDescending { it.record.atMs }
-    WalletScaffold(modifier = modifier, scrollable = false) {
-        DetailTopBar(title = "Activity", onBack = onBack)
+    WalletScaffold(
+        modifier = modifier,
+        scrollable = false,
+        topBar = { DetailTopBar(title = "Activity", onBack = onBack) },
+    ) {
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Reviews")
         Spacer(Modifier.height(LenslySpacing.sm))

@@ -111,8 +111,10 @@ fun AssetScreen(
         }
     }
 
-    WalletScaffold(modifier = modifier) {
-        DetailTopBar(title = "Asset", onBack = onBack)
+    WalletScaffold(
+        modifier = modifier,
+        topBar = { DetailTopBar(title = "Asset", onBack = onBack) },
+    ) {
         AppTitle(
             logo = { size ->
                 if (asset.network.family == Family.BTC) {

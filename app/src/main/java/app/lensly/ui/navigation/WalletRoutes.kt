@@ -899,14 +899,12 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
         running = running,
         derived = derived,
         failure = failure,
-        onDigit = { digit -> if (!running) digits = BulkPolicy.appendDigit(digits, digit) },
-        onBackspace = { if (!running) digits = digits.dropLast(1) },
-        onPreset = { preset -> if (!running) digits = preset.toString() },
+        onDigits = { typed -> if (!running) digits = typed },
         chain = chain,
         onChain = { chosen -> chain = chosen },
         bitcoinAllowed = shown.kind == WalletKind.MNEMONIC,
         onGenerate = generate@{
-            val check = BulkPolicy.checkCount(digits.toIntOrNull(), cap.accounts)
+            val check = BulkPolicy.checkTyped(digits, cap.accounts)
             val count = (check as? BulkPolicy.CountCheck.Valid)?.count
             val chosenRun = chain
             // A Bitcoin run needs a seed. The screen disables GENERATE for a Single Key, and this refuses it too.
