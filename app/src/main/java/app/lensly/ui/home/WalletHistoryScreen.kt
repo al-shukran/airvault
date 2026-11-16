@@ -93,8 +93,11 @@ fun WalletHistoryScreen(
 ) {
     val haptics = rememberKeyHaptics()
     var open by remember { mutableStateOf<ReviewRecord?>(null) }
-    WalletScaffold(modifier = modifier, scrollable = false) {
-        DetailTopBar(title = "History", onBack = onBack)
+    WalletScaffold(
+        modifier = modifier,
+        scrollable = false,
+        topBar = { DetailTopBar(title = "History", onBack = onBack) },
+    ) {
         Spacer(Modifier.height(LenslySpacing.lg))
         DotText(text = walletName.uppercase(), fontSize = 40.sp)
         Spacer(Modifier.height(LenslySpacing.sm))

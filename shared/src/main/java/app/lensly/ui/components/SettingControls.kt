@@ -129,9 +129,9 @@ fun <T> SliderSetting(
 }
 
 /**
- * A whole number in [range], typed into an outlined field with [suffix] after it, such as "sat/vB". A number inside the range is
- * applied at once through [onValid], and [value] follows it. Any other text stays on the field, and the range is named under it.
- * [value] is null while the saved number is read, and then the field is off.
+ * A whole number in [range], typed into a number field (see [NumberField]) with [suffix] after it, such as "sat/vB". A number inside
+ * the range is applied at once through [onValid], and [value] follows it. Any other text stays on the field, and the range is named
+ * under it. [value] is null while the saved number is read, and then the field is off.
  */
 @Composable
 fun NumberFieldSetting(
@@ -144,27 +144,54 @@ fun NumberFieldSetting(
 ) {
     var text by remember(value) { mutableStateOf(value?.toString().orEmpty()) }
     val refused = text.toIntOrNull()?.takeIf { it in range } == null && (text.isNotEmpty() || value != null)
+    NumberField(
+        title = title,
+        text = text,
+        onText = { typed ->
+            text = typed
+            // Applied in the same step as the typing, so a number inside the range is saved at once.
+            val number = typed.toIntOrNull()?.takeIf { it in range }
+            if (number != null && number != value) onValid(number)
+        },
+        suffix = suffix,
+        modifier = modifier,
+        enabled = value != null,
+        error = if (refused) "Enter a number from ${range.first} to ${range.last}." else null,
+    )
+}
+
+/**
+ * A whole number typed into an outlined field under [title], with [suffix] after the digits, such as "accounts". The field shows
+ * [text] and uses the number keyboard. Each edit that is digits only, and at most [MAX_NUMBER_DIGITS] of them, is passed to [onText];
+ * any other edit is dropped, so the field keeps its text. A non-null [error] marks the field and is shown under it. [enabled] is
+ * false while the number cannot be changed.
+ */
+@Composable
+fun NumberField(
+    title: String,
+    text: String,
+    onText: (String) -> Unit,
+    suffix: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    error: String? = null,
+) {
     Column(modifier = modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
         Text(text = title, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
         Spacer(Modifier.height(LenslySpacing.xs))
         OutlinedTextField(
             value = text,
             onValueChange = { typed ->
-                if (typed.length <= MAX_NUMBER_DIGITS && typed.all { it.isDigit() }) {
-                    text = typed
-                    // Applied in the same step as the typing, so a number inside the range is saved at once.
-                    val number = typed.toIntOrNull()?.takeIf { it in range }
-                    if (number != null && number != value) onValid(number)
-                }
+                if (typed.length <= MAX_NUMBER_DIGITS && typed.all { it.isDigit() }) onText(typed)
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = value != null,
+            enabled = enabled,
             singleLine = true,
-            isError = refused,
+            isError = error != null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             suffix = { Text(text = suffix) },
             supportingText = {
-                if (refused) Text(text = "Enter a number from ${range.first} to ${range.last}.")
+                if (error != null) Text(text = error)
             },
         )
     }

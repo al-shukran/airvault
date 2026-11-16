@@ -6,9 +6,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextReplacement
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
@@ -19,8 +21,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The bulk screen follows the Bulk Cap it is given. The count limit, the refusal, and the helper text all come from the
- * cap, and a cap changed in Settings is shown at once. The helper text is uppercase on screen, as the eyebrow shows it.
+ * The bulk screen follows the Bulk Cap it is given and the Count the owner types into the number field. The field refuses a Count above
+ * the cap, or below 1, under the field, and GENERATE stays off for it. A cap changed in Settings is shown at once. The field takes digits
+ * only, so what it shows is the Count the screen generates. Screen text is sentence case, so the lines are read as written.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -50,9 +53,7 @@ class BulkGenerateScreenTest {
                     running = false,
                     derived = 0,
                     failure = null,
-                    onDigit = {},
-                    onBackspace = {},
-                    onPreset = {},
+                    onDigits = { typed -> inputs.digits = typed },
                     onGenerate = {},
                     onBack = {},
                 )
@@ -80,7 +81,7 @@ class BulkGenerateScreenTest {
         setDigits("100")
 
         assertNotShown("Above the Bulk Cap of 100")
-        compose.onNodeWithText("GENERATE 100").assertIsEnabled()
+        compose.onNodeWithText("GENERATE 100 ACCOUNTS").assertIsEnabled()
     }
 
     @Test
@@ -93,45 +94,89 @@ class BulkGenerateScreenTest {
         setDigits("20")
 
         assertNotShown("Above the Bulk Cap of 20")
-        compose.onNodeWithText("GENERATE 20").assertIsEnabled()
+        compose.onNodeWithText("GENERATE 20 ACCOUNTS").assertIsEnabled()
     }
 
     @Test
     fun aChangedCapIsReflectedInTheScreen() {
         showScreen(BulkCap.HUNDRED, digits = "30")
-        assertShown("UP TO 100 PER RUN · CHANGE IN SETTINGS")
-        compose.onNodeWithText("GENERATE 30").assertIsEnabled()
+        assertShown("Up to 100 per run. Change the Bulk cap in Settings.")
+        compose.onNodeWithText("GENERATE 30 ACCOUNTS").assertIsEnabled()
 
         setCap(BulkCap.TWENTY)
 
-        assertShown("UP TO 20 PER RUN · CHANGE IN SETTINGS")
+        assertShown("Up to 20 per run. Change the Bulk cap in Settings.")
         assertShown("Above the Bulk Cap of 20")
         compose.onNodeWithText("GENERATE").assertIsNotEnabled()
 
         setCap(BulkCap.HUNDRED)
 
-        assertShown("UP TO 100 PER RUN · CHANGE IN SETTINGS")
+        assertShown("Up to 100 per run. Change the Bulk cap in Settings.")
         assertNotShown("Above the Bulk Cap of 20")
-        compose.onNodeWithText("GENERATE 30").assertIsEnabled()
+        compose.onNodeWithText("GENERATE 30 ACCOUNTS").assertIsEnabled()
     }
 
     @Test
-    fun thePresetsAreTenTwentyAndTheCap() {
-        showScreen(BulkCap.TWENTY, digits = "")
-        assertShown("10")
-        assertShown("20")
+    fun aTypedCountSetsTheRunThroughTheNumberField() {
+        showScreen(BulkCap.HUNDRED, digits = "")
 
-        setCap(BulkCap.FIFTY)
+        compose.onNode(hasSetTextAction()).performTextReplacement("25")
 
-        assertShown("10")
-        assertShown("20")
-        assertShown("50")
+        compose.onNodeWithText("GENERATE 25 ACCOUNTS").assertIsEnabled()
+        assertShown("Adds Seed wallet 3 to Seed wallet 27")
+    }
 
-        setCap(BulkCap.HUNDRED)
+    @Test
+    fun anEmptyCountFieldIsNotAnErrorButCannotGenerate() {
+        showScreen(BulkCap.HUNDRED, digits = "")
 
-        assertShown("10")
-        assertShown("20")
-        assertShown("100")
-        assertNotShown("50")
+        assertNotShown("At least 1 account")
+        assertNotShown("Above the Bulk Cap of 100")
+        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+    }
+
+    @Test
+    fun zeroIsRefusedUnderTheField() {
+        showScreen(BulkCap.HUNDRED, digits = "")
+
+        compose.onNode(hasSetTextAction()).performTextReplacement("0")
+
+        assertShown("At least 1 account")
+        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+    }
+
+    @Test
+    fun textThatIsNotDigitsOrIsTooLongIsDroppedFromTheField() {
+        showScreen(BulkCap.HUNDRED, digits = "")
+
+        // Letters and a tenth digit never reach the screen, so the Count stays empty and no error shows.
+        compose.onNode(hasSetTextAction()).performTextReplacement("1a")
+        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        assertNotShown("At least 1 account")
+
+        compose.onNode(hasSetTextAction()).performTextReplacement("1234567890")
+        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        assertNotShown("Above the Bulk Cap of 100")
+
+        compose.onNode(hasSetTextAction()).performTextReplacement("5")
+        compose.onNodeWithText("GENERATE 5 ACCOUNTS").assertIsEnabled()
+    }
+
+    @Test
+    fun theAddsLineIsInSentenceCase() {
+        showScreen(BulkCap.HUNDRED, digits = "20")
+
+        assertShown("Adds Seed wallet 3 to Seed wallet 22")
+    }
+
+    @Test
+    fun theScreenHasNoKeypadOrPresetPills() {
+        showScreen(BulkCap.HUNDRED, digits = "")
+
+        for (key in listOf("1", "5", "9")) assertNotShown(key)
+        assertNotShown("10")
+        assertNotShown("20")
+        assertNotShown("100")
+        assertShown("Ethereum · all networks")
     }
 }
