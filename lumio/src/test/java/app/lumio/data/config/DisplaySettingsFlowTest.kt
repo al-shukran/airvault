@@ -8,7 +8,6 @@ import app.lumio.data.db.LumioDatabase
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -37,7 +36,7 @@ class DisplaySettingsFlowTest {
         val vault = LumioVault(session, database)
         assertEquals(DisplaySettings(), vault.display.value)
 
-        vault.updateDisplay { it.copy(showTotal = true, sort = AssetSort(AssetSortKey.NAME, descending = false)) }
+        vault.updateDisplay { it.copy(showTotal = true, showAssets = false) }
 
         assertEquals(vault.display.value, DisplaySettingsStore.read(session))
         database.close()
@@ -47,7 +46,7 @@ class DisplaySettingsFlowTest {
         val reopenedDatabase = database()
         val reopened = LumioVault(reopenedSession, reopenedDatabase)
         assertTrue(reopened.display.value.showTotal)
-        assertEquals(AssetSort(AssetSortKey.NAME, descending = false), reopened.display.value.sort)
+        assertEquals(false, reopened.display.value.showAssets)
         reopenedDatabase.close()
         reopenedSession.close()
     }
@@ -57,12 +56,12 @@ class DisplaySettingsFlowTest {
         val session = open()
         val database = database()
         val vault = LumioVault(session, database)
-        vault.updateDisplay { it.copy(hideSpam = false) }
+        vault.updateDisplay { it.copy(showTotal = true) }
         session.close()
 
-        assertFailsWith<IllegalStateException> { vault.updateDisplay { it.copy(hideSpam = true) } }
+        assertFailsWith<IllegalStateException> { vault.updateDisplay { it.copy(showTotal = false) } }
 
-        assertFalse(vault.display.value.hideSpam)
+        assertTrue(vault.display.value.showTotal)
         database.close()
     }
 }

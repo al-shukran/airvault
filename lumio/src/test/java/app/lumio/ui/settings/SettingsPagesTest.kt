@@ -39,27 +39,7 @@ class SettingsPagesTest {
 
     @Test
     fun theDisplayPageHasNoSave() = assertNoSave {
-        DisplaySettingsPage(settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onMinimumUsd = {}, onBack = {})
-    }
-
-    @Test
-    fun theTransactionsPageHasNoSaveAndItsSwitchReportsAtOnce() {
-        var reported: Boolean? = null
-        compose.setContent {
-            LenslyTheme {
-                TransactionsSettingsPage(
-                    hideSpam = true,
-                    notice = null,
-                    onHideSpam = { reported = it },
-                    onBack = {},
-                    comments = {},
-                )
-            }
-        }
-
-        compose.onAllNodesWithText("Save", ignoreCase = true).assertCountEquals(0)
-        compose.onNodeWithText("Hide spam and scam transactions").performClick()
-        assertEquals(false, reported)
+        DisplaySettingsPage(settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onBack = {})
     }
 
     @Test
@@ -194,7 +174,7 @@ class SettingsPagesTest {
     }
 
     @Test
-    fun theDeveloperPageHasNoSave() = assertNoSave {
-        DeveloperSettingsPage(onBack = {}, section = { Text("Demo portfolio") })
+    fun theTransactionsPageHasNoSave() = assertNoSave {
+        TransactionsSettingsPage(onBack = {}, comments = {})
     }
 }

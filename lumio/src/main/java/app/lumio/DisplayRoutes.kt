@@ -65,19 +65,14 @@ internal fun DisplaySettingsRoute(navController: NavHostController, holder: Vaul
         notice = display.notice,
         onShowTotal = { on -> display.change { it.copy(showTotal = on) } },
         onShowAssets = { on -> display.change { it.copy(showAssets = on) } },
-        onMinimumUsd = { amount -> display.change { it.copy(minimumUsd = amount) } },
         onBack = { navController.popBackStack() },
     )
 }
 
-/** The Transactions page of the settings: the spam filter, then the backup of the comments. */
+/** The Transactions page of the settings: the backup of the comments on the transactions. */
 @Composable
 internal fun TransactionsSettingsRoute(navController: NavHostController, holder: VaultHolder) {
-    val display = rememberDisplayChange(navController, holder) ?: return
     TransactionsSettingsPage(
-        hideSpam = display.settings.hideSpam,
-        notice = display.notice,
-        onHideSpam = { on -> display.change { it.copy(hideSpam = on) } },
         onBack = { navController.popBackStack() },
         comments = { CommentBackupRoute(holder = holder) },
     )

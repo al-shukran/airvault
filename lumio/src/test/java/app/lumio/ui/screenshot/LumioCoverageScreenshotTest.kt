@@ -43,27 +43,18 @@ import app.lensly.ui.settings.ThirdPartyLicencesScreen
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslyTheme
-import app.lumio.btc.BtcAccountRef
-import app.lumio.btc.BtcRow
-import app.lumio.btc.BtcSection
 import app.lumio.btc.BtcSend
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.BtcSpendable
-import app.lumio.evm.AddressRow
-import app.lumio.evm.CachedBalance
-import app.lumio.evm.ChainFailure
 import app.lumio.evm.CustomChain
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSend
 import app.lumio.evm.PreparedSend
-import app.lumio.evm.Total
-import app.lumio.evm.Totals
 import app.lumio.tokens.Token
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
-import app.lumio.ui.btc.BitcoinPortfolioScreen
 import app.lumio.ui.btc.BtcAdvancedFields
 import app.lumio.ui.btc.BtcSendReviewScreen
 import app.lumio.ui.btc.BtcSendSentScreen
@@ -72,7 +63,6 @@ import app.lumio.ui.network.NetworkSwitch
 import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
-import app.lumio.ui.portfolio.WalletScreen
 import app.lumio.ui.send.AdvancedSendFields
 import app.lumio.ui.send.SendSentScreen
 import app.lumio.ui.send.SendReviewScreen
@@ -242,144 +232,6 @@ class LumioCoverageScreenshotTest {
             }
         }
     }
-
-    // Portfolios: the empty, loading and error states, and the testnet Bitcoin portfolio
-
-    @Test
-    fun ethereumPortfolioEmpty() = compose.snapshot("ethereum_portfolio_empty") {
-        EthereumPortfolioState(
-            hasEvm = false,
-            rows = emptyList(),
-            totals = Totals(emptyList(), emptyList(), null),
-            failures = emptyList(),
-            problem = null,
-            refreshing = false,
-        )
-    }
-
-    @Test
-    fun ethereumPortfolioLoading() = compose.snapshot("ethereum_portfolio_loading") {
-        EthereumPortfolioState(
-            hasEvm = true,
-            rows = listOf(AddressRow(0, from, emptyMap())),
-            totals = Totals(emptyList(), emptyList(), null),
-            failures = emptyList(),
-            problem = null,
-            refreshing = true,
-        )
-    }
-
-    @Test
-    fun ethereumPortfolioError() = compose.snapshot("ethereum_portfolio_error") {
-        EthereumPortfolioState(
-            hasEvm = true,
-            rows = listOf(AddressRow(0, from, mapOf(1L to CachedBalance("wallet-Demo", 1L, from, "1234000000000000000", 3L, PORTFOLIO_READ)))),
-            totals = Totals(
-                mainnet = listOf(Total("ETH", 18, BigInteger("1234000000000000000"), 1, testnet = false)),
-                testnet = emptyList(),
-                oldestMs = PORTFOLIO_READ,
-            ),
-            failures = listOf(ChainFailure(1L, "The RPC endpoint did not answer.")),
-            problem = "The last refresh did not finish. The balances shown are from the last read.",
-            refreshing = false,
-        )
-    }
-
-    @Test
-    fun bitcoinPortfolioTestnet() = compose.snapshot("bitcoin_portfolio_testnet") {
-        BitcoinPortfolioScreen(
-            walletName = "Demo",
-            sections = listOf(BtcSection(BtcNetwork.TESTNET4, bitcoinRows(BtcNetwork.TESTNET4))),
-            scanning = false,
-            progress = null,
-            failures = emptyMap(),
-            onOpen = {},
-            onSend = {},
-            onRefresh = {},
-            onBack = {},
-        )
-    }
-
-    @Test
-    fun bitcoinPortfolioEmpty() = compose.snapshot("bitcoin_portfolio_empty") {
-        BitcoinPortfolioScreen(
-            walletName = "Demo",
-            sections = emptyList(),
-            scanning = false,
-            progress = null,
-            failures = emptyMap(),
-            onOpen = {},
-            onSend = {},
-            onRefresh = {},
-            onBack = {},
-        )
-    }
-
-    @Test
-    fun bitcoinPortfolioLoading() = compose.snapshot("bitcoin_portfolio_loading") {
-        BitcoinPortfolioScreen(
-            walletName = "Demo",
-            sections = bitcoinSections(),
-            scanning = true,
-            progress = "Reading account 3 of 8",
-            failures = emptyMap(),
-            onOpen = {},
-            onSend = {},
-            onRefresh = {},
-            onBack = {},
-        )
-    }
-
-    @Test
-    fun bitcoinPortfolioError() = compose.snapshot("bitcoin_portfolio_error") {
-        BitcoinPortfolioScreen(
-            walletName = "Demo",
-            sections = bitcoinSections(),
-            scanning = false,
-            progress = null,
-            failures = mapOf(BtcNetwork.MAINNET to "The server did not answer. The balances shown are from the last read."),
-            onOpen = {},
-            onSend = {},
-            onRefresh = {},
-            onBack = {},
-        )
-    }
-
-    /** The Ethereum portfolio of the demo wallet, with the state given. The chains are the ones of this file. */
-    @Composable
-    private fun EthereumPortfolioState(
-        hasEvm: Boolean,
-        rows: List<AddressRow>,
-        totals: Totals,
-        failures: List<ChainFailure>,
-        problem: String?,
-        refreshing: Boolean,
-    ) {
-        WalletScreen(
-            walletName = "Demo",
-            mode = NetworkMode.MAINNET,
-            hasEvm = hasEvm,
-            chains = chains,
-            rows = rows,
-            totals = totals,
-            failures = failures,
-            problem = problem,
-            refreshing = refreshing,
-            onRefresh = {},
-            onBack = {},
-            onSend = {},
-        )
-    }
-
-    /** The Bitcoin accounts of [network] of the demo wallet, none scanned yet. */
-    private fun bitcoinRows(network: BtcNetwork): List<BtcRow> =
-        BtcWatchOnly.accounts(PairFixtures.seed, network).map { BtcRow(BtcAccountRef("wallet-Demo", it), null) }
-
-    /** The Bitcoin sections of the demo wallet: mainnet, then testnet. */
-    private fun bitcoinSections(): List<BtcSection> = listOf(
-        BtcSection(BtcNetwork.MAINNET, bitcoinRows(BtcNetwork.MAINNET)),
-        BtcSection(BtcNetwork.TESTNET4, bitcoinRows(BtcNetwork.TESTNET4)),
-    )
 
     // Bitcoin send: review, sign request, and the broadcast states
 

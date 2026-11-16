@@ -147,14 +147,14 @@ case "$partition" in
             --tests 'app.lumio.btc.*' \
             --tests 'app.lumio.chains.*' \
             --tests 'app.lumio.data.*' \
-            --tests 'app.lumio.demo.*' \
             --tests 'app.lumio.evm.*' \
             --tests 'app.lumio.home.*' \
             --tests 'app.lumio.network.*' \
             --tests 'app.lumio.pair.*' \
             --tests 'app.lumio.send.*' \
             --tests 'app.lumio.tokens.*' \
-            --tests 'app.lumio.transactions.*'
+            --tests 'app.lumio.transactions.*' \
+            --tests 'app.lumio.wallets.*'
         ;;
     registry-pack)
         ./gradlew :tools:registry-pack:test

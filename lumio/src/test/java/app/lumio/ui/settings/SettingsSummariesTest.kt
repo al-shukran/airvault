@@ -11,15 +11,14 @@ import org.junit.Test
 class SettingsSummariesTest {
 
     @Test
-    fun theDisplayRowNamesTheTotalAndTheMinimum() {
-        assertEquals("Total hidden · min \$1.00", displaySummary(DisplaySettings()))
-        assertEquals("Total shown · min \$2.50", displaySummary(DisplaySettings(showTotal = true, minimumUsd = 2.5)))
+    fun theDisplayRowNamesTheTotalAndTheBalances() {
+        assertEquals("Total hidden · balances shown", displaySummary(DisplaySettings()))
+        assertEquals("Total shown · balances shown", displaySummary(DisplaySettings(showTotal = true)))
     }
 
     @Test
-    fun theTransactionsRowNamesTheSpamFilter() {
-        assertEquals("Spam and scams hidden", transactionsSummary(hideSpam = true))
-        assertEquals("Spam and scams shown", transactionsSummary(hideSpam = false))
+    fun theTransactionsRowNamesTheCommentBackup() {
+        assertEquals("Back up transaction comments", transactionsSummary())
     }
 
     @Test
@@ -87,7 +86,7 @@ class SettingsSummariesTest {
 
     @Test
     fun theListShowsEveryPageInOrderAndLeavesDeveloperOutInRelease() {
-        val rows = settingsRows(facts, EntryGesture.DEFAULT, version = "0.1.0", developer = null)
+        val rows = settingsRows(facts, EntryGesture.DEFAULT, version = "0.1.0")
 
         assertEquals(
             listOf(
@@ -105,19 +104,10 @@ class SettingsSummariesTest {
     }
 
     @Test
-    fun theDeveloperRowIsTheLastRowOnlyWhenItsStateIsGiven() {
-        val rows = settingsRows(facts, EntryGesture.DEFAULT, version = "0.1.0", developer = "Demo portfolio on")
-
-        assertEquals(SettingsPage.DEVELOPER, rows.last().page)
-        assertEquals("Demo portfolio on", rows.last().summary)
-        assertEquals(9, rows.size)
-    }
-
-    @Test
     fun eachRowCarriesItsSummary() {
-        val rows = settingsRows(facts, EntryGesture.DEFAULT, version = "0.1.0", developer = null).associateBy { it.page }
+        val rows = settingsRows(facts, EntryGesture.DEFAULT, version = "0.1.0").associateBy { it.page }
 
-        assertEquals("Total hidden · min \$1.00", rows.getValue(SettingsPage.DISPLAY).summary)
+        assertEquals("Total hidden · balances shown", rows.getValue(SettingsPage.DISPLAY).summary)
         assertEquals("3 chains on · Bitcoin default", rows.getValue(SettingsPage.NETWORKS).summary)
         assertEquals("7 of 9 sources on", rows.getValue(SettingsPage.PROVIDERS).summary)
         assertEquals("1 wallet · 2 saved addresses", rows.getValue(SettingsPage.ADDRESS_BOOK).summary)

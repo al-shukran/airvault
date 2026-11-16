@@ -7,17 +7,19 @@ import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
+import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.wallet.Mnemonic
 
 /**
  * Debug-only: a Lensly pairing that the scan screen reads without a camera, so the pairing can be shown on an emulator. Launch with
  * `am start -n app.lumio/.MainActivity --ez debugHidden true --es debugPairFixture lensly`. The fixture is the wallet "Demo" of the public
- * BIP39 test mnemonic: two Ethereum accounts, one with a label and one with a group, and the Bitcoin accounts of both networks. It holds
- * no real key.
+ * BIP39 test mnemonic: two Ethereum accounts, one with a label and one with a group, the Bitcoin accounts of both networks, and two Solana and
+ * two Algorand accounts. It holds no real key.
  *
  * This file lives in the debug source set only. The release stub returns null, so release builds never contain the extra's name.
  */
@@ -64,6 +66,20 @@ internal object DebugPairFixture {
                     app = "bitcoin",
                     keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
                     accounts = bitcoin.indices.map { PairingAccount(key = it, child = null, name = null, label = null, group = null) },
+                ),
+                PairingApp(
+                    app = "solana",
+                    keys = (0..1).map { account ->
+                        PairingKey.solanaAccount(account, SolanaAccount.publicKey(seed, account), SolanaAccount.chainCode(seed, account))
+                    },
+                    accounts = (0..1).map { PairingAccount(key = it, child = null, name = "Solana $it", label = null, group = null) },
+                ),
+                PairingApp(
+                    app = "algorand",
+                    keys = (0..1).map { account ->
+                        PairingKey.algorandAccount(account, AlgorandAccount.publicKey(seed, account), AlgorandAccount.chainCode(seed, account))
+                    },
+                    accounts = (0..1).map { PairingAccount(key = it, child = null, name = "Algorand $it", label = null, group = null) },
                 ),
             ),
             // Public example addresses, one per chain form, so the Address Book screen has entries to show.

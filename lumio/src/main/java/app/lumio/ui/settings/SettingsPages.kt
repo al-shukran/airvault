@@ -26,7 +26,6 @@ fun DisplaySettingsPage(
     notice: String?,
     onShowTotal: (Boolean) -> Unit,
     onShowAssets: (Boolean) -> Unit,
-    onMinimumUsd: (Double) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsPageScreen(SettingsPage.DISPLAY, onBack) {
@@ -35,32 +34,7 @@ fun DisplaySettingsPage(
             notice = notice,
             onShowTotal = onShowTotal,
             onShowAssets = onShowAssets,
-            onMinimumUsd = onMinimumUsd,
         )
-    }
-}
-
-/** The Transactions page: the spam filter, then the comment backup, which [comments] draws. [notice] shows a change that the vault refused. */
-@Composable
-fun TransactionsSettingsPage(
-    hideSpam: Boolean,
-    notice: String?,
-    onHideSpam: (Boolean) -> Unit,
-    onBack: () -> Unit,
-    comments: @Composable () -> Unit,
-) {
-    SettingsPageScreen(SettingsPage.TRANSACTIONS, onBack) {
-        notice?.let {
-            InlineBanner(message = it, tone = BannerTone.Error)
-            Spacer(Modifier.height(LenslySpacing.sm))
-        }
-        SettingsSwitchRow(
-            title = "Hide spam and scam transactions",
-            description = "Hides transactions that look like spam or scams.",
-            checked = hideSpam,
-            onCheckedChange = onHideSpam,
-        )
-        SettingsSection(title = "Comments") { comments() }
     }
 }
 
@@ -166,10 +140,10 @@ fun AboutSettingsPage(version: String, onLicences: () -> Unit, onBack: () -> Uni
     }
 }
 
-/** The Developer page, which only a debug build lists: [section] is the switch of the debug-only demo portfolio. */
+/** The Transactions page: the backup of the transaction comments, which [comments] draws. */
 @Composable
-fun DeveloperSettingsPage(onBack: () -> Unit, section: @Composable () -> Unit) {
-    SettingsPageScreen(SettingsPage.DEVELOPER, onBack) {
-        SettingsSection(title = "Demo") { section() }
+fun TransactionsSettingsPage(onBack: () -> Unit, comments: @Composable () -> Unit) {
+    SettingsPageScreen(SettingsPage.TRANSACTIONS, onBack) {
+        comments()
     }
 }

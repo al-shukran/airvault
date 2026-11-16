@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,8 +35,7 @@ import app.lensly.ui.theme.LenslyOnSurface
 
 /** The tabs of Lumio's bar, in the order the bar shows them. Each is a root screen, so a tab opens in place of the one before it. */
 enum class LumioTab(val label: String, val tag: String) {
-    HOME("Home", "tab-home"),
-    TRANSACTIONS("Transactions", "tab-transactions"),
+    WALLETS("Wallets", "tab-wallets"),
     SETTINGS("Settings", "tab-settings"),
 }
 
@@ -70,8 +68,8 @@ fun LumioTabFrame(
 }
 
 /**
- * The bar of three tabs. The tab in use is in the bright colour and marked by a line above it, and the others are muted. The bar is flat, so a tab
- * is never drawn as a button.
+ * The bar of two tabs, Wallets and Settings. The tab in use is in the bright colour and marked by a line above it, and the other is muted. The bar is
+ * flat, so a tab is never drawn as a button.
  */
 @Composable
 fun LumioTabBar(selected: LumioTab, onSelect: (LumioTab) -> Unit, modifier: Modifier = Modifier) {
@@ -118,7 +116,6 @@ private fun TabItem(tab: LumioTab, selected: Boolean, onClick: () -> Unit, modif
 
 /** The icon of a tab. */
 private fun iconOf(tab: LumioTab): ImageVector = when (tab) {
-    LumioTab.HOME -> Icons.Filled.Home
-    LumioTab.TRANSACTIONS -> LenslyIcons.History
+    LumioTab.WALLETS -> LenslyIcons.Wallets
     LumioTab.SETTINGS -> Icons.Filled.Settings
 }

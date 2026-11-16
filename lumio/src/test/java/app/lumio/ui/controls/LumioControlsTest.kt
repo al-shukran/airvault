@@ -15,12 +15,10 @@ import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.network.NetworkMode
 import app.lumio.ui.network.NetworkSwitch
-import app.lumio.ui.portfolio.WalletScreen
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
-import app.lumio.evm.Totals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -110,31 +108,6 @@ class LumioControlsTest {
 
         compose.onNodeWithContentDescription("Show more addresses").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Show fewer addresses").assertIsEnabled()
-    }
-
-    @Test
-    fun aRunningReadIsAStatusLineAndRefreshWaits() {
-        compose.setContent {
-            LenslyTheme {
-                WalletScreen(
-                    walletName = "Demo",
-                    mode = NetworkMode.MAINNET,
-                    hasEvm = true,
-                    chains = listOf(EvmChain(1L, "Ethereum", "ETH", 18, false, null)),
-                    rows = emptyList(),
-                    totals = Totals(mainnet = emptyList(), testnet = emptyList(), oldestMs = null),
-                    failures = emptyList(),
-                    problem = null,
-                    refreshing = true,
-                    onRefresh = {},
-                    onBack = {},
-                    onSend = {},
-                )
-            }
-        }
-
-        compose.onNodeWithText("Reading the network").assert(!hasRole(Role.Button))
-        compose.onNodeWithText("Refresh", ignoreCase = true).assertIsNotEnabled()
     }
 
     private fun hasRole(role: Role): SemanticsMatcher = SemanticsMatcher.expectValue(SemanticsProperties.Role, role)

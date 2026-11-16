@@ -11,23 +11,6 @@ import org.junit.Test
 class SettingsEditsTest {
 
     @Test
-    fun aValidMinimumIsAppliedWhenItDiffersAndNothingWhenItDoesNot() {
-        assertEquals(MinimumEdit.Apply(2.5), minimumEdit("2.5", current = 1.0))
-        assertEquals(MinimumEdit.Unchanged, minimumEdit("1.00", current = 1.0))
-        assertEquals(MinimumEdit.Unchanged, minimumEdit(" 1 ", current = 1.0))
-        assertEquals(MinimumEdit.Apply(0.0), minimumEdit("0", current = 1.0))
-    }
-
-    @Test
-    fun aMinimumThatIsNotAnAmountIsRefusedWithTheReason() {
-        for (text in listOf("", "-1", "abc", "1,5", "1000001", "1.234")) {
-            val edit = minimumEdit(text, current = 1.0)
-            assertIs<MinimumEdit.Refused>(edit, "text '$text'")
-            assertEquals(MINIMUM_REFUSAL, edit.reason)
-        }
-    }
-
-    @Test
     fun aServerTypedAsItsDefaultIsAppliedAsNoOverride() {
         val custom = "https://node.example.org/api"
         assertEquals(ServerEdit.Apply(null), serverEdit(BtcNetwork.MAINNET, EsploraServers.MAINNET_DEFAULT, current = custom))

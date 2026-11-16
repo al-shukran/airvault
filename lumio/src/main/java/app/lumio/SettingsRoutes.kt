@@ -2,8 +2,10 @@ package app.lumio
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -15,13 +17,12 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
-import app.lumio.demo.DemoPortfolio
 import app.lumio.evm.EvmSettingsStore
+import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
-import app.lumio.ui.settings.DeveloperSettingsPage
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.NetworksSettingsPage
 import app.lumio.ui.settings.SecuritySettingsPage
@@ -29,16 +30,16 @@ import app.lumio.ui.settings.SettingsFacts
 import app.lumio.ui.settings.WalletsSettingsPage
 import app.lumio.ui.settings.providerCounts
 import app.lumio.ui.settings.settingsRows
-import app.lumio.ui.shell.LumioTab
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The Settings tab: one row per page, each with its state under its title. The state is read from the open vault again each time the list is shown, so a
- * change made on a page shows here when the owner comes back to it.
+ * The Settings tab: the network side at its top, then one row per page, each with its state under its title. The state is read from the open vault again
+ * each time the list is shown, so a change made on a page shows here when the owner comes back to it. The side applies as the owner picks it.
  */
 @Composable
-internal fun SettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int) {
+internal fun SettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, selection: NetworkSelection) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -54,13 +55,16 @@ internal fun SettingsRoute(navController: NavHostController, holder: VaultHolder
         }
     }
     val gesture = LocalContext.current.entryGestureHolder().current
-    val developer = DemoPortfolio.developerSummary()
     val current = facts ?: return
+    val scope = rememberCoroutineScope()
     LumioSettingsScreen(
-        rows = settingsRows(current, gesture, BuildConfig.VERSION_NAME, developer),
+        rows = settingsRows(current, gesture, BuildConfig.VERSION_NAME),
         onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
-        // The list is a tab over Home, so its back arrow returns to Home.
-        onBack = { navController.openTab(LumioTab.HOME) },
+        network = selection.mode,
+        onNetwork = { next ->
+            selection.mode = next
+            if (session != null) scope.launch { onVault(Unit) { NetworkModeStore.write(session, next) } }
+        },
     )
 }
 
@@ -117,9 +121,6 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     composable(LumioRoute.SETTINGS_ABOUT) {
         LumioBackdrop(selection) { AboutSettingsRoute(navController = navController) }
     }
-    composable(LumioRoute.SETTINGS_DEVELOPER) {
-        LumioBackdrop(selection) { DeveloperSettingsRoute(navController = navController, onChanged = onChanged) }
-    }
 }
 
 /** The Networks page: the Bitcoin servers and the Ethereum chains, each read and written by its own route. */
@@ -169,11 +170,4 @@ private fun AboutSettingsRoute(navController: NavHostController) {
         onLicences = { navController.navigate(LumioRoute.LICENCES) },
         onBack = { navController.popBackStack() },
     )
-}
-
-/** The Developer page. The debug build has its demo portfolio switch here; release has no such page, so it shows nothing. */
-@Composable
-private fun DeveloperSettingsRoute(navController: NavHostController, onChanged: () -> Unit) {
-    val section = DemoPortfolio.developerSection(onChanged) ?: return
-    DeveloperSettingsPage(onBack = { navController.popBackStack() }, section = section)
 }
