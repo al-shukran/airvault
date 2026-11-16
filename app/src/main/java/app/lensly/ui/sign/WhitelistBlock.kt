@@ -36,9 +36,10 @@ import app.lensly.ui.theme.LenslySpacing
  * A call Lensly cannot decode that the signed whitelist approves. It opens with a solid block and a strong warning, then shows the
  * approved meaning and every fact of the call, the calldata in full. A proxy reviewed under Warn and confirm adds its red warning
  * and the implementation it was approved with. Nothing here is cut short, so the scroll of the review covers all of it.
+ * [showContract] is false when the review's To row already names the contract, so the block does not repeat it.
  */
 @Composable
-internal fun WhitelistedCallBlock(whitelisted: WhitelistedCall) {
+internal fun WhitelistedCallBlock(whitelisted: WhitelistedCall, showContract: Boolean = true) {
     val call = whitelisted.call
     Column(
         modifier = Modifier
@@ -88,8 +89,10 @@ internal fun WhitelistedCallBlock(whitelisted: WhitelistedCall) {
             MonoText(text = whitelisted.signature)
         }
         call.proxy?.let { ProxyFacts(it) }
-        FactRow(label = "Contract") {
-            AddressText(address = call.target)
+        if (showContract) {
+            FactRow(label = "Contract") {
+                AddressText(address = call.target)
+            }
         }
         FactRow(label = "Network") {
             Row(

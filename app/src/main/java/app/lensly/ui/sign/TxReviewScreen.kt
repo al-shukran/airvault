@@ -50,6 +50,7 @@ import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.profile.ProfileAvatar
+import app.lensly.ui.settings.protocolOfMeaning
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyError
@@ -82,6 +83,8 @@ fun TxReviewScreen(
 ) {
     val scroll = rememberScrollState()
     val isMessage = review.function == SIGN_MESSAGE_FUNCTION
+    // The To row names the recipient, or the contract of a whitelisted or decoded call. A message has none.
+    val showTo = !isMessage && review.toAddress.isNotEmpty()
     var viewportPx by remember { mutableIntStateOf(0) }
     var contentPx by remember { mutableIntStateOf(0) }
     val atEnd by remember {
@@ -139,7 +142,8 @@ fun TxReviewScreen(
                         Spacer(Modifier.height(LenslySpacing.sm))
                     }
                     review.whitelisted?.let { whitelisted ->
-                        WhitelistedCallBlock(whitelisted)
+                        // The To row below names the contract, so the block leaves it out when that row shows.
+                        WhitelistedCallBlock(whitelisted, showContract = !showTo)
                         Spacer(Modifier.height(LenslySpacing.sm))
                     }
                     review.warnings.forEach { warning ->
@@ -153,11 +157,16 @@ fun TxReviewScreen(
 
                     SigningHeader(review)
 
-                    // A whitelisted call names its contract in the block above, so the recipient row would repeat it.
-                    if (!isMessage && review.whitelisted == null && review.toAddress.isNotEmpty()) {
+                    if (showTo) {
                         FactRow(label = "To") {
                             AddressText(address = review.toAddress)
                             review.addressNotes.notesOf(review.toAddress)?.let { AddressNotesBlock(it) }
+                            // A whitelisted call also names the protocol its approved meaning belongs to, such as "Aave V3".
+                            review.whitelisted?.let { whitelisted ->
+                                protocolOfMeaning(whitelisted.meaning).takeIf { it.isNotEmpty() }?.let { protocol ->
+                                    LabelledValue(label = "Known contract", value = protocol)
+                                }
+                            }
                         }
                     }
                     review.tokenContract?.let { contract ->
@@ -511,7 +520,11 @@ private fun TypedDataFacts(typed: TypedReview, notes: Map<String, AddressNotes>)
     }
     if (typed.summary.isNotEmpty()) {
         FactRow(label = "Summary") {
-            typed.summary.forEach { (name, value) -> LabelledValue(label = name, value = value) }
+            // An address row is named the way the To row is: the Address Book and the device's accounts say what it is.
+            typed.summary.forEach { (name, value) ->
+                LabelledValue(label = name, value = value)
+                if (isEvmAddress(value)) notes.notesOf(value)?.let { AddressNotesBlock(it) }
+            }
         }
     }
     FactRow(label = "Fields") {
