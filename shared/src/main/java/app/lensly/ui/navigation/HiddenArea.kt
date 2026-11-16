@@ -1,6 +1,7 @@
 package app.lensly.ui.navigation
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -97,27 +98,66 @@ fun leaveHidden(navController: NavHostController, holder: VaultHolder) {
 }
 
 /**
- * The system document picker runs in its own activity, so this app stops while it is open. [arm] is called before a
- * picker launch, and the next stop it causes does not lock the vault, or the import could never finish. [takeStop]
- * is consulted on every stop and disarms at once, so any later stop locks as usual. [disarm] runs when the picker
- * returns, in case its stop was never seen.
+ * The launches that the app makes itself. The system document picker runs in its own activity, so this app stops while it is
+ * open. [arm] is called before such a launch, and the next stop it causes does not lock the vault, or the import could never
+ * finish. [takeStop] is consulted on every stop and disarms at once, so any later stop locks as usual. [disarm] runs when the
+ * launch returns, in case its stop was never seen.
+ *
+ * A launch counts as open from [arm] until [disarm], and a screen that opens the camera, such as a scanner, counts from [hold]
+ * until [release]. An open launch keeps a policy's idle countdown waiting, see [LockRules]. The return of a launch is recorded as
+ * [lastReturnMs], which counts as activity. The count is observable, so a composable that reads [openCount] restarts with it.
  */
 object PickerStop {
     private var armed = false
+    private var returnedAt = 0L
+    private val openLaunches = mutableIntStateOf(0)
 
+    /** How many launches are open. Read in composition, so a change restarts the idle countdown. */
+    val openCount: Int get() = openLaunches.intValue
+
+    /** The clock time of the last return of a launch, or 0 before the first. */
+    val lastReturnMs: Long get() = returnedAt
+
+    /** Called before a launch that stops the app. The next stop it causes does not lock the vault. */
     @Synchronized
     fun arm() {
         armed = true
+        openLaunches.intValue++
     }
 
+    /** Called when the launch returns. A return counts as activity, at [now]. */
     @Synchronized
-    fun disarm() {
+    fun disarm(now: Long = SystemClock.elapsedRealtime()) {
         armed = false
+        release(now)
     }
 
-    /** True once after [arm], for the stop that the picker causes. */
+    /** Called when a screen that opens the camera appears. Its stop, if any, still locks: only the idle countdown waits. */
+    @Synchronized
+    fun hold() {
+        openLaunches.intValue++
+    }
+
+    /** Called when that screen goes. The return counts as activity, at [now]. */
+    @Synchronized
+    fun release(now: Long = SystemClock.elapsedRealtime()) {
+        if (openLaunches.intValue > 0) {
+            openLaunches.intValue--
+            returnedAt = now
+        }
+    }
+
+    /** True once after [arm], for the stop that the launch causes. */
     @Synchronized
     fun takeStop(): Boolean = armed.also { armed = false }
+
+    /** Clears every launch. Tests use it between cases. */
+    @Synchronized
+    fun reset() {
+        armed = false
+        returnedAt = 0L
+        openLaunches.intValue = 0
+    }
 }
 
 /** Moves within the hidden graph. The gate and password screens behind the new screen are removed. */
