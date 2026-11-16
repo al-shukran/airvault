@@ -6,6 +6,7 @@ import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SignPipeline
+import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.parse.CANNOT_BE_READ
@@ -20,6 +21,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
+import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.AccountAddresses
@@ -145,6 +147,15 @@ private class FakePorts(
 
     override suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String> =
         error("a Bitcoin request is not expected in the EVM tests")
+
+    // The EVM tests never send a Solana request; the Solana flow is tested in SignFlowSolanaTest.
+    override suspend fun solanaPrepare(walletId: String, request: SolSignRequest): SolanaPrepared =
+        error("a Solana request is not expected in the EVM tests")
+
+    override suspend fun solanaSign(ready: SolanaPrepared.Ready): List<String> =
+        error("a Solana request is not expected in the EVM tests")
+
+    override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = error("a Solana request is not expected in the EVM tests")
 }
 
 /** A ur:eth-sign-request for a personal message on account 0, the way a wallet sends it. */

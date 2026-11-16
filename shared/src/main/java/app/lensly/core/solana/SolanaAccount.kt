@@ -1,6 +1,7 @@
 package app.lensly.core.solana
 
 import app.lensly.core.wallet.Slip10Ed25519
+import app.lensly.core.wallet.Slip10Node
 import fr.acinq.bitcoin.Base58
 
 /**
@@ -22,6 +23,13 @@ object SolanaAccount {
         val path = intArrayOf(Slip10Ed25519.hardened(44), Slip10Ed25519.hardened(501), Slip10Ed25519.hardened(index))
         return Slip10Ed25519.derive(seed, path).use { it.chainCode() }
     }
+
+    /**
+     * The SLIP-0010 node of account [index], with its private key and chain code. The caller closes it. [seed] is the caller's, and the
+     * caller zeroes it.
+     */
+    fun node(seed: ByteArray, index: Int): Slip10Node =
+        Slip10Ed25519.derive(seed, intArrayOf(Slip10Ed25519.hardened(44), Slip10Ed25519.hardened(501), Slip10Ed25519.hardened(index)))
 
     /** The base58 address of account [index]. */
     fun address(seed: ByteArray, index: Int): String = addressOf(publicKey(seed, index))
