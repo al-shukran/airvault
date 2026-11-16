@@ -134,7 +134,7 @@ private val SEQUENCE_HEADER = Regex("""^UR:[A-Z0-9-]+/\d+-(\d+)/""", RegexOption
 /** The number of parts an animated UR has, read from the sequence header of one of its frames, or 1 for a single-part UR. */
 internal fun sequenceLength(frame: String): Int = SEQUENCE_HEADER.find(frame)?.groupValues?.get(1)?.toInt() ?: 1
 
-/** The crypto-hdkey of this Account's public key, origin path and parent fingerprint, with no name. Shared with the Keystone export. */
+/** The crypto-hdkey of this Account's public key, origin path and parent fingerprint, with no name. */
 internal fun BtcWatchOnlyAccount.hdKey(): CryptoHDKey {
     val origin = CryptoKeypath(path.components(), masterFingerprint.fingerprintBytes(), path.path.size)
     // Key 3 is the public key and key 4 the chain code. The parent fingerprint is key 8, and the name and note stay absent.

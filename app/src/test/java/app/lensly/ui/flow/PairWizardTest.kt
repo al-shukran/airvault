@@ -5,12 +5,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
-import app.lensly.core.wallet.AccountXpub
 import app.lensly.ui.shippedRegistry
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -71,43 +68,6 @@ class PairWizardTest {
         compose.onNodeWithText("Step 2 of 4", ignoreCase = true).assertExists()
         // The banner title is shown in capitals, so the match ignores case.
         compose.onNodeWithText("Cannot be paired", ignoreCase = true).assertExists()
-    }
-
-    @Test
-    fun onlyAKeystoneNexusCodeForAWalletWithoutAccountKeysNeedsAnHdWallet() {
-        val seedWallet = mnemonic("w1", "Seed wallet").copy(accountKeys = listOf(AccountXpub(ByteArray(33) { 2 }, ByteArray(32), 0)))
-        val key = mnemonic("w3", "Hardware key").copy(kind = WalletKind.SINGLE_KEY, masterFingerprintHex = null)
-
-        assertTrue(keystoneNeedsHdWallet(PairFormat.KEYSTONE_NEXUS, key))
-        assertFalse(keystoneNeedsHdWallet(PairFormat.KEYSTONE_NEXUS, seedWallet))
-        assertFalse(keystoneNeedsHdWallet(PairFormat.RABBY, key))
-        assertFalse(keystoneNeedsHdWallet(PairFormat.KEYSTONE_NEXUS, null))
-    }
-
-    @Test
-    fun keystoneNexusForASingleKeyShowsTheHdWalletNoticeInsteadOfWaitingForACode() {
-        val key = mnemonic("w3", "Hardware key").copy(kind = WalletKind.SINGLE_KEY, masterFingerprintHex = null)
-        compose.setContent {
-            LenslyTheme {
-                PairWizardScreen(
-                    step = PairStep.CODE,
-                    wallets = listOf(key),
-                    profiles = emptyMap(),
-                    wallet = key,
-                    format = PairFormat.KEYSTONE_NEXUS,
-                    frames = null,
-                    keystoneNeedsHd = keystoneNeedsHdWallet(PairFormat.KEYSTONE_NEXUS, key),
-                    onPickWallet = {},
-                    onPickFormat = {},
-                    onShowCode = {},
-                    onDone = {},
-                    onBack = {},
-                )
-            }
-        }
-
-        compose.onNodeWithText("Needs an HD wallet", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Preparing code").assertDoesNotExist()
     }
 
     @Test

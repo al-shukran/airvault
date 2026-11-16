@@ -37,8 +37,8 @@ object EthereumPairingKeys : PairingKeys {
 }
 
 /**
- * The Bitcoin App: the watch-only keys of every account index the wallet holds on each network, with the four Script Types of each index,
- * as the Keystone Nexus export has them. Each key is one account, and it carries the name, label and group the owner gave the stored
+ * The Bitcoin App: the watch-only keys of every account index the wallet holds on each network, with the four Script Types of each index.
+ * Each key is one account, and it carries the name, label and group the owner gave the stored
  * Bitcoin account of the same Script Type, network and index. A key with no stored account carries its Auto-Name and nothing else.
  */
 object BitcoinPairingKeys : PairingKeys {

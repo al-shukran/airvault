@@ -83,13 +83,14 @@ class PairingExportTest {
     }
 
     @Test
-    fun storedAccountKeysExportTheSameKeysAsTheKeystoneNexusEthereumApp() {
-        // A wallet's stored account keys are the keys its seed gives, so the MetaMask and Rabby export has Nexus's Ethereum keys.
+    fun storedAccountKeysAreTheKeysTheSeedGives() {
+        // A wallet's stored account keys are the keys its seed gives, so the MetaMask and Rabby export carries the seed's Ledger Live keys.
         val accounts = 3
         val stored = (0 until accounts).map { WALLET.accountXpub(it) }
-        val nexusEthereum = EthereumNexusKeys.hdKeys(SEED, WALLET.masterFingerprint, accounts)
+        val fromSeed = (0 until accounts).map { HdWallet(SEED).accountXpub(it) }
+        val expected = EthereumNexusKeys.ledgerLiveKeys(fromSeed, WALLET.masterFingerprint, "Lensly")
         assertEquals(
-            MultiAccountsExport.urParts(WALLET.masterFingerprint, nexusEthereum, VERSION),
+            MultiAccountsExport.urParts(WALLET.masterFingerprint, expected, VERSION),
             PairingExport.urParts(stored, WALLET.masterFingerprint, VERSION, "Lensly"),
         )
     }

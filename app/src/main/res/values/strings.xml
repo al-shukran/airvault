@@ -7,7 +7,5 @@
     <string name="pair_format_rabby_instruction">In Rabby: Add address → Hardware wallet → AirGap Vault → Scan QR. Ethereum App only.</string>
     <string name="pair_format_metamask_label">METAMASK (QR-BASED)</string>
     <string name="pair_format_metamask_instruction">Add account or hardware wallet → Hardware wallet → QR-based → Continue. Ethereum App only.</string>
-    <string name="pair_format_keystone_label">KEYSTONE NEXUS (QR)</string>
-    <string name="pair_format_keystone_instruction">In Keystone Nexus, scan this code to add the Bitcoin and Ethereum accounts.</string>
     <string name="pair_format_recommended">Recommended</string>
 </resources>
