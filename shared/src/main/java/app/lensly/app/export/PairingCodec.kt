@@ -59,6 +59,22 @@ data class PairingKey(
             )
         }
 
+        /**
+         * The Algorand key of account [account]: the Ledger Algorand key m/44'/283'/[account]'/0/0 that BOLOS derives ([LedgerEd25519]).
+         * [publicKey] is the 32-byte raw Ed25519 key, which is stored in SLIP-0010's form with its `00` prefix, and [chainCode] is the 32-byte
+         * chain code at the end of that path. The parent fingerprint is 0: an Ed25519 key of this layout carries none, and no reader uses it.
+         */
+        fun algorandAccount(account: Int, publicKey: ByteArray, chainCode: ByteArray): PairingKey {
+            require(publicKey.size == ED25519_KEY_BYTES) { "An Ed25519 public key is 32 bytes." }
+            return PairingKey(
+                path = listOf(HARDENED + 44, HARDENED + 283, HARDENED + account, 0, 0),
+                depth = 5,
+                parentFingerprint = 0L,
+                publicKey = byteArrayOf(ED25519_PREFIX) + publicKey,
+                chainCode = chainCode,
+            )
+        }
+
         /** The watch-only key of a Bitcoin account: its path, depth, parent fingerprint and public key, as [account] holds them. */
         fun bitcoinAccount(account: BtcWatchOnlyAccount): PairingKey = PairingKey(
             path = account.path.path,
@@ -115,8 +131,8 @@ fun interface BrotliDecompressor {
  * names at once. The code is a `ur:airvault-pairing`, animated when it is long. Its CBOR is versioned: a reader refuses a version it does
  * not know, so it never reads a newer layout as its own. The payload holds public data only: keys, chain codes, paths and names.
  *
- * The layout, version 3, with integer keys. The code's CBOR is an envelope:
- *  - envelope: { 1: version (3), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
+ * The layout, as of version 5, with integer keys. The code's CBOR is an envelope:
+ *  - envelope: { 1: version (5), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
  *  - body, once it is decompressed: { 2: fingerprint (uint32), 3: name, 4: [app], 5: [address] (optional: absent when the Address Book is empty) }
  *  - app: { 1: app id, 2: [key], 3: [account] }
  *  - key: { 1: [path component (uint32)], 2: depth, 3: parent fingerprint (uint32), 4: public key (33 bytes), 5: chain code (32 bytes) }
@@ -133,6 +149,10 @@ fun interface BrotliDecompressor {
  * Version 4 added the Solana App: each account is one Ed25519 key m/44'/501'/N' (see [PairingKey.solanaAccount]), with the prefix 0 that
  * marks an Ed25519 key. A version-3 reader cannot read such a key, so it refuses the code with the message that asks for an update.
  *
+ * Version 5 added the Algorand App: each account is one Ed25519 key m/44'/283'/N'/0/0 (see [PairingKey.algorandAccount]), with the prefix 0
+ * that marks an Ed25519 key. Versions 3 and 4 have the same fields, so this build reads them too: a version-4 code holds no Algorand App,
+ * and a version-4 reader refuses a version-5 code with the message that asks for an update.
+ *
  * The body is at most [MAX_BODY_BYTES] bytes, compressed or not. The encoder keeps it compressed only when that makes it smaller.
  */
 object PairingCodec {
@@ -140,10 +160,14 @@ object PairingCodec {
     const val UR_TYPE = "airvault-pairing"
 
     /**
-     * The layout version this build writes and reads. A code of any other version is refused with the message that asks for an update: an
-     * earlier version's Ethereum keys are account keys, which this version does not read as accounts.
+     * The layout version this build writes. It also reads the versions in [READABLE_VERSIONS], whose fields are the same. A code of any other
+     * version is refused with the message that asks for an update: versions 1 and 2 held one account key with the accounts under it as
+     * children, which this build does not read as accounts.
      */
-    const val VERSION = 4L
+    const val VERSION = 5L
+
+    /** The versions this build reads. Version 3 and version 4 codes have the fields of [VERSION], without the Apps that later versions added. */
+    private val READABLE_VERSIONS = setOf(3L, 4L, VERSION)
 
     /** The largest body in bytes, compressed or not. A reader refuses a larger body, so a body it decompresses is bounded by this. */
     const val MAX_BODY_BYTES = 512 * 1024
@@ -227,7 +251,7 @@ object PairingCodec {
             ?.firstOrNull { (key, _) -> (key as? Cbor.Uint)?.value == 1L }
             ?.let { (_, value) -> (value as? Cbor.Uint)?.value }
             ?: refuse()
-        if (version != VERSION) {
+        if (version !in READABLE_VERSIONS) {
             throw IllegalArgumentException(
                 "This pairing uses format $version, and this app reads format $VERSION. Update the app, then pair again.",
             )
