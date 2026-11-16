@@ -100,7 +100,7 @@ internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
  * The online wallets that pair with Lensly, the first one recommended. Each one is paired with one code for the whole wallet, so an App
  * is never paired on its own. [LUMIO] is the AirVault companion app: it reads the AirVault pairing, which holds the keys and names of every
  * App of the wallet. [KEYSTONE_NEXUS] reads the same keys of every App, as a ur:crypto-multi-accounts. [RABBY] and [METAMASK] read only the
- * Ethereum account key, as a ur:crypto-hdkey, because they hold no Bitcoin account.
+ * Ethereum account keys, as a ur:crypto-multi-accounts too, because they hold no Bitcoin account.
  */
 internal enum class PairFormat(
     @StringRes val labelRes: Int,
@@ -133,14 +133,16 @@ internal enum class PairFormat(
 }
 
 /**
- * The pairing frames for [wallet]: its account key with the chain code and fingerprints, named after the wallet, or
- * "Lensly" when it has no name. Public data only. The fingerprint is stored as hex, so it is read as an unsigned value.
+ * The pairing frames for [wallet]: the Ethereum account key of each of its accounts, m/44'/60'/N' for account N, with the fingerprints,
+ * named after the wallet, or "Lensly" when it has no name. Public data only. The fingerprint is stored as hex, so it is read as an
+ * unsigned value.
  */
 internal fun pairingParts(wallet: WalletMeta): List<String> = PairingExport.urParts(
-    xpub = requireNotNull(wallet.accountKeys.firstOrNull()) { "Only a Mnemonic wallet has an account public key." },
+    accountKeys = requireNotNull(wallet.accountKeys.takeIf { it.isNotEmpty() }) { "Only a Mnemonic wallet has an account public key." },
     masterFingerprint = requireNotNull(wallet.masterFingerprintHex) { "Only a Mnemonic wallet has a fingerprint." }
         .toLong(16)
         .toInt(),
+    version = BuildConfig.VERSION_NAME,
     name = wallet.name.ifBlank { DEFAULT_PAIR_NAME },
 )
 

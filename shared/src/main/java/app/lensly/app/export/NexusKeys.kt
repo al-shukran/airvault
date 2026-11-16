@@ -4,6 +4,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.components
 import app.lensly.core.ur.Cbor
+import app.lensly.core.wallet.AccountXpub
 import app.lensly.core.wallet.HdWallet
 import com.sparrowwallet.hummingbird.registry.CryptoHDKey
 import com.sparrowwallet.hummingbird.registry.CryptoKeypath
@@ -52,8 +53,15 @@ object EthereumNexusKeys : NexusKeys {
 
     override fun hdKeys(seed: ByteArray, masterFingerprint: Int, accountCount: Int): List<Cbor> {
         val wallet = HdWallet(seed)
-        return (0 until accountCount).map { account ->
-            val key = wallet.accountXpub(account)
+        return ledgerLiveKeys((0 until accountCount).map { wallet.accountXpub(it) }, masterFingerprint, KEY_NAME)
+    }
+
+    /**
+     * The Ledger Live keys of [accountKeys], the account keys m/44'/60'/N' in account order, each named [name]. The keys are public data, so
+     * the keys a wallet stored when it was made are the keys its seed gives. The MetaMask and Rabby export uses this encoding too.
+     */
+    fun ledgerLiveKeys(accountKeys: List<AccountXpub>, masterFingerprint: Int, name: String): List<Cbor> =
+        accountKeys.mapIndexed { account, key ->
             nexusKey(
                 publicKey = key.publicKey,
                 chainCode = key.chainCode,
@@ -61,9 +69,9 @@ object EthereumNexusKeys : NexusKeys {
                 children = CryptoKeypath(listOf(IndexPathComponent(0, false), IndexPathComponent(0, false)), null, 0),
                 parentFingerprint = key.parentFingerprint,
                 note = "account.ledger_live",
+                name = name,
             )
         }
-    }
 
     private fun hardened(childNumber: Int): PathComponent = IndexPathComponent(childNumber, true)
 
@@ -82,8 +90,9 @@ private fun nexusKey(
     children: CryptoKeypath?,
     parentFingerprint: Int,
     note: String?,
+    name: String = KEY_NAME,
 ): Cbor = MultiAccountsExport.hdKeyItem(
-    CryptoHDKey(false, publicKey, chainCode, null, origin, children, fingerprint(parentFingerprint), KEY_NAME, note).toUR().cborBytes,
+    CryptoHDKey(false, publicKey, chainCode, null, origin, children, fingerprint(parentFingerprint), name, note).toUR().cborBytes,
 )
 
 private fun fingerprint(value: Int): ByteArray = ByteBuffer.allocate(4).putInt(value).array()
