@@ -35,3 +35,19 @@ class SplTokenBalances(net: NetworkId, val owner: String) : Request<List<SplBala
 
 /** One SPL token account: the [mint] of its token, its [amount] in base units, and the token's [decimals]. */
 data class SplBalance(val mint: String, val amount: BigInteger, val decimals: Int)
+
+/** A transaction signature: 64 bytes in base58, so 86 to 88 characters. */
+internal val SOLANA_SIGNATURE = Regex("[1-9A-HJ-NP-Za-km-z]{86,88}")
+
+/**
+ * The status of the transaction with [signature], as `getSignatureStatuses` reports it with the history searched, so an older signature is found too.
+ * The answer is null while the network does not know the signature.
+ */
+class SolanaSignatureStatus(net: NetworkId, val signature: String) : Request<SolanaStatus?>(net, Op.TX) {
+    init {
+        require(SOLANA_SIGNATURE.matches(signature)) { "Not a Solana transaction signature." }
+    }
+}
+
+/** A signature's status: [confirmed] once the network has confirmed it (processed alone is not enough), and [failed] when it ran with an error. */
+data class SolanaStatus(val confirmed: Boolean, val failed: Boolean)

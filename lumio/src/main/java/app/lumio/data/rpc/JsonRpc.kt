@@ -62,6 +62,12 @@ object JsonRpc {
 
     /** What the owner reads when the node refuses a transaction for its balance. */
     const val INSUFFICIENT_FUNDS_MESSAGE = "The network refused the transaction: the account does not hold enough for the amount and the fee."
+
+    /** The wording of a Solana node that refuses a transaction whose recent blockhash has passed: "Blockhash not found" in its simulation error. */
+    private val BLOCKHASH_EXPIRED = Regex("blockhash not found", RegexOption.IGNORE_CASE)
+
+    /** What the owner reads when the network refuses a transaction because its recent blockhash has expired. */
+    const val BLOCKHASH_EXPIRED_MESSAGE = "The network refused the transaction because it is too old. Make the send again."
     private val JSON_TYPE = "application/json".toMediaType()
 
     /** The HTTP stack for RPC calls: no redirects, and each call bounded by [timeoutMs]. */
@@ -124,6 +130,7 @@ object JsonRpc {
             if (code == RATE_LIMITED_CODE || message.contains("rate limit", ignoreCase = true)) throw ProviderError.RateLimited()
             if (code == METHOD_NOT_FOUND_CODE || NOT_SERVED.containsMatchIn(message)) throw ProviderError.Unsupported()
             if (INSUFFICIENT_FUNDS.containsMatchIn(message)) throw ProviderError.Fatal(INSUFFICIENT_FUNDS_MESSAGE)
+            if (BLOCKHASH_EXPIRED.containsMatchIn(message)) throw ProviderError.Fatal(BLOCKHASH_EXPIRED_MESSAGE)
             throw ProviderError.Fatal("The endpoint returned a JSON-RPC error.")
         }
         val result = root["result"]

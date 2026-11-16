@@ -1,0 +1,317 @@
+package app.lumio.send.solana
+
+import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.solana.SolanaMessage
+import app.lensly.core.solana.SolanaRequestCheck
+import app.lensly.core.solana.SolanaSigner
+import app.lensly.core.solana.SolanaTransaction
+import app.lensly.core.solana.SolanaTransfer
+import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.SolSignRequest
+import app.lensly.core.ur.SolSignType
+import app.lensly.core.ur.SolSignatureEncoder
+import app.lensly.core.ur.UrScanner
+import app.lensly.core.wallet.Mnemonic
+import app.lumio.data.MonotonicClock
+import app.lumio.data.config.ProviderConfig
+import app.lumio.data.provider.Http
+import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.solana.CustomSolanaRpc
+import app.lumio.data.provider.solana.SOLANA_DEVNET
+import app.lumio.data.provider.solana.SOLANA_MAINNET
+import app.lumio.data.rpc.JsonRpc
+import app.lumio.data.sched.Scheduler
+import com.sparrowwallet.hummingbird.UR
+import fr.acinq.bitcoin.Base58
+import java.math.BigInteger
+import java.util.Base64
+import kotlin.random.Random
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * The Solana send against the shapes the endpoint gives. The keys come from the public BIP39 test phrase, and the signatures are the ones Lensly
+ * would make, with the same derivation, so the checks run on real bytes. Lumio holds no key: the tests sign only to play Lensly's part. No test reaches
+ * a network, and waits are recorded rather than slept.
+ */
+class SolanaSendTest {
+    private val server = MockWebServer()
+    private val waits = mutableListOf<Long>()
+    private val seed = Mnemonic.of(PHRASE.split(' ')).use { it.deriveSeed("") }
+    private val accountIndex = 2
+    private val sender = SolanaAccount.publicKey(seed, accountIndex)
+    private val wallet = listOf(SolanaAccount.publicKey(seed, 0), SolanaAccount.publicKey(seed, 1), sender)
+    private val recipient = Base58.decode(RECIPIENT)
+    private val blockhash = Base58.decode(BLOCKHASH)
+    private val requestId = ByteArray(16) { (it + 1).toByte() }
+    private val account = SolanaSendAccount(index = accountIndex, key = sender, sourceFingerprint = 0x0BADF00D)
+    private val lamports = 1_000_000_000L
+    private val neededBalance = BigInteger.valueOf(lamports + SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS)
+
+    @Before
+    fun start() {
+        server.start()
+    }
+
+    @After
+    fun stop() {
+        server.shutdown()
+    }
+
+    /** The owner's devnet RPC set to the local server, with the waits recorded. */
+    private fun scheduler(): Scheduler = Scheduler(
+        providers = listOf(CustomSolanaRpc("devnet", allowLocalHttp = true, pause = { waits += it })),
+        configs = { mapOf(CustomSolanaRpc.idFor("devnet") to ProviderConfig(baseUrl = server.url("/").toString())) },
+        http = Http(JsonRpc.newHttp(timeoutMs = 2_000L).client),
+        clock = MonotonicClock,
+        random = Random(4),
+        scope = CoroutineScope(Dispatchers.Default),
+    )
+
+    private fun answer(result: String) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":$result}""")
+
+    private fun plan(): SolanaSendPlan = SolanaSend.plan(
+        network = SOLANA_DEVNET,
+        account = account,
+        recipient = recipient,
+        lamports = lamports,
+        balance = neededBalance,
+        blockhash = blockhash,
+        requestId = requestId,
+    )
+
+    /** The 32-byte private key of account [index] as Lensly derives it. The caller zeroes it. */
+    private fun privateKeyOf(index: Int): ByteArray = SolanaAccount.node(seed, index).use { it.privateKey() }
+
+    /** The UR of Lensly's answer for [signature], read through the scanner as the camera reads it. */
+    private fun answerOf(id: ByteArray, signature: ByteArray): UR {
+        val scanner = UrScanner()
+        assertTrue(scanner.receive(SolSignatureEncoder.encode(id, signature).first()))
+        return assertNotNull(scanner.result())
+    }
+
+    /** The UR that the frames of a request complete, read as a scanner reads them. */
+    private fun urOfParts(parts: List<String>): UR {
+        val scanner = UrScanner()
+        for (part in parts) assertTrue(scanner.receive(part), part)
+        return assertNotNull(scanner.result())
+    }
+
+    @Test
+    fun aRecipientIsA32ByteAddressOrASolanaLinkThatHoldsOne() {
+        assertContentEquals(recipient, SolanaSendInput.recipient("  $RECIPIENT "))
+        assertContentEquals(recipient, SolanaSendInput.recipient("solana:$RECIPIENT?amount=1&label=demo"))
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.recipient("") }
+        // A zero is not in the base58 alphabet.
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.recipient("0" + RECIPIENT.drop(1)) }
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.recipient(RECIPIENT + "2") }
+        // Forty-four characters that decode to 33 bytes are not a key.
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.recipient("z".repeat(44)) }
+    }
+
+    @Test
+    fun anAmountIsAnExactCountOfLamportsWithAtMostNineDecimals() {
+        assertEquals(100_000_000L, SolanaSendInput.lamports("0.1"))
+        assertEquals(1_000_000_000L, SolanaSendInput.lamports("1"))
+        assertEquals(1L, SolanaSendInput.lamports("0.000000001"))
+        assertEquals(1_500_000_000L, SolanaSendInput.lamports(" 1.5 "))
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.lamports("0.0000000001") }
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.lamports("0") }
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.lamports("0.000") }
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.lamports("1e3") }
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.lamports("-1") }
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.lamports("") }
+        assertFailsWith<IllegalArgumentException> { SolanaSendInput.lamports("9".repeat(20)) }
+    }
+
+    @Test
+    fun theAmountIsShownWithoutTrailingZeros() {
+        assertEquals("0.00089088", SolanaSendInput.format(BigInteger.valueOf(SOLANA_RENT_RESERVE_LAMPORTS)))
+        assertEquals("1", SolanaSendInput.format(BigInteger.valueOf(1_000_000_000L)))
+        assertEquals("0", SolanaSendInput.format(BigInteger.ZERO))
+    }
+
+    @Test
+    fun theMaxLeavesTheFeeAndTheRentReserveInTheSender() {
+        assertEquals(1_000_000_000L - SOLANA_FEE_LAMPORTS - SOLANA_RENT_RESERVE_LAMPORTS, SolanaSend.maxLamports(BigInteger.valueOf(1_000_000_000L)))
+        // The fee and the reserve are 895880 lamports together, so one more lamport is the only amount that can go.
+        assertNull(SolanaSend.maxLamports(BigInteger.valueOf(895_879L)))
+        assertNull(SolanaSend.maxLamports(BigInteger.valueOf(895_880L)))
+        assertEquals(1L, SolanaSend.maxLamports(BigInteger.valueOf(895_881L)))
+    }
+
+    @Test
+    fun aSendNeedsTheAmountTheFeeAndTheRentReserveInTheBalance() {
+        assertFailsWith<IllegalArgumentException> {
+            SolanaSend.plan(SOLANA_DEVNET, account, recipient, lamports, neededBalance - BigInteger.ONE, blockhash, requestId)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SolanaSend.plan(SOLANA_DEVNET, account, recipient, 0L, neededBalance, blockhash, requestId)
+        }
+
+        val exact = plan()
+
+        assertEquals(SOLANA_FEE_LAMPORTS, exact.feeLamports)
+        assertContentEquals(SolanaTransfer.message(sender, recipient, lamports, blockhash), exact.message)
+        assertIs<SolanaMessage.Result.Ok>(SolanaMessage.decode(exact.message))
+    }
+
+    @Test
+    fun theSignRequestIsOneThatLensCanReadAndCheckForTheSendersAccount() {
+        val request = assertIs<SolSignRequest.Result.Ok>(SolSignRequest.decode(urOfParts(SolanaSend.requestParts(plan())))).request
+
+        assertContentEquals(requestId, request.requestId)
+        assertContentEquals(plan().message, request.signData)
+        assertEquals(listOf(PathStep(44, true), PathStep(501, true), PathStep(accountIndex, true)), request.derivationPath)
+        assertContentEquals(sender, request.address)
+        assertEquals(0x0BADF00D, request.sourceFingerprint)
+        assertEquals("Lumio", request.origin)
+        assertEquals(SolSignType.TRANSACTION, request.signType)
+        // Lensly's own check takes the request for account 2 of the wallet's keys, in account order.
+        val review = assertIs<SolanaRequestCheck.Result.Ok>(SolanaRequestCheck.check(request, wallet)).review
+        assertEquals(accountIndex, review.accountIndex)
+    }
+
+    @Test
+    fun aSignatureFromLensOverThePlanIsAssembledIntoTheSignedTransaction() {
+        val plan = plan()
+        val signature = SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)
+
+        val signed = SolanaSend.signed(plan, answerOf(requestId, signature))
+
+        assertEquals(SolanaSigner.SIGNATURE_BYTES, signature.size)
+        assertEquals(Base58.encode(signature), signed.signature)
+        assertContentEquals(SolanaTransaction.signed(listOf(signature), plan.message), signed.raw)
+    }
+
+    @Test
+    fun aSignatureForAnotherRequestIsRefused() {
+        val plan = plan()
+        val signature = SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)
+        val otherRequest = ByteArray(16) { 0x33 }
+
+        val refusal = assertFailsWith<IllegalArgumentException> { SolanaSend.signed(plan, answerOf(otherRequest, signature)) }
+
+        assertTrue(refusal.message.orEmpty().contains("different request"))
+    }
+
+    @Test
+    fun aSignatureByAnotherKeyIsRefusedBeforeAnythingIsSent() {
+        val plan = plan()
+        val byAccountZero = SolanaSigner.sign(privateKeyOf(0), plan.message)
+
+        val refusal = assertFailsWith<IllegalArgumentException> { SolanaSend.signed(plan, answerOf(requestId, byAccountZero)) }
+
+        assertTrue(refusal.message.orEmpty().contains("does not match the account"))
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun aSignatureOverOtherBytesIsRefusedEvenByTheRightKey() {
+        val plan = plan()
+        val overOtherBytes = SolanaSigner.sign(privateKeyOf(accountIndex), plan.message + byteArrayOf(0))
+
+        assertFailsWith<IllegalArgumentException> { SolanaSend.signed(plan, answerOf(requestId, overOtherBytes)) }
+    }
+
+    @Test
+    fun aCodeThatIsNotASignatureIsRefused() {
+        val request = urOfParts(SolanaSend.requestParts(plan()))
+
+        val refusal = assertFailsWith<IllegalArgumentException> { SolanaSend.signed(plan(), request) }
+
+        assertTrue(refusal.message.orEmpty().contains("not a signature from Lensly"))
+    }
+
+    @Test
+    fun theSignedTransactionIsSentAsBase64AndItsSignatureIsConfirmed() = runBlocking {
+        val plan = plan()
+        val signed = SolanaSend.signed(plan, answerOf(requestId, SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)))
+        server.enqueue(answer("\"${signed.signature}\""))
+
+        val reported = SolanaSend.broadcast(scheduler(), SOLANA_DEVNET, signed)
+
+        assertEquals(signed.signature, reported)
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("\"method\":\"sendTransaction\""))
+        assertTrue(body.contains("[\"${Base64.getEncoder().encodeToString(signed.raw)}\",{\"encoding\":\"base64\"}]"))
+
+        server.enqueue(answer("""{"context":{"slot":9},"value":[{"slot":9,"err":null,"confirmationStatus":"confirmed"}]}"""))
+        assertEquals(SolanaOutcome.CONFIRMED, SolanaSend.confirm(scheduler(), SOLANA_DEVNET, signed.signature) { waits += it })
+    }
+
+    @Test
+    fun aNetworkThatReportsAnotherSignatureIsNotTrusted() {
+        val plan = plan()
+        val signed = SolanaSend.signed(plan, answerOf(requestId, SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)))
+        server.enqueue(answer("\"${"2".repeat(88)}\""))
+
+        runBlocking {
+            assertFailsWith<IllegalArgumentException> { SolanaSend.broadcast(scheduler(), SOLANA_DEVNET, signed) }
+        }
+    }
+
+    @Test
+    fun anExpiredBlockhashIsReportedWithTheWordsForTheOwner() = runBlocking {
+        val plan = plan()
+        val signed = SolanaSend.signed(plan, answerOf(requestId, SolanaSigner.sign(privateKeyOf(accountIndex), plan.message)))
+        server.enqueue(
+            MockResponse().setBody(
+                """{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Transaction simulation failed: Blockhash not found","data":{}}}""",
+            ),
+        )
+
+        val failure = assertFailsWith<ProviderError.Fatal> { SolanaSend.broadcast(scheduler(), SOLANA_DEVNET, signed) }
+
+        assertEquals(JsonRpc.BLOCKHASH_EXPIRED_MESSAGE, failure.message)
+    }
+
+    @Test
+    fun confirmationStopsAtAFailedStatusAndWaitsBetweenPolls() = runBlocking {
+        server.enqueue(answer("""{"context":{"slot":1},"value":[null]}"""))
+        server.enqueue(
+            answer(
+                """{"context":{"slot":2},"value":[{"slot":2,"err":{"InstructionError":[0,{"Custom":1}]},"confirmationStatus":"processed"}]}""",
+            ),
+        )
+
+        assertEquals(SolanaOutcome.FAILED, SolanaSend.confirm(scheduler(), SOLANA_DEVNET, SIGNATURE) { waits += it })
+        assertEquals(listOf(2_000L), waits)
+    }
+
+    @Test
+    fun confirmationGivesUpAfterTheLastPollWhenNoStatusComesIn() = runBlocking {
+        repeat(30) { server.enqueue(answer("""{"context":{"slot":1},"value":[null]}""")) }
+
+        assertEquals(SolanaOutcome.PENDING, SolanaSend.confirm(scheduler(), SOLANA_DEVNET, SIGNATURE) { waits += it })
+        assertEquals(29, waits.size)
+        assertTrue(waits.all { it == 2_000L })
+    }
+
+    @Test
+    fun theExplorerLinkNamesTheDevnetClusterAndNamesNoClusterOnMainnet() {
+        assertEquals("https://explorer.solana.com/tx/$SIGNATURE?cluster=devnet", SolanaSend.explorerTxUrl(SOLANA_DEVNET, SIGNATURE))
+        assertEquals("https://explorer.solana.com/tx/$SIGNATURE", SolanaSend.explorerTxUrl(SOLANA_MAINNET, SIGNATURE))
+    }
+
+    private companion object {
+        /** The 24-word BIP39 test vector of 256 zero bits, the phrase of the debug pairing fixture. */
+        val PHRASE = "abandon ".repeat(23) + "art"
+        const val RECIPIENT = "7tark5iZaRrMfGKtKy1aqpGuRgoxbE6ec7Z5Qa4Jc5xr"
+        const val BLOCKHASH = "3K2oo9odsrvknS7gMzJ4eLBnjd3UG14yPuJc8DiviJqY"
+        val SIGNATURE = "B".repeat(88)
+    }
+}
