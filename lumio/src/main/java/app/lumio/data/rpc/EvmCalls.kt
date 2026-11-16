@@ -50,6 +50,7 @@ internal object EvmCalls {
                         "from" to JsonPrimitive(req.from),
                         "to" to JsonPrimitive(req.to),
                         "value" to JsonPrimitive("0x" + req.valueWei.toString(RADIX)),
+                        "data" to JsonPrimitive(req.data),
                     ),
                 )
                 quantity(call("eth_estimateGas", JsonArray(listOf(transfer))))

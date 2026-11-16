@@ -160,13 +160,22 @@ object TokenPortfolio {
         cache: List<CachedTokenBalance>,
     ): List<TokenHolding> {
         val account = wallet.evm ?: return emptyList()
+        return Portfolio.addresses(account, count).flatMap { address -> holdingsAt(wallet.id, address, chains, tokensOf, cache) }
+    }
+
+    /** The cached token balances of one [address] of the wallet [walletId] on [chains], for the tokens [tokensOf] lists. */
+    fun holdingsAt(
+        walletId: String,
+        address: String,
+        chains: List<EvmChain>,
+        tokensOf: (EvmChain) -> List<Token>,
+        cache: List<CachedTokenBalance>,
+    ): List<TokenHolding> {
         val byKey = cache.associateBy { it.key }
-        return Portfolio.addresses(account, count).flatMap { address ->
-            chains.flatMap { chain ->
-                tokensOf(chain).mapNotNull { token ->
-                    byKey[CachedTokenBalance.keyOf(wallet.id, chain.chainId, address, token.contract)]
-                        ?.let { TokenHolding(chain, token, BigInteger(it.amount), it.atMs) }
-                }
+        return chains.flatMap { chain ->
+            tokensOf(chain).mapNotNull { token ->
+                byKey[CachedTokenBalance.keyOf(walletId, chain.chainId, address, token.contract)]
+                    ?.let { TokenHolding(chain, token, BigInteger(it.amount), it.atMs) }
             }
         }
     }

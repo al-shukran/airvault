@@ -1,8 +1,15 @@
 package app.lumio.evm
 
 import app.lensly.core.wallet.toHex
+import app.lumio.tokens.Erc20
+import app.lumio.tokens.Token
 import java.math.BigInteger
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -11,8 +18,9 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import org.web3j.crypto.Hash
 import org.junit.Assert.assertThrows
+import org.web3j.crypto.Hash
+import org.web3j.crypto.Keys
 
 /** A send reads its balance, nonce, fees and gas through the scheduler, and a broadcast is checked against the signed transaction's hash. */
 class EvmSendRpcTest {
@@ -23,12 +31,15 @@ class EvmSendRpcTest {
     private val oneCent = BigInteger.TEN.pow(16)
     private val answers = HashMap<String, String>()
     private var failing = HashSet<String>()
+    private val usdc = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
+    private val bodies = CopyOnWriteArrayList<String>()
 
     @Before
     fun start() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val body = request.body.readUtf8()
+                bodies += body
                 val method = Regex("\"method\":\"([^\"]+)\"").find(body)?.groupValues?.get(1).orEmpty()
                 if (method in failing) return MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""")
                 val result = answers[method] ?: return MockResponse().setResponseCode(400)
@@ -49,6 +60,18 @@ class EvmSendRpcTest {
     }
 
     private fun reads(): EvmReads = testReads(EvmSettings(rpc = mapOf(1L to server.url("/").toString())))
+
+    /** The answer to a balanceOf read: one word, in the token's base units. */
+    private fun balanceAnswer(units: BigInteger): String = "\"0x" + units.toString(16).padStart(64, '0') + "\""
+
+    /** The first parameter object of the recorded [method] call, as its string fields. */
+    private fun paramsOf(method: String): Map<String, String> {
+        val body = bodies.first { it.contains("\"method\":\"$method\"") }
+        val first = Json.parseToJsonElement(body).jsonObject["params"]!!.jsonArray[0].jsonObject
+        return first.mapValues { it.value.jsonPrimitive.content }
+    }
+
+    private fun methodsCalled(): List<String> = bodies.map { Regex("\"method\":\"([^\"]+)\"").find(it)?.groupValues?.get(1).orEmpty() }
 
     @Test
     fun aSendIsPreparedFromThePendingNonceTheFeesAndTheEstimate() {
@@ -117,5 +140,69 @@ class EvmSendRpcTest {
 
         val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.broadcast(reads(), chain, byteArrayOf(0x02)) } }
         assertEquals(RpcFailure.Reason.ERROR, failure.reason)
+    }
+
+    @Test
+    fun aTokenSendReadsTheTokenBalanceAndEstimatesTheTransferToTheContract() {
+        answers["eth_call"] = balanceAnswer(BigInteger.valueOf(100_000_000L))
+
+        val send = runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, BigInteger.valueOf(12_500_000L), usdc) }
+
+        assertEquals(BigInteger.valueOf(100_000_000L), send.tokenBalance)
+        assertEquals(Keys.toChecksumAddress(usdc.contract), send.tx.to)
+        val estimate = paramsOf("eth_estimateGas")
+        assertEquals(from, estimate["from"])
+        assertEquals(Keys.toChecksumAddress(usdc.contract), estimate["to"])
+        assertEquals("0x0", estimate["value"])
+        assertEquals(Erc20.transfer(to, BigInteger.valueOf(12_500_000L)), estimate["data"])
+        assertEquals(usdc.contract, paramsOf("eth_call")["to"])
+        assertEquals(Erc20.balanceOf(from), paramsOf("eth_call")["data"])
+    }
+
+    @Test
+    fun aTokenEstimateThatTheEndpointRefusesFallsBackToTheTokenTransferGas() {
+        answers["eth_call"] = balanceAnswer(BigInteger.valueOf(100_000_000L))
+        failing.add("eth_estimateGas")
+
+        val send = runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, BigInteger.valueOf(12_500_000L), usdc) }
+
+        assertEquals(BigInteger.valueOf(65_000L), send.gasLimit)
+    }
+
+    @Test
+    fun aTokenBalanceBelowTheAmountIsRefusedBeforeTheGasIsRead() {
+        answers["eth_call"] = balanceAnswer(BigInteger.valueOf(10_000_000L))
+
+        val failure = assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, BigInteger.valueOf(12_500_000L), usdc) }
+        }
+
+        assertEquals("The token balance is 10 USDC, but this send is 12.5 USDC.", failure.message)
+        assertEquals(false, methodsCalled().contains("eth_estimateGas"))
+    }
+
+    @Test
+    fun theNativeBalanceMustCoverTheGasOfATokenSend() {
+        answers["eth_call"] = balanceAnswer(BigInteger.valueOf(100_000_000L))
+        answers["eth_getBalance"] = "\"0x1\""
+
+        val failure = assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, BigInteger.valueOf(12_500_000L), usdc) }
+        }
+
+        assertEquals(true, failure.message?.startsWith("The balance is "))
+        assertEquals(true, failure.message?.contains("but the gas for this send can cost up to"))
+    }
+
+    @Test
+    fun aTokenBalanceThatDoesNotDecodeIsARefusedRead() {
+        answers["eth_call"] = "\"0x\""
+
+        val failure = assertThrows(RpcFailure::class.java) {
+            runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, BigInteger.valueOf(12_500_000L), usdc) }
+        }
+
+        assertEquals(RpcFailure.Reason.MALFORMED, failure.reason)
+        assertEquals("The token balance could not be read. Try again.", failure.message)
     }
 }

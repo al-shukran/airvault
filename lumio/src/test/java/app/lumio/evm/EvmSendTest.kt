@@ -13,6 +13,7 @@ import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.toHex
+import app.lumio.tokens.Token
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
@@ -188,6 +189,31 @@ class EvmSendTest {
         assertEquals(0x02, raw[0].toInt() and 0xFF)
         assertContentEquals(assertNotNull(send.tx.encodeSigned(signature)), raw)
         assertTrue(raw.size > send.payload.size)
+    }
+
+    @Test
+    fun aTokenTransferSignedByTheSendingAccountIsTheRawTransaction() {
+        val token = Token(sepolia.chainId, "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238", "USDC", "USD Coin", 6)
+        val send = PreparedSend(
+            chain = sepolia,
+            index = 0,
+            from = from,
+            to = RECIPIENT,
+            valueWei = BigInteger.valueOf(12_500_000L),
+            nonce = 7,
+            gasLimit = BigInteger.valueOf(65_000L),
+            maxFeePerGas = BigInteger.valueOf(3_500_000_000L),
+            maxPriorityFeePerGas = BigInteger.valueOf(1_500_000_000L),
+            balanceWei = BigInteger.TEN.pow(18),
+            token = token,
+            tokenBalance = BigInteger.TEN.pow(9),
+        )
+        val requestId = ByteArray(16) { 0x77 }
+        val signature = TxSigner.sign(send.payload, send.tx, key)
+
+        val raw = EvmSend.signed(send, requestId, scannedSignature(answerParts(send, requestId, key)))
+
+        assertContentEquals(assertNotNull(send.tx.encodeSigned(signature)), raw)
     }
 
     @Test

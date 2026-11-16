@@ -74,15 +74,25 @@ internal object Abi {
     }
 }
 
-/** The four ERC-20 reads Lumio makes. A read is a selector and, for a balance, the owner's address as one word. */
+/** The four ERC-20 reads Lumio makes, and the transfer a send signs. A read is a selector and, for a balance, the owner's address as one word. */
 internal object Erc20 {
     const val BALANCE_OF = "0x70a08231"
     const val SYMBOL = "0x95d89b41"
     const val NAME = "0x06fdde03"
     const val DECIMALS = "0x313ce567"
 
+    /** The selector of transfer(address,uint256), the first four bytes of its Keccak-256 hash. */
+    const val TRANSFER = "0xa9059cbb"
+
     /** The call data of balanceOf(owner). */
     fun balanceOf(owner: String): String = BALANCE_OF + Abi.hex(Abi.addressWord(owner)).removePrefix("0x")
+
+    /**
+     * The call data of transfer(to, amount): the selector, the recipient as one word, then [amount] in the token's base units as one word.
+     * Throws IllegalArgumentException when [to] is not an address or [amount] does not fit in a word.
+     */
+    fun transfer(to: String, amount: BigInteger): String =
+        TRANSFER + Abi.hex(Abi.addressWord(to)).removePrefix("0x") + Abi.hex(Abi.word(amount)).removePrefix("0x")
 
     /**
      * The text a read returns. A name or symbol is a dynamic string. Some older tokens return a bytes32 with the text left-aligned and zero-padded,
