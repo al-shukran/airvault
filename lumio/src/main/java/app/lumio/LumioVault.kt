@@ -13,6 +13,8 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.db.LumioDatabase
 import app.lumio.data.scan.ScanRows
+import app.lumio.data.tx.TxKeys
+import app.lumio.data.tx.TxStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +29,9 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
 
     /** The rows of the scan queue, sealed under a key derived from [session]. */
     val scanRows: ScanRows = ScanRows(database.scanJobs(), session.deriveKey(SCAN_JOB_PURPOSE))
+
+    /** The transaction history of this vault: its rows, their search index and the comments, under keys derived from [session]. */
+    val txs: TxStore = TxStore(database.txs(), TxKeys.from(session))
 
     /** The last known balances, read from the cache. */
     val store: BtcStore = BtcStore(cache)
