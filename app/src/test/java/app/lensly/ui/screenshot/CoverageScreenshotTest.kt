@@ -6,7 +6,6 @@ import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
 import app.lensly.ui.flow.ShredStep
-import app.lensly.ui.settings.HideDelayBound
 import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
@@ -37,15 +36,10 @@ class CoverageScreenshotTest {
     @Test
     fun hideDelay() = compose.snapshot("hide_delay_screen") {
         HideDelayScreen(
-            shortest = HideDelay.DEFAULT_MIN_MS.toString(),
-            longest = HideDelay.DEFAULT_MAX_MS.toString(),
-            focus = HideDelayBound.SHORTEST,
-            error = null,
-            ready = true,
-            onFocus = {},
-            onDigit = {},
-            onBackspace = {},
-            onSave = {},
+            shortest = HideDelay.DEFAULT_MIN_MS.toInt(),
+            longest = HideDelay.DEFAULT_MAX_MS.toInt(),
+            onShortest = {},
+            onLongest = {},
             onBack = {},
         )
     }

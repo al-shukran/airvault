@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import app.lensly.app.HideDelay
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
@@ -71,12 +72,18 @@ class SettingsScreenTest {
         installedUpdateUnverified: Boolean = false,
         denylist: List<DenylistEntry> = emptyList(),
         wallets: List<WalletEntry> = emptyList(),
+        bulkCap: BulkCap? = BulkCap.HUNDRED,
+        onBulkCap: (BulkCap) -> Unit = {},
+        hideDelay: HideDelay? = HideDelay(100L, 1_000L),
+        onHideDelay: () -> Unit = {},
     ) {
         compose.setContent {
             LenslyTheme {
                 SettingsScreen(
-                    bulkCap = BulkCap.HUNDRED,
-                    onBulkCap = {},
+                    bulkCap = bulkCap,
+                    onBulkCap = onBulkCap,
+                    hideDelay = hideDelay,
+                    onHideDelay = onHideDelay,
                     onChangePassword = {},
                     failureDelayCap = FailureCapChoice.ONE_MINUTE,
                     onFailureDelayCap = {},
@@ -139,7 +146,45 @@ class SettingsScreenTest {
         show()
 
         compose.onNodeWithText("Wrong password lockout").assertExists()
-        compose.onNodeWithText("Up to 1 min. The longest wait after a wrong Application Password.").assertExists()
+        compose.onNodeWithText("Up to 1 min (default). The longest wait after a wrong Application Password.").assertExists()
+    }
+
+    @Test
+    fun theBulkCapRowShowsItsCapAndAppliesAChoiceFromItsDialog() {
+        val chosen = mutableListOf<BulkCap>()
+        show(bulkCap = BulkCap.HUNDRED, onBulkCap = { chosen += it })
+
+        compose.onNodeWithText("Bulk cap · 100").performScrollTo().performClick()
+        compose.onNodeWithText("50").performClick()
+
+        assertEquals(listOf(BulkCap.FIFTY), chosen)
+    }
+
+    @Test
+    fun theBulkCapRowShowsTheSavedCapInOneLine() {
+        show(bulkCap = BulkCap.TWENTY)
+
+        compose.onNodeWithText("Bulk cap · 20").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun theHideDelayRowNamesTheRangeAndOpensItsScreen() {
+        var opened = false
+        show(hideDelay = HideDelay(250L, 4_000L), onHideDelay = { opened = true })
+
+        compose.onNodeWithText("From 250 to 4000 ms after a tap.").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Hide delay").performScrollTo().performClick()
+
+        assertTrue(opened)
+    }
+
+    @Test
+    fun theEntryRowsUseSentenceCase() {
+        show()
+
+        compose.onNodeWithText("Change application password").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Duress password").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Remove duress password").performScrollTo().assertIsDisplayed()
     }
 
     @Test

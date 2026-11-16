@@ -1,26 +1,17 @@
 package app.lensly.ui.settings
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.HideDelay
@@ -36,14 +27,12 @@ import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.components.ChainIcon
-import app.lensly.ui.components.SettingsItem
+import app.lensly.ui.components.ChoiceDialogRow
 import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 
 /** The networks, tokens and approved contracts the catalog holds: the built-in entries plus any installed package. */
@@ -68,13 +57,13 @@ private const val PREVIEW_ICONS = 4
  * The Settings screen of the vault: Entry, Bulk generation, the wrong password lockout, the catalog and About, one row style
  * throughout.
  *
- * [bulkCap] is null until the saved setting has been read, and its options are off until then. [onBulkCap] saves the
- * new cap. [onChangePassword] opens the App Password change, and [onWipe] opens the wipe. [failureDelayCap] is the saved
+ * [bulkCap] is null until the saved setting has been read, and its row is off until then. [onBulkCap] saves a choice from its
+ * dialog at once. [onChangePassword] opens the App Password change, and [onWipe] opens the wipe. [failureDelayCap] is the saved
  * wrong password lockout, null while it is read, and [onFailureDelayCap] opens the screen that changes it. [catalog] is null
  * while it is read, and [onNetworks] and [onTokens] open the lists. [entryGesture] is the gesture the camera uses now, and
  * [onEntryGesture] opens the choice of another. [onApprovedContracts] opens the approved contracts, which [catalog] counts.
  * [proxyPolicy] is the policy in force, null while it is read, and [onProxyPolicy] opens the screen that changes it.
- * [hideDelay] is the dice and coin hide delay, null while it is read, and [onHideDelay] opens the screen for one bound of it.
+ * [hideDelay] is the dice and coin hide delay, null while it is read, and [onHideDelay] opens the screen that changes it.
  * [onThirdPartyLicences] opens the third-party licences from the About section.
  */
 @Composable
@@ -94,7 +83,7 @@ fun SettingsScreen(
     proxyPolicy: ProxyPolicy? = null,
     onProxyPolicy: () -> Unit = {},
     hideDelay: HideDelay? = null,
-    onHideDelay: (HideDelayBound) -> Unit = {},
+    onHideDelay: () -> Unit = {},
     bitcoinInputPolicy: InputVerificationPolicy? = null,
     bitcoinSigningSource: SigningSourcePolicy? = null,
     onBitcoinPolicy: () -> Unit = {},
@@ -118,40 +107,41 @@ fun SettingsScreen(
                 onClick = onEntryGesture,
             )
             SettingsRow(
-                title = "Change Application Password",
+                title = "Change application password",
                 description = "Enter the current password, then the new one twice. Your wallets stay as they are.",
                 onClick = onChangePassword,
             )
             // The same two rows show in the real vault and in a decoy, so the decoy's Settings look identical.
             SettingsRow(
-                title = "Duress Password",
+                title = "Duress password",
                 description = "A second password. Enter the Application Password, then the new one twice.",
                 onClick = onDuressPassword,
             )
             SettingsRow(
-                title = "Remove Duress Password",
+                title = "Remove duress password",
                 description = "Enter the Application Password. The second password stops opening anything.",
                 onClick = onRemoveDuressPassword,
             )
         }
 
         SettingsSection("Bulk generation") {
-            BulkCapItem(bulkCap = bulkCap, onBulkCap = onBulkCap)
+            ChoiceDialogRow(
+                label = "Bulk cap",
+                value = bulkCap?.label,
+                options = BulkCap.entries,
+                selected = bulkCap,
+                optionLabel = { it.label },
+                onSelect = onBulkCap,
+                description = "The most accounts one bulk run can create. A run above it is refused.",
+                dialogTitle = "Bulk cap",
+            )
         }
 
         SettingsSection("Dice and coin entry") {
             SettingsRow(
-                title = "Shortest hide delay",
-                description = hideDelay?.let { "${it.minMs} ms. The tiles stay hidden at least this long after a tap." }
-                    ?: "Reading the saved delay…",
-                onClick = { onHideDelay(HideDelayBound.SHORTEST) },
-                loading = hideDelay == null,
-            )
-            SettingsRow(
-                title = "Longest hide delay",
-                description = hideDelay?.let { "${it.maxMs} ms. The tiles stay hidden at most this long after a tap." }
-                    ?: "Reading the saved delay…",
-                onClick = { onHideDelay(HideDelayBound.LONGEST) },
+                title = "Hide delay",
+                description = hideDelay?.let { "From ${it.minMs} to ${it.maxMs} ms after a tap." } ?: "Reading the saved delay…",
+                onClick = onHideDelay,
                 loading = hideDelay == null,
             )
         }
@@ -291,52 +281,6 @@ private fun <T> IconStack(items: List<T>, icon: @Composable (T) -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 icon(item)
-            }
-        }
-    }
-}
-
-/**
- * The Bulk Cap: one pill per cap the owner may select, the saved one filled. Until the saved cap is read the pills are
- * off.
- */
-@Composable
-private fun BulkCapItem(bulkCap: BulkCap?, onBulkCap: (BulkCap) -> Unit) {
-    SettingsItem {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md),
-            verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-        ) {
-            Text(
-                text = "Bulk Cap",
-                style = MaterialTheme.typography.titleMedium,
-                color = LenslyOnSurface,
-            )
-            Text(
-                text = "The most accounts one bulk run can create. A run above it is refused.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xxs),
-                horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-            ) {
-                for (cap in BulkCap.entries) {
-                    PillButton(
-                        text = cap.label,
-                        onClick = { onBulkCap(cap) },
-                        modifier = Modifier.weight(1f).semantics { selected = cap == bulkCap },
-                        accent = cap == bulkCap,
-                        enabled = bulkCap != null,
-                    )
-                }
-            }
-            if (bulkCap == null) {
-                Text(
-                    text = "Reading the saved cap…",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

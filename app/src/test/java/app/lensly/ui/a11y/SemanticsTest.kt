@@ -9,7 +9,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.NumericKeypad
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
@@ -48,16 +47,6 @@ class SemanticsTest {
         compose.setContent { LenslyTheme { PasswordField(length = 14, modifier = Modifier.fillMaxWidth()) } }
 
         compose.onNodeWithContentDescription("14 characters entered").assertExists()
-    }
-
-    @Test
-    fun keypadKeysAreLabelledAndTallEnoughToTouch() {
-        compose.setContent { LenslyTheme { NumericKeypad(onDigit = {}, onBackspace = {}) } }
-
-        for (key in "0123456789".map { it.toString() } + "Backspace") {
-            val node = compose.onNodeWithContentDescription(key).assertHasClickAction().fetchSemanticsNode()
-            node.assertAtLeast48DpTall()
-        }
     }
 
     @Test
