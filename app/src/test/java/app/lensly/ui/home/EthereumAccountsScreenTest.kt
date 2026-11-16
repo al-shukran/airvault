@@ -76,7 +76,6 @@ class EthereumAccountsScreenTest {
             addresses = route.addresses,
             accountProfiles = profiles,
             onBack = {},
-            onLock = {},
             onAddAccount = { route.count += 1 },
             onBulkGenerate = { route.generated = true },
             onPair = { route.paired = true },

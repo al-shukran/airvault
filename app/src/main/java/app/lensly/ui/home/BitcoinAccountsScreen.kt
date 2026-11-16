@@ -87,7 +87,6 @@ fun BitcoinAccountsScreen(
     wallet: WalletMeta,
     accounts: List<BitcoinAccountRecord>,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     onGenerate: () -> Unit,
     onPair: () -> Unit,
     onScan: () -> Unit,
@@ -112,8 +111,8 @@ fun BitcoinAccountsScreen(
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
             item(key = "top-bar") {
                 DetailTopBar(
+                    title = "Bitcoin accounts",
                     onBack = onBack,
-                    onLock = onLock,
                     onOptions = { sheetOpen = true },
                     optionsLabel = "App options",
                 )

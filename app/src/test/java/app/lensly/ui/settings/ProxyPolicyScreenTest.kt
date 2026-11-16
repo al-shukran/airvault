@@ -41,7 +41,6 @@ class ProxyPolicyScreenTest {
                     onBackspace = {},
                     onSubmit = {},
                     onBack = {},
-                    onLock = {},
                 )
             }
         }
@@ -83,7 +82,6 @@ class ProxyPolicyScreenTest {
                     onBackspace = {},
                     onSubmit = {},
                     onBack = {},
-                    onLock = {},
                 )
             }
         }
@@ -109,7 +107,6 @@ class ProxyPolicyScreenTest {
                     onBackspace = {},
                     onSubmit = {},
                     onBack = {},
-                    onLock = {},
                 )
             }
         }

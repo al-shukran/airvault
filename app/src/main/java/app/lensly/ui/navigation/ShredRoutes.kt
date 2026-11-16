@@ -135,7 +135,6 @@ internal fun ShredRoute(
         },
         onConfirm = { scope.launch { flow.confirm() } },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 

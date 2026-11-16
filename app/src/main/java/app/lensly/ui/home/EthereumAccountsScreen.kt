@@ -82,7 +82,6 @@ fun EthereumAccountsScreen(
     addresses: List<String>?,
     accountProfiles: Map<Int, AccountProfile>,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     onAddAccount: () -> Unit,
     onBulkGenerate: () -> Unit,
     onPair: () -> Unit,
@@ -115,8 +114,8 @@ fun EthereumAccountsScreen(
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
             item(key = "top-bar") {
                 DetailTopBar(
+                    title = "Ethereum accounts",
                     onBack = onBack,
-                    onLock = onLock,
                     onOptions = { sheet = AppSheet.Options },
                     optionsLabel = "App options",
                 )

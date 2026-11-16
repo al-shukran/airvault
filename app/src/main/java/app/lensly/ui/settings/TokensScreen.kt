@@ -49,7 +49,6 @@ fun TokensScreen(
     networks: List<NetworkEntry>,
     tokens: List<TokenEntry>,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var chainFilter by remember { mutableStateOf<Long?>(null) }
@@ -60,7 +59,6 @@ fun TokensScreen(
     LenslyScreen(title = "Tokens", modifier = modifier, onBack = onBack, scrollable = false) {
         CatalogIntro(
             text = "Lensly can sign for these tokens offline. Others are signed with a warning.",
-            onLock = onLock,
         )
         LazyRow(
             modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md),

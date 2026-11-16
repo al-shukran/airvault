@@ -59,8 +59,6 @@ fun WalletStartScreen(
             )
         },
     ) {
-        WalletEyebrow("Offline vault")
-        Spacer(Modifier.height(LenslySpacing.xs))
         DotHeadline(text = "NEW WALLET")
         Spacer(Modifier.height(LenslySpacing.lg))
         ChoiceRow(

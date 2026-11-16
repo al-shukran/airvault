@@ -45,7 +45,6 @@ fun PasswordStep(
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier,
     title: String,
     prompt: String,
@@ -71,7 +70,7 @@ fun PasswordStep(
                 }
             },
         ) {
-            StepHeader(step = step, onLock = onLock, count = stepCount)
+            StepHeader(step = step, count = stepCount)
             Spacer(Modifier.height(LenslySpacing.lg))
             DotHeadline(text = "PASSWORD")
             Spacer(Modifier.height(LenslySpacing.sm))
@@ -109,22 +108,10 @@ fun PasswordStep(
     }
 }
 
-/** The step line at the top of a step: "Step N of [count]", a Lock pill, and the progress bar underneath. */
+/** The step line at the top of a step: "Step N of [count]" and the progress bar underneath. */
 @Composable
-fun StepHeader(step: Int, onLock: () -> Unit, count: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        WalletEyebrow("Step $step of $count")
-        Spacer(Modifier.weight(1f))
-        WalletPill(
-            text = "Lock",
-            onClick = onLock,
-            style = WalletPillStyle.Outline,
-            size = WalletPillSize.Compact,
-        )
-    }
+fun StepHeader(step: Int, count: Int) {
+    WalletEyebrow("Step $step of $count")
     Spacer(Modifier.height(LenslySpacing.xs))
     StepSegments(count = count, filled = step)
 }

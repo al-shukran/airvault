@@ -74,7 +74,6 @@ fun ProxyPolicyScreen(
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (step) {
@@ -84,7 +83,6 @@ fun ProxyPolicyScreen(
             onSelect = onSelect,
             onContinue = onContinue,
             onBack = onBack,
-            onLock = onLock,
             modifier = modifier,
         )
         is ProxyPolicyStep.Password -> PasswordStep(
@@ -94,7 +92,6 @@ fun ProxyPolicyScreen(
             onBackspace = onBackspace,
             onSubmit = onSubmit,
             onBack = onBack,
-            onLock = onLock,
             modifier = modifier,
             title = TITLE,
             prompt = "Enter your Application Password to save this policy.",
@@ -111,7 +108,6 @@ private fun ChooseContent(
     onSelect: (ProxyPolicy) -> Unit,
     onContinue: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier,
 ) {
     val canContinue = shown != null && saved != null && shown != saved
@@ -129,7 +125,7 @@ private fun ChooseContent(
             )
         },
     ) {
-        StepHeader(step = 1, onLock = onLock, count = STEP_COUNT)
+        StepHeader(step = 1, count = STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
         DotHeadline(text = "PROXIES")
         Spacer(Modifier.height(LenslySpacing.sm))

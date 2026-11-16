@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +33,7 @@ import app.lensly.app.entryGestureHolder
 import app.lensly.app.vaultHolder
 import app.lensly.ui.camera.CameraScreen
 import app.lensly.ui.camera.GalleryScreen
+import app.lensly.ui.components.LocalVaultLock
 import kotlinx.coroutines.delay
 
 /** The routes of the camera cover and of the Hidden Area, which both apps share. */
@@ -47,7 +49,8 @@ const val INACTIVITY_LOCK_MS = 2 * 60 * 1000L
 /**
  * The camera cover and the navigation around it, which Lensly and Lumio share. It opens on the camera. The hidden area is entered by the
  * viewfinder gesture, and it is the only place the vault is unlocked. Leaving the foreground, going idle, or pressing LOCK all lock the
- * vault and return to the camera. [hidden] adds the app's own hidden area, which starts with [hiddenArea].
+ * vault and return to the camera. [hidden] adds the app's own hidden area, which starts with [hiddenArea]. [lockVault] is what the
+ * top bar's lock icon does, and [leaveHidden] by default.
  *
  * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
  */
@@ -55,6 +58,7 @@ const val INACTIVITY_LOCK_MS = 2 * 60 * 1000L
 fun CoverNavHost(
     debugHiddenRequest: Int = 0,
     modifier: Modifier = Modifier,
+    lockVault: (NavHostController, VaultHolder) -> Unit = ::leaveHidden,
     hidden: NavGraphBuilder.(NavHostController, VaultHolder) -> Unit,
 ) {
     val holder = LocalContext.current.vaultHolder()
@@ -65,26 +69,31 @@ fun CoverNavHost(
     val touchModifier = InactivityLock(navController, holder)
 
     Box(modifier = modifier.fillMaxSize().then(touchModifier)) {
-        NavHost(
-            navController = navController,
-            startDestination = LenslyRoute.CAMERA,
-            modifier = Modifier.fillMaxSize(),
-            enterTransition = LenslyNavTransitions.enter,
-            exitTransition = LenslyNavTransitions.exit,
-            popEnterTransition = LenslyNavTransitions.popEnter,
-            popExitTransition = LenslyNavTransitions.popExit,
-        ) {
-            composable(LenslyRoute.CAMERA) {
-                CameraScreen(
-                    onOpenGallery = { navController.navigate(LenslyRoute.GALLERY) { launchSingleTop = true } },
-                    onHiddenEntry = { navController.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } },
-                    entryGesture = entryGestures.current,
-                )
+        CompositionLocalProvider(LocalVaultLock provides { lockVault(navController, holder) }) {
+            NavHost(
+                navController = navController,
+                startDestination = LenslyRoute.CAMERA,
+                modifier = Modifier.fillMaxSize(),
+                enterTransition = LenslyNavTransitions.enter,
+                exitTransition = LenslyNavTransitions.exit,
+                popEnterTransition = LenslyNavTransitions.popEnter,
+                popExitTransition = LenslyNavTransitions.popExit,
+            ) {
+                composable(LenslyRoute.CAMERA) {
+                    CameraScreen(
+                        onOpenGallery = { navController.navigate(LenslyRoute.GALLERY) { launchSingleTop = true } },
+                        onHiddenEntry = { navController.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } },
+                        entryGesture = entryGestures.current,
+                    )
+                }
+                composable(LenslyRoute.GALLERY) {
+                    // The gallery opens from the camera while the vault is locked, so it shows no lock icon.
+                    CompositionLocalProvider(LocalVaultLock provides null) {
+                        GalleryScreen(onBack = { navController.popBackStack() })
+                    }
+                }
+                hidden(navController, holder)
             }
-            composable(LenslyRoute.GALLERY) {
-                GalleryScreen(onBack = { navController.popBackStack() })
-            }
-            hidden(navController, holder)
         }
     }
 }

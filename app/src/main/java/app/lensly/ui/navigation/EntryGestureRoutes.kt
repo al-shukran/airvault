@@ -38,7 +38,6 @@ private fun EntryGestureRoute(navController: NavHostController, holder: VaultHol
         current = current,
         onChoose = { gesture -> navController.navigate(HiddenRoute.entryGestureChange(gesture)) },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -57,6 +56,5 @@ private fun EntryGestureChangeRoute(navController: NavHostController, holder: Va
         onSaved = { navController.popBackStack(HiddenRoute.ENTRY_GESTURE, inclusive = false) },
         onUnavailable = { navController.openHidden(HiddenRoute.UNAVAILABLE) },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }

@@ -1,7 +1,6 @@
 package app.lensly.ui.settings
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -88,7 +87,7 @@ data class ChangePasswordState(
  * each step.
  *
  * While [ChangePasswordState.busy] the keyboard is off and a progress row says what is running. Back does nothing then,
- * so the owner waits for the change to finish. [onLock] always works. A refused password shows its reason in a banner,
+ * so the owner waits for the change to finish. A refused password shows its reason in a banner,
  * and a finished change shows a confirmation with DONE.
  */
 @Composable
@@ -98,13 +97,12 @@ fun ChangePasswordScreen(
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
     copy: ChangeCopy = ChangeCopy.APP_PASSWORD,
 ) {
     if (state.changed) {
-        ChangedContent(copy = copy, onDone = onDone, onLock = onLock, modifier = modifier)
+        ChangedContent(copy = copy, onDone = onDone, modifier = modifier)
         return
     }
     // Each step opens with the keyboard up. A tap outside the field or the system Back hides it, and a tap on the field brings it back.
@@ -117,13 +115,7 @@ fun ChangePasswordScreen(
             onBack = { if (!state.busy) onBack() },
             scrollable = false,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                WalletEyebrow("Step ${state.step.ordinal + 1} of 3", modifier = Modifier.weight(1f))
-                PillButton(text = "Lock", onClick = onLock)
-            }
+            WalletEyebrow("Step ${state.step.ordinal + 1} of 3", modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs))
             Spacer(Modifier.height(LenslySpacing.sm))
             // A fixed height keeps the hint chip in the same place on every step.
             Box(modifier = Modifier.fillMaxWidth().height(HEADLINE_HEIGHT)) {
@@ -173,7 +165,7 @@ private fun StatusSlot(state: ChangePasswordState) {
 }
 
 @Composable
-private fun ChangedContent(copy: ChangeCopy, onDone: () -> Unit, onLock: () -> Unit, modifier: Modifier) {
+private fun ChangedContent(copy: ChangeCopy, onDone: () -> Unit, modifier: Modifier) {
     LenslyScreen(
         title = copy.title,
         modifier = modifier,
@@ -183,13 +175,7 @@ private fun ChangedContent(copy: ChangeCopy, onDone: () -> Unit, onLock: () -> U
             PillButton(text = "Done", onClick = onDone, accent = true, modifier = Modifier.fillMaxWidth())
         },
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            WalletEyebrow("Complete", modifier = Modifier.weight(1f))
-            PillButton(text = "Lock", onClick = onLock)
-        }
+        WalletEyebrow("Complete", modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs))
         Spacer(Modifier.height(LenslySpacing.lg))
         Icon(
             imageVector = Icons.Filled.Check,

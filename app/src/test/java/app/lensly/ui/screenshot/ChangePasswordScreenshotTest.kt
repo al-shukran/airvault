@@ -60,7 +60,6 @@ private fun screen(state: ChangePasswordState) {
         onBackspace = {},
         onSubmit = {},
         onBack = {},
-        onLock = {},
         onDone = {},
     )
 }

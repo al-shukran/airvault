@@ -48,7 +48,6 @@ class SettingsScreenshotTest {
             versionName = "1.0",
             versionCode = 1,
             onBack = {},
-            onLock = {},
         )
     }
 
@@ -68,7 +67,6 @@ class SettingsScreenshotTest {
             versionName = "1.0",
             versionCode = 1,
             onBack = {},
-            onLock = {},
         )
     }
 }

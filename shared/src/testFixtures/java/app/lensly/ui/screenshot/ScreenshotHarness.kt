@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.LocalVaultLock
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyTheme
 import com.github.takahirom.roborazzi.RoborazziOptions
@@ -59,7 +60,8 @@ fun ComposeContentTestRule.snapshot(
                         )
                         .background(LenslyBlack),
                 ) {
-                    content()
+                    // Every golden is of the unlocked vault, so a detail top bar shows its lock icon.
+                    CompositionLocalProvider(LocalVaultLock provides {}) { content() }
                 }
             }
         }

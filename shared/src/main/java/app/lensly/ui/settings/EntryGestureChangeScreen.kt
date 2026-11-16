@@ -27,7 +27,7 @@ private const val GESTURE_STEP_COUNT = 2
 /**
  * The change to [target]: the App Password, then the practice of [target]. Only a practice that works saves it, and the saved gesture
  * then shows in the choice. A wrong password says nothing, as at the gate. [onSaved] runs once the gesture is saved, and [onUnavailable]
- * when the vault cannot be checked. The app keeps its own navigation: it decides where [onBack], [onLock] and the two outcomes go.
+ * when the vault cannot be checked. The app keeps its own navigation: it decides where [onBack] and the two outcomes go.
  */
 @Composable
 fun EntryGestureChangeScreen(
@@ -37,7 +37,6 @@ fun EntryGestureChangeScreen(
     onSaved: () -> Unit,
     onUnavailable: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val flow = remember(target) { EntryGestureChangeFlow(target, EntryGestureChangePorts(holder, gestures)) }
@@ -78,7 +77,6 @@ fun EntryGestureChangeScreen(
                 scope.launch { flow.submitPassword(entered) }
             },
             onBack = onBack,
-            onLock = onLock,
             modifier = Modifier,
             title = "Hidden entry gesture",
             prompt = "Enter your Application Password to change the gesture.",
@@ -88,7 +86,6 @@ fun EntryGestureChangeScreen(
             gesture = target,
             onPerformed = { scope.launch { flow.practiced() } },
             onBack = onBack,
-            onLock = onLock,
         )
         is EntryGestureStep.Ended -> Unit
     }
