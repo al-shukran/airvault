@@ -10,10 +10,14 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
+import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,13 +40,17 @@ class BulkGenerateScreenTest {
     private class Inputs {
         var cap by mutableStateOf(BulkCap.HUNDRED)
         var digits by mutableStateOf("")
+        var chain by mutableStateOf<BulkChain>(BulkChain.Evm)
+        var running by mutableStateOf(false)
     }
 
     private val inputs = Inputs()
 
-    private fun showScreen(cap: BulkCap, digits: String) {
+    private fun showScreen(cap: BulkCap, digits: String, chain: BulkChain = BulkChain.Evm, running: Boolean = false) {
         inputs.cap = cap
         inputs.digits = digits
+        inputs.chain = chain
+        inputs.running = running
         compose.setContent {
             LenslyTheme {
                 BulkGenerateScreen(
@@ -50,12 +58,14 @@ class BulkGenerateScreenTest {
                     autoNameBase = "Seed wallet",
                     cap = inputs.cap,
                     digits = inputs.digits,
-                    running = false,
+                    running = inputs.running,
                     derived = 0,
                     failure = null,
                     onDigits = { typed -> inputs.digits = typed },
                     onGenerate = {},
                     onBack = {},
+                    chain = inputs.chain,
+                    onChain = { chosen -> inputs.chain = chosen },
                 )
             }
         }
@@ -178,5 +188,55 @@ class BulkGenerateScreenTest {
         assertNotShown("20")
         assertNotShown("100")
         assertShown("Ethereum · all networks")
+    }
+
+    @Test
+    fun anEthereumRunHasNoScriptTypeRow() {
+        showScreen(BulkCap.HUNDRED, digits = "2")
+
+        assertNotShown("Script type · Native Segwit")
+    }
+
+    @Test
+    fun aBitcoinRunStartsOnNativeSegwitAndNamesItInTheRowAndTheAddsLine() {
+        showScreen(BulkCap.HUNDRED, digits = "3", chain = DEFAULT_BITCOIN)
+
+        assertShown("Bitcoin")
+        assertShown("Script type · Native Segwit")
+        assertShown("Adds 3 Native Segwit accounts")
+    }
+
+    @Test
+    fun pickingAScriptTypeFromTheListSetsTheRun() {
+        showScreen(BulkCap.HUNDRED, digits = "3", chain = DEFAULT_BITCOIN)
+
+        compose.onNodeWithText("Script type · Native Segwit").performClick()
+        compose.onNodeWithText("Taproot").performClick()
+
+        assertEquals(BulkChain.Bitcoin(ScriptType.TAPROOT, BtcNetwork.MAINNET), inputs.chain)
+        assertShown("Script type · Taproot")
+        assertShown("Adds 3 Taproot accounts")
+        compose.onNodeWithText("GENERATE 3 ACCOUNTS").assertIsEnabled()
+    }
+
+    @Test
+    fun theListOffersTheFourScriptTypes() {
+        showScreen(BulkCap.HUNDRED, digits = "3", chain = DEFAULT_BITCOIN)
+
+        compose.onNodeWithText("Script type · Native Segwit").performClick()
+
+        assertShown("Script type")
+        assertShown("Native Segwit")
+        assertShown("Taproot")
+        assertShown("Nested Segwit")
+        assertShown("Legacy")
+    }
+
+    @Test
+    fun theScriptTypeCannotBeChangedWhileARunDerives() {
+        showScreen(BulkCap.HUNDRED, digits = "3", chain = DEFAULT_BITCOIN, running = true)
+
+        compose.onNodeWithText("Script type · Native Segwit").assertIsNotEnabled()
+        assertNotShown("Script type")
     }
 }

@@ -10,12 +10,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.app.SINGLE_KEY_NO_BITCOIN
 import app.lensly.app.autoAccountName
+import app.lensly.app.WalletStore
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.formatAccounts
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.ChoiceDialogRow
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslySegmentedControl
@@ -38,12 +40,13 @@ sealed interface BulkChain {
 }
 
 /**
- * The bulk screen of one wallet. The screen that opened it chose the App, so the App and its network are the subtitle, not choices.
- * A Bitcoin run takes its network from a segmented control, Mainnet or Testnet. The owner types the Count into a number field with the
- * system number keyboard. A Count above the [cap] (the owner's Bulk Cap), or below 1, is refused under the field, and GENERATE stays off
- * for it. A Bitcoin run needs a seed, so [bitcoinAllowed] is false for a Single Key wallet, and the screen then says why. While a run
- * derives, the screen shows its progress and takes no input. [existingAccounts] is the wallet's account count now, so the screen can
- * name the accounts a run adds. [failure] says why the last run saved nothing, when it failed.
+ * The bulk screen of one wallet. The screen that opened it chose the App, so the App is the subtitle, not a choice. A Bitcoin run takes
+ * its network from a segmented control, Mainnet or Testnet, and its Script Type from a row that opens a list of the four types. The
+ * owner types the Count into a number field with the system number keyboard. A Count above the [cap] (the owner's Bulk Cap), or below 1,
+ * is refused under the field, and GENERATE stays off for it. A Bitcoin run needs a seed, so [bitcoinAllowed] is false for a Single Key
+ * wallet, and the screen then says why. While a run derives, the screen shows its progress and takes no input. [existingAccounts] is
+ * the wallet's account count now, so the screen can name the accounts a run adds. [failure] says why the last run saved nothing, when
+ * it failed.
  */
 @Composable
 fun BulkGenerateScreen(
@@ -96,6 +99,18 @@ fun BulkGenerateScreen(
         if (chain is BulkChain.Bitcoin && !bitcoinAllowed) {
             Spacer(Modifier.height(LenslySpacing.sm))
             InlineBanner(message = SINGLE_KEY_NO_BITCOIN, tone = BannerTone.Warning)
+        }
+        if (chain is BulkChain.Bitcoin) {
+            ChoiceDialogRow(
+                label = "Script type",
+                value = scriptName(chain.scriptType),
+                options = BITCOIN_SCRIPT_TYPES,
+                selected = chain.scriptType,
+                optionLabel = ::scriptName,
+                onSelect = { scriptType -> onChain(chain.copy(scriptType = scriptType)) },
+                description = "The address type every new account gets.",
+                enabled = !running,
+            )
         }
         Spacer(Modifier.height(LenslySpacing.md))
         NumberField(
@@ -151,10 +166,10 @@ private fun generateLabel(count: Int?): String = when (count) {
     else -> "Generate $count accounts"
 }
 
-/** The App and its network, as the subtitle: Ethereum on every EVM network, or Bitcoin with the Script Type a run makes. */
+/** The App, as the subtitle: Ethereum on every EVM network, or Bitcoin. The network and Script Type of a run are chosen below it. */
 private fun subtitle(chain: BulkChain): String = when (chain) {
     BulkChain.Evm -> "Ethereum · all networks"
-    is BulkChain.Bitcoin -> "Bitcoin · ${scriptName(chain.scriptType)}"
+    is BulkChain.Bitcoin -> "Bitcoin"
 }
 
 /** Names the Auto-Names a run adds, as the list shows them: "Adds Seed wallet 3 to Seed wallet 22", or one name alone. */
@@ -166,6 +181,39 @@ private fun addsLabel(baseName: String, range: IntRange): String {
 
 /** The Bitcoin run a screen starts with: Native Segwit on mainnet, the default for new Accounts. */
 internal val DEFAULT_BITCOIN = BulkChain.Bitcoin(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET)
+
+/** The Script Types a Bitcoin run can make, in the order the list shows them. Native Segwit is the default. */
+private val BITCOIN_SCRIPT_TYPES = listOf(
+    ScriptType.NATIVE_SEGWIT,
+    ScriptType.TAPROOT,
+    ScriptType.NESTED_SEGWIT,
+    ScriptType.LEGACY,
+)
+
+/**
+ * Creates the accounts of [chain] for wallet [id]: [count] Ethereum accounts, or [count] Bitcoin accounts of the chain's Script Type on
+ * its network, each numbered after the last one of that kind the wallet holds. [cap] is the Bulk Cap the run is checked against.
+ * [onProgress] receives the number of accounts derived so far. Returns false when the wallet changed while the run derived, and nothing
+ * was saved then.
+ */
+internal fun runBulk(
+    store: WalletStore,
+    id: String,
+    chain: BulkChain,
+    count: Int,
+    cap: Int,
+    onProgress: (Int) -> Unit,
+): Boolean = when (chain) {
+    BulkChain.Evm -> store.addAccounts(id, count, cap, onProgress) != null
+    is BulkChain.Bitcoin -> store.addBitcoinAccounts(
+        id,
+        chain.scriptType,
+        chain.network,
+        count,
+        cap,
+        onProgress,
+    ) != null
+}
 
 /** The full name of a Script Type, as a sentence names it. */
 private fun scriptName(scriptType: ScriptType): String = when (scriptType) {

@@ -74,6 +74,7 @@ import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.home.WalletsScreen
 import app.lensly.ui.home.importedState
 import app.lensly.ui.home.refusalReason
+import app.lensly.ui.home.runBulk
 import app.lensly.ui.wallet.Bip39Autocomplete
 import app.lensly.ui.wallet.PassphraseBackupScreen
 import app.lensly.ui.wallet.PassphraseGate
@@ -918,19 +919,8 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
                 whileUnlocked(navController, holder) {
                     val saved = try {
                         withContext(Dispatchers.IO) {
-                            val store = WalletStore(session)
                             val progress: (Int) -> Unit = { derivedCount.value = it }
-                            when (chosenRun) {
-                                BulkChain.Evm -> store.addAccounts(walletId, count, cap.accounts, progress) != null
-                                is BulkChain.Bitcoin -> store.addBitcoinAccounts(
-                                    walletId,
-                                    chosenRun.scriptType,
-                                    chosenRun.network,
-                                    count,
-                                    cap.accounts,
-                                    progress,
-                                ) != null
-                            }
+                            runBulk(WalletStore(session), walletId, chosenRun, count, cap.accounts, progress)
                         }
                     } catch (e: CancellationException) {
                         throw e
