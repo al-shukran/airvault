@@ -4,11 +4,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
@@ -18,7 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** The wrong password lockout: its wording, the waits each choice sets, and the warning under 10 s. */
+/** The wrong password lockout: its wording, the slider of caps, the waits each cap sets, and the warning under 10 s. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 class FailureCapScreenTest {
@@ -26,7 +30,10 @@ class FailureCapScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun show(saved: FailureCapChoice?, selected: FailureCapChoice?) {
+    /** The slider's one node: it is the only node that takes a progress action. */
+    private val slider = SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress)
+
+    private fun show(saved: FailureCapChoice?, selected: FailureCapChoice?, onSelect: (FailureCapChoice) -> Unit = {}) {
         compose.setContent {
             LenslyTheme {
                 FailureCapScreen(
@@ -34,7 +41,7 @@ class FailureCapScreenTest {
                     saved = saved,
                     selected = selected,
                     passwordLength = 0,
-                    onSelect = {},
+                    onSelect = onSelect,
                     onContinue = {},
                     onKey = {},
                     onBackspace = {},
@@ -60,7 +67,23 @@ class FailureCapScreenTest {
     }
 
     @Test
-    fun theWaitsFollowTheChoiceAsItChanges() {
+    fun theDefaultCaptionSitsUnderOneMinute() {
+        show(saved = FailureCapChoice.TEN_SECONDS, selected = FailureCapChoice.ONE_MINUTE)
+
+        compose.onNodeWithText("Default").assertIsDisplayed()
+        compose.onNodeWithText("1 min").assertIsDisplayed()
+    }
+
+    @Test
+    fun theDefaultCaptionFollowsTheSliderNotTheSavedCap() {
+        show(saved = FailureCapChoice.TEN_SECONDS, selected = FailureCapChoice.FIVE_MINUTES)
+
+        compose.onNodeWithText("Default").assertDoesNotExist()
+        compose.onNodeWithText("5 min").assertIsDisplayed()
+    }
+
+    @Test
+    fun theWaitsFollowTheSliderAsItMoves() {
         compose.setContent {
             LenslyTheme {
                 var selected by remember { mutableStateOf<FailureCapChoice?>(null) }
@@ -78,10 +101,35 @@ class FailureCapScreenTest {
                 )
             }
         }
-        // The pills are uppercase on screen.
-        compose.onNodeWithText("5 S").performClick()
+        // Index 1 of the eight caps is 5 s.
+        compose.onNode(slider).performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
 
         compose.onNodeWithContentDescription("Waits after wrong tries: 5 s, 5 s, 5 s, 5 s, 5 s").assertExists()
+    }
+
+    @Test
+    fun aSliderStopIsChosenWhenTheSliderEnds() {
+        val chosen = mutableListOf<FailureCapChoice>()
+        show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.DEFAULT, onSelect = { chosen += it })
+
+        // Index 6 of the eight caps is 15 min.
+        compose.onNode(slider).performSemanticsAction(SemanticsActions.SetProgress) { it(6f) }
+
+        assertEquals(listOf(FailureCapChoice.FIFTEEN_MINUTES), chosen)
+    }
+
+    @Test
+    fun continueIsOffUntilThePickDiffersFromTheSavedCap() {
+        show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.DEFAULT)
+
+        compose.onNodeWithText("CONTINUE").assertIsNotEnabled()
+    }
+
+    @Test
+    fun continueIsOnOnceAnotherCapIsPicked() {
+        show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.ONE_HOUR)
+
+        compose.onNodeWithText("CONTINUE").assertIsEnabled()
     }
 
     @Test
@@ -118,8 +166,24 @@ class FailureCapScreenTest {
 
     @Test
     fun theSettingsRowNamesTheLongestWait() {
-        assertEquals("Up to 1 min", FailureCapChoice.ONE_MINUTE.summary)
-        assertEquals("Up to 1 min (default)", FailureCapChoice.DEFAULT.summary)
+        assertEquals("Up to 1 min (default)", FailureCapChoice.ONE_MINUTE.summary)
+        assertEquals("Up to 5 min", FailureCapChoice.FIVE_MINUTES.summary)
         assertEquals("Up to 1 h", FailureCapChoice.ONE_HOUR.summary)
+    }
+
+    @Test
+    fun aSavedCapMapsToItsChoiceAndAMissingCapIsTheDefault() {
+        assertEquals(FailureCapChoice.FIFTEEN_MINUTES, FailureCapChoice.of(900_000L))
+        assertEquals(FailureCapChoice.ONE_MINUTE, FailureCapChoice.of(null))
+        // A cap the app does not offer reads as the default, as it did before.
+        assertEquals(FailureCapChoice.ONE_MINUTE, FailureCapChoice.of(45_000L))
+    }
+
+    @Test
+    fun everyChoiceIsOneOfTheEightCapsWithNoDefaultEntry() {
+        assertEquals(
+            listOf("1 s", "5 s", "10 s", "30 s", "1 min", "5 min", "15 min", "1 h"),
+            FailureCapChoice.entries.map { it.label },
+        )
     }
 }

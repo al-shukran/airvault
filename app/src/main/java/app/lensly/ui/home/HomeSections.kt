@@ -208,7 +208,8 @@ internal fun ReadinessSection(
                 )
                 ReadinessTile(
                     label = "Lockout",
-                    value = readiness.lockout.label,
+                    // The default cap reads as Default here, as it always has, so a vault that never changed it sees no change.
+                    value = if (readiness.lockout == FailureCapChoice.DEFAULT) "Default" else readiness.lockout.label,
                     status = lockoutStatus(readiness.lockout),
                     tag = READINESS_LOCKOUT_TAG,
                     onClick = onLockout,

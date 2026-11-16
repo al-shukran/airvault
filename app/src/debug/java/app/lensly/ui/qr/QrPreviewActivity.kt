@@ -40,7 +40,6 @@ import app.lensly.ui.applySecureWindow
 import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.settings.Catalog
 import app.lensly.ui.settings.FailureCapChoice
-import app.lensly.ui.settings.HideDelayBound
 import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.SettingsScreen
 import app.lensly.ui.sign.SignRefusedScreen
@@ -210,50 +209,18 @@ private fun SettingsPreview(onBack: () -> Unit) {
     )
 }
 
-/** The hide delay editor with the default range. Its keypad types, and SAVE checks the range and says why it refuses it. */
+/** The hide delay screen with the default range. Each number applies as it is typed, while the range stays one Settings accepts. */
 @Composable
 private fun HideDelayPreview(onBack: () -> Unit) {
-    val context = LocalContext.current
-    var focus by remember { mutableStateOf(HideDelayBound.SHORTEST) }
-    var shortest by remember { mutableStateOf(HideDelay.DEFAULT.minMs.toString()) }
-    var longest by remember { mutableStateOf(HideDelay.DEFAULT.maxMs.toString()) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var shortest by remember { mutableStateOf<Int?>(HideDelay.DEFAULT.minMs.toInt()) }
+    var longest by remember { mutableStateOf<Int?>(HideDelay.DEFAULT.maxMs.toInt()) }
     HideDelayScreen(
         shortest = shortest,
         longest = longest,
-        focus = focus,
-        error = error,
-        ready = true,
-        onFocus = {
-            focus = it
-            error = null
-        },
-        onDigit = { digit ->
-            if (focus == HideDelayBound.SHORTEST) shortest = typedDigit(shortest, digit) else longest = typedDigit(longest, digit)
-            error = null
-        },
-        onBackspace = {
-            if (focus == HideDelayBound.SHORTEST) shortest = shortest.dropLast(1) else longest = longest.dropLast(1)
-            error = null
-        },
-        onSave = {
-            val range = HideDelay.of(shortest.toLongOrNull() ?: -1L, longest.toLongOrNull() ?: -1L)
-            if (range == null) {
-                error = "A delay runs from 0 to ${HideDelay.LIMIT_MS} ms, and the shortest cannot be longer than the longest."
-            } else {
-                Toast.makeText(context, "Preview: saved ${range.minMs} to ${range.maxMs} ms", Toast.LENGTH_SHORT).show()
-                onBack()
-            }
-        },
+        onShortest = { shortest = it },
+        onLongest = { longest = it },
         onBack = onBack,
     )
-}
-
-/** The digits typed so far with [digit] added, at most four, and no leading zero. */
-private fun typedDigit(digits: String, digit: Char): String = when {
-    digits.length >= 4 -> digits
-    digits == "0" -> digit.toString()
-    else -> digits + digit
 }
 
 @Composable
