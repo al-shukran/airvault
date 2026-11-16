@@ -1,5 +1,6 @@
 package app.lensly.ui.flow
 
+import app.lensly.BuildConfig
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.export.PairingExport
@@ -26,7 +27,7 @@ class PairPartsTest {
     @Test
     fun thePartsAreNamedAfterTheWalletAndCarryItsFingerprint() {
         assertEquals(
-            PairingExport.urParts(WALLET.accountXpub(), WALLET.masterFingerprint, "Savings"),
+            PairingExport.urParts(listOf(WALLET.accountXpub()), WALLET.masterFingerprint, BuildConfig.VERSION_NAME, "Savings"),
             pairingParts(wallet("Savings")),
         )
     }
@@ -34,7 +35,7 @@ class PairPartsTest {
     @Test
     fun aBlankWalletNameFallsBackToLensly() {
         assertEquals(
-            PairingExport.urParts(WALLET.accountXpub(), WALLET.masterFingerprint, "Lensly"),
+            PairingExport.urParts(listOf(WALLET.accountXpub()), WALLET.masterFingerprint, BuildConfig.VERSION_NAME, "Lensly"),
             pairingParts(wallet("   ")),
         )
     }
@@ -42,7 +43,7 @@ class PairPartsTest {
     @Test
     fun aFingerprintWithItsTopBitSetIsReadAsUnsigned() {
         assertEquals(
-            PairingExport.urParts(WALLET.accountXpub(), -1, "Lensly"),
+            PairingExport.urParts(listOf(WALLET.accountXpub()), -1, BuildConfig.VERSION_NAME, "Lensly"),
             pairingParts(wallet("Lensly", fingerprintHex = "ffffffff")),
         )
     }
