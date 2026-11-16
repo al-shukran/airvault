@@ -237,6 +237,8 @@ class LumioApp : Application(), CoverApplication {
 
     override fun onCreate() {
         super.onCreate()
+        // The QR decoder runs in an isolated process that cannot open preferences or files; it needs none of the app's state.
+        if (android.os.Process.isIsolated()) return
         logBackupExclusion()
         DemoPortfolio.attach(this)
     }
