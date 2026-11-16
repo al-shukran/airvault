@@ -413,8 +413,8 @@ private fun <T> SegmentedToggle(options: List<T>, selected: T, label: (T) -> Str
     ) {
         options.forEach { option ->
             val isSelected = option == selected
-            Text(
-                text = label(option).uppercase(),
+            // The label sits in a Box that centres it both ways: a Text given a minimum height would hang at the top of its segment.
+            Box(
                 modifier = Modifier
                     .defaultMinSize(minHeight = 36.dp)
                     .clip(LenslyPillShape)
@@ -423,10 +423,15 @@ private fun <T> SegmentedToggle(options: List<T>, selected: T, label: (T) -> Str
                     .tapHaptic(haptics)
                     .clickable(role = Role.Tab, onClick = { onSelect(option) })
                     .padding(horizontal = LenslySpacing.sm),
-                style = MaterialTheme.typography.labelMedium,
-                color = if (isSelected) LenslyOnSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = label(option).uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isSelected) LenslyOnSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
