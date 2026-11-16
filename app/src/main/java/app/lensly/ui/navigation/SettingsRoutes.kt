@@ -130,6 +130,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         onNetworks = { navController.navigate(HiddenRoute.NETWORKS) },
         onTokens = { navController.navigate(HiddenRoute.TOKENS) },
         onApprovedContracts = { navController.navigate(HiddenRoute.APPROVED_CONTRACTS) },
+        onAddressBook = { navController.navigate(HiddenRoute.ADDRESS_BOOK) },
         proxyPolicy = proxyPolicy,
         onProxyPolicy = { navController.navigate(HiddenRoute.PROXY_POLICY) },
         hideDelay = settings?.hideDelay,

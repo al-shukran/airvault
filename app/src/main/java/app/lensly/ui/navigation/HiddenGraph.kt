@@ -19,6 +19,7 @@ internal fun NavGraphBuilder.hiddenGraph(navController: NavHostController, holde
     hiddenArea(navController, holder, home = HiddenRoute.HOME, warmUp = { RegistryHolder.get(it) }) {
         walletRoutes(navController, holder)
         settingsRoutes(navController, holder)
+        addressBookRoutes(navController, holder)
     }
 }
 

@@ -85,6 +85,8 @@ fun ActivityScreen(
     networkOf: (Long) -> NetworkEntry?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the Address Book form with an address of a record, for "Add to Address Book" on its sheet. Null hides the action. */
+    onAddToAddressBook: ((String) -> Unit)? = null,
 ) {
     val haptics = rememberKeyHaptics()
     var filter by remember { mutableStateOf(ActivityFilter.ALL) }
@@ -140,7 +142,7 @@ fun ActivityScreen(
         }
     }
     open?.let { record ->
-        HistoryDetailSheet(record = record, onDismiss = { open = null })
+        HistoryDetailSheet(record = record, onDismiss = { open = null }, onAddToAddressBook = onAddToAddressBook)
     }
 }
 

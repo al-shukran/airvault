@@ -793,6 +793,7 @@ private fun HistoryRoute(navController: NavHostController, holder: VaultHolder, 
         records = list,
         networkOf = networks::network,
         onBack = { navController.popBackStack() },
+        onAddToAddressBook = { navController.navigate(HiddenRoute.addressBookAdd(it)) },
     )
 }
 
@@ -822,6 +823,7 @@ private fun ActivityRoute(navController: NavHostController, holder: VaultHolder)
         profiles = wallets.profiles,
         networkOf = networks::network,
         onBack = { navController.popBackStack() },
+        onAddToAddressBook = { navController.navigate(HiddenRoute.addressBookAdd(it)) },
     )
 }
 

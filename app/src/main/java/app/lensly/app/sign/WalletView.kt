@@ -20,6 +20,8 @@ class WalletView(
     val autoNameBase: String,
     /** The Display Name of each account that has one, by account index. An account missing here keeps its Auto-Name. */
     val accountNames: Map<Int, String> = emptyMap(),
+    /** The label of each account that has one, by account index. */
+    val accountLabels: Map<Int, String> = emptyMap(),
     val addressAt: (Int) -> String,
     /** The wallet's name as the owner sees it. The review header shows it. */
     val name: String = autoNameBase,
@@ -38,6 +40,7 @@ class WalletView(
             address: String,
             autoNameBase: String,
             accountName: String? = null,
+            accountLabel: String? = null,
             name: String = autoNameBase,
             identity: VisualIdentity = generatedIdentity(0),
             accountIdentity: VisualIdentity = generatedIdentity(0),
@@ -47,6 +50,7 @@ class WalletView(
             accountCount = 1,
             autoNameBase = autoNameBase,
             accountNames = if (accountName == null) emptyMap() else mapOf(0 to accountName),
+            accountLabels = if (accountLabel == null) emptyMap() else mapOf(0 to accountLabel),
             addressAt = { address },
             name = name,
             identity = identity,
