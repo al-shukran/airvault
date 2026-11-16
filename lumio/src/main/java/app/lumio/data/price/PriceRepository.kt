@@ -14,6 +14,7 @@ import app.lumio.data.provider.Request
 import app.lumio.data.provider.TokenPrice
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
+import app.lumio.demo.DemoPortfolio
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import java.util.concurrent.ConcurrentHashMap
@@ -70,6 +71,7 @@ class PriceRepository(
      * is [CHART_TTL_MS] old. The request goes through the scheduler, so the price providers' rate limits and cooldowns apply.
      */
     suspend fun chart(asset: AssetId, range: ChartRange, priority: Priority = Priority.VISIBLE, nowMs: Long = System.currentTimeMillis()): PriceSeries? {
+        DemoPortfolio.chart(asset, range, nowMs)?.let { return it }
         val key = ChartKey(asset, range)
         charts[key]?.takeIf { nowMs - it.atMs < CHART_TTL_MS }?.let { return it.series }
         val series = try {
@@ -87,6 +89,7 @@ class PriceRepository(
     private class KeptChart(val series: PriceSeries, val atMs: Long)
 
     private suspend fun priceOf(asset: AssetId, priority: Priority): Price? {
+        DemoPortfolio.price(asset)?.let { return it }
         val request = priceRequestOf(asset) ?: return null
         val key = priceKeyOf(asset) ?: return null
         val codec = jsonCodec<PriceQuote>()

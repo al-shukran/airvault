@@ -7,6 +7,7 @@ import app.lumio.data.db.TxRow
 import app.lumio.data.db.TxTermRow
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.demo.DemoPortfolio
 import androidx.sqlite.db.SimpleSQLiteQuery
 import java.math.BigInteger
 import java.security.GeneralSecurityException
@@ -59,6 +60,7 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
     /** The transactions that [query] matches, in its order, from [offset] on, at most [limit] of them. */
     suspend fun page(query: TxQuery, offset: Int, limit: Int): List<LumioTx> {
         require(offset >= 0 && limit >= 1) { "A page starts at 0 or later and holds at least one row." }
+        DemoPortfolio.transactions(query)?.let { return it.drop(offset).take(limit) }
         val args = ArrayList<Any?>()
         val where = where(query, args)
         val order = if (query.descending) "DESC" else "ASC"
@@ -70,6 +72,7 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
 
     /** The number of transactions that [query] matches. */
     suspend fun count(query: TxQuery): Int {
+        DemoPortfolio.transactions(query)?.let { return it.size }
         val args = ArrayList<Any?>()
         val where = where(query, args)
         return dao.count(SimpleSQLiteQuery("SELECT COUNT(*) FROM tx t WHERE $where", args.toTypedArray()))
@@ -94,7 +97,8 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
     suspend fun comment(txId: String): TxNote? = dao.comment(keys.name(TX_LABEL, txId))?.let { openComment(it) }
 
     /** The transaction [txId] of [account] as the store holds it, or null when it is not there or does not open. */
-    suspend fun tx(account: String, txId: String): LumioTx? = dao.row(keys.name(TX_LABEL, txId), accountKeyOf(account))?.let { open(it) }
+    suspend fun tx(account: String, txId: String): LumioTx? =
+        DemoPortfolio.transaction(account, txId) ?: dao.row(keys.name(TX_LABEL, txId), accountKeyOf(account))?.let { open(it) }
 
     /** Every comment in the store. A comment that does not open under the key is left out. */
     suspend fun comments(): List<TxNote> = dao.comments().mapNotNull { openComment(it) }
