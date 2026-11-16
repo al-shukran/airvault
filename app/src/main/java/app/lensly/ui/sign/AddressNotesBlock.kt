@@ -27,6 +27,7 @@ internal fun AddressNotesBlock(notes: AddressNotes, modifier: Modifier = Modifie
         notes.internal?.let { account ->
             InternalAccountCue()
             Spacer(Modifier.height(LenslySpacing.xs))
+            account.walletName?.let { LabelledValue(label = "Wallet", value = it) }
             account.displayName?.let { LabelledValue(label = "Display Name", value = it) }
             LabelledValue(label = "Auto-Name", value = account.autoName)
             account.label?.let { LabelledValue(label = "Label", value = it) }

@@ -7,7 +7,10 @@ import app.lensly.core.registry.WhitelistEntry
  * The protocol an approved call belongs to: the text of its meaning before the first colon, such as "Aave V3" in
  * "Aave V3: deposit an asset". A meaning with no colon names no protocol, and the list then shows "Approved call".
  */
-internal fun protocolOf(entry: WhitelistEntry): String = entry.meaning.substringBefore(':', "").trim()
+internal fun protocolOf(entry: WhitelistEntry): String = protocolOfMeaning(entry.meaning)
+
+/** The protocol an approved [meaning] names, or empty when the meaning has no colon. */
+internal fun protocolOfMeaning(meaning: String): String = meaning.substringBefore(':', "").trim()
 
 /** The contract address in short form: its first six and last four characters, such as 0x7f39…2ca0. */
 internal fun shortAddress(address: String): String = address.take(6) + "…" + address.takeLast(4)

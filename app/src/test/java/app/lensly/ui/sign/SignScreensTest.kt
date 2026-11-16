@@ -19,9 +19,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.lensly.app.AddressBookEntry
+import app.lensly.app.AddressNotes
+import app.lensly.app.InternalAccount
 import app.lensly.app.ProfileColour
 import app.lensly.app.ProfileIcon
 import app.lensly.app.VisualIdentity
+import app.lensly.app.addressKeyOf
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.DenylistCondition
@@ -189,6 +193,44 @@ private fun approvalReview(origin: String? = LONG_ORIGIN) = TxReview(
     origin = origin,
 )
 
+/** A Permit of the Base USDC token from [FROM] to [TO], with the notes the Address Book and the device's accounts give its addresses. */
+private fun permitReview(notes: Map<String, AddressNotes>) = TxReview(
+    networkName = BASE.name,
+    chainId = BASE.chainId,
+    fromAccountLabel = "MAIN ACCOUNT",
+    fromAddress = FROM,
+    toAddress = "",
+    amount = "",
+    symbol = "",
+    tokenContract = null,
+    function = "Permit",
+    params = emptyList(),
+    fee = emptyList(),
+    feeNote = null,
+    warnings = emptyList(),
+    nonce = 0L,
+    txType = "Typed data (EIP-712)",
+    network = BASE,
+    walletName = "Main wallet",
+    typed = TypedReview(
+        domain = listOf(
+            "Name" to "USD Coin",
+            "Version" to "2",
+            "Chain ID" to "${BASE.chainId} (Base)",
+            "Verifying contract" to BASE_USDC,
+        ),
+        summary = listOf("Owner" to FROM, "Spender" to TO, "Amount" to "100 USDC", "Deadline" to "1 Jan 2030, 00:00 UTC"),
+        fields = listOf(
+            TypedRow(0, "owner", "address", FROM),
+            TypedRow(0, "spender", "address", TO),
+            TypedRow(0, "value", "uint256", "100000000"),
+            TypedRow(0, "nonce", "uint256", "0"),
+            TypedRow(0, "deadline", "uint256", "1893456000"),
+        ),
+    ),
+    addressNotes = notes,
+)
+
 /** A personal message that is long, wraps over several lines, and has a size. */
 private val LONG_MESSAGE =
     "Sign in to Lensly. " + "This message is long and keeps going so that it wraps over many lines. ".repeat(12)
@@ -300,6 +342,62 @@ class TxReviewScreenTest {
         }
         compose.onNodeWithText("I CHECKED THIS IS WHAT I INTEND").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aWhitelistedCallShowsAToRowNamedFromTheAddressBookAndItsKnownContract() {
+        val base = whitelistedReview()
+        val review = base.copy(
+            whitelisted = base.whitelisted?.copy(meaning = "Aave V3: deposit an asset"),
+            addressNotes = mapOf(
+                addressKeyOf(BASE_USDC) to AddressNotes(internal = null, entry = AddressBookEntry("2", BASE_USDC, "Base lending pool", null)),
+            ),
+        )
+        compose.setContent { LenslyTheme { TxReviewScreen(review = review, onApprove = {}, onReject = {}) } }
+
+        compose.onNodeWithText("TO").assertExists()
+        compose.onNodeWithText("Base lending pool").assertExists()
+        compose.onNodeWithText("KNOWN CONTRACT").assertExists()
+        compose.onNodeWithText("Aave V3").assertExists()
+        // The To row names the contract, so the approved-call block does not repeat it under a Contract label.
+        compose.onAllNodesWithText("CONTRACT").assertCountEquals(0)
+    }
+
+    @Test
+    fun aPermitSummaryNamesItsSpenderFromTheAddressBook() {
+        val spender = AddressNotes(internal = null, entry = AddressBookEntry("1", TO, "Uniswap Router", null))
+        compose.setContent {
+            LenslyTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
+        }
+
+        // The Summary row and the Fields row of the same spender both name it.
+        compose.onAllNodesWithText("Uniswap Router").assertCountEquals(2)
+        compose.onAllNodesWithText("ADDRESS NAME").assertCountEquals(2)
+    }
+
+    @Test
+    fun anAccountOfThisDeviceAsAPermitSpenderShowsTheInternalCueAndItsWallet() {
+        val spender = AddressNotes(
+            internal = InternalAccount(displayName = null, autoName = "Savings 0", label = null, walletName = "Savings"),
+            entry = null,
+        )
+        compose.setContent {
+            LenslyTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
+        }
+
+        // The cue and the wallet's name show once for the summary row and once for the fields row of the same spender.
+        compose.onAllNodesWithText("INTERNAL ACCOUNT").assertCountEquals(2)
+        compose.onAllNodesWithText("Savings").assertCountEquals(2)
+    }
+
+    @Test
+    fun anAccountOfAnotherWalletNamesThatWallet() {
+        val account = InternalAccount(displayName = null, autoName = "Savings 0", label = null, walletName = "Savings")
+        compose.setContent { LenslyTheme { AddressNotesBlock(AddressNotes(internal = account, entry = null)) } }
+
+        compose.onNodeWithText("INTERNAL ACCOUNT").assertExists()
+        compose.onNodeWithText("WALLET").assertExists()
+        compose.onNodeWithText("Savings").assertExists()
     }
 
     @Test

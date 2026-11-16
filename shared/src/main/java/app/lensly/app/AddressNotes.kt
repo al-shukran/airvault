@@ -2,9 +2,10 @@ package app.lensly.app
 
 /**
  * The internal account of this device that an address is: its Display Name when it has one, its Auto-Name, and its label when it has
- * one. The Auto-Name is always there, so an account without a Display Name still has a name to show.
+ * one. The Auto-Name is always there, so an account without a Display Name still has a name to show. [walletName] names the wallet the
+ * account belongs to when that is another wallet of the vault. It is null for an account of the signing wallet.
  */
-data class InternalAccount(val displayName: String?, val autoName: String, val label: String?)
+data class InternalAccount(val displayName: String?, val autoName: String, val label: String?, val walletName: String? = null)
 
 /**
  * What the device's accounts and the Address Book say of one address. Either part can be absent, and both can be present. A review shows
