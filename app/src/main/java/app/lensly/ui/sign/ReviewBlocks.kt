@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -49,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressNotes
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyError
@@ -75,39 +75,73 @@ internal data class RiskCheck(val label: String, val checked: Boolean, val onChe
 internal data class RiskItem(val text: String, val tone: BannerTone, val check: RiskCheck? = null)
 
 /**
- * The chip row under the header: the network and the account that signs. A testnet's network is drawn in the warning colour, so a
- * test network cannot pass for the main one.
+ * The chip row under the header: the network, with its logo when [networkIcon] is given, and the account that signs. A testnet's
+ * network is drawn in the warning colour, so a test network cannot pass for the main one.
  */
 @Composable
-internal fun ReviewChips(network: String, testnet: Boolean, account: String, modifier: Modifier = Modifier) {
+internal fun ReviewChips(
+    network: String,
+    testnet: Boolean,
+    account: String,
+    modifier: Modifier = Modifier,
+    networkIcon: (@Composable () -> Unit)? = null,
+) {
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-        if (testnet) NetworkBadge(text = network) else PillChip(text = network)
-        PillChip(text = account)
+        ReviewChip(text = network, tone = if (testnet) LenslyWarning else null, leading = networkIcon)
+        ReviewChip(text = account)
     }
 }
 
-/** The testnet badge: a [PillChip] in the warning colour. */
+/**
+ * A chip with the look of PillChip: an outline and its text in the small label face. [tone] colours the outline and the text, and
+ * null keeps the page's own colours.
+ */
 @Composable
-private fun NetworkBadge(text: String) {
+internal fun ReviewChip(text: String, tone: Color? = null, leading: (@Composable () -> Unit)? = null) {
+    val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(percent = 50)
-    Box(
+    Row(
         modifier = Modifier
-            .border(1.dp, LenslyWarning, shape)
+            .border(1.dp, tone ?: colors.outline, shape)
             .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = text.uppercase(), style = MaterialTheme.typography.labelSmall, color = LenslyWarning)
+        leading?.let {
+            it()
+            Spacer(Modifier.width(LenslySpacing.xs))
+        }
+        Text(
+            text = text.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = tone ?: colors.onSurface,
+        )
     }
 }
 
-/** The summary of a review: one large sentence that names the verb, the amount and the counterparty, then the key/value list. */
+/**
+ * The summary of a review: one large sentence that names the verb, the amount and the counterparty, with the [icon] of the amount
+ * beside it when there is one, then the key/value list.
+ */
 @Composable
-internal fun ReviewSummary(sentence: AnnotatedString, facts: List<ReviewFact>, modifier: Modifier = Modifier) {
+internal fun ReviewSummary(
+    sentence: AnnotatedString,
+    facts: List<ReviewFact>,
+    modifier: Modifier = Modifier,
+    icon: (@Composable () -> Unit)? = null,
+) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = sentence,
-            style = MaterialTheme.typography.titleLarge.copy(fontFamily = LenslySansFamily, fontWeight = FontWeight.Normal),
-            color = LenslyOnSurface,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            icon?.let {
+                it()
+                Spacer(Modifier.width(LenslySpacing.sm))
+            }
+            Text(
+                text = sentence,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = LenslySansFamily, fontWeight = FontWeight.Normal),
+                color = LenslyOnSurface,
+            )
+        }
         Spacer(Modifier.height(LenslySpacing.md))
         facts.forEach { fact -> ReviewFactRow(label = fact.label, value = fact.value, mono = fact.mono) }
     }
@@ -134,6 +168,34 @@ internal fun ReviewFactRow(label: String, value: String, mono: Boolean = true, m
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.End,
         )
+    }
+}
+
+/**
+ * One argument or field of a review: its label above, and its value below. An address is shown with its names, through [ReviewAddress].
+ * Any other value is in mono, since it is data.
+ */
+@Composable
+internal fun ReviewField(label: String, value: String, notes: AddressNotes? = null, modifier: Modifier = Modifier) {
+    Column(modifier = modifier
+        .fillMaxWidth()
+        .padding(vertical = LenslySpacing.xxs),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(LenslySpacing.xxs))
+        if (isEvmAddress(value)) {
+            ReviewAddress(address = value, notes = notes)
+        } else {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 
