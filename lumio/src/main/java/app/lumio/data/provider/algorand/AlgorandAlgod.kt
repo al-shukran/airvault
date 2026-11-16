@@ -1,5 +1,7 @@
 package app.lumio.data.provider.algorand
 
+import android.util.Log
+import app.lumio.BuildConfig
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.Family
@@ -63,14 +65,32 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
             .addPathSegment("accounts")
             .addPathSegment(req.address)
             .build()
-        val answer = answerObject(fetchText(http.noRedirects(), HttpRequest.Builder().url(url).get().build(), banMs = null))
-        return answer["amount"].amount()
+        val request = HttpRequest.Builder().url(url).get().build()
+        val started = System.nanoTime()
+        val text = try {
+            fetchText(http.noRedirects(), request, banMs = null).also { logLine(request, "ok", started) }
+        } catch (e: Throwable) {
+            logLine(request, "error=${e.javaClass.simpleName}", started)
+            throw e
+        }
+        return answerObject(text)["amount"].amount()
     }
 
     /** The base address of [net], or null when this provider does not serve it. Only HTTPS is accepted, or plain HTTP to this machine. */
     private fun baseOf(net: NetworkId): HttpUrl? = if (net.family == Family.ALGO) providerBase(endpoints[net.chain], "") else null
 
+    /** Debug builds only: one line per request, with the host, the outcome and the time. The path is never logged, since it names an address. */
+    private fun logLine(request: HttpRequest, outcome: String, started: Long) {
+        if (BuildConfig.DEBUG) {
+            val ms = (System.nanoTime() - started) / 1_000_000
+            Log.d(LOG_TAG, "host=${request.url.host} $outcome ms=$ms")
+        }
+    }
+
     companion object {
+        /** The tag of the debug-build request log. */
+        const val LOG_TAG = "LumioAlgorand"
+
         /** The public endpoint of each Algorand network, by chain name. */
         val ENDPOINTS: Map<String, String> = mapOf(
             "testnet" to "https://testnet-api.algonode.cloud",
