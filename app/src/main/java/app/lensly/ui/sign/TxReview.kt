@@ -145,7 +145,17 @@ data class TxReview(
             )
         }
 
-    /** True when the hold-to-sign control may run: every fact has been seen and every required check is ticked. */
+    /**
+     * True when the review holds a warning, so its risk banner has a row. The rows are the denylist matches, the registry, whitelist and
+     * proxy checks, and the plain warnings, of the review and of its calls. Such a review is read in its details before it can be signed.
+     */
+    val hasWarnings: Boolean
+        get() = warnings.isNotEmpty() || requiredChecks.isNotEmpty() || nested.any { it.warnings.isNotEmpty() }
+
+    /**
+     * True when the hold-to-sign control may run: the review has been read, and every required check is ticked. [everyFactShown] is
+     * that read, which [isReviewRead] decides for the screen.
+     */
     fun canApprove(everyFactShown: Boolean, checked: Set<ReviewCheck>): Boolean =
         everyFactShown && checked.containsAll(requiredChecks)
 }

@@ -279,10 +279,16 @@ internal fun AckCheckbox(label: String, checked: Boolean, onCheckedChange: (Bool
 
 /**
  * A collapsible section of the details. It starts collapsed, so the summary and the risks are what the eye reads first, and it opens
- * on a tap of its title row. A review screen keys its details to the review, so a new review starts collapsed again.
+ * on a tap of its title row. A review screen keys its details to the review, so a new review starts collapsed again. [onOpen] runs
+ * when the section opens, so the review knows its details were opened.
  */
 @Composable
-internal fun DetailsSection(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun DetailsSection(
+    title: String,
+    modifier: Modifier = Modifier,
+    onOpen: () -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit,
+) {
     var open by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -290,7 +296,13 @@ internal fun DetailsSection(title: String, modifier: Modifier = Modifier, conten
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
                 .semantics { stateDescription = if (open) "Expanded" else "Collapsed" }
-                .clickable(role = Role.Button, onClick = { open = !open }),
+                .clickable(
+                    role = Role.Button,
+                    onClick = {
+                        open = !open
+                        if (open) onOpen()
+                    },
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

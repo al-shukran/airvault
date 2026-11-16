@@ -1,9 +1,13 @@
 package app.lensly.ui.sign
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -13,6 +17,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcReview
 import app.lensly.core.btc.BtcReviewInput
@@ -31,7 +37,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The Bitcoin review's gate and its layout: the check that unlocks signing sits inside the one banner, and the details start collapsed.
+ * The Bitcoin review's gate and its layout: a request with a warning is read in its details before it can sign, the check on unverified
+ * amounts sits inside the one banner, and the details start collapsed.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -41,21 +48,26 @@ class BitcoinReviewScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
-    /** Shows [review]. The check is held by the screen the way the wallet's route holds it, so a tick changes the gate. */
-    private fun show(review: BtcReview) {
+    /**
+     * Shows [review]. The check is held by the screen the way the wallet's route holds it, so a tick changes the gate. A [small] window
+     * is short enough that opened details run past its bottom, so the review must be scrolled to its end.
+     */
+    private fun show(review: BtcReview, small: Boolean = false) {
         compose.setContent {
             LenslyTheme {
                 var confirmed by remember { mutableStateOf(false) }
-                BitcoinReviewScreen(
-                    review = review,
-                    network = BtcNetwork.TESTNET4,
-                    scriptType = ScriptType.NATIVE_SEGWIT,
-                    accountIndex = 0,
-                    confirmed = confirmed,
-                    onConfirmedChange = { confirmed = it },
-                    onApprove = {},
-                    onReject = {},
-                )
+                Box(modifier = if (small) Modifier.size(width = 360.dp, height = 640.dp) else Modifier.fillMaxSize()) {
+                    BitcoinReviewScreen(
+                        review = review,
+                        network = BtcNetwork.TESTNET4,
+                        scriptType = ScriptType.NATIVE_SEGWIT,
+                        accountIndex = 0,
+                        confirmed = confirmed,
+                        onConfirmedChange = { confirmed = it },
+                        onApprove = {},
+                        onReject = {},
+                    )
+                }
             }
         }
     }
@@ -70,15 +82,51 @@ class BitcoinReviewScreenTest {
     }
 
     @Test
-    fun theHoldControlStaysOffUntilTheCheckIsTickedAndSaysWhy() {
-        show(unverifiedRequest())
+    fun theHoldControlStaysOffUntilTheDetailsAreReadAndTheCheckIsTicked() {
+        show(unverifiedRequest(), small = true)
 
-        compose.onNodeWithText("Tick the checkbox above to sign").assertExists()
+        compose.onNodeWithText("Open details to continue").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
 
-        compose.onNodeWithText("I have checked the unverified input amounts").performClick()
+        compose.onNodeWithText("I have checked the unverified input amounts").performScrollTo().performClick()
+        compose.onNodeWithText("Open details to continue").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
 
+        compose.onNodeWithText("Inputs").performScrollTo().performClick()
+        compose.onNodeWithText("Open details to continue").assertDoesNotExist()
+        compose.onNodeWithText("Scroll to the end to review everything").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+
+        compose.scrollReviewToEnd()
+        compose.onNodeWithText("Scroll to the end to review everything").assertDoesNotExist()
         compose.onNodeWithText("Tick the checkbox above to sign").assertDoesNotExist()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
+    }
+
+    @Test
+    fun aShortRequestWithAWarningCannotBeSignedWhileItsDetailsAreFolded() {
+        // The request fits on screen, and its one warning is read in the details, so the fit alone does not count as read.
+        show(externalInputRequest())
+
+        compose.onNodeWithText("1 warning — review before signing").assertExists()
+        compose.onNodeWithText("Open details to continue").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aRequestWithAWarningSignsOnceItsDetailsAreOpenedAndScrolledToTheEnd() {
+        show(externalInputRequest(), small = true)
+
+        compose.onNodeWithText("Open details to continue").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+
+        compose.onNodeWithText("Transaction").performScrollTo().performClick()
+        compose.onNodeWithText("Open details to continue").assertDoesNotExist()
+        compose.onNodeWithText("Scroll to the end to review everything").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+
+        compose.scrollReviewToEnd()
+        compose.onNodeWithText("Scroll to the end to review everything").assertDoesNotExist()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
     }
 
@@ -93,6 +141,15 @@ class BitcoinReviewScreenTest {
         compose.onNodeWithText("Inputs").performClick()
 
         compose.onNodeWithText("Input 0").assertExists()
+    }
+
+    @Test
+    fun aRequestWithNoWarningsCanBeSignedWithoutOpeningItsDetails() {
+        // The request is long enough to scroll, and it still signs at once, as a request with no warning always has.
+        show(cleanRequest(), small = true)
+
+        compose.onNodeWithText("Open details to continue").assertDoesNotExist()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
     }
 
     @Test
@@ -126,6 +183,21 @@ private fun cleanRequest() = BtcReview(
     feeSats = 10_000L,
     requiresConfirmation = false,
     estimatedVsize = 141L,
+)
+
+/**
+ * The clean request with a second input that another signer owns. Its one warning is a plain one, with no check to tick, so the owner
+ * reads it in the details alone.
+ */
+private fun externalInputRequest() = cleanRequest().copy(
+    inputs = listOf(
+        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownedPath(0)),
+        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null),
+    ),
+    outputs = listOf(
+        BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
+        BtcReviewOutput(1, "tb1qexampleexampleexampleexampleexample1", 110_000L, isOwnChange = true, changeIndex = 0),
+    ),
 )
 
 /**
