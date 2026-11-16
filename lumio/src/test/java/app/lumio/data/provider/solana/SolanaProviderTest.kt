@@ -263,8 +263,17 @@ class SolanaProviderTest {
         assertTrue(publicRpc.supports(devnet, Op.BROADCAST, ProviderConfig()))
         assertFalse(publicRpc.supports(devnet, Op.NONCE, ProviderConfig()))
         assertFalse(publicRpc.supports(NetworkId(Family.EVM, "1", testnet = false), Op.NATIVE_BALANCE, ProviderConfig()))
-        assertFalse(publicRpc.supports(NetworkId(Family.SOL, "mainnet-beta", testnet = false), Op.NATIVE_BALANCE, ProviderConfig()))
+        assertFalse(publicRpc.supports(NetworkId(Family.SOL, "testnet", testnet = true), Op.NATIVE_BALANCE, ProviderConfig()))
         assertEquals(setOf(Trait.KEYLESS), publicRpc.traits)
+    }
+
+    @Test
+    fun thePublicProviderServesTheMainnetBetaFromItsEndpoint() {
+        val publicRpc = SolanaRpc()
+
+        assertEquals("https://api.mainnet-beta.solana.com", publicRpc.endpoint(SOLANA_MAINNET, ProviderConfig()))
+        assertTrue(publicRpc.supports(SOLANA_MAINNET, Op.NATIVE_BALANCE, ProviderConfig()))
+        assertEquals(SOLANA_MAINNET, NetworkId(Family.SOL, "mainnet-beta", testnet = false))
     }
 
     @Test
