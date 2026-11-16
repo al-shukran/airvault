@@ -623,5 +623,103 @@
     "selector": "0xd0e30db0",
     "contractChecksum": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
     "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xd01607c3c5ecaba394d8be377a08590149325722",
+    "selector": "0x474cf53d",
+    "contractChecksum": "0xd01607c3C5eCABa394D8be377a08590149325722",
+    "source": "https://github.com/aave-dao/aave-v3-origin/blob/8305565ae342f1773c42cd2e4593f175fe5968a0/src/contracts/helpers/WrappedTokenGatewayV3.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xd01607c3c5ecaba394d8be377a08590149325722",
+    "selector": "0x80500d20",
+    "contractChecksum": "0xd01607c3C5eCABa394D8be377a08590149325722",
+    "source": "https://github.com/aave-dao/aave-v3-origin/blob/8305565ae342f1773c42cd2e4593f175fe5968a0/src/contracts/helpers/WrappedTokenGatewayV3.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xd01607c3c5ecaba394d8be377a08590149325722",
+    "selector": "0xbcc3c255",
+    "contractChecksum": "0xd01607c3C5eCABa394D8be377a08590149325722",
+    "source": "https://github.com/aave-dao/aave-v3-origin/blob/8305565ae342f1773c42cd2e4593f175fe5968a0/src/contracts/helpers/WrappedTokenGatewayV3.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xd01607c3c5ecaba394d8be377a08590149325722",
+    "selector": "0xe74f7b85",
+    "contractChecksum": "0xd01607c3C5eCABa394D8be377a08590149325722",
+    "source": "https://github.com/aave-dao/aave-v3-origin/blob/8305565ae342f1773c42cd2e4593f175fe5968a0/src/contracts/helpers/WrappedTokenGatewayV3.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "selector": "0x02c205f0",
+    "contractChecksum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "source": "https://github.com/aave/aave-v3-core/blob/782f51917056a53a2c228701058a6c3fb233684a/contracts/interfaces/IPool.sol",
+    "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "selector": "0xee3e210b",
+    "contractChecksum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "source": "https://github.com/aave/aave-v3-core/blob/782f51917056a53a2c228701058a6c3fb233684a/contracts/interfaces/IPool.sol",
+    "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "selector": "0x2dad97d4",
+    "contractChecksum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "source": "https://github.com/aave/aave-v3-core/blob/782f51917056a53a2c228701058a6c3fb233684a/contracts/interfaces/IPool.sol",
+    "implementationChecksum": "0x4295Fe69b3e978Eb511e4558B4407AD871612fCb",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+    "selector": "0xc3b35a7e",
+    "contractChecksum": "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+    "source": "https://github.com/compound-finance/comet/blob/f766f51583c23acc33b2a7824654ef2029a96804/contracts/CometMainInterface.sol",
+    "implementationChecksum": "0x0B07565A8ef48170e15918b251EbD95109B23255",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+    "selector": "0xc3b35a7e",
+    "contractChecksum": "0xA17581A9E3356d9A858b789D68B4d866e593aE94",
+    "source": "https://github.com/compound-finance/comet/blob/f766f51583c23acc33b2a7824654ef2029a96804/contracts/CometMainInterface.sol",
+    "implementationChecksum": "0x2a0c96f742DBe81BAb9B13628f7F070fF1a5C8f9",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0xa397a8c2086c554b531c02e29f3291c9704b00c7",
+    "selector": "0x555029a6",
+    "contractChecksum": "0xa397a8C2086C554B531c02E29f3291c9704B00c7",
+    "source": "https://github.com/compound-finance/comet/blob/f766f51583c23acc33b2a7824654ef2029a96804/contracts/bulkers/BaseBulker.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1",
+    "selector": "0xd6681042",
+    "contractChecksum": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+    "source": "https://github.com/lidofinance/core/blob/2bd532298d85cdf520169fdc0c5fb0cc9baf03c3/contracts/0.8.9/WithdrawalQueue.sol",
+    "implementationChecksum": "0xE42C659Dc09109566720EA8b2De186c2Be7D94D9",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1",
+    "selector": "0xe3afe0a3",
+    "contractChecksum": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+    "source": "https://github.com/lidofinance/core/blob/2bd532298d85cdf520169fdc0c5fb0cc9baf03c3/contracts/0.8.9/WithdrawalQueue.sol",
+    "implementationChecksum": "0xE42C659Dc09109566720EA8b2De186c2Be7D94D9",
+    "implementationEvidence": "live: EIP-1967 implementation slot read over JSON-RPC, read-only"
   }
 ]
