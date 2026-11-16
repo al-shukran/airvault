@@ -2,18 +2,6 @@ package app.lensly.app
 
 import app.lensly.app.sign.WalletView
 
-/**
- * The internal account of this device that an address is: its Display Name when it has one, its Auto-Name, and its label when it has
- * one. The Auto-Name is always there, so an account without a Display Name still has a name to show.
- */
-data class InternalAccount(val displayName: String?, val autoName: String, val label: String?)
-
-/**
- * What the device's accounts and the Address Book say of one address. Either part can be absent, and both can be present. A review shows
- * both, so an address that is an account of this device and also an entry shows its internal names and the entry's names.
- */
-data class AddressNotes(val internal: InternalAccount?, val entry: AddressBookEntry?)
-
 /** The accounts of [wallets], each keyed by [addressKeyOf] its address. A Single Key wallet has one account, at index 0. */
 fun internalAccountsOf(wallets: List<WalletView>): Map<String, InternalAccount> = buildMap {
     wallets.forEach { wallet ->
@@ -29,23 +17,3 @@ fun internalAccountsOf(wallets: List<WalletView>): Map<String, InternalAccount> 
         }
     }
 }
-
-/** The notes of [address], or null when neither the device's [internal] accounts nor the Address Book [book] know it. */
-fun addressNotesOf(address: String, internal: Map<String, InternalAccount>, book: List<AddressBookEntry>): AddressNotes? {
-    val key = addressKeyOf(address)
-    val account = internal[key]
-    val entry = book.firstOrNull { addressKeyOf(it.address) == key }
-    return if (account == null && entry == null) null else AddressNotes(account, entry)
-}
-
-/** The notes of each of [addresses] that either source knows, keyed by [addressKeyOf]. */
-fun addressNotesOf(
-    addresses: Collection<String>,
-    internal: Map<String, InternalAccount>,
-    book: List<AddressBookEntry>,
-): Map<String, AddressNotes> = addresses.distinct()
-    .mapNotNull { address -> addressNotesOf(address, internal, book)?.let { addressKeyOf(address) to it } }
-    .toMap()
-
-/** The notes of [address] in a map that [addressNotesOf] built, or null when there are none. */
-fun Map<String, AddressNotes>.notesOf(address: String): AddressNotes? = this[addressKeyOf(address)]

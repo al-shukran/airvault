@@ -1,5 +1,6 @@
 package app.lensly.app.export
 
+import app.lensly.app.AddressBookEntry
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
@@ -211,5 +212,97 @@ class PairingCodecTest {
         assertTrue(refusalOf { PairingCodec.encode(withControl) }.contains("1 to ${PairingCodec.MAX_NAME_BYTES} bytes"))
         assertTrue(refusalOf { PairingCodec.encode(tooLong) }.contains("1 to ${PairingCodec.MAX_NAME_BYTES} bytes"))
         assertTrue(refusalOf { PairingCodec.encode(longGroup) }.contains("1 to ${PairingCodec.MAX_LABEL_BYTES} bytes"))
+    }
+
+    /** The UR that [parts] scan back to, which must be a complete code. */
+    private fun scanned(parts: List<String>): UR {
+        val scanner = UrScanner()
+        parts.forEach { scanner.receive(it) }
+        return requireNotNull(scanner.result())
+    }
+
+    /** One Address Book entry as a payload carries it, under [seed]. */
+    private fun addressItem(seed: Int): Cbor = Cbor.Dict(
+        listOf(
+            Cbor.Uint(1) to Cbor.Text("id-$seed"),
+            Cbor.Uint(2) to Cbor.Text("0x" + "%040x".format(seed)),
+            Cbor.Uint(3) to Cbor.Text("Alice"),
+        ),
+    )
+
+    @Test
+    fun anAddressBookRoundTripsWithALabelAbsentWhenThereIsNone() {
+        val payload = sample().copy(
+            addressBook = listOf(
+                AddressBookEntry(id = "id-1", address = "0x" + "a".repeat(40), name = "Alice", label = "Exchange"),
+                AddressBookEntry(id = "id-2", address = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq", name = "Trésor ✓", label = null),
+            ),
+        )
+
+        val back = PairingCodec.decode(PairingCodec.encode(payload))
+
+        assertSamePayload(payload, back)
+        assertEquals(payload.addressBook, back.addressBook)
+    }
+
+    @Test
+    fun aPairingWithoutAnAddressBookIsTheSameCodeAsBefore() {
+        val golden = PairingCodec.fromUr(scanned(LabelledPairingGolden.FRAMES))
+
+        assertTrue(golden.addressBook.isEmpty())
+        assertEquals(LabelledPairingGolden.FRAMES, PairingCodec.urParts(golden))
+    }
+
+    @Test
+    fun aFullAddressBookOfTheCapAnimatesAndScansBackWhole() {
+        // Each name is 32 emoji, the most a Display Name holds, at four bytes each; each label is 16 emoji.
+        val book = List(PairingCodec.MAX_ADDRESS_BOOK) { i ->
+            AddressBookEntry(id = "id-$i", address = "0x" + "%040x".format(i), name = "😀".repeat(32), label = "🙂".repeat(16))
+        }
+        val payload = sample().copy(addressBook = book)
+
+        val parts = PairingCodec.urParts(payload)
+
+        assertTrue("a full book is animated", parts.size > 1)
+        val back = PairingCodec.fromUr(scanned(parts))
+        assertEquals(book, back.addressBook)
+        assertSamePayload(payload, back)
+    }
+
+    @Test
+    fun aBookOfMoreThanTheCapIsRefusedByTheEncoderAndTheDecoderAcceptsTheCap() {
+        val tooMany = sample().copy(
+            addressBook = List(PairingCodec.MAX_ADDRESS_BOOK + 1) { i -> AddressBookEntry("id-$i", "0x" + "%040x".format(i), "Alice", null) },
+        )
+        assertTrue(refusalOf { PairingCodec.encode(tooMany) }.contains("at most ${PairingCodec.MAX_ADDRESS_BOOK} Address Book entries"))
+
+        fun payloadWithBook(count: Int) = rawPayload(
+            1L to Cbor.Uint(1),
+            2L to Cbor.Uint(7),
+            3L to Cbor.Text("Demo"),
+            4L to Cbor.Arr(emptyList()),
+            5L to Cbor.Arr(List(count) { i -> addressItem(i) }),
+        )
+
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(payloadWithBook(PairingCodec.MAX_ADDRESS_BOOK + 1)) })
+        assertEquals(PairingCodec.MAX_ADDRESS_BOOK, PairingCodec.decode(payloadWithBook(PairingCodec.MAX_ADDRESS_BOOK)).addressBook.size)
+    }
+
+    @Test
+    fun anAddressBookEntryWithAMissingFieldOrALongNameIsRefused() {
+        val missingAddress = Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Text("id-1"), Cbor.Uint(3) to Cbor.Text("Alice")))
+        val bytes = rawPayload(
+            1L to Cbor.Uint(1),
+            2L to Cbor.Uint(7),
+            3L to Cbor.Text("Demo"),
+            4L to Cbor.Arr(emptyList()),
+            5L to Cbor.Arr(listOf(missingAddress)),
+        )
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes) })
+
+        val longName = sample().copy(
+            addressBook = listOf(AddressBookEntry("id-1", "0x" + "a".repeat(40), "n".repeat(PairingCodec.MAX_ENTRY_NAME_BYTES + 1), null)),
+        )
+        assertTrue(refusalOf { PairingCodec.encode(longName) }.contains("1 to ${PairingCodec.MAX_ENTRY_NAME_BYTES} bytes"))
     }
 }
