@@ -130,7 +130,7 @@ fun LumioHome(
 
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LenslySpacing.lg)) {
-            item(key = "top") { HomeTopBar(wordmark = "LUMIO", onLock = onLock) }
+            item(key = "top") { HomeTopBar(wordmark = "LUMIO", onLock = onLock, mark = { LumioMark() }) }
             item(key = "mode") {
                 NetworkSwitch(
                     mode = mode,

@@ -31,10 +31,10 @@ const val HOME_LOCK_TAG = "home-lock"
 /**
  * The top bar of an app's Home: the [wordmark] in the dot-matrix headline face on the left, and the lock as an icon button on the right.
  * It has no back button, since Home is the top of the app. A debug build that runs on a software keystore shows its warning as a chip
- * beside the wordmark, so the content keeps its place.
+ * beside the wordmark, so the content keeps its place. A [mark], when the app has one, sits before the wordmark.
  */
 @Composable
-fun HomeTopBar(wordmark: String, onLock: () -> Unit, debugNotice: String? = null) {
+fun HomeTopBar(wordmark: String, onLock: () -> Unit, debugNotice: String? = null, mark: (@Composable () -> Unit)? = null) {
     val haptics = rememberKeyHaptics()
     Row(
         modifier = Modifier
@@ -43,6 +43,10 @@ fun HomeTopBar(wordmark: String, onLock: () -> Unit, debugNotice: String? = null
             .padding(horizontal = WALLET_GUTTER),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (mark != null) {
+            mark()
+            Spacer(Modifier.width(LenslySpacing.sm))
+        }
         Text(
             text = wordmark,
             style = MaterialTheme.typography.headlineSmall,
