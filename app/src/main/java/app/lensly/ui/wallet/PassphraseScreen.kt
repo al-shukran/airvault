@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.core.wallet.LedgerPassphraseIssue
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.InlineBanner
@@ -32,20 +33,27 @@ enum class PassphraseStep { Ask, Enter, Confirm }
 /**
  * UI state for [PassphraseScreen]. Like the gate screens, it holds only the character count. The
  * caller owns the [app.lensly.ui.gate.PasswordBuffer]. [mismatch] is set when the confirm entry differs.
+ * [ledgerIssue] is set when the passphrase cannot be typed on a Ledger. It is a warning, not a blocker.
  */
 data class PassphraseState(
     val step: PassphraseStep = PassphraseStep.Ask,
     val length: Int = 0,
     val mismatch: Boolean = false,
+    val ledgerIssue: LedgerPassphraseIssue? = null,
 )
 
 private const val TITLE = "Add passphrase"
 
+/** Shown when [PassphraseState.ledgerIssue] is set. A Ledger cannot type the passphrase, so the accounts cannot be restored there. */
+private const val LEDGER_WARNING = "This passphrase can't be typed on a Ledger, so these accounts can't be restored there."
+
 /** Enter and Confirm are the two numbered steps. The Ask question before them is optional and not counted. */
 private const val ENTRY_STEPS = 2
 
-/** Room for the mismatch banner, so the keyboard does not move when it appears or clears. */
-private val MESSAGE_SLOT_HEIGHT = 56.dp
+/**
+ * Room for a two-line banner (the Ledger warning), so the field above does not move when a message appears or clears.
+ */
+private val MESSAGE_SLOT_HEIGHT = 72.dp
 
 /**
  * Optional BIP39 passphrase. In [PassphraseStep.Ask] the owner chooses yes or skip. In Enter and
@@ -183,6 +191,7 @@ private fun PassphraseEntry(
             ) {
                 when {
                     state.mismatch -> InlineBanner(message = "Does not match. Try again.", tone = BannerTone.Error)
+                    state.ledgerIssue != null -> InlineBanner(message = LEDGER_WARNING, tone = BannerTone.Warning)
                     !confirming && state.length == 0 -> Text(
                         text = "Leave empty for no passphrase.",
                         style = MaterialTheme.typography.bodySmall,

@@ -52,7 +52,9 @@ import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.BulkPolicy
+import app.lensly.core.wallet.LedgerPassphraseIssue
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.core.wallet.ledgerPassphraseIssue
 import app.lensly.ui.flow.AccountExportScreen
 import app.lensly.ui.flow.PairWalletRoute
 import app.lensly.ui.flow.SignWalletRoute
@@ -439,6 +441,8 @@ private fun PassphraseRoute(navController: NavHostController, entry: NavBackStac
     var first by remember { mutableStateOf<CharArray?>(null) }
     var length by remember { mutableIntStateOf(0) }
     var mismatch by remember { mutableStateOf(false) }
+    // Set from the typed entry in Enter, and from the first entry once it moves to Confirm.
+    var ledgerIssue by remember { mutableStateOf<LedgerPassphraseIssue?>(null) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -453,19 +457,21 @@ private fun PassphraseRoute(navController: NavHostController, entry: NavBackStac
     }
 
     PassphraseScreen(
-        state = PassphraseState(step = step, length = length, mismatch = mismatch),
+        state = PassphraseState(step = step, length = length, mismatch = mismatch, ledgerIssue = ledgerIssue),
         onYes = { step = PassphraseStep.Enter },
         onSkip = { finish(null) },
         onKey = { c ->
             if (buffer.append(c)) {
                 length = buffer.length
                 mismatch = false
+                if (step == PassphraseStep.Enter) ledgerIssue = ledgerIssueOf(buffer)
             }
         },
         onBackspace = {
             buffer.backspace()
             length = buffer.length
             mismatch = false
+            if (step == PassphraseStep.Enter) ledgerIssue = ledgerIssueOf(buffer)
         },
         onSubmit = {
             when (step) {
@@ -501,6 +507,20 @@ private fun PassphraseRoute(navController: NavHostController, entry: NavBackStac
             }
         },
     )
+}
+
+/**
+ * The Ledger issue of the passphrase typed into [buffer], or null when it is empty or can be typed on a Ledger. The check
+ * reads a copy of the characters, and the copy is zeroed before this returns. No String of the passphrase is made.
+ */
+private fun ledgerIssueOf(buffer: PasswordBuffer): LedgerPassphraseIssue? {
+    if (buffer.isEmpty()) return null
+    val chars = buffer.toCharArray()
+    try {
+        return ledgerPassphraseIssue(chars)
+    } finally {
+        chars.fill('\u0000')
+    }
 }
 
 /** Shown under the write-down or name screen when a save fails. The words or key stay, so the owner can try again. */
