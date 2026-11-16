@@ -1,9 +1,14 @@
 package app.lensly.ui.flow
 
 import android.content.Context
+import app.lensly.app.AddressBookStore
+import app.lensly.app.AddressNotes
 import app.lensly.app.RegistryHolder
 import app.lensly.app.ReviewHistory
 import app.lensly.app.SettingsStore
+import app.lensly.app.addressNotesOf
+import app.lensly.app.evmAddressOf
+import app.lensly.app.internalAccountsOf
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
@@ -69,7 +74,33 @@ internal class VaultSignPorts(
             if (position < 0) null else viewOf(session, listed[position], position)
         }
         val proxyPolicy = readWallet { SettingsStore(it).load().proxyPolicy }
-        SignPipeline(RegistryHolder.get(context), parser, proxyPolicy).prepare(parsed, wallet)
+        val prepared = SignPipeline(RegistryHolder.get(context), parser, proxyPolicy).prepare(parsed, wallet)
+        if (prepared !is Prepared.Ready) return@withContext prepared
+        val review = prepared.review
+        val shown = listOfNotNull(review.toAddress.ifEmpty { null }) +
+            review.typed?.fields.orEmpty().mapNotNull { it.value }.filter { evmAddressOf(it) != null }
+        prepared.copy(review = review.copy(addressNotes = addressNotesFor(shown)))
+    }
+
+    /**
+     * The notes of [addresses] that a review shows: what the Address Book and the device's accounts say of each. A damaged Address Book
+     * shows as none, so the review still opens. The read signs nothing.
+     */
+    private fun addressNotesFor(addresses: Collection<String>): Map<String, AddressNotes> {
+        if (addresses.isEmpty()) return emptyMap()
+        return try {
+            readWallet { session ->
+                val wallets = WalletStore(session).list().mapIndexedNotNull { position, meta -> viewOf(session, meta, position) }
+                val book = try {
+                    AddressBookStore(session).load()
+                } catch (e: VaultException) {
+                    emptyList()
+                }
+                addressNotesOf(addresses, internalAccountsOf(wallets), book)
+            }
+        } catch (e: WalletUnavailable) {
+            emptyMap()
+        }
     }
 
     override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
@@ -124,12 +155,18 @@ internal class VaultSignPorts(
         val session = holder.openSession() ?: throw WalletUnavailable()
         try {
             val settings = SettingsStore(session).load()
+            val book = try {
+                AddressBookStore(session).load()
+            } catch (e: VaultException) {
+                emptyList()
+            }
             val reviewed = WalletStore(session).bitcoinReview(
                 walletId,
                 parsed,
                 settings.bitcoinInputPolicy,
                 settings.bitcoinSigningSource,
                 settings.bitcoinFeeThresholds,
+                book,
             )
             BitcoinPrepared.Ready(walletId, parsed, reviewed)
         } catch (e: BtcRefusedException) {
@@ -205,6 +242,7 @@ internal class VaultSignPorts(
             val profiles = store.accountProfiles(meta.id, meta.accountCount)
             val identity = visualIdentity(profile.colour, profile.icon, position)
             val accountNames = profiles.mapNotNull { (index, accountProfile) -> accountProfile.name?.let { index to it } }.toMap()
+            val accountLabels = profiles.mapNotNull { (index, accountProfile) -> accountProfile.label?.let { index to it } }.toMap()
             val accountIdentity = { index: Int ->
                 profiles[index].let { accountProfile -> visualIdentity(accountProfile?.colour, accountProfile?.icon, index) }
             }
@@ -221,6 +259,7 @@ internal class VaultSignPorts(
                             accountCount = meta.accountCount,
                             autoNameBase = meta.autoNameBase,
                             accountNames = accountNames,
+                            accountLabels = accountLabels,
                             addressAt = { index -> AccountAddresses.addressAt(xpub, index) },
                             name = meta.name,
                             identity = identity,
@@ -235,6 +274,7 @@ internal class VaultSignPorts(
                     autoNameBase = meta.autoNameBase,
                     // The one account is index 0. Its name is absent while the owner has not renamed it.
                     accountName = accountNames[0],
+                    accountLabel = accountLabels[0],
                     name = meta.name,
                     identity = identity,
                     accountIdentity = accountIdentity(0),

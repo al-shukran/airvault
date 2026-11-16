@@ -63,6 +63,8 @@ import app.lensly.ui.theme.LenslySuccess
 import app.lensly.ui.theme.SpaceMonoFamily
 import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WalletEyebrow
+import app.lensly.ui.wallet.WalletPill
+import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.wallet.WalletScaffold
 import java.time.Instant
 import java.time.LocalDate
@@ -88,6 +90,8 @@ fun WalletHistoryScreen(
     networkOf: (Long) -> NetworkEntry?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the Address Book form with an address of a record, for "Add to Address Book" on its sheet. Null hides the action. */
+    onAddToAddressBook: ((String) -> Unit)? = null,
 ) {
     val haptics = rememberKeyHaptics()
     var open by remember { mutableStateOf<ReviewRecord?>(null) }
@@ -116,7 +120,7 @@ fun WalletHistoryScreen(
         }
     }
     open?.let { record ->
-        HistoryDetailSheet(record = record, onDismiss = { open = null })
+        HistoryDetailSheet(record = record, onDismiss = { open = null }, onAddToAddressBook = onAddToAddressBook)
     }
 }
 
@@ -210,7 +214,11 @@ internal fun HistoryRow(
 
 /** Every fact the record holds, each address in full. The sheet scrolls, since a message or a long call can be tall. */
 @Composable
-internal fun HistoryDetailSheet(record: ReviewRecord, onDismiss: () -> Unit) {
+internal fun HistoryDetailSheet(
+    record: ReviewRecord,
+    onDismiss: () -> Unit,
+    onAddToAddressBook: ((String) -> Unit)? = null,
+) {
     OptionsSheet(onDismiss = onDismiss, scrollable = true) {
         Text(
             text = outcomeLabel(record.outcome),
@@ -238,6 +246,32 @@ internal fun HistoryDetailSheet(record: ReviewRecord, onDismiss: () -> Unit) {
         record.origin?.let { origin -> FactRow("Origin") { FactText(origin) } }
         record.refusal?.let { reason -> FactRow("Refusal reason") { FactText(reason) } }
         FactRow("Data hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
+        if (onAddToAddressBook != null) {
+            val candidates = addressCandidates(record)
+            candidates.forEach { (label, address) ->
+                Spacer(Modifier.height(LenslySpacing.sm))
+                WalletPill(
+                    text = if (candidates.size == 1) "Add to Address Book" else "Add $label to Address Book",
+                    onClick = {
+                        onDismiss()
+                        onAddToAddressBook(address)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    style = WalletPillStyle.Secondary,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The addresses a record can add to the Address Book, each with its label: the recipient of a call or a transfer, or each output of a
+ * Bitcoin request that is not change and has an address.
+ */
+internal fun addressCandidates(record: ReviewRecord): List<Pair<String, String>> {
+    record.to?.let { return listOf("recipient" to it) }
+    return record.bitcoin?.outputs.orEmpty().mapIndexedNotNull { index, output ->
+        if (output.isOwnChange) null else output.address?.let { "output $index" to it }
     }
 }
 
