@@ -2,6 +2,9 @@ package app.lensly.ui.sign
 
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
+import app.lensly.core.registry.DenylistCondition
+import app.lensly.core.registry.DenylistEntry
+import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
@@ -110,5 +113,35 @@ class TxReviewTest {
         assertEquals(listOf(ReviewCheck.WHITELIST, ReviewCheck.UPGRADE), proxy.requiredChecks)
         assertFalse(proxy.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.WHITELIST)))
         assertTrue(proxy.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.WHITELIST, ReviewCheck.UPGRADE)))
+    }
+
+    @Test
+    fun aReviewWithNothingToPointOutHasNoWarnings() {
+        assertFalse(review(base, tokenContract = null, token = null).hasWarnings)
+    }
+
+    @Test
+    fun everyKindOfWarningMakesTheReviewHaveWarnings() {
+        val plain = review(base, tokenContract = null, token = null)
+        val denylisted = plain.copy(
+            denylisted = listOf(
+                DenylistEntry(
+                    chainId = 8453L,
+                    selector = "0x095ea7b3",
+                    condition = DenylistCondition.UNLIMITED,
+                    severity = DenylistSeverity.WARN,
+                    reason = "Unlimited approval",
+                ),
+            ),
+        )
+        val nestedWarning = plain.copy(
+            nested = listOf(NestedCall(depth = 1, target = null, function = "approve", params = emptyList(), warnings = listOf("Unlimited"))),
+        )
+
+        assertTrue(plain.copy(warnings = listOf("A plain warning")).hasWarnings)
+        assertTrue(review(network = null, tokenContract = null, token = null).hasWarnings)
+        assertTrue(denylisted.hasWarnings)
+        assertTrue(whitelisted(proxy = null).hasWarnings)
+        assertTrue(nestedWarning.hasWarnings)
     }
 }
