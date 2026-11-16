@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.app.export.AlgorandPairingKeys
 import app.lensly.app.export.BitcoinPairingKeys
 import app.lensly.app.export.EthereumPairingKeys
 import app.lensly.app.export.PairingApp
@@ -19,7 +20,7 @@ enum class WalletApp(
     BITCOIN(label = "Bitcoin", routeId = "bitcoin", pairing = BitcoinPairingKeys),
     ETHEREUM(label = "Ethereum", routeId = "ethereum", pairing = EthereumPairingKeys),
     SOLANA(label = "Solana", routeId = "solana", pairing = SolanaPairingKeys),
-    ALGORAND(label = "Algorand", routeId = "algorand", pairing = null);
+    ALGORAND(label = "Algorand", routeId = "algorand", pairing = AlgorandPairingKeys);
 
     /** The keys and accounts this App contributes to the AirVault pairing of wallet [id], whose seed is [seed]. Null when the pairing has no App. */
     fun pairedApp(store: WalletStore, id: String, seed: ByteArray): PairingApp? = pairing?.paired(routeId, store, id, seed)

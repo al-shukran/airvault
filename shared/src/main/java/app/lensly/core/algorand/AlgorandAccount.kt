@@ -18,6 +18,19 @@ object AlgorandAccount {
         }
     }
 
+    /**
+     * The 32-byte chain code at the end of the path of account [index]. It is public, as a BIP32 chain code is, and an Algorand pairing key
+     * carries it. [seed] is the caller's, and the private key is wiped before this returns.
+     */
+    fun chainCode(seed: ByteArray, index: Int): ByteArray {
+        val key = LedgerEd25519.algorandAccount(seed, index)
+        try {
+            return key.chainCode
+        } finally {
+            key.wipe()
+        }
+    }
+
     /** The address of a 32-byte public key: the 58 base32 characters that [AlgoAddress] writes. */
     fun addressOf(publicKey: ByteArray): String = AlgoAddress.encode(publicKey)
 }

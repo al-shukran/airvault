@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.app.export.AlgorandPairingKeys
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
@@ -9,7 +10,6 @@ import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.After
 import org.junit.Before
@@ -20,7 +20,7 @@ import org.junit.rules.TemporaryFolder
 /**
  * The Algorand accounts of a wallet: the public key of each one is stored in the wallet's Algorand record, numbered after the ones the wallet
  * has. Account 0 has the address that the Ledger Algorand app shows for the same phrase. A Single Key wallet has no seed, so it refuses them.
- * The Algorand App is listed after Solana, and the pairing does not carry it yet.
+ * The Algorand App is listed after Solana, and the pairing carries each account's key on its path m/44'/283'/N'/0/0.
  */
 class WalletStoreAlgorandTest {
     private val keys = MemoryKeystore()
@@ -111,16 +111,47 @@ class WalletStoreAlgorandTest {
     }
 
     @Test
-    fun theAlgorandAppIsListedLastAndThePairingCarriesNoAlgorandApp() {
+    fun theAlgorandAppIsListedLastAndThePairingCarriesIt() {
         val id = newWallet()
         val seed = seed()
         store.addAlgorandAccounts(id, 2, cap)
 
         assertEquals(WalletApp.ALGORAND, WalletApp.fromRouteId("algorand"))
         assertEquals(listOf(WalletApp.BITCOIN, WalletApp.ETHEREUM, WalletApp.SOLANA, WalletApp.ALGORAND), WalletApp.entries)
-        assertNull(WalletApp.ALGORAND.pairedApp(store, id, seed))
-        assertEquals(listOf("bitcoin", "ethereum", "solana"), WalletApp.entries.mapNotNull { it.pairedApp(store, id, seed)?.app })
+        assertEquals("algorand", WalletApp.ALGORAND.pairedApp(store, id, seed)?.app)
+        assertEquals(
+            listOf("bitcoin", "ethereum", "solana", "algorand"),
+            WalletApp.entries.mapNotNull { it.pairedApp(store, id, seed)?.app },
+        )
     }
+
+    @Test
+    fun thePairingCarriesEachKeyOnItsLedgerAlgorandPathWithItsChainCode() {
+        val id = newWallet()
+        val seed = seed()
+        store.addAlgorandAccounts(id, 2, cap)
+
+        val app = AlgorandPairingKeys.paired(WalletApp.ALGORAND.routeId, store, id, seed)
+
+        assertEquals("algorand", app.app)
+        assertEquals(
+            listOf(
+                listOf(hardened(44), hardened(283), hardened(0), 0L, 0L),
+                listOf(hardened(44), hardened(283), hardened(1), 0L, 0L),
+            ),
+            app.keys.map { it.path },
+        )
+        app.keys.forEachIndexed { index, key ->
+            assertEquals(5, key.depth)
+            assertEquals(0.toByte(), key.publicKey[0])
+            assertContentEquals(AlgorandAccount.publicKey(seed, index), key.publicKey.copyOfRange(1, key.publicKey.size))
+            assertContentEquals(AlgorandAccount.chainCode(seed, index), key.chainCode)
+        }
+        assertEquals(listOf(0, 1), app.accounts.map { it.key })
+        assertEquals("Test 0", app.accounts.first().name)
+    }
+
+    private fun hardened(index: Long): Long = 0x80000000L + index
 
     private companion object {
         /** The address of Mnemonic A account 0, as LedgerEd25519Test and AlgoAddressTest assert it for the same public key. */
