@@ -12,6 +12,7 @@ enum class SettingsPage(val title: String) {
     TRANSACTIONS("Transactions"),
     NETWORKS("Networks"),
     PROVIDERS("Data providers"),
+    WALLETS("Wallets"),
     ADDRESS_BOOK("Address book"),
     SECURITY("Security"),
     ABOUT("About"),
@@ -24,10 +25,11 @@ data class SettingsRowState(val page: SettingsPage, val summary: String)
 /**
  * Lumio's settings: one chevron row per page, in the order of [rows]. [onOpen] opens the page of a row. The Developer row is in [rows] only in a debug
  * build, so it is the last row there and absent in release. Nothing on this list is a setting, so it has no Save: each page applies its controls at once.
+ * [onBack] is the back arrow, which returns to Home.
  */
 @Composable
-fun LumioSettingsScreen(rows: List<SettingsRowState>, onOpen: (SettingsPage) -> Unit, modifier: Modifier = Modifier) {
-    LenslyScreen(title = "Settings", modifier = modifier, onBack = null) {
+fun LumioSettingsScreen(rows: List<SettingsRowState>, onOpen: (SettingsPage) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    LenslyScreen(title = "Settings", modifier = modifier, onBack = onBack) {
         rows.forEach { row ->
             SettingsRow(title = row.page.title, description = row.summary, onClick = { onOpen(row.page) })
         }

@@ -23,6 +23,13 @@ fun networksSummary(chainsOn: Int, customBitcoin: Boolean): String {
 /** The one-line state under the Data providers row: how many providers are on, of all of them. */
 fun providersSummary(on: Int, total: Int): String = "$on of $total sources on"
 
+/** The one-line state under the Wallets row: how many wallets are paired from Lensly. */
+fun walletsSummary(wallets: Int): String = when (wallets) {
+    0 -> "No wallets paired"
+    1 -> "1 wallet paired"
+    else -> "$wallets wallets paired"
+}
+
 /** The one-line state under the Address book row: how many wallets are paired, and how many addresses their books hold. */
 fun addressBookSummary(wallets: Int, addresses: Int): String {
     if (wallets == 0) return "No wallets paired"

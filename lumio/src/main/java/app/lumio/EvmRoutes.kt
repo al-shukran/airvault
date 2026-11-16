@@ -27,7 +27,6 @@ import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.evm.Portfolio
 import app.lumio.evm.PortfolioTotals
-import app.lumio.evm.RpcFailure
 import app.lumio.evm.Totals
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
@@ -192,18 +191,8 @@ internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHol
         }
         busy = true
         scope.launch {
-            val error = withContext(Dispatchers.IO) {
-                try {
-                    EvmSettingsStore.write(session, transform(EvmSettingsStore.read(session), app.evmRpc))
-                    null
-                } catch (e: IllegalArgumentException) {
-                    e.message ?: "That change is not valid."
-                } catch (e: RpcFailure) {
-                    e.message ?: "The endpoint did not answer."
-                } catch (e: Exception) {
-                    "The change could not be saved. Try again."
-                }
-            }
+            // A refused change is not written, so the stored settings, and an RPC address that did not check, stay as they were.
+            val error = withContext(Dispatchers.IO) { EvmSettingsStore.change(session, app.evmRpc, transform) }
             busy = false
             if (error == null) version++
             onDone(error)

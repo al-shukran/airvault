@@ -73,7 +73,13 @@ fun NetworksSettingsPage(onBack: () -> Unit, bitcoin: @Composable () -> Unit, et
     }
 }
 
-/** The Address book page: the paired wallets, each with its own address book, and the pairing of a wallet from Lensly. [wallets] draws them. */
+/** The Wallets page: the pairing of a wallet from Lensly, and each paired wallet with its delete row. [wallets] draws them. */
+@Composable
+fun WalletsSettingsPage(onBack: () -> Unit, wallets: @Composable () -> Unit) {
+    SettingsPageScreen(SettingsPage.WALLETS, onBack) { wallets() }
+}
+
+/** The Address book page: each paired wallet's own address book, which opens read only. [wallets] draws the rows. */
 @Composable
 fun AddressBookSettingsPage(onBack: () -> Unit, wallets: @Composable () -> Unit) {
     SettingsPageScreen(SettingsPage.ADDRESS_BOOK, onBack) {
@@ -82,14 +88,16 @@ fun AddressBookSettingsPage(onBack: () -> Unit, wallets: @Composable () -> Unit)
 }
 
 /**
- * The Security page: the Hidden Entry Gesture, whose row opens the choice of another gesture (it asks for the App Password first), and the
- * lock: the inactivity timeout, and the switch that locks when the app is switched away from. Each control applies as the owner changes it.
+ * The Security page: the Hidden Entry Gesture, whose row opens the choice of another gesture (it asks for the App Password first), the
+ * App Password, whose row opens its change, and the lock: the inactivity timeout, and the switch that locks when the app is switched away
+ * from. Each control applies as the owner changes it.
  */
 @Composable
 fun SecuritySettingsPage(
     entryGesture: EntryGesture,
     lock: LockSettings,
     onEntryGesture: () -> Unit,
+    onChangePassword: () -> Unit,
     onIdleMinutes: (Int) -> Unit,
     onLockWhenSwitching: (Boolean) -> Unit,
     onBack: () -> Unit,
@@ -102,6 +110,13 @@ fun SecuritySettingsPage(
                 "Choosing another gesture asks for the App Password first.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        SettingsSection(title = "Password") {
+            SettingsRow(
+                title = "Change password",
+                description = "Opens Lumio. Lensly's password is separate.",
+                onClick = onChangePassword,
             )
         }
         SettingsSection(title = "Lock") {

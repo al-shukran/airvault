@@ -69,6 +69,22 @@ object EvmSettingsStore {
     }
 
     /**
+     * Runs [transform] on the stored settings, and writes its result only when it succeeds. Returns null when the change is saved, or the owner's
+     * words when it is refused. A refused change leaves the stored settings as they were, so an RPC address that did not check keeps the one it
+     * had. [transform] may block on the endpoint, so the caller runs this off the main thread.
+     */
+    fun change(session: VaultSession, rpc: EvmRpc, transform: (EvmSettings, EvmRpc) -> EvmSettings): String? = try {
+        write(session, transform(read(session), rpc))
+        null
+    } catch (e: IllegalArgumentException) {
+        e.message ?: "That change is not valid."
+    } catch (e: RpcFailure) {
+        e.message ?: "The endpoint did not answer."
+    } catch (e: Exception) {
+        "The change could not be saved. Try again."
+    }
+
+    /**
      * [stored] brought to the current defaults. A record from before Monad testnet was on by default gets that chain switched on, and its other
      * settings stay as they are. The change is saved with the next write, so an owner who turns the chain off keeps it off.
      */

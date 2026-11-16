@@ -15,6 +15,7 @@ import app.lumio.btc.EsploraServers
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
 import app.lumio.evm.EvmSettings
+import app.lumio.pair.PairedWallet
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -92,8 +93,32 @@ class SettingsPagesTest {
     }
 
     @Test
+    fun theWalletsPageHasNoSave() = assertNoSave {
+        WalletsSettingsPage(onBack = {}, wallets = { Text("Pair from Lensly") })
+    }
+
+    @Test
     fun theAddressBookPageHasNoSave() = assertNoSave {
         AddressBookSettingsPage(onBack = {}, wallets = { Text("No wallets paired yet.") })
+    }
+
+    @Test
+    fun theAddressBookPageHasNoPairingOrDeletionButOpensEachBook() {
+        var opened: String? = null
+        val wallet = PairedWallet(id = "w1", name = "Demo", fingerprint = 1L, createdAtMs = 0L, evm = null, bitcoin = emptyList())
+        compose.setContent {
+            LenslyTheme {
+                AddressBookSettingsPage(
+                    onBack = {},
+                    wallets = { AddressBookRows(wallets = listOf(wallet), onAddressBook = { opened = it.id }) },
+                )
+            }
+        }
+
+        compose.onAllNodesWithText("Pair from Lensly").assertCountEquals(0)
+        compose.onAllNodesWithText("Delete", substring = true).assertCountEquals(0)
+        compose.onNodeWithText("Demo").performClick()
+        assertEquals("w1", opened)
     }
 
     @Test
@@ -105,6 +130,7 @@ class SettingsPagesTest {
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
                     onEntryGesture = { opened = true },
+                    onChangePassword = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
                     onBack = {},
@@ -118,6 +144,27 @@ class SettingsPagesTest {
     }
 
     @Test
+    fun theSecurityPageOpensTheAppPasswordChange() {
+        var opened = false
+        compose.setContent {
+            LenslyTheme {
+                SecuritySettingsPage(
+                    entryGesture = EntryGesture.DEFAULT,
+                    lock = LockSettings(),
+                    onEntryGesture = {},
+                    onChangePassword = { opened = true },
+                    onIdleMinutes = {},
+                    onLockWhenSwitching = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Change password").performScrollTo().performClick()
+        assertEquals(true, opened)
+    }
+
+    @Test
     fun theSecurityLockSwitchAppliesAtOnceAndTheTimeoutShowsItsValue() {
         var switching: Boolean? = null
         compose.setContent {
@@ -126,6 +173,7 @@ class SettingsPagesTest {
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
                     onEntryGesture = {},
+                    onChangePassword = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = { switching = it },
                     onBack = {},
@@ -133,9 +181,9 @@ class SettingsPagesTest {
             }
         }
 
-        compose.onNodeWithText("30 minutes").assertIsDisplayed()
-        compose.onNodeWithText("Default").assertIsDisplayed()
-        // The page scrolls: the switch sits below the fold of the test's small window.
+        // The page scrolls: the lock section sits below the fold of the test's small window, so each control is scrolled to first.
+        compose.onNodeWithText("30 minutes").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Default").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Lock when switching apps").performScrollTo().performClick()
         assertEquals(true, switching)
     }

@@ -294,21 +294,30 @@ internal fun ReceiveRoute(navController: NavHostController, holder: VaultHolder,
     }
 }
 
-/** The Wallets section of the settings: the paired wallets, with pairing and deletion. A deletion is saved, then Home reads the wallets again. */
+/**
+ * The paired wallets of the open vault, read again when [listVersion] changes. Empty while the vault is locked, and the gate takes over then.
+ */
 @Composable
-internal fun WalletsSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onChanged: () -> Unit) {
+internal fun pairedWallets(navController: NavHostController, holder: VaultHolder, listVersion: Int): List<PairedWallet> {
     val session = holder.openSession()
     LaunchedEffect(session == null) {
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
-    val scope = rememberCoroutineScope()
     val wallets by produceState<List<PairedWallet>>(initialValue = emptyList(), session, listVersion) {
         value = if (session == null) emptyList() else onVault(emptyList()) { PairedWallets.list(session) }
     }
+    return wallets
+}
+
+/** The Wallets page: the pairing of a wallet from Lensly, and the paired wallets with deletion. A deletion is saved, then Home reads the wallets again. */
+@Composable
+internal fun WalletsSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onChanged: () -> Unit) {
+    val session = holder.openSession()
+    val scope = rememberCoroutineScope()
+    val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
     WalletsSettings(
         wallets = wallets,
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
-        onAddressBook = { wallet -> navController.navigate(LumioRoute.addressBook(wallet.id)) },
         onDelete = { wallet ->
             if (session != null) {
                 scope.launch {

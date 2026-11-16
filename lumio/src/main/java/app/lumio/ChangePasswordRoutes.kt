@@ -1,0 +1,37 @@
+package app.lumio
+
+import androidx.compose.runtime.Composable
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.composable
+import app.lensly.app.VaultHolder
+import app.lensly.ui.navigation.GateRoutes
+import app.lensly.ui.navigation.leaveHidden
+import app.lensly.ui.navigation.openHidden
+import app.lensly.ui.settings.ChangeCopy
+import app.lensly.ui.settings.ChangePasswordFlow
+import app.lensly.ui.settings.changeAppPassword
+
+/**
+ * The App Password change in Settings → Security. The steps and the screen are Lensly's, shared through :shared, and the change re-wraps the
+ * key of Lumio's own vault. Lensly's vault is not changed. The change runs only while the vault is open, as on every Lumio screen.
+ */
+internal fun NavGraphBuilder.changePasswordRoutes(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection) {
+    composable(LumioRoute.CHANGE_PASSWORD) {
+        LumioBackdrop(selection) { LumioChangePasswordRoute(navController, holder) }
+    }
+}
+
+/** The change of Lumio's App Password. A locked vault shows the gate, and a vault that cannot be changed shows the neutral screen. */
+@Composable
+private fun LumioChangePasswordRoute(navController: NavHostController, holder: VaultHolder) {
+    if (!rememberGateSession(navController, holder)) return
+    ChangePasswordFlow(
+        holder = holder,
+        copy = ChangeCopy.APP_PASSWORD,
+        change = { password -> changeAppPassword(holder, password) },
+        onLeave = { navController.popBackStack() },
+        onLocked = { leaveHidden(navController, holder) },
+        onUnavailable = { navController.openHidden(GateRoutes.UNAVAILABLE) },
+    )
+}
