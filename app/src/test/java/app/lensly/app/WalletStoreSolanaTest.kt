@@ -120,7 +120,7 @@ class WalletStoreSolanaTest {
 
     @Test
     fun theSolanaAppIsListedAfterEthereum() {
-        assertEquals(listOf(WalletApp.BITCOIN, WalletApp.ETHEREUM, WalletApp.SOLANA), WalletApp.entries)
+        assertEquals(listOf(WalletApp.BITCOIN, WalletApp.ETHEREUM, WalletApp.SOLANA, WalletApp.ALGORAND), WalletApp.entries)
         assertEquals(WalletApp.SOLANA, WalletApp.fromRouteId("solana"))
     }
 

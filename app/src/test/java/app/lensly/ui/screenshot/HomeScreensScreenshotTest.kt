@@ -436,6 +436,7 @@ class HomeScreensScreenshotTest {
             walletProfile = walletProfile,
             walletPosition = 0,
             solanaAccounts = 0,
+            algorandAccounts = 0,
             bitcoinAccounts = bitcoinAccounts,
             onBack = {},
             onOpenApp = {},

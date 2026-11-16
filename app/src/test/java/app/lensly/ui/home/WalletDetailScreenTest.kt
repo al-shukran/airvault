@@ -61,6 +61,7 @@ class WalletDetailScreenTest {
             walletPosition = 0,
             bitcoinAccounts = bitcoin,
             solanaAccounts = 0,
+            algorandAccounts = 0,
             onBack = {},
             onOpenApp = { app -> route.opened = app },
             onShowSecret = { route.revealed = true },
@@ -177,7 +178,7 @@ class WalletDetailScreenTest {
         }
 
         compose.onNodeWithText("1 account").assertIsDisplayed()
-        // The Bitcoin and Solana rows both hold no account, so the count of 0 is shown twice.
+        // The Bitcoin, Solana and Algorand rows hold no account, so the count of 0 is shown three times.
         compose.onAllNodesWithText("0 accounts")[0].assertIsDisplayed()
         compose.onNodeWithContentDescription("Wallet options").performClick()
         compose.onNodeWithText("Show private key").assertIsDisplayed()

@@ -10,6 +10,7 @@ import app.lensly.core.btc.BtcAccountSelection
 import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcPsbt
+import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.btc.BtcRefusal
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.btc.BtcSigner
@@ -424,6 +425,70 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
+     * The public keys of the Algorand accounts of wallet [id], in account order: account N is the key at position N. A wallet with none, or
+     * with a record that cannot be read, has an empty list. The record holds no secret.
+     */
+    fun algorandKeys(id: String): List<ByteArray> {
+        val bytes = session.getRecord(id, WalletRecordNames.ALGORAND) ?: return emptyList()
+        return try {
+            WalletRecords.decodeAlgorandKeys(bytes)
+        } catch (e: IOException) {
+            emptyList()
+        } catch (e: IllegalArgumentException) {
+            emptyList()
+        }
+    }
+
+    /**
+     * An Algorand Bulk Run: adds [count] Algorand accounts to wallet [id], numbered after the ones it already has, and returns their public keys.
+     * Account N is the Ledger Algorand key of m/44'/283'/N'/0/0 ([AlgorandAccount.publicKey]), and the seed is zeroed after the run. Every key is
+     * derived before anything is saved, so a failure stops the run with nothing written. The record is written under the session's lock. If the
+     * wallet's Algorand accounts changed while the run derived, nothing is saved and the result is null. [onProgress] receives the number of
+     * accounts derived so far.
+     *
+     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, it is a Single Key wallet, which has no seed, or
+     * it would keep more than [WalletRecords.ALGORAND_MAX_ACCOUNTS] Algorand accounts. Nothing is saved then.
+     */
+    fun addAlgorandAccounts(id: String, count: Int, cap: Int, onProgress: (Int) -> Unit = {}): List<ByteArray>? {
+        require(BulkPolicy.checkCount(count, cap) is BulkPolicy.CountCheck.Valid) {
+            "A Bulk Run makes 1 to $cap accounts."
+        }
+        val current = requireNotNull(meta(id)) { "No wallet $id." }
+        require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_ALGORAND }
+        val start = algorandKeys(id).size
+        require(start + count <= WalletRecords.ALGORAND_MAX_ACCOUNTS) {
+            "A wallet keeps at most ${WalletRecords.ALGORAND_MAX_ACCOUNTS} Algorand accounts."
+        }
+        val seed = seedOf(id)
+        val derived = try {
+            (start until start + count).mapIndexed { done, index ->
+                AlgorandAccount.publicKey(seed, index).also { onProgress(done + 1) }
+            }
+        } finally {
+            seed.fill(0)
+        }
+        return synchronized(session) {
+            val now = algorandKeys(id)
+            if (now.size != start) {
+                null
+            } else {
+                putAlgorandKeys(id, now + derived)
+                derived
+            }
+        }
+    }
+
+    /**
+     * Writes the Algorand record of wallet [id] as [keys]. The record has a fixed size, so a write that would not fit is refused before anything
+     * is written, and the record is left as it was.
+     */
+    private fun putAlgorandKeys(id: String, keys: List<ByteArray>) {
+        val bytes = WalletRecords.encodeAlgorandKeys(keys)
+        require(bytes.size <= WalletRecordNames.ALGORAND_CAPACITY) { NO_ROOM_FOR_ALGORAND }
+        session.putRecord(id, WalletRecordNames.ALGORAND, bytes)
+    }
+
+    /**
      * Saves the profile of Bitcoin account [account] of wallet [id]: its Display Name, colour, icon, label and group, as an Ethereum account's
      * profile is saved. The account is found by its key, and its address and every other account keep what they were. A blank name is the
      * Auto-Name, as it is for an Ethereum account.
@@ -452,7 +517,7 @@ class WalletStore(private val session: VaultSession) {
 
     /**
      * The frames of the AirVault pairing of wallet [id]: one `ur:airvault-pairing` that holds the keys and accounts of every App in
-     * [WalletApp], in its order, with the names, labels and groups Lensly shows for them. Lumio replaces what it holds for the wallet with
+     * [WalletApp] that the pairing carries, in its order, with the names, labels and groups Lensly shows for them. Lumio replaces what it holds for the wallet with
      * it, so Lensly is the source of truth. The Address Book goes with it, the first [PairingCodec.MAX_ADDRESS_BOOK] entries in the order they
      * were added. A book that cannot be read fails the pairing, so Lumio never replaces its book with an empty one. The seed is derived for
      * the pairing and zeroed after it. [brotli] compresses the body of the code: Lensly passes its encoder, and null stores the body as it is,
@@ -467,7 +532,7 @@ class WalletStore(private val session: VaultSession) {
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
         try {
             val fingerprint = HdWallet(seed).masterFingerprint.toLong() and UINT32_MASK
-            val apps = WalletApp.entries.map { app -> app.pairedApp(this, id, seed) }
+            val apps = WalletApp.entries.mapNotNull { app -> app.pairedApp(this, id, seed) }
             val name = fitBytes(meta.name.ifBlank { DEFAULT_PAIRING_NAME }, PairingCodec.MAX_NAME_BYTES)
             val book = AddressBookStore(session).load().take(PairingCodec.MAX_ADDRESS_BOOK)
             return PairingCodec.urParts(PairingPayload(fingerprint = fingerprint, name = name, apps = apps, addressBook = book), brotli)
@@ -960,6 +1025,8 @@ class WalletStore(private val session: VaultSession) {
             "The Bitcoin accounts of this wallet take too much room to save. Clear a name, label or group on one of them."
         const val NO_ROOM_FOR_SOLANA = "The Solana accounts of this wallet take too much room to save."
         const val SINGLE_KEY_NO_SOLANA = "A Single Key wallet has no seed, so it cannot hold Solana accounts."
+        const val NO_ROOM_FOR_ALGORAND = "The Algorand accounts of this wallet take too much room to save."
+        const val SINGLE_KEY_NO_ALGORAND = "A Single Key wallet has no seed, so it cannot hold Algorand accounts."
     }
 }
 
@@ -983,9 +1050,16 @@ internal object WalletRecords {
     /** The most Solana accounts a wallet keeps, the largest Bulk Cap. The Solana record's capacity is sized for them. */
     const val SOLANA_MAX_ACCOUNTS = 100
 
+    /** The most Algorand accounts a wallet keeps, the largest Bulk Cap. The Algorand record's capacity is sized for them. */
+    const val ALGORAND_MAX_ACCOUNTS = 100
+
     /** The version of the Solana record: a count, then the 32-byte public key of each account. */
     private const val SOLANA_VERSION = 1
     private const val SOLANA_KEY_BYTES = 32
+
+    /** The version of the Algorand record: a count, then the 32-byte public key of each account. */
+    private const val ALGORAND_VERSION = 1
+    private const val ALGORAND_KEY_BYTES = 32
 
     /** The meta versions before wallet kinds, which have no kind byte, and before the backed-up flag. Version 3 is written now. */
     private const val META_VERSION = 4
@@ -1186,6 +1260,26 @@ internal object WalletRecords {
         val count = input.readInt()
         require(count in 0..SOLANA_MAX_ACCOUNTS) { "Account count out of range." }
         List(count) { ByteArray(SOLANA_KEY_BYTES).also { input.readFully(it) } }
+    }
+
+    /** The Algorand record: the version byte, the count (int), then the 32-byte public key of each account, in account order. */
+    fun encodeAlgorandKeys(keys: List<ByteArray>): ByteArray {
+        require(keys.size <= ALGORAND_MAX_ACCOUNTS) { "A wallet keeps at most $ALGORAND_MAX_ACCOUNTS Algorand accounts." }
+        require(keys.all { it.size == ALGORAND_KEY_BYTES }) { "An Algorand public key is 32 bytes." }
+        return writeBytes { out ->
+            out.writeByte(ALGORAND_VERSION)
+            out.writeInt(keys.size)
+            keys.forEach { out.write(it) }
+        }
+    }
+
+    /** The public keys of an Algorand record, in account order. */
+    fun decodeAlgorandKeys(bytes: ByteArray): List<ByteArray> = readBytes(bytes) { input ->
+        val version = input.readUnsignedByte()
+        require(version == ALGORAND_VERSION) { "Unknown record version $version." }
+        val count = input.readInt()
+        require(count in 0..ALGORAND_MAX_ACCOUNTS) { "Account count out of range." }
+        List(count) { ByteArray(ALGORAND_KEY_BYTES).also { input.readFully(it) } }
     }
 
     /** The flag bit for a field that is set, or 0 for one that is not. */
