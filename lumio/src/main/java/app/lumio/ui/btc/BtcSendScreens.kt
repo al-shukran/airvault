@@ -14,6 +14,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -32,6 +36,7 @@ import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.btc.BtcAccountRef
+import app.lumio.btc.BtcAdvanced
 import app.lumio.btc.BtcSendInput
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.btcText
@@ -53,6 +58,7 @@ fun BtcSendFormScreen(
     onSelect: (String) -> Unit,
     recipient: String,
     onRecipient: (String) -> Unit,
+    onScan: () -> Unit,
     amount: String,
     onAmount: (String) -> Unit,
     feeRate: String,
@@ -105,6 +111,7 @@ fun BtcSendFormScreen(
             label = "Recipient address",
             validate = { text -> network?.let { btcRecipientError(text, it) } },
             enabled = !busy,
+            onScan = onScan,
         )
         Spacer(Modifier.height(LenslySpacing.sm))
         OutlinedTextField(
@@ -137,14 +144,20 @@ fun BtcSendFormScreen(
     }
 }
 
-/** The review of a Bitcoin send before anything is requested: what leaves, where it goes, the fee, and where the change goes. */
+/**
+ * The review of a Bitcoin send before anything is requested: what leaves, where it goes, the fee, and where the change goes. [suggestedRate]
+ * is the fee rate the server suggests. Advanced edits the rate, and [onSave] takes the rate the owner keeps.
+ */
 @Composable
 fun BtcSendReviewScreen(
     plan: BtcSendPlan,
+    suggestedRate: Double,
     notice: String?,
+    onSave: (Double) -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit,
 ) {
+    var advanced by remember { mutableStateOf(false) }
     LenslyScreen(
         title = "REVIEW SEND",
         onBack = onBack,
@@ -167,6 +180,17 @@ fun BtcSendReviewScreen(
             plan.changeIndex?.let { "${btcText(plan.changeSats)}, to change address $it" } ?: "None. The remainder goes to the fee.",
         )
         ReviewField("Spends", "${plan.coins.size} output(s), ${btcText(plan.inputSats)}")
+        BtcAdvanced.warnings(suggestedRate, plan.feeRateSatPerVb).forEach { warning ->
+            Spacer(Modifier.height(LenslySpacing.xs))
+            InlineBanner(message = warning, tone = BannerTone.Warning)
+        }
+        Spacer(Modifier.height(LenslySpacing.md))
+        WalletPill(
+            text = "Advanced",
+            onClick = { advanced = true },
+            modifier = Modifier.fillMaxWidth(),
+            style = WalletPillStyle.Outline,
+        )
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             "Lumio holds no key. Lensly signs this transaction, and Lumio sends only the signed transaction that Lensly shows.",
@@ -177,6 +201,17 @@ fun BtcSendReviewScreen(
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(message = it, tone = BannerTone.Error)
         }
+    }
+    if (advanced) {
+        BtcAdvancedSheet(
+            suggestedRate = suggestedRate,
+            rate = plan.feeRateSatPerVb,
+            onSave = { rate ->
+                advanced = false
+                onSave(rate)
+            },
+            onDismiss = { advanced = false },
+        )
     }
 }
 
@@ -299,4 +334,4 @@ private fun NetworkHeader(network: BtcNetwork) {
 }
 
 /** A fee rate as the form takes it: a whole number when it is one, else its decimals. */
-private fun rateText(rate: Double): String = if (rate % 1.0 == 0.0) rate.toLong().toString() else rate.toString()
+internal fun rateText(rate: Double): String = if (rate % 1.0 == 0.0) rate.toLong().toString() else rate.toString()

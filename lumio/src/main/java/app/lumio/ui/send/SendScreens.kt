@@ -14,6 +14,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -34,12 +38,16 @@ import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.theme.LenslySpacing
+import app.lumio.evm.EvmAdvanced
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmFormat
 import app.lumio.evm.PreparedSend
 import app.lumio.evm.SendInput
 
 private const val TESTNET_LABEL = "TESTNET"
+
+/** What the recipient scan says before a code is read. It stays on screen while the camera looks for one. */
+internal const val RECIPIENT_SCAN_HINT = "Point the camera at an address or a payment code."
 
 /**
  * The send form: the address that sends, the chain (only the chains that are on), the recipient and the amount. [notice] is why the last
@@ -54,6 +62,7 @@ fun SendFormScreen(
     onSelectChain: (Long) -> Unit,
     recipient: String,
     onRecipient: (String) -> Unit,
+    onScan: () -> Unit,
     amount: String,
     onAmount: (String) -> Unit,
     busy: Boolean,
@@ -111,6 +120,7 @@ fun SendFormScreen(
             label = "Recipient address (0x)",
             validate = ::recipientError,
             enabled = !busy,
+            onScan = onScan,
         )
         Spacer(Modifier.height(LenslySpacing.sm))
         OutlinedTextField(
@@ -129,15 +139,21 @@ fun SendFormScreen(
     }
 }
 
-/** The review of a send before anything is requested: what leaves, where it goes, and the most the fee can be. */
+/**
+ * The review of a send before anything is requested: what leaves, where it goes, and the most the fee can be. [suggested] is the send the
+ * network prepared; Advanced edits the nonce, the gas limit and the fees, and [onSave] takes the edited send.
+ */
 @Composable
 fun SendReviewScreen(
     send: PreparedSend,
+    suggested: PreparedSend,
     notice: String?,
+    onSave: (PreparedSend) -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit,
 ) {
     val chain = send.chain
+    var advanced by remember { mutableStateOf(false) }
     LenslyScreen(
         title = "REVIEW SEND",
         onBack = onBack,
@@ -160,6 +176,17 @@ fun SendReviewScreen(
         ReviewField("Gas limit", send.gasLimit.toString())
         ReviewField("Nonce", send.nonce.toString())
         ReviewField("Balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
+        EvmAdvanced.warnings(suggested, send).forEach { warning ->
+            Spacer(Modifier.height(LenslySpacing.xs))
+            InlineBanner(message = warning, tone = BannerTone.Warning)
+        }
+        Spacer(Modifier.height(LenslySpacing.md))
+        WalletPill(
+            text = "Advanced",
+            onClick = { advanced = true },
+            modifier = Modifier.fillMaxWidth(),
+            style = WalletPillStyle.Outline,
+        )
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             "Lumio holds no key. Lensly signs this transaction, and Lumio sends only the signature that Lensly shows.",
@@ -171,6 +198,23 @@ fun SendReviewScreen(
             InlineBanner(message = it, tone = BannerTone.Error)
         }
     }
+    if (advanced) {
+        AdvancedSendSheet(
+            suggested = suggested,
+            current = send,
+            onSave = { edited ->
+                advanced = false
+                onSave(edited)
+            },
+            onDismiss = { advanced = false },
+        )
+    }
+}
+
+/** The camera scan of a recipient: an address or a payment code. [status] says what to scan, or why the last code was refused. */
+@Composable
+fun RecipientScanScreen(status: String, onText: (String) -> Unit, onCancel: () -> Unit) {
+    ScanScreen(title = "SCAN ADDRESS", progress = null, statusText = status, onText = onText, onCancel = onCancel)
 }
 
 /** The request as an animated code for Lensly to scan. [notice] is why the last signature did not send. */

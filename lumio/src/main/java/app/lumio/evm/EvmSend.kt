@@ -64,6 +64,10 @@ class PreparedSend(
 
     /** The most the send can cost: the amount and the gas at the fee cap, in wei. */
     val maxCostWei: BigInteger get() = valueWei + maxFeeWei
+
+    /** This send with the nonce, the gas limit and the fees replaced, as the owner edits them. The amount and the parties stay. */
+    fun withFees(nonce: Long, gasLimit: BigInteger, maxFeePerGas: BigInteger, maxPriorityFeePerGas: BigInteger): PreparedSend =
+        PreparedSend(chain, index, from, to, valueWei, nonce, gasLimit, maxFeePerGas, maxPriorityFeePerGas, balanceWei)
 }
 
 /** A send from one address of a paired wallet, as the owner builds it, and the sign request and answer that go with it. */
