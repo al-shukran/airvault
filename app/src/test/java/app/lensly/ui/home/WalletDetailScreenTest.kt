@@ -60,7 +60,6 @@ class WalletDetailScreenTest {
             walletPosition = 0,
             bitcoinAccounts = bitcoin,
             onBack = {},
-            onLock = {},
             onOpenApp = { app -> route.opened = app },
             onShowSecret = { route.revealed = true },
             onHistory = { route.historyOpened = true },

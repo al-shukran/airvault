@@ -152,7 +152,6 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         versionName = BuildConfig.VERSION_NAME,
         versionCode = BuildConfig.VERSION_CODE,
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -495,7 +494,6 @@ private fun ChangePasswordRoute(navController: NavHostController, holder: VaultH
             }
         },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
         onDone = { navController.popBackStack() },
         copy = if (duress) ChangeCopy.DURESS_PASSWORD else ChangeCopy.APP_PASSWORD,
     )

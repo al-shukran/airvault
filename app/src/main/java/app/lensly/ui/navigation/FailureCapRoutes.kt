@@ -103,7 +103,6 @@ internal fun FailureCapRoute(navController: NavHostController, holder: VaultHold
                 is FailureCapStep.Password -> if (!current.busy) backToChoose()
             }
         },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 

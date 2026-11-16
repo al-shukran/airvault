@@ -191,7 +191,6 @@ class AssetScreenTest {
                 onReceive = {},
                 onAccount = {},
                 onBack = {},
-                onLock = {},
             )
         }
     }

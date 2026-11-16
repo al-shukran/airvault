@@ -23,12 +23,12 @@ class CatalogScreenshotTest {
 
     @Test
     fun networks() = compose.snapshot("networks_all", settleMs = SETTLE_MS) {
-        NetworksScreen(networks = registry.networks(), tokens = registry.tokens(), onBack = {}, onLock = {})
+        NetworksScreen(networks = registry.networks(), tokens = registry.tokens(), onBack = {})
     }
 
     @Test
     fun tokens() = compose.snapshot("tokens_grouped", settleMs = SETTLE_MS) {
-        TokensScreen(networks = registry.networks(), tokens = registry.tokens(), onBack = {}, onLock = {})
+        TokensScreen(networks = registry.networks(), tokens = registry.tokens(), onBack = {})
     }
 
     private companion object {

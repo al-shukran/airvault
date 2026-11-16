@@ -71,7 +71,6 @@ class CoverageScreenshotTest {
             onSubmit = {},
             onConfirm = {},
             onBack = {},
-            onLock = {},
         )
     }
 

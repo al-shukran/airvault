@@ -19,7 +19,6 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.ui.navigation.GateRoutes
-import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.navigation.openHidden
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcSnapshot
@@ -227,7 +226,6 @@ private fun AssetPage(navController: NavHostController, holder: VaultHolder, app
         onReceive = { option -> receiveRoute(option.target)?.let { navController.navigate(it) } },
         onAccount = { option -> accountRoute(option.target)?.let { navController.navigate(it) } },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -285,7 +283,6 @@ internal fun ReceiveRoute(navController: NavHostController, holder: VaultHolder,
             address = current.address,
             bitcoin = current.bitcoin,
             onBack = { navController.popBackStack() },
-            onLock = { leaveHidden(navController, holder) },
         )
     }
 }

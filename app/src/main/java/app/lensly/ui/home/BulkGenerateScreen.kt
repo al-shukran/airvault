@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +20,7 @@ import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.formatAccounts
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.NumericKeypad
 import app.lensly.ui.components.PillButton
@@ -70,7 +70,6 @@ fun BulkGenerateScreen(
     onPreset: (Int) -> Unit,
     onGenerate: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     chain: BulkChain = BulkChain.Evm,
     onChain: (BulkChain) -> Unit = {},
     bitcoinAllowed: Boolean = true,
@@ -95,27 +94,7 @@ fun BulkGenerateScreen(
             NumericKeypad(onDigit = onDigit, onBackspace = onBackspace, enabled = !running)
         },
     ) {
-        Row(
-            modifier = Modifier.padding(top = LenslySpacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            WalletPill(
-                text = "Back",
-                onClick = onBack,
-                modifier = Modifier.tapHaptic(haptics),
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
-                enabled = !running,
-            )
-            Spacer(Modifier.weight(1f))
-            WalletPill(
-                text = "Lock",
-                onClick = onLock,
-                modifier = Modifier.tapHaptic(haptics),
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
-            )
-        }
+        DetailTopBar(title = "Bulk generate", onBack = { if (!running) onBack() })
         Spacer(Modifier.height(LenslySpacing.lg))
         ChainChoice(chain = chain, onChain = onChain, running = running)
         if (chain is BulkChain.Bitcoin && !bitcoinAllowed) {

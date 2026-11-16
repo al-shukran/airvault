@@ -58,7 +58,6 @@ fun WalletScreen(
     onBack: () -> Unit,
     onSend: (index: Int) -> Unit,
     modifier: Modifier = Modifier,
-    onLock: () -> Unit = {},
 ) {
     WalletScaffold(
         modifier = modifier,
@@ -73,7 +72,7 @@ fun WalletScreen(
             Spacer(Modifier.height(LenslySpacing.xs))
         },
     ) {
-        DetailTopBar(onBack = onBack, onLock = onLock)
+        DetailTopBar(title = "Ethereum", onBack = onBack)
         AppTitle(logo = { size -> AddressIcon(size = size) }, name = "Ethereum", walletName = walletName)
         Spacer(Modifier.height(LenslySpacing.sm))
         if (refreshing) Caption("Reading the network")

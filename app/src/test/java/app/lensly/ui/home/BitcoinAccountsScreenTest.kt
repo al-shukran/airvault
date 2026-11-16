@@ -61,7 +61,6 @@ class BitcoinAccountsScreenTest {
             ),
             accounts = accounts,
             onBack = {},
-            onLock = {},
             onGenerate = { route.generated = true },
             onPair = { route.paired = true },
             onScan = { route.scanned = true },

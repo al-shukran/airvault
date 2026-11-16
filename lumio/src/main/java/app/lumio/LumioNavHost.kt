@@ -220,7 +220,15 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
     val selection = remember { NetworkSelection() }
     // Counts the saves and deletions, so Home and Settings read the paired wallets again.
     var listVersion by remember { mutableIntStateOf(0) }
-    CoverNavHost(debugHiddenRequest = debugHiddenRequest, modifier = modifier) { navController, holder ->
+    CoverNavHost(
+        debugHiddenRequest = debugHiddenRequest,
+        modifier = modifier,
+        // The top bar's lock icon clears the pairing draft too, as the Home lock does.
+        lockVault = { navController, holder ->
+            draft.clear()
+            leaveHidden(navController, holder)
+        },
+    ) { navController, holder ->
         fun lock() {
             draft.clear()
             leaveHidden(navController, holder)

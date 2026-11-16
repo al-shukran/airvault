@@ -35,12 +35,6 @@ fun UnavailableScreen(
             .padding(horizontal = LenslySpacing.md),
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        Text(
-            text = "OFFLINE VAULT",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(LenslySpacing.sm))
         DotHeadline(text = "NOT AVAILABLE")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(

@@ -100,7 +100,6 @@ fun AssetScreen(
     onReceive: (AccountOption) -> Unit,
     onAccount: (AccountOption) -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var picking by remember { mutableStateOf<AssetAction?>(null) }
@@ -113,7 +112,7 @@ fun AssetScreen(
     }
 
     WalletScaffold(modifier = modifier) {
-        DetailTopBar(onBack = onBack, onLock = onLock)
+        DetailTopBar(title = "Asset", onBack = onBack)
         AppTitle(
             logo = { size ->
                 if (asset.network.family == Family.BTC) {

@@ -31,11 +31,10 @@ fun ReceiveScreen(
     address: String,
     bitcoin: Boolean,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     WalletScaffold(modifier = modifier) {
-        DetailTopBar(onBack = onBack, onLock = onLock)
+        DetailTopBar(title = "Receive", onBack = onBack)
         AppTitle(
             logo = { size -> if (bitcoin) BitcoinIcon(size = size) else AddressIcon(size = size) },
             name = "Receive",

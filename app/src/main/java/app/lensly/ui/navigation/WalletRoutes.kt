@@ -342,7 +342,6 @@ private fun RegistryImportRoute(navController: NavHostController, holder: VaultH
             chooseFile.launch(arrayOf("*/*"))
         },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -675,7 +674,6 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
         walletPosition = position,
         bitcoinAccounts = bitcoin,
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
         onOpenApp = { app -> navController.navigate(HiddenRoute.app(walletId, app)) },
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
         onHistory = { navController.navigate(HiddenRoute.history(walletId)) },
@@ -720,7 +718,6 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
             addresses = ethereum?.addresses,
             accountProfiles = ethereum?.profiles.orEmpty(),
             onBack = { navController.popBackStack() },
-            onLock = { leaveHidden(navController, holder) },
             onAddAccount = {
                 scope.launch {
                     whileUnlocked(navController, holder) {
@@ -757,7 +754,6 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
                 wallet = shown,
                 accounts = accounts,
                 onBack = { navController.popBackStack() },
-                onLock = { leaveHidden(navController, holder) },
                 onGenerate = { navController.navigate(HiddenRoute.bulk(walletId, app)) },
                 onPair = { navController.navigate(HiddenRoute.export(walletId)) },
                 onScan = { navController.navigate(HiddenRoute.scan(walletId)) },
@@ -958,7 +954,6 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
             }
         },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 

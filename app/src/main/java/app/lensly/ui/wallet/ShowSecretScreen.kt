@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,7 +60,6 @@ fun ShowSecretScreen(
     onMove: (Int) -> Unit,
     onSelect: (RevealPart) -> Unit,
     onDone: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
     /** The Done of the last page of the words. It runs in place of [onDone] there, so a caller can record the backup first. */
     onFinish: () -> Unit = onDone,
@@ -74,20 +72,18 @@ fun ShowSecretScreen(
             onBackspace = onBackspace,
             onSubmit = onSubmit,
             onBack = onDone,
-            onLock = onLock,
             modifier = modifier,
             title = TITLE,
             prompt = SHOW_PROMPT,
             stepCount = STEP_COUNT,
         )
-        RevealStep.Warning -> WarningStep(onShow = onShow, onBack = onDone, onLock = onLock, modifier = modifier)
+        RevealStep.Warning -> WarningStep(onShow = onShow, onBack = onDone, modifier = modifier)
         is RevealStep.Revealed -> RevealedStep(
             step = step,
             onMove = onMove,
             onSelect = onSelect,
             onDone = onDone,
             onFinish = onFinish,
-            onLock = onLock,
             modifier = modifier,
         )
         is RevealStep.Cleared -> Unit
@@ -98,7 +94,6 @@ fun ShowSecretScreen(
 private fun WarningStep(
     onShow: () -> Unit,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier,
 ) {
     LenslyScreen(
@@ -114,7 +109,7 @@ private fun WarningStep(
             )
         },
     ) {
-        StepHeader(step = 2, onLock = onLock, count = STEP_COUNT)
+        StepHeader(step = 2, count = STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
         DotHeadline(text = "WARNING")
         Spacer(Modifier.height(LenslySpacing.lg))
@@ -134,7 +129,6 @@ private fun RevealedStep(
     onSelect: (RevealPart) -> Unit,
     onDone: () -> Unit,
     onFinish: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier,
 ) {
     val secret = step.secret
@@ -187,13 +181,6 @@ private fun RevealedStep(
             WalletPill(
                 text = "Hide",
                 onClick = onDone,
-                style = WalletPillStyle.Outline,
-                size = WalletPillSize.Compact,
-            )
-            Spacer(Modifier.width(LenslySpacing.xs))
-            WalletPill(
-                text = "Lock",
-                onClick = onLock,
                 style = WalletPillStyle.Outline,
                 size = WalletPillSize.Compact,
             )

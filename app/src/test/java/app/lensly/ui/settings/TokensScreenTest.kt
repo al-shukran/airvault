@@ -40,7 +40,6 @@ class TokensScreenTest {
                     networks = listOf(alpha, beta),
                     tokens = listOf(alphaOne, alphaTwo, betaOne),
                     onBack = {},
-                    onLock = {},
                 )
             }
         }

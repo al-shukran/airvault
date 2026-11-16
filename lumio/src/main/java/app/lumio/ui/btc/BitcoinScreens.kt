@@ -64,7 +64,6 @@ fun BitcoinPortfolioScreen(
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    onLock: () -> Unit = {},
 ) {
     WalletScaffold(
         modifier = modifier,
@@ -79,7 +78,7 @@ fun BitcoinPortfolioScreen(
             Spacer(Modifier.height(LenslySpacing.xs))
         },
     ) {
-        DetailTopBar(onBack = onBack, onLock = onLock)
+        DetailTopBar(title = "Bitcoin", onBack = onBack)
         AppTitle(logo = { size -> BitcoinIcon(size = size) }, name = "Bitcoin", walletName = walletName)
         Spacer(Modifier.height(LenslySpacing.sm))
         if (scanning) Caption(progress ?: "Scanning")
@@ -123,7 +122,6 @@ fun BitcoinAccountScreen(
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    onLock: () -> Unit = {},
 ) {
     val account = row.ref.account
     val snapshot = row.snapshot
@@ -142,7 +140,7 @@ fun BitcoinAccountScreen(
             Spacer(Modifier.height(LenslySpacing.xs))
         },
     ) {
-        DetailTopBar(onBack = onBack, onLock = onLock)
+        DetailTopBar(title = "Bitcoin account", onBack = onBack)
         AppTitle(logo = { size -> BitcoinIcon(size = size) }, name = "Bitcoin", walletName = walletName)
         Spacer(Modifier.height(LenslySpacing.sm))
         if (scanning) Caption("Scanning")

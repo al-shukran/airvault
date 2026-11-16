@@ -13,7 +13,6 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
-import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.navigation.openHidden
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcPortfolio
@@ -124,7 +123,6 @@ internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder,
         onSend = { navController.navigate(LumioRoute.BTC_SEND) },
         onRefresh = ::refresh,
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 
@@ -190,7 +188,6 @@ internal fun BitcoinAccountRoute(navController: NavHostController, holder: Vault
         failure = failure,
         onRefresh = { refresh(current.ref) },
         onBack = { navController.popBackStack() },
-        onLock = { leaveHidden(navController, holder) },
     )
 }
 

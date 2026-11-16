@@ -15,7 +15,7 @@ import app.lensly.ui.theme.LenslySpacing
 
 /**
  * Warning shown before the owner skips the ceremony. The wallet then trusts only the device's random
- * generator and is labelled DEVICE-GENERATED. Back is the primary choice; skipping is the red action.
+ * generator and is labelled DEVICE-GENERATED. Back is the top bar's arrow; skipping is the red action.
  */
 @Composable
 fun SkipWarningScreen(
@@ -26,14 +26,8 @@ fun SkipWarningScreen(
     LenslyScreen(
         title = "Seed ceremony",
         modifier = modifier,
+        onBack = onBack,
         bottomAction = {
-            WalletPill(
-                text = "Back",
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
-            Spacer(Modifier.height(LenslySpacing.sm))
             WalletPill(
                 text = "Skip anyway",
                 onClick = onConfirm,

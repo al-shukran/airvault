@@ -40,7 +40,6 @@ class FailureCapScreenTest {
                     onBackspace = {},
                     onSubmit = {},
                     onBack = {},
-                    onLock = {},
                 )
             }
         }
@@ -76,7 +75,6 @@ class FailureCapScreenTest {
                     onBackspace = {},
                     onSubmit = {},
                     onBack = {},
-                    onLock = {},
                 )
             }
         }

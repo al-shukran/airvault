@@ -45,7 +45,6 @@ import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.wallet.WalletEyebrow
 
 /** The networks, tokens and approved contracts the catalog holds: the built-in entries plus any installed package. */
 data class Catalog(
@@ -67,7 +66,7 @@ private const val PREVIEW_ICONS = 4
 
 /**
  * The Settings screen of the vault: Entry, Bulk generation, the wrong password lockout, the catalog and About, one row style
- * throughout. LOCK sits under the title, beside the offline label.
+ * throughout.
  *
  * [bulkCap] is null until the saved setting has been read, and its options are off until then. [onBulkCap] saves the
  * new cap. [onChangePassword] opens the App Password change, and [onWipe] opens the wipe. [failureDelayCap] is the saved
@@ -109,18 +108,9 @@ fun SettingsScreen(
     versionName: String,
     versionCode: Int,
     onBack: () -> Unit,
-    onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = "Settings", modifier = modifier, onBack = onBack) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            WalletEyebrow("Offline vault", modifier = Modifier.weight(1f))
-            PillButton(text = "Lock", onClick = onLock)
-        }
-
         SettingsSection("Entry") {
             SettingsRow(
                 title = "Hidden entry gesture",
