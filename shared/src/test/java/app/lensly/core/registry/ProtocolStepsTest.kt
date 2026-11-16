@@ -46,6 +46,19 @@ private val AAVE_WITHDRAW = listOf(
 )
 private val AAVE_COLLATERAL = listOf(WhitelistParam("asset", "address"), WhitelistParam("useAsCollateral", "bool"))
 private val COMPOUND_ASSET_AMOUNT = listOf(WhitelistParam("asset", "address"), WhitelistParam("amount", "uint256"))
+private val COMPOUND_SUPPLY_TO = listOf(
+    WhitelistParam("dst", "address"),
+    WhitelistParam("asset", "address"),
+    WhitelistParam("amount", "uint256"),
+)
+private val COMPOUND_WITHDRAW_FROM = listOf(
+    WhitelistParam("src", "address"),
+    WhitelistParam("to", "address"),
+    WhitelistParam("asset", "address"),
+    WhitelistParam("amount", "uint256"),
+)
+private const val SIGNER_SUPPLY_TO = "0x399ee7da8beeacf852a4f578de2cb340abddbdb4"
+private const val SIGNER_WITHDRAW_FROM = "0x6567ce7829a9d7037722b1aca8b50fab4716d58f"
 private val ONE_ADDRESS = listOf(WhitelistParam("_referral", "address"))
 private val ONE_AMOUNT = listOf(WhitelistParam("wad", "uint256"))
 private const val AAVE_GATEWAY = "0xd01607c3c5ecaba394d8be377a08590149325722"
@@ -256,6 +269,67 @@ class ProtocolStepsTest {
         )
 
         assertEquals(listOf("Withdraw 1,100 USDC from Compound V3 (cUSDCv3)"), steps.lines)
+    }
+
+    @Test
+    fun aCompoundSupplyToAnotherAccountNamesTheAccountAndWarns() {
+        // Transaction 0xd5d49512: supplies 9,301 USDC to the base market, credited to 0xC5Cd…Cc46, which is not the signer.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.COMPOUND_SUPPLY_TO_USDC,
+                CUSDC_V3,
+                "0x4232cd63",
+                "supplyTo(address,address,uint256)",
+                COMPOUND_SUPPLY_TO,
+                SIGNER_SUPPLY_TO,
+            ),
+        )
+
+        assertEquals(listOf("Supply 9,301 USDC to Compound V3 (cUSDCv3) for 0xC5Cd…Cc46"), steps.lines)
+        assertEquals(listOf("This supplies to 0xC5Cd…Cc46, not you"), steps.warnings)
+    }
+
+    @Test
+    fun aCompoundWithdrawFromAnotherAccountNamesBothAccountsAndWarns() {
+        // Transaction 0x4680103d: withdraws all USDC of 0x02D2…4113 from the base market, paid to the signer.
+        val steps = assertNotNull(
+            stepsOf(
+                StepVectors.COMPOUND_WITHDRAW_FROM_USDC,
+                CUSDC_V3,
+                "0x26441318",
+                "withdrawFrom(address,address,address,uint256)",
+                COMPOUND_WITHDRAW_FROM,
+                SIGNER_WITHDRAW_FROM,
+            ),
+        )
+
+        assertEquals(listOf("Withdraw all USDC from Compound V3 (cUSDCv3) of 0x02D2…4113 to you"), steps.lines)
+        assertEquals(listOf("This withdraws from 0x02D2…4113, not you"), steps.warnings)
+    }
+
+    @Test
+    fun randomArgumentsNeverThrowForACompoundWithdrawFrom() {
+        val random = Random(20261118)
+        repeat(FUZZ_ROUNDS) {
+            val values = List(COMPOUND_WITHDRAW_FROM.size) { index ->
+                val hex = (0 until WORD_BYTES).joinToString("") { "%02x".format(random.nextInt(0, 256)) }
+                DecodedParam(COMPOUND_WITHDRAW_FROM[index], AbiValue.Word(hex))
+            }
+
+            val steps = assertNotNull(
+                CallSteps.describe(
+                    STEP_REGISTRY,
+                    1,
+                    CUSDC_V3,
+                    "0x26441318",
+                    "withdrawFrom(address,address,address,uint256)",
+                    SIGNER,
+                    BigInteger.ZERO,
+                    values,
+                ),
+            )
+            assertTrue(steps.lines.isNotEmpty() || steps.warnings.isNotEmpty())
+        }
     }
 
     @Test
