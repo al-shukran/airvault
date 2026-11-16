@@ -7,9 +7,6 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,16 +18,13 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
-import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
-import app.lensly.ui.theme.LenslySpacing
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.tx.CommentImportException
 import app.lumio.data.tx.TxCommentTransfer
@@ -48,6 +42,7 @@ import app.lumio.transactions.TxPage
 import app.lumio.transactions.TxSync
 import app.lumio.transactions.TxSyncPlan
 import app.lumio.transactions.assetOptions
+import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.transactions.pricedPage
 import app.lumio.transactions.txDetailOf
 import app.lumio.transactions.txPage
@@ -221,20 +216,11 @@ internal fun CommentBackupRoute(holder: VaultHolder) {
             scope.launch { notice = withContext(Dispatchers.IO) { importComments(context, app, holder.openSession(), uri) } }
         }
     }
-    SettingsRow(
-        title = "Export comments",
-        description = "Saves every transaction comment to a file. Only this vault can open it.",
-        onClick = { exportLauncher.launch(EXPORT_NAME) },
+    CommentBackupRows(
+        onExport = { exportLauncher.launch(EXPORT_NAME) },
+        onImport = { importLauncher.launch(arrayOf("*/*")) },
+        notice = notice,
     )
-    SettingsRow(
-        title = "Import comments",
-        description = "Restores the comments of a file that this vault exported. A newer comment here is kept.",
-        onClick = { importLauncher.launch(arrayOf("*/*")) },
-    )
-    notice?.let {
-        Spacer(Modifier.height(LenslySpacing.xs))
-        Text(text = it, style = MaterialTheme.typography.bodySmall)
-    }
 }
 
 /** The MIME type and the suggested name of an export. The file is binary, sealed under the vault's key. */

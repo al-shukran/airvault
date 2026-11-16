@@ -78,7 +78,14 @@ lumio	ethereum_token_send	Token send	ethereum_token_send_*
 lumio	advanced_sheet	Advanced sheet	bitcoin_advanced_sheet ethereum_advanced_sheet ethereum_advanced_sheet_error
 lumio	transactions	Transactions	transactions_*
 lumio	transaction_detail	Transaction detail	transaction_detail*
-lumio	settings	Settings	settings settings_entry_gesture
+lumio	settings	Settings	settings
+lumio	settings	Settings: display	settings_display
+lumio	settings	Settings: transactions	settings_transactions
+lumio	settings	Settings: networks	settings_networks
+lumio	settings	Settings: address book	settings_address_book
+lumio	settings	Settings: security	settings_security
+lumio	settings	Settings: about	settings_about
+lumio	settings	Settings: developer	settings_developer
 lumio	address_book	Address book	address_book address_book_empty
 lumio	evm	Ethereum settings and custom chains	evm_settings_custom_chain evm_add_custom_chain_dialog evm_edit_rpc_dialog
 lumio	data_providers	Data providers	data_providers data_providers_statuses data_providers_prices

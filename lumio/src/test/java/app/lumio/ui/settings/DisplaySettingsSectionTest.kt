@@ -7,7 +7,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextReplacement
 import app.lensly.ui.theme.LenslyTheme
 import app.lumio.data.config.DisplaySettings
@@ -18,7 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** The Home section of the settings: its four settings show their values, and a change is reported once it is valid. */
+/** The Display settings: their values show, a change is reported at once, and a minimum that is not an amount is refused and passes nothing on. */
 @RunWith(RobolectricTestRunner::class)
 class DisplaySettingsSectionTest {
 
@@ -27,7 +26,6 @@ class DisplaySettingsSectionTest {
 
     private var showTotal: Boolean? = null
     private var showAssets: Boolean? = null
-    private var hideSpam: Boolean? = null
     private var minimumUsd: Double? = null
 
     private fun show(settings: DisplaySettings = DisplaySettings(), notice: String? = null) {
@@ -40,7 +38,6 @@ class DisplaySettingsSectionTest {
                         onShowTotal = { showTotal = it },
                         onShowAssets = { showAssets = it },
                         onMinimumUsd = { minimumUsd = it },
-                        onHideSpam = { hideSpam = it },
                     )
                 }
             }
@@ -48,14 +45,14 @@ class DisplaySettingsSectionTest {
     }
 
     @Test
-    fun theFourSettingsShowTheirValues() {
+    fun theDisplaySettingsShowTheirValuesAndTheSpamSwitchIsElsewhere() {
         show()
 
         compose.onNodeWithText("Show total balance").assertExists()
         compose.onNodeWithText("Show individual asset balances").assertExists()
-        compose.onNodeWithText("Hide spam and scam transactions").assertExists()
         compose.onNodeWithText("Minimum balance (USD)").assertExists()
         compose.onNodeWithText("1.00").assertExists()
+        compose.onNodeWithText("Hide spam and scam transactions").assertDoesNotExist()
     }
 
     @Test
@@ -69,21 +66,19 @@ class DisplaySettingsSectionTest {
     }
 
     @Test
-    fun theMinimumIsSavedWhenTheOwnerPressesDone() {
+    fun aValidMinimumIsAppliedAsItIsTypedWithoutAnySave() {
         show()
 
         compose.onNodeWithText("1.00").performTextReplacement("2.5")
-        compose.onNodeWithText("2.5").performImeAction()
 
         assertEquals(2.5, minimumUsd)
     }
 
     @Test
-    fun aMinimumThatIsNotAnAmountIsRefusedAndSavesNothing() {
+    fun aMinimumThatIsNotAnAmountIsRefusedAndAppliesNothing() {
         show()
 
         compose.onNodeWithText("1.00").performTextReplacement("-1")
-        compose.onNodeWithText("-1").performImeAction()
 
         assertNull(minimumUsd)
         compose.onNodeWithText("Enter an amount from 0 to 1,000,000, with at most two decimals.").assertExists()

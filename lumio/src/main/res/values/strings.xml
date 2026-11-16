@@ -12,7 +12,6 @@
     <string name="providers_move_down">Move down</string>
     <string name="providers_key_label">API key</string>
     <string name="providers_key_reveal">Show key</string>
-    <string name="providers_key_save">Save key</string>
     <string name="providers_key_clear">Clear key</string>
     <string name="status_off">Off</string>
     <string name="status_needs_key">Needs key</string>
@@ -21,10 +20,6 @@
     <string name="status_cooling_down">Cooling down, %1$d s left</string>
     <string name="status_healthy">Healthy, score %1$d</string>
     <string name="status_ready">Ready, no calls yet</string>
-    <string name="settings_providers_heading">Providers</string>
-    <string name="settings_providers_body">Choose which data and RPC providers Lumio uses, their order, and their API keys.</string>
-    <string name="settings_providers_open">Data providers</string>
-    <string name="settings_about_heading">About</string>
     <string name="settings_licences_body">Every library and font AirVault ships, with the licence each one is used under.</string>
     <string name="settings_licences_open">Third-party licences</string>
     <string name="providers_privacy_heading">Explorers and privacy</string>

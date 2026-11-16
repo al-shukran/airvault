@@ -1,142 +1,41 @@
 package app.lumio.ui.settings
 
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.SettingsRow
-import app.lensly.ui.camera.EntryGesture
-import app.lensly.ui.components.SettingsSection
-import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillStyle
-import app.lumio.R
+
+/** The pages of Lumio's settings. Each one is a row of the top-level list, and opens its own screen under its [title]. */
+enum class SettingsPage(val title: String) {
+    DISPLAY("Display"),
+    TRANSACTIONS("Transactions"),
+    NETWORKS("Networks"),
+    PROVIDERS("Data providers"),
+    ADDRESS_BOOK("Address book"),
+    SECURITY("Security"),
+    ABOUT("About"),
+    DEVELOPER("Developer"),
+}
+
+/** One row of the top-level list: the [page] it opens, and the one-line [summary] that shows the page's state under its title. */
+data class SettingsRowState(val page: SettingsPage, val summary: String)
 
 /**
- * Lumio's settings. Home holds what Home shows, Wallets holds the pairing and deletion of wallets when [wallets] is given, Bitcoin holds the Esplora
- * server each Bitcoin network reads from, Ethereum holds the EVM settings, Entry holds the Hidden Entry Gesture that the camera cover uses (the same
- * choice as Lensly's), and Providers is a row that opens the data providers. [display], [bitcoin], [ethereum] and [wallets] are the contents of the
- * sections, and each keeps its own state. [entryGesture] is the gesture the camera uses now, and [onEntryGesture] opens the choice of another. [onBack]
- * adds a back arrow; the settings tab has none, because the tab bar moves between the screens.
+ * Lumio's settings: one chevron row per page, in the order of [rows]. [onOpen] opens the page of a row. The Developer row is in [rows] only in a debug
+ * build, so it is the last row there and absent in release. Nothing on this list is a setting, so it has no Save: each page applies its controls at once.
  */
 @Composable
-fun LumioSettingsScreen(
-    onBack: (() -> Unit)?,
-    display: @Composable () -> Unit,
-    bitcoin: @Composable () -> Unit,
-    ethereum: @Composable () -> Unit,
-    onDataProviders: () -> Unit,
-    onThirdPartyLicences: () -> Unit,
-    modifier: Modifier = Modifier,
-    entryGesture: EntryGesture = EntryGesture.DEFAULT,
-    onEntryGesture: () -> Unit = {},
-    wallets: (@Composable () -> Unit)? = null,
-    transactions: (@Composable () -> Unit)? = null,
-    developer: (@Composable () -> Unit)? = null,
-) {
-    LenslyScreen(title = "SETTINGS", modifier = modifier, onBack = onBack) {
-        SettingsSection(title = "Home") { display() }
-        wallets?.let { section -> SettingsSection(title = "Wallets") { section() } }
-        transactions?.let { section -> SettingsSection(title = "Transactions") { section() } }
-        SettingsSection(title = "Bitcoin") { bitcoin() }
-        SettingsSection(title = "Ethereum") { ethereum() }
-        SettingsSection(title = "Entry") {
-            SettingsRow(
-                title = "Hidden entry gesture",
-                description = entryGesture.title,
-                onClick = onEntryGesture,
-            )
+fun LumioSettingsScreen(rows: List<SettingsRowState>, onOpen: (SettingsPage) -> Unit, modifier: Modifier = Modifier) {
+    LenslyScreen(title = "Settings", modifier = modifier, onBack = null) {
+        rows.forEach { row ->
+            SettingsRow(title = row.page.title, description = row.summary, onClick = { onOpen(row.page) })
         }
-        SettingsSection(title = stringResource(R.string.settings_providers_heading)) {
-            SettingsRow(
-                title = stringResource(R.string.settings_providers_open),
-                description = stringResource(R.string.settings_providers_body),
-                onClick = onDataProviders,
-            )
-        }
-        SettingsSection(title = stringResource(R.string.settings_about_heading)) {
-            Text(
-                stringResource(R.string.settings_licences_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(LenslySpacing.md))
-            PillButton(
-                text = stringResource(R.string.settings_licences_open),
-                onClick = onThirdPartyLicences,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        // The Developer section is last. The debug build passes it; the release build passes nothing, so no row is drawn.
-        developer?.let { section -> SettingsSection(title = "Developer") { section() } }
     }
 }
 
-/**
- * The Bitcoin section: the Esplora server that each Bitcoin network reads from. [mainnet] and [testnet4] show the address in use, the default or
- * the owner's. [error] is shown when the last save was refused. [onSave] receives the two texts as the owner typed them, and [onReset] puts both
- * networks back on their defaults. Save is the section's one filled action; reset is a row.
- */
+/** The frame of one settings page: its title, with a back arrow to the list. The page's controls apply as the owner changes them. */
 @Composable
-fun BitcoinServersSettings(
-    mainnet: String,
-    testnet4: String,
-    error: String?,
-    onSave: (mainnet: String, testnet4: String) -> Unit,
-    onReset: () -> Unit,
-) {
-    var mainnetText by remember(mainnet) { mutableStateOf(mainnet) }
-    var testnetText by remember(testnet4) { mutableStateOf(testnet4) }
-    Text(
-        "Lumio asks the server for each address it watches, so the server learns those addresses. Use an Esplora server you trust. " +
-            "Each network has its own server, and an address must start with https://.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(LenslySpacing.md))
-    OutlinedTextField(
-        value = mainnetText,
-        onValueChange = { mainnetText = it },
-        label = { Text("Mainnet") },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
-        modifier = Modifier.fillMaxWidth(),
-    )
-    Spacer(Modifier.height(LenslySpacing.sm))
-    OutlinedTextField(
-        value = testnetText,
-        onValueChange = { testnetText = it },
-        label = { Text("Testnet4") },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
-        modifier = Modifier.fillMaxWidth(),
-    )
-    error?.let {
-        Spacer(Modifier.height(LenslySpacing.md))
-        InlineBanner(message = it, tone = BannerTone.Error)
-    }
-    Spacer(Modifier.height(LenslySpacing.md))
-    WalletPill(
-        text = "Save",
-        onClick = { onSave(mainnetText, testnetText) },
-        modifier = Modifier.fillMaxWidth(),
-        style = WalletPillStyle.Primary,
-    )
-    SettingsRow(title = "Reset to defaults", onClick = onReset)
+fun SettingsPageScreen(page: SettingsPage, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    LenslyScreen(title = page.title, onBack = onBack, content = content)
 }
