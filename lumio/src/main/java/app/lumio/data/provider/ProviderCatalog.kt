@@ -3,6 +3,7 @@ package app.lumio.data.provider
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.MempoolProvider
+import app.lumio.data.provider.algorand.AlgorandAlgod
 import app.lumio.data.provider.blockchair.BlockchairProvider
 import app.lumio.data.provider.blockscout.BlockscoutProvider
 import app.lumio.data.provider.coingecko.CoinGeckoProvider
@@ -62,4 +63,10 @@ object ProviderCatalog {
      * and the settings screens do not list them yet.
      */
     fun solanaProviders(allowLocalHttp: Boolean): List<Provider> = listOf(SolanaRpc(), CustomSolanaRpc(SOLANA_DEVNET.chain, allowLocalHttp))
+
+    /**
+     * The Algorand providers: the public Algonode endpoints, testnet and mainnet. They serve the Algorand family only, and the settings screens do not
+     * list them yet, as with the Solana providers.
+     */
+    fun algorandProviders(): List<Provider> = listOf(AlgorandAlgod())
 }

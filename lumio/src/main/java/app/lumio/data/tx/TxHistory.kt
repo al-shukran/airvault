@@ -46,7 +46,7 @@ class TxHistory(
                 val native = nativeAsset(net) ?: throw ProviderError.Unsupported()
                 scheduler.run(AddressTxHistory(net, address, page, MAX_TX_PAGE), priority).toLumioTxs(address, net, native)
             }
-            Family.BTC, Family.SOL -> throw ProviderError.Unsupported()
+            Family.BTC, Family.SOL, Family.ALGO -> throw ProviderError.Unsupported()
         }
         return write(address, fetched)
     }

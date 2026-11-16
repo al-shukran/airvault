@@ -39,7 +39,7 @@ fun assetIdOf(tx: LumioTx): AssetId = tx.asset.contract?.let { AssetId.Erc20(tx.
 internal fun chainLabel(network: NetworkId, evm: Map<NetworkId, EvmChain>): String = when (network.family) {
     Family.BTC -> if (network.testnet) "Bitcoin testnet4" else "Bitcoin"
     Family.EVM -> evm[network]?.name ?: "Chain ${network.chain}"
-    Family.SOL -> network.chain
+    Family.SOL, Family.ALGO -> network.chain
 }
 
 /** The chains of [chains] keyed by their network, so that a row finds the name of its chain. */
