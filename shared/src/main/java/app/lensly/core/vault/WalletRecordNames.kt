@@ -20,6 +20,12 @@ object WalletRecordNames {
     /** The plaintext size of the Solana record. A record that holds more is refused when it is written. */
     val SOLANA_CAPACITY: Int = WalletFolder.SOLANA_CAPACITY
 
+    /** The wallet's Algorand record, 4096 bytes: the public key of each Algorand account. */
+    val ALGORAND: String = WalletFolder.ALGORAND
+
+    /** The plaintext size of the Algorand record. A record that holds more is refused when it is written. */
+    val ALGORAND_CAPACITY: Int = WalletFolder.ALGORAND_CAPACITY
+
     /** The record of account [index], 256 bytes. */
     fun account(index: Int): String = WalletFolder.accountName(index)
 }
