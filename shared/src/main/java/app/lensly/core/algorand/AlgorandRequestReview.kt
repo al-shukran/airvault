@@ -1,5 +1,7 @@
 package app.lensly.core.algorand
 
+import app.lensly.core.ur.AlgoSignRequest
+import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.PathStep
 
 /**
@@ -97,6 +99,12 @@ object AlgorandRequestCheck {
     /** The reason for a genesis hash that is not the one its genesis ID names. Such a transaction is for another network. */
     const val GENESIS_HASH_MISMATCH = "The genesis hash does not match the network. Lensly refuses to sign it."
 
+    /** The reason for a request to sign a message. Lensly signs only transactions. */
+    const val NOT_A_TRANSACTION = "Lensly signs Algorand transactions only. This request is a message."
+
+    /** The reason for an address the request names that is not the signing account's. */
+    const val DIFFERENT_ADDRESS = "This request is for a different address."
+
     private const val PURPOSE = 44
     private const val ALGORAND_COIN_TYPE = 283
 
@@ -130,5 +138,18 @@ object AlgorandRequestCheck {
         val network = AlgorandNetwork.ofGenesisId(txn.genesisId) ?: return Result.Refused(UNKNOWN_NETWORK)
         if (!txn.genesisHash.contentEquals(network.genesisHash)) return Result.Refused(GENESIS_HASH_MISMATCH)
         return Result.Ok(AlgorandRequestReview(index, signer, txn, network, signData, requestId))
+    }
+
+    /**
+     * Checks a decoded [request] against [accountKeys], as [check] does for its signData, path and request ID. It also refuses a message,
+     * and an address the request names that is not the signing account's. An empty address names none.
+     */
+    fun check(request: AlgoSignRequest, accountKeys: List<ByteArray>): Result {
+        if (request.signType != AlgoSignType.TRANSACTION) return Result.Refused(NOT_A_TRANSACTION)
+        val checked = check(request.signData, request.derivationPath, request.requestId, accountKeys)
+        if (checked is Result.Ok && request.address.isNotEmpty() && request.address != checked.review.signerAddress) {
+            return Result.Refused(DIFFERENT_ADDRESS)
+        }
+        return checked
     }
 }

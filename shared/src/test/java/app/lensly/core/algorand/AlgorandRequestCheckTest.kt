@@ -1,12 +1,16 @@
 package app.lensly.core.algorand
 
 import app.lensly.core.algorand.AlgorandRequestCheck.CLAWBACK_REFUSED
+import app.lensly.core.algorand.AlgorandRequestCheck.DIFFERENT_ADDRESS
 import app.lensly.core.algorand.AlgorandRequestCheck.GENESIS_HASH_MISMATCH
+import app.lensly.core.algorand.AlgorandRequestCheck.NOT_A_TRANSACTION
 import app.lensly.core.algorand.AlgorandRequestCheck.NOT_THIS_SENDER
 import app.lensly.core.algorand.AlgorandRequestCheck.PATH_REFUSED
 import app.lensly.core.algorand.AlgorandRequestCheck.REKEY_REFUSED
 import app.lensly.core.algorand.AlgorandRequestCheck.UNKNOWN_ACCOUNT
 import app.lensly.core.algorand.AlgorandRequestCheck.UNKNOWN_NETWORK
+import app.lensly.core.ur.AlgoSignRequest
+import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -182,6 +186,45 @@ class AlgorandRequestCheckTest {
         // The signing input with its "TX" tag is not a transaction: a request that passes the tag in is refused.
         assertIs<AlgorandRequestCheck.Result.Refused>(checkOf(bytesToSign(paymentWith()), listOf(KEY_A)))
     }
+
+    @Test
+    fun aDecodedRequestIsCheckedAsItsTransactionAndItsPath() {
+        val review = assertIs<AlgorandRequestCheck.Result.Ok>(AlgorandRequestCheck.check(algoRequest(paymentWith()), listOf(KEY_A))).review
+
+        assertEquals(0, review.accountIndex)
+        assertContentEquals(ByteArray(16) { 7 }, review.requestId)
+    }
+
+    @Test
+    fun aMessageToSignIsRefusedBecauseLenslySignsOnlyTransactions() {
+        val request = algoRequest(paymentWith(), signType = AlgoSignType.MESSAGE)
+
+        val checked = AlgorandRequestCheck.check(request, listOf(KEY_A))
+        assertEquals(NOT_A_TRANSACTION, assertIs<AlgorandRequestCheck.Result.Refused>(checked).reason)
+    }
+
+    @Test
+    fun anAddressTheRequestNamesMustBeTheSigningAccountsOrNoneAtAll() {
+        fun named(address: String) = AlgorandRequestCheck.check(algoRequest(paymentWith(), address = address), listOf(KEY_A))
+
+        assertIs<AlgorandRequestCheck.Result.Ok>(named(""))
+        assertIs<AlgorandRequestCheck.Result.Ok>(named(AlgoAddress.encode(KEY_A)))
+        assertEquals(DIFFERENT_ADDRESS, assertIs<AlgorandRequestCheck.Result.Refused>(named(AlgoAddress.encode(KEY_B))).reason)
+    }
+
+    private fun algoRequest(
+        signData: ByteArray,
+        signType: AlgoSignType = AlgoSignType.TRANSACTION,
+        address: String = "",
+    ): AlgoSignRequest = AlgoSignRequest(
+        requestId = ByteArray(16) { 7 },
+        signData = signData,
+        derivationPath = algoPath(),
+        sourceFingerprint = null,
+        address = address,
+        origin = "lumio",
+        signType = signType,
+    )
 
     @Test
     fun accountIndexOfReadsOnlyTheAlgorandPath() {

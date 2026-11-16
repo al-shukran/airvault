@@ -1,5 +1,6 @@
 package app.lensly.core.solana
 
+import app.lensly.core.wallet.Ed25519Signer
 import java.io.ByteArrayOutputStream
 
 /**
@@ -10,7 +11,7 @@ object SolanaTransaction {
     /** The signed transaction bytes of [message] with [signatures], in the order of the message's signers. Each signature is 64 bytes. */
     fun signed(signatures: List<ByteArray>, message: ByteArray): ByteArray {
         require(signatures.isNotEmpty()) { "A transaction has at least one signature." }
-        require(signatures.all { it.size == SolanaSigner.SIGNATURE_BYTES }) { "A signature is 64 bytes." }
+        require(signatures.all { it.size == Ed25519Signer.SIGNATURE_BYTES }) { "A signature is 64 bytes." }
         val out = ByteArrayOutputStream()
         out.write(compactU16(signatures.size))
         signatures.forEach { out.write(it) }
