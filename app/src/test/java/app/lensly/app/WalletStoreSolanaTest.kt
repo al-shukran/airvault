@@ -2,6 +2,7 @@ package app.lensly.app
 
 import app.lensly.app.export.SolanaPairingKeys
 import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.solana.SolanaSigner
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
@@ -10,6 +11,8 @@ import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -122,6 +125,26 @@ class WalletStoreSolanaTest {
     fun theSolanaAppIsListedAfterEthereum() {
         assertEquals(listOf(WalletApp.BITCOIN, WalletApp.ETHEREUM, WalletApp.SOLANA, WalletApp.ALGORAND), WalletApp.entries)
         assertEquals(WalletApp.SOLANA, WalletApp.fromRouteId("solana"))
+    }
+
+    /** The signature of account 1 verifies with the public key the wallet stores for account 1, and with no other. */
+    @Test
+    fun aSolanaSignatureVerifiesWithTheStoredKeyOfItsAccount() {
+        val id = newWallet()
+        store.addSolanaAccounts(id, 2, cap)
+        val message = byteArrayOf(1, 2, 3, 4)
+
+        val signature = store.solanaSign(id, 1, message)
+
+        assertTrue(SolanaSigner.verify(store.solanaKeys(id)[1], message, signature))
+        assertFalse(SolanaSigner.verify(store.solanaKeys(id)[0], message, signature))
+    }
+
+    @Test
+    fun aSolanaSignatureForAnAccountTheWalletDoesNotHaveIsRefused() {
+        val id = newWallet()
+        store.addSolanaAccounts(id, 1, cap)
+        assertFailsWith<IllegalArgumentException> { store.solanaSign(id, 1, byteArrayOf(1)) }
     }
 
     private fun hardened(index: Long): Long = 0x80000000L + index

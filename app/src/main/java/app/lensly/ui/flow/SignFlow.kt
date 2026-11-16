@@ -5,6 +5,7 @@ import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
+import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
@@ -12,8 +13,9 @@ import app.lensly.app.sign.matchWallet
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ScanReply
-import app.lensly.core.parse.UNSUPPORTED_CODE
+import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.ur.EthSignRequest
+import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.wallet.AccountAddresses
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,6 +53,12 @@ sealed interface SignStep {
     /** The Bitcoin hold-to-sign ran. The App Password is checked before anything is signed. [busy] while that check runs. */
     data class BitcoinConfirming(val ready: BitcoinPrepared.Ready, val confirmed: Boolean, val busy: Boolean) : SignStep
 
+    /** A Solana request passed its checks. The owner reads the review, then approves or rejects it. */
+    data class SolanaReview(val ready: SolanaPrepared.Ready) : SignStep
+
+    /** The Solana hold-to-sign ran. The App Password is checked before anything is signed. [busy] while that check runs. */
+    data class SolanaConfirming(val ready: SolanaPrepared.Ready, val busy: Boolean) : SignStep
+
     /** The hold-to-sign control ran. The App Password is checked before anything is signed. [busy] while that check runs. */
     data class Confirming(val ready: Prepared.Ready, val busy: Boolean) : SignStep
 
@@ -74,6 +82,15 @@ sealed interface BitcoinPrepared {
 
     /** The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. */
     data class Refused(val reason: String) : BitcoinPrepared
+}
+
+/** The outcome of reviewing a Solana request against a wallet: the review the owner reads, or the reason it is refused. */
+sealed interface SolanaPrepared {
+    /** The request names an account of the wallet and passed every rule. [request] is the parsed sol-sign-request. */
+    data class Ready(val walletId: String, val request: SolSignRequest, val review: SolanaRequestReview) : SolanaPrepared
+
+    /** The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. */
+    data class Refused(val reason: String) : SolanaPrepared
 }
 
 /** What [SignFlow] asks of the app. [VaultSignPorts] is the app's implementation. Tests use fakes. */
@@ -120,6 +137,21 @@ interface SignFlowPorts {
      * refuses the signing.
      */
     suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String>
+
+    /**
+     * Reviews the Solana [request] against wallet [walletId]: its Solana accounts, its master fingerprint and the rules of the request.
+     * Throws [WalletUnavailable] when the wallet cannot be read.
+     */
+    suspend fun solanaPrepare(walletId: String, request: SolSignRequest): SolanaPrepared
+
+    /**
+     * Signs the reviewed Solana request with the account it was reviewed under, and returns the `ur:sol-signature` frames. Throws
+     * [WalletUnavailable] when the wallet cannot be read, and IllegalArgumentException when the wallet's key is not the account's key.
+     */
+    suspend fun solanaSign(ready: SolanaPrepared.Ready): List<String>
+
+    /** Writes the Solana [entry] as a Review Record of its wallet. Throws [ReviewNotSaved] when the record cannot be written. */
+    suspend fun recordSolana(entry: SolanaReviewEntry)
 }
 
 /**
@@ -177,7 +209,7 @@ class SignFlow(
                 }
                 is ScanReply.Complete -> if (accept(text)) publish(started, decide(started, reply.parsed))
                 is ScanReply.Bitcoin -> if (accept(text)) publish(started, decideBitcoin(started, reply.psbt))
-                is ScanReply.Solana -> current.value = SignStep.Refused(UNSUPPORTED_CODE)
+                is ScanReply.Solana -> if (accept(text)) publish(started, decideSolana(started, reply.payload))
             }
         }
     }
@@ -209,6 +241,7 @@ class SignFlow(
             is SignStep.BitcoinReview -> if (!step.ready.reviewed.review.requiresConfirmation || step.confirmed) {
                 current.value = SignStep.BitcoinConfirming(step.ready, step.confirmed, busy = false)
             }
+            is SignStep.SolanaReview -> current.value = SignStep.SolanaConfirming(step.ready, busy = false)
             else -> Unit
         }
     }
@@ -229,6 +262,11 @@ class SignFlow(
                 val bitcoin = current.value as? SignStep.BitcoinConfirming
                 if (bitcoin != null) {
                     confirmBitcoin(bitcoin, password)
+                    return
+                }
+                val solana = current.value as? SignStep.SolanaConfirming
+                if (solana != null) {
+                    confirmSolana(solana, password)
                     return
                 }
                 val waiting = current.value as? SignStep.Confirming ?: return
@@ -258,6 +296,7 @@ class SignFlow(
         when (current.value) {
             is SignStep.Confirming -> cancelApproval()
             is SignStep.BitcoinConfirming -> cancelBitcoinApproval()
+            is SignStep.SolanaConfirming -> cancelSolanaApproval()
             SignStep.Closed -> Unit
             else -> leave()
         }
@@ -278,6 +317,11 @@ class SignFlow(
             is SignStep.BitcoinConfirming -> step.ready
             else -> null
         }
+        val solana = when (val step = current.value) {
+            is SignStep.SolanaReview -> step.ready
+            is SignStep.SolanaConfirming -> step.ready
+            else -> null
+        }
         epoch++
         current.value = SignStep.Closed
         reviewed?.let {
@@ -285,6 +329,9 @@ class SignFlow(
         }
         bitcoin?.let {
             recordBitcoinQuietly(BitcoinReviewEntry(it.walletId, ReviewOutcome.CANCELLED, psbtBytes(it), it.reviewed, refusal = null))
+        }
+        solana?.let {
+            recordSolanaQuietly(SolanaReviewEntry(it.walletId, ReviewOutcome.CANCELLED, it.request, it.review, refusal = null))
         }
     }
 
@@ -375,6 +422,95 @@ class SignFlow(
 
     /** The PSBT of [ready] as the Parser Sandbox wrote it, which is the request the review was made of. */
     private fun psbtBytes(ready: BitcoinPrepared.Ready): ByteArray = Psbt.write(ready.psbt).toByteArray()
+
+    private fun cancelSolanaApproval() {
+        val waiting = current.value as? SignStep.SolanaConfirming ?: return
+        if (!waiting.busy) current.value = SignStep.SolanaReview(waiting.ready)
+    }
+
+    /**
+     * Reviews a complete Solana request against the flow's wallet. A flow with no wallet refuses it: a Solana review is checked against one
+     * wallet's Solana accounts, so the owner scans from that wallet's sign screen. A refusal is recorded under that wallet.
+     */
+    private suspend fun decideSolana(started: Int, payload: ByteArray): SignStep {
+        val target = walletId ?: return SignStep.Refused(SOLANA_NEEDS_WALLET)
+        val request = when (val decoded = SolSignRequest.decode(payload)) {
+            is SolSignRequest.Result.Ok -> decoded.request
+            is SolSignRequest.Result.Rejected -> return SignStep.Refused(decoded.reason)
+        }
+        if (request.requestId == null) return solanaRefusal(started, target, request, NO_REQUEST_ID, ready = null)
+        return try {
+            when (val prepared = ports.solanaPrepare(target, request)) {
+                is SolanaPrepared.Ready -> SignStep.SolanaReview(prepared)
+                is SolanaPrepared.Refused -> solanaRefusal(started, target, request, prepared.reason, ready = null)
+            }
+        } catch (e: WalletUnavailable) {
+            solanaRefusal(started, target, request, WALLET_UNREADABLE, ready = null)
+        }
+    }
+
+    /** Checks the App Password for a Solana signature, then signs the reviewed request. The caller zeroes [password]. */
+    private suspend fun confirmSolana(waiting: SignStep.SolanaConfirming, password: CharArray) {
+        if (waiting.busy) return
+        val started = epoch
+        current.value = waiting.copy(busy = true)
+        val next = when (ports.checkPassword(password)) {
+            PasswordCheck.Accepted -> signSolana(waiting, started)
+            PasswordCheck.Rejected -> SignStep.SolanaConfirming(waiting.ready, busy = false)
+            PasswordCheck.Unavailable ->
+                solanaRefusal(started, waiting.ready.walletId, waiting.ready.request, VAULT_UNCHECKED, waiting.ready)
+        }
+        publish(started, next)
+    }
+
+    /**
+     * Signs the reviewed Solana request. A refusal, or a wallet that cannot be read, signs nothing and is shown as the reason. The signature
+     * is recorded before it is returned, so no signature is shown without its record.
+     */
+    private suspend fun signSolana(waiting: SignStep.SolanaConfirming, started: Int): SignStep {
+        if (started != epoch) return SignStep.Closed
+        val ready = waiting.ready
+        val parts = try {
+            ports.solanaSign(ready)
+        } catch (e: WalletUnavailable) {
+            return solanaRefusal(started, ready.walletId, ready.request, WALLET_UNREADABLE, ready)
+        } catch (e: IllegalArgumentException) {
+            return solanaRefusal(started, ready.walletId, ready.request, e.message ?: SIGN_REFUSED, ready)
+        }
+        return try {
+            if (started != epoch) return SignStep.Closed
+            ports.recordSolana(SolanaReviewEntry(ready.walletId, ReviewOutcome.SIGNED, ready.request, ready.review, refusal = null))
+            SignStep.Signature(parts)
+        } catch (e: ReviewNotSaved) {
+            SignStep.Refused(NOT_SAVED)
+        }
+    }
+
+    /**
+     * The step that shows a refusal of a Solana request, recorded under [wallet] with the [ready] review it came after, if any. A refusal
+     * decided after the flow was left was never shown, so it is not recorded either.
+     */
+    private suspend fun solanaRefusal(
+        started: Int,
+        wallet: String,
+        request: SolSignRequest,
+        reason: String,
+        ready: SolanaPrepared.Ready?,
+    ): SignStep.Refused {
+        if (started == epoch) {
+            recordSolanaQuietly(SolanaReviewEntry(wallet, ReviewOutcome.REFUSED, request, ready?.review, refusal = reason))
+        }
+        return SignStep.Refused(reason)
+    }
+
+    /** Writes the Solana [entry]. A write that fails is left out, as the other Review Records are. */
+    private suspend fun recordSolanaQuietly(entry: SolanaReviewEntry) {
+        try {
+            ports.recordSolana(entry)
+        } catch (e: ReviewNotSaved) {
+            // Left out: the screen already shows the outcome, and nothing is signed for it.
+        }
+    }
 
     /** Checks a complete request. Only the first complete request is decided, because scanning stops once it is. */
     private suspend fun decide(started: Int, parsed: ParsedRequest): SignStep {
@@ -500,5 +636,6 @@ class SignFlow(
         const val NOT_SAVED = "The review could not be saved, so the signature is not shown."
         const val SIGN_REFUSED = "The request could not be signed."
         const val BITCOIN_NEEDS_WALLET = "Open the wallet this Bitcoin request spends from, then scan it on that wallet's sign screen."
+        const val SOLANA_NEEDS_WALLET = "Open the wallet this Solana request is for, then scan it on that wallet's sign screen."
     }
 }
