@@ -4,6 +4,8 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
@@ -43,11 +45,14 @@ private fun reviewWith(notes: AddressNotes?) = sampleNativeReview.copy(
 private const val SETTLE_FRAMES = 6
 
 /**
- * Scrolls the review until the first row named [label] is on screen. The clock runs while the scroll does, as the sign review screenshots
- * do, then it stops and the frames settle. Without the running clock the scroll never completes.
+ * Opens the Transaction details, where the To row and its notes are, then scrolls the review until the first row named [label] is on
+ * screen. The clock runs while the scroll does, as the sign review screenshots do, then it stops and the frames settle. Without the
+ * running clock the scroll never completes.
  */
 private fun scrollReviewTo(label: String): ComposeContentTestRule.() -> Unit = {
     mainClock.autoAdvance = true
+    onNodeWithText("Transaction").performScrollTo().performClick()
+    waitForIdle()
     onAllNodesWithText(label, ignoreCase = true).onFirst().performScrollTo()
     waitForIdle()
     mainClock.autoAdvance = false
@@ -107,7 +112,7 @@ class AddressBookScreenshotTest {
         TxReviewScreen(review = reviewWith(null), onApprove = {}, onReject = {})
     }
 
-    // The notes sit below the fold of the review, so each capture scrolls to the last row of its To block first.
+    // The notes sit in the Transaction details, so each capture opens them and scrolls to the last row of its To block first.
     @Test
     fun reviewToAddressBookEntry() = compose.snapshot("tx_review_to_book", beforeCapture = scrollReviewTo(recipientEntry.label.orEmpty())) {
         TxReviewScreen(review = reviewWith(AddressNotes(internal = null, entry = recipientEntry)), onApprove = {}, onReject = {})

@@ -1,10 +1,6 @@
 package app.lensly.ui.sign
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -34,45 +29,45 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressNotes
 import app.lensly.app.notesOf
-import app.lensly.ui.components.AddressText
+import app.lensly.app.sign.WhitelistedCall
+import app.lensly.core.registry.ProxyBinding
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ChainIcon
-import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.TokenIcon
-import app.lensly.ui.components.pressFeedback
-import app.lensly.ui.components.rememberKeyHaptics
-import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.settings.protocolOfMeaning
-import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.SpaceMonoFamily
 
+/** The warning that the request is not in Lensly's registry, and what the owner checks. */
+private const val REGISTRY_TEXT =
+    "Not in Lensly's registry. Lensly cannot confirm this network or token, so check the chain ID and contract against a trusted source."
+
+/** The warning on a call the signed whitelist approves, which Lensly cannot decode itself. */
+private const val WHITELIST_TEXT =
+    "Lensly cannot decode this call itself. It is on your signed whitelist with the meaning above. Sign only if this is what you intend."
+
+/** The warning on a whitelisted proxy under Warn and confirm: its code cannot be checked offline. */
+private const val UPGRADE_TEXT =
+    "The implementation could have been upgraded since it was approved, and Lensly cannot check it offline. The implementation it was " +
+        "approved with is in the details."
+
 /**
- * Transaction review. The top block names the wallet, account, network and origin that will sign. Every fact is in one
- * scrollable list, and the hold-to-sign control stays disabled until the user has scrolled to the end, so no fact can be
- * skipped. A list that fits on screen counts as read. Warnings sit at the top as red banners.
+ * Transaction review. The header names the network and the account that signs. A sentence says what the request does, and under it
+ * come the network fee, the total and who requested it. Every warning sits in one banner, and each check the review asks for sits in
+ * the row it belongs to. The details start collapsed: the parameters, the calls, the transaction, and the raw data.
  *
- * A personal message ([SIGN_MESSAGE_FUNCTION]) has no recipient, amount, nonce or fee. Its review shows the message in a
- * monospace block, with its size, instead of those facts. The message is part of the list, so the scroll covers it.
- *
- * A review outside the registry ([TxReview.needsRegistryConfirmation]) opens with a solid warning block, and signing also
- * needs the "I CHECKED THE CHAIN ID / CONTRACT" check to be ON. A whitelisted call ([TxReview.whitelisted]) opens with its
- * approved meaning and every fact of the call, and signing needs its own check; a proxy under Warn and confirm needs a second.
- * The line above the buttons says what is still missing.
- *
- * REJECT is always enabled. Nothing is ellipsized: every value on this screen is shown in full, and wraps when it must.
+ * The hold-to-sign control stays disabled until the user has scrolled to the end, so no fact can be skipped, and until every check is
+ * ticked. A list that fits on screen counts as read. A personal message ([SIGN_MESSAGE_FUNCTION]) shows its text whole, under the banner,
+ * since the text is what is signed. A whitelisted call takes its approved meaning as its sentence. REJECT is always enabled.
  */
 @Composable
 fun TxReviewScreen(
@@ -107,22 +102,12 @@ fun TxReviewScreen(
         modifier = modifier,
         scrollable = false,
         bottomAction = {
-            ReviewHint(text = reviewHint(review, everyFactShown, checked))
-            review.requiredChecks.forEach { check ->
-                CheckRow(
-                    label = check.label,
-                    checked = check in checked,
-                    onCheckedChange = { on -> checked = if (on) checked + check else checked - check },
-                )
-                Spacer(Modifier.height(LenslySpacing.sm))
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
-            ) {
-                RejectPill(onClick = onReject, modifier = Modifier.weight(1f))
-                HoldToSignButton(enabled = approvable, onSign = onApprove, modifier = Modifier.weight(1f))
-            }
+            ReviewActions(
+                hint = reviewHint(review, everyFactShown, checked),
+                approvable = approvable,
+                onApprove = onApprove,
+                onReject = onReject,
+            )
         },
     ) {
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
@@ -133,115 +118,61 @@ fun TxReviewScreen(
                     .verticalScroll(scroll),
             ) {
                 Column(modifier = Modifier.fillMaxWidth().onSizeChanged { contentPx = it.height }) {
-                    if (review.denylisted.isNotEmpty()) {
-                        DenylistWarning(reasons = review.denylisted.map { it.reason })
+                    ReviewChips(
+                        network = review.networkName,
+                        testnet = review.network?.testnet == true,
+                        account = review.fromAccountLabel,
+                        networkIcon = { ChainIcon(network = review.network, size = 16.dp) },
+                    )
+                    Spacer(Modifier.height(LenslySpacing.md))
+                    ReviewSummary(
+                        sentence = evmSentence(review),
+                        facts = evmFacts(review),
+                        icon = if (review.amount.isNotEmpty()) amountIcon(review) else null,
+                    )
+                    Spacer(Modifier.height(LenslySpacing.md))
+                    RiskBanner(
+                        items = evmRiskItems(review, checked) { check, on ->
+                            checked = if (on) checked + check else checked - check
+                        },
+                    )
+                    Spacer(Modifier.height(LenslySpacing.md))
+                    if (isMessage) {
+                        MessageBlock(review)
+                        Spacer(Modifier.height(LenslySpacing.md))
+                    }
+                    // A call Lensly describes lists its steps in view, since the steps say what the call does.
+                    review.whitelisted?.steps?.lines?.takeIf { it.isNotEmpty() }?.let { lines ->
+                        NumberedSteps(lines)
                         Spacer(Modifier.height(LenslySpacing.sm))
                     }
-                    if (review.needsRegistryConfirmation) {
-                        RegistryWarning()
-                        Spacer(Modifier.height(LenslySpacing.sm))
+                    if (!isMessage && review.typed == null) {
+                        DetailsSection(title = "Parameters") {
+                            ParameterFields(review.params, review.addressNotes)
+                        }
+                    }
+                    review.typed?.let { typed ->
+                        DetailsSection(title = "Domain") {
+                            typed.domain.forEach { (name, value) ->
+                                ReviewField(label = name, value = value, notes = review.addressNotes.notesOf(value))
+                            }
+                        }
+                        DetailsSection(title = "Fields") {
+                            typed.fields.forEach { row -> TypedFieldRow(row, review.addressNotes) }
+                        }
+                    }
+                    if (review.nested.isNotEmpty()) {
+                        DetailsSection(title = "Calls") {
+                            review.nested.forEach { call -> NestedCallView(call, review.addressNotes) }
+                        }
+                    }
+                    DetailsSection(title = "Transaction") {
+                        TransactionFields(review, showTo)
                     }
                     review.whitelisted?.let { whitelisted ->
-                        // The To row below names the contract, so the block leaves it out when that row shows.
-                        WhitelistedCallBlock(whitelisted, showContract = !showTo)
-                        Spacer(Modifier.height(LenslySpacing.sm))
-                    }
-                    review.warnings.forEach { warning ->
-                        InlineBanner(message = warning, tone = BannerTone.Error, title = "Warning")
-                        Spacer(Modifier.height(LenslySpacing.xs))
-                    }
-                    if (!isMessage && review.amount.isNotEmpty()) {
-                        AmountRow(review)
-                        Spacer(Modifier.height(LenslySpacing.xs))
-                    }
-
-                    SigningHeader(review)
-
-                    if (showTo) {
-                        FactRow(label = "To") {
-                            AddressText(address = review.toAddress)
-                            review.addressNotes.notesOf(review.toAddress)?.let { AddressNotesBlock(it) }
-                            // A whitelisted call also names the protocol its approved meaning belongs to, such as "Aave V3".
-                            review.whitelisted?.let { whitelisted ->
-                                protocolOfMeaning(whitelisted.meaning).takeIf { it.isNotEmpty() }?.let { protocol ->
-                                    LabelledValue(label = "Known contract", value = protocol)
-                                }
-                            }
+                        DetailsSection(title = "Raw data") {
+                            RawDataFields(whitelisted)
                         }
-                    }
-                    review.tokenContract?.let { contract ->
-                        if (review.token == null) {
-                            FactRow(label = "Token") {
-                                Text(
-                                    text = UNKNOWN_TOKEN_NAME,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-                        FactRow(label = "Token contract") {
-                            AddressText(address = contract)
-                        }
-                    }
-                    FactRow(label = "Function") {
-                        Text(
-                            text = review.function,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    review.signature?.let { signature ->
-                        FactRow(label = "Signature") {
-                            MonoText(text = signature)
-                        }
-                    }
-                    val typed = review.typed
-                    if (isMessage) {
-                        MessageFacts(review)
-                    } else if (typed != null) {
-                        TypedDataFacts(typed, review.addressNotes)
-                    } else {
-                        val steps = review.whitelisted?.steps?.lines?.takeIf { it.isNotEmpty() }
-                        if (steps != null) {
-                            // A call Lensly describes shows its steps first, and its raw arguments behind Details.
-                            FactRow(label = "Steps") { NumberedSteps(steps) }
-                            FactRow(label = "Details") {
-                                DetailsToggle { ParameterRows(review.params) }
-                            }
-                        } else {
-                            FactRow(label = "Parameters") { ParameterRows(review.params) }
-                        }
-                        if (review.nested.isNotEmpty()) {
-                            FactRow(label = "Calls") {
-                                review.nested.forEach { NestedCallView(it) }
-                            }
-                        }
-                        FactRow(label = "Fee breakdown") {
-                            review.fee.forEach { (name, value) ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    MutedText(name.uppercase())
-                                    MonoText(text = value)
-                                }
-                            }
-                            review.feeNote?.let { note -> NoteText(note) }
-                        }
-                        FactRow(label = "Nonce") {
-                            Text(
-                                text = review.nonce.toString(),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                    FactRow(label = "Type") {
-                        Text(
-                            text = review.txType,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
                     }
                     Spacer(Modifier.height(LenslySpacing.md))
                 }
@@ -266,319 +197,168 @@ private fun ScrollFade(modifier: Modifier) {
 }
 
 /**
- * The line above the buttons. It names what still stands between the owner and signing, and holds its height when there
- * is nothing to say, so the buttons do not move.
+ * The line above the buttons. It names what still stands between the owner and signing, and it is empty when nothing does.
  */
 private fun reviewHint(review: TxReview, everyFactShown: Boolean, checked: Set<ReviewCheck>): String? {
     val owed = review.requiredChecks.count { it !in checked }
     return when {
         !everyFactShown -> "Scroll to the end to review everything"
-        owed == 1 -> "Tick the check below to sign"
-        owed > 1 -> "Tick the checks below to sign"
+        owed == 1 -> "Tick the checkbox above to sign"
+        owed > 1 -> "Tick the checkboxes above to sign"
         else -> null
     }
 }
 
-/** The text on the row of a check. */
+/** The text of the row of a check. Sentence case, in the body face. */
 private val ReviewCheck.label: String
     get() = when (this) {
-        ReviewCheck.DENYLIST -> "I UNDERSTAND THIS IS A RISKY REQUEST"
-        ReviewCheck.REGISTRY -> "I CHECKED THE CHAIN ID / CONTRACT"
-        ReviewCheck.WHITELIST -> "I CHECKED THIS IS WHAT I INTEND"
-        ReviewCheck.UPGRADE -> "I ACCEPT THE IMPLEMENTATION CANNOT BE CHECKED"
+        ReviewCheck.DENYLIST -> "I understand this is a risky request"
+        ReviewCheck.REGISTRY -> "I checked the chain ID and contract"
+        ReviewCheck.WHITELIST -> "I checked this is what I intend"
+        ReviewCheck.UPGRADE -> "I accept the implementation cannot be checked"
     }
 
-@Composable
-private fun ReviewHint(text: String?) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(LenslySpacing.lg),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (text != null) {
-            Text(
-                text = text.uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+/**
+ * The rows of the risk banner: each warning the review holds, with the check that a row needs. A check goes to the first row that needs
+ * it, so each check is shown, and ticked, once. The rows of the review come first, then those of its calls, in the order they run.
+ */
+internal fun evmRiskItems(review: TxReview, checked: Set<ReviewCheck>, onCheck: (ReviewCheck, Boolean) -> Unit): List<RiskItem> {
+    val items = mutableListOf<RiskItem>()
+    val attached = mutableSetOf<ReviewCheck>()
+    fun row(text: String, tone: BannerTone, check: ReviewCheck? = null) {
+        val shown = check?.takeIf { attached.add(it) }
+        items += RiskItem(
+            text = text,
+            tone = tone,
+            check = shown?.let { owed ->
+                RiskCheck(label = owed.label, checked = owed in checked, onCheckedChange = { on -> onCheck(owed, on) })
+            },
+        )
+    }
+    review.denylisted.forEach { row("Known risky request. ${it.reason}", BannerTone.Error, ReviewCheck.DENYLIST) }
+    if (review.needsRegistryConfirmation) row(REGISTRY_TEXT, BannerTone.Error, ReviewCheck.REGISTRY)
+    review.warnings.forEach { row(it, BannerTone.Error) }
+    review.whitelisted?.let { whitelisted ->
+        row(WHITELIST_TEXT, BannerTone.Warning, ReviewCheck.WHITELIST)
+        if (whitelisted.call.proxy != null) row(UPGRADE_TEXT, BannerTone.Error, ReviewCheck.UPGRADE)
+    }
+    review.nested.forEach { call ->
+        call.denylisted.forEach { row("${call.function}: known risky request. ${it.reason}", BannerTone.Error, ReviewCheck.DENYLIST) }
+        if (call.unregistered) {
+            row("${call.function}: outside Lensly's registry. Check its chain ID and contract.", BannerTone.Error, ReviewCheck.REGISTRY)
+        }
+        call.warnings.forEach { row("${call.function}: $it", BannerTone.Error) }
+        call.whitelisted?.let { whitelisted ->
+            row("${call.function}: $WHITELIST_TEXT", BannerTone.Warning, ReviewCheck.WHITELIST)
+            if (whitelisted.call.proxy != null) row("${call.function}: $UPGRADE_TEXT", BannerTone.Error, ReviewCheck.UPGRADE)
         }
     }
+    return items
 }
 
 /**
- * Who signs, and where. The wallet and the account are shown with their Visual Identity, and the account's full address
- * follows its name. The network has its logo, and the origin the request names is shown as the requester gave it.
+ * The sentence of the summary: the verb, the amount and the counterparty. A personal message, a typed message, and a whitelisted call
+ * each name what they are. A transfer names its amount and its recipient, an approval names its spender, and a call names its contract.
  */
+internal fun evmSentence(review: TxReview): AnnotatedString = buildAnnotatedString {
+    val spender = review.params.firstOrNull { it.first.startsWith("spender") }?.second
+    val amount = listOf(review.amount, review.symbol).filter { it.isNotEmpty() }.joinToString(" ")
+    val whitelisted = review.whitelisted
+    when {
+        review.function == SIGN_MESSAGE_FUNCTION -> append("Sign a message")
+        review.typed != null -> append("Sign ${review.function}")
+        whitelisted != null -> append(whitelisted.meaning)
+        spender != null && review.amount.isNotEmpty() -> {
+            append("Approve ")
+            appendCounterparty(review, spender)
+            append(" to spend ")
+            appendMono(amount)
+        }
+        review.amount.isNotEmpty() -> {
+            append("Send ")
+            appendMono(amount)
+            if (review.toAddress.isNotEmpty()) {
+                append(" to ")
+                appendCounterparty(review, review.toAddress)
+            }
+        }
+        review.nested.isNotEmpty() -> {
+            append("Run ${review.nested.count { it.depth == 1 }} calls")
+            if (review.toAddress.isNotEmpty()) {
+                append(" on ")
+                appendCounterparty(review, review.toAddress)
+            }
+        }
+        review.toAddress.isNotEmpty() -> {
+            append("Call ${review.function} on ")
+            appendCounterparty(review, review.toAddress)
+        }
+        else -> append("Call ${review.function}")
+    }
+}
+
+/** The name of an address from the Address Book or this device's accounts, or else its short form in mono. */
+private fun AnnotatedString.Builder.appendCounterparty(review: TxReview, address: String) {
+    val name = review.addressNotes.notesOf(address)?.shownName()
+    if (name != null) append(name) else appendMono(shortAddress(address))
+}
+
+/**
+ * The key/value list of the summary: the maximum network fee, the total when it can be added up, the typed message's own summary,
+ * and who requested the transaction. An address of the typed summary shows its name when the Address Book or this device names it,
+ * and its full address in the fields otherwise. The request names no origin as "Not stated".
+ */
+internal fun evmFacts(review: TxReview): List<ReviewFact> = buildList {
+    val maxFee = review.fee.firstOrNull { it.first == "Max fee" }?.second
+    maxFee?.let { add(ReviewFact(label = "Network fee", value = it)) }
+    evmTotal(review, maxFee)?.let { add(ReviewFact(label = "Total", value = it)) }
+    review.typed?.summary?.forEach { (label, value) ->
+        val name = review.addressNotes.notesOf(value)?.shownName()
+        add(ReviewFact(label = label, value = name ?: value, mono = name == null))
+    }
+    add(ReviewFact(label = "Requested by", value = review.origin ?: NOT_STATED, mono = false))
+}
+
+/**
+ * The total of a native transfer: the amount sent plus the maximum fee, when both are in the native coin. Null otherwise, because a
+ * token amount cannot be added to a fee in the coin, and an unknown coin has no decimals to add with.
+ */
+internal fun evmTotal(review: TxReview, maxFee: String?): String? {
+    if (review.tokenContract != null || maxFee == null || review.amount.isEmpty()) return null
+    val fee = maxFee.split(' ')
+    if (fee.size != 2 || fee[1] != review.symbol) return null
+    val sent = review.amount.toBigDecimalOrNull() ?: return null
+    val feeAmount = fee[0].toBigDecimalOrNull() ?: return null
+    return "${(sent + feeAmount).toPlainString()} ${review.symbol}"
+}
+
+/** The logo of the amount: the coin's chain logo, or a token's logo with its chain as a badge. */
+private fun amountIcon(review: TxReview): @Composable () -> Unit = { AmountIcon(review) }
+
 @Composable
-private fun SigningHeader(review: TxReview) {
-    Column(
+private fun AmountIcon(review: TxReview) {
+    if (review.tokenContract == null) {
+        ChainIcon(network = review.network, size = 32.dp)
+    } else {
+        TokenIcon(token = review.token, size = 32.dp, chain = review.network)
+    }
+}
+
+/** A personal message: its text in the monospace face on a raised block, so each character can be checked by eye. Its size follows. */
+@Composable
+private fun MessageBlock(review: TxReview) {
+    val text = review.params.firstOrNull { it.first == "message" }?.second.orEmpty()
+    val size = review.params.firstOrNull { it.first == "size" }?.second
+    Text(
+        text = "Message",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(LenslySpacing.xxs))
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(LenslyRadius.md))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = LenslySpacing.sm),
-    ) {
-        FactRow(label = "Wallet") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ProfileAvatar(identity = review.walletIdentity, size = 32.dp)
-                Spacer(Modifier.width(LenslySpacing.sm))
-                Text(
-                    text = review.walletName,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        FactRow(label = "Account") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ProfileAvatar(identity = review.accountIdentity, size = 24.dp)
-                Spacer(Modifier.width(LenslySpacing.sm))
-                Text(
-                    text = review.fromAccountLabel,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Spacer(Modifier.height(LenslySpacing.xs))
-            AddressText(address = review.fromAddress)
-        }
-        FactRow(label = "Network") {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
-            ) {
-                ChainIcon(network = review.network, size = 20.dp)
-                Text(
-                    text = review.networkName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                // A testnet can share its logo with a mainnet, so the logo alone does not say which it is.
-                if (review.network?.testnet == true) PillChip(text = "Testnet")
-                PillChip(text = "Chain ${review.chainId}")
-            }
-        }
-        FactRow(label = "Requested by") {
-            val origin = review.origin
-            Text(
-                text = origin ?: NOT_STATED,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (origin == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
-}
-
-/**
- * The amount as the headline of the review, with the coin or token logo beside it. An amount in raw base units is set
- * smaller, so a long integer stays on one line. The muted note under it says how the amount was read.
- */
-@Composable
-private fun AmountRow(review: TxReview) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The native coin shows its chain's logo. A token shows its logo, or the unknown-token icon, with its
-        // chain's logo as a badge when it is a pegged or bridged copy.
-        if (review.tokenContract == null) {
-            ChainIcon(network = review.network, size = 32.dp)
-        } else {
-            TokenIcon(token = review.token, size = 32.dp, chain = review.network)
-        }
-        Spacer(Modifier.width(LenslySpacing.sm))
-        Text(
-            text = listOf(review.amount, review.symbol).filter { it.isNotEmpty() }.joinToString(" "),
-            style = if (review.amountNote == null) {
-                MaterialTheme.typography.displaySmall
-            } else {
-                MaterialTheme.typography.headlineSmall
-            },
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.weight(1f),
-        )
-    }
-    review.amountNote?.let { note ->
-        Spacer(Modifier.height(LenslySpacing.xxs))
-        NoteText(note)
-    }
-}
-
-/**
- * The first thing on a review whose chain or token is outside the registry. A solid accent block, so it cannot be
- * missed, with its title in the dot-matrix face.
- */
-@Composable
-private fun RegistryWarning() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(LenslyRadius.lg))
-            .background(LenslyAccent)
-            .padding(LenslySpacing.md),
-    ) {
-        Text(
-            text = "NOT IN LENSLY'S REGISTRY",
-            style = MaterialTheme.typography.headlineSmall,
-            color = LenslyOnSurface,
-        )
-        Spacer(Modifier.height(LenslySpacing.xs))
-        Text(
-            text = "Lensly cannot confirm this network or token, so check the chain ID and contract " +
-                "against a trusted source.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = LenslyOnSurface,
-        )
-    }
-}
-
-/**
- * The first thing on a review that matches the denylist of known-dangerous requests. A solid block that gives the reason of each
- * match, so the owner reads why the request is risky before the check that lets it be signed.
- */
-@Composable
-private fun DenylistWarning(reasons: List<String>) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(LenslyRadius.lg))
-            .background(LenslyAccent)
-            .padding(LenslySpacing.md),
-    ) {
-        Text(
-            text = "KNOWN RISKY REQUEST",
-            style = MaterialTheme.typography.headlineSmall,
-            color = LenslyOnSurface,
-        )
-        reasons.forEach { reason ->
-            Spacer(Modifier.height(LenslySpacing.xs))
-            Text(
-                text = reason,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LenslyOnSurface,
-            )
-        }
-    }
-}
-
-/**
- * An explicit check the review asks for, such as the chain ID and contract of a review outside the registry. It sits above the
- * buttons, outside the scroll, so it stays in view, and the hold-to-sign control is disabled until it is ON. A red outline
- * means the check is still owed.
- */
-@Composable
-internal fun CheckRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    val haptics = rememberKeyHaptics()
-    val pill = RoundedCornerShape(percent = 50)
-    val owed = if (checked) LenslyOnSurface else LenslyError
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .clip(pill)
-            .border(1.dp, owed, pill)
-            .tapHaptic(haptics)
-            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
-            .padding(start = LenslySpacing.md, end = LenslySpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(LenslySpacing.sm))
-        Box(
-            modifier = Modifier
-                .clip(pill)
-                .background(if (checked) LenslyOnSurface else Color.Transparent)
-                .border(1.dp, owed, pill)
-                .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xs - LenslySpacing.xxs),
-        ) {
-            Text(
-                text = if (checked) "ON" else "OFF",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (checked) LenslyBlack else LenslyError,
-            )
-        }
-    }
-}
-
-/**
- * A typed message (EIP-712): its domain, the summary of a Permit or Permit2 payload when it is one, and every field of the message.
- * The fields keep their nesting, so a struct's members sit under its header, one level in.
- */
-@Composable
-private fun TypedDataFacts(typed: TypedReview, notes: Map<String, AddressNotes>) {
-    FactRow(label = "Domain") {
-        typed.domain.forEach { (name, value) -> LabelledValue(label = name, value = value) }
-    }
-    if (typed.summary.isNotEmpty()) {
-        FactRow(label = "Summary") {
-            // An address row is named the way the To row is: the Address Book and the device's accounts say what it is.
-            typed.summary.forEach { (name, value) ->
-                LabelledValue(label = name, value = value)
-                if (isEvmAddress(value)) notes.notesOf(value)?.let { AddressNotesBlock(it) }
-            }
-        }
-    }
-    FactRow(label = "Fields") {
-        typed.fields.forEach { row -> TypedFieldLine(row, notes) }
-    }
-}
-
-/** One line of a typed message, indented by its depth. A header line names a struct or an array and its type. */
-@Composable
-private fun TypedFieldLine(row: TypedRow, notes: Map<String, AddressNotes>) {
-    val value = row.value
-    Column(modifier = Modifier.padding(start = (row.depth * 12).dp, bottom = LenslySpacing.xs)) {
-        MutedText("${row.label} · ${row.type}".uppercase())
-        if (value != null) {
-            Spacer(Modifier.height(LenslySpacing.xxs))
-            if (isEvmAddress(value)) {
-                AddressText(address = value)
-                notes.notesOf(value)?.let { AddressNotesBlock(it) }
-            } else {
-                MonoText(text = value)
-            }
-        }
-    }
-}
-
-/**
- * A personal message: its text in the monospace face on a raised block, so each character can be checked by eye. Long
- * lines wrap inside the block, and its size follows it.
- */
-@Composable
-private fun MessageFacts(review: TxReview) {
-    val text = review.params.firstOrNull { it.first == "message" }?.second.orEmpty()
-    val size = review.params.firstOrNull { it.first == "size" }?.second
-    FactRow(label = "Message") {
-        MessageBlock(text = text)
-    }
-    if (size != null) {
-        FactRow(label = "Size") {
-            Text(
-                text = size,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
-}
-
-@Composable
-private fun MessageBlock(text: String) {
-    val shape = RoundedCornerShape(LenslyRadius.md)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(LenslySpacing.sm),
     ) {
@@ -588,66 +368,9 @@ private fun MessageBlock(text: String) {
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
-}
-
-/**
- * One call of a multicall, indented by its level so the nesting reads at a glance. It opens with the same warnings a lone call
- * gets: the denylist block for a known-dangerous request, the registry block for a token outside the registry, then each warning.
- * Then come its target when it names one, its function and arguments, and its note. A call the whitelist approves ends with its
- * approved meaning, under the same block a lone call gets.
- */
-@Composable
-private fun NestedCallView(call: NestedCall) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = LenslySpacing.md * (call.depth - 1), bottom = LenslySpacing.sm),
-    ) {
-        if (call.denylisted.isNotEmpty()) {
-            DenylistWarning(reasons = call.denylisted.map { it.reason })
-            Spacer(Modifier.height(LenslySpacing.xs))
-        }
-        if (call.unregistered) {
-            RegistryWarning()
-            Spacer(Modifier.height(LenslySpacing.xs))
-        }
-        call.warnings.forEach { warning ->
-            InlineBanner(message = warning, tone = BannerTone.Error, title = "Warning")
-            Spacer(Modifier.height(LenslySpacing.xs))
-        }
-        call.target?.let { target ->
-            MutedText("TARGET")
-            Spacer(Modifier.height(LenslySpacing.xxs))
-            AddressText(address = target)
-            Spacer(Modifier.height(LenslySpacing.xs))
-        }
-        Text(
-            text = call.function,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        val steps = call.whitelisted?.steps?.lines?.takeIf { it.isNotEmpty() }
-        if (steps != null) {
-            NumberedSteps(steps)
-            DetailsToggle { call.params.forEach { (name, value) -> LabelledValue(label = name, value = value) } }
-        } else {
-            call.params.forEach { (name, value) -> LabelledValue(label = name, value = value) }
-        }
-        call.note?.let { note -> NoteText(note) }
-        call.whitelisted?.let { whitelisted ->
-            Spacer(Modifier.height(LenslySpacing.xs))
-            WhitelistedCallBlock(whitelisted)
-        }
-    }
-}
-
-/** The arguments of a call, or "None" when it has none. */
-@Composable
-private fun ParameterRows(params: List<Pair<String, String>>) {
-    if (params.isEmpty()) {
-        MutedText("None")
-    } else {
-        params.forEach { (name, value) -> LabelledValue(label = name, value = value) }
+    size?.let {
+        Spacer(Modifier.height(LenslySpacing.xs))
+        ReviewFactRow(label = "Size", value = it, mono = false)
     }
 }
 
@@ -657,7 +380,11 @@ private fun NumberedSteps(lines: List<String>) {
     Column(modifier = Modifier.fillMaxWidth()) {
         lines.forEachIndexed { index, line ->
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = LenslySpacing.sm)) {
-                MutedText("${index + 1}.")
+                Text(
+                    text = "${index + 1}.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.width(LenslySpacing.sm))
                 Text(
                     text = line,
@@ -670,64 +397,131 @@ private fun NumberedSteps(lines: List<String>) {
     }
 }
 
-/** The raw arguments of a decoded call, folded away behind a row that opens them. The steps above them are what the eye reads first. */
+/** The arguments of a call, or "None" when it has none. Each address shows its names. */
 @Composable
-private fun DetailsToggle(content: @Composable () -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = { open = !open })
-            .padding(vertical = LenslySpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MutedText("ARGUMENTS")
-        Spacer(Modifier.weight(1f))
-        MutedText(if (open) "HIDE" else "SHOW")
+private fun ParameterFields(params: List<Pair<String, String>>, notes: Map<String, AddressNotes>) {
+    if (params.isEmpty()) {
+        NoteText("None")
+    } else {
+        params.forEach { (name, value) -> ReviewField(label = name, value = value, notes = notes.notesOf(value)) }
     }
-    if (open) content()
 }
 
-/** One argument of a call: its name above its value. An address is shown in groups of four, so it can be compared by eye. */
+/** One line of a typed message, indented by its depth. A header line names a struct or an array and its type. */
 @Composable
-internal fun LabelledValue(label: String, value: String) {
-    Column(modifier = Modifier.padding(bottom = LenslySpacing.xs)) {
-        MutedText(label.uppercase())
-        Spacer(Modifier.height(LenslySpacing.xxs))
-        if (isEvmAddress(value)) {
-            AddressText(address = value)
+private fun TypedFieldRow(row: TypedRow, notes: Map<String, AddressNotes>) {
+    val label = "${row.label} · ${row.type}"
+    Column(modifier = Modifier.fillMaxWidth().padding(start = (row.depth * 12).dp)) {
+        val value = row.value
+        if (value != null) {
+            ReviewField(label = label, value = value, notes = notes.notesOf(value))
         } else {
-            MonoText(text = value)
+            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
-/** REJECT: an outlined pill that is always enabled. It shrinks while pressed and plays the key haptic. */
+/**
+ * One call of a multicall, indented by its level so the nesting reads at a glance. Its warnings are in the banner above, so the call
+ * shows its target, its function and its arguments, and the approved meaning of a call the whitelist approves.
+ */
 @Composable
-internal fun RejectPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    val haptics = rememberKeyHaptics()
-    val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(percent = 50)
-    Box(
-        modifier = modifier
-            .height(56.dp)
-            .pressFeedback(interaction, enabled = true)
-            .clip(shape)
-            .border(1.dp, colors.outline, shape)
-            .tapHaptic(haptics)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                role = Role.Button,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
+private fun NestedCallView(call: NestedCall, notes: Map<String, AddressNotes>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = LenslySpacing.md * (call.depth - 1), bottom = LenslySpacing.sm),
     ) {
         Text(
-            text = "REJECT",
-            style = MaterialTheme.typography.labelLarge,
-            color = colors.onSurface,
+            text = call.function,
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
         )
+        call.target?.let { target -> ReviewField(label = "Target", value = target, notes = notes.notesOf(target)) }
+        call.params.forEach { (name, value) -> ReviewField(label = name, value = value, notes = notes.notesOf(value)) }
+        call.whitelisted?.let { whitelisted ->
+            Text(
+                text = whitelisted.meaning,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            whitelisted.steps?.lines?.takeIf { it.isNotEmpty() }?.let { NumberedSteps(it) }
+            ReviewField(label = "Function signature", value = whitelisted.signature)
+            ReviewFactRow(label = "Value", value = whitelisted.call.value)
+            ReviewFactRow(label = "Selector", value = "0x${whitelisted.call.selector}")
+            whitelisted.call.words.forEachIndexed { index, word ->
+                ReviewField(label = "Word ${index + 1}", value = "0x${groupHex(word)}")
+            }
+            whitelisted.call.proxy?.let { proxy -> ProxyFields(proxy, notes) }
+        }
+        call.note?.let { note -> NoteText(note) }
+    }
+}
+
+/**
+ * The transaction: who signs and to whom, what it calls, its chain, and what it costs. The To row names its address from the Address
+ * Book. A whitelisted call adds the protocol its approved meaning belongs to, and the implementation of a proxy it is bound to.
+ */
+@Composable
+private fun TransactionFields(review: TxReview, showTo: Boolean) {
+    val notes = review.addressNotes
+    ReviewFactRow(label = "Wallet", value = review.walletName, mono = false)
+    ReviewField(label = "From", value = review.fromAddress, notes = notes.notesOf(review.fromAddress))
+    if (showTo) {
+        ReviewField(label = "To", value = review.toAddress, notes = notes.notesOf(review.toAddress))
+    }
+    review.whitelisted?.let { whitelisted ->
+        protocolOfMeaning(whitelisted.meaning).takeIf { it.isNotEmpty() }?.let { protocol ->
+            ReviewFactRow(label = "Known contract", value = protocol, mono = false)
+        }
+        ReviewField(label = "Function signature", value = whitelisted.signature)
+        // The To row names the contract, so the block leaves it out when that row shows.
+        if (!showTo) {
+            ReviewField(label = "Contract", value = whitelisted.call.target, notes = notes.notesOf(whitelisted.call.target))
+        }
+        whitelisted.call.proxy?.let { proxy -> ProxyFields(proxy, notes) }
+    }
+    review.tokenContract?.let { contract ->
+        if (review.token == null) {
+            ReviewFactRow(label = "Token", value = UNKNOWN_TOKEN_NAME, mono = false)
+        }
+        ReviewField(label = "Token contract", value = contract, notes = notes.notesOf(contract))
+    }
+    if (review.function != SIGN_MESSAGE_FUNCTION) {
+        ReviewFactRow(label = "Function", value = review.function, mono = false)
+    }
+    review.signature?.let { ReviewField(label = "Signature", value = it) }
+    ReviewFactRow(label = "Chain ID", value = review.chainId.toString())
+    if (review.typed == null && review.function != SIGN_MESSAGE_FUNCTION) {
+        review.fee.forEach { (name, value) -> ReviewFactRow(label = name, value = value) }
+        review.feeNote?.let { note -> NoteText(note) }
+        ReviewFactRow(label = "Nonce", value = review.nonce.toString())
+    }
+    ReviewFactRow(label = "Type", value = review.txType, mono = false)
+}
+
+/** The implementation a whitelisted proxy is bound to, in full: its address, its code hash, or both. */
+@Composable
+private fun ProxyFields(proxy: ProxyBinding, notes: Map<String, AddressNotes>) {
+    proxy.implementationAddress?.let { address ->
+        ReviewField(label = "Approved implementation", value = address, notes = notes.notesOf(address))
+    }
+    proxy.implementationCodeHash?.let { hash ->
+        ReviewField(label = "Approved code hash", value = groupHex(hash.removePrefix("0x")))
+    }
+}
+
+/** The value and the calldata of a whitelisted call: its value, its selector, and every word after the selector in full. */
+@Composable
+private fun RawDataFields(whitelisted: WhitelistedCall) {
+    ReviewFactRow(label = "Value", value = whitelisted.call.value)
+    ReviewFactRow(label = "Selector", value = "0x${whitelisted.call.selector}")
+    val words = whitelisted.call.words
+    if (words.isEmpty()) {
+        NoteText("None")
+    } else {
+        words.forEachIndexed { index, word ->
+            ReviewField(label = "Word ${index + 1}", value = "0x${groupHex(word)}")
+        }
     }
 }

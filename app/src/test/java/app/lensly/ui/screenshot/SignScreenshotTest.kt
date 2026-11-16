@@ -316,19 +316,18 @@ class SignScreenshotTest {
     }
 
     @Test
-    fun reviewWhitelistedParams() = compose.snapshotScrolled("tx_review_whitelisted_params", "FEE BREAKDOWN") {
-        // The fact after Parameters: scrolling to it leaves the whole Parameters section in view above it.
+    fun reviewWhitelistedParams() = compose.snapshotScrolled("tx_review_whitelisted_params", "to (address)", toggle = "Parameters") {
+        // The Parameters section is opened first, and its last argument is scrolled to, which leaves every argument in view above it.
         TxReviewScreen(review = whitelistedSample(), onApprove = {}, onReject = {})
     }
 
     @Test
     fun reviewWhitelistedRawCalldata() = compose.snapshotScrolled(
         "tx_review_whitelisted_raw",
-        "FUNCTION",
-        toggle = "Raw calldata",
+        "Word 1",
+        toggle = "Raw data",
     ) {
-        // The raw calldata section is opened first. The first fact after the whitelisted block is then scrolled to, which
-        // leaves the expanded words in view above it.
+        // The raw data section is opened first. Its first word is then scrolled to, which leaves the value and the selector in view above it.
         TxReviewScreen(review = whitelistedSample(), onApprove = {}, onReject = {})
     }
 
@@ -360,8 +359,8 @@ class SignScreenshotTest {
     }
 
     @Test
-    fun reviewNestedCalls() = compose.snapshotScrolled("tx_review_nested", "WHITELISTED CONTRACT CALL") {
-        // The review is scrolled to the whitelisted call under the list, so the calls above it sit in view, indented by level.
+    fun reviewNestedCalls() = compose.snapshotScrolled("tx_review_nested", "swapExactTokensForTokens", toggle = "Calls") {
+        // The calls are opened, and the review is scrolled to the whitelisted call under them, so the calls above it sit in view, indented by level.
         TxReviewScreen(review = nestedSample(), onApprove = {}, onReject = {})
     }
 

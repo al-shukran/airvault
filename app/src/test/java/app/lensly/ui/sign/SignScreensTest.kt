@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,7 +62,7 @@ private const val MAX_UINT256_DECIMAL = "115792089237316195423570985008687907853
 private const val IMPLEMENTATION = "0x7777777777777777777777777777777777777777"
 private const val APPROVED_MEANING = "Swap an exact amount along the route in the call"
 private const val UPGRADE_WARNING = "The implementation could have been upgraded since it was approved, and Lensly cannot check " +
-    "it offline. The implementation it was approved with is shown below."
+    "it offline. The implementation it was approved with is in the details."
 
 /** Three calldata words of a whitelisted swap: two uint words, and the recipient word. */
 private val SWAP_WORDS = listOf(
@@ -289,15 +290,16 @@ class TxReviewScreenTest {
     val compose = createComposeRule()
 
     @Test
-    fun theSigningHeaderShowsTheWalletAccountAddressNetworkAndOriginInFull() {
+    fun theRequestNamesTheAccountOriginAndNetworkInTheHeaderAndTheWalletInItsDetails() {
         compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
-        compose.onNodeWithText(LONG_WALLET).assertExists()
         compose.onNodeWithText("ACCOUNT WITH A LONG DISPLAY NAME 12").assertExists()
-        compose.onNodeWithText(groupAddress(FROM)).assertExists()
-        compose.onNodeWithText("REQUESTED BY").assertExists()
+        compose.onNodeWithText("BASE").assertExists()
+        compose.onNodeWithText("Requested by").assertExists()
         compose.onNodeWithText(LONG_ORIGIN).assertExists()
-        compose.onNodeWithText("Base").assertExists()
+        compose.onNodeWithText("Transaction").performScrollTo().performClick()
+        compose.onNodeWithText(LONG_WALLET).assertExists()
+        compose.onNodeWithText(groupAddress(FROM)).assertExists()
     }
 
     @Test
@@ -311,9 +313,21 @@ class TxReviewScreenTest {
 
     @Test
     fun theHoldControlIsDisabledAndSaysWhyUntilTheReviewIsReadToTheEnd() {
+        // A message this long is taller than the screen, so the review has to be scrolled to its end before it can be signed.
+        val tall = messageReview().copy(params = listOf("message" to "Sign in to Lensly. ".repeat(400), "size" to "7600 characters"))
+        compose.setContent { LenslyTheme { TxReviewScreen(review = tall, onApprove = {}, onReject = {}) } }
+
+        compose.onNodeWithText("Scroll to the end to review everything").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aReviewThatFitsOnScreenCountsAsReadAndAsksOnlyForItsChecks() {
+        // The summary and the banner fit, and the details are folded, so the fit counts as read, as an end of the scroll does.
         compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
-        compose.onNodeWithText("SCROLL TO THE END TO REVIEW EVERYTHING").assertExists()
+        compose.onNodeWithText("Scroll to the end to review everything").assertDoesNotExist()
+        compose.onNodeWithText("Tick the checkbox above to sign").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
     }
 
@@ -321,26 +335,26 @@ class TxReviewScreenTest {
     fun aWhitelistedCallOpensWithItsApprovedMeaningAndShowsEveryFactAndWord() {
         compose.setContent { LenslyTheme { TxReviewScreen(review = whitelistedReview(), onApprove = {}, onReject = {}) } }
 
-        compose.onNodeWithText("WHITELISTED CONTRACT CALL").assertExists()
+        compose.onNodeWithText(APPROVED_MEANING).assertExists()
         compose.onNodeWithText(
-            "Lensly cannot decode this call itself. It is on your signed whitelist with the meaning below. " +
+            "Lensly cannot decode this call itself. It is on your signed whitelist with the meaning above. " +
                 "Sign only if this is what you intend.",
         ).assertExists()
-        compose.onNodeWithText(APPROVED_MEANING).assertExists()
+        compose.onNodeWithText("Transaction").performScrollTo().performClick()
         compose.onNodeWithText("swapExactTokensForTokens(uint256,uint256,address)").assertExists()
         compose.onNodeWithText(groupAddress(BASE_USDC)).assertExists()
-        compose.onNodeWithText("0x6e17e9f6").assertExists()
-        compose.onNodeWithText("0 ETH").assertExists()
-        compose.onNodeWithText("PARAMETERS").assertExists()
-        compose.onNodeWithText("AMOUNTIN (UINT256)").assertExists()
+        compose.onNodeWithText("Parameters").performScrollTo().performClick()
+        compose.onNodeWithText("amountIn (uint256)").assertExists()
         compose.onNodeWithText("10").assertExists()
         // The raw words live in the folded section, so they are shown only when it opens.
-        compose.onNodeWithText("Raw calldata").performClick()
+        compose.onNodeWithText("Raw data").performScrollTo().performClick()
+        compose.onNodeWithText("0x6e17e9f6").assertExists()
+        compose.onNodeWithText("0 ETH").assertExists()
         SWAP_WORDS.forEachIndexed { index, word ->
-            compose.onNodeWithText("WORD ${index + 1}").assertExists()
+            compose.onNodeWithText("Word ${index + 1}").assertExists()
             compose.onNodeWithText("0x" + groupHex(word)).assertExists()
         }
-        compose.onNodeWithText("I CHECKED THIS IS WHAT I INTEND").assertExists()
+        compose.onNodeWithText("I checked this is what I intend").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
     }
 
@@ -355,12 +369,13 @@ class TxReviewScreenTest {
         )
         compose.setContent { LenslyTheme { TxReviewScreen(review = review, onApprove = {}, onReject = {}) } }
 
-        compose.onNodeWithText("TO").assertExists()
+        compose.onNodeWithText("Transaction").performScrollTo().performClick()
+        compose.onNodeWithText("To").assertExists()
         compose.onNodeWithText("Base lending pool").assertExists()
-        compose.onNodeWithText("KNOWN CONTRACT").assertExists()
+        compose.onNodeWithText("Known contract").assertExists()
         compose.onNodeWithText("Aave V3").assertExists()
         // The To row names the contract, so the approved-call block does not repeat it under a Contract label.
-        compose.onAllNodesWithText("CONTRACT").assertCountEquals(0)
+        compose.onAllNodesWithText("Contract").assertCountEquals(0)
     }
 
     @Test
@@ -370,9 +385,10 @@ class TxReviewScreenTest {
             LenslyTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
         }
 
-        // The Summary row and the Fields row of the same spender both name it.
+        // The summary names the spender, and the Fields section names it again above its address.
+        compose.onAllNodesWithText("Uniswap Router").assertCountEquals(1)
+        compose.onNodeWithText("Fields").performScrollTo().performClick()
         compose.onAllNodesWithText("Uniswap Router").assertCountEquals(2)
-        compose.onAllNodesWithText("ADDRESS NAME").assertCountEquals(2)
     }
 
     @Test
@@ -385,18 +401,21 @@ class TxReviewScreenTest {
             LenslyTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
         }
 
-        // The cue and the wallet's name show once for the summary row and once for the fields row of the same spender.
-        compose.onAllNodesWithText("INTERNAL ACCOUNT").assertCountEquals(2)
-        compose.onAllNodesWithText("Savings").assertCountEquals(2)
+        // The summary names the account, and the Fields section shows its cue and its wallet under the same address.
+        compose.onAllNodesWithText("Savings 0").assertCountEquals(1)
+        compose.onNodeWithText("Fields").performScrollTo().performClick()
+        compose.onAllNodesWithText("Savings 0").assertCountEquals(2)
+        compose.onAllNodesWithText("An account of this device").assertCountEquals(1)
+        compose.onAllNodesWithText("Savings").assertCountEquals(1)
     }
 
     @Test
     fun anAccountOfAnotherWalletNamesThatWallet() {
         val account = InternalAccount(displayName = null, autoName = "Savings 0", label = null, walletName = "Savings")
-        compose.setContent { LenslyTheme { AddressNotesBlock(AddressNotes(internal = account, entry = null)) } }
+        compose.setContent { LenslyTheme { ReviewAddress(address = TO, notes = AddressNotes(internal = account, entry = null)) } }
 
-        compose.onNodeWithText("INTERNAL ACCOUNT").assertExists()
-        compose.onNodeWithText("WALLET").assertExists()
+        compose.onNodeWithText("An account of this device").assertExists()
+        compose.onNodeWithText("Wallet").assertExists()
         compose.onNodeWithText("Savings").assertExists()
     }
 
@@ -404,27 +423,29 @@ class TxReviewScreenTest {
     fun aMulticallListsEachCallLevelByLevelWithItsTargetFunctionAndArguments() {
         compose.setContent { LenslyTheme { TxReviewScreen(review = multicallReview(), onApprove = {}, onReject = {}) } }
 
-        compose.onNodeWithText("CALLS").assertExists()
-        compose.onNodeWithText("approve").assertExists()
-        // A call outside the registry earns the same warnings a lone call does: its warning, its note and its registry block.
-        compose.onNodeWithText(UNLIMITED).assertExists()
-        compose.onNodeWithText(UNKNOWN_DECIMALS_NOTE).assertExists()
-        compose.onNodeWithText("NOT IN LENSLY'S REGISTRY").assertExists()
+        // A call outside the registry earns the same warnings a lone call does, and each sits in the banner with its check.
+        compose.onNodeWithText("approve: $UNLIMITED").assertExists()
+        compose.onNodeWithText("approve: outside Lensly's registry. Check its chain ID and contract.").assertExists()
         // A call that matches the denylist shows its reason and needs the risky-request check.
-        compose.onNodeWithText("KNOWN RISKY REQUEST").assertExists()
-        compose.onNodeWithText(DENYLIST_REASON).assertExists()
-        compose.onNodeWithText("I UNDERSTAND THIS IS A RISKY REQUEST").assertExists()
+        compose.onNodeWithText("approve: known risky request. $DENYLIST_REASON").assertExists()
+        compose.onNodeWithText("I understand this is a risky request").assertExists()
+        compose.onNodeWithText("Calls").performScrollTo().performClick()
+        compose.onNodeWithText("approve").assertExists()
+        compose.onNodeWithText(UNKNOWN_DECIMALS_NOTE).assertExists()
         compose.onNodeWithText("aggregate3").assertExists()
-        compose.onNodeWithText("ALLOWFAILURE (BOOL)").assertExists()
+        compose.onNodeWithText("allowFailure (bool)").assertExists()
         compose.onNodeWithText("sweepToken").assertExists()
-        compose.onNodeWithText("TARGET").assertExists()
-        // The sweep's target, its token argument, and the contract row of its whitelisted block are the same contract.
-        compose.onAllNodesWithText(groupAddress(BASE_USDC)).assertCountEquals(3)
-        compose.onNodeWithText("TOKEN (ADDRESS)").assertExists()
-        compose.onNodeWithText("AMOUNTMINIMUM (UINT256)").assertExists()
-        // The whitelisted call inside the batch carries the same warning, and the owner must tick its check.
-        compose.onNodeWithText("WHITELISTED CONTRACT CALL").assertExists()
-        compose.onNodeWithText("I CHECKED THIS IS WHAT I INTEND").assertExists()
+        compose.onNodeWithText("Target").assertExists()
+        // The sweep's target and its token argument are the same contract, so it shows under each.
+        compose.onAllNodesWithText(groupAddress(BASE_USDC)).assertCountEquals(2)
+        compose.onNodeWithText("token (address)").assertExists()
+        compose.onNodeWithText("amountMinimum (uint256)").assertExists()
+        // The whitelisted call inside the batch carries its warning in the banner, and the owner must tick its check.
+        compose.onNodeWithText(
+            "sweepToken: Lensly cannot decode this call itself. It is on your signed whitelist with the meaning above. " +
+                "Sign only if this is what you intend.",
+        ).assertExists()
+        compose.onAllNodesWithText("I checked this is what I intend").assertCountEquals(1)
         compose.assertNoTextIsCutShort()
     }
 
@@ -436,10 +457,11 @@ class TxReviewScreenTest {
         }
 
         compose.onNodeWithText(UPGRADE_WARNING).assertExists()
-        compose.onNodeWithText("APPROVED IMPLEMENTATION").assertExists()
+        compose.onNodeWithText("Transaction").performScrollTo().performClick()
+        compose.onNodeWithText("Approved implementation").assertExists()
         compose.onNodeWithText(groupAddress(IMPLEMENTATION)).assertExists()
-        compose.onNodeWithText("I CHECKED THIS IS WHAT I INTEND").assertExists()
-        compose.onNodeWithText("I ACCEPT THE IMPLEMENTATION CANNOT BE CHECKED").assertExists()
+        compose.onNodeWithText("I checked this is what I intend").assertExists()
+        compose.onNodeWithText("I accept the implementation cannot be checked").assertExists()
     }
 
     @Test
