@@ -9,6 +9,9 @@ import app.lumio.data.provider.coingecko.CoinGeckoProvider
 import app.lumio.data.provider.defillama.DefiLlamaProvider
 import app.lumio.data.provider.etherscan.EtherscanProvider
 import app.lumio.data.provider.routescan.RoutescanProvider
+import app.lumio.data.provider.solana.CustomSolanaRpc
+import app.lumio.data.provider.solana.SOLANA_DEVNET
+import app.lumio.data.provider.solana.SolanaRpc
 import app.lumio.data.provider.threexpl.ThreeXplProvider
 import app.lumio.data.rpc.CustomRpc
 import app.lumio.data.rpc.RpcPlugins
@@ -53,4 +56,10 @@ object ProviderCatalog {
 
     /** The JSON-RPC providers of the public pool, then the owner's custom RPC. [allowLocalHttp] is true only in a debug build. */
     fun rpcProviders(allowLocalHttp: Boolean): List<Provider> = RpcPlugins.pool() + CustomRpc(allowLocalHttp)
+
+    /**
+     * The Solana providers: the public devnet endpoint, then the owner's own devnet RPC. They serve the Solana family only, so no EVM read reaches them,
+     * and the settings screens do not list them yet.
+     */
+    fun solanaProviders(allowLocalHttp: Boolean): List<Provider> = listOf(SolanaRpc(), CustomSolanaRpc(SOLANA_DEVNET.chain, allowLocalHttp))
 }
