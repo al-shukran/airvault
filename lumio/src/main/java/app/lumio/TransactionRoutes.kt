@@ -24,6 +24,7 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
+import app.lensly.ui.navigation.PickerStop
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.tx.CommentImportException
@@ -206,19 +207,32 @@ internal fun CommentBackupRoute(holder: VaultHolder) {
     val app = context.applicationContext as LumioApp
     val scope = rememberCoroutineScope()
     var notice by remember { mutableStateOf<String?>(null) }
+    // Each picker is a launch of the app's own. It stops the app while it is open, and that stop and the time away never lock the vault.
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(EXPORT_TYPE)) { uri ->
+        PickerStop.disarm()
         if (uri != null) {
             scope.launch { notice = withContext(Dispatchers.IO) { exportComments(context, app, holder.openSession(), uri) } }
         }
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        PickerStop.disarm()
         if (uri != null) {
             scope.launch { notice = withContext(Dispatchers.IO) { importComments(context, app, holder.openSession(), uri) } }
         }
     }
+    // A device without the picker reports it under the rows, and the launch is undone, so the idle countdown is not left waiting for it.
+    fun openPicker(launch: () -> Unit) {
+        PickerStop.arm()
+        try {
+            launch()
+        } catch (e: ActivityNotFoundException) {
+            PickerStop.disarm()
+            notice = NO_PICKER
+        }
+    }
     CommentBackupRows(
-        onExport = { exportLauncher.launch(EXPORT_NAME) },
-        onImport = { importLauncher.launch(arrayOf("*/*")) },
+        onExport = { openPicker { exportLauncher.launch(EXPORT_NAME) } },
+        onImport = { openPicker { importLauncher.launch(arrayOf("*/*")) } },
         notice = notice,
     )
 }
@@ -226,6 +240,9 @@ internal fun CommentBackupRoute(holder: VaultHolder) {
 /** The MIME type and the suggested name of an export. The file is binary, sealed under the vault's key. */
 private const val EXPORT_TYPE = "application/octet-stream"
 private const val EXPORT_NAME = "lumio-comments.bin"
+
+/** The notice when the device has no system file picker to export to or import from. */
+private const val NO_PICKER = "This device has no file picker, so the comments cannot be exported or imported."
 
 /** Writes the sealed comments to [uri]. Returns the notice to show. */
 private suspend fun exportComments(context: Context, app: LumioApp, session: VaultSession?, uri: Uri): String {

@@ -3,14 +3,17 @@ package app.lumio.ui.settings
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.theme.LenslyTheme
 import app.lumio.btc.EsploraServers
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.LockSettings
 import app.lumio.evm.EvmSettings
 import kotlin.test.assertEquals
 import org.junit.Rule
@@ -98,13 +101,43 @@ class SettingsPagesTest {
         var opened = false
         compose.setContent {
             LenslyTheme {
-                SecuritySettingsPage(entryGesture = EntryGesture.DEFAULT, onEntryGesture = { opened = true }, onBack = {})
+                SecuritySettingsPage(
+                    entryGesture = EntryGesture.DEFAULT,
+                    lock = LockSettings(),
+                    onEntryGesture = { opened = true },
+                    onIdleMinutes = {},
+                    onLockWhenSwitching = {},
+                    onBack = {},
+                )
             }
         }
 
         compose.onAllNodesWithText("Save", ignoreCase = true).assertCountEquals(0)
         compose.onNodeWithText("Hidden entry gesture").performClick()
         assertEquals(true, opened)
+    }
+
+    @Test
+    fun theSecurityLockSwitchAppliesAtOnceAndTheTimeoutShowsItsValue() {
+        var switching: Boolean? = null
+        compose.setContent {
+            LenslyTheme {
+                SecuritySettingsPage(
+                    entryGesture = EntryGesture.DEFAULT,
+                    lock = LockSettings(),
+                    onEntryGesture = {},
+                    onIdleMinutes = {},
+                    onLockWhenSwitching = { switching = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("30 minutes").assertIsDisplayed()
+        compose.onNodeWithText("Default").assertIsDisplayed()
+        // The page scrolls: the switch sits below the fold of the test's small window.
+        compose.onNodeWithText("Lock when switching apps").performScrollTo().performClick()
+        assertEquals(true, switching)
     }
 
     @Test

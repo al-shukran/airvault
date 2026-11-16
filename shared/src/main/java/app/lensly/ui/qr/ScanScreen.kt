@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -22,6 +23,7 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.navigation.PickerStop
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
@@ -48,6 +50,11 @@ fun ScanScreen(
     modifier: Modifier = Modifier,
     frameSource: FrameSource? = null,
 ) {
+    // The camera is a launch of its own: while the scanner is shown, a policy that keeps own launches unlocked waits on the idle lock.
+    DisposableEffect(Unit) {
+        PickerStop.hold()
+        onDispose { PickerStop.release() }
+    }
     ScanFrame(
         title = title,
         progress = progress,

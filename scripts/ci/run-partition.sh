@@ -36,7 +36,7 @@ partitions:
   app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
                  --tests 'app.lensly.core.vault.BackupExclusionTest'
   lumio-a        :lumio:assembleDebug :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
-  lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.EntryGestureSettingTest'
+  lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.EntryGestureSettingTest' --tests 'app.lumio.CoverLockTest'
                  --tests 'app.lumio.btc.*' --tests 'app.lumio.data.*' --tests 'app.lumio.evm.*' --tests 'app.lumio.home.*'
                  --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*' --tests 'app.lumio.send.*' --tests 'app.lumio.tokens.*' --tests 'app.lumio.transactions.*'
   registry-pack  :tools:registry-pack:test
@@ -142,6 +142,7 @@ case "$partition" in
         ./gradlew :lumio:testDebugUnitTest \
             --tests 'app.lumio.LumioBackdropTest' \
             --tests 'app.lumio.EntryGestureSettingTest' \
+            --tests 'app.lumio.CoverLockTest' \
             --tests 'app.lumio.btc.*' \
             --tests 'app.lumio.data.*' \
             --tests 'app.lumio.demo.*' \

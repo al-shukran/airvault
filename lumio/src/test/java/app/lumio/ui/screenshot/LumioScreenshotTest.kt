@@ -22,6 +22,7 @@ import app.lumio.btc.BtcRow
 import app.lumio.btc.BtcSection
 import app.lumio.data.config.AssetSort
 import app.lumio.data.config.AssetSortKey
+import app.lumio.data.config.LockSettings
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.evm.AddressRow
@@ -393,7 +394,26 @@ class LumioScreenshotTest {
 
     @Test
     fun settingsSecurity() = compose.snapshot("settings_security") {
-        SecuritySettingsPage(entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE, onEntryGesture = {}, onBack = {})
+        SecuritySettingsPage(
+            entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
+            lock = LockSettings(),
+            onEntryGesture = {},
+            onIdleMinutes = {},
+            onLockWhenSwitching = {},
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun settingsSecuritySwitching() = compose.snapshot("settings_security_switching") {
+        SecuritySettingsPage(
+            entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
+            lock = LockSettings(idleMinutes = 5, lockWhenSwitchingApps = true),
+            onEntryGesture = {},
+            onIdleMinutes = {},
+            onLockWhenSwitching = {},
+            onBack = {},
+        )
     }
 
     @Test

@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
@@ -22,6 +23,8 @@ import app.lensly.ui.navigation.CoverNavHost
 import app.lensly.ui.navigation.HiddenBackdrop
 import app.lensly.ui.navigation.hiddenArea
 import app.lensly.ui.navigation.leaveHidden
+import app.lumio.data.config.LockSettings
+import app.lumio.data.config.LockSettingsStore
 import app.lumio.network.NetworkMode
 import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.settings.SettingsPage
@@ -178,6 +181,22 @@ internal class NetworkSelection {
 }
 
 /**
+ * The lock choices of Settings → Security, as observable state, so the Security page and the cover read a change at once. Each change is
+ * saved as it is made.
+ */
+internal class LockSettingsState(private val store: LockSettingsStore) {
+    var settings: LockSettings by mutableStateOf(store.load())
+        private set
+
+    /** Applies [transform] to the choices, and saves them. */
+    fun change(transform: (LockSettings) -> LockSettings) {
+        val next = transform(settings)
+        store.save(next)
+        settings = next
+    }
+}
+
+/**
  * A Lumio screen in the Hidden Area: the shared backdrop, with the testnet banner above the screen while [selection] is testnet. The gate
  * screens are not Lumio's, so they keep the plain backdrop.
  */
@@ -216,8 +235,10 @@ internal fun NavHostController.openTab(tab: LumioTab) {
  */
 @Composable
 fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
+    val app = LocalContext.current.applicationContext as LumioApp
     val draft = remember { PairDraft() }
     val selection = remember { NetworkSelection() }
+    val lockChoices = remember { LockSettingsState(app.lockSettings) }
     // Counts the saves and deletions, so Home and Settings read the paired wallets again.
     var listVersion by remember { mutableIntStateOf(0) }
     CoverNavHost(
@@ -228,6 +249,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             draft.clear()
             leaveHidden(navController, holder)
         },
+        lockPolicy = lockChoices.settings.policy,
     ) { navController, holder ->
         fun lock() {
             draft.clear()
@@ -311,6 +333,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                 selection = selection,
                 listVersion = listVersion,
                 onChanged = { listVersion++ },
+                lockChoices = lockChoices,
             )
             entryGestureRoutes(navController = navController, holder = holder, selection = selection)
             composable(LumioRoute.DATA_PROVIDERS) {
