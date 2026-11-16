@@ -110,10 +110,10 @@ internal fun TransactionsRoute(navController: NavHostController, holder: VaultHo
     }
 
     // The feed shows the store's rows first, then their values in dollars once the prices are read.
-    LaunchedEffect(plan, filter, limit, storedCount, display.hideSpam) {
+    LaunchedEffect(plan, filter, limit, storedCount) {
         val current = plan ?: return@LaunchedEffect
         val open = vault ?: return@LaunchedEffect
-        val rows = withContext(Dispatchers.IO) { txPage(app, open, current, filter, limit, display.hideSpam) }
+        val rows = withContext(Dispatchers.IO) { txPage(app, open, current, filter, limit, hideSpam = true) }
         page = rows
         page = withContext(Dispatchers.IO) { pricedPage(app, rows) }
     }

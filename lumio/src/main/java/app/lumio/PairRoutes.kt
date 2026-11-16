@@ -100,7 +100,7 @@ internal fun PairReviewRoute(
         }
     }
     if (session == null || pairing == null) {
-        LaunchedEffect(Unit) { navController.popBackStack(LumioRoute.HOME, inclusive = false) }
+        LaunchedEffect(Unit) { navController.popBackStack(LumioRoute.WALLETS, inclusive = false) }
         return
     }
     PairReviewScreen(
@@ -117,13 +117,13 @@ internal fun PairReviewRoute(
                 } else {
                     draft.clear()
                     onChanged()
-                    navController.popBackStack(LumioRoute.HOME, inclusive = false)
+                    navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
                 }
             }
         },
         onCancel = {
             draft.clear()
-            navController.popBackStack(LumioRoute.HOME, inclusive = false)
+            navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
         },
     )
 }

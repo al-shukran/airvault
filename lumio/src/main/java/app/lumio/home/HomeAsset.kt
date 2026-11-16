@@ -1,8 +1,6 @@
 package app.lumio.home
 
 import app.lumio.data.asset.AssetId
-import app.lumio.data.config.AssetSort
-import app.lumio.data.config.AssetSortKey
 import app.lumio.data.net.NetworkId
 import app.lumio.data.price.Price
 import java.math.BigDecimal
@@ -71,37 +69,8 @@ data class TokenAsset(
     }
 }
 
-/** The rules of Home's asset list: which assets it shows, their order, the total, and how the prices meet the balances. */
+/** The rules of the balances' values: the total, and how the prices meet the balances. */
 object HomeAssets {
-    /**
-     * The assets whose value is at least [minimumUsd]. An asset with no price is never hidden, because its value is not known to be small, and a
-     * testnet coin never has one.
-     */
-    fun visible(assets: List<HomeAsset>, minimumUsd: Double): List<HomeAsset> =
-        assets.filter { asset -> asset.usd?.let { it >= minimumUsd } ?: true }
-
-    /**
-     * [assets] without the spam, when [hideSpam] is on. Spam is a mainnet token that neither the registry nor the default list names, that the owner did
-     * not add, and that has no price. A price means a market trades the token, so a priced token stays. A testnet token never has a price, and a
-     * token the owner added is theirs, so both stay, and so does every coin that Lumio knows.
-     */
-    fun withoutSpam(assets: List<HomeAsset>, hideSpam: Boolean): List<HomeAsset> =
-        if (!hideSpam) assets else assets.filter { !isSpam(it) }
-
-    private fun isSpam(asset: HomeAsset): Boolean =
-        asset is TokenAsset && !asset.known && !asset.custom && !asset.testnet && asset.usd == null
-
-    /**
-     * The assets in the order [sort] gives. An asset that lacks the sort value, an unpriced asset or one with no 24-hour change, comes after the others
-     * in either direction, in id order. Equal values keep id order.
-     */
-    fun sorted(assets: List<HomeAsset>, sort: AssetSort): List<HomeAsset> = when (sort.key) {
-        AssetSortKey.USD_VALUE -> ordered(assets, sort.descending) { it.usd }
-        AssetSortKey.CHANGE_24H -> ordered(assets, sort.descending) { it.change24h }
-        AssetSortKey.BALANCE -> ordered(assets, sort.descending) { it.balance }
-        AssetSortKey.NAME -> ordered(assets, sort.descending) { it.name.lowercase(Locale.ROOT) }
-    }
-
     /** The total in dollars of the priced [assets], or null when none has a price, since an unknown total is not zero. */
     fun totalUsd(assets: List<HomeAsset>): Double? = assets.mapNotNull { it.usd }.takeIf { it.isNotEmpty() }?.sum()
 
@@ -120,18 +89,11 @@ object HomeAssets {
     }
 
     /**
-     * The time of the oldest kept price among the prices of [assets], or null when none of them is kept from an earlier read. Home shows it as the
-     * time the prices are from.
+     * The time of the oldest kept price among the prices of [assets], or null when none of them is kept from an earlier read. Wallet screens show it as
+     * the time the prices are from.
      */
     fun staleSinceMs(assets: List<HomeAsset>, prices: Map<AssetId, Price>): Long? =
         assets.mapNotNull { prices[it.assetId] }.filter { it.stale }.minOfOrNull { it.asOfMs }
-
-    private fun <T : Comparable<T>> ordered(assets: List<HomeAsset>, descending: Boolean, value: (HomeAsset) -> T?): List<HomeAsset> {
-        val (withValue, withoutValue) = assets.partition { value(it) != null }
-        val byValue = Comparator<HomeAsset> { a, b -> compareValues(value(a), value(b)) }
-        val order = (if (descending) byValue.reversed() else byValue).thenBy { it.id }
-        return withValue.sortedWith(order) + withoutValue.sortedBy { it.id }
-    }
 }
 
 /** What a hidden amount shows in place of its digits. */

@@ -1,8 +1,6 @@
 package app.lumio.home
 
 import app.lumio.data.asset.AssetId
-import app.lumio.data.config.AssetSort
-import app.lumio.data.config.AssetSortKey
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.price.Price
@@ -53,75 +51,6 @@ class HomeAssetsTest {
         balance = BigDecimal(balance),
         usd = usd,
     )
-
-    private fun ids(assets: List<HomeAsset>): List<String> = assets.map { it.id }
-
-    @Test
-    fun visibleKeepsTheAssetsAtOrAboveTheMinimumAndNeverHidesAnUnpricedOne() {
-        val assets = listOf(
-            asset("big", usd = 5.0),
-            asset("edge", usd = 1.0),
-            asset("dust", usd = 0.5),
-            asset("testnet", network = sepolia),
-        )
-
-        assertEquals(listOf("big", "edge", "testnet"), ids(HomeAssets.visible(assets, minimumUsd = 1.0)))
-    }
-
-    @Test
-    fun sortedByValueDescendingPutsTheUnpricedAssetsLast() {
-        val assets = listOf(
-            asset("b", usd = 2.0),
-            asset("unpriced", network = sepolia),
-            asset("a", usd = 9.0),
-            asset("c", usd = 2.0),
-        )
-
-        val sorted = HomeAssets.sorted(assets, AssetSort(AssetSortKey.USD_VALUE, descending = true))
-
-        assertEquals(listOf("a", "b", "c", "unpriced"), ids(sorted))
-    }
-
-    @Test
-    fun sortedByValueAscendingStillPutsTheUnpricedAssetsLast() {
-        val assets = listOf(
-            asset("b", usd = 2.0),
-            asset("unpriced", network = sepolia),
-            asset("a", usd = 9.0),
-            asset("c", usd = 2.0),
-        )
-
-        val sorted = HomeAssets.sorted(assets, AssetSort(AssetSortKey.USD_VALUE, descending = false))
-
-        assertEquals(listOf("b", "c", "a", "unpriced"), ids(sorted))
-    }
-
-    @Test
-    fun sortedByNameIgnoresCase() {
-        val assets = listOf(asset("z", name = "zcash"), asset("a", name = "Arbitrum"), asset("m", name = "bitcoin"))
-
-        assertEquals(listOf("a", "m", "z"), ids(HomeAssets.sorted(assets, AssetSort(AssetSortKey.NAME, descending = false))))
-        assertEquals(listOf("z", "m", "a"), ids(HomeAssets.sorted(assets, AssetSort(AssetSortKey.NAME, descending = true))))
-    }
-
-    @Test
-    fun sortedByBalanceCompareTheAmountsNotTheirText() {
-        val assets = listOf(asset("ten", balance = "10"), asset("nine", balance = "9.5"), asset("quarter", balance = "0.25"))
-
-        assertEquals(listOf("ten", "nine", "quarter"), ids(HomeAssets.sorted(assets, AssetSort(AssetSortKey.BALANCE, descending = true))))
-    }
-
-    @Test
-    fun sortedByChangePutsTheAssetsWithoutAChangeLastInEitherDirection() {
-        val assets = listOf(
-            asset("up", change = 1.5),
-            asset("none"),
-            asset("down", change = -2.0),
-        )
-
-        assertEquals(listOf("up", "down", "none"), ids(HomeAssets.sorted(assets, AssetSort(AssetSortKey.CHANGE_24H, descending = true))))
-        assertEquals(listOf("down", "up", "none"), ids(HomeAssets.sorted(assets, AssetSort(AssetSortKey.CHANGE_24H, descending = false))))
-    }
 
     @Test
     fun theTotalIsTheSumOfThePricedAssets() {
@@ -178,30 +107,6 @@ class HomeAssetsTest {
 
         assertEquals(300L, HomeAssets.staleSinceMs(listed, prices))
         assertNull(HomeAssets.staleSinceMs(listed, mapOf<AssetId, Price>(AssetId.Native(ethereum) to Price(3000.0, null, 500L, stale = false))))
-    }
-
-    @Test
-    fun aPricedTokenSortsWithTheNativeCoinsAndAnUnpricedTokenIsNeverHidden() {
-        val prices = mapOf(
-            AssetId.Native(ethereum) to Price(usd = 500.0, change24hPct = 2.0, asOfMs = 1L, stale = false),
-            AssetId.Erc20(ethereum, usdc) to Price(usd = 1.0, change24hPct = null, asOfMs = 1L, stale = false),
-            AssetId.Erc20(ethereum, dai) to Price(usd = 2.0, change24hPct = null, asOfMs = 1L, stale = false),
-        )
-        val assets = HomeAssets.priced(
-            listOf(
-                asset("eth"),
-                token("usdc", balance = "250"),
-                token("crumbs", contract = dai, balance = "0.25"),
-                token("unpriced", contract = unlisted, balance = "3"),
-            ),
-            prices,
-        )
-
-        val shown = HomeAssets.sorted(HomeAssets.visible(assets, minimumUsd = 1.0), AssetSort(AssetSortKey.USD_VALUE, descending = true))
-
-        // The token at 250 USDC sorts beside the coin, the token worth 50 cents is hidden, and the token with no price stays, after the priced ones.
-        assertEquals(listOf("eth", "usdc", "unpriced"), ids(shown))
-        assertEquals(750.0, HomeAssets.totalUsd(shown)!!, 0.0001)
     }
 
     @Test
