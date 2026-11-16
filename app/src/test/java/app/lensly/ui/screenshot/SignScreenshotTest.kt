@@ -21,6 +21,11 @@ import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.AbiDecoder
 import app.lensly.core.registry.AbiRows
 import app.lensly.core.registry.CallDecode
+import app.lensly.core.registry.CallSteps
+import app.lensly.core.registry.FeeModel
+import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.Registry
+import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.wallet.toHex
@@ -123,6 +128,107 @@ private fun nestedSample() = sampleNativeReview.copy(
                 ),
             ),
         ),
+    ),
+)
+
+/**
+ * Transaction 0x3bb82bad on Universal Router V1.2: a Permit2 permit of USDC for the router, a V3 swap of 10,000 USDC to WETH, and an unwrap.
+ * It is the calldata of the batch the steps describe.
+ */
+private const val UR_BATCH_CALLDATA =
+    "0x3593564c00000000000000000000000000000000000000000000000000000000000000600000000000000000000000" +
+    "0000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000" +
+    "006ae3e6c300000000000000000000000000000000000000000000000000000000000000030a000c0000000000000000" +
+    "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" +
+    "000000000300000000000000000000000000000000000000000000000000000000000000600000000000000000000000" +
+    "0000000000000000000000000000000000000001e0000000000000000000000000000000000000000000000000000000" +
+    "000000030000000000000000000000000000000000000000000000000000000000000001600000000000000000000000" +
+    "00a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000ffffffffffffffffffffffffffffff" +
+    "ffffffffff000000000000000000000000000000000000000000000000000000006b0b717d0000000000000000000000" +
+    "0000000000000000000000000000000000000000110000000000000000000000003fc91a3afd70395cd496c647d5a6cc" +
+    "9d4b2b7fad000000000000000000000000000000000000000000000000000000006ae3eb850000000000000000000000" +
+    "0000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000" +
+    "00000000414d967f4f85ef036df9e1fa459570ebe4bfb4fddc56a75891071c9f667d9210d7620c9dfc9a421233eabf90" +
+    "00e697a1fe3b6f701f103eb1cb37a72baa98390eaa1b0000000000000000000000000000000000000000000000000000" +
+    "000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000" +
+    "000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000" +
+    "02540be4000000000000000000000000000000000000000000000000003e534782f2f795fd0000000000000000000000" +
+    "0000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000" +
+    "0000000001000000000000000000000000000000000000000000000000000000000000002ba0b86991c6218b36c1d19d" +
+    "4a2e9eb0ce3606eb480001f4c02aaa39b223fe8d0a0e5c4f27ead9083c756cc200000000000000000000000000000000" +
+    "000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000" +
+    "0000000000000000000000000000000000000000010000000000000000000000000000000000000000000000003e5347" +
+    "82f2f795fd"
+
+private const val UR_V1_2 = "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD"
+
+/** The account that sent the batch, which its steps name as "you". */
+private const val UR_SIGNER = "0x0bf93ea5a1fa4ce3dd22c7ffd314462d3869777f"
+
+/** The Ethereum network and the tokens the batch's steps name, as the registry holds them. */
+private val UR_NETWORK = NetworkEntry(
+    chainId = 1L,
+    name = "Ethereum",
+    nativeSymbol = "ETH",
+    nativeDecimals = 18,
+    feeModel = FeeModel.L1,
+    explorerName = "Etherscan",
+    testnet = false,
+    icon = "chain_ethereum",
+)
+private val UR_REGISTRY = Registry(
+    networks = listOf(UR_NETWORK),
+    tokens = listOf(
+        TokenEntry(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6, icon = "token_usdc"),
+        TokenEntry(1L, "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "WETH", "Wrapped Ether", 18),
+    ),
+)
+
+/** The arguments of `execute(bytes,bytes[],uint256)`, decoded from [UR_BATCH_CALLDATA] as the sandbox decodes them. */
+private val UR_DECODED = (
+    AbiDecoder.decode(
+        Numeric.hexStringToByteArray(UR_BATCH_CALLDATA),
+        listOf(WhitelistParam("commands", "bytes"), WhitelistParam("inputs", "bytes[]"), WhitelistParam("deadline", "uint256")),
+    ) as CallDecode.Ok
+    ).params
+
+/** The steps of the batch, read by the same code the sign flow runs. */
+private val UR_STEPS = CallSteps.describe(
+    UR_REGISTRY,
+    1L,
+    UR_V1_2,
+    "0x3593564c",
+    "execute(bytes,bytes[],uint256)",
+    UR_SIGNER,
+    BigInteger.ZERO,
+    UR_DECODED,
+)
+
+/** A Universal Router batch the owner signs: its steps, the approval warning they raise, and the arguments behind Details. */
+private fun urBatchSample() = sampleNativeReview.copy(
+    networkName = "Ethereum",
+    chainId = 1L,
+    network = UR_NETWORK,
+    function = "execute",
+    signature = "execute(bytes,bytes[],uint256)",
+    toAddress = UR_V1_2,
+    amount = "",
+    symbol = "",
+    params = UR_DECODED.flatMap { AbiRows.of(it) },
+    warnings = UR_STEPS?.warnings.orEmpty(),
+    whitelisted = WhitelistedCall(
+        signature = "execute(bytes,bytes[],uint256)",
+        meaning = "Uniswap Universal Router: run a batch of swap and transfer commands in one call.",
+        call = UndecodedCall(
+            target = UR_V1_2,
+            networkName = "Ethereum",
+            chainId = 1L,
+            value = "0 ETH",
+            selector = "3593564c",
+            words = UR_BATCH_CALLDATA.removePrefix("0x").drop(8).chunked(64),
+            proxy = null,
+        ),
+        steps = UR_STEPS,
     ),
 )
 
@@ -242,6 +348,15 @@ class SignScreenshotTest {
                 proxy = ProxyBinding(implementationAddress = IMPLEMENTATION),
             ),
         )
+    }
+
+    @Test
+    fun reviewUniversalRouterBatchShowsItsSteps() = compose.snapshotScrolled(
+        "tx_review_ur_steps",
+        // Scrolling to the last step brings all three steps into view above it, and the arguments sit folded behind Details below.
+        "Unwrap all WETH the router holds → ETH for you (at least 4.491011881166149117 WETH)",
+    ) {
+        TxReviewScreen(review = urBatchSample(), onApprove = {}, onReject = {})
     }
 
     @Test
