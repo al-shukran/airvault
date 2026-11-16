@@ -1631,6 +1631,319 @@
       "meaning": "WAVAX: wrap the native coin into WAVAX. The call sends the native coin as value.",
       "params": [],
       "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0xd01607c3c5ecaba394d8be377a08590149325722",
+      "selector": "0x474cf53d",
+      "signature": "depositETH(address,address,uint16)",
+      "meaning": "Aave V3 WETH gateway: deposit the native coin the call sends into Aave V3 as WETH, for an account.",
+      "params": [
+        {
+          "name": "unused",
+          "type": "address"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0xd01607c3c5ecaba394d8be377a08590149325722",
+      "selector": "0x80500d20",
+      "signature": "withdrawETH(address,uint256,address)",
+      "meaning": "Aave V3 WETH gateway: withdraw the native coin from Aave V3 by spending your aWETH, and send it to an address.",
+      "params": [
+        {
+          "name": "unused",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0xd01607c3c5ecaba394d8be377a08590149325722",
+      "selector": "0xbcc3c255",
+      "signature": "repayETH(address,uint256,address)",
+      "meaning": "Aave V3 WETH gateway: repay your variable-rate debt in the native coin the call sends. Any excess is refunded.",
+      "params": [
+        {
+          "name": "unused",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0xd01607c3c5ecaba394d8be377a08590149325722",
+      "selector": "0xe74f7b85",
+      "signature": "borrowETH(address,uint256,uint16)",
+      "meaning": "Aave V3 WETH gateway: borrow the native coin at the variable rate against your collateral. It is sent to you.",
+      "params": [
+        {
+          "name": "unused",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "selector": "0x02c205f0",
+      "signature": "supplyWithPermit(address,uint256,address,uint16,uint256,uint8,bytes32,bytes32)",
+      "meaning": "Aave V3: deposit an asset into the pool with a signed permit instead of a separate approval.",
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "referralCode",
+          "type": "uint16"
+        },
+        {
+          "name": "deadline",
+          "type": "uint256"
+        },
+        {
+          "name": "permitV",
+          "type": "uint8"
+        },
+        {
+          "name": "permitR",
+          "type": "bytes32"
+        },
+        {
+          "name": "permitS",
+          "type": "bytes32"
+        }
+      ],
+      "proxy": {
+        "implementationAddress": "0x4295fe69b3e978eb511e4558b4407ad871612fcb"
+      },
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "selector": "0xee3e210b",
+      "signature": "repayWithPermit(address,uint256,uint256,address,uint256,uint8,bytes32,bytes32)",
+      "meaning": "Aave V3: repay a borrowed asset with a signed permit instead of a separate approval.",
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        },
+        {
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
+          "name": "deadline",
+          "type": "uint256"
+        },
+        {
+          "name": "permitV",
+          "type": "uint8"
+        },
+        {
+          "name": "permitR",
+          "type": "bytes32"
+        },
+        {
+          "name": "permitS",
+          "type": "bytes32"
+        }
+      ],
+      "proxy": {
+        "implementationAddress": "0x4295fe69b3e978eb511e4558b4407ad871612fcb"
+      },
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "selector": "0x2dad97d4",
+      "signature": "repayWithATokens(address,uint256,uint256)",
+      "meaning": "Aave V3: repay a borrowed asset with the asset you supplied, instead of paying it from your wallet.",
+      "params": [
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "interestRateMode",
+          "type": "uint256"
+        }
+      ],
+      "proxy": {
+        "implementationAddress": "0x4295fe69b3e978eb511e4558b4407ad871612fcb"
+      },
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "selector": "0xc3b35a7e",
+      "signature": "withdrawTo(address,address,uint256)",
+      "meaning": "Compound V3: withdraw an asset from your account in the market and send it to an address.",
+      "params": [
+        {
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "proxy": {
+        "implementationAddress": "0x0b07565a8ef48170e15918b251ebd95109b23255"
+      },
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "selector": "0xc3b35a7e",
+      "signature": "withdrawTo(address,address,uint256)",
+      "meaning": "Compound V3: withdraw an asset from your account in the market and send it to an address.",
+      "params": [
+        {
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "proxy": {
+        "implementationAddress": "0x2a0c96f742dbe81bab9b13628f7f070ff1a5c8f9"
+      },
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0xa397a8c2086c554b531c02e29f3291c9704b00c7",
+      "selector": "0x555029a6",
+      "signature": "invoke(bytes32[],bytes[])",
+      "meaning": "Compound V3 bulker: run a batch of supply, withdraw, transfer and reward actions on your account, in order.",
+      "params": [
+        {
+          "name": "actions",
+          "type": "bytes32[]"
+        },
+        {
+          "name": "data",
+          "type": "bytes[]"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1",
+      "selector": "0xd6681042",
+      "signature": "requestWithdrawals(uint256[],address)",
+      "meaning": "Lido withdrawal queue: request to turn stETH into ETH. Each amount becomes a request owned by the given address.",
+      "params": [
+        {
+          "name": "_amounts",
+          "type": "uint256[]"
+        },
+        {
+          "name": "_owner",
+          "type": "address"
+        }
+      ],
+      "proxy": {
+        "implementationAddress": "0xe42c659dc09109566720ea8b2de186c2be7d94d9"
+      },
+      "upgradeable": true
+    },
+    {
+      "chainId": 1,
+      "contract": "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1",
+      "selector": "0xe3afe0a3",
+      "signature": "claimWithdrawals(uint256[],uint256[])",
+      "meaning": "Lido withdrawal queue: claim the ETH of finished withdrawal requests you own, sent to you.",
+      "params": [
+        {
+          "name": "_requestIds",
+          "type": "uint256[]"
+        },
+        {
+          "name": "_hints",
+          "type": "uint256[]"
+        }
+      ],
+      "proxy": {
+        "implementationAddress": "0xe42c659dc09109566720ea8b2de186c2be7d94d9"
+      },
+      "upgradeable": true
     }
   ]
 }
