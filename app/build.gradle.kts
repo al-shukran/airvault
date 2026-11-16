@@ -24,6 +24,16 @@ android {
         }
     }
 
+    // Brotli's encoder for the AirVault pairing, built from src/main/cpp (see its CMakeLists.txt). The NDK and CMake are pinned to versions
+    // the CI runner image installs, so a build never downloads them. Lumio has no native build.
+    ndkVersion = "29.0.14206865"
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.31.5"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -209,6 +219,8 @@ dependencies {
     androidTestImplementation(libs.zxing.core)
     androidTestImplementation(libs.zxing.cpp.android)
     androidTestImplementation(libs.sparrowwallet.hummingbird)
+    // The Brotli round trip of BrotliEncoder reads its streams back with the decoder Lumio ships.
+    androidTestImplementation(libs.brotli.dec)
 
     // AndroidX Benchmark puts `androidx.benchmark.IsolationActivity` in the *app* APK's manifest, not the test APK's:
     // AndroidBenchmarkRunner launches it by name in the app under test. So the library has to be on the benchmark
