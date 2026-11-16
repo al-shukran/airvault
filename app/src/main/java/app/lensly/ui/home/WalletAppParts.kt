@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
 import app.lensly.app.WalletApp
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.AppTitle
@@ -49,6 +51,29 @@ internal fun AppIcon(app: WalletApp, size: Dp, modifier: Modifier = Modifier) {
     when (app) {
         WalletApp.BITCOIN -> BitcoinIcon(size = size, modifier = modifier)
         WalletApp.ETHEREUM -> AddressIcon(size = size, modifier = modifier)
+        WalletApp.SOLANA -> SolanaIcon(size = size, modifier = modifier)
+    }
+}
+
+/** The Solana mark beside a Solana account: three slanted bars. It is decorative: the text beside it names the account. */
+@Composable
+internal fun SolanaIcon(size: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(size)) {
+        val width = this.size.width
+        val height = this.size.height
+        val barHeight = height * 0.16f
+        val slant = height * 0.14f
+        repeat(3) { bar ->
+            val top = height * (0.2f + bar * 0.26f)
+            val path = Path().apply {
+                moveTo(slant, top)
+                lineTo(width, top)
+                lineTo(width - slant, top + barHeight)
+                lineTo(0f, top + barHeight)
+                close()
+            }
+            drawPath(path, color = LenslyOnSurface)
+        }
     }
 }
 

@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingPayload
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
@@ -79,6 +80,8 @@ fun PairReviewScreen(
         ReviewHeader(title = pairing.name, fingerprint = pairing.fingerprint)
         if (accounts.isNotEmpty()) EthereumReview(keys = PairImport.ethereumAccountKeysOf(pairing), accounts = accounts)
         if (bitcoin.isNotEmpty()) BitcoinReview(accounts = bitcoin, names = bitcoinNames)
+        val solana = PairImport.solanaPublicKeysOf(pairing)
+        if (solana.isNotEmpty()) SolanaReview(keys = solana)
         error?.let {
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -114,6 +117,21 @@ private fun EthereumAccountReview(xpub: AccountXpub, account: PairingAccount) {
             }
         }
         ReviewAddress("First address", address)
+    }
+}
+
+/** The Solana accounts of a pairing, on devnet: each account's address, which is the base58 of its public key. */
+@Composable
+private fun SolanaReview(keys: List<ByteArray>) {
+    Spacer(Modifier.height(LenslySpacing.md))
+    PillChip(text = PairLabels.family(PairFamily.SOLANA))
+    ReviewField("Network", "Devnet")
+    ReviewField("Accounts", "${keys.size}")
+    keys.forEachIndexed { index, key ->
+        Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
+            Text(text = "Account $index", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+            ReviewAddress("Address", SolanaAccount.addressOf(key))
+        }
     }
 }
 
