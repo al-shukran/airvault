@@ -1,6 +1,8 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingKey
@@ -9,6 +11,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.wallet.HdWallet
+import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.screenshot.snapshot
 import app.lumio.btc.BtcAccountRef
@@ -207,6 +210,24 @@ class LumioScreenshotTest {
             },
             onDataProviders = {},
             onThirdPartyLicences = {},
+        )
+    }
+
+    /** The Entry section sits below the fold, so this golden scrolls it into view before the capture. */
+    @Test
+    fun settingsEntryGesture() = compose.snapshot(
+        name = "settings_entry_gesture",
+        beforeCapture = { onNodeWithText("Hidden entry gesture").performScrollTo() },
+    ) {
+        LumioSettingsScreen(
+            onBack = {},
+            display = {},
+            bitcoin = {},
+            ethereum = {},
+            onDataProviders = {},
+            onThirdPartyLicences = {},
+            entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
+            onEntryGesture = {},
         )
     }
 

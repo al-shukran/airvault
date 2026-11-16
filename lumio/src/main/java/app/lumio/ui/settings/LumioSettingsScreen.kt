@@ -21,6 +21,7 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.SettingsRow
+import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletPill
@@ -28,9 +29,10 @@ import app.lensly.ui.wallet.WalletPillStyle
 import app.lumio.R
 
 /**
- * Lumio's settings, in four sections. Home holds what Home shows, Bitcoin holds the Esplora server each Bitcoin network reads from, Ethereum holds
- * the EVM settings, and Providers is a row that opens the data providers. [display], [bitcoin] and [ethereum] are the contents of the three
- * sections, and each keeps its own state.
+ * Lumio's settings. Home holds what Home shows, Bitcoin holds the Esplora server each Bitcoin network reads from, Ethereum holds the EVM
+ * settings, Entry holds the Hidden Entry Gesture that the camera cover uses (the same choice as Lensly's), and Providers is a row that opens
+ * the data providers. [display], [bitcoin] and [ethereum] are the contents of the three sections, and each keeps its own state. [entryGesture]
+ * is the gesture the camera uses now, and [onEntryGesture] opens the choice of another.
  */
 @Composable
 fun LumioSettingsScreen(
@@ -41,11 +43,20 @@ fun LumioSettingsScreen(
     onDataProviders: () -> Unit,
     onThirdPartyLicences: () -> Unit,
     modifier: Modifier = Modifier,
+    entryGesture: EntryGesture = EntryGesture.DEFAULT,
+    onEntryGesture: () -> Unit = {},
 ) {
     LenslyScreen(title = "SETTINGS", modifier = modifier, onBack = onBack) {
         SettingsSection(title = "Home") { display() }
         SettingsSection(title = "Bitcoin") { bitcoin() }
         SettingsSection(title = "Ethereum") { ethereum() }
+        SettingsSection(title = "Entry") {
+            SettingsRow(
+                title = "Hidden entry gesture",
+                description = entryGesture.title,
+                onClick = onEntryGesture,
+            )
+        }
         SettingsSection(title = stringResource(R.string.settings_providers_heading)) {
             SettingsRow(
                 title = stringResource(R.string.settings_providers_open),

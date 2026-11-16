@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
  * A password is accepted only when it opens the same vault as the open session. In a decoy, the password is the Duress
  * Password, and the real App Password is refused, so the check gives nothing away about the real vault.
  */
-internal suspend fun checkAppPassword(holder: VaultHolder, password: CharArray): PasswordCheck =
+suspend fun checkAppPassword(holder: VaultHolder, password: CharArray): PasswordCheck =
     withContext(NonCancellable) {
         val inDecoy = holder.openSession()?.isDecoy == true
         try {

@@ -12,10 +12,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import app.lensly.app.entryGestureHolder
 import app.lensly.app.export.PairingPayload
+import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.navigation.CoverNavHost
 import app.lensly.ui.navigation.HiddenBackdrop
 import app.lensly.ui.navigation.hiddenArea
@@ -43,6 +46,16 @@ internal object LumioRoute {
 
     /** The route of the tokens of chain [chainId]. */
     fun tokens(chainId: Long): String = "settings/tokens/$chainId"
+
+    /** The argument of the gesture change: the gesture's stored number. */
+    const val GESTURE_ARG = "gesture"
+
+    /** The Hidden Entry Gesture's choice, and the change to the gesture named by [GESTURE_ARG]. Both are shared with Lensly's screens. */
+    const val ENTRY_GESTURE = "settings/gesture"
+    const val ENTRY_GESTURE_CHANGE = "settings/gesture/change/{$GESTURE_ARG}"
+
+    /** The route of the change to [gesture], which takes its stored number as [GESTURE_ARG]. */
+    fun entryGestureChange(gesture: EntryGesture): String = "settings/gesture/change/${gesture.storedId}"
 
     /** The argument of a paired wallet's routes: the wallet's ID. */
     const val WALLET_ARG = "walletId"
@@ -172,11 +185,14 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                         display = { DisplaySettingsRoute(navController = navController, holder = holder) },
                         bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
                         ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
+                        entryGesture = LocalContext.current.entryGestureHolder().current,
+                        onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
                         onDataProviders = { navController.navigate(LumioRoute.DATA_PROVIDERS) },
                         onThirdPartyLicences = { navController.navigate(LumioRoute.LICENCES) },
                     )
                 }
             }
+            entryGestureRoutes(navController = navController, holder = holder, selection = selection)
             composable(LumioRoute.DATA_PROVIDERS) {
                 LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }
             }

@@ -97,13 +97,13 @@ private val PINCH_END = Offset(0.10f, 0f) // and ends this far, so the span doub
 private const val SWIPE = 0.098f
 
 /** A finger of a demo. It lands at [downMs], lifts at [upMs], and is at [at] in between. */
-internal class DemoFinger(val downMs: Int, val upMs: Int, val at: (Int) -> Offset)
+class DemoFinger(val downMs: Int, val upMs: Int, val at: (Int) -> Offset)
 
 /** A whole demo, in milliseconds of the cycle: its fingers, and the moment the gesture completes in the app. */
-internal class GestureScript(val fingers: List<DemoFinger>, val completeMs: Int)
+class GestureScript(val fingers: List<DemoFinger>, val completeMs: Int)
 
 /** The steps of [this] gesture in words, shown under its demo. */
-internal val EntryGesture.demoCaption: String
+val EntryGesture.demoCaption: String
     get() = when (this) {
         EntryGesture.DOUBLE_TAP_HOLD -> "Tap twice with two fingers, then press and hold."
         EntryGesture.THUMBNAIL_HOLD_SWIPE -> "Press and hold the gallery thumbnail, then swipe right."
@@ -115,7 +115,7 @@ internal val EntryGesture.demoCaption: String
  * The fingers of [gesture] with the timing the detectors in ui/camera need. The timing is checked against them in
  * GestureDemoTimingTest.
  */
-internal fun gestureScript(gesture: EntryGesture): GestureScript = when (gesture) {
+fun gestureScript(gesture: EntryGesture): GestureScript = when (gesture) {
     // A tap, a second tap, then a press that is held for 1.2 s. The hold completes while both fingers are still down.
     EntryGesture.DOUBLE_TAP_HOLD -> GestureScript(
         fingers = twoFingers(250, 450) + twoFingers(600, 800) + twoFingers(950, 2_400),
@@ -155,7 +155,7 @@ internal fun gestureScript(gesture: EntryGesture): GestureScript = when (gesture
  * turned off in system settings, it shows the frame at which the gesture completes instead.
  */
 @Composable
-internal fun GestureDemo(gesture: EntryGesture, modifier: Modifier = Modifier) {
+fun GestureDemo(gesture: EntryGesture, modifier: Modifier = Modifier) {
     val script = remember(gesture) { gestureScript(gesture) }
     val context = LocalContext.current
     val reduceMotion = remember(context) { animatorsDisabled(context) }
@@ -197,7 +197,7 @@ internal fun GestureDemo(gesture: EntryGesture, modifier: Modifier = Modifier) {
 }
 
 /** True when the system has animations turned off: the animator duration scale is 0. */
-internal fun animatorsDisabled(context: Context): Boolean =
+fun animatorsDisabled(context: Context): Boolean =
     Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 
 /** The demo running its loop. The time is read in the draw phase, so a frame redraws the canvas without recomposing. */
