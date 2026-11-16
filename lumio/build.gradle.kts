@@ -113,6 +113,8 @@ dependencies {
 
     // The Esplora tests answer from a local MockWebServer, never from the network.
     testImplementation(libs.okhttp.mockwebserver)
+    // The Algorand send tests sign with a test key, the Ed25519 that :shared uses (its own classpath stays as it is).
+    testImplementation(libs.bouncycastle.bcprov.jdk18on)
     // The scheduler and cache tests run in virtual time.
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.compose.ui.test.junit4)
