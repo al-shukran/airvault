@@ -23,6 +23,9 @@ object EvmCatalog {
     /** Monad testnet is the app's primary testnet, so the Testnet side lists it first. Every other chain keeps its place. */
     const val PRIMARY_TESTNET_ID = 10143L
 
+    /** Ethereum is the primary network of the Mainnet side: an Ethereum account shows its balance on it. */
+    const val PRIMARY_MAINNET_ID = 1L
+
     fun chains(registry: Registry, settings: EvmSettings): List<EvmChain> {
         val builtIn = registry.networks().map { network ->
             EvmChain(

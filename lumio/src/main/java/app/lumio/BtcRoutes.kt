@@ -2,10 +2,10 @@ package app.lumio
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
@@ -22,13 +22,10 @@ import app.lumio.btc.networkId
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.esplora.CustomEsploraProvider
 import app.lumio.data.net.NetworkId
-import app.lumio.data.scan.ScanEvent
 import app.lumio.data.scan.ScanJob
 import app.lumio.data.scan.ScanQueue
 import app.lumio.data.sched.Priority
 import app.lumio.pair.PairedWallets
-import app.lumio.ui.btc.BitcoinAccountScreen
-import app.lumio.ui.btc.BitcoinPortfolioScreen
 import app.lumio.ui.settings.BitcoinServersSettings
 import app.lumio.ui.settings.withServer
 import kotlinx.coroutines.Dispatchers
@@ -42,153 +39,6 @@ internal fun bitcoinRefs(session: VaultSession): List<BtcAccountRef> = try {
     PairedWallets.list(session).flatMap { wallet -> wallet.bitcoin.map { BtcAccountRef(wallet.id, it) } }
 } catch (e: IllegalStateException) {
     emptyList()
-}
-
-/**
- * The Bitcoin portfolio of the selected network. It opens on the last known balances at once. Then it queues a scan job for each account and
- * follows the jobs' events, so each balance updates as soon as its account finishes. "Scanned n/N" counts the accounts settled in this refresh.
- */
-@Composable
-internal fun BitcoinRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
-    val session = holder.openSession()
-    LaunchedEffect(session == null) {
-        if (session == null) navController.openHidden(GateRoutes.GATE)
-    }
-    if (session == null) return
-    val app = LocalContext.current.applicationContext as LumioApp
-    val scope = rememberCoroutineScope()
-    var walletName by remember { mutableStateOf("") }
-    // The network of the side the owner chose. It is read from the vault, off the main thread, when the portfolio opens or refreshes.
-    var net by remember { mutableStateOf(BtcNetwork.MAINNET) }
-    var refs by remember { mutableStateOf<List<BtcAccountRef>>(emptyList()) }
-    var rows by remember { mutableStateOf<List<BtcRow>>(emptyList()) }
-    var settled by remember { mutableStateOf(emptySet<String>()) }
-    var unreached by remember { mutableStateOf(emptySet<String>()) }
-    var failure by remember { mutableStateOf<String?>(null) }
-    var scanning by remember { mutableStateOf(false) }
-
-    fun refresh() {
-        if (scanning) return
-        scanning = true
-        failure = null
-        settled = emptySet()
-        unreached = emptySet()
-        scope.launch {
-            val chosen = withContext(Dispatchers.IO) { app.selectedBtcNetwork(session) }
-            net = chosen
-            val accounts = withContext(Dispatchers.IO) { accountsOf(session, chosen, walletId) }
-            refs = accounts
-            withContext(Dispatchers.IO) { queueScans(app.scanQueue, accounts, chosen.networkId(), Priority.VISIBLE) }
-            app.startScan(chosen.networkId()).join()
-            scanning = false
-        }
-    }
-
-    LaunchedEffect(session) {
-        walletName = withContext(Dispatchers.IO) { walletNameOf(session, walletId) }
-        val chosen = withContext(Dispatchers.IO) { app.selectedBtcNetwork(session) }
-        net = chosen
-        val accounts = withContext(Dispatchers.IO) { accountsOf(session, chosen, walletId) }
-        refs = accounts
-        rows = withContext(Dispatchers.IO) { rowsOf(app.lumioVault(), accounts) }
-        refresh()
-    }
-    LaunchedEffect(session) {
-        app.scanQueue.events.collect { event ->
-            val key = when (event) {
-                is ScanEvent.Finished -> event.accountKey
-                is ScanEvent.Failed -> event.accountKey
-                is ScanEvent.Progress -> return@collect
-            }
-            settled = settled + key
-            if (event is ScanEvent.Failed) {
-                unreached = unreached + key
-                failure = event.message
-            }
-            rows = withContext(Dispatchers.IO) { rowsOf(app.lumioVault(), refs) }
-        }
-    }
-    BitcoinPortfolioScreen(
-        walletName = walletName,
-        sections = BtcPortfolio.sections(rows),
-        scanning = scanning,
-        progress = if (scanning) "Scanned ${refs.count { it.key in settled }}/${refs.size}" else null,
-        failures = failure?.let { message ->
-            // A refresh that read some accounts shows what it read, and says which accounts it could not reach, instead of a network-wide error.
-            val missed = refs.count { it.key in unreached }
-            val read = refs.count { it.key in settled && it.key !in unreached }
-            BtcPortfolio.refreshNotice(read = read, missed = missed, message = message)?.let { mapOf(net to it) }
-        }.orEmpty(),
-        onOpen = { ref -> navController.openHidden(accountRoute(ref.key)) },
-        onSend = { navController.navigate(LumioRoute.BTC_SEND) },
-        onRefresh = ::refresh,
-        onBack = { navController.popBackStack() },
-    )
-}
-
-/**
- * One Bitcoin account: its last known balance at once, then a scan. The account's job is raised to the front of the queue, so its scan runs before
- * the rest of the portfolio's.
- */
-@Composable
-internal fun BitcoinAccountRoute(navController: NavHostController, holder: VaultHolder, accountKey: String) {
-    val session = holder.openSession()
-    LaunchedEffect(session == null) {
-        if (session == null) navController.openHidden(GateRoutes.GATE)
-    }
-    if (session == null) return
-    val app = LocalContext.current.applicationContext as LumioApp
-    val scope = rememberCoroutineScope()
-    var ref by remember { mutableStateOf<BtcAccountRef?>(null) }
-    var row by remember { mutableStateOf<BtcRow?>(null) }
-    var scanning by remember { mutableStateOf(false) }
-    var failure by remember { mutableStateOf<String?>(null) }
-    var walletName by remember { mutableStateOf("") }
-
-    fun refresh(target: BtcAccountRef) {
-        if (scanning) return
-        scanning = true
-        failure = null
-        val netId = target.account.network.networkId()
-        scope.launch {
-            withContext(Dispatchers.IO) { queueScans(app.scanQueue, listOf(target), netId, Priority.FOREGROUND) }
-            app.startScan(netId).join()
-            scanning = false
-        }
-    }
-
-    LaunchedEffect(session, accountKey) {
-        val found = withContext(Dispatchers.IO) { bitcoinRefs(session).firstOrNull { it.key == accountKey } }
-        if (found == null) {
-            navController.popBackStack()
-            return@LaunchedEffect
-        }
-        ref = found
-        walletName = withContext(Dispatchers.IO) { walletNameOf(session, found.walletId) }
-        row = withContext(Dispatchers.IO) { rowOf(app.lumioVault(), found) }
-        refresh(found)
-    }
-    LaunchedEffect(session, accountKey) {
-        app.scanQueue.events.collect { event ->
-            val target = ref ?: return@collect
-            when (event) {
-                is ScanEvent.Finished -> if (event.accountKey == target.key) {
-                    row = withContext(Dispatchers.IO) { rowOf(app.lumioVault(), target) }
-                }
-                is ScanEvent.Failed -> if (event.accountKey == target.key) failure = event.message
-                is ScanEvent.Progress -> Unit
-            }
-        }
-    }
-    val current = row ?: return
-    BitcoinAccountScreen(
-        walletName = walletName,
-        row = current,
-        scanning = scanning,
-        failure = failure,
-        onRefresh = { refresh(current.ref) },
-        onBack = { navController.popBackStack() },
-    )
 }
 
 /**
@@ -245,9 +95,6 @@ internal fun BitcoinSettingsRoute(navController: NavHostController, holder: Vaul
     )
 }
 
-/** The route of the account [key]. Keys hold only letters, digits, dashes and underscores, so they need no escaping. */
-internal fun accountRoute(key: String): String = "${LumioRoute.BITCOIN_ACCOUNT}/$key"
-
 /** The owner's own servers that are set, by network. A network without one reads the public servers. */
 internal fun serverOverrides(configs: Map<String, ProviderConfig>): Map<BtcNetwork, String> = buildMap {
     for (network in BtcNetwork.entries) {
@@ -261,10 +108,6 @@ internal fun withOverrides(configs: Map<String, ProviderConfig>, overrides: Map<
         overrides.entries.associate { (network, url) ->
             CustomEsploraProvider.idFor(network.networkId().chain) to ProviderConfig(baseUrl = url)
         }
-
-/** The accounts of the wallet [walletId] on the network [net], in [session]. */
-private fun accountsOf(session: VaultSession, net: BtcNetwork, walletId: String): List<BtcAccountRef> =
-    bitcoinRefs(session).filter { it.walletId == walletId && it.account.network == net }
 
 /** The rows of [refs], each with its last known balance from the open vault. A locked or decoy vault has none, so its rows show no balance. */
 internal suspend fun rowsOf(vault: LumioVault?, refs: List<BtcAccountRef>): List<BtcRow> {
@@ -290,7 +133,3 @@ internal suspend fun queueScans(queue: ScanQueue, refs: List<BtcAccountRef>, net
         }
     }
 }
-
-/** The name of the paired wallet [walletId] in [session], or an empty name when the wallet is gone. */
-private fun walletNameOf(session: VaultSession, walletId: String): String =
-    PairedWallets.list(session).firstOrNull { it.id == walletId }?.name.orEmpty()

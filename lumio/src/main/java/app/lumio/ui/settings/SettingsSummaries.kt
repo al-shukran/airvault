@@ -2,17 +2,16 @@ package app.lumio.ui.settings
 
 import app.lensly.ui.camera.EntryGesture
 import app.lumio.data.config.DisplaySettings
-import app.lumio.data.config.MinimumUsd
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.configOf
 import app.lumio.data.provider.ProviderCatalog
 
-/** The one-line state under the Display row: whether the total shows, and the minimum that an asset needs. */
+/** The one-line state under the Display row: whether the total shows, and whether each account's balance does. */
 fun displaySummary(settings: DisplaySettings): String =
-    "${if (settings.showTotal) "Total shown" else "Total hidden"} · min \$${MinimumUsd.format(settings.minimumUsd)}"
+    "${if (settings.showTotal) "Total shown" else "Total hidden"} · ${if (settings.showAssets) "balances shown" else "balances hidden"}"
 
-/** The one-line state under the Transactions row. */
-fun transactionsSummary(hideSpam: Boolean): String = if (hideSpam) "Spam and scams hidden" else "Spam and scams shown"
+/** The one-line state under the Transactions row: the comments that the backup keeps. */
+fun transactionsSummary(): String = "Back up transaction comments"
 
 /** The one-line state under the Networks row: how many chains are on, and whether Bitcoin reads a server the owner set. */
 fun networksSummary(chainsOn: Int, customBitcoin: Boolean): String {

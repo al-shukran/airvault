@@ -42,7 +42,6 @@ import app.lumio.data.scan.QueuedJob
 import app.lumio.data.scan.ScanQueue
 import app.lumio.data.scan.ScanRunner
 import app.lumio.data.sched.Scheduler
-import app.lumio.demo.DemoPortfolio
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmReads
@@ -253,7 +252,6 @@ class LumioApp : Application(), CoverApplication {
         // The QR decoder runs in an isolated process that cannot open preferences or files; it needs none of the app's state.
         if (android.os.Process.isIsolated()) return
         logBackupExclusion()
-        DemoPortfolio.attach(this)
     }
 
     /** Opens Lumio's state for an unlocked vault, and resumes the scan jobs that an earlier session left pending. A decoy vault keeps none. */
@@ -261,7 +259,6 @@ class LumioApp : Application(), CoverApplication {
         if (session.isDecoy) return null
         val vault = LumioVault(session, database())
         scope.launch {
-            DemoPortfolio.vaultOpened(session)
             vault.cache.purgeUnreadable()
             scanQueue.purgeUnreadable()
             vault.store.retain(bitcoinRefs(session).map { it.key }.toSet())

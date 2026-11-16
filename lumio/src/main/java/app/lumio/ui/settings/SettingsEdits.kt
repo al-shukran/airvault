@@ -2,16 +2,6 @@ package app.lumio.ui.settings
 
 import app.lensly.core.btc.BtcNetwork
 import app.lumio.btc.EsploraServers
-import app.lumio.data.config.MinimumUsd
-
-/** What the owner's minimum-balance entry does: nothing, a change to [amount], or a refusal that names its [reason]. */
-sealed interface MinimumEdit {
-    data object Unchanged : MinimumEdit
-
-    data class Apply(val amount: Double) : MinimumEdit
-
-    data class Refused(val reason: String) : MinimumEdit
-}
 
 /** What the owner's Esplora server entry does: nothing, a change to [url] (null is the public default), or a refusal that names its [reason]. */
 sealed interface ServerEdit {
@@ -20,18 +10,6 @@ sealed interface ServerEdit {
     data class Apply(val url: String?) : ServerEdit
 
     data class Refused(val reason: String) : ServerEdit
-}
-
-/** The refusal of a minimum that is not an amount. */
-const val MINIMUM_REFUSAL = "Enter an amount from 0 to 1,000,000, with at most two decimals."
-
-/**
- * What the minimum [text] does, given the [current] minimum that the screen holds. A valid amount that differs from [current] is applied at once. A text
- * that is not an amount is refused, and nothing is applied.
- */
-fun minimumEdit(text: String, current: Double): MinimumEdit {
-    val amount = MinimumUsd.parse(text) ?: return MinimumEdit.Refused(MINIMUM_REFUSAL)
-    return if (amount == current) MinimumEdit.Unchanged else MinimumEdit.Apply(amount)
 }
 
 /**

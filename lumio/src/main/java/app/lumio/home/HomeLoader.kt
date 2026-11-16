@@ -11,7 +11,6 @@ import app.lumio.chains.NativeFailure
 import app.lumio.data.asset.AssetId
 import app.lumio.data.price.Price
 import app.lumio.data.sched.Priority
-import app.lumio.demo.DemoPortfolio
 import app.lumio.evm.BalanceCache
 import app.lumio.evm.ChainFailure
 import app.lumio.evm.EvmCatalog
@@ -40,7 +39,6 @@ internal object HomeLoader {
      * scans for Bitcoin. It reads no network.
      */
     suspend fun cached(app: LumioApp, session: VaultSession, mode: NetworkMode): List<HomeAsset> = withContext(Dispatchers.IO) {
-        DemoPortfolio.homeAssets(mode)?.let { return@withContext it }
         val settings = EvmSettingsStore.read(session)
         val chains = evmChains(app, settings, mode)
         val wallets = PairedWallets.list(session)
@@ -63,7 +61,6 @@ internal object HomeLoader {
      * each wallet on those chains. Returns the chains that did not answer. Their cached reads stay as they were.
      */
     suspend fun refreshEvm(app: LumioApp, session: VaultSession, mode: NetworkMode): List<ChainFailure> = withContext(Dispatchers.IO) {
-        if (DemoPortfolio.isOn()) return@withContext emptyList()
         val settings = EvmSettingsStore.read(session)
         val chains = evmChains(app, settings, mode)
         val wallets = PairedWallets.list(session).filter { it.evmKeys.isNotEmpty() }
@@ -84,7 +81,6 @@ internal object HomeLoader {
      * not answer. Their cached balances stay as they were.
      */
     suspend fun refreshNative(app: LumioApp, session: VaultSession, mode: NetworkMode): List<NativeFailure> = withContext(Dispatchers.IO) {
-        if (DemoPortfolio.isOn()) return@withContext emptyList()
         val coins = NativeBalances.coinsOf(mode)
         val wallets = PairedWallets.list(session).filter { it.algorand.isNotEmpty() || it.solana.isNotEmpty() }
         if (coins.isEmpty() || wallets.isEmpty()) {
@@ -103,7 +99,6 @@ internal object HomeLoader {
      * read the scans as they land.
      */
     suspend fun scanBitcoin(app: LumioApp, session: VaultSession, mode: NetworkMode) {
-        if (DemoPortfolio.isOn()) return
         val refs = withContext(Dispatchers.IO) { bitcoinRefs(session).filter { mode.holds(it.account.network) } }
         if (refs.isEmpty()) return
         val net = mode.btcNetwork().networkId()

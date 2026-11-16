@@ -17,18 +17,14 @@ data class SettingsFacts(
     val addresses: Int,
 )
 
-/**
- * The rows of the top-level list, in order, each with the summary of [facts]. [gesture] and [version] complete the Security and About rows. [developer]
- * is the state of the Developer row, which only a debug build has: when it is null, the row is left out, so it is the last row only in a debug build.
- */
-fun settingsRows(facts: SettingsFacts, gesture: EntryGesture, version: String, developer: String?): List<SettingsRowState> = listOfNotNull(
+/** The rows of the top-level list, in order, each with the summary of [facts]. [gesture] and [version] complete the Security and About rows. */
+fun settingsRows(facts: SettingsFacts, gesture: EntryGesture, version: String): List<SettingsRowState> = listOf(
     SettingsRowState(SettingsPage.DISPLAY, displaySummary(facts.display)),
-    SettingsRowState(SettingsPage.TRANSACTIONS, transactionsSummary(facts.display.hideSpam)),
+    SettingsRowState(SettingsPage.TRANSACTIONS, transactionsSummary()),
     SettingsRowState(SettingsPage.NETWORKS, networksSummary(facts.chainsOn, facts.customBitcoin)),
     SettingsRowState(SettingsPage.PROVIDERS, providersSummary(facts.providersOn, facts.providersTotal)),
     SettingsRowState(SettingsPage.WALLETS, walletsSummary(facts.wallets)),
     SettingsRowState(SettingsPage.ADDRESS_BOOK, addressBookSummary(facts.wallets, facts.addresses)),
     SettingsRowState(SettingsPage.SECURITY, securitySummary(gesture)),
     SettingsRowState(SettingsPage.ABOUT, aboutSummary(version)),
-    developer?.let { SettingsRowState(SettingsPage.DEVELOPER, it) },
 )

@@ -1,10 +1,6 @@
 package app.lumio.ui.screenshot
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
@@ -16,7 +12,6 @@ import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
-import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
@@ -24,37 +19,21 @@ import app.lensly.ui.screenshot.snapshot
 import app.lensly.ui.settings.ChangePasswordScreen
 import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
-import app.lensly.ui.theme.LenslyBlack
 import app.lumio.btc.BtcAccountRef
-import app.lumio.btc.BtcRow
-import app.lumio.btc.BtcSection
-import app.lumio.data.config.AssetSort
-import app.lumio.data.config.AssetSortKey
 import app.lumio.data.config.LockSettings
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
-import app.lumio.evm.AddressRow
-import app.lumio.evm.CachedBalance
 import app.lumio.evm.EvmChain
 import app.lumio.data.config.DisplaySettings
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.SendAsset
-import app.lumio.evm.Total
-import app.lumio.evm.Totals
-import app.lumio.home.HomeAsset
-import app.lumio.home.NativeAsset
 import app.lumio.home.TokenAsset
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
 import app.lumio.pair.PairedWallet
-import app.lumio.ui.btc.BitcoinAccountScreen
-import app.lumio.ui.btc.BitcoinPortfolioScreen
 import app.lumio.ui.btc.BtcSendFormScreen
-import app.lumio.ui.home.AssetSortSheetContent
-import app.lumio.ui.home.LumioHome
 import app.lumio.ui.pair.PairReviewScreen
-import app.lumio.ui.portfolio.WalletScreen
 import app.lumio.tokens.Token
 import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.settings.BitcoinServersSettings
@@ -76,7 +55,6 @@ import app.lumio.ui.settings.WalletsSettings
 import app.lumio.ui.settings.WalletsSettingsPage
 import app.lumio.ui.settings.settingsRows
 import java.io.File
-import java.math.BigDecimal
 import java.math.BigInteger
 import org.junit.Rule
 import org.junit.Test
@@ -84,16 +62,12 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import app.lumio.data.price.ChartRange
 import app.lumio.data.price.PricePoint
 import app.lumio.data.price.PriceSeries
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
-import app.lumio.home.AccountOption
-import app.lumio.home.PickTarget
-import app.lumio.ui.asset.AssetScreen
 import kotlin.math.sin
 
 /**
@@ -114,140 +88,6 @@ class LumioScreenshotTest {
     private val address = "0x" + "a1".repeat(20)
     private val usdc = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
     private val assets = listOf(SendAsset(ethereum, null, null), SendAsset(ethereum, usdc, BigInteger.valueOf(1_250_500_000L)))
-
-    @Test
-    fun homeWithoutWallets() = compose.snapshot("home_empty") {
-        LumioHome(
-            assets = emptyList(),
-            settings = DisplaySettings(),
-            mode = NetworkMode.MAINNET,
-            onMode = {},
-            onUpdateDisplay = {},
-            onLock = {},
-            onAsset = {},
-            onPair = {},
-            hasWallets = false,
-            refreshing = false,
-            onRefresh = {},
-        )
-    }
-
-    @Test
-    fun homeTotalHidden() = compose.snapshot("home_total_hidden") {
-        LumioHome(
-            assets = homeAssets(),
-            settings = DisplaySettings(),
-            mode = NetworkMode.MAINNET,
-            onMode = {},
-            onUpdateDisplay = {},
-            onLock = {},
-            onAsset = {},
-            onPair = {},
-            hasWallets = true,
-            refreshing = false,
-            onRefresh = {},
-            staleSinceMs = NOW,
-            networkEntry = { asset -> homeNetworkEntry(asset) },
-            tokenEntry = { asset -> homeTokenEntries[asset.id] },
-        )
-    }
-
-    @Test
-    fun homeTotalShown() = compose.snapshot("home_total_shown") {
-        LumioHome(
-            assets = homeAssets(),
-            settings = DisplaySettings(showTotal = true),
-            mode = NetworkMode.MAINNET,
-            onMode = {},
-            onUpdateDisplay = {},
-            onLock = {},
-            onAsset = {},
-            onPair = {},
-            hasWallets = true,
-            refreshing = false,
-            onRefresh = {},
-            networkEntry = { asset -> homeNetworkEntry(asset) },
-            tokenEntry = { asset -> homeTokenEntries[asset.id] },
-        )
-    }
-
-    @Test
-    fun homeTestnet() = compose.snapshot("home_testnet") {
-        LumioHome(
-            assets = testnetAssets(),
-            settings = DisplaySettings(showTotal = true),
-            mode = NetworkMode.TESTNET,
-            onMode = {},
-            onUpdateDisplay = {},
-            onLock = {},
-            onAsset = {},
-            onPair = {},
-            hasWallets = true,
-            refreshing = false,
-            onRefresh = {},
-            networkEntry = { asset -> homeNetworkEntry(asset) },
-        )
-    }
-
-    @Test
-    fun homeSortSheet() = compose.snapshot("home_sort_sheet") {
-        Column(modifier = Modifier.fillMaxSize().background(LenslyBlack)) {
-            AssetSortSheetContent(
-                sort = AssetSort(AssetSortKey.USD_VALUE, descending = true),
-                onSort = {},
-                onDone = {},
-            )
-        }
-    }
-
-    @Test
-    fun ethereumPortfolio() = compose.snapshot("ethereum_portfolio") {
-        WalletScreen(
-            walletName = "Demo",
-            mode = NetworkMode.MAINNET,
-            hasEvm = true,
-            chains = chains,
-            rows = listOf(AddressRow(0, address, mapOf(1L to CachedBalance("wallet-Demo", 1L, address, "1234000000000000000", 3L, NOW)))),
-            totals = Totals(
-                mainnet = listOf(Total("ETH", 18, BigInteger("1234000000000000000"), 1, testnet = false)),
-                testnet = emptyList(),
-                oldestMs = NOW,
-            ),
-            failures = emptyList(),
-            problem = null,
-            refreshing = false,
-            onRefresh = {},
-            onBack = {},
-            onSend = {},
-        )
-    }
-
-    @Test
-    fun bitcoinPortfolio() = compose.snapshot("bitcoin_portfolio") {
-        BitcoinPortfolioScreen(
-            walletName = "Demo",
-            sections = bitcoinSections(),
-            scanning = false,
-            progress = null,
-            failures = emptyMap(),
-            onOpen = {},
-            onSend = {},
-            onRefresh = {},
-            onBack = {},
-        )
-    }
-
-    @Test
-    fun bitcoinAccount() = compose.snapshot("bitcoin_account") {
-        BitcoinAccountScreen(
-            walletName = "Demo",
-            row = BtcRow(BtcAccountRef("wallet-Demo", bitcoinAccounts(BtcNetwork.MAINNET).first()), null),
-            scanning = false,
-            failure = null,
-            onRefresh = {},
-            onBack = {},
-        )
-    }
 
     @Test
     fun ethereumSendForm() = compose.snapshot("ethereum_send_form") {
@@ -340,10 +180,10 @@ class LumioScreenshotTest {
                 ),
                 gesture = EntryGesture.DOUBLE_TAP_HOLD,
                 version = "0.1.0",
-                developer = "Demo portfolio on",
             ),
             onOpen = {},
-            onBack = {},
+            network = NetworkMode.MAINNET,
+            onNetwork = {},
         )
     }
 
@@ -354,7 +194,6 @@ class LumioScreenshotTest {
             notice = null,
             onShowTotal = {},
             onShowAssets = {},
-            onMinimumUsd = {},
             onBack = {},
         )
     }
@@ -362,9 +201,6 @@ class LumioScreenshotTest {
     @Test
     fun settingsTransactions() = compose.snapshot("settings_transactions") {
         TransactionsSettingsPage(
-            hideSpam = true,
-            notice = null,
-            onHideSpam = {},
             onBack = {},
             comments = { CommentBackupRows(onExport = {}, onImport = {}, notice = null) },
         )
@@ -530,87 +366,6 @@ class LumioScreenshotTest {
     }
 
     /** The Ethereum account of the demo wallet, which the asset page's Send and Receive take at once. */
-    private val demoWallet = AccountOption(PickTarget.Evm("wallet-Demo"), "Ethereum", "Demo")
-
-    /** A coin's page with its chart over a week, its transactions, and its Send and Receive. */
-    @Test
-    fun assetCoin() = compose.snapshot("asset_coin") {
-        AssetScreen(
-            asset = NativeAsset("EVM-1", "ETH", "Ethereum", NetworkId(Family.EVM, "1", testnet = false), BigDecimal("1.2345"), 3950.12, 1.25),
-            entry = null,
-            hidden = false,
-            range = ChartRange.D7,
-            onRange = {},
-            series = assetSeries(base = 3950.0, amplitude = 120.0, points = 43, spacingMs = 14_400_000L),
-            chartLoading = false,
-            transactions = listOf(
-                assetTx(1, TxDirection.IN, "500000000000000000", NOW - 3_600_000L),
-                assetTx(2, TxDirection.OUT, "250000000000000000", NOW - 90_000_000L),
-            ),
-            sendOptions = listOf(demoWallet),
-            receiveOptions = listOf(demoWallet),
-            accounts = listOf(demoWallet),
-            onSend = {},
-            onReceive = {},
-            onAccount = {},
-            onBack = {},
-        )
-    }
-
-    /** A token's page: its chart over a month, its transaction, and Send and Receive, both from the account that holds it. */
-    @Test
-    fun assetToken() = compose.snapshot("asset_token") {
-        AssetScreen(
-            asset = TokenAsset(
-                id = TokenAsset.idOf(NetworkId(Family.EVM, "1", testnet = false), usdcMainnet),
-                symbol = "USDC",
-                name = "Ethereum",
-                network = NetworkId(Family.EVM, "1", testnet = false),
-                contract = usdcMainnet,
-                balance = BigDecimal("1250.5"),
-                usd = 1250.5,
-                change24h = 0.02,
-            ),
-            entry = null,
-            hidden = false,
-            range = ChartRange.D30,
-            onRange = {},
-            series = assetSeries(base = 1.0, amplitude = 0.002, points = 31, spacingMs = 86_400_000L),
-            chartLoading = false,
-            transactions = listOf(
-                assetTx(3, TxDirection.IN, "1250500000", NOW - 7_200_000L, TxAsset(usdcMainnet, "USDC", "USD Coin", 6)),
-            ),
-            sendOptions = listOf(demoWallet),
-            receiveOptions = listOf(demoWallet),
-            accounts = listOf(demoWallet),
-            onSend = {},
-            onReceive = {},
-            onAccount = {},
-            onBack = {},
-        )
-    }
-
-    /** A testnet coin, which has no price: the chart says there is no price data, and the balance has no value. */
-    @Test
-    fun assetNoPrice() = compose.snapshot("asset_no_price") {
-        AssetScreen(
-            asset = NativeAsset("EVM-11155111", "ETH", "Sepolia", NetworkId(Family.EVM, "11155111", testnet = true), BigDecimal("0.25")),
-            entry = null,
-            hidden = false,
-            range = ChartRange.H24,
-            onRange = {},
-            series = null,
-            chartLoading = false,
-            transactions = emptyList(),
-            sendOptions = listOf(demoWallet),
-            receiveOptions = listOf(demoWallet),
-            accounts = listOf(demoWallet),
-            onSend = {},
-            onReceive = {},
-            onAccount = {},
-            onBack = {},
-        )
-    }
 
     /** A wave of prices around [base], one every [spacingMs], for the chart fixtures. */
     private fun assetSeries(base: Double, amplitude: Double, points: Int, spacingMs: Long): PriceSeries = PriceSeries(
@@ -652,57 +407,13 @@ class LumioScreenshotTest {
             ?.readText()
     }
 
-    /** The registry's chain entry of an EVM coin on Home, or null for Bitcoin. */
-    private fun homeNetworkEntry(asset: HomeAsset) =
-        if (asset.network.family == Family.EVM) asset.network.chain.toLongOrNull()?.let { homeRegistry.network(it) } else null
-
     /** The registry's token entries by asset ID, as Home keeps them. */
     private val homeTokenEntries: Map<String, TokenEntry> = homeRegistry.tokens().associateBy {
         TokenAsset.idOf(NetworkId(Family.EVM, it.chainId.toString(), testnet = false), it.contract)
     }
 
-    /** The coins and a token of a mainnet side: one priced below the minimum, which Home hides. */
-    private fun homeAssets(): List<HomeAsset> = listOf(
-        NativeAsset("BTC-mainnet", "BTC", "Bitcoin", NetworkId(Family.BTC, "mainnet", testnet = false), BigDecimal("0.0425"), 4012.5, -0.4),
-        NativeAsset("EVM-1", "ETH", "Ethereum", NetworkId(Family.EVM, "1", testnet = false), BigDecimal("1.2345"), 3950.12, 1.25),
-        NativeAsset("EVM-8453", "ETH", "Base", NetworkId(Family.EVM, "8453", testnet = false), BigDecimal("0.5"), 1975.0, 1.25),
-        NativeAsset("EVM-10", "ETH", "Optimism", NetworkId(Family.EVM, "10", testnet = false), BigDecimal("0.0001"), 0.3, 0.1),
-        TokenAsset(
-            id = TokenAsset.idOf(NetworkId(Family.EVM, "1", testnet = false), usdcMainnet),
-            symbol = "USDC",
-            name = "Ethereum",
-            network = NetworkId(Family.EVM, "1", testnet = false),
-            contract = usdcMainnet,
-            balance = BigDecimal("1250.5"),
-            usd = 1250.5,
-            change24h = 0.02,
-        ),
-        TokenAsset(
-            id = TokenAsset.idOf(NetworkId(Family.EVM, "1", testnet = false), "0x" + "c3".repeat(20)),
-            symbol = "XYZ",
-            name = "Ethereum",
-            network = NetworkId(Family.EVM, "1", testnet = false),
-            contract = "0x" + "c3".repeat(20),
-            balance = BigDecimal("40"),
-            usd = 12.0,
-            known = false,
-        ),
-    )
-
-    /** The coins of a testnet side, which have no price. */
-    private fun testnetAssets(): List<HomeAsset> = listOf(
-        NativeAsset("EVM-11155111", "ETH", "Sepolia", NetworkId(Family.EVM, "11155111", testnet = true), BigDecimal("0.25")),
-        NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Family.EVM, "10143", testnet = true), BigDecimal("12")),
-        NativeAsset("BTC-testnet4", "BTC", "Bitcoin testnet4", NetworkId(Family.BTC, "testnet4", testnet = true), BigDecimal("0.0002")),
-    )
-
     /** The Bitcoin accounts of [network]: the four script types of the seed. */
     private fun bitcoinAccounts(network: BtcNetwork): List<BtcWatchOnlyAccount> = BtcWatchOnly.accounts(PairFixtures.seed, network)
-
-    private fun bitcoinSections(): List<BtcSection> = listOf(
-        BtcSection(BtcNetwork.MAINNET, bitcoinAccounts(BtcNetwork.MAINNET).map { BtcRow(BtcAccountRef("wallet-Demo", it), null) }),
-        BtcSection(BtcNetwork.TESTNET4, bitcoinAccounts(BtcNetwork.TESTNET4).map { BtcRow(BtcAccountRef("wallet-Demo", it), null) }),
-    )
 
     private fun providerRow(
         id: String,
