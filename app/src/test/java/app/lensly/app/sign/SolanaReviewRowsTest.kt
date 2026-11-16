@@ -33,6 +33,7 @@ class SolanaReviewRowsTest {
             listOf(
                 "Signer" to address(1),
                 "Fee payer" to address(1),
+                "Program" to SYSTEM_ADDRESS,
                 "SOL transfer" to "1.5 SOL",
                 "From" to address(1),
                 "To" to address(9),
@@ -193,6 +194,7 @@ class SolanaReviewRowsTest {
     private companion object {
         const val WALLET = "w1"
         const val TABLE = "CUDp5gcuAm64fAXUdWviywAdmrnTbrMbFPmP5u7tUL8q"
-        val SYSTEM: ByteArray = Base58.decode("11111111111111111111111111111111")
+        const val SYSTEM_ADDRESS = "11111111111111111111111111111111"
+        val SYSTEM: ByteArray = Base58.decode(SYSTEM_ADDRESS)
     }
 }

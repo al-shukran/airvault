@@ -17,6 +17,9 @@ private const val SIGNER = "Signer"
 /** The label of the fee payer's row. */
 private const val FEE_PAYER = "Fee payer"
 
+/** The label of the row that names an instruction's program by its ID. */
+private const val PROGRAM = "Program"
+
 /** The decimal places of a lamport: one SOL is 10^9 lamports. */
 private const val LAMPORT_DECIMALS = 9
 
@@ -64,8 +67,17 @@ internal fun printableText(bytes: ByteArray): String? = try {
     null
 }
 
-/** The rows one instruction shows. A raw instruction shows its program, its data and its accounts, as bytes. */
-private fun instructionRows(instruction: SolanaInstruction): List<Pair<String, String>> = when (instruction) {
+/**
+ * The rows one instruction shows. A known instruction names its program first, by its ID. A raw instruction already names its program
+ * as unknown, and shows its data and its accounts, as bytes.
+ */
+private fun instructionRows(instruction: SolanaInstruction): List<Pair<String, String>> {
+    val details = detailRows(instruction)
+    if (instruction is SolanaInstruction.Raw) return details
+    return listOf(PROGRAM to solanaAccountText(instruction.programId)) + details
+}
+
+private fun detailRows(instruction: SolanaInstruction): List<Pair<String, String>> = when (instruction) {
     is SolanaInstruction.SystemTransfer -> listOf(
         "SOL transfer" to "${lamportsText(instruction.lamports)} SOL",
         "From" to solanaAccountText(instruction.from),
