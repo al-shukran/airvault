@@ -17,11 +17,14 @@ import app.lensly.app.WalletStore
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
+import app.lensly.app.export.partsOf
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.app.sign.SignPipeline
+import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.reviewRecordOf
+import app.lensly.app.sign.solanaReviewRecordOf
 import app.lensly.app.visualIdentity
 import app.lensly.app.requestParser
 import app.lensly.core.btc.BtcPsbt
@@ -30,6 +33,9 @@ import app.lensly.core.parse.NOT_A_PSBT
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.solana.SolanaRequestCheck
+import app.lensly.core.ur.SolSignRequest
+import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
@@ -43,6 +49,9 @@ import kotlinx.coroutines.withContext
 
 /** The refusal of a Bitcoin request that could not be reviewed for a reason other than its rules. Nothing is signed for it. */
 private const val BITCOIN_UNREADABLE = "This Bitcoin request could not be reviewed. Nothing was signed."
+
+/** The refusal of a Solana request to a Single Key wallet, which has no Solana accounts. Nothing is signed for it. */
+private const val SOLANA_NO_ACCOUNTS = "This wallet has no Solana accounts."
 
 /**
  * The app's [SignFlowPorts]. Wallet reads go through the open session, and only [privateKey] reads a secret. The address check
@@ -214,6 +223,56 @@ internal class VaultSignPorts(
             throw e
         } catch (e: Exception) {
             // A closed or damaged vault, unwritable storage, or a record that cannot be written.
+            throw ReviewNotSaved()
+        }
+    }
+
+    /**
+     * Reviews the Solana [request] against wallet [walletId]. The request must name the wallet's master fingerprint, and the review uses
+     * the Solana public keys the wallet stores, so the seed is not read here. A request the rules refuse is [SolanaPrepared.Refused].
+     */
+    override suspend fun solanaPrepare(walletId: String, request: SolSignRequest): SolanaPrepared = withContext(Dispatchers.IO) {
+        val wallet = readWallet { session ->
+            val listed = WalletStore(session).list()
+            val position = listed.indexOfFirst { it.id == walletId }
+            if (position < 0) null else viewOf(session, listed[position], position)
+        }
+        val masterFingerprint = wallet.masterFingerprint ?: return@withContext SolanaPrepared.Refused(SOLANA_NO_ACCOUNTS)
+        val sourceFingerprint = request.sourceFingerprint
+            ?: return@withContext SolanaPrepared.Refused("The request does not say which wallet it is for")
+        if (sourceFingerprint != masterFingerprint) return@withContext SolanaPrepared.Refused("This request is for a different wallet")
+        val keys = readWallet { WalletStore(it).solanaKeys(walletId) }
+        when (val checked = SolanaRequestCheck.check(request, keys)) {
+            is SolanaRequestCheck.Result.Ok -> SolanaPrepared.Ready(walletId, request, checked.review)
+            is SolanaRequestCheck.Result.Refused -> SolanaPrepared.Refused(checked.reason)
+        }
+    }
+
+    /**
+     * Signs the reviewed Solana request with the account it was reviewed under, and returns its `ur:sol-signature` frames. The seed and
+     * the key are zeroed inside [WalletStore].
+     */
+    override suspend fun solanaSign(ready: SolanaPrepared.Ready): List<String> = withContext(Dispatchers.Default) {
+        val session = holder.openSession() ?: throw WalletUnavailable()
+        val requestId = checkNotNull(ready.request.requestId) { "The request has no requestId to echo" }
+        try {
+            val signature = WalletStore(session).solanaSign(ready.walletId, ready.review.accountIndex, ready.request.signData)
+            partsOf(SolSignatureEncoder.encode(requestId, signature))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            throw WalletUnavailable()
+        }
+    }
+
+    /** Writes the Solana [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
+    override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
+        val session = holder.openSession() ?: throw ReviewNotSaved()
+        try {
+            writeRecord(session, entry.walletId, solanaReviewRecordOf(entry, System.currentTimeMillis()))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             throw ReviewNotSaved()
         }
     }
