@@ -97,7 +97,14 @@ private const val REQUEST_ID_BYTES = 16
  * answers its own request from the account that sends.
  */
 @Composable
-internal fun SendRoute(navController: NavHostController, holder: VaultHolder, walletId: String, index: Int, mode: NetworkMode) {
+internal fun SendRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    walletId: String,
+    index: Int,
+    mode: NetworkMode,
+    preferredChainId: Long? = null,
+) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
     val session = holder.openSession()
@@ -117,7 +124,7 @@ internal fun SendRoute(navController: NavHostController, holder: VaultHolder, wa
     var step by remember { mutableStateOf<SendStep>(SendStep.Form) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
-    var chainId by remember { mutableStateOf<Long?>(null) }
+    var chainId by remember { mutableStateOf(preferredChainId) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     var scan by remember { mutableStateOf(SignatureScan()) }

@@ -62,6 +62,17 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import app.lumio.data.price.ChartRange
+import app.lumio.data.price.PricePoint
+import app.lumio.data.price.PriceSeries
+import app.lumio.data.tx.LumioTx
+import app.lumio.data.tx.TxAsset
+import app.lumio.data.tx.TxDirection
+import app.lumio.data.tx.TxStatus
+import app.lumio.home.AccountOption
+import app.lumio.home.PickTarget
+import app.lumio.ui.asset.AssetScreen
+import kotlin.math.sin
 
 /**
  * The goldens of Lumio's screens, one per screen, in the Lensly dark theme at the owner's phone size. They are recorded with
@@ -365,6 +376,121 @@ class LumioScreenshotTest {
             onCancel = {},
         )
     }
+
+    /** The Ethereum account of the demo wallet, which the asset page's Send and Receive take at once. */
+    private val demoWallet = AccountOption(PickTarget.Evm("wallet-Demo"), "Ethereum", "Demo")
+
+    /** A coin's page with its chart over a week, its transactions, and its Send and Receive. */
+    @Test
+    fun assetCoin() = compose.snapshot("asset_coin") {
+        AssetScreen(
+            asset = NativeAsset("EVM-1", "ETH", "Ethereum", NetworkId(Family.EVM, "1", testnet = false), BigDecimal("1.2345"), 3950.12, 1.25),
+            entry = null,
+            hidden = false,
+            range = ChartRange.D7,
+            onRange = {},
+            series = assetSeries(base = 3950.0, amplitude = 120.0, points = 43, spacingMs = 14_400_000L),
+            chartLoading = false,
+            transactions = listOf(
+                assetTx(1, TxDirection.IN, "500000000000000000", NOW - 3_600_000L),
+                assetTx(2, TxDirection.OUT, "250000000000000000", NOW - 90_000_000L),
+            ),
+            sendOptions = listOf(demoWallet),
+            receiveOptions = listOf(demoWallet),
+            accounts = listOf(demoWallet),
+            onSend = {},
+            onReceive = {},
+            onAccount = {},
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** A token's page: its chart over a month, its transaction, and Receive, since a token cannot be sent yet. */
+    @Test
+    fun assetToken() = compose.snapshot("asset_token") {
+        AssetScreen(
+            asset = TokenAsset(
+                id = TokenAsset.idOf(NetworkId(Family.EVM, "1", testnet = false), usdcMainnet),
+                symbol = "USDC",
+                name = "Ethereum",
+                network = NetworkId(Family.EVM, "1", testnet = false),
+                contract = usdcMainnet,
+                balance = BigDecimal("1250.5"),
+                usd = 1250.5,
+                change24h = 0.02,
+            ),
+            entry = null,
+            hidden = false,
+            range = ChartRange.D30,
+            onRange = {},
+            series = assetSeries(base = 1.0, amplitude = 0.002, points = 31, spacingMs = 86_400_000L),
+            chartLoading = false,
+            transactions = listOf(
+                assetTx(3, TxDirection.IN, "1250500000", NOW - 7_200_000L, TxAsset(usdcMainnet, "USDC", "USD Coin", 6)),
+            ),
+            sendOptions = emptyList(),
+            receiveOptions = listOf(demoWallet),
+            accounts = listOf(demoWallet),
+            onSend = {},
+            onReceive = {},
+            onAccount = {},
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** A testnet coin, which has no price: the chart says there is no price data, and the balance has no value. */
+    @Test
+    fun assetNoPrice() = compose.snapshot("asset_no_price") {
+        AssetScreen(
+            asset = NativeAsset("EVM-11155111", "ETH", "Sepolia", NetworkId(Family.EVM, "11155111", testnet = true), BigDecimal("0.25")),
+            entry = null,
+            hidden = false,
+            range = ChartRange.H24,
+            onRange = {},
+            series = null,
+            chartLoading = false,
+            transactions = emptyList(),
+            sendOptions = listOf(demoWallet),
+            receiveOptions = listOf(demoWallet),
+            accounts = listOf(demoWallet),
+            onSend = {},
+            onReceive = {},
+            onAccount = {},
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** A wave of prices around [base], one every [spacingMs], for the chart fixtures. */
+    private fun assetSeries(base: Double, amplitude: Double, points: Int, spacingMs: Long): PriceSeries = PriceSeries(
+        (0 until points).map { i -> PricePoint(NOW - (points - 1 - i) * spacingMs, base + amplitude * sin(i / 4.0)) },
+    )
+
+    /** A transaction of the Ethereum coin, or of [asset], on the demo wallet's address. */
+    private fun assetTx(
+        id: Int,
+        direction: TxDirection,
+        amountBaseUnits: String,
+        timestampMs: Long,
+        asset: TxAsset = TxAsset(null, "ETH", "Ether", 18),
+    ) = LumioTx(
+        id = "tx-$id",
+        network = NetworkId(Family.EVM, "1", testnet = false),
+        account = address,
+        hash = "0x" + "%064x".format(id),
+        timestampMs = timestampMs,
+        asset = asset,
+        amount = BigInteger(amountBaseUnits),
+        direction = direction,
+        fee = null,
+        counterparty = "0x" + "b2".repeat(20),
+        status = TxStatus.CONFIRMED,
+        confirmations = 100,
+        inputData = null,
+        memo = null,
+    )
 
     /** The USDC contract on Ethereum, which Home lists as a token. */
     private val usdcMainnet = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"

@@ -69,6 +69,23 @@ object HomeAccounts {
         }
     }
 
+    /**
+     * The sources a Send of [asset] can start from. An EVM coin starts from the wallets with an Ethereum account, and a Bitcoin coin from the Bitcoin send.
+     * A token has none, because Send sends only the network's own coin.
+     */
+    fun sendFor(asset: HomeAsset, mode: NetworkMode, wallets: List<PairedWallet>, bitcoin: List<BtcAccountRef>): List<AccountOption> {
+        if (asset is TokenAsset) return emptyList()
+        return sendFrom(mode, wallets, bitcoin.filter { it.account.network.networkId() == asset.network }).filter { option ->
+            if (asset.network.family == Family.EVM) option.target is PickTarget.Evm else option.target == PickTarget.Bitcoin
+        }
+    }
+
+    /** The addresses a Receive of [asset] can show: the wallets' Ethereum addresses for an EVM coin, and the Bitcoin accounts on its network for a Bitcoin coin. */
+    fun receiveFor(asset: HomeAsset, wallets: List<PairedWallet>, bitcoin: List<BtcAccountRef>): List<AccountOption> =
+        receiveFor(wallets, bitcoin.filter { it.account.network.networkId() == asset.network }).filter { option ->
+            if (asset.network.family == Family.EVM) option.target is PickTarget.Evm else option.target is PickTarget.BitcoinAccount
+        }
+
     /** The name of a Bitcoin script type as the pickers show it, such as "native segwit". */
     fun scriptLabel(type: ScriptType): String = when (type) {
         ScriptType.LEGACY -> "legacy"
