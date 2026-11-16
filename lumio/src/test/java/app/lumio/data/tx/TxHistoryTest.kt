@@ -24,6 +24,7 @@ import java.math.BigInteger
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -158,6 +159,27 @@ class TxHistoryTest {
         assertEquals(1, history.refresh(btc, btcAccount))
 
         assertEquals(listOf("cc".repeat(32)), store.page(TxQuery(account = btcAccount), 0, 10).map { it.hash })
+    }
+
+    @Test
+    fun aBitcoinScanStoresTheTransactionsItReadForTheAddress() = runBlocking {
+        val history = history(scheduler(this))
+        val spent = esploraTx("dd", blockHeight = 799_990L, blockTimeSec = 1_699_999_000L)
+
+        assertEquals(1, history.storeBitcoin(btc, btcAccount, listOf(spent), tipHeight = 800_000L))
+
+        assertEquals(listOf("dd".repeat(32)), store.page(TxQuery(account = btcAccount), 0, 10).map { it.hash })
+    }
+
+    @Test
+    fun theTransactionOfAStoredRowIsReadBackByItsIdAndAccount() = runBlocking {
+        val history = history(scheduler(this))
+        val spent = esploraTx("ee", blockHeight = 799_990L, blockTimeSec = 1_699_999_000L)
+        history.storeBitcoin(btc, btcAccount, listOf(spent), tipHeight = 800_000L)
+        val stored = store.page(TxQuery(account = btcAccount), 0, 10).single()
+
+        assertEquals(stored, store.tx(btcAccount, stored.id))
+        assertNull(store.tx("bc1qsomeoneelse", stored.id))
     }
 
     private fun esploraTx(name: String, blockHeight: Long?, blockTimeSec: Long?) = EsploraTx(

@@ -41,7 +41,8 @@ internal object HomeLoader {
         val tokensOf = app.tokensFor(session)
         val tokenCache = TokenBalanceCache.read(session)
         val tokens = wallets.flatMap { TokenPortfolio.holdings(it, settings.addressCount, chains, tokensOf, tokenCache) }
-        HomeBalances.evm(chains, holdings) + HomeBalances.bitcoin(bitcoinRows(app, session, mode)) + HomeBalances.tokens(tokens)
+        HomeBalances.evm(chains, holdings) + HomeBalances.bitcoin(bitcoinRows(app, session, mode)) +
+            HomeBalances.tokens(tokens, isKnown = app::isKnownToken)
     }
 
     /** The prices of the coins of [assets], keyed by asset. An asset with no price, or whose sources do not answer, is absent. */

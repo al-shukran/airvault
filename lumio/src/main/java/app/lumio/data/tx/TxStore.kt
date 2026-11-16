@@ -93,6 +93,9 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
     /** The comment on [txId], or null when there is none. */
     suspend fun comment(txId: String): TxNote? = dao.comment(keys.name(TX_LABEL, txId))?.let { openComment(it) }
 
+    /** The transaction [txId] of [account] as the store holds it, or null when it is not there or does not open. */
+    suspend fun tx(account: String, txId: String): LumioTx? = dao.row(keys.name(TX_LABEL, txId), accountKeyOf(account))?.let { open(it) }
+
     /** Every comment in the store. A comment that does not open under the key is left out. */
     suspend fun comments(): List<TxNote> = dao.comments().mapNotNull { openComment(it) }
 
