@@ -9,6 +9,7 @@ import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 
@@ -45,10 +46,12 @@ internal object DebugPairFixture {
         val wallet = HdWallet(seed)
         val ethereum = PairingApp(
             app = "ethereum",
-            keys = listOf(PairingKey.ethereumAccount(wallet.accountXpub())),
+            keys = (0..1).map { account ->
+                PairingKey.ethereumAddress(account, AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
+            },
             accounts = listOf(
-                PairingAccount(key = 0, child = 0, name = "DEMO 0", label = "Savings", group = null),
-                PairingAccount(key = 0, child = 1, name = "DEMO 1", label = null, group = "Trading"),
+                PairingAccount(key = 0, child = null, name = "DEMO 0", label = "Savings", group = null),
+                PairingAccount(key = 1, child = null, name = "DEMO 1", label = null, group = "Trading"),
             ),
         )
         val bitcoin = BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET) + BtcWatchOnly.accounts(seed, BtcNetwork.TESTNET4)

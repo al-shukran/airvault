@@ -11,12 +11,15 @@ import app.lensly.core.wallet.AccountXpub
 /** The chain families a paired wallet can hold. */
 enum class PairFamily { EVM, BITCOIN }
 
-/** One Ethereum account of a paired wallet, as Lensly names it: its address index under the account key, and its name, label and group. */
-data class PairedAccount(val index: Int, val name: String?, val label: String?, val group: String?)
+/**
+ * One Ethereum account of a paired wallet, as Lensly names it: its number N, which is its key's account m/44'/60'/N'/0/0, the public [key] of that
+ * address, and its name, label and group.
+ */
+data class PairedAccount(val index: Int, val key: AccountXpub, val name: String?, val label: String?, val group: String?)
 
 /**
- * A paired wallet: one Lensly wallet, identified by its master fingerprint, with the public data of its Apps. It holds no key material. [evm]
- * is the Ethereum account key and [evmAccounts] the Ethereum accounts under it. [bitcoin] holds the watch-only Bitcoin Accounts, if any.
+ * A paired wallet: one Lensly wallet, identified by its master fingerprint, with the public data of its Apps. It holds no key material. [evmAccounts]
+ * are the Ethereum accounts, each with the public key of its one address. [bitcoin] holds the watch-only Bitcoin Accounts, if any.
  * [addressBook] is the Address Book that Lensly sent with the pairing, in the order it was sent. It is empty when there is none.
  */
 data class PairedWallet(
@@ -24,14 +27,17 @@ data class PairedWallet(
     val name: String,
     val fingerprint: Long,
     val createdAtMs: Long,
-    val evm: AccountXpub?,
     val bitcoin: List<BtcWatchOnlyAccount>,
     val evmAccounts: List<PairedAccount> = emptyList(),
     val addressBook: List<AddressBookEntry> = emptyList(),
 ) {
+    /** The public key of each Ethereum account, in account order. Empty when the wallet holds no Ethereum account. */
+    val evmKeys: List<AccountXpub>
+        get() = evmAccounts.map { it.key }
+
     val families: Set<PairFamily>
         get() = buildSet {
-            if (evm != null) add(PairFamily.EVM)
+            if (evmAccounts.isNotEmpty()) add(PairFamily.EVM)
             if (bitcoin.isNotEmpty()) add(PairFamily.BITCOIN)
         }
 }
@@ -41,9 +47,9 @@ data class PairSaved(val id: String, val created: Boolean)
 
 /**
  * The paired wallets of an open Lumio vault. Each is one wallet folder of the vault, so its records are sealed with the wallet's own key:
- * META holds the fingerprint, the creation time, the name, the Ethereum account key and the number of its accounts, each account's record
- * holds its name, label and group, and the BITCOIN record holds the watch-only Accounts. A pairing whose fingerprint is already paired
- * replaces that wallet's records, and never adds a second one.
+ * META holds the fingerprint, the creation time, the name and the public key of each Ethereum account, each account's record holds its name,
+ * label and group, and the BITCOIN record holds the watch-only Accounts. A pairing whose fingerprint is already paired replaces that wallet's
+ * records, and never adds a second one.
  */
 object PairedWallets {
 
@@ -93,12 +99,10 @@ object PairedWallets {
             fingerprint = pairing.fingerprint,
             createdAtMs = createdAtMs,
             name = pairing.name,
-            accountCount = ethereum.accounts.size,
-            evm = PairImport.ethereumKeyOf(pairing),
+            accountKeys = PairImport.ethereumAccountKeysOf(pairing),
         )
         val records = mutableMapOf(WalletRecordNames.META to PairRecords.encodeMeta(meta))
-        for (account in ethereum.accounts) {
-            val index = requireNotNull(account.child) { "A validated Ethereum account has an index." }
+        for ((index, account) in ethereum.accounts.withIndex()) {
             records[WalletRecordNames.account(index)] = PairRecords.encodeAccount(
                 PairRecords.Account(name = account.name, label = account.label, group = account.group),
             )
@@ -118,9 +122,9 @@ object PairedWallets {
     /** The paired wallet in folder [id], or null when the folder is not one (another folder kind, or a damaged record). */
     private fun read(session: VaultSession, id: String): PairedWallet? = try {
         val meta = session.getRecord(id, WalletRecordNames.META)?.let { PairRecords.decodeMeta(it) } ?: return null
-        val accounts = (0 until meta.accountCount).map { index ->
+        val accounts = meta.accountKeys.mapIndexed { index, key ->
             val account = PairRecords.decodeAccount(session.getRecord(id, WalletRecordNames.account(index)) ?: return null)
-            PairedAccount(index, account.name, account.label, account.group)
+            PairedAccount(index, key, account.name, account.label, account.group)
         }
         val bitcoin = session.getRecord(id, WalletRecordNames.BITCOIN)
             ?.let { PairRecords.decodeBitcoin(it, meta.fingerprint) }
@@ -130,7 +134,6 @@ object PairedWallets {
             name = meta.name,
             fingerprint = meta.fingerprint,
             createdAtMs = meta.createdAtMs,
-            evm = meta.evm,
             bitcoin = bitcoin,
             evmAccounts = accounts,
         )

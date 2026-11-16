@@ -570,7 +570,7 @@ class LumioCoverageScreenshotTest {
         val apps = mutableListOf(
             PairingApp(
                 app = PairImport.ETHEREUM,
-                keys = listOf(PairingKey.ethereumAccount(wallet.accountXpub())),
+                keys = listOf(PairingKey.ethereumAddress(0, AccountAddresses.addressXpub(wallet.accountXpub(0), 0))),
                 accounts = listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null)),
             ),
         )

@@ -75,7 +75,7 @@ class PairWizardTest {
 
     @Test
     fun onlyAKeystoneNexusCodeForAWalletWithoutAccountKeysNeedsAnHdWallet() {
-        val seedWallet = mnemonic("w1", "Seed wallet").copy(accountXpub = AccountXpub(ByteArray(33) { 2 }, ByteArray(32), 0))
+        val seedWallet = mnemonic("w1", "Seed wallet").copy(accountKeys = listOf(AccountXpub(ByteArray(33) { 2 }, ByteArray(32), 0)))
         val key = mnemonic("w3", "Hardware key").copy(kind = WalletKind.SINGLE_KEY, masterFingerprintHex = null)
 
         assertTrue(keystoneNeedsHdWallet(PairFormat.KEYSTONE_NEXUS, key))
@@ -212,7 +212,7 @@ class PairWizardTest {
         deviceGenerated = true,
         accountCount = 2,
         masterFingerprintHex = "1a2b3c4d",
-        accountXpub = null,
+        accountKeys = emptyList(),
         kind = WalletKind.MNEMONIC,
         autoNameBase = name,
     )

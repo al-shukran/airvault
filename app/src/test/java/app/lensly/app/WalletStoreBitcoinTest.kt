@@ -41,6 +41,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import app.lensly.core.wallet.AccountAddresses
 
 /**
  * The Bitcoin accounts of a wallet: the first receive address against the published vectors, one account per Script Type, network
@@ -119,7 +120,7 @@ class WalletStoreBitcoinTest {
         val version = "0.1.0"
         val seed = Mnemonic.of(words).use { it.deriveSeed("") }
         val masterFingerprint = HdWallet(seed).masterFingerprint
-        val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint) }
+        val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint, 1) }
         val expected = MultiAccountsExport.cbor(masterFingerprint, keys, version)
 
         val scanner = UrScanner()
@@ -239,11 +240,13 @@ class WalletStoreBitcoinTest {
         assertEquals("Savings", pairing.name)
         val ethereum = pairing.apps.single { it.app == "ethereum" }
         val seed = Mnemonic.of(words).use { it.deriveSeed("") }
-        assertTrue(ethereum.keys.single().publicKey.contentEquals(HdWallet(seed).accountXpub().publicKey))
+        assertEquals(2, ethereum.keys.size)
+        assertTrue(ethereum.keys[0].publicKey.contentEquals(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(0), 0).publicKey))
+        assertTrue(ethereum.keys[1].publicKey.contentEquals(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(1), 0).publicKey))
         assertEquals(
             listOf(
-                PairingAccount(key = 0, child = 0, name = "Cold", label = "vault", group = "Long term"),
-                PairingAccount(key = 0, child = 1, name = "Savings 1", label = null, group = null),
+                PairingAccount(key = 0, child = null, name = "Cold", label = "vault", group = "Long term"),
+                PairingAccount(key = 1, child = null, name = "Savings 1", label = null, group = null),
             ),
             ethereum.accounts,
         )

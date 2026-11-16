@@ -70,8 +70,11 @@ data class WalletMeta(
     val accountCount: Int,
     /** Master fingerprint as 8 lowercase hex characters. Null for a Single Key, which has no master key. */
     val masterFingerprintHex: String?,
-    /** Public account data for m/44'/60'/0'. Enough to derive addresses without the secret. Null for a Single Key. */
-    val accountXpub: AccountXpub?,
+    /**
+     * The public account key of each account, m/44'/60'/N' for account N, in account order: one for each of the [accountCount] accounts. It is
+     * enough to derive every address without the secret. Empty for a Single Key.
+     */
+    val accountKeys: List<AccountXpub>,
     /** The kind of secret the wallet holds. A record written before kinds existed is a Mnemonic wallet. */
     val kind: WalletKind = WalletKind.MNEMONIC,
     /**
@@ -197,7 +200,7 @@ class WalletStore(private val session: VaultSession) {
                 deviceGenerated = deviceGenerated,
                 accountCount = 1,
                 masterFingerprintHex = identity.fingerprintHex,
-                accountXpub = identity.xpub,
+                accountKeys = identity.keys,
                 seedBackedUp = seedBackedUp,
             )
             session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(name))
@@ -232,7 +235,7 @@ class WalletStore(private val session: VaultSession) {
                 deviceGenerated = false,
                 accountCount = 1,
                 masterFingerprintHex = null,
-                accountXpub = null,
+                accountKeys = emptyList(),
                 kind = WalletKind.SINGLE_KEY,
             )
             session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(name))
@@ -251,7 +254,8 @@ class WalletStore(private val session: VaultSession) {
     fun addAccount(id: String): WalletMeta = synchronized(session) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_ONE_ACCOUNT }
-        val updated = current.copy(accountCount = current.accountCount + 1)
+        val key = accountKeyOf(id, current.accountCount)
+        val updated = current.copy(accountCount = current.accountCount + 1, accountKeys = current.accountKeys + key)
         session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
         updated
     }
@@ -277,9 +281,9 @@ class WalletStore(private val session: VaultSession) {
         val indices = BulkPolicy.indexRange(start, count)
         val secret = mnemonicSecret(id)
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
-        try {
-            // The addresses are not kept. A failure in any of them stops the run here, before anything is saved.
-            BulkRun.addresses(HdWallet(seed), indices, onProgress)
+        val keys = try {
+            // A failure in any of them stops the run here, before anything is saved.
+            BulkRun.accountKeys(HdWallet(seed), indices, onProgress)
         } finally {
             seed.fill(0)
         }
@@ -288,7 +292,7 @@ class WalletStore(private val session: VaultSession) {
             if (current.accountCount != start) {
                 null
             } else {
-                val updated = current.copy(accountCount = start + count)
+                val updated = current.copy(accountCount = start + count, accountKeys = current.accountKeys + keys)
                 session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
                 updated
             }
@@ -385,7 +389,7 @@ class WalletStore(private val session: VaultSession) {
 
     /**
      * The frames of the Keystone multi-accounts export that Keystone Nexus imports for wallet [id]: the account keys of every App in
-     * [WalletApp], in its order (the Bitcoin mainnet account 0 on each Script Type, then the Ethereum account key m/44'/60'/0').
+     * [WalletApp], in its order (the Bitcoin mainnet account 0 on each Script Type, then the Ethereum account key of each account, m/44'/60'/N').
      * [version] is the app version the export names. The seed is derived for the export and zeroed after it. The export asks for no App
      * Password, as the other pairing exports do, and it carries public data only.
      *
@@ -396,7 +400,8 @@ class WalletStore(private val session: VaultSession) {
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
         try {
             val masterFingerprint = HdWallet(seed).masterFingerprint
-            val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint) }
+            val accounts = requireNotNull(meta(id)) { "No wallet $id." }.accountCount
+            val keys = WalletApp.entries.flatMap { app -> app.nexusKeys(seed, masterFingerprint, accounts) }
             return MultiAccountsExport.urParts(masterFingerprint, keys, version)
         } finally {
             seed.fill(0)
@@ -564,7 +569,7 @@ class WalletStore(private val session: VaultSession) {
         val meta = requireNotNull(meta(id)) { "No wallet $id." }
         require(index in 0 until meta.accountCount) { "No account $index in wallet $id." }
         return when (meta.kind) {
-            WalletKind.MNEMONIC -> AccountAddresses.addressAt(requireNotNull(meta.accountXpub), index)
+            WalletKind.MNEMONIC -> AccountAddresses.addressAt(meta.accountKeys[index], 0)
             WalletKind.SINGLE_KEY -> addresses(id, count = 1).single()
         }
     }
@@ -592,7 +597,7 @@ class WalletStore(private val session: VaultSession) {
             decodedProfile(profileBytes[WalletRecords.accountRecord(index)]).takeUnless { it.isEmpty }?.let { index to it }
         }.toMap()
         val addresses = when (wallet.kind) {
-            WalletKind.MNEMONIC -> AccountAddresses.addresses(requireNotNull(wallet.accountXpub), count)
+            WalletKind.MNEMONIC -> wallet.accountKeys.map { key -> AccountAddresses.addressAt(key, 0) }
             // A Single Key wallet has exactly one account, and its address comes from its key. The key is zeroed by addresses().
             WalletKind.SINGLE_KEY -> if (count == 1) addresses(id, count = 1) else emptyList()
         }
@@ -885,13 +890,23 @@ class WalletStore(private val session: VaultSession) {
             }
         }
 
-    private class Identity(val fingerprintHex: String, val xpub: AccountXpub)
+    private class Identity(val fingerprintHex: String, val keys: List<AccountXpub>)
+
+    /** The public account key of account [account] of wallet [id], derived from its seed. The seed is zeroed here. */
+    private fun accountKeyOf(id: String, account: Int): AccountXpub {
+        val seed = seedOf(id)
+        try {
+            return HdWallet(seed).accountXpub(account)
+        } finally {
+            seed.fill(0)
+        }
+    }
 
     private fun identityOf(words: List<String>, passphrase: String): Identity {
         val seed = Mnemonic.toSeed(words, passphrase)
         try {
             val wallet = HdWallet(seed)
-            return Identity(wallet.masterFingerprintHex, wallet.accountXpub())
+            return Identity(wallet.masterFingerprintHex, listOf(wallet.accountXpub(0)))
         } finally {
             seed.fill(0)
         }
@@ -922,9 +937,7 @@ internal object WalletRecords {
     const val BITCOIN_MAX_ACCOUNTS = 100
 
     /** The meta versions before wallet kinds, which have no kind byte, and before the backed-up flag. Version 3 is written now. */
-    private const val META_VERSION_WITHOUT_KIND = 1
-    private const val META_VERSION_WITHOUT_BACKUP_FLAG = 2
-    private const val META_VERSION = 3
+    private const val META_VERSION = 4
 
     /** The secret version of a Mnemonic wallet. It is the only secret layout before Single Keys. */
     private const val MNEMONIC_SECRET_VERSION = 1
@@ -1120,37 +1133,39 @@ internal object WalletRecords {
         out.writeBoolean(meta.seedBackedUp)
         when (meta.kind) {
             WalletKind.MNEMONIC -> {
-                val xpub = requireNotNull(meta.accountXpub) { "A Mnemonic wallet needs its account public key." }
+                require(meta.accountKeys.size == meta.accountCount) { "A Mnemonic wallet needs a public key for each account." }
                 out.writeUTF(requireNotNull(meta.masterFingerprintHex) { "A Mnemonic wallet needs its fingerprint." })
-                writeField(out, xpub.publicKey)
-                writeField(out, xpub.chainCode)
-                out.writeInt(xpub.parentFingerprint)
+                out.writeInt(meta.accountKeys.size)
+                for (key in meta.accountKeys) {
+                    writeField(out, key.publicKey)
+                    writeField(out, key.chainCode)
+                    out.writeInt(key.parentFingerprint)
+                }
             }
             WalletKind.SINGLE_KEY -> require(
-                meta.accountCount == 1 && meta.accountXpub == null && meta.masterFingerprintHex == null,
+                meta.accountCount == 1 && meta.accountKeys.isEmpty() && meta.masterFingerprintHex == null,
             ) { "A Single Key wallet has one account and no account public key." }
         }
     }
 
     fun decodeMeta(id: String, bytes: ByteArray): WalletMeta = readBytes(bytes) { input ->
         val version = input.readUnsignedByte()
-        val kind = when (version) {
-            META_VERSION_WITHOUT_KIND -> WalletKind.MNEMONIC
-            META_VERSION_WITHOUT_BACKUP_FLAG, META_VERSION -> WalletKind.fromWire(input.readUnsignedByte())
-            else -> throw IllegalArgumentException("Unknown record version $version.")
-        }
+        require(version == META_VERSION) { "Unknown record version $version." }
+        val kind = WalletKind.fromWire(input.readUnsignedByte())
         val name = input.readUTF()
         val createdAtMs = input.readLong()
         val deviceGenerated = input.readBoolean()
         val accountCount = input.readInt()
-        // A record from before the flag reads as backed up, so a wallet made before it is not asked for a backup.
-        val seedBackedUp = if (version == META_VERSION) input.readBoolean() else true
+        val seedBackedUp = input.readBoolean()
         when (kind) {
             WalletKind.MNEMONIC -> {
                 val fingerprintHex = input.readUTF()
-                val publicKey = readField(input)
-                val chainCode = readField(input)
-                val parentFingerprint = input.readInt()
+                val keys = List(input.readInt()) {
+                    val publicKey = readField(input)
+                    val chainCode = readField(input)
+                    AccountXpub(publicKey, chainCode, input.readInt())
+                }
+                require(keys.size == accountCount) { "A Mnemonic wallet needs a public key for each account." }
                 WalletMeta(
                     id = id,
                     name = name,
@@ -1158,7 +1173,7 @@ internal object WalletRecords {
                     deviceGenerated = deviceGenerated,
                     accountCount = accountCount,
                     masterFingerprintHex = fingerprintHex,
-                    accountXpub = AccountXpub(publicKey, chainCode, parentFingerprint),
+                    accountKeys = keys,
                     kind = kind,
                     seedBackedUp = seedBackedUp,
                 )
@@ -1170,7 +1185,7 @@ internal object WalletRecords {
                 deviceGenerated = deviceGenerated,
                 accountCount = accountCount,
                 masterFingerprintHex = null,
-                accountXpub = null,
+                accountKeys = emptyList(),
                 kind = kind,
                 seedBackedUp = seedBackedUp,
             )

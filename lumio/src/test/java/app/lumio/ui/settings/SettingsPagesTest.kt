@@ -105,7 +105,7 @@ class SettingsPagesTest {
     @Test
     fun theAddressBookPageHasNoPairingOrDeletionButOpensEachBook() {
         var opened: String? = null
-        val wallet = PairedWallet(id = "w1", name = "Demo", fingerprint = 1L, createdAtMs = 0L, evm = null, bitcoin = emptyList())
+        val wallet = PairedWallet(id = "w1", name = "Demo", fingerprint = 1L, createdAtMs = 0L, evmAccounts = emptyList(), bitcoin = emptyList())
         compose.setContent {
             LenslyTheme {
                 AddressBookSettingsPage(

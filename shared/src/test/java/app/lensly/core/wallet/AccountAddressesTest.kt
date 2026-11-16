@@ -12,31 +12,31 @@ class AccountAddressesTest {
     fun firstAddressMatchesTheVector() {
         assertEquals(
             "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
-            AccountAddresses.addressAt(WALLET.accountXpub(), 0),
+            AccountAddresses.addressAt(WALLET.accountXpub(0), 0),
         )
     }
 
     @Test
-    fun publicDerivationFromTheXpubMatchesPrivateDerivation() {
-        val xpub = WALLET.accountXpub()
-        for (index in 0..3) {
-            assertEquals(WALLET.address(index), AccountAddresses.addressAt(xpub, index), "index $index")
+    fun publicDerivationFromTheAccountKeyMatchesPrivateDerivation() {
+        for (account in 0..3) {
+            assertEquals(WALLET.address(account), AccountAddresses.addressAt(WALLET.accountXpub(account), 0), "account $account")
         }
     }
 
     @Test
-    fun aListOfAddressesIsTheAddressAtEachIndex() {
-        val xpub = WALLET.accountXpub()
-        assertEquals((0..5).map { AccountAddresses.addressAt(xpub, it) }, AccountAddresses.addresses(xpub, 6))
-        assertEquals(emptyList(), AccountAddresses.addresses(xpub, 0))
+    fun theAddressKeyOfAnAccountControlsTheAddressOfThatAccount() {
+        for (account in 0..3) {
+            val addressKey = AccountAddresses.addressXpub(WALLET.accountXpub(account), 0)
+            assertEquals(WALLET.address(account), AccountAddresses.addressOfKey(addressKey), "account $account")
+        }
     }
 
     @Test
     fun theAddressOfAPrivateKeyIsTheAddressOfItsAccount() {
-        for (index in 0..2) {
-            val key = WALLET.privateKey(index)
+        for (account in 0..2) {
+            val key = WALLET.privateKey(account)
             try {
-                assertEquals(WALLET.address(index), AccountAddresses.addressOfPrivateKey(key), "index $index")
+                assertEquals(WALLET.address(account), AccountAddresses.addressOfPrivateKey(key), "account $account")
             } finally {
                 key.fill(0)
             }
@@ -45,12 +45,7 @@ class AccountAddressesTest {
 
     @Test
     fun aNegativeIndexIsRefused() {
-        assertFailsWith<IllegalArgumentException> { AccountAddresses.addressAt(WALLET.accountXpub(), -1) }
-    }
-
-    @Test
-    fun aNegativeCountIsRefused() {
-        assertFailsWith<IllegalArgumentException> { AccountAddresses.addresses(WALLET.accountXpub(), -1) }
+        assertFailsWith<IllegalArgumentException> { AccountAddresses.addressAt(WALLET.accountXpub(0), -1) }
     }
 
     @Test

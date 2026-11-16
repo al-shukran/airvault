@@ -6,6 +6,9 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.core.wallet.AccountAddresses
+import app.lensly.core.wallet.AccountXpub
+import app.lensly.core.wallet.HdWallet
 
 /** Seeds of two public 24-word BIP39 test vectors. They hold no funds, and the tests derive every key from them. */
 internal object PairFixtures {
@@ -17,6 +20,13 @@ internal object PairFixtures {
 
     val seed: ByteArray = seedOf(ABANDON)
     val otherSeed: ByteArray = seedOf(ZOO)
+
+    /** The public key of the address of account [account] of [seed], m/44'/60'/[account]'/0/0, as a pairing carries it. */
+    fun addressKey(seed: ByteArray, account: Int): AccountXpub = AccountAddresses.addressXpub(HdWallet(seed).accountXpub(account), 0)
+
+    /** The first [count] paired Ethereum accounts of [seed], with no name, label or group. */
+    fun evmAccounts(count: Int = 1, seed: ByteArray = PairFixtures.seed): List<PairedAccount> =
+        (0 until count).map { PairedAccount(it, addressKey(seed, it), null, null, null) }
 
     /** The watch-only Account of [seed] for [network] and [scriptType], at account index 0. */
     fun account(seed: ByteArray, network: BtcNetwork, scriptType: ScriptType): BtcWatchOnlyAccount =

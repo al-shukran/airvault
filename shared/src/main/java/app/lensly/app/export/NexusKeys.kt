@@ -18,8 +18,8 @@ import java.nio.ByteBuffer
  * the keys of every App in that list, in its order. The keys are derived from the seed and carry public data only.
  */
 interface NexusKeys {
-    /** The crypto-hdkey items of this App for [seed], whose master fingerprint is [masterFingerprint]. */
-    fun hdKeys(seed: ByteArray, masterFingerprint: Int): List<Cbor>
+    /** The crypto-hdkey items of this App for [seed], whose master fingerprint is [masterFingerprint], for a wallet of [accountCount] accounts. */
+    fun hdKeys(seed: ByteArray, masterFingerprint: Int, accountCount: Int): List<Cbor>
 }
 
 /**
@@ -27,7 +27,7 @@ interface NexusKeys {
  * note, as Keystone's device writes it.
  */
 object BitcoinNexusKeys : NexusKeys {
-    override fun hdKeys(seed: ByteArray, masterFingerprint: Int): List<Cbor> =
+    override fun hdKeys(seed: ByteArray, masterFingerprint: Int, accountCount: Int): List<Cbor> =
         BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET, accountIndex = 0).map { account ->
             nexusKey(
                 publicKey = account.xpub.publickeybytes.toByteArray(),
@@ -41,48 +41,28 @@ object BitcoinNexusKeys : NexusKeys {
 }
 
 /**
- * The Ethereum App: the account key m/44'/60'/0' with children [0, *] and the note account.standard, then the Ledger Legacy key
- * m/44'/60'/0'/0 and the Ledger Live key m/44'/60'/0'/0/0. Keystone's device writes these three keys for one account. The two derived
- * keys carry no chain code and no children. Every key has origin depth 3, the depth of the account key.
+ * The Ethereum App: one Ledger Live key for each account, m/44'/60'/N' for account N, with the children 0/0 that reach its address
+ * m/44'/60'/N'/0/0 and the note account.ledger_live. Every key has origin depth 3, the depth of the account key.
+ *
+ * The standard key m/44'/60'/0' with children [0, *] and the Ledger Legacy key are not written. Their children are not Lensly's
+ * accounts: Lensly's account N is m/44'/60'/N'/0/0, and the old form, with N as the last step, is not one of its keys.
  */
 object EthereumNexusKeys : NexusKeys {
     private const val ACCOUNT_DEPTH = 3
 
-    override fun hdKeys(seed: ByteArray, masterFingerprint: Int): List<Cbor> {
+    override fun hdKeys(seed: ByteArray, masterFingerprint: Int, accountCount: Int): List<Cbor> {
         val wallet = HdWallet(seed)
-        val account = wallet.accountXpub()
-        val ledgerLegacy = wallet.legacyChainXpub()
-        val ledgerLive = wallet.ledgerLiveXpub()
-        val accountPath = listOf(hardened(44), hardened(60), hardened(0))
-        return listOf(
+        return (0 until accountCount).map { account ->
+            val key = wallet.accountXpub(account)
             nexusKey(
-                publicKey = account.publicKey,
-                chainCode = account.chainCode,
-                origin = keypathOf(masterFingerprint, accountPath),
-                children = CryptoKeypath(listOf(IndexPathComponent(0, false), WildcardPathComponent(false)), null, 0),
-                parentFingerprint = account.parentFingerprint,
-                note = "account.standard",
-            ),
-            nexusKey(
-                publicKey = ledgerLegacy.publicKey,
-                chainCode = null,
-                origin = keypathOf(masterFingerprint, accountPath + IndexPathComponent(0, false)),
-                children = null,
-                parentFingerprint = ledgerLegacy.parentFingerprint,
-                note = "account.ledger_legacy",
-            ),
-            nexusKey(
-                publicKey = ledgerLive.publicKey,
-                chainCode = null,
-                origin = keypathOf(
-                    masterFingerprint,
-                    accountPath + listOf(IndexPathComponent(0, false), IndexPathComponent(0, false)),
-                ),
-                children = null,
-                parentFingerprint = ledgerLive.parentFingerprint,
+                publicKey = key.publicKey,
+                chainCode = key.chainCode,
+                origin = keypathOf(masterFingerprint, listOf(hardened(44), hardened(60), hardened(account))),
+                children = CryptoKeypath(listOf(IndexPathComponent(0, false), IndexPathComponent(0, false)), null, 0),
+                parentFingerprint = key.parentFingerprint,
                 note = "account.ledger_live",
-            ),
-        )
+            )
+        }
     }
 
     private fun hardened(childNumber: Int): PathComponent = IndexPathComponent(childNumber, true)

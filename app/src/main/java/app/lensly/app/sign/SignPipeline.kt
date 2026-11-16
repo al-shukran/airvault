@@ -64,7 +64,7 @@ import org.web3j.utils.Numeric
 /** The outcome of [SignPipeline.prepare]: a review for the user to confirm, or a refusal that says why. */
 sealed interface Prepared {
     /**
-     * [accountIndex] is i in m/44'/60'/0'/0/i, and [walletId] is the wallet that holds that account. Nothing is signed until
+     * [accountIndex] is N in m/44'/60'/N'/0/0, and [walletId] is the wallet that holds that account. Nothing is signed until
      * [SignPipeline.sign] runs.
      */
     data class Ready(
@@ -128,7 +128,7 @@ class SignPipeline(
 
     /**
      * Checks the request of [parsed] against [wallet]. A Mnemonic wallet's request names its master fingerprint and an account path,
-     * m/44'/60'/0'/0/i. A Single Key wallet has neither, so its request must name the wallet's address, and only that
+     * m/44'/60'/N'/0/0 for account N. A Single Key wallet has neither, so its request must name the wallet's address, and only that
      * address signs. The derivation path is not read for a Single Key.
      */
     fun prepare(parsed: ParsedRequest, wallet: WalletView): Prepared {
@@ -782,13 +782,11 @@ class SignPipeline(
         /** The uint argument names that are an amount of the contract's token when the entry marks them tokenRef. */
         val AMOUNT_PARAMS = setOf("amount", "value", "wad")
 
-        /** The first four steps of every Lensly account path, m/44'/60'/0'/0. The last step is the index. */
-        val ACCOUNT_PATH_PREFIX = listOf(
-            PathStep(44, true),
-            PathStep(60, true),
-            PathStep(0, true),
-            PathStep(0, false),
-        )
+        /** The first two steps of every Lensly account path, m/44'/60'. The third step is the account, and [ACCOUNT_PATH_SUFFIX] ends it. */
+        val ACCOUNT_PATH_PREFIX = listOf(PathStep(44, true), PathStep(60, true))
+
+        /** The last two steps of every Lensly account path, 0/0: the address of the account. */
+        val ACCOUNT_PATH_SUFFIX = listOf(PathStep(0, false), PathStep(0, false))
 
         fun gwei(wei: BigInteger): String = "${Amounts.format(wei, GWEI_DECIMALS)} gwei"
 
@@ -817,12 +815,16 @@ class SignPipeline(
                 "$raw (${Amounts.format(raw, token.decimals)} ${token.symbol})"
             }
 
-        /** i when [path] is exactly m/44'/60'/0'/0/i, otherwise null. */
+        /**
+         * N when [path] is exactly m/44'/60'/N'/0/0, otherwise null. The old form, with the account number as the last step, is not an account path, so a request
+         * for it is refused. For N = 0 the two forms are the same key.
+         */
         fun accountIndexOf(path: List<PathStep>): Int? {
             if (path.size != ACCOUNT_PATH_LENGTH) return null
             if (path.subList(0, ACCOUNT_PATH_PREFIX.size) != ACCOUNT_PATH_PREFIX) return null
-            val last = path[ACCOUNT_PATH_PREFIX.size]
-            return if (last.hardened) null else last.index
+            val account = path[ACCOUNT_PATH_PREFIX.size]
+            if (!account.hardened) return null
+            return if (path.subList(ACCOUNT_PATH_PREFIX.size + 1, path.size) == ACCOUNT_PATH_SUFFIX) account.index else null
         }
 
         fun checksum(address: String): String = Keys.toChecksumAddress(address)

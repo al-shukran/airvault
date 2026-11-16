@@ -927,7 +927,7 @@ class SignPipelineTest {
         assertEquals(unknownAccount, refusal(requestCbor(data, index = 2)))
         assertEquals(
             unknownAccount,
-            refusal(requestCbor(data, path = listOf(44L to true, 60L to true, 1L to true, 0L to false, 0L to false))),
+            refusal(requestCbor(data, path = listOf(44L to true, 60L to true, 0L to true, 0L to false, 1L to false))),
         )
         assertEquals(
             unknownAccount,
@@ -937,6 +937,19 @@ class SignPipelineTest {
             unknownAccount,
             refusal(requestCbor(data, path = listOf(44L to true, 60L to true, 0L to true, 0L to false, 0L to true))),
         )
+    }
+
+    @Test
+    fun aRequestForAccountOneIsSignedWithAccountOnesKeyAndTheOldPathIsRefused() {
+        val ready = ready(requestCbor(eip1559Tx(), index = 1))
+        assertEquals(1, ready.accountIndex)
+
+        // The key of m/44'/60'/1'/0/0 signs the request. signResponse checks that the answer is a signature.
+        signResponse(ready, WALLET.privateKey(1))
+
+        // The old form, with the account number as the last step, is not an account path now.
+        val oldForm = listOf(44L to true, 60L to true, 0L to true, 0L to false, 1L to false)
+        assertEquals("Unknown account", refusal(requestCbor(eip1559Tx(), path = oldForm)))
     }
 
     @Test
@@ -1758,10 +1771,10 @@ class SignPipelineTest {
     )
 
     private fun accountPathPairs(index: Long): List<Pair<Long, Boolean>> =
-        listOf(44L to true, 60L to true, 0L to true, 0L to false, index to false)
+        listOf(44L to true, 60L to true, index to true, 0L to false, 0L to false)
 
     private fun accountPath(index: Int): List<PathStep> =
-        listOf(PathStep(44, true), PathStep(60, true), PathStep(0, true), PathStep(0, false), PathStep(index, false))
+        listOf(PathStep(44, true), PathStep(60, true), PathStep(index, true), PathStep(0, false), PathStep(0, false))
 
     private fun dict(vararg fields: Pair<Long, Cbor?>): Cbor.Dict =
         Cbor.Dict(fields.mapNotNull { (key, value) -> value?.let { Cbor.Uint(key) to it } })

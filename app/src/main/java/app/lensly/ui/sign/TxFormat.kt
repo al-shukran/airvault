@@ -38,7 +38,7 @@ internal fun groupHex(hex: String, size: Int = 8): String = hex.chunked(size).jo
 /** A master fingerprint as 8 upper-case hex digits, or [NOT_STATED] when the request does not name one. */
 internal fun fingerprintText(fingerprint: Int?): String = fingerprint?.let { "%08X".format(it) } ?: NOT_STATED
 
-/** A derivation path in the usual notation, such as m/44'/60'/0'/0/0. */
+/** A derivation path in the usual notation, such as m/44'/60'/1'/0/0. */
 internal fun pathText(path: List<PathStep>): String =
     "m" + path.joinToString("") { step -> "/${step.index}" + if (step.hardened) "'" else "" }
 

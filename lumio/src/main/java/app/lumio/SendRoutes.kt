@@ -364,11 +364,11 @@ internal fun SendRoute(
  */
 private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, index: Int, mode: NetworkMode): SendLoad = runCatching {
     val wallet = PairedWallets.list(session).firstOrNull { it.id == walletId } ?: return@runCatching SendLoad.Missing
-    val account = wallet.evm ?: return@runCatching SendLoad.Missing
+    val account = wallet.evmAccounts.getOrNull(index)?.key ?: return@runCatching SendLoad.Missing
     val settings = EvmSettingsStore.read(session)
     if (index !in 0 until settings.addressCount) return@runCatching SendLoad.Missing
     val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
-    val from = AccountAddresses.addressAt(account, index)
+    val from = AccountAddresses.addressOfKey(account)
     val tokensOf = app.tokensFor(session)
     val held = TokenPortfolio.holdingsAt(wallet.id, from, chains, tokensOf, TokenBalanceCache.read(session))
     SendLoad.Ready(SendContext(wallet, from, settings, chains, tokensOf, held))

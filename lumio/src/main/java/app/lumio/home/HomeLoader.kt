@@ -62,7 +62,7 @@ internal object HomeLoader {
         if (DemoPortfolio.isOn()) return@withContext emptyList()
         val settings = EvmSettingsStore.read(session)
         val chains = evmChains(app, settings, mode)
-        val wallets = PairedWallets.list(session).filter { it.evm != null }
+        val wallets = PairedWallets.list(session).filter { it.evmKeys.isNotEmpty() }
         if (chains.isEmpty() || wallets.isEmpty()) {
             emptyList()
         } else {

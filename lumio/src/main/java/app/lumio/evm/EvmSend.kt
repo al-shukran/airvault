@@ -29,7 +29,7 @@ import org.web3j.utils.Numeric
  */
 class PreparedSend(
     val chain: EvmChain,
-    /** The address index of the sending account: the account path is m/44'/60'/0'/0/[index]. */
+    /** The account number of the sending account: the account path is m/44'/60'/[index]'/0/0. */
     val index: Int,
     /** The EIP-55 address that sends. */
     val from: String,
@@ -112,13 +112,13 @@ object EvmSend {
     private val TOKEN_TRANSFER = BigInteger.valueOf(TOKEN_TRANSFER_GAS)
     private val TWO = BigInteger.valueOf(2)
 
-    /** The account path m/44'/60'/0'/0/[index] that a sign request names. */
+    /** The account path m/44'/60'/[index]'/0/0 that a sign request names. */
     fun derivationPath(index: Int): List<PathStep> = listOf(
         PathStep(44, true),
         PathStep(60, true),
-        PathStep(0, true),
+        PathStep(index, true),
         PathStep(0, false),
-        PathStep(index, false),
+        PathStep(0, false),
     )
 
     /**
