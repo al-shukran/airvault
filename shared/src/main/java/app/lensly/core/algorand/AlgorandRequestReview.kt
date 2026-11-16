@@ -2,10 +2,17 @@ package app.lensly.core.algorand
 
 import app.lensly.core.ur.PathStep
 
-/** The networks Lensly signs for, named by their genesis ID. A transaction for any other genesis ID is refused. */
-enum class AlgorandNetwork(val genesisId: String, val displayName: String, val testnet: Boolean) {
-    MAINNET("mainnet-v1.0", "Algorand mainnet", testnet = false),
-    TESTNET("testnet-v1.0", "Algorand testnet", testnet = true);
+/**
+ * The networks Lensly signs for, named by their genesis ID. A transaction for any other genesis ID is refused, and so is one whose genesis
+ * hash is not [genesisHash]. Both pins were read from the `genesis-id` and `genesis-hash` of `/v2/transactions/params` on
+ * testnet-api.algonode.cloud and mainnet-api.algonode.cloud, and match the second node provider, nodely.dev.
+ */
+enum class AlgorandNetwork(val genesisId: String, genesisHashBase64: String, val displayName: String, val testnet: Boolean) {
+    MAINNET("mainnet-v1.0", "wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=", "Algorand mainnet", testnet = false),
+    TESTNET("testnet-v1.0", "SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=", "Algorand testnet", testnet = true);
+
+    /** The 32-byte genesis hash of this network, the `gh` every transaction on it carries. */
+    val genesisHash: ByteArray = java.util.Base64.getDecoder().decode(genesisHashBase64)
 
     companion object {
         /** The network with [genesisId], or null when Lensly does not sign for it. */
@@ -17,6 +24,9 @@ enum class AlgorandNetwork(val genesisId: String, val displayName: String, val t
 enum class AlgorandWarning {
     /** The transaction closes the account or the asset holding, and sends what is left to a close-to address. */
     CLOSE_TO,
+
+    /** The transaction is part of a group. Lensly shows only this transaction, not the others in the group. */
+    GROUP,
 }
 
 /**
@@ -45,7 +55,10 @@ class AlgorandRequestReview internal constructor(
 
     /** Every warning this review shows, in a fixed order. */
     val warnings: List<AlgorandWarning>
-        get() = buildList { if (closeTo != null) add(AlgorandWarning.CLOSE_TO) }
+        get() = buildList {
+            if (closeTo != null) add(AlgorandWarning.CLOSE_TO)
+            if (txn.group != null) add(AlgorandWarning.GROUP)
+        }
 }
 
 /**
@@ -81,6 +94,9 @@ object AlgorandRequestCheck {
     /** The reason for a genesis ID other than the testnet and mainnet ones. */
     const val UNKNOWN_NETWORK = "This transaction is for a network Lensly does not sign for. Lensly signs for Algorand testnet and mainnet."
 
+    /** The reason for a genesis hash that is not the one its genesis ID names. Such a transaction is for another network. */
+    const val GENESIS_HASH_MISMATCH = "The genesis hash does not match the network. Lensly refuses to sign it."
+
     private const val PURPOSE = 44
     private const val ALGORAND_COIN_TYPE = 283
 
@@ -97,8 +113,8 @@ object AlgorandRequestCheck {
      * Checks a request to sign [signData] with the account at [derivationPath], for the request [requestId]. [signData] is the canonical
      * msgpack of the transaction without the "TX" tag: Lensly adds the tag when it signs, as the Ledger app does. A request is refused when
      * its path is not m/44'/283'/N', when the wallet has no account N, when [signData] is not a payment or an asset transfer that Lensly
-     * can read, when it rekeys the sender, when the sender is not account N's key, when it is a clawback, or when its genesis ID is not the
-     * testnet or the mainnet one.
+     * can read, when it rekeys the sender, when the sender is not account N's key, when it is a clawback, when its genesis ID is not the
+     * testnet or the mainnet one, or when its genesis hash is not that network's.
      */
     fun check(signData: ByteArray, derivationPath: List<PathStep>, requestId: ByteArray?, accountKeys: List<ByteArray>): Result {
         val index = accountIndexOf(derivationPath) ?: return Result.Refused(PATH_REFUSED)
@@ -112,6 +128,7 @@ object AlgorandRequestCheck {
         if (!txn.sender.contentEquals(signer)) return Result.Refused(NOT_THIS_SENDER)
         if (txn is AssetTransfer && txn.assetSender != null) return Result.Refused(CLAWBACK_REFUSED)
         val network = AlgorandNetwork.ofGenesisId(txn.genesisId) ?: return Result.Refused(UNKNOWN_NETWORK)
+        if (!txn.genesisHash.contentEquals(network.genesisHash)) return Result.Refused(GENESIS_HASH_MISMATCH)
         return Result.Ok(AlgorandRequestReview(index, signer, txn, network, signData, requestId))
     }
 }

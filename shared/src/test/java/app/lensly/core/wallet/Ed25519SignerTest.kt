@@ -1,8 +1,10 @@
-package app.lensly.core.solana
+package app.lensly.core.wallet
 
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.wallet.Slip10Ed25519
+import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.solana.SolanaRequestCheck
+import app.lensly.core.solana.SolanaVectors
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.assertContentEquals
@@ -13,7 +15,7 @@ import kotlin.test.assertTrue
 import org.junit.Test
 import org.web3j.crypto.MnemonicUtils
 
-class SolanaSignerTest {
+class Ed25519SignerTest {
 
     /** RFC 8032 section 7.1, TEST 1, copied from the RFC: the secret key, the public key, an empty message and the signature. */
     @Test
@@ -24,21 +26,21 @@ class SolanaSignerTest {
             "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155" +
                 "5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
         )
-        assertContentEquals(public, SolanaSigner.publicKeyOf(secret))
-        assertContentEquals(signature, SolanaSigner.sign(secret, ByteArray(0)))
-        assertTrue(SolanaSigner.verify(public, ByteArray(0), signature))
+        assertContentEquals(public, Ed25519Signer.publicKeyOf(secret))
+        assertContentEquals(signature, Ed25519Signer.sign(secret, ByteArray(0)))
+        assertTrue(Ed25519Signer.verify(public, ByteArray(0), signature))
     }
 
     @Test
     fun aSignatureOfOtherBytesOrByAnotherKeyDoesNotVerify() {
         val secret = hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
-        val public = SolanaSigner.publicKeyOf(secret)
-        val signature = SolanaSigner.sign(secret, byteArrayOf(1, 2, 3))
-        assertTrue(SolanaSigner.verify(public, byteArrayOf(1, 2, 3), signature))
-        assertFalse(SolanaSigner.verify(public, byteArrayOf(1, 2, 4), signature))
-        val other = SolanaSigner.publicKeyOf(ByteArray(32) { 5 })
-        assertFalse(SolanaSigner.verify(other, byteArrayOf(1, 2, 3), signature))
-        assertFalse(SolanaSigner.verify(public, byteArrayOf(1, 2, 3), signature.copyOf(63)))
+        val public = Ed25519Signer.publicKeyOf(secret)
+        val signature = Ed25519Signer.sign(secret, byteArrayOf(1, 2, 3))
+        assertTrue(Ed25519Signer.verify(public, byteArrayOf(1, 2, 3), signature))
+        assertFalse(Ed25519Signer.verify(public, byteArrayOf(1, 2, 4), signature))
+        val other = Ed25519Signer.publicKeyOf(ByteArray(32) { 5 })
+        assertFalse(Ed25519Signer.verify(other, byteArrayOf(1, 2, 3), signature))
+        assertFalse(Ed25519Signer.verify(public, byteArrayOf(1, 2, 3), signature.copyOf(63)))
     }
 
     /**
@@ -59,13 +61,13 @@ class SolanaSignerTest {
             val key = Slip10Ed25519.derive(seed, intArrayOf(Slip10Ed25519.hardened(44), Slip10Ed25519.hardened(501), Slip10Ed25519.hardened(0)))
                 .use { it.privateKey() }
             val signature = try {
-                SolanaSigner.sign(key, request.signData)
+                Ed25519Signer.sign(key, request.signData)
             } finally {
                 key.fill(0)
             }
 
-            assertEquals(SolanaSigner.SIGNATURE_BYTES, signature.size)
-            assertTrue(SolanaSigner.verify(payer, request.signData, signature))
+            assertEquals(Ed25519Signer.SIGNATURE_BYTES, signature.size)
+            assertTrue(Ed25519Signer.verify(payer, request.signData, signature))
         }
     }
 

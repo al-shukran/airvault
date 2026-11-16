@@ -2,7 +2,7 @@ package app.lensly.app
 
 import app.lensly.app.export.SolanaPairingKeys
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.solana.SolanaSigner
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
@@ -136,8 +136,8 @@ class WalletStoreSolanaTest {
 
         val signature = store.solanaSign(id, 1, message)
 
-        assertTrue(SolanaSigner.verify(store.solanaKeys(id)[1], message, signature))
-        assertFalse(SolanaSigner.verify(store.solanaKeys(id)[0], message, signature))
+        assertTrue(Ed25519Signer.verify(store.solanaKeys(id)[1], message, signature))
+        assertFalse(Ed25519Signer.verify(store.solanaKeys(id)[0], message, signature))
     }
 
     @Test

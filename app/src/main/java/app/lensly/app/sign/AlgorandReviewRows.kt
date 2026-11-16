@@ -86,6 +86,7 @@ fun algorandWarningText(review: AlgorandRequestReview, warning: AlgorandWarning)
         is AssetTransfer ->
             "This removes the asset from the account. All of its remaining units go to the close-to address below."
     }
+    AlgorandWarning.GROUP -> "Part of a group: other transactions in the group are not shown"
 }
 
 /** An opt-in: an asset transfer of zero units to the sender's own address. */

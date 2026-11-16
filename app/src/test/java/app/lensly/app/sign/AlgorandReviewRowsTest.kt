@@ -55,6 +55,16 @@ class AlgorandReviewRowsTest {
     }
 
     @Test
+    fun aGroupWarningSaysOtherTransactionsOfTheGroupAreNotShown() {
+        val review = reviewOf(PAY_BASIC)
+
+        assertEquals(
+            "Part of a group: other transactions in the group are not shown",
+            algorandWarningText(review, AlgorandWarning.GROUP),
+        )
+    }
+
+    @Test
     fun aNoteThatIsNotPrintableShowsItsBytesAsHex() {
         val review = reviewOf(PAY_NOTE_CLOSE.replace(NOTE_BIN, "c4020001"))
 

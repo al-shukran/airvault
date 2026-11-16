@@ -12,7 +12,7 @@ import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.solana.SolanaSigner
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaWarning
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.SolSignRequest
@@ -52,7 +52,7 @@ class SignFlowSolanaTest {
         flow.confirm("the password".toCharArray())
 
         val signature = assertIs<SignStep.Signature>(flow.state.value).parts
-        assertTrue(SolanaSigner.verify(SOLANA_KEYS[0], transfer(), signatureOf(signature)))
+        assertTrue(Ed25519Signer.verify(SOLANA_KEYS[0], transfer(), signatureOf(signature)))
         assertEquals(listOf(ReviewOutcome.SIGNED), ports.records.map { it.outcome })
         assertEquals(1, ports.signCalls)
     }
@@ -181,7 +181,7 @@ class SignFlowSolanaTest {
             signCalls++
             val key = SolanaAccount.node(SEED, ready.review.accountIndex).use { it.privateKey() }
             try {
-                val signature = SolanaSigner.sign(key, ready.request.signData)
+                val signature = Ed25519Signer.sign(key, ready.request.signData)
                 return partsOf(SolSignatureEncoder.encode(assertNotNull(ready.request.requestId), signature))
             } finally {
                 key.fill(0)
