@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollTo
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingKey
@@ -40,6 +38,7 @@ import app.lumio.home.TokenAsset
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
+import app.lumio.pair.PairedWallet
 import app.lumio.ui.btc.BitcoinAccountScreen
 import app.lumio.ui.btc.BitcoinPortfolioScreen
 import app.lumio.ui.btc.BtcSendFormScreen
@@ -50,12 +49,21 @@ import app.lumio.ui.portfolio.WalletScreen
 import app.lumio.tokens.Token
 import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.settings.BitcoinServersSettings
-import app.lumio.ui.settings.DisplaySettingsSection
+import app.lumio.ui.settings.AboutSettingsPage
+import app.lumio.ui.settings.AddressBookSettingsPage
+import app.lumio.ui.settings.CommentBackupRows
+import app.lumio.ui.settings.DisplaySettingsPage
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.LumioSettingsScreen
+import app.lumio.ui.settings.NetworksSettingsPage
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
+import app.lumio.ui.settings.SecuritySettingsPage
+import app.lumio.ui.settings.SettingsFacts
+import app.lumio.ui.settings.TransactionsSettingsPage
+import app.lumio.ui.settings.WalletsSettings
+import app.lumio.ui.settings.settingsRows
 import java.math.BigDecimal
 import java.math.BigInteger
 import org.junit.Rule
@@ -293,26 +301,61 @@ class LumioScreenshotTest {
         )
     }
 
+    /** The top-level list: one row per page with its state, and the Developer row last, as the debug build shows it. */
     @Test
     fun settings() = compose.snapshot("settings") {
         LumioSettingsScreen(
+            rows = settingsRows(
+                facts = SettingsFacts(
+                    display = DisplaySettings(),
+                    chainsOn = 3,
+                    customBitcoin = false,
+                    providersOn = 9,
+                    providersTotal = 11,
+                    wallets = 1,
+                    addresses = 2,
+                ),
+                gesture = EntryGesture.DOUBLE_TAP_HOLD,
+                version = "0.1.0",
+                developer = "Demo portfolio on",
+            ),
+            onOpen = {},
+        )
+    }
+
+    @Test
+    fun settingsDisplay() = compose.snapshot("settings_display") {
+        DisplaySettingsPage(
+            settings = DisplaySettings(showTotal = true),
+            notice = null,
+            onShowTotal = {},
+            onShowAssets = {},
+            onMinimumUsd = {},
             onBack = {},
-            display = {
-                DisplaySettingsSection(
-                    settings = DisplaySettings(),
-                    notice = null,
-                    onShowTotal = {},
-                    onShowAssets = {},
-                    onMinimumUsd = {},
-                    onHideSpam = {},
-                )
-            },
+        )
+    }
+
+    @Test
+    fun settingsTransactions() = compose.snapshot("settings_transactions") {
+        TransactionsSettingsPage(
+            hideSpam = true,
+            notice = null,
+            onHideSpam = {},
+            onBack = {},
+            comments = { CommentBackupRows(onExport = {}, onImport = {}, notice = null) },
+        )
+    }
+
+    @Test
+    fun settingsNetworks() = compose.snapshot("settings_networks") {
+        NetworksSettingsPage(
+            onBack = {},
             bitcoin = {
                 BitcoinServersSettings(
                     mainnet = "https://mempool.space/api",
                     testnet4 = "https://mempool.space/testnet4/api",
                     error = null,
-                    onSave = { _, _ -> },
+                    onApply = { _, _ -> },
                     onReset = {},
                 )
             },
@@ -330,27 +373,32 @@ class LumioScreenshotTest {
                     onAddCustom = { _, _ -> },
                 )
             },
-            onDataProviders = {},
-            onThirdPartyLicences = {},
         )
     }
 
-    /** The Entry section sits below the fold, so this golden scrolls it into view before the capture. */
     @Test
-    fun settingsEntryGesture() = compose.snapshot(
-        name = "settings_entry_gesture",
-        beforeCapture = { onNodeWithText("Hidden entry gesture").performScrollTo() },
-    ) {
-        LumioSettingsScreen(
+    fun settingsAddressBook() = compose.snapshot("settings_address_book") {
+        AddressBookSettingsPage(
             onBack = {},
-            display = {},
-            bitcoin = {},
-            ethereum = {},
-            onDataProviders = {},
-            onThirdPartyLicences = {},
-            entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
-            onEntryGesture = {},
+            wallets = {
+                WalletsSettings(
+                    wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evm = null, bitcoin = emptyList())),
+                    onPair = {},
+                    onAddressBook = {},
+                    onDelete = {},
+                )
+            },
         )
+    }
+
+    @Test
+    fun settingsSecurity() = compose.snapshot("settings_security") {
+        SecuritySettingsPage(entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE, onEntryGesture = {}, onBack = {})
+    }
+
+    @Test
+    fun settingsAbout() = compose.snapshot("settings_about") {
+        AboutSettingsPage(version = "0.1.0", onLicences = {}, onBack = {})
     }
 
     @Test

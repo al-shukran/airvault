@@ -213,7 +213,7 @@ private fun RpcDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "Lumio checks that the endpoint answers for chain ${chain.chainId} before it saves.",
+                    "Lumio checks that the endpoint answers for chain ${chain.chainId} before it applies.",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -231,7 +231,7 @@ private fun RpcDialog(
                     }
                 },
             ) {
-                Text("Save")
+                Text("Check and apply")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

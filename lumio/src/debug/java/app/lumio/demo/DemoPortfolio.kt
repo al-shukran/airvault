@@ -98,6 +98,13 @@ internal object DemoPortfolio {
     /** The switch row of the Developer section of Settings. [onChanged] runs after each change, so Home reads the list again. */
     fun developerSection(onChanged: () -> Unit): (@Composable () -> Unit)? = { DemoPortfolioRow(onChanged) }
 
+    /** The state the Developer row shows under its title. It follows the switch, so the row reads on or off as the owner leaves the page. */
+    @Composable
+    fun developerSummary(): String? {
+        val checked by enabled.collectAsState()
+        return if (checked) "Demo portfolio on" else "Demo portfolio off"
+    }
+
     @Composable
     private fun DemoPortfolioRow(onChanged: () -> Unit) {
         val checked by enabled.collectAsState()

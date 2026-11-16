@@ -34,4 +34,8 @@ internal object DemoPortfolio {
     fun transaction(account: String, txId: String): LumioTx? = null
 
     fun developerSection(onChanged: () -> Unit): (@Composable () -> Unit)? = null
+
+    /** No Developer row in release, so no state to show. */
+    @Composable
+    fun developerSummary(): String? = null
 }

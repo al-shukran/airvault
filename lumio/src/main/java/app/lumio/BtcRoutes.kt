@@ -31,8 +31,11 @@ import app.lumio.pair.PairedWallets
 import app.lumio.ui.btc.BitcoinAccountScreen
 import app.lumio.ui.btc.BitcoinPortfolioScreen
 import app.lumio.ui.settings.BitcoinServersSettings
+import app.lumio.ui.settings.withServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Every Bitcoin account of the open vault, with the wallet it came from. A vault that cannot be read has none. */
@@ -192,8 +195,9 @@ internal fun BitcoinAccountRoute(navController: NavHostController, holder: Vault
 }
 
 /**
- * The Bitcoin section of the settings: the Esplora server of each Bitcoin network. A save that the servers refuse keeps the section open with
- * the reason. A save that they accept leaves the settings, as it always has.
+ * The Bitcoin part of the Networks page: the Esplora server of each Bitcoin network. Each valid server is saved as the owner sets it, and a save
+ * that the vault refuses shows its reason under the fields. Saves run one after another under a lock, and each reads the configs it changes, so one
+ * network's save never overwrites the other's.
  */
 @Composable
 internal fun BitcoinSettingsRoute(navController: NavHostController, holder: VaultHolder) {
@@ -204,6 +208,7 @@ internal fun BitcoinSettingsRoute(navController: NavHostController, holder: Vaul
     if (session == null) return
     val app = LocalContext.current.applicationContext as LumioApp
     val scope = rememberCoroutineScope()
+    val saves = remember { Mutex() }
     var overrides by remember { mutableStateOf<Map<BtcNetwork, String>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(session) {
@@ -211,17 +216,23 @@ internal fun BitcoinSettingsRoute(navController: NavHostController, holder: Vaul
     }
     val current = overrides ?: return
 
-    // A save keeps the owner's choice on screen when it stays, as Reset does, and leaves the screen when it is a Save.
-    fun saveServers(next: Map<BtcNetwork, String>, leave: Boolean) {
+    // Saves the overrides that [edit] makes of the ones saved now, and shows the result as the servers in use.
+    fun change(edit: (Map<BtcNetwork, String>) -> Map<BtcNetwork, String>) {
         scope.launch {
-            val vault = app.lumioVault()
-            val saved = withContext(Dispatchers.IO) {
-                vault != null && runCatching { vault.saveConfigs(withOverrides(vault.configs(), next)) }.isSuccess
+            val next = saves.withLock {
+                withContext(Dispatchers.IO) {
+                    val vault = app.lumioVault() ?: return@withContext null
+                    runCatching {
+                        val configs = vault.configs()
+                        val next = edit(serverOverrides(configs))
+                        vault.saveConfigs(withOverrides(configs, next))
+                        next
+                    }.getOrNull()
+                }
             }
-            if (saved) {
+            if (next != null) {
                 overrides = next
                 error = null
-                if (leave) navController.popBackStack()
             } else {
                 error = "The servers could not be saved. Try again."
             }
@@ -232,35 +243,13 @@ internal fun BitcoinSettingsRoute(navController: NavHostController, holder: Vaul
         mainnet = EsploraServers.baseUrl(BtcNetwork.MAINNET, current),
         testnet4 = EsploraServers.baseUrl(BtcNetwork.TESTNET4, current),
         error = error,
-        onSave = { mainnet, testnet4 ->
-            val parsed = runCatching { overridesFrom(mainnet, testnet4) }
-            error = parsed.exceptionOrNull()?.message
-            parsed.getOrNull()?.let { saveServers(it, leave = true) }
-        },
-        onReset = { saveServers(emptyMap(), leave = false) },
+        onApply = { network, url -> change { it.withServer(network, url) } },
+        onReset = { change { emptyMap() } },
     )
 }
 
 /** The route of the account [key]. Keys hold only letters, digits, dashes and underscores, so they need no escaping. */
 internal fun accountRoute(key: String): String = "${LumioRoute.BITCOIN_ACCOUNT}/$key"
-
-/**
- * The overrides that the owner's two texts name. A blank text, or the default address, is no override. A text that is not an https
- * address is refused, and the message names the network.
- * @throws IllegalArgumentException with the reason, naming the network that was refused.
- */
-internal fun overridesFrom(mainnet: String, testnet4: String): Map<BtcNetwork, String> = buildMap {
-    for ((network, text) in listOf(BtcNetwork.MAINNET to mainnet, BtcNetwork.TESTNET4 to testnet4)) {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) continue
-        val url = try {
-            EsploraServers.normalize(trimmed)
-        } catch (e: IllegalArgumentException) {
-            throw IllegalArgumentException("${if (network == BtcNetwork.MAINNET) "Mainnet" else "Testnet4"}: ${e.message}", e)
-        }
-        if (url != EsploraServers.defaultFor(network)) put(network, url)
-    }
-}
 
 /** The owner's own servers that are set, by network. A network without one reads the public servers. */
 internal fun serverOverrides(configs: Map<String, ProviderConfig>): Map<BtcNetwork, String> = buildMap {

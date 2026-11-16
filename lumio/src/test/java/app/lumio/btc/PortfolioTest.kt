@@ -2,7 +2,6 @@ package app.lumio.btc
 
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
-import app.lumio.overridesFrom
 import app.lumio.pair.PairFixtures
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -101,18 +100,6 @@ class PortfolioTest {
         assertFailsWith<IllegalArgumentException> { EsploraServers.normalize("https://node.example.org/api?x=1") }
         assertFailsWith<IllegalArgumentException> { EsploraServers.normalize("https://user@node.example.org/api") }
         assertFailsWith<IllegalArgumentException> { EsploraServers.normalize("https:///api") }
-    }
-
-    @Test
-    fun blankAndDefaultTextsAreNoOverrideAndEachNetworkNamesItsRefusal() {
-        assertEquals(emptyMap<BtcNetwork, String>(), overridesFrom(mainnet = "  ", testnet4 = ""))
-        assertEquals(emptyMap(), overridesFrom(mainnet = EsploraServers.MAINNET_DEFAULT, testnet4 = EsploraServers.TESTNET4_DEFAULT))
-        assertEquals(
-            mapOf(BtcNetwork.TESTNET4 to "https://node.example.org/testnet4"),
-            overridesFrom(mainnet = "", testnet4 = "https://node.example.org/testnet4/"),
-        )
-        val refusal = assertFailsWith<IllegalArgumentException> { overridesFrom(mainnet = "http://plain.example.org", testnet4 = "") }
-        assertTrue(refusal.message.orEmpty().startsWith("Mainnet: "), refusal.message)
     }
 
     @Test
