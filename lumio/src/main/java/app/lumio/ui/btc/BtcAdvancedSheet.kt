@@ -22,6 +22,7 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.btc.BtcAdvanced
+import app.lumio.btc.BtcSendInput
 import app.lumio.ui.send.SheetButtons
 
 /**
@@ -40,7 +41,7 @@ fun BtcAdvancedSheet(suggestedRate: Double, rate: Double, onSave: (Double) -> Un
 @Composable
 fun BtcAdvancedFields(suggestedRate: Double, rate: Double, onSave: (Double) -> Unit, onCancel: () -> Unit) {
     var text by remember { mutableStateOf(rateText(rate)) }
-    val parsed = runCatching { BtcAdvanced.feeRate(text) }
+    val parsed = runCatching { BtcSendInput.feeRate(text) }
     val value = parsed.getOrNull()
     val error = parsed.exceptionOrNull()?.message
     val supporting: (@Composable () -> Unit)? = if (error != null) {
