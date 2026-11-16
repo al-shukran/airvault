@@ -2,6 +2,7 @@ package app.lensly.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
+import app.lensly.core.wallet.LedgerPassphraseIssue
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.flow.RevealPart
 import app.lensly.ui.flow.RevealStep
@@ -71,6 +72,12 @@ class WalletPartBScreenshotTest {
     fun passphraseMismatchScreen() = passphrase(
         "passphrase_mismatch_screen",
         PassphraseState(step = PassphraseStep.Confirm, length = 4, mismatch = true),
+    )
+
+    @Test
+    fun passphraseLedgerWarningScreen() = passphrase(
+        "passphrase_ledger_warning_screen",
+        PassphraseState(step = PassphraseStep.Enter, length = 4, ledgerIssue = LedgerPassphraseIssue.UNTYPABLE),
     )
 
     @Test
