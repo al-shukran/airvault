@@ -6,7 +6,7 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 
 | Partition | Selector |
 |---|---|
-| `core-wallet` | `:shared` `app.lensly.core.wallet.*` |
+| `core-wallet` | `:shared` `app.lensly.core.wallet.*`, `app.lensly.core.solana.*` and `app.lensly.core.algorand.*` |
 | `core-ur-evm` | `:shared` `app.lensly.core.ur.*` and `app.lensly.core.evm.*`, plus `app.lensly.fuzz.*` |
 | `core-parse` | `:shared` `app.lensly.core.parse.*` and `app.lensly.core.qr.*` |
 | `core-vault` | `:shared` `app.lensly.core.vault.*` |
