@@ -76,12 +76,12 @@ class PairRefusalTest {
     @Test
     fun aNewerVersionOfThePairingIsRefusedByItsVersion() {
         val newer = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(4), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(5), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
         )
 
         val reason = refusalOf(UR(PairingCodec.UR_TYPE, newer))
 
-        assertTrue(reason, reason.contains("format 4"))
+        assertTrue(reason, reason.contains("format 5"))
         assertTrue(reason, reason.contains("Update the app"))
     }
 
@@ -102,7 +102,7 @@ class PairRefusalTest {
             ),
         )
         val name = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(3), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(body))),
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(body))),
         )
 
         assertEquals("This is not a pairing code from Lensly.", refusalOf(UR(PairingCodec.UR_TYPE, name)))

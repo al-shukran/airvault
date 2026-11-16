@@ -27,6 +27,10 @@ data class PairingKey(
     companion object {
         private const val HARDENED = 0x80000000L
 
+        /** The prefix of an Ed25519 public key in SLIP-0010's form, which a key of the secp256k1 Apps never has (theirs is 2 or 3). */
+        const val ED25519_PREFIX: Byte = 0
+        const val ED25519_KEY_BYTES = 32
+
         /**
          * The Ethereum key of account [account]: the address key m/44'/60'/[account]'/0/0 that [addressKey] describes. The account's address
          * is the one this key controls, so a reader shows it with no derivation.
@@ -38,6 +42,22 @@ data class PairingKey(
             publicKey = addressKey.publicKey,
             chainCode = addressKey.chainCode,
         )
+
+        /**
+         * The Solana key of account [account]: the Ledger Live key m/44'/501'/[account]' that SLIP-0010 derives. [publicKey] is the 32-byte raw
+         * Ed25519 key, which is stored in SLIP-0010's form with its `00` prefix, and [chainCode] is the 32-byte SLIP-0010 chain code. The
+         * parent fingerprint is 0: an Ed25519 key of this layout carries none, and no reader uses it.
+         */
+        fun solanaAccount(account: Int, publicKey: ByteArray, chainCode: ByteArray): PairingKey {
+            require(publicKey.size == ED25519_KEY_BYTES) { "An Ed25519 public key is 32 bytes." }
+            return PairingKey(
+                path = listOf(HARDENED + 44, HARDENED + 501, HARDENED + account),
+                depth = 3,
+                parentFingerprint = 0L,
+                publicKey = byteArrayOf(ED25519_PREFIX) + publicKey,
+                chainCode = chainCode,
+            )
+        }
 
         /** The watch-only key of a Bitcoin account: its path, depth, parent fingerprint and public key, as [account] holds them. */
         fun bitcoinAccount(account: BtcWatchOnlyAccount): PairingKey = PairingKey(
@@ -100,6 +120,7 @@ fun interface BrotliDecompressor {
  *  - body, once it is decompressed: { 2: fingerprint (uint32), 3: name, 4: [app], 5: [address] (optional: absent when the Address Book is empty) }
  *  - app: { 1: app id, 2: [key], 3: [account] }
  *  - key: { 1: [path component (uint32)], 2: depth, 3: parent fingerprint (uint32), 4: public key (33 bytes), 5: chain code (32 bytes) }
+ *    The public key is a compressed secp256k1 key (prefix 2 or 3), or an Ed25519 key in SLIP-0010's form (prefix 0, then the 32-byte key).
  *  - account: { 1: key index, 2: child index (optional), 3: name (optional), 4: label (optional), 5: group (optional) }
  *  - address: { 1: id, 2: address, 3: name, 4: label (optional) }, one Address Book entry. An id that is a lower-case UUID is 16 bytes, and an
  *    address that is an EVM address in checksum form is 20 bytes. Any other id or address is text.
@@ -108,6 +129,9 @@ fun interface BrotliDecompressor {
  * [PairingKey.ethereumAddress]), and an account names its key with no child index. Versions 1 and 2 held one account key with the accounts
  * under it as children, so this version refuses them, with the message that asks for an update. A code with an empty Address Book is the
  * same code as before.
+ *
+ * Version 4 added the Solana App: each account is one Ed25519 key m/44'/501'/N' (see [PairingKey.solanaAccount]), with the prefix 0 that
+ * marks an Ed25519 key. A version-3 reader cannot read such a key, so it refuses the code with the message that asks for an update.
  *
  * The body is at most [MAX_BODY_BYTES] bytes, compressed or not. The encoder keeps it compressed only when that makes it smaller.
  */
@@ -119,7 +143,7 @@ object PairingCodec {
      * The layout version this build writes and reads. A code of any other version is refused with the message that asks for an update: an
      * earlier version's Ethereum keys are account keys, which this version does not read as accounts.
      */
-    const val VERSION = 3L
+    const val VERSION = 4L
 
     /** The largest body in bytes, compressed or not. A reader refuses a larger body, so a body it decompresses is bounded by this. */
     const val MAX_BODY_BYTES = 512 * 1024
@@ -384,8 +408,8 @@ object PairingCodec {
             for (key in app.keys) {
                 require(key.path.size in 1..MAX_PATH && key.path.all { it in 0..UINT32_MAX }) { "A key path is 1 to $MAX_PATH uint32 values." }
                 require(key.depth in 0..0xFF && key.parentFingerprint in 0..UINT32_MAX) { "A key's depth or parent fingerprint is out of range." }
-                require(key.publicKey.size == PUBLIC_KEY_BYTES && key.publicKey[0].toInt() in listOf(2, 3)) {
-                    "A key's public key is 33 bytes, compressed."
+                require(key.publicKey.size == PUBLIC_KEY_BYTES && key.publicKey[0] in byteArrayOf(PairingKey.ED25519_PREFIX, 2, 3)) {
+                    "A key's public key is 33 bytes: compressed, or an Ed25519 key in SLIP-0010's form."
                 }
                 require(key.chainCode.size == CHAIN_CODE_BYTES) { "A key's chain code is 32 bytes." }
             }

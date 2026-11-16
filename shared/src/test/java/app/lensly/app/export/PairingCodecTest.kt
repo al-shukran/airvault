@@ -76,11 +76,11 @@ class PairingCodecTest {
     }
 
     /**
-     * The version-3 envelope of a body whose fields are [entries] (keys 2 to 5). A key 1 in [entries] is not a body field, so it is left out.
+     * The version-4 envelope of a body whose fields are [entries] (keys 2 to 5). A key 1 in [entries] is not a body field, so it is left out.
      */
     private fun rawPayload(vararg entries: Pair<Long, Cbor>): ByteArray {
         val body = Cbor.encode(Cbor.Dict(entries.filter { it.first != 1L }.map { (key, value) -> Cbor.Uint(key) to value }))
-        return Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(3), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(body))))
+        return Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(body))))
     }
 
     /** The payload that [bytes] hold once they are encoded without compression and decoded again. */
@@ -151,7 +151,7 @@ class PairingCodecTest {
         val newer = Cbor.encode(
             Cbor.Dict(
                 listOf(
-                    Cbor.Uint(1) to Cbor.Uint(4),
+                    Cbor.Uint(1) to Cbor.Uint(5),
                     Cbor.Uint(6) to Cbor.Uint(0),
                     Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)),
                     Cbor.Uint(9) to Cbor.Text("a field from the future"),
@@ -161,7 +161,7 @@ class PairingCodecTest {
 
         val message = refusalOf { PairingCodec.decode(newer, null) }
 
-        assertTrue(message, message.contains("format 4"))
+        assertTrue(message, message.contains("format 5"))
         assertTrue(message, message.contains("Update the app"))
     }
 
@@ -170,7 +170,7 @@ class PairingCodecTest {
         val notAPairing = "This is not a pairing code from Lensly."
         val versionZero = Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(0), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(ByteArray(0)))))
         assertEquals(
-            "This pairing uses format 0, and this app reads format 3. Update the app, then pair again.",
+            "This pairing uses format 0, and this app reads format 4. Update the app, then pair again.",
             refusalOf { PairingCodec.decode(versionZero, null) },
         )
         assertEquals(notAPairing, refusalOf { PairingCodec.decode(rawPayload(2L to Cbor.Uint(1)), null) })
@@ -276,7 +276,7 @@ class PairingCodecTest {
     @Test
     fun aVersionOnePairingIsRefusedWithTheUpdateMessage() {
         assertEquals(
-            "This pairing uses format 1, and this app reads format 3. Update the app, then pair again.",
+            "This pairing uses format 1, and this app reads format 4. Update the app, then pair again.",
             refusalOf { PairingCodec.fromUr(scanned(LabelledPairingGolden.V1_FRAMES), null) },
         )
     }
@@ -364,7 +364,7 @@ class PairingCodecTest {
         val envelope = Cbor.encode(
             Cbor.Dict(
                 listOf(
-                    Cbor.Uint(1) to Cbor.Uint(3),
+                    Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION),
                     Cbor.Uint(6) to Cbor.Uint(0),
                     Cbor.Uint(7) to Cbor.Bytes(ByteArray(PairingCodec.MAX_BODY_BYTES + 1)),
                 ),
@@ -389,12 +389,12 @@ class PairingCodecTest {
     @Test
     fun aVersionTwoEnvelopeWithAnUnknownEncodingOrAnExtraKeyIsRefused() {
         val unknownEncoding = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(3), Cbor.Uint(6) to Cbor.Uint(1), Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)))),
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION), Cbor.Uint(6) to Cbor.Uint(1), Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)))),
         )
         val extraKey = Cbor.encode(
             Cbor.Dict(
                 listOf(
-                    Cbor.Uint(1) to Cbor.Uint(3),
+                    Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION),
                     Cbor.Uint(6) to Cbor.Uint(0),
                     Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)),
                     Cbor.Uint(8) to Cbor.Uint(0),

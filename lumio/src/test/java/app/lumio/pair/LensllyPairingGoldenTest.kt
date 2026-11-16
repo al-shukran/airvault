@@ -62,7 +62,7 @@ class LensllyPairingGoldenTest {
     fun lumioRefusesTheVersionOneCodeWithTheUpdateMessage() {
         val reason = assertFailsWith<PairingRefusal> { imported(LabelledPairingGolden.V1_FRAMES) }.message
 
-        assertEquals("This pairing uses format 1, and this app reads format 3. Update the app, then pair again.", reason)
+        assertEquals("This pairing uses format 1, and this app reads format 4. Update the app, then pair again.", reason)
     }
 
     /** The place, among the Bitcoin accounts of [payload], of the mainnet account on [scriptType] at account [index]. */

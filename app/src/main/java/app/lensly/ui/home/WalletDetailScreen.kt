@@ -92,6 +92,7 @@ fun WalletDetailScreen(
     walletProfile: WalletProfile,
     walletPosition: Int,
     bitcoinAccounts: Int,
+    solanaAccounts: Int,
     onBack: () -> Unit,
     onOpenApp: (WalletApp) -> Unit,
     onShowSecret: () -> Unit,
@@ -175,6 +176,7 @@ fun WalletDetailScreen(
                     count = when (app) {
                         WalletApp.BITCOIN -> bitcoinAccounts
                         WalletApp.ETHEREUM -> wallet.accountCount
+                        WalletApp.SOLANA -> solanaAccounts
                     },
                     onClick = { onOpenApp(app) },
                 )

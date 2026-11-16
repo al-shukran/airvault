@@ -4,6 +4,7 @@ import app.lensly.app.AccountProfile
 import app.lensly.app.WalletStore
 import app.lensly.app.autoAccountName
 import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 
@@ -53,6 +54,24 @@ object BitcoinPairingKeys : PairingKeys {
         val accounts = entries.mapIndexed { key, (account, index) ->
             val profile = profiles[Triple(account.scriptType, account.network, index)]
             namedAccount(key = key, child = null, profile = profile, autoName = autoAccountName(meta.autoNameBase, index))
+        }
+        return PairingApp(app = routeId, keys = keys, accounts = accounts)
+    }
+}
+
+/**
+ * The Solana App: one Ed25519 key for each Solana account, m/44'/501'/N', and one account for each, named as Lensly shows it. The public keys
+ * are the ones the wallet stores. The chain code of each is read from the seed the caller holds for the pairing.
+ */
+object SolanaPairingKeys : PairingKeys {
+    override fun paired(routeId: String, store: WalletStore, id: String, seed: ByteArray): PairingApp {
+        val meta = requireNotNull(store.meta(id)) { "No wallet $id." }
+        val publicKeys = store.solanaKeys(id)
+        val keys = publicKeys.mapIndexed { index, publicKey ->
+            PairingKey.solanaAccount(index, publicKey, SolanaAccount.chainCode(seed, index))
+        }
+        val accounts = publicKeys.indices.map { index ->
+            namedAccount(key = index, child = null, profile = null, autoName = autoAccountName(meta.autoNameBase, index))
         }
         return PairingApp(app = routeId, keys = keys, accounts = accounts)
     }

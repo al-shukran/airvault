@@ -14,6 +14,12 @@ object WalletRecordNames {
     /** The plaintext size of the Bitcoin record. A record that holds more is refused when it is written. */
     val BITCOIN_CAPACITY: Int = WalletFolder.BITCOIN_CAPACITY
 
+    /** The wallet's Solana record, 4096 bytes: the public key of each Solana account. */
+    val SOLANA: String = WalletFolder.SOLANA
+
+    /** The plaintext size of the Solana record. A record that holds more is refused when it is written. */
+    val SOLANA_CAPACITY: Int = WalletFolder.SOLANA_CAPACITY
+
     /** The record of account [index], 256 bytes. */
     fun account(index: Int): String = WalletFolder.accountName(index)
 }

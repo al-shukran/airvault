@@ -79,6 +79,14 @@ object EthereumNexusKeys : NexusKeys {
         CryptoKeypath(steps, fingerprint(masterFingerprint), ACCOUNT_DEPTH)
 }
 
+/**
+ * The Solana App: no key yet. The Keystone Nexus export of Solana accounts waits for WI-21, which settles the key encoding Keystone reads,
+ * so the export carries no Solana key until then.
+ */
+object SolanaNexusKeys : NexusKeys {
+    override fun hdKeys(seed: ByteArray, masterFingerprint: Int, accountCount: Int): List<Cbor> = emptyList()
+}
+
 /** The name every key carries. It is Lensly's own name, the same as the device label of the export. */
 private const val KEY_NAME = "Lensly"
 

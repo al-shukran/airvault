@@ -9,7 +9,7 @@ import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.AccountXpub
 
 /** The chain families a paired wallet can hold. */
-enum class PairFamily { EVM, BITCOIN }
+enum class PairFamily { EVM, BITCOIN, SOLANA }
 
 /**
  * One Ethereum account of a paired wallet, as Lensly names it: its number N, which is its key's account m/44'/60'/N'/0/0, the public [key] of that
@@ -21,6 +21,7 @@ data class PairedAccount(val index: Int, val key: AccountXpub, val name: String?
  * A paired wallet: one Lensly wallet, identified by its master fingerprint, with the public data of its Apps. It holds no key material. [evmAccounts]
  * are the Ethereum accounts, each with the public key of its one address. [bitcoin] holds the watch-only Bitcoin Accounts, if any.
  * [addressBook] is the Address Book that Lensly sent with the pairing, in the order it was sent. It is empty when there is none.
+ * [solana] holds the public key of each Solana account, 32 bytes, in account order. Lumio shows each one's base58 address.
  */
 data class PairedWallet(
     val id: String,
@@ -30,6 +31,7 @@ data class PairedWallet(
     val bitcoin: List<BtcWatchOnlyAccount>,
     val evmAccounts: List<PairedAccount> = emptyList(),
     val addressBook: List<AddressBookEntry> = emptyList(),
+    val solana: List<ByteArray> = emptyList(),
 ) {
     /** The public key of each Ethereum account, in account order. Empty when the wallet holds no Ethereum account. */
     val evmKeys: List<AccountXpub>
@@ -39,6 +41,7 @@ data class PairedWallet(
         get() = buildSet {
             if (evmAccounts.isNotEmpty()) add(PairFamily.EVM)
             if (bitcoin.isNotEmpty()) add(PairFamily.BITCOIN)
+            if (solana.isNotEmpty()) add(PairFamily.SOLANA)
         }
 }
 
@@ -109,14 +112,21 @@ object PairedWallets {
         }
         val bitcoin = PairImport.bitcoinAccountsOf(pairing)
         if (bitcoin.isNotEmpty()) records[WalletRecordNames.BITCOIN] = PairRecords.encodeBitcoin(bitcoin)
+        val solana = PairImport.solanaPublicKeysOf(pairing)
+        if (solana.isNotEmpty()) records[WalletRecordNames.SOLANA] = PairRecords.encodeSolana(solana)
         return records
     }
 
-    /** The records of [pairing] that a wallet holding it must not keep: the account records past its last account, and an empty Bitcoin record. */
+    /**
+     * The records of [pairing] that a wallet holding it must not keep: the account records past its last account, and the Bitcoin and Solana
+     * records when the pairing holds none of those accounts.
+     */
     private fun deletesFor(pairing: PairingPayload): List<String> {
         val count = pairing.apps.first { it.app == PairImport.ETHEREUM }.accounts.size
         val accounts = (count until PairImport.MAX_ETHEREUM_ACCOUNTS).map { WalletRecordNames.account(it) }
-        return if (PairImport.bitcoinAccountsOf(pairing).isEmpty()) accounts + WalletRecordNames.BITCOIN else accounts
+        val bitcoin = if (PairImport.bitcoinAccountsOf(pairing).isEmpty()) listOf(WalletRecordNames.BITCOIN) else emptyList()
+        val solana = if (PairImport.solanaPublicKeysOf(pairing).isEmpty()) listOf(WalletRecordNames.SOLANA) else emptyList()
+        return accounts + bitcoin + solana
     }
 
     /** The paired wallet in folder [id], or null when the folder is not one (another folder kind, or a damaged record). */
@@ -129,6 +139,7 @@ object PairedWallets {
         val bitcoin = session.getRecord(id, WalletRecordNames.BITCOIN)
             ?.let { PairRecords.decodeBitcoin(it, meta.fingerprint) }
             .orEmpty()
+        val solana = session.getRecord(id, WalletRecordNames.SOLANA)?.let { PairRecords.decodeSolana(it) }.orEmpty()
         PairedWallet(
             id = id,
             name = meta.name,
@@ -136,6 +147,7 @@ object PairedWallets {
             createdAtMs = meta.createdAtMs,
             bitcoin = bitcoin,
             evmAccounts = accounts,
+            solana = solana,
         )
     } catch (e: IllegalArgumentException) {
         null

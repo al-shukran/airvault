@@ -17,6 +17,7 @@ import app.lensly.core.btc.BtcSigner
 import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
@@ -358,6 +359,69 @@ class WalletStore(private val session: VaultSession) {
                 derived
             }
         }
+    }
+
+    /**
+     * The public keys of the Solana accounts of wallet [id], in account order: account N is the key at position N. A wallet with none, or
+     * with a record that cannot be read, has an empty list. The record holds no secret.
+     */
+    fun solanaKeys(id: String): List<ByteArray> {
+        val bytes = session.getRecord(id, WalletRecordNames.SOLANA) ?: return emptyList()
+        return try {
+            WalletRecords.decodeSolanaKeys(bytes)
+        } catch (e: IOException) {
+            emptyList()
+        } catch (e: IllegalArgumentException) {
+            emptyList()
+        }
+    }
+
+    /**
+     * A Solana Bulk Run: adds [count] Solana accounts to wallet [id], numbered after the ones it already has, and returns their public keys.
+     * Each key is m/44'/501'/N' from the seed, and the seed is zeroed after the run. Every key is derived before anything is saved, so a
+     * failure stops the run with nothing written. The record is written under the session's lock. If the wallet's Solana accounts changed
+     * while the run derived, nothing is saved and the result is null. [onProgress] receives the number of accounts derived so far.
+     *
+     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, it is a Single Key wallet, which has no
+     * seed, or it would keep more than [WalletRecords.SOLANA_MAX_ACCOUNTS] Solana accounts. Nothing is saved then.
+     */
+    fun addSolanaAccounts(id: String, count: Int, cap: Int, onProgress: (Int) -> Unit = {}): List<ByteArray>? {
+        require(BulkPolicy.checkCount(count, cap) is BulkPolicy.CountCheck.Valid) {
+            "A Bulk Run makes 1 to $cap accounts."
+        }
+        val current = requireNotNull(meta(id)) { "No wallet $id." }
+        require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_SOLANA }
+        val start = solanaKeys(id).size
+        require(start + count <= WalletRecords.SOLANA_MAX_ACCOUNTS) {
+            "A wallet keeps at most ${WalletRecords.SOLANA_MAX_ACCOUNTS} Solana accounts."
+        }
+        val seed = seedOf(id)
+        val derived = try {
+            (start until start + count).mapIndexed { done, index ->
+                SolanaAccount.publicKey(seed, index).also { onProgress(done + 1) }
+            }
+        } finally {
+            seed.fill(0)
+        }
+        return synchronized(session) {
+            val now = solanaKeys(id)
+            if (now.size != start) {
+                null
+            } else {
+                putSolanaKeys(id, now + derived)
+                derived
+            }
+        }
+    }
+
+    /**
+     * Writes the Solana record of wallet [id] as [keys]. The record has a fixed size, so a write that would not fit is refused before anything
+     * is written, and the record is left as it was.
+     */
+    private fun putSolanaKeys(id: String, keys: List<ByteArray>) {
+        val bytes = WalletRecords.encodeSolanaKeys(keys)
+        require(bytes.size <= WalletRecordNames.SOLANA_CAPACITY) { NO_ROOM_FOR_SOLANA }
+        session.putRecord(id, WalletRecordNames.SOLANA, bytes)
     }
 
     /**
@@ -916,6 +980,8 @@ class WalletStore(private val session: VaultSession) {
         const val SINGLE_KEY_ONE_ACCOUNT = "A Single Key wallet has exactly one account and cannot generate more."
         const val NO_ROOM_FOR_BITCOIN =
             "The Bitcoin accounts of this wallet take too much room to save. Clear a name, label or group on one of them."
+        const val NO_ROOM_FOR_SOLANA = "The Solana accounts of this wallet take too much room to save."
+        const val SINGLE_KEY_NO_SOLANA = "A Single Key wallet has no seed, so it cannot hold Solana accounts."
     }
 }
 
@@ -935,6 +1001,13 @@ internal object WalletRecords {
 
     /** The most Bitcoin accounts a wallet keeps, the largest Bulk Cap. The Bitcoin record's capacity is sized for them. */
     const val BITCOIN_MAX_ACCOUNTS = 100
+
+    /** The most Solana accounts a wallet keeps, the largest Bulk Cap. The Solana record's capacity is sized for them. */
+    const val SOLANA_MAX_ACCOUNTS = 100
+
+    /** The version of the Solana record: a count, then the 32-byte public key of each account. */
+    private const val SOLANA_VERSION = 1
+    private const val SOLANA_KEY_BYTES = 32
 
     /** The meta versions before wallet kinds, which have no kind byte, and before the backed-up flag. Version 3 is written now. */
     private const val META_VERSION = 4
@@ -1115,6 +1188,26 @@ internal object WalletRecords {
         }
         require(accounts.map { it.key }.distinct().size == accounts.size) { "Duplicate Bitcoin account." }
         accounts
+    }
+
+    /** The Solana record: the version byte, the count (int), then the 32-byte public key of each account, in account order. */
+    fun encodeSolanaKeys(keys: List<ByteArray>): ByteArray {
+        require(keys.size <= SOLANA_MAX_ACCOUNTS) { "A wallet keeps at most $SOLANA_MAX_ACCOUNTS Solana accounts." }
+        require(keys.all { it.size == SOLANA_KEY_BYTES }) { "A Solana public key is 32 bytes." }
+        return writeBytes { out ->
+            out.writeByte(SOLANA_VERSION)
+            out.writeInt(keys.size)
+            keys.forEach { out.write(it) }
+        }
+    }
+
+    /** The public keys of a Solana record, in account order. */
+    fun decodeSolanaKeys(bytes: ByteArray): List<ByteArray> = readBytes(bytes) { input ->
+        val version = input.readUnsignedByte()
+        require(version == SOLANA_VERSION) { "Unknown record version $version." }
+        val count = input.readInt()
+        require(count in 0..SOLANA_MAX_ACCOUNTS) { "Account count out of range." }
+        List(count) { ByteArray(SOLANA_KEY_BYTES).also { input.readFully(it) } }
     }
 
     /** The flag bit for a field that is set, or 0 for one that is not. */

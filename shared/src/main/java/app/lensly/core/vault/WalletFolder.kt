@@ -46,6 +46,12 @@ internal object WalletFolder {
     /** The plaintext the Bitcoin record holds: 100 accounts at up to 70 bytes each, with room left for their profiles. */
     const val BITCOIN_CAPACITY = 8192
 
+    /** The record of the wallet's Solana accounts: the public key of each, 32 bytes. It holds no secret. */
+    const val SOLANA = "solana"
+
+    /** The plaintext the Solana record holds: a version, a count and 100 public keys of 32 bytes, with room to spare. */
+    const val SOLANA_CAPACITY = 4096
+
     /**
      * The plaintext the META record holds: the wallet's facts, and the public account key of each of its accounts, at 73 bytes each. At
      * the largest Bulk Cap of 100 accounts, that is well inside this capacity.
@@ -73,7 +79,14 @@ internal object WalletFolder {
      * The plaintext each fixed record can hold. A record that does not fit is refused. The Bitcoin record holds 100 accounts, the largest
      * a wallet keeps, at up to 70 bytes each with its header, and what is left of [BITCOIN_CAPACITY] is for their profiles.
      */
-    private val CAPACITY: Map<String, Int> = mapOf(META to META_CAPACITY, SECRET to 2048, BASE_NAME to 128, PROFILE to 512, BITCOIN to BITCOIN_CAPACITY)
+    private val CAPACITY: Map<String, Int> = mapOf(
+        META to META_CAPACITY,
+        SECRET to 2048,
+        BASE_NAME to 128,
+        PROFILE to 512,
+        BITCOIN to BITCOIN_CAPACITY,
+        SOLANA to SOLANA_CAPACITY,
+    )
 
     /**
      * The inner layer of `pwk.bin`: the Per-Wallet Key sealed under the Vault Key. An earlier build wrote this alone as the whole file, so
@@ -87,7 +100,7 @@ internal object WalletFolder {
     private val random = SecureRandom()
 
     /** The record names a wallet folder holds, in file order: the fixed records, then the account records. */
-    val NAMES: List<String> = listOf(META, SECRET, BASE_NAME, PROFILE, BITCOIN) + (0 until ACCOUNT_SLOTS).map { accountName(it) }
+    val NAMES: List<String> = listOf(META, SECRET, BASE_NAME, PROFILE, BITCOIN, SOLANA) + (0 until ACCOUNT_SLOTS).map { accountName(it) }
 
     /** The name of the record of account [index]. */
     fun accountName(index: Int): String = ACCOUNT_PREFIX + index
