@@ -126,7 +126,7 @@ fun LumioHome(
         }
     }
     val total = HomeAssets.totalUsd(assets)
-    val shown = HomeAssets.sorted(HomeAssets.visible(assets, settings.minimumUsd), settings.sort)
+    val shown = HomeAssets.sorted(HomeAssets.visible(HomeAssets.withoutSpam(assets, settings.hideSpam), settings.minimumUsd), settings.sort)
 
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LenslySpacing.lg)) {

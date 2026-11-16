@@ -47,10 +47,12 @@ fun LumioSettingsScreen(
     entryGesture: EntryGesture = EntryGesture.DEFAULT,
     onEntryGesture: () -> Unit = {},
     wallets: (@Composable () -> Unit)? = null,
+    transactions: (@Composable () -> Unit)? = null,
 ) {
     LenslyScreen(title = "SETTINGS", modifier = modifier, onBack = onBack) {
         SettingsSection(title = "Home") { display() }
         wallets?.let { section -> SettingsSection(title = "Wallets") { section() } }
+        transactions?.let { section -> SettingsSection(title = "Transactions") { section() } }
         SettingsSection(title = "Bitcoin") { bitcoin() }
         SettingsSection(title = "Ethereum") { ethereum() }
         SettingsSection(title = "Entry") {

@@ -1,6 +1,7 @@
 package app.lumio.tokens
 
 import app.lensly.core.vault.VaultSession
+import app.lumio.data.net.NetworkId
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -59,6 +60,10 @@ object CustomTokenStore {
         require(current.none { it.chainId == token.chainId && it.contract == token.contract }) { "That token is already in your list." }
         write(session, current + token)
     }
+
+    /** True when [tokens] lists [contract] on the chain of [network]. The contract is compared without case. */
+    fun holds(tokens: List<Token>, network: NetworkId, contract: String): Boolean =
+        tokens.any { it.chainId.toString() == network.chain && it.contract.equals(contract, ignoreCase = true) }
 
     /** Removes the token at [contract] on [chainId] from [session]. A token that is not there is left as it is. */
     fun remove(session: VaultSession, chainId: Long, contract: String) {

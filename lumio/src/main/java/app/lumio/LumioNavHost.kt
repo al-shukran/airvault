@@ -29,7 +29,6 @@ import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.shell.LumioTab
 import app.lumio.ui.shell.LumioTabFrame
-import app.lumio.ui.transactions.TransactionsScreen
 
 /** Lumio's own routes inside its Hidden Area. The gate's routes are shared, see `app.lensly.ui.navigation.GateRoutes`. */
 internal object LumioRoute {
@@ -119,6 +118,16 @@ internal object LumioRoute {
 
     /** The route of the receive page of the account [key] of [kind], which is [KIND_EVM] or [KIND_BTC]. */
     fun receive(kind: String, key: String): String = "receive/$kind/$key"
+
+    /** The arguments of a transaction's page: the account that the row is for, and the transaction's id. */
+    const val TX_ACCOUNT_ARG = "account"
+    const val TX_ID_ARG = "txId"
+
+    /** A transaction's page, for the row of [TX_ACCOUNT_ARG] and [TX_ID_ARG]. */
+    const val TRANSACTION = "transaction/{$TX_ACCOUNT_ARG}/{$TX_ID_ARG}"
+
+    /** The route of the page of transaction [txId] for [account]. */
+    fun transaction(account: String, txId: String): String = "transaction/$account/$txId"
 }
 
 /** The chain argument of a send that names no chain. Chain IDs are never zero. */
@@ -216,8 +225,21 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             composable(LumioRoute.TRANSACTIONS) {
                 LumioBackdrop(selection) {
                     LumioTabFrame(selected = LumioTab.TRANSACTIONS, onSelect = { navController.openTab(it) }) {
-                        TransactionsScreen()
+                        TransactionsRoute(navController = navController, holder = holder, mode = selection.mode)
                     }
+                }
+            }
+            composable(
+                route = LumioRoute.TRANSACTION,
+                arguments = listOf(
+                    navArgument(LumioRoute.TX_ACCOUNT_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.TX_ID_ARG) { type = NavType.StringType },
+                ),
+            ) { entry ->
+                val account = entry.arguments?.getString(LumioRoute.TX_ACCOUNT_ARG).orEmpty()
+                val txId = entry.arguments?.getString(LumioRoute.TX_ID_ARG).orEmpty()
+                LumioBackdrop(selection) {
+                    TransactionDetailRoute(navController = navController, holder = holder, account = account, txId = txId)
                 }
             }
             composable(LumioRoute.PAIR_SCAN) {
@@ -258,6 +280,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                                     onChanged = { listVersion++ },
                                 )
                             },
+                            transactions = { CommentBackupRoute(holder = holder) },
                             bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
                             ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
                             entryGesture = LocalContext.current.entryGestureHolder().current,

@@ -17,13 +17,19 @@ import app.lumio.btc.AddressStatsCache
 import app.lumio.btc.networkId
 import app.lumio.btc.scanJob
 import app.lumio.data.MonotonicClock
+import app.lumio.data.WallClock
+import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.db.LumioDatabase
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.CustomEsploraProvider
 import app.lumio.data.esplora.EsploraProtocol
 import app.lumio.data.esplora.MempoolProvider
+import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.price.PriceRepository
+import app.lumio.data.tx.TxAsset
+import app.lumio.data.tx.TxHistory
+import app.lumio.data.tx.TxSpam
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderCatalog
@@ -34,9 +40,11 @@ import app.lumio.data.scan.QueuedJob
 import app.lumio.data.scan.ScanQueue
 import app.lumio.data.scan.ScanRunner
 import app.lumio.data.sched.Scheduler
+import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmReads
 import app.lumio.evm.EvmRpc
+import app.lumio.evm.EvmSettingsStore
 import app.lumio.network.NetworkModeStore
 import app.lumio.tokens.CustomTokenStore
 import app.lumio.tokens.Token
@@ -160,8 +168,42 @@ class LumioApp : Application(), CoverApplication {
      */
     val scanRunner: ScanRunner by lazy { ScanRunner(scanQueue, parallelism = 4) { job, step -> scanJobOf(job, step) } }
 
-    /** The address statistics this session has read. Every scan shares them. */
-    private val addressStats = AddressStatsCache()
+    /** The address statistics this session has read. Every scan shares them, and the transaction feed's Bitcoin reads too. */
+    internal val addressStats = AddressStatsCache()
+
+    /**
+     * True when the registry or the bundled default list names [contract] on [network]. Lumio knows such a token, so the spam heuristic and Home judge it
+     * as they judge any coin. Any other token is unknown: the owner added it, or someone else sent it.
+     */
+    fun isKnownToken(network: NetworkId, contract: String): Boolean {
+        val chainId = network.chain.toLongOrNull() ?: return false
+        return registry.token(chainId, contract) != null ||
+            defaultTokens.any { it.chainId == chainId && it.contract.equals(contract, ignoreCase = true) }
+    }
+
+    /**
+     * The transaction history of [vault]: the scheduler's provider reads, written to the vault's store. Its EVM reads follow the owner's [PreferRpcStore]
+     * choice, and its native coins are the chains that the vault lists, the registry's and the owner's own.
+     */
+    fun txHistory(vault: LumioVault): TxHistory {
+        val session = vault.session
+        val chains = EvmCatalog.chains(registry, EvmSettingsStore.read(session))
+        val owned = CustomTokenStore.read(session)
+        return TxHistory(
+            scheduler = scheduler,
+            store = vault.txs,
+            spam = TxSpam(
+                isKnownToken = { network, contract -> isKnownToken(network, contract) },
+                isCustomToken = { network, contract -> CustomTokenStore.holds(owned, network, contract) },
+            ),
+            nativeAsset = { net ->
+                chains.firstOrNull { net.family == Family.EVM && it.chainId.toString() == net.chain }
+                    ?.let { TxAsset(contract = null, symbol = it.symbol, name = it.name, decimals = it.decimals) }
+            },
+            preferRpc = { PreferRpcStore.read(session) },
+            clock = WallClock,
+        )
+    }
 
     private var database: LumioDatabase? = null
 
