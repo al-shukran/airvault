@@ -22,6 +22,55 @@
   },
   {
     "chainId": 1,
+    "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+    "selector": "0xb858183f",
+    "contractChecksum": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+    "source": "https://github.com/Uniswap/swap-router-contracts/blob/70bc2e40dfca294c1cea9bf67a4036732ee54303/contracts/interfaces/IV3SwapRouter.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+    "selector": "0x5023b4df",
+    "contractChecksum": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+    "source": "https://github.com/Uniswap/swap-router-contracts/blob/70bc2e40dfca294c1cea9bf67a4036732ee54303/contracts/interfaces/IV3SwapRouter.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+    "selector": "0x09b81346",
+    "contractChecksum": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+    "source": "https://github.com/Uniswap/swap-router-contracts/blob/70bc2e40dfca294c1cea9bf67a4036732ee54303/contracts/interfaces/IV3SwapRouter.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+    "selector": "0xac9650d8",
+    "contractChecksum": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+    "source": "https://github.com/Uniswap/v3-periphery/blob/24ccf014fe7f81d74a14c1689d6fdf123f280e45/contracts/base/Multicall.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+    "selector": "0x5ae401dc",
+    "contractChecksum": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+    "source": "https://github.com/Uniswap/swap-router-contracts/blob/70bc2e40dfca294c1cea9bf67a4036732ee54303/contracts/base/MulticallExtended.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+    "selector": "0x49404b7c",
+    "contractChecksum": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+    "source": "https://github.com/Uniswap/v3-periphery/blob/24ccf014fe7f81d74a14c1689d6fdf123f280e45/contracts/base/PeripheryPayments.sol"
+  },
+  {
+    "chainId": 1,
+    "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+    "selector": "0x12210e8a",
+    "contractChecksum": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+    "source": "https://github.com/Uniswap/v3-periphery/blob/24ccf014fe7f81d74a14c1689d6fdf123f280e45/contracts/base/PeripheryPayments.sol"
+  },
+  {
+    "chainId": 1,
     "contract": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
     "selector": "0xde0e9a3e",
     "contractChecksum": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",

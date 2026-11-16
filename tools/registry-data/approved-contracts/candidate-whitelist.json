@@ -90,6 +90,173 @@
     },
     {
       "chainId": 1,
+      "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+      "selector": "0xb858183f",
+      "signature": "exactInput((bytes,address,uint256,uint256))",
+      "meaning": "Uniswap SwapRouter02: swap an exact amount of one token for as much as possible of another, along a Uniswap v3 path of one or more pools. The minimum received is shown.",
+      "params": [
+        {
+          "name": "params",
+          "type": "(bytes,address,uint256,uint256)",
+          "components": [
+            {
+              "name": "path",
+              "type": "bytes"
+            },
+            {
+              "name": "recipient",
+              "type": "address"
+            },
+            {
+              "name": "amountIn",
+              "type": "uint256"
+            },
+            {
+              "name": "amountOutMinimum",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+      "selector": "0x5023b4df",
+      "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+      "meaning": "Uniswap SwapRouter02: swap as little as possible of one token for an exact amount of another, through one Uniswap v3 pool. The maximum spent is shown.",
+      "params": [
+        {
+          "name": "params",
+          "type": "(address,address,uint24,address,uint256,uint256,uint160)",
+          "components": [
+            {
+              "name": "tokenIn",
+              "type": "address"
+            },
+            {
+              "name": "tokenOut",
+              "type": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint24"
+            },
+            {
+              "name": "recipient",
+              "type": "address"
+            },
+            {
+              "name": "amountOut",
+              "type": "uint256"
+            },
+            {
+              "name": "amountInMaximum",
+              "type": "uint256"
+            },
+            {
+              "name": "sqrtPriceLimitX96",
+              "type": "uint160"
+            }
+          ]
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+      "selector": "0x09b81346",
+      "signature": "exactOutput((bytes,address,uint256,uint256))",
+      "meaning": "Uniswap SwapRouter02: buy an exact amount of a token along a Uniswap v3 path of one or more pools, spending at most the maximum shown.",
+      "params": [
+        {
+          "name": "params",
+          "type": "(bytes,address,uint256,uint256)",
+          "components": [
+            {
+              "name": "path",
+              "type": "bytes"
+            },
+            {
+              "name": "recipient",
+              "type": "address"
+            },
+            {
+              "name": "amountOut",
+              "type": "uint256"
+            },
+            {
+              "name": "amountInMaximum",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+      "selector": "0xac9650d8",
+      "signature": "multicall(bytes[])",
+      "meaning": "Uniswap SwapRouter02: run several of these calls in one transaction, in order. A call that fails fails the whole batch.",
+      "params": [
+        {
+          "name": "data",
+          "type": "bytes[]"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+      "selector": "0x5ae401dc",
+      "signature": "multicall(uint256,bytes[])",
+      "meaning": "Uniswap SwapRouter02: run several of these calls in one transaction, in order, before a deadline. A call that fails fails the whole batch.",
+      "params": [
+        {
+          "name": "deadline",
+          "type": "uint256"
+        },
+        {
+          "name": "data",
+          "type": "bytes[]"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+      "selector": "0x49404b7c",
+      "signature": "unwrapWETH9(uint256,address)",
+      "meaning": "Uniswap SwapRouter02: unwrap all the WETH the router holds into the native coin, if at least a minimum, and send it to an address.",
+      "params": [
+        {
+          "name": "amountMinimum",
+          "type": "uint256"
+        },
+        {
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
+      "contract": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+      "selector": "0x12210e8a",
+      "signature": "refundETH()",
+      "meaning": "Uniswap SwapRouter02: send all the native coin the router holds to you.",
+      "params": [],
+      "upgradeable": false
+    },
+    {
+      "chainId": 1,
       "contract": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
       "selector": "0xde0e9a3e",
       "signature": "unwrap(uint256)",
