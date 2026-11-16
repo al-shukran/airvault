@@ -78,3 +78,4 @@ lumio	licences	Third-party licences	licences licences_loading
 lumio	network_switch	Network controls	network_switch_mainnet network_switch_testnet_banner
 lumio	pair_scan	Pair scan	pair_scan_idle pair_scan_reading
 lumio	pair_review	Pair review	pair_review pair_review_already_paired pair_review_save_failed pair_review_bitcoin
+lumio	add_token	Add token	add_token
