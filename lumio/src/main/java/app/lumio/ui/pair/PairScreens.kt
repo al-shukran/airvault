@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingPayload
+import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.wallet.AccountAddresses
@@ -82,6 +83,8 @@ fun PairReviewScreen(
         if (bitcoin.isNotEmpty()) BitcoinReview(accounts = bitcoin, names = bitcoinNames)
         val solana = PairImport.solanaPublicKeysOf(pairing)
         if (solana.isNotEmpty()) SolanaReview(keys = solana)
+        val algorand = PairImport.algorandPublicKeysOf(pairing)
+        if (algorand.isNotEmpty()) AlgorandReview(keys = algorand)
         error?.let {
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -131,6 +134,20 @@ private fun SolanaReview(keys: List<ByteArray>) {
         Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
             Text(text = "Account $index", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
             ReviewAddress("Address", SolanaAccount.addressOf(key))
+        }
+    }
+}
+
+/** The Algorand accounts of a pairing: each account's address, which is the 58-character form of its public key. */
+@Composable
+private fun AlgorandReview(keys: List<ByteArray>) {
+    Spacer(Modifier.height(LenslySpacing.md))
+    PillChip(text = PairLabels.family(PairFamily.ALGORAND))
+    ReviewField("Accounts", "${keys.size}")
+    keys.forEachIndexed { index, key ->
+        Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
+            Text(text = "Account $index", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+            ReviewAddress("Address", AlgorandAccount.addressOf(key))
         }
     }
 }

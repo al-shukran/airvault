@@ -33,6 +33,7 @@ object PairImport {
     const val ETHEREUM = "ethereum"
     const val BITCOIN = "bitcoin"
     const val SOLANA = "solana"
+    const val ALGORAND = "algorand"
 
     /** The most Ethereum accounts a wallet keeps in Lumio: one account record each, and the folder holds this many. */
     const val MAX_ETHEREUM_ACCOUNTS = 100
@@ -43,6 +44,9 @@ object PairImport {
     /** The most Solana accounts a wallet keeps in Lumio: its Solana record holds this many. */
     const val MAX_SOLANA_ACCOUNTS = 100
 
+    /** The most Algorand accounts a wallet keeps in Lumio: its Algorand record holds this many. */
+    const val MAX_ALGORAND_ACCOUNTS = 100
+
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
     private const val OLDER_CODE =
         "This code is from an older Lensly, which does not carry the names of the accounts. Pair the wallet again from Lensly's Pair wallet."
@@ -51,6 +55,7 @@ object PairImport {
     private const val BAD_KEY = "The code's public key is not valid."
     private const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid Ethereum or Bitcoin address."
     private const val NOT_SOLANA_KEY = "The code's Solana key is not the key of its account, m/44'/501'/N'."
+    private const val NOT_ALGORAND_KEY = "The code's Algorand key is not the key of its account, m/44'/283'/N'/0/0."
 
     /**
      * The pairing that [ur] carries, checked for Lumio.
@@ -75,6 +80,7 @@ object PairImport {
         checkEthereum(payload.apps.firstOrNull { it.app == ETHEREUM } ?: throw PairingRefusal(NO_ETHEREUM))
         payload.apps.firstOrNull { it.app == BITCOIN }?.let { checkBitcoin(payload.fingerprint, it) }
         payload.apps.firstOrNull { it.app == SOLANA }?.let { checkSolana(it) }
+        payload.apps.firstOrNull { it.app == ALGORAND }?.let { checkAlgorand(it) }
         return payload.copy(addressBook = addressBookOf(payload.addressBook))
     }
 
@@ -133,9 +139,33 @@ object PairImport {
         }
     }
 
+    /**
+     * Each Algorand key is the Ed25519 key of account N at m/44'/283'/N'/0/0, for the accounts numbered 0 to n-1, in order. Like a Solana key,
+     * it is in SLIP-0010's form with the prefix 0.
+     */
+    private fun checkAlgorand(app: PairingApp) {
+        if (app.accounts.size > MAX_ALGORAND_ACCOUNTS) {
+            throw PairingRefusal("The code carries ${app.accounts.size} Algorand accounts. Lumio pairs up to $MAX_ALGORAND_ACCOUNTS.")
+        }
+        if (app.keys.size != app.accounts.size) throw PairingRefusal(NOT_ALGORAND_KEY)
+        if (app.accounts.map { it.key } != app.accounts.indices.toList()) {
+            throw PairingRefusal("The code's Algorand accounts are not numbered 0 to n-1.")
+        }
+        app.keys.forEachIndexed { account, key ->
+            val valid = key.path == algorandPathOf(account) && key.depth == ALGORAND_DEPTH && key.publicKey[0] == PairingKey.ED25519_PREFIX
+            if (!valid) throw PairingRefusal(NOT_ALGORAND_KEY)
+        }
+    }
+
     /** The public key of each Solana account of a validated pairing, in account order: the key of account N is at index N. */
     internal fun solanaPublicKeysOf(payload: PairingPayload): List<ByteArray> {
         val app = payload.apps.firstOrNull { it.app == SOLANA } ?: return emptyList()
+        return app.keys.map { key -> key.publicKey.copyOfRange(1, key.publicKey.size) }
+    }
+
+    /** The public key of each Algorand account of a validated pairing, in account order: the key of account N is at index N. */
+    internal fun algorandPublicKeysOf(payload: PairingPayload): List<ByteArray> {
+        val app = payload.apps.firstOrNull { it.app == ALGORAND } ?: return emptyList()
         return app.keys.map { key -> key.publicKey.copyOfRange(1, key.publicKey.size) }
     }
 
@@ -201,6 +231,15 @@ object PairImport {
         return PairingRefusal(OLDER_CODE)
     }
 
+    /** The path of the Algorand key of account [account]: m/44'/283'/[account]'/0/0. */
+    private fun algorandPathOf(account: Int): List<Long> = listOf(
+        DeterministicWallet.hardened(44),
+        DeterministicWallet.hardened(283),
+        DeterministicWallet.hardened(account.toLong()),
+        0L,
+        0L,
+    )
+
     /** The path of the Solana key of account [account]: m/44'/501'/[account]'. */
     private fun solanaPathOf(account: Int): List<Long> = listOf(
         DeterministicWallet.hardened(44),
@@ -218,4 +257,5 @@ object PairImport {
     )
     private const val ETHEREUM_DEPTH = 5
     private const val SOLANA_DEPTH = 3
+    private const val ALGORAND_DEPTH = 5
 }
