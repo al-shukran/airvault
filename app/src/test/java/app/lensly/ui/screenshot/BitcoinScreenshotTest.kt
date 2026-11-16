@@ -113,7 +113,6 @@ class BitcoinScreenshotTest {
             ready = true,
             onInputPolicy = {},
             onSigningSource = {},
-            onSave = {},
             onBack = {},
         )
     }
