@@ -45,7 +45,7 @@ import app.lensly.ui.settings.SettingsScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TxReviewScreen
-import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
+import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
 import app.lensly.ui.sign.UNKNOWN_UNIT
 import app.lensly.ui.sign.assumedAmountNote
@@ -455,7 +455,7 @@ private val samplePeggedReview = TxReview(
  * units with its 18-decimal reading marked as an assumption, and the registry warning sits above it.
  */
 private val sampleUnknownChainReview = TxReview(
-    networkName = UNKNOWN_CHAIN_NAME,
+    networkName = unknownNetworkName(999_999L),
     chainId = 999_999L,
     fromAccountLabel = "ACCOUNT 1",
     fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",

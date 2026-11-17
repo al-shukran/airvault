@@ -41,8 +41,3 @@ internal fun fingerprintText(fingerprint: Int?): String = fingerprint?.let { "%0
 /** A derivation path in the usual notation, such as m/44'/60'/1'/0/0. */
 internal fun pathText(path: List<PathStep>): String =
     "m" + path.joinToString("") { step -> "/${step.index}" + if (step.hardened) "'" else "" }
-
-private val EVM_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
-
-/** True for a 0x-prefixed address of 40 hexadecimal digits, in either letter case. */
-internal fun isEvmAddress(text: String): Boolean = EVM_ADDRESS.matches(text)

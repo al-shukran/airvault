@@ -26,6 +26,7 @@ import app.lensly.core.btc.BtcReviewOutput
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
+import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.theme.LenslyTheme
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
@@ -61,7 +62,7 @@ class BitcoinReviewScreenTest {
                         review = review,
                         network = BtcNetwork.TESTNET4,
                         scriptType = ScriptType.NATIVE_SEGWIT,
-                        accountIndex = 0,
+                        signer = SAMPLE_SIGNER,
                         confirmed = confirmed,
                         onConfirmedChange = { confirmed = it },
                         onApprove = {},
@@ -82,18 +83,12 @@ class BitcoinReviewScreenTest {
     }
 
     @Test
-    fun theHoldControlStaysOffUntilTheDetailsAreReadAndTheCheckIsTicked() {
+    fun theHoldControlStaysOffUntilTheListIsReadAndTheCheckIsTicked() {
         show(unverifiedRequest(), small = true)
 
-        compose.onNodeWithText("Open details to continue").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
 
         compose.onNodeWithText("I have checked the unverified input amounts").performScrollTo().performClick()
-        compose.onNodeWithText("Open details to continue").assertExists()
-        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
-
-        compose.onNodeWithText("Inputs").performScrollTo().performClick()
-        compose.onNodeWithText("Open details to continue").assertDoesNotExist()
         compose.onNodeWithText("Scroll to the end to review everything").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
 
@@ -104,24 +99,19 @@ class BitcoinReviewScreenTest {
     }
 
     @Test
-    fun aShortRequestWithAWarningCannotBeSignedWhileItsDetailsAreFolded() {
-        // The request fits on screen, and its one warning is read in the details, so the fit alone does not count as read.
+    fun aShortRequestWithAWarningShowsItsDetailsAndCanBeSignedOnceItFits() {
+        // The request fits on screen, and its one warning has no check, so the fit is the whole read.
         show(externalInputRequest())
 
         compose.onNodeWithText("1 warning — review before signing").assertExists()
-        compose.onNodeWithText("Open details to continue").assertExists()
-        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+        compose.onNodeWithText("Inputs").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
     }
 
     @Test
-    fun aRequestWithAWarningSignsOnceItsDetailsAreOpenedAndScrolledToTheEnd() {
+    fun aRequestWithAWarningSignsOnceItsListIsScrolledToTheEnd() {
         show(externalInputRequest(), small = true)
 
-        compose.onNodeWithText("Open details to continue").assertExists()
-        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
-
-        compose.onNodeWithText("Transaction").performScrollTo().performClick()
-        compose.onNodeWithText("Open details to continue").assertDoesNotExist()
         compose.onNodeWithText("Scroll to the end to review everything").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
 
@@ -131,24 +121,23 @@ class BitcoinReviewScreenTest {
     }
 
     @Test
-    fun aRequestWithNoWarningsSaysSoAndKeepsItsDetailsCollapsed() {
+    fun aRequestWithNoWarningsSaysSoAndShowsEveryInputAtOnce() {
         show(cleanRequest())
 
         compose.onNodeWithText("No warnings").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
-        compose.onNodeWithText("Input 0").assertDoesNotExist()
-
-        compose.onNodeWithText("Inputs").performClick()
-
         compose.onNodeWithText("Input 0").assertExists()
     }
 
     @Test
-    fun aRequestWithNoWarningsCanBeSignedWithoutOpeningItsDetails() {
-        // The request is long enough to scroll, and it still signs at once, as a request with no warning always has.
+    fun aLongRequestWithNoWarningsStillNeedsItsEndReadBeforeItSigns() {
+        // The request is long enough to scroll, so signing waits for the scroll, as it always has.
         show(cleanRequest(), small = true)
 
-        compose.onNodeWithText("Open details to continue").assertDoesNotExist()
+        compose.onNodeWithText("Scroll to the end to review everything").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+
+        compose.scrollReviewToEnd()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
     }
 

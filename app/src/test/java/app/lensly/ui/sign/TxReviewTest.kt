@@ -29,7 +29,7 @@ class TxReviewTest {
 
     /** A review whose chain and token are the given ones. A null [network] is an unknown chain. */
     private fun review(network: NetworkEntry?, tokenContract: String?, token: TokenEntry?) = TxReview(
-        networkName = network?.name ?: UNKNOWN_CHAIN_NAME,
+        networkName = evmNetworkName(network, 999_999L),
         chainId = 8453L,
         fromAccountLabel = "ACCOUNT 1",
         fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",

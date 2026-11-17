@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import app.lensly.app.AddressNotes
+import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcReview
@@ -23,20 +24,21 @@ import java.util.Locale
 private const val UNVERIFIED_CHECK = "I have checked the unverified input amounts"
 
 /**
- * The Bitcoin review, the counterpart of [TxReviewScreen]. The header names the network and the account. A sentence says what the
- * request sends and to whom, and a short list under it gives the fee, the fee rate, the total and the change. Every warning sits in
- * one banner, and the check on unverified amounts sits inside that banner. A request with a warning is held until its details are open and
- * read to the end, as the transaction review does, and Hold to sign is off until the owner ticks the check. The inputs, the outputs and
- * the transaction start collapsed. REJECT is always enabled.
+ * The Bitcoin review, the counterpart of [TxReviewScreen]. The header names the network in full, the account that signs with its wallet
+ * and address. A sentence says what the request sends and to whom, and a short list under it gives the fee, the fee rate, the total and
+ * the change. Every warning sits in one banner, and the check on unverified amounts sits inside that banner. Hold to sign is off until the
+ * review is read to its end and, when the amounts are unverified, until the owner ticks the check. The inputs, the outputs and the
+ * transaction are all shown on first render. REJECT is always enabled.
  *
- * [confirmed] is the owner's check of the unverified amounts, and [onConfirmedChange] reports a change of it.
+ * [confirmed] is the owner's check of the unverified amounts, and [onConfirmedChange] reports a change of it. [signer] is the account
+ * that signs.
  */
 @Composable
 fun BitcoinReviewScreen(
     review: BtcReview,
     network: BtcNetwork,
     scriptType: ScriptType,
-    accountIndex: Int,
+    signer: SigningAccount,
     confirmed: Boolean,
     onConfirmedChange: (Boolean) -> Unit,
     onApprove: () -> Unit,
@@ -45,36 +47,38 @@ fun BitcoinReviewScreen(
     /** What the Address Book and the wallet's own accounts say of each output address, keyed by app.lensly.app.addressKeyOf. */
     addressNotes: Map<String, AddressNotes> = emptyMap(),
 ) {
-    // A different request starts with its details collapsed and its check unticked, so nothing carries over from the last one.
+    // A different request starts unread and with its check unticked, so nothing carries over from the last one.
     key(review) {
-        val hasWarnings = review.warnings().isNotEmpty()
-        val read = rememberReviewRead(review, hasWarnings)
+        val read = rememberReviewRead(review)
         LenslyScreen(
             title = "Review",
             modifier = modifier,
             scrollable = false,
             bottomAction = {
                 ReviewActions(
-                    hint = btcHint(review, read, hasWarnings, confirmed),
-                    // A request with no warning signs as it always has. With a warning, the owner reads it in the details first.
-                    approvable = (!hasWarnings || read.read) && (!review.requiresConfirmation || confirmed),
+                    hint = btcHint(review, read, confirmed),
+                    approvable = read.read && (!review.requiresConfirmation || confirmed),
                     onApprove = onApprove,
                     onReject = onReject,
                 )
             },
         ) {
             ReviewBody(read) {
-                ReviewChips(
-                    network = networkName(network),
+                ReviewHeader(
+                    network = bitcoinNetworkName(network),
                     testnet = network == BtcNetwork.TESTNET4,
-                    account = "Account $accountIndex",
+                    chainDetail = null,
+                    account = signer.name,
+                    wallet = signer.walletName,
+                    address = signer.address,
+                    bitcoin = true,
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
                 ReviewSummary(sentence = btcSentence(review, addressNotes), facts = btcFacts(review))
                 Spacer(Modifier.height(LenslySpacing.md))
                 RiskBanner(items = btcRiskItems(review, confirmed, onConfirmedChange))
                 Spacer(Modifier.height(LenslySpacing.md))
-                DetailsSection(title = "Inputs", onOpen = read::openDetails) {
+                ReviewSection(title = "Inputs") {
                     review.inputs.forEach { input ->
                         ReviewFactRow(label = "Input ${input.index}", value = btcText(input.amountSats))
                         if (input.ownerPath != null) {
@@ -86,7 +90,7 @@ fun BitcoinReviewScreen(
                         Spacer(Modifier.height(LenslySpacing.sm))
                     }
                 }
-                DetailsSection(title = "Outputs", onOpen = read::openDetails) {
+                ReviewSection(title = "Outputs") {
                     review.outputs.forEach { output ->
                         ReviewFactRow(label = "Output ${output.index}", value = btcText(output.amountSats))
                         val address = output.address
@@ -99,7 +103,7 @@ fun BitcoinReviewScreen(
                         Spacer(Modifier.height(LenslySpacing.sm))
                     }
                 }
-                DetailsSection(title = "Transaction", onOpen = read::openDetails) {
+                ReviewSection(title = "Transaction") {
                     ReviewFactRow(label = "Script type", value = scriptTypeName(scriptType), mono = false)
                     ReviewFactRow(
                         label = "Fee",
@@ -119,18 +123,11 @@ fun BitcoinReviewScreen(
 }
 
 /**
- * The line above the sign control. A request with a warning names its details and its end first, then the check on unverified amounts,
- * which sits in the banner. A request with no warning names nothing but that check.
+ * The line above the sign control: the read of the review first, then the check on unverified amounts, which sits in the banner.
  */
-private fun btcHint(review: BtcReview, read: ReviewRead, hasWarnings: Boolean, confirmed: Boolean): String? {
-    if (hasWarnings) readHint(read, hasWarnings)?.let { return it }
+private fun btcHint(review: BtcReview, read: ReviewRead, confirmed: Boolean): String? {
+    readHint(read)?.let { return it }
     return if (review.requiresConfirmation && !confirmed) "Tick the checkbox above to sign" else null
-}
-
-/** The network name a review shows. Testnet4 is the test network, and it is named as such on screen. */
-internal fun networkName(network: BtcNetwork): String = when (network) {
-    BtcNetwork.MAINNET -> "Mainnet"
-    BtcNetwork.TESTNET4 -> "Testnet4"
 }
 
 /** The Script Type a review shows, with its address kind. */

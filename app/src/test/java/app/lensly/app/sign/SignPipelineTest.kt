@@ -268,7 +268,7 @@ class SignPipelineTest {
         assertEquals("0.01 MON", "${review.amount} ${review.symbol}")
         assertEquals("Native transfer", review.function)
         assertEquals(ART_ADDRESS, review.fromAddress)
-        assertEquals("SEED WALLET 0", review.fromAccountLabel)
+        assertEquals("Seed Wallet 0", review.fromAccountLabel)
         assertEquals(RECIPIENT, review.toAddress)
         assertNull(review.tokenContract)
         assertTrue(review.params.isEmpty())
@@ -710,12 +710,12 @@ class SignPipelineTest {
         val signable = ready(requestCbor(eip1559Tx(), index = 1))
 
         assertEquals(1, signable.accountIndex)
-        assertEquals("SEED WALLET 1", signable.review.fromAccountLabel)
+        assertEquals("Seed Wallet 1", signable.review.fromAccountLabel)
         assertEquals(WALLET.address(1), signable.review.fromAddress)
     }
 
     @Test
-    fun aRenamedAccountIsReviewedUnderItsDisplayNameInCapitals() {
+    fun aRenamedAccountIsReviewedUnderItsDisplayName() {
         val named = WalletView(
             id = WALLET_ID,
             masterFingerprint = WALLET.masterFingerprint,
@@ -727,9 +727,9 @@ class SignPipelineTest {
 
         val review = assertIs<Prepared.Ready>(pipeline.prepare(requestCbor(eip1559Tx(), index = 1), named)).review
 
-        assertEquals("RENT", review.fromAccountLabel)
+        assertEquals("Rent", review.fromAccountLabel)
         assertEquals(WALLET.address(1), review.fromAddress)
-        assertEquals("SEED WALLET 0", ready(requestCbor(eip1559Tx())).review.fromAccountLabel)
+        assertEquals("Seed Wallet 0", ready(requestCbor(eip1559Tx())).review.fromAccountLabel)
     }
 
     @Test
@@ -856,7 +856,7 @@ class SignPipelineTest {
         val tx = eip1559Tx(chainId = UNKNOWN_CHAIN, value = BigInteger.TEN.pow(18))
         val review = ready(requestCbor(tx, chainId = UNKNOWN_CHAIN)).review
 
-        assertEquals("Unknown Chain", review.networkName)
+        assertEquals("Unknown network (chain id $UNKNOWN_CHAIN)", review.networkName)
         assertEquals(UNKNOWN_CHAIN, review.chainId)
         assertNull(review.network)
         assertEquals("1000000000000000000 base units", "${review.amount} ${review.symbol}")
@@ -901,7 +901,7 @@ class SignPipelineTest {
             requestCbor("Sign in to Lensly".toByteArray(Charsets.UTF_8), dataType = 3, chainId = UNKNOWN_CHAIN),
         ).review
 
-        assertEquals("Unknown Chain", review.networkName)
+        assertEquals("Unknown network (chain id $UNKNOWN_CHAIN)", review.networkName)
         assertEquals(UNKNOWN_CHAIN, review.chainId)
         assertNull(review.network)
         assertEquals("Sign message", review.function)
@@ -915,7 +915,7 @@ class SignPipelineTest {
         val tx = eip1559Tx(chainId = UNKNOWN_CHAIN, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
         val review = ready(requestCbor(tx, chainId = UNKNOWN_CHAIN)).review
 
-        assertEquals("Unknown Chain", review.networkName)
+        assertEquals("Unknown network (chain id $UNKNOWN_CHAIN)", review.networkName)
         assertNull(review.network)
         assertEquals("transfer", review.function)
         assertNull(review.token)
@@ -1119,7 +1119,7 @@ class SignPipelineTest {
             pipeline.prepare(requestCbor(tx, fingerprint = null, address = IMPORTED_BYTES), IMPORTED_VIEW),
         )
         assertEquals(IMPORTED_ADDRESS, ready.review.fromAddress)
-        assertEquals("IMPORTED 0", ready.review.fromAccountLabel)
+        assertEquals("Imported 0", ready.review.fromAccountLabel)
 
         val response = signResponse(ready, key = IMPORTED_PRIVATE.copyOf())
 

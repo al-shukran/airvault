@@ -1,5 +1,6 @@
 package app.lensly.ui.flow
 
+import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
@@ -14,7 +15,6 @@ import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaInstruction
 import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaWarning
 import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.Cbor
@@ -22,7 +22,8 @@ import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
-import app.lensly.app.export.partsOf
+import app.lensly.core.wallet.Ed25519Signer
+import app.lensly.ui.sign.SAMPLE_SIGNER
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
 import java.io.ByteArrayOutputStream
@@ -193,7 +194,7 @@ class SignFlowSolanaTest {
             prepareCalls++
             if (request.sourceFingerprint != FINGERPRINT) return SolanaPrepared.Refused("This request is for a different wallet")
             return when (val checked = SolanaRequestCheck.check(request, keys)) {
-                is SolanaRequestCheck.Result.Ok -> SolanaPrepared.Ready(walletId, request, checked.review)
+                is SolanaRequestCheck.Result.Ok -> SolanaPrepared.Ready(walletId, request, checked.review, SAMPLE_SIGNER, emptyMap())
                 is SolanaRequestCheck.Result.Refused -> SolanaPrepared.Refused(checked.reason)
             }
         }

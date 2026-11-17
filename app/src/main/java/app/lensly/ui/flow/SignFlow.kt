@@ -1,6 +1,8 @@
 package app.lensly.ui.flow
 
+import app.lensly.app.AddressNotes
 import app.lensly.app.BitcoinReviewed
+import app.lensly.app.SigningAccount
 import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
@@ -96,7 +98,13 @@ sealed interface BitcoinPrepared {
 /** The outcome of reviewing a Solana request against a wallet: the review the owner reads, or the reason it is refused. */
 sealed interface SolanaPrepared {
     /** The request names an account of the wallet and passed every rule. [request] is the parsed sol-sign-request. */
-    data class Ready(val walletId: String, val request: SolSignRequest, val review: SolanaRequestReview) : SolanaPrepared
+    data class Ready(
+        val walletId: String,
+        val request: SolSignRequest,
+        val review: SolanaRequestReview,
+        val signer: SigningAccount,
+        val addressNotes: Map<String, AddressNotes>,
+    ) : SolanaPrepared
 
     /** The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. */
     data class Refused(val reason: String) : SolanaPrepared
@@ -105,7 +113,13 @@ sealed interface SolanaPrepared {
 /** The outcome of reviewing an Algorand request against a wallet: the review the owner reads, or the reason it is refused. */
 sealed interface AlgorandPrepared {
     /** The request names an account of the wallet and passed every rule. [request] is the parsed algo-sign-request. */
-    data class Ready(val walletId: String, val request: AlgoSignRequest, val review: AlgorandRequestReview) : AlgorandPrepared
+    data class Ready(
+        val walletId: String,
+        val request: AlgoSignRequest,
+        val review: AlgorandRequestReview,
+        val signer: SigningAccount,
+        val addressNotes: Map<String, AddressNotes>,
+    ) : AlgorandPrepared
 
     /** The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. */
     data class Refused(val reason: String) : AlgorandPrepared

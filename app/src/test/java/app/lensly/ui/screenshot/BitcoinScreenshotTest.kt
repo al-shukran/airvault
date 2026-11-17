@@ -9,9 +9,10 @@ import app.lensly.core.btc.BtcWarning
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.SigningSourcePolicy
-import app.lensly.ui.sign.BitcoinReviewScreen
 import app.lensly.ui.settings.BitcoinPolicyScreen
 import app.lensly.ui.settings.FeeWarningScreen
+import app.lensly.ui.sign.BitcoinReviewScreen
+import app.lensly.ui.sign.SAMPLE_SIGNER
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
 import org.junit.Rule
@@ -35,7 +36,7 @@ class BitcoinScreenshotTest {
             review = cleanReview(),
             network = BtcNetwork.TESTNET4,
             scriptType = ScriptType.NATIVE_SEGWIT,
-            accountIndex = 0,
+            signer = SAMPLE_SIGNER,
             confirmed = false,
             onConfirmedChange = {},
             onApprove = {},
@@ -49,7 +50,7 @@ class BitcoinScreenshotTest {
             review = warnedReview(),
             network = BtcNetwork.TESTNET4,
             scriptType = ScriptType.NATIVE_SEGWIT,
-            accountIndex = 1,
+            signer = SAMPLE_SIGNER,
             confirmed = false,
             onConfirmedChange = {},
             onApprove = {},
@@ -64,7 +65,7 @@ class BitcoinScreenshotTest {
             review = externalInputReview(),
             network = BtcNetwork.TESTNET4,
             scriptType = ScriptType.NATIVE_SEGWIT,
-            accountIndex = 0,
+            signer = SAMPLE_SIGNER,
             confirmed = false,
             onConfirmedChange = {},
             onApprove = {},
@@ -80,7 +81,7 @@ class BitcoinScreenshotTest {
             ),
             network = BtcNetwork.TESTNET4,
             scriptType = ScriptType.NATIVE_SEGWIT,
-            accountIndex = 0,
+            signer = SAMPLE_SIGNER,
             confirmed = false,
             onConfirmedChange = {},
             onApprove = {},

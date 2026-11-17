@@ -1,5 +1,6 @@
 package app.lensly.app.sign
 
+import app.lensly.app.addressesIn
 import app.lensly.core.solana.SolanaInstruction
 import app.lensly.core.solana.SolanaMessageAccount
 import app.lensly.core.solana.SolanaRequestReview
@@ -157,6 +158,9 @@ private fun tokenNameText(token: SolanaToken?): String = when {
  * The sentence at the top of the review. It names the one transfer when there is exactly one, in SOL or in a token, and otherwise says
  * what is signed.
  */
+/** The addresses a Solana review shows, each one looked up in the Address Book. */
+fun solanaCounterparties(review: SolanaRequestReview): List<String> = addressesIn(solanaRows(review).map { it.second })
+
 fun solanaSentence(review: SolanaRequestReview): String {
     val message = review.messageBytes
     if (message != null) {

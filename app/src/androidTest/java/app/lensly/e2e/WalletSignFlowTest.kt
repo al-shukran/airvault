@@ -35,8 +35,8 @@ import org.web3j.crypto.Sign
 import org.web3j.crypto.TransactionEncoder
 import org.web3j.utils.Numeric
 
-/** The account label the review shows for account 0 of [E2E_WALLET_NAME]: its Auto-Name, in capitals. */
-private const val ACCOUNT_LABEL = "E2E WALLET 0"
+/** The account name the review shows for account 0 of [E2E_WALLET_NAME]: its Auto-Name, as the wallet names it. */
+private const val ACCOUNT_LABEL = "E2E Wallet 0"
 
 /** A chain that is in no registry, so the review carries the warning and asks for the explicit check. */
 private const val UNKNOWN_CHAIN_ID = 999_999L
