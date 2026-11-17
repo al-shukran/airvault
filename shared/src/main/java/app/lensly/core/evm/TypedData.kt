@@ -124,13 +124,15 @@ class TypedData(
         private val TWO_255: BigInteger = BigInteger.ONE.shiftLeft(255)
 
         /**
-         * Refuses a type set that EIP-712 cannot hash: a name that is not an identifier, a repeated member, a member of a type that
-         * is neither atomic nor declared, an array suffix that is malformed, or a struct that contains itself.
+         * Refuses a type set that EIP-712 cannot hash: a name that is not an identifier, a struct named as an atomic type, a repeated
+         * member, a member of a type that is neither atomic nor declared, an array suffix that is malformed, or a struct that contains
+         * itself.
          */
         fun checkSchema(types: Map<String, List<TypedField>>) {
             require(types.isNotEmpty()) { "the types declare nothing" }
             for ((name, fields) in types) {
                 require(IDENTIFIER.matches(name)) { "type name $name is not an identifier" }
+                require(name !in ATOMIC_TYPES) { "type name $name is an atomic type" }
                 require(fields.map { it.name }.toSet().size == fields.size) { "type $name repeats a member" }
                 for (field in fields) {
                     require(IDENTIFIER.matches(field.name)) { "member ${field.name} of $name is not an identifier" }
