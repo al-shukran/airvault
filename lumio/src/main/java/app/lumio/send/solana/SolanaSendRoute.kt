@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
+import app.lensly.core.solana.SolanaNonce
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.qr.ScanScreen
@@ -30,6 +31,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RecentBlockhash
+import app.lumio.data.provider.RentExemptMinimum
+import app.lumio.data.provider.SolanaAccountRead
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.rpc.JsonRpc
@@ -41,6 +44,7 @@ import app.lumio.onVault
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.send.solana.SolanaSendFormScreen
 import app.lumio.ui.send.solana.SolanaSendReviewScreen
+import app.lumio.ui.send.solana.SolanaSetupReviewScreen
 import app.lumio.ui.send.solana.SolanaSignRequestScreen
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
@@ -58,12 +62,21 @@ private sealed interface SolanaSendStep {
 
     class Review(val plan: SolanaSendPlan) : SolanaSendStep
 
-    class Request(val plan: SolanaSendPlan, val parts: List<String>) : SolanaSendStep
+    /** The one-time setup of offline signing: the nonce account to create, and the rent paid into it. Shown before Lensly signs the setup. */
+    class SetupReview(val nonceAccount: String, val rentLamports: Long) : SolanaSendStep
 
-    class Scanning(val plan: SolanaSendPlan, val parts: List<String>) : SolanaSendStep
+    /** A request for Lensly to sign. [setup] is true for the one-time setup, which is not a send. */
+    class Request(val plan: SolanaSendPlan, val parts: List<String>, val setup: Boolean = false) : SolanaSendStep
 
-    /** The signed transaction, held in memory until the owner submits it. Leaving the screen discards it. */
-    class Submit(val plan: SolanaSendPlan, val parts: List<String>, val machine: SubmitMachine<*, String>) : SolanaSendStep
+    class Scanning(val plan: SolanaSendPlan, val parts: List<String>, val setup: Boolean = false) : SolanaSendStep
+
+    /** The signed transaction, held in memory until the owner submits it. Leaving the screen discards it. [setup] is true for the one-time setup. */
+    class Submit(
+        val plan: SolanaSendPlan,
+        val parts: List<String>,
+        val machine: SubmitMachine<*, String>,
+        val setup: Boolean = false,
+    ) : SolanaSendStep
 }
 
 private const val RECIPIENT_HINT = "Point the camera at a Solana address or a solana: link."
@@ -76,6 +89,11 @@ private const val SIGNATURE_FAILED = "That code could not be used. Scan the sign
 private const val BROADCAST_FAILED = "The transaction could not be sent. Check the balance, then try again."
 private const val NETWORK_FAILED = "The Solana network could not be read. Try again."
 private const val NO_BROWSER = "No browser can open the explorer."
+private const val SYSTEM_PROGRAM = "11111111111111111111111111111111"
+private const val NONCE_UNUSABLE = "The nonce account of this account cannot be used for a send."
+private const val SETUP_DONE = "Offline signing is set up. Review the send again to sign it."
+private const val SETUP_PENDING = "The setup is not confirmed yet. Review the send again in a minute."
+private const val SETUP_FAILED = "The setup did not go through. Start it again from the send."
 
 /**
  * A Solana send from one paired account, which is fixed: the form, the review, the request that Lensly signs, the scan of its answer, and the status
@@ -150,26 +168,58 @@ internal fun SolanaSendRoute(
                 runCatching {
                     val to = SolanaSendInput.recipient(recipient)
                     val lamports = SolanaSendInput.lamports(amount)
-                    val blockhash = Base58.decode(scheduler.run(RecentBlockhash(network), Priority.FOREGROUND))
                     val available = scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND)
-                    SolanaSend.plan(network, from, to, lamports, available, blockhash, SolanaSend.newRequestId())
+                    // A send names the nonce that the account's nonce account holds. Until that account exists, the one-time setup comes first.
+                    val nonceAccount = SolanaNonce.accountOf(from.key)
+                    val state = scheduler.run(SolanaAccountRead(network, Base58.encode(nonceAccount)), Priority.FOREGROUND)
+                    if (state == null) {
+                        val rent = scheduler.run(RentExemptMinimum(network, SolanaNonce.ACCOUNT_BYTES), Priority.FOREGROUND)
+                        SolanaSend.checkSetupFunds(available, rent)
+                        SolanaSendStep.SetupReview(Base58.encode(nonceAccount), rent)
+                    } else {
+                        // The nonce account is the System Program's, and its data names this account as the authority.
+                        val nonceValue = state.takeIf { it.owner == SYSTEM_PROGRAM }?.let { SolanaNonce.nonceValue(it.data, from.key) }
+                            ?: throw IllegalArgumentException(NONCE_UNUSABLE)
+                        SolanaSendStep.Review(SolanaSend.plan(network, from, to, lamports, available, nonceValue, SolanaSend.newRequestId()))
+                    }
                 }
             }
             busy = false
             outcome.fold(
-                onSuccess = { plan -> step = SolanaSendStep.Review(plan) },
+                onSuccess = { next -> step = next },
                 onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
             )
         }
     }
 
-    fun confirm(plan: SolanaSendPlan) {
+    fun confirm(plan: SolanaSendPlan, setup: Boolean = false) {
         runCatching { SolanaSend.requestParts(plan) }
             .onSuccess { parts ->
                 notice = null
-                step = SolanaSendStep.Request(plan, parts)
+                step = SolanaSendStep.Request(plan, parts, setup)
             }
             .onFailure { notice = REQUEST_FAILED }
+    }
+
+    /** The setup at a fresh blockhash, so that the request Lensly signs names a blockhash that is recent when the owner shows it. */
+    fun prepareSetup(current: SolanaSendStep.SetupReview) {
+        val from = account ?: return
+        busy = true
+        notice = null
+        scope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val blockhash = Base58.decode(scheduler.run(RecentBlockhash(network), Priority.FOREGROUND))
+                    val available = scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND)
+                    SolanaSend.setupPlan(network, from, current.rentLamports, available, blockhash, SolanaSend.newRequestId())
+                }
+            }
+            busy = false
+            outcome.fold(
+                onSuccess = { plan -> confirm(plan, setup = true) },
+                onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
+            )
+        }
     }
 
     /** A scanned recipient fills the form. A code that is refused keeps the camera on, with the words why. */
@@ -188,7 +238,7 @@ internal fun SolanaSendRoute(
         scanProgress = null
         scanStatus = SCAN_HINT
         notice = null
-        step = SolanaSendStep.Scanning(current.plan, current.parts)
+        step = SolanaSendStep.Scanning(current.plan, current.parts, current.setup)
     }
 
     /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until the owner submits it on the next screen. */
@@ -212,7 +262,7 @@ internal fun SolanaSendRoute(
                         describe = { error -> solanaFailure(error) },
                     )
                     notice = null
-                    step = SolanaSendStep.Submit(current.plan, current.parts, machine)
+                    step = SolanaSendStep.Submit(current.plan, current.parts, machine, current.setup)
                 },
             )
         }
@@ -251,6 +301,24 @@ internal fun SolanaSendRoute(
         }
     }
 
+    /**
+     * Done on a setup's submit screen. The form comes back with the outcome, and the balance is read again, since the rent has left the account.
+     */
+    fun finishSetup() {
+        val from = account ?: return
+        notice = when (sentOutcome) {
+            SolanaOutcome.CONFIRMED -> SETUP_DONE
+            SolanaOutcome.FAILED -> SETUP_FAILED
+            else -> SETUP_PENDING
+        }
+        step = SolanaSendStep.Form
+        scope.launch {
+            balance = withContext(Dispatchers.IO) {
+                runCatching { scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND) }.getOrNull()
+            }
+        }
+    }
+
     BackHandler {
         when (val current = step) {
             SolanaSendStep.Form -> navController.popBackStack()
@@ -259,17 +327,21 @@ internal fun SolanaSendRoute(
                 notice = null
                 step = SolanaSendStep.Form
             }
+            is SolanaSendStep.SetupReview -> {
+                notice = null
+                step = SolanaSendStep.Form
+            }
             is SolanaSendStep.Request -> {
                 notice = null
-                step = SolanaSendStep.Review(current.plan)
+                step = if (current.setup) SolanaSendStep.Form else SolanaSendStep.Review(current.plan)
             }
-            is SolanaSendStep.Scanning -> step = SolanaSendStep.Request(current.plan, current.parts)
+            is SolanaSendStep.Scanning -> step = SolanaSendStep.Request(current.plan, current.parts, current.setup)
             is SolanaSendStep.Submit -> when (current.machine.state.value) {
                 SubmitState.Submitting -> Unit
-                is SubmitState.Sent -> navController.popBackStack()
+                is SubmitState.Sent -> if (current.setup) finishSetup() else navController.popBackStack()
                 else -> {
                     notice = null
-                    step = SolanaSendStep.Request(current.plan, current.parts)
+                    step = SolanaSendStep.Request(current.plan, current.parts, current.setup)
                 }
             }
         }
@@ -313,13 +385,25 @@ internal fun SolanaSendRoute(
                 step = SolanaSendStep.Form
             },
         )
+        is SolanaSendStep.SetupReview -> SolanaSetupReviewScreen(
+            network = network,
+            sender = from.address,
+            nonceAccount = current.nonceAccount,
+            rentLamports = current.rentLamports,
+            notice = notice,
+            onConfirm = { prepareSetup(current) },
+            onBack = {
+                notice = null
+                step = SolanaSendStep.Form
+            },
+        )
         is SolanaSendStep.Request -> SolanaSignRequestScreen(
             parts = current.parts,
             notice = notice,
             onScan = { startScan(current) },
             onBack = {
                 notice = null
-                step = SolanaSendStep.Review(current.plan)
+                step = if (current.setup) SolanaSendStep.Form else SolanaSendStep.Review(current.plan)
             },
         )
         is SolanaSendStep.Scanning -> ScanScreen(
@@ -327,7 +411,7 @@ internal fun SolanaSendRoute(
             progress = scanProgress,
             statusText = scanStatus,
             onText = { text -> onSignatureText(current, text) },
-            onCancel = { step = SolanaSendStep.Request(current.plan, current.parts) },
+            onCancel = { step = SolanaSendStep.Request(current.plan, current.parts, current.setup) },
         )
         is SolanaSendStep.Submit -> SubmitScreen(
             machine = current.machine,
@@ -343,9 +427,9 @@ internal fun SolanaSendRoute(
             },
             onBack = {
                 notice = null
-                step = SolanaSendStep.Request(current.plan, current.parts)
+                step = SolanaSendStep.Request(current.plan, current.parts, current.setup)
             },
-            onDone = { navController.popBackStack() },
+            onDone = { if (current.setup) finishSetup() else navController.popBackStack() },
         )
     }
 }
