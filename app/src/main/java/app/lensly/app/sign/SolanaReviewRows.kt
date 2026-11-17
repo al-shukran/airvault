@@ -143,4 +143,8 @@ fun solanaWarningText(warning: SolanaWarning): String = when (warning) {
         "An instruction calls a program Lensly does not read. It is shown as raw bytes, and Lensly cannot say what it does."
     SolanaWarning.LOOKUP_TABLE ->
         "Some accounts come from address lookup tables. Lensly cannot check those addresses offline."
+    SolanaWarning.UNKNOWN_TOKEN ->
+        "Unknown token. This mint is not in Lensly's token list, so Lensly shows its address and cannot name the token."
+    SolanaWarning.DECIMALS_UNKNOWN ->
+        "Decimals unknown. A plain token Transfer does not name its mint, so its amount is shown in base units."
 }
