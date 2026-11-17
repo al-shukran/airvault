@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -314,12 +315,12 @@ class TxReviewScreenTest {
         compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText("ACCOUNT WITH A LONG DISPLAY NAME 12").assertExists()
-        compose.onNodeWithText("BASE").assertExists()
+        compose.onNodeWithText("Base").assertExists()
         compose.onNodeWithText("Requested by").assertExists()
         compose.onNodeWithText(LONG_ORIGIN).assertExists()
-        compose.onNodeWithText("Transaction").performScrollTo().performClick()
         compose.onNodeWithText(LONG_WALLET).assertExists()
-        compose.onNodeWithText(groupAddress(FROM)).assertExists()
+        // The header and the From row both show the signing address, so it is found among the matches.
+        assertTrue(compose.onAllNodesWithText(groupAddress(FROM)).fetchSemanticsNodes().isNotEmpty())
     }
 
     @Test
@@ -343,17 +344,53 @@ class TxReviewScreenTest {
 
     @Test
     fun aShortReviewWithNoWarningCanBeSignedAtOnce() {
-        // The review fits on screen and has no warning, so the fit counts as read and nothing else is owed.
+        // The review fits on screen, so the fit counts as read and nothing else is owed.
         compose.setContent { LenslyTheme { TxReviewScreen(review = plainTransfer(), onApprove = {}, onReject = {}) } }
 
-        compose.onNodeWithText("Open details to continue").assertDoesNotExist()
         compose.onNodeWithText("Scroll to the end to review everything").assertDoesNotExist()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
     }
 
     @Test
-    fun aShortReviewWithAWarningCannotBeSignedWhileItsDetailsAreFolded() {
-        // The review fits on screen, yet the warning is read in the details, so the fit alone does not count as read.
+    fun everyDetailIsShownOnFirstRenderWithoutOpeningAnySection() {
+        compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+
+        compose.onNodeWithText("Transaction").assertExists()
+        compose.onNodeWithText("Chain ID").assertExists()
+        compose.onNodeWithText("Nonce").assertExists()
+    }
+
+    @Test
+    fun theHeaderNamesTheNetworkAndTheSigningAccountWithItsWallet() {
+        val review = plainTransfer()
+        compose.setContent { LenslyTheme { TxReviewScreen(review = review, onApprove = {}, onReject = {}) } }
+
+        assertTrue(compose.onAllNodesWithText(review.networkName).fetchSemanticsNodes().isNotEmpty())
+        compose.onNodeWithText(review.fromAccountLabel).assertExists()
+        compose.onNodeWithText("Main wallet").assertExists()
+    }
+
+    @Test
+    fun aCounterpartyInTheAddressBookShowsItsEntryAndOneNotInItSaysSo() {
+        val saved = plainTransfer().copy(
+            addressNotes = mapOf(addressKeyOf(TO) to AddressNotes(internal = null, entry = AddressBookEntry("1", TO, "Alice", "Exchange"))),
+        )
+        compose.setContent { LenslyTheme { TxReviewScreen(review = saved, onApprove = {}, onReject = {}) } }
+        compose.onNodeWithText("Alice").assertExists()
+        compose.onNodeWithText("Address label").assertExists()
+        // The sender is not saved, so its row says so, while the saved recipient shows no such line.
+        assertTrue(compose.onAllNodesWithText("Not in address book").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun aCounterpartyNotInTheAddressBookIsSaidSoAsPlainText() {
+        compose.setContent { LenslyTheme { TxReviewScreen(review = plainTransfer(), onApprove = {}, onReject = {}) } }
+        compose.onAllNodesWithText("Not in address book").fetchSemanticsNodes().let { assertTrue(it.isNotEmpty()) }
+    }
+
+    @Test
+    fun aShortReviewWithAWarningShowsItsDetailsAndCanBeSignedOnceItFits() {
+        // The review fits on screen. The warning has no check to tick, so the fit is the whole read.
         compose.setContent {
             LenslyTheme {
                 TxReviewScreen(review = plainTransfer().copy(warnings = listOf(NEW_RECIPIENT)), onApprove = {}, onReject = {})
@@ -361,13 +398,13 @@ class TxReviewScreenTest {
         }
 
         compose.onNodeWithText(NEW_RECIPIENT).assertExists()
-        compose.onNodeWithText("Open details to continue").assertExists()
-        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+        compose.onNodeWithText("Transaction").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
     }
 
     @Test
-    fun aReviewWithAWarningSignsOnceItsDetailsAreOpenedAndScrolledToTheEnd() {
-        // In a window this short the opened details run past the bottom, so the review must be scrolled to its end.
+    fun aReviewWithAWarningSignsOnceItsListIsScrolledToTheEnd() {
+        // In a window this short the details run past the bottom, so the review must be scrolled to its end.
         compose.setContent {
             LenslyTheme {
                 Box(Modifier.size(width = 360.dp, height = 640.dp)) {
@@ -376,11 +413,6 @@ class TxReviewScreenTest {
             }
         }
 
-        compose.onNodeWithText("Open details to continue").assertExists()
-        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
-
-        compose.onNodeWithText("Transaction").performScrollTo().performClick()
-        compose.onNodeWithText("Open details to continue").assertDoesNotExist()
         compose.onNodeWithText("Scroll to the end to review everything").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
 
@@ -390,15 +422,10 @@ class TxReviewScreenTest {
     }
 
     @Test
-    fun aWarningReviewThatFitsOnScreenStillNeedsItsDetailsOpenedAndItsCheck() {
-        // The summary and the banner fit, yet the warning is read in the details. Opening them leaves only the check to tick.
+    fun aWarningReviewThatFitsOnScreenNeedsOnlyItsCheck() {
+        // The summary and the banner fit, and the review is read. Its check is still owed until it is ticked.
         compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
-        compose.onNodeWithText("Open details to continue").assertExists()
-        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
-
-        compose.onNodeWithText("Transaction").performScrollTo().performClick()
-        compose.onNodeWithText("Open details to continue").assertDoesNotExist()
         compose.onNodeWithText("Tick the checkbox above to sign").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
     }
@@ -458,8 +485,6 @@ class TxReviewScreenTest {
         }
 
         // The summary names the spender, and the Fields section names it again above its address.
-        compose.onAllNodesWithText("Uniswap Router").assertCountEquals(1)
-        compose.onNodeWithText("Fields").performScrollTo().performClick()
         compose.onAllNodesWithText("Uniswap Router").assertCountEquals(2)
     }
 
@@ -474,8 +499,6 @@ class TxReviewScreenTest {
         }
 
         // The summary names the account, and the Fields section shows its cue and its wallet under the same address.
-        compose.onAllNodesWithText("Savings 0").assertCountEquals(1)
-        compose.onNodeWithText("Fields").performScrollTo().performClick()
         compose.onAllNodesWithText("Savings 0").assertCountEquals(2)
         compose.onAllNodesWithText("An account of this device").assertCountEquals(1)
         compose.onAllNodesWithText("Savings").assertCountEquals(1)

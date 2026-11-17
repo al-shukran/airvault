@@ -16,7 +16,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
-import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
+import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.sign.UNKNOWN_UNIT
 import app.lensly.ui.sign.assumedAmountNote
 import app.lensly.ui.sign.unknownFeeNote
@@ -80,7 +80,7 @@ internal val sampleNativeReview = TxReview(
 
 /** A native transfer on a chain outside the registry. The registry block and the unchecked check both show. */
 internal val sampleUnknownChainReview = TxReview(
-    networkName = UNKNOWN_CHAIN_NAME,
+    networkName = unknownNetworkName(999_999L),
     chainId = 999_999L,
     fromAccountLabel = "ACCOUNT 1",
     walletName = "Main wallet",

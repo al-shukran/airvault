@@ -12,6 +12,8 @@ import app.lensly.core.btc.ScriptType
 data class BitcoinReviewed(
     val account: BitcoinAccountRecord,
     val review: BtcReview,
+    /** The account that signs, as the review names it: its name, its wallet's name and its first receive address. */
+    val signer: SigningAccount,
     /** What the Address Book and the wallet's own Bitcoin accounts say of each output address, keyed by [addressKeyOf]. */
     val addressNotes: Map<String, AddressNotes> = emptyMap(),
 )

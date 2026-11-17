@@ -6,6 +6,7 @@ import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.AsaCatalog
 import app.lensly.core.ur.PathStep
 import app.lensly.ui.sign.AlgorandReviewScreen
+import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.SignRefusedScreen
 import java.io.File
 import org.junit.Rule
@@ -30,22 +31,22 @@ class AlgorandReviewScreenshotTest {
 
     @Test
     fun reviewMainnetUsdcTransfer() = compose.snapshotSettled("algorand_review_usdc_transfer") {
-        AlgorandReviewScreen(review = review(MAINNET_USDC_TRANSFER), onApprove = {}, onReject = {})
+        AlgorandReviewScreen(review = review(MAINNET_USDC_TRANSFER), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), onApprove = {}, onReject = {})
     }
 
     @Test
     fun reviewMainnetUsdcOptIn() = compose.snapshotSettled("algorand_review_opt_in") {
-        AlgorandReviewScreen(review = review(MAINNET_USDC_OPT_IN), onApprove = {}, onReject = {})
+        AlgorandReviewScreen(review = review(MAINNET_USDC_OPT_IN), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), onApprove = {}, onReject = {})
     }
 
     @Test
     fun reviewTestnetUsdcOptOut() = compose.snapshotSettled("algorand_review_opt_out") {
-        AlgorandReviewScreen(review = review(TESTNET_USDC_OPT_OUT), onApprove = {}, onReject = {})
+        AlgorandReviewScreen(review = review(TESTNET_USDC_OPT_OUT), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), onApprove = {}, onReject = {})
     }
 
     @Test
     fun reviewUnknownAsset() = compose.snapshotSettled("algorand_review_unknown_asset") {
-        AlgorandReviewScreen(review = review(TESTNET_UNKNOWN_ASSET), onApprove = {}, onReject = {})
+        AlgorandReviewScreen(review = review(TESTNET_UNKNOWN_ASSET), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), onApprove = {}, onReject = {})
     }
 
     @Test

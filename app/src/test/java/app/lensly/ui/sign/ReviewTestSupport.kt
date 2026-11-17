@@ -1,5 +1,7 @@
 package app.lensly.ui.sign
 
+import app.lensly.app.SigningAccount
+
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.performTouchInput
@@ -18,3 +20,6 @@ internal fun ComposeContentTestRule.scrollReviewToEnd() {
     }
     waitForIdle()
 }
+
+/** The account that signs the sample reviews: its name, its wallet and its address. */
+internal val SAMPLE_SIGNER = SigningAccount(name = "OfPixelBlaze", walletName = "Seed wallet", address = "bc1qtestsigner0000000000000000000000000000")

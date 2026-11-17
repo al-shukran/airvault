@@ -571,7 +571,13 @@ class WalletStore(private val session: VaultSession) {
             val record = stored.first { it.key == Triple(account.scriptType, account.network, account.accountIndex) }
             val internal = otherBitcoinAccounts(id) + ownBitcoinAccounts(id, stored, accounts)
             val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, internal, book)
-            return BitcoinReviewed(record, review, notes)
+            val owner = meta(id)
+            val signer = SigningAccount(
+                name = record.profile.name ?: autoAccountName(owner?.autoNameBase.orEmpty(), record.index),
+                walletName = owner?.name.orEmpty(),
+                address = record.firstReceiveAddress,
+            )
+            return BitcoinReviewed(record, review, signer, notes)
         } finally {
             seed.fill(0)
         }

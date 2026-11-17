@@ -2,7 +2,6 @@ package app.lensly.ui.sign
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,8 +18,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -30,17 +27,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -48,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressNotes
+import app.lensly.app.isAddressValue
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.rememberKeyHaptics
@@ -62,7 +54,7 @@ import app.lensly.ui.theme.LenslyWarning
 import app.lensly.ui.theme.SpaceMonoFamily
 
 // The review building blocks that the Bitcoin and the transaction reviews share, so both read alike. A review screen is a
-// composition of these: the chips under the header, the summary sentence and its key/value list, one risk banner for every
+// composition of these: the header, the summary sentence and its key/value list, one risk banner for every
 // warning, the collapsible details, and the bottom actions. Body text is sans. Mono is for amounts, addresses, hashes and data.
 
 /** One row of a summary's key/value list. [mono] is set for an amount or data. A plain word such as "Unknown" is set in sans. */
@@ -75,20 +67,48 @@ internal data class RiskCheck(val label: String, val checked: Boolean, val onChe
 internal data class RiskItem(val text: String, val tone: BannerTone, val check: RiskCheck? = null)
 
 /**
- * The chip row under the header: the network, with its logo when [networkIcon] is given, and the account that signs. A testnet's
- * network is drawn in the warning colour, so a test network cannot pass for the main one.
+ * The header of a review: the network, named in full and large, with its raw [chainDetail] under it and the testnet badge in the warning
+ * colour when [testnet] is set. Under it come the account that signs and its wallet, then the address of that account in full. [networkIcon]
+ * is the logo of the network, when it has one.
  */
 @Composable
-internal fun ReviewChips(
+internal fun ReviewHeader(
     network: String,
     testnet: Boolean,
+    chainDetail: String?,
     account: String,
+    wallet: String,
+    address: String,
     modifier: Modifier = Modifier,
+    bitcoin: Boolean = false,
     networkIcon: (@Composable () -> Unit)? = null,
 ) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-        ReviewChip(text = network, tone = if (testnet) LenslyWarning else null, leading = networkIcon)
-        ReviewChip(text = account)
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            networkIcon?.let {
+                it()
+                Spacer(Modifier.width(LenslySpacing.xs))
+            }
+            Text(
+                text = network,
+                modifier = Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = LenslySansFamily, fontWeight = FontWeight.Bold),
+                color = if (testnet) LenslyWarning else LenslyOnSurface,
+            )
+            if (testnet) {
+                Spacer(Modifier.width(LenslySpacing.xs))
+                ReviewChip(text = "Testnet", tone = LenslyWarning)
+            }
+        }
+        chainDetail?.let {
+            Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(LenslySpacing.sm))
+        ReviewFactRow(label = "Account", value = account, mono = false)
+        ReviewFactRow(label = "Wallet", value = wallet, mono = false)
+        Spacer(Modifier.height(LenslySpacing.xxs))
+        Text(text = "Address", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AddressText(address = address, bitcoin = bitcoin, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -172,8 +192,8 @@ internal fun ReviewFactRow(label: String, value: String, mono: Boolean = true, m
 }
 
 /**
- * One argument or field of a review: its label above, and its value below. An address is shown with its names, through [ReviewAddress].
- * Any other value is in mono, since it is data.
+ * One argument or field of a review: its label above, and its value below. An address is shown with its names, and with whether the
+ * Address Book holds it, through [ReviewAddress]. Any other value is in mono, since it is data.
  */
 @Composable
 internal fun ReviewField(label: String, value: String, notes: AddressNotes? = null, modifier: Modifier = Modifier) {
@@ -187,7 +207,7 @@ internal fun ReviewField(label: String, value: String, notes: AddressNotes? = nu
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(LenslySpacing.xxs))
-        if (isEvmAddress(value)) {
+        if (isAddressValue(value)) {
             ReviewAddress(address = value, notes = notes)
         } else {
             Text(
@@ -278,48 +298,19 @@ internal fun AckCheckbox(label: String, checked: Boolean, onCheckedChange: (Bool
 }
 
 /**
- * A collapsible section of the details. It starts collapsed, so the summary and the risks are what the eye reads first, and it opens
- * on a tap of its title row. A review screen keys its details to the review, so a new review starts collapsed again. [onOpen] runs
- * when the section opens, so the review knows its details were opened.
+ * A section of the details. Its content is always shown, so every field of a review is on screen on first render, and the owner reads
+ * each one. The section has a title and a divider under it.
  */
 @Composable
-internal fun DetailsSection(
-    title: String,
-    modifier: Modifier = Modifier,
-    onOpen: () -> Unit = {},
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    var open by remember { mutableStateOf(false) }
+internal fun ReviewSection(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .semantics { stateDescription = if (open) "Expanded" else "Collapsed" }
-                .clickable(
-                    role = Role.Button,
-                    onClick = {
-                        open = !open
-                        if (open) onOpen()
-                    },
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                color = LenslyOnSurface,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                imageVector = if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (open) {
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = LenslySpacing.sm), content = content)
-        }
+        Text(
+            text = title,
+            modifier = Modifier.padding(vertical = LenslySpacing.xs),
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+            color = LenslyOnSurface,
+        )
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = LenslySpacing.sm), content = content)
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
     }
 }
@@ -367,8 +358,9 @@ internal fun ReviewActions(
 }
 
 /**
- * An address with what the Address Book and the device's accounts say of it. The name it goes by sits above the address, and the
- * notes that are not a name sit under it, so the owner reads who it is before the characters.
+ * An address with what the Address Book and the device's accounts say of it. The name it goes by sits above the address, and the full
+ * address follows. Under it: the address-book label, or "Not in address book" when the Address Book holds no entry for it, and the
+ * device's own account notes. The Address Book is read for every counterparty, so a miss is shown, and it is not a warning.
  */
 @Composable
 internal fun ReviewAddress(address: String, notes: AddressNotes?, bitcoin: Boolean = false, modifier: Modifier = Modifier) {
@@ -382,22 +374,33 @@ internal fun ReviewAddress(address: String, notes: AddressNotes?, bitcoin: Boole
             Spacer(Modifier.height(LenslySpacing.xxs))
         }
         AddressText(address = address, bitcoin = bitcoin)
-        notes?.let { AddressNoteLines(notes = it) }
+        AddressNoteLines(notes = notes)
     }
 }
 
-/** The notes of an address that are not its name, in sans: what this device's account is, its wallet, and any Address Book label. */
+/**
+ * The notes of an address that are not its name, in sans: what this device's account is, its wallet, its Address Book label, and
+ * "Not in address book" when the Address Book holds no entry for it.
+ */
 @Composable
-internal fun AddressNoteLines(notes: AddressNotes, modifier: Modifier = Modifier) {
+internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
-        notes.internal?.let { account ->
+        notes?.internal?.let { account ->
             NoteText("An account of this device")
             account.walletName?.let { ReviewFactRow(label = "Wallet", value = it, mono = false) }
             account.label?.let { ReviewFactRow(label = "Label", value = it, mono = false) }
         }
-        notes.entry?.label?.let { ReviewFactRow(label = "Address label", value = it, mono = false) }
+        val entry = notes?.entry
+        if (entry == null) {
+            NoteText(NOT_IN_ADDRESS_BOOK)
+        } else {
+            entry.label?.let { ReviewFactRow(label = "Address label", value = it, mono = false) }
+        }
     }
 }
+
+/** The line a counterparty shows when the Address Book holds no entry for it. It is plain text, not a warning. */
+internal const val NOT_IN_ADDRESS_BOOK = "Not in address book"
 
 /**
  * The name an address goes by: its Address Book name, or else the name of this device's account. Null when neither gives one.

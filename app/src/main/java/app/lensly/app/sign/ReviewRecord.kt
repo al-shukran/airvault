@@ -6,10 +6,10 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.wallet.toHex
-import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
+import app.lensly.ui.sign.bitcoinNetworkName
 import app.lensly.ui.sign.btcText
-import app.lensly.ui.sign.networkName
 import app.lensly.ui.sign.scriptTypeName
+import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.sign.warningText
 import java.security.MessageDigest
 
@@ -160,7 +160,7 @@ fun bitcoinReviewRecordOf(entry: BitcoinReviewEntry, atMs: Long): ReviewRecord {
         outcome = entry.outcome,
         kind = ReviewKind.BITCOIN_TRANSACTION,
         chainId = null,
-        networkName = reviewed?.account?.network?.let { "Bitcoin ${networkName(it).lowercase()}" },
+        networkName = reviewed?.account?.network?.let(::bitcoinNetworkName),
         accountIndex = reviewed?.account?.index,
         address = null,
         function = null,
@@ -200,7 +200,7 @@ fun reviewRecordOf(entry: ReviewEntry, atMs: Long, registry: Registry): ReviewRe
         outcome = entry.outcome,
         kind = kindOf(request.dataType),
         chainId = chainId,
-        networkName = review?.networkName ?: chainId?.let { registry.network(it)?.name ?: UNKNOWN_CHAIN_NAME },
+        networkName = review?.networkName ?: chainId?.let { registry.network(it)?.name ?: unknownNetworkName(it) },
         accountIndex = entry.ready?.accountIndex,
         address = review?.fromAddress,
         function = review?.function,

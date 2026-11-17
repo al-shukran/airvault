@@ -28,26 +28,15 @@ import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslySpacing
 
 /**
- * Whether the owner has read a review, which must hold before its sign control may run. [listReached] says that the list is scrolled to
- * its end, or that it fits on screen. A review with no warning is read by that alone. A review with a warning is read only once a details
- * section has also been opened, because the warning is explained there, and the banner on its own is not a read.
- */
-internal fun isReviewRead(hasWarnings: Boolean, detailsOpened: Boolean, listReached: Boolean): Boolean =
-    listReached && (!hasWarnings || detailsOpened)
-
-/**
- * What the owner has read of one review: how far its list is scrolled and measured, whether a details section has opened, and whether the
- * review counts as read. A new review starts unread. Once read, a review stays read, so folding a section back does not undo it.
+ * What the owner has read of one review: how far its list is scrolled and measured, and whether the review counts as read. Every detail
+ * of a review is on screen, so reading it means reaching the end of its list, or the list fitting on screen. A new review starts unread.
+ * Once read, a review stays read.
  */
 @Stable
 internal class ReviewRead(val scroll: ScrollState) {
     /** The visible height of the list, and the height of its content, in pixels, as layout measured them. */
     var viewportPx by mutableIntStateOf(0)
     var contentPx by mutableIntStateOf(0)
-
-    /** True once a details section has been opened. */
-    var detailsOpened by mutableStateOf(false)
-        private set
 
     /** True once the review counts as read. */
     var read by mutableStateOf(false)
@@ -59,39 +48,24 @@ internal class ReviewRead(val scroll: ScrollState) {
     /** True when the list fits on screen, so there is nothing to scroll to. */
     val fits by derivedStateOf { viewportPx > 0 && contentPx in 1..viewportPx }
 
-    /** Runs when a details section opens. */
-    fun openDetails() {
-        detailsOpened = true
-    }
-
-    /** Marks the review read once [isReviewRead] holds for it. */
-    fun settle(hasWarnings: Boolean) {
-        if (isReviewRead(hasWarnings, detailsOpened, atEnd || fits)) read = true
+    /** Marks the review read once the list is at its end or fits on screen. */
+    fun settle() {
+        if (atEnd || fits) read = true
     }
 }
 
-/**
- * The read state of the review on screen. It is new for each review, and it is settled again whenever the list is scrolled or measured,
- * or a details section opens.
- */
+/** The read state of the review on screen. It is new for each review, and it is settled again whenever the list is scrolled or measured. */
 @Composable
-internal fun rememberReviewRead(review: Any, hasWarnings: Boolean): ReviewRead {
+internal fun rememberReviewRead(review: Any): ReviewRead {
     val scroll = rememberScrollState()
     val read = remember(review) { ReviewRead(scroll) }
     val reached = read.atEnd || read.fits
-    LaunchedEffect(reached, read.detailsOpened, hasWarnings) { read.settle(hasWarnings) }
+    LaunchedEffect(reached) { read.settle() }
     return read
 }
 
-/**
- * The line above the sign control while the review is unread: the details first when the review has a warning, then the end of the list.
- * Null once the review is read.
- */
-internal fun readHint(read: ReviewRead, hasWarnings: Boolean): String? = when {
-    read.read -> null
-    hasWarnings && !read.detailsOpened -> "Open details to continue"
-    else -> "Scroll to the end to review everything"
-}
+/** The line above the sign control while the review is unread. Null once the review is read. */
+internal fun readHint(read: ReviewRead): String? = if (read.read) null else "Scroll to the end to review everything"
 
 /**
  * The list of a review. It fills the space above the bottom actions and scrolls, and a fade runs over its cut-off edge while more lies

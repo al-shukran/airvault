@@ -1,5 +1,6 @@
 package app.lensly.ui.flow
 
+import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
@@ -7,7 +8,6 @@ import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
-import app.lensly.app.export.partsOf
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.algorand.AlgorandRequestCheck
 import app.lensly.core.algorand.LedgerEd25519
@@ -25,6 +25,7 @@ import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.Ed25519Signer
+import app.lensly.ui.sign.SAMPLE_SIGNER
 import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -184,7 +185,7 @@ class SignFlowAlgorandTest {
             prepareCalls++
             if (request.sourceFingerprint != FINGERPRINT) return AlgorandPrepared.Refused("This request is for a different wallet")
             return when (val checked = AlgorandRequestCheck.check(request, ALGORAND_KEYS)) {
-                is AlgorandRequestCheck.Result.Ok -> AlgorandPrepared.Ready(walletId, request, checked.review)
+                is AlgorandRequestCheck.Result.Ok -> AlgorandPrepared.Ready(walletId, request, checked.review, SAMPLE_SIGNER, emptyMap())
                 is AlgorandRequestCheck.Result.Refused -> AlgorandPrepared.Refused(checked.reason)
             }
         }

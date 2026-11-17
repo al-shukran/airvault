@@ -47,7 +47,7 @@ import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TypedReview
-import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
+import app.lensly.ui.sign.evmNetworkName
 import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
 import app.lensly.ui.sign.UNKNOWN_UNIT
 import app.lensly.ui.sign.assumedAmountNote
@@ -169,7 +169,7 @@ class SignPipeline(
 
         val chainId = request.chainId ?: return Prepared.Refused("The request does not name a network")
         // A chain outside the registry has no network. It is reviewed as an unknown chain, with a warning, not refused.
-        val label = (wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)).uppercase()
+        val label = wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)
         val target = Target(parsed, chainId, registry.network(chainId), wallet, index, address, label)
 
         return when (request.dataType) {
@@ -620,7 +620,7 @@ class SignPipeline(
     ): UndecodedCall =
         UndecodedCall(
             target = checksum(contract),
-            networkName = target.network?.name ?: UNKNOWN_CHAIN_NAME,
+            networkName = evmNetworkName(target.network, target.chainId),
             chainId = target.chainId,
             value = "${nativeAmount(value, target.network)} ${nativeUnit(target.network)}",
             selector = calldata.copyOfRange(0, minOf(SELECTOR_BYTES, calldata.size)).toHex(),
@@ -669,7 +669,7 @@ class SignPipeline(
         val denied = registry.typedDenylistMatches(target.chainId, verifyingContract, typed.primaryType)
         denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { return Prepared.Refused(it.reason) }
 
-        val built = typedDataReview(typed, registry, target.chainId, target.network?.name ?: UNKNOWN_CHAIN_NAME)
+        val built = typedDataReview(typed, registry, target.chainId, evmNetworkName(target.network, target.chainId))
         val review = target.review(
             function = typed.primaryType,
             txType = TYPED_DATA_TYPE,
@@ -702,7 +702,7 @@ class SignPipeline(
         denylisted: List<DenylistEntry> = emptyList(),
         typed: TypedReview? = null,
     ): TxReview = TxReview(
-        networkName = network?.name ?: UNKNOWN_CHAIN_NAME,
+        networkName = evmNetworkName(network, chainId),
         chainId = chainId,
         fromAccountLabel = label,
         fromAddress = address,

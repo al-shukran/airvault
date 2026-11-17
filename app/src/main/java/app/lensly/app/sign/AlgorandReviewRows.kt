@@ -1,5 +1,6 @@
 package app.lensly.app.sign
 
+import app.lensly.app.addressesIn
 import app.lensly.core.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.AlgorandWarning
@@ -70,6 +71,9 @@ fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> = bu
  * The sentence at the top of the review. A payment names its amount in ALGO and its receiver. An asset transfer names its amount and its
  * asset. An opt-in and an opt-out each say so, and an opt-out names the address that takes the rest of the holding.
  */
+/** The addresses an Algorand review shows, each one looked up in the Address Book. */
+fun algorandCounterparties(review: AlgorandRequestReview): List<String> = addressesIn(algorandRows(review).map { it.second })
+
 fun algorandSentence(review: AlgorandRequestReview): String = when (val txn = review.txn) {
     is Payment -> "Sends ${algoText(txn.amount)} to ${AlgoAddress.encode(txn.receiver)}."
     is AssetTransfer -> assetSentence(txn, review.asset)
