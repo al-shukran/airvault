@@ -65,6 +65,27 @@ sealed interface SolanaInstruction {
     ) : SolanaInstruction
 
     /**
+     * System Program AdvanceNonceAccount (instruction index 4). The network reads a durable nonce only from the first instruction, so this
+     * is recognised only there. [nonceAccount] holds the nonce, and [authority] must sign to advance it.
+     */
+    data class AdvanceNonce(
+        override val programId: SolanaMessageAccount,
+        val nonceAccount: SolanaMessageAccount,
+        val authority: SolanaMessageAccount,
+    ) : SolanaInstruction
+
+    /**
+     * The one-time setup of a durable nonce account: System CreateAccount for [account], with [lamports] of rent, followed by System
+     * InitializeNonceAccount that names [authority]. The two instructions are one here.
+     */
+    data class CreateNonceAccount(
+        override val programId: SolanaMessageAccount,
+        val account: SolanaMessageAccount,
+        val lamports: ULong,
+        val authority: SolanaMessageAccount,
+    ) : SolanaInstruction
+
+    /**
      * Any other program, or a known program with a shape this decoder does not read. [dataHex] is the instruction data, and
      * [accountIndices] are the instruction's indices into the message.
      */
