@@ -13,7 +13,6 @@ import androidx.compose.ui.test.performTouchInput
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -25,7 +24,7 @@ import org.robolectric.shadows.ShadowToast
 
 /**
  * The address text. A copy button and a long press put the full address on the clipboard, not the shortened text on the screen, and
- * say so with a toast. The clip is not sensitive, so the clipboard preview may show it.
+ * say so with a toast. The clip is sensitive, so the clipboard preview hides it.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -68,13 +67,13 @@ class AddressTextTest {
     }
 
     @Test
-    fun theClipIsNotMarkedSensitive() {
+    fun theClipIsMarkedSensitive() {
         setAddress()
 
         compose.onNodeWithContentDescription(COPY_ADDRESS_LABEL).performClick()
 
         val extras = clipboard.primaryClipDescription?.extras
-        assertFalse(extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE, false) == true)
+        assertTrue(extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE, false) == true)
     }
 
     @Test
