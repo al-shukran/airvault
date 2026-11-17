@@ -73,7 +73,7 @@ class PairAddressBookTest {
         val ethereum = PairingApp(
             app = "ethereum",
             keys = listOf(PairingKey.ethereumAddress(0, AccountAddresses.addressXpub(wallet.accountXpub(0), 0))),
-            accounts = listOf(PairingAccount(key = 0, child = 0, name = "Savings", label = null, group = null)),
+            accounts = listOf(PairingAccount(key = 0, name = "Savings", label = null, group = null)),
         )
         return PairingPayload(
             fingerprint = wallet.masterFingerprint.toLong() and 0xFFFFFFFFL,

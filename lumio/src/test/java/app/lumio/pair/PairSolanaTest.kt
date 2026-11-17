@@ -69,12 +69,12 @@ class PairSolanaTest {
         val ethereum = PairingApp(
             app = PairImport.ETHEREUM,
             keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.addressKey(PairFixtures.seed, 0))),
-            accounts = listOf(PairingAccount(key = 0, child = null, name = "Main", label = null, group = null)),
+            accounts = listOf(PairingAccount(key = 0, name = "Main", label = null, group = null)),
         )
         val solanaApp = PairingApp(
             app = PairImport.SOLANA,
             keys = solana,
-            accounts = solana.indices.map { index -> PairingAccount(key = index, child = null, name = "Solana $index", label = null, group = null) },
+            accounts = solana.indices.map { index -> PairingAccount(key = index, name = "Solana $index", label = null, group = null) },
         )
         return PairingPayload(
             fingerprint = 0x5436D724L,

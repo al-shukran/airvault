@@ -225,8 +225,8 @@ class WalletStoreBitcoinTest {
         assertTrue(ethereum.keys[1].publicKey.contentEquals(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(1), 0).publicKey))
         assertEquals(
             listOf(
-                PairingAccount(key = 0, child = null, name = "Cold", label = "vault", group = "Long term"),
-                PairingAccount(key = 1, child = null, name = "Savings 1", label = null, group = null),
+                PairingAccount(key = 0, name = "Cold", label = "vault", group = "Long term"),
+                PairingAccount(key = 1, name = "Savings 1", label = null, group = null),
             ),
             ethereum.accounts,
         )
@@ -355,7 +355,6 @@ class WalletStoreBitcoinTest {
         assertEquals(Triple("Test 1", null, null), bitcoinAccountOf(bitcoin, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1).labelled())
         assertEquals(Triple("Test 0", null, null), bitcoinAccountOf(bitcoin, ScriptType.TAPROOT, BtcNetwork.MAINNET, 0).labelled())
         assertEquals(bitcoin.keys.size, bitcoin.accounts.size)
-        assertTrue(bitcoin.accounts.all { it.child == null })
     }
 
     @Test

@@ -27,12 +27,12 @@ class LensllyPairingGoldenTest {
     }
 
     /**
-     * The code of [ur] with its version set to [version]. A version-4 envelope is a map of three entries whose first entry is `1: 4`, so the
+     * The code of [ur] with its version set to [version]. The envelope is a map of three entries whose first entry is `1: version`, so the
      * version is the third byte, after the map header `A3` and the key `01`. Only that byte changes, so the body is the same.
      */
     private fun withVersion(ur: UR, version: Int): UR {
         val bytes = ur.cborBytes.copyOf()
-        require(bytes[0] == 0xA3.toByte() && bytes[1] == 0x01.toByte() && bytes[2] == 0x04.toByte()) { "Not a version-4 envelope." }
+        require(bytes[0] == 0xA3.toByte() && bytes[1] == 0x01.toByte()) { "Not an envelope." }
         bytes[2] = version.toByte()
         return UR(ur.type, bytes)
     }
@@ -44,8 +44,8 @@ class LensllyPairingGoldenTest {
         assertEquals("Savings", payload.name)
         assertEquals(
             listOf(
-                PairingAccount(key = 0, child = null, name = "Cold", label = "vault", group = "Long term"),
-                PairingAccount(key = 1, child = null, name = "Savings 1", label = null, group = null),
+                PairingAccount(key = 0, name = "Cold", label = "vault", group = "Long term"),
+                PairingAccount(key = 1, name = "Savings 1", label = null, group = null),
             ),
             payload.apps.single { it.app == PairImport.ETHEREUM }.accounts,
         )
@@ -61,44 +61,24 @@ class LensllyPairingGoldenTest {
         assertEquals(bitcoin.keys.size, bitcoin.accounts.size)
         val named = keyOf(accounts, ScriptType.NATIVE_SEGWIT, index = 0)
         assertEquals(
-            PairingAccount(key = named, child = null, name = "Cold BTC", label = "vault", group = "Long term"),
+            PairingAccount(key = named, name = "Cold BTC", label = "vault", group = "Long term"),
             bitcoin.accounts.single { it.key == named },
         )
         // An account the owner never labelled carries its Auto-Name, and the Script Type it was not made in is still paired.
         val unnamed = keyOf(accounts, ScriptType.TAPROOT, index = 0)
         assertEquals(
-            PairingAccount(key = unnamed, child = null, name = "Savings 0", label = null, group = null),
+            PairingAccount(key = unnamed, name = "Savings 0", label = null, group = null),
             bitcoin.accounts.single { it.key == unnamed },
         )
     }
 
     @Test
-    fun lumioRefusesTheVersionOneCodeWithTheUpdateMessage() {
-        val reason = assertFailsWith<PairingRefusal> { imported(LabelledPairingGolden.V1_FRAMES) }.message
+    fun lumioRefusesAnOlderLenslyCodeWithTheMessageToPairAgain() {
+        for (version in listOf(1, 4)) {
+            val reason = assertFailsWith<PairingRefusal> { PairImport.of(withVersion(scanned(LabelledPairingGolden.FRAMES), version)) }.message
 
-        assertEquals("This pairing uses format 1, and this app reads format 5. Update the app, then pair again.", reason)
-    }
-
-    @Test
-    fun lumioStillAcceptsTheVersionFourCodeOfAnEarlierLensly() {
-        val payload = imported(LabelledPairingGolden.V4_FRAMES)
-
-        assertEquals("Savings", payload.name)
-        assertEquals(
-            listOf(
-                PairingAccount(key = 0, child = null, name = "Cold", label = "vault", group = "Long term"),
-                PairingAccount(key = 1, child = null, name = "Savings 1", label = null, group = null),
-            ),
-            payload.apps.single { it.app == PairImport.ETHEREUM }.accounts,
-        )
-    }
-
-    @Test
-    fun lumioStillAcceptsTheVersionThreeCodeWithTheSameFields() {
-        val payload = PairImport.of(withVersion(scanned(LabelledPairingGolden.V4_FRAMES), version = 3))
-
-        assertEquals("Savings", payload.name)
-        assertEquals(2, payload.apps.single { it.app == PairImport.ETHEREUM }.accounts.size)
+            assertEquals("version $version", "This pairing code is from an older Lensly. Update both apps and pair again.", reason)
+        }
     }
 
     /** The place, among the Bitcoin accounts of [payload], of the mainnet account on [scriptType] at account [index]. */

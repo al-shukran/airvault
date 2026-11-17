@@ -44,7 +44,6 @@ object DemoPairingGolden {
                     accounts = List(12) { i ->
                         PairingAccount(
                             key = i,
-                            child = null,
                             name = if (i % 2 == 0) NAMES[i] else "Account ${i + 1}",
                             label = if (i % 4 == 0) "Cold" else null,
                             group = if (i % 3 == 0) GROUPS[i] else null,
@@ -55,7 +54,7 @@ object DemoPairingGolden {
                     app = "bitcoin",
                     keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
                     accounts = bitcoin.indices.map { i ->
-                        PairingAccount(key = i, child = null, name = "Bitcoin ${if (i < 4) "main" else "test"} ${i % 4 + 1}", label = null, group = null)
+                        PairingAccount(key = i, name = "Bitcoin ${if (i < 4) "main" else "test"} ${i % 4 + 1}", label = null, group = null)
                     },
                 ),
             ),

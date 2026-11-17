@@ -64,7 +64,7 @@ class PairingSizeTest {
             chainCode = random.nextBytes(32),
         )
         fun accounts(name: String) = List(count) { i ->
-            PairingAccount(key = i, child = null, name = "$name ${i + 1}", label = if (i % 4 == 0) "Cold" else null, group = if (i % 3 == 0) "Savings" else null)
+            PairingAccount(key = i, name = "$name ${i + 1}", label = if (i % 4 == 0) "Cold" else null, group = if (i % 3 == 0) "Savings" else null)
         }
         return PairingPayload(
             fingerprint = random.nextLong(0, 0xFFFFFFFFL),

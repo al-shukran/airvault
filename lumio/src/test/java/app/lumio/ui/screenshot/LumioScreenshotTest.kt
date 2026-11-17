@@ -348,7 +348,7 @@ class LumioScreenshotTest {
                     PairingApp(
                         app = PairImport.ETHEREUM,
                         keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.addressKey(PairFixtures.seed, 0))),
-                        accounts = listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null)),
+                        accounts = listOf(PairingAccount(key = 0, name = null, label = null, group = null)),
                     ),
                 ),
             ),
