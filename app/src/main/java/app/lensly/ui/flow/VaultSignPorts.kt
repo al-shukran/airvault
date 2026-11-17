@@ -15,6 +15,7 @@ import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
 import app.lensly.app.addressNotesOf
 import app.lensly.app.autoAccountName
+import app.lensly.app.heldBitcoinKeys
 import app.lensly.app.export.partsOf
 import app.lensly.app.internalAccountsOf
 import app.lensly.app.requestParser
@@ -410,7 +411,8 @@ internal class VaultSignPorts(
                             name = meta.name,
                             identity = identity,
                             accountIdentity = accountIdentity,
-                            bitcoinAccountPaths = store.bitcoinAccounts(meta.id).map { it.scriptType.accountPath(it.network, it.index) },
+                            bitcoinAccountPaths = heldBitcoinKeys(store.bitcoinAccounts(meta.id))
+                                .map { (scriptType, network, index) -> scriptType.accountPath(network, index) },
                         )
                     }
                 }
