@@ -9,8 +9,17 @@ private val SOLANA_ADDRESS = Regex("[1-9A-HJ-NP-Za-km-z]{32,44}")
 /** The most transactions one history read asks for. Each one is a call of its own, so this bounds the calls of a read. */
 const val MAX_SOLANA_HISTORY = 10
 
-/** The latest blockhash of [net]. A Solana transaction names one, so that it expires once the chain has moved on. */
-class RecentBlockhash(net: NetworkId) : Request<String>(net, Op.BLOCKHASH)
+/**
+ * The latest blockhash of [net], as the chain confirms it. A Solana transaction names one, so that it expires once the chain's block height passes
+ * the blockhash's last valid height.
+ */
+class RecentBlockhash(net: NetworkId) : Request<SolanaBlockhash>(net, Op.BLOCKHASH)
+
+/** A blockhash, base58, and the block height after which a transaction that names it is no longer accepted. */
+data class SolanaBlockhash(val blockhash: String, val lastValidBlockHeight: Long)
+
+/** The block height of [net] as the chain confirms it. A blockhash is no longer valid once this passes its last valid height. */
+class SolanaBlockHeight(net: NetworkId) : Request<Long>(net, Op.BLOCK_HEIGHT)
 
 /** The account at [address] as the latest answer shows it: its [SolanaAccountState], or null when the account does not exist. */
 class SolanaAccountRead(net: NetworkId, val address: String) : Request<SolanaAccountState?>(net, Op.ACCOUNT_INFO) {

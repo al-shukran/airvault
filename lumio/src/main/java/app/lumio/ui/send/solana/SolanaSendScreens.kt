@@ -189,7 +189,7 @@ internal fun SolanaSetupReviewScreen(
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             "Offline signing lets this account send SOL without a blockhash that could expire while Lensly reviews the send. " +
-                "Lensly signs this setup within about a minute, because the request names a recent blockhash that expires. " +
+                "Lensly signs this setup within about 20 seconds, because the request names a recent blockhash that expires. " +
                 "If it expires, start the setup again.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -201,9 +201,15 @@ internal fun SolanaSetupReviewScreen(
     }
 }
 
-/** The request as an animated code for Lensly to scan. [notice] is why the last signature did not send. */
+/** What the one-time setup's request screen says: what the owner does, and how soon the blockhash in the code runs out. */
+internal const val SETUP_SIGN_TEXT = "One-time setup. Scan with Lensly and sign within about 20 seconds."
+
+/**
+ * The request as an animated code for Lensly to scan. [notice] is why the last signature did not send. A [setup] request says so in plain words and
+ * gives the time the setup's blockhash allows.
+ */
 @Composable
-internal fun SolanaSignRequestScreen(parts: List<String>, notice: String?, onScan: () -> Unit, onBack: () -> Unit) {
+internal fun SolanaSignRequestScreen(parts: List<String>, notice: String?, onScan: () -> Unit, onBack: () -> Unit, setup: Boolean = false) {
     LenslyScreen(
         title = "Sign in Lensly",
         onBack = onBack,
@@ -213,7 +219,7 @@ internal fun SolanaSignRequestScreen(parts: List<String>, notice: String?, onSca
         },
     ) {
         Text(
-            "In Lensly, scan this code, check the review and approve. Then scan the signature that Lensly shows.",
+            if (setup) SETUP_SIGN_TEXT else "In Lensly, scan this code, check the review and approve. Then scan the signature that Lensly shows.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
