@@ -351,8 +351,12 @@ class SandboxedParser(
     private class HeldScan(val session: Long, val parts: List<String>)
 
     private companion object {
-        /** The longest the app waits for one reply. It covers the start of the sandbox process and every decode budget. */
-        const val TIMEOUT_MILLIS = 5_000L
+        /**
+         * The longest the app waits for one reply. It covers the start of the sandbox process and every decode budget. Measured on
+         * the emulator, a 16 KiB eth-sign request (83 parts) scanned in 6.6 to 7.2 s, which the old 5 s wait refused. 30 s leaves
+         * more than 4x that on the emulator; slower phones were not measured.
+         */
+        const val TIMEOUT_MILLIS = 30_000L
 
         /** How long an idle thread of [calls] waits for its next call before it ends. */
         const val KEEP_ALIVE_SECONDS = 30L
