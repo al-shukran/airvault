@@ -13,6 +13,7 @@ import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.wallet.Mnemonic
+import app.lumio.data.Clock
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.provider.Http
@@ -23,6 +24,7 @@ import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.sched.Scheduler
+import app.lumio.ui.send.solana.SETUP_SIGN_TEXT
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
@@ -37,10 +39,17 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -52,6 +61,8 @@ import org.junit.Test
  * would make, with the same derivation, so the checks run on real bytes. Lumio holds no key: the tests sign only to play Lensly's part. No test reaches
  * a network, and waits are recorded rather than slept.
  */
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class SolanaSendTest {
     private val server = MockWebServer()
     private val waits = mutableListOf<Long>()
@@ -65,6 +76,7 @@ class SolanaSendTest {
     private val account = SolanaSendAccount(index = accountIndex, key = sender, sourceFingerprint = 0x0BADF00D)
     private val lamports = 1_000_000_000L
     private val neededBalance = BigInteger.valueOf(lamports + SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS)
+    private val window = SetupWindow(lastValidBlockHeight = 100L, fetchedAtMs = 0L)
 
     @Before
     fun start() {
@@ -87,6 +99,17 @@ class SolanaSendTest {
     )
 
     private fun answer(result: String) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":$result}""")
+
+    /** A one-time setup of the test account, with a balance that covers the rent. */
+    private fun setupPlan(window: SetupWindow): SolanaSendPlan = SolanaSend.setupPlan(
+        SOLANA_DEVNET,
+        account,
+        1_447_680L,
+        BigInteger.valueOf(10_000_000_000L),
+        blockhash,
+        requestId,
+        window,
+    )
 
     private fun plan(): SolanaSendPlan = SolanaSend.plan(
         network = SOLANA_DEVNET,
@@ -183,16 +206,122 @@ class SolanaSendTest {
         val rent = 1_447_680L
         val needed = BigInteger.valueOf(rent + SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS)
         assertFailsWith<IllegalArgumentException> {
-            SolanaSend.setupPlan(SOLANA_DEVNET, account, rent, needed - BigInteger.ONE, blockhash, requestId)
+            SolanaSend.setupPlan(SOLANA_DEVNET, account, rent, needed - BigInteger.ONE, blockhash, requestId, window)
         }
 
-        val setup = SolanaSend.setupPlan(SOLANA_DEVNET, account, rent, needed, blockhash, requestId)
+        val setup = SolanaSend.setupPlan(SOLANA_DEVNET, account, rent, needed, blockhash, requestId, window)
 
         assertEquals(rent, setup.lamports)
         assertEquals(SOLANA_FEE_LAMPORTS, setup.feeLamports)
         assertContentEquals(SolanaNonce.accountOf(account.key), setup.recipient)
         assertContentEquals(SolanaNonce.setupMessage(account.key, blockhash, rent), setup.message)
         assertIs<SolanaMessage.Result.Ok>(SolanaMessage.decode(setup.message))
+        assertSame(window, setup.window)
+    }
+
+    /** The setup is read at "confirmed", and its window keeps the last valid height and the moment of the fetch. */
+    @Test
+    fun theSetupIsBuiltAtTheConfirmedBlockhashAndKeepsItsWindow() = runBlocking {
+        server.enqueue(answer("""{"context":{"slot":1},"value":{"blockhash":"$BLOCKHASH","lastValidBlockHeight":250}}"""))
+        server.enqueue(answer("""{"context":{"slot":1},"value":5000000000}"""))
+
+        val setup = SolanaSend.setupAt(scheduler(), SOLANA_DEVNET, account, 1_447_680L, Clock { 1_234L })
+
+        val setupWindow = assertNotNull(setup.window)
+        assertEquals(250L, setupWindow.lastValidBlockHeight)
+        assertEquals(1_234L, setupWindow.fetchedAtMs)
+        assertContentEquals(blockhash, setup.blockhash)
+        val fetch = server.takeRequest().body.readUtf8()
+        assertTrue(fetch.contains("\"method\":\"getLatestBlockhash\""))
+        assertTrue(fetch.contains("[{\"commitment\":\"confirmed\"}]"))
+    }
+
+    /** A blockhash is accepted at its last valid height, and only a later height runs it out. */
+    @Test
+    fun aBlockhashIsValidAtItsLastValidHeightAndNotAfter() {
+        assertFalse(SolanaSend.expired(height = 100L, lastValidBlockHeight = 100L))
+        assertTrue(SolanaSend.expired(height = 101L, lastValidBlockHeight = 100L))
+    }
+
+    /** Before a setup is sent, the chain's height is read. A height past the last valid one sends nothing, and the words say so. */
+    @Test
+    fun anExpiredSetupIsNotSentAndSaysSo() = runBlocking {
+        server.enqueue(answer("101"))
+
+        val expired = assertFailsWith<BlockhashExpired> {
+            SolanaSend.requireUnexpired(scheduler(), SOLANA_DEVNET, SetupWindow(lastValidBlockHeight = 100L, fetchedAtMs = 0L))
+        }
+        val failure = solanaFailure(expired, setup = true)
+
+        assertEquals(SETUP_EXPIRED, failure.message)
+        assertFalse(failure.retryable)
+        assertEquals(1, server.requestCount)
+        assertTrue(server.takeRequest().body.readUtf8().contains("\"method\":\"getBlockHeight\""))
+    }
+
+    /** A setup still inside its window is checked, and then sent as it was signed. */
+    @Test
+    fun aSetupInsideItsWindowIsSentAfterTheCheck() = runBlocking {
+        val plan = setupPlan(SetupWindow(lastValidBlockHeight = 100L, fetchedAtMs = 0L))
+        val signed = SolanaSend.signed(plan, answerOf(requestId, Ed25519Signer.sign(privateKeyOf(accountIndex), plan.message)))
+        server.enqueue(answer("100"))
+        server.enqueue(answer("\"${signed.signature}\""))
+
+        SolanaSend.requireUnexpired(scheduler(), SOLANA_DEVNET, assertNotNull(plan.window))
+
+        assertEquals(signed.signature, SolanaSend.broadcast(scheduler(), SOLANA_DEVNET, signed))
+        assertEquals(2, server.requestCount)
+    }
+
+    /** A setup is due for a rebuild 20 seconds after its fetch, and a request shown later than that is due at once. */
+    @Test
+    fun aSetupIsDueForARebuildTwentySecondsAfterItsFetch() {
+        assertEquals(20_000L, SolanaSend.refreshWait(fetchedAtMs = 1_000L, nowMs = 1_000L))
+        assertEquals(10_000L, SolanaSend.refreshWait(fetchedAtMs = 1_000L, nowMs = 11_000L))
+        assertEquals(0L, SolanaSend.refreshWait(fetchedAtMs = 1_000L, nowMs = 21_000L))
+        assertEquals(0L, SolanaSend.refreshWait(fetchedAtMs = 1_000L, nowMs = 90_000L))
+    }
+
+    /** In virtual time the rebuild waits for 20 seconds, and not a millisecond less. */
+    @Test
+    fun theRebuildWaitEndsAtTwentySecondsInVirtualTime() = runTest {
+        val clock = Clock { testScheduler.currentTime }
+        var dueAt = -1L
+        launch {
+            SolanaSend.awaitRefresh(fetchedAtMs = 0L, clock = clock) { delay(it) }
+            dueAt = testScheduler.currentTime
+        }
+        runCurrent()
+        advanceTimeBy(19_999L)
+        runCurrent()
+        assertEquals(-1L, dueAt)
+        advanceTimeBy(1L)
+        runCurrent()
+        assertEquals(20_000L, dueAt)
+    }
+
+    /** A request shown again 10 seconds after its fetch waits only the 10 seconds that remain. */
+    @Test
+    fun aRequestShownAgainLaterWaitsOnlyTheRest() = runTest {
+        advanceTimeBy(10_000L)
+        val clock = Clock { testScheduler.currentTime }
+        var dueAt = -1L
+        launch {
+            SolanaSend.awaitRefresh(fetchedAtMs = 0L, clock = clock) { delay(it) }
+            dueAt = testScheduler.currentTime
+        }
+        runCurrent()
+        advanceTimeBy(9_999L)
+        runCurrent()
+        assertEquals(-1L, dueAt)
+        advanceTimeBy(1L)
+        runCurrent()
+        assertEquals(20_000L, dueAt)
+    }
+
+    @Test
+    fun theOneTimeSetupSaysWhatToDoAndHowSoon() {
+        assertEquals("One-time setup. Scan with Lensly and sign within about 20 seconds.", SETUP_SIGN_TEXT)
     }
 
     @Test

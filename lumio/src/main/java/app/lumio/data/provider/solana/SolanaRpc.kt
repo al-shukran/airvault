@@ -22,11 +22,11 @@ val SOLANA_DEVNET = NetworkId(Family.SOL, "devnet", testnet = true)
 val SOLANA_MAINNET = NetworkId(Family.SOL, "mainnet-beta", testnet = false)
 
 /**
- * The operations a Solana RPC provider serves: balances, blockhashes, history, token balances, broadcasts, signature statuses, account reads
- * and the rent-exempt minimum.
+ * The operations a Solana RPC provider serves: balances, blockhashes, block heights, history, token balances, broadcasts, signature statuses,
+ * account reads and the rent-exempt minimum.
  */
 private val SOLANA_OPS = setOf(
-    Op.NATIVE_BALANCE, Op.BLOCKHASH, Op.TX_HISTORY, Op.TOKEN_BALANCES, Op.BROADCAST, Op.TX, Op.ACCOUNT_INFO, Op.RENT_EXEMPT,
+    Op.NATIVE_BALANCE, Op.BLOCKHASH, Op.BLOCK_HEIGHT, Op.TX_HISTORY, Op.TOKEN_BALANCES, Op.BROADCAST, Op.TX, Op.ACCOUNT_INFO, Op.RENT_EXEMPT,
 )
 
 /**

@@ -15,6 +15,8 @@ import app.lumio.data.provider.RentExemptMinimum
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.SolanaAccountRead
 import app.lumio.data.provider.SolanaAddressHistory
+import app.lumio.data.provider.SolanaBlockHeight
+import app.lumio.data.provider.SolanaBlockhash
 import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.SolanaStatus
 import app.lumio.data.provider.SolanaTx
@@ -94,12 +96,25 @@ class SolanaProviderTest {
         assertEquals("getBalance", method(server.takeRequest()))
     }
 
+    /** The blockhash is read at "confirmed", and its last valid height comes with it. */
     @Test
-    fun theLatestBlockhashIsTheBlockhashValue() {
+    fun theLatestBlockhashIsReadAtConfirmedWithItsLastValidHeight() {
         server.enqueue(answer("""{"context":{"slot":1},"value":{"blockhash":"$blockhash","lastValidBlockHeight":100}}"""))
 
-        assertEquals(blockhash, call(RecentBlockhash(devnet)))
-        assertEquals("getLatestBlockhash", method(server.takeRequest()))
+        assertEquals(SolanaBlockhash(blockhash, 100L), call(RecentBlockhash(devnet)))
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("\"method\":\"getLatestBlockhash\""))
+        assertTrue(body.contains("[{\"commitment\":\"confirmed\"}]"))
+    }
+
+    @Test
+    fun theBlockHeightIsReadAtConfirmed() {
+        server.enqueue(answer("510481000"))
+
+        assertEquals(510_481_000L, call(SolanaBlockHeight(devnet)))
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("\"method\":\"getBlockHeight\""))
+        assertTrue(body.contains("[{\"commitment\":\"confirmed\"}]"))
     }
 
     /** `getAccountInfo` in base64: the owner is the program, and the data is the decoded bytes. A missing account is null. */
