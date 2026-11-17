@@ -91,7 +91,7 @@ class WalletAccountsTest {
         )
 
         val (bitcoin, ethereum, solana, algorand) = accounts
-        assertEquals("tb1qexample", bitcoin.address)
+        assertEquals(testnetBitcoin.receiveAddress(0), bitcoin.address)
         assertEquals(BigDecimal("0.00120000"), bitcoin.balance!!.balance.setScale(8))
         assertEquals(testnetBitcoin.network.networkId(), bitcoin.balance!!.network)
         assertEquals("Monad testnet", ethereum.networkName)
