@@ -644,41 +644,4 @@ class RefusalScreensTest {
         compose.onNodeWithText("APPROVED IMPLEMENTATION").assertExists()
         compose.onNodeWithText(groupAddress(IMPLEMENTATION)).assertExists()
     }
-
-    @Test
-    fun aRequestThatMatchesNoWalletNamesItsFingerprintAndPathAndCanScanAgain() {
-        val request = EthSignRequest(
-            requestId = ByteArray(16) { 1 },
-            signData = byteArrayOf(1),
-            dataType = DataType.PERSONAL_MESSAGE,
-            chainId = 1L,
-            derivationPath = listOf(
-                PathStep(44, true),
-                PathStep(60, true),
-                PathStep(1, true),
-                PathStep(0, false),
-                PathStep(0, false),
-            ),
-            sourceFingerprint = 0x1a2b3c4d,
-            address = null,
-            origin = null,
-        )
-        var scannedAgain = 0
-        compose.setContent {
-            LenslyTheme {
-                NoMatchingWalletScreen(
-                    request = request,
-                    several = false,
-                    onScanAgain = { scannedAgain++ },
-                    onCancel = {},
-                )
-            }
-        }
-
-        compose.onNodeWithText("No wallet in this vault matches this request").assertExists()
-        compose.onNodeWithText("1A2B3C4D").assertExists()
-        compose.onNodeWithText("m/44'/60'/1'/0/0").assertExists()
-        compose.onNodeWithText("SCAN AGAIN").performClick()
-        assertEquals(1, scannedAgain)
-    }
 }

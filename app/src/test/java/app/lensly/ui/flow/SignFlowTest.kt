@@ -564,7 +564,7 @@ class SignFlowTest {
     }
 
     @Test
-    fun aGlobalScanWithNoMatchingWalletSaysSoAndScansAgain() {
+    fun aGlobalScanWithNoMatchingWalletIsRefusedInPlainWords() {
         val other = WalletView(
             id = OTHER_ID,
             masterFingerprint = WALLET.masterFingerprint xor 1,
@@ -575,12 +575,8 @@ class SignFlowTest {
         val flow = SignFlow(FakePorts(wallets = listOf(other)), walletId = null)
 
         scan(flow, framesOf(messageRequest(), FRAGMENT))
-        val unmatched = assertIs<SignStep.NoMatchingWallet>(flow.state.value)
-        assertEquals(false, unmatched.several)
-        assertEquals(WALLET.masterFingerprint, unmatched.request.sourceFingerprint)
 
-        flow.scanAgain()
-        assertEquals(null, assertIs<SignStep.Scanning>(flow.state.value).progress)
+        assertEquals(SignStep.Refused("No wallet in this vault can sign this request"), flow.state.value)
     }
 
     @Test
@@ -589,7 +585,7 @@ class SignFlowTest {
 
         scan(flow, framesOf(messageRequest(), FRAGMENT))
 
-        assertEquals(false, assertIs<SignStep.NoMatchingWallet>(flow.state.value).several)
+        assertEquals(SignStep.Refused("No wallet in this vault can sign this request"), flow.state.value)
     }
 
     @Test
@@ -606,18 +602,8 @@ class SignFlowTest {
 
         scan(flow, framesOf(messageRequest(), FRAGMENT))
 
-        assertEquals(true, assertIs<SignStep.NoMatchingWallet>(flow.state.value).several)
+        assertEquals(SignStep.Refused("More than one wallet in this vault can sign this request. Lensly will not guess which one signs."), flow.state.value)
         assertEquals(0, ports.keyRequests)
-    }
-
-    @Test
-    fun scanAgainLeavesAnyOtherStepAlone() {
-        val flow = SignFlow(FakePorts(), WALLET_ID)
-        val review = reviewOf(flow)
-
-        flow.scanAgain()
-
-        assertEquals(review, flow.state.value)
     }
 
     @Test

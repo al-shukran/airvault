@@ -2,14 +2,10 @@ package app.lensly.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.app.HideDelay
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
-import app.lensly.core.ur.PathStep
 import app.lensly.ui.flow.ShredStep
 import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
-import app.lensly.ui.sign.NoMatchingWalletScreen
 import app.lensly.ui.wallet.PassphraseBackupScreen
 import app.lensly.ui.wallet.ShredCopy
 import app.lensly.ui.wallet.ShredScreen
@@ -45,11 +41,6 @@ class CoverageScreenshotTest {
     }
 
     @Test
-    fun noMatchingWallet() = compose.snapshot("no_matching_wallet_screen") {
-        NoMatchingWalletScreen(request = REQUEST, several = false, onScanAgain = {}, onCancel = {})
-    }
-
-    @Test
     fun passphraseBackup() = compose.snapshot("passphrase_backup_screen") {
         PassphraseBackupScreen(writtenDown = false, onWrittenDownChange = {}, onCreate = {})
     }
@@ -81,24 +72,6 @@ class CoverageScreenshotTest {
     }
 
     private companion object {
-        /** A sign request from a fake wallet: the fingerprint and the path are made up, and the address is absent. */
-        val REQUEST = EthSignRequest(
-            requestId = ByteArray(16) { 1 },
-            signData = byteArrayOf(1),
-            dataType = DataType.PERSONAL_MESSAGE,
-            chainId = 1L,
-            derivationPath = listOf(
-                PathStep(44, true),
-                PathStep(60, true),
-                PathStep(0, true),
-                PathStep(0, false),
-                PathStep(0, false),
-            ),
-            sourceFingerprint = 0x1a2b3c4d,
-            address = null,
-            origin = null,
-        )
-
         /** The copy of Delete Wallet, as the route shows it. */
         val DELETE_WALLET = ShredCopy(
             title = "Delete wallet",

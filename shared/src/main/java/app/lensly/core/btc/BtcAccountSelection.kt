@@ -14,8 +14,14 @@ internal fun inputClaims(psbt: Psbt): List<Pair<Long, KeyPath>> = psbt.inputs.fl
 }
 
 /** True when some input of [psbt] names this Account: its master fingerprint, and a path under this Account's path. */
-fun BtcAccount.claims(psbt: Psbt): Boolean = inputClaims(psbt).any { (fingerprint, path) ->
-    fingerprint == masterFingerprint && path.path.size >= ACCOUNT_LEVELS && path.path.take(ACCOUNT_LEVELS) == this.path.path
+fun BtcAccount.claims(psbt: Psbt): Boolean = claimsAccount(psbt, masterFingerprint, path)
+
+/**
+ * True when some input of [psbt] names [fingerprint] and a path under [accountPath], m/purpose'/coin'/account'. It reads no seed, so a
+ * wallet is matched to a PSBT by the Accounts it stores.
+ */
+fun claimsAccount(psbt: Psbt, fingerprint: Long, accountPath: KeyPath): Boolean = inputClaims(psbt).any { (claimed, path) ->
+    claimed == fingerprint && path.path.size >= ACCOUNT_LEVELS && path.path.take(ACCOUNT_LEVELS) == accountPath.path
 }
 
 /**

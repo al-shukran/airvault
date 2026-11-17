@@ -86,13 +86,32 @@ class SignFlowBitcoinTest {
     }
 
     @Test
-    fun aBitcoinRequestScannedWithoutAWalletIsRefusedBeforeAnyReview() {
+    fun aBitcoinRequestScannedWithoutAWalletReachesTheReviewOfTheWalletItIsFor() {
+        val psbt = bitcoinRequest()
+        val view = WalletView(
+            id = BTC_WALLET_ID,
+            masterFingerprint = BTC_ACCOUNT.masterFingerprint.toInt(),
+            accountCount = 1,
+            autoNameBase = "Bitcoin",
+            addressAt = { BTC_ACCOUNT.receiveAddress(0) },
+            bitcoinAccountPaths = listOf(BTC_ACCOUNT.path),
+        )
+        val ports = BitcoinPorts(prepared = { readyOf(psbt) }, wallets = listOf(view))
+        val flow = SignFlow(ports, walletId = null)
+
+        scanAll(flow, BtcPsbt.encodeUrParts(psbt))
+
+        assertEquals(BTC_WALLET_ID, assertIs<SignStep.BitcoinReview>(flow.state.value).ready.walletId)
+    }
+
+    @Test
+    fun aBitcoinRequestNoWalletIsForIsRefusedInPlainWordsBeforeAnyReview() {
         val ports = BitcoinPorts()
         val flow = SignFlow(ports, walletId = null)
 
         scanAll(flow, BtcPsbt.encodeUrParts(bitcoinRequest()))
 
-        assertIs<SignStep.Refused>(flow.state.value)
+        assertEquals(SignStep.Refused("No wallet in this vault can sign this request"), flow.state.value)
         assertEquals(0, ports.preparedBytes.size)
     }
 
@@ -246,12 +265,13 @@ private class BitcoinPorts(
     private val signed: (BitcoinPrepared.Ready, Boolean) -> List<String> = { _, _ -> error("no signature is expected") },
     var passwordAccepted: Boolean = false,
     private val recordFails: Boolean = false,
+    private val wallets: List<WalletView> = emptyList(),
 ) : SignFlowPorts {
     val preparedBytes = mutableListOf<ByteArray>()
     val recorded = mutableListOf<BitcoinReviewEntry>()
     var signCalls = 0
 
-    override suspend fun wallets(): List<WalletView> = emptyList()
+    override suspend fun wallets(): List<WalletView> = wallets
 
     override suspend fun scan(parts: List<String>): ScanReply = inProcessSandboxParser.scan(parts)
 
