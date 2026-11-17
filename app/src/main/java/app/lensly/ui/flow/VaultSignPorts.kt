@@ -43,7 +43,9 @@ import app.lensly.core.parse.NOT_A_PSBT
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.solana.SolanaRequestCheck
+import app.lensly.core.solana.SolanaTokenList
 import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.AlgoSignatureEncoder
 import app.lensly.core.ur.SolSignRequest
@@ -65,6 +67,9 @@ private const val BITCOIN_UNREADABLE = "This Bitcoin request could not be review
 /** The refusal of a Solana request to a Single Key wallet, which has no Solana accounts. Nothing is signed for it. */
 private const val SOLANA_NO_ACCOUNTS = "This wallet has no Solana accounts."
 
+/** The refusal of a Solana request that could not be reviewed for a reason other than its rules. Nothing is signed for it. */
+private const val SOLANA_UNREADABLE = "This Solana request could not be reviewed. Nothing was signed."
+
 /** The refusal of an Algorand request to a Single Key wallet, which has no Algorand accounts. Nothing is signed for it. */
 private const val ALGORAND_NO_ACCOUNTS = "This wallet has no Algorand accounts."
 
@@ -77,6 +82,9 @@ internal class VaultSignPorts(
     private val context: Context,
     private val holder: VaultHolder,
     private val parser: RequestParser = context.requestParser(),
+    /** Checks a Solana request against the wallet's keys and token list. A test replaces it with one that throws. */
+    private val checkSolana: (SolSignRequest, List<ByteArray>, SolanaTokenList, UnknownCallPolicy) -> SolanaRequestCheck.Result =
+        SolanaRequestCheck::check,
     /** Writes [ReviewRecord] [record] of wallet [walletId] through [session]. */
     private val writeRecord: (VaultSession, String, ReviewRecord) -> Unit = { session, walletId, record ->
         ReviewHistory(session).append(walletId, record)
@@ -179,7 +187,7 @@ internal class VaultSignPorts(
     override suspend fun bitcoinPrepare(walletId: String, psbt: ByteArray): BitcoinPrepared = withContext(Dispatchers.IO) {
         val parsed = try {
             BtcPsbt.parse(psbt)
-        } catch (e: IllegalArgumentException) {
+        } catch (e: RuntimeException) {
             return@withContext BitcoinPrepared.Refused(NOT_A_PSBT)
         }
         val session = holder.openSession() ?: throw WalletUnavailable()
@@ -205,7 +213,7 @@ internal class VaultSignPorts(
             throw e
         } catch (e: IllegalStateException) {
             throw WalletUnavailable()
-        } catch (e: IllegalArgumentException) {
+        } catch (e: RuntimeException) {
             BitcoinPrepared.Refused(BITCOIN_UNREADABLE)
         }
     }
@@ -264,7 +272,12 @@ internal class VaultSignPorts(
         if (sourceFingerprint != masterFingerprint) return@withContext SolanaPrepared.Refused("This request is for a different wallet")
         val keys = readWallet { WalletStore(it).solanaKeys(walletId) }
         val unknownCalls = readWallet { SettingsStore(it).load().unknownCallPolicy }
-        when (val checked = SolanaRequestCheck.check(request, keys, SolanaTokensHolder.get(context), unknownCalls)) {
+        val checked = try {
+            checkSolana(request, keys, SolanaTokensHolder.get(context), unknownCalls)
+        } catch (e: RuntimeException) {
+            return@withContext SolanaPrepared.Refused(SOLANA_UNREADABLE)
+        }
+        when (checked) {
             is SolanaRequestCheck.Result.Ok -> {
                 val review = checked.review
                 SolanaPrepared.Ready(
