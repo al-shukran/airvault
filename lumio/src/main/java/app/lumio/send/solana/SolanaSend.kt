@@ -10,10 +10,14 @@ import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignRequestEncoder
 import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.SolSignature
+import app.lumio.data.Clock
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Broadcast
+import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.RecentBlockhash
 import app.lumio.data.provider.SolanaAccountState
+import app.lumio.data.provider.SolanaBlockHeight
 import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.sched.Priority
@@ -45,8 +49,18 @@ class SolanaSendAccount(val index: Int, val key: ByteArray, val sourceFingerprin
 }
 
 /**
+ * When a setup's blockhash stops being valid: the last block height at which it is accepted, and the [MonotonicClock][app.lumio.data.MonotonicClock]
+ * milliseconds at which Lumio fetched it. A setup is refused once the chain's block height passes [lastValidBlockHeight].
+ */
+class SetupWindow(val lastValidBlockHeight: Long, val fetchedAtMs: Long)
+
+/** Thrown before a signed setup is sent, when the chain has passed its blockhash's last valid height. The network would refuse it, so it is not sent. */
+class BlockhashExpired : Exception(SETUP_EXPIRED)
+
+/**
  * A send from one Solana account, as far as Lumio can build it without a key: the legacy message that Lensly signs, the blockhash it names, and the
- * request ID that Lensly's answer must echo. [lamports] goes to [recipient] and [feeLamports] is the network fee.
+ * request ID that Lensly's answer must echo. [lamports] goes to [recipient] and [feeLamports] is the network fee. A one-time setup carries its
+ * [window]; a send that names a nonce does not expire, so it has none.
  */
 class SolanaSendPlan(
     val network: NetworkId,
@@ -57,6 +71,7 @@ class SolanaSendPlan(
     val blockhash: ByteArray,
     val requestId: ByteArray,
     val message: ByteArray,
+    val window: SetupWindow? = null,
 ) {
     /** The sender's address, in base58. */
     val senderAddress: String get() = account.address
@@ -79,7 +94,7 @@ sealed interface SolanaNoncePath {
 }
 
 /** What the owner reads when the one-time setup is refused because its blockhash has aged out. Nothing was created, so the setup is started again. */
-internal const val SETUP_EXPIRED = "The setup is too old for the network, so no nonce account was made. Start the setup again and sign it within about a minute."
+internal const val SETUP_EXPIRED = "The setup is too old for the network, so no nonce account was made. Start the setup again and sign it within about 20 seconds."
 
 /** What the owner reads when a send is refused because the nonce it names has moved since the send was prepared. */
 internal const val NONCE_MOVED = "The network refused the send: this account's nonce changed after the send was prepared. Make the send again."
@@ -161,8 +176,8 @@ object SolanaSend {
     }
 
     /**
-     * The one-time setup of [account]'s nonce account, at [blockhash]. It pays [rentLamports] of rent into the nonce account, which is the plan's
-     * recipient. Throws IllegalArgumentException, as [checkSetupFunds] does.
+     * The one-time setup of [account]'s nonce account, at [blockhash], which is valid until [window] says. It pays [rentLamports] of rent into the
+     * nonce account, which is the plan's recipient. Throws IllegalArgumentException, as [checkSetupFunds] does.
      */
     fun setupPlan(
         network: NetworkId,
@@ -171,6 +186,7 @@ object SolanaSend {
         balance: BigInteger,
         blockhash: ByteArray,
         requestId: ByteArray,
+        window: SetupWindow,
     ): SolanaSendPlan {
         checkSetupFunds(balance, rentLamports)
         return SolanaSendPlan(
@@ -182,7 +198,50 @@ object SolanaSend {
             blockhash = blockhash,
             requestId = requestId,
             message = SolanaNonce.setupMessage(account.key, blockhash, rentLamports),
+            window = window,
         )
+    }
+
+    /**
+     * The one-time setup of [account] at the latest blockhash of [network], as the chain confirms it. The fetch time is read before the calls, so a
+     * slow answer never makes the window look longer than it is.
+     */
+    suspend fun setupAt(scheduler: Scheduler, network: NetworkId, account: SolanaSendAccount, rentLamports: Long, clock: Clock): SolanaSendPlan {
+        val fetchedAtMs = clock.nowMs()
+        val latest = scheduler.run(RecentBlockhash(network), Priority.FOREGROUND)
+        val available = scheduler.run(NativeBalance(network, account.address), Priority.FOREGROUND)
+        return setupPlan(
+            network = network,
+            account = account,
+            rentLamports = rentLamports,
+            balance = available,
+            blockhash = Base58.decode(latest.blockhash),
+            requestId = newRequestId(),
+            window = SetupWindow(latest.lastValidBlockHeight, fetchedAtMs),
+        )
+    }
+
+    /** True once [height] has passed [lastValidBlockHeight]: a blockhash is accepted at its last valid height and no later. */
+    fun expired(height: Long, lastValidBlockHeight: Long): Boolean = height > lastValidBlockHeight
+
+    /**
+     * Reads the block height of [network] before a setup is sent, and throws [BlockhashExpired] when [window] has run out, so nothing is sent. A
+     * failed read throws its [ProviderError], and the same signed setup can be sent again.
+     */
+    suspend fun requireUnexpired(scheduler: Scheduler, network: NetworkId, window: SetupWindow) {
+        val height = scheduler.run(SolanaBlockHeight(network), Priority.FOREGROUND)
+        if (expired(height, window.lastValidBlockHeight)) throw BlockhashExpired()
+    }
+
+    /** How long a one-time setup may stay on the screen unscanned, counted from its fetch, before Lumio rebuilds it at a fresh blockhash. */
+    const val SETUP_REFRESH_MS = 20_000L
+
+    /** The wait until a setup fetched at [fetchedAtMs] is due for a rebuild, when the clock reads [nowMs]. Zero once it is due. */
+    fun refreshWait(fetchedAtMs: Long, nowMs: Long): Long = (fetchedAtMs + SETUP_REFRESH_MS - nowMs).coerceAtLeast(0L)
+
+    /** Waits on [pause] until a setup fetched at [fetchedAtMs] is due for a rebuild. It returns at once when it already is. */
+    suspend fun awaitRefresh(fetchedAtMs: Long, clock: Clock, pause: suspend (Long) -> Unit = { delay(it) }) {
+        pause(refreshWait(fetchedAtMs, clock.nowMs()))
     }
 
     /**

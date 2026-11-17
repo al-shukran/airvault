@@ -11,6 +11,8 @@ import app.lumio.data.provider.SOLANA_SIGNATURE
 import app.lumio.data.provider.SolanaAccountRead
 import app.lumio.data.provider.SolanaAccountState
 import app.lumio.data.provider.SolanaAddressHistory
+import app.lumio.data.provider.SolanaBlockHeight
+import app.lumio.data.provider.SolanaBlockhash
 import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.SolanaStatus
 import app.lumio.data.provider.SolanaTx
@@ -47,6 +49,12 @@ private val PUBLIC_KEY = Regex("[1-9A-HJ-NP-Za-km-z]{32,44}")
 /** The classic SPL token program. Token-2022 accounts are not read. */
 private const val SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 
+/**
+ * The commitment that blockhashes and block heights are read at. "confirmed" is the newest block that a cluster has voted on, and "finalized" lags
+ * it, so a blockhash read at "confirmed" stays valid for the longest time that the read allows.
+ */
+private const val CONFIRMED = "confirmed"
+
 private const val NOT_A_SOLANA_VALUE = "The endpoint sent a value that is not a Solana value."
 
 /** The wait before retry [retry] (counted from 1) after a 429: the Retry-After when one was sent, else the back-off. Null when that wait is over [MAX_WAIT_MS]. */
@@ -73,6 +81,7 @@ internal class SolanaCalls(
         val result: Any? = when (req) {
             is NativeBalance -> lamports(address(req.address))
             is RecentBlockhash -> blockhash()
+            is SolanaBlockHeight -> blockHeight()
             is Broadcast -> broadcast(req.raw)
             is SolanaAddressHistory -> history(req)
             is SplTokenBalances -> tokenBalances(address(req.owner))
@@ -88,9 +97,20 @@ internal class SolanaCalls(
     private suspend fun lamports(address: String): BigInteger =
         call("getBalance", JsonArray(listOf(JsonPrimitive(address)))).asObject()["value"].amount()
 
-    /** `getLatestBlockhash`: the blockhash in `value`. */
-    private suspend fun blockhash(): String =
-        call("getLatestBlockhash", JsonArray(emptyList())).asObject()["value"].asObject()["blockhash"].matching(PUBLIC_KEY)
+    /** `getLatestBlockhash` at [CONFIRMED]: the blockhash in `value`, and the height after which it is no longer valid. */
+    private suspend fun blockhash(): SolanaBlockhash {
+        val value = call("getLatestBlockhash", confirmedParams()).asObject()["value"].asObject()
+        return SolanaBlockhash(
+            blockhash = value["blockhash"].matching(PUBLIC_KEY),
+            lastValidBlockHeight = value["lastValidBlockHeight"].whole(0, Long.MAX_VALUE),
+        )
+    }
+
+    /** `getBlockHeight` at [CONFIRMED]: the height that a blockhash's last valid height is compared with. */
+    private suspend fun blockHeight(): Long = call("getBlockHeight", confirmedParams()).whole(0, Long.MAX_VALUE)
+
+    /** The one parameter that names the [CONFIRMED] commitment. */
+    private fun confirmedParams(): JsonArray = JsonArray(listOf(options("commitment" to JsonPrimitive(CONFIRMED))))
 
     /**
      * `getAccountInfo` with the data in base64: the owner and the data of [address], or null when the account does not exist. Data that is not

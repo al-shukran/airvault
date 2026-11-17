@@ -27,10 +27,10 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.qr.ScanScreen
 import app.lumio.LumioApp
+import app.lumio.data.MonotonicClock
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
-import app.lumio.data.provider.RecentBlockhash
 import app.lumio.data.provider.RentExemptMinimum
 import app.lumio.data.provider.SolanaAccountRead
 import app.lumio.data.provider.solana.SOLANA_DEVNET
@@ -199,18 +199,14 @@ internal fun SolanaSendRoute(
             .onFailure { notice = REQUEST_FAILED }
     }
 
-    /** The setup at a fresh blockhash, so that the request Lensly signs names a blockhash that is recent when the owner shows it. */
+    /** The setup at the latest blockhash, fetched now, so that the request Lensly signs names a blockhash that is as recent as the network allows. */
     fun prepareSetup(current: SolanaSendStep.SetupReview) {
         val from = account ?: return
         busy = true
         notice = null
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
-                runCatching {
-                    val blockhash = Base58.decode(scheduler.run(RecentBlockhash(network), Priority.FOREGROUND))
-                    val available = scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND)
-                    SolanaSend.setupPlan(network, from, current.rentLamports, available, blockhash, SolanaSend.newRequestId())
-                }
+                runCatching { SolanaSend.setupAt(scheduler, network, from, current.rentLamports, MonotonicClock) }
             }
             busy = false
             outcome.fold(
@@ -218,6 +214,23 @@ internal fun SolanaSendRoute(
                 onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
             )
         }
+    }
+
+    // A setup that stays on the screen unscanned for SETUP_REFRESH_MS is rebuilt at a fresh blockhash, with no tap. Leaving the request for the
+    // scanner cancels the wait, and coming back to it waits only for the rest of the time since the fetch.
+    val pendingSetup = (step as? SolanaSendStep.Request)?.takeIf { it.setup }
+    LaunchedEffect(pendingSetup) {
+        val request = pendingSetup ?: return@LaunchedEffect
+        val from = account ?: return@LaunchedEffect
+        val fetchedAtMs = request.plan.window?.fetchedAtMs ?: return@LaunchedEffect
+        SolanaSend.awaitRefresh(fetchedAtMs, MonotonicClock)
+        val rebuilt = withContext(Dispatchers.IO) {
+            runCatching { SolanaSend.setupAt(scheduler, network, from, request.plan.lamports, MonotonicClock) }
+        }
+        rebuilt.fold(
+            onSuccess = { plan -> confirm(plan, setup = true) },
+            onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
+        )
     }
 
     /** A scanned recipient fills the form. A code that is refused keeps the camera on, with the words why. */
@@ -256,7 +269,13 @@ internal fun SolanaSendRoute(
                 onSuccess = { send ->
                     val machine = SubmitMachine(
                         signed = send,
-                        broadcast = { signedSend -> withContext(Dispatchers.IO) { SolanaSend.broadcast(scheduler, network, signedSend) } },
+                        broadcast = { signedSend ->
+                            withContext(Dispatchers.IO) {
+                                // A setup whose blockhash has run out is not sent: the owner is told so, and the setup is started again.
+                                current.plan.window?.let { SolanaSend.requireUnexpired(scheduler, network, it) }
+                                SolanaSend.broadcast(scheduler, network, signedSend)
+                            }
+                        },
                         describe = { error -> solanaFailure(error, setup = current.setup) },
                     )
                     notice = null
@@ -403,6 +422,7 @@ internal fun SolanaSendRoute(
                 notice = null
                 step = if (current.setup) SolanaSendStep.Form else SolanaSendStep.Review(current.plan)
             },
+            setup = current.setup,
         )
         is SolanaSendStep.Scanning -> ScanScreen(
             title = "Scan signature",
@@ -446,6 +466,7 @@ private fun ownerWords(error: Throwable, fallback: String): String = when (error
  * screen offers no retry.
  */
 internal fun solanaFailure(error: Throwable, setup: Boolean): SubmitFailure {
+    if (error is BlockhashExpired) return SubmitFailure(SETUP_EXPIRED, retryable = false)
     val refused = error is ProviderError.Fatal && error.message == JsonRpc.BLOCKHASH_REFUSED_MESSAGE
     return if (refused) {
         SubmitFailure(if (setup) SETUP_EXPIRED else NONCE_MOVED, retryable = false)
