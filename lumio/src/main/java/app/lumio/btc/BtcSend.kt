@@ -30,6 +30,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlin.math.ceil
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 
@@ -78,8 +80,12 @@ private fun reasonOf(cause: ProviderError): String = when (cause) {
     is ProviderError.Fatal -> cause.message?.trimEnd('.') ?: "the server refused the request"
 }
 
-/** How long one network read of a send may take, before it is cut short and tried again once. */
-internal const val READ_TIMEOUT_MS = 10_000L
+/**
+ * How long one network read of a send may take, before it is cut short and tried again once. It is the scheduler's own deadline for a foreground
+ * call, so a read is never cut short while the scheduler still serves it: a provider that hangs until its HTTP call timeout (15 s) is followed by
+ * the next provider inside this budget. A shorter budget ended each such failover at its first step, and two cut-offs failed the read.
+ */
+internal val READ_TIMEOUT_MS: Long = Priority.FOREGROUND.deadlineMs
 
 /** The wait before the one retry of a send's network read. */
 internal const val RETRY_DELAY_MS = 1_000L
@@ -170,9 +176,13 @@ object BtcSend {
                 )
             }
         }
-        // The walk trusts what the session's scan read within the TTL, so a send right after a scan asks the server for little or nothing.
-        val receive = scanChain(account::receiveAddress, statsOf, memo, nowMs, trustWithinTtl = true)
-        val change = scanChain(account::changeAddress, statsOf, memo, nowMs, trustWithinTtl = true)
+        // The walk trusts what the session's scan read within the TTL, so a send right after a scan asks the server for little or nothing. The two
+        // chains are walked at once, as the scan walks them, so the send takes as long as the longer chain, not the two added together.
+        val (receive, change) = coroutineScope {
+            val receive = async { scanChain(account::receiveAddress, statsOf, memo, nowMs, trustWithinTtl = true) }
+            val change = async { scanChain(account::changeAddress, statsOf, memo, nowMs, trustWithinTtl = true) }
+            receive.await() to change.await()
+        }
         val funded = receive.used.map { RECEIVE_BRANCH to it } + change.used.map { CHANGE_BRANCH to it }
         val listed = funded.filter { it.second.stats.balance != 0L }.flatMap { (branch, hit) ->
             readStep(BtcReadStep.UNSPENT_OUTPUTS) { scheduler.run(AddressUtxos(net, hit.address), Priority.FOREGROUND) }
