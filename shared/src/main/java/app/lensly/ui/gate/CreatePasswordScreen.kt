@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import app.lensly.core.vault.PasswordPolicy
 import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.KeyboardHost
@@ -32,8 +33,8 @@ import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
 
-/** Minimum password length, shown to the user as "8+ characters". */
-const val MIN_PASSWORD_LENGTH = 8
+/** Minimum password length, shown to the user as "N+ characters". It is the policy's minimum, so the copy cannot drift from it. */
+const val MIN_PASSWORD_LENGTH = PasswordPolicy.MIN_CODE_POINTS
 
 /** The two entry steps of password creation. */
 enum class CreateStep { Enter, Confirm }
