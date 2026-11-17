@@ -40,8 +40,17 @@ internal const val DUST_SATS = 546L
 private const val RECEIVE_BRANCH = 0
 private const val CHANGE_BRANCH = 1
 
-/** The confirmation target whose estimate the form starts from, in blocks. */
+/** The confirmation target whose estimate the form starts from, in blocks: about 30 minutes. */
 private const val SUGGESTED_TARGET_BLOCKS = 3
+
+/** The longest target, in blocks (about an hour), whose estimate a send may start from. */
+private const val LONGEST_SUGGESTED_TARGET_BLOCKS = 6
+
+/**
+ * The fee rate a send starts at when the server gives no usable estimate: 2 sat/vB. It is shown to the owner as the fallback, and the owner may
+ * change it. Testnet4 blocks come slowly, so the same rate serves both networks.
+ */
+const val FALLBACK_FEE_RATE_SAT_PER_VB = 2.0
 
 /** The lowest fee rate a request pays, in sat/vB, and the highest that the form accepts. */
 private const val MIN_FEE_RATE = 1.0
@@ -252,12 +261,30 @@ object BtcSend {
         return reported
     }
 
-    /** The fee rate the form starts at: the estimate for about three blocks, or the cheapest the server gives, rounded up and never under 1. */
-    fun suggestedFeeRate(estimates: Map<Int, Double>): Double {
-        val rate = estimates[SUGGESTED_TARGET_BLOCKS] ?: estimates.values.minOrNull() ?: MIN_FEE_RATE
-        return ceil(rate.coerceAtLeast(MIN_FEE_RATE))
+    /**
+     * Where the fee rate of a send starts. It is the server's estimate for the target that is about 30 minutes (three blocks). Without that
+     * target, it is the next longer target within an hour, else the next shorter one. The rate is rounded up and never under 1 sat/vB. When
+     * the server gives no estimate within an hour, the rate is [FALLBACK_FEE_RATE_SAT_PER_VB], and [FeeSuggestion.fromEstimate] is false.
+     */
+    fun feeSuggestion(estimates: Map<Int, Double>?): FeeSuggestion {
+        val within = estimates.orEmpty().filterKeys { it in 1..LONGEST_SUGGESTED_TARGET_BLOCKS }
+        val target = within.keys.filter { it >= SUGGESTED_TARGET_BLOCKS }.minOrNull() ?: within.keys.maxOrNull()
+            ?: return FeeSuggestion(FALLBACK_FEE_RATE_SAT_PER_VB, fromEstimate = false)
+        return FeeSuggestion(ceil(within.getValue(target).coerceAtLeast(MIN_FEE_RATE)), fromEstimate = true)
     }
+
+    /** The text the fee field shows: a whole number of sat/vB. */
+    fun formatFeeRate(satPerVb: Double): String = satPerVb.toLong().toString()
+
+    /**
+     * What the fee field shows when a [suggestion] arrives. An owner's own text is never replaced, even when it is blank.
+     */
+    fun fieldAfterSuggestion(current: String, edited: Boolean, suggestion: Double): String =
+        if (edited) current else formatFeeRate(suggestion)
 }
+
+/** A send's starting fee rate, and whether the server's estimate gave it. [satPerVb] is what the form starts at. */
+class FeeSuggestion(val satPerVb: Double, val fromEstimate: Boolean)
 
 /**
  * Largest first. Coins are added in order of value until they cover the amount and the fee, which is the fee rate times the estimated vsize of

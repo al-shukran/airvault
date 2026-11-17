@@ -8,7 +8,9 @@ import app.lensly.core.btc.ScriptType
 import app.lumio.pair.PairFixtures
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import org.junit.Test
 
 /** Coin selection, fees, change and the owner's inputs, with no network. The vsize stub is 100 vbytes per input and 30 more with change. */
@@ -120,9 +122,38 @@ class BtcSendPlanTest {
     }
 
     @Test
-    fun theStartingFeeRateIsTheThreeBlockEstimateRoundedUpAndNeverUnderOne() {
-        assertEquals(3.0, BtcSend.suggestedFeeRate(mapOf(1 to 87.5, 3 to 2.3, 6 to 1.0)))
-        assertEquals(1.0, BtcSend.suggestedFeeRate(mapOf(144 to 0.5)))
-        assertEquals(12.0, BtcSend.suggestedFeeRate(mapOf(1 to 87.5, 6 to 12.0)))
+    fun theStartingFeeRateIsTheThreeBlockEstimateRoundedUp() {
+        assertTrue(BtcSend.feeSuggestion(mapOf(1 to 87.5, 3 to 2.3, 6 to 1.0)).fromEstimate)
+        assertEquals(3.0, BtcSend.feeSuggestion(mapOf(1 to 87.5, 3 to 2.3, 6 to 1.0)).satPerVb)
+    }
+
+    @Test
+    fun withoutTheThreeBlockTargetTheNextLongerWithinAnHourIsUsed() {
+        assertEquals(12.0, BtcSend.feeSuggestion(mapOf(1 to 87.5, 6 to 12.0)).satPerVb)
+        assertEquals(5.0, BtcSend.feeSuggestion(mapOf(2 to 4.2)).satPerVb, "only a shorter target: its rate, rounded up")
+        assertTrue(BtcSend.feeSuggestion(mapOf(2 to 4.2)).fromEstimate)
+    }
+
+    @Test
+    fun aServerWithNoEstimateWithinAnHourGivesTheFallbackAndSaysSo() {
+        // blockstream.info's testnet4 answers only with targets of 144 blocks and longer.
+        val testnet4 = BtcSend.feeSuggestion(mapOf(144 to 0.495, 504 to 590770.2, 1008 to 0.495))
+        assertEquals(FALLBACK_FEE_RATE_SAT_PER_VB, testnet4.satPerVb)
+        assertFalse(testnet4.fromEstimate)
+        assertEquals(FALLBACK_FEE_RATE_SAT_PER_VB, BtcSend.feeSuggestion(null).satPerVb)
+        assertFalse(BtcSend.feeSuggestion(emptyMap()).fromEstimate)
+    }
+
+    @Test
+    fun anEstimateBelowOneIsRoundedUpToTheMinimumRate() {
+        assertEquals(1.0, BtcSend.feeSuggestion(mapOf(3 to 0.4)).satPerVb)
+    }
+
+    @Test
+    fun anOwnerRateIsNeverReplacedBySuggestion() {
+        assertEquals("7", BtcSend.fieldAfterSuggestion(current = "7", edited = true, suggestion = 3.0))
+        assertEquals("", BtcSend.fieldAfterSuggestion(current = "", edited = true, suggestion = 3.0))
+        assertEquals("3", BtcSend.fieldAfterSuggestion(current = "", edited = false, suggestion = 3.0))
+        assertEquals("2", BtcSend.fieldAfterSuggestion(current = "2", edited = false, suggestion = 2.0))
     }
 }

@@ -27,6 +27,7 @@ import app.lumio.btc.BtcSend
 import app.lumio.btc.BtcSendInput
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.BtcSpendable
+import app.lumio.btc.FALLBACK_FEE_RATE_SAT_PER_VB
 import app.lumio.btc.networkId
 import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.ProviderError
@@ -123,6 +124,8 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
     var amount by rememberSaveable { mutableStateOf("") }
     var feeRate by rememberSaveable { mutableStateOf("") }
     var feeSuggestion by remember { mutableStateOf<String?>(null) }
+    // Whether the owner has changed the fee field. Once they have, no suggestion replaces what they typed.
+    var feeEdited by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     var scan by remember { mutableStateOf(SignatureScan()) }
@@ -136,16 +139,21 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
 
     val network = selected.account.network
 
-    // The fee rate starts at the server's estimate for the network. A rate the owner has typed is never replaced.
+    // The fee rate is optional: the form starts at the server's estimate for about 30 minutes, or at the fallback rate while that is read or when
+    // no estimate comes. A rate the owner has typed is never replaced, and a blank field means the suggestion.
     LaunchedEffect(network) {
+        if (feeRate.isBlank() && !feeEdited) feeRate = BtcSend.formatFeeRate(FALLBACK_FEE_RATE_SAT_PER_VB)
         val estimates = runCatching {
             withContext(Dispatchers.IO) { app.scheduler.run(FeeEstimates(network.networkId()), Priority.FOREGROUND) }
-        }.getOrNull() ?: return@LaunchedEffect
-        val rate = BtcSend.suggestedFeeRate(estimates)
-        suggestedRate = rate
-        val suggested = rate.toLong().toString()
-        feeSuggestion = "Starts at $suggested sat/vB, the server's estimate for about three blocks. Change it if you like."
-        if (feeRate.isBlank()) feeRate = suggested
+        }.getOrNull()
+        val suggestion = BtcSend.feeSuggestion(estimates)
+        suggestedRate = suggestion.satPerVb
+        feeSuggestion = if (suggestion.fromEstimate) {
+            "Starts at ${BtcSend.formatFeeRate(suggestion.satPerVb)} sat/vB, the server's estimate for about 30 minutes. Change it, or leave it to use this rate."
+        } else {
+            "The server gave no estimate. Starts at ${BtcSend.formatFeeRate(suggestion.satPerVb)} sat/vB, the fallback rate. Change it, or leave it to use this rate."
+        }
+        feeRate = BtcSend.fieldAfterSuggestion(feeRate, feeEdited, suggestion.satPerVb)
     }
 
     fun review() {
@@ -157,7 +165,7 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
                 runCatching {
                     val to = BtcSendInput.recipient(recipient, ref.account.network)
                     val sats = BtcSendInput.amountSats(amount)
-                    val rate = BtcSendInput.feeRate(feeRate)
+                    val rate = BtcSendInput.feeRate(feeRate.ifBlank { BtcSend.formatFeeRate(suggestedRate ?: FALLBACK_FEE_RATE_SAT_PER_VB) })
                     // Debug builds only: the pairing fixture's testnet4 coins, which no server holds. Release builds always read the network.
                     val pool = DebugSpendFixture.spendable(ref.account) ?: BtcSend.spendable(ref.account, app.scheduler, app.addressStats.forNetwork(network.networkId()))
                     pool to BtcSend.plan(ref.account, pool, to, sats, rate)
@@ -315,7 +323,10 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
             amount = amount,
             onAmount = { amount = it },
             feeRate = feeRate,
-            onFeeRate = { feeRate = it },
+            onFeeRate = {
+                feeRate = it
+                feeEdited = true
+            },
             feeSuggestion = feeSuggestion,
             busy = busy,
             notice = notice,
