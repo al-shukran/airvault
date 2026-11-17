@@ -1,12 +1,12 @@
 package app.lensly.app.sign
 
 import app.lensly.app.addressesIn
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaInstruction
 import app.lensly.core.solana.SolanaMessageAccount
 import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.solana.SolanaToken
 import app.lensly.core.solana.SolanaWarning
-import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.NOT_STATED
 import app.lensly.ui.sign.ReviewFact
 import app.lensly.ui.sign.shortAddress
@@ -29,6 +29,12 @@ private const val PROGRAM = "Program"
 /** The label of the network row in the header of a Solana review. */
 private const val NETWORK = "Network"
 
+/** The label of the application domain, in the rows of an off-chain message. */
+private const val APPLICATION_DOMAIN = "Application domain"
+
+/** The label of the message text, in the rows of an off-chain message. */
+private const val MESSAGE = "Message"
+
 /** The label of the priority fee, in the facts under the sentence. */
 private const val PRIORITY_FEE = "Priority fee"
 
@@ -40,15 +46,17 @@ private const val LAMPORT_DECIMALS = 9
 
 /**
  * The label and value rows a Solana review shows, in order. A transaction gives the signer, the fee payer and then each instruction,
- * with its accounts. A message gives the signer and the message as the owner reads it. The review screen and the Review Record both show
- * these rows, so they say the same thing.
+ * with its accounts. An off-chain message gives the signer, the application domain and the message text, whole. The review screen and
+ * the Review Record both show these rows, so they say the same thing.
  */
 fun solanaRows(review: SolanaRequestReview): List<Pair<String, String>> = buildList {
     add(SIGNER to review.signerAddress)
+    val message = review.offchainMessage
     val feePayer = review.feePayer
-    if (feePayer == null) {
-        add("Message" to solanaMessageText(review.messageBytes ?: ByteArray(0)))
-    } else {
+    if (message != null) {
+        add(APPLICATION_DOMAIN to SolanaAccount.addressOf(message.applicationDomain))
+        add(MESSAGE to message.text)
+    } else if (feePayer != null) {
         add(FEE_PAYER to feePayer)
         review.instructions.forEach { addAll(instructionRows(it, review)) }
     }
@@ -72,12 +80,6 @@ fun solanaAccountText(account: SolanaMessageAccount): String = when (account) {
     is SolanaMessageAccount.Lookup ->
         "lookup table ${account.tableAddress}, index ${account.tableIndex} (can't be checked offline)"
 }
-
-/**
- * The text of a message to sign, when every character can be read by eye, as the ETH messages are. Any other message shows its bytes
- * as 0x hex.
- */
-fun solanaMessageText(bytes: ByteArray): String = printableText(bytes) ?: ("0x" + bytes.toHex())
 
 /** The message as text, when it is UTF-8 whose every character is [isPrintable]. Null for any other bytes. */
 internal fun printableText(bytes: ByteArray): String? = try {
@@ -197,10 +199,7 @@ private fun tokenNameText(token: SolanaToken?): String = when {
 fun solanaCounterparties(review: SolanaRequestReview): List<String> = addressesIn(solanaRows(review).map { it.second })
 
 fun solanaSentence(review: SolanaRequestReview): String {
-    val message = review.messageBytes
-    if (message != null) {
-        return if (printableText(message) != null) "Signs a message as text." else "Signs a message as bytes."
-    }
+    if (review.offchainMessage != null) return "Signs a message as text."
     (review.instructions.singleOrNull() as? SolanaInstruction.CreateNonceAccount)?.let {
         return "Create a nonce account ${solanaAccountText(it.account)}, rent ${lamportsText(it.lamports)} SOL, " +
             "authority ${solanaAccountText(it.authority)}."
