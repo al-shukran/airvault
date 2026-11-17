@@ -1,406 +1,231 @@
 package app.lensly.app.export
 
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.autoAccountName
+import app.lensly.app.evmAddressOf
+import app.lensly.core.parse.DecodeBudget
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.util.UUID
+import kotlin.random.Random
 
-private const val OLDER_CODE = "This pairing code is from an older Lensly. Update both apps and pair again."
-
+/** The version-6 pairing: the layout round-trips, a code of another version is refused by its version, and an encoder never writes a code a reader refuses. */
 class PairingCodecTest {
 
-    private val ethereumPath = listOf(0x8000002CL, 0x8000003CL, 0x80000000L)
-    private val bitcoinPath = listOf(0x80000054L, 0x80000000L, 0x80000000L)
-
-    private fun key(seed: Int, path: List<Long>, parent: Long = 0x11223344L): PairingKey = PairingKey(
-        path = path,
-        depth = path.size,
-        parentFingerprint = parent,
-        publicKey = ByteArray(33) { i -> if (i == 0) 2 else (seed * 31 + i).toByte() },
-        chainCode = ByteArray(32) { i -> (seed * 7 + i).toByte() },
-    )
-
-    /** A wallet with an Ethereum App whose accounts carry names, labels and groups, and a Bitcoin App with two bare keys. */
-    private fun sample(): PairingPayload = PairingPayload(
-        fingerprint = 0xDEADBEEFL,
-        name = "Demo",
-        apps = listOf(
-            PairingApp(
-                app = "ethereum",
-                keys = listOf(key(1, ethereumPath)),
-                accounts = listOf(
-                    PairingAccount(key = 0, name = "Savings", label = "cold", group = "Long term"),
-                    PairingAccount(key = 0, name = "Trading", label = null, group = "Hot"),
-                    PairingAccount(key = 0, name = "Trésor ✓", label = "ü", group = null),
-                ),
-            ),
-            PairingApp(
-                app = "bitcoin",
-                keys = listOf(key(2, bitcoinPath, parent = 0x55667788L), key(3, bitcoinPath, parent = 0x99AABBCCL)),
-                accounts = listOf(
-                    PairingAccount(key = 0, name = null, label = null, group = null),
-                    PairingAccount(key = 1, name = null, label = null, group = null),
-                ),
-            ),
-        ),
-    )
-
-    private fun assertSamePayload(expected: PairingPayload, actual: PairingPayload) {
-        assertEquals(expected.fingerprint, actual.fingerprint)
-        assertEquals(expected.name, actual.name)
-        assertEquals(expected.apps.map { it.app }, actual.apps.map { it.app })
-        for ((want, got) in expected.apps.zip(actual.apps)) {
-            assertEquals(want.keys.size, got.keys.size)
-            for ((wantKey, gotKey) in want.keys.zip(got.keys)) {
-                assertEquals(wantKey.path, gotKey.path)
-                assertEquals(wantKey.depth, gotKey.depth)
-                assertEquals(wantKey.parentFingerprint, gotKey.parentFingerprint)
-                assertTrue(wantKey.publicKey.contentEquals(gotKey.publicKey))
-                assertTrue(wantKey.chainCode.contentEquals(gotKey.chainCode))
-            }
-            assertEquals(want.accounts, got.accounts)
-        }
-        assertEquals(expected.addressBook, actual.addressBook)
+    @Test
+    fun everyChainRoundTripsAsItIsEncoded() {
+        val payload = RealisticPairing.payload()
+        assertSamePayload(payload, PairingCodec.decode(PairingCodec.encode(payload, null), null))
     }
-
-    /** Refusal text of [block], which must throw an IllegalArgumentException. */
-    private fun refusalOf(block: () -> Unit): String = try {
-        block()
-        fail("expected a refusal")
-        ""
-    } catch (e: IllegalArgumentException) {
-        e.message.orEmpty()
-    }
-
-    /**
-     * The envelope of the current version of a body whose fields are [entries] (keys 2 to 5). A key 1 in [entries] is not a body field, so it is left out.
-     */
-    private fun rawPayload(vararg entries: Pair<Long, Cbor>): ByteArray {
-        val body = Cbor.encode(Cbor.Dict(entries.filter { it.first != 1L }.map { (key, value) -> Cbor.Uint(key) to value }))
-        return Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(body))))
-    }
-
-    /** The payload that [bytes] hold once they are encoded without compression and decoded again. */
-    private fun roundTrip(payload: PairingPayload): PairingPayload = PairingCodec.decode(PairingCodec.encode(payload, null), null)
-
-    /** The UR that [parts] scan back to, which must be a complete code. */
-    private fun scanned(parts: List<String>): UR {
-        val scanner = UrScanner()
-        parts.forEach { scanner.receive(it) }
-        return requireNotNull(scanner.result())
-    }
-
-    /** The encoding flag (key 6) of an envelope. */
-    private fun encodingOf(envelope: ByteArray): Long =
-        ((Cbor.decode(envelope, app.lensly.core.parse.DecodeBudget("CBOR", 1024)) as Cbor.Dict)
-            .entries.single { (key, _) -> (key as Cbor.Uint).value == 6L }.second as Cbor.Uint).value
-
-    /** One Address Book entry as a payload carries it. */
-    private fun addressItem(seed: Int): Cbor = Cbor.Dict(
-        listOf(
-            Cbor.Uint(1) to Cbor.Text("id-$seed"),
-            Cbor.Uint(2) to Cbor.Text("0x" + "%040x".format(seed)),
-            Cbor.Uint(3) to Cbor.Text("Alice"),
-        ),
-    )
 
     @Test
-    fun namesLabelsAndGroupsRoundTrip() {
-        val payload = sample()
-
+    fun aPairingWithNoAddressBookOrLabelsRoundTrips() {
+        val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(label = null, group = null) }
+            .copy(addressBook = emptyList())
         assertSamePayload(payload, roundTrip(payload))
     }
 
     @Test
-    fun aFullCodeWithoutNamesRoundTripsWithThemAbsent() {
-        val payload = PairingPayload(
-            fingerprint = 1L,
-            name = "Lensly",
-            apps = listOf(PairingApp("ethereum", listOf(key(4, ethereumPath)), listOf(PairingAccount(0, null, null, null)))),
-        )
-
-        val back = roundTrip(payload)
-
-        assertNull(back.apps.single().accounts.single().name)
-        assertNull(back.apps.single().accounts.single().label)
-        assertNull(back.apps.single().accounts.single().group)
-        assertSamePayload(payload, back)
-    }
-
-    @Test
-    fun aLongCodeIsAnimatedAndScansBackWhole() {
-        val accounts = (0 until 120).map { index ->
-            PairingAccount(key = 0, name = "Account $index", label = "label $index", group = "Group ${index % 5}")
-        }
-        val payload = PairingPayload(
-            fingerprint = 0x0A0B0C0DL,
-            name = "Long",
-            apps = listOf(PairingApp("ethereum", listOf(key(5, ethereumPath)), accounts)),
-        )
-        val parts = PairingCodec.urParts(payload, null)
-        assertTrue("a long pairing is animated", parts.size > 1)
-
-        assertSamePayload(payload, PairingCodec.fromUr(scanned(parts), null))
-    }
-
-    @Test
-    fun aNewerVersionIsRefusedByItsVersionEvenWithFieldsItDoesNotKnow() {
-        val newer = Cbor.encode(
-            Cbor.Dict(
-                listOf(
-                    Cbor.Uint(1) to Cbor.Uint(6),
-                    Cbor.Uint(6) to Cbor.Uint(0),
-                    Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)),
-                    Cbor.Uint(9) to Cbor.Text("a field from the future"),
-                ),
-            ),
-        )
-
-        val message = refusalOf { PairingCodec.decode(newer, null) }
-
-        assertTrue(message, message.contains("format 6"))
-        assertTrue(message, message.contains("Update the app"))
-    }
-
-    @Test
-    fun aVersionZeroAndAMissingVersionAreNotAPairing() {
-        val notAPairing = "This is not a pairing code from Lensly."
-        val versionZero = Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(0), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(ByteArray(0)))))
-        assertEquals(OLDER_CODE, refusalOf { PairingCodec.decode(versionZero, null) })
-        assertEquals(notAPairing, refusalOf { PairingCodec.decode(rawPayload(2L to Cbor.Uint(1)), null) })
-        assertEquals(notAPairing, refusalOf { PairingCodec.decode(byteArrayOf(0x01, 0x02), null) })
-    }
-
-    @Test
-    fun anotherUrTypeIsRefused() {
-        val other = UR("crypto-hdkey", PairingCodec.encode(sample(), null))
-
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.fromUr(other, null) })
-    }
-
-    @Test
-    fun aFieldOutsideTheLayoutRefusesTheCode() {
-        val bytes = rawPayload(
-            1L to Cbor.Uint(1),
-            2L to Cbor.Uint(7),
-            3L to Cbor.Text("Demo"),
-            4L to Cbor.Arr(emptyList()),
-            7L to Cbor.Text("extra"),
-        )
-
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes, null) })
-    }
-
-    @Test
-    fun aPublicKeyThatIsNot33BytesIsRefused() {
-        val shortKey = Cbor.Dict(
-            listOf(
-                Cbor.Uint(1) to Cbor.Arr(ethereumPath.map { Cbor.Uint(it) }),
-                Cbor.Uint(2) to Cbor.Uint(3),
-                Cbor.Uint(3) to Cbor.Uint(0),
-                Cbor.Uint(4) to Cbor.Bytes(ByteArray(32) { 2 }),
-                Cbor.Uint(5) to Cbor.Bytes(ByteArray(32)),
-            ),
-        )
-        val app = Cbor.Dict(
-            listOf(
-                Cbor.Uint(1) to Cbor.Text("ethereum"),
-                Cbor.Uint(2) to Cbor.Arr(listOf(shortKey)),
-                Cbor.Uint(3) to Cbor.Arr(emptyList()),
-            ),
-        )
-        val bytes = rawPayload(1L to Cbor.Uint(1), 2L to Cbor.Uint(1), 3L to Cbor.Text("Demo"), 4L to Cbor.Arr(listOf(app)))
-
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes, null) })
-    }
-
-    @Test
-    fun anEncoderRefusesAnAccountThatNamesNoKey() {
-        val broken = PairingPayload(
-            fingerprint = 1L,
-            name = "Demo",
-            apps = listOf(PairingApp("ethereum", listOf(key(6, ethereumPath)), listOf(PairingAccount(1, null, null, null)))),
-        )
-
-        assertTrue(refusalOf { PairingCodec.encode(broken, null) }.contains("key the App does not hold"))
-    }
-
-    @Test
-    fun aNameWithAControlCharacterOrTooManyBytesIsRefused() {
-        val withControl = sample().copy(name = "De\u0007mo")
-        val tooLong = sample().copy(name = "x".repeat(PairingCodec.MAX_NAME_BYTES + 1))
-        val longGroup = sample().copy(
-            apps = listOf(sample().apps.first().let { app ->
-                app.copy(accounts = listOf(PairingAccount(0, "ok", null, "g".repeat(PairingCodec.MAX_LABEL_BYTES + 1))))
-            }),
-        )
-
-        assertTrue(refusalOf { PairingCodec.encode(withControl, null) }.contains("1 to ${PairingCodec.MAX_NAME_BYTES} bytes"))
-        assertTrue(refusalOf { PairingCodec.encode(tooLong, null) }.contains("1 to ${PairingCodec.MAX_NAME_BYTES} bytes"))
-        assertTrue(refusalOf { PairingCodec.encode(longGroup, null) }.contains("1 to ${PairingCodec.MAX_LABEL_BYTES} bytes"))
-    }
-
-    @Test
-    fun anAddressBookRoundTripsWithALabelAbsentWhenThereIsNone() {
-        val payload = sample().copy(
-            addressBook = listOf(
-                AddressBookEntry(id = "id-1", address = "0x" + "a".repeat(40), name = "Alice", label = "Exchange"),
-                AddressBookEntry(id = "id-2", address = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq", name = "Trésor ✓", label = null),
-            ),
-        )
-
-        assertSamePayload(payload, roundTrip(payload))
-    }
-
-    @Test
-    fun aPackedUuidAndChecksumAddressReadBackAsWritten() {
-        val checksum = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
-        val entries = listOf(AddressBookEntry(id = "5f0c2a1e-0001-4b7d-8c2e-9a1f3b5d7e90", address = checksum, name = "Alice", label = null))
-        val payload = sample().copy(addressBook = entries)
-
-        assertEquals(entries, roundTrip(payload).addressBook)
-        // The same entry with a lower-case address and an upper-case id is text, so it is larger.
-        val asText = sample().copy(
-            addressBook = listOf(AddressBookEntry(id = "5F0C2A1E-0001-4B7D-8C2E-9A1F3B5D7E90", address = checksum.lowercase(), name = "Alice", label = null)),
-        )
-        assertEquals(asText.addressBook, roundTrip(asText).addressBook)
-        assertTrue(PairingCodec.encode(payload, null).size < PairingCodec.encode(asText, null).size)
-    }
-
-    @Test
-    fun anOlderVersionIsRefusedWithTheUpdateMessage() {
-        val version4 = Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(4), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(ByteArray(0)))))
-        assertEquals(OLDER_CODE, refusalOf { PairingCodec.decode(version4, null) })
-        assertEquals(OLDER_CODE, refusalOf { PairingCodec.fromUr(UR(PairingCodec.UR_TYPE, version4), null) })
-    }
-
-    @Test
-    fun aFullAddressBookOfTheCapAnimatesAndScansBackWhole() {
-        // Each name is 32 emoji, the most a Display Name holds, at four bytes each; each label is 16 emoji.
-        val book = List(PairingCodec.MAX_ADDRESS_BOOK) { i ->
-            AddressBookEntry(id = "id-$i", address = "0x" + "%040x".format(i), name = "😀".repeat(32), label = "🙂".repeat(16))
-        }
-        val payload = sample().copy(addressBook = book)
-
-        val parts = PairingCodec.urParts(payload, null)
-
-        assertTrue("a full book is animated", parts.size > 1)
-        val back = PairingCodec.fromUr(scanned(parts), null)
-        assertEquals(book, back.addressBook)
-        assertSamePayload(payload, back)
-    }
-
-    @Test
-    fun aBookOfMoreThanTheCapIsRefusedByTheEncoderAndTheDecoderAcceptsTheCap() {
-        val tooMany = sample().copy(
-            addressBook = List(PairingCodec.MAX_ADDRESS_BOOK + 1) { i -> AddressBookEntry("id-$i", "0x" + "%040x".format(i), "Alice", null) },
-        )
-        assertTrue(refusalOf { PairingCodec.encode(tooMany, null) }.contains("at most ${PairingCodec.MAX_ADDRESS_BOOK} Address Book entries"))
-
-        fun payloadWithBook(count: Int) = rawPayload(
-            1L to Cbor.Uint(1),
-            2L to Cbor.Uint(7),
-            3L to Cbor.Text("Demo"),
-            4L to Cbor.Arr(emptyList()),
-            5L to Cbor.Arr(List(count) { i -> addressItem(i) }),
-        )
-
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(payloadWithBook(PairingCodec.MAX_ADDRESS_BOOK + 1), null) })
-        assertEquals(PairingCodec.MAX_ADDRESS_BOOK, PairingCodec.decode(payloadWithBook(PairingCodec.MAX_ADDRESS_BOOK), null).addressBook.size)
-    }
-
-    @Test
-    fun anAddressBookEntryWithAMissingFieldOrALongNameIsRefused() {
-        val missingAddress = Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Text("id-1"), Cbor.Uint(3) to Cbor.Text("Alice")))
-        val bytes = rawPayload(
-            1L to Cbor.Uint(1),
-            2L to Cbor.Uint(7),
-            3L to Cbor.Text("Demo"),
-            4L to Cbor.Arr(emptyList()),
-            5L to Cbor.Arr(listOf(missingAddress)),
-        )
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(bytes, null) })
-
-        val longName = sample().copy(
-            addressBook = listOf(AddressBookEntry("id-1", "0x" + "a".repeat(40), "n".repeat(PairingCodec.MAX_ENTRY_NAME_BYTES + 1), null)),
-        )
-        assertTrue(refusalOf { PairingCodec.encode(longName, null) }.contains("1 to ${PairingCodec.MAX_ENTRY_NAME_BYTES} bytes"))
-    }
-
-    @Test
-    fun aCompressedBodyIsKeptOnlyWhenItIsSmaller() {
-        val big = PairingCodec.encode(sample(), DeflateStandIn)
-        val tiny = PairingCodec.encode(PairingPayload(fingerprint = 1L, name = "A", apps = emptyList()), DeflateStandIn)
-
-        assertEquals(2L, encodingOf(big))
-        assertEquals(0L, encodingOf(tiny))
-        assertSamePayload(sample(), PairingCodec.decode(big, DeflateStandIn))
-    }
-
-    @Test
-    fun aCompressedBodyIsRefusedWithoutADecompressor() {
-        val compressed = PairingCodec.encode(sample(), DeflateStandIn)
-
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(compressed, null) })
-    }
-
-    @Test
-    fun aBodyThatInflatesPastTheBoundIsRefused() {
-        val compressed = PairingCodec.encode(sample(), DeflateStandIn)
-        val inflatesTooMuch = BrotliDecompressor { _, _ -> ByteArray(PairingCodec.MAX_BODY_BYTES + 1) }
-
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(compressed, inflatesTooMuch) })
-    }
-
-    @Test
-    fun aStoredBodyOverTheBoundIsRefusedAndAnEncoderNeverWritesOne() {
-        val envelope = Cbor.encode(
-            Cbor.Dict(
-                listOf(
-                    Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION),
-                    Cbor.Uint(6) to Cbor.Uint(0),
-                    Cbor.Uint(7) to Cbor.Bytes(ByteArray(PairingCodec.MAX_BODY_BYTES + 1)),
-                ),
-            ),
-        )
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(envelope, null) })
-
-        val huge = sample().copy(
-            apps = List(PairingCodec.MAX_APPS) { index ->
-                PairingApp(
-                    app = "app-$index",
-                    keys = listOf(key(index + 10, ethereumPath)),
-                    accounts = List(PairingCodec.MAX_ACCOUNTS) { _ ->
-                        PairingAccount(0, "n".repeat(PairingCodec.MAX_NAME_BYTES), "l".repeat(PairingCodec.MAX_LABEL_BYTES), "g".repeat(PairingCodec.MAX_LABEL_BYTES))
+    fun anAccountNamedByItsAutoNameIsSentWithNoName() {
+        val vault = RealisticPairing.payload()
+        val payload = vault.copy(
+            apps = vault.apps.map { app ->
+                app.copy(
+                    accounts = app.accounts.mapIndexed { position, account ->
+                        // An account's Auto-Name counts its index in the path, which for Bitcoin is not its position in the App.
+                        val index = (app.keys[position].path[2] and 0x7FFFFFFFL).toInt()
+                        account.copy(name = autoAccountName("Family vault", index))
                     },
                 )
             },
         )
-        assertTrue(refusalOf { PairingCodec.encode(huge, null) }.contains("larger than ${PairingCodec.MAX_BODY_BYTES} bytes"))
+        val text = String(PairingCodec.encode(payload, null), Charsets.ISO_8859_1)
+        assertFalse("an Auto-Name is not in the code", text.contains("Family vault 0"))
+        assertEquals(payload.apps.map { app -> app.accounts.map { it.name } }, roundTrip(payload).apps.map { app -> app.accounts.map { it.name } })
     }
 
     @Test
-    fun anEnvelopeWithAnUnknownEncodingOrAnExtraKeyIsRefused() {
-        val unknownEncoding = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION), Cbor.Uint(6) to Cbor.Uint(1), Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)))),
-        )
-        val extraKey = Cbor.encode(
-            Cbor.Dict(
-                listOf(
-                    Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION),
-                    Cbor.Uint(6) to Cbor.Uint(0),
-                    Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)),
-                    Cbor.Uint(8) to Cbor.Uint(0),
-                ),
-            ),
-        )
+    fun aLabelOrGroupIsSentOnceInTheDictionary() {
+        val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(label = "Hodl vault") }
+        val text = String(PairingCodec.encode(payload, null), Charsets.ISO_8859_1)
+        assertEquals(1, Regex("Hodl vault").findAll(text).count())
+        assertSamePayload(payload, roundTrip(payload))
+    }
 
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(unknownEncoding, DeflateStandIn) })
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(extraKey, DeflateStandIn) })
+    @Test
+    fun aRunBreaksWhereTheIndexSkipsAndAccountsStillRoundTrip() {
+        val ethereum = PairingApp(
+            app = "ethereum",
+            keys = listOf(0, 1, 3, 4).map { PairingKey.ethereumAddress(it, address(it)) },
+            accounts = listOf(0, 1, 2, 3).map { PairingAccount(key = it, name = "Account $it", label = null, group = null) },
+        )
+        val payload = PairingPayload(fingerprint = 0x1234L, name = "Skips", autoNameBase = "Skips", apps = listOf(ethereum))
+        assertSamePayload(payload, roundTrip(payload))
+    }
+
+    @Test
+    fun aMinimalBodyWithNoAppsRoundTrips() {
+        val body = Cbor.encode(Cbor.Dict(listOf(uint(2) to uint(7), uint(3) to Cbor.Text("Vault"), uint(4) to Cbor.Text(""), uint(5) to Cbor.Arr(emptyList()))))
+        val payload = PairingCodec.decode(envelope(VERSION, body), null)
+        assertEquals("Vault", payload.name)
+        assertTrue(payload.apps.isEmpty())
+    }
+
+    @Test
+    fun aBodyWithAFieldOutsideTheLayoutIsRefused() {
+        val body = Cbor.encode(
+            Cbor.Dict(listOf(uint(2) to uint(7), uint(3) to Cbor.Text("Vault"), uint(4) to Cbor.Text(""), uint(5) to Cbor.Arr(emptyList()), uint(9) to uint(0))),
+        )
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(envelope(VERSION, body), null) })
+    }
+
+    @Test
+    fun anOlderVersionIsRefusedWithTheMessageToPairAgain() {
+        val message = refusalOf { PairingCodec.decode(envelope(5L, byteArrayOf()), null) }
+        assertTrue(message, message.contains("older Lensly") && message.contains("pair again"))
+    }
+
+    @Test
+    fun aNewerVersionIsRefusedByItsVersionEvenWithFieldsItDoesNotKnow() {
+        val message = refusalOf { PairingCodec.decode(envelope(7L, byteArrayOf()), null) }
+        assertEquals("This pairing uses format 7, and this app reads format 6. Update the app, then pair again.", message)
+    }
+
+    @Test
+    fun aCodeThatIsNotAPairingOrIsAnotherUrTypeIsRefused() {
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.decode(byteArrayOf(1, 2, 3), null) })
+        assertEquals(
+            "This is not a pairing code from Lensly.",
+            refusalOf { PairingCodec.fromUr(UR("crypto-seed", byteArrayOf()), null) },
+        )
+    }
+
+    @Test
+    fun anEncoderRefusesAnAccountThatNamesAnotherKey() {
+        val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(key = account.key + 1) }
+        refusalOf { PairingCodec.encode(payload, null) }
+    }
+
+    @Test
+    fun anEncoderRefusesAKeyPathThatIsNotHardenedAtItsAccount() {
+        val payload = RealisticPairing.payload()
+        val ethereum = payload.apps.first()
+        val broken = ethereum.copy(keys = listOf(ethereum.keys[0].copy(path = listOf(0x80000000L + 44, 0x80000000L + 60, 3, 0, 0))) + ethereum.keys.drop(1))
+        assertTrue(refusalOf { PairingCodec.encode(payload.copy(apps = listOf(broken)), null) }.isNotEmpty())
+    }
+
+    @Test
+    fun aNameWithAControlCharacterIsRefused() {
+        val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(name = "Bad\u0007") }
+        assertTrue(refusalOf { PairingCodec.encode(payload, null) }.contains("1 to 96 bytes"))
+    }
+
+    @Test
+    fun anAddressBookRoundTripsWithPackedIdsAndAddresses() {
+        val payload = RealisticPairing.payload()
+        assertEquals(12, payload.addressBook.size)
+        assertSamePayload(payload, roundTrip(payload))
+    }
+
+    @Test
+    fun aBookOfMoreThanTheCapIsRefusedByTheEncoder() {
+        val payload = RealisticPairing.payload().copy(addressBook = List(PairingCodec.MAX_ADDRESS_BOOK + 1) { entry(it) })
+        assertTrue(refusalOf { PairingCodec.encode(payload, null) }.contains("Address Book entries"))
+    }
+
+    @Test
+    fun aFullAddressBookOfTheCapAnimatesAndScansBackWhole() {
+        val payload = RealisticPairing.payload().copy(addressBook = List(PairingCodec.MAX_ADDRESS_BOOK) { entry(it) })
+        val frames = PairingCodec.urParts(payload, null)
+        assertTrue(frames.size > 1)
+        val scanner = UrScanner()
+        frames.forEach { scanner.receive(it) }
+        assertSamePayload(payload, PairingCodec.fromUr(requireNotNull(scanner.result()), null))
+    }
+
+    @Test
+    fun framesCarryTheFragmentSizeAndScanBackWhole() {
+        val payload = RealisticPairing.payload()
+        val bytes = PairingCodec.encode(payload, null)
+        val frames = PairingCodec.urParts(payload, null)
+        assertEquals((bytes.size + PairingCodec.FRAGMENT_BYTES - 1) / PairingCodec.FRAGMENT_BYTES, frames.size)
+        val scanner = UrScanner()
+        frames.forEach { scanner.receive(it) }
+        assertSamePayload(payload, PairingCodec.fromUr(requireNotNull(scanner.result()), null))
+    }
+
+    @Test
+    fun aCompressedBodyIsKeptOnlyWhenItIsSmaller() {
+        val payload = RealisticPairing.payload()
+        val larger = PairingCodec.encode(payload, BrotliCompressor { it.copyOf(it.size + 1) })
+        assertEquals(0L, encodingOf(larger))
+        val smaller = PairingCodec.encode(payload, BrotliCompressor { it.copyOf(it.size / 2) })
+        assertEquals(2L, encodingOf(smaller))
+        assertTrue(refusalOf { PairingCodec.decode(smaller, null) }.isNotEmpty())
+    }
+
+    private fun roundTrip(payload: PairingPayload): PairingPayload = PairingCodec.decode(PairingCodec.encode(payload, null), null)
+
+    /** The payload with every account of every App replaced by [transform], which is given the App's id and the account. */
+    private fun withAccounts(payload: PairingPayload, transform: (String, PairingAccount) -> PairingAccount): PairingPayload =
+        payload.copy(apps = payload.apps.map { app -> app.copy(accounts = app.accounts.map { transform(app.app, it) }) })
+
+    private fun assertSamePayload(expected: PairingPayload, actual: PairingPayload) {
+        assertEquals(expected.fingerprint, actual.fingerprint)
+        assertEquals(expected.name, actual.name)
+        assertEquals(expected.autoNameBase, actual.autoNameBase)
+        assertEquals(expected.apps.map { it.app }, actual.apps.map { it.app })
+        for ((want, got) in expected.apps.zip(actual.apps)) {
+            assertEquals(want.accounts, got.accounts)
+            assertEquals(want.keys.map { it.path }, got.keys.map { it.path })
+            assertEquals(want.keys.map { it.material.toList() }, got.keys.map { it.material.toList() })
+            assertEquals(want.keys.map { it.chainCode?.toList() }, got.keys.map { it.chainCode?.toList() })
+        }
+        assertEquals(expected.addressBook, actual.addressBook)
+    }
+
+    /** The message of the refusal that [block] throws, or a failure when [block] is accepted. */
+    private fun refusalOf(block: () -> Unit): String {
+        try {
+            block()
+        } catch (e: IllegalArgumentException) {
+            return e.message.orEmpty()
+        }
+        fail("the code was accepted")
+        return ""
+    }
+
+    /** The envelope of [version] that holds [body] as it is, which the reader checks before it reads the body. */
+    private fun envelope(version: Long, body: ByteArray): ByteArray =
+        Cbor.encode(Cbor.Dict(listOf(uint(1) to uint(version), uint(6) to uint(0), uint(7) to Cbor.Bytes(body))))
+
+    private fun encodingOf(envelope: ByteArray): Long {
+        val root = Cbor.decode(envelope, DecodeBudget("CBOR", ParserLimits.MAX_PAIRING_ITEMS)) as Cbor.Dict
+        return ((root.entries.first { (key, _) -> (key as Cbor.Uint).value == 6L }.second) as Cbor.Uint).value
+    }
+
+    private fun address(seed: Int): String = checkNotNull(evmAddressOf("0x" + Random(seed).nextBytes(20).joinToString("") { "%02x".format(it) }))
+
+    private fun entry(index: Int): AddressBookEntry {
+        val random = Random(index)
+        return AddressBookEntry(
+            id = UUID(random.nextLong(), random.nextLong()).toString(),
+            address = address(index),
+            name = "Contact ${index + 1}",
+            label = if (index % 2 == 0) "Family" else null,
+        )
+    }
+
+    private fun uint(value: Long): Cbor = Cbor.Uint(value)
+
+    private companion object {
+        const val VERSION = 6L
     }
 }

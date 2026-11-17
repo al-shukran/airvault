@@ -230,8 +230,11 @@ class WalletStoreBitcoinTest {
         val ethereum = pairing.apps.single { it.app == "ethereum" }
         val seed = Mnemonic.of(words).use { it.deriveSeed("") }
         assertEquals(2, ethereum.keys.size)
-        assertTrue(ethereum.keys[0].publicKey.contentEquals(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(0), 0).publicKey))
-        assertTrue(ethereum.keys[1].publicKey.contentEquals(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(1), 0).publicKey))
+        // The Ethereum key of each account is its address, which the pairing carries as its 20 bytes.
+        for (account in 0..1) {
+            val address = AccountAddresses.addressOfKey(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(account), 0))
+            assertEquals(address.removePrefix("0x").lowercase(), ethereum.keys[account].material.joinToString("") { "%02x".format(it) })
+        }
         assertEquals(
             listOf(
                 PairingAccount(key = 0, name = "Cold", label = "vault", group = "Long term"),

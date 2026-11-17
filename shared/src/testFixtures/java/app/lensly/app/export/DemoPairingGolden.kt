@@ -2,8 +2,9 @@ package app.lensly.app.export
 
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.evmAddressOf
+import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
@@ -30,16 +31,23 @@ object DemoPairingGolden {
     fun payload(): PairingPayload {
         val seed = Mnemonic.of(WORDS).use { it.deriveSeed("") }
         val wallet = HdWallet(seed)
-        val bitcoin = BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET) + BtcWatchOnly.accounts(seed, BtcNetwork.TESTNET4)
+        // The Bitcoin accounts the owner stores: one Native Segwit and one Taproot on mainnet, and one Native Segwit on testnet4.
+        val bitcoin = listOf(
+            BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0).watchOnly(),
+            BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.TAPROOT, 0).watchOnly(),
+            BtcAccount.fromSeed(seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0).watchOnly(),
+        )
         val random = Random(20261116)
         return PairingPayload(
             fingerprint = wallet.masterFingerprint.toLong() and 0xFFFFFFFFL,
             name = "My AirVault wallet",
+            autoNameBase = "My AirVault wallet",
             apps = listOf(
                 PairingApp(
                     app = "ethereum",
                     keys = List(12) { account ->
-                        PairingKey.ethereumAddress(account, AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
+                        val address = AccountAddresses.addressOfKey(AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
+                        PairingKey.ethereumAddress(account, address)
                     },
                     accounts = List(12) { i ->
                         PairingAccount(
@@ -54,7 +62,7 @@ object DemoPairingGolden {
                     app = "bitcoin",
                     keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
                     accounts = bitcoin.indices.map { i ->
-                        PairingAccount(key = i, name = "Bitcoin ${if (i < 4) "main" else "test"} ${i % 4 + 1}", label = null, group = null)
+                        PairingAccount(key = i, name = listOf("Bitcoin main 1", "Bitcoin main 2", "Bitcoin test 1")[i], label = null, group = null)
                     },
                 ),
             ),
