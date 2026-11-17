@@ -72,7 +72,13 @@ object LedgerEd25519 {
         val kL = extended.copyOfRange(0, 32)
         val kR = extended.copyOfRange(32, 64)
         extended.fill(0)
-        return Key(publicKey(kL), kL, kR, chain)
+        return try {
+            Key(publicKey(kL), kL, kR, chain)
+        } catch (e: Throwable) {
+            kL.fill(0)
+            kR.fill(0)
+            throw e
+        }
     }
 
     /** The RFC 8032 public key of the seed [kL]: clamp(SHA-512(kL)[0..32]) times the base point. */
@@ -83,56 +89,65 @@ object LedgerEd25519 {
     /** The extended key kL||kR and chain code at the end of [path]: BOLOS expand, then one step per index. */
     private fun derive(seed: ByteArray, path: IntArray): Pair<ByteArray, ByteArray> {
         var extended = hmac(HMAC_SHA512, ED25519_SEED, seed)
-        while ((extended[31].toInt() and 0x20) != 0) {
-            val next = hmac(HMAC_SHA512, ED25519_SEED, extended)
-            extended.fill(0)
-            extended = next
-        }
-        extended[0] = (extended[0].toInt() and 0xF8).toByte()
-        extended[31] = ((extended[31].toInt() and 0x7F) or 0x40).toByte()
-        var chain = hmac(HMAC_SHA256, ED25519_SEED, byteArrayOf(0x01) + seed)
-        for (index in path) {
-            val (nextExtended, nextChain) = childStep(extended, chain, index)
+        var chain = ByteArray(0)
+        try {
+            while ((extended[31].toInt() and 0x20) != 0) {
+                val next = hmac(HMAC_SHA512, ED25519_SEED, extended)
+                extended.fill(0)
+                extended = next
+            }
+            extended[0] = (extended[0].toInt() and 0xF8).toByte()
+            extended[31] = ((extended[31].toInt() and 0x7F) or 0x40).toByte()
+            chain = hmac(HMAC_SHA256, ED25519_SEED, byteArrayOf(0x01), seed)
+            for (index in path) {
+                val (nextExtended, nextChain) = childStep(extended, chain, index)
+                extended.fill(0)
+                chain.fill(0)
+                extended = nextExtended
+                chain = nextChain
+            }
+            return extended to chain
+        } catch (e: Throwable) {
             extended.fill(0)
             chain.fill(0)
-            extended = nextExtended
-            chain = nextChain
+            throw e
         }
-        return extended to chain
     }
 
     /** One child step of BOLOS `hdw_bip32_ed25519`: the child kL||kR and chain code for [index]. */
     private fun childStep(extended: ByteArray, chain: ByteArray, index: Int): Pair<ByteArray, ByteArray> {
-        val kL = extended.copyOfRange(0, 32)
-        val kR = extended.copyOfRange(32, 64)
-        val indexBytes = littleEndian(index)
-        val isHardened = index < 0
-        // The parent's point A = kL*G. Only non-hardened steps use it, in both the Z input and the chain-code input.
-        val point = if (isHardened) ByteArray(0) else scalarMultBaseEncoded(kL)
-        val zInput =
-            if (isHardened) byteArrayOf(0x00) + kL + kR + indexBytes else byteArrayOf(0x02) + point + indexBytes
-        val z = hmac(HMAC_SHA512, chain, zInput)
-        // Z_L keeps 28 bytes: its top 32 bits (bytes 28..31, little-endian) are cleared.
-        // Then kL' = kL + 8 * Z_L (mod 2^256).
-        val zL = z.copyOfRange(0, 32)
-        zL.fill(0, 28, 32)
-        val zR = z.copyOfRange(32, 64)
-        val scaledZL = timesEightMod256(zL)
-        val childKL = addMod256(kL, scaledZL)
-        val childKR = addMod256(kR, zR)
-        // The chain code uses the parent's kL||kR when hardened, and the parent's point A otherwise.
-        val chainInput =
-            if (isHardened) byteArrayOf(0x01) + kL + kR + indexBytes else byteArrayOf(0x03) + point + indexBytes
-        val childChain = hmac(HMAC_SHA512, chain, chainInput).copyOfRange(32, 64)
-        zInput.fill(0)
-        chainInput.fill(0)
-        z.fill(0)
-        zL.fill(0)
-        zR.fill(0)
-        scaledZL.fill(0)
-        kL.fill(0)
-        kR.fill(0)
-        return (childKL + childKR) to childChain
+        // Every secret and HMAC buffer made below is listed here, and all of them are zeroed on return or on a throw.
+        val secrets = mutableListOf<ByteArray>()
+        try {
+            val kL = extended.copyOfRange(0, 32).also(secrets::add)
+            val kR = extended.copyOfRange(32, 64).also(secrets::add)
+            val indexBytes = littleEndian(index)
+            val isHardened = index < 0
+            // The parent's point A = kL*G. Only non-hardened steps use it, in the Z input and the chain-code input.
+            val point = if (isHardened) ByteArray(0) else scalarMultBaseEncoded(kL)
+            val z =
+                (
+                    if (isHardened) hmac(HMAC_SHA512, chain, byteArrayOf(0x00), kL, kR, indexBytes)
+                    else hmac(HMAC_SHA512, chain, byteArrayOf(0x02), point, indexBytes)
+                ).also(secrets::add)
+            // Z_L keeps 28 bytes: its top 32 bits (bytes 28..31, little-endian) are cleared.
+            // Then kL' = kL + 8 * Z_L (mod 2^256).
+            val zL = z.copyOfRange(0, 32).also(secrets::add)
+            zL.fill(0, 28, 32)
+            val zR = z.copyOfRange(32, 64).also(secrets::add)
+            val scaledZL = timesEightMod256(zL).also(secrets::add)
+            val childKL = addMod256(kL, scaledZL).also(secrets::add)
+            val childKR = addMod256(kR, zR).also(secrets::add)
+            // The chain code uses the parent's kL||kR when hardened, and the parent's point A otherwise.
+            val chainMac =
+                (
+                    if (isHardened) hmac(HMAC_SHA512, chain, byteArrayOf(0x01), kL, kR, indexBytes)
+                    else hmac(HMAC_SHA512, chain, byteArrayOf(0x03), point, indexBytes)
+                ).also(secrets::add)
+            return (childKL + childKR) to chainMac.copyOfRange(32, 64)
+        } finally {
+            secrets.forEach { it.fill(0) }
+        }
     }
 
     /**
@@ -145,10 +160,12 @@ object LedgerEd25519 {
         return encode(scalarMultBase(scalar))
     }
 
-    private fun hmac(algorithm: String, key: ByteArray, data: ByteArray): ByteArray {
+    /** HMAC of [parts] in order. The parts are fed one by one, so no joined copy of a secret is left behind. */
+    private fun hmac(algorithm: String, key: ByteArray, vararg parts: ByteArray): ByteArray {
         val mac = Mac.getInstance(algorithm)
         mac.init(SecretKeySpec(key, algorithm))
-        return mac.doFinal(data)
+        for (part in parts) mac.update(part)
+        return mac.doFinal()
     }
 
     private fun littleEndian(value: Int): ByteArray =

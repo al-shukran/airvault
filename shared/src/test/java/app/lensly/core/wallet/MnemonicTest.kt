@@ -101,4 +101,15 @@ class MnemonicTest {
     fun fromEntropyRejectsWrongLength() {
         assertFailsWith<IllegalArgumentException> { Mnemonic.fromEntropy(ByteArray(16)) }
     }
+
+    @Test
+    fun toStringDoesNotPrintTheWords() {
+        val mnemonic = Mnemonic.of(artMnemonic)
+        try {
+            assertEquals("Mnemonic(redacted)", mnemonic.toString())
+            assertEquals("Mnemonic(redacted)", "$mnemonic")
+        } finally {
+            mnemonic.wipe()
+        }
+    }
 }

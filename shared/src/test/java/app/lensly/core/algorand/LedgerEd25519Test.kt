@@ -56,6 +56,16 @@ class LedgerEd25519Test {
     }
 
     @Test
+    fun wipeZeroesTheSecretHalvesAndKeepsThePublicKey() {
+        val key = LedgerEd25519.algorandAccount(Numeric.hexStringToByteArray(SPECULOS_SEED_HEX), 123)
+        val publicKey = key.publicKey.copyOf()
+        key.wipe()
+        assertTrue(key.kL.all { it == 0.toByte() }, "kL is zeroed by the wipe")
+        assertTrue(key.kR.all { it == 0.toByte() }, "kR is zeroed by the wipe")
+        assertContentEquals(publicKey, key.publicKey)
+    }
+
+    @Test
     fun doesNotProduceTheXhdAddressForAccount0() {
         val key = LedgerEd25519.algorandAccount(Mnemonic.toSeed(MNEMONIC_A), 0)
         try {
