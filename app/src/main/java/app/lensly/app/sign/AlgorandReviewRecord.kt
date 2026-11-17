@@ -1,5 +1,6 @@
 package app.lensly.app.sign
 
+import app.lensly.core.algorand.AlgorandNetwork
 import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.AlgoSignType
@@ -7,7 +8,10 @@ import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
 
 /** The network a record names when the request was refused before a review named one. */
-private const val ALGORAND_NETWORK = "Algorand"
+internal const val ALGORAND_NETWORK = "Algorand"
+
+/** Every network name an Algorand record can carry: the name of each network Lensly signs for, or [ALGORAND_NETWORK]. */
+internal val ALGORAND_NETWORK_NAMES: Set<String> = AlgorandNetwork.entries.map { it.displayName }.toSet() + ALGORAND_NETWORK
 
 /**
  * What the Algorand sign flow showed and decided for one request, of wallet [walletId]. [reviewed] is the review the owner saw, when the

@@ -13,21 +13,29 @@ data class InternalAccount(val displayName: String?, val autoName: String, val l
  */
 data class AddressNotes(val internal: InternalAccount?, val entry: AddressBookEntry?)
 
-/** The notes of [address], or null when neither the device's [internal] accounts nor the Address Book [book] know it. */
-fun addressNotesOf(address: String, internal: Map<String, InternalAccount>, book: List<AddressBookEntry>): AddressNotes? {
-    val key = addressKeyOf(address)
-    val account = internal[key]
-    val entry = book.firstOrNull { addressKeyOf(it.address) == key }
+/**
+ * The notes of [address] on [chain], or null when neither the device's [internal] accounts nor the Address Book [book] know it. The entry
+ * is found by [addressBookEntryFor], so it must be on [chain].
+ */
+fun addressNotesOf(
+    address: String,
+    chain: AddressChain,
+    internal: Map<String, InternalAccount>,
+    book: List<AddressBookEntry>,
+): AddressNotes? {
+    val account = internal[addressKeyOf(address)]
+    val entry = addressBookEntryFor(address, chain, book)
     return if (account == null && entry == null) null else AddressNotes(account, entry)
 }
 
-/** The notes of each of [addresses] that either source knows, keyed by [addressKeyOf]. */
+/** The notes of each of [addresses] on [chain] that either source knows, keyed by [addressKeyOf]. */
 fun addressNotesOf(
     addresses: Collection<String>,
+    chain: AddressChain,
     internal: Map<String, InternalAccount>,
     book: List<AddressBookEntry>,
 ): Map<String, AddressNotes> = addresses.distinct()
-    .mapNotNull { address -> addressNotesOf(address, internal, book)?.let { addressKeyOf(address) to it } }
+    .mapNotNull { address -> addressNotesOf(address, chain, internal, book)?.let { addressKeyOf(address) to it } }
     .toMap()
 
 /** The notes of [address] in a map that [addressNotesOf] built, or null when there are none. */

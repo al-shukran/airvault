@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
+import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
@@ -33,7 +34,10 @@ fun AlgorandReviewScreen(
     onApprove: () -> Unit,
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens an address of the review in the Address Book, with its chain. Null leaves the address rows without a tap. */
+    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
+    val open = addressTapOn(AddressChain.ALGORAND, onOpenAddress)
     // A different request starts unread, so nothing carries over from the last one.
     key(review) {
         val read = rememberReviewRead(review)
@@ -70,7 +74,9 @@ fun AlgorandReviewScreen(
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
                 ReviewSection(title = "Transaction") {
-                    algorandRows(review).forEach { (label, value) -> ReviewField(label = label, value = value, notes = addressNotes.notesOf(value)) }
+                    algorandRows(review).forEach { (label, value) ->
+                        ReviewField(label = label, value = value, notes = addressNotes.notesOf(value), onOpen = open)
+                    }
                 }
             }
         }

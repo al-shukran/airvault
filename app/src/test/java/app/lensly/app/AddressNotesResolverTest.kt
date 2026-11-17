@@ -18,41 +18,53 @@ class AddressNotesResolverTest {
 
     @Test
     fun anAccountOfThisDeviceShowsItsInternalNames() {
-        assertEquals(AddressNotes(internal = ownAccount, entry = null), addressNotesOf(ownAddress, internal, book))
+        assertEquals(AddressNotes(internal = ownAccount, entry = null), addressNotesOf(ownAddress, AddressChain.EVM, internal, book))
     }
 
     @Test
     fun anEntryShowsItsNameAndLabel() {
-        assertEquals(AddressNotes(internal = null, entry = alice), addressNotesOf(otherAddress, internal, book))
+        assertEquals(AddressNotes(internal = null, entry = alice), addressNotesOf(otherAddress, AddressChain.EVM, internal, book))
     }
 
     @Test
     fun anAddressThatIsAnAccountAndAnEntryShowsBoth() {
         val mine = AddressBookEntry(id = "3", address = ownAddress.lowercase(), name = "Mine", label = null)
 
-        assertEquals(AddressNotes(internal = ownAccount, entry = mine), addressNotesOf(ownAddress, internal, listOf(mine)))
+        assertEquals(
+            AddressNotes(internal = ownAccount, entry = mine),
+            addressNotesOf(ownAddress, AddressChain.EVM, internal, listOf(mine)),
+        )
     }
 
     @Test
     fun anAddressNeitherSourceKnowsHasNoNotes() {
-        assertNull(addressNotesOf("0x" + "c".repeat(40), internal, book))
+        assertNull(addressNotesOf("0x" + "c".repeat(40), AddressChain.EVM, internal, book))
     }
 
     @Test
     fun anEthereumAddressMatchesInAnyLetterCase() {
-        assertEquals(alice, addressNotesOf(otherAddress.uppercase().replace("0X", "0x"), internal, book)?.entry)
-        assertEquals(ownAccount, addressNotesOf(ownAddress.lowercase(), internal, emptyList())?.internal)
+        val upper = otherAddress.uppercase().replace("0X", "0x")
+        assertEquals(alice, addressNotesOf(upper, AddressChain.EVM, internal, book)?.entry)
+        assertEquals(ownAccount, addressNotesOf(ownAddress.lowercase(), AddressChain.EVM, internal, emptyList())?.internal)
     }
 
     @Test
     fun aBitcoinAddressMatchesExactly() {
-        assertEquals(bob, addressNotesOf(bitcoinAddress, emptyMap(), book)?.entry)
-        assertNull(addressNotesOf(bitcoinAddress.uppercase(), emptyMap(), book))
+        assertEquals(bob, addressNotesOf(bitcoinAddress, AddressChain.BITCOIN, emptyMap(), book)?.entry)
+        assertNull(addressNotesOf(bitcoinAddress.uppercase(), AddressChain.BITCOIN, emptyMap(), book))
+    }
+
+    @Test
+    fun anEntryIsFoundOnlyOnItsOwnChain() {
+        // The Bitcoin entry is not an entry of any other chain, so a lookup on those chains finds nothing.
+        assertNull(addressNotesOf(bitcoinAddress, AddressChain.SOLANA, emptyMap(), book))
+        assertNull(addressNotesOf(bitcoinAddress, AddressChain.EVM, emptyMap(), book))
     }
 
     @Test
     fun theNotesOfSeveralAddressesAreKeyedByTheirMatchKey() {
-        val notes = addressNotesOf(listOf(ownAddress, otherAddress, otherAddress.uppercase().replace("0X", "0x")), internal, book)
+        val upper = otherAddress.uppercase().replace("0X", "0x")
+        val notes = addressNotesOf(listOf(ownAddress, otherAddress, upper), AddressChain.EVM, internal, book)
 
         assertEquals(2, notes.size)
         assertEquals(alice, notes.notesOf(otherAddress.lowercase())?.entry)

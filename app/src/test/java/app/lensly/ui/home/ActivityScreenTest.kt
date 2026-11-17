@@ -103,7 +103,7 @@ class ActivityScreenTest {
         compose.onNodeWithText("Signed").assertIsDisplayed()
         compose.onNodeWithText("Monad Testnet · chain 10143").assertIsDisplayed()
         compose.onNodeWithText(groupAddress(SAMPLE_ACCOUNT)).assertIsDisplayed()
-        compose.onNodeWithText(groupAddress(SAMPLE_RECIPIENT)).assertIsDisplayed()
+        compose.onAllNodesWithText(groupAddress(SAMPLE_RECIPIENT)).onFirst().assertIsDisplayed()
     }
 
     @Test

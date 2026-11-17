@@ -1,5 +1,6 @@
 package app.lensly.ui.home
 
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -29,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
@@ -325,7 +327,8 @@ private fun SecretWarning(title: String, onCancel: () -> Unit, onReveal: () -> U
 
 /**
  * A Lensly-styled sheet of options. It closes on a swipe down, a tap outside it, or Back. The content goes in the gutter, with
- * the sheet's own bottom padding. With [scrollable] the content scrolls when it is taller than the sheet.
+ * the sheet's own bottom padding. With [scrollable] the content scrolls when it is taller than the sheet, and it does not stretch past
+ * either end.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -336,14 +339,17 @@ internal fun OptionsSheet(onDismiss: () -> Unit, scrollable: Boolean = false, co
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = LenslyOnSurface,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = WALLET_GUTTER)
-                .padding(bottom = LenslySpacing.lg)
-                .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier),
-            content = content,
-        )
+        // A sheet's content does not stretch past its end. The stretch read as a bounce when a swipe went up past the last row.
+        CompositionLocalProvider(LocalOverscrollFactory provides null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = WALLET_GUTTER)
+                    .padding(bottom = LenslySpacing.lg)
+                    .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                content = content,
+            )
+        }
     }
 }
 

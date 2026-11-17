@@ -7,6 +7,7 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
+import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
@@ -46,7 +47,10 @@ fun BitcoinReviewScreen(
     modifier: Modifier = Modifier,
     /** What the Address Book and the wallet's own accounts say of each output address, keyed by app.lensly.app.addressKeyOf. */
     addressNotes: Map<String, AddressNotes> = emptyMap(),
+    /** Opens an output address in the Address Book, with its chain. Null leaves the address rows without a tap. */
+    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
+    val open = addressTapOn(AddressChain.BITCOIN, onOpenAddress)
     // A different request starts unread and with its check unticked, so nothing carries over from the last one.
     key(review) {
         val read = rememberReviewRead(review)
@@ -95,7 +99,12 @@ fun BitcoinReviewScreen(
                         ReviewFactRow(label = "Output ${output.index}", value = btcText(output.amountSats))
                         val address = output.address
                         if (address != null) {
-                            ReviewAddress(address = address, notes = addressNotes.notesOf(address), bitcoin = true)
+                            ReviewAddress(
+                                address = address,
+                                notes = addressNotes.notesOf(address),
+                                bitcoin = true,
+                                onClick = open?.let { tap -> { tap(address) } },
+                            )
                         } else {
                             NoteText("No address. The script is not paid to an address.")
                         }
