@@ -1,5 +1,6 @@
 package app.lensly.core.vault
 
+import kotlin.math.log10
 import kotlin.test.assertEquals
 import org.junit.Test
 
@@ -25,7 +26,7 @@ class PasswordPolicyTest {
     }
 
     @Test
-    fun refusesUnder28BitsEvenWhenScoreIsHigh() {
+    fun refusesUnder40BitsEvenWhenScoreIsHigh() {
         // 8.0 * log2(10) is about 26.6 bits.
         assertEquals(
             PolicyResult.Refused(PolicyReason.LOW_ENTROPY),
@@ -34,15 +35,31 @@ class PasswordPolicyTest {
     }
 
     @Test
-    fun entropyThresholdIs28Bits() {
-        // 8.4 * log2(10) is about 27.9 bits, 8.5 * log2(10) is about 28.2 bits.
+    fun refusesA30BitPassword() {
         assertEquals(
             PolicyResult.Refused(PolicyReason.LOW_ENTROPY),
-            PasswordPolicy.evaluate(codePoints = 8, score = 2, guessesLog10 = 8.4),
+            PasswordPolicy.evaluate(codePoints = 16, score = 4, guessesLog10 = bitsAsLog10(30.0)),
+        )
+    }
+
+    @Test
+    fun acceptsA45BitPassword() {
+        assertEquals(
+            PolicyResult.Accepted,
+            PasswordPolicy.evaluate(codePoints = 16, score = 2, guessesLog10 = bitsAsLog10(45.0)),
+        )
+    }
+
+    @Test
+    fun entropyThresholdIs40Bits() {
+        // 12.0 * log2(10) is about 39.9 bits, 12.1 * log2(10) is about 40.2 bits.
+        assertEquals(
+            PolicyResult.Refused(PolicyReason.LOW_ENTROPY),
+            PasswordPolicy.evaluate(codePoints = 8, score = 2, guessesLog10 = 12.0),
         )
         assertEquals(
             PolicyResult.Accepted,
-            PasswordPolicy.evaluate(codePoints = 8, score = 2, guessesLog10 = 8.5),
+            PasswordPolicy.evaluate(codePoints = 8, score = 2, guessesLog10 = 12.1),
         )
     }
 
@@ -96,9 +113,10 @@ class PasswordPolicyTest {
     }
 
     @Test
-    fun checkAcceptsShortMixedPassword() {
+    fun checkRefusesShortMixedPasswordBelowTheFortyBitFloor() {
+        // Accepted at the old 28-bit floor. Its estimate is under 40 bits, so it is refused now.
         assertEquals(
-            PolicyResult.Accepted,
+            PolicyResult.Refused(PolicyReason.LOW_ENTROPY),
             PasswordPolicy.check("Lensly-2026!".toCharArray()),
         )
     }
@@ -117,4 +135,7 @@ class PasswordPolicyTest {
         PasswordPolicy.check(password)
         assertEquals("q7Vn!2Lx#Rb9Tm4Wc8Zp", password.concatToString())
     }
+
+    /** The guess count of a password of [bits] bits, as zxcvbn reports it on a log10 scale. */
+    private fun bitsAsLog10(bits: Double): Double = bits * log10(2.0)
 }

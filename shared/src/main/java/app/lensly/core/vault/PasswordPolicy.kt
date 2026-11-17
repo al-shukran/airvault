@@ -23,7 +23,7 @@ sealed interface PolicyResult {
 object PasswordPolicy {
     const val MIN_CODE_POINTS = 8
     const val MIN_ZXCVBN_SCORE = 2
-    const val MIN_ENTROPY_BITS = 28.0
+    const val MIN_ENTROPY_BITS = 40.0
 
     private val LOG2_10 = ln(10.0) / ln(2.0)
 

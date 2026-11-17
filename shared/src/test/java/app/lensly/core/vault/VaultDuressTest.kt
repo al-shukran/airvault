@@ -479,36 +479,6 @@ class VaultDuressTest {
     }
 
     @Test
-    fun aLegacyVaultMigratesOnItsFirstUnlock() {
-        writeLegacyVault(APP, settings = byteArrayOf(4, 5, 6))
-
-        val session = unlocked(attempt(APP))
-        assertFalse(session.isDecoy)
-        assertContentEquals(byteArrayOf(4, 5, 6), session.getVaultRecord("settings"))
-        session.close()
-
-        assertEquals(VaultKeyFile.FILE_BYTES.toLong(), layout.vaultKey.length())
-        assertFalse(File(layout.vaultRecords, "settings.bin").exists())
-        // The migrated vault opens again, and it takes a Duress Password like any other.
-        val again = unlocked(unlockAfterDelay(APP))
-        assertEquals(DuressResult.Enabled, setDuress(again))
-        again.close()
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        assertTrue(decoy.isDecoy)
-        decoy.close()
-    }
-
-    @Test
-    fun aLegacyVaultRejectsAWrongPasswordAndKeepsItsFile() {
-        writeLegacyVault(APP, settings = byteArrayOf(4))
-
-        assertRejected(attempt(WRONG))
-
-        // The legacy file is 93 bytes. A refused password does not upgrade it.
-        assertEquals(93L, layout.vaultKey.length())
-    }
-
-    @Test
     fun aWipeFromTheDecoyLeavesTheRealVaultAndItsWalletsAlone() {
         createVault()
         val real = unlocked(attempt(APP))
@@ -604,31 +574,6 @@ class VaultDuressTest {
         layout.root.walkTopDown()
             .filter { it.isFile }
             .associate { it.relativeTo(layout.root).path to it.length() }
-
-    /** The v1 `vault.key` and a plain-named settings record, as the app wrote them before Duress Passwords existed. */
-    private fun writeLegacyVault(password: String, settings: ByteArray) {
-        val salt = ByteArray(VaultHeader.SALT_BYTES) { (it * 7 + 2).toByte() }
-        val vaultKey = ByteArray(32) { (it * 5 + 9).toByte() }
-        val hardwareKey = keys.createHardwareKey()
-        val softKey = Argon2Kdf.derive(password.toCharArray(), salt, KDF)
-        val hardwareWrapped = Aead.sealWithKeystore(hardwareKey, VaultKeyFile.LEGACY_HARDWARE_AAD, vaultKey)
-        val sealed = Aead.seal(softKey, VaultKeyFile.LEGACY_SOFTWARE_AAD, hardwareWrapped)
-        layout.root.mkdirs()
-        writeAtomically(layout.vaultKey, VaultKeyFile.encodeLegacy(sealed))
-        FailureStore(layout.root, keys).initialize(clock)
-        val header = VaultHeader(
-            kdf = KDF,
-            salt = salt,
-            createdAtWallMs = clock.wallMillis(),
-            strongBox = false,
-            hardwareBacked = true,
-            keySecurityLevel = 1,
-        )
-        writeAtomically(layout.header, header.encode())
-        layout.vaultRecords.mkdirs()
-        val record = Aead.seal(vaultKey, "vault-record\u0000settings".toByteArray(Charsets.UTF_8), settings)
-        File(layout.vaultRecords, "settings.bin").writeBytes(byteArrayOf(1) + record)
-    }
 
     private companion object {
         const val APP = "q7Vn!2Lx#Rb9Tm4Wc8Zp"

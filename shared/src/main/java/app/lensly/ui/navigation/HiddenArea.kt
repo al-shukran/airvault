@@ -27,6 +27,7 @@ import app.lensly.core.vault.PasswordPolicy
 import app.lensly.core.vault.PolicyReason
 import app.lensly.core.vault.PolicyResult
 import app.lensly.core.vault.UnlockResult
+import app.lensly.core.vault.VAULT_FORMAT_CHANGED
 import app.lensly.core.vault.VaultException
 import app.lensly.ui.gate.CreatePasswordScreen
 import app.lensly.ui.gate.CreatePasswordState
@@ -47,6 +48,9 @@ object GateRoutes {
     const val CREATE_PASSWORD = "create-password"
     const val UNLOCK = "unlock"
     const val UNAVAILABLE = "unavailable"
+
+    /** A vault in another format. It cannot open, and the owner restores the wallets from their seed phrases. */
+    const val FORMAT_CHANGED = "format-changed"
 }
 
 /**
@@ -68,6 +72,11 @@ fun NavGraphBuilder.hiddenArea(
         composable(GateRoutes.UNAVAILABLE) {
             HiddenBackdrop {
                 UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = holder.vault.refusal())
+            }
+        }
+        composable(GateRoutes.FORMAT_CHANGED) {
+            HiddenBackdrop {
+                UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = VAULT_FORMAT_CHANGED)
             }
         }
         content()
@@ -175,6 +184,7 @@ private fun GateRoute(navController: NavHostController, holder: VaultHolder, hom
     LaunchedEffect(Unit) {
         val next = when {
             holder.openSession() != null -> home
+            withContext(Dispatchers.IO) { holder.vault.formatChanged() } -> GateRoutes.FORMAT_CHANGED
             holder.vault.exists() -> GateRoutes.UNLOCK
             // A device that may not hold a vault is told so before the owner types a password for nothing.
             withContext(Dispatchers.IO) { holder.vault.canCreate() } -> GateRoutes.CREATE_PASSWORD
