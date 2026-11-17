@@ -5,7 +5,6 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.wallet.AccountAddresses
-import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcRow
 import app.lumio.chains.CachedNativeBalance
 import app.lumio.chains.NativeCoin
@@ -89,15 +88,19 @@ object WalletAccounts {
         ScriptType.TAPROOT -> "taproot"
     }
 
-    /** The Bitcoin accounts on [mode]'s side. Each receives at its current address, and its balance is its last scan. */
+    /**
+     * The Bitcoin accounts on [mode]'s side. Each one's address is its first receive address, m/.../0/0, the address Lensly shows for the same account,
+     * so a scan never changes it. Its balance is its last scan. [WalletAccount.index] is the account's place in the wallet's list, so two accounts of one
+     * network and Script Type keep their own rows and open their own pages.
+     */
     private fun bitcoinAccounts(wallet: PairedWallet, mode: NetworkMode, rows: List<BtcRow>): List<WalletAccount> =
         rows.filter { mode.holds(it.ref.account.network) }.map { row ->
             val account = row.ref.account
             WalletAccount(
                 walletId = wallet.id,
                 chain = AccountChain.BITCOIN,
-                index = wallet.bitcoin.indexOfFirst { BtcAccountRef(wallet.id, it).key == row.ref.key },
-                address = row.snapshot?.nextReceiveAddress ?: account.receiveAddress(0),
+                index = wallet.bitcoin.indexOfFirst { it.path.path == account.path.path },
+                address = account.receiveAddress(0),
                 networkName = if (account.network == BtcNetwork.TESTNET4) "Bitcoin testnet4" else "Bitcoin",
                 balance = HomeBalances.bitcoin(listOf(row)).singleOrNull(),
                 script = scriptLabel(account.scriptType),
