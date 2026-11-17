@@ -60,8 +60,8 @@ data class Payment(
 ) : AlgoTxn
 
 /**
- * An asset transfer (`type` axfer). An opt-in is a transfer of amount 0 to the sender's own address. The encoding omits
- * the zero amount, so the decoded amount is 0.
+ * An asset transfer (`type` axfer). An opt-in is a transfer of amount 0 to the sender's own address, and an opt-out is a transfer
+ * of amount 0 with a close-to address. The encoding omits the zero amount, so the decoded amount is 0.
  */
 data class AssetTransfer(
     override val sender: ByteArray,
@@ -84,7 +84,18 @@ data class AssetTransfer(
     val closeTo: ByteArray?,
     /** `asnd`: for a clawback, the account the assets are taken from. Null otherwise. */
     val assetSender: ByteArray?,
-) : AlgoTxn
+) : AlgoTxn {
+    /**
+     * An opt-in: zero units sent from the sender to the sender's own address, with no close-to. The asset is added to the account.
+     */
+    val isOptIn: Boolean get() = amount == 0UL && closeTo == null && receiver.contentEquals(sender)
+
+    /**
+     * An opt-out: zero units with a close-to address. The whole holding goes to [closeTo] and the asset is removed from the account.
+     * A close-to with a non-zero amount is a transfer that also closes the holding, so it is not an opt-out.
+     */
+    val isOptOut: Boolean get() = amount == 0UL && closeTo != null
+}
 
 private val TX_TAG = byteArrayOf(0x54, 0x58)
 

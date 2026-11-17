@@ -77,37 +77,77 @@ class AlgorandReviewRowsTest {
     }
 
     @Test
-    fun anAssetTransferShowsItsAssetIdAndItsAmountInRawUnits() {
+    fun anAssetTransferShowsItsAssetIdAndItsAmountInBaseUnits() {
         val review = reviewOf(AXFER)
 
         assertEquals(
             listOf(
                 "Sender" to SENDER_ADDRESS,
                 "Asset ID" to "10458941",
-                "Amount" to "250 raw units",
+                "Amount" to "250 base units",
                 "Receiver" to RECEIVER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
             ),
             algorandRows(review),
         )
-        assertEquals("Sends 250 raw units of asset 10458941 to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals("Sends 250 base units of asset 10458941 to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals(emptyList(), review.warnings)
     }
 
     @Test
     fun anAssetOptInIsDescribedAsOptingIn() {
         val review = reviewOf(AXFER_OPTIN)
 
-        assertEquals("Opts in to asset 10458941.", algorandSentence(review))
+        assertEquals("Opt in to asset 10458941.", algorandSentence(review))
         assertEquals(
             listOf(
                 "Sender" to SENDER_ADDRESS,
                 "Asset ID" to "10458941",
-                "Amount" to "0 raw units",
+                "Amount" to "0 base units",
                 "Receiver" to SENDER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
             ),
             algorandRows(review),
         )
+        assertEquals(emptyList(), review.warnings)
+    }
+
+    @Test
+    fun anAssetOptOutSaysWhatItRemovesAndWhereTheRemainingBalanceGoes() {
+        val review = reviewOf(AXFER_CLOSEOUT)
+
+        assertEquals("Opt out of asset 10458941, remaining balance goes to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals(
+            listOf(
+                "Sender" to SENDER_ADDRESS,
+                "Asset ID" to "10458941",
+                "Amount" to "0 base units",
+                "Receiver" to RECEIVER_ADDRESS,
+                "Fee" to "0.001000 ALGO",
+                "Close holding to" to RECEIVER_ADDRESS,
+            ),
+            algorandRows(review),
+        )
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+    }
+
+    @Test
+    fun anOptOutToAnotherAddressNamesThatAddressNotTheReceiver() {
+        val review = reviewOf(AXFER_OPTOUT_TO_OTHER)
+
+        assertEquals("Opt out of asset 10458941, remaining balance goes to $CLOSE_ADDRESS.", algorandSentence(review))
+        assertEquals(CLOSE_ADDRESS, algorandRows(review).single { it.first == "Close holding to" }.second)
+    }
+
+    @Test
+    fun aTransferThatAlsoClosesTheHoldingSaysWhereTheRestGoes() {
+        val review = reviewOf(AXFER_CLOSE_WITH_AMOUNT)
+
+        assertEquals(
+            "Sends 250 base units of asset 10458941 to $RECEIVER_ADDRESS. The rest goes to $CLOSE_ADDRESS, and the asset is removed.",
+            algorandSentence(review),
+        )
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
     }
 
     @Test
@@ -117,7 +157,7 @@ class AlgorandReviewRowsTest {
         assertEquals(CLOSE_ADDRESS, algorandRows(review).single { it.first == "Close holding to" }.second)
         assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
         assertEquals(
-            "This removes the asset from the account. All of its remaining units go to the close-to address below.",
+            "This sends all of the remaining units of this asset to the close-to address below and removes the asset from the account.",
             algorandWarningText(review, AlgorandWarning.CLOSE_TO),
         )
     }
@@ -182,5 +222,29 @@ class AlgorandReviewRowsTest {
         const val AXFER_HEADER_WITH_ACLOSE =
             "8ba461616d74ccfaa661636c6f7365c4208d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d219a165d006da4" +
                 "61726376"
+
+        /** The `axfer_closeout` vector: an opt-out by close-out, 0 units with the remaining holding to account 1 (the receiver). */
+        const val AXFER_CLOSEOUT =
+            "8aa661636c6f7365c420c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da461726376c420c1" +
+                "1dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da3666565cd03e8a26676ce02faf080a367656e" +
+                "ac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f70e5093a22" +
+                "a26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538a4747970" +
+                "65a56178666572a478616964ce009f973d"
+
+        /** The `axfer_optout_to_other` vector: an opt-out whose remaining holding goes to account 2, not to the receiver. */
+        const val AXFER_OPTOUT_TO_OTHER =
+            "8aa661636c6f7365c4208d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d219a165d006da461726376c420c1" +
+                "1dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da3666565cd03e8a26676ce02faf080a367656e" +
+                "ac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f70e5093a22" +
+                "a26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538a4747970" +
+                "65a56178666572a478616964ce009f973d"
+
+        /** The `axfer_close_with_amount` vector: 250 units to account 1, and the rest of the holding to account 2. */
+        const val AXFER_CLOSE_WITH_AMOUNT =
+            "8ba461616d74ccfaa661636c6f7365c4208d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d219a165d006da4" +
+                "61726376c420c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da3666565cd03e8a26676ce02" +
+                "faf080a367656eac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec6" +
+                "2f7f70e5093a22a26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd" +
+                "2c6538a474797065a56178666572a478616964ce009f973d"
     }
 }

@@ -27,6 +27,11 @@ GH_B64 = "SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI="
 FIRST, LAST, FEE = 50_000_000, 50_001_000, 1000
 SP = transaction.SuggestedParams(fee=FEE, first=FIRST, last=LAST, gh=GH_B64, gen=GEN, flat_fee=True)
 GH = base64.b64decode(GH_B64)
+# Mainnet block 0 "gen" and "gh", read from https://mainnet-api.algonode.cloud/v2/transactions/params.
+GEN_MAIN = "mainnet-v1.0"
+GH_MAIN_B64 = "wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8="
+SP_MAIN = transaction.SuggestedParams(fee=FEE, first=FIRST, last=LAST, gh=GH_MAIN_B64, gen=GEN_MAIN, flat_fee=True)
+GH_MAIN = base64.b64decode(GH_MAIN_B64)
 
 # Arbitrary 32-byte public keys, used only as account addresses.
 PK_A = "7491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538"
@@ -35,7 +40,8 @@ PK_C = "8d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d219a165d006d"
 A = encoding.encode_address(bytes.fromhex(PK_A))
 B = encoding.encode_address(bytes.fromhex(PK_B))
 C = encoding.encode_address(bytes.fromhex(PK_C))
-ASSET = 10458941
+ASSET = 10458941  # USDC on testnet
+ASSET_MAIN_USDC = 31566704  # USDC on mainnet
 LEASE = bytes(range(0x40, 0x60))
 GROUP = bytes(range(0x60, 0x80))
 
@@ -62,13 +68,13 @@ def pay_expect(receiver, amount, *, close=None, note=b"", rekey=None):
 
 
 def axfer_expect(receiver, amount, *, close=None, note=b"", lease=None, group=None, rekey=None,
-                 asset_sender=None):
+                 asset_sender=None, asset=ASSET, gen=GEN, gh=GH):
     return {
         "type": "axfer", "sender": addr_hex(A), "fee": FEE, "firstValid": FIRST, "lastValid": LAST,
-        "genesisId": GEN, "genesisHash": GH.hex(), "note": note.hex(),
+        "genesisId": gen, "genesisHash": gh.hex(), "note": note.hex(),
         "lease": lease.hex() if lease else None, "group": group.hex() if group else None,
         "rekeyTo": opt_hex(rekey), "receiver": addr_hex(receiver), "amount": amount,
-        "closeTo": opt_hex(close), "assetId": ASSET, "assetSender": opt_hex(asset_sender),
+        "closeTo": opt_hex(close), "assetId": asset, "assetSender": opt_hex(asset_sender),
     }
 
 
@@ -111,6 +117,17 @@ def main():
                                               revocation_target=B, note=b"x", lease=LEASE, rekey_to=C)
     axfer_full.group = GROUP
     appl = transaction.ApplicationNoOpTxn(A, SP, 123456)
+    # Opt-out: the SDK's close-out has amount 0 and its close-to is the receiver.
+    axfer_closeout = transaction.AssetCloseOutTxn(A, SP, B, ASSET)
+    # Opt-out whose remaining holding goes to an address other than the receiver.
+    axfer_optout_to_other = transaction.AssetTransferTxn(A, SP, B, 0, ASSET, close_assets_to=C)
+    # A transfer that also closes the holding: 250 units to B, the rest to C.
+    axfer_close_with_amount = transaction.AssetTransferTxn(A, SP, B, 250, ASSET, close_assets_to=C)
+    # Clawback: the assets are taken from C (asnd), which A is the clawback account for.
+    axfer_clawback = transaction.AssetTransferTxn(A, SP, B, 250, ASSET, revocation_target=C)
+    axfer_rekey = transaction.AssetTransferTxn(A, SP, B, 250, ASSET, rekey_to=C)
+    axfer_mainnet_usdc = transaction.AssetTransferTxn(A, SP_MAIN, B, 1_000_000, ASSET_MAIN_USDC)
+    axfer_optin_mainnet_usdc = transaction.AssetTransferTxn(A, SP_MAIN, A, 0, ASSET_MAIN_USDC)
 
     positive_specs = [
         ("pay_basic", pay_basic, pay_expect(B, 1_500_000), "payment, no note, no close-to"),
@@ -125,6 +142,22 @@ def main():
         ("axfer_full_16_keys", axfer_full,
          axfer_expect(B, 1000, close=C, note=b"x", lease=LEASE, group=GROUP, rekey=C, asset_sender=B),
          "asset transfer with every field set: 16 keys, so the map header is map16"),
+        ("axfer_closeout", axfer_closeout, axfer_expect(B, 0, close=B),
+         "opt-out by close-out: amount 0 is omitted and the close-to is the receiver"),
+        ("axfer_optout_to_other", axfer_optout_to_other, axfer_expect(B, 0, close=C),
+         "opt-out whose remaining holding goes to an address other than the receiver"),
+        ("axfer_close_with_amount", axfer_close_with_amount, axfer_expect(B, 250, close=C),
+         "asset transfer of 250 units that also closes the holding to another address"),
+        ("axfer_clawback", axfer_clawback, axfer_expect(B, 250, asset_sender=C),
+         "clawback: 250 units taken from the asnd account C"),
+        ("axfer_rekey", axfer_rekey, axfer_expect(B, 250, rekey=C),
+         "asset transfer that also rekeys the sender"),
+        ("axfer_mainnet_usdc", axfer_mainnet_usdc,
+         axfer_expect(B, 1_000_000, asset=ASSET_MAIN_USDC, gen=GEN_MAIN, gh=GH_MAIN),
+         "mainnet USDC transfer of 1000000 base units (1 USDC)"),
+        ("axfer_optin_mainnet_usdc", axfer_optin_mainnet_usdc,
+         axfer_expect(A, 0, asset=ASSET_MAIN_USDC, gen=GEN_MAIN, gh=GH_MAIN),
+         "mainnet USDC opt-in: the receiver is the sender and the amount 0 is omitted"),
     ]
 
     positive = []
