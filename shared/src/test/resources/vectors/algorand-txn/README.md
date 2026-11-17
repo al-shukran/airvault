@@ -13,7 +13,8 @@
 `pay_rekey`, and `axfer_full_16_keys` (every field set, so the map header is map16). Asset transfers on testnet use asset
 10458941 (USDC). The later entries are opt-outs (`axfer_closeout`, `axfer_optout_to_other`), a transfer that also closes
 the holding (`axfer_close_with_amount`), a clawback (`axfer_clawback`, `asnd`), an asset rekey (`axfer_rekey`), and
-mainnet USDC (asset 31566704, `axfer_mainnet_usdc` and `axfer_optin_mainnet_usdc`). Each one carries the fields it must
+mainnet USDC (asset 31566704, `axfer_mainnet_usdc` and `axfer_optin_mainnet_usdc`), and an asset that no bundled catalog
+names (`axfer_unknown_asset`, asset 1234567). Each one carries the fields it must
 decode to and the SDK's `bytes_to_sign()`. The generator checks these against an independent msgpack read before it
 writes the file.
 

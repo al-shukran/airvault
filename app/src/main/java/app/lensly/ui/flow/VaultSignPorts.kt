@@ -16,6 +16,7 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.AlgorandReviewEntry
+import app.lensly.app.sign.AsaCatalogHolder
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
@@ -301,7 +302,7 @@ internal class VaultSignPorts(
             ?: return@withContext AlgorandPrepared.Refused("The request does not say which wallet it is for")
         if (sourceFingerprint != masterFingerprint) return@withContext AlgorandPrepared.Refused("This request is for a different wallet")
         val keys = readWallet { WalletStore(it).algorandKeys(walletId) }
-        when (val checked = AlgorandRequestCheck.check(request, keys)) {
+        when (val checked = AlgorandRequestCheck.check(request, keys, AsaCatalogHolder.get(context))) {
             is AlgorandRequestCheck.Result.Ok -> AlgorandPrepared.Ready(walletId, request, checked.review)
             is AlgorandRequestCheck.Result.Refused -> AlgorandPrepared.Refused(checked.reason)
         }

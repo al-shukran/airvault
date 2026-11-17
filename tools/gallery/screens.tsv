@@ -8,6 +8,7 @@ app	account_export	Account export	account_export_*
 app	account_profile	Account profile	profile_edit_account*
 app	activity	Activity	activity_records
 app	address_book	Address book	address_book_list address_book_form_*
+app	algorand_review	Algorand review	algorand_review_*
 app	approved_contracts	Approved contracts	approved_contracts_*
 app	account_name	Account name	account_name_reset_screen
 app	bitcoin_accounts	Bitcoin accounts	bitcoin_app_*
