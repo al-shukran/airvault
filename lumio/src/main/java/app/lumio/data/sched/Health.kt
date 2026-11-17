@@ -21,6 +21,10 @@ internal class Health {
     var openUntil = 0L
     var probeInFlight = false
 
+    /** Until when the provider is passed over after a failure. Its streak counts such failures in a row. */
+    var penaltyUntil = 0L
+    var penaltyStreak = 0
+
     private var latencyMs = 0.0
     private var sampled = false
     private var errorRate = 0.0
@@ -31,6 +35,12 @@ internal class Health {
         if (nowMs < cooldownUntil || probeInFlight) return false
         return circuit != Circuit.OPEN || nowMs >= openUntil
     }
+
+    /**
+     * True while the provider is passed over after a failure: the other candidates go first, and it serves only when none of them can. It stays
+     * available, so a call that has no other provider still reaches it.
+     */
+    fun penalized(nowMs: Long): Boolean = nowMs < penaltyUntil
 
     /** What the settings screen shows of this provider at [nowMs]. Only the scheduler's lock calls it. */
     fun snapshot(nowMs: Long): ProviderHealth = ProviderHealth(

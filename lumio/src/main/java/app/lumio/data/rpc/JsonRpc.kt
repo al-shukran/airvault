@@ -50,6 +50,9 @@ object JsonRpc {
     /** Each call is bounded by this many milliseconds, for connecting, reading and the whole call. */
     const val DEFAULT_TIMEOUT_MS: Long = 10_000L
 
+    /** The most a call may spend connecting, whatever its timeout. */
+    private const val CONNECT_TIMEOUT_MS: Long = 3_000L
+
     private const val MAX_RESPONSE_BYTES = 64 * 1024
     private const val RATE_LIMITED_CODE = -32005
     private const val METHOD_NOT_FOUND_CODE = -32601
@@ -73,10 +76,13 @@ object JsonRpc {
     const val BLOCKHASH_REFUSED_MESSAGE = "The network refused the transaction because it does not know its blockhash."
     private val JSON_TYPE = "application/json".toMediaType()
 
-    /** The HTTP stack for RPC calls: no redirects, and each call bounded by [timeoutMs]. */
+    /**
+     * The HTTP stack for RPC calls: no redirects, and each call bounded by [timeoutMs]. Connecting alone is cut at [CONNECT_TIMEOUT_MS], so an
+     * endpoint that hangs on connect is passed over sooner.
+     */
     fun newHttp(timeoutMs: Long = DEFAULT_TIMEOUT_MS): Http = Http(
         OkHttpClient.Builder()
-            .connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+            .connectTimeout(minOf(timeoutMs, CONNECT_TIMEOUT_MS), TimeUnit.MILLISECONDS)
             .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
             .writeTimeout(timeoutMs, TimeUnit.MILLISECONDS)
             .callTimeout(timeoutMs, TimeUnit.MILLISECONDS)

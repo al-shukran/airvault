@@ -15,6 +15,9 @@ interface ProviderState {
 
     /** The provider's health score. Lower is healthier. */
     fun score(providerId: String, nowMs: Long): Double
+
+    /** True while the provider is passed over after a recent failure. It goes after the others, and it serves when none of them can. */
+    fun penalized(providerId: String, nowMs: Long): Boolean = false
 }
 
 /**
@@ -33,10 +36,11 @@ internal fun isEligible(p: Provider, net: NetworkId, op: Op, configs: Map<String
  *    that does not protect it while a protected provider is healthy;
  * 2. a FALLBACK_ONLY provider is offered only when no other candidate is left, so it never serves while another provider can;
  * 3. a provider that this request already failed on transiently goes after the others, so a retry moves to the next candidate;
- * 4. for balance reads, DATA providers before RPC providers;
- * 5. the priority in the config, lower first;
- * 6. the health score, then the id.
- * Providers that tie on 3 to 5 share the calls by smooth weighted round robin, so the config weights split the load.
+ * 4. a provider that [ProviderState.penalized] says failed recently goes after the others, so a hung provider is passed over at once;
+ * 5. for balance reads, DATA providers before RPC providers;
+ * 6. the priority in the config, lower first;
+ * 7. the health score, then the id.
+ * Providers that tie on 3 to 6 share the calls by smooth weighted round robin, so the config weights split the load.
  */
 class Router(private val providers: List<Provider>) {
     private val rotation = HashMap<String, Long>()
@@ -59,9 +63,11 @@ class Router(private val providers: List<Provider>) {
         val others = offered.filter { Trait.FALLBACK_ONLY !in it.traits }
         val candidates = others.ifEmpty { offered }
         if (candidates.isEmpty()) return emptyList()
+        val penalized = candidates.filter { state.penalized(it.id, nowMs) }.mapTo(HashSet()) { it.id }
         val ranked = candidates.sortedWith(
             compareBy<Provider>(
                 { if (it.id in tried) 1 else 0 },
+                { if (it.id in penalized) 1 else 0 },
                 { kindRank(it, op) },
                 { configs[it.id]?.priority ?: 0 },
                 { state.score(it.id, nowMs) },
@@ -69,14 +75,14 @@ class Router(private val providers: List<Provider>) {
             ),
         )
         val leader = ranked.first()
-        val tie = ranked.takeWhile { rankOf(it, op, configs, tried) == rankOf(leader, op, configs, tried) }
+        val tie = ranked.takeWhile { rankOf(it, op, configs, tried, penalized) == rankOf(leader, op, configs, tried, penalized) }
         if (tie.size == 1) return ranked
         val chosen = pickByWeight(tie, net, op, configs)
         return listOf(chosen) + ranked.filter { it !== chosen }
     }
 
-    private fun rankOf(p: Provider, op: Op, configs: Map<String, ProviderConfig>, tried: Set<String>): List<Int> =
-        listOf(if (p.id in tried) 1 else 0, kindRank(p, op), configs[p.id]?.priority ?: 0)
+    private fun rankOf(p: Provider, op: Op, configs: Map<String, ProviderConfig>, tried: Set<String>, penalized: Set<String>): List<Int> =
+        listOf(if (p.id in tried) 1 else 0, if (p.id in penalized) 1 else 0, kindRank(p, op), configs[p.id]?.priority ?: 0)
 
     private fun kindRank(p: Provider, op: Op): Int =
         if ((op == Op.NATIVE_BALANCE || op == Op.TOKEN_BALANCES) && p.kind == Kind.RPC) 1 else 0
