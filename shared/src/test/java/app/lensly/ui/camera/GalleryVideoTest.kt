@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
 import org.junit.Rule
@@ -26,7 +27,7 @@ class GalleryVideoTest {
 
     @Test
     fun galleryListsAVideoWithItsLength() {
-        val store = PhotoStore.of(RuntimeEnvironment.getApplication().filesDir, decoy = false)
+        val store = PhotoStore.of(VaultLayout.of(RuntimeEnvironment.getApplication()), decoy = false)
         val video = store.newVideoFile(nowMs = 2_000L).apply { writeBytes(ByteArray(8)) }
         ShadowMediaMetadataRetriever.addMetadata(video.path, MediaMetadataRetriever.METADATA_KEY_DURATION, "7400")
 
