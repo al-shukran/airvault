@@ -49,7 +49,7 @@ fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> = bu
         }
         is AssetTransfer -> {
             add(ASSET_ID to txn.assetId.toString())
-            add(AMOUNT to "${txn.amount} raw units")
+            add(AMOUNT to "${txn.amount} base units")
             add(RECEIVER to AlgoAddress.encode(txn.receiver))
         }
     }
@@ -62,17 +62,28 @@ fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> = bu
 }
 
 /**
- * The sentence at the top of the review. A payment names its amount in ALGO and its receiver. An opt-in says so. Any other asset transfer
- * names its amount in raw units, its asset and its receiver.
+ * The sentence at the top of the review. A payment names its amount in ALGO and its receiver. An asset transfer names its asset and its
+ * amount in base units. An opt-in and an opt-out each say so, and an opt-out names the address that takes the rest of the holding.
  */
 fun algorandSentence(review: AlgorandRequestReview): String = when (val txn = review.txn) {
     is Payment -> "Sends ${algoText(txn.amount)} to ${AlgoAddress.encode(txn.receiver)}."
-    is AssetTransfer ->
-        if (isOptIn(txn)) {
-            "Opts in to asset ${txn.assetId}."
-        } else {
-            "Sends ${txn.amount} raw units of asset ${txn.assetId} to ${AlgoAddress.encode(txn.receiver)}."
-        }
+    is AssetTransfer -> assetSentence(txn)
+}
+
+/**
+ * The sentence for an asset transfer. An opt-in adds the asset to the account. An opt-out removes it and sends what it holds to the
+ * close-to address. Any other transfer that also closes the holding says where the rest goes.
+ */
+private fun assetSentence(txn: AssetTransfer): String {
+    val asset = "asset ${txn.assetId}"
+    val receiver = AlgoAddress.encode(txn.receiver)
+    val closeTo = txn.closeTo?.let { AlgoAddress.encode(it) }
+    return when {
+        txn.isOptIn -> "Opt in to $asset."
+        txn.isOptOut && closeTo != null -> "Opt out of $asset, remaining balance goes to $closeTo."
+        closeTo != null -> "Sends ${txn.amount} base units of $asset to $receiver. The rest goes to $closeTo, and the asset is removed."
+        else -> "Sends ${txn.amount} base units of $asset to $receiver."
+    }
 }
 
 /** The short facts under the sentence: the fee, in ALGO. */
@@ -84,13 +95,10 @@ fun algorandWarningText(review: AlgorandRequestReview, warning: AlgorandWarning)
         is Payment ->
             "This closes the account. All of its remaining ALGO goes to the close-to address below, and the account is removed."
         is AssetTransfer ->
-            "This removes the asset from the account. All of its remaining units go to the close-to address below."
+            "This sends all of the remaining units of this asset to the close-to address below and removes the asset from the account."
     }
     AlgorandWarning.GROUP -> "Part of a group: other transactions in the group are not shown"
 }
-
-/** An opt-in: an asset transfer of zero units to the sender's own address. */
-private fun isOptIn(txn: AssetTransfer): Boolean = txn.amount == 0UL && txn.receiver.contentEquals(txn.sender)
 
 /** A microAlgo count as ALGO, with exactly six decimal places. */
 private fun algoText(microAlgos: ULong): String =

@@ -14,6 +14,7 @@ import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -111,6 +112,69 @@ class AlgorandRequestCheckTest {
     fun aClawbackIsRefused() {
         assertEquals(CLAWBACK_REFUSED, refusalOf(assetWith("asnd" to bin(KEY_B))))
     }
+
+    @Test
+    fun anSdkClawbackAndAnSdkAssetRekeyAreRefused() {
+        assertEquals(CLAWBACK_REFUSED, refusalOf(fixture("axfer_clawback")))
+        assertEquals(REKEY_REFUSED, refusalOf(fixture("axfer_rekey")))
+    }
+
+    @Test
+    fun anOptOutIsReviewedWithItsCloseWarningAndTheRemainderGoesToTheReceiverOfTheCloseOut() {
+        val review = reviewOf(fixture("axfer_closeout"))
+
+        val transfer = assertIs<AssetTransfer>(review.txn)
+        assertTrue(transfer.isOptOut)
+        assertEquals(0UL, transfer.amount)
+        assertContentEquals(KEY_B, review.closeTo)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+    }
+
+    @Test
+    fun anOptOutToAnotherAddressSendsTheRemainderThereAndNotToTheReceiver() {
+        val review = reviewOf(fixture("axfer_optout_to_other"))
+
+        val transfer = assertIs<AssetTransfer>(review.txn)
+        assertContentEquals(KEY_B, transfer.receiver)
+        assertContentEquals(KEY_C, review.closeTo)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+    }
+
+    @Test
+    fun aTransferThatAlsoClosesTheHoldingIsNotAnOptOutAndWarnsAboutTheClose() {
+        val review = reviewOf(fixture("axfer_close_with_amount"))
+
+        val transfer = assertIs<AssetTransfer>(review.txn)
+        assertFalse(transfer.isOptOut)
+        assertEquals(250UL, transfer.amount)
+        assertContentEquals(KEY_C, review.closeTo)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+    }
+
+    @Test
+    fun aMainnetUsdcTransferIsReviewedOnMainnet() {
+        val review = reviewOf(fixture("axfer_mainnet_usdc"))
+
+        assertEquals(AlgorandNetwork.MAINNET, review.network)
+        val transfer = assertIs<AssetTransfer>(review.txn)
+        assertEquals(31_566_704UL, transfer.assetId)
+        assertEquals(1_000_000UL, transfer.amount)
+        assertContentEquals(KEY_B, transfer.receiver)
+        assertEquals(emptyList(), review.warnings)
+    }
+
+    @Test
+    fun aMainnetUsdcOptInIsAnOptInOnMainnet() {
+        val review = reviewOf(fixture("axfer_optin_mainnet_usdc"))
+
+        assertEquals(AlgorandNetwork.MAINNET, review.network)
+        val transfer = assertIs<AssetTransfer>(review.txn)
+        assertTrue(transfer.isOptIn)
+        assertEquals(31_566_704UL, transfer.assetId)
+    }
+
+    /** The SDK fixture named [name], as the bytes the owner would have sent. */
+    private fun fixture(name: String): ByteArray = AlgoTxnVectors.valid().single { it.name == name }.raw
 
     @Test
     fun onlyTheTestnetAndMainnetGenesisIdsAreSigned() {
