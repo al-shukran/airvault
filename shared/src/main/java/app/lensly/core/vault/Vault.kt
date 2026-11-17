@@ -3,6 +3,8 @@ package app.lensly.core.vault
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import android.security.keystore.KeyPermanentlyInvalidatedException
+import android.security.keystore.UserNotAuthenticatedException
 import app.lensly.shared.BuildConfig
 import app.lensly.ui.isEmulator
 import java.io.File
@@ -84,6 +86,22 @@ data class DeviceSecurity(val strongBox: Boolean, val hardwareBacked: Boolean)
 /** The vault's stored state is damaged, or its hardware key can no longer unwrap the vault key. */
 open class VaultException(message: String, cause: Throwable? = null) : IllegalStateException(message, cause)
 
+/**
+ * The hardware key needs a fresh device authentication, and the owner did not give one. The vault asks first, so a caller sees
+ * this only after a cancel.
+ */
+class VaultAuthRequiredException(message: String, cause: Throwable? = null) : VaultException(message, cause)
+
+/** Android deleted the hardware key, because the screen lock was removed or changed. The vault cannot be opened any more. */
+class VaultKeyInvalidatedException(message: String, cause: Throwable? = null) : VaultException(message, cause)
+
+/** The error for a Keystore refusal: a missing device authentication, a lost key, or any other failure. */
+internal fun keystoreFailure(message: String, e: GeneralSecurityException): VaultException = when (e) {
+    is UserNotAuthenticatedException -> VaultAuthRequiredException(message, e)
+    is KeyPermanentlyInvalidatedException -> VaultKeyInvalidatedException(message, e)
+    else -> VaultException(message, e)
+}
+
 /** What the gate says for a vault in another format. It names no secret. */
 const val VAULT_FORMAT_CHANGED = "The vault format changed. Restore your wallets from their seed phrases."
 
@@ -128,6 +146,8 @@ class Vault constructor(
     /** True when the packaged app allows backup. Such a build refuses to create a vault, see [refusal]. */
     private val backupAllowed: Boolean = false,
     private val readBootCount: () -> Int? = { null },
+    /** Asks the owner for a device authentication when the hardware key needs one. True when they pass. */
+    private val authorize: suspend () -> Boolean = { false },
 ) {
     constructor(context: Context, clock: Clock = RealClock) : this(context, clock, null)
 
@@ -138,6 +158,7 @@ class Vault constructor(
         kdfOverride = kdfOverride,
         readBootCount = { bootCountOf(context.applicationContext) },
         backupAllowed = BackupExclusion.allowsBackup(context.applicationInfo.flags),
+        authorize = { confirmDeviceCredential(context.applicationContext) },
     )
 
     private val mutex = Mutex()
@@ -345,7 +366,9 @@ class Vault constructor(
                 val kdf = kdfOverride ?: withContext(Dispatchers.Default) { calibrateKdf() }
                 val softKey = withContext(Dispatchers.Default) { deriveSoftKey(password, salt, kdf) }
                 try {
-                    val realSlot = sealSlot(softKey, hardwareKey, vaultKey, VaultRole.REAL)
+                    val realSlot = withHardwareAuth {
+                        sealSlot(softKey, keystore(HARDWARE_FAILURE) { keys.hardwareKey() }, vaultKey, VaultRole.REAL)
+                    }
                     val decoySlot = VaultKeyFile.randomSlot(random)
                     layout.root.mkdirs()
                     if (!createFailureState()) {
@@ -410,6 +433,17 @@ class Vault constructor(
         } finally {
             Arrays.fill(password, '\u0000')
         }
+    }
+
+    /**
+     * Runs [block], which obtains the hardware key and uses it. When the Keystore refuses for want of a device authentication, the
+     * owner is asked once, and [block] runs again. The password is not asked for again, so the retry is cheap. A cancel rethrows.
+     */
+    private suspend inline fun <T> withHardwareAuth(block: () -> T): T = try {
+        block()
+    } catch (e: VaultAuthRequiredException) {
+        if (!authorize()) throw e
+        block()
     }
 
     /**
@@ -500,8 +534,11 @@ class Vault constructor(
             }
             // The software layer authenticated, so the password is right. Reset the count before the hardware step.
             val reset = store.recordSuccess(state, clock)
-            val hardwareKey = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-            val (vaultKey, role) = unwrapOpened(hardwareKey, opened.single().second)
+            val (hardwareKey, vaultKey, role) = withHardwareAuth {
+                val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
+                val (unwrapped, unwrappedRole) = unwrapOpened(key, opened.single().second)
+                Triple(key, unwrapped, unwrappedRole)
+            }
             handedOver = true
             return OpenedSlot(softKey, vaultKey, role, hardwareKey, store, reset)
         } finally {
@@ -527,8 +564,10 @@ class Vault constructor(
                     if (openSoftLayer(softKey, contents, decoy) != null) {
                         return CreateResult.PolicyRejected(PolicyReason.WEAK_SCORE)
                     }
-                    val hardwareKey = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-                    val realSlot = sealSlot(softKey, hardwareKey, vaultKey, VaultRole.REAL)
+                    val (hardwareKey, realSlot) = withHardwareAuth {
+                        val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
+                        key to sealSlot(softKey, key, vaultKey, VaultRole.REAL)
+                    }
                     commitKeyFile(listOf(realSlot, contents.slots[decoy])) {
                         unwrapsTo(softKey, hardwareKey, realSlot, vaultKey + VaultRole.REAL)
                     }
@@ -566,8 +605,10 @@ class Vault constructor(
                     if (openSoftLayer(softKey, contents, real) != null) {
                         return CreateResult.PolicyRejected(PolicyReason.WEAK_SCORE)
                     }
-                    val hardwareKey = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-                    val decoySlot = sealSlot(softKey, hardwareKey, decoyKey, VaultRole.DECOY)
+                    val (hardwareKey, decoySlot) = withHardwareAuth {
+                        val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
+                        key to sealSlot(softKey, key, decoyKey, VaultRole.DECOY)
+                    }
                     commitKeyFile(listOf(contents.slots[real], decoySlot)) {
                         unwrapsTo(softKey, hardwareKey, decoySlot, decoyKey + VaultRole.DECOY)
                     }
@@ -639,7 +680,7 @@ class Vault constructor(
      * decoy holds a wallet, and a failure deletes the new decoy's files and nothing else. After a commit, the old decoy's
      * files are purged, since no password opens them any longer.
      */
-    private fun installDecoy(
+    private suspend fun installDecoy(
         vaultKey: ByteArray,
         decoyKey: ByteArray,
         softKey: ByteArray,
@@ -664,8 +705,10 @@ class Vault constructor(
         }
 
         val committed = try {
-            val hardwareKey = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-            val decoySlot = sealSlot(softKey, hardwareKey, decoyKey, VaultRole.DECOY)
+            val (hardwareKey, decoySlot) = withHardwareAuth {
+                val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
+                key to sealSlot(softKey, key, decoyKey, VaultRole.DECOY)
+            }
             commitKeyFile(listOf(contents.slots[real], decoySlot)) {
                 unwrapsTo(softKey, hardwareKey, decoySlot, decoyKey + VaultRole.DECOY)
             }
@@ -968,7 +1011,7 @@ class Vault constructor(
         inline fun <T> keystore(message: String, block: () -> T): T = try {
             block()
         } catch (e: GeneralSecurityException) {
-            throw VaultException(message, e)
+            throw keystoreFailure(message, e)
         } catch (e: ProviderException) {
             throw VaultException(message, e)
         }

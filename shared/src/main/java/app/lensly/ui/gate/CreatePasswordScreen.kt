@@ -120,6 +120,14 @@ fun CreatePasswordScreen(
             PillChip(
                 text = if (confirming) "Re-enter to confirm" else "$MIN_PASSWORD_LENGTH+ characters, hard to guess",
             )
+            if (!confirming) {
+                Spacer(Modifier.height(LenslySpacing.md))
+                Text(
+                    text = "Removing the screen lock invalidates the vault key. The vault must then be restored from its seed phrase.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                )
+            }
 
             Spacer(Modifier.weight(1f))
 

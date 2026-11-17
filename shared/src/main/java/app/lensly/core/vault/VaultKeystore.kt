@@ -1,5 +1,6 @@
 package app.lensly.core.vault
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.security.keystore.KeyGenParameterSpec
@@ -22,8 +23,9 @@ import javax.crypto.SecretKeyFactory
  * Keystore keys used by the vault. All of them are non-exportable.
  *
  * - [HARDWARE_KEY_ALIAS]: AES-256-GCM. It is the hardware layer that wraps the vault key. It is StrongBox
- *   when available, otherwise TEE. No user-auth binding and no unlocked-device requirement, because the
- *   vault phone may have no lock screen.
+ *   when available, otherwise TEE. Its use needs the screen lock or a strong biometric within
+ *   [HARDWARE_KEY_AUTH_SECONDS] of the last authentication. Removing or changing the screen lock invalidates
+ *   it for good, so the vault must then be restored from its seed phrase.
  * - `lensly.vault.slot-mac`: HMAC-SHA256, StrongBox when available, otherwise TEE. The software key of every slot is bound to it, so
  *   each password guess needs this device (see [Vault]).
  * - `lensly.vault.failure-mac.<seq>`: HMAC-SHA256, one for each Delay State write. It authenticates the failure-delay state
@@ -33,6 +35,9 @@ import javax.crypto.SecretKeyFactory
  */
 internal object VaultKeystore {
     const val HARDWARE_KEY_ALIAS = "lensly.vault.hw"
+
+    /** How long one device authentication lets the hardware key be used. A later use asks for one again. */
+    const val HARDWARE_KEY_AUTH_SECONDS = 30
 
     /** Every Delay State MAC key alias starts with this. */
     private const val FAILURE_MAC_PREFIX = "lensly.vault.failure-mac"
@@ -46,11 +51,14 @@ internal object VaultKeystore {
     private const val PROBE_ALIAS = "lensly.vault.probe"
     private const val PROVIDER = "AndroidKeyStore"
 
-    /** Replaces the hardware wrapping key. Tries StrongBox first and falls back to the TEE. */
+    /** Replaces the hardware wrapping key. Tries StrongBox first and falls back to the TEE. It needs a screen lock ([isDeviceSecure]). */
     fun createHardwareKey(): SecretKey {
         delete(HARDWARE_KEY_ALIAS)
-        return generateAes(HARDWARE_KEY_ALIAS)
+        return generateAes(HARDWARE_KEY_ALIAS, userAuth = true)
     }
+
+    /** True when the device has a screen lock (a PIN, pattern or password). The hardware key cannot be made without one. */
+    fun isDeviceSecure(context: Context): Boolean = context.getSystemService(KeyguardManager::class.java).isDeviceSecure
 
     /**
      * Creates the key of wallet folder [keyId], replacing any key under that id. It is TEE-backed and not StrongBox: every folder has
@@ -186,20 +194,34 @@ internal object VaultKeystore {
         if (store.containsAlias(alias)) store.deleteEntry(alias)
     }
 
-    private fun generateAes(alias: String): SecretKey = try {
-        generateAes(alias, strongBox = true)
+    private fun generateAes(alias: String, userAuth: Boolean = false): SecretKey = try {
+        generateAes(alias, strongBox = true, userAuth = userAuth)
     } catch (e: StrongBoxUnavailableException) {
-        generateAes(alias, strongBox = false)
+        generateAes(alias, strongBox = false, userAuth = userAuth)
     } catch (e: ProviderException) {
-        if (e.cause is StrongBoxUnavailableException) generateAes(alias, strongBox = false) else throw e
+        if (e.cause is StrongBoxUnavailableException) generateAes(alias, strongBox = false, userAuth = userAuth) else throw e
     }
 
-    private fun generateAes(alias: String, strongBox: Boolean): SecretKey {
+    /**
+     * An AES key. With [userAuth], each use needs a device authentication within [HARDWARE_KEY_AUTH_SECONDS]. The key is not
+     * invalidated by a new fingerprint, so only removing or changing the screen lock costs the vault its key.
+     */
+    private fun generateAes(alias: String, strongBox: Boolean, userAuth: Boolean = false): SecretKey {
         val spec = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
             .setKeySize(256)
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setIsStrongBoxBacked(strongBox)
+            .apply {
+                if (userAuth) {
+                    setUserAuthenticationRequired(true)
+                    setUserAuthenticationParameters(
+                        HARDWARE_KEY_AUTH_SECONDS,
+                        KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL,
+                    )
+                    setInvalidatedByBiometricEnrollment(false)
+                }
+            }
             .build()
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
             .apply { init(spec) }
