@@ -82,14 +82,25 @@ sealed interface DuressResult {
 data class DeviceSecurity(val strongBox: Boolean, val hardwareBacked: Boolean)
 
 /** The vault's stored state is damaged, or its hardware key can no longer unwrap the vault key. */
-class VaultException(message: String, cause: Throwable? = null) : IllegalStateException(message, cause)
+open class VaultException(message: String, cause: Throwable? = null) : IllegalStateException(message, cause)
+
+/** What the gate says for a vault in another format. It names no secret. */
+const val VAULT_FORMAT_CHANGED = "The vault format changed. Restore your wallets from their seed phrases."
+
+/**
+ * The vault on disk is in another format than this build reads. Nothing is checked against a password, and nothing is migrated: the owner
+ * restores the wallets from their seed phrases into a new vault.
+ */
+class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
 
 /**
  * The App Password vault, and its optional Duress Password.
  *
- * The Vault Key is protected by two layers, and both are needed to recover it:
- * 1. Software: `K_sw = Argon2id(password)`, used with AES-256-GCM to wrap the hardware blob.
- * 2. Hardware: a non-exportable Keystore AES-256-GCM key (`lensly.vault.hw`) wraps the Vault Key.
+ * The Vault Key is protected by three keys, and all are needed to recover it:
+ * 1. Slot: a non-exportable Keystore HMAC-SHA256 key (`lensly.vault.slot-mac`) binds every guess to this device.
+ * 2. Software: `K_sw = HKDF-SHA256(Argon2id(password, salt) || HMAC(slot key, salt), info = "lensly-vault-slot-v3")`, used with
+ *    AES-256-GCM to wrap the hardware blob. Each guess needs the slot key, so copies of the vault files cannot be tested offline.
+ * 3. Hardware: a non-exportable Keystore AES-256-GCM key (`lensly.vault.hw`) wraps the Vault Key.
  *
  * `vault.key` holds two slots: one for the real vault and one for the Decoy Vault that a Duress Password opens. Its size
  * never changes (see [VaultKeyFile]). [unlock] derives `K_sw` once and tries it on both slots, so the Duress Password
@@ -130,6 +141,19 @@ class Vault constructor(
 
     /** True once a vault has been created and not wiped. */
     fun exists(): Boolean = layout.exists()
+
+    /**
+     * True when the vault on disk is in another format than this build reads. [unlock] refuses such a vault before it checks any password,
+     * and the gate shows [VAULT_FORMAT_CHANGED] instead of the password screen. It reads only `header.bin`.
+     */
+    fun formatChanged(): Boolean = try {
+        VaultHeader.decode(readVaultFile(layout.header))
+        false
+    } catch (e: VaultFormatChangedException) {
+        true
+    } catch (e: VaultException) {
+        false
+    }
 
     /**
      * True when this device may create a vault, under [KeystorePolicy], and this build may create one under [refusal]. The
@@ -301,12 +325,17 @@ class Vault constructor(
                 keystoreOrNull { keys.deleteAll() }
                 return CreateResult.DeviceUnsupported
             }
+            // Every guess at the password runs through this key, so no vault is made without it.
+            if (keystoreOrNull { keys.createSlotKey() } == null) {
+                keystoreOrNull { keys.deleteAll() }
+                return CreateResult.DeviceUnsupported
+            }
 
             val salt = ByteArray(VaultHeader.SALT_BYTES).also { random.nextBytes(it) }
             val vaultKey = ByteArray(KEY_BYTES).also { random.nextBytes(it) }
             try {
                 val kdf = kdfOverride ?: withContext(Dispatchers.Default) { calibrateKdf() }
-                val softKey = withContext(Dispatchers.Default) { Argon2Kdf.derive(password, salt, kdf) }
+                val softKey = withContext(Dispatchers.Default) { deriveSoftKey(password, salt, kdf) }
                 try {
                     val realSlot = sealSlot(softKey, hardwareKey, vaultKey, VaultRole.REAL)
                     val decoySlot = VaultKeyFile.randomSlot(random)
@@ -349,7 +378,6 @@ class Vault constructor(
         try {
             val opened = checkPasswordLocked(password) ?: return UnlockResult.Rejected
             try {
-                if (opened.legacy) migrateToCurrentLayout(opened.softKey, opened.hardwareKey, opened.vaultKey)
                 val isDecoy = opened.role == VaultRole.DECOY
                 val session = VaultSession(
                     layout,
@@ -416,7 +444,6 @@ class Vault constructor(
         val softKey: ByteArray,
         val vaultKey: ByteArray,
         val role: Byte,
-        val legacy: Boolean,
         val hardwareKey: SecretKey,
         val store: FailureStore,
         val state: FailureState,
@@ -448,7 +475,7 @@ class Vault constructor(
         }
         val state = check.state
 
-        val softKey = withContext(Dispatchers.Default) { Argon2Kdf.derive(password, header.salt, header.kdf) }
+        val softKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
         var handedOver = false
         try {
             val contents = VaultKeyFile.decode(readVaultFile(layout.vaultKey))
@@ -466,9 +493,9 @@ class Vault constructor(
             // The software layer authenticated, so the password is right. Reset the count before the hardware step.
             val reset = store.recordSuccess(state, clock)
             val hardwareKey = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-            val (vaultKey, role) = unwrapOpened(hardwareKey, contents.legacy, opened.single().second)
+            val (vaultKey, role) = unwrapOpened(hardwareKey, opened.single().second)
             handedOver = true
-            return OpenedSlot(softKey, vaultKey, role, contents.legacy, hardwareKey, store, reset)
+            return OpenedSlot(softKey, vaultKey, role, hardwareKey, store, reset)
         } finally {
             if (!handedOver) Arrays.fill(softKey, 0)
         }
@@ -483,7 +510,7 @@ class Vault constructor(
             val header = VaultHeader.decode(layout.header.readBytes())
             val vaultKey = session.copyOfVaultKey()
             try {
-                val softKey = withContext(Dispatchers.Default) { Argon2Kdf.derive(newPassword, header.salt, header.kdf) }
+                val softKey = withContext(Dispatchers.Default) { deriveSoftKey(newPassword, header.salt, header.kdf) }
                 try {
                     val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
                     val real = realSlotOf(contents, vaultKey)
@@ -522,7 +549,7 @@ class Vault constructor(
             val header = VaultHeader.decode(layout.header.readBytes())
             val decoyKey = session.copyOfVaultKey()
             try {
-                val softKey = withContext(Dispatchers.Default) { Argon2Kdf.derive(newPassword, header.salt, header.kdf) }
+                val softKey = withContext(Dispatchers.Default) { deriveSoftKey(newPassword, header.salt, header.kdf) }
                 try {
                     val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
                     val decoy = decoySlotOf(contents, decoyKey)
@@ -564,9 +591,7 @@ class Vault constructor(
             try {
                 val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
                 val real = realSlotOf(contents, vaultKey)
-                val softKey = withContext(Dispatchers.Default) {
-                    Argon2Kdf.derive(duressPassword, header.salt, header.kdf)
-                }
+                val softKey = withContext(Dispatchers.Default) { deriveSoftKey(duressPassword, header.salt, header.kdf) }
                 try {
                     // The Duress Password may not open the real slot: one password must never open both vaults.
                     if (openSoftLayer(softKey, contents, real) != null) return DuressResult.SameAsAppPassword
@@ -702,7 +727,7 @@ class Vault constructor(
         val probePassword = CALIBRATION_PASSWORD.toCharArray()
         val salt = ByteArray(VaultHeader.SALT_BYTES).also { random.nextBytes(it) }
         val started = System.nanoTime()
-        val out = Argon2Kdf.derive(probePassword, salt, params)
+        val out = deriveSoftKey(probePassword, salt, params)
         val elapsedMs = (System.nanoTime() - started) / 1_000_000L
         Arrays.fill(out, 0)
         elapsedMs
@@ -715,7 +740,7 @@ class Vault constructor(
     private suspend fun spendKdfTime(header: VaultHeader) {
         val fixedInput = CALIBRATION_PASSWORD.toCharArray()
         try {
-            val out = withContext(Dispatchers.Default) { Argon2Kdf.derive(fixedInput, header.salt, header.kdf) }
+            val out = withContext(Dispatchers.Default) { deriveSoftKey(fixedInput, header.salt, header.kdf) }
             Arrays.fill(out, 0)
         } finally {
             Arrays.fill(fixedInput, '\u0000')
@@ -726,24 +751,16 @@ class Vault constructor(
      * The hardware-wrapped blob of slot [index] if [softKey] opens its software layer, or null. The attempt costs the same
      * whether or not it succeeds, and it never reports which slot a password is for.
      */
-    private fun openSoftLayer(softKey: ByteArray, contents: VaultKeyFile.Contents, index: Int): ByteArray? {
-        val aad = if (contents.legacy) VaultKeyFile.LEGACY_SOFTWARE_AAD else VaultKeyFile.SOFTWARE_AAD
-        return try {
-            Aead.open(softKey, aad, contents.sealedOf(index))
-        } catch (e: AEADBadTagException) {
-            null
-        }
+    private fun openSoftLayer(softKey: ByteArray, contents: VaultKeyFile.Contents, index: Int): ByteArray? = try {
+        Aead.open(softKey, VaultKeyFile.SOFTWARE_AAD, contents.sealedOf(index))
+    } catch (e: AEADBadTagException) {
+        null
     }
 
     /** The Vault Key and role inside a hardware-wrapped blob. The caller zeroes the key. */
-    private fun unwrapOpened(hardwareKey: SecretKey, legacy: Boolean, hardwareWrapped: ByteArray): Pair<ByteArray, Byte> {
-        val aad = if (legacy) VaultKeyFile.LEGACY_HARDWARE_AAD else VaultKeyFile.HARDWARE_AAD
-        val plain = keystore(HARDWARE_FAILURE) { Aead.openWithKeystore(hardwareKey, aad, hardwareWrapped) }
+    private fun unwrapOpened(hardwareKey: SecretKey, hardwareWrapped: ByteArray): Pair<ByteArray, Byte> {
+        val plain = keystore(HARDWARE_FAILURE) { Aead.openWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, hardwareWrapped) }
         try {
-            if (legacy) {
-                if (plain.size != KEY_BYTES) throw VaultException("The vault key is damaged.")
-                return plain.copyOf() to VaultRole.REAL
-            }
             if (plain.size != KEY_BYTES + 1) throw VaultException("The vault key is damaged.")
             val role = plain[KEY_BYTES]
             if (role != VaultRole.REAL && role != VaultRole.DECOY) throw VaultException("The vault key is damaged.")
@@ -804,16 +821,24 @@ class Vault constructor(
         commitTemp(temp, layout.vaultKey)
     }
 
-    /** Rewrites a legacy `vault.key` in the current layout: the same Vault Key and software key, and an empty decoy slot. */
-    private fun migrateToCurrentLayout(softKey: ByteArray, hardwareKey: SecretKey, vaultKey: ByteArray) {
-        val realSlot = sealSlot(softKey, hardwareKey, vaultKey, VaultRole.REAL)
-        val decoySlot = VaultKeyFile.randomSlot(random)
+    /**
+     * The software key of a slot: `K_sw = HKDF-SHA256(Argon2id(password, salt) || HMAC(slot key, salt), info = SLOT_INFO)`. The HMAC runs
+     * in the device's Keystore, so each guess needs this device. The call blocks, so a caller runs it on [Dispatchers.Default]. The caller
+     * zeroes the result.
+     */
+    private fun deriveSoftKey(password: CharArray, salt: ByteArray, kdf: KdfParams): ByteArray {
+        val stretched = Argon2Kdf.derive(password, salt, kdf)
         try {
-            commitKeyFile(listOf(realSlot, decoySlot)) {
-                unwrapsTo(softKey, hardwareKey, realSlot, vaultKey + VaultRole.REAL)
+            val bound = keystore(HARDWARE_FAILURE) { keys.slotMac(salt) }
+            val ikm = stretched + bound
+            try {
+                return hkdfSha256(ikm, salt = null, info = SLOT_INFO, length = KEY_BYTES)
+            } finally {
+                Arrays.fill(bound, 0)
+                Arrays.fill(ikm, 0)
             }
-        } catch (e: IOException) {
-            throw VaultException("The vault key could not be upgraded to the current layout.", e)
+        } finally {
+            Arrays.fill(stretched, 0)
         }
     }
 
@@ -922,6 +947,7 @@ class Vault constructor(
         const val UNKNOWN_SECURITY_LEVEL = -1
         const val HARDWARE_FAILURE = "The vault's hardware key cannot unwrap the vault key."
         const val CALIBRATION_PASSWORD = "lensly calibration"
+        val SLOT_INFO = "lensly-vault-slot-v$VAULT_FORMAT_VERSION".toByteArray(Charsets.US_ASCII)
 
         inline fun <T> keystoreOrNull(block: () -> T): T? = try {
             block()

@@ -16,6 +16,12 @@ interface KeystoreBackend {
     /** The hardware wrapping key. Throws [VaultException] if it has been removed. */
     fun hardwareKey(): SecretKey
 
+    /** Creates the slot key, the HMAC key that binds every slot's software key to this device, replacing any key under that name. */
+    fun createSlotKey()
+
+    /** HMAC-SHA256 of [message] under the slot key. Throws [VaultException] if the key has been removed. */
+    fun slotMac(message: ByteArray): ByteArray
+
     /** Creates the Delay State MAC key for [seq], replacing any key under that number, and returns it. */
     fun createFailureMacKey(seq: Long): SecretKey
 
@@ -76,6 +82,10 @@ internal class AndroidKeystoreBackend(private val context: Context) : KeystoreBa
     override fun createHardwareKey(): SecretKey = VaultKeystore.createHardwareKey()
 
     override fun hardwareKey(): SecretKey = VaultKeystore.hardwareKey()
+
+    override fun createSlotKey() = VaultKeystore.createSlotKey()
+
+    override fun slotMac(message: ByteArray): ByteArray = VaultKeystore.slotMac(message)
 
     override fun createFailureMacKey(seq: Long): SecretKey = VaultKeystore.createFailureMacKey(seq)
 

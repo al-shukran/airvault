@@ -36,7 +36,7 @@ class VaultHeader(
     companion object {
         const val SALT_BYTES = 16
         private val MAGIC = "LNVH".toByteArray(Charsets.US_ASCII)
-        private const val VERSION: Byte = 1
+        private const val VERSION: Byte = VAULT_FORMAT_VERSION
         private const val FLAG_STRONGBOX = 1
         private const val FLAG_HARDWARE = 2
         private const val SIZE = 4 + 1 + 4 + 4 + 4 + SALT_BYTES + 8 + 1 + 4
@@ -50,9 +50,8 @@ class VaultHeader(
             if (bytes.size != SIZE) throw VaultException("The vault header has an unexpected size.")
             val buffer = ByteBuffer.wrap(bytes)
             val magic = ByteArray(MAGIC.size).also { buffer.get(it) }
-            if (!magic.contentEquals(MAGIC) || buffer.get() != VERSION) {
-                throw VaultException("The vault header is not in a format this application reads.")
-            }
+            if (!magic.contentEquals(MAGIC)) throw VaultException("The vault header is not in a format this application reads.")
+            if (buffer.get() != VERSION) throw VaultFormatChangedException()
             val kdf = KdfParams(
                 memoryKiB = buffer.getInt(),
                 iterations = buffer.getInt(),

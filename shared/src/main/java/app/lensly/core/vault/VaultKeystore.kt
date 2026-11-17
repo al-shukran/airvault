@@ -14,6 +14,7 @@ import java.security.KeyStoreException
 import java.security.ProviderException
 import java.util.Collections
 import javax.crypto.KeyGenerator
+import javax.crypto.Mac
 import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
 
@@ -23,6 +24,8 @@ import javax.crypto.SecretKeyFactory
  * - [HARDWARE_KEY_ALIAS]: AES-256-GCM. It is the hardware layer that wraps the vault key. It is StrongBox
  *   when available, otherwise TEE. No user-auth binding and no unlocked-device requirement, because the
  *   vault phone may have no lock screen.
+ * - `lensly.vault.slot-mac`: HMAC-SHA256, StrongBox when available, otherwise TEE. The software key of every slot is bound to it, so
+ *   each password guess needs this device (see [Vault]).
  * - `lensly.vault.failure-mac.<seq>`: HMAC-SHA256, one for each Delay State write. It authenticates the failure-delay state
  *   with that sequence number. The keys of earlier writes are deleted, so an older state no longer verifies (see [FailureStore]).
  * - `lensly.vault.folder.<id>`: AES-256-GCM, one for each wallet folder, wallet or unused slot alike. The id is random and kept in
@@ -39,6 +42,7 @@ internal object VaultKeystore {
 
     /** The one Delay State MAC key of the layout before per-save keys. It is read only to migrate, and then deleted. */
     private const val LEGACY_FAILURE_MAC_ALIAS = FAILURE_MAC_PREFIX
+    private const val SLOT_KEY_ALIAS = "lensly.vault.slot-mac"
     private const val PROBE_ALIAS = "lensly.vault.probe"
     private const val PROVIDER = "AndroidKeyStore"
 
@@ -84,21 +88,20 @@ internal object VaultKeystore {
      * Creates the Delay State MAC key for [seq], replacing any key under that number. It is StrongBox when the device has one,
      * and the TEE otherwise. As for the vault key, a key that is not hardware-backed is refused in a release build.
      */
-    fun createFailureMacKey(seq: Long): SecretKey {
-        val alias = failureMacAlias(seq)
-        delete(alias)
-        val key = try {
-            generateHmac(alias, strongBox = true)
-        } catch (e: StrongBoxUnavailableException) {
-            generateHmac(alias, strongBox = false)
-        } catch (e: ProviderException) {
-            if (e.cause is StrongBoxUnavailableException) generateHmac(alias, strongBox = false) else throw e
-        }
-        if (KeystorePolicy.verdict(isHardwareBacked(securityLevel(key)), BuildConfig.DEBUG, deviceIsEmulator()) == KeystoreVerdict.Refused) {
-            delete(alias)
-            throw GeneralSecurityException("The Delay State MAC key is not hardware-backed.")
-        }
-        return key
+    fun createFailureMacKey(seq: Long): SecretKey = createHmacKey(failureMacAlias(seq), "Delay State MAC key")
+
+    /**
+     * Creates the slot key, the HMAC key that binds every slot's software key to this device, replacing any key under that name. It is
+     * StrongBox when the device has one, and the TEE otherwise. A key that is not hardware-backed is refused in a release build.
+     */
+    fun createSlotKey() {
+        createHmacKey(SLOT_KEY_ALIAS, "vault slot key")
+    }
+
+    /** HMAC-SHA256 of [message] under the slot key. Throws if the key has been removed, or if the Keystore refuses the operation. */
+    fun slotMac(message: ByteArray): ByteArray {
+        val key = get(SLOT_KEY_ALIAS) ?: throw VaultException("The vault's slot key is missing from the Keystore.")
+        return Mac.getInstance("HmacSHA256").apply { init(key) }.doFinal(message)
     }
 
     /** The Delay State MAC key for [seq], or null once it has been deleted. */
@@ -127,6 +130,7 @@ internal object VaultKeystore {
     /** Removes every key the vault uses on this device. */
     fun deleteAll() {
         delete(HARDWARE_KEY_ALIAS)
+        delete(SLOT_KEY_ALIAS)
         deleteFailureMacKeysExcept(keepSeq = null)
         folderKeyIds().forEach { deleteFolderKey(it) }
         delete(PROBE_ALIAS)
@@ -200,6 +204,26 @@ internal object VaultKeystore {
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
             .apply { init(spec) }
             .generateKey()
+    }
+
+    /**
+     * Creates an HMAC key under [alias], replacing any key there. It is StrongBox when the device has one, and the TEE otherwise. A key
+     * that is not hardware-backed is refused in a release build, and [what] names it in that error.
+     */
+    private fun createHmacKey(alias: String, what: String): SecretKey {
+        delete(alias)
+        val key = try {
+            generateHmac(alias, strongBox = true)
+        } catch (e: StrongBoxUnavailableException) {
+            generateHmac(alias, strongBox = false)
+        } catch (e: ProviderException) {
+            if (e.cause is StrongBoxUnavailableException) generateHmac(alias, strongBox = false) else throw e
+        }
+        if (KeystorePolicy.verdict(isHardwareBacked(securityLevel(key)), BuildConfig.DEBUG, deviceIsEmulator()) == KeystoreVerdict.Refused) {
+            delete(alias)
+            throw GeneralSecurityException("The $what is not hardware-backed.")
+        }
+        return key
     }
 
     private fun generateHmac(alias: String, strongBox: Boolean): SecretKey {
