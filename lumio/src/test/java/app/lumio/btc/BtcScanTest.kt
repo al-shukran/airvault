@@ -3,12 +3,14 @@ package app.lumio.btc
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lumio.data.MonotonicClock
+import app.lumio.data.cache.DEFAULT_SHORT_TTL_MS
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.provider.Http
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import app.lumio.pair.PairFixtures
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -103,6 +105,31 @@ class BtcScanTest {
         assertTrue(first.paths.size <= 2, "a cooled server gets no new call: it saw ${first.paths.size}")
         // The second server's own rate (3 calls a second, after a burst of 6) paces the 41 requests: about 12 s. A wait on the 600 s header would fail this.
         assertTrue(elapsedMs < 30_000, "the scan must not wait out the Retry-After: it took $elapsedMs ms")
+    }
+
+    /** Both servers answer the same history for [address]: [sats] confirmed, in one used address. */
+    private fun setStats(address: String, sats: Long) {
+        for (server in listOf(first, second)) {
+            server.stats[address] = addressJson(chain = side(fundedSum = sats, fundedCount = 1, txCount = 1))
+        }
+    }
+
+    @Test
+    fun aPaymentBelowAUsedAddressShowsOnceTheEarlierReadIsOlderThanTheTtl() = runBlocking<Unit> {
+        setStats(account.receiveAddress(2), 10_000L)
+        val scheduler = this.scheduler()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        val firstScan = scanAccount(ref, scheduler, Priority.VISIBLE, nowMs = 1_000L, memo = memo)
+        assertEquals(10_000L, firstScan.confirmedSats)
+
+        // A payment lands on receive address 1, below the used address 2. Within the TTL the walk still trusts its earlier read of address 1.
+        setStats(account.receiveAddress(1), 7_000L)
+        val within = scanAccount(ref, scheduler, Priority.VISIBLE, nowMs = 1_000L + DEFAULT_SHORT_TTL_MS - 1, memo = memo)
+        assertEquals(10_000L, within.confirmedSats)
+
+        // Once that read is a TTL old, the walk asks again, and the payment shows.
+        val after = scanAccount(ref, scheduler, Priority.VISIBLE, nowMs = 1_000L + DEFAULT_SHORT_TTL_MS, memo = memo)
+        assertEquals(17_000L, after.confirmedSats)
     }
 
     @Test

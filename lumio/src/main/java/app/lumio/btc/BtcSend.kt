@@ -88,7 +88,7 @@ object BtcSend {
      */
     suspend fun spendable(account: BtcWatchOnlyAccount, scheduler: Scheduler): BtcSpendable {
         val net = account.network.networkId()
-        val memo: ConcurrentMap<String, EsploraAddressStats> = ConcurrentHashMap()
+        val memo: ConcurrentMap<String, MemoStats> = ConcurrentHashMap()
         val statsOf: suspend (String) -> EsploraAddressStats = { address ->
             scheduler.run(
                 AddressStats(net, address),
@@ -96,8 +96,9 @@ object BtcSend {
                 CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "stats/${net.chain}/$address", jsonCodec()),
             )
         }
-        val receive = scanChain(account::receiveAddress, statsOf, memo)
-        val change = scanChain(account::changeAddress, statsOf, memo)
+        val nowMs = System.currentTimeMillis()
+        val receive = scanChain(account::receiveAddress, statsOf, memo, nowMs)
+        val change = scanChain(account::changeAddress, statsOf, memo, nowMs)
         val funded = receive.used.map { RECEIVE_BRANCH to it } + change.used.map { CHANGE_BRANCH to it }
         val listed = funded.filter { it.second.stats.balance != 0L }.flatMap { (branch, hit) ->
             scheduler.run(AddressUtxos(net, hit.address), Priority.FOREGROUND)
