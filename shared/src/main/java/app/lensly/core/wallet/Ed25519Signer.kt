@@ -18,15 +18,18 @@ object Ed25519Signer {
     const val SIGNATURE_BYTES = 64
 
     /**
-     * The 64-byte signature of [message] by [privateKey]. The caller zeroes [privateKey]. BouncyCastle keeps its own copy of the key,
-     * and that copy cannot be zeroed from here.
+     * The 64-byte signature of [message] by [privateKey]. The signature is verified with the key's own public key before it is
+     * returned, so a faulted signature is never handed out. The caller zeroes [privateKey]. BouncyCastle keeps its own copy of the
+     * key, and that copy cannot be zeroed from here.
      */
     fun sign(privateKey: ByteArray, message: ByteArray): ByteArray {
         require(privateKey.size == KEY_BYTES) { "An Ed25519 private key is 32 bytes." }
         val signer = BcEd25519Signer()
         signer.init(true, Ed25519PrivateKeyParameters(privateKey, 0))
         signer.update(message, 0, message.size)
-        return signer.generateSignature()
+        val signature = signer.generateSignature()
+        check(verify(publicKeyOf(privateKey), message, signature)) { "The Ed25519 signature does not verify with its own key." }
+        return signature
     }
 
     /** The 32-byte public key of [privateKey]. The same caveat as [sign] applies to the copy BouncyCastle keeps. */
