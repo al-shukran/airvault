@@ -31,6 +31,19 @@ class Ed25519SignerTest {
         assertTrue(Ed25519Signer.verify(public, ByteArray(0), signature))
     }
 
+    /** [Ed25519Signer.sign] checks each signature against the key's public key, so every result must verify with that key. */
+    @Test
+    fun everySignatureVerifiesWithItsOwnKeyForAnyLength() {
+        for (seed in 1..5) {
+            val secret = ByteArray(32) { (it * seed + 3).toByte() }
+            val public = Ed25519Signer.publicKeyOf(secret)
+            for (length in listOf(0, 1, 31, 32, 33, 1024)) {
+                val message = ByteArray(length) { (it + seed).toByte() }
+                assertTrue(Ed25519Signer.verify(public, message, Ed25519Signer.sign(secret, message)))
+            }
+        }
+    }
+
     @Test
     fun aSignatureOfOtherBytesOrByAnotherKeyDoesNotVerify() {
         val secret = hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
