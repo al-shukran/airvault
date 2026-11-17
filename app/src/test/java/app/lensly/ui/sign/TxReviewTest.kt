@@ -208,4 +208,38 @@ class TxReviewTest {
 
         assertTrue(warned.requiredChecks.isEmpty())
     }
+
+    /** An unlimited approval is signable only once the owner ticks that the spender can take every token. */
+    @Test
+    fun anUnlimitedApprovalWaitsForItsTickBeforeItSigns() {
+        val unlimited = review(base, tokenContract = usdc, token = token).copy(warnings = listOf(unlimitedApprovalWarning("USDC")))
+
+        assertEquals(listOf(ReviewCheck.UNLIMITED), unlimited.requiredChecks)
+        assertFalse(unlimited.canApprove(everyFactShown = true, checked = emptySet()))
+        assertTrue(unlimited.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.UNLIMITED)))
+    }
+
+    @Test
+    fun anUnlimitedApprovalInsideAMulticallAsksForTheSameTick() {
+        val inBatch = review(base, tokenContract = null, token = null).copy(
+            nested = listOf(
+                NestedCall(
+                    depth = 1,
+                    target = usdc,
+                    function = "approve",
+                    params = emptyList(),
+                    warnings = listOf(unlimitedApprovalWarning(null)),
+                ),
+            ),
+        )
+
+        assertEquals(listOf(ReviewCheck.UNLIMITED), inBatch.requiredChecks)
+    }
+
+    @Test
+    fun aLimitedApprovalAsksForNoUnlimitedTick() {
+        val limited = review(base, tokenContract = usdc, token = token).copy(function = "approve")
+
+        assertTrue(limited.requiredChecks.isEmpty())
+    }
 }

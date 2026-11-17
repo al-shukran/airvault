@@ -121,7 +121,6 @@ class TypedData(
         private val ATOMIC_TYPES: Set<String> = setOf("address", "bool", "string", "bytes") +
             (1..32).map { "bytes$it" } + (8..256 step 8).flatMap { listOf("uint$it", "int$it") }
         private val TWO_256: BigInteger = BigInteger.ONE.shiftLeft(256)
-        private val TWO_255: BigInteger = BigInteger.ONE.shiftLeft(255)
 
         /**
          * Refuses a type set that EIP-712 cannot hash: a name that is not an identifier, a struct named as an atomic type, a repeated

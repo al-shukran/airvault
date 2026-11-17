@@ -359,17 +359,23 @@ class SignPipelineTest {
         assertEquals("100000000 (100 USDC)", review.params.last().second)
     }
 
+    /** The unlimited threshold is 2^160 - 1: that value and every larger one are warned, and the value one below it is not. */
     @Test
-    fun approvalOfTwoToTheTo255IsUnlimitedAndOneBelowIsNot() {
-        val threshold = BigInteger.ONE.shiftLeft(255)
-        val atThreshold = erc20Call(SELECTOR_APPROVE, RECIPIENT, threshold)
+    fun approvalsFromTwoToThe160MinusOneUpAreUnlimitedAndOneBelowIsNot() {
+        val threshold = BigInteger.ONE.shiftLeft(160).subtract(BigInteger.ONE)
         val below = erc20Call(SELECTOR_APPROVE, RECIPIENT, threshold.subtract(BigInteger.ONE))
 
-        val unlimited = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = atThreshold)
         val limited = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = below)
-
-        assertEquals(listOf(UNLIMITED_USDC), ready(requestCbor(unlimited, chainId = ETHEREUM)).review.warnings)
         assertTrue(ready(requestCbor(limited, chainId = ETHEREUM)).review.warnings.isEmpty())
+
+        for (amount in listOf(threshold, BigInteger.ONE.shiftLeft(255).subtract(BigInteger.ONE), ContractCall.MAX_UINT256)) {
+            val data = erc20Call(SELECTOR_APPROVE, RECIPIENT, amount)
+            val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+            val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
+
+            assertEquals(listOf(UNLIMITED_USDC), review.warnings, "approval of $amount")
+            assertEquals(listOf(ReviewCheck.UNLIMITED), review.requiredChecks, "approval of $amount")
+        }
     }
 
     @Test
@@ -1208,7 +1214,7 @@ class SignPipelineTest {
         val review = denylisted(requestCbor(tx, chainId = ETHEREUM)).review
 
         assertEquals(listOf("0x095ea7b3"), review.denylisted.map { it.selector })
-        assertTrue(ReviewCheck.DENYLIST in review.requiredChecks)
+        assertEquals(listOf(ReviewCheck.DENYLIST, ReviewCheck.UNLIMITED), review.requiredChecks)
         assertEquals(listOf(UNLIMITED_USDC), review.warnings)
     }
 
@@ -1603,7 +1609,7 @@ class SignPipelineTest {
         assertEquals(listOf(UNLIMITED_UNKNOWN), unknown.warnings)
         assertEquals(UNKNOWN_DECIMALS_NOTE, unknown.note)
         assertTrue(unknown.unregistered)
-        assertEquals(listOf(ReviewCheck.REGISTRY), ready.review.requiredChecks)
+        assertEquals(listOf(ReviewCheck.REGISTRY, ReviewCheck.UNLIMITED), ready.review.requiredChecks)
     }
 
     @Test
@@ -1628,8 +1634,9 @@ class SignPipelineTest {
 
         assertEquals(listOf(WARN_REASON), ready.review.nested.single().denylisted.map { it.reason })
         assertTrue(ready.review.denylisted.isEmpty(), "the outer batch matches no entry")
-        // The router is not a registered token, so the approval also needs the registry check, as a lone approval would.
-        assertEquals(listOf(ReviewCheck.DENYLIST, ReviewCheck.REGISTRY), ready.review.requiredChecks)
+        // The router is not a registered token, so the approval also needs the registry check, and it is unlimited, so it needs
+        // the unlimited tick. A lone approval needs the same two.
+        assertEquals(listOf(ReviewCheck.DENYLIST, ReviewCheck.REGISTRY, ReviewCheck.UNLIMITED), ready.review.requiredChecks)
     }
 
     @Test

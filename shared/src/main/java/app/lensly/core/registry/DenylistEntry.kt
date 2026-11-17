@@ -13,7 +13,7 @@ enum class DenylistSeverity { WARN, BLOCK }
 
 /**
  * Which calls with a matching selector an entry applies to. [ANY] is every call. [UNLIMITED] is a call whose amount is unlimited,
- * such as approve or increaseAllowance with 2^255 or more. [APPROVED] is an operator grant of true, such as setApprovalForAll.
+ * such as approve or increaseAllowance with 2^160 - 1 or more. [APPROVED] is an operator grant of true, such as setApprovalForAll.
  */
 @Serializable
 enum class DenylistCondition { ANY, UNLIMITED, APPROVED }

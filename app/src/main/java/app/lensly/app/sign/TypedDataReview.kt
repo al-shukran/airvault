@@ -5,6 +5,7 @@ import app.lensly.core.evm.TypedData
 import app.lensly.core.evm.TypedField
 import app.lensly.core.evm.TypedValue
 import app.lensly.core.registry.Amounts
+import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.toHex
@@ -167,11 +168,11 @@ private class PermitSummary(private val registry: Registry, private val chainId:
     }
 
     /**
-     * An amount of [bits] bits. It is unlimited when it is at least 2^255 or the largest value its type holds. The decimals of a
-     * known token format it; an unknown token shows the raw integer.
+     * An amount of [bits] bits. It is unlimited when [ContractCall.isUnlimited] reads it so, or when it is the largest value its type
+     * holds. The decimals of a known token format it; an unknown token shows the raw integer.
      */
     fun amount(label: String, raw: BigInteger, bits: Int, token: TokenEntry?) {
-        val unlimited = raw >= TWO_255 || raw == BigInteger.ONE.shiftLeft(bits).subtract(BigInteger.ONE)
+        val unlimited = ContractCall.isUnlimited(raw) || raw == BigInteger.ONE.shiftLeft(bits).subtract(BigInteger.ONE)
         val amount = if (token != null) "${Amounts.format(raw, token.decimals)} ${token.symbol}" else "$raw (decimals unknown)"
         rows += label to (if (unlimited) "Unlimited (raw $raw)" else amount)
         if (unlimited) warnings += unlimitedApprovalWarning(token?.symbol)
@@ -205,7 +206,6 @@ private val PERMIT_NESTED_LAYOUTS: Map<String, List<Pair<String, String>>> = map
 )
 
 private const val ANY_SUBMITTER = "Anyone who submits this signature"
-private val TWO_255: BigInteger = BigInteger.ONE.shiftLeft(255)
 private val MAX_INSTANT_SECONDS: BigInteger = BigInteger.valueOf(Instant.MAX.epochSecond)
 private val DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm 'UTC'", Locale.ENGLISH).withZone(ZoneOffset.UTC)
 
