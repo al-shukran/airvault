@@ -257,7 +257,7 @@ internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String? = whe
     AccountChain.ETHEREUM -> LumioRoute.send(account.walletId, account.index, WalletAccounts.primaryEvmChainId(mode))
     AccountChain.BITCOIN -> LumioRoute.BTC_SEND
     AccountChain.SOLANA -> LumioRoute.solanaSend(account.walletId, account.index)
-    AccountChain.ALGORAND -> null
+    AccountChain.ALGORAND -> LumioRoute.algorandSend(account.walletId, account.index)
 }
 
 /**

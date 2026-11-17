@@ -26,6 +26,7 @@ import app.lensly.ui.navigation.leaveHidden
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
 import app.lumio.network.NetworkMode
+import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.settings.SettingsPage
@@ -130,6 +131,12 @@ internal object LumioRoute {
 
     /** The route of the Solana send from account [index] of [walletId]. */
     fun solanaSend(walletId: String, index: Int): String = "solana-send/$walletId/$index"
+
+    /** The Algorand send from the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
+    const val ALGORAND_SEND = "algorand-send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+
+    /** The route of the Algorand send from account [index] of [walletId]. */
+    fun algorandSend(walletId: String, index: Int): String = "algorand-send/$walletId/$index"
 
     /** The route of a send from address [index] of [walletId], starting on [chainId] and on the token [token] when they are given. */
     fun send(walletId: String, index: Int, chainId: Long? = null, token: String? = null): String {
@@ -303,6 +310,19 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                 val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
                 LumioBackdrop(selection) {
                     SolanaSendRoute(navController = navController, holder = holder, walletId = walletId, accountIndex = index, mode = selection.mode)
+                }
+            }
+            composable(
+                route = LumioRoute.ALGORAND_SEND,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                LumioBackdrop(selection) {
+                    AlgorandSendRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, accountIndex = index)
                 }
             }
             composable(LumioRoute.SETTINGS) {
