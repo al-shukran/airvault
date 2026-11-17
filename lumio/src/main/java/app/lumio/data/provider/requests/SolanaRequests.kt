@@ -12,6 +12,23 @@ const val MAX_SOLANA_HISTORY = 10
 /** The latest blockhash of [net]. A Solana transaction names one, so that it expires once the chain has moved on. */
 class RecentBlockhash(net: NetworkId) : Request<String>(net, Op.BLOCKHASH)
 
+/** The account at [address] as the latest answer shows it: its [SolanaAccountState], or null when the account does not exist. */
+class SolanaAccountRead(net: NetworkId, val address: String) : Request<SolanaAccountState?>(net, Op.ACCOUNT_INFO) {
+    init {
+        require(SOLANA_ADDRESS.matches(address)) { "Not a Solana address." }
+    }
+}
+
+/** An account's [owner] program, a base58 address, and its [data] in bytes. */
+class SolanaAccountState(val owner: String, val data: ByteArray)
+
+/** The lamports that an account of [size] bytes must hold to be rent-exempt, as the network asks for them now. */
+class RentExemptMinimum(net: NetworkId, val size: Long) : Request<Long>(net, Op.RENT_EXEMPT) {
+    init {
+        require(size >= 0) { "An account size is not negative." }
+    }
+}
+
 /**
  * The most recent transactions that involve a Solana [address], newest first, up to [limit] of them. Each row carries the change in the address's
  * balance, and that change is null when the answer does not show the balance.

@@ -5,8 +5,11 @@ import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RecentBlockhash
+import app.lumio.data.provider.RentExemptMinimum
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.SOLANA_SIGNATURE
+import app.lumio.data.provider.SolanaAccountRead
+import app.lumio.data.provider.SolanaAccountState
 import app.lumio.data.provider.SolanaAddressHistory
 import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.SolanaStatus
@@ -74,6 +77,8 @@ internal class SolanaCalls(
             is SolanaAddressHistory -> history(req)
             is SplTokenBalances -> tokenBalances(address(req.owner))
             is SolanaSignatureStatus -> status(req.signature)
+            is SolanaAccountRead -> accountState(req.address)
+            is RentExemptMinimum -> rentExemptMinimum(req.size)
             else -> throw ProviderError.Unsupported()
         }
         return result as T
@@ -86,6 +91,26 @@ internal class SolanaCalls(
     /** `getLatestBlockhash`: the blockhash in `value`. */
     private suspend fun blockhash(): String =
         call("getLatestBlockhash", JsonArray(emptyList())).asObject()["value"].asObject()["blockhash"].matching(PUBLIC_KEY)
+
+    /**
+     * `getAccountInfo` with the data in base64: the owner and the data of [address], or null when the account does not exist. Data that is not
+     * base64 is a malformed answer.
+     */
+    private suspend fun accountState(address: String): SolanaAccountState? {
+        val params = JsonArray(listOf(JsonPrimitive(address), options("encoding" to JsonPrimitive("base64"))))
+        val value = call("getAccountInfo", params).asObject()["value"].present()?.asObject() ?: return null
+        val encoded = value["data"].asArray().firstOrNull().text()
+        val data = try {
+            Base64.getDecoder().decode(encoded)
+        } catch (e: IllegalArgumentException) {
+            throw ProviderError.Fatal(NOT_A_SOLANA_VALUE)
+        }
+        return SolanaAccountState(owner = value["owner"].matching(PUBLIC_KEY), data = data)
+    }
+
+    /** `getMinimumBalanceForRentExemption` for an account of [size] bytes: the lamports that the answer gives it must hold. */
+    private suspend fun rentExemptMinimum(size: Long): Long =
+        call("getMinimumBalanceForRentExemption", JsonArray(listOf(JsonPrimitive(size)))).whole(0, Long.MAX_VALUE)
 
     /** `sendTransaction` with the signed bytes in base64. The answer is the signature of the transaction. */
     private suspend fun broadcast(raw: ByteArray): String {

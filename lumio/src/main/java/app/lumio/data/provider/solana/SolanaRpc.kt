@@ -21,8 +21,13 @@ val SOLANA_DEVNET = NetworkId(Family.SOL, "devnet", testnet = true)
 /** The Solana mainnet-beta cluster, as the chain name "mainnet-beta" of the Solana family. */
 val SOLANA_MAINNET = NetworkId(Family.SOL, "mainnet-beta", testnet = false)
 
-/** The operations a Solana RPC provider serves: balances, blockhashes, history, token balances, broadcasts and signature statuses. */
-private val SOLANA_OPS = setOf(Op.NATIVE_BALANCE, Op.BLOCKHASH, Op.TX_HISTORY, Op.TOKEN_BALANCES, Op.BROADCAST, Op.TX)
+/**
+ * The operations a Solana RPC provider serves: balances, blockhashes, history, token balances, broadcasts, signature statuses, account reads
+ * and the rent-exempt minimum.
+ */
+private val SOLANA_OPS = setOf(
+    Op.NATIVE_BALANCE, Op.BLOCKHASH, Op.TX_HISTORY, Op.TOKEN_BALANCES, Op.BROADCAST, Op.TX, Op.ACCOUNT_INFO, Op.RENT_EXEMPT,
+)
 
 /**
  * A Solana JSON-RPC provider. [endpoint] gives the address that serves a network under a config, or null when there is none, and then the provider does

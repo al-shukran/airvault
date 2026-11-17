@@ -2,8 +2,8 @@ package app.lumio.send.solana
 
 import app.lensly.app.export.partsOf
 import app.lensly.core.wallet.Ed25519Signer
+import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTransaction
-import app.lensly.core.solana.SolanaTransfer
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignRequestEncoder
@@ -87,8 +87,10 @@ object SolanaSend {
     fun newRequestId(): ByteArray = ByteArray(REQUEST_ID_BYTES).also { random.nextBytes(it) }
 
     /**
-     * The send of [lamports] from [account] to [recipient], at [blockhash], with [balance] in the account. Throws IllegalArgumentException, with the
-     * owner's words, when the amount is not positive or the balance does not cover the amount, the fee and the rent reserve.
+     * The send of [lamports] from [account] to [recipient], with [balance] in the account, as a transfer that advances the account's nonce.
+     * [nonceValue] is the nonce that the account's nonce account holds, and the message names it as its recent blockhash. Throws
+     * IllegalArgumentException, with the owner's words, when the amount is not positive or the balance does not cover the amount, the fee and the
+     * rent reserve.
      */
     fun plan(
         network: NetworkId,
@@ -96,7 +98,7 @@ object SolanaSend {
         recipient: ByteArray,
         lamports: Long,
         balance: BigInteger,
-        blockhash: ByteArray,
+        nonceValue: ByteArray,
         requestId: ByteArray,
     ): SolanaSendPlan {
         require(lamports > 0) { "The amount must be more than 0 SOL." }
@@ -108,9 +110,43 @@ object SolanaSend {
             recipient = recipient,
             lamports = lamports,
             feeLamports = SOLANA_FEE_LAMPORTS,
+            blockhash = nonceValue,
+            requestId = requestId,
+            message = SolanaNonce.transferMessage(account.key, recipient, lamports, nonceValue),
+        )
+    }
+
+    /**
+     * Checks that [balance] covers the one-time setup of a nonce account, which costs [rentLamports] of rent: the rent, the fee and the rent
+     * reserve. Throws IllegalArgumentException, with the owner's words, when it does not.
+     */
+    fun checkSetupFunds(balance: BigInteger, rentLamports: Long) {
+        val needed = BigInteger.valueOf(rentLamports) + BigInteger.valueOf(SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS)
+        require(balance >= needed) { "This account does not hold enough SOL for the nonce account, the fee and the rent reserve." }
+    }
+
+    /**
+     * The one-time setup of [account]'s nonce account, at [blockhash]. It pays [rentLamports] of rent into the nonce account, which is the plan's
+     * recipient. Throws IllegalArgumentException, as [checkSetupFunds] does.
+     */
+    fun setupPlan(
+        network: NetworkId,
+        account: SolanaSendAccount,
+        rentLamports: Long,
+        balance: BigInteger,
+        blockhash: ByteArray,
+        requestId: ByteArray,
+    ): SolanaSendPlan {
+        checkSetupFunds(balance, rentLamports)
+        return SolanaSendPlan(
+            network = network,
+            account = account,
+            recipient = SolanaNonce.accountOf(account.key),
+            lamports = rentLamports,
+            feeLamports = SOLANA_FEE_LAMPORTS,
             blockhash = blockhash,
             requestId = requestId,
-            message = SolanaTransfer.message(account.key, recipient, lamports, blockhash),
+            message = SolanaNonce.setupMessage(account.key, blockhash, rentLamports),
         )
     }
 

@@ -4,6 +4,7 @@ import app.lumio.ui.send.solanaSummary
 import app.lumio.ui.send.solana.solanaOutcomeText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.screenshot.snapshot
@@ -14,6 +15,7 @@ import app.lumio.send.solana.SolanaSendAccount
 import app.lumio.send.solana.SolanaSendPlan
 import app.lumio.ui.send.solana.SolanaSendFormScreen
 import app.lumio.ui.send.solana.SolanaSendReviewScreen
+import app.lumio.ui.send.solana.SolanaSetupReviewScreen
 import app.lumio.ui.send.solana.SolanaSignRequestScreen
 import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
@@ -24,7 +26,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** The four Solana send screens with fixed public data, as goldens. The account is the 24-word BIP39 test vector's account 0. */
+/** The Solana send screens, and the one-time setup of offline signing, with fixed public data, as goldens. The account is the 24-word BIP39 test vector's account 0. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -42,7 +44,7 @@ class SolanaSendScreenshotTest {
         recipient = Base58.decode("7tark5iZaRrMfGKtKy1aqpGuRgoxbE6ec7Z5Qa4Jc5xr"),
         lamports = 1_500_000_000L,
         balance = balance,
-        blockhash = Base58.decode("3K2oo9odsrvknS7gMzJ4eLBnjd3UG14yPuJc8DiviJqY"),
+        nonceValue = Base58.decode("3K2oo9odsrvknS7gMzJ4eLBnjd3UG14yPuJc8DiviJqY"),
         requestId = ByteArray(16) { (it + 1).toByte() },
     )
 
@@ -82,6 +84,19 @@ class SolanaSendScreenshotTest {
             solanaSummary(plan),
             explorerUrl = { SolanaSend.explorerTxUrl(SOLANA_DEVNET, it) },
             status = solanaOutcomeText(SOLANA_DEVNET, SolanaOutcome.CONFIRMED),
+        )
+    }
+
+    @Test
+    fun solanaSetupReview() = compose.snapshot("solana_setup_review") {
+        SolanaSetupReviewScreen(
+            network = SOLANA_DEVNET,
+            sender = sender,
+            nonceAccount = Base58.encode(SolanaNonce.accountOf(senderKey)),
+            rentLamports = 1_447_680L,
+            notice = null,
+            onConfirm = {},
+            onBack = {},
         )
     }
 }
