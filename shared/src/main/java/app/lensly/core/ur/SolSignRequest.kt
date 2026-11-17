@@ -16,6 +16,17 @@ enum class SolSignType(val wire: Int) {
     }
 }
 
+/** The Solana cluster a request is for, as key 7 of a sol-sign-request. Lumio states it. A request that names none has no cluster. */
+enum class SolCluster(val wire: String) {
+    MAINNET_BETA("mainnet-beta"),
+    DEVNET("devnet"),
+    TESTNET("testnet");
+
+    companion object {
+        fun fromWire(value: String): SolCluster? = entries.firstOrNull { it.wire == value }
+    }
+}
+
 /** A parsed ur:sol-sign-request. Optional fields are null when the wallet left them out. */
 class SolSignRequest(
     /** 16-byte UUID that the response must echo. Null when the wallet omitted it. */
@@ -31,6 +42,8 @@ class SolSignRequest(
     /** The origin the wallet names, such as "solflare". Null when it names none. */
     val origin: String?,
     val signType: SolSignType,
+    /** The cluster the wallet states, or null when it names none. Keystone's requests name none. */
+    val cluster: SolCluster? = null,
 ) {
     /** Outcome of [decode]. Decoding never throws, so every failure comes back as [Rejected]. */
     sealed interface Result {
@@ -103,7 +116,10 @@ class SolSignRequest(
             val typeValue = uintOf(fields[6L] ?: malformed("signType is missing"), "signType")
             val signType = SolSignType.fromWire(typeValue) ?: malformed("unsupported signType $typeValue")
 
-            return SolSignRequest(requestId, signData, path, sourceFingerprint, address, origin, signType)
+            // The cluster is optional. A name Lensly does not hold is refused, so the review never shows a network it cannot name.
+            val cluster = fields[7L]?.let { SolCluster.fromWire(textOf(it, "cluster")) ?: malformed("unsupported cluster") }
+
+            return SolSignRequest(requestId, signData, path, sourceFingerprint, address, origin, signType, cluster)
         }
 
         private fun fieldsOf(root: Cbor): Map<Long, Cbor> {

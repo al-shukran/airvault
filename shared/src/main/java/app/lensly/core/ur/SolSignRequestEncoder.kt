@@ -31,6 +31,7 @@ object SolSignRequestEncoder {
         put(4L, request.address?.let { Cbor.Bytes(it) })
         put(5L, request.origin?.let { Cbor.Text(it) })
         put(6L, Cbor.Uint(request.signType.wire.toLong()))
+        put(7L, request.cluster?.let { Cbor.Text(it.wire) })
         return Cbor.Dict(fields)
     }
 

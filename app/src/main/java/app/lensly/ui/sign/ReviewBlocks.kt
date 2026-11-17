@@ -68,8 +68,8 @@ internal data class RiskItem(val text: String, val tone: BannerTone, val check: 
 
 /**
  * The header of a review: the network, named in full and large, with its raw [chainDetail] under it and the testnet badge in the warning
- * colour when [testnet] is set. Under it come the account that signs and its wallet, then the address of that account in full. [networkIcon]
- * is the logo of the network, when it has one.
+ * colour when [testnet] is set. Under it come the [networkFact] row, when a review has one, then the account that signs and its wallet, and
+ * the address of that account in full. [networkIcon] is the logo of the network, when it has one.
  */
 @Composable
 internal fun ReviewHeader(
@@ -82,6 +82,7 @@ internal fun ReviewHeader(
     modifier: Modifier = Modifier,
     bitcoin: Boolean = false,
     networkIcon: (@Composable () -> Unit)? = null,
+    networkFact: ReviewFact? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -104,6 +105,7 @@ internal fun ReviewHeader(
             Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(LenslySpacing.sm))
+        networkFact?.let { ReviewFactRow(label = it.label, value = it.value, mono = it.mono) }
         ReviewFactRow(label = "Account", value = account, mono = false)
         ReviewFactRow(label = "Wallet", value = wallet, mono = false)
         Spacer(Modifier.height(LenslySpacing.xxs))

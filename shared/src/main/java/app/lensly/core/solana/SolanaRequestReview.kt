@@ -2,6 +2,7 @@ package app.lensly.core.solana
 
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.SolCluster
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
 import java.math.BigInteger
@@ -31,7 +32,7 @@ enum class SolanaWarning {
  * A Solana request as Lensly reviews it before it signs. [accountIndex] is N of the account `m/44'/501'/N'` that signs, and [signer] is
  * its 32-byte public key. A transaction holds its parsed [message] and its [instructions], in order. A message to sign holds its
  * [messageBytes]. [lookups] lists each lookup-table account that the instructions use, in the order they first appear. [tokens] names
- * the mints the review shows. Every field holds public data only.
+ * the mints the review shows. [cluster] is the cluster the request states, or null when it states none. Every field holds public data only.
  */
 class SolanaRequestReview internal constructor(
     val signType: SolSignType,
@@ -42,6 +43,7 @@ class SolanaRequestReview internal constructor(
     val lookups: List<SolanaMessageAccount.Lookup>,
     val messageBytes: ByteArray?,
     val tokens: SolanaTokenList,
+    val cluster: SolCluster?,
 ) {
     /** The address of the signing account, in base58. */
     val signerAddress: String get() = SolanaAccount.addressOf(signer)
@@ -174,7 +176,7 @@ object SolanaRequestCheck {
         val named = request.address
         if (named != null && !named.contentEquals(signer)) return Result.Refused(DIFFERENT_ADDRESS)
         return when (request.signType) {
-            SolSignType.TRANSACTION -> transaction(request.signData, index, signer, tokens, unknownCalls)
+            SolSignType.TRANSACTION -> transaction(request.signData, index, signer, tokens, unknownCalls, request.cluster)
             SolSignType.MESSAGE -> Result.Ok(
                 SolanaRequestReview(
                     signType = SolSignType.MESSAGE,
@@ -185,6 +187,7 @@ object SolanaRequestCheck {
                     lookups = emptyList(),
                     messageBytes = request.signData,
                     tokens = tokens,
+                    cluster = request.cluster,
                 ),
             )
         }
@@ -196,6 +199,7 @@ object SolanaRequestCheck {
         signer: ByteArray,
         tokens: SolanaTokenList,
         unknownCalls: UnknownCallPolicy,
+        cluster: SolCluster?,
     ): Result {
         val message = when (val decoded = SolanaMessage.decode(bytes)) {
             is SolanaMessage.Result.Ok -> decoded.message
@@ -223,6 +227,7 @@ object SolanaRequestCheck {
                 lookups = lookups,
                 messageBytes = null,
                 tokens = tokens,
+                cluster = cluster,
             ),
         )
     }

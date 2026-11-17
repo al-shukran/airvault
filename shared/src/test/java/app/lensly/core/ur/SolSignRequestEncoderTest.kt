@@ -78,6 +78,26 @@ class SolSignRequestEncoderTest {
     }
 
     @Test
+    fun aRequestStatesItsClusterAndDecodesItBack() {
+        for (cluster in SolCluster.entries) {
+            val request = SolSignRequest(
+                requestId = requestId,
+                signData = ByteArray(40) { 1 },
+                derivationPath = listOf(PathStep(44, true), PathStep(501, true), PathStep(0, true)),
+                sourceFingerprint = null,
+                address = null,
+                origin = "Lumio",
+                signType = SolSignType.TRANSACTION,
+                cluster = cluster,
+            )
+
+            val decoded = assertIs<SolSignRequest.Result.Ok>(SolSignRequest.decode(scanned(SolSignRequestEncoder.encode(request)))).request
+
+            assertEquals(cluster, decoded.cluster, cluster.wire)
+        }
+    }
+
+    @Test
     fun aRequestThatLensWouldRefuseIsNotEncoded() {
         val sign = byteArrayOf(1)
         val transaction = SolSignType.TRANSACTION
