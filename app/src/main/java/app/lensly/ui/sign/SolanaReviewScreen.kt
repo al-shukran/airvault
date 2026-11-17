@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
+import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
@@ -41,7 +42,10 @@ fun SolanaReviewScreen(
     onApprove: () -> Unit,
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens an address of the review in the Address Book, with its chain. Null leaves the address rows without a tap. */
+    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
+    val open = addressTapOn(AddressChain.SOLANA, onOpenAddress)
     // A different request starts unread, so nothing carries over from the last one.
     key(review) {
         val read = rememberReviewRead(review)
@@ -96,7 +100,9 @@ fun SolanaReviewScreen(
                 // A signed message has no parsed transaction, so its details are the message. A transaction's details are its instructions.
                 ReviewSection(title = if (review.message == null) "Message" else "Instructions") {
                     // Each value is set under its label, so a full base58 address wraps in full rather than squeezing its label.
-                    solanaRows(review).forEach { (label, value) -> ReviewField(label = label, value = value, notes = addressNotes.notesOf(value)) }
+                    solanaRows(review).forEach { (label, value) ->
+                        ReviewField(label = label, value = value, notes = addressNotes.notesOf(value), onOpen = open)
+                    }
                 }
             }
         }

@@ -33,14 +33,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.app.AddressBookEntry
+import app.lensly.app.AddressChain
 import app.lensly.app.VisualIdentity
+import app.lensly.app.addressNotesOf
+import app.lensly.app.canonicalAddressOn
 import app.lensly.app.sign.BitcoinRecordFacts
 import app.lensly.app.sign.NoticeLevel
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
+import app.lensly.app.sign.recordChainOf
 import app.lensly.core.registry.NetworkEntry
-import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.DetailTopBar
@@ -51,6 +55,7 @@ import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
 import app.lensly.ui.sign.MutedText
+import app.lensly.ui.sign.ReviewAddress
 import app.lensly.ui.sign.btcText
 import app.lensly.ui.sign.groupHex
 import app.lensly.ui.theme.LenslyError
@@ -61,8 +66,6 @@ import app.lensly.ui.theme.LenslySuccess
 import app.lensly.ui.theme.SpaceMonoFamily
 import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WalletEyebrow
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.wallet.WalletScaffold
 import java.time.Instant
 import java.time.LocalDate
@@ -80,6 +83,9 @@ private const val BITCOIN_LABEL = "Bitcoin transaction"
  * The Review Records of one wallet, newest first, under the day each was made. A row shows the outcome, the network, what the
  * request did, its amount and the time. A tap opens every recorded fact, with each address in full. With no record yet, the screen
  * says what will be listed here. [networkOf] names the network of a chain, for its logo.
+ *
+ * [addressBook] is read for the notes of each address the sheet shows. A tap on an address calls [onOpenAddress] with the address and its
+ * chain, so the Address Book can open its entry, or a new one for it.
  */
 @Composable
 fun WalletHistoryScreen(
@@ -88,8 +94,8 @@ fun WalletHistoryScreen(
     networkOf: (Long) -> NetworkEntry?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Opens the Address Book form with an address of a record, for "Add to Address Book" on its sheet. Null hides the action. */
-    onAddToAddressBook: ((String) -> Unit)? = null,
+    addressBook: List<AddressBookEntry> = emptyList(),
+    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
     val haptics = rememberKeyHaptics()
     var open by remember { mutableStateOf<ReviewRecord?>(null) }
@@ -115,7 +121,12 @@ fun WalletHistoryScreen(
         }
     }
     open?.let { record ->
-        HistoryDetailSheet(record = record, onDismiss = { open = null }, onAddToAddressBook = onAddToAddressBook)
+        HistoryDetailSheet(
+            record = record,
+            addressBook = addressBook,
+            onDismiss = { open = null },
+            onOpenAddress = onOpenAddress,
+        )
     }
 }
 
@@ -207,13 +218,20 @@ internal fun HistoryRow(
     }
 }
 
-/** Every fact the record holds, each address in full. The sheet scrolls, since a message or a long call can be tall. */
+/**
+ * Every fact the record holds. Each address it shows is a list row: a tap closes the sheet, then calls [onOpenAddress] with the address
+ * and its chain. Each row shows what the Address Book holds for the address, from [addressBook]: its name, label and notes, or "Not in
+ * address book". The sheet scrolls, since a message or a long call can be tall.
+ */
 @Composable
 internal fun HistoryDetailSheet(
     record: ReviewRecord,
+    addressBook: List<AddressBookEntry>,
     onDismiss: () -> Unit,
-    onAddToAddressBook: ((String) -> Unit)? = null,
+    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
+    val chain = recordChainOf(record)
+    val open = tapOf(chain, onOpenAddress, onDismiss)
     OptionsSheet(onDismiss = onDismiss, scrollable = true) {
         Text(
             text = outcomeLabel(record.outcome),
@@ -226,48 +244,76 @@ internal fun HistoryDetailSheet(
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
         FactRow("Network") { FactText(networkLine(record)) }
         record.address?.let { address ->
-            FactRow(if (record.accountIndex == null) "Account" else "Account ${record.accountIndex}") {
-                AddressText(address, bitcoin = record.bitcoin != null)
-            }
+            AddressFact(
+                label = if (record.accountIndex == null) "Account" else "Account ${record.accountIndex}",
+                value = address,
+                chain = chain,
+                book = addressBook,
+                open = open,
+            )
         }
         FactRow("Kind") { FactText(kindLabel(record.kind)) }
-        record.bitcoin?.let { facts -> BitcoinFacts(record, facts) }
+        record.bitcoin?.let { facts -> BitcoinFacts(record, facts, addressBook, open) }
         record.function?.let { function -> FactRow("Function") { FactText(function) } }
-        record.to?.let { to -> FactRow("To") { AddressText(to) } }
+        record.to?.let { to -> AddressFact(label = "To", value = to, chain = chain, book = addressBook, open = open) }
         record.amount?.let { amount -> FactRow("Amount") { MonoText(amount) } }
-        record.tokenContract?.let { contract -> FactRow("Token contract") { AddressText(contract) } }
-        if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee) }
-        if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params) }
+        record.tokenContract?.let { contract ->
+            AddressFact(label = "Token contract", value = contract, chain = chain, book = addressBook, open = open)
+        }
+        if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, open) }
+        if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, open) }
         record.origin?.let { origin -> FactRow("Origin") { FactText(origin) } }
         record.refusal?.let { reason -> FactRow("Refusal reason") { FactText(reason) } }
         FactRow("Data hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
-        if (onAddToAddressBook != null) {
-            val candidates = addressCandidates(record)
-            candidates.forEach { (label, address) ->
-                Spacer(Modifier.height(LenslySpacing.sm))
-                WalletPill(
-                    text = if (candidates.size == 1) "Add to Address Book" else "Add $label to Address Book",
-                    onClick = {
-                        onDismiss()
-                        onAddToAddressBook(address)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    style = WalletPillStyle.Secondary,
-                )
-            }
-        }
     }
 }
 
 /**
- * The addresses a record can add to the Address Book, each with its label: the recipient of a call or a transfer, or each output of a
- * Bitcoin request that is not change and has an address.
+ * The tap of an address row: it closes the sheet, then opens the address on [chain]. Null when there is no action or no chain, so the
+ * addresses are shown without a tap.
  */
-internal fun addressCandidates(record: ReviewRecord): List<Pair<String, String>> {
-    record.to?.let { return listOf("recipient" to it) }
-    return record.bitcoin?.outputs.orEmpty().mapIndexedNotNull { index, output ->
-        if (output.isOwnChange) null else output.address?.let { "output $index" to it }
+private fun tapOf(
+    chain: AddressChain?,
+    onOpenAddress: ((String, AddressChain) -> Unit)?,
+    onDismiss: () -> Unit,
+): ((String) -> Unit)? {
+    if (chain == null || onOpenAddress == null) return null
+    return { address ->
+        onDismiss()
+        onOpenAddress(address, chain)
     }
+}
+
+/** Whether [value] is an address on [chain], so it is shown as an address row. */
+private fun isAddressOn(value: String, chain: AddressChain?): Boolean = chain != null && canonicalAddressOn(value, chain) != null
+
+/** A fact whose value is an address on [chain] is an address row. Any other value is text. */
+@Composable
+private fun AddressFact(
+    label: String,
+    value: String,
+    chain: AddressChain?,
+    book: List<AddressBookEntry>,
+    open: ((String) -> Unit)?,
+) {
+    FactRow(label) {
+        if (chain != null && isAddressOn(value, chain)) {
+            AddressBlock(address = value, chain = chain, book = book, open = open)
+        } else {
+            FactText(value)
+        }
+    }
+}
+
+/** One address as a [ReviewAddress] row, with what the Address Book holds for it on [chain]. A tap opens it when [open] is set. */
+@Composable
+private fun AddressBlock(address: String, chain: AddressChain, book: List<AddressBookEntry>, open: ((String) -> Unit)?) {
+    ReviewAddress(
+        address = address,
+        notes = addressNotesOf(address, chain, emptyMap(), book),
+        bitcoin = chain == AddressChain.BITCOIN,
+        onClick = open?.let { tap -> { tap(address) } },
+    )
 }
 
 @Composable
@@ -277,14 +323,19 @@ private fun FactText(text: String) {
 
 /**
  * What a Bitcoin review showed: the account and its Script Type, each output with its address and amount, the fee and its rate, and every
- * notice the review gave, as a warning or as the reason it was blocked.
+ * notice the review gave, as a warning or as the reason it was blocked. Each output address is an address row, and so is a change output.
  */
 @Composable
-private fun BitcoinFacts(record: ReviewRecord, facts: BitcoinRecordFacts) {
+private fun BitcoinFacts(record: ReviewRecord, facts: BitcoinRecordFacts, book: List<AddressBookEntry>, open: ((String) -> Unit)?) {
     record.accountIndex?.let { index -> FactRow("Account $index") { FactText(facts.scriptType) } }
     facts.outputs.forEachIndexed { index, output ->
         FactRow("Output $index") {
-            output.address?.let { AddressText(it, bitcoin = true) } ?: MutedText("No address. The script is not paid to an address.")
+            val address = output.address
+            if (address != null) {
+                AddressBlock(address = address, chain = AddressChain.BITCOIN, book = book, open = open)
+            } else {
+                MutedText("No address. The script is not paid to an address.")
+            }
             MonoText(btcText(output.amountSats))
             if (output.isOwnChange) MutedText("Your change")
         }
@@ -300,13 +351,20 @@ private fun BitcoinFacts(record: ReviewRecord, facts: BitcoinRecordFacts) {
     }
 }
 
-/** Label and value rows, as the review showed them. A value is in the monospace face, so each character can be compared by eye. */
+/**
+ * Label and value rows, as the review showed them. A value that is an address on [chain] is an address row, and any other value is in the
+ * monospace face, so each character can be compared by eye.
+ */
 @Composable
-private fun LabelledRows(rows: List<Pair<String, String>>) {
+private fun LabelledRows(rows: List<Pair<String, String>>, chain: AddressChain?, book: List<AddressBookEntry>, open: ((String) -> Unit)?) {
     rows.forEachIndexed { index, (label, value) ->
         if (index > 0) Spacer(Modifier.height(LenslySpacing.sm))
         MutedText(label)
-        MonoText(value)
+        if (isAddressOn(value, chain)) {
+            AddressBlock(address = value, chain = requireNotNull(chain), book = book, open = open)
+        } else {
+            MonoText(value)
+        }
     }
 }
 

@@ -2,8 +2,11 @@ package app.lensly.ui.home
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
@@ -75,7 +78,7 @@ class WalletHistoryScreenTest {
         compose.onNodeWithText("Signed").assertIsDisplayed()
         compose.onNodeWithText("Monad Testnet · chain 10143").assertIsDisplayed()
         compose.onNodeWithText(groupAddress(SAMPLE_ACCOUNT)).assertIsDisplayed()
-        compose.onNodeWithText(groupAddress(SAMPLE_RECIPIENT)).assertIsDisplayed()
-        compose.onNodeWithText("DATA HASH, SHA-256").assertIsDisplayed()
+        compose.onAllNodesWithText(groupAddress(SAMPLE_RECIPIENT)).onFirst().assertIsDisplayed()
+        compose.onNodeWithText("DATA HASH, SHA-256").performScrollTo().assertIsDisplayed()
     }
 }

@@ -2,6 +2,7 @@ package app.lensly.ui.flow
 
 import android.content.Context
 import app.lensly.app.AddressBookStore
+import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
 import app.lensly.app.RegistryHolder
 import app.lensly.app.ReviewHistory
@@ -101,7 +102,7 @@ internal class VaultSignPorts(
             .prepare(parsed, wallet)
         if (prepared !is Prepared.Ready) return@withContext prepared
         val review = prepared.review
-        prepared.copy(review = review.copy(addressNotes = addressNotesFor(review.counterparties)))
+        prepared.copy(review = review.copy(addressNotes = addressNotesFor(review.counterparties, AddressChain.EVM)))
     }
 
     /** The account that signs a request, as its review names it: its name, its wallet's name and its address. */
@@ -115,7 +116,7 @@ internal class VaultSignPorts(
      * The notes of [addresses] that a review shows: what the Address Book and the device's accounts say of each. A damaged Address Book
      * shows as none, so the review still opens. The read signs nothing.
      */
-    private fun addressNotesFor(addresses: Collection<String>): Map<String, AddressNotes> {
+    private fun addressNotesFor(addresses: Collection<String>, chain: AddressChain): Map<String, AddressNotes> {
         if (addresses.isEmpty()) return emptyMap()
         return try {
             readWallet { session ->
@@ -125,7 +126,7 @@ internal class VaultSignPorts(
                 } catch (e: VaultException) {
                     emptyList()
                 }
-                addressNotesOf(addresses, internalAccountsOf(wallets), book)
+                addressNotesOf(addresses, chain, internalAccountsOf(wallets), book)
             }
         } catch (e: WalletUnavailable) {
             emptyMap()
@@ -271,7 +272,7 @@ internal class VaultSignPorts(
                     request = request,
                     review = review,
                     signer = signerOf(wallet, review.accountIndex, review.signerAddress),
-                    addressNotes = addressNotesFor(solanaCounterparties(review)),
+                    addressNotes = addressNotesFor(solanaCounterparties(review), AddressChain.SOLANA),
                 )
             }
             is SolanaRequestCheck.Result.Refused -> SolanaPrepared.Refused(checked.reason)
@@ -330,7 +331,7 @@ internal class VaultSignPorts(
                     request = request,
                     review = review,
                     signer = signerOf(wallet, review.accountIndex, review.signerAddress),
-                    addressNotes = addressNotesFor(algorandCounterparties(review)),
+                    addressNotes = addressNotesFor(algorandCounterparties(review), AddressChain.ALGORAND),
                 )
             }
             is AlgorandRequestCheck.Result.Refused -> AlgorandPrepared.Refused(checked.reason)
