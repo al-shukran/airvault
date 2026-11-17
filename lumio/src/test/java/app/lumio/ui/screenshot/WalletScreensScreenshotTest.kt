@@ -7,8 +7,16 @@ import app.lumio.btc.networkId
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.solana.SOLANA_DEVNET
+import app.lumio.data.tx.LumioTx
+import app.lumio.data.tx.TxAsset
+import app.lumio.data.tx.TxDirection
+import app.lumio.data.tx.TxStatus
+import app.lumio.evm.EvmChain
 import app.lumio.home.NativeAsset
 import app.lumio.network.NetworkMode
+import app.lumio.tokens.Token
+import app.lumio.tokens.TokenHolding
+import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.wallets.AccountScreen
 import app.lumio.ui.wallets.WalletRow
 import app.lumio.ui.wallets.WalletScreen
@@ -17,6 +25,7 @@ import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
 import app.lensly.core.btc.BtcNetwork
 import java.math.BigDecimal
+import java.math.BigInteger
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -145,6 +154,48 @@ class WalletScreensScreenshotTest {
             onBack = {},
         )
     }
+
+    /** An Ethereum account with one held token and two transactions: the Tokens and Activity sections as the owner sees them. */
+    @Test
+    fun accountEthereumWithTokensAndActivity() = compose.snapshot("account_ethereum_activity") {
+        val chain = EvmChain(1L, "Ethereum", "ETH", 18, false, "https://etherscan.io")
+        val usdc = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
+        AccountScreen(
+            walletName = "Demo",
+            account = ethereum,
+            showBalance = true,
+            tokens = listOf(TokenHolding(chain, usdc, BigInteger.valueOf(1_250_500_000L), atMs = 0L)),
+            activity = listOf(
+                accountTx(1, TxDirection.IN, BigInteger.valueOf(1_500_000_000_000_000_000L), "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", 1_731_800_000_000L),
+                accountTx(2, TxDirection.OUT, BigInteger.valueOf(250_000_000_000_000_000L), "0x2b5634C42055806a59e9107ED44D43c426E58258", 1_731_700_000_000L),
+            ),
+            onSend = {},
+            onReceive = {},
+            onOpenTransaction = {},
+            onBack = {},
+        )
+    }
+
+    /** One native Ethereum transaction of the account, as the activity lists it. */
+    private fun accountTx(n: Int, direction: TxDirection, amount: BigInteger, counterparty: String, timestampMs: Long) = TxFeedItem(
+        tx = LumioTx(
+            id = "EVM:1:tx$n",
+            network = NetworkId(Family.EVM, "1", false),
+            account = "0x" + "ab".repeat(20),
+            hash = "0x" + "%064x".format(n),
+            timestampMs = timestampMs,
+            asset = TxAsset(contract = null, symbol = "ETH", name = "Ether", decimals = 18),
+            amount = amount,
+            direction = direction,
+            fee = null,
+            counterparty = counterparty,
+            status = TxStatus.CONFIRMED,
+            confirmations = 120L,
+            inputData = null,
+            memo = null,
+        ),
+        chain = "Ethereum",
+    )
 
     @Test
     fun accountBitcoin() = compose.snapshot("account_bitcoin") {

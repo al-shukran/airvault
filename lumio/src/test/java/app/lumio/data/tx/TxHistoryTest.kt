@@ -132,8 +132,8 @@ class TxHistoryTest {
         explorer.outcomes.add(listOf<ExplorerTx>(token(hash2, lookalike, me, BigInteger.ZERO)))
         assertEquals(1, history.refresh(ETH, me))
 
-        assertEquals(listOf(hash1), store.page(TxQuery(account = me), 0, 10).map { it.hash })
-        assertEquals(2, store.count(TxQuery(account = me, includeSpam = true)))
+        assertEquals(listOf(hash1), store.page(TxQuery(accounts = setOf(me)), 0, 10).map { it.hash })
+        assertEquals(2, store.count(TxQuery(accounts = setOf(me), includeSpam = true)))
     }
 
     @Test
@@ -158,7 +158,7 @@ class TxHistoryTest {
         assertEquals(2, history.refresh(btc, btcAccount))
         assertEquals(1, history.refresh(btc, btcAccount))
 
-        assertEquals(listOf("cc".repeat(32)), store.page(TxQuery(account = btcAccount), 0, 10).map { it.hash })
+        assertEquals(listOf("cc".repeat(32)), store.page(TxQuery(accounts = setOf(btcAccount)), 0, 10).map { it.hash })
     }
 
     @Test
@@ -168,7 +168,7 @@ class TxHistoryTest {
 
         assertEquals(1, history.storeBitcoin(btc, btcAccount, listOf(spent), tipHeight = 800_000L))
 
-        assertEquals(listOf("dd".repeat(32)), store.page(TxQuery(account = btcAccount), 0, 10).map { it.hash })
+        assertEquals(listOf("dd".repeat(32)), store.page(TxQuery(accounts = setOf(btcAccount)), 0, 10).map { it.hash })
     }
 
     @Test
@@ -176,7 +176,7 @@ class TxHistoryTest {
         val history = history(scheduler(this))
         val spent = esploraTx("ee", blockHeight = 799_990L, blockTimeSec = 1_699_999_000L)
         history.storeBitcoin(btc, btcAccount, listOf(spent), tipHeight = 800_000L)
-        val stored = store.page(TxQuery(account = btcAccount), 0, 10).single()
+        val stored = store.page(TxQuery(accounts = setOf(btcAccount)), 0, 10).single()
 
         assertEquals(stored, store.tx(btcAccount, stored.id))
         assertNull(store.tx("bc1qsomeoneelse", stored.id))

@@ -25,6 +25,7 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.scan.ScanJob
 import app.lumio.data.scan.ScanQueue
 import app.lumio.data.sched.Priority
+import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.settings.BitcoinServersSettings
 import app.lumio.ui.settings.withServer
@@ -33,6 +34,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+
+/** The Bitcoin account [index] of the wallet [walletId], when it is on [mode]'s side. Null when the vault has no such account there. */
+internal fun bitcoinAccountRef(session: VaultSession, walletId: String, index: Int, mode: NetworkMode): BtcAccountRef? =
+    bitcoinRefs(session).filter { it.walletId == walletId }.getOrNull(index)?.takeIf { mode.holds(it.account.network) }
 
 /** Every Bitcoin account of the open vault, with the wallet it came from. A vault that cannot be read has none. */
 internal fun bitcoinRefs(session: VaultSession): List<BtcAccountRef> = try {

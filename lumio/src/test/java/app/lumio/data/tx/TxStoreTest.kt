@@ -120,50 +120,50 @@ class TxStoreTest {
     fun aStoredTransactionReadsBackAsItWasWritten() = runBlocking {
         store.put(listOf(rows[0]))
 
-        assertEquals(rows[0], store.page(TxQuery(account = me), 0, 10).single())
+        assertEquals(rows[0], store.page(TxQuery(accounts = setOf(me)), 0, 10).single())
     }
 
     @Test
     fun theDefaultOrderIsNewestFirstAndSpamIsLeftOut() {
         seed()
 
-        assertEquals(listOf(7, 6, 4, 2, 3, 1), query(TxQuery(account = me)).numbers())
-        assertEquals(6, runBlocking { store.count(TxQuery(account = me)) })
-        assertEquals(7, runBlocking { store.count(TxQuery(account = me, includeSpam = true)) })
+        assertEquals(listOf(7, 6, 4, 2, 3, 1), query(TxQuery(accounts = setOf(me))).numbers())
+        assertEquals(6, runBlocking { store.count(TxQuery(accounts = setOf(me))) })
+        assertEquals(7, runBlocking { store.count(TxQuery(accounts = setOf(me), includeSpam = true)) })
     }
 
     @Test
     fun aSearchFindsTheHashTheCounterpartyTheMemoTheAssetAndTheComment() {
         seed()
 
-        assertEquals(listOf(2), query(TxQuery(account = me, text = hashOf(2))).numbers())
-        assertEquals(listOf(2, 3), query(TxQuery(account = me, text = carol)).numbers())
-        assertEquals(listOf(1), query(TxQuery(account = me, text = "march")).numbers())
-        assertEquals(listOf(3), query(TxQuery(account = me, text = "usdc")).numbers())
-        assertEquals(listOf(1), query(TxQuery(account = me, text = "MARCH rent")).numbers())
-        assertEquals(emptyList(), query(TxQuery(account = me, text = "rent deposit")).numbers())
+        assertEquals(listOf(2), query(TxQuery(accounts = setOf(me), text = hashOf(2))).numbers())
+        assertEquals(listOf(2, 3), query(TxQuery(accounts = setOf(me), text = carol)).numbers())
+        assertEquals(listOf(1), query(TxQuery(accounts = setOf(me), text = "march")).numbers())
+        assertEquals(listOf(3), query(TxQuery(accounts = setOf(me), text = "usdc")).numbers())
+        assertEquals(listOf(1), query(TxQuery(accounts = setOf(me), text = "MARCH rent")).numbers())
+        assertEquals(emptyList(), query(TxQuery(accounts = setOf(me), text = "rent deposit")).numbers())
         runBlocking { store.setComment(rows[1].id, "paid the deposit", 9_000L) }
-        assertEquals(listOf(2), query(TxQuery(account = me, text = "deposit")).numbers())
+        assertEquals(listOf(2), query(TxQuery(accounts = setOf(me), text = "deposit")).numbers())
     }
 
     @Test
     fun filtersNarrowByAccountNetworkAssetTimeDirectionStatusAndAmount() {
         seed()
 
-        assertEquals(listOf(8), query(TxQuery(account = other)).numbers())
-        assertEquals(listOf(3), query(TxQuery(account = me, assets = setOf(TxAssetRef(ETH, usdc)))).numbers())
-        assertEquals(listOf(2, 3), query(TxQuery(account = me, fromMs = 2_000L, untilMs = 4_000L)).numbers())
-        assertEquals(listOf(4, 2), query(TxQuery(account = me, directions = setOf(TxDirection.OUT))).numbers())
-        assertEquals(listOf(4), query(TxQuery(account = me, statuses = setOf(TxStatus.FAILED))).numbers())
-        assertEquals(listOf(7), query(TxQuery(account = me, statuses = setOf(TxStatus.PENDING))).numbers())
-        assertEquals(listOf(2, 3, 1), query(TxQuery(account = me, amountAbove = BigDecimal("0.5"))).numbers())
-        assertEquals(listOf(7, 4), query(TxQuery(account = me, amountBelow = BigDecimal("0.5"))).numbers())
+        assertEquals(listOf(8), query(TxQuery(accounts = setOf(other))).numbers())
+        assertEquals(listOf(3), query(TxQuery(accounts = setOf(me), assets = setOf(TxAssetRef(ETH, usdc)))).numbers())
+        assertEquals(listOf(2, 3), query(TxQuery(accounts = setOf(me), fromMs = 2_000L, untilMs = 4_000L)).numbers())
+        assertEquals(listOf(4, 2), query(TxQuery(accounts = setOf(me), directions = setOf(TxDirection.OUT))).numbers())
+        assertEquals(listOf(4), query(TxQuery(accounts = setOf(me), statuses = setOf(TxStatus.FAILED))).numbers())
+        assertEquals(listOf(7), query(TxQuery(accounts = setOf(me), statuses = setOf(TxStatus.PENDING))).numbers())
+        assertEquals(listOf(2, 3, 1), query(TxQuery(accounts = setOf(me), amountAbove = BigDecimal("0.5"))).numbers())
+        assertEquals(listOf(7, 4), query(TxQuery(accounts = setOf(me), amountBelow = BigDecimal("0.5"))).numbers())
     }
 
     @Test
     fun everySortableFieldSortsInBothDirections() {
         seed()
-        fun ids(sort: TxSort, descending: Boolean) = query(TxQuery(account = me, sort = sort, descending = descending)).numbers()
+        fun ids(sort: TxSort, descending: Boolean) = query(TxQuery(accounts = setOf(me), sort = sort, descending = descending)).numbers()
 
         assertEquals(listOf(1, 3, 2, 4, 6, 7), ids(TxSort.TIMESTAMP, descending = false))
         assertEquals(listOf(3, 1, 2, 6, 7, 4), ids(TxSort.AMOUNT, descending = true))
@@ -177,7 +177,7 @@ class TxStoreTest {
     @Test
     fun pagesCoverTheWholeResultOnceInOrder() {
         seed()
-        val q = TxQuery(account = me, sort = TxSort.AMOUNT)
+        val q = TxQuery(accounts = setOf(me), sort = TxSort.AMOUNT)
 
         val all = query(q).numbers()
         val paged = listOf(0, 2, 4).flatMap { offset -> runBlocking { store.page(q, offset, 2) }.numbers() }
@@ -192,7 +192,7 @@ class TxStoreTest {
 
         runBlocking { store.put(listOf(rows[1].copy(amount = BigInteger.ONE))) }
 
-        assertEquals(oneEth, query(TxQuery(account = me)).single().amount)
+        assertEquals(oneEth, query(TxQuery(accounts = setOf(me))).single().amount)
     }
 
     @Test
@@ -201,7 +201,7 @@ class TxStoreTest {
 
         runBlocking { store.put(listOf(rows[6].copy(status = TxStatus.CONFIRMED, confirmations = 2L))) }
 
-        assertEquals(TxStatus.CONFIRMED, query(TxQuery(account = me)).single().status)
+        assertEquals(TxStatus.CONFIRMED, query(TxQuery(accounts = setOf(me))).single().status)
     }
 
     @Test
@@ -226,7 +226,7 @@ class TxStoreTest {
 
         store.dropPending(btcAccount, btc, keep = setOf("BTC:mainnet:bb"))
 
-        assertEquals(setOf("bb", "cc"), store.page(TxQuery(account = btcAccount), 0, 10).map { it.hash }.toSet())
+        assertEquals(setOf("bb", "cc"), store.page(TxQuery(accounts = setOf(btcAccount)), 0, 10).map { it.hash }.toSet())
     }
 
     @Test
@@ -246,7 +246,7 @@ class TxStoreTest {
         runBlocking { store.clearComment(rows[1].id) }
 
         assertNull(runBlocking { store.comment(rows[1].id) })
-        assertEquals(emptyList(), query(TxQuery(account = me, text = "deposit")).numbers())
+        assertEquals(emptyList(), query(TxQuery(accounts = setOf(me), text = "deposit")).numbers())
     }
 
     @Test

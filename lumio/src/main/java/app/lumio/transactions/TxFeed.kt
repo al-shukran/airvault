@@ -8,6 +8,7 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAssetRef
 import app.lumio.data.tx.TxFilter
+import app.lumio.data.tx.TxQuery
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettingsStore
@@ -56,6 +57,22 @@ internal fun vaultChains(app: LumioApp, vault: LumioVault): Map<NetworkId, EvmCh
 internal suspend fun txPage(app: LumioApp, vault: LumioVault, plan: TxSyncPlan, filter: TxFilter, limit: Int, hideSpam: Boolean): TxPage {
     val store = vault.txs
     val query = filter.toQuery(plan.networks, System.currentTimeMillis(), ZoneId.systemDefault(), includeSpam = !hideSpam)
+    val chains = vaultChains(app, vault)
+    val notes = store.comments().associate { it.txId to it.text }
+    val items = store.page(query, 0, limit).map { tx ->
+        TxFeedItem(tx = tx, comment = notes[tx.id], chain = chainLabel(tx.network, chains))
+    }
+    return TxPage(items = items, count = store.count(query))
+}
+
+/**
+ * The newest [limit] rows of the accounts [addresses] on [networks], from the vault's store, each with its comment and its chain. Spam is left out, and no
+ * row carries a value: an account's activity shows the rows as the store holds them.
+ */
+internal suspend fun accountPage(app: LumioApp, vault: LumioVault, addresses: Set<String>, networks: Set<NetworkId>, limit: Int): TxPage {
+    if (addresses.isEmpty() || networks.isEmpty()) return TxPage.EMPTY
+    val store = vault.txs
+    val query = TxQuery(accounts = addresses, networks = networks)
     val chains = vaultChains(app, vault)
     val notes = store.comments().associate { it.txId to it.text }
     val items = store.page(query, 0, limit).map { tx ->
