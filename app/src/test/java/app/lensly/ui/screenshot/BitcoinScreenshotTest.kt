@@ -127,7 +127,7 @@ private fun ownPath(index: Long): KeyPath = KeyPath(
 /** A request that spends one verified input of the account, pays a receiver and returns the change to the account. */
 private fun cleanReview() = BtcReview(
     inputPolicy = InputVerificationPolicy.STRICT,
-    inputs = listOf(BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownPath(0))),
+    inputs = listOf(BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL)),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
         BtcReviewOutput(1, "tb1qexampleexampleexampleexampleexample1", 60_000L, isOwnChange = true, changeIndex = 0),
@@ -135,13 +135,14 @@ private fun cleanReview() = BtcReview(
     feeSats = 10_000L,
     requiresConfirmation = false,
     estimatedVsize = 141L,
+    lockTime = 0L,
 )
 
 /** The clean request with a second input that another signer owns: a plain warning, which the owner reads in the details. */
 private fun externalInputReview() = cleanReview().copy(
     inputs = listOf(
-        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownPath(0)),
-        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null),
+        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL),
+        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL),
     ),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
@@ -156,8 +157,8 @@ private fun externalInputReview() = cleanReview().copy(
 private fun warnedReview() = BtcReview(
     inputPolicy = InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING,
     inputs = listOf(
-        BtcReviewInput(0, 100_000L, amountVerified = false, ownerPath = ownPath(0)),
-        BtcReviewInput(1, 50_000L, amountVerified = false, ownerPath = null),
+        BtcReviewInput(0, 100_000L, amountVerified = false, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL),
+        BtcReviewInput(1, 50_000L, amountVerified = false, ownerPath = null, sequence = 0xFFFFFFFDL),
     ),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample2", 120_000L, isOwnChange = false, changeIndex = null),
@@ -173,4 +174,5 @@ private fun warnedReview() = BtcReview(
     feeSats = null,
     requiresConfirmation = true,
     estimatedVsize = 205L,
+    lockTime = 0L,
 )

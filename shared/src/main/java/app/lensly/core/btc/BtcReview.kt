@@ -19,6 +19,8 @@ data class BtcReview(
     val requiresConfirmation: Boolean,
     /** The virtual size of the request once signed, estimated from the unsigned transaction. See [BtcFeeRate]. */
     val estimatedVsize: Long,
+    /** The transaction's nLockTime: 0 for none, a block height below [LOCK_TIME_THRESHOLD], otherwise a Unix time. */
+    val lockTime: Long,
     /** The fee WARN notices, against the owner's [BtcFeeThresholds]. Empty while the fee is unknown. */
     val feeWarnings: List<BtcWarning> = emptyList(),
 ) {
@@ -26,18 +28,42 @@ data class BtcReview(
     val allInputsVerified: Boolean
         get() = inputs.all { it.amountVerified }
 
+    /**
+     * True when the locktime holds the transaction back: it is set, and at least one input is not final. An input with the final
+     * sequence makes the locktime ignored. Offline, the review cannot see the current block or time, so it does not judge the lock.
+     */
+    val lockTimeEnforced: Boolean
+        get() = lockTime != 0L && inputs.any { it.sequence != FINAL_SEQUENCE }
+
     /** The fee rate in satoshis per vbyte, or null while the fee is unknown. It divides by [estimatedVsize], so it is an estimate. */
     val feeRateSatPerVb: Double?
         get() = feeSats?.let { it.toDouble() / estimatedVsize }
 }
 
-/** One input of the request. [ownerPath] is the full path of the key that signs it, or null for an input this Account does not own. */
+/** A locktime below this is a block height, and a locktime from it up is a Unix time (BIP65). */
+const val LOCK_TIME_THRESHOLD = 500_000_000L
+
+/** The sequence of an input that is final: with it, the transaction's locktime is not enforced. */
+const val FINAL_SEQUENCE = 0xFFFFFFFFL
+
+/** The first sequence that does not signal replace-by-fee (BIP125). */
+private const val NO_RBF_SEQUENCE = 0xFFFFFFFEL
+
+/**
+ * One input of the request. [ownerPath] is the full path of the key that signs it, or null for an input this Account does not own.
+ * [sequence] is the input's nSequence, which says whether it signals replace-by-fee and whether the locktime holds it back.
+ */
 data class BtcReviewInput(
     val index: Int,
     val amountSats: Long,
     val amountVerified: Boolean,
     val ownerPath: KeyPath?,
-)
+    val sequence: Long,
+) {
+    /** True when the sequence signals replace-by-fee, so the owner can bump the fee of the request after it is sent. */
+    val replaceableByFee: Boolean
+        get() = sequence < NO_RBF_SEQUENCE
+}
 
 /** One output of the request. Only a change-path address of this Account within the known index range is the user's own. */
 data class BtcReviewOutput(

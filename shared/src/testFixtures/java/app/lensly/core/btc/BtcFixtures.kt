@@ -44,18 +44,21 @@ object BtcFixtures {
     /**
      * An unsigned PSBT that spends each spend's output 0 and pays [outputs]. Each input carries the previous transaction
      * unless [withPreviousTransaction] is false, in which case only the witness UTXO is carried. [sighash] applies to every input.
+     * [sequence] is every input's nSequence (replace-by-fee by default), and [lockTime] is the transaction's nLockTime.
      */
     fun psbt(
         spends: List<Spend>,
         outputs: List<TxOut>,
         sighash: Int? = null,
         withPreviousTransaction: Boolean = true,
+        sequence: Long = 0xFFFFFFFDL,
+        lockTime: Long = 0L,
     ): Psbt {
         val tx = Transaction(
             version = 2,
-            txIn = spends.map { TxIn(OutPoint(it.funding.hash, 0L), ByteVector.empty, 0xFFFFFFFDL) },
+            txIn = spends.map { TxIn(OutPoint(it.funding.hash, 0L), ByteVector.empty, sequence) },
             txOut = outputs,
-            lockTime = 0L,
+            lockTime = lockTime,
         )
         return spends.fold(Psbt(tx)) { psbt, spend -> psbt.withDerivedInput(spend, sighash, withPreviousTransaction) }
     }
