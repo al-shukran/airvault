@@ -138,6 +138,13 @@ class TypedDataParserTest {
     }
 
     @Test
+    fun aStructNamedAfterAnAtomicTypeIsRefused() {
+        val types = """{"Mail":[{"name":"contents","type":"string"}],"bytes32":[{"name":"contents","type":"string"}]}"""
+
+        assertTrue(refusal(doc(types = types, message = "{}")).contains("type name bytes32 is an atomic type"))
+    }
+
+    @Test
     fun aStructThatContainsItselfIsRefusedBeforeAnyValueIsRead() {
         val types = """{"A":[{"name":"b","type":"B"}],"B":[{"name":"a","type":"A"}]}"""
 
