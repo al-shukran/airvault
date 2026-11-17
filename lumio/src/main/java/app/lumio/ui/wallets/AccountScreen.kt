@@ -14,6 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.lensly.core.registry.Amounts
 import app.lensly.ui.components.AddressText
+import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.home.Masking
@@ -38,6 +40,9 @@ fun AccountScreen(
     onSend: () -> Unit,
     onReceive: () -> Unit,
     onOpenTransaction: (TxFeedItem) -> Unit = {},
+    refreshing: Boolean = false,
+    notice: String? = null,
+    onRefresh: (() -> Unit)? = null,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     zone: ZoneId = ZoneId.systemDefault(),
@@ -67,6 +72,18 @@ fun AccountScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         TextButton(onClick = onSend) { Text("Send") }
         TextButton(onClick = onReceive) { Text("Receive") }
+        if (refreshing) {
+            Text(
+                text = "Reading the network",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        notice?.let {
+            Spacer(Modifier.height(LenslySpacing.sm))
+            InlineBanner(message = it, tone = BannerTone.Warning)
+        }
+        onRefresh?.let { refresh -> TextButton(onClick = refresh, enabled = !refreshing) { Text("Refresh") } }
         if (account.chain == AccountChain.ETHEREUM) {
             Spacer(Modifier.height(LenslySpacing.lg))
             Text(
