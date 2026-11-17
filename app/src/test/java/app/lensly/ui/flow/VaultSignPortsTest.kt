@@ -7,6 +7,8 @@ import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
+import app.lensly.core.ur.SolSignRequest
+import app.lensly.core.ur.SolSignType
 import app.lensly.core.vault.FakeClock
 import app.lensly.core.vault.KdfParams
 import app.lensly.core.vault.MemoryKeystore
@@ -15,7 +17,9 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import java.io.File
 import java.security.GeneralSecurityException
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -68,6 +72,43 @@ class VaultSignPortsTest {
                     )
                 }
             }
+        } finally {
+            session.close()
+        }
+    }
+
+    /** A Solana check that throws is reported as a refusal, not as a crash, and nothing is signed. */
+    @Test
+    fun aSolanaCheckThatThrowsIsReportedAsARefusal() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it + 5).toByte() })
+        try {
+            WalletStore(session).create(name = "MAIN", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+            val vault = Vault(
+                VaultLayout(File(tmp.root, "vault")),
+                MemoryKeystore(),
+                FakeClock(),
+                KdfParams(memoryKiB = 8 * 1024, iterations = 1),
+            )
+            val holder = VaultHolder(vault)
+            holder.adopt(session, holder.unlockEpoch())
+            val ports = VaultSignPorts(context, holder, checkSolana = { _, _, _, _ -> throw IllegalStateException("the check failed") })
+            val wallet = runBlocking { ports.wallets() }.single()
+            val request = SolSignRequest(
+                requestId = null,
+                signData = byteArrayOf(1, 2, 3),
+                derivationPath = emptyList(),
+                sourceFingerprint = wallet.masterFingerprint,
+                address = null,
+                origin = null,
+                signType = SolSignType.TRANSACTION,
+            )
+
+            val prepared = runBlocking { ports.solanaPrepare(wallet.id, request) }
+
+            assertEquals(
+                "This Solana request could not be reviewed. Nothing was signed.",
+                assertIs<SolanaPrepared.Refused>(prepared).reason,
+            )
         } finally {
             session.close()
         }
