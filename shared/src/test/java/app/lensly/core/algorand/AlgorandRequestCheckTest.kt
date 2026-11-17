@@ -16,6 +16,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
 
@@ -84,7 +85,7 @@ class AlgorandRequestCheckTest {
         assertContentEquals(KEY_C, payment.closeTo)
 
         val asset = reviewOf(assetWith("aclose" to bin(KEY_C)))
-        assertEquals(listOf(AlgorandWarning.CLOSE_TO), asset.warnings)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO, AlgorandWarning.UNKNOWN_ASSET), asset.warnings)
         assertContentEquals(KEY_C, asset.closeTo)
     }
 
@@ -96,7 +97,7 @@ class AlgorandRequestCheckTest {
         assertEquals(0UL, transfer.amount)
         assertContentEquals(KEY_A, transfer.receiver)
         assertEquals(10_458_941UL, transfer.assetId)
-        assertEquals(emptyList(), review.warnings)
+        assertEquals(listOf(AlgorandWarning.UNKNOWN_ASSET), review.warnings)
     }
 
     @Test
@@ -127,7 +128,7 @@ class AlgorandRequestCheckTest {
         assertTrue(transfer.isOptOut)
         assertEquals(0UL, transfer.amount)
         assertContentEquals(KEY_B, review.closeTo)
-        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO, AlgorandWarning.UNKNOWN_ASSET), review.warnings)
     }
 
     @Test
@@ -137,7 +138,7 @@ class AlgorandRequestCheckTest {
         val transfer = assertIs<AssetTransfer>(review.txn)
         assertContentEquals(KEY_B, transfer.receiver)
         assertContentEquals(KEY_C, review.closeTo)
-        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO, AlgorandWarning.UNKNOWN_ASSET), review.warnings)
     }
 
     @Test
@@ -148,12 +149,12 @@ class AlgorandRequestCheckTest {
         assertFalse(transfer.isOptOut)
         assertEquals(250UL, transfer.amount)
         assertContentEquals(KEY_C, review.closeTo)
-        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO, AlgorandWarning.UNKNOWN_ASSET), review.warnings)
     }
 
     @Test
     fun aMainnetUsdcTransferIsReviewedOnMainnet() {
-        val review = reviewOf(fixture("axfer_mainnet_usdc"))
+        val review = reviewWith(fixture("axfer_mainnet_usdc"), CATALOG)
 
         assertEquals(AlgorandNetwork.MAINNET, review.network)
         val transfer = assertIs<AssetTransfer>(review.txn)
@@ -172,6 +173,51 @@ class AlgorandRequestCheckTest {
         assertTrue(transfer.isOptIn)
         assertEquals(31_566_704UL, transfer.assetId)
     }
+
+    @Test
+    fun aKnownMainnetAssetIsNamedOnItsNetworkAndWarnsNothing() {
+        val review = reviewWith(fixture("axfer_mainnet_usdc"), CATALOG)
+
+        assertEquals("USDC", review.asset?.unitName)
+        assertEquals(6, review.asset?.decimals)
+        assertEquals(emptyList(), review.warnings)
+    }
+
+    @Test
+    fun aKnownTestnetAssetIsNamedOnTestnet() {
+        val review = reviewWith(fixture("axfer"), CATALOG)
+
+        assertEquals(AlgorandNetwork.TESTNET, review.network)
+        assertEquals(6, review.asset?.decimals)
+        assertEquals(emptyList(), review.warnings)
+    }
+
+    @Test
+    fun anAssetIsNamedOnlyOnTheNetworkThatListsItAndTheSameIdOnAnotherNetworkIsUnknown() {
+        // Asset 10458941 is listed on mainnet here, but the review is for testnet, which lists no asset.
+        val mainnetOnly = AsaCatalog.parse(
+            """{"networks": {"wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=": {"genesisId": "mainnet-v1.0",
+                "assets": [{"id": 10458941, "unit": "OTHER", "name": "Other", "decimals": 3}]}}}""",
+        )
+
+        val review = reviewWith(fixture("axfer"), mainnetOnly)
+
+        assertNull(review.asset)
+        assertEquals(listOf(AlgorandWarning.UNKNOWN_ASSET), review.warnings)
+    }
+
+    @Test
+    fun anAssetTheCatalogDoesNotNameIsWarnedAndNotRefused() {
+        val review = reviewOf(fixture("axfer_unknown_asset"))
+
+        assertNull(review.asset)
+        assertEquals(1_234_567UL, (review.txn as AssetTransfer).assetId)
+        assertEquals(listOf(AlgorandWarning.UNKNOWN_ASSET), review.warnings)
+    }
+
+    /** The review of [raw] for account 0, with the assets [assets] names. */
+    private fun reviewWith(raw: ByteArray, assets: AsaCatalog): AlgorandRequestReview =
+        assertIs<AlgorandRequestCheck.Result.Ok>(AlgorandRequestCheck.check(raw, algoPath(), null, listOf(KEY_A), assets)).review
 
     /** The SDK fixture named [name], as the bytes the owner would have sent. */
     private fun fixture(name: String): ByteArray = AlgoTxnVectors.valid().single { it.name == name }.raw
@@ -335,3 +381,15 @@ class AlgorandRequestCheckTest {
 /** The genesis hashes of testnet-v1.0 and mainnet-v1.0, as the node APIs publish them. */
 private val TESTNET_GENESIS_HASH = java.util.Base64.getDecoder().decode("SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=")
 private val MAINNET_GENESIS_HASH = java.util.Base64.getDecoder().decode("wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=")
+
+/** A catalog that names USDC on mainnet and on testnet, as the bundled catalog does. */
+private val CATALOG: AsaCatalog = AsaCatalog.parse(
+    """
+    {"networks": {
+      "wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=": {"genesisId": "mainnet-v1.0",
+        "assets": [{"id": 31566704, "unit": "USDC", "name": "USDC", "decimals": 6}]},
+      "SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=": {"genesisId": "testnet-v1.0",
+        "assets": [{"id": 10458941, "unit": "USDC", "name": "USDC", "decimals": 6}]}
+    }}
+    """.trimIndent(),
+)

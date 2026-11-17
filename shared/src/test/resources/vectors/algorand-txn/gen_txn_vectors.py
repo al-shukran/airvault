@@ -42,6 +42,7 @@ B = encoding.encode_address(bytes.fromhex(PK_B))
 C = encoding.encode_address(bytes.fromhex(PK_C))
 ASSET = 10458941  # USDC on testnet
 ASSET_MAIN_USDC = 31566704  # USDC on mainnet
+UNKNOWN_ASSET = 1_234_567  # an ID that no bundled catalog names
 LEASE = bytes(range(0x40, 0x60))
 GROUP = bytes(range(0x60, 0x80))
 
@@ -128,6 +129,7 @@ def main():
     axfer_rekey = transaction.AssetTransferTxn(A, SP, B, 250, ASSET, rekey_to=C)
     axfer_mainnet_usdc = transaction.AssetTransferTxn(A, SP_MAIN, B, 1_000_000, ASSET_MAIN_USDC)
     axfer_optin_mainnet_usdc = transaction.AssetTransferTxn(A, SP_MAIN, A, 0, ASSET_MAIN_USDC)
+    axfer_unknown_asset = transaction.AssetTransferTxn(A, SP, B, 42, UNKNOWN_ASSET)
 
     positive_specs = [
         ("pay_basic", pay_basic, pay_expect(B, 1_500_000), "payment, no note, no close-to"),
@@ -158,6 +160,8 @@ def main():
         ("axfer_optin_mainnet_usdc", axfer_optin_mainnet_usdc,
          axfer_expect(A, 0, asset=ASSET_MAIN_USDC, gen=GEN_MAIN, gh=GH_MAIN),
          "mainnet USDC opt-in: the receiver is the sender and the amount 0 is omitted"),
+        ("axfer_unknown_asset", axfer_unknown_asset, axfer_expect(B, 42, asset=UNKNOWN_ASSET),
+         "asset transfer of 42 units of an asset that no bundled catalog names"),
     ]
 
     positive = []

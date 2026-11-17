@@ -68,6 +68,9 @@ class AlgoTxnDecoderTest {
     fun `mainnet USDC opt-in fixture decodes to the SDK fields`() = assertDecodesTo("axfer_optin_mainnet_usdc")
 
     @Test
+    fun `transfer of an asset no catalog names decodes to the SDK fields`() = assertDecodesTo("axfer_unknown_asset")
+
+    @Test
     fun `an opt-in and an opt-out are told apart by the amount and the close-to`() {
         fun asset(name: String) = AlgoTxnDecoder.decode(vector(name).raw) as AssetTransfer
 

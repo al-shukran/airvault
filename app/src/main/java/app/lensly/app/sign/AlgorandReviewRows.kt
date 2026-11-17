@@ -3,6 +3,7 @@ package app.lensly.app.sign
 import app.lensly.core.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.AlgorandWarning
+import app.lensly.core.algorand.Asa
 import app.lensly.core.algorand.AssetTransfer
 import app.lensly.core.algorand.Payment
 import app.lensly.core.wallet.toHex
@@ -22,6 +23,9 @@ private const val FEE = "Fee"
 
 /** The label of the note row. */
 private const val NOTE = "Note"
+
+/** The label of an asset transfer's asset row: the asset's name, or "Unknown asset #id" when the catalog does not name it. */
+private const val ASSET = "Asset"
 
 /** The label of the asset row, which names the asset by its ID. */
 private const val ASSET_ID = "Asset ID"
@@ -48,8 +52,9 @@ fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> = bu
             add(AMOUNT to algoText(txn.amount))
         }
         is AssetTransfer -> {
+            add(ASSET to assetName(txn.assetId, review.asset))
             add(ASSET_ID to txn.assetId.toString())
-            add(AMOUNT to "${txn.amount} base units")
+            add(AMOUNT to assetAmount(txn.amount, review.asset))
             add(RECEIVER to AlgoAddress.encode(txn.receiver))
         }
     }
@@ -62,27 +67,29 @@ fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> = bu
 }
 
 /**
- * The sentence at the top of the review. A payment names its amount in ALGO and its receiver. An asset transfer names its asset and its
- * amount in base units. An opt-in and an opt-out each say so, and an opt-out names the address that takes the rest of the holding.
+ * The sentence at the top of the review. A payment names its amount in ALGO and its receiver. An asset transfer names its amount and its
+ * asset. An opt-in and an opt-out each say so, and an opt-out names the address that takes the rest of the holding.
  */
 fun algorandSentence(review: AlgorandRequestReview): String = when (val txn = review.txn) {
     is Payment -> "Sends ${algoText(txn.amount)} to ${AlgoAddress.encode(txn.receiver)}."
-    is AssetTransfer -> assetSentence(txn)
+    is AssetTransfer -> assetSentence(txn, review.asset)
 }
 
 /**
  * The sentence for an asset transfer. An opt-in adds the asset to the account. An opt-out removes it and sends what it holds to the
- * close-to address. Any other transfer that also closes the holding says where the rest goes.
+ * close-to address. Any other transfer that also closes the holding says where the rest goes. An asset the catalog does not name is
+ * called by its ID, and its amount is in base units.
  */
-private fun assetSentence(txn: AssetTransfer): String {
-    val asset = "asset ${txn.assetId}"
+private fun assetSentence(txn: AssetTransfer, asset: Asa?): String {
+    val name = asset?.unitName ?: "asset ${txn.assetId}"
+    val amount = if (asset == null) "${txn.amount} base units of asset ${txn.assetId}" else assetAmount(txn.amount, asset)
     val receiver = AlgoAddress.encode(txn.receiver)
     val closeTo = txn.closeTo?.let { AlgoAddress.encode(it) }
     return when {
-        txn.isOptIn -> "Opt in to $asset."
-        txn.isOptOut && closeTo != null -> "Opt out of $asset, remaining balance goes to $closeTo."
-        closeTo != null -> "Sends ${txn.amount} base units of $asset to $receiver. The rest goes to $closeTo, and the asset is removed."
-        else -> "Sends ${txn.amount} base units of $asset to $receiver."
+        txn.isOptIn -> "Opt in to $name."
+        txn.isOptOut && closeTo != null -> "Opt out of $name, remaining balance goes to $closeTo."
+        closeTo != null -> "Sends $amount to $receiver. The rest goes to $closeTo, and the asset is removed."
+        else -> "Sends $amount to $receiver."
     }
 }
 
@@ -97,8 +104,28 @@ fun algorandWarningText(review: AlgorandRequestReview, warning: AlgorandWarning)
         is AssetTransfer ->
             "This sends all of the remaining units of this asset to the close-to address below and removes the asset from the account."
     }
+    AlgorandWarning.UNKNOWN_ASSET -> when (val txn = review.txn) {
+        is AssetTransfer ->
+            "Unknown asset #${txn.assetId}: Lensly does not know its name or decimals, so its amount is shown in base units."
+        is Payment -> "Lensly does not know this asset."
+    }
     AlgorandWarning.GROUP -> "Part of a group: other transactions in the group are not shown"
 }
+
+/** The name of an asset in a row: its unit name, with its name in brackets when the two differ, or "Unknown asset #id". */
+private fun assetName(assetId: ULong, asset: Asa?): String = when {
+    asset == null -> "Unknown asset #$assetId"
+    asset.name.isEmpty() || asset.name == asset.unitName -> asset.unitName
+    else -> "${asset.unitName} (${asset.name})"
+}
+
+/** An asset amount in its unit, with exactly the asset's decimal places, when the catalog gives them. Otherwise in base units. */
+private fun assetAmount(amount: ULong, asset: Asa?): String =
+    if (asset == null) "$amount base units" else "${unitsText(amount, asset.decimals)} ${asset.unitName}"
+
+/** A base-unit count written with [decimals] decimal places, as ALGO is written with six. */
+private fun unitsText(baseUnits: ULong, decimals: Int): String =
+    BigDecimal(baseUnits.toString()).movePointLeft(decimals).setScale(decimals).toPlainString()
 
 /** A microAlgo count as ALGO, with exactly six decimal places. */
 private fun algoText(microAlgos: ULong): String =

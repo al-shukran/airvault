@@ -309,6 +309,30 @@
     "assetId": 31566704,
     "assetSender": null
    }
+  },
+  {
+   "name": "axfer_unknown_asset",
+   "description": "asset transfer of 42 units of an asset that no bundled catalog names",
+   "hex": "8aa461616d742aa461726376c420c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da3666565cd03e8a26676ce02faf080a367656eac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f70e5093a22a26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538a474797065a56178666572a478616964ce0012d687",
+   "bytesToSign": "54588aa461616d742aa461726376c420c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da3666565cd03e8a26676ce02faf080a367656eac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f70e5093a22a26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538a474797065a56178666572a478616964ce0012d687",
+   "expected": {
+    "type": "axfer",
+    "sender": "7491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538",
+    "fee": 1000,
+    "firstValid": 50000000,
+    "lastValid": 50001000,
+    "genesisId": "testnet-v1.0",
+    "genesisHash": "4863b518a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f70e5093a22",
+    "note": "",
+    "lease": null,
+    "group": null,
+    "rekeyTo": null,
+    "receiver": "c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615d",
+    "amount": 42,
+    "closeTo": null,
+    "assetId": 1234567,
+    "assetSender": null
+   }
   }
  ],
  "negative": [

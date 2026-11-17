@@ -27,6 +27,12 @@ enum class AlgorandWarning {
     /** The transaction closes the account or the asset holding, and sends what is left to a close-to address. */
     CLOSE_TO,
 
+    /**
+     * The transfer is of an asset the catalog does not name. Lensly does not know its name or decimals, so it shows the amount in base
+     * units.
+     */
+    UNKNOWN_ASSET,
+
     /** The transaction is part of a group. Lensly shows only this transaction, not the others in the group. */
     GROUP,
 }
@@ -35,7 +41,8 @@ enum class AlgorandWarning {
  * An Algorand request as Lensly reviews it before it signs. [accountIndex] is N of the account `m/44'/283'/N'/0/0` that signs, and
  * [signer] is its 32-byte public key, which is also the key of the sender. [txn] is the payment or asset transfer decoded from [signData],
  * the canonical msgpack the owner reviewed. The signature covers "TX" followed by [signData]. [requestId] is the request's 16-byte ID, or
- * null, to echo in the signature.
+ * null, to echo in the signature. [asset] is the asset an asset transfer moves, when the catalog names it on [network]. It is null for a
+ * payment and for an asset the catalog does not name.
  */
 class AlgorandRequestReview internal constructor(
     val accountIndex: Int,
@@ -44,6 +51,7 @@ class AlgorandRequestReview internal constructor(
     val network: AlgorandNetwork,
     val signData: ByteArray,
     val requestId: ByteArray?,
+    val asset: Asa? = null,
 ) {
     /** The address of the signing account: the 58 base32 characters of [signer]. */
     val signerAddress: String get() = AlgoAddress.encode(signer)
@@ -59,6 +67,7 @@ class AlgorandRequestReview internal constructor(
     val warnings: List<AlgorandWarning>
         get() = buildList {
             if (closeTo != null) add(AlgorandWarning.CLOSE_TO)
+            if (txn is AssetTransfer && asset == null) add(AlgorandWarning.UNKNOWN_ASSET)
             if (txn.group != null) add(AlgorandWarning.GROUP)
         }
 }
@@ -122,9 +131,16 @@ object AlgorandRequestCheck {
      * msgpack of the transaction without the "TX" tag: Lensly adds the tag when it signs, as the Ledger app does. A request is refused when
      * its path is not m/44'/283'/N', when the wallet has no account N, when [signData] is not a payment or an asset transfer that Lensly
      * can read, when it rekeys the sender, when the sender is not account N's key, when it is a clawback, when its genesis ID is not the
-     * testnet or the mainnet one, or when its genesis hash is not that network's.
+     * testnet or the mainnet one, or when its genesis hash is not that network's. [assets] only names the asset of an asset transfer for the
+     * review: an asset it does not name is warned about, not refused.
      */
-    fun check(signData: ByteArray, derivationPath: List<PathStep>, requestId: ByteArray?, accountKeys: List<ByteArray>): Result {
+    fun check(
+        signData: ByteArray,
+        derivationPath: List<PathStep>,
+        requestId: ByteArray?,
+        accountKeys: List<ByteArray>,
+        assets: AsaCatalog = AsaCatalog.EMPTY,
+    ): Result {
         val index = accountIndexOf(derivationPath) ?: return Result.Refused(PATH_REFUSED)
         val signer = accountKeys.getOrNull(index) ?: return Result.Refused(UNKNOWN_ACCOUNT)
         val txn = try {
@@ -137,16 +153,17 @@ object AlgorandRequestCheck {
         if (txn is AssetTransfer && txn.assetSender != null) return Result.Refused(CLAWBACK_REFUSED)
         val network = AlgorandNetwork.ofGenesisId(txn.genesisId) ?: return Result.Refused(UNKNOWN_NETWORK)
         if (!txn.genesisHash.contentEquals(network.genesisHash)) return Result.Refused(GENESIS_HASH_MISMATCH)
-        return Result.Ok(AlgorandRequestReview(index, signer, txn, network, signData, requestId))
+        val asset = (txn as? AssetTransfer)?.let { assets.lookup(network, it.assetId) }
+        return Result.Ok(AlgorandRequestReview(index, signer, txn, network, signData, requestId, asset))
     }
 
     /**
      * Checks a decoded [request] against [accountKeys], as [check] does for its signData, path and request ID. It also refuses a message,
      * and an address the request names that is not the signing account's. An empty address names none.
      */
-    fun check(request: AlgoSignRequest, accountKeys: List<ByteArray>): Result {
+    fun check(request: AlgoSignRequest, accountKeys: List<ByteArray>, assets: AsaCatalog = AsaCatalog.EMPTY): Result {
         if (request.signType != AlgoSignType.TRANSACTION) return Result.Refused(NOT_A_TRANSACTION)
-        val checked = check(request.signData, request.derivationPath, request.requestId, accountKeys)
+        val checked = check(request.signData, request.derivationPath, request.requestId, accountKeys, assets)
         if (checked is Result.Ok && request.address.isNotEmpty() && request.address != checked.review.signerAddress) {
             return Result.Refused(DIFFERENT_ADDRESS)
         }
