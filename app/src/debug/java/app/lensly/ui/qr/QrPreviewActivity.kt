@@ -58,12 +58,12 @@ import java.math.BigInteger
  * Debug-only harness that hosts the QR and signing screens with fake data, so they can be checked
  * on a device without the vault.
  *
- * Launch with the "screen" string extra set to one of show1, show12, scan, review, review-large, review-token, review-pegged,
- * review-unknown-chain, review-unknown-token, review-typed, refused-typed, refused, settings or hide-delay:
- *   adb shell am start -n app.lensly/app.lensly.ui.qr.QrPreviewActivity --es screen show12
+ * The activity is not exported, so `adb shell am start` is refused with a permission denial. Start it from inside the app's own
+ * process, with the "screen" string extra set to one of show1, show12, scan, review, review-large, review-token, review-pegged,
+ * review-unknown-chain, review-unknown-token, review-typed, refused-typed, refused, settings or hide-delay.
  *
  * show1 and show12 animate one or twelve fake UR parts. scan opens the live camera and writes each
- * decoded text into the status line (and to logcat under the tag [TAG]). review shows a native transfer,
+ * decoded text into the status line (and its length to logcat under the tag [TAG]). review shows a native transfer,
  * review-token a token transfer, review-pegged a transfer of Binance Pegged USDT on BNB Chain (the BNB badge),
  * review-large a 24-call batch of token transfers, about 6 KB of calldata, which scrolls,
  * settings the real Settings screen with sample values, including the dice and coin hide delay rows,
@@ -180,7 +180,7 @@ private fun ScanPreview(onFinish: () -> Unit) {
         progress = null,
         statusText = status,
         onText = { text ->
-            Log.d(QrPreviewActivity.TAG, "decoded ${text.length} chars: $text")
+            Log.d(QrPreviewActivity.TAG, "decoded ${text.length} chars")
             status = "Decoded ${text.length} chars: ${text.take(160)}"
         },
         onCancel = onFinish,
