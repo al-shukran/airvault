@@ -145,8 +145,43 @@ class BitcoinReviewScreenTest {
     fun theSummarySaysWhatIsSentAndToWhomWithTheTotal() {
         show(cleanRequest())
 
-        compose.onNodeWithText("Send 0.0003 BTC to tb1qexampl...ample0").assertExists()
+        compose.onNodeWithText("Send 0.0003 BTC to tb1qexampleexampleexampleexampleexample0").assertExists()
         compose.onNodeWithText("Total").assertExists()
+    }
+
+    @Test
+    fun theSummaryNamesALongOutputAddressInFull() {
+        // A taproot address is 62 characters. The summary sentence keeps all of them, so a look-alike cannot pass on its ends alone.
+        val taproot = "tb1p" + "q".repeat(58)
+        show(
+            cleanRequest().copy(
+                outputs = listOf(
+                    BtcReviewOutput(0, taproot, 30_000L, isOwnChange = false, changeIndex = null),
+                    BtcReviewOutput(1, "tb1qexampleexampleexampleexampleexample1", 60_000L, isOwnChange = true, changeIndex = 0),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("Send 0.0003 BTC to $taproot").assertExists()
+    }
+
+    @Test
+    fun aLockTimeThatTheInputsEnforceIsShownAndWarned() {
+        show(cleanRequest().copy(lockTime = 850_000L))
+
+        compose.onNodeWithText("Block 850000").assertExists()
+        compose.onNodeWithText("The transaction cannot confirm before block 850000.").assertExists()
+        compose.onNodeWithText("Sequence 0xFFFFFFFD, replace-by-fee on").assertExists()
+    }
+
+    @Test
+    fun aLockTimeThatFinalInputsIgnoreIsShownWithNoWarning() {
+        val finalInput = cleanRequest().inputs.single().copy(sequence = 0xFFFFFFFFL)
+        show(cleanRequest().copy(inputs = listOf(finalInput), lockTime = 850_000L))
+
+        compose.onNodeWithText("Block 850000").assertExists()
+        compose.onNodeWithText("Not enforced, because every input is final.").assertExists()
+        compose.onNodeWithText("No warnings").assertExists()
     }
 }
 
@@ -164,7 +199,7 @@ private fun ownedPath(index: Long): KeyPath = KeyPath(
 /** A request that spends one verified input of the account, pays a receiver, and returns the change to the account. */
 private fun cleanRequest() = BtcReview(
     inputPolicy = InputVerificationPolicy.STRICT,
-    inputs = listOf(BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownedPath(0))),
+    inputs = listOf(BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL)),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
         BtcReviewOutput(1, "tb1qexampleexampleexampleexampleexample1", 60_000L, isOwnChange = true, changeIndex = 0),
@@ -172,6 +207,7 @@ private fun cleanRequest() = BtcReview(
     feeSats = 10_000L,
     requiresConfirmation = false,
     estimatedVsize = 141L,
+    lockTime = 0L,
 )
 
 /**
@@ -180,8 +216,8 @@ private fun cleanRequest() = BtcReview(
  */
 private fun externalInputRequest() = cleanRequest().copy(
     inputs = listOf(
-        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownedPath(0)),
-        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null),
+        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL),
+        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL),
     ),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
@@ -196,8 +232,8 @@ private fun externalInputRequest() = cleanRequest().copy(
 private fun unverifiedRequest() = BtcReview(
     inputPolicy = InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING,
     inputs = listOf(
-        BtcReviewInput(0, 100_000L, amountVerified = false, ownerPath = ownedPath(0)),
-        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null),
+        BtcReviewInput(0, 100_000L, amountVerified = false, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL),
+        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL),
     ),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample2", 120_000L, isOwnChange = false, changeIndex = null),
@@ -205,4 +241,5 @@ private fun unverifiedRequest() = BtcReview(
     feeSats = null,
     requiresConfirmation = true,
     estimatedVsize = 205L,
+    lockTime = 0L,
 )

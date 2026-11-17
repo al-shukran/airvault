@@ -3,6 +3,7 @@ package app.lensly.core.btc
 import fr.acinq.bitcoin.KeyPath
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -47,16 +48,62 @@ class BtcReviewWarningsTest {
     fun anOutputThatClaimsAKeyOfTheWalletButIsNotItsChangeIsAnUnknownChangeWarning() {
         val review = BtcReview(
             inputPolicy = InputVerificationPolicy.STRICT,
-            inputs = listOf(BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = KeyPath(listOf(0L)))),
+            inputs = listOf(
+                BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = KeyPath(listOf(0L)), sequence = 0xFFFFFFFDL),
+            ),
             outputs = listOf(
                 BtcReviewOutput(0, "tb1q-example", 50_000L, isOwnChange = false, changeIndex = null, claimsOwnKey = true),
             ),
             feeSats = 50_000L,
             requiresConfirmation = false,
             estimatedVsize = 100L,
+            lockTime = 0L,
         )
         assertEquals(listOf(BtcWarning.UnknownChange(1)), review.warnings())
         assertEquals(500.0, review.feeRateSatPerVb)
+    }
+
+    @Test
+    fun aLockTimeThatAnInputEnforcesIsALockTimeWarning() {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        // A 1,000 sat fee keeps the fee warnings quiet, so the lock is the only warning.
+        val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L), lockTime = 850_000L)
+        val review = BtcSigner(account).review(psbt)
+        assertEquals(850_000L, review.lockTime)
+        // The default sequence signals replace-by-fee, and that is what the review shows for the input.
+        assertTrue(review.inputs.single().replaceableByFee)
+        assertTrue(review.lockTimeEnforced)
+        assertEquals(listOf(BtcWarning.LockTime(850_000L)), review.warnings())
+    }
+
+    @Test
+    fun aLockTimeThatEveryInputsFinalSequenceIgnoresIsNotWarned() {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val psbt = BtcFixtures.psbt(
+            listOf(spend),
+            BtcFixtures.paying(account, 60_000L, 39_000L),
+            sequence = FINAL_SEQUENCE,
+            lockTime = 850_000L,
+        )
+        val review = BtcSigner(account).review(psbt)
+        assertEquals(850_000L, review.lockTime)
+        assertFalse(review.inputs.single().replaceableByFee)
+        assertFalse(review.lockTimeEnforced)
+        assertEquals(emptyList(), review.warnings())
+    }
+
+    @Test
+    fun aSequenceAtTheBip125LimitSignalsNoReplaceByFeeButStillEnforcesTheLockTime() {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val psbt = BtcFixtures.psbt(
+            listOf(spend),
+            BtcFixtures.paying(account, 30_000L, 60_000L),
+            sequence = 0xFFFFFFFEL,
+            lockTime = 850_000L,
+        )
+        val review = BtcSigner(account).review(psbt)
+        assertFalse(review.inputs.single().replaceableByFee)
+        assertTrue(review.lockTimeEnforced)
     }
 
     @Test
