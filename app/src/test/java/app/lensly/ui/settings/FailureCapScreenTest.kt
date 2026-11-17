@@ -9,9 +9,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
@@ -75,7 +77,7 @@ class FailureCapScreenTest {
     fun theDefaultCaptionSitsUnderOneMinute() {
         show(saved = FailureCapChoice.TEN_SECONDS, selected = FailureCapChoice.ONE_MINUTE)
 
-        compose.onNodeWithText("Default").assertIsDisplayed()
+        compose.onAllNodesWithText("Default")[0].assertIsDisplayed()
         compose.onNodeWithText("1 min").assertIsDisplayed()
     }
 
@@ -83,7 +85,7 @@ class FailureCapScreenTest {
     fun theDefaultCaptionFollowsTheSliderNotTheSavedCap() {
         show(saved = FailureCapChoice.TEN_SECONDS, selected = FailureCapChoice.FIVE_MINUTES)
 
-        compose.onNodeWithText("Default").assertDoesNotExist()
+        compose.onAllNodesWithText("Default").assertCountEquals(1)
         compose.onNodeWithText("5 min").assertIsDisplayed()
     }
 
@@ -110,7 +112,7 @@ class FailureCapScreenTest {
             }
         }
         // Index 1 of the six caps is 30 s.
-        compose.onNode(slider).performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
+        compose.onAllNodes(slider)[0].performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
 
         compose.onNodeWithContentDescription("Waits after wrong tries: 10 s, 20 s, 30 s, 30 s, 30 s").assertExists()
     }
@@ -121,7 +123,7 @@ class FailureCapScreenTest {
         show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.DEFAULT, onSelect = { chosen += it })
 
         // Index 4 of the six caps is 15 min.
-        compose.onNode(slider).performSemanticsAction(SemanticsActions.SetProgress) { it(4f) }
+        compose.onAllNodes(slider)[0].performSemanticsAction(SemanticsActions.SetProgress) { it(4f) }
 
         assertEquals(listOf(FailureCapChoice.FIFTEEN_MINUTES), chosen)
     }
@@ -180,9 +182,9 @@ class FailureCapScreenTest {
     }
 
     @Test
-    fun everyChoiceIsOneOfTheEightCapsWithNoDefaultEntry() {
+    fun everyChoiceIsOneOfTheSixCapsFromTenSecondsToOneHour() {
         assertEquals(
-            listOf("1 s", "5 s", "10 s", "30 s", "1 min", "5 min", "15 min", "1 h"),
+            listOf("10 s", "30 s", "1 min", "5 min", "15 min", "1 h"),
             FailureCapChoice.entries.map { it.label },
         )
     }

@@ -146,7 +146,7 @@ class SettingsScreenTest {
         show()
 
         compose.onNodeWithText("Wrong password lockout").assertExists()
-        compose.onNodeWithText("Up to 1 min (default). The longest wait after a wrong Application Password.").assertExists()
+        compose.onNodeWithText("Up to 1 min (default). Erased after 10 wrong tries in a row.").assertExists()
     }
 
     @Test
