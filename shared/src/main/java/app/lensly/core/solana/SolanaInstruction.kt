@@ -75,15 +75,21 @@ sealed interface SolanaInstruction {
     ) : SolanaInstruction
 
     /**
-     * The one-time setup of a durable nonce account: System CreateAccount for [account], with [lamports] of rent, followed by System
-     * InitializeNonceAccount that names [authority]. The two instructions are one here.
+     * The one-time setup of a durable nonce account: System CreateAccount, or CreateAccountWithSeed, for [account], paid for by [funder],
+     * with [lamports] of rent, followed by System InitializeNonceAccount that names [authority]. The two instructions are one here. A
+     * setup made with a [seed] creates [account] at the address that the seed and its base give.
      */
     data class CreateNonceAccount(
         override val programId: SolanaMessageAccount,
+        val funder: SolanaMessageAccount,
         val account: SolanaMessageAccount,
         val lamports: ULong,
         val authority: SolanaMessageAccount,
+        val seed: NonceSeed? = null,
     ) : SolanaInstruction
+
+    /** The base account and the seed that a nonce account is derived from: the account is createWithSeed of [base] and [text]. */
+    data class NonceSeed(val base: SolanaMessageAccount, val text: String)
 
     /**
      * Any other program, or a known program with a shape this decoder does not read. [dataHex] is the instruction data, and

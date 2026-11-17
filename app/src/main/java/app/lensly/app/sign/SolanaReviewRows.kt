@@ -126,11 +126,7 @@ private fun detailRows(instruction: SolanaInstruction, review: SolanaRequestRevi
         "Uses durable nonce account" to solanaAccountText(instruction.nonceAccount),
         "Nonce authority" to solanaAccountText(instruction.authority),
     )
-    is SolanaInstruction.CreateNonceAccount -> listOf(
-        "Create a nonce account" to solanaAccountText(instruction.account),
-        "Rent" to "${lamportsText(instruction.lamports)} SOL",
-        "Nonce authority" to solanaAccountText(instruction.authority),
-    )
+    is SolanaInstruction.CreateNonceAccount -> nonceSetupRows(instruction)
     is SolanaInstruction.SetComputeUnitLimit -> listOf("Compute limit" to "${instruction.units} units")
     is SolanaInstruction.SetComputeUnitPrice ->
         listOf("Compute price" to "${instruction.microLamports} micro-lamports per unit")
@@ -139,6 +135,21 @@ private fun detailRows(instruction: SolanaInstruction, review: SolanaRequestRevi
         "Instruction data" to "0x" + instruction.dataHex,
         "Accounts" to instruction.accounts.joinToString(", ") { solanaAccountText(it) }.ifEmpty { "none" },
     )
+}
+
+/**
+ * The rows of a nonce setup: the account it creates, and when the account is derived from a seed, the base and the seed. Then its rent,
+ * its authority, and who pays for it.
+ */
+private fun nonceSetupRows(instruction: SolanaInstruction.CreateNonceAccount): List<Pair<String, String>> = buildList {
+    add("Create a nonce account" to solanaAccountText(instruction.account))
+    instruction.seed?.let {
+        add("Base account" to solanaAccountText(it.base))
+        add("Seed" to it.text)
+    }
+    add("Rent" to "${lamportsText(instruction.lamports)} SOL")
+    add("Nonce authority" to solanaAccountText(instruction.authority))
+    add("Paid by" to solanaAccountText(instruction.funder))
 }
 
 /** A lamport count as SOL, with no trailing zeros. */

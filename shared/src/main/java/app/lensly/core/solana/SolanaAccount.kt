@@ -3,6 +3,7 @@ package app.lensly.core.solana
 import app.lensly.core.wallet.Slip10Ed25519
 import app.lensly.core.wallet.Slip10Node
 import fr.acinq.bitcoin.Base58
+import java.security.MessageDigest
 
 /**
  * Solana accounts as Ledger Live derives them. Account N is `m/44'/501'/N'`: an Ed25519 key from the BIP39 seed, by SLIP-0010
@@ -36,4 +37,16 @@ object SolanaAccount {
 
     /** The base58 address of a 32-byte public key, which is the address itself with no checksum. */
     fun addressOf(publicKey: ByteArray): String = Base58.encode(publicKey)
+
+    /**
+     * The 32-byte address that Solana's `Pubkey::create_with_seed` gives: the SHA-256 of [base], then [seed], then [owner]. [base] and
+     * [owner] are 32 bytes, and the caller checks that [seed] is at most 32 bytes. A nonce account made with a seed lives at this address.
+     */
+    fun createWithSeed(base: ByteArray, seed: ByteArray, owner: ByteArray): ByteArray {
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update(base)
+        digest.update(seed)
+        digest.update(owner)
+        return digest.digest()
+    }
 }

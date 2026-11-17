@@ -4,6 +4,9 @@ import app.lensly.core.wallet.toHex
 import fr.acinq.bitcoin.Base58
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
 
 private const val SYSTEM_PROGRAM = "11111111111111111111111111111111"
 private const val COMPUTE_BUDGET_PROGRAM = "ComputeBudget111111111111111111111111111111"
@@ -12,6 +15,9 @@ private const val TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPx
 private const val ASSOCIATED_TOKEN_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
 private const val RECENT_BLOCKHASHES_SYSVAR = "SysvarRecentB1ockHashes11111111111111111111"
 private const val RENT_SYSVAR = "SysvarRent111111111111111111111111111111111"
+
+/** The largest seed that CreateAccountWithSeed takes, in bytes. */
+private const val MAX_SEED_BYTES = 32
 
 /**
  * Decodes each instruction of the message, in order. An instruction is decoded only when its program is a known one and it has
@@ -89,12 +95,14 @@ private fun advanceNonce(
 }
 
 /**
- * The one-time setup of a durable nonce at [position]: System CreateAccount, then System InitializeNonceAccount for the account it
- * creates. Null unless the two match, and then each decodes on its own.
+ * The one-time setup of a durable nonce at [position]: System CreateAccount or CreateAccountWithSeed, then System InitializeNonceAccount
+ * for the account the first one creates. Null unless the two match, and then each decodes on its own.
  *
- * CreateAccount is index 0: u32 LE 0, u64 LE lamports, u64 LE space, then the 32-byte owner. Accounts are [funder, new account]. The
- * space is 80 bytes, the size of a nonce account, and the owner is the System Program. InitializeNonceAccount is index 6: u32 LE 6,
- * then the 32-byte authority. Accounts are [nonce account, RecentBlockhashes sysvar, Rent sysvar].
+ * CreateAccount is index 0: u32 LE 0, u64 LE lamports, u64 LE space, then the 32-byte owner. Accounts are [funder, new account].
+ * CreateAccountWithSeed is index 3: u32 LE 3, the 32-byte base, the seed (u64 LE length, then its UTF-8 bytes), u64 LE lamports, u64 LE
+ * space, then the 32-byte owner. Accounts are [funder, new account, base]. InitializeNonceAccount is index 6: u32 LE 6, then the 32-byte
+ * authority. Accounts are [nonce account, RecentBlockhashes sysvar, Rent sysvar]. In both setups the space is 80 bytes, the size of a
+ * nonce account, and the owner is the System Program.
  */
 private fun SolanaMessage.nonceCreate(position: Int): SolanaInstruction? {
     if (position + 1 >= instructions.size) return null
@@ -102,22 +110,77 @@ private fun SolanaMessage.nonceCreate(position: Int): SolanaInstruction? {
     val initialize = instructions[position + 1]
     val program = account(create.programIdIndex)
     if (!program.isStatic(SYSTEM_PROGRAM) || !account(initialize.programIdIndex).isStatic(SYSTEM_PROGRAM)) return null
-    val createAccounts = create.accountIndices.map { account(it) }
-    val createData = create.data
-    if (createData.size != 52 || createAccounts.size != 2 || u32(createData, 0) != 0u) return null
-    if (u64(createData, 12) != 80uL || Base58.encode(createData.copyOfRange(20, 52)) != SYSTEM_PROGRAM) return null
-    val nonce = createAccounts[1]
     val initializeAccounts = initialize.accountIndices.map { account(it) }
     val initializeData = initialize.data
     if (initializeData.size != 36 || initializeAccounts.size != 3 || u32(initializeData, 0) != 6u) return null
-    if (initializeAccounts[0] != nonce || !initializeAccounts[1].isStatic(RECENT_BLOCKHASHES_SYSVAR)) return null
-    if (!initializeAccounts[2].isStatic(RENT_SYSVAR)) return null
+    if (!initializeAccounts[1].isStatic(RECENT_BLOCKHASHES_SYSVAR) || !initializeAccounts[2].isStatic(RENT_SYSVAR)) return null
+    val created = createAccount(create) ?: createAccountWithSeed(create) ?: return null
+    if (initializeAccounts[0] != created.account) return null
     return SolanaInstruction.CreateNonceAccount(
         programId = program,
-        account = nonce,
-        lamports = u64(createData, 4),
+        funder = created.funder,
+        account = created.account,
+        lamports = created.lamports,
         authority = SolanaMessageAccount.Static(Base58.encode(initializeData.copyOfRange(4, 36))),
+        seed = created.seed,
     )
+}
+
+/** What a setup creates: who pays for it, the new account, its rent in lamports, and the seed when the account is derived from one. */
+private class NonceCreation(
+    val funder: SolanaMessageAccount,
+    val account: SolanaMessageAccount,
+    val lamports: ULong,
+    val seed: SolanaInstruction.NonceSeed?,
+)
+
+/** CreateAccount for a nonce account: u32 LE 0, u64 LE lamports, u64 LE space 80, then the 32-byte System owner. Accounts are [funder, new]. */
+private fun SolanaMessage.createAccount(create: SolanaMessage.CompiledInstruction): NonceCreation? {
+    val data = create.data
+    if (data.size != 52 || u32(data, 0) != 0u || u64(data, 12) != 80uL) return null
+    if (Base58.encode(data.copyOfRange(20, 52)) != SYSTEM_PROGRAM) return null
+    val accounts = create.accountIndices.map { account(it) }
+    if (accounts.size != 2) return null
+    return NonceCreation(funder = accounts[0], account = accounts[1], lamports = u64(data, 4), seed = null)
+}
+
+/**
+ * CreateAccountWithSeed for a nonce account. The seed is at most 32 bytes and UTF-8, and the new account must be the address that
+ * [SolanaAccount.createWithSeed] gives for the base and the seed, with the System Program as owner. Accounts are [funder, new, base].
+ */
+private fun SolanaMessage.createAccountWithSeed(create: SolanaMessage.CompiledInstruction): NonceCreation? {
+    val data = create.data
+    if (data.size < 44 || u32(data, 0) != 3u) return null
+    val seedSize = u64(data, 36)
+    if (seedSize > MAX_SEED_BYTES.toULong()) return null
+    val lamportsAt = 44 + seedSize.toInt()
+    if (data.size != lamportsAt + 48 || u64(data, lamportsAt + 8) != 80uL) return null
+    if (Base58.encode(data.copyOfRange(lamportsAt + 16, lamportsAt + 48)) != SYSTEM_PROGRAM) return null
+    val seedBytes = data.copyOfRange(44, lamportsAt)
+    val seed = seedText(seedBytes) ?: return null
+    val accounts = create.accountIndices.map { account(it) }
+    if (accounts.size != 3) return null
+    val base = accounts[2] as? SolanaMessageAccount.Static ?: return null
+    val created = accounts[1] as? SolanaMessageAccount.Static ?: return null
+    val derived = SolanaAccount.createWithSeed(Base58.decode(base.address), seedBytes, Base58.decode(SYSTEM_PROGRAM))
+    if (Base58.encode(derived) != created.address) return null
+    return NonceCreation(
+        funder = accounts[0],
+        account = created,
+        lamports = u64(data, lamportsAt),
+        seed = SolanaInstruction.NonceSeed(base = base, text = seed),
+    )
+}
+
+/** The seed as text, when its bytes are UTF-8, as a System seed must be. Null for any other bytes. */
+private fun seedText(bytes: ByteArray): String? = try {
+    StandardCharsets.UTF_8.newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(ByteBuffer.wrap(bytes))
+        .toString()
+} catch (e: CharacterCodingException) {
+    null
 }
 
 /** Whether this account is the key [expected] that the message lists. An account from a lookup table is not one. */

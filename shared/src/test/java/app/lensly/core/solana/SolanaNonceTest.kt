@@ -8,6 +8,7 @@ import fr.acinq.bitcoin.Base58
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.security.MessageDigest
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -15,8 +16,8 @@ import kotlin.test.assertTrue
 import org.junit.Test
 
 /**
- * The durable-nonce shapes: AdvanceNonceAccount as the first instruction, and the one-time setup of CreateAccount then
- * InitializeNonceAccount. Each message is built byte by byte, and each test cites the layout it uses.
+ * The durable-nonce shapes: AdvanceNonceAccount as the first instruction, and the one-time setup of CreateAccount or
+ * CreateAccountWithSeed, then InitializeNonceAccount. Each message is built byte by byte, and each test cites the layout it uses.
  */
 class SolanaNonceTest {
 
@@ -47,13 +48,19 @@ class SolanaNonceTest {
         assertContentEquals(NONCE_VALUE, review.message!!.recentBlockhash)
     }
 
-    /** CreateAccount (index 0) and InitializeNonceAccount (index 6) decode as one setup, with its rent and its authority. */
+    /** CreateAccount (index 0) and InitializeNonceAccount (index 6) decode as one setup, with its rent, its authority and its payer. */
     @Test
-    fun aNonceAccountSetupIsOneInstructionWithItsRentAndAuthority() {
+    fun aNonceAccountSetupIsOneInstructionWithItsRentAuthorityAndPayer() {
         val review = review(setup(authority = Base58.decode(PAYER)))
         assertEquals(
             listOf(
-                SolanaInstruction.CreateNonceAccount(at(SYSTEM), account = at(NONCE), lamports = 1_447_680uL, authority = at(PAYER)),
+                SolanaInstruction.CreateNonceAccount(
+                    at(SYSTEM),
+                    funder = at(PAYER),
+                    account = at(NONCE),
+                    lamports = 1_447_680uL,
+                    authority = at(PAYER),
+                ),
             ),
             review.instructions,
         )
@@ -136,6 +143,76 @@ class SolanaNonceTest {
         assertEquals(1_447_680L, (128L + 80L) * 3_480L * 2L)
     }
 
+    /**
+     * CreateAccountWithSeed then InitializeNonceAccount decode as one setup. The new account is the address the seed gives, which the
+     * test computes here as SHA-256 of the base, the seed and the System owner, in that order. The setup names its base, its seed, its
+     * rent, its authority and its payer, and the payer is also the base.
+     */
+    @Test
+    fun aSeededNonceSetupIsOneInstructionWithItsBaseSeedRentAuthorityAndPayer() {
+        val review = review(seededSetup())
+        assertEquals(
+            listOf(
+                SolanaInstruction.CreateNonceAccount(
+                    at(SYSTEM),
+                    funder = at(PAYER),
+                    account = at(seededAddress(PAYER, SEED.toByteArray())),
+                    lamports = 1_447_680uL,
+                    authority = at(PAYER),
+                    seed = SolanaInstruction.NonceSeed(base = at(PAYER), text = SEED),
+                ),
+            ),
+            review.instructions,
+        )
+        assertEquals(emptyList(), review.warnings)
+    }
+
+    /** The longest seed a System instruction takes is 32 bytes, and a setup with a 32-byte seed is still a setup. */
+    @Test
+    fun aSeedOfThirtyTwoBytesIsTheLongestSetup() {
+        val review = review(seededSetup(seed = ByteArray(32) { 0x62 }))
+        assertEquals(
+            SolanaInstruction.NonceSeed(base = at(PAYER), text = "b".repeat(32)),
+            assertIs<SolanaInstruction.CreateNonceAccount>(review.instructions.single()).seed,
+        )
+    }
+
+    /**
+     * Each seeded shape that is not the exact layout stays raw, and the review warns about its program: a new account that is not the
+     * seeded address, a seed of 33 bytes, a seed that is not UTF-8, another space, and another owner. The seed lookalikes name the address
+     * their own seed gives, so the one field that is wrong is the only reason for raw.
+     */
+    @Test
+    fun aSeededSetupLookalikeStaysRawAndWarnsAboutItsProgram() {
+        val lookalikes = mapOf(
+            "a new account that is not the seeded address" to seededSetup(nonce = NONCE),
+            "a seed of 33 bytes" to seededSetup(seed = ByteArray(33) { 0x61 }),
+            "a seed that is not UTF-8" to seededSetup(seed = byteArrayOf(0xff.toByte())),
+            "a seeded setup with another space" to seededSetup(space = 81L),
+            "a seeded setup owned by another program" to seededSetup(
+                owner = Base58.decode(PAYER),
+                nonce = seededAddress(PAYER, SEED.toByteArray(), owner = Base58.decode(PAYER)),
+            ),
+        )
+        for ((name, signData) in lookalikes) {
+            val review = review(signData)
+            assertTrue(review.instructions.none { it is SolanaInstruction.CreateNonceAccount }, name)
+            assertTrue(SolanaWarning.UNKNOWN_PROGRAM in review.warnings, name)
+        }
+    }
+
+    /**
+     * A known answer for createWithSeed. The input is 77 bytes: the base, 32 bytes of 0x01, then the seed "lumio-nonce-0", then the owner,
+     * 32 zero bytes of the System Program. The expected value is SHA-256 of those bytes, from an independent SHA-256 over the same input.
+     */
+    @Test
+    fun createWithSeedIsTheSha256OfBaseSeedAndOwner() {
+        assertEquals(
+            "7dee5a4151fbe74220046c3ddc8c51e4abb07cd8446172bf3ee9a9d4089df1fb",
+            SolanaAccount.createWithSeed(ByteArray(32) { 1 }, SEED.toByteArray(), ByteArray(32)).toHex(),
+        )
+    }
+
     /** The one-time setup: CreateAccount for NONCE with 1,447,680 lamports, space 80 and the System Program as owner, then the authority. */
     private fun setup(authority: ByteArray): ByteArray = legacy(
         keys = listOf(PAYER, NONCE, SYSTEM, RECENT_BLOCKHASHES, RENT),
@@ -148,6 +225,35 @@ class SolanaNonceTest {
             Ix(program = 2, accounts = listOf(1, 3, 4), data = le32(6) + authority),
         ),
     )
+
+    /**
+     * CreateAccountWithSeed (index 3), then InitializeNonceAccount, for a nonce account at [nonce] derived from PAYER and [seed]. PAYER
+     * pays, is the base, and is the authority. Keys: payer 0 (signer), the new account 1, System 2, RecentBlockhashes 3, Rent 4.
+     */
+    private fun seededSetup(
+        seed: ByteArray = SEED.toByteArray(),
+        nonce: String = seededAddress(PAYER, seed),
+        space: Long = 80L,
+        owner: ByteArray = ByteArray(32),
+    ): ByteArray = legacy(
+        keys = listOf(PAYER, nonce, SYSTEM, RECENT_BLOCKHASHES, RENT),
+        readonly = 3,
+        instructions = listOf(
+            // CreateAccountWithSeed: accounts [funder, new account, base]; data u32 LE 3, the 32-byte base, the seed as a u64 LE length
+            // and its bytes, u64 LE lamports, u64 LE space, then the 32-byte owner.
+            Ix(
+                program = 2,
+                accounts = listOf(0, 1, 0),
+                data = le32(3) + Base58.decode(PAYER) + le64(seed.size.toLong()) + seed + le64(1_447_680L) + le64(space) + owner,
+            ),
+            // InitializeNonceAccount: accounts [nonce, RecentBlockhashes sysvar, Rent sysvar]; data u32 LE 6, then the 32-byte authority.
+            Ix(program = 2, accounts = listOf(1, 3, 4), data = le32(6) + Base58.decode(PAYER)),
+        ),
+    )
+
+    /** The address CreateAccountWithSeed gives, in base58: SHA-256 of the 32-byte [base], then [seed], then the 32-byte [owner]. */
+    private fun seededAddress(base: String, seed: ByteArray, owner: ByteArray = ByteArray(32)): String =
+        Base58.encode(MessageDigest.getInstance("SHA-256").digest(Base58.decode(base) + seed + owner))
 
     /** A legacy message over [keys], by base58. The first [signers] keys sign, and the last [readonly] keys are read-only. */
     private fun legacy(keys: List<String>, instructions: List<Ix>, signers: Int = 1, readonly: Int = 1): ByteArray {
@@ -204,5 +310,8 @@ class SolanaNonceTest {
 
         /** The nonce value. A durable-nonce message holds it in its recent blockhash field. */
         val NONCE_VALUE = ByteArray(32) { 0x5a }
+
+        /** A seed for a nonce account made with CreateAccountWithSeed, in these tests. */
+        const val SEED = "lumio-nonce-0"
     }
 }
