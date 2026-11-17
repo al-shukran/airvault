@@ -120,7 +120,7 @@ class LumioApp : Application(), CoverApplication {
     val http: Http by lazy {
         Http(
             OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
+                .connectTimeout(3, TimeUnit.SECONDS)
                 .readTimeout(8, TimeUnit.SECONDS)
                 .callTimeout(15, TimeUnit.SECONDS)
                 .build(),

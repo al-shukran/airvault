@@ -13,6 +13,7 @@ import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
 import app.lumio.data.provider.Trait
+import java.io.InterruptedIOException
 import kotlin.random.Random
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -203,60 +204,99 @@ class SchedulerTest {
     }
 
     @Test
-    fun aProviderWithFiveFailuresInARowIsSkippedForAMinuteThenProbedOnce() = runTest {
+    fun aTimedOutProviderIsPassedOverAtOnceAndForThirtySeconds() = runTest {
+        val a = provider("a").apply { outcomes.add(ProviderError.Transient(InterruptedIOException("The call timed out."))) }
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        assertEquals(100L, s.run(TipHeight(ETH)))
+        assertEquals(0L, testScheduler.currentTime)
+        assertEquals(1, a.calls)
+        assertEquals(1, b.calls)
+
+        repeat(10) { s.run(TipHeight(ETH)) }
+        advanceTimeBy(29_999)
+        s.run(TipHeight(ETH))
+        assertEquals(1, a.calls)
+        assertEquals(12, b.calls)
+
+        advanceTimeBy(1)
+        s.run(TipHeight(ETH))
+        assertEquals(2, a.calls)
+        s.run(TipHeight(ETH))
+        assertEquals(3, a.calls)
+        assertEquals(12, b.calls)
+    }
+
+    @Test
+    fun aProviderThatTimesOutAgainIsPassedOverForTwiceAsLong() = runTest {
+        val a = provider("a").apply { repeat(2) { outcomes.add(ProviderError.Transient()) } }
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        s.run(TipHeight(ETH))
+        advanceTimeBy(30_000)
+        s.run(TipHeight(ETH))
+        assertEquals(2, a.calls)
+
+        advanceTimeBy(59_999)
+        s.run(TipHeight(ETH))
+        assertEquals(2, a.calls)
+
+        advanceTimeBy(1)
+        s.run(TipHeight(ETH))
+        assertEquals(3, a.calls)
+    }
+
+    @Test
+    fun aRateLimitWithoutRetryAfterCoolsForThirtySecondsThenSixty() = runTest {
+        val a = provider("a").apply { repeat(2) { outcomes.add(ProviderError.RateLimited()) } }
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        s.run(TipHeight(ETH))
+        advanceTimeBy(29_999)
+        s.run(TipHeight(ETH))
+        assertEquals(1, a.calls)
+
+        advanceTimeBy(1)
+        s.run(TipHeight(ETH))
+        assertEquals(2, a.calls)
+
+        advanceTimeBy(59_999)
+        s.run(TipHeight(ETH))
+        assertEquals(2, a.calls)
+
+        advanceTimeBy(1)
+        s.run(TipHeight(ETH))
+        assertEquals(3, a.calls)
+    }
+
+    @Test
+    fun fiveFailuresInARowOpenTheCircuitOfASoleProvider() = runTest {
         val a = provider("a").apply { repeat(5) { outcomes.add(ProviderError.Transient()) } }
-        val b = provider("b")
-        val s = scheduler(a, b, configs = PREFER_A)
+        val s = scheduler(a)
 
-        repeat(5) { s.run(TipHeight(ETH)) }
+        assertTrue(failureOf { s.run(TipHeight(ETH)) } is ProviderError.Transient)
+        assertEquals(3, a.calls)
+        assertTrue(failureOf { s.run(TipHeight(ETH)) } is ProviderError.Transient)
         assertEquals(5, a.calls)
-        assertEquals(5, b.calls)
+        assertTrue((s.statusOf("a")?.circuitOpenMs ?: 0L) > 0L)
+    }
 
-        s.run(TipHeight(ETH))
-        assertEquals(5, a.calls)
+    @Test
+    fun aSoleProviderIsProbedAfterItsCircuitOpensAndRecoversOnSuccess() = runTest {
+        val a = provider("a").apply { repeat(5) { outcomes.add(ProviderError.Transient()) } }
+        val s = scheduler(a)
+        failureOf { s.run(TipHeight(ETH)) }
+        failureOf { s.run(TipHeight(ETH)) }
 
-        advanceTimeBy(30_000)
-        s.run(TipHeight(ETH))
-        assertEquals(5, a.calls)
-
-        advanceTimeBy(31_000)
-        s.run(TipHeight(ETH))
+        advanceTimeBy(60_000)
+        assertEquals(100L, s.run(TipHeight(ETH)))
         assertEquals(6, a.calls)
-
-        s.run(TipHeight(ETH))
+        assertEquals(100L, s.run(TipHeight(ETH)))
         assertEquals(7, a.calls)
-    }
-
-    @Test
-    fun whileTheProbeIsOutOnlyOneCallReachesTheRecoveringProvider() = runTest {
-        val a = provider("a", latencyMs = 100L).apply { repeat(5) { outcomes.add(ProviderError.Transient()) } }
-        val b = provider("b")
-        val s = scheduler(a, b, configs = PREFER_A)
-        repeat(5) { s.run(TipHeight(ETH)) }
-
-        advanceTimeBy(61_000)
-        launch { s.run(TipHeight(ETH)) }
-        launch { s.run(TipHeight(ETH)) }
-        advanceUntilIdle()
-
-        assertEquals(6, a.calls)
-        assertEquals(6, b.calls)
-    }
-
-    @Test
-    fun aFailedProbeOpensTheCircuitAgainForAnotherMinute() = runTest {
-        val a = provider("a").apply { repeat(6) { outcomes.add(ProviderError.Transient()) } }
-        val b = provider("b")
-        val s = scheduler(a, b, configs = PREFER_A)
-        repeat(5) { s.run(TipHeight(ETH)) }
-
-        advanceTimeBy(61_000)
-        s.run(TipHeight(ETH))
-        assertEquals(6, a.calls)
-
-        advanceTimeBy(30_000)
-        s.run(TipHeight(ETH))
-        assertEquals(6, a.calls)
+        assertEquals(0L, s.statusOf("a")?.circuitOpenMs)
     }
 
     @Test

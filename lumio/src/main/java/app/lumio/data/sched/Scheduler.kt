@@ -43,10 +43,11 @@ enum class Priority(internal val rank: Int, val deadlineMs: Long) {
 /**
  * The one scheduler for provider calls. [run] checks the cache, routes the request, and admits it through the provider's token bucket and
  * concurrency cap. Failures are handled as follows:
- * - [ProviderError.RateLimited] cools the provider, for its Retry-After or else an exponential backoff with full jitter (base 1 s, cap 5 min).
- *   The call moves to the next candidate at once. When every candidate is cooling, the call waits for the earliest cooldown.
- * - [ProviderError.Transient], and an [IOException], move the call to the next candidate after a jittered backoff. A call makes at most three
- *   attempts that fail this way.
+ * - [ProviderError.RateLimited] cools the provider, for its Retry-After or else an exponential backoff from 30 s (cap 5 min). The call moves to the
+ *   next candidate at once. When every candidate is cooling, the call waits for the earliest cooldown.
+ * - [ProviderError.Transient], and an [IOException] such as a timeout, passes the provider over: the other candidates go first, for an exponential
+ *   penalty from 30 s (cap 5 min) that counts the transient failures in a row. The call moves to the next candidate at once, or after a jittered
+ *   backoff when no other provider is left for it. A call makes at most three attempts that fail this way.
  * - Five transient failures in a row open the provider's circuit for 60 s. Then one probe call goes out. A successful probe closes the circuit,
  *   and a failed one opens it again.
  * - [ProviderError.Unsupported] and [ProviderError.Fatal] skip the provider for that call only. [ProviderError.NotFound] is an answer.
@@ -79,6 +80,8 @@ class Scheduler(
         override fun available(providerId: String, nowMs: Long): Boolean = health[providerId]?.available(nowMs) ?: true
 
         override fun score(providerId: String, nowMs: Long): Double = health[providerId]?.score(nowMs) ?: 0.0
+
+        override fun penalized(providerId: String, nowMs: Long): Boolean = health[providerId]?.penalized(nowMs) ?: false
     }
 
     init {
@@ -159,11 +162,21 @@ class Scheduler(
                     tried.add(grant.provider.id)
                     transientFailures++
                     if (transientFailures >= MAX_ATTEMPTS) throw failure
-                    delay(jitterMs(backoffCeiling(transientFailures)))
+                    // A failover to a provider this call has not tried goes at once. Only a retry with no such provider backs off first.
+                    if (!untriedLeft(req, tried, excluded)) delay(jitterMs(backoffMs(BASE_MS, transientFailures)))
                 }
                 is ProviderError.Unsupported, is ProviderError.Fatal -> excluded.add(grant.provider.id)
                 is ProviderError.NotFound -> throw failure
             }
+        }
+    }
+
+    /** True when a provider that this call has not tried can serve it now. Router is not asked, since its rotation would move on. */
+    private suspend fun untriedLeft(req: Request<*>, tried: Set<String>, excluded: Set<String>): Boolean = mutex.withLock {
+        val now = clock.nowMs()
+        val current = configs()
+        all.any { p ->
+            p.id !in tried && p.id !in excluded && isEligible(p, req.net, req.op, current) && state.available(p.id, now)
         }
     }
 
@@ -217,6 +230,7 @@ class Scheduler(
             is Outcome.Served -> {
                 h.recordServed(outcome.latencyMs)
                 h.failures = 0
+                h.penaltyStreak = 0
                 h.rateLimitStreak = 0
                 h.circuit = Circuit.CLOSED
             }
@@ -236,6 +250,8 @@ class Scheduler(
             is ProviderError.Transient -> {
                 h.recordError()
                 h.failures++
+                h.penaltyStreak++
+                h.penaltyUntil = now + backoffMs(COOLDOWN_BASE_MS, h.penaltyStreak)
                 if (h.circuit == Circuit.HALF_OPEN || h.failures >= FAILURE_THRESHOLD) trip(h, now)
             }
             is ProviderError.Fatal -> h.recordError()
@@ -245,7 +261,7 @@ class Scheduler(
 
     private fun nextRateLimitWaitLocked(h: Health): Long {
         h.rateLimitStreak++
-        return random.nextLong(backoffCeiling(h.rateLimitStreak) + 1)
+        return backoffMs(COOLDOWN_BASE_MS, h.rateLimitStreak)
     }
 
     private fun trip(h: Health, now: Long) {
@@ -356,8 +372,8 @@ class Scheduler(
         }
     }
 
-    /** The jitter ceiling for attempt [n], counted from 1: the base doubled each time, up to the cap. */
-    private fun backoffCeiling(n: Int): Long = minOf(CAP_MS, BASE_MS shl (n - 1).coerceIn(0, MAX_DOUBLINGS))
+    /** The wait after [n] failures in a row, counted from 1: [base] doubled each time, up to the cap. */
+    private fun backoffMs(base: Long, n: Int): Long = minOf(CAP_MS, base shl (n - 1).coerceIn(0, MAX_DOUBLINGS))
 
     private class Grant(val provider: Provider, val cfg: ProviderConfig, val lane: Lane, val probe: Boolean)
 
@@ -394,7 +410,11 @@ class Scheduler(
     }
 
     private companion object {
+        /** The jitter base for a retry on the same provider, when no other provider is left to try. */
         const val BASE_MS = 1_000L
+
+        /** The first wait after a rate limit with no Retry-After, and the first penalty after a transient failure. It doubles from there. */
+        const val COOLDOWN_BASE_MS = 30_000L
         const val CAP_MS = 300_000L
         const val MAX_DOUBLINGS = 20
         const val MAX_ATTEMPTS = 3
