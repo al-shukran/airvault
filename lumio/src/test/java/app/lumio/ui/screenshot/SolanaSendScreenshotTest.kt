@@ -1,5 +1,7 @@
 package app.lumio.ui.screenshot
 
+import app.lumio.ui.send.solanaSummary
+import app.lumio.ui.send.solana.solanaOutcomeText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.wallet.Mnemonic
@@ -12,7 +14,6 @@ import app.lumio.send.solana.SolanaSendAccount
 import app.lumio.send.solana.SolanaSendPlan
 import app.lumio.ui.send.solana.SolanaSendFormScreen
 import app.lumio.ui.send.solana.SolanaSendReviewScreen
-import app.lumio.ui.send.solana.SolanaSendSentScreen
 import app.lumio.ui.send.solana.SolanaSignRequestScreen
 import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
@@ -76,13 +77,11 @@ class SolanaSendScreenshotTest {
 
     @Test
     fun solanaSendSent() = compose.snapshot("solana_send_sent") {
-        SolanaSendSentScreen(
-            network = SOLANA_DEVNET,
-            signature = "B".repeat(88),
-            outcome = SolanaOutcome.CONFIRMED,
-            notice = null,
-            onOpenExplorer = {},
-            onDone = {},
+        SubmitFixture(
+            sentSubmit("B".repeat(88)),
+            solanaSummary(plan),
+            explorerUrl = { SolanaSend.explorerTxUrl(SOLANA_DEVNET, it) },
+            status = solanaOutcomeText(SOLANA_DEVNET, SolanaOutcome.CONFIRMED),
         )
     }
 }

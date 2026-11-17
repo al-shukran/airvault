@@ -1,5 +1,10 @@
 package app.lumio.send.algorand
 
+import app.lumio.send.SubmitFailure
+import app.lumio.send.SubmitMachine
+import app.lumio.send.SubmitState
+import app.lumio.ui.send.SubmitScreen
+import app.lumio.ui.send.algorandSummary
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.activity.compose.BackHandler
@@ -53,14 +58,15 @@ private sealed interface AlgorandSendStep {
 
     class Scanning(val plan: AlgorandSendPlan, val requestId: ByteArray, val parts: List<String>) : AlgorandSendStep
 
-    class Sent(val plan: AlgorandSendPlan, val txid: String) : AlgorandSendStep
+    /** The signed transaction, held in memory until the owner submits it. Leaving the screen discards it. */
+    class Submit(val plan: AlgorandSendPlan, val requestId: ByteArray, val parts: List<String>, val machine: SubmitMachine<*, String>) : AlgorandSendStep
 }
 
 private const val RECIPIENT_HINT = "Point the camera at an Algorand address."
 private const val RECIPIENT_REFUSED = "That code is not an Algorand address. Point the camera at an address."
 private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
 private const val SCAN_READING = "Reading the signature. Keep the camera on it."
-private const val SCAN_SENDING = "Signature read. Sending the transaction to the network."
+private const val SCAN_READ = "Signature read. Check the transaction, then submit it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
 private const val SIGNATURE_FAILED = "That code could not be used. Scan the signature again."
@@ -115,6 +121,7 @@ internal fun AlgorandSendRoute(
     var scanBusy by remember { mutableStateOf(false) }
     var sentStatus by remember { mutableStateOf(PENDING_TEXT) }
     var sentNotice by remember { mutableStateOf<String?>(null) }
+    var sentTxid by remember { mutableStateOf<String?>(null) }
 
     val to: ByteArray? = runCatching { AlgorandSend.recipientKey(recipient) }.getOrNull()
     val loaded = funds
@@ -138,9 +145,8 @@ internal fun AlgorandSendRoute(
     }
 
     // The status of the sent transaction, read from the pool until the network confirms it or refuses it, or the pool no longer holds it.
-    val sent = step as? AlgorandSendStep.Sent
-    LaunchedEffect(sent?.txid) {
-        val txid = sent?.txid ?: return@LaunchedEffect
+    LaunchedEffect(sentTxid) {
+        val txid = sentTxid ?: return@LaunchedEffect
         for (attempt in 0 until POLL_LIMIT) {
             val read = withContext(Dispatchers.IO) { runCatching { AlgorandSend.pendingState(scheduler, network, txid) } }
             if (read.isFailure) {
@@ -208,40 +214,47 @@ internal fun AlgorandSendRoute(
         step = AlgorandSendStep.Scanning(current.plan, current.requestId, current.parts)
     }
 
-    /** The signature is checked before anything is sent. A refused signature keeps the scan open, with the words why. */
+    /** The signature is checked before anything is held. A refused signature keeps the scan open, with the words why. */
     fun applySignature(current: AlgorandSendStep.Scanning, ur: UR) {
         scanBusy = true
         scanProgress = 1f
-        scanStatus = SCAN_SENDING
+        scanStatus = SCAN_READ
         scope.launch {
             val signed = withContext(Dispatchers.Default) {
                 runCatching { AlgorandSend.signed(current.plan, current.requestId, ur) }
             }
+            scanBusy = false
             signed.fold(
                 onFailure = { error ->
-                    scanBusy = false
                     scan = SignatureScan()
                     scanProgress = null
                     scanStatus = AlgorandSend.ownerWords(error, SIGNATURE_FAILED)
                 },
                 onSuccess = { bytes ->
-                    val broadcast = withContext(Dispatchers.IO) {
-                        runCatching { AlgorandSend.broadcast(scheduler, current.plan, bytes) }
-                    }
-                    scanBusy = false
-                    broadcast.fold(
-                        onFailure = { error ->
-                            notice = if (error is ProviderError.Fatal) BROADCAST_FAILED else AlgorandSend.ownerWords(error, BROADCAST_FAILED)
-                            step = AlgorandSendStep.Request(current.plan, current.requestId, current.parts)
-                        },
-                        onSuccess = { txid ->
-                            sentStatus = PENDING_TEXT
-                            sentNotice = null
-                            step = AlgorandSendStep.Sent(current.plan, txid)
+                    val machine = SubmitMachine(
+                        signed = bytes,
+                        broadcast = { signedBytes -> withContext(Dispatchers.IO) { AlgorandSend.broadcast(scheduler, current.plan, signedBytes) } },
+                        describe = { error ->
+                            SubmitFailure(if (error is ProviderError.Fatal) BROADCAST_FAILED else AlgorandSend.ownerWords(error, BROADCAST_FAILED))
                         },
                     )
+                    notice = null
+                    step = AlgorandSendStep.Submit(current.plan, current.requestId, current.parts, machine)
                 },
             )
+        }
+    }
+
+    /** Sends the signed transaction, then the pool is read for its status. A retry sends the same signed bytes again. */
+    fun submit(current: AlgorandSendStep.Submit) {
+        scope.launch {
+            current.machine.submit()
+            val state = current.machine.state.value
+            if (state is SubmitState.Sent) {
+                sentStatus = PENDING_TEXT
+                sentNotice = null
+                sentTxid = state.id
+            }
         }
     }
 
@@ -267,7 +280,7 @@ internal fun AlgorandSendRoute(
 
     BackHandler {
         when (val current = step) {
-            AlgorandSendStep.Recipient, is AlgorandSendStep.Sent -> navController.popBackStack()
+            AlgorandSendStep.Recipient -> navController.popBackStack()
             AlgorandSendStep.ScanRecipient, AlgorandSendStep.Amount -> step = AlgorandSendStep.Recipient
             is AlgorandSendStep.Review -> {
                 notice = null
@@ -278,6 +291,14 @@ internal fun AlgorandSendRoute(
                 step = AlgorandSendStep.Review(current.plan)
             }
             is AlgorandSendStep.Scanning -> step = AlgorandSendStep.Request(current.plan, current.requestId, current.parts)
+            is AlgorandSendStep.Submit -> when (current.machine.state.value) {
+                SubmitState.Submitting -> Unit
+                is SubmitState.Sent -> navController.popBackStack()
+                else -> {
+                    notice = null
+                    step = AlgorandSendStep.Request(current.plan, current.requestId, current.parts)
+                }
+            }
         }
     }
 
@@ -347,12 +368,22 @@ internal fun AlgorandSendRoute(
             onText = { text -> onSignatureText(current, text) },
             onCancel = { step = AlgorandSendStep.Request(current.plan, current.requestId, current.parts) },
         )
-        is AlgorandSendStep.Sent -> AlgorandSentScreen(
-            network = current.plan.network,
-            txid = current.txid,
+        is AlgorandSendStep.Submit -> SubmitScreen(
+            machine = current.machine,
+            rows = algorandSummary(current.plan),
+            explorerUrl = { txid -> AlgorandSend.explorerUrl(current.plan.network, txid) },
             status = sentStatus,
-            notice = sentNotice,
-            onOpenExplorer = { openExplorer(AlgorandSend.explorerUrl(current.plan.network, current.txid)) },
+            explorerNotice = sentNotice,
+            onSubmit = { submit(current) },
+            onOpenExplorer = { txid -> openExplorer(AlgorandSend.explorerUrl(current.plan.network, txid)) },
+            onStartOver = {
+                notice = null
+                step = AlgorandSendStep.Recipient
+            },
+            onBack = {
+                notice = null
+                step = AlgorandSendStep.Request(current.plan, current.requestId, current.parts)
+            },
             onDone = { navController.popBackStack() },
         )
     }
