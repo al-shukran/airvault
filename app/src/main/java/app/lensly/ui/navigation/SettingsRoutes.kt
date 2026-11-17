@@ -27,6 +27,7 @@ import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.vault.DuressResult
+import app.lensly.core.vault.FailureDelay
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.settings.Catalog
@@ -79,6 +80,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
     var settings by remember { mutableStateOf<AppSettings?>(null) }
     var catalog by remember { mutableStateOf<Catalog?>(null) }
     var failureCap by remember { mutableStateOf<FailureCapChoice?>(null) }
+    var failureErase by remember { mutableStateOf(FailureDelay.DEFAULT_WIPE_AFTER) }
     var proxyPolicy by remember { mutableStateOf<ProxyPolicy?>(null) }
 
     LaunchedEffect(session) {
@@ -92,6 +94,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
     LaunchedEffect(entry) {
         catalog = readCatalog(context)
         failureCap = readFailureCap(holder)
+        failureErase = readEraseAfter(holder)
         proxyPolicy = readProxyPolicy(holder)
         // A hide delay saved on its screen shows here when the owner comes back.
         whileUnlocked(navController, holder) {
@@ -128,6 +131,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         entryGesture = entryGestures.current,
         onEntryGesture = { navController.navigate(HiddenRoute.ENTRY_GESTURE) },
         failureDelayCap = failureCap,
+        failureEraseAfter = failureErase,
         onFailureDelayCap = { navController.navigate(HiddenRoute.FAILURE_CAP) },
         catalog = catalog,
         onNetworks = { navController.navigate(HiddenRoute.NETWORKS) },

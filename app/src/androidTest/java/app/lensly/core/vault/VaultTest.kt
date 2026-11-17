@@ -320,19 +320,19 @@ class VaultTest {
             assertNull(vault.failureDelayCapMs())
 
             // A wrong password is refused and counts as a failure, so the delay runs and the next change is refused too.
-            assertEquals(FailureCapResult.Rejected, vault.setFailureDelayCap(WRONG.toCharArray(), 5_000L))
+            assertEquals(FailureCapResult.Rejected, vault.setFailureLimits(WRONG.toCharArray(), 10_000L))
             assertEquals(1, vault.failureCountForTesting())
-            assertEquals(FailureCapResult.Rejected, vault.setFailureDelayCap(PASSWORD.toCharArray(), 5_000L))
+            assertEquals(FailureCapResult.Rejected, vault.setFailureLimits(PASSWORD.toCharArray(), 10_000L))
             assertNull(vault.failureDelayCapMs())
 
             clock.advance(FailureDelay.LEARNING_CAP_MS)
-            assertEquals(FailureCapResult.Saved, vault.setFailureDelayCap(PASSWORD.toCharArray(), 5_000L))
-            assertEquals(5_000L, vault.failureDelayCapMs())
+            assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), 10_000L))
+            assertEquals(10_000L, vault.failureDelayCapMs())
             assertEquals(0, vault.failureCountForTesting())
 
             // The cap is stored in the failure files, so it is still there after the vault is opened again.
             val reopened = Vault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
-            assertEquals(5_000L, reopened.failureDelayCapMs())
+            assertEquals(10_000L, reopened.failureDelayCapMs())
         }
     }
 
@@ -340,7 +340,7 @@ class VaultTest {
     fun savedCapShortensTheDelayBeforeAnyUnlock() {
         runBlocking {
             vault.create(PASSWORD.toCharArray())
-            assertEquals(FailureCapResult.Saved, vault.setFailureDelayCap(PASSWORD.toCharArray(), 1_000L))
+            assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), 10_000L))
 
             // The wrong password makes one failure. The learning cap would allow 10 s, but the owner's 1 s cap is smaller.
             assertRejected(vault.unlock(WRONG.toCharArray()))
@@ -356,7 +356,7 @@ class VaultTest {
         runBlocking {
             vault.create(PASSWORD.toCharArray())
             assertThrows(IllegalArgumentException::class.java) {
-                runBlocking { vault.setFailureDelayCap(PASSWORD.toCharArray(), 999L) }
+                runBlocking { vault.setFailureLimits(PASSWORD.toCharArray(), 999L) }
             }
             assertNull(vault.failureDelayCapMs())
         }
@@ -366,7 +366,7 @@ class VaultTest {
     fun oneTamperedCopyLocksForTheOwnersCap() {
         runBlocking {
             vault.create(PASSWORD.toCharArray())
-            assertEquals(FailureCapResult.Saved, vault.setFailureDelayCap(PASSWORD.toCharArray(), 5_000L))
+            assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), 10_000L))
 
             val bytes = failures.readBytes()
             bytes[10] = (bytes[10].toInt() xor 1).toByte()
@@ -374,7 +374,7 @@ class VaultTest {
 
             // The tampering is detected here. The backup still verifies, so the owner's 5 s cap applies to the lockout.
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
-            assertEquals(5_000L, vault.failureDelayCapMs())
+            assertEquals(10_000L, vault.failureDelayCapMs())
             clock.advance(4_999)
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
             clock.advance(1)
@@ -386,7 +386,7 @@ class VaultTest {
     fun bothTamperedCopiesLockForTheStrictestCap() {
         runBlocking {
             vault.create(PASSWORD.toCharArray())
-            assertEquals(FailureCapResult.Saved, vault.setFailureDelayCap(PASSWORD.toCharArray(), 5_000L))
+            assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), 10_000L))
             // Past the learning period, so the cap is what sets the lockout, not the 10 s learning cap.
             clock.advance(FailureDelay.LEARNING_PERIOD_MS)
 

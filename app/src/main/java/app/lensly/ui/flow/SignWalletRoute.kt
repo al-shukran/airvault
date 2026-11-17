@@ -7,6 +7,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -24,6 +25,7 @@ import app.lensly.app.sign.algorandCounterparties
 import app.lensly.app.sign.solanaCounterparties
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.gate.PasswordBuffer
+import app.lensly.ui.gate.eraseWarning
 import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.navigation.openAddressBookFor
 import app.lensly.ui.navigation.openHidden
@@ -99,7 +101,7 @@ internal fun SignWalletRoute(
             onReject = flow::leave,
             onOpenAddress = openAddress,
         )
-        is SignStep.Confirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
+        is SignStep.Confirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.BitcoinReview -> BitcoinReviewScreen(
             review = shown.ready.reviewed.review,
             network = shown.ready.reviewed.account.network,
@@ -117,7 +119,7 @@ internal fun SignWalletRoute(
             onReject = flow::leave,
             onOpenAddress = openAddress,
         )
-        is SignStep.BitcoinConfirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
+        is SignStep.BitcoinConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.SolanaReview -> SolanaReviewScreen(
             review = shown.ready.review,
             signer = shown.ready.signer,
@@ -126,7 +128,7 @@ internal fun SignWalletRoute(
             onReject = flow::leave,
             onOpenAddress = openAddress,
         )
-        is SignStep.SolanaConfirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
+        is SignStep.SolanaConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.AlgorandReview -> AlgorandReviewScreen(
             review = shown.ready.review,
             signer = shown.ready.signer,
@@ -135,7 +137,7 @@ internal fun SignWalletRoute(
             onReject = flow::leave,
             onOpenAddress = openAddress,
         )
-        is SignStep.AlgorandConfirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
+        is SignStep.AlgorandConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.Signature -> ShowQrScreen(
             title = "SIGNATURE",
             subtitle = "Scan this with your online wallet",
@@ -166,16 +168,20 @@ private fun notesNow(
  * The typed characters are copied out, and the buffer is cleared, on every submit.
  */
 @Composable
-private fun ConfirmPasswordRoute(busy: Boolean, onConfirm: (CharArray) -> Unit) {
+private fun ConfirmPasswordRoute(busy: Boolean, holder: VaultHolder, onConfirm: (CharArray) -> Unit) {
     val buffer = remember { PasswordBuffer() }
     var length by remember { mutableIntStateOf(0) }
+    var triesLeft by remember { mutableStateOf<Int?>(null) }
     DisposableEffect(Unit) {
         onDispose { buffer.clear() }
     }
+    // The tries left are read each time the App Password is asked, so the warning counts the wrong tries just made.
+    LaunchedEffect(busy) { if (!busy) triesLeft = holder.vault.triesBeforeErase() }
 
     ConfirmPasswordScreen(
         length = length,
         busy = busy,
+        warning = triesLeft?.let(::eraseWarning),
         onKey = { c ->
             if (!busy && buffer.append(c)) length = buffer.length
         },

@@ -27,13 +27,13 @@ class FailureCapScreenshotTest {
 
     @Test
     fun chooseBelowTenSeconds() = compose.snapshot("failure_cap_choose_warning") {
-        FailureCapSnapshot(step = FailureCapStep.Choose, saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.ONE_SECOND)
+        FailureCapSnapshot(step = FailureCapStep.Choose, saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.TEN_SECONDS)
     }
 
     @Test
     fun password() = compose.snapshot("failure_cap_password") {
         FailureCapSnapshot(
-            step = FailureCapStep.Password(FailureCapChoice.FIVE_MINUTES, busy = false),
+            step = FailureCapStep.Password(FailureCapChoice.FIVE_MINUTES, eraseAfter = 10, busy = false),
             saved = FailureCapChoice.DEFAULT,
             selected = FailureCapChoice.FIVE_MINUTES,
         )
@@ -46,8 +46,11 @@ private fun FailureCapSnapshot(step: FailureCapStep, saved: FailureCapChoice?, s
         step = step,
         saved = saved,
         selected = selected,
+        savedErase = 10,
+        selectedErase = null,
         passwordLength = 0,
         onSelect = {},
+        onSelectErase = {},
         onContinue = {},
         onKey = {},
         onBackspace = {},

@@ -48,9 +48,15 @@ sealed interface UnlockResult {
      * no timing or remaining-delay information.
      */
     data object Rejected : UnlockResult
+
+    /**
+     * The password was wrong, and that try was the last one the owner allows, so the vault was erased. Nothing is left to open,
+     * and the caller leaves the vault as it would after a wipe.
+     */
+    data object Erased : UnlockResult
 }
 
-/** Outcome of [Vault.setFailureDelayCap]. */
+/** Outcome of [Vault.setFailureLimits]. */
 sealed interface FailureCapResult {
     /**
      * The password was this vault's own, and the change is accepted. From the decoy, nothing is written, so the change appears
@@ -60,6 +66,9 @@ sealed interface FailureCapResult {
 
     /** The password was not this vault's own, or a delay is running. Nothing was saved. */
     data object Rejected : FailureCapResult
+
+    /** The password was wrong, and that try was the last one the owner allows, so the vault was erased. */
+    data object Erased : FailureCapResult
 }
 
 /** Outcome of [Vault.setDuress]. Only [Enabled] changes the real vault. Every other outcome leaves it as it was. */
@@ -131,10 +140,12 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  *
  * [unlock] rate-limits password checks with [FailureDelay], and both passwords share that delay. The cap is stored in the
  * failure state, so it is the same for both. While a delay runs, [unlock] returns [UnlockResult.Rejected] without checking
- * the password. It still spends the same Argon2 time as a real check, so the delay cannot be seen from timing.
+ * the password. It still spends the same Argon2 time as a real check, so the delay cannot be seen from timing. The same count
+ * erases the vault after the owner's number of wrong tries in a row, with the same wipe as [wipe]. The erasing try returns
+ * [UnlockResult.Erased], and both vaults go, since the wrong tries do not say which one was meant.
  *
  * Argon2 runs on [Dispatchers.Default]. File and Keystore work runs on [Dispatchers.IO]. The password arrays passed to
- * [create], [unlock], [rekey], [setDuress] and [setFailureDelayCap] are zeroed before those calls return.
+ * [create], [unlock], [rekey], [setDuress] and [setFailureLimits] are zeroed before those calls return.
  *
  * @param clock time source for the failure delay. Tests can inject a clock they control.
  */
@@ -215,7 +226,7 @@ class Vault constructor(
      *
      * Returns [UnlockResult.Rejected] for a password that opens neither, and for any attempt made during a failure delay.
      * A delay attempt does not check the password and does not add to the failure count, but it spends the same Argon2
-     * time as a real check.
+     * time as a real check. A wrong try that is the owner's last allowed one erases the vault and returns [UnlockResult.Erased].
      *
      * @throws VaultException if the password is correct but the stored state is damaged or the hardware key is gone.
      */
@@ -223,17 +234,18 @@ class Vault constructor(
         withContext(Dispatchers.IO) { mutex.withLock { unlockLocked(password) } }
 
     /**
-     * Saves the Failure Delay cap: [capMs] in milliseconds, within [FailureDelay.MIN_CAP_MS] to [FailureDelay.MAX_CAP_MS],
-     * or null for Default. The password is checked exactly as [unlock] checks it, so a running delay refuses the change and
-     * a wrong password counts as a failure. A right one resets the failure count. The cap lives in the failure store, which
-     * both vaults share. Only the real vault writes it. A call from a decoy session ([inDecoy] true) takes only the Duress
-     * Password, and its change is accepted but nothing is written, so a decoy never changes the real cap. The check runs in
-     * every case, so a call takes as long as a save. The cap applies before unlock. [password] is zeroed before this returns.
+     * Saves the Failure Delay cap, [capMs] in milliseconds within [FailureDelay.MIN_CAP_MS] to [FailureDelay.MAX_CAP_MS] or null
+     * for Default, and the erase count [wipeAfter] (within [FailureDelay.MIN_WIPE_AFTER] to [FailureDelay.MAX_WIPE_AFTER]), or the
+     * saved erase count when [wipeAfter] is null. The password is checked exactly as [unlock] checks it, so a running delay refuses
+     * the change and a wrong password counts as a failure. A right one resets the failure count. The limits live in the failure
+     * store, which both vaults share. Only the real vault writes them. A call from a decoy session ([inDecoy] true) takes only the
+     * Duress Password, and its change is accepted but nothing is written, so a decoy never changes the real limits. The check runs
+     * in every case, so a call takes as long as a save. The limits apply before unlock. [password] is zeroed before this returns.
      *
-     * @throws IllegalArgumentException if [capMs] is outside the offered range.
+     * @throws IllegalArgumentException if [capMs] or [wipeAfter] is outside the offered range.
      */
-    suspend fun setFailureDelayCap(password: CharArray, capMs: Long?, inDecoy: Boolean = false): FailureCapResult =
-        withContext(Dispatchers.IO) { mutex.withLock { setFailureDelayCapLocked(password, capMs, inDecoy) } }
+    suspend fun setFailureLimits(password: CharArray, capMs: Long?, wipeAfter: Int? = null, inDecoy: Boolean = false): FailureCapResult =
+        withContext(Dispatchers.IO) { mutex.withLock { setFailureLimitsLocked(password, capMs, wipeAfter, inDecoy) } }
 
     /**
      * The saved Failure Delay cap in milliseconds. Null means Default, and it is also the answer when no vault exists, so
@@ -244,6 +256,27 @@ class Vault constructor(
             mutex.withLock {
                 if (!layout.exists()) return@withLock null
                 failureStore().load(clock).capMs
+            }
+        }
+
+    /** The saved erase count, which is [FailureDelay.DEFAULT_WIPE_AFTER] when no vault exists. */
+    suspend fun failureEraseAfter(): Int =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (!layout.exists()) return@withLock FailureDelay.DEFAULT_WIPE_AFTER
+                failureStore().load(clock).wipeAfter
+            }
+        }
+
+    /**
+     * The tries left before this vault is erased, when that is [FailureDelay.WARN_TRIES_LEFT] or fewer, and null otherwise. It
+     * counts the wrong tries of both passwords, so it says nothing about which vault a password opens. Null when no vault exists.
+     */
+    suspend fun triesBeforeErase(): Int? =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (!layout.exists()) return@withLock null
+                FailureDelay.triesLeftToWarn(failureStore().load(clock))
             }
         }
 
@@ -300,8 +333,9 @@ class Vault constructor(
         }
 
     /**
-     * Deletes the vault: its Keystore keys first, then every file, the real vault and the decoy vault alike. Call this only
-     * on an explicit user command. Do not call it while any other operation of this class is running.
+     * Deletes the vault: its Keystore keys first, then every file, the real vault and the decoy vault alike. Call this on an
+     * explicit user command, or from the erase that follows the owner's last allowed wrong try (see [unlock]). Do not call it
+     * while any other operation of this class is running.
      */
     fun wipe() {
         wipeVault(layout) { keys.deleteAll() }
@@ -407,7 +441,11 @@ class Vault constructor(
 
     private suspend fun unlockLocked(password: CharArray): UnlockResult {
         try {
-            val opened = checkPasswordLocked(password) ?: return UnlockResult.Rejected
+            val opened = when (val checked = checkPasswordLocked(password)) {
+                is Checked.Opened -> checked.slot
+                Checked.Refused -> return UnlockResult.Rejected
+                Checked.Erased -> return UnlockResult.Erased
+            }
             try {
                 val isDecoy = opened.role == VaultRole.DECOY
                 val session = VaultSession(
@@ -460,18 +498,25 @@ class Vault constructor(
         }
     }
 
-    private suspend fun setFailureDelayCapLocked(password: CharArray, capMs: Long?, inDecoy: Boolean): FailureCapResult {
+    private suspend fun setFailureLimitsLocked(password: CharArray, capMs: Long?, wipeAfter: Int?, inDecoy: Boolean): FailureCapResult {
         try {
             if (capMs != null) {
-                require(capMs in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS) { "cap must be between 1 s and 1 h" }
+                require(capMs in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS) { "cap must be between 10 s and 1 h" }
             }
-            val opened = checkPasswordLocked(password) ?: return FailureCapResult.Rejected
+            if (wipeAfter != null) {
+                require(wipeAfter in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) { "erase count must be between 5 and 20" }
+            }
+            val opened = when (val checked = checkPasswordLocked(password)) {
+                is Checked.Opened -> checked.slot
+                Checked.Refused -> return FailureCapResult.Rejected
+                Checked.Erased -> return FailureCapResult.Erased
+            }
             try {
-                // Each vault takes only its own password. The cap is shared by both vaults, so only the real vault writes it. A
-                // decoy's change is accepted and nothing is written, so a coerced change cannot weaken the real cap.
+                // Each vault takes only its own password. The limits are shared by both vaults, so only the real vault writes them. A
+                // decoy's change is accepted and nothing is written, so a coerced change cannot weaken the real limits.
                 val own = if (inDecoy) VaultRole.DECOY else VaultRole.REAL
                 if (opened.role != own) return FailureCapResult.Rejected
-                if (!inDecoy) opened.store.recordCap(opened.state, capMs, clock)
+                if (!inDecoy) opened.store.recordLimits(opened.state, capMs, wipeAfter ?: opened.state.wipeAfter, clock)
                 return FailureCapResult.Saved
             } finally {
                 opened.close()
@@ -479,6 +524,18 @@ class Vault constructor(
         } finally {
             Arrays.fill(password, '\u0000')
         }
+    }
+
+    /** What one password check found. [Erased] is the check whose wrong try was the owner's last allowed one. */
+    private sealed interface Checked {
+        /** The password opened [slot]. The caller closes it. */
+        class Opened(val slot: OpenedSlot) : Checked
+
+        /** The password opened neither slot, or a Failure Delay refused it. Nothing was erased. */
+        data object Refused : Checked
+
+        /** The wrong try erased the vault. Nothing is left to open. */
+        data object Erased : Checked
     }
 
     /** A password that opened one slot: its Vault Key and role, and the software key. The caller closes it. */
@@ -498,13 +555,14 @@ class Vault constructor(
     }
 
     /**
-     * Checks [password] against the Failure Delay and against both slots. Returns null when the attempt is refused: during a
-     * delay, which is not checked and not counted, or for a password that opens neither slot, which is counted. Otherwise it
-     * returns the slot the password opened, and the caller closes it. Both slots are tried with the one derivation, so the
+     * Checks [password] against the Failure Delay and against both slots. The result is [Checked.Refused] when the attempt is refused:
+     * during a delay, which is not checked and not counted, or for a password that opens neither slot, which is counted. A counted
+     * wrong try that is the owner's last allowed one erases the vault instead, and the result is [Checked.Erased]. Otherwise the
+     * result holds the slot the password opened, and the caller closes it. Both slots are tried with the one derivation, so the
      * decoy costs what the real vault costs, and a refused password costs the same as either.
      */
-    private suspend fun checkPasswordLocked(password: CharArray): OpenedSlot? {
-        if (!layout.exists()) return null
+    private suspend fun checkPasswordLocked(password: CharArray): Checked {
+        if (!layout.exists()) return Checked.Refused
         val header = VaultHeader.decode(readVaultFile(layout.header))
         val store = failureStore()
         // The Failure Delay check. While the wait runs, the time it has served is saved, so a reboot continues the wait.
@@ -513,7 +571,7 @@ class Vault constructor(
         // once, on a fixed input, so a refused attempt takes as long as a real one.
         if (check.blocked) {
             spendKdfTime(header)
-            return null
+            return Checked.Refused
         }
         val state = check.state
 
@@ -529,8 +587,12 @@ class Vault constructor(
             }
             if (opened.isEmpty()) {
                 // A wrong password that cannot be saved locks instead of throwing, so the attempt is blocked and nothing escapes.
-                store.recordFailureOrLock(state, clock)
-                return null
+                val failed = store.recordFailureOrLock(state, clock)
+                if (FailureDelay.erases(failed)) {
+                    eraseLocked()
+                    return Checked.Erased
+                }
+                return Checked.Refused
             }
             // The software layer authenticated, so the password is right. Reset the count before the hardware step.
             val reset = store.recordSuccess(state, clock)
@@ -540,9 +602,21 @@ class Vault constructor(
                 Triple(key, unwrapped, unwrappedRole)
             }
             handedOver = true
-            return OpenedSlot(softKey, vaultKey, role, hardwareKey, store, reset)
+            return Checked.Opened(OpenedSlot(softKey, vaultKey, role, hardwareKey, store, reset))
         } finally {
             if (!handedOver) Arrays.fill(softKey, 0)
+        }
+    }
+
+    /**
+     * Erases the vault after the owner's last allowed wrong try: the same wipe as [wipe]. A file that cannot be removed is not
+     * an error here, because the keys went first and what is left cannot be opened.
+     */
+    private fun eraseLocked() {
+        try {
+            wipe()
+        } catch (e: VaultException) {
+            // The keys are gone, so the vault cannot open.
         }
     }
 

@@ -21,6 +21,7 @@ import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
+import app.lensly.ui.gate.GateStatusLine
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.theme.LenslySpacing
 
@@ -28,9 +29,10 @@ private val STATUS_SLOT_HEIGHT = 24.dp
 
 /**
  * The App Password check before a signature. It is the unlock screen with a CONFIRM title and a line that says why the
- * password is asked. Like the unlock screen, it never shows an error: a wrong password only clears the field. While
- * [busy], the status row says the password is being checked, and the keyboard is off. The keyboard is up when the screen
- * opens, and a tap outside the field or the system Back hides it until a tap on the field brings it back.
+ * password is asked. Like the unlock screen, it never shows an error: a wrong password only clears the field. Near the
+ * erase, [warning] says how many tries are left (see eraseWarning in the gate). While [busy], the status row says the password is
+ * being checked, and the keyboard is off. The keyboard is up when the screen opens, and a tap outside the field or the
+ * system Back hides it until a tap on the field brings it back.
  */
 @Composable
 fun ConfirmPasswordScreen(
@@ -40,6 +42,7 @@ fun ConfirmPasswordScreen(
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
+    warning: String? = null,
 ) {
     var focused by rememberSaveable { mutableStateOf(true) }
     KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
@@ -86,6 +89,8 @@ fun ConfirmPasswordScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                } else if (warning != null) {
+                    GateStatusLine(text = warning)
                 }
             }
 

@@ -176,7 +176,7 @@ class HomeScreensScreenshotTest {
         home(
             wallets = sampleWallets().take(2),
             profiles = sampleHomeProfiles,
-            readiness = sampleReadiness.copy(lockout = FailureCapChoice.ONE_SECOND),
+            readiness = sampleReadiness.copy(lockout = FailureCapChoice.TEN_SECONDS),
         )
     }
 

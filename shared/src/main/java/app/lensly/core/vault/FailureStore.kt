@@ -29,7 +29,7 @@ import javax.crypto.SecretKey
  *
  * No storage or Keystore error is thrown past [load], [checkDelay], [recordFailureOrLock] or [recordSuccess]. A lock or a reset that
  * this process could not save is held in memory (see [PENDING]), so the delay still applies to this process until a save goes through.
- * [recordFailure], [recordCap] and [initialize] still throw when the state cannot be saved: a cap change and a vault creation report
+ * [recordFailure], [recordLimits] and [initialize] still throw when the state cannot be saved: a limits change and a vault creation report
  * that to their caller.
  *
  * Assumptions and residual risk:
@@ -163,6 +163,7 @@ internal class FailureStore(
             lastFailureWallMs = clock.wallMillis(),
             lastFailureElapsedMs = clock.elapsedMillis(),
             capMs = FailureDelay.MAX_CAP_MS,
+            wipeAfter = previous.wipeAfter,
         )
         PENDING[seenKey] = locked
         return locked
@@ -188,14 +189,15 @@ internal class FailureStore(
     }
 
     /**
-     * Saves the Failure Delay cap the owner chose, or null for Default, and returns the new state. The failure count
-     * is left as it is. The caller has already checked the App Password.
+     * Saves the Failure Delay cap the owner chose, or null for Default, and the erase count, and returns the new state. The failure
+     * count is left as it is. The caller has already checked the App Password.
      */
-    fun recordCap(previous: FailureState, capMs: Long?, clock: Clock): FailureState {
+    fun recordLimits(previous: FailureState, capMs: Long?, wipeAfter: Int, clock: Clock): FailureState {
         if (capMs != null) {
-            require(capMs in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS) { "cap must be between 1 s and 1 h" }
+            require(capMs in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS) { "cap must be between 10 s and 1 h" }
         }
-        return save(previous.copy(seq = previous.seq + 1, capMs = capMs), clock)
+        require(wipeAfter in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) { "erase count must be between 5 and 20" }
+        return save(previous.copy(seq = previous.seq + 1, capMs = capMs, wipeAfter = wipeAfter), clock)
     }
 
     /** What [checkDelay] found: the state as it was loaded, and whether the Failure Delay blocks the attempt. */
@@ -248,6 +250,7 @@ internal class FailureStore(
             lastFailureWallMs = clock.wallMillis(),
             lastFailureElapsedMs = clock.elapsedMillis(),
             capMs = tamperedCap(verified),
+            wipeAfter = tamperedWipeAfter(verified),
         )
         return trySave(locked, clock) ?: locked.also { PENDING[seenKey] = it }
     }
@@ -272,6 +275,10 @@ internal class FailureStore(
         1 -> verified.single().capMs
         else -> verified.maxBy { FailureDelay.configuredCapFor(it) }.capMs
     }
+
+    /** The erase count a tampered state keeps: the strictest of the copies that verify, or the strictest allowed when none does. */
+    private fun tamperedWipeAfter(verified: List<FailureState>): Int =
+        verified.minOfOrNull { it.wipeAfter } ?: FailureDelay.MIN_WIPE_AFTER
 
     /**
      * Writes [state] under a new key for its sequence number, then deletes every other Delay State key. The keys of earlier states go
@@ -353,6 +360,7 @@ internal class FailureStore(
         val payloadSize = when (version) {
             VERSION_1 -> PAYLOAD_SIZE_V1
             VERSION_2 -> PAYLOAD_SIZE_V2
+            VERSION_3 -> PAYLOAD_SIZE_V3
             VERSION -> PAYLOAD_SIZE
             else -> return null
         }
@@ -361,9 +369,9 @@ internal class FailureStore(
         val mac = bytes.copyOfRange(payloadSize, bytes.size)
         // A Keystore error reading the key, or making the MAC, leaves the copy unverified. It does not fail the load.
         val key = keystoreOrNull {
-            // Version 3 names its key by sequence number, which is read before the MAC is checked. A wrong number names no key,
-            // or another one, so the MAC then fails.
-            if (version == VERSION) keys.failureMacKey(ByteBuffer.wrap(payload).getLong(MAGIC.size + 1)) else keys.legacyFailureMacKey()
+            // Version 3 and later name their key by sequence number, which is read before the MAC is checked. A wrong number names no
+            // key, or another one, so the MAC then fails.
+            if (version >= VERSION_3) keys.failureMacKey(ByteBuffer.wrap(payload).getLong(MAGIC.size + 1)) else keys.legacyFailureMacKey()
         } ?: return null
         val expected = keystoreOrNull { macOf(key, payload) } ?: return null
         if (!MessageDigest.isEqual(mac, expected)) return null
@@ -386,11 +394,14 @@ internal class FailureStore(
             in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS -> stored
             else -> return null
         }
-        // Version 2 is the layout from before the boot count, so it has none.
+        // Version 2 is the layout from before the boot count, so it has none. Versions 2 and 3 have no erase count, so it is the default.
         val bootCount = if (version == VERSION_2) null else bootCountOf(buffer.getInt())
         val elapsedAtSave = if (version == VERSION_2) 0L else buffer.getLong()
+        val wipeAfter = if (version == VERSION) buffer.getInt() else FailureDelay.DEFAULT_WIPE_AFTER
+        // A MAC-valid erase count outside the offered range is not something this app writes, so the copy is not trusted.
+        if (wipeAfter !in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) return null
         return Copy(
-            FailureState(seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs, bootCount, elapsedAtSave),
+            FailureState(seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs, bootCount, elapsedAtSave, wipeAfter),
             legacy = version != VERSION,
         )
     }
@@ -406,6 +417,7 @@ internal class FailureStore(
             .putLong(state.capMs ?: NO_CAP_ON_DISK)
             .putInt(state.bootCount ?: NO_BOOT_COUNT)
             .putLong(state.elapsedAtSave)
+            .putInt(state.wipeAfter)
             .array()
         return payload + keystore(STATE_UNAVAILABLE) { macOf(key, payload) }
     }
@@ -432,10 +444,12 @@ internal class FailureStore(
         /**
          * Version 1 has no cap. Version 2 adds the cap, and both use the legacy key. Version 3 has the same fields as version 2,
          * plus the boot count and the time the wait had run at the save, and it is MAC'd under the key for its sequence number.
+         * Version 4 adds the erase count.
          */
         private const val VERSION_1: Byte = 1
         private const val VERSION_2: Byte = 2
-        private const val VERSION: Byte = 3
+        private const val VERSION_3: Byte = 3
+        private const val VERSION: Byte = 4
 
         /** The cap on disk when the owner chose Default. Zero is outside the offered range, so it cannot be a real cap. */
         private const val NO_CAP_ON_DISK = 0L
@@ -450,7 +464,10 @@ internal class FailureStore(
         private const val PAYLOAD_SIZE_V2 = PAYLOAD_SIZE_V1 + 8
 
         /** Version 2 payload plus the boot count (4) and the time the wait had run at the save (8). */
-        private const val PAYLOAD_SIZE = PAYLOAD_SIZE_V2 + 4 + 8
+        private const val PAYLOAD_SIZE_V3 = PAYLOAD_SIZE_V2 + 4 + 8
+
+        /** Version 3 payload plus the erase count (4). */
+        private const val PAYLOAD_SIZE = PAYLOAD_SIZE_V3 + 4
         private const val MAC_SIZE = 32
 
         private const val STATE_UNAVAILABLE = "The Failure Delay state could not be read or written through the Keystore."
