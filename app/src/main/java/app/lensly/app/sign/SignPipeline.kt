@@ -35,6 +35,7 @@ import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
@@ -116,7 +117,9 @@ data class WhitelistedCall(
  *
  * A chain or token outside the registry is not refused. Its review shows it as unknown, with raw base units and a
  * warning, and [TxReview.needsRegistryConfirmation] is set. A call that cannot be decoded is refused unless the signed
- * whitelist approves its contract and selector. [proxyPolicy] decides what a whitelisted proxy gets.
+ * whitelist approves its contract and selector, or [unknownCalls] is WARN, which reviews it under an error-level warning.
+ * [proxyPolicy] decides what a whitelisted proxy gets. [unknownCalls] is REFUSE unless the caller passes the owner's setting, so a
+ * caller that does not read the setting keeps the refusal.
  *
  * The pipeline parses nothing itself. The request arrives parsed, and [parser] decodes the calldata of a whitelisted call.
  */
@@ -124,6 +127,7 @@ class SignPipeline(
     private val registry: Registry,
     private val parser: RequestParser,
     private val proxyPolicy: ProxyPolicy = ProxyPolicy.DEFAULT,
+    private val unknownCalls: UnknownCallPolicy = UnknownCallPolicy.REFUSE,
 ) {
 
     /**
@@ -255,6 +259,16 @@ class SignPipeline(
                     .copy(whitelisted = gap.whitelisted, warnings = gap.warnings),
                 tx,
             )
+            is GapOutcome.Unknown -> ready(
+                target,
+                target.review(
+                    function = "0x${gap.call.selector}",
+                    toAddress = gap.call.target,
+                    params = listOf("Value" to gap.call.value) + rawCallParams(gap.call),
+                    warnings = listOf(UNKNOWN_CALL_WARNING),
+                ),
+                tx,
+            )
         }
 
     /** What the whitelist decides for an undecodable call: approved, with the facts its review shows, or refused with its reason. */
@@ -268,11 +282,14 @@ class SignPipeline(
         ) : GapOutcome
 
         class Refused(val reason: String, val call: UndecodedCall) : GapOutcome
+
+        /** A call the whitelist does not approve, which the Warn policy reviews under an error-level warning with its raw data. */
+        class Unknown(val call: UndecodedCall) : GapOutcome
     }
 
     /**
      * The whitelist's decision for an undecodable call to [contract] that sends [value]. A call the whitelist does not approve is
-     * refused. A whitelisted proxy is refused under Bind to implementation and under Refuse all proxies. Under Warn and confirm it is
+     * refused, or under [UnknownCallPolicy.WARN] reviewed as [GapOutcome.Unknown]. A whitelisted proxy is refused under Bind to implementation and under Refuse all proxies. Under Warn and confirm it is
      * approved with its approved meaning, and the approval carries the proxy binding. The sandbox decodes the arguments, and they are
      * checked against the calldata before they are shown.
      */
@@ -280,7 +297,10 @@ class SignPipeline(
         val entry = whitelistEntry(target, contract, calldata)
         val proxy = entry?.takeIf { it.upgradeable }?.proxy
         val call = undecodedCall(target, contract, value, calldata, proxy = proxy)
-        if (entry == null) return GapOutcome.Refused(UNKNOWN_CALL, call)
+        if (entry == null) {
+            if (unknownCalls == UnknownCallPolicy.REFUSE) return GapOutcome.Refused(UNKNOWN_CALL, call)
+            return GapOutcome.Unknown(call)
+        }
         if (entry.upgradeable && proxyPolicy == ProxyPolicy.BIND_TO_IMPLEMENTATION) {
             return GapOutcome.Refused(BOUND_PROXY_REFUSAL, call)
         }
@@ -386,6 +406,14 @@ class SignPipeline(
                 }
                 else -> when (val gap = whitelistedGap(target, contract, inner.calldata, inner.value ?: tx.value)) {
                     is GapOutcome.Refused -> return Prepared.Refused(gap.reason, gap.call)
+                    is GapOutcome.Unknown -> rows += NestedCall(
+                        depth = level,
+                        target = shown,
+                        function = "0x${gap.call.selector}",
+                        params = flags + rawCallParams(gap.call),
+                        warnings = listOf(UNKNOWN_CALL_WARNING),
+                        denylisted = denied,
+                    )
                     is GapOutcome.Approved -> rows += NestedCall(
                         depth = level,
                         target = shown,
@@ -602,6 +630,12 @@ class SignPipeline(
             proxy = proxy,
         )
 
+    /** The selector and the full calldata of an undecodable call, the raw data the review lists for it. */
+    private fun rawCallParams(call: UndecodedCall): List<Pair<String, String>> = listOf(
+        "Selector" to "0x${call.selector}",
+        "Calldata" to "0x${call.selector}${call.words.joinToString("")}",
+    )
+
     private fun message(target: Target): Prepared.Ready {
         val bytes = target.request.signData
         val review = target.review(
@@ -768,6 +802,8 @@ class SignPipeline(
         fun unknownTypedChain(chainId: Long): String =
             "The typed data is for chain $chainId, which is not in Lensly's network registry, so it is refused."
         const val UNKNOWN_CALL = "Unknown contract call"
+        const val UNKNOWN_CALL_WARNING =
+            "Unknown contract call. Lensly does not read this call, so it cannot say what it does. Check the contract and the calldata before you sign."
         const val BOUND_PROXY_REFUSAL = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is " +
             "still the approved version, so your Proxy Policy refuses it."
         const val ANY_PROXY_REFUSAL = "This contract is an upgradeable proxy, and your Proxy Policy refuses every proxy."

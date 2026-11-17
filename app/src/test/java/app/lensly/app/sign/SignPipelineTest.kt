@@ -29,6 +29,7 @@ import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.ur.Cbor
@@ -541,6 +542,41 @@ class SignPipelineTest {
         val ready = assertIs<Prepared.Ready>(guarded(requestCbor(tx, chainId = ETHEREUM)))
 
         assertEquals("0.01 ETH", ready.review.whitelisted?.call?.value)
+    }
+
+    /** Under Refuse an undecodable call is refused; under Warn it is reviewed with its raw data shown in full and nothing else changed. */
+    @Test
+    fun anUndecodableCallIsRefusedUnderRefuseAndReviewedUnderWarn() {
+        // balanceOf with one stray byte, as anUndecodableCallIsRefusedWithTheWholeCallOnScreen has it.
+        val data = erc20Call(SELECTOR_BALANCE_OF, RECIPIENT, BigInteger.ZERO) + "ab"
+        val cbor = requestCbor(eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data), chainId = ETHEREUM)
+
+        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(underPolicy(UnknownCallPolicy.REFUSE, cbor)).reason)
+
+        val review = assertIs<Prepared.Ready>(underPolicy(UnknownCallPolicy.WARN, cbor)).review
+        assertTrue(review.warnings.single().startsWith("Unknown contract call."))
+        assertEquals(USDC_ETHEREUM, review.toAddress)
+        assertEquals("0x$SELECTOR_BALANCE_OF", review.function)
+        assertEquals(
+            listOf(
+                "Value" to "0 ETH",
+                "Selector" to "0x$SELECTOR_BALANCE_OF",
+                "Calldata" to "0x" + data.removePrefix("0x").lowercase(),
+            ),
+            review.params,
+        )
+        assertTrue(review.whitelisted == null)
+    }
+
+    /** A transaction for another chain than the request is still refused under Warn: the chain check comes before the call check. */
+    @Test
+    fun aChainIdMismatchIsStillRefusedUnderWarn() {
+        val data = erc20Call(SELECTOR_BALANCE_OF, RECIPIENT, BigInteger.ZERO) + "ab"
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+
+        val reason = assertIs<Prepared.Refused>(underPolicy(UnknownCallPolicy.WARN, requestCbor(tx, chainId = MONAD_TESTNET))).reason
+
+        assertTrue(reason.startsWith("The transaction is for chain 1, but the request is for chain 10143"), reason)
     }
 
     @Test
@@ -1702,6 +1738,10 @@ class SignPipelineTest {
     }
 
     private fun prepared(cbor: ByteArray): Prepared = pipeline.prepare(cbor, VIEW)
+
+    /** The request of [cbor] prepared under [policy], which is how the owner's Unknown contract calls setting reaches the pipeline. */
+    private fun underPolicy(policy: UnknownCallPolicy, cbor: ByteArray): Prepared =
+        SignPipeline(REGISTRY, inProcessSandboxParser, unknownCalls = policy).prepare(cbor, VIEW)
 
     private fun ready(cbor: ByteArray): Prepared.Ready = assertIs<Prepared.Ready>(prepared(cbor))
 
