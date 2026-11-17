@@ -330,14 +330,23 @@ class SignFlowTest {
     }
 
     @Test
-    fun aPartThatDeclaresTooManyPartsIsRefusedWithItsReason() {
+    fun aPartThatDeclaresTooManyPartsIsNotPartOfTheRequest() {
         val flow = SignFlow(FakePorts(), WALLET_ID)
         val declared = "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/aa"
         runBlocking { flow.onScanned(declared) }
-        assertEquals(
-            "The request has more than ${ParserLimits.MAX_UR_PARTS} parts.",
-            assertIs<SignStep.Refused>(flow.state.value).reason,
-        )
+        assertEquals(null, assertIs<SignStep.Scanning>(flow.state.value).progress)
+    }
+
+    @Test
+    fun aStrayCodeOverTheLimitsDoesNotEndTheScan() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        val frames = framesOf(messageRequest(signData = ByteArray(300) { 9 }), FRAGMENT)
+        val stray = "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/aa"
+        runBlocking { flow.onScanned(frames.first()) }
+        runBlocking { flow.onScanned(stray) }
+        assertIs<SignStep.Scanning>(flow.state.value)
+        scan(flow, frames.drop(1))
+        assertIs<SignStep.Review>(flow.state.value)
     }
 
     @Test

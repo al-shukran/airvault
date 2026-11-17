@@ -18,7 +18,6 @@ import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.UrScanner
-import app.lensly.core.ur.urPartRefusal
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.psbt.Psbt
 import java.util.concurrent.Executors
@@ -101,10 +100,8 @@ object InProcessParser : RequestParser {
     override fun scan(parts: List<String>): ScanReply {
         val scanner = UrScanner()
         var accepted = true
-        for (part in parts) {
-            urPartRefusal(part)?.let { return ScanReply.Refused(it) }
-            accepted = scanner.receive(part)
-        }
+        // A part over the limits of urPartRefusal is not taken, so a stray code is NotPart and does not end the scan.
+        for (part in parts) accepted = scanner.receive(part)
         if (!accepted) return ScanReply.NotPart
         val ur = scanner.result() ?: return ScanReply.Incomplete(scanner.progress)
         if (ur.type == BtcPsbt.UR_TYPE) return bitcoinReply(ur)

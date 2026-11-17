@@ -8,6 +8,7 @@ import app.lensly.core.ur.KeystoneVectors
 import app.lensly.core.ur.framesOf
 import app.lensly.fuzz.FuzzSeeds
 import com.sparrowwallet.hummingbird.UR
+import com.sparrowwallet.hummingbird.URDecoder
 import java.nio.ByteBuffer
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -17,6 +18,8 @@ import kotlin.test.assertIs
 import org.junit.Test
 
 private const val ONE_FRAME = 64 * 1024
+private const val MULTI_PART_FRAGMENT = 60
+private const val MULTI_PART_FRAMES = 40
 private const val TIMEOUT_MILLIS = 50L
 
 /** Bounds a silent sandbox in a test, so a missing timeout fails the test instead of hanging it. */
@@ -130,5 +133,32 @@ class SandboxedParserTest {
         val reply = ParserWire.encodeScanReply(ScanReply.Complete(InProcessParser.parsedOf(request)))
 
         assertEquals(origin, assertIs<ScanReply.Complete>(ParserWire.decodeScanReply(reply)).parsed.request.origin)
+    }
+
+    @Test
+    fun aStrayUrCodeOverTheLimitsIsNotPartOfTheRequestAndTheRequestStillCompletes() {
+        val stray = "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/aa"
+        val frames = multiPartFrames()
+
+        assertEquals(ScanReply.NotPart, InProcessParser.scan(listOf(stray)))
+        assertEquals(ScanReply.NotPart, inProcessSandboxParser.scan(listOf(frames.first(), stray)))
+        val direct = InProcessParser.scan(frames)
+        assertIs<ScanReply.Complete>(direct)
+        assertContentEquals(
+            ParserWire.encodeScanReply(direct),
+            ParserWire.encodeScanReply(InProcessParser.scan(listOf(frames.first(), stray) + frames.drop(1))),
+        )
+    }
+
+    /**
+     * The frames of a request too large for one code, up to the frame that completes it, as a scan reads them. The stream is endless,
+     * so it is cut at [MULTI_PART_FRAMES].
+     */
+    private fun multiPartFrames(): List<String> {
+        val frames = framesOf(URDecoder.decode(KeystoneVectors.ur("eth-sign-request-origin.txt")), MULTI_PART_FRAGMENT)
+            .take(MULTI_PART_FRAMES)
+            .toList()
+        val complete = frames.indices.first { InProcessParser.scan(frames.take(it + 1)) is ScanReply.Complete }
+        return frames.take(complete + 1)
     }
 }
