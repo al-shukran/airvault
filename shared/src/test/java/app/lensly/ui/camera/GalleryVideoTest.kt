@@ -26,13 +26,13 @@ class GalleryVideoTest {
 
     @Test
     fun galleryListsAVideoWithItsLength() {
-        val store = PhotoStore.of(RuntimeEnvironment.getApplication())
+        val store = PhotoStore.of(RuntimeEnvironment.getApplication().filesDir, decoy = false)
         val video = store.newVideoFile(nowMs = 2_000L).apply { writeBytes(ByteArray(8)) }
         ShadowMediaMetadataRetriever.addMetadata(video.path, MediaMetadataRetriever.METADATA_KEY_DURATION, "7400")
 
         compose.setContent {
             LenslyTheme {
-                GalleryScreen(onBack = {})
+                GalleryScreen(store = store, onBack = {})
             }
         }
 

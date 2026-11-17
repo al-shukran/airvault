@@ -35,7 +35,6 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
 import app.lensly.app.vaultHolder
 import app.lensly.ui.camera.CameraScreen
-import app.lensly.ui.camera.GalleryScreen
 import app.lensly.ui.components.LocalVaultLock
 import kotlinx.coroutines.delay
 
@@ -51,9 +50,10 @@ const val INACTIVITY_LOCK_MS = 2 * 60 * 1000L
 
 /**
  * The camera cover and the navigation around it, which Lensly and Lumio share. It opens on the camera. The hidden area is entered by the
- * viewfinder gesture, and it is the only place the vault is unlocked. Pressing LOCK, or leaving the hidden area, locks the vault and
- * returns to the camera. [lockPolicy] says what else locks it: leaving the foreground, and the idle timeout. [hidden] adds the app's own
- * hidden area, which starts with [hiddenArea]. [lockVault] is what the top bar's lock icon does, and [leaveHidden] by default.
+ * viewfinder gesture, and it is the only place the vault stays unlocked. The gallery checks its password without keeping the vault open.
+ * Pressing LOCK, or leaving the hidden area, locks the vault and returns to the camera. [lockPolicy] says what else locks it: leaving
+ * the foreground, and the idle timeout. [hidden] adds the app's own hidden area, which starts with [hiddenArea]. [lockVault] is what the
+ * top bar's lock icon does, and [leaveHidden] by default.
  *
  * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
  */
@@ -92,8 +92,9 @@ fun CoverNavHost(
                 }
                 composable(LenslyRoute.GALLERY) {
                     // The gallery opens from the camera while the vault is locked, so it shows no lock icon.
+                    // Its gate asks for a vault password before any photo is shown.
                     CompositionLocalProvider(LocalVaultLock provides null) {
-                        GalleryScreen(onBack = { navController.popBackStack() })
+                        GalleryGate(vault = holder.vault, onBack = { navController.popBackStack() })
                     }
                 }
                 hidden(navController, holder)
