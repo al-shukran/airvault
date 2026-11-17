@@ -38,6 +38,9 @@ import app.lumio.pair.PairedWallet
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallets
 import app.lumio.send.EvmPaymentCode
+import app.lumio.send.SubmitFailure
+import app.lumio.send.SubmitMachine
+import app.lumio.send.SubmitState
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
@@ -45,7 +48,8 @@ import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.send.SendReviewScreen
-import app.lumio.ui.send.SendSentScreen
+import app.lumio.ui.send.SubmitScreen
+import app.lumio.ui.send.evmSummary
 import app.lumio.ui.send.SignRequestScreen
 import app.lumio.ui.send.SignatureScanScreen
 import com.sparrowwallet.hummingbird.UR
@@ -86,12 +90,13 @@ private sealed interface SendStep {
 
     class Scanning(val send: PreparedSend, val requestId: ByteArray, val parts: List<String>) : SendStep
 
-    class Sent(val chain: EvmChain, val hash: String) : SendStep
+    /** The signed transaction, held in memory until the owner submits it. Leaving the screen discards it. */
+    class Submit(val send: PreparedSend, val requestId: ByteArray, val parts: List<String>, val machine: SubmitMachine<ByteArray, String>) : SendStep
 }
 
 private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
 private const val SCAN_READING = "Reading the signature. Keep the camera on it."
-private const val SCAN_SENDING = "Signature read. Sending the transaction to the network."
+private const val SCAN_READ = "Signature read. Check the transaction, then submit it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
 private const val SIGNATURE_FAILED = "That code could not be used. Scan the signature again."
@@ -207,34 +212,38 @@ internal fun SendRoute(
         step = SendStep.Scanning(current.send, current.requestId, current.parts)
     }
 
+    /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until the owner submits it on the next screen. */
     fun applySignature(current: SendStep.Scanning, ur: UR) {
         scanBusy = true
         scanProgress = 1f
-        scanStatus = SCAN_SENDING
+        scanStatus = SCAN_READ
         scope.launch {
             val signed = withContext(Dispatchers.IO) { runCatching { EvmSend.signed(current.send, current.requestId, ur) } }
+            scanBusy = false
             signed.fold(
                 onFailure = { error ->
-                    scanBusy = false
                     scan = SignatureScan()
                     scanProgress = null
                     scanStatus = ownerWords(error, SIGNATURE_FAILED)
                 },
                 onSuccess = { raw ->
-                    val sent = withContext(Dispatchers.IO) {
-                        runCatching { EvmSend.broadcast(app.evmReadsFor(checkNotNull(session)), current.send.chain, raw) }
-                    }
-                    scanBusy = false
-                    sent.fold(
-                        onFailure = { error ->
-                            notice = ownerWords(error, BROADCAST_FAILED)
-                            step = SendStep.Request(current.send, current.requestId, current.parts)
-                        },
-                        onSuccess = { hash -> step = SendStep.Sent(current.send.chain, hash) },
+                    val reads = app.evmReadsFor(checkNotNull(session))
+                    val chain = current.send.chain
+                    val machine = SubmitMachine(
+                        signed = raw,
+                        broadcast = { bytes -> withContext(Dispatchers.IO) { EvmSend.broadcast(reads, chain, bytes) } },
+                        describe = { error -> SubmitFailure(ownerWords(error, BROADCAST_FAILED)) },
                     )
+                    notice = null
+                    step = SendStep.Submit(current.send, current.requestId, current.parts, machine)
                 },
             )
         }
+    }
+
+    /** Sends the signed transaction. A retry sends the same signed bytes again. */
+    fun submit(current: SendStep.Submit) {
+        scope.launch { current.machine.submit() }
     }
 
     fun onSignatureText(current: SendStep.Scanning, text: String) {
@@ -265,7 +274,7 @@ internal fun SendRoute(
 
     BackHandler {
         when (val current = step) {
-            SendStep.Form, is SendStep.Sent -> navController.popBackStack()
+            SendStep.Form -> navController.popBackStack()
             SendStep.ScanRecipient -> step = SendStep.Form
             is SendStep.Review -> {
                 notice = null
@@ -276,6 +285,14 @@ internal fun SendRoute(
                 step = SendStep.Review(current.send)
             }
             is SendStep.Scanning -> step = SendStep.Request(current.send, current.requestId, current.parts)
+            is SendStep.Submit -> when (current.machine.state.value) {
+                SubmitState.Submitting -> Unit
+                is SubmitState.Sent -> navController.popBackStack()
+                else -> {
+                    notice = null
+                    step = SendStep.Request(current.send, current.requestId, current.parts)
+                }
+            }
         }
     }
 
@@ -336,12 +353,22 @@ internal fun SendRoute(
             onText = { text -> onSignatureText(current, text) },
             onCancel = { step = SendStep.Request(current.send, current.requestId, current.parts) },
         )
-        is SendStep.Sent -> SendSentScreen(
-            chain = current.chain,
-            hash = current.hash,
-            explorerUrl = EvmSend.explorerLink(current.chain, current.hash),
-            notice = sentNotice,
-            onOpenExplorer = { EvmSend.explorerLink(current.chain, current.hash)?.let(::openExplorer) },
+        is SendStep.Submit -> SubmitScreen(
+            machine = current.machine,
+            rows = evmSummary(current.send),
+            explorerUrl = { hash -> EvmSend.explorerLink(current.send.chain, hash) },
+            status = null,
+            explorerNotice = sentNotice,
+            onSubmit = { submit(current) },
+            onOpenExplorer = { hash -> EvmSend.explorerLink(current.send.chain, hash)?.let(::openExplorer) },
+            onStartOver = {
+                notice = null
+                step = SendStep.Form
+            },
+            onBack = {
+                notice = null
+                step = SendStep.Request(current.send, current.requestId, current.parts)
+            },
             onDone = { navController.popBackStack() },
         )
     }

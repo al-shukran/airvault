@@ -57,14 +57,14 @@ import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
 import app.lumio.ui.btc.BtcAdvancedFields
 import app.lumio.ui.btc.BtcSendReviewScreen
-import app.lumio.ui.btc.BtcSendSentScreen
+import app.lumio.ui.send.btcSummary
 import app.lumio.ui.btc.BtcSignRequestScreen
 import app.lumio.ui.network.NetworkSwitch
 import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
 import app.lumio.ui.send.AdvancedSendFields
-import app.lumio.ui.send.SendSentScreen
+import app.lumio.ui.send.evmSummary
 import app.lumio.ui.send.SendReviewScreen
 import app.lumio.ui.send.SignRequestScreen
 import app.lumio.ui.send.SignatureScanScreen
@@ -269,17 +269,17 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun bitcoinBroadcastSending() = compose.snapshot("bitcoin_broadcast_sending") {
-        SignatureScanScreen(progress = 1f, status = SCAN_SENDING, onText = {}, onCancel = {})
+        SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onCancel = {})
     }
 
     @Test
     fun bitcoinBroadcastSuccess() = compose.snapshot("bitcoin_broadcast_success") {
-        BtcSendSentScreen(network = BtcNetwork.MAINNET, txid = TXID, notice = null, onOpenExplorer = {}, onDone = {})
+        SubmitFixture(sentSubmit(TXID), btcSummary(btcPlan), explorerUrl = { "https://mempool.space/tx/$it" })
     }
 
     @Test
     fun bitcoinBroadcastSuccessWithoutBrowser() = compose.snapshot("bitcoin_broadcast_success_no_browser") {
-        BtcSendSentScreen(network = BtcNetwork.MAINNET, txid = TXID, notice = NO_BROWSER, onOpenExplorer = {}, onDone = {})
+        SubmitFixture(sentSubmit(TXID), btcSummary(btcPlan), explorerUrl = { "https://mempool.space/tx/$it" }, notice = NO_BROWSER)
     }
 
     @Test
@@ -373,17 +373,27 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun ethereumBroadcastSending() = compose.snapshot("ethereum_broadcast_sending") {
-        SignatureScanScreen(progress = 1f, status = SCAN_SENDING, onText = {}, onCancel = {})
+        SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onCancel = {})
     }
 
     @Test
     fun ethereumBroadcastSuccess() = compose.snapshot("ethereum_broadcast_success") {
-        SendSentScreen(chain = ethereum, hash = TXHASH, explorerUrl = "https://etherscan.io/tx/$TXHASH", notice = null, onOpenExplorer = {}, onDone = {})
+        SubmitFixture(sentSubmit(TXHASH), evmSummary(ethSend), explorerUrl = { "https://etherscan.io/tx/$it" })
     }
 
     @Test
     fun ethereumBroadcastSuccessOnAChainWithoutExplorer() = compose.snapshot("ethereum_broadcast_success_no_explorer") {
-        SendSentScreen(chain = sepolia, hash = TXHASH, explorerUrl = null, notice = null, onOpenExplorer = {}, onDone = {})
+        SubmitFixture(sentSubmit(TXHASH), evmSummary(ethSend))
+    }
+
+    @Test
+    fun ethereumSubmitIdle() = compose.snapshot("ethereum_submit_idle") {
+        SubmitFixture(idleSubmit(), evmSummary(ethSend))
+    }
+
+    @Test
+    fun ethereumSubmitRefused() = compose.snapshot("ethereum_submit_refused") {
+        SubmitFixture(refusedSubmit(BROADCAST_FAILED), evmSummary(ethSend))
     }
 
     @Test
@@ -522,7 +532,7 @@ class LumioCoverageScreenshotTest {
 
         // The words the send and pairing routes show. They are copied from SendRoutes, BtcSendRoutes and PairRoutes.
         const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
-        const val SCAN_SENDING = "Signature read. Sending the transaction to the network."
+        const val SCAN_READ = "Signature read. Check the transaction, then submit it."
         const val REQUEST_FAILED = "The sign request could not be made. Try again."
         const val BROADCAST_FAILED = "The transaction could not be sent. Check the balance, then try again."
         const val NO_BROWSER = "No browser can open the explorer."

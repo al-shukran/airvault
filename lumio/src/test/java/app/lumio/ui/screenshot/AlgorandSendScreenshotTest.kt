@@ -1,5 +1,6 @@
 package app.lumio.ui.screenshot
 
+import app.lumio.ui.send.algorandSummary
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgoSignedTxn
@@ -12,7 +13,6 @@ import app.lumio.send.algorand.AlgorandFunds
 import app.lumio.send.algorand.AlgorandRecipientScreen
 import app.lumio.send.algorand.AlgorandReviewScreen
 import app.lumio.send.algorand.AlgorandSend
-import app.lumio.send.algorand.AlgorandSentScreen
 import app.lumio.send.algorand.AlgorandSignRequestScreen
 import java.math.BigInteger
 import org.junit.Rule
@@ -124,13 +124,11 @@ class AlgorandSendScreenshotTest {
 
     @Test
     fun algorandSendSent() = compose.snapshot("algorand_send_sent") {
-        AlgorandSentScreen(
-            network = ALGORAND_TESTNET,
-            txid = txid,
+        SubmitFixture(
+            sentSubmit(txid),
+            algorandSummary(plan),
+            explorerUrl = { AlgorandSend.explorerUrl(ALGORAND_TESTNET, it) },
             status = "Waiting for the network to confirm the transaction.",
-            notice = null,
-            onOpenExplorer = {},
-            onDone = {},
         )
     }
 }

@@ -235,42 +235,6 @@ internal fun AlgorandSignRequestScreen(
     }
 }
 
-/**
- * The sent transaction: its ID, what the network says about it now, and the explorer page. [notice] is why the explorer did not open.
- */
-@Composable
-internal fun AlgorandSentScreen(
-    network: NetworkId,
-    txid: String,
-    status: String,
-    notice: String?,
-    onOpenExplorer: () -> Unit,
-    onDone: () -> Unit,
-) {
-    LenslyScreen(
-        title = "Sent",
-        bottomAction = {
-            WalletPill(
-                text = "Done",
-                onClick = onDone,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
-        },
-    ) {
-        NetworkHeader(network)
-        Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-        Spacer(Modifier.height(LenslySpacing.md))
-        ReviewField("Transaction id", txid)
-        Spacer(Modifier.height(LenslySpacing.md))
-        SettingsRow(title = "View on explorer", onClick = onOpenExplorer)
-        notice?.let {
-            Spacer(Modifier.height(LenslySpacing.md))
-            InlineBanner(message = it, tone = BannerTone.Error)
-        }
-    }
-}
-
 /** The network's name, with a TESTNET label on testnet. */
 @Composable
 private fun NetworkHeader(network: NetworkId) {
