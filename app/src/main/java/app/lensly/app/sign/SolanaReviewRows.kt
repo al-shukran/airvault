@@ -121,6 +121,15 @@ private fun detailRows(instruction: SolanaInstruction, review: SolanaRequestRevi
             "Paid by" to solanaAccountText(instruction.payer),
         )
     }
+    is SolanaInstruction.AdvanceNonce -> listOf(
+        "Uses durable nonce account" to solanaAccountText(instruction.nonceAccount),
+        "Nonce authority" to solanaAccountText(instruction.authority),
+    )
+    is SolanaInstruction.CreateNonceAccount -> listOf(
+        "Create a nonce account" to solanaAccountText(instruction.account),
+        "Rent" to "${lamportsText(instruction.lamports)} SOL",
+        "Nonce authority" to solanaAccountText(instruction.authority),
+    )
     is SolanaInstruction.SetComputeUnitLimit -> listOf("Compute limit" to "${instruction.units} units")
     is SolanaInstruction.SetComputeUnitPrice ->
         listOf("Compute price" to "${instruction.microLamports} micro-lamports per unit")
@@ -162,6 +171,10 @@ fun solanaSentence(review: SolanaRequestReview): String {
     if (message != null) {
         return if (printableText(message) != null) "Signs a message as text." else "Signs a message as bytes."
     }
+    (review.instructions.singleOrNull() as? SolanaInstruction.CreateNonceAccount)?.let {
+        return "Create a nonce account ${solanaAccountText(it.account)}, rent ${lamportsText(it.lamports)} SOL, " +
+            "authority ${solanaAccountText(it.authority)}."
+    }
     val transfers = review.instructions.filter {
         it is SolanaInstruction.SystemTransfer || it is SolanaInstruction.TokenTransfer || it is SolanaInstruction.TokenTransferChecked
     }
@@ -171,7 +184,7 @@ fun solanaSentence(review: SolanaRequestReview): String {
             "Sends ${tokenAmountText(only.amount, only.decimals, review.tokenOf(only.mint))} to token account " +
                 "${solanaAccountText(only.destination)}."
         is SolanaInstruction.TokenTransfer -> "Sends ${only.amount} base units to token account ${solanaAccountText(only.destination)}."
-        else -> "Signs a transaction with ${review.instructions.size} instructions."
+        else -> "Signs a transaction with ${messageInstructionCount(review)} instructions."
     }
 }
 
@@ -183,12 +196,16 @@ fun solanaSentence(review: SolanaRequestReview): String {
 fun solanaFacts(review: SolanaRequestReview): List<Pair<String, String>> {
     val feePayer = review.feePayer ?: return emptyList()
     return buildList {
-        add("Instructions" to review.instructions.size.toString())
+        add("Instructions" to messageInstructionCount(review).toString())
         add(FEE_PAYER to shortAddress(feePayer))
         review.priorityFeeLamports?.let { add(PRIORITY_FEE to "$it lamports") }
         review.mints.singleOrNull()?.let { add(MINT to mintFactText(it)) }
     }
 }
+
+/** How many instructions the message holds. A nonce setup is two of them and one decoded instruction, so this counts the message. */
+private fun messageInstructionCount(review: SolanaRequestReview): Int =
+    review.message?.instructions?.size ?: review.instructions.size
 
 private fun mintFactText(mint: SolanaMessageAccount): String = when (mint) {
     is SolanaMessageAccount.Static -> shortAddress(mint.address)
@@ -200,6 +217,8 @@ fun solanaWarningText(warning: SolanaWarning): String = when (warning) {
     SolanaWarning.UNKNOWN_PROGRAM ->
         "Unknown program. An instruction calls a program that Lensly does not read, so Lensly cannot say what it does. " +
             "Its raw bytes are shown below."
+    SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER ->
+        "Nonce authority is not this account. Only the authority can advance a durable nonce, and this account is not the authority."
     SolanaWarning.LOOKUP_TABLE ->
         "Some accounts come from address lookup tables. Lensly cannot check those addresses offline."
     SolanaWarning.UNKNOWN_TOKEN ->

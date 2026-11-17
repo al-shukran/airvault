@@ -69,8 +69,11 @@ fun SolanaReviewScreen(
     }
 }
 
-/** An unknown program is an error, since Lensly cannot say what its instruction does. Every other Solana warning is a warning. */
-private fun solanaWarningTone(warning: SolanaWarning): BannerTone = when (warning) {
-    SolanaWarning.UNKNOWN_PROGRAM -> BannerTone.Error
+/**
+ * An unknown program is an error, since Lensly cannot say what its instruction does. A durable nonce whose authority is not this account
+ * is an error too. Every other Solana warning is a warning.
+ */
+internal fun solanaWarningTone(warning: SolanaWarning): BannerTone = when (warning) {
+    SolanaWarning.UNKNOWN_PROGRAM, SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER -> BannerTone.Error
     SolanaWarning.LOOKUP_TABLE, SolanaWarning.UNKNOWN_TOKEN, SolanaWarning.DECIMALS_UNKNOWN -> BannerTone.Warning
 }
