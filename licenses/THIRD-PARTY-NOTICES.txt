@@ -138,6 +138,9 @@ Data, provided by these sources:
 
 CoinGecko public API (https://www.coingecko.com/en/api). Data provided by CoinGecko, under CoinGecko's API terms. The bundled Solana token list, shared/src/main/assets/registry/solana-tokens.json, holds the name, symbol, decimals and mint address of the coins in CoinGecko's solana-ecosystem category that are in its top 100 by market cap and have a Solana address, retrieved 2026-11-17. Lensly takes the data as it is, and no CoinGecko code is copied. The decimals were read from Solana mainnet.
 
+Algonode (https://algonode.io): the name, unit name and decimals of each asset in app/src/main/assets/algorand/asa-catalog.json, read from its public mainnet and testnet indexers. The asset IDs in that file come from the CoinGecko data above. The terms of this service were not checked. Only the asset values are used, and no text or images are copied.
+
+
 Licence texts:
 
 ==== Apache License 2.0 ====

@@ -1,0 +1,224 @@
+{
+  "generated": "2026-11-17",
+  "generator": "scripts/algorand/gen_asa_catalog.py",
+  "sources": [
+    "CoinGecko category algorand-ecosystem (https://www.coingecko.com/en/categories/algorand-ecosystem): ASA IDs from platforms.algorand",
+    "Algonode indexers (https://mainnet-idx.algonode.cloud, https://testnet-idx.algonode.cloud): name, unit name and decimals"
+  ],
+  "networks": {
+    "wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=": {
+      "genesisId": "mainnet-v1.0",
+      "assets": [
+        {
+          "id": 2751733,
+          "unit": "RIO",
+          "name": "Realio Token",
+          "decimals": 7
+        },
+        {
+          "id": 27165954,
+          "unit": "Planets",
+          "name": "PLANET",
+          "decimals": 6
+        },
+        {
+          "id": 31566704,
+          "unit": "USDC",
+          "name": "USDC",
+          "decimals": 6
+        },
+        {
+          "id": 112866019,
+          "unit": "BRZ",
+          "name": "Brazilian Digital Token",
+          "decimals": 4
+        },
+        {
+          "id": 137020565,
+          "unit": "BUY",
+          "name": "Buy Token",
+          "decimals": 2
+        },
+        {
+          "id": 137594422,
+          "unit": "HDL",
+          "name": "HEADLINE",
+          "decimals": 6
+        },
+        {
+          "id": 213345970,
+          "unit": "EXIT",
+          "name": "Exodus",
+          "decimals": 8
+        },
+        {
+          "id": 226701642,
+          "unit": "YLDY",
+          "name": "Yieldly",
+          "decimals": 6
+        },
+        {
+          "id": 251014570,
+          "unit": "Block",
+          "name": "Blocks",
+          "decimals": 0
+        },
+        {
+          "id": 283820866,
+          "unit": "XET",
+          "name": "Xfinite Entertainment Token",
+          "decimals": 9
+        },
+        {
+          "id": 287867876,
+          "unit": "OPUL",
+          "name": "Opulous",
+          "decimals": 10
+        },
+        {
+          "id": 386192725,
+          "unit": "goBTC",
+          "name": "goBTC",
+          "decimals": 8
+        },
+        {
+          "id": 386195940,
+          "unit": "goETH",
+          "name": "goETH",
+          "decimals": 8
+        },
+        {
+          "id": 388592191,
+          "unit": "chip",
+          "name": "Chips",
+          "decimals": 1
+        },
+        {
+          "id": 465865291,
+          "unit": "STBL",
+          "name": "STBL",
+          "decimals": 6
+        },
+        {
+          "id": 470842789,
+          "unit": "DEFLY",
+          "name": "Defly Token",
+          "decimals": 6
+        },
+        {
+          "id": 559219992,
+          "unit": "OCTO",
+          "name": "Octorand",
+          "decimals": 6
+        },
+        {
+          "id": 663905154,
+          "unit": "B3X",
+          "name": "BNext Token",
+          "decimals": 6
+        },
+        {
+          "id": 700965019,
+          "unit": "VEST",
+          "name": "Vestige",
+          "decimals": 6
+        },
+        {
+          "id": 793124631,
+          "unit": "gALGO",
+          "name": "Governance Algo",
+          "decimals": 6
+        },
+        {
+          "id": 796425061,
+          "unit": "COOP",
+          "name": "Coop Coin",
+          "decimals": 6
+        },
+        {
+          "id": 1065092715,
+          "unit": "COSG",
+          "name": "Cosmic Gold",
+          "decimals": 6
+        },
+        {
+          "id": 1134696561,
+          "unit": "xALGO",
+          "name": "Governance xAlgo",
+          "decimals": 6
+        },
+        {
+          "id": 1138500612,
+          "unit": "GORA",
+          "name": "GORA",
+          "decimals": 9
+        },
+        {
+          "id": 1237529510,
+          "unit": "PGOLD",
+          "name": "Polkagold",
+          "decimals": 7
+        },
+        {
+          "id": 1284444444,
+          "unit": "ORA",
+          "name": "Orange",
+          "decimals": 8
+        },
+        {
+          "id": 1595607242,
+          "unit": "BSKT",
+          "name": "BSKT",
+          "decimals": 5
+        },
+        {
+          "id": 1821328783,
+          "unit": "DALGO",
+          "name": "DALGO",
+          "decimals": 4
+        },
+        {
+          "id": 2494786278,
+          "unit": "$monko",
+          "name": "monko",
+          "decimals": 6
+        },
+        {
+          "id": 2768422954,
+          "unit": "EURQ",
+          "name": "Quantoz EURQ",
+          "decimals": 6
+        },
+        {
+          "id": 2768603795,
+          "unit": "USDQ",
+          "name": "Quantoz USDQ",
+          "decimals": 6
+        },
+        {
+          "id": 3160000000,
+          "unit": "HAY",
+          "name": "Haystack",
+          "decimals": 6
+        },
+        {
+          "id": 3203964481,
+          "unit": "FOLKS",
+          "name": "Folks Finance",
+          "decimals": 6
+        }
+      ]
+    },
+    "SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=": {
+      "genesisId": "testnet-v1.0",
+      "assets": [
+        {
+          "id": 10458941,
+          "unit": "USDC",
+          "name": "USDC",
+          "decimals": 6
+        }
+      ]
+    }
+  }
+}

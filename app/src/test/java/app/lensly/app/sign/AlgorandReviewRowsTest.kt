@@ -3,10 +3,23 @@ package app.lensly.app.sign
 import app.lensly.core.algorand.AlgorandRequestCheck
 import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.AlgorandWarning
+import app.lensly.core.algorand.AsaCatalog
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import org.junit.Test
+
+/** A catalog that names USDC on mainnet and on testnet, as the bundled catalog does. */
+private val CATALOG: AsaCatalog = AsaCatalog.parse(
+    """
+    {"networks": {
+      "wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=": {"genesisId": "mainnet-v1.0",
+        "assets": [{"id": 31566704, "unit": "USDC", "name": "USDC", "decimals": 6}]},
+      "SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=": {"genesisId": "testnet-v1.0",
+        "assets": [{"id": 10458941, "unit": "USDC", "name": "USDC", "decimals": 6}]}
+    }}
+    """.trimIndent(),
+)
 
 /**
  * The rows, sentence and warning of an Algorand review. The transactions are the SDK fixtures of the decoder tests (vectors.json), and each
@@ -77,12 +90,13 @@ class AlgorandReviewRowsTest {
     }
 
     @Test
-    fun anAssetTransferShowsItsAssetIdAndItsAmountInBaseUnits() {
+    fun anUnknownAssetShowsItsIdAndItsAmountInBaseUnitsWithAWarning() {
         val review = reviewOf(AXFER)
 
         assertEquals(
             listOf(
                 "Sender" to SENDER_ADDRESS,
+                "Asset" to "Unknown asset #10458941",
                 "Asset ID" to "10458941",
                 "Amount" to "250 base units",
                 "Receiver" to RECEIVER_ADDRESS,
@@ -91,7 +105,11 @@ class AlgorandReviewRowsTest {
             algorandRows(review),
         )
         assertEquals("Sends 250 base units of asset 10458941 to $RECEIVER_ADDRESS.", algorandSentence(review))
-        assertEquals(emptyList(), review.warnings)
+        assertEquals(listOf(AlgorandWarning.UNKNOWN_ASSET), review.warnings)
+        assertEquals(
+            "Unknown asset #10458941: Lensly does not know its name or decimals, so its amount is shown in base units.",
+            algorandWarningText(review, AlgorandWarning.UNKNOWN_ASSET),
+        )
     }
 
     @Test
@@ -102,6 +120,7 @@ class AlgorandReviewRowsTest {
         assertEquals(
             listOf(
                 "Sender" to SENDER_ADDRESS,
+                "Asset" to "Unknown asset #10458941",
                 "Asset ID" to "10458941",
                 "Amount" to "0 base units",
                 "Receiver" to SENDER_ADDRESS,
@@ -109,7 +128,7 @@ class AlgorandReviewRowsTest {
             ),
             algorandRows(review),
         )
-        assertEquals(emptyList(), review.warnings)
+        assertEquals(listOf(AlgorandWarning.UNKNOWN_ASSET), review.warnings)
     }
 
     @Test
@@ -120,6 +139,7 @@ class AlgorandReviewRowsTest {
         assertEquals(
             listOf(
                 "Sender" to SENDER_ADDRESS,
+                "Asset" to "Unknown asset #10458941",
                 "Asset ID" to "10458941",
                 "Amount" to "0 base units",
                 "Receiver" to RECEIVER_ADDRESS,
@@ -128,7 +148,7 @@ class AlgorandReviewRowsTest {
             ),
             algorandRows(review),
         )
-        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO, AlgorandWarning.UNKNOWN_ASSET), review.warnings)
     }
 
     @Test
@@ -147,7 +167,7 @@ class AlgorandReviewRowsTest {
             "Sends 250 base units of asset 10458941 to $RECEIVER_ADDRESS. The rest goes to $CLOSE_ADDRESS, and the asset is removed.",
             algorandSentence(review),
         )
-        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO, AlgorandWarning.UNKNOWN_ASSET), review.warnings)
     }
 
     @Test
@@ -155,11 +175,73 @@ class AlgorandReviewRowsTest {
         val review = reviewOf(AXFER.replace(AXFER_HEADER_OLD, AXFER_HEADER_WITH_ACLOSE))
 
         assertEquals(CLOSE_ADDRESS, algorandRows(review).single { it.first == "Close holding to" }.second)
-        assertEquals(listOf(AlgorandWarning.CLOSE_TO), review.warnings)
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO, AlgorandWarning.UNKNOWN_ASSET), review.warnings)
         assertEquals(
             "This sends all of the remaining units of this asset to the close-to address below and removes the asset from the account.",
             algorandWarningText(review, AlgorandWarning.CLOSE_TO),
         )
+    }
+
+    @Test
+    fun aKnownTestnetUsdcTransferIsShownInUsdcUnits() {
+        val review = reviewWith(AXFER, CATALOG)
+
+        assertEquals(
+            listOf(
+                "Sender" to SENDER_ADDRESS,
+                "Asset" to "USDC",
+                "Asset ID" to "10458941",
+                "Amount" to "0.000250 USDC",
+                "Receiver" to RECEIVER_ADDRESS,
+                "Fee" to "0.001000 ALGO",
+            ),
+            algorandRows(review),
+        )
+        assertEquals("Sends 0.000250 USDC to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals(emptyList(), review.warnings)
+    }
+
+    @Test
+    fun aKnownMainnetUsdcTransferIsShownOnMainnetInUsdcUnits() {
+        val review = reviewWith(AXFER_MAINNET_USDC, CATALOG)
+
+        assertEquals("Algorand mainnet", review.network.displayName)
+        assertEquals("1.000000 USDC", algorandRows(review).single { it.first == "Amount" }.second)
+        assertEquals("Sends 1.000000 USDC to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals(emptyList(), review.warnings)
+    }
+
+    @Test
+    fun aKnownUsdcOptInAndOptOutAreNamedByTheAsset() {
+        assertEquals("Opt in to USDC.", algorandSentence(reviewWith(AXFER_OPTIN, CATALOG)))
+
+        val optOut = reviewWith(AXFER_CLOSEOUT, CATALOG)
+        assertEquals("Opt out of USDC, remaining balance goes to $RECEIVER_ADDRESS.", algorandSentence(optOut))
+        assertEquals(listOf(AlgorandWarning.CLOSE_TO), optOut.warnings)
+    }
+
+    @Test
+    fun anAssetIsNamedOnlyOnTheNetworkThatListsItInTheReview() {
+        // The testnet review finds no asset here: this catalog lists asset 10458941 on mainnet only.
+        val mainnetOnly = AsaCatalog.parse(
+            """{"networks": {"wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=": {"genesisId": "mainnet-v1.0",
+                "assets": [{"id": 10458941, "unit": "OTHER", "name": "Other", "decimals": 3}]}}}""",
+        )
+
+        assertEquals("Unknown asset #10458941", algorandRows(reviewWith(AXFER, mainnetOnly)).single { it.first == "Asset" }.second)
+    }
+
+    /** The review of [hex] for account 0, whose key is the sender's, with the assets [assets] names. */
+    private fun reviewWith(hex: String, assets: AsaCatalog): AlgorandRequestReview {
+        val path = listOf(
+            PathStep(44, true),
+            PathStep(283, true),
+            PathStep(0, true),
+            PathStep(0, false),
+            PathStep(0, false),
+        )
+        val result = AlgorandRequestCheck.check(hexBytes(hex), path, null, listOf(hexBytes(SENDER_PUB)), assets)
+        return assertIs<AlgorandRequestCheck.Result.Ok>(result).review
     }
 
     /** The review of [hex] for account 0, whose key is the sender's, as the wallet's account list holds it. */
@@ -246,5 +328,12 @@ class AlgorandReviewRowsTest {
                 "faf080a367656eac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec6" +
                 "2f7f70e5093a22a26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd" +
                 "2c6538a474797065a56178666572a478616964ce009f973d"
+
+        /** The `axfer_mainnet_usdc` vector: 1 USDC (1000000 base units) on mainnet to account 1. */
+        const val AXFER_MAINNET_USDC =
+            "8aa461616d74ce000f4240a461726376c420c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615d" +
+                "a3666565cd03e8a26676ce02faf080a367656eac6d61696e6e65742d76312e30a26768c420c061c4d8fc1dbdded2d7604be4" +
+                "568e3f6d041987ac37bde4b620b5ab39248adfa26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179" +
+                "b9bd1467c72e3c660fc8c2bd2c6538a474797065a56178666572a478616964ce01e1ab70"
     }
 }
