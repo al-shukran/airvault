@@ -90,6 +90,50 @@ SIL Open Font License 1.1:
 
 Doto (Doto Project Authors) and Space Mono (Space Mono Project Authors), the application's fonts. Their full texts are quoted below.
 
+Algorithms, test vectors and formats taken from these sources:
+
+No source code of these projects is copied into Lensly or Lumio. Each entry says what is taken: an algorithm, a format, or public test values. The entries are not libraries in the app, and they are grouped by licence.
+
+GNU Lesser General Public License 3.0 (LGPL-3.0):
+
+LedgerHQ/speculos, licence LGPL-3.0 (SPDX LGPL-3.0, https://github.com/LedgerHQ/speculos/blob/master/COPYING), master 679182f8. Lensly follows the algorithm of its BOLOS BIP32-Ed25519 derivation (src/bolos/os_bip32.c and src/bolos/cx_ec.c). It also uses Speculos's default test phrase and seed (src/environment.c), which are public test values. Only the algorithm and those values are taken. No Speculos source file is copied, so no LGPL code is shipped, and the LGPL text is not reproduced here.
+
+MIT License, reference sources:
+
+LedgerHQ/app-algorand, licence MIT (SPDX MIT, https://github.com/LedgerHQ/app-algorand/blob/main/LICENSE), develop 62adedc7. Lensly takes the account path m/44'/283'/N'/0/0 (app/src/coin.h and apdu_handler.c), the "TX" signing prefix, and the public test vector for account 123 (tests/test_pubkey_cmd.py). Lensly does not copy crypto.c, which carries a Zondax Apache-2.0 header.
+
+algosdk 3.9.0, the JavaScript Algorand SDK (https://github.com/algorand/js-algorand-sdk, SPDX MIT). Lensly's address format is checked against its encodeAddress, and the Mnemonic A addresses in the tests were produced by it.
+
+py-algorand-sdk 2.12.0 (https://github.com/algorand/py-algorand-sdk, SPDX MIT). Test only: it encodes the Algorand transaction vectors in shared/src/test/resources/vectors/algorand-txn.
+
+KeystoneHQ/keystone-sdk-rust (https://github.com/KeystoneHQ/keystone-sdk-rust, SPDX MIT). Its registry_types.rs was checked for the UR registry numbers. Lensly's algo-sign-request 1501 and algo-signature 1502 are not in that list, and no code is taken from it.
+
+Apache License 2.0, reference sources:
+
+KeystoneHQ/ur-registry 0.8.1 (https://github.com/KeystoneHQ/ur-registry, SPDX Apache-2.0). The layout of the multi-account export follows its CryptoMultiAccounts (src/extended/CryptoMultiAccounts.ts).
+
+solders 0.29.0, the Rust-backed Solana SDK bindings (https://github.com/kevinheavey/solders, SPDX Apache-2.0). Test only: it generates the Solana message vectors in shared/src/test/resources/vectors/solana.
+
+msgpack 1.2.4, msgpack-python (https://github.com/msgpack/msgpack-python, SPDX Apache-2.0). Test only: it packs the negative Algorand transaction vectors.
+
+ISC License, test vectors:
+
+@keystonehq/keystone-sdk 0.13.0, from KeystoneHQ/keystone-sdk-web (https://github.com/KeystoneHQ/keystone-sdk-web, SPDX ISC per its package.json). The sol-sign-request and sol-signature vectors in SolSignRequestTest and SolSignatureEncoderTest are copied from its src/__tests__/solana.test.ts.
+
+@keystonehq/bc-ur-registry-eth, from KeystoneHQ/keystone-airgaped-base (https://github.com/KeystoneHQ/keystone-airgaped-base, SPDX ISC per its package.json; the repository root has no LICENSE file). The UR vectors in shared/src/test/resources/keystone are copied byte-for-byte from its packages/ur-registry-eth/__tests__, and CryptoHdKeyEncoderTest uses one of its CryptoHDKey vectors.
+
+Creative Commons Attribution-ShareAlike 4.0 (CC-BY-SA-4.0), test vectors:
+
+SLIP-0010, satoshilabs/slips (https://github.com/satoshilabs/slips/blob/master/slip-0010.md, licence CC-BY-SA-4.0 per the repository's LICENSE). The Ed25519 chain steps of its test vectors 1 and 2 are extracted from the specification text into shared/src/test/resources/vectors/slip10/vectors.txt. The Ed25519 algorithm is implemented from the specification.
+
+IETF Trust Legal Provisions (no SPDX identifier):
+
+RFC 8032, Edwards-Curve Digital Signature Algorithm (https://www.rfc-editor.org/rfc/rfc8032). The Ed25519 algorithm is implemented from it, and TEST 1 of section 7.1 is copied into Ed25519SignerTest.
+
+Format documents, no SPDX identifier (read for the format only):
+
+Algorand canonical msgpack rules and the address format (https://specs.algorand.co/crypto/crypto-msgpack). Solana message format (https://solana.com/docs). The licence of these documents was not checked. No text from them is copied.
+
 Licence texts:
 
 ==== Apache License 2.0 ====
