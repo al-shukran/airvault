@@ -7,7 +7,6 @@ import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
-import app.lensly.ui.sign.UNKNOWN_CHAIN_NAME
 import java.security.MessageDigest
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -131,7 +130,7 @@ class ReviewRecordTest {
         )
 
         assertEquals(999L, record.chainId)
-        assertEquals(UNKNOWN_CHAIN_NAME, record.networkName)
+        assertEquals("Unknown network (chain id 999)", record.networkName)
     }
 
     @Test

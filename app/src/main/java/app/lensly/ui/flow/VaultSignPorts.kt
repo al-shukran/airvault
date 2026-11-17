@@ -4,33 +4,36 @@ import android.content.Context
 import app.lensly.app.AddressBookStore
 import app.lensly.app.AddressNotes
 import app.lensly.app.RegistryHolder
-import app.lensly.app.SolanaTokensHolder
 import app.lensly.app.ReviewHistory
 import app.lensly.app.SettingsStore
-import app.lensly.app.addressNotesOf
-import app.lensly.app.evmAddressOf
-import app.lensly.app.internalAccountsOf
+import app.lensly.app.SigningAccount
+import app.lensly.app.SolanaTokensHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
+import app.lensly.app.addressNotesOf
+import app.lensly.app.autoAccountName
+import app.lensly.app.export.partsOf
+import app.lensly.app.internalAccountsOf
+import app.lensly.app.requestParser
 import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.AsaCatalogHolder
+import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
-import app.lensly.app.sign.BitcoinReviewEntry
-import app.lensly.app.export.partsOf
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
+import app.lensly.app.sign.algorandCounterparties
+import app.lensly.app.sign.algorandReviewRecordOf
 import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.reviewRecordOf
-import app.lensly.app.sign.algorandReviewRecordOf
+import app.lensly.app.sign.solanaCounterparties
 import app.lensly.app.sign.solanaReviewRecordOf
 import app.lensly.app.visualIdentity
-import app.lensly.app.requestParser
 import app.lensly.core.algorand.AlgorandRequestCheck
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcRefusedException
@@ -97,10 +100,15 @@ internal class VaultSignPorts(
             .prepare(parsed, wallet)
         if (prepared !is Prepared.Ready) return@withContext prepared
         val review = prepared.review
-        val shown = listOfNotNull(review.toAddress.ifEmpty { null }) +
-            review.typed?.fields.orEmpty().mapNotNull { it.value }.filter { evmAddressOf(it) != null }
-        prepared.copy(review = review.copy(addressNotes = addressNotesFor(shown)))
+        prepared.copy(review = review.copy(addressNotes = addressNotesFor(review.counterparties)))
     }
+
+    /** The account that signs a request, as its review names it: its name, its wallet's name and its address. */
+    private fun signerOf(wallet: WalletView, index: Int, address: String): SigningAccount = SigningAccount(
+        name = wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index),
+        walletName = wallet.name,
+        address = address,
+    )
 
     /**
      * The notes of [addresses] that a review shows: what the Address Book and the device's accounts say of each. A damaged Address Book
@@ -255,7 +263,16 @@ internal class VaultSignPorts(
         val keys = readWallet { WalletStore(it).solanaKeys(walletId) }
         val unknownCalls = readWallet { SettingsStore(it).load().unknownCallPolicy }
         when (val checked = SolanaRequestCheck.check(request, keys, SolanaTokensHolder.get(context), unknownCalls)) {
-            is SolanaRequestCheck.Result.Ok -> SolanaPrepared.Ready(walletId, request, checked.review)
+            is SolanaRequestCheck.Result.Ok -> {
+                val review = checked.review
+                SolanaPrepared.Ready(
+                    walletId = walletId,
+                    request = request,
+                    review = review,
+                    signer = signerOf(wallet, review.accountIndex, review.signerAddress),
+                    addressNotes = addressNotesFor(solanaCounterparties(review)),
+                )
+            }
             is SolanaRequestCheck.Result.Refused -> SolanaPrepared.Refused(checked.reason)
         }
     }
@@ -305,7 +322,16 @@ internal class VaultSignPorts(
         if (sourceFingerprint != masterFingerprint) return@withContext AlgorandPrepared.Refused("This request is for a different wallet")
         val keys = readWallet { WalletStore(it).algorandKeys(walletId) }
         when (val checked = AlgorandRequestCheck.check(request, keys, AsaCatalogHolder.get(context))) {
-            is AlgorandRequestCheck.Result.Ok -> AlgorandPrepared.Ready(walletId, request, checked.review)
+            is AlgorandRequestCheck.Result.Ok -> {
+                val review = checked.review
+                AlgorandPrepared.Ready(
+                    walletId = walletId,
+                    request = request,
+                    review = review,
+                    signer = signerOf(wallet, review.accountIndex, review.signerAddress),
+                    addressNotes = addressNotesFor(algorandCounterparties(review)),
+                )
+            }
             is AlgorandRequestCheck.Result.Refused -> AlgorandPrepared.Refused(checked.reason)
         }
     }

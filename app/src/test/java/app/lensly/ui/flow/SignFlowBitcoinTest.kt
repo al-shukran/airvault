@@ -2,15 +2,13 @@ package app.lensly.ui.flow
 
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
+import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SolanaReviewEntry
-import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.WalletView
-import app.lensly.core.ur.AlgoSignRequest
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
@@ -23,7 +21,10 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
+import app.lensly.core.ur.AlgoSignRequest
+import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.ui.sign.SAMPLE_SIGNER
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -49,7 +50,7 @@ private fun bitcoinRequest(withPreviousTransaction: Boolean = true): Psbt {
 /** The review the app's wallet store would hand the flow for [psbt], under the given input policy. */
 private fun readyOf(psbt: Psbt, policy: InputVerificationPolicy = InputVerificationPolicy.STRICT): BitcoinPrepared.Ready {
     val record = BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, BTC_ACCOUNT.receiveAddress(0))
-    return BitcoinPrepared.Ready(BTC_WALLET_ID, psbt, BitcoinReviewed(record, BtcSigner(BTC_ACCOUNT, policy).review(psbt)))
+    return BitcoinPrepared.Ready(BTC_WALLET_ID, psbt, BitcoinReviewed(record, BtcSigner(BTC_ACCOUNT, policy).review(psbt), SAMPLE_SIGNER))
 }
 
 /** Feeds the frames of one scanned code to [flow], stopping once the flow has left the scanning step. */

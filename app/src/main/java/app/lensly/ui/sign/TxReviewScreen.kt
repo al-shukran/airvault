@@ -50,15 +50,14 @@ private const val UPGRADE_TEXT =
         "approved with is in the details."
 
 /**
- * Transaction review. The header names the network and the account that signs. A sentence says what the request does, and under it
- * come the network fee, the total and who requested it. Every warning sits in one banner, and each check the review asks for sits in
- * the row it belongs to. The details start collapsed: the parameters, the calls, the transaction, and the raw data.
+ * Transaction review. The header names the network in full, the account that signs with its wallet and address. A sentence says what
+ * the request does, and under it come the network fee, the total and who requested it. Every warning sits in one banner, and each check
+ * the review asks for sits in the row it belongs to. Every detail is shown on first render, in a scrollable column: the parameters, the
+ * calls, the transaction, and the raw data. Each address names its Address Book entry, or says that it is not in the Address Book.
  *
- * The hold-to-sign control stays disabled until the user has read the review, and until every check is ticked. A review with no warning is
- * read once its list is scrolled to the end or fits on screen. A review with a warning is read only once a details section is open and
- * the list is then at its end or fits, so the warning is read where it is explained. A personal message ([SIGN_MESSAGE_FUNCTION]) shows
- * its text whole, under the banner, since the text is what is signed. A whitelisted call takes its approved meaning as its sentence.
- * REJECT is always enabled.
+ * The hold-to-sign control stays disabled until the user has read the review to its end, and until every check is ticked. A personal
+ * message ([SIGN_MESSAGE_FUNCTION]) shows its text whole, under the banner, since the text is what is signed. A whitelisted call takes its
+ * approved meaning as its sentence. REJECT is always enabled.
  */
 @Composable
 fun TxReviewScreen(
@@ -70,7 +69,7 @@ fun TxReviewScreen(
     val isMessage = review.function == SIGN_MESSAGE_FUNCTION
     // The To row names the recipient, or the contract of a whitelisted or decoded call. A message has none.
     val showTo = !isMessage && review.toAddress.isNotEmpty()
-    val read = rememberReviewRead(review, review.hasWarnings)
+    val read = rememberReviewRead(review)
     // The checks the review asks for, such as the chain ID and contract outside the registry. They reset with the review.
     var checked by remember(review) { mutableStateOf(emptySet<ReviewCheck>()) }
     val approvable = review.canApprove(read.read, checked)
@@ -89,11 +88,14 @@ fun TxReviewScreen(
         },
     ) {
         ReviewBody(read) {
-            ReviewChips(
+            ReviewHeader(
                 network = review.networkName,
                 testnet = review.network?.testnet == true,
+                chainDetail = "Chain ID ${review.chainId}",
                 account = review.fromAccountLabel,
-                networkIcon = { ChainIcon(network = review.network, size = 16.dp) },
+                wallet = review.walletName,
+                address = review.fromAddress,
+                networkIcon = { ChainIcon(network = review.network, size = 24.dp) },
             )
             Spacer(Modifier.height(LenslySpacing.md))
             ReviewSummary(
@@ -118,30 +120,30 @@ fun TxReviewScreen(
                 Spacer(Modifier.height(LenslySpacing.sm))
             }
             if (!isMessage && review.typed == null) {
-                DetailsSection(title = "Parameters", onOpen = read::openDetails) {
+                ReviewSection(title = "Parameters") {
                     ParameterFields(review.params, review.addressNotes)
                 }
             }
             review.typed?.let { typed ->
-                DetailsSection(title = "Domain", onOpen = read::openDetails) {
+                ReviewSection(title = "Domain") {
                     typed.domain.forEach { (name, value) ->
                         ReviewField(label = name, value = value, notes = review.addressNotes.notesOf(value))
                     }
                 }
-                DetailsSection(title = "Fields", onOpen = read::openDetails) {
+                ReviewSection(title = "Fields") {
                     typed.fields.forEach { row -> TypedFieldRow(row, review.addressNotes) }
                 }
             }
             if (review.nested.isNotEmpty()) {
-                DetailsSection(title = "Calls", onOpen = read::openDetails) {
+                ReviewSection(title = "Calls") {
                     review.nested.forEach { call -> NestedCallView(call, review.addressNotes) }
                 }
             }
-            DetailsSection(title = "Transaction", onOpen = read::openDetails) {
+            ReviewSection(title = "Transaction") {
                 TransactionFields(review, showTo)
             }
             review.whitelisted?.let { whitelisted ->
-                DetailsSection(title = "Raw data", onOpen = read::openDetails) {
+                ReviewSection(title = "Raw data") {
                     RawDataFields(whitelisted)
                 }
             }
@@ -155,7 +157,7 @@ fun TxReviewScreen(
  * the review first, then the checks the review asks for.
  */
 private fun reviewHint(review: TxReview, read: ReviewRead, checked: Set<ReviewCheck>): String? {
-    readHint(read, review.hasWarnings)?.let { return it }
+    readHint(read)?.let { return it }
     val owed = review.requiredChecks.count { it !in checked }
     return when {
         owed == 1 -> "Tick the checkbox above to sign"
@@ -420,7 +422,6 @@ private fun NestedCallView(call: NestedCall, notes: Map<String, AddressNotes>) {
 @Composable
 private fun TransactionFields(review: TxReview, showTo: Boolean) {
     val notes = review.addressNotes
-    ReviewFactRow(label = "Wallet", value = review.walletName, mono = false)
     ReviewField(label = "From", value = review.fromAddress, notes = notes.notesOf(review.fromAddress))
     if (showTo) {
         ReviewField(label = "To", value = review.toAddress, notes = notes.notesOf(review.toAddress))

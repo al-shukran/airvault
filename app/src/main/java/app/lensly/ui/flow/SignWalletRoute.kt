@@ -90,7 +90,7 @@ internal fun SignWalletRoute(
             review = shown.ready.reviewed.review,
             network = shown.ready.reviewed.account.network,
             scriptType = shown.ready.reviewed.account.scriptType,
-            accountIndex = shown.ready.reviewed.account.index,
+            signer = shown.ready.reviewed.signer,
             addressNotes = shown.ready.reviewed.addressNotes,
             confirmed = shown.confirmed,
             onConfirmedChange = flow::confirmUnverified,
@@ -100,12 +100,16 @@ internal fun SignWalletRoute(
         is SignStep.BitcoinConfirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
         is SignStep.SolanaReview -> SolanaReviewScreen(
             review = shown.ready.review,
+            signer = shown.ready.signer,
+            addressNotes = shown.ready.addressNotes,
             onApprove = flow::approve,
             onReject = flow::leave,
         )
         is SignStep.SolanaConfirming -> ConfirmPasswordRoute(busy = shown.busy, onConfirm = flow::confirm)
         is SignStep.AlgorandReview -> AlgorandReviewScreen(
             review = shown.ready.review,
+            signer = shown.ready.signer,
+            addressNotes = shown.ready.addressNotes,
             onApprove = flow::approve,
             onReject = flow::leave,
         )

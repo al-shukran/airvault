@@ -2,6 +2,7 @@ package app.lensly.ui.sign
 
 import app.lensly.app.AddressNotes
 import app.lensly.app.VisualIdentity
+import app.lensly.app.addressesIn
 import app.lensly.app.generatedIdentity
 import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.DenylistEntry
@@ -28,9 +29,6 @@ enum class ReviewCheck {
  * the only parameter, so the review screen shows the message instead of those facts.
  */
 const val SIGN_MESSAGE_FUNCTION = "Sign message"
-
-/** The network name of a chain that is not in the registry. Its coin is not known either. */
-const val UNKNOWN_CHAIN_NAME = "Unknown Chain"
 
 /** The name of a token that is not in the registry. */
 const val UNKNOWN_TOKEN_NAME = "Unknown token"
@@ -75,7 +73,7 @@ data class NestedCall(
  * [amount] is already formatted for display, for example "0.0100". [fee] holds label and value
  * pairs such as "Max fee" to "52.5 gwei". [params] holds decoded call arguments, and is empty for a
  * native transfer. [warnings] are shown first, in red. A chain or token outside the registry is shown
- * with [UNKNOWN_CHAIN_NAME] or [UNKNOWN_TOKEN_NAME] and raw base units, and [needsRegistryConfirmation]
+ * with [unknownNetworkName] or [UNKNOWN_TOKEN_NAME] and raw base units, and [needsRegistryConfirmation]
  * is then true.
  */
 data class TxReview(
@@ -147,15 +145,44 @@ data class TxReview(
 
     /**
      * True when the review holds a warning, so its risk banner has a row. The rows are the denylist matches, the registry, whitelist and
-     * proxy checks, and the plain warnings, of the review and of its calls. Such a review is read in its details before it can be signed.
+     * proxy checks, and the plain warnings, of the review and of its calls. Such a review shows its banner first, and its details below it.
      */
     val hasWarnings: Boolean
         get() = warnings.isNotEmpty() || requiredChecks.isNotEmpty() || nested.any { it.warnings.isNotEmpty() }
 
     /**
-     * True when the hold-to-sign control may run: the review has been read, and every required check is ticked. [everyFactShown] is
-     * that read, which [isReviewRead] decides for the screen.
+     * True when the hold-to-sign control may run: the review has been read to its end, and every required check is ticked. [everyFactShown]
+     * is that read, which the review screen decides by its scroll.
      */
     fun canApprove(everyFactShown: Boolean, checked: Set<ReviewCheck>): Boolean =
         everyFactShown && checked.containsAll(requiredChecks)
+
+    /**
+     * Every address the review names, in the order the review shows them: the account that signs, the recipient, the token contract,
+     * the contract of a whitelisted call and its proxy implementation, the arguments and the calls, and the fields of a typed message.
+     * Each is looked up in the Address Book, so a counterparty that is not saved there is shown as not in the Address Book.
+     */
+    val counterparties: List<String>
+        get() = addressesIn(
+            buildList {
+                add(fromAddress)
+                add(toAddress)
+                tokenContract?.let(::add)
+                whitelisted?.let { w ->
+                    add(w.call.target)
+                    w.call.proxy?.implementationAddress?.let(::add)
+                }
+                params.forEach { add(it.second) }
+                nested.forEach { call ->
+                    call.target?.let(::add)
+                    call.params.forEach { add(it.second) }
+                    call.whitelisted?.let { w -> add(w.call.target) }
+                }
+                typed?.let { typed ->
+                    typed.domain.forEach { add(it.second) }
+                    typed.summary.forEach { add(it.second) }
+                    typed.fields.forEach { row -> row.value?.let(::add) }
+                }
+            },
+        )
 }
