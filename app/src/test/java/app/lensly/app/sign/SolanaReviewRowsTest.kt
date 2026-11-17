@@ -6,10 +6,12 @@ import app.lensly.core.solana.SolanaRequestCheck
 import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.solana.SolanaWarning
 import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.SolCluster
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.sign.ReviewFact
 import app.lensly.ui.sign.solanaWarningTone
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -82,6 +84,20 @@ class SolanaReviewRowsTest {
         val review = review(request("hello".toByteArray(), signType = SolSignType.MESSAGE))
         assertEquals(listOf("Signer" to address(1), "Message" to "hello"), solanaRows(review))
         assertEquals("Signs a message as text.", solanaSentence(review))
+    }
+
+    /** The header's network row names the cluster that Lumio states, and marks it as stated by Lumio. */
+    @Test
+    fun aRequestForDevnetShowsItsNetworkRowAsStatedByLumio() {
+        val review = review(request("hello".toByteArray(), signType = SolSignType.MESSAGE, cluster = SolCluster.DEVNET))
+        assertEquals(ReviewFact(label = "Network", value = "Solana devnet (stated by Lumio)", mono = false), solanaNetworkFact(review))
+    }
+
+    /** A request that names no cluster, as Keystone's does, shows its network row as not stated. */
+    @Test
+    fun aRequestThatNamesNoClusterShowsItsNetworkRowAsNotStated() {
+        val review = review(request("hello".toByteArray(), signType = SolSignType.MESSAGE))
+        assertEquals(ReviewFact(label = "Network", value = "Not stated", mono = false), solanaNetworkFact(review))
     }
 
     @Test
@@ -269,7 +285,11 @@ class SolanaReviewRowsTest {
     private fun review(request: SolSignRequest): SolanaRequestReview =
         assertIs<SolanaRequestCheck.Result.Ok>(SolanaRequestCheck.check(request, listOf(key(1)))).review
 
-    private fun request(signData: ByteArray, signType: SolSignType = SolSignType.TRANSACTION) = SolSignRequest(
+    private fun request(
+        signData: ByteArray,
+        signType: SolSignType = SolSignType.TRANSACTION,
+        cluster: SolCluster? = null,
+    ) = SolSignRequest(
         requestId = ByteArray(16) { 0x22 },
         signData = signData,
         derivationPath = listOf(PathStep(44, true), PathStep(501, true), PathStep(0, true)),
@@ -277,6 +297,7 @@ class SolanaReviewRowsTest {
         address = null,
         origin = null,
         signType = signType,
+        cluster = cluster,
     )
 
     private fun key(seed: Int): ByteArray = ByteArray(32) { seed.toByte() }

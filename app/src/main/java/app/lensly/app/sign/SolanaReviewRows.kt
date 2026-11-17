@@ -7,7 +7,10 @@ import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.solana.SolanaToken
 import app.lensly.core.solana.SolanaWarning
 import app.lensly.core.wallet.toHex
+import app.lensly.ui.sign.NOT_STATED
+import app.lensly.ui.sign.ReviewFact
 import app.lensly.ui.sign.shortAddress
+import app.lensly.ui.sign.solanaClusterName
 import java.math.BigDecimal
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -22,6 +25,9 @@ private const val FEE_PAYER = "Fee payer"
 
 /** The label of the row that names an instruction's program by its ID. */
 private const val PROGRAM = "Program"
+
+/** The label of the network row in the header of a Solana review. */
+private const val NETWORK = "Network"
 
 /** The label of the priority fee, in the facts under the sentence. */
 private const val PRIORITY_FEE = "Priority fee"
@@ -46,6 +52,15 @@ fun solanaRows(review: SolanaRequestReview): List<Pair<String, String>> = buildL
         add(FEE_PAYER to feePayer)
         review.instructions.forEach { addAll(instructionRows(it, review)) }
     }
+}
+
+/**
+ * The network row of a Solana review, for the header: the cluster that Lumio states, marked as stated by Lumio, or "Not stated" when the
+ * request names none. The header itself names Solana, which every Solana request is, so this row is where the cluster shows.
+ */
+internal fun solanaNetworkFact(review: SolanaRequestReview): ReviewFact {
+    val value = review.cluster?.let { "${solanaClusterName(it)} (stated by Lumio)" } ?: NOT_STATED
+    return ReviewFact(label = NETWORK, value = value, mono = false)
 }
 
 /**

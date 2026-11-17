@@ -2,6 +2,7 @@ package app.lensly.ui.sign
 
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.ur.SolCluster
 
 /**
  * The human-readable name of an EVM network, from the registry entry of its chain ID. A chain ID the registry does not hold is named as
@@ -16,4 +17,11 @@ internal fun unknownNetworkName(chainId: Long): String = "Unknown network (chain
 internal fun bitcoinNetworkName(network: BtcNetwork): String = when (network) {
     BtcNetwork.MAINNET -> "Bitcoin mainnet"
     BtcNetwork.TESTNET4 -> "Bitcoin testnet4"
+}
+
+/** The name of a Solana cluster a request states. Mainnet-beta is named as the mainnet, and devnet and testnet as the test networks. */
+internal fun solanaClusterName(cluster: SolCluster): String = when (cluster) {
+    SolCluster.MAINNET_BETA -> "Solana mainnet"
+    SolCluster.DEVNET -> "Solana devnet"
+    SolCluster.TESTNET -> "Solana testnet"
 }
