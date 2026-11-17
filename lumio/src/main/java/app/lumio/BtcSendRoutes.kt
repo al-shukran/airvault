@@ -21,6 +21,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.btc.BtcAccountRef
+import app.lumio.btc.BtcReadException
 import app.lumio.btc.BtcPortfolio
 import app.lumio.btc.BtcSend
 import app.lumio.btc.BtcSendInput
@@ -158,7 +159,7 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
                     val sats = BtcSendInput.amountSats(amount)
                     val rate = BtcSendInput.feeRate(feeRate)
                     // Debug builds only: the pairing fixture's testnet4 coins, which no server holds. Release builds always read the network.
-                    val pool = DebugSpendFixture.spendable(ref.account) ?: BtcSend.spendable(ref.account, app.scheduler)
+                    val pool = DebugSpendFixture.spendable(ref.account) ?: BtcSend.spendable(ref.account, app.scheduler, app.addressStats.forNetwork(network.networkId()))
                     pool to BtcSend.plan(ref.account, pool, to, sats, rate)
                 }
             }
@@ -378,6 +379,8 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
 /** The words a failure shows: the owner's words for a refusal, a server's refusal, or a failed network read, else [fallback]. */
 private fun ownerWords(error: Throwable, fallback: String): String = when (error) {
     is IllegalArgumentException -> error.message ?: fallback
+    // A read names the step that failed, so the owner sees what Lumio was reading and why.
+    is BtcReadException -> error.message ?: fallback
     is ProviderError.Fatal -> error.message ?: fallback
     is ProviderError -> NETWORK_FAILED
     else -> fallback
