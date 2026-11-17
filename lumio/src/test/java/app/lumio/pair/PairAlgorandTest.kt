@@ -76,13 +76,13 @@ class PairAlgorandTest {
         val ethereum = PairingApp(
             app = PairImport.ETHEREUM,
             keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.addressKey(SEED, 0))),
-            accounts = listOf(PairingAccount(key = 0, child = null, name = "Main", label = null, group = null)),
+            accounts = listOf(PairingAccount(key = 0, name = "Main", label = null, group = null)),
         )
         val algorandApp = PairingApp(
             app = PairImport.ALGORAND,
             keys = algorand,
             accounts = algorand.indices.map { index ->
-                PairingAccount(key = index, child = null, name = "Algorand $index", label = null, group = null)
+                PairingAccount(key = index, name = "Algorand $index", label = null, group = null)
             },
         )
         return PairingPayload(

@@ -31,7 +31,7 @@ object EthereumPairingKeys : PairingKeys {
         }
         val profiles = store.accountProfiles(id, meta.accountCount)
         val accounts = (0 until meta.accountCount).map { index ->
-            namedAccount(key = index, child = null, profile = profiles[index], autoName = autoAccountName(meta.autoNameBase, index))
+            namedAccount(key = index, profile = profiles[index], autoName = autoAccountName(meta.autoNameBase, index))
         }
         return PairingApp(app = routeId, keys = keys, accounts = accounts)
     }
@@ -54,7 +54,7 @@ object BitcoinPairingKeys : PairingKeys {
         val keys = entries.map { (account, _) -> PairingKey.bitcoinAccount(account) }
         val accounts = entries.mapIndexed { key, (account, index) ->
             val profile = profiles[Triple(account.scriptType, account.network, index)]
-            namedAccount(key = key, child = null, profile = profile, autoName = autoAccountName(meta.autoNameBase, index))
+            namedAccount(key = key, profile = profile, autoName = autoAccountName(meta.autoNameBase, index))
         }
         return PairingApp(app = routeId, keys = keys, accounts = accounts)
     }
@@ -72,7 +72,7 @@ object SolanaPairingKeys : PairingKeys {
             PairingKey.solanaAccount(index, publicKey, SolanaAccount.chainCode(seed, index))
         }
         val accounts = publicKeys.indices.map { index ->
-            namedAccount(key = index, child = null, profile = null, autoName = autoAccountName(meta.autoNameBase, index))
+            namedAccount(key = index, profile = null, autoName = autoAccountName(meta.autoNameBase, index))
         }
         return PairingApp(app = routeId, keys = keys, accounts = accounts)
     }
@@ -90,7 +90,7 @@ object AlgorandPairingKeys : PairingKeys {
             PairingKey.algorandAccount(index, publicKey, AlgorandAccount.chainCode(seed, index))
         }
         val accounts = publicKeys.indices.map { index ->
-            namedAccount(key = index, child = null, profile = null, autoName = autoAccountName(meta.autoNameBase, index))
+            namedAccount(key = index, profile = null, autoName = autoAccountName(meta.autoNameBase, index))
         }
         return PairingApp(app = routeId, keys = keys, accounts = accounts)
     }
@@ -100,9 +100,8 @@ object AlgorandPairingKeys : PairingKeys {
  * The pairing account of one key or address index: its Display Name, or [autoName] when the owner gave it none, and its label and group,
  * each cut to the room a pairing gives it. Ethereum accounts and Bitcoin accounts are named the same way.
  */
-private fun namedAccount(key: Int, child: Int?, profile: AccountProfile?, autoName: String): PairingAccount = PairingAccount(
+private fun namedAccount(key: Int, profile: AccountProfile?, autoName: String): PairingAccount = PairingAccount(
     key = key,
-    child = child,
     name = fitBytes(profile?.name ?: autoName, PairingCodec.MAX_NAME_BYTES),
     label = profile?.label?.let { fitBytes(it, PairingCodec.MAX_LABEL_BYTES) },
     group = profile?.group?.let { fitBytes(it, PairingCodec.MAX_LABEL_BYTES) },

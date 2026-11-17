@@ -52,8 +52,8 @@ internal object DebugPairFixture {
                 PairingKey.ethereumAddress(account, AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
             },
             accounts = listOf(
-                PairingAccount(key = 0, child = null, name = "DEMO 0", label = "Savings", group = null),
-                PairingAccount(key = 1, child = null, name = "DEMO 1", label = null, group = "Trading"),
+                PairingAccount(key = 0, name = "DEMO 0", label = "Savings", group = null),
+                PairingAccount(key = 1, name = "DEMO 1", label = null, group = "Trading"),
             ),
         )
         val bitcoin = BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET) + BtcWatchOnly.accounts(seed, BtcNetwork.TESTNET4)
@@ -65,21 +65,21 @@ internal object DebugPairFixture {
                 PairingApp(
                     app = "bitcoin",
                     keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
-                    accounts = bitcoin.indices.map { PairingAccount(key = it, child = null, name = null, label = null, group = null) },
+                    accounts = bitcoin.indices.map { PairingAccount(key = it, name = null, label = null, group = null) },
                 ),
                 PairingApp(
                     app = "solana",
                     keys = (0..1).map { account ->
                         PairingKey.solanaAccount(account, SolanaAccount.publicKey(seed, account), SolanaAccount.chainCode(seed, account))
                     },
-                    accounts = (0..1).map { PairingAccount(key = it, child = null, name = "Solana $it", label = null, group = null) },
+                    accounts = (0..1).map { PairingAccount(key = it, name = "Solana $it", label = null, group = null) },
                 ),
                 PairingApp(
                     app = "algorand",
                     keys = (0..1).map { account ->
                         PairingKey.algorandAccount(account, AlgorandAccount.publicKey(seed, account), AlgorandAccount.chainCode(seed, account))
                     },
-                    accounts = (0..1).map { PairingAccount(key = it, child = null, name = "Algorand $it", label = null, group = null) },
+                    accounts = (0..1).map { PairingAccount(key = it, name = "Algorand $it", label = null, group = null) },
                 ),
             ),
             // Public example addresses, one per chain form, so the Address Book screen has entries to show.

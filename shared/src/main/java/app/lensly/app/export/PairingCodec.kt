@@ -87,13 +87,11 @@ data class PairingKey(
 }
 
 /**
- * One account of an App. [key] is the index of the App's key the account derives from. [child] is the address index under that key, which no
- * App uses now: an Ethereum account is its own key, and a Bitcoin account is its key. It is null in a code this build writes. [name], [label]
- * and [group] are what the owner gave the account in Lensly, or null when there is none.
+ * One account of an App. [key] is the index of the App's key the account derives from: an Ethereum account and a Bitcoin account each
+ * have their own key. [name], [label] and [group] are what the owner gave the account in Lensly, or null when there is none.
  */
 data class PairingAccount(
     val key: Int,
-    val child: Int?,
     val name: String?,
     val label: String?,
     val group: String?,
@@ -113,13 +111,13 @@ data class PairingPayload(
     val addressBook: List<AddressBookEntry> = emptyList(),
 )
 
-/** Compresses the body of a version-2 pairing. Lensly passes Google's Brotli encoder. */
+/** Compresses the body of a pairing. Lensly passes Google's Brotli encoder. */
 fun interface BrotliCompressor {
     fun compress(bytes: ByteArray): ByteArray
 }
 
 /**
- * Decompresses the body of a version-2 pairing. It stops at [maxBytes], and it throws IllegalArgumentException for a body that would be
+ * Decompresses the body of a pairing. It stops at [maxBytes], and it throws IllegalArgumentException for a body that would be
  * larger, so a small code cannot make its reader hold a large body. Lumio passes its Brotli decoder.
  */
 fun interface BrotliDecompressor {
@@ -131,27 +129,15 @@ fun interface BrotliDecompressor {
  * names at once. The code is a `ur:airvault-pairing`, animated when it is long. Its CBOR is versioned: a reader refuses a version it does
  * not know, so it never reads a newer layout as its own. The payload holds public data only: keys, chain codes, paths and names.
  *
- * The layout, as of version 5, with integer keys. The code's CBOR is an envelope:
+ * The layout, with integer keys. The code's CBOR is an envelope:
  *  - envelope: { 1: version (5), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
  *  - body, once it is decompressed: { 2: fingerprint (uint32), 3: name, 4: [app], 5: [address] (optional: absent when the Address Book is empty) }
  *  - app: { 1: app id, 2: [key], 3: [account] }
  *  - key: { 1: [path component (uint32)], 2: depth, 3: parent fingerprint (uint32), 4: public key (33 bytes), 5: chain code (32 bytes) }
  *    The public key is a compressed secp256k1 key (prefix 2 or 3), or an Ed25519 key in SLIP-0010's form (prefix 0, then the 32-byte key).
- *  - account: { 1: key index, 2: child index (optional), 3: name (optional), 4: label (optional), 5: group (optional) }
+ *  - account: { 1: key index, 3: name (optional), 4: label (optional), 5: group (optional) }. Key 2 was a child index; a code that holds it is refused.
  *  - address: { 1: id, 2: address, 3: name, 4: label (optional) }, one Address Book entry. An id that is a lower-case UUID is 16 bytes, and an
  *    address that is an EVM address in checksum form is 20 bytes. Any other id or address is text.
- *
- * Version 3 changed the Ethereum App: each account is its own key, the address key m/44'/60'/N'/0/0 of account N (see
- * [PairingKey.ethereumAddress]), and an account names its key with no child index. Versions 1 and 2 held one account key with the accounts
- * under it as children, so this version refuses them, with the message that asks for an update. A code with an empty Address Book is the
- * same code as before.
- *
- * Version 4 added the Solana App: each account is one Ed25519 key m/44'/501'/N' (see [PairingKey.solanaAccount]), with the prefix 0 that
- * marks an Ed25519 key. A version-3 reader cannot read such a key, so it refuses the code with the message that asks for an update.
- *
- * Version 5 added the Algorand App: each account is one Ed25519 key m/44'/283'/N'/0/0 (see [PairingKey.algorandAccount]), with the prefix 0
- * that marks an Ed25519 key. Versions 3 and 4 have the same fields, so this build reads them too: a version-4 code holds no Algorand App,
- * and a version-4 reader refuses a version-5 code with the message that asks for an update.
  *
  * The body is at most [MAX_BODY_BYTES] bytes, compressed or not. The encoder keeps it compressed only when that makes it smaller.
  */
@@ -159,15 +145,8 @@ object PairingCodec {
     /** The UR type of the pairing. */
     const val UR_TYPE = "airvault-pairing"
 
-    /**
-     * The layout version this build writes. It also reads the versions in [READABLE_VERSIONS], whose fields are the same. A code of any other
-     * version is refused with the message that asks for an update: versions 1 and 2 held one account key with the accounts under it as
-     * children, which this build does not read as accounts.
-     */
+    /** The layout version of this build, which it writes and reads. A code of any other version is refused with a message that says why. */
     const val VERSION = 5L
-
-    /** The versions this build reads. Version 3 and version 4 codes have the fields of [VERSION], without the Apps that later versions added. */
-    private val READABLE_VERSIONS = setOf(3L, 4L, VERSION)
 
     /** The largest body in bytes, compressed or not. A reader refuses a larger body, so a body it decompresses is bounded by this. */
     const val MAX_BODY_BYTES = 512 * 1024
@@ -193,8 +172,8 @@ object PairingCodec {
     const val MAX_ENTRY_NAME_BYTES = 128
 
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
+    private const val OLDER_CODE = "This pairing code is from an older Lensly. Update both apps and pair again."
     private const val UINT32_MAX = 0xFFFFFFFFL
-    private const val MAX_CHILD = 0x7FFFFFFFL
     private const val MAX_PATH = 16
     private const val PUBLIC_KEY_BYTES = 33
     private const val CHAIN_CODE_BYTES = 32
@@ -251,19 +230,20 @@ object PairingCodec {
             ?.firstOrNull { (key, _) -> (key as? Cbor.Uint)?.value == 1L }
             ?.let { (_, value) -> (value as? Cbor.Uint)?.value }
             ?: refuse()
-        if (version !in READABLE_VERSIONS) {
+        if (version < VERSION) throw IllegalArgumentException(OLDER_CODE)
+        if (version > VERSION) {
             throw IllegalArgumentException(
                 "This pairing uses format $version, and this app reads format $VERSION. Update the app, then pair again.",
             )
         }
         return try {
-            payloadOf(bodyFieldsOf(root, brotli), packed = true)
+            payloadOf(bodyFieldsOf(root, brotli))
         } catch (e: IllegalArgumentException) {
             throw IllegalArgumentException(NOT_A_PAIRING, e)
         }
     }
 
-    /** The fields 2 to 5 of a version-2 body, read from its envelope [root] and decompressed with [brotli] when it is compressed. */
+    /** The fields 2 to 5 of the body, read from its envelope [root] and decompressed with [brotli] when it is compressed. */
     private fun bodyFieldsOf(root: Cbor.Dict, brotli: BrotliDecompressor?): Map<Long, Cbor> {
         val envelope = fieldsOf(root, 1L..7L)
         if (envelope.keys != setOf(1L, 6L, 7L)) refuse()
@@ -286,19 +266,19 @@ object PairingCodec {
         return fieldsOf(decoded as? Cbor.Dict ?: refuse(), 2L..5L)
     }
 
-    /** The pairing of the fields 2 to 5 of a body. [packed] is version 2, whose ids and addresses may be packed. */
-    private fun payloadOf(fields: Map<Long, Cbor>, packed: Boolean): PairingPayload {
+    /** The pairing of the fields 2 to 5 of a body. */
+    private fun payloadOf(fields: Map<Long, Cbor>): PairingPayload {
         val payload = PairingPayload(
             fingerprint = uintValue(required(fields, 2L), UINT32_MAX),
             name = text(required(fields, 3L), MAX_NAME_BYTES),
             apps = items(required(fields, 4L), MAX_APPS).map { decodeApp(it) },
-            addressBook = fields[5L]?.let { book -> items(book, MAX_ADDRESS_BOOK).map { decodeAddress(it, packed) } } ?: emptyList(),
+            addressBook = fields[5L]?.let { book -> items(book, MAX_ADDRESS_BOOK).map { decodeAddress(it) } } ?: emptyList(),
         )
         validate(payload)
         return payload
     }
 
-    /** The fields of a body, in key order: the body of a version-2 code, which carries no version of its own. */
+    /** The fields of a body, in key order. A body carries no version of its own: the envelope does. */
     private fun bodyFields(payload: PairingPayload): List<Pair<Cbor, Cbor>> {
         val fields = mutableListOf(
             uint(2) to uint(payload.fingerprint),
@@ -330,7 +310,6 @@ object PairingCodec {
 
     private fun encodeAccount(account: PairingAccount): Cbor {
         val entries = mutableListOf<Pair<Cbor, Cbor>>(uint(1) to uint(account.key.toLong()))
-        account.child?.let { entries += uint(2) to uint(it.toLong()) }
         account.name?.let { entries += uint(3) to Cbor.Text(it) }
         account.label?.let { entries += uint(4) to Cbor.Text(it) }
         account.group?.let { entries += uint(5) to Cbor.Text(it) }
@@ -359,9 +338,9 @@ object PairingCodec {
 
     private fun decodeAccount(item: Cbor): PairingAccount {
         val fields = fieldsOf(item as? Cbor.Dict ?: refuse(), 1L..5L)
+        if (2L in fields) refuse()
         return PairingAccount(
             key = uintValue(required(fields, 1L), Int.MAX_VALUE.toLong()).toInt(),
-            child = fields[2L]?.let { uintValue(it, MAX_CHILD).toInt() },
             name = fields[3L]?.let { text(it, MAX_NAME_BYTES) },
             label = fields[4L]?.let { text(it, MAX_LABEL_BYTES) },
             group = fields[5L]?.let { text(it, MAX_LABEL_BYTES) },
@@ -392,29 +371,27 @@ object PairingCodec {
         return Cbor.Bytes(ByteArray(EVM_ADDRESS_BYTES) { i -> address.substring(2 + 2 * i, 4 + 2 * i).toInt(16).toByte() })
     }
 
-    private fun decodeAddress(item: Cbor, packed: Boolean): AddressBookEntry {
+    private fun decodeAddress(item: Cbor): AddressBookEntry {
         val fields = fieldsOf(item as? Cbor.Dict ?: refuse(), 1L..4L)
         return AddressBookEntry(
-            id = entryId(required(fields, 1L), packed),
-            address = entryAddress(required(fields, 2L), packed),
+            id = entryId(required(fields, 1L)),
+            address = entryAddress(required(fields, 2L)),
             name = text(required(fields, 3L), MAX_ENTRY_NAME_BYTES),
             label = fields[4L]?.let { text(it, MAX_LABEL_BYTES) },
         )
     }
 
     /** An entry's id: a packed id is the 16 bytes of a UUID, and any other id is text. */
-    private fun entryId(item: Cbor, packed: Boolean): String {
-        val bytes = (item as? Cbor.Bytes)?.value
-        if (bytes == null || !packed) return text(item, MAX_ID_BYTES)
+    private fun entryId(item: Cbor): String {
+        val bytes = (item as? Cbor.Bytes)?.value ?: return text(item, MAX_ID_BYTES)
         if (bytes.size != UUID_BYTES) refuse()
         val buffer = ByteBuffer.wrap(bytes)
         return UUID(buffer.long, buffer.long).toString()
     }
 
     /** An entry's address: a packed address is the 20 bytes of an EVM address, in checksum form, and any other address is text. */
-    private fun entryAddress(item: Cbor, packed: Boolean): String {
-        val bytes = (item as? Cbor.Bytes)?.value
-        if (bytes == null || !packed) return text(item, MAX_ADDRESS_BYTES)
+    private fun entryAddress(item: Cbor): String {
+        val bytes = (item as? Cbor.Bytes)?.value ?: return text(item, MAX_ADDRESS_BYTES)
         if (bytes.size != EVM_ADDRESS_BYTES) refuse()
         val hex = bytes.joinToString("") { byte -> "%02x".format(byte) }
         return evmAddressOf("0x$hex") ?: refuse()
@@ -439,7 +416,6 @@ object PairingCodec {
             }
             for (account in app.accounts) {
                 require(account.key in app.keys.indices) { "An account names a key the App does not hold." }
-                require(account.child == null || account.child.toLong() in 0..MAX_CHILD) { "A child index is non-hardened." }
                 account.name?.let { require(isPlainText(it, MAX_NAME_BYTES)) { "An account name is 1 to $MAX_NAME_BYTES bytes." } }
                 account.label?.let { require(isPlainText(it, MAX_LABEL_BYTES)) { "A label is 1 to $MAX_LABEL_BYTES bytes." } }
                 account.group?.let { require(isPlainText(it, MAX_LABEL_BYTES)) { "A group is 1 to $MAX_LABEL_BYTES bytes." } }

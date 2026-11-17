@@ -6,10 +6,11 @@ import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcSigner
-import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.ScriptType
 import app.lumio.pair.PairFixtures
 import com.sparrowwallet.hummingbird.URDecoder
+import com.sparrowwallet.hummingbird.UREncoder
+import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Satoshi
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -85,9 +86,9 @@ class BtcSendRoundTripTest {
     fun aUrThatIsNotAPsbtIsRefused() {
         val (account, coin) = funded(ScriptType.NATIVE_SEGWIT)
         val plan = planOf(account, coin)
-        val accounts = BtcWatchOnly.accounts(PairFixtures.seed, testnet4)
+        val other = UREncoder.encode(UR("eth-signature", byteArrayOf(0x01, 0x02)))
         val refusal = assertFailsWith<IllegalArgumentException> {
-            BtcSend.signed(plan, URDecoder.decode(BtcWatchOnly.cryptoAccount(accounts)))
+            BtcSend.signed(plan, URDecoder.decode(other))
         }
         assertEquals("This code is not a signed request from Lensly.", refusal.message)
     }

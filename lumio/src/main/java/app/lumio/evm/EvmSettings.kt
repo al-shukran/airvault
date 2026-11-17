@@ -23,18 +23,10 @@ data class EvmSettings(
     /** The RPC address the owner set for a chain, built-in or custom. A chain without one reads from its default. */
     val rpc: Map<Long, String> = emptyMap(),
     val custom: List<CustomChain> = emptyList(),
-    /**
-     * The version of the defaults this record was saved under. A record without one, or below [CURRENT_VERSION], was saved before Monad testnet
-     * was on by default, and [EvmSettingsStore.read] switches it on. A new object is already at the current defaults.
-     */
-    val version: Int = 0,
 ) {
     companion object {
         const val DEFAULT_ADDRESS_COUNT = 5
         const val MAX_ADDRESS_COUNT = 20
-
-        /** The version that saved records carry. Version 1 is the one with Monad testnet on by default. */
-        const val CURRENT_VERSION = 1
 
         /**
          * Ethereum mainnet, then the testnets: Monad testnet, the primary testnet, and Sepolia. A new vault shows its balances on a mainnet and on
@@ -54,18 +46,16 @@ object EvmSettingsStore {
     /** The settings stored in [session], or the defaults when none are stored or the record does not parse. */
     fun read(session: VaultSession): EvmSettings {
         val bytes = session.getVaultRecord(EvmSettings.RECORD) ?: return EvmSettings()
-        val stored = try {
+        return try {
             json.decodeFromString(EvmSettings.serializer(), bytes.decodeToString())
         } catch (e: SerializationException) {
-            return EvmSettings()
+            EvmSettings()
         }
-        return migrate(stored)
     }
 
-    /** Saves [settings] at the current version. */
+    /** Saves [settings]. */
     fun write(session: VaultSession, settings: EvmSettings) {
-        val current = settings.copy(version = EvmSettings.CURRENT_VERSION)
-        session.putVaultRecord(EvmSettings.RECORD, json.encodeToString(EvmSettings.serializer(), current).encodeToByteArray())
+        session.putVaultRecord(EvmSettings.RECORD, json.encodeToString(EvmSettings.serializer(), settings).encodeToByteArray())
     }
 
     /**
@@ -84,16 +74,6 @@ object EvmSettingsStore {
         "The change could not be saved. Try again."
     }
 
-    /**
-     * [stored] brought to the current defaults. A record from before Monad testnet was on by default gets that chain switched on, and its other
-     * settings stay as they are. The change is saved with the next write, so an owner who turns the chain off keeps it off.
-     */
-    internal fun migrate(stored: EvmSettings): EvmSettings =
-        if (stored.version >= EvmSettings.CURRENT_VERSION) {
-            stored
-        } else {
-            stored.copy(enabled = stored.enabled + EvmCatalog.PRIMARY_TESTNET_ID, version = EvmSettings.CURRENT_VERSION)
-        }
 }
 
 /** A custom chain as the owner typed it. Nothing in it is checked until [EvmEdits.addCustom] runs. */

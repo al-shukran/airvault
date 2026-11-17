@@ -10,6 +10,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
+private const val OLDER_CODE = "This pairing code is from an older Lensly. Update both apps and pair again."
+
 class PairingCodecTest {
 
     private val ethereumPath = listOf(0x8000002CL, 0x8000003CL, 0x80000000L)
@@ -32,17 +34,17 @@ class PairingCodecTest {
                 app = "ethereum",
                 keys = listOf(key(1, ethereumPath)),
                 accounts = listOf(
-                    PairingAccount(key = 0, child = 0, name = "Savings", label = "cold", group = "Long term"),
-                    PairingAccount(key = 0, child = 1, name = "Trading", label = null, group = "Hot"),
-                    PairingAccount(key = 0, child = 2, name = "Trésor ✓", label = "ü", group = null),
+                    PairingAccount(key = 0, name = "Savings", label = "cold", group = "Long term"),
+                    PairingAccount(key = 0, name = "Trading", label = null, group = "Hot"),
+                    PairingAccount(key = 0, name = "Trésor ✓", label = "ü", group = null),
                 ),
             ),
             PairingApp(
                 app = "bitcoin",
                 keys = listOf(key(2, bitcoinPath, parent = 0x55667788L), key(3, bitcoinPath, parent = 0x99AABBCCL)),
                 accounts = listOf(
-                    PairingAccount(key = 0, child = null, name = null, label = null, group = null),
-                    PairingAccount(key = 1, child = null, name = null, label = null, group = null),
+                    PairingAccount(key = 0, name = null, label = null, group = null),
+                    PairingAccount(key = 1, name = null, label = null, group = null),
                 ),
             ),
         ),
@@ -93,12 +95,12 @@ class PairingCodecTest {
         return requireNotNull(scanner.result())
     }
 
-    /** The encoding flag (key 6) of a version-2 envelope. */
+    /** The encoding flag (key 6) of an envelope. */
     private fun encodingOf(envelope: ByteArray): Long =
         ((Cbor.decode(envelope, app.lensly.core.parse.DecodeBudget("CBOR", 1024)) as Cbor.Dict)
             .entries.single { (key, _) -> (key as Cbor.Uint).value == 6L }.second as Cbor.Uint).value
 
-    /** One Address Book entry as a version-1 payload carries it. */
+    /** One Address Book entry as a payload carries it. */
     private fun addressItem(seed: Int): Cbor = Cbor.Dict(
         listOf(
             Cbor.Uint(1) to Cbor.Text("id-$seed"),
@@ -119,7 +121,7 @@ class PairingCodecTest {
         val payload = PairingPayload(
             fingerprint = 1L,
             name = "Lensly",
-            apps = listOf(PairingApp("ethereum", listOf(key(4, ethereumPath)), listOf(PairingAccount(0, 0, null, null, null)))),
+            apps = listOf(PairingApp("ethereum", listOf(key(4, ethereumPath)), listOf(PairingAccount(0, null, null, null)))),
         )
 
         val back = roundTrip(payload)
@@ -133,7 +135,7 @@ class PairingCodecTest {
     @Test
     fun aLongCodeIsAnimatedAndScansBackWhole() {
         val accounts = (0 until 120).map { index ->
-            PairingAccount(key = 0, child = index, name = "Account $index", label = "label $index", group = "Group ${index % 5}")
+            PairingAccount(key = 0, name = "Account $index", label = "label $index", group = "Group ${index % 5}")
         }
         val payload = PairingPayload(
             fingerprint = 0x0A0B0C0DL,
@@ -169,10 +171,7 @@ class PairingCodecTest {
     fun aVersionZeroAndAMissingVersionAreNotAPairing() {
         val notAPairing = "This is not a pairing code from Lensly."
         val versionZero = Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(0), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(ByteArray(0)))))
-        assertEquals(
-            "This pairing uses format 0, and this app reads format 5. Update the app, then pair again.",
-            refusalOf { PairingCodec.decode(versionZero, null) },
-        )
+        assertEquals(OLDER_CODE, refusalOf { PairingCodec.decode(versionZero, null) })
         assertEquals(notAPairing, refusalOf { PairingCodec.decode(rawPayload(2L to Cbor.Uint(1)), null) })
         assertEquals(notAPairing, refusalOf { PairingCodec.decode(byteArrayOf(0x01, 0x02), null) })
     }
@@ -225,7 +224,7 @@ class PairingCodecTest {
         val broken = PairingPayload(
             fingerprint = 1L,
             name = "Demo",
-            apps = listOf(PairingApp("ethereum", listOf(key(6, ethereumPath)), listOf(PairingAccount(1, 0, null, null, null)))),
+            apps = listOf(PairingApp("ethereum", listOf(key(6, ethereumPath)), listOf(PairingAccount(1, null, null, null)))),
         )
 
         assertTrue(refusalOf { PairingCodec.encode(broken, null) }.contains("key the App does not hold"))
@@ -237,7 +236,7 @@ class PairingCodecTest {
         val tooLong = sample().copy(name = "x".repeat(PairingCodec.MAX_NAME_BYTES + 1))
         val longGroup = sample().copy(
             apps = listOf(sample().apps.first().let { app ->
-                app.copy(accounts = listOf(PairingAccount(0, 0, "ok", null, "g".repeat(PairingCodec.MAX_LABEL_BYTES + 1))))
+                app.copy(accounts = listOf(PairingAccount(0, "ok", null, "g".repeat(PairingCodec.MAX_LABEL_BYTES + 1))))
             }),
         )
 
@@ -274,11 +273,10 @@ class PairingCodecTest {
     }
 
     @Test
-    fun aVersionOnePairingIsRefusedWithTheUpdateMessage() {
-        assertEquals(
-            "This pairing uses format 1, and this app reads format 5. Update the app, then pair again.",
-            refusalOf { PairingCodec.fromUr(scanned(LabelledPairingGolden.V1_FRAMES), null) },
-        )
+    fun anOlderVersionIsRefusedWithTheUpdateMessage() {
+        val version4 = Cbor.encode(Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(4), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(ByteArray(0)))))
+        assertEquals(OLDER_CODE, refusalOf { PairingCodec.decode(version4, null) })
+        assertEquals(OLDER_CODE, refusalOf { PairingCodec.fromUr(UR(PairingCodec.UR_TYPE, version4), null) })
     }
 
     @Test
@@ -377,8 +375,8 @@ class PairingCodecTest {
                 PairingApp(
                     app = "app-$index",
                     keys = listOf(key(index + 10, ethereumPath)),
-                    accounts = List(PairingCodec.MAX_ACCOUNTS) { child ->
-                        PairingAccount(0, child, "n".repeat(PairingCodec.MAX_NAME_BYTES), "l".repeat(PairingCodec.MAX_LABEL_BYTES), "g".repeat(PairingCodec.MAX_LABEL_BYTES))
+                    accounts = List(PairingCodec.MAX_ACCOUNTS) { _ ->
+                        PairingAccount(0, "n".repeat(PairingCodec.MAX_NAME_BYTES), "l".repeat(PairingCodec.MAX_LABEL_BYTES), "g".repeat(PairingCodec.MAX_LABEL_BYTES))
                     },
                 )
             },
@@ -387,7 +385,7 @@ class PairingCodecTest {
     }
 
     @Test
-    fun aVersionTwoEnvelopeWithAnUnknownEncodingOrAnExtraKeyIsRefused() {
+    fun anEnvelopeWithAnUnknownEncodingOrAnExtraKeyIsRefused() {
         val unknownEncoding = Cbor.encode(
             Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(PairingCodec.VERSION), Cbor.Uint(6) to Cbor.Uint(1), Cbor.Uint(7) to Cbor.Bytes(ByteArray(4)))),
         )

@@ -7,11 +7,8 @@ import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.ur.CryptoHdKeyDecoder
-import app.lensly.core.ur.PRIVATE_KEY_REFUSAL
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
 import com.sparrowwallet.hummingbird.UR
@@ -26,9 +23,12 @@ class PairingRefusal(message: String) : IllegalArgumentException(message)
 /**
  * Reads the pairing that Lensly exports: one `ur:airvault-pairing` with the keys and the names of every App of a wallet (see
  * [PairingCodec]). Lumio checks that every key is public and is a key it watches, then the store replaces what it holds for the wallet.
- * A code of an older Lensly, which holds fewer keys and no names, is refused, so it never replaces a wallet's names with fewer of them.
+ * A code of an older Lensly is refused with the reason to pair again, so it never replaces a wallet's pairing with a partial one.
  */
 object PairImport {
+    /** The refusal of a code that is not a public key, such as a seed or a private key. */
+    const val PRIVATE_KEY_REFUSAL = "The code holds private key material. Only public exports can be paired."
+
     /** The Apps Lumio watches. Another App in a pairing is left out, because Lumio cannot show its accounts. */
     const val ETHEREUM = "ethereum"
     const val BITCOIN = "bitcoin"
@@ -48,8 +48,7 @@ object PairImport {
     const val MAX_ALGORAND_ACCOUNTS = 100
 
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
-    private const val OLDER_CODE =
-        "This code is from an older Lensly, which does not carry the names of the accounts. Pair the wallet again from Lensly's Pair wallet."
+    private const val OLDER_CODE = "This pairing code is from an older Lensly. Update both apps and pair again."
     private const val NO_ETHEREUM = "The code holds no Ethereum account key."
     private const val NOT_ACCOUNT_KEY = "The code's Ethereum key is not the address key of its account, m/44'/60'/N'/0/0."
     private const val BAD_KEY = "The code's public key is not valid."
@@ -59,13 +58,12 @@ object PairImport {
 
     /**
      * The pairing that [ur] carries, checked for Lumio.
-     * @throws PairingRefusal with the reason, when [ur] is not a pairing, holds an unknown version or private key material, or breaks a rule.
+     * @throws PairingRefusal with the reason, when [ur] is not a pairing, is an older code, holds private key material, or breaks a rule.
      */
     fun of(ur: UR): PairingPayload = when (ur.type.lowercase()) {
         PairingCodec.UR_TYPE -> checked(ur)
-        // An older Lensly's code: refused, with the reason it has when it holds private material or is not a public key.
-        "crypto-hdkey" -> throw olderCodeRefusal { CryptoHdKeyDecoder.accountKey(ur) }
-        "crypto-account" -> throw olderCodeRefusal { BtcWatchOnly.parseCryptoAccount(ur) }
+        // The codes that older Lensly builds exported for Lumio, which this build no longer reads.
+        "crypto-hdkey", "crypto-account" -> throw PairingRefusal(OLDER_CODE)
         // A seed is private material, whatever the owner meant to export, so it gets the private-key refusal.
         "crypto-seed" -> throw PairingRefusal(PRIVATE_KEY_REFUSAL)
         else -> throw PairingRefusal("$NOT_A_PAIRING ur:${ur.type} is not supported.")
@@ -219,16 +217,6 @@ object PairImport {
         } catch (e: Exception) {
             throw PairingRefusal(BAD_KEY)
         }
-    }
-
-    /** The refusal of an older code: the reason of its own decoder when it is invalid, and [OLDER_CODE] when it is valid but old. */
-    private inline fun olderCodeRefusal(decode: () -> Any): PairingRefusal {
-        try {
-            decode()
-        } catch (e: IllegalArgumentException) {
-            return PairingRefusal(e.message ?: NOT_A_PAIRING)
-        }
-        return PairingRefusal(OLDER_CODE)
     }
 
     /** The path of the Algorand key of account [account]: m/44'/283'/[account]'/0/0. */
