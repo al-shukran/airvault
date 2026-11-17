@@ -37,12 +37,25 @@ private const val CLOSE_REMAINDER_TO = "Close remainder to"
 /** The label of an asset transfer's close-to row: the address that takes the rest of the holding. */
 private const val CLOSE_HOLDING_TO = "Close holding to"
 
+/** The label of the first round in which the transaction is valid. */
+private const val VALID_FROM = "Valid from round"
+
+/** The label of the last round in which the transaction is valid. A later last round lets the signed transaction be sent later. */
+private const val VALID_UNTIL = "Valid until round"
+
+/** The label of the lease row: until the last round, no other transaction with the same lease can be confirmed. */
+private const val LEASE = "Lease"
+
+/** The label of the group ID row: the group the transaction is part of. */
+private const val GROUP_ID = "Group ID"
+
 /** The decimal places of a microAlgo: one ALGO is 10^6 microAlgos. */
 private const val MICRO_ALGO_DECIMALS = 6
 
 /**
- * The label and value rows an Algorand review shows, in order: the sender, what the transaction moves, its fee, its note, and its close-to
- * address. The review screen and the Review Record both show these rows, so they say the same thing.
+ * The label and value rows an Algorand review shows, in order: the sender, what the transaction moves, its fee, the rounds it is valid
+ * in, its lease and group ID when it has them, its note, and its close-to address. The review screen and the Review Record both show
+ * these rows, so they say the same thing.
  */
 fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> = buildList {
     val txn = review.txn
@@ -60,6 +73,10 @@ fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> = bu
         }
     }
     add(FEE to algoText(txn.fee))
+    add(VALID_FROM to txn.firstValid.toString())
+    add(VALID_UNTIL to txn.lastValid.toString())
+    txn.lease?.let { add(LEASE to "0x" + it.toHex()) }
+    txn.group?.let { add(GROUP_ID to "0x" + it.toHex()) }
     noteText(txn.note)?.let { add(NOTE to it) }
     review.closeTo?.let { closeTo ->
         val label = if (txn is Payment) CLOSE_REMAINDER_TO else CLOSE_HOLDING_TO
