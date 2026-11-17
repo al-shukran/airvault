@@ -5,6 +5,7 @@ import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.SolCluster
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
+import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
 
 /** A warning the review shows beside a Solana request. The owner reads each one before the request can be signed. */
@@ -17,6 +18,11 @@ enum class SolanaWarning {
      * cannot. The review shows this at error level.
      */
     NONCE_AUTHORITY_NOT_SIGNER,
+
+    /**
+     * A transaction advances a durable nonce. It has no expiry: it stays valid until the nonce advances, and advancing the nonce cancels it.
+     */
+    DURABLE_NONCE,
 
     /** An account comes from an address lookup table. The table is not in the request, so Lensly cannot check the address offline. */
     LOOKUP_TABLE,
@@ -64,22 +70,60 @@ class SolanaRequestReview internal constructor(
             }
         }.distinct()
 
+    /** The compute limit the transaction sets, or null when it sets none. A transaction sets at most one, or it is refused. */
+    val computeUnitLimit: UInt?
+        get() = instructions.filterIsInstance<SolanaInstruction.SetComputeUnitLimit>().singleOrNull()?.units
+
     /**
-     * The priority fee in lamports, when the transaction sets exactly one compute limit and exactly one compute price. Null otherwise.
+     * The priority fee in lamports: the compute price times the units the transaction pays for. Those are the limit it sets. With no limit
+     * they are [DEFAULT_UNITS_PER_INSTRUCTION] for each instruction that is not a compute budget one, capped at [MAX_UNITS]. Zero when the
+     * transaction sets no price.
      */
-    val priorityFeeLamports: ULong?
+    val priorityFeeLamports: ULong
         get() {
-            val limits = instructions.filterIsInstance<SolanaInstruction.SetComputeUnitLimit>()
-            val prices = instructions.filterIsInstance<SolanaInstruction.SetComputeUnitPrice>()
-            if (limits.size != 1 || prices.size != 1) return null
-            return priorityFee(limits[0].units, prices[0].microLamports)
+            val price = instructions.filterIsInstance<SolanaInstruction.SetComputeUnitPrice>().singleOrNull() ?: return 0uL
+            return priorityFee(computeUnitLimit ?: defaultUnits(), price.microLamports)
         }
+
+    /** Whether [priorityFeeLamports] is an upper bound rather than the exact fee: the transaction sets a price and no limit. */
+    val priorityFeeIsBound: Boolean
+        get() = computeUnitLimit == null && instructions.any { it is SolanaInstruction.SetComputeUnitPrice }
+
+    /** The base fee in lamports: [LAMPORTS_PER_SIGNATURE] for each signature the transaction requires. Zero for a message. */
+    val baseFeeLamports: ULong
+        get() = (message?.header?.numRequiredSignatures ?: 0).toULong() * LAMPORTS_PER_SIGNATURE
+
+    /** The most the transaction can cost in fees: the base fee and the priority fee. It is exact unless [priorityFeeIsBound] is set. */
+    val maxFeeLamports: ULong
+        get() = baseFeeLamports + priorityFeeLamports
+
+    /** The recent blockhash of a transaction, in base58. For a durable nonce it is the nonce's stored value. Null for a message. */
+    val recentBlockhash: String?
+        get() = message?.let { Base58.encode(it.recentBlockhash) }
+
+    /** The required signers other than this account and the fee payer, in base58, in the order the message lists them. */
+    val otherRequiredSigners: List<String>
+        get() {
+            val tx = message ?: return emptyList()
+            return (0 until tx.header.numRequiredSignatures)
+                .map { Base58.encode(tx.accountKeys[it]) }
+                .filter { it != signerAddress && it != tx.feePayer }
+        }
+
+    /** The units a transaction with no limit pays for: the default for each instruction that is not a compute budget one, capped. */
+    private fun defaultUnits(): UInt {
+        val tx = message ?: return 0u
+        val computeBudget = instructions.count { it is SolanaInstruction.SetComputeUnitLimit || it is SolanaInstruction.SetComputeUnitPrice }
+        val others = (tx.instructions.size - computeBudget).coerceAtLeast(0)
+        return minOf(others.toUInt() * DEFAULT_UNITS_PER_INSTRUCTION, MAX_UNITS)
+    }
 
     /** Every warning this review shows, in a fixed order. */
     val warnings: List<SolanaWarning>
         get() = buildList {
             if (instructions.any { it is SolanaInstruction.Raw }) add(SolanaWarning.UNKNOWN_PROGRAM)
             if (nonceAuthorityIsNotSigner) add(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER)
+            if (instructions.any { it is SolanaInstruction.AdvanceNonce }) add(SolanaWarning.DURABLE_NONCE)
             if (instructions.any { it is SolanaInstruction.TokenTransfer }) add(SolanaWarning.DECIMALS_UNKNOWN)
             if (mints.any { tokenOf(it) == null }) add(SolanaWarning.UNKNOWN_TOKEN)
             if (lookups.isNotEmpty()) add(SolanaWarning.LOOKUP_TABLE)
@@ -112,6 +156,15 @@ internal fun priorityFee(units: UInt, microLamportsPerUnit: ULong): ULong {
 
 private val MICRO_LAMPORTS_PER_LAMPORT: BigInteger = BigInteger.valueOf(1_000_000)
 
+/** The base fee of one signature, in lamports. */
+private val LAMPORTS_PER_SIGNATURE: ULong = 5_000uL
+
+/** The compute units an instruction is given when its transaction sets no limit, for an instruction that is not a built-in. */
+private val DEFAULT_UNITS_PER_INSTRUCTION: UInt = 200_000u
+
+/** The largest compute limit a transaction can request. */
+private val MAX_UNITS: UInt = 1_400_000u
+
 /**
  * Checks a sol-sign-request against the Solana accounts of its wallet, and builds the review the owner reads. Nothing here signs, and
  * nothing here reads a key. The caller passes the public keys of the wallet's Solana accounts, in account order, and the [tokens] the
@@ -136,6 +189,13 @@ object SolanaRequestCheck {
 
     /** The reason for a transaction that cannot be read. */
     const val UNREADABLE_TRANSACTION = "The transaction could not be read."
+
+    /** The reason for a transaction that sets its compute limit or its compute price more than once. */
+    const val DUPLICATE_COMPUTE_BUDGET = "The transaction sets its compute limit or its compute price more than once."
+
+    /** The reason for a transaction that sends to an account from an address lookup table, which Lensly cannot check offline. */
+    const val LOOKUP_RECIPIENT_REFUSAL =
+        "This transaction sends to an account from an address lookup table, which Lensly cannot check offline."
 
     /** The reason for a transaction that lists one account twice. */
     const val DUPLICATE_ACCOUNT = "The transaction lists an account twice."
@@ -168,9 +228,10 @@ object SolanaRequestCheck {
      * Checks [request] against [accountKeys], the public keys of the wallet's Solana accounts. Account N is the key at position N. A
      * request is refused when its path is not m/44'/501'/N', when the wallet has no account N, when it names a signer address other than
      * account N's key, or when a transaction cannot be read, lists an account twice, or does not take account N as a signer. A
-     * transaction that calls a program Lensly does not read is refused when [unknownCalls] is REFUSE, and reviewed under an error-level
-     * warning when it is WARN, which is the default. A message is refused unless it is a Solana off-chain message that names account N
-     * as a signer, and bytes that decode as a transaction are refused as a message whatever their format.
+     * transaction that sets its compute limit or price more than once is refused, and so is one that sends SOL or tokens to an account
+     * from an address lookup table. A transaction that calls a program Lensly does not read is refused when [unknownCalls] is REFUSE, and
+     * reviewed under an error-level warning when it is WARN, which is the default. A message is refused unless it is a Solana off-chain
+     * message that names account N as a signer, and bytes that decode as a transaction are refused as a message whatever their format.
      */
     fun check(
         request: SolSignRequest,
@@ -204,8 +265,16 @@ object SolanaRequestCheck {
         if (keys.map { it.toList() }.toSet().size != keys.size) return Result.Refused(DUPLICATE_ACCOUNT)
         if (keys.take(message.header.numRequiredSignatures).none { it.contentEquals(signer) }) return Result.Refused(NOT_A_SIGNER)
         val instructions = message.decodeInstructions()
+        if (instructions.count { it is SolanaInstruction.SetComputeUnitLimit } > 1 ||
+            instructions.count { it is SolanaInstruction.SetComputeUnitPrice } > 1
+        ) {
+            return Result.Refused(DUPLICATE_COMPUTE_BUDGET)
+        }
         if (unknownCalls == UnknownCallPolicy.REFUSE && instructions.any { it is SolanaInstruction.Raw }) {
             return Result.Refused(UNKNOWN_PROGRAM_REFUSAL)
+        }
+        if (instructions.any { instruction -> valueRecipients(instruction).any { it is SolanaMessageAccount.Lookup } }) {
+            return Result.Refused(LOOKUP_RECIPIENT_REFUSAL)
         }
         val lookups = message.instructions
             .flatMap { listOf(it.programIdIndex) + it.accountIndices }
@@ -225,6 +294,14 @@ object SolanaRequestCheck {
                 cluster = cluster,
             ),
         )
+    }
+
+    /** The accounts an instruction moves value to: the SOL recipient, and the token destination and authority. */
+    private fun valueRecipients(instruction: SolanaInstruction): List<SolanaMessageAccount> = when (instruction) {
+        is SolanaInstruction.SystemTransfer -> listOf(instruction.to)
+        is SolanaInstruction.TokenTransfer -> listOf(instruction.destination, instruction.authority)
+        is SolanaInstruction.TokenTransferChecked -> listOf(instruction.destination, instruction.authority)
+        else -> emptyList()
     }
 
     /**

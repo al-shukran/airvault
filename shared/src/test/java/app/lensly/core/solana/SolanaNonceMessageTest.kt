@@ -73,7 +73,7 @@ class SolanaNonceMessageTest {
 
     /** The transfer is one advance first, then one transfer, names the nonce value and warns about nothing. */
     @Test
-    fun theTransferDecodesAsAnAdvanceThenATransferWithNoWarning() {
+    fun theTransferDecodesAsAnAdvanceThenATransferWithOnlyTheNonceWarning() {
         val review = review(SolanaNonce.transferMessage(ACCOUNT, RECIPIENT, LAMPORTS, NONCE_VALUE))
         assertEquals(
             listOf(
@@ -88,7 +88,7 @@ class SolanaNonceMessageTest {
             review.instructions,
         )
         assertContentEquals(NONCE_VALUE, review.message!!.recentBlockhash)
-        assertEquals(emptyList(), review.warnings)
+        assertEquals(listOf(SolanaWarning.DURABLE_NONCE), review.warnings)
     }
 
     /** The setup reads as one nonce setup: the account pays, is the base, names its seed, and is the authority, with no warning. */
