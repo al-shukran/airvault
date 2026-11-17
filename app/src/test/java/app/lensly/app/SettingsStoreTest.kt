@@ -4,6 +4,7 @@ import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.ProxyPolicy
+import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
@@ -44,6 +45,52 @@ class SettingsStoreTest {
         val session = open()
 
         assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
+        session.close()
+    }
+
+    @Test
+    fun aVaultWithNoSavedSettingsWarnsOnUnknownCalls() {
+        val session = open()
+
+        assertEquals(UnknownCallPolicy.WARN, SettingsStore(session).load().unknownCallPolicy)
+        session.close()
+    }
+
+    @Test
+    fun aSavedRefuseIsReadBackAfterTheVaultReopens() {
+        val first = open()
+        SettingsStore(first).save(AppSettings(bulkCap = BulkCap.TWENTY, unknownCallPolicy = UnknownCallPolicy.REFUSE))
+        first.close()
+
+        val reopened = open()
+        val loaded = SettingsStore(reopened).load()
+        assertEquals(UnknownCallPolicy.REFUSE, loaded.unknownCallPolicy)
+        assertEquals(BulkCap.TWENTY, loaded.bulkCap)
+        reopened.close()
+    }
+
+    /** A version 5 record has no unknown-call byte, so it reads as Warn and keeps every other saved setting. */
+    @Test
+    fun aVersionFiveRecordReadsAsWarnAndKeepsItsOtherSettings() {
+        val session = open()
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(5)
+            out.writeInt(BulkCap.HUNDRED.accounts)
+            out.writeByte(ProxyPolicy.REFUSE_ALL_PROXIES.code)
+            out.writeInt(HideDelay.DEFAULT.minMs.toInt())
+            out.writeInt(HideDelay.DEFAULT.maxMs.toInt())
+            out.writeByte(InputVerificationPolicy.STRICT.wire)
+            out.writeByte(SigningSourcePolicy.ANY.wire)
+            out.writeInt(BtcFeeThresholds.DEFAULT.highFeeRateSatPerVb)
+            out.writeInt(BtcFeeThresholds.DEFAULT.feeSharePercent)
+        }
+        session.putVaultRecord("settings", buffer.toByteArray())
+
+        val loaded = SettingsStore(session).load()
+        assertEquals(UnknownCallPolicy.WARN, loaded.unknownCallPolicy)
+        assertEquals(BulkCap.HUNDRED, loaded.bulkCap)
+        assertEquals(ProxyPolicy.REFUSE_ALL_PROXIES, loaded.proxyPolicy)
         session.close()
     }
 

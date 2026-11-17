@@ -21,6 +21,7 @@ import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyPolicy
+import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WalletEntry
 import app.lensly.core.registry.WhitelistEntry
@@ -63,6 +64,7 @@ private const val PREVIEW_ICONS = 4
  * while it is read, and [onNetworks] and [onTokens] open the lists. [entryGesture] is the gesture the camera uses now, and
  * [onEntryGesture] opens the choice of another. [onApprovedContracts] opens the approved contracts, which [catalog] counts.
  * [proxyPolicy] is the policy in force, null while it is read, and [onProxyPolicy] opens the screen that changes it.
+ * [unknownCallPolicy] is the choice in force, null while it is read, and [onUnknownCallPolicy] saves a choice from its dialog at once.
  * [hideDelay] is the dice and coin hide delay, null while it is read, and [onHideDelay] opens the screen that changes it.
  * [onThirdPartyLicences] opens the third-party licences from the About section.
  */
@@ -82,6 +84,8 @@ fun SettingsScreen(
     onAddressBook: () -> Unit = {},
     proxyPolicy: ProxyPolicy? = null,
     onProxyPolicy: () -> Unit = {},
+    unknownCallPolicy: UnknownCallPolicy? = null,
+    onUnknownCallPolicy: (UnknownCallPolicy) -> Unit = {},
     hideDelay: HideDelay? = null,
     onHideDelay: () -> Unit = {},
     bitcoinInputPolicy: InputVerificationPolicy? = null,
@@ -238,6 +242,19 @@ fun SettingsScreen(
                 } ?: "Reading the saved policy…",
                 onClick = onProxyPolicy,
                 loading = proxyPolicy == null,
+            )
+            ChoiceDialogRow(
+                label = "Unknown contract calls",
+                value = unknownCallPolicy?.let { policy ->
+                    if (policy == UnknownCallPolicy.DEFAULT) "${policy.label} (default)" else policy.label
+                },
+                options = UnknownCallPolicy.entries,
+                selected = unknownCallPolicy,
+                optionLabel = { it.label },
+                onSelect = onUnknownCallPolicy,
+                description = "A call or program Lensly cannot read. Warn signs it after an error-level warning. " +
+                    "Refuse never signs it.",
+                dialogTitle = "Unknown contract calls",
             )
         }
 

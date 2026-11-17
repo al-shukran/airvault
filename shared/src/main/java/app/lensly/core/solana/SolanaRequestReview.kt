@@ -1,5 +1,6 @@
 package app.lensly.core.solana
 
+import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
@@ -119,6 +120,10 @@ object SolanaRequestCheck {
     /** The reason for a transaction that the account does not sign. */
     const val NOT_A_SIGNER = "This account does not sign this transaction."
 
+    /** The reason for a transaction that calls a program Lensly does not read, when the Unknown contract calls setting refuses it. */
+    const val UNKNOWN_PROGRAM_REFUSAL =
+        "This transaction calls a program that Lensly does not read, and your Unknown contract calls setting refuses it."
+
     private const val PURPOSE = 44
     private const val SOLANA_COIN_TYPE = 501
 
@@ -133,15 +138,22 @@ object SolanaRequestCheck {
     /**
      * Checks [request] against [accountKeys], the public keys of the wallet's Solana accounts. Account N is the key at position N. A
      * request is refused when its path is not m/44'/501'/N', when the wallet has no account N, when it names a signer address other than
-     * account N's key, or when a transaction cannot be read, lists an account twice, or does not take account N as a signer.
+     * account N's key, or when a transaction cannot be read, lists an account twice, or does not take account N as a signer. A
+     * transaction that calls a program Lensly does not read is refused when [unknownCalls] is REFUSE, and reviewed under an error-level
+     * warning when it is WARN, which is the default.
      */
-    fun check(request: SolSignRequest, accountKeys: List<ByteArray>, tokens: SolanaTokenList = SolanaTokenList.EMPTY): Result {
+    fun check(
+        request: SolSignRequest,
+        accountKeys: List<ByteArray>,
+        tokens: SolanaTokenList = SolanaTokenList.EMPTY,
+        unknownCalls: UnknownCallPolicy = UnknownCallPolicy.WARN,
+    ): Result {
         val index = accountIndexOf(request.derivationPath) ?: return Result.Refused(PATH_REFUSED)
         val signer = accountKeys.getOrNull(index) ?: return Result.Refused(UNKNOWN_ACCOUNT)
         val named = request.address
         if (named != null && !named.contentEquals(signer)) return Result.Refused(DIFFERENT_ADDRESS)
         return when (request.signType) {
-            SolSignType.TRANSACTION -> transaction(request.signData, index, signer, tokens)
+            SolSignType.TRANSACTION -> transaction(request.signData, index, signer, tokens, unknownCalls)
             SolSignType.MESSAGE -> Result.Ok(
                 SolanaRequestReview(
                     signType = SolSignType.MESSAGE,
@@ -157,7 +169,13 @@ object SolanaRequestCheck {
         }
     }
 
-    private fun transaction(bytes: ByteArray, index: Int, signer: ByteArray, tokens: SolanaTokenList): Result {
+    private fun transaction(
+        bytes: ByteArray,
+        index: Int,
+        signer: ByteArray,
+        tokens: SolanaTokenList,
+        unknownCalls: UnknownCallPolicy,
+    ): Result {
         val message = when (val decoded = SolanaMessage.decode(bytes)) {
             is SolanaMessage.Result.Ok -> decoded.message
             is SolanaMessage.Result.Rejected -> return Result.Refused(UNREADABLE_TRANSACTION)
@@ -165,6 +183,10 @@ object SolanaRequestCheck {
         val keys = message.accountKeys
         if (keys.map { it.toList() }.toSet().size != keys.size) return Result.Refused(DUPLICATE_ACCOUNT)
         if (keys.take(message.header.numRequiredSignatures).none { it.contentEquals(signer) }) return Result.Refused(NOT_A_SIGNER)
+        val instructions = message.decodeInstructions()
+        if (unknownCalls == UnknownCallPolicy.REFUSE && instructions.any { it is SolanaInstruction.Raw }) {
+            return Result.Refused(UNKNOWN_PROGRAM_REFUSAL)
+        }
         val lookups = message.instructions
             .flatMap { listOf(it.programIdIndex) + it.accountIndices }
             .map { message.account(it) }
@@ -176,7 +198,7 @@ object SolanaRequestCheck {
                 accountIndex = index,
                 signer = signer,
                 message = message,
-                instructions = message.decodeInstructions(),
+                instructions = instructions,
                 lookups = lookups,
                 messageBytes = null,
                 tokens = tokens,
