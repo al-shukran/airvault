@@ -13,6 +13,7 @@ import app.lumio.data.cache.jsonCodec
 import app.lumio.data.provider.AddressStats
 import app.lumio.data.provider.AddressUtxos
 import app.lumio.data.provider.Broadcast
+import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RawTx
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
@@ -28,6 +29,9 @@ import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlin.math.ceil
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 
 /** The smallest output Lumio builds. A node will not relay a smaller one, so a remainder below it goes to the fee instead of a change output. */
 internal const val DUST_SATS = 546L
@@ -42,6 +46,61 @@ private const val SUGGESTED_TARGET_BLOCKS = 3
 /** The lowest fee rate a request pays, in sat/vB, and the highest that the form accepts. */
 private const val MIN_FEE_RATE = 1.0
 private const val MAX_FEE_RATE = 1000.0
+
+/** The network reads of a send, each named in the words that an error shows. */
+enum class BtcReadStep(val words: String) {
+    ADDRESS_HISTORY("reading the address history of the account"),
+    UNSPENT_OUTPUTS("listing the unspent outputs"),
+    PREVIOUS_TRANSACTIONS("reading the transactions that the send spends"),
+    FEE_ESTIMATE("reading the fee estimate"),
+    BROADCAST("sending the transaction"),
+}
+
+/** A network read of a send that failed. [step] names what Lumio was reading; [failure] is the server's answer, which the owner never sees. */
+class BtcReadException(val step: BtcReadStep, val failure: ProviderError) :
+    IllegalStateException("The Bitcoin network could not be read while ${step.words}: ${reasonOf(failure)}. Try again.", failure)
+
+/** The reason a failed read gives, in the owner's words. */
+private fun reasonOf(cause: ProviderError): String = when (cause) {
+    is ProviderError.RateLimited -> "the servers are rate limiting Lumio"
+    is ProviderError.Transient -> "the server did not answer in time"
+    is ProviderError.NotFound -> "the server has no answer for it"
+    is ProviderError.Unsupported -> "no server serves this network"
+    is ProviderError.Fatal -> cause.message?.trimEnd('.') ?: "the server refused the request"
+}
+
+/** How long one network read of a send may take, before it is cut short and tried again once. */
+internal const val READ_TIMEOUT_MS = 10_000L
+
+/** The wait before the one retry of a send's network read. */
+internal const val RETRY_DELAY_MS = 1_000L
+
+/**
+ * One network read of a send, with [READ_TIMEOUT_MS] for each attempt. A read that times out or fails transiently is tried once more after
+ * [RETRY_DELAY_MS]: the scheduler then moves the retry to the next server, which is the fallback. A failure names [step]. [retry] is false for a
+ * read that must not be sent twice.
+ */
+internal suspend fun <T> readStep(step: BtcReadStep, retry: Boolean = true, read: suspend () -> T): T {
+    try {
+        return attempt(read)
+    } catch (e: ProviderError.Transient) {
+        if (!retry) throw BtcReadException(step, e)
+    } catch (e: ProviderError) {
+        throw BtcReadException(step, e)
+    }
+    delay(RETRY_DELAY_MS)
+    try {
+        return attempt(read)
+    } catch (e: ProviderError) {
+        throw BtcReadException(step, e)
+    }
+}
+
+private suspend fun <T> attempt(read: suspend () -> T): T = try {
+    withTimeout(READ_TIMEOUT_MS) { read() }
+} catch (e: TimeoutCancellationException) {
+    throw ProviderError.Transient(e)
+}
 
 /** The unspent outputs of one account that a send may spend, and the change index a send pays its change to: the first unused change address. */
 class BtcSpendable(val coins: List<BtcCoin>, val nextChangeIndex: Int)
@@ -86,27 +145,34 @@ object BtcSend {
      * It reads the same chains as the scan, with the gap limit, and never a balance that the scan would not reach. Unconfirmed outputs are
      * left out, so a send never spends an output that a node may not yet relay.
      */
-    suspend fun spendable(account: BtcWatchOnlyAccount, scheduler: Scheduler): BtcSpendable {
+    suspend fun spendable(
+        account: BtcWatchOnlyAccount,
+        scheduler: Scheduler,
+        memo: ConcurrentMap<String, MemoStats> = ConcurrentHashMap(),
+        nowMs: Long = System.currentTimeMillis(),
+    ): BtcSpendable {
         val net = account.network.networkId()
-        val memo: ConcurrentMap<String, MemoStats> = ConcurrentHashMap()
         val statsOf: suspend (String) -> EsploraAddressStats = { address ->
-            scheduler.run(
-                AddressStats(net, address),
-                Priority.FOREGROUND,
-                CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "stats/${net.chain}/$address", jsonCodec()),
-            )
+            readStep(BtcReadStep.ADDRESS_HISTORY) {
+                scheduler.run(
+                    AddressStats(net, address),
+                    Priority.FOREGROUND,
+                    CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "stats/${net.chain}/$address", jsonCodec()),
+                )
+            }
         }
-        val nowMs = System.currentTimeMillis()
-        val receive = scanChain(account::receiveAddress, statsOf, memo, nowMs)
-        val change = scanChain(account::changeAddress, statsOf, memo, nowMs)
+        // The walk trusts what the session's scan read within the TTL, so a send right after a scan asks the server for little or nothing.
+        val receive = scanChain(account::receiveAddress, statsOf, memo, nowMs, trustWithinTtl = true)
+        val change = scanChain(account::changeAddress, statsOf, memo, nowMs, trustWithinTtl = true)
         val funded = receive.used.map { RECEIVE_BRANCH to it } + change.used.map { CHANGE_BRANCH to it }
         val listed = funded.filter { it.second.stats.balance != 0L }.flatMap { (branch, hit) ->
-            scheduler.run(AddressUtxos(net, hit.address), Priority.FOREGROUND)
+            readStep(BtcReadStep.UNSPENT_OUTPUTS) { scheduler.run(AddressUtxos(net, hit.address), Priority.FOREGROUND) }
                 .filter { it.blockHeight != null }
                 .map { Triple(branch, hit.index, it) }
         }
         val previous = listed.map { it.third.txid }.distinct().associateWith { txid ->
-            val tx = Transaction.read(scheduler.run(RawTx(net, txid), Priority.FOREGROUND))
+            val raw = readStep(BtcReadStep.PREVIOUS_TRANSACTIONS) { scheduler.run(RawTx(net, txid), Priority.FOREGROUND) }
+            val tx = Transaction.read(raw)
             require(tx.txid.toString() == txid) { "The server's transaction does not match the id it was asked for." }
             tx
         }
@@ -179,7 +245,9 @@ object BtcSend {
      */
     suspend fun broadcast(scheduler: Scheduler, network: BtcNetwork, tx: Transaction): String {
         val expected = tx.txid.toString()
-        val reported = scheduler.run(Broadcast(network.networkId(), Transaction.write(tx)), Priority.FOREGROUND)
+        val reported = readStep(BtcReadStep.BROADCAST, retry = false) {
+            scheduler.run(Broadcast(network.networkId(), Transaction.write(tx)), Priority.FOREGROUND)
+        }
         require(reported == expected) { "The server reported a different transaction id. Check the explorer before you send again." }
         return reported
     }

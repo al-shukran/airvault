@@ -56,13 +56,15 @@ class MemoStats(val stats: EsploraAddressStats, val readAtMs: Long)
  * [memo] holds what an earlier walk of this session read. An address it found unused, and that lies before the last used address of that
  * walk, is not asked again while its read is younger than [DEFAULT_SHORT_TTL_MS] at [nowMs]. Past that, it is asked again: a payment to an
  * address below a used one must show within a minute, not only after a restart. The gap window after that address is asked again, since new
- * activity shows there first.
+ * activity shows there first. With [trustWithinTtl], every address read within the TTL is trusted, used or not, so a walk that follows a scan
+ * asks the server for none of them.
  */
 internal suspend fun scanChain(
     addressAt: (Int) -> String,
     statsOf: suspend (String) -> EsploraAddressStats,
     memo: ConcurrentMap<String, MemoStats> = ConcurrentHashMap(),
     nowMs: Long = 0L,
+    trustWithinTtl: Boolean = false,
 ): ChainScan {
     val used = mutableListOf<UsedAddress>()
     val lastUsed = lastUsedIn(addressAt, memo)
@@ -71,7 +73,9 @@ internal suspend fun scanChain(
     while (unused < BtcAccount.GAP_LIMIT) {
         coroutineContext.ensureActive()
         val address = addressAt(index)
-        val fresh = memo[address]?.takeIf { !it.stats.used && index <= lastUsed && nowMs - it.readAtMs < DEFAULT_SHORT_TTL_MS }
+        val fresh = memo[address]?.takeIf {
+            nowMs - it.readAtMs < DEFAULT_SHORT_TTL_MS && (trustWithinTtl || (!it.stats.used && index <= lastUsed))
+        }
         val stats = fresh?.stats ?: statsOf(address).also { memo[address] = MemoStats(it, nowMs) }
         if (stats.used) {
             used += UsedAddress(index, address, stats)

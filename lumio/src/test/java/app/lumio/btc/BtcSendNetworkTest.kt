@@ -8,17 +8,23 @@ import app.lensly.core.btc.BtcSigner
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.toHex
 import app.lumio.data.MonotonicClock
+import app.lumio.data.config.ProviderConfig
+import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import app.lumio.pair.PairFixtures
 import com.sparrowwallet.hummingbird.URDecoder
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import fr.acinq.bitcoin.Transaction
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -138,6 +144,65 @@ class BtcSendNetworkTest {
     fun aServerThatRefusesTheTransactionFailsTheBroadcast() = runBlocking<Unit> {
         val (_, tx) = signedSend()
         answerToPost = { MockResponse().setResponseCode(400).setBody("bad-txns-inputs-missingorspent") }
-        assertFailsWith<ProviderError> { BtcSend.broadcast(scheduler(), testnet4, tx) }
+        val error = assertFailsWith<BtcReadException> { BtcSend.broadcast(scheduler(), testnet4, tx) }
+        assertEquals(BtcReadStep.BROADCAST, error.step)
+        assertTrue(error.message.orEmpty().contains("sending the transaction"), error.message)
+    }
+
+    @Test
+    fun aSendAfterAScanAsksTheServerForNoAddressHistory() = runBlocking<Unit> {
+        fund()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        val scheduler = scheduler()
+        scanAccount(BtcAccountRef("wallet-1", watch), scheduler, Priority.VISIBLE, nowMs = 1_000L, memo = memo)
+        fake.paths.clear()
+
+        val spendable = BtcSend.spendable(watch, scheduler, memo, nowMs = 1_000L + 5_000L)
+
+        assertEquals(1, spendable.coins.size)
+        assertEquals(emptyList(), fake.statsRequests(), "the scan read every address a minute ago, so the send asks for none")
+    }
+
+    @Test
+    fun aFailedReadNamesTheStepThatFailed() = runBlocking<Unit> {
+        fund()
+        fake.status = 500
+        val error = assertFailsWith<BtcReadException> { BtcSend.spendable(watch, scheduler()) }
+
+        assertEquals(BtcReadStep.ADDRESS_HISTORY, error.step)
+        assertTrue(error.message.orEmpty().contains("reading the address history"), error.message)
+        assertTrue(error.message.orEmpty().startsWith("The Bitcoin network could not be read"), error.message)
+    }
+
+    @Test
+    fun aMempoolThatTimesOutIsServedByBlockstream() = runBlocking<Unit> {
+        fund()
+        // mempool.space never answers in time: its headers come 5 s late, and the client gives up after 500 ms.
+        val hung = MockWebServer()
+        hung.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                MockResponse().setHeadersDelay(5, TimeUnit.SECONDS).setBody("[]")
+        }
+        hung.start()
+        try {
+            val scheduler = Scheduler(
+                providers = listOf(
+                    MempoolProvider(bases = mapOf("testnet4" to hung.url("/api").toString())),
+                    BlockstreamProvider(bases = mapOf("testnet4" to server.url("/api").toString())),
+                ),
+                configs = { mapOf("mempool" to ProviderConfig(priority = 0), "blockstream" to ProviderConfig(priority = 1)) },
+                http = Http(OkHttpClient.Builder().readTimeout(500, TimeUnit.MILLISECONDS).build()),
+                clock = MonotonicClock,
+                random = Random(11),
+                scope = this,
+            )
+
+            val spendable = BtcSend.spendable(watch, scheduler)
+
+            assertEquals(1, spendable.coins.size, "the coins come from blockstream, which answers")
+            assertEquals(100_000L, spendable.coins[0].valueSats)
+        } finally {
+            hung.shutdown()
+        }
     }
 }
