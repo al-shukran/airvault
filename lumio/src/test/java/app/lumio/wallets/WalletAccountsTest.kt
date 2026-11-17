@@ -48,7 +48,7 @@ class WalletAccountsTest {
         solana = listOf(solanaKey),
         algorand = listOf(algorandKey),
     )
-    private val ethereumAddress = AccountAddresses.addressOfKey(wallet.evmAccounts.first().key)
+    private val ethereumAddress = wallet.evmAccounts.first().address
 
     @Test
     fun aWalletWithEveryKindOfKeyYieldsOneAccountPerChainWithItsAddress() {

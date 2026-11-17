@@ -1,8 +1,7 @@
 package app.lumio.pair
 
-import app.lensly.core.wallet.AccountAddresses
-
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingKey
@@ -14,7 +13,6 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.HdWallet
-import app.lensly.core.wallet.toHex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -49,11 +47,14 @@ class PairedWalletsTest {
         assertEquals(saved.id, listed.id)
         assertEquals("Demo", listed.name)
         assertEquals(
-            listOf(PairedAccount(0, PairFixtures.addressKey(PairFixtures.seed, 0), "Savings", "cold", "Long term"), PairedAccount(1, PairFixtures.addressKey(PairFixtures.seed, 1), "Trading", null, "Hot")),
+            listOf(
+                PairedAccount(0, PairFixtures.address(PairFixtures.seed, 0), "Savings", "cold", "Long term"),
+                PairedAccount(1, PairFixtures.address(PairFixtures.seed, 1), "Trading", null, "Hot"),
+            ),
             listed.evmAccounts,
         )
         assertEquals(setOf(PairFamily.EVM), listed.families)
-        assertEquals(PairFixtures.addressKey(PairFixtures.seed, 0).publicKey.toHex(), listed.evmKeys.first().publicKey.toHex())
+        assertEquals(PairFixtures.address(PairFixtures.seed, 0), listed.evmAddresses.first())
     }
 
     @Test
@@ -76,7 +77,10 @@ class PairedWalletsTest {
 
         PairedWallets.save(session, payload(accounts = listOf(account(0, "Cold store"))), nowMs = 200L)
 
-        assertEquals(listOf(PairedAccount(0, PairFixtures.addressKey(PairFixtures.seed, 0), "Cold store", null, null)), PairedWallets.list(session).single().evmAccounts)
+        assertEquals(
+            listOf(PairedAccount(0, PairFixtures.address(PairFixtures.seed, 0), "Cold store", null, null)),
+            PairedWallets.list(session).single().evmAccounts,
+        )
     }
 
     @Test
@@ -85,7 +89,10 @@ class PairedWalletsTest {
 
         PairedWallets.save(session, payload(accounts = listOf(account(0, "Savings"))), nowMs = 200L)
 
-        assertEquals(listOf(PairedAccount(0, PairFixtures.addressKey(PairFixtures.seed, 0), "Savings", null, null)), PairedWallets.list(session).single().evmAccounts)
+        assertEquals(
+            listOf(PairedAccount(0, PairFixtures.address(PairFixtures.seed, 0), "Savings", null, null)),
+            PairedWallets.list(session).single().evmAccounts,
+        )
     }
 
     @Test
@@ -100,7 +107,10 @@ class PairedWalletsTest {
 
         val listed = PairedWallets.list(session).single()
         assertEquals(listOf(0, 1), listed.evmAccounts.map { it.index })
-        assertEquals(listOf(PairedAccount(1, PairFixtures.addressKey(PairFixtures.seed, 1), "B", null, null)), listed.evmAccounts.filter { it.index == 1 })
+        assertEquals(
+            listOf(PairedAccount(1, PairFixtures.address(PairFixtures.seed, 1), "B", null, null)),
+            listed.evmAccounts.filter { it.index == 1 },
+        )
     }
 
     @Test
@@ -110,13 +120,17 @@ class PairedWalletsTest {
         PairedWallets.save(session, payload(accounts = listOf(account(0, "A"), account(1, "B"), account(2, "C", "x", null))), nowMs = 200L)
 
         assertEquals(
-            listOf(PairedAccount(0, PairFixtures.addressKey(PairFixtures.seed, 0), "A", null, null), PairedAccount(1, PairFixtures.addressKey(PairFixtures.seed, 1), "B", null, null), PairedAccount(2, PairFixtures.addressKey(PairFixtures.seed, 2), "C", "x", null)),
+            listOf(
+                PairedAccount(0, PairFixtures.address(PairFixtures.seed, 0), "A", null, null),
+                PairedAccount(1, PairFixtures.address(PairFixtures.seed, 1), "B", null, null),
+                PairedAccount(2, PairFixtures.address(PairFixtures.seed, 2), "C", "x", null),
+            ),
             PairedWallets.list(session).single().evmAccounts,
         )
     }
 
     @Test
-    fun bitcoinForTheSameSeedJoinsTheWalletAndKeepsTheEthereumKey() {
+    fun bitcoinForTheSameSeedJoinsTheWalletAndKeepsTheEthereumAddress() {
         PairedWallets.save(session, payload(accounts = listOf(account(0, "A"))), nowMs = 100L)
 
         PairedWallets.save(session, payload(accounts = listOf(account(0, "A")), bitcoin = PairFixtures.allAccounts(PairFixtures.seed)), nowMs = 200L)
@@ -124,7 +138,7 @@ class PairedWalletsTest {
         val listed = PairedWallets.list(session).single()
         assertEquals(setOf(PairFamily.EVM, PairFamily.BITCOIN), listed.families)
         assertEquals(8, listed.bitcoin.size)
-        assertEquals(PairFixtures.addressKey(PairFixtures.seed, 0).publicKey.toHex(), listed.evmKeys.first().publicKey.toHex())
+        assertEquals(PairFixtures.address(PairFixtures.seed, 0), listed.evmAddresses.first())
     }
 
     @Test
@@ -149,7 +163,7 @@ class PairedWalletsTest {
 
         val read = PairedWallets.list(session).single().bitcoin.single()
 
-        assertEquals(accounts.single().descriptor, read.descriptor)
+        assertEquals(accounts.single().shape(), read.shape())
         assertEquals(accounts.single().receiveAddress(0), read.receiveAddress(0))
     }
 
@@ -170,8 +184,8 @@ class PairedWalletsTest {
         assertTrue(PairedWallets.list(session).isEmpty())
     }
 
-    private fun account(index: Int, name: String?, label: String? = null, group: String? = null) =
-        PairingAccount(key = 0, name = name, label = label, group = group)
+    private fun account(index: Int, name: String, label: String? = null, group: String? = null) =
+        PairingAccount(key = index, name = name, label = label, group = group)
 
     @Test
     fun aPairingsAddressBookIsStoredWithItsWalletAndListedWithIt() {
@@ -237,7 +251,10 @@ class PairedWalletsTest {
         assertEquals(emptyMap<String, List<AddressBookEntry>>(), PairAddressBooks.load(session))
     }
 
-    /** The pairing of [seed] with its Ethereum accounts, its Bitcoin accounts when [bitcoin] is not empty, and its Address Book. */
+    /**
+     * The pairing of [seed] with its Ethereum accounts, its Bitcoin accounts when [bitcoin] is not empty, and its Address Book. Each account
+     * the test names by a name other than its Auto-Name keeps that name; the Bitcoin accounts keep their Auto-Names.
+     */
     private fun payload(
         name: String = "Demo",
         accounts: List<PairingAccount>,
@@ -250,7 +267,7 @@ class PairedWalletsTest {
         val apps = mutableListOf(
             PairingApp(
                 app = "ethereum",
-                keys = numbered.indices.map { PairingKey.ethereumAddress(it, AccountAddresses.addressXpub(wallet.accountXpub(it), 0)) },
+                keys = numbered.indices.map { PairingKey.ethereumAddress(it, PairFixtures.address(seed, it)) },
                 accounts = numbered,
             ),
         )
@@ -258,12 +275,13 @@ class PairedWalletsTest {
             apps += PairingApp(
                 app = "bitcoin",
                 keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
-                accounts = bitcoin.indices.map { PairingAccount(key = it, name = null, label = null, group = null) },
+                accounts = bitcoin.indices.map { PairingAccount(key = it, name = autoAccountName(name, it), label = null, group = null) },
             )
         }
         return PairingPayload(
             fingerprint = wallet.masterFingerprint.toLong() and 0xFFFFFFFFL,
             name = name,
+            autoNameBase = name,
             apps = apps,
             addressBook = addressBook,
         )

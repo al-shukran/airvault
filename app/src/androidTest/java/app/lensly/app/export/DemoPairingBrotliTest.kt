@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 
 /**
  * Runs on a device: the Brotli encoder is the native library, which a JVM test cannot load. The demo pairing must encode to the golden
- * frames that Lumio reads back, and its code must stay within the size the version-2 pairing is designed for.
+ * frames that Lumio reads back, and its code must stay within the size the pairing is designed for.
  */
 @RunWith(AndroidJUnit4::class)
 class DemoPairingBrotliTest {

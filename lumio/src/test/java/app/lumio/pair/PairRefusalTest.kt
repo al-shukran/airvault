@@ -1,5 +1,6 @@
 package app.lumio.pair
 
+import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
@@ -32,21 +33,23 @@ class PairRefusalTest {
     }
 
     @Test
-    fun anOlderLenslyCodeOfAnyFormatIsRefusedWithTheReasonToPairAgain() {
-        for (type in listOf("crypto-hdkey", "crypto-account")) {
-            assertEquals(OLDER_CODE, refusalOf(UR(type, byteArrayOf(0x01, 0x02))), type)
-        }
+    fun aCodeOfAnOlderLayoutIsRefusedWithTheReasonToPairAgain() {
+        val older = Cbor.encode(
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(5), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(byteArrayOf(0x01)))),
+        )
+
+        assertEquals(OLDER_CODE, refusalOf(UR(PairingCodec.UR_TYPE, older)))
     }
 
     @Test
     fun aNewerVersionOfThePairingIsRefusedByItsVersion() {
         val newer = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(6), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(7), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
         )
 
         val reason = refusalOf(UR(PairingCodec.UR_TYPE, newer))
 
-        assertTrue(reason, reason.contains("format 6"))
+        assertTrue(reason, reason.contains("format 7"))
         assertTrue(reason, reason.contains("Update the app"))
     }
 
@@ -62,7 +65,8 @@ class PairRefusalTest {
                 listOf(
                     Cbor.Uint(2) to Cbor.Uint(1),
                     Cbor.Uint(3) to Cbor.Text("De\nmo"),
-                    Cbor.Uint(4) to Cbor.Arr(emptyList()),
+                    Cbor.Uint(4) to Cbor.Text(""),
+                    Cbor.Uint(5) to Cbor.Arr(emptyList()),
                 ),
             ),
         )
@@ -82,9 +86,8 @@ class PairRefusalTest {
 
     @Test
     fun anEthereumKeyOffTheAccountPathIsRefusedBecauseOnlyTheAccountKeyPairs() {
-        val address = PairingKey.ethereumAddress(0, PairFixtures.addressKey(PairFixtures.seed, 0)).copy(
+        val address = PairingKey.ethereumAddress(0, PairFixtures.address(PairFixtures.seed, 0)).copy(
             path = listOf(0x8000002CL, 0x8000003CL, 0x80000000L),
-            depth = 3,
         )
 
         val reason = refusalOf(codeOf(pairing(ethereumApp(key = address, accounts = listOf(account(0))))))
@@ -94,18 +97,11 @@ class PairRefusalTest {
 
     @Test
     fun anEthereumKeyOfAnotherAccountIsRefused() {
-        val otherAccount = PairingKey.ethereumAddress(1, PairFixtures.addressKey(PairFixtures.seed, 1))
+        val otherAccount = PairingKey.ethereumAddress(1, PairFixtures.address(PairFixtures.seed, 1))
 
         val reason = refusalOf(codeOf(pairing(ethereumApp(key = otherAccount, accounts = listOf(account(0))))))
 
-        assertTrue(reason, reason.contains("address key of its account"))
-    }
-
-    @Test
-    fun ethereumAccountsNotNumberedFromZeroAreRefused() {
-        val reason = refusalOf(codeOf(pairing(ethereumApp(accounts = listOf(account(1), account(0))))))
-
-        assertTrue(reason, reason.contains("not numbered 0 to n-1"))
+        assertTrue(reason, reason.contains("the address of its account"))
     }
 
     @Test
@@ -167,6 +163,7 @@ class PairRefusalTest {
     private fun pairing(vararg apps: PairingApp) = PairingPayload(
         fingerprint = HdWallet(PairFixtures.seed).masterFingerprint.toLong() and 0xFFFFFFFFL,
         name = "Demo",
+        autoNameBase = "Demo",
         apps = apps.toList(),
     )
 
@@ -175,7 +172,7 @@ class PairRefusalTest {
         accounts: List<PairingAccount> = listOf(account(0)),
     ) = PairingApp(
         app = "ethereum",
-        keys = key?.let { listOf(it) } ?: accounts.indices.map { PairingKey.ethereumAddress(it, PairFixtures.addressKey(PairFixtures.seed, it)) },
+        keys = key?.let { listOf(it) } ?: accounts.indices.map { PairingKey.ethereumAddress(it, PairFixtures.address(PairFixtures.seed, it)) },
         accounts = accounts,
     )
 
@@ -184,7 +181,7 @@ class PairRefusalTest {
     private fun bitcoinKeys(keys: List<PairingKey>) = PairingApp(
         app = "bitcoin",
         keys = keys,
-        accounts = keys.indices.map { PairingAccount(key = it, name = null, label = null, group = null) },
+        accounts = keys.indices.map { PairingAccount(key = it, name = autoAccountName("Demo", it), label = null, group = null) },
     )
 
     private fun account(index: Int) = PairingAccount(key = index, name = "Demo $index", label = null, group = null)

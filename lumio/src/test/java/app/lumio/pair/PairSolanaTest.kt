@@ -62,13 +62,13 @@ class PairSolanaTest {
 
     /** The Solana keys of accounts 0 to 2, as Lensly's pairing carries them: the public key and the SLIP-0010 chain code of each. */
     private fun solanaKeys(): List<PairingKey> = (0 until 3).map { index ->
-        PairingKey.solanaAccount(index, SolanaAccount.publicKey(SEED, index), SolanaAccount.chainCode(SEED, index))
+        PairingKey.solanaAccount(index, SolanaAccount.publicKey(SEED, index))
     }
 
     private fun payload(solana: List<PairingKey>): PairingPayload {
         val ethereum = PairingApp(
             app = PairImport.ETHEREUM,
-            keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.addressKey(PairFixtures.seed, 0))),
+            keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.address(PairFixtures.seed, 0))),
             accounts = listOf(PairingAccount(key = 0, name = "Main", label = null, group = null)),
         )
         val solanaApp = PairingApp(
@@ -79,6 +79,7 @@ class PairSolanaTest {
         return PairingPayload(
             fingerprint = 0x5436D724L,
             name = "Demo",
+            autoNameBase = "Demo",
             apps = listOf(ethereum, solanaApp),
         )
     }

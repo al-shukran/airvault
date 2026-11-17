@@ -17,8 +17,6 @@ import app.lensly.app.export.PairingPayload
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.btc.BtcWatchOnlyAccount
-import app.lensly.core.wallet.AccountAddresses
-import app.lensly.core.wallet.AccountXpub
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
@@ -79,7 +77,7 @@ fun PairReviewScreen(
             Spacer(Modifier.height(LenslySpacing.md))
         }
         ReviewHeader(title = pairing.name, fingerprint = pairing.fingerprint)
-        if (accounts.isNotEmpty()) EthereumReview(keys = PairImport.ethereumAccountKeysOf(pairing), accounts = accounts)
+        if (accounts.isNotEmpty()) EthereumReview(addresses = PairImport.ethereumAddressesOf(pairing), accounts = accounts)
         if (bitcoin.isNotEmpty()) BitcoinReview(accounts = bitcoin, names = bitcoinNames)
         val solana = PairImport.solanaPublicKeysOf(pairing)
         if (solana.isNotEmpty()) SolanaReview(keys = solana)
@@ -93,18 +91,17 @@ fun PairReviewScreen(
 }
 
 @Composable
-private fun EthereumReview(keys: List<AccountXpub>, accounts: List<PairingAccount>) {
+private fun EthereumReview(addresses: List<String>, accounts: List<PairingAccount>) {
     Spacer(Modifier.height(LenslySpacing.md))
     PillChip(text = PairLabels.family(PairFamily.EVM))
     ReviewField("Network", "All EVM networks")
     ReviewField("Accounts", "${accounts.size}")
-    accounts.sortedBy { it.key }.forEach { account -> EthereumAccountReview(xpub = keys[account.key], account = account) }
+    accounts.sortedBy { it.key }.forEach { account -> EthereumAccountReview(address = addresses[account.key], account = account) }
 }
 
 @Composable
-private fun EthereumAccountReview(xpub: AccountXpub, account: PairingAccount) {
+private fun EthereumAccountReview(address: String, account: PairingAccount) {
     val index = account.key
-    val address = remember(xpub) { AccountAddresses.addressOfKey(xpub) }
     Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
         Text(
             text = account.name ?: "Account $index",

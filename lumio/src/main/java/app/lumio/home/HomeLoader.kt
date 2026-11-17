@@ -39,7 +39,7 @@ internal object HomeLoader {
     suspend fun refreshEvm(app: LumioApp, session: VaultSession, mode: NetworkMode): List<ChainFailure> = withContext(Dispatchers.IO) {
         val settings = EvmSettingsStore.read(session)
         val chains = evmChains(app, settings, mode)
-        val wallets = PairedWallets.list(session).filter { it.evmKeys.isNotEmpty() }
+        val wallets = PairedWallets.list(session).filter { it.evmAddresses.isNotEmpty() }
         if (chains.isEmpty() || wallets.isEmpty()) {
             emptyList()
         } else {

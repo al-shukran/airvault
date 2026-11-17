@@ -57,17 +57,18 @@ class LensllyPairingGoldenTest {
         val bitcoin = payload.apps.single { it.app == PairImport.BITCOIN }
         val accounts = PairImport.bitcoinAccountsOf(payload)
 
-        assertEquals(8, bitcoin.keys.size)
+        // The pairing carries the two Bitcoin accounts the owner stores, and no other Script Type.
+        assertEquals(2, bitcoin.keys.size)
         assertEquals(bitcoin.keys.size, bitcoin.accounts.size)
         val named = keyOf(accounts, ScriptType.NATIVE_SEGWIT, index = 0)
         assertEquals(
             PairingAccount(key = named, name = "Cold BTC", label = "vault", group = "Long term"),
             bitcoin.accounts.single { it.key == named },
         )
-        // An account the owner never labelled carries its Auto-Name, and the Script Type it was not made in is still paired.
-        val unnamed = keyOf(accounts, ScriptType.TAPROOT, index = 0)
+        // An account the owner never labelled carries its Auto-Name.
+        val unnamed = keyOf(accounts, ScriptType.NATIVE_SEGWIT, index = 1)
         assertEquals(
-            PairingAccount(key = unnamed, name = "Savings 0", label = null, group = null),
+            PairingAccount(key = unnamed, name = "Savings 1", label = null, group = null),
             bitcoin.accounts.single { it.key == unnamed },
         )
     }
