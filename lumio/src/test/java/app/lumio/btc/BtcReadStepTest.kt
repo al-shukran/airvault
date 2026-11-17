@@ -4,13 +4,16 @@ import app.lumio.data.provider.ProviderError
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
-/** The retry rule of a send's network read: a transient failure is tried once more, a refusal is not, and a broadcast is never sent twice. */
+/**
+ * The retry rule of a send's network read: a transient failure is tried once more, a refusal is not, and a broadcast is never sent twice.
+ * Runs in virtual time, so the retry's wait of [RETRY_DELAY_MS] costs no real seconds.
+ */
 class BtcReadStepTest {
     @Test
-    fun aTransientFailureIsTriedOnceMoreAndItsAnswerIsUsed() = runBlocking<Unit> {
+    fun aTransientFailureIsTriedOnceMoreAndItsAnswerIsUsed() = runTest {
         var calls = 0
         val answer = readStep(BtcReadStep.UNSPENT_OUTPUTS) {
             calls++
@@ -22,7 +25,7 @@ class BtcReadStepTest {
     }
 
     @Test
-    fun aRefusalIsNotRetriedAndNamesItsStep() = runBlocking<Unit> {
+    fun aRefusalIsNotRetriedAndNamesItsStep() = runTest {
         var calls = 0
         val error = assertFailsWith<BtcReadException> {
             readStep(BtcReadStep.PREVIOUS_TRANSACTIONS) {
@@ -38,7 +41,7 @@ class BtcReadStepTest {
     }
 
     @Test
-    fun aTransientFailureOfABroadcastIsNotRetried() = runBlocking<Unit> {
+    fun aTransientFailureOfABroadcastIsNotRetried() = runTest {
         var calls = 0
         val error = assertFailsWith<BtcReadException> {
             readStep(BtcReadStep.BROADCAST, retry = false) {

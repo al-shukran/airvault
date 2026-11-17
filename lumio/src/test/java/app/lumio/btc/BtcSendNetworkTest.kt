@@ -7,12 +7,20 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcSigner
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.toHex
+import app.lumio.data.Clock
 import app.lumio.data.MonotonicClock
+import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.MempoolProvider
+import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
+import app.lumio.data.provider.Kind
+import app.lumio.data.provider.Op
+import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.Request
+import app.lumio.data.provider.Trait
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import app.lumio.pair.PairFixtures
@@ -27,6 +35,8 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -35,6 +45,25 @@ import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+
+/**
+ * Zero-delay test limits. Esplora's production limit of 3 requests a second would pace a scan of 40 addresses to about 11 s of real time. The
+ * production limits stay as they are; these only let the tests' scans finish at once.
+ */
+private val FAST_LIMITS = Limits(rps = 1_000.0, burst = 1_000, maxConcurrent = 8)
+
+/** A provider that is down: every request fails as a transient error, as a server's 500 does. */
+private class DownProvider : Provider {
+    override val id = "down"
+    override val kind = Kind.DATA
+    override val traits: Set<Trait> = setOf(Trait.KEYLESS)
+
+    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean = true
+
+    override fun defaultLimits(cfg: ProviderConfig): Limits = FAST_LIMITS
+
+    override suspend fun <T> execute(req: Request<T>, cfg: ProviderConfig, http: Http): T = throw ProviderError.Transient()
+}
 
 /**
  * The spend walk and the broadcast over a local Esplora. [FakeEsplora] answers the history, the UTXO and the tip. This test adds the raw
@@ -79,9 +108,22 @@ class BtcSendNetworkTest {
 
     private fun CoroutineScope.scheduler(): Scheduler = Scheduler(
         providers = listOf(MempoolProvider(bases = mapOf("testnet4" to server.url("/api").toString()))),
-        configs = { emptyMap() },
+        configs = { mapOf("mempool" to ProviderConfig(limits = FAST_LIMITS)) },
         http = Http(OkHttpClient()),
         clock = MonotonicClock,
+        random = Random(11),
+        scope = this,
+    )
+
+    /**
+     * A scheduler in virtual time. Its clock and its waits are the test's, so a retry, a backoff or a circuit that stays open for a minute
+     * runs at once. Only providers that answer in-process may use it: a real socket is not in virtual time.
+     */
+    private fun TestScope.virtualScheduler(vararg providers: Provider): Scheduler = Scheduler(
+        providers = providers.toList(),
+        configs = { emptyMap() },
+        http = Http(OkHttpClient()),
+        clock = Clock { testScheduler.currentTime },
         random = Random(11),
         scope = this,
     )
@@ -164,14 +206,14 @@ class BtcSendNetworkTest {
     }
 
     @Test
-    fun aFailedReadNamesTheStepThatFailed() = runBlocking<Unit> {
-        fund()
-        fake.status = 500
-        val error = assertFailsWith<BtcReadException> { BtcSend.spendable(watch, scheduler()) }
+    fun aFailedReadNamesTheStepThatFailed() = runTest {
+        // Five transient failures in a row open the scheduler's circuit for 60 s, and a call gives up at 30 s. Both waits run in virtual time.
+        val error = assertFailsWith<BtcReadException> { BtcSend.spendable(watch, virtualScheduler(DownProvider())) }
 
         assertEquals(BtcReadStep.ADDRESS_HISTORY, error.step)
         assertTrue(error.message.orEmpty().contains("reading the address history"), error.message)
         assertTrue(error.message.orEmpty().startsWith("The Bitcoin network could not be read"), error.message)
+        assertTrue(error.message.orEmpty().contains("the server did not answer in time"), error.message)
     }
 
     @Test
@@ -190,7 +232,12 @@ class BtcSendNetworkTest {
                     MempoolProvider(bases = mapOf("testnet4" to hung.url("/api").toString())),
                     BlockstreamProvider(bases = mapOf("testnet4" to server.url("/api").toString())),
                 ),
-                configs = { mapOf("mempool" to ProviderConfig(priority = 0), "blockstream" to ProviderConfig(priority = 1)) },
+                configs = {
+                    mapOf(
+                        "mempool" to ProviderConfig(priority = 0, limits = FAST_LIMITS),
+                        "blockstream" to ProviderConfig(priority = 1, limits = FAST_LIMITS),
+                    )
+                },
                 http = Http(OkHttpClient.Builder().readTimeout(500, TimeUnit.MILLISECONDS).build()),
                 clock = MonotonicClock,
                 random = Random(11),
