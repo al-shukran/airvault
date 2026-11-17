@@ -237,37 +237,6 @@ fun BtcSignRequestScreen(
     }
 }
 
-/** The broadcast transaction: its id, and the explorer page. [notice] is why the explorer did not open. */
-@Composable
-fun BtcSendSentScreen(
-    network: BtcNetwork,
-    txid: String,
-    notice: String?,
-    onOpenExplorer: () -> Unit,
-    onDone: () -> Unit,
-) {
-    LenslyScreen(
-        title = "SENT",
-        bottomAction = {
-            WalletPill(
-                text = "Done",
-                onClick = onDone,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
-        },
-    ) {
-        NetworkHeader(network)
-        ReviewField("Transaction id", txid)
-        Spacer(Modifier.height(LenslySpacing.md))
-        SettingsRow(title = "View on explorer", onClick = onOpenExplorer)
-        notice?.let {
-            Spacer(Modifier.height(LenslySpacing.md))
-            InlineBanner(message = it, tone = BannerTone.Error)
-        }
-    }
-}
-
 /** Why [text] is not an address of [network], or null when it is one. The words are the ones the send refuses with. */
 internal fun btcRecipientError(text: String, network: BtcNetwork): String? = runCatching { BtcSendInput.recipient(text, network) }
     .exceptionOrNull()

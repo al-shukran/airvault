@@ -36,13 +36,17 @@ import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.evm.SignatureStep
 import app.lumio.send.BtcPaymentCode
+import app.lumio.send.SubmitFailure
+import app.lumio.send.SubmitMachine
+import app.lumio.send.SubmitState
 import app.lumio.ui.btc.BtcSendFormScreen
 import app.lumio.ui.btc.BtcSendReviewScreen
-import app.lumio.ui.btc.BtcSendSentScreen
 import app.lumio.ui.btc.BtcSignRequestScreen
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SignatureScanScreen
+import app.lumio.ui.send.SubmitScreen
+import app.lumio.ui.send.btcSummary
 import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,12 +65,13 @@ private sealed interface BtcSendStep {
 
     class Scanning(val plan: BtcSendPlan, val parts: List<String>) : BtcSendStep
 
-    class Sent(val network: BtcNetwork, val txid: String) : BtcSendStep
+    /** The signed transaction, held in memory until the owner submits it. Leaving the screen discards it. */
+    class Submit(val plan: BtcSendPlan, val parts: List<String>, val machine: SubmitMachine<*, String>) : BtcSendStep
 }
 
 private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
 private const val SCAN_READING = "Reading the signature. Keep the camera on it."
-private const val SCAN_SENDING = "Signature read. Sending the transaction to the network."
+private const val SCAN_READ = "Signature read. Check the transaction, then submit it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
 private const val SIGNATURE_FAILED = "That code could not be used. Scan the signature again."
@@ -214,34 +219,37 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
         step = BtcSendStep.Scanning(current.plan, current.parts)
     }
 
+    /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until the owner submits it on the next screen. */
     fun applySignature(current: BtcSendStep.Scanning, ur: UR) {
         scanBusy = true
         scanProgress = 1f
-        scanStatus = SCAN_SENDING
+        scanStatus = SCAN_READ
         scope.launch {
             val signed = withContext(Dispatchers.IO) { runCatching { BtcSend.signed(current.plan, ur) } }
+            scanBusy = false
             signed.fold(
                 onFailure = { error ->
-                    scanBusy = false
                     scan = SignatureScan()
                     scanProgress = null
                     scanStatus = ownerWords(error, SIGNATURE_FAILED)
                 },
                 onSuccess = { tx ->
-                    val sent = withContext(Dispatchers.IO) {
-                        runCatching { BtcSend.broadcast(app.scheduler, current.plan.network, tx) }
-                    }
-                    scanBusy = false
-                    sent.fold(
-                        onFailure = { error ->
-                            notice = ownerWords(error, BROADCAST_FAILED)
-                            step = BtcSendStep.Request(current.plan, current.parts)
-                        },
-                        onSuccess = { txid -> step = BtcSendStep.Sent(current.plan.network, txid) },
+                    val network = current.plan.network
+                    val machine = SubmitMachine(
+                        signed = tx,
+                        broadcast = { signedTx -> withContext(Dispatchers.IO) { BtcSend.broadcast(app.scheduler, network, signedTx) } },
+                        describe = { error -> SubmitFailure(ownerWords(error, BROADCAST_FAILED)) },
                     )
+                    notice = null
+                    step = BtcSendStep.Submit(current.plan, current.parts, machine)
                 },
             )
         }
+    }
+
+    /** Sends the signed transaction. A retry sends the same signed bytes again. */
+    fun submit(current: BtcSendStep.Submit) {
+        scope.launch { current.machine.submit() }
     }
 
     fun onSignatureText(current: BtcSendStep.Scanning, text: String) {
@@ -272,7 +280,7 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
 
     BackHandler {
         when (val current = step) {
-            BtcSendStep.Form, is BtcSendStep.Sent -> navController.popBackStack()
+            BtcSendStep.Form -> navController.popBackStack()
             BtcSendStep.ScanRecipient -> step = BtcSendStep.Form
             is BtcSendStep.Review -> {
                 notice = null
@@ -283,6 +291,14 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
                 step = BtcSendStep.Review(current.plan)
             }
             is BtcSendStep.Scanning -> step = BtcSendStep.Request(current.plan, current.parts)
+            is BtcSendStep.Submit -> when (current.machine.state.value) {
+                SubmitState.Submitting -> Unit
+                is SubmitState.Sent -> navController.popBackStack()
+                else -> {
+                    notice = null
+                    step = BtcSendStep.Request(current.plan, current.parts)
+                }
+            }
         }
     }
 
@@ -338,11 +354,22 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
             onText = { text -> onSignatureText(current, text) },
             onCancel = { step = BtcSendStep.Request(current.plan, current.parts) },
         )
-        is BtcSendStep.Sent -> BtcSendSentScreen(
-            network = current.network,
-            txid = current.txid,
-            notice = sentNotice,
-            onOpenExplorer = { openExplorer(BtcPortfolio.explorerTxUrl(current.network, current.txid)) },
+        is BtcSendStep.Submit -> SubmitScreen(
+            machine = current.machine,
+            rows = btcSummary(current.plan),
+            explorerUrl = { txid -> BtcPortfolio.explorerTxUrl(current.plan.network, txid) },
+            status = null,
+            explorerNotice = sentNotice,
+            onSubmit = { submit(current) },
+            onOpenExplorer = { txid -> openExplorer(BtcPortfolio.explorerTxUrl(current.plan.network, txid)) },
+            onStartOver = {
+                notice = null
+                step = BtcSendStep.Form
+            },
+            onBack = {
+                notice = null
+                step = BtcSendStep.Request(current.plan, current.parts)
+            },
             onDone = { navController.popBackStack() },
         )
     }

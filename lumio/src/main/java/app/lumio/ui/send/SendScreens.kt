@@ -293,42 +293,6 @@ fun SignatureScanScreen(progress: Float?, status: String, onText: (String) -> Un
     )
 }
 
-/**
- * The broadcast transaction: its hash, and the explorer page when the chain has one. [notice] is why the explorer did not open.
- */
-@Composable
-fun SendSentScreen(
-    chain: EvmChain,
-    hash: String,
-    explorerUrl: String?,
-    notice: String?,
-    onOpenExplorer: () -> Unit,
-    onDone: () -> Unit,
-) {
-    LenslyScreen(
-        title = "SENT",
-        bottomAction = {
-            WalletPill(
-                text = "Done",
-                onClick = onDone,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
-        },
-    ) {
-        NetworkHeader(chain)
-        ReviewField("Transaction hash", hash)
-        if (explorerUrl != null) {
-            Spacer(Modifier.height(LenslySpacing.md))
-            SettingsRow(title = "View on explorer", onClick = onOpenExplorer)
-        }
-        notice?.let {
-            Spacer(Modifier.height(LenslySpacing.md))
-            InlineBanner(message = it, tone = BannerTone.Error)
-        }
-    }
-}
-
 /** The network the send is on: its name, with a TESTNET label when it is a testnet. The send offers no other network. */
 @Composable
 private fun ChainLine(chain: EvmChain) {

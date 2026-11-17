@@ -1,5 +1,11 @@
 package app.lumio.send.solana
 
+import app.lumio.send.SubmitFailure
+import app.lumio.send.SubmitMachine
+import app.lumio.send.SubmitState
+import app.lumio.ui.send.SubmitScreen
+import app.lumio.ui.send.solanaSummary
+import app.lumio.ui.send.solana.solanaOutcomeText
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.activity.compose.BackHandler
@@ -35,7 +41,6 @@ import app.lumio.onVault
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.send.solana.SolanaSendFormScreen
 import app.lumio.ui.send.solana.SolanaSendReviewScreen
-import app.lumio.ui.send.solana.SolanaSendSentScreen
 import app.lumio.ui.send.solana.SolanaSignRequestScreen
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
@@ -57,14 +62,14 @@ private sealed interface SolanaSendStep {
 
     class Scanning(val plan: SolanaSendPlan, val parts: List<String>) : SolanaSendStep
 
-    /** The transaction that was sent. Its outcome is read after the screen opens. */
-    class Sent(val network: NetworkId, val signature: String) : SolanaSendStep
+    /** The signed transaction, held in memory until the owner submits it. Leaving the screen discards it. */
+    class Submit(val plan: SolanaSendPlan, val parts: List<String>, val machine: SubmitMachine<*, String>) : SolanaSendStep
 }
 
 private const val RECIPIENT_HINT = "Point the camera at a Solana address or a solana: link."
 private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
 private const val SCAN_READING = "Reading the signature. Keep the camera on it."
-private const val SCAN_SENDING = "Signature read. Sending the transaction to the network."
+private const val SCAN_READ = "Signature read. Check the transaction, then submit it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
 private const val SIGNATURE_FAILED = "That code could not be used. Scan the signature again."
@@ -118,6 +123,7 @@ internal fun SolanaSendRoute(
     var scanBusy by remember { mutableStateOf(false) }
     var sentOutcome by remember { mutableStateOf<SolanaOutcome?>(null) }
     var sentNotice by remember { mutableStateOf<String?>(null) }
+    var sentSignature by remember { mutableStateOf<String?>(null) }
 
     // The balance is read once the account is known, for the form's balance line and its Max action.
     LaunchedEffect(account) {
@@ -128,12 +134,10 @@ internal fun SolanaSendRoute(
     }
 
     // After the send, the status is read until the network confirms it, fails it, or the polls run out.
-    LaunchedEffect(step) {
-        val current = step
-        if (current is SolanaSendStep.Sent) {
-            sentOutcome = withContext(Dispatchers.IO) {
-                runCatching { SolanaSend.confirm(scheduler, current.network, current.signature) }.getOrDefault(SolanaOutcome.PENDING)
-            }
+    LaunchedEffect(sentSignature) {
+        val signature = sentSignature ?: return@LaunchedEffect
+        sentOutcome = withContext(Dispatchers.IO) {
+            runCatching { SolanaSend.confirm(scheduler, network, signature) }.getOrDefault(SolanaOutcome.PENDING)
         }
     }
 
@@ -187,40 +191,43 @@ internal fun SolanaSendRoute(
         step = SolanaSendStep.Scanning(current.plan, current.parts)
     }
 
-    /** Checks Lensly's signature, then sends the transaction and shows its signature. A refused signature keeps the camera on. */
+    /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until the owner submits it on the next screen. */
     fun applySignature(current: SolanaSendStep.Scanning, ur: UR) {
         scanBusy = true
         scanProgress = 1f
-        scanStatus = SCAN_SENDING
+        scanStatus = SCAN_READ
         scope.launch {
             val signed = withContext(Dispatchers.IO) { runCatching { SolanaSend.signed(current.plan, ur) } }
+            scanBusy = false
             signed.fold(
                 onFailure = { error ->
-                    scanBusy = false
                     scan = SignatureScan()
                     scanProgress = null
                     scanStatus = ownerWords(error, SIGNATURE_FAILED)
                 },
                 onSuccess = { send ->
-                    val sent = withContext(Dispatchers.IO) {
-                        runCatching { SolanaSend.broadcast(scheduler, current.plan.network, send) }
-                    }
-                    scanBusy = false
-                    sent.fold(
-                        onFailure = { error ->
-                            notice = ownerWords(error, BROADCAST_FAILED)
-                            // An expired blockhash cannot be signed again, so the send is built again from the form.
-                            val expired = error is ProviderError.Fatal && error.message == JsonRpc.BLOCKHASH_EXPIRED_MESSAGE
-                            step = if (expired) SolanaSendStep.Form else SolanaSendStep.Request(current.plan, current.parts)
-                        },
-                        onSuccess = { signature ->
-                            sentOutcome = null
-                            sentNotice = null
-                            step = SolanaSendStep.Sent(current.plan.network, signature)
-                        },
+                    val machine = SubmitMachine(
+                        signed = send,
+                        broadcast = { signedSend -> withContext(Dispatchers.IO) { SolanaSend.broadcast(scheduler, network, signedSend) } },
+                        describe = { error -> solanaFailure(error) },
                     )
+                    notice = null
+                    step = SolanaSendStep.Submit(current.plan, current.parts, machine)
                 },
             )
+        }
+    }
+
+    /** Sends the signed transaction, then reads its status. A retry sends the same signed bytes again. */
+    fun submit(current: SolanaSendStep.Submit) {
+        scope.launch {
+            current.machine.submit()
+            val state = current.machine.state.value
+            if (state is SubmitState.Sent) {
+                sentOutcome = null
+                sentNotice = null
+                sentSignature = state.id
+            }
         }
     }
 
@@ -246,7 +253,7 @@ internal fun SolanaSendRoute(
 
     BackHandler {
         when (val current = step) {
-            SolanaSendStep.Form, is SolanaSendStep.Sent -> navController.popBackStack()
+            SolanaSendStep.Form -> navController.popBackStack()
             SolanaSendStep.ScanRecipient -> step = SolanaSendStep.Form
             is SolanaSendStep.Review -> {
                 notice = null
@@ -257,6 +264,14 @@ internal fun SolanaSendRoute(
                 step = SolanaSendStep.Review(current.plan)
             }
             is SolanaSendStep.Scanning -> step = SolanaSendStep.Request(current.plan, current.parts)
+            is SolanaSendStep.Submit -> when (current.machine.state.value) {
+                SubmitState.Submitting -> Unit
+                is SubmitState.Sent -> navController.popBackStack()
+                else -> {
+                    notice = null
+                    step = SolanaSendStep.Request(current.plan, current.parts)
+                }
+            }
         }
     }
 
@@ -314,12 +329,22 @@ internal fun SolanaSendRoute(
             onText = { text -> onSignatureText(current, text) },
             onCancel = { step = SolanaSendStep.Request(current.plan, current.parts) },
         )
-        is SolanaSendStep.Sent -> SolanaSendSentScreen(
-            network = current.network,
-            signature = current.signature,
-            outcome = sentOutcome,
-            notice = sentNotice,
-            onOpenExplorer = { openExplorer(SolanaSend.explorerTxUrl(current.network, current.signature)) },
+        is SolanaSendStep.Submit -> SubmitScreen(
+            machine = current.machine,
+            rows = solanaSummary(current.plan),
+            explorerUrl = { signature -> SolanaSend.explorerTxUrl(current.plan.network, signature) },
+            status = solanaOutcomeText(current.plan.network, sentOutcome),
+            explorerNotice = sentNotice,
+            onSubmit = { submit(current) },
+            onOpenExplorer = { signature -> openExplorer(SolanaSend.explorerTxUrl(current.plan.network, signature)) },
+            onStartOver = {
+                notice = null
+                step = SolanaSendStep.Form
+            },
+            onBack = {
+                notice = null
+                step = SolanaSendStep.Request(current.plan, current.parts)
+            },
             onDone = { navController.popBackStack() },
         )
     }
@@ -331,4 +356,17 @@ private fun ownerWords(error: Throwable, fallback: String): String = when (error
     is ProviderError.Fatal -> error.message ?: fallback
     is ProviderError -> NETWORK_FAILED
     else -> fallback
+}
+
+/**
+ * The words of a failed Solana submission. A blockhash the network no longer accepts can never be sent again, so the owner starts the send over
+ * and the screen offers no retry.
+ */
+private fun solanaFailure(error: Throwable): SubmitFailure {
+    val expired = error is ProviderError.Fatal && error.message == JsonRpc.BLOCKHASH_EXPIRED_MESSAGE
+    return if (expired) {
+        SubmitFailure(JsonRpc.BLOCKHASH_EXPIRED_MESSAGE, retryable = false)
+    } else {
+        SubmitFailure(ownerWords(error, BROADCAST_FAILED))
+    }
 }

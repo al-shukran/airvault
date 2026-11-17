@@ -169,49 +169,6 @@ internal fun SolanaSignRequestScreen(parts: List<String>, notice: String?, onSca
     }
 }
 
-/**
- * The sent transaction: what the network says of it, and its signature. [outcome] is null while the network is read. The explorer link is the one
- * text action, and [notice] is why it did not open.
- */
-@Composable
-internal fun SolanaSendSentScreen(
-    network: NetworkId,
-    signature: String,
-    outcome: SolanaOutcome?,
-    notice: String?,
-    onOpenExplorer: () -> Unit,
-    onDone: () -> Unit,
-) {
-    LenslyScreen(
-        title = "Sent",
-        bottomAction = {
-            PillButton(text = "Done", onClick = onDone, modifier = Modifier.fillMaxWidth())
-        },
-    ) {
-        NetworkName(network)
-        Spacer(Modifier.height(LenslySpacing.sm))
-        Text(
-            outcomeText(network, outcome),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
-        Text(
-            "Transaction signature",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        AddressText(address = signature, shown = signature, icon = false)
-        TextButton(onClick = onOpenExplorer) {
-            Text("View on explorer")
-        }
-        notice?.let {
-            Spacer(Modifier.height(LenslySpacing.md))
-            InlineBanner(message = it, tone = BannerTone.Error)
-        }
-    }
-}
-
 /** Why [text] is not a recipient the Solana send can pay, or null when it is one. The words are the ones the send refuses with. */
 internal fun recipientError(text: String): String? = runCatching { SolanaSendInput.recipientAddress(text) }
     .exceptionOrNull()
@@ -283,7 +240,7 @@ private val MonoBody: TextStyle
 
 private fun networkName(network: NetworkId): String = if (network.testnet) "Devnet" else "Mainnet-beta"
 
-private fun outcomeText(network: NetworkId, outcome: SolanaOutcome?): String = when (outcome) {
+internal fun solanaOutcomeText(network: NetworkId, outcome: SolanaOutcome?): String = when (outcome) {
     null -> "Checking the network."
     SolanaOutcome.CONFIRMED -> "Confirmed on ${networkName(network)}."
     SolanaOutcome.FAILED -> "The network ran this transaction, and it failed."
