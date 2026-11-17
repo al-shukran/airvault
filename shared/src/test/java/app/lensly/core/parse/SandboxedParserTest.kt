@@ -12,6 +12,7 @@ import com.sparrowwallet.hummingbird.URDecoder
 import java.nio.ByteBuffer
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -52,6 +53,35 @@ class SandboxedParserTest {
             release.countDown()
         }
         assertEquals(1, sandbox.resets)
+    }
+
+    @Test
+    fun aSandboxThatNeverAnswersDoesNotGrowTheCallsInFlight() {
+        val release = CountDownLatch(1)
+        val calls = AtomicInteger()
+        val resets = AtomicInteger()
+        val sandbox = object : SandboxTransport {
+            override fun call(method: Int, payload: ByteArray): ByteArray {
+                calls.incrementAndGet()
+                blockLikeABinderCall(release)
+                return ParserWire.encodeScanReply(ScanReply.NotPart)
+            }
+
+            override fun reset() {
+                resets.incrementAndGet()
+            }
+        }
+        val parser = SandboxedParser(sandbox, timeoutMillis = TIMEOUT_MILLIS)
+        try {
+            repeat(MAX_CALLS_IN_FLIGHT + 3) {
+                assertEquals(CallDecode.Refused(CANNOT_BE_READ), parser.decodeCall(ByteArray(4), emptyList()))
+            }
+        } finally {
+            release.countDown()
+        }
+        // The calls past the bound are refused without reaching the sandbox, and each refusal drops the connection.
+        assertEquals(MAX_CALLS_IN_FLIGHT, calls.get())
+        assertEquals(MAX_CALLS_IN_FLIGHT + 3, resets.get())
     }
 
     @Test
@@ -148,6 +178,21 @@ class SandboxedParserTest {
             ParserWire.encodeScanReply(direct),
             ParserWire.encodeScanReply(InProcessParser.scan(listOf(frames.first(), stray) + frames.drop(1))),
         )
+    }
+
+    /**
+     * Blocks until [release] opens or [SILENCE_BOUND_SECONDS] pass. A binder call cannot be interrupted, so an interrupt does not end the
+     * wait, and a call that its caller has given up on keeps its thread, as a real one does.
+     */
+    private fun blockLikeABinderCall(release: CountDownLatch) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(SILENCE_BOUND_SECONDS)
+        while (release.count > 0 && System.nanoTime() < deadline) {
+            try {
+                release.await(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)
+            } catch (e: InterruptedException) {
+                // Not an end: the binder call goes on.
+            }
+        }
     }
 
     /**

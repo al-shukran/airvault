@@ -20,7 +20,9 @@ import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.psbt.Psbt
-import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import org.web3j.utils.Numeric
 
@@ -208,6 +210,9 @@ interface SandboxTransport {
     fun reset()
 }
 
+/** The most calls to the Parser Sandbox that may be in flight at once. A call past that is refused without a call being made. */
+internal const val MAX_CALLS_IN_FLIGHT = 2
+
 /**
  * The app's side of the Parser Sandbox. It sends each call through [transport] and checks the reply before it is used: a
  * reply that is late, missing, larger than [ParserWire.MAX_REPLY_BYTES] or outside the wire format is a refusal. A call that
@@ -217,8 +222,11 @@ class SandboxedParser(
     private val transport: SandboxTransport,
     private val timeoutMillis: Long = TIMEOUT_MILLIS,
 ) : RequestParser {
-    // A binder call cannot be interrupted, so each call gets a thread that the caller can stop waiting for.
-    private val calls = Executors.newCachedThreadPool { work -> Thread(work, "parser-sandbox").apply { isDaemon = true } }
+    // A binder call cannot be interrupted, so each call gets a thread that the caller can stop waiting for. A thread stays blocked until
+    // its binder call returns, so the threads are bounded: a sandbox that never answers cannot grow them without limit.
+    private val calls = ThreadPoolExecutor(0, MAX_CALLS_IN_FLIGHT, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS, SynchronousQueue()) { work ->
+        Thread(work, "parser-sandbox").apply { isDaemon = true }
+    }
 
     override fun scan(parts: List<String>): ScanReply =
         ask(ParserWire.SCAN, { ParserWire.encodeScanRequest(parts) }, ParserWire::decodeScanReply)
@@ -235,7 +243,13 @@ class SandboxedParser(
         } catch (e: WireException) {
             return null
         }
-        val pending = calls.submit<ByteArray> { transport.call(method, payload) }
+        val pending = try {
+            calls.submit<ByteArray> { transport.call(method, payload) }
+        } catch (e: RejectedExecutionException) {
+            // Every thread is still blocked in a call the sandbox has not answered. The caller gets no reply, and the connection is dropped.
+            transport.reset()
+            return null
+        }
         val reply = try {
             pending.get(timeoutMillis, TimeUnit.MILLISECONDS)
         } catch (e: Exception) {
@@ -258,5 +272,8 @@ class SandboxedParser(
     private companion object {
         /** The longest the app waits for one reply. It covers the start of the sandbox process and every decode budget. */
         const val TIMEOUT_MILLIS = 5_000L
+
+        /** How long an idle thread of [calls] waits for its next call before it ends. */
+        const val KEEP_ALIVE_SECONDS = 30L
     }
 }
