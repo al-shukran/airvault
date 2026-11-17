@@ -69,13 +69,13 @@ class PairAlgorandTest {
 
     /** The Algorand keys of accounts 0 and 1, as Lensly's pairing carries them: the public key and the chain code of each. */
     private fun algorandKeys(): List<PairingKey> = (0 until 2).map { index ->
-        PairingKey.algorandAccount(index, AlgorandAccount.publicKey(SEED, index), AlgorandAccount.chainCode(SEED, index))
+        PairingKey.algorandAccount(index, AlgorandAccount.publicKey(SEED, index))
     }
 
     private fun payload(algorand: List<PairingKey>): PairingPayload {
         val ethereum = PairingApp(
             app = PairImport.ETHEREUM,
-            keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.addressKey(SEED, 0))),
+            keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.address(SEED, 0))),
             accounts = listOf(PairingAccount(key = 0, name = "Main", label = null, group = null)),
         )
         val algorandApp = PairingApp(
@@ -88,6 +88,7 @@ class PairAlgorandTest {
         return PairingPayload(
             fingerprint = 0x5436D724L,
             name = "Demo",
+            autoNameBase = "Demo",
             apps = listOf(ethereum, algorandApp),
         )
     }

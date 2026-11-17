@@ -34,7 +34,8 @@ import org.robolectric.RuntimeEnvironment
 
 /**
  * Which wallet a scanned Bitcoin request is routed to, read through the sign flow's ports as the app reads the vault. A vault that stores
- * only a Native Segwit account at index 0 still routes a request from every Script Type of that index, since the pairing carries all four.
+ * only a Native Segwit account at index 0 routes a request from that account, and no request from another Script Type of that index: the
+ * pairing carries the stored accounts alone.
  */
 @RunWith(RobolectricTestRunner::class)
 class BitcoinRoutingTest {
@@ -49,7 +50,7 @@ class BitcoinRoutingTest {
         ).split(" ")
 
     @Test
-    fun aRequestFromAnyScriptTypeOfAHeldIndexRoutesToTheWallet() {
+    fun aRequestFromTheStoredScriptTypeRoutesToTheWalletAndAnotherScriptTypeDoesNot() {
         val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it + 5).toByte() })
         try {
             val store = WalletStore(session)
@@ -76,7 +77,8 @@ class BitcoinRoutingTest {
                 )
                 // The request as the sign flow reads it: the serialized PSBT of the scan, parsed again.
                 val request = ScannedRequest.Bitcoin(BtcPsbt.parse(Psbt.write(built).toByteArray()))
-                assertEquals(WalletMatch.One(wallet), routeScan(request, wallets), type.name)
+                val expected = if (type == ScriptType.NATIVE_SEGWIT) WalletMatch.One(wallet) else WalletMatch.None
+                assertEquals(expected, routeScan(request, wallets), type.name)
             }
         } finally {
             session.close()

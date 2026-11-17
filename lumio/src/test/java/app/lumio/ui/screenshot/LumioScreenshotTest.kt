@@ -344,11 +344,12 @@ class LumioScreenshotTest {
             pairing = PairingPayload(
                 fingerprint = 0x1a2b3c4dL,
                 name = "Demo",
+                autoNameBase = "Demo",
                 apps = listOf(
                     PairingApp(
                         app = PairImport.ETHEREUM,
-                        keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.addressKey(PairFixtures.seed, 0))),
-                        accounts = listOf(PairingAccount(key = 0, name = null, label = null, group = null)),
+                        keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.address(PairFixtures.seed, 0))),
+                        accounts = listOf(PairingAccount(key = 0, name = "Demo 0", label = null, group = null)),
                     ),
                 ),
             ),

@@ -148,10 +148,9 @@ class WalletStoreAlgorandTest {
             app.keys.map { it.path },
         )
         app.keys.forEachIndexed { index, key ->
-            assertEquals(5, key.depth)
-            assertEquals(0.toByte(), key.publicKey[0])
-            assertContentEquals(AlgorandAccount.publicKey(seed, index), key.publicKey.copyOfRange(1, key.publicKey.size))
-            assertContentEquals(AlgorandAccount.chainCode(seed, index), key.chainCode)
+            assertEquals(5, key.path.size)
+            assertContentEquals(AlgorandAccount.publicKey(seed, index), key.material)
+            assertEquals(null, key.chainCode)
         }
         assertEquals(listOf(0, 1), app.accounts.map { it.key })
         assertEquals("Test 0", app.accounts.first().name)

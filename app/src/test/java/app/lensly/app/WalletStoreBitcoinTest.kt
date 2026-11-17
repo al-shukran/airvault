@@ -29,12 +29,10 @@ import fr.acinq.bitcoin.ByteVector
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.Satoshi
 import fr.acinq.bitcoin.Script
-import fr.acinq.bitcoin.SigHash
 import fr.acinq.bitcoin.TxOut
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -193,17 +191,19 @@ class WalletStoreBitcoinTest {
     }
 
     @Test
-    fun thePairingCarriesEveryScriptTypeOfEachNetworkTheWalletHolds() {
+    fun thePairingCarriesOnlyTheStoredScriptTypeAndNetworkOfEachAccount() {
         val id = newWallet()
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1, cap)
         store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.TESTNET4, 1, cap)
 
         val keys = bitcoinKeysOf(id)
 
-        assertEquals(8, keys.size)
-        val allTypes = ScriptType.entries.toSet()
-        assertEquals(allTypes, keys.filter { networkOf(it) == BtcNetwork.MAINNET }.map { scriptTypeOf(it) }.toSet())
-        assertEquals(allTypes, keys.filter { networkOf(it) == BtcNetwork.TESTNET4 }.map { scriptTypeOf(it) }.toSet())
+        // The pairing carries the accounts the wallet stores, not every Script Type of each index: two stored accounts, two keys.
+        assertEquals(2, keys.size)
+        assertEquals(
+            setOf(ScriptType.NATIVE_SEGWIT to BtcNetwork.MAINNET, ScriptType.TAPROOT to BtcNetwork.TESTNET4),
+            keys.map { scriptTypeOf(it) to networkOf(it) }.toSet(),
+        )
     }
 
     @Test
@@ -211,10 +211,10 @@ class WalletStoreBitcoinTest {
         val id = newWallet()
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 3, cap)
 
-        // Indices 0, 1 and 2 on mainnet, with each of the four Script Types at every index.
+        // Indices 0, 1 and 2 on mainnet, one key each: the Script Type and the network are the stored ones only.
         val keys = bitcoinKeysOf(id)
 
-        assertEquals(12, keys.size)
+        assertEquals(3, keys.size)
         assertEquals(setOf(0, 1, 2), keys.map { (it.path[2] - DeterministicWallet.hardenedKeyIndex).toInt() }.toSet())
     }
 
@@ -230,8 +230,11 @@ class WalletStoreBitcoinTest {
         val ethereum = pairing.apps.single { it.app == "ethereum" }
         val seed = Mnemonic.of(words).use { it.deriveSeed("") }
         assertEquals(2, ethereum.keys.size)
-        assertTrue(ethereum.keys[0].publicKey.contentEquals(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(0), 0).publicKey))
-        assertTrue(ethereum.keys[1].publicKey.contentEquals(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(1), 0).publicKey))
+        // The Ethereum key of each account is its address, which the pairing carries as its 20 bytes.
+        for (account in 0..1) {
+            val address = AccountAddresses.addressOfKey(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(account), 0))
+            assertEquals(address.removePrefix("0x").lowercase(), ethereum.keys[account].material.joinToString("") { "%02x".format(it) })
+        }
         assertEquals(
             listOf(
                 PairingAccount(key = 0, name = "Cold", label = "vault", group = "Long term"),
@@ -358,11 +361,10 @@ class WalletStoreBitcoinTest {
 
         val bitcoin = pairingOf(store.pairingParts(id, null)).apps.single { it.app == "bitcoin" }
 
-        // The named account carries its profile. An account with none carries its Auto-Name, as an Ethereum account does, and so does an
-        // account of a Script Type the owner never generated, since the pairing has every Script Type of each index.
+        // The named account carries its profile. An account with none carries its Auto-Name, as an Ethereum account does.
         assertEquals(Triple("Cold", "vault", "Long term"), bitcoinAccountOf(bitcoin, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 0).labelled())
         assertEquals(Triple("Test 1", null, null), bitcoinAccountOf(bitcoin, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1).labelled())
-        assertEquals(Triple("Test 0", null, null), bitcoinAccountOf(bitcoin, ScriptType.TAPROOT, BtcNetwork.MAINNET, 0).labelled())
+        assertEquals(2, bitcoin.keys.size)
         assertEquals(bitcoin.keys.size, bitcoin.accounts.size)
     }
 
@@ -444,11 +446,11 @@ class WalletStoreBitcoinTest {
 
     /**
      * The request the Lumio companion builds from an account of the pairing, for each Script Type at index 0 of a vault that stores only a
-     * Native Segwit account there. The pairing carries every Script Type of a held index, so each one is an account of the wallet: the
-     * review and the signature accept every one of them. A Legacy signature is non-witness and ends in SIGHASH_ALL.
+     * Native Segwit account there. Only the stored Script Type is an account of the wallet: its request is reviewed and signed, and a request
+     * from any other Script Type is refused, since the pairing carries the stored accounts alone.
      */
     @Test
-    fun everyScriptTypeOfAHeldIndexIsReviewedAndSignedForTheRequestLumioBuilds() {
+    fun aRequestFromTheStoredScriptTypeIsReviewedAndSignedAndAnotherScriptTypeIsRefused() {
         val id = store.create(name = "Lumio", deviceGenerated = false, words = lumioWords, passphrase = null, nowMs = 1L)
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
         val seed = Mnemonic.toSeed(lumioWords)
@@ -463,6 +465,12 @@ class WalletStoreBitcoinTest {
             // The request as the scanner reads it back from the QR code.
             val request = BtcPsbt.decode(BtcPsbt.encodeUr(built))
 
+            if (type != ScriptType.NATIVE_SEGWIT) {
+                // The wallet stores no account of this Script Type, so the request names none of the wallet's accounts.
+                val refused = assertFailsWith<BtcRefusedException> { store.bitcoinReview(id, request, STRICT, SigningSourcePolicy.ANY) }
+                assertEquals(BtcRefusal.NoStoredAccount, refused.refusal, type.name)
+                continue
+            }
             val reviewed = store.bitcoinReview(id, request, STRICT, SigningSourcePolicy.ANY)
             assertEquals(type, reviewed.account.scriptType, type.name)
             assertEquals(10_000L, reviewed.review.feeSats, type.name)
@@ -472,12 +480,6 @@ class WalletStoreBitcoinTest {
             frames.forEach { scanner.receive(it) }
             val tx = BtcPsbt.finalizeAndExtract(BtcPsbt.fromUr(assertNotNull(scanner.result())))
             assertTrue(BtcFixtures.verifies(tx, listOf(coin.previous.txOut[0])), "${type.name}: the interpreter rejects the transaction")
-            if (type == ScriptType.LEGACY) {
-                assertFalse(tx.hasWitness, "a P2PKH input is signed in the non-witness serialization")
-                // The scriptSig pushes the signature, then the key. The last byte of the signature is its sighash type.
-                val scriptSig = tx.txIn[0].signatureScript.toByteArray()
-                assertEquals(SigHash.SIGHASH_ALL, scriptSig[scriptSig[0].toInt()].toInt(), "the signature must be SIGHASH_ALL")
-            }
         }
     }
 
