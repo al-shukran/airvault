@@ -32,6 +32,12 @@ internal object SolanaVectors {
     const val ATA22 = "8dKsy9ECTqRAooTGTuUPhcMF52waQynxz3ByZWWp9jgG"
     const val OWNER22 = "FzkhWYLpvh4PUFTQU1ERtXFo8poQJ84VXGmtzxjAMBbX"
     const val MINT22 = "5UHrBSdVTrUZxAwCiVT876romMWawWhnDtGrz8jX2XJ6"
+
+    /** The real USDC mint on Solana (6 decimals, classic Token program). It is not a label key. */
+    const val USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+
+    /** The associated token account of [OWNER] for [USDC], derived by solders from the owner, the mint and the token program. */
+    const val USDC_ATA = "8qYoe3sc4zgkEBwnbpTKtGrg81KJ7EBx7bHy7RiSbxfj"
     const val SRC2 = "CguTsxypvu1QZCM27nHWcoA4RCCkoCQtBvu5hBSfmQuX"
     const val DST2 = "2yf7bSzyaMuLBigWgy6FbLThjdUbTRtQRpa3uNVvKHa9"
     const val BLOCKHASH = "3K2oo9odsrvknS7gMzJ4eLBnjd3UG14yPuJc8DiviJqY"
@@ -51,5 +57,10 @@ internal object SolanaVectors {
         "v0-token-programs",
         "legacy-unknown-program",
         "legacy-max-size",
+        "spl-transfer-plain",
+        "spl-usdc-first-transfer",
+        "spl-compute-transfer-checked",
+        "spl-token2022-transfer-checked",
+        "spl-unknown-program-usdc",
     )
 }
