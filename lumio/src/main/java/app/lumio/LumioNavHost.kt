@@ -116,14 +116,11 @@ internal object LumioRoute {
     /** The argument of the send's route: the index of the address that sends. */
     const val SEND_INDEX_ARG = "index"
 
-    /** The optional argument of the send's route: the chain ID the form starts on. Absent, the form starts on its first chain. */
+    /** The argument of the send's route: the chain ID of the network the send is on. */
     const val SEND_CHAIN_ARG = "chain"
 
-    /** The optional argument of the send's route: the contract of the ERC-20 token the form starts on. Absent, it starts on the native coin. */
-    const val SEND_TOKEN_ARG = "token"
-
-    /** The Ethereum send from one address of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG], starting on the token [SEND_TOKEN_ARG] when it is given. */
-    const val SEND = "send/{$WALLET_ARG}/{$SEND_INDEX_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}&$SEND_TOKEN_ARG={$SEND_TOKEN_ARG}"
+    /** The Ethereum send from one address of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG]. */
+    const val SEND = "send/{$WALLET_ARG}/{$SEND_INDEX_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}"
 
     /** The Solana send from the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
     const val SOLANA_SEND = "solana-send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
@@ -143,11 +140,8 @@ internal object LumioRoute {
     /** The route of the Bitcoin send from account [index] of [walletId]. */
     fun btcSend(walletId: String, index: Int): String = "bitcoin-send/$walletId/$index"
 
-    /** The route of a send from address [index] of [walletId] on the network [chainId], and on the token [token] when it is given. */
-    fun send(walletId: String, index: Int, chainId: Long, token: String? = null): String {
-        val query = listOfNotNull("$SEND_CHAIN_ARG=$chainId", token?.let { "$SEND_TOKEN_ARG=$it" })
-        return "send/$walletId/$index?" + query.joinToString("&")
-    }
+    /** The route of a send from address [index] of [walletId] on the network [chainId]. */
+    fun send(walletId: String, index: Int, chainId: Long): String = "send/$walletId/$index?$SEND_CHAIN_ARG=$chainId"
 
     /** The receive page of one account, with the wallet's ID, the chain and the place as its arguments. */
     const val RECEIVE = "receive/{$WALLET_ARG}/{$ACCOUNT_CHAIN_ARG}/{$ACCOUNT_INDEX_ARG}"
@@ -417,13 +411,11 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
                     navArgument(LumioRoute.SEND_CHAIN_ARG) { type = NavType.LongType; defaultValue = NO_CHAIN },
-                    navArgument(LumioRoute.SEND_TOKEN_ARG) { type = NavType.StringType; defaultValue = "" },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
                 val chain = entry.arguments?.getLong(LumioRoute.SEND_CHAIN_ARG) ?: NO_CHAIN
-                val token = entry.arguments?.getString(LumioRoute.SEND_TOKEN_ARG).orEmpty()
                 LumioBackdrop(selection) {
                     SendRoute(
                         navController = navController,
@@ -432,7 +424,6 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                         index = index,
                         mode = selection.mode,
                         chainId = chain,
-                        preferredToken = token.takeIf { it.isNotEmpty() },
                     )
                 }
             }

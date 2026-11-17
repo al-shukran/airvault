@@ -7,10 +7,8 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -26,123 +24,17 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.PickerStop
 import app.lensly.ui.navigation.openHidden
-import app.lumio.data.config.DisplaySettings
 import app.lumio.data.tx.CommentImportException
 import app.lumio.data.tx.TxCommentTransfer
-import app.lumio.data.tx.TxFilter
 import app.lumio.data.tx.TxKeys
-import app.lumio.data.tx.TxViewStore
-import app.lumio.evm.EvmCatalog
-import app.lumio.evm.EvmSettingsStore
-import app.lumio.home.HomeLoader
-import app.lumio.network.NetworkMode
-import app.lumio.pair.PairedWallets
-import app.lumio.transactions.TxAssetOption
 import app.lumio.transactions.TxDetail
-import app.lumio.transactions.TxPage
-import app.lumio.transactions.TxSync
-import app.lumio.transactions.TxSyncPlan
-import app.lumio.transactions.assetOptions
 import app.lumio.ui.settings.CommentBackupRows
-import app.lumio.transactions.pricedPage
 import app.lumio.transactions.txDetailOf
-import app.lumio.transactions.txPage
 import app.lumio.ui.transactions.TransactionDetailScreen
-import app.lumio.ui.transactions.TransactionsScreen
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-/** How many rows one page of the feed holds. The next page is one tap away. */
-private const val PAGE_SIZE = 50
-
-/**
- * The Transactions tab. It shows the feed from the store at once, then reads the side's histories through the scheduler and adds each read as it lands.
- * A tab open, a pull to refresh and a change of side each read the providers again. The filter and the sort are the owner's, and the sort is remembered.
- */
-@Composable
-internal fun TransactionsRoute(navController: NavHostController, holder: VaultHolder, mode: NetworkMode) {
-    val app = LocalContext.current.applicationContext as LumioApp
-    val session = holder.openSession()
-    LaunchedEffect(session == null) {
-        if (session == null) navController.openHidden(GateRoutes.GATE)
-    }
-    if (session == null) return
-    val vault = app.lumioVault()
-    val fallback = remember { MutableStateFlow(DisplaySettings()) }
-    val display by (vault?.display ?: fallback).collectAsState()
-    val scope = rememberCoroutineScope()
-
-    val plan by produceState<TxSyncPlan?>(null, session, mode) {
-        value = withContext(Dispatchers.IO) { planOf(app, session, mode) }
-    }
-    val assets by produceState<List<TxAssetOption>>(emptyList(), session, mode) {
-        value = withContext(Dispatchers.IO) { assetOptions(HomeLoader.cached(app, session, mode)) }
-    }
-    val saved by produceState<TxViewStore.Sort?>(null, session) {
-        value = withContext(Dispatchers.IO) { TxViewStore.read(session) }
-    }
-    var filter by remember { mutableStateOf(TxFilter()) }
-    LaunchedEffect(saved) {
-        saved?.let { filter = filter.copy(sort = it.sort, descending = it.descending) }
-    }
-
-    var limit by remember { mutableIntStateOf(PAGE_SIZE) }
-    var page by remember { mutableStateOf(TxPage.EMPTY) }
-    var refreshing by remember { mutableStateOf(false) }
-    var refreshTick by remember { mutableIntStateOf(0) }
-    val stored = remember { MutableStateFlow(0) }
-    val storedCount by stored.collectAsState()
-
-    // A tab open, a pull to refresh and a change of side each read the providers. Each read that lands bumps [stored], and the feed reads the store again.
-    LaunchedEffect(plan, refreshTick) {
-        val current = plan ?: return@LaunchedEffect
-        val open = vault ?: return@LaunchedEffect
-        refreshing = true
-        try {
-            withContext(Dispatchers.IO) { TxSync.run(app, open, current, onStored = { stored.update { it + 1 } }) }
-        } finally {
-            refreshing = false
-        }
-    }
-
-    // The feed shows the store's rows first, then their values in dollars once the prices are read.
-    LaunchedEffect(plan, filter, limit, storedCount) {
-        val current = plan ?: return@LaunchedEffect
-        val open = vault ?: return@LaunchedEffect
-        val rows = withContext(Dispatchers.IO) { txPage(app, open, current, filter, limit, hideSpam = true) }
-        page = rows
-        page = withContext(Dispatchers.IO) { pricedPage(app, rows) }
-    }
-
-    fun change(next: TxFilter) {
-        val old = filter
-        filter = next
-        limit = PAGE_SIZE
-        if (next.sort != old.sort || next.descending != old.descending) {
-            scope.launch {
-                withContext(Dispatchers.IO) {
-                    TxViewStore.write(session, TxViewStore.Sort(next.sort, next.descending))
-                }
-            }
-        }
-    }
-
-    TransactionsScreen(
-        rows = page.items,
-        count = page.count,
-        filter = filter,
-        assets = assets,
-        refreshing = refreshing,
-        onFilter = ::change,
-        onMore = { limit += PAGE_SIZE },
-        onOpen = { row -> navController.navigate(LumioRoute.transaction(row.tx.account, row.tx.id)) },
-        onRefresh = { refreshTick++ },
-    )
-}
 
 /** The detail of one transaction, with its comment that the owner edits here. A transaction the store does not hold leaves the screen. */
 @Composable
@@ -280,16 +172,4 @@ private fun openExplorer(context: Context, url: String) {
     } catch (e: ActivityNotFoundException) {
         Toast.makeText(context, "No browser is installed.", Toast.LENGTH_SHORT).show()
     }
-}
-
-/** The plan of the Transactions tab for [mode]'s side, read from the open vault. */
-internal fun planOf(app: LumioApp, session: VaultSession, mode: NetworkMode): TxSyncPlan {
-    val settings = EvmSettingsStore.read(session)
-    return TxSync.plan(
-        chains = EvmCatalog.chains(app.registry, settings),
-        settings = settings,
-        mode = mode,
-        wallets = PairedWallets.list(session),
-        bitcoin = bitcoinRefs(session),
-    )
 }
