@@ -7,11 +7,13 @@ import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcAccount
+import app.lensly.core.btc.BtcCoin
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcRefusal
 import app.lensly.core.btc.BtcRefusedException
+import app.lensly.core.btc.BtcUnsignedPsbt
 import app.lensly.core.btc.InputVerificationPolicy.STRICT
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.SigningSourcePolicy
@@ -27,10 +29,12 @@ import fr.acinq.bitcoin.ByteVector
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.Satoshi
 import fr.acinq.bitcoin.Script
+import fr.acinq.bitcoin.SigHash
 import fr.acinq.bitcoin.TxOut
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -53,6 +57,11 @@ class WalletStoreBitcoinTest {
 
     private val words = List(23) { "abandon" } + "art"
     private val otherWords = List(23) { "zoo" } + "vote"
+    /** The throwaway mnemonic of the Lumio request tests. */
+    private val lumioWords = (
+        "supply excess unit online visa snow include grief sketch " +
+            "grace rural near leaf finish jewel embark elite make venture enroll vacuum worth over pioneer"
+        ).split(" ")
     private val cap = BulkCap.DEFAULT.accounts
     private lateinit var session: VaultSession
     private lateinit var store: WalletStore
@@ -431,6 +440,45 @@ class WalletStoreBitcoinTest {
         val signed = BtcPsbt.fromUr(assertNotNull(scanner.result()))
         val tx = BtcFixtures.finalize(signed, listOf(spend))
         assertTrue(BtcFixtures.verifies(tx, BtcFixtures.prevouts(listOf(spend))), "the interpreter rejects the signed request")
+    }
+
+    /**
+     * The request the Lumio companion builds from an account of the pairing, for each Script Type at index 0 of a vault that stores only a
+     * Native Segwit account there. The pairing carries every Script Type of a held index, so each one is an account of the wallet: the
+     * review and the signature accept every one of them. A Legacy signature is non-witness and ends in SIGHASH_ALL.
+     */
+    @Test
+    fun everyScriptTypeOfAHeldIndexIsReviewedAndSignedForTheRequestLumioBuilds() {
+        val id = store.create(name = "Lumio", deviceGenerated = false, words = lumioWords, passphrase = null, nowMs = 1L)
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        val seed = Mnemonic.toSeed(lumioWords)
+        for (type in ScriptType.entries) {
+            val account = BtcAccount.fromSeed(seed, BtcNetwork.TESTNET4, type, 0)
+            val coin = BtcCoin(BtcFixtures.funding(account, 0, 0, 100_000L), 0, 0, 0)
+            val built = BtcUnsignedPsbt.build(
+                account.watchOnly(),
+                listOf(coin),
+                BtcFixtures.paying(account, paid = 30_000L, change = 60_000L),
+            )
+            // The request as the scanner reads it back from the QR code.
+            val request = BtcPsbt.decode(BtcPsbt.encodeUr(built))
+
+            val reviewed = store.bitcoinReview(id, request, STRICT, SigningSourcePolicy.ANY)
+            assertEquals(type, reviewed.account.scriptType, type.name)
+            assertEquals(10_000L, reviewed.review.feeSats, type.name)
+
+            val frames = store.bitcoinSign(id, reviewed.account, request, STRICT, SigningSourcePolicy.ANY, unverifiedConfirmed = false)
+            val scanner = UrScanner()
+            frames.forEach { scanner.receive(it) }
+            val tx = BtcPsbt.finalizeAndExtract(BtcPsbt.fromUr(assertNotNull(scanner.result())))
+            assertTrue(BtcFixtures.verifies(tx, listOf(coin.previous.txOut[0])), "${type.name}: the interpreter rejects the transaction")
+            if (type == ScriptType.LEGACY) {
+                assertFalse(tx.hasWitness, "a P2PKH input is signed in the non-witness serialization")
+                // The scriptSig pushes the signature, then the key. The last byte of the signature is its sighash type.
+                val scriptSig = tx.txIn[0].signatureScript.toByteArray()
+                assertEquals(SigHash.SIGHASH_ALL, scriptSig[scriptSig[0].toInt()].toInt(), "the signature must be SIGHASH_ALL")
+            }
+        }
     }
 
     @Test
