@@ -1,5 +1,7 @@
 package app.lensly.ui.settings
 
+import app.lensly.core.vault.FailureDelay
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,8 +42,11 @@ class FailureCapScreenTest {
                     step = FailureCapStep.Choose,
                     saved = saved,
                     selected = selected,
+                    savedErase = FailureDelay.DEFAULT_WIPE_AFTER,
+                    selectedErase = null,
                     passwordLength = 0,
                     onSelect = onSelect,
+                    onSelectErase = {},
                     onContinue = {},
                     onKey = {},
                     onBackspace = {},
@@ -91,8 +96,11 @@ class FailureCapScreenTest {
                     step = FailureCapStep.Choose,
                     saved = FailureCapChoice.DEFAULT,
                     selected = selected,
+                    savedErase = FailureDelay.DEFAULT_WIPE_AFTER,
+                    selectedErase = null,
                     passwordLength = 0,
                     onSelect = { selected = it },
+                    onSelectErase = {},
                     onContinue = {},
                     onKey = {},
                     onBackspace = {},
@@ -101,10 +109,10 @@ class FailureCapScreenTest {
                 )
             }
         }
-        // Index 1 of the eight caps is 5 s.
+        // Index 1 of the six caps is 30 s.
         compose.onNode(slider).performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
 
-        compose.onNodeWithContentDescription("Waits after wrong tries: 5 s, 5 s, 5 s, 5 s, 5 s").assertExists()
+        compose.onNodeWithContentDescription("Waits after wrong tries: 10 s, 20 s, 30 s, 30 s, 30 s").assertExists()
     }
 
     @Test
@@ -112,8 +120,8 @@ class FailureCapScreenTest {
         val chosen = mutableListOf<FailureCapChoice>()
         show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.DEFAULT, onSelect = { chosen += it })
 
-        // Index 6 of the eight caps is 15 min.
-        compose.onNode(slider).performSemanticsAction(SemanticsActions.SetProgress) { it(6f) }
+        // Index 4 of the six caps is 15 min.
+        compose.onNode(slider).performSemanticsAction(SemanticsActions.SetProgress) { it(4f) }
 
         assertEquals(listOf(FailureCapChoice.FIFTEEN_MINUTES), chosen)
     }
@@ -133,14 +141,6 @@ class FailureCapScreenTest {
     }
 
     @Test
-    fun aCapBelowTenSecondsWarnsAndAsksToContinueAnyway() {
-        show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.ONE_SECOND)
-
-        compose.onNodeWithText("Short waits make guessing your password faster", substring = true).assertExists()
-        compose.onNodeWithText("CONTINUE ANYWAY").assertExists()
-    }
-
-    @Test
     fun theExplanationNamesTheSevenDayLimit() {
         show(saved = FailureCapChoice.DEFAULT, selected = null)
 
@@ -151,7 +151,7 @@ class FailureCapScreenTest {
     fun theWaitStepsAreTheDomainsWaits() {
         assertEquals(listOf(10_000L, 20_000L, 40_000L, 60_000L, 60_000L), waitSteps(FailureCapChoice.ONE_MINUTE))
         assertEquals(waitSteps(FailureCapChoice.ONE_MINUTE), waitSteps(FailureCapChoice.DEFAULT))
-        assertEquals(listOf(1_000L, 1_000L, 1_000L, 1_000L, 1_000L), waitSteps(FailureCapChoice.ONE_SECOND))
+        assertEquals(listOf(10_000L, 10_000L, 10_000L, 10_000L, 10_000L), waitSteps(FailureCapChoice.TEN_SECONDS))
         assertEquals(listOf(10_000L, 20_000L, 40_000L, 80_000L, 160_000L), waitSteps(FailureCapChoice.ONE_HOUR))
     }
 
