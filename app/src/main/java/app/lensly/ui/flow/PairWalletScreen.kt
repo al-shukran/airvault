@@ -32,11 +32,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,9 +47,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import app.lensly.BuildConfig
 import app.lensly.R
@@ -68,6 +74,7 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
+import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.WalletCard
 import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.navigation.LenslyRoute
@@ -81,12 +88,15 @@ import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurfaceContainer
+import app.lensly.ui.wallet.PasswordStep
 import app.lensly.ui.wallet.WalletEyebrow
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val DEFAULT_PAIR_NAME = "Lensly"
 private const val PAIR_TITLE = "Pair wallet"
+private const val PAIR_PASSWORD_PROMPT = "Enter your Application Password to show the pairing code."
 private const val STEP_ENTER_MS = 240
 private const val STEP_EXIT_MS = 160
 
@@ -179,6 +189,8 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
                 WalletStore(requireNotNull(session) { "The vault is locked." }).pairingParts(meta.id)
             }
         },
+        checkPassword = { password -> checkAppPassword(holder, password) },
+        onUnavailable = { navController.openHidden(HiddenRoute.UNAVAILABLE) },
         onDone = {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             navController.getBackStackEntry(LenslyRoute.HIDDEN).savedStateHandle[HiddenRoute.NOTICE] = PAIRED_MESSAGE
@@ -205,54 +217,136 @@ internal fun PairWizard(
     walletEntries: List<WalletEntry> = emptyList(),
     /** The AirVault pairing of a wallet: the keys and names of every App it holds, in one code, read off the main thread. */
     lumioParts: suspend (WalletMeta) -> List<String> = { emptyList() },
+    /**
+     * Checks the App Password before the AirVault code is built. The wizard owns the password and zeroes it. The default refuses every
+     * password, so a caller that does not check one never shows the code.
+     */
+    checkPassword: suspend (CharArray) -> PasswordCheck = { PasswordCheck.Rejected },
+    /** The check could not read the vault, so the wizard leaves for the unavailable notice. */
+    onUnavailable: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val skipsWalletStep = preselected != null || wallets.size == 1
     var wallet by remember { mutableStateOf(preselected ?: wallets.singleOrNull()) }
     var format by remember { mutableStateOf<PairFormat?>(null) }
     var step by remember { mutableStateOf(if (skipsWalletStep) PairStep.APP else PairStep.WALLET) }
+    // The AirVault code holds every account and Address Book entry, so it is built only once the App Password is right. It is locked
+    // again when the owner leaves the code, and when the app leaves the foreground.
+    var codeUnlocked by remember { mutableStateOf(false) }
     val chosen = wallet
     val inCode = step == PairStep.CODE
     // The AirVault code needs the seed's account keys, so only a Mnemonic wallet, the one with an account public key, has a code.
     val hasAccountKeys = chosen?.accountKeys?.isNotEmpty() == true
-    // The code is built only when the owner reaches it, from public wallet data.
-    val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, hasAccountKeys) {
+    // The code is built only when the owner reaches it, from public wallet data, and for AirVault only once it is unlocked.
+    val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, hasAccountKeys, codeUnlocked) {
         value = when {
             !inCode || chosen == null -> null
-            format == PairFormat.LUMIO -> if (hasAccountKeys) lumioParts(chosen) else null
+            format == PairFormat.LUMIO -> if (hasAccountKeys && codeUnlocked) lumioParts(chosen) else null
             else -> withContext(Dispatchers.Default) { pairingParts(chosen) }
         }
     }
+    val passwordAsked = inCode && format == PairFormat.LUMIO && !codeUnlocked
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val password = remember { PasswordBuffer() }
+    var passwordLength by remember { mutableIntStateOf(0) }
+    var checking by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                password.clear()
+                passwordLength = 0
+                codeUnlocked = false
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            password.clear()
+        }
+    }
     fun back() {
+        // A check that is running cannot be left, as at the gate, so the owner is never sent back to a code that then unlocks.
+        if (checking) return
         when (step) {
             PairStep.WALLET -> onLeave()
             PairStep.APP -> if (skipsWalletStep) onLeave() else step = PairStep.WALLET
             PairStep.INSTRUCTIONS -> step = PairStep.APP
-            PairStep.CODE -> step = PairStep.INSTRUCTIONS
+            PairStep.CODE -> {
+                password.clear()
+                passwordLength = 0
+                codeUnlocked = false
+                step = PairStep.INSTRUCTIONS
+            }
+        }
+    }
+    fun submitPassword() {
+        if (checking || password.isEmpty()) return
+        val entered = password.toCharArray()
+        password.clear()
+        passwordLength = 0
+        checking = true
+        scope.launch {
+            val check = try {
+                checkPassword(entered)
+            } finally {
+                entered.fill('\u0000')
+            }
+            checking = false
+            when (check) {
+                // A check that ends after the app left the foreground does not unlock the code, as the lock on leaving has already run.
+                PasswordCheck.Accepted -> if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) codeUnlocked = true
+                PasswordCheck.Rejected -> Unit
+                PasswordCheck.Unavailable -> onUnavailable()
+            }
         }
     }
     BackHandler { back() }
-    PairWizardScreen(
-        step = step,
-        wallets = wallets,
-        profiles = profiles,
-        wallet = chosen,
-        format = format,
-        walletEntry = format?.walletName?.let { name -> walletEntries.firstOrNull { it.name == name } },
-        frames = frames,
-        onPickWallet = { picked ->
-            wallet = picked
-            step = PairStep.APP
-        },
-        onPickFormat = { picked ->
-            format = picked
-            step = PairStep.INSTRUCTIONS
-        },
-        onShowCode = { step = PairStep.CODE },
-        onDone = onDone,
-        onBack = { back() },
-        modifier = modifier,
-    )
+    if (passwordAsked) {
+        // The App Password step, as Show Secret asks it. It is the code's step, so it reads step 4 of 4 like the code does.
+        PasswordStep(
+            busy = checking,
+            length = passwordLength,
+            onKey = { c ->
+                if (!checking && password.append(c)) passwordLength = password.length
+            },
+            onBackspace = {
+                if (!checking) {
+                    password.backspace()
+                    passwordLength = password.length
+                }
+            },
+            onSubmit = { submitPassword() },
+            onBack = { back() },
+            modifier = modifier,
+            title = PAIR_TITLE,
+            prompt = PAIR_PASSWORD_PROMPT,
+            stepCount = PairStep.entries.size,
+            step = PairStep.CODE.ordinal + 1,
+        )
+    } else {
+        PairWizardScreen(
+            step = step,
+            wallets = wallets,
+            profiles = profiles,
+            wallet = chosen,
+            format = format,
+            walletEntry = format?.walletName?.let { name -> walletEntries.firstOrNull { it.name == name } },
+            frames = frames,
+            onPickWallet = { picked ->
+                wallet = picked
+                step = PairStep.APP
+            },
+            onPickFormat = { picked ->
+                format = picked
+                step = PairStep.INSTRUCTIONS
+            },
+            onShowCode = { step = PairStep.CODE },
+            onDone = onDone,
+            onBack = { back() },
+            modifier = modifier,
+        )
+    }
 }
 
 /**

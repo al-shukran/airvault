@@ -9,6 +9,7 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -69,6 +70,24 @@ class WalletStorePairingBookTest {
         book.forEach { AddressBookStore(session).put(it) }
 
         assertEquals(book, pairingOf(store.pairingParts(id, null)).addressBook)
+    }
+
+    @Test
+    fun theEncodedPairingHoldsNoNotesOfTheAddressBook() {
+        val id = newWallet()
+        val book = listOf(entry(0, label = "Exchange").copy(notes = "Recovery hint: blue box"), entry(1).copy(notes = "Keep it private"))
+        book.forEach { AddressBookStore(session).put(it) }
+        // The notes are saved, so the check below is not passing for want of them.
+        assertEquals(book, AddressBookStore(session).load())
+
+        val scanner = UrScanner()
+        store.pairingParts(id, null).forEach { scanner.receive(it) }
+        val ur = requireNotNull(scanner.result())
+        val body = String(ur.cborBytes, Charsets.ISO_8859_1)
+
+        assertEquals(book.map { it.copy(notes = null) }, PairingCodec.fromUr(ur, null).addressBook)
+        assertFalse(body.contains("Recovery hint"))
+        assertFalse(body.contains("Keep it private"))
     }
 
     @Test
