@@ -2,10 +2,10 @@ package app.lumio.send.solana
 
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaMessage
+import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaRequestCheck
 import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaTransaction
-import app.lensly.core.solana.SolanaTransfer
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
@@ -89,7 +89,7 @@ class SolanaSendTest {
         recipient = recipient,
         lamports = lamports,
         balance = neededBalance,
-        blockhash = blockhash,
+        nonceValue = blockhash,
         requestId = requestId,
     )
 
@@ -165,8 +165,29 @@ class SolanaSendTest {
         val exact = plan()
 
         assertEquals(SOLANA_FEE_LAMPORTS, exact.feeLamports)
-        assertContentEquals(SolanaTransfer.message(sender, recipient, lamports, blockhash), exact.message)
+        assertContentEquals(SolanaNonce.transferMessage(sender, recipient, lamports, blockhash), exact.message)
         assertIs<SolanaMessage.Result.Ok>(SolanaMessage.decode(exact.message))
+    }
+
+    /**
+     * The one-time setup pays the rent into the sender's nonce account, which is the plan's recipient, and it names the setup message. The balance
+     * must cover the rent, the fee and the reserve.
+     */
+    @Test
+    fun theSetupPaysTheRentIntoTheNonceAccountOfTheSender() {
+        val rent = 1_447_680L
+        val needed = BigInteger.valueOf(rent + SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS)
+        assertFailsWith<IllegalArgumentException> {
+            SolanaSend.setupPlan(SOLANA_DEVNET, account, rent, needed - BigInteger.ONE, blockhash, requestId)
+        }
+
+        val setup = SolanaSend.setupPlan(SOLANA_DEVNET, account, rent, needed, blockhash, requestId)
+
+        assertEquals(rent, setup.lamports)
+        assertEquals(SOLANA_FEE_LAMPORTS, setup.feeLamports)
+        assertContentEquals(SolanaNonce.accountOf(account.key), setup.recipient)
+        assertContentEquals(SolanaNonce.setupMessage(account.key, blockhash, rent), setup.message)
+        assertIs<SolanaMessage.Result.Ok>(SolanaMessage.decode(setup.message))
     }
 
     @Test

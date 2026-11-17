@@ -11,7 +11,9 @@ import app.lumio.data.provider.Op
 import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RecentBlockhash
+import app.lumio.data.provider.RentExemptMinimum
 import app.lumio.data.provider.Request
+import app.lumio.data.provider.SolanaAccountRead
 import app.lumio.data.provider.SolanaAddressHistory
 import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.SolanaStatus
@@ -21,9 +23,11 @@ import app.lumio.data.provider.SplTokenBalances
 import app.lumio.data.provider.Trait
 import app.lumio.data.rpc.JsonRpc
 import java.math.BigInteger
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -96,6 +100,32 @@ class SolanaProviderTest {
 
         assertEquals(blockhash, call(RecentBlockhash(devnet)))
         assertEquals("getLatestBlockhash", method(server.takeRequest()))
+    }
+
+    /** `getAccountInfo` in base64: the owner is the program, and the data is the decoded bytes. A missing account is null. */
+    @Test
+    fun theAccountInfoIsTheOwnerAndTheDataInBytes() {
+        server.enqueue(answer("""{"context":{"slot":1},"value":{"data":["AAEC","base64"],"executable":false,"lamports":1,"owner":"$other","rentEpoch":0,"space":3}}"""))
+
+        val state = assertNotNull(call(SolanaAccountRead(devnet, address)))
+        assertEquals(other, state.owner)
+        assertContentEquals(byteArrayOf(0, 1, 2), state.data)
+        assertEquals("getAccountInfo", method(server.takeRequest()))
+    }
+
+    @Test
+    fun aMissingAccountIsNull() {
+        server.enqueue(answer("""{"context":{"slot":1},"value":null}"""))
+
+        assertNull(call(SolanaAccountRead(devnet, address)))
+    }
+
+    @Test
+    fun theRentExemptMinimumIsTheLamportsTheNetworkAsks() {
+        server.enqueue(answer("1447680"))
+
+        assertEquals(1_447_680L, call(RentExemptMinimum(devnet, 80L)))
+        assertEquals("getMinimumBalanceForRentExemption", method(server.takeRequest()))
     }
 
     @Test

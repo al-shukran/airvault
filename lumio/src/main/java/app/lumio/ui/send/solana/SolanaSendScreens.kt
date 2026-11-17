@@ -30,6 +30,7 @@ import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.SpaceMonoFamily
 import app.lumio.data.net.NetworkId
+import app.lumio.send.solana.SOLANA_FEE_LAMPORTS
 import app.lumio.send.solana.SOLANA_RENT_RESERVE_LAMPORTS
 import app.lumio.send.solana.SolanaOutcome
 import app.lumio.send.solana.SolanaSendInput
@@ -134,6 +135,62 @@ internal fun SolanaSendReviewScreen(plan: SolanaSendPlan, notice: String?, onCon
         Text(
             "Lensly keeps ${SolanaSendInput.format(BigInteger.valueOf(SOLANA_RENT_RESERVE_LAMPORTS))} SOL in this account, so it stays open. " +
                 "Lumio holds no key. Lensly signs this, and Lumio sends only the signature that Lensly shows.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        notice?.let {
+            Spacer(Modifier.height(LenslySpacing.md))
+            InlineBanner(message = it, tone = BannerTone.Error)
+        }
+    }
+}
+
+/**
+ * The review of the one-time setup of offline signing, before Lensly is asked to sign it. The setup creates the nonce account of [sender] and pays
+ * its rent into it from [sender]. Once it is confirmed, every send from [sender] names that nonce instead of a blockhash that expires.
+ */
+@Composable
+internal fun SolanaSetupReviewScreen(
+    network: NetworkId,
+    sender: String,
+    nonceAccount: String,
+    rentLamports: Long,
+    notice: String?,
+    onConfirm: () -> Unit,
+    onBack: () -> Unit,
+) {
+    LenslyScreen(
+        title = "Offline signing",
+        onBack = onBack,
+        bottomAction = {
+            PillButton(text = "Show to Lensly", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
+        },
+    ) {
+        NetworkName(network)
+        Spacer(Modifier.height(LenslySpacing.sm))
+        Text(
+            "Create the nonce account for this account. You do this once.",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(LenslySpacing.md))
+        ReviewAddress(label = "Account", address = sender)
+        ReviewAddress(label = "Nonce account", address = nonceAccount)
+        ReviewValue(
+            label = "Rent, paid into the nonce account",
+            value = "${SolanaSendInput.format(BigInteger.valueOf(rentLamports))} SOL",
+            mono = true,
+        )
+        ReviewValue(
+            label = "Network fee",
+            value = "${SolanaSendInput.format(BigInteger.valueOf(SOLANA_FEE_LAMPORTS))} SOL, $SOLANA_FEE_LAMPORTS lamports",
+            mono = true,
+        )
+        Spacer(Modifier.height(LenslySpacing.md))
+        Text(
+            "Offline signing lets this account send SOL without a blockhash that could expire while Lensly reviews the send. " +
+                "Lensly signs this setup within about a minute, because the request names a recent blockhash that expires. " +
+                "If it expires, start the setup again.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
