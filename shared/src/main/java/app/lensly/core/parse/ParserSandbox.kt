@@ -24,6 +24,7 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.SynchronousQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 import org.web3j.utils.Numeric
 
 /** The refusal of a request that the Parser Sandbox could not parse in time, or that did not answer, or answered wrongly. */
@@ -99,13 +100,13 @@ interface RequestParser {
  * here. Release code reaches them only through the sandbox.
  */
 object InProcessParser : RequestParser {
-    override fun scan(parts: List<String>): ScanReply {
-        val scanner = UrScanner()
-        var accepted = true
-        // A part over the limits of urPartRefusal is not taken, so a stray code is NotPart and does not end the scan.
-        for (part in parts) accepted = scanner.receive(part)
-        if (!accepted) return ScanReply.NotPart
-        val ur = scanner.result() ?: return ScanReply.Incomplete(scanner.progress)
+    override fun scan(parts: List<String>): ScanReply = ScanSession(id = 0).read(parts)
+
+    override fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode =
+        AbiDecoder.decode(calldata, params)
+
+    /** The reply for a complete [ur]: the request it carries, parsed, or the reason it is refused. */
+    internal fun replyOf(ur: UR): ScanReply {
         if (ur.type == BtcPsbt.UR_TYPE) return bitcoinReply(ur)
         if (ur.type == SolSignRequest.UR_TYPE) return solanaReply(ur)
         if (ur.type == AlgoSignRequest.UR_TYPE) return algorandReply(ur)
@@ -115,9 +116,6 @@ object InProcessParser : RequestParser {
             is EthSignRequest.Result.Rejected -> ScanReply.Refused(decoded.reason)
         }
     }
-
-    override fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode =
-        AbiDecoder.decode(calldata, params)
 
     /** The reply for a complete `ur:crypto-psbt`: its PSBT, parsed here in the sandbox, or a refusal when it does not parse. */
     private fun bitcoinReply(ur: UR): ScanReply = try {
@@ -184,21 +182,67 @@ object InProcessParser : RequestParser {
 }
 
 /**
- * Answers one call inside the Parser Sandbox with [parser]. It never throws: a payload it cannot read, a parser that fails
- * and a reply that breaks the wire limits all come back as a refusal.
+ * One scan of one request, as the Parser Sandbox holds it between calls. [id] names the scan to the app. [accepted] counts the
+ * parts the scanner has taken, so a call can tell whether the app and the sandbox are in step.
  */
-internal fun answer(parser: RequestParser, method: Int, payload: ByteArray): ByteArray = try {
-    when (method) {
-        ParserWire.SCAN -> ParserWire.encodeScanReply(parser.scan(ParserWire.decodeScanRequest(payload)))
-        ParserWire.DECODE_CALL -> {
-            val (calldata, params) = ParserWire.decodeCallRequest(payload)
-            ParserWire.encodeCallReply(parser.decodeCall(calldata, params))
+internal class ScanSession(val id: Long) {
+    private val scanner = UrScanner()
+    var accepted = 0
+        private set
+
+    /**
+     * Reads [parts] in order and replies for the last one. A part that the scanner does not take is not part of the request: it is not
+     * counted, it leaves the scanner as it was, and it is [ScanReply.NotPart] when it comes last.
+     */
+    fun read(parts: List<String>): ScanReply {
+        var taken = true
+        for (part in parts) {
+            taken = scanner.receive(part)
+            if (taken) accepted++
         }
-        else -> ParserWire.encodeRefusal(CANNOT_BE_READ)
+        if (!taken) return ScanReply.NotPart
+        val ur = scanner.result() ?: return ScanReply.Incomplete(scanner.progress)
+        return InProcessParser.replyOf(ur)
     }
-} catch (e: Throwable) {
-    // Fail closed. The process holds nothing but this call, so even an Error is answered with a refusal.
-    ParserWire.encodeRefusal(CANNOT_BE_READ)
+}
+
+/** The reason the sandbox gives for a scan call that does not go on from the scan it holds. The app then sends the whole list again. */
+internal const val SCAN_NOT_HELD = "The Parser Sandbox does not hold the scan this call goes on from."
+
+/**
+ * Answers the calls of one Parser Sandbox. [parser] decodes calldata. The scan the app is building is kept here between calls, so a scan
+ * call reads only the parts it brings. It never throws: a payload it cannot read, a parser that fails and a reply that breaks the wire
+ * limits all come back as a refusal.
+ */
+internal class SandboxAnswers(private val parser: RequestParser = InProcessParser) {
+    private var scan: ScanSession? = null
+
+    /** Answers one call. Calls are answered one at a time, as the scan they carry is kept between them. */
+    @Synchronized
+    fun answer(method: Int, payload: ByteArray): ByteArray = try {
+        when (method) {
+            ParserWire.SCAN -> scanAnswer(ParserWire.decodeScanRequest(payload))
+            ParserWire.DECODE_CALL -> {
+                val (calldata, params) = ParserWire.decodeCallRequest(payload)
+                ParserWire.encodeCallReply(parser.decodeCall(calldata, params))
+            }
+            else -> ParserWire.encodeRefusal(CANNOT_BE_READ)
+        }
+    } catch (e: Throwable) {
+        // Fail closed. A call that failed may have read part of its scan, so the scan is dropped and the app starts it again.
+        scan = null
+        ParserWire.encodeRefusal(CANNOT_BE_READ)
+    }
+
+    /** Reads the parts of a scan call when it goes on from the scan held. A call with no base starts a scan from no parts. */
+    private fun scanAnswer(request: ParserWire.ScanRequest): ByteArray {
+        if (request.base == 0) scan = ScanSession(request.session)
+        val held = scan
+        if (held == null || held.id != request.session || held.accepted != request.base) {
+            return ParserWire.encodeRefusal(SCAN_NOT_HELD)
+        }
+        return ParserWire.encodeScanReply(held.read(request.parts))
+    }
 }
 
 /** How the app reaches the Parser Sandbox. The app's transport is a binder to the isolated process. */
@@ -217,20 +261,54 @@ internal const val MAX_CALLS_IN_FLIGHT = 2
  * The app's side of the Parser Sandbox. It sends each call through [transport] and checks the reply before it is used: a
  * reply that is late, missing, larger than [ParserWire.MAX_REPLY_BYTES] or outside the wire format is a refusal. A call that
  * times out or fails resets the transport, so the next request gets a new connection.
+ *
+ * The sandbox keeps a scan between calls, so a scan whose list extends the one the sandbox holds sends only the new parts. A
+ * sandbox that does not hold it, after a restart for example, is sent the whole list again as a new scan.
  */
 class SandboxedParser(
     private val transport: SandboxTransport,
     private val timeoutMillis: Long = TIMEOUT_MILLIS,
 ) : RequestParser {
+    /** The scan the sandbox holds, or null when the app does not know what the sandbox holds. */
+    private var held: HeldScan? = null
+
     // A binder call cannot be interrupted, so each call gets a thread that the caller can stop waiting for. A thread stays blocked until
     // its binder call returns, so the threads are bounded: a sandbox that never answers cannot grow them without limit.
     private val calls = ThreadPoolExecutor(0, MAX_CALLS_IN_FLIGHT, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS, SynchronousQueue()) { work ->
         Thread(work, "parser-sandbox").apply { isDaemon = true }
     }
 
-    override fun scan(parts: List<String>): ScanReply =
-        ask(ParserWire.SCAN, { ParserWire.encodeScanRequest(parts) }, ParserWire::decodeScanReply)
-            ?: ScanReply.Refused(CANNOT_BE_READ)
+    @Synchronized
+    override fun scan(parts: List<String>): ScanReply {
+        val known = held
+        if (known != null && parts.size >= known.parts.size && parts.subList(0, known.parts.size) == known.parts) {
+            sendScan(known.session, known.parts.size, parts)?.let { return it }
+        }
+        return sendScan(Random.nextLong(), 0, parts) ?: ScanReply.Refused(CANNOT_BE_READ)
+    }
+
+    /**
+     * Sends one call of scan [session], which adds the parts of [parts] after the first [base], and records what the sandbox holds after
+     * it. Null when the sandbox does not hold the scan, so the caller starts it again.
+     */
+    private fun sendScan(session: Long, base: Int, parts: List<String>): ScanReply? {
+        val reply = ask(
+            ParserWire.SCAN,
+            { ParserWire.encodeScanRequest(session, base, parts.subList(base, parts.size)) },
+            ParserWire::decodeScanReply,
+        )
+        if (reply == ScanReply.Refused(SCAN_NOT_HELD)) {
+            held = null
+            return null
+        }
+        held = when (reply) {
+            // The last part was not taken, so the sandbox holds only the parts before it.
+            ScanReply.NotPart -> HeldScan(session, parts.dropLast(1))
+            null, is ScanReply.Refused -> null
+            else -> HeldScan(session, parts.toList())
+        }
+        return reply ?: ScanReply.Refused(CANNOT_BE_READ)
+    }
 
     override fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode =
         ask(ParserWire.DECODE_CALL, { ParserWire.encodeCallRequest(calldata, params) }, ParserWire::decodeCallReply)
@@ -246,7 +324,7 @@ class SandboxedParser(
         val pending = try {
             calls.submit<ByteArray> { transport.call(method, payload) }
         } catch (e: RejectedExecutionException) {
-            // Every thread is still blocked in a call the sandbox has not answered. The caller gets no reply, and the connection is dropped.
+            // Every thread is still blocked in a call the sandbox has not answered. The caller gets no reply, and the connection drops.
             transport.reset()
             return null
         }
@@ -268,6 +346,9 @@ class SandboxedParser(
             null
         }
     }
+
+    /** A scan the sandbox holds: its [session], and the [parts] it has taken, in order. */
+    private class HeldScan(val session: Long, val parts: List<String>)
 
     private companion object {
         /** The longest the app waits for one reply. It covers the start of the sandbox process and every decode budget. */

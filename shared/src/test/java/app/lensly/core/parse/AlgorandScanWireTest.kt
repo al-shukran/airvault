@@ -21,7 +21,8 @@ class AlgorandScanWireTest {
     @Test
     fun aReadableAlgorandRequestIsAnsweredWithItsPayloadAcrossTheWire() {
         val payload = requestCbor(signData = pay(), signType = 1L)
-        val reply = ParserWire.decodeScanReply(answer(InProcessParser, ParserWire.SCAN, ParserWire.encodeScanRequest(parts(payload))))
+        val call = ParserWire.encodeScanRequest(session = 1L, base = 0, parts = parts(payload))
+        val reply = ParserWire.decodeScanReply(SandboxAnswers().answer(ParserWire.SCAN, call))
         assertContentEquals(payload, assertIs<ScanReply.Algorand>(reply).payload)
     }
 

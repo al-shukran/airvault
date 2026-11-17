@@ -1,11 +1,13 @@
 package app.lensly.core.parse
 
 /**
- * The Parser Sandbox without a process. Each call is answered in this process by the same [answer] the isolated service runs,
+ * The Parser Sandbox without a process. Each call is answered in this process by the same [SandboxAnswers] the isolated service runs,
  * so tests cross the same wire format the app does.
  */
 object InProcessSandbox : SandboxTransport {
-    override fun call(method: Int, payload: ByteArray): ByteArray = answer(InProcessParser, method, payload)
+    private val answers = SandboxAnswers()
+
+    override fun call(method: Int, payload: ByteArray): ByteArray = answers.answer(method, payload)
 
     override fun reset() = Unit
 }

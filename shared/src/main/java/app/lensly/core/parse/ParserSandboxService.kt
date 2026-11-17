@@ -10,11 +10,12 @@ import java.util.concurrent.TimeUnit
 
 /**
  * The Parser Sandbox. The manifest declares it an isolated process, so the parsers that run here have no permissions, no
- * app files and no Keystore. It answers each call with [answer] and keeps nothing between calls.
+ * app files and no Keystore. It answers each call through [SandboxAnswers], and keeps between calls only the scan the app is building.
  */
 class ParserSandboxService : Service() {
+    private val answers = SandboxAnswers()
     private val binder = object : IParserSandbox.Stub() {
-        override fun call(method: Int, payload: ByteArray): ByteArray = answer(InProcessParser, method, payload)
+        override fun call(method: Int, payload: ByteArray): ByteArray = answers.answer(method, payload)
     }
 
     override fun onBind(intent: Intent?): IBinder = binder

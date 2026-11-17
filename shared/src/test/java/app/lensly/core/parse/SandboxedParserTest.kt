@@ -16,6 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import org.junit.Test
 
 private const val ONE_FRAME = 64 * 1024
@@ -115,23 +117,135 @@ class SandboxedParserTest {
     @Test
     fun aParserThatFailsAnswersWithARefusal() {
         val failing = object : RequestParser {
-            override fun scan(parts: List<String>): ScanReply = throw OutOfMemoryError("test")
+            override fun scan(parts: List<String>): ScanReply = InProcessParser.scan(parts)
 
             override fun decodeCall(calldata: ByteArray, params: List<WhitelistParam>): CallDecode =
                 throw IllegalStateException("test")
         }
 
-        val reply = answer(failing, ParserWire.SCAN, ParserWire.encodeScanRequest(TEXT))
-        assertEquals(ScanReply.Refused(CANNOT_BE_READ), ParserWire.decodeScanReply(reply))
+        val reply = SandboxAnswers(failing).answer(ParserWire.DECODE_CALL, ParserWire.encodeCallRequest(ByteArray(4), emptyList()))
+        assertEquals(CallDecode.Refused(CANNOT_BE_READ), ParserWire.decodeCallReply(reply))
     }
 
     @Test
     fun aMethodThatDoesNotExistOrAPayloadThatCannotBeReadIsRefused() {
-        val unknownMethod = answer(InProcessParser, 99, ByteArray(0))
-        val garbage = answer(InProcessParser, ParserWire.SCAN, byteArrayOf(1, 2, 3))
+        val unknownMethod = SandboxAnswers().answer(99, ByteArray(0))
+        val garbage = SandboxAnswers().answer(ParserWire.SCAN, byteArrayOf(1, 2, 3))
 
         assertEquals(ScanReply.Refused(CANNOT_BE_READ), ParserWire.decodeScanReply(unknownMethod))
         assertEquals(ScanReply.Refused(CANNOT_BE_READ), ParserWire.decodeScanReply(garbage))
+    }
+
+    @Test
+    fun aScanCallThatDoesNotGoOnFromTheScanHeldIsRefusedAndReadsNothing() {
+        val (first, second) = multiPartFrames().let { it[0] to it[1] }
+        val answers = SandboxAnswers()
+        fun call(session: Long, base: Int, part: String): ScanReply =
+            ParserWire.decodeScanReply(answers.answer(ParserWire.SCAN, ParserWire.encodeScanRequest(session, base, listOf(part))))
+
+        // Session 1 takes its first part. Session 2 then starts a scan of its own, so session 1 is no longer held.
+        assertIs<ScanReply.Incomplete>(call(1L, 0, first))
+        assertIs<ScanReply.Incomplete>(call(2L, 0, first))
+        // The base is the number of parts that session 1 holds, but session 2 is the one held, so the part is not read into it.
+        assertEquals(ScanReply.Refused(SCAN_NOT_HELD), call(1L, 1, second))
+        // Session 2 is held, but the base is not the number of its parts.
+        assertEquals(ScanReply.Refused(SCAN_NOT_HELD), call(2L, 5, second))
+    }
+
+    @Test
+    fun aScanSendsOnlyTheNewPartsOfEachCall() {
+        val frames = multiPartFrames()
+        val calls = mutableListOf<ParserWire.ScanRequest>()
+        val parser = SandboxedParser(RecordingSandbox(SandboxAnswers(), calls))
+
+        val parts = mutableListOf<String>()
+        val replies = frames.map { frame ->
+            parts += frame
+            parser.scan(parts.toList())
+        }
+
+        assertEquals(frames.indices.toList(), calls.map { it.base })
+        assertEquals(1, calls.first().parts.size)
+        assertTrue(calls.drop(1).all { it.parts.size == 1 })
+        assertEquals(1, calls.map { it.session }.distinct().size)
+        assertContentEquals(ParserWire.encodeScanReply(InProcessParser.scan(frames)), ParserWire.encodeScanReply(replies.last()))
+    }
+
+    @Test
+    fun aSandboxedScanRepliesAsADirectScanAtEveryStep() {
+        val frames = multiPartFrames()
+        val parser = SandboxedParser(RecordingSandbox(SandboxAnswers(), mutableListOf()))
+
+        val parts = mutableListOf<String>()
+        for (frame in frames) {
+            // A code that is not part of the request comes between two frames. It is not counted, so the next frame still follows on.
+            assertEquals(ScanReply.NotPart, parser.scan(parts + "https://example.com"))
+            parts += frame
+            assertContentEquals(
+                ParserWire.encodeScanReply(InProcessParser.scan(parts)),
+                ParserWire.encodeScanReply(parser.scan(parts.toList())),
+            )
+        }
+    }
+
+    @Test
+    fun aSandboxThatLostTheScanIsSentTheWholeListAgain() {
+        val frames = multiPartFrames()
+        val restartAt = frames.size / 2
+        val calls = mutableListOf<ParserWire.ScanRequest>()
+        var answers = SandboxAnswers()
+        val sandbox = object : SandboxTransport {
+            override fun call(method: Int, payload: ByteArray): ByteArray {
+                if (method == ParserWire.SCAN) calls += ParserWire.decodeScanRequest(payload)
+                return answers.answer(method, payload)
+            }
+
+            override fun reset() = Unit
+        }
+        val parser = SandboxedParser(sandbox)
+
+        val parts = mutableListOf<String>()
+        val replies = frames.mapIndexed { index, frame ->
+            // The sandbox restarts between two calls, so it no longer holds the scan.
+            if (index == restartAt) answers = SandboxAnswers()
+            parts += frame
+            parser.scan(parts.toList())
+        }
+
+        assertContentEquals(ParserWire.encodeScanReply(InProcessParser.scan(frames)), ParserWire.encodeScanReply(replies.last()))
+        // The call after the restart is refused, and the app then sends the whole list as a new scan.
+        val resent = calls[restartAt + 1]
+        assertEquals(0, resent.base)
+        assertEquals(restartAt + 1, resent.parts.size)
+    }
+
+    @Test
+    fun scansOfTwoParsersOnOneSandboxDoNotMixUp() {
+        val first = multiPartFrames()
+        val second = multiPartFrames("eth-sign-request-no-origin.txt")
+        val answers = SandboxAnswers()
+        val firstParser = SandboxedParser(RecordingSandbox(answers, mutableListOf()))
+        val secondParser = SandboxedParser(RecordingSandbox(answers, mutableListOf()))
+
+        // The two scans take a part each in turn, so they hold the same number of parts at every step.
+        val firstParts = mutableListOf<String>()
+        val secondParts = mutableListOf<String>()
+        var firstReply: ScanReply? = null
+        var secondReply: ScanReply? = null
+        for (step in 0 until maxOf(first.size, second.size)) {
+            first.getOrNull(step)?.let {
+                firstParts += it
+                firstReply = firstParser.scan(firstParts.toList())
+            }
+            second.getOrNull(step)?.let {
+                secondParts += it
+                secondReply = secondParser.scan(secondParts.toList())
+            }
+        }
+
+        assertContentEquals(ParserWire.encodeScanReply(InProcessParser.scan(first)), ParserWire.encodeScanReply(assertNotNull(firstReply)))
+        val secondDirect = ParserWire.encodeScanReply(InProcessParser.scan(second))
+        assertContentEquals(secondDirect, ParserWire.encodeScanReply(assertNotNull(secondReply)))
     }
 
     @Test
@@ -196,14 +310,27 @@ class SandboxedParserTest {
     }
 
     /**
-     * The frames of a request too large for one code, up to the frame that completes it, as a scan reads them. The stream is endless,
-     * so it is cut at [MULTI_PART_FRAMES].
+     * The frames of the request in the [vector] too large for one code, up to the frame that completes it, as a scan reads them. The
+     * stream is endless, so it is cut at [MULTI_PART_FRAMES].
      */
-    private fun multiPartFrames(): List<String> {
-        val frames = framesOf(URDecoder.decode(KeystoneVectors.ur("eth-sign-request-origin.txt")), MULTI_PART_FRAGMENT)
+    private fun multiPartFrames(vector: String = "eth-sign-request-origin.txt"): List<String> {
+        val frames = framesOf(URDecoder.decode(KeystoneVectors.ur(vector)), MULTI_PART_FRAGMENT)
             .take(MULTI_PART_FRAMES)
             .toList()
         val complete = frames.indices.first { InProcessParser.scan(frames.take(it + 1)) is ScanReply.Complete }
         return frames.take(complete + 1)
     }
+}
+
+/** A sandbox that answers as [answers] does, and adds each scan call it gets to [scanCalls]. */
+private class RecordingSandbox(
+    private val answers: SandboxAnswers,
+    private val scanCalls: MutableList<ParserWire.ScanRequest>,
+) : SandboxTransport {
+    override fun call(method: Int, payload: ByteArray): ByteArray {
+        if (method == ParserWire.SCAN) scanCalls += ParserWire.decodeScanRequest(payload)
+        return answers.answer(method, payload)
+    }
+
+    override fun reset() = Unit
 }
