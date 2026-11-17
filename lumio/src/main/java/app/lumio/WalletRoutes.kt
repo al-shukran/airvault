@@ -191,7 +191,7 @@ internal fun AccountRoute(
         walletName = view.wallets.firstOrNull { it.id == walletId }?.name.orEmpty(),
         account = account,
         showBalance = state.display.showAssets,
-        onSend = { sendRoute(account, mode)?.let { navController.navigate(it) } },
+        onSend = { navController.navigate(sendRoute(account, mode)) },
         onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
         onBack = { navController.popBackStack() },
     )
@@ -250,12 +250,12 @@ private fun receiveDetail(account: WalletAccount): String = when (account.chain)
 }
 
 /**
- * The route of a Send from [account] on [mode]'s side, or null when the chain has no Send yet. An Ethereum send starts on the side's primary network,
- * and a Bitcoin send opens its own form.
+ * The route of a Send from [account] on [mode]'s side. Every chain sends from its own account, with no picker: the send is bound to that account and
+ * its network. An Ethereum send is on the side's primary network, the one the account shows.
  */
-internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String? = when (account.chain) {
+internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when (account.chain) {
     AccountChain.ETHEREUM -> LumioRoute.send(account.walletId, account.index, WalletAccounts.primaryEvmChainId(mode))
-    AccountChain.BITCOIN -> LumioRoute.BTC_SEND
+    AccountChain.BITCOIN -> LumioRoute.btcSend(account.walletId, account.index)
     AccountChain.SOLANA -> LumioRoute.solanaSend(account.walletId, account.index)
     AccountChain.ALGORAND -> LumioRoute.algorandSend(account.walletId, account.index)
 }

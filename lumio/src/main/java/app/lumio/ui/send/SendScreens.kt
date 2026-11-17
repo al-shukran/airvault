@@ -53,17 +53,15 @@ private const val TESTNET_LABEL = "TESTNET"
 internal const val RECIPIENT_SCAN_HINT = "Point the camera at an address or a payment code."
 
 /**
- * The send form: the address that sends, the chain (only the chains that are on), the asset of that chain (the native coin or a token the address
- * holds), the recipient and the amount in that asset. [notice] is why the last attempt did not go through. [busy] holds the review until the
- * endpoint has answered.
+ * The send form: the address that sends, the network the send is bound to (the account fixes it, so there is no picker), the asset of that network
+ * (the native coin or a token the address holds), the recipient and the amount in that asset. [chain] is null when that network is off, and the form
+ * then says so. [notice] is why the last attempt did not go through. [busy] holds the review until the endpoint has answered.
  */
 @Composable
 fun SendFormScreen(
     fromLabel: String,
     fromAddress: String,
-    chains: List<EvmChain>,
-    selectedChainId: Long?,
-    onSelectChain: (Long) -> Unit,
+    chain: EvmChain?,
     assets: List<SendAsset>,
     selectedAsset: SendAsset?,
     onSelectAsset: (SendAsset) -> Unit,
@@ -77,7 +75,6 @@ fun SendFormScreen(
     onReview: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val selected = chains.firstOrNull { it.chainId == selectedChainId } ?: chains.firstOrNull()
     LenslyScreen(
         title = "SEND",
         onBack = onBack,
@@ -87,15 +84,15 @@ fun SendFormScreen(
                 onClick = onReview,
                 modifier = Modifier.fillMaxWidth(),
                 style = WalletPillStyle.Primary,
-                enabled = !busy && selected != null,
+                enabled = !busy && chain != null,
             )
         },
     ) {
-        if (chains.isEmpty()) {
+        if (chain == null) {
             EmptyState(
                 icon = LenslyIcons.Wallets,
-                title = "No chains are on",
-                body = "Turn a chain on in EVM settings to send on it.",
+                title = "Network is off",
+                body = "Turn it on in EVM settings to send on it.",
             )
             return@LenslyScreen
         }
@@ -116,9 +113,7 @@ fun SendFormScreen(
         )
 
         SectionLabel("Network")
-        chains.forEach { chain ->
-            ChainRow(chain = chain, selected = chain.chainId == selected?.chainId, onSelect = { onSelectChain(chain.chainId) })
-        }
+        ChainLine(chain = chain)
 
         SectionLabel("Asset")
         assets.forEach { asset ->
@@ -138,7 +133,7 @@ fun SendFormScreen(
         OutlinedTextField(
             value = amount,
             onValueChange = onAmount,
-            label = { Text("Amount in ${selectedAsset?.symbol ?: selected?.symbol.orEmpty()}") },
+            label = { Text("Amount in ${selectedAsset?.symbol ?: chain.symbol}") },
             singleLine = true,
             enabled = !busy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -334,17 +329,15 @@ fun SendSentScreen(
     }
 }
 
+/** The network the send is on: its name, with a TESTNET label when it is a testnet. The send offers no other network. */
 @Composable
-private fun ChainRow(chain: EvmChain, selected: Boolean, onSelect: () -> Unit) {
+private fun ChainLine(chain: EvmChain) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
             .padding(vertical = LenslySpacing.xxs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = null)
-        Spacer(Modifier.width(LenslySpacing.xs))
         Text(
             chain.name,
             modifier = Modifier.weight(1f),

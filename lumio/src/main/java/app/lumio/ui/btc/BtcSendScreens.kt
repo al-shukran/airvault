@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,16 +18,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.addressNotesOf
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.components.AddressField
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.PillChip
@@ -50,14 +45,13 @@ import app.lumio.ui.send.SectionLabel
 private const val TESTNET_LABEL = "TESTNET"
 
 /**
- * The Bitcoin send form: the account that pays, the recipient, the amount and the fee rate. [feeSuggestion] says where the fee rate starts,
- * and [notice] is why the last attempt did not go through. [busy] holds the review until the server has answered.
+ * The Bitcoin send form: the account that pays, which the send opened from and so is fixed, the recipient, the amount and the fee rate.
+ * [feeSuggestion] says where the fee rate starts, and [notice] is why the last attempt did not go through. [busy] holds the review until the server
+ * has answered.
  */
 @Composable
 fun BtcSendFormScreen(
-    accounts: List<BtcAccountRef>,
-    selectedKey: String?,
-    onSelect: (String) -> Unit,
+    account: BtcAccountRef,
     recipient: String,
     onRecipient: (String) -> Unit,
     onScan: () -> Unit,
@@ -71,7 +65,6 @@ fun BtcSendFormScreen(
     onReview: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val selected = accounts.firstOrNull { it.key == selectedKey } ?: accounts.firstOrNull()
     LenslyScreen(
         title = "SEND BITCOIN",
         onBack = onBack,
@@ -81,18 +74,10 @@ fun BtcSendFormScreen(
                 onClick = onReview,
                 modifier = Modifier.fillMaxWidth(),
                 style = WalletPillStyle.Primary,
-                enabled = !busy && selected != null,
+                enabled = !busy,
             )
         },
     ) {
-        if (accounts.isEmpty()) {
-            EmptyState(
-                icon = LenslyIcons.Wallets,
-                title = "No Bitcoin accounts paired",
-                body = "Pair a wallet from Lensly with a Bitcoin account to send from it.",
-            )
-            return@LenslyScreen
-        }
         if (busy) {
             Text(
                 "Reading the network",
@@ -101,17 +86,14 @@ fun BtcSendFormScreen(
             )
         }
         SectionLabel("From")
-        accounts.forEach { ref ->
-            AccountChoice(ref = ref, selected = ref.key == selected?.key, onSelect = { onSelect(ref.key) })
-        }
+        AccountLine(ref = account)
 
         SectionLabel("Send to")
-        val network = selected?.account?.network
         AddressField(
             value = recipient,
             onValueChange = onRecipient,
             label = "Recipient address",
-            validate = { text -> network?.let { btcRecipientError(text, it) } },
+            validate = { text -> btcRecipientError(text, account.account.network) },
             enabled = !busy,
             onScan = onScan,
         )
@@ -291,18 +273,16 @@ internal fun btcRecipientError(text: String, network: BtcNetwork): String? = run
     .exceptionOrNull()
     ?.let { it.message ?: "Enter a valid recipient address." }
 
+/** The account the send pays from: its script type and path, with a TESTNET label on testnet4. It is fixed by the send, so it is not a choice. */
 @Composable
-private fun AccountChoice(ref: BtcAccountRef, selected: Boolean, onSelect: () -> Unit) {
+private fun AccountLine(ref: BtcAccountRef) {
     val account = ref.account
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
             .padding(vertical = LenslySpacing.xxs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = null)
-        Spacer(Modifier.width(LenslySpacing.xs))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 PairLabels.scriptType(account.scriptType),
