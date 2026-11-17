@@ -25,7 +25,6 @@ import app.lensly.ui.qr.ShowQrScreen
 import app.lensly.ui.sign.BitcoinReviewScreen
 import app.lensly.ui.sign.AlgorandReviewScreen
 import app.lensly.ui.sign.SolanaReviewScreen
-import app.lensly.ui.sign.NoMatchingWalletScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReviewScreen
 
@@ -37,7 +36,7 @@ private const val ANY_WALLET_KEY = "sign-any-wallet"
  * way pops back to where it started.
  *
  * [walletId] is the wallet to sign with, as the wallet's own SIGN scan has it. Null is a scan of any wallet of the vault: the
- * wallet the request is for is found among them, and the owner is asked to scan again when none or several match.
+ * wallet the request is for is found among them, and the request is refused in plain words when none or several match.
  *
  * [frameSource] is passed to the scan step. Leave it null on a device: the camera feeds the scanner. The end-to-end test
  * passes its own source of generated frames, so the test drives this route instead of a copy of its screen mapping.
@@ -81,12 +80,6 @@ internal fun SignWalletRoute(
             frameSource = frameSource,
         )
         is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, call = shown.call, onDone = flow::leave)
-        is SignStep.NoMatchingWallet -> NoMatchingWalletScreen(
-            request = shown.request,
-            several = shown.several,
-            onScanAgain = flow::scanAgain,
-            onCancel = flow::leave,
-        )
         is SignStep.Review -> TxReviewScreen(
             review = shown.ready.review,
             onApprove = flow::approve,

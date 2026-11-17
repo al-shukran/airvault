@@ -16,8 +16,6 @@ class SignFlowViewModel(private val flow: SignFlow) : ViewModel() {
         viewModelScope.launch { flow.onScanned(text) }
     }
 
-    fun scanAgain() = flow.scanAgain()
-
     fun approve() = flow.approve()
 
     fun confirmUnverified(checked: Boolean) = flow.confirmUnverified(checked)

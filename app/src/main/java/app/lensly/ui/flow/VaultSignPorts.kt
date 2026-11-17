@@ -382,6 +382,7 @@ internal class VaultSignPorts(
                             name = meta.name,
                             identity = identity,
                             accountIdentity = accountIdentity,
+                            bitcoinAccountPaths = store.bitcoinAccounts(meta.id).map { it.scriptType.accountPath(it.network, it.index) },
                         )
                     }
                 }

@@ -2,6 +2,7 @@ package app.lensly.app.sign
 
 import app.lensly.app.VisualIdentity
 import app.lensly.app.generatedIdentity
+import fr.acinq.bitcoin.KeyPath
 
 /**
  * What the sign pipeline knows about a wallet: its record [id], its name and Visual Identity, how many accounts it has, the
@@ -29,6 +30,8 @@ class WalletView(
     val identity: VisualIdentity = generatedIdentity(0),
     /** The Visual Identity of account [index], shown beside its name. */
     val accountIdentity: (Int) -> VisualIdentity = ::generatedIdentity,
+    /** The derivation path of each Bitcoin Account of this wallet, m/purpose'/coin'/account'. A Single Key has none. */
+    val bitcoinAccountPaths: List<KeyPath> = emptyList(),
 ) {
     companion object {
         /**
