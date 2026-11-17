@@ -4,9 +4,12 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lumio.data.cache.DEFAULT_SHORT_TTL_MS
 
-/** One paired Bitcoin account and the wallet it came from. [key] names it in the cache and in the screen routes. */
+/**
+ * One paired Bitcoin account and the wallet it came from. [key] names it in the cache and in the scan queue. It carries the account's path, so two
+ * accounts of one wallet on the same network and script type never share a scan, a balance or a queued job.
+ */
 data class BtcAccountRef(val walletId: String, val account: BtcWatchOnlyAccount) {
-    val key: String get() = "${walletId}_${account.network.name}_${account.scriptType.name}"
+    val key: String get() = "${walletId}_${account.network.name}_${account.scriptType.name}_${account.path.asString('\'')}"
 }
 
 /** One unspent output of an account. [blockHeight] is null while it is unconfirmed. */
