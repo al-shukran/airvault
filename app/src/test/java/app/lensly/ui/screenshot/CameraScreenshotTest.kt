@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.ui.camera.CameraPermissionRationale
 import app.lensly.ui.camera.CameraUnavailable
 import app.lensly.ui.camera.GalleryScreen
+import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.camera.ViewfinderOverlay
 import app.lensly.ui.components.LocalVaultLock
 import app.lensly.ui.theme.LenslySurfaceContainer
@@ -16,6 +17,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -53,7 +55,6 @@ class CameraScreenshotTest {
                 flashOn = false,
                 onToggleFlash = {},
                 showCaptureFailure = false,
-                latestPhoto = null,
                 onOpenGallery = {},
                 onShutter = {},
                 onFlip = {},
@@ -69,7 +70,6 @@ class CameraScreenshotTest {
                 flashOn = true,
                 onToggleFlash = {},
                 showCaptureFailure = true,
-                latestPhoto = null,
                 onOpenGallery = {},
                 onShutter = {},
                 onFlip = {},
@@ -81,7 +81,7 @@ class CameraScreenshotTest {
     fun galleryEmpty() = compose.snapshot("gallery_empty") {
         // The gallery opens from the camera while the vault is locked, so it shows no lock icon.
         CompositionLocalProvider(LocalVaultLock provides null) {
-            GalleryScreen(onBack = {})
+            GalleryScreen(store = PhotoStore.of(RuntimeEnvironment.getApplication().filesDir, decoy = false), onBack = {})
         }
     }
 }

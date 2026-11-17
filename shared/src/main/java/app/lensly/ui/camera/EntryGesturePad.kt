@@ -74,7 +74,6 @@ fun EntryGesturePad(
             flashOn = false,
             onToggleFlash = {},
             showCaptureFailure = false,
-            latestPhoto = null,
             onOpenGallery = {},
             mode = mode,
             onModeChange = { mode = it },

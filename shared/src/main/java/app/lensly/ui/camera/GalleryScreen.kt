@@ -45,7 +45,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -77,14 +76,13 @@ private const val DELETED_NOTICE_MS = 2500L
 /** Height of the fade behind the viewer's controls, so they stay readable over a bright photo. */
 private val VIEWER_SCRIM_HEIGHT = 112.dp
 
-/** Grid of the photos and videos in the app's private folder. Tap one to view it full screen. */
+/** Grid of the photos and videos in [store], one vault's folder. Tap one to view it full screen. */
 @Composable
 fun GalleryScreen(
+    store: PhotoStore,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val store = remember(context) { PhotoStore.of(context) }
     var photos by remember { mutableStateOf(store.list()) }
     var openedName by rememberSaveable { mutableStateOf<String?>(null) }
     var deletions by remember { mutableIntStateOf(0) }

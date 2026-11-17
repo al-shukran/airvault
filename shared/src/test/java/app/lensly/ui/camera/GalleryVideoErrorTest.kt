@@ -44,13 +44,13 @@ class GalleryVideoErrorTest {
 
     @Test
     fun aCorruptVideoShowsTheAppsErrorStateAndNotTheSystemDialog() {
-        val store = PhotoStore.of(RuntimeEnvironment.getApplication())
+        val store = PhotoStore.of(RuntimeEnvironment.getApplication().filesDir, decoy = false)
         // Not an MP4: the player cannot read this container.
         store.newVideoFile(nowMs = 1_000L).apply { writeBytes(ByteArray(32)) }
 
         compose.setContent {
             LenslyTheme {
-                GalleryScreen(onBack = {})
+                GalleryScreen(store = store, onBack = {})
             }
         }
 
