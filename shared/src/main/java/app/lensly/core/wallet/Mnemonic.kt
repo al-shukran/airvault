@@ -84,6 +84,9 @@ class Mnemonic private constructor(
 
     override fun close() = wipe()
 
+    /** Redacted. [AbstractList] would print every word, so a log line or a string template would leak them. */
+    override fun toString(): String = "Mnemonic(redacted)"
+
     /**
      * A wiped instance compares by identity, because its contents are gone. A screen that recomposes with a reference
      * to it therefore compares safely instead of reading zeroed buffers.
