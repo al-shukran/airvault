@@ -29,7 +29,10 @@ import app.lensly.core.vault.PolicyResult
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VAULT_DAMAGED
 import app.lensly.core.vault.VAULT_FORMAT_CHANGED
+import app.lensly.core.vault.VaultAuthRequiredException
 import app.lensly.core.vault.VaultException
+import app.lensly.core.vault.VaultKeyInvalidatedException
+import app.lensly.core.vault.VaultKeystore
 import app.lensly.ui.gate.CreatePasswordScreen
 import app.lensly.ui.gate.CreatePasswordState
 import app.lensly.ui.gate.CreateStep
@@ -55,7 +58,20 @@ object GateRoutes {
 
     /** Vault files without a whole vault. Nothing is created over them, so the owner clears the app's data. */
     const val DAMAGED = "damaged"
+
+    /** The device has no screen lock, and the vault key needs one. Nothing is created until the owner sets one. */
+    const val NO_SCREEN_LOCK = "no-screen-lock"
+
+    /** Android deleted the vault key, because the screen lock was removed or changed. The owner restores from the seed phrases. */
+    const val KEY_INVALIDATED = "key-invalidated"
 }
+
+private const val NO_SCREEN_LOCK_DETAIL =
+    "Set a screen lock first. The vault key is tied to it, so the vault cannot be created without one."
+
+private const val KEY_INVALIDATED_DETAIL =
+    "The screen lock was removed or changed, so Android deleted the vault key. Clear the app's data, " +
+        "then restore your wallets from their seed phrases."
 
 /**
  * The hidden area: a nested graph that opens on the gate. The gate sends the owner to [home], or to the screen that fits the
@@ -86,6 +102,16 @@ fun NavGraphBuilder.hiddenArea(
         composable(GateRoutes.DAMAGED) {
             HiddenBackdrop {
                 UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = VAULT_DAMAGED)
+            }
+        }
+        composable(GateRoutes.NO_SCREEN_LOCK) {
+            HiddenBackdrop {
+                UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = NO_SCREEN_LOCK_DETAIL)
+            }
+        }
+        composable(GateRoutes.KEY_INVALIDATED) {
+            HiddenBackdrop {
+                UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = KEY_INVALIDATED_DETAIL)
             }
         }
         content()
@@ -186,10 +212,15 @@ fun NavHostController.openHidden(route: String) {
 }
 
 /** The outcome of creating or unlocking the vault from a screen. */
-private enum class GateOutcome { Opened, Rejected, Unavailable }
+/**
+ * The outcome of creating or unlocking the vault from a screen. [Cancelled] is a device check the owner did not pass; nothing
+ * is opened or changed, and the owner can try again.
+ */
+private enum class GateOutcome { Opened, Rejected, Unavailable, Cancelled, KeyInvalidated }
 
 @Composable
 private fun GateRoute(navController: NavHostController, holder: VaultHolder, home: String) {
+    val context = LocalContext.current.applicationContext
     LaunchedEffect(Unit) {
         val next = when {
             holder.openSession() != null -> home
@@ -197,7 +228,8 @@ private fun GateRoute(navController: NavHostController, holder: VaultHolder, hom
             holder.vault.exists() -> GateRoutes.UNLOCK
             withContext(Dispatchers.IO) { holder.vault.isPartial() } -> GateRoutes.DAMAGED
             // A device that may not hold a vault is told so before the owner types a password for nothing.
-            withContext(Dispatchers.IO) { holder.vault.canCreate() } -> GateRoutes.CREATE_PASSWORD
+            withContext(Dispatchers.IO) { holder.vault.canCreate() } ->
+                if (VaultKeystore.isDeviceSecure(context)) GateRoutes.CREATE_PASSWORD else GateRoutes.NO_SCREEN_LOCK
             else -> GateRoutes.UNAVAILABLE
         }
         navController.navigate(next) {
@@ -264,10 +296,11 @@ private fun CreatePasswordRoute(navController: NavHostController, holder: VaultH
                     scope.launch {
                         val outcome = createVault(holder, expected)
                         busy = false
-                        if (outcome == GateOutcome.Opened) {
-                            navController.openHidden(home)
-                        } else {
-                            navController.openHidden(GateRoutes.UNAVAILABLE)
+                        when (outcome) {
+                            GateOutcome.Opened -> navController.openHidden(home)
+                            // Nothing was created, so the owner types the password again.
+                            GateOutcome.Cancelled -> state = CreatePasswordState(step = CreateStep.Enter)
+                            else -> navController.openHidden(GateRoutes.UNAVAILABLE)
                         }
                     }
                 }
@@ -314,8 +347,9 @@ private fun UnlockRoute(navController: NavHostController, holder: VaultHolder, h
                 busy = false
                 when (outcome) {
                     GateOutcome.Opened -> navController.openHidden(home)
-                    // A wrong password clears the field and says nothing. The field was cleared on submit.
-                    GateOutcome.Rejected -> Unit
+                    // A wrong password clears the field and says nothing. The field was cleared on submit, and so is a cancelled check.
+                    GateOutcome.Rejected, GateOutcome.Cancelled -> Unit
+                    GateOutcome.KeyInvalidated -> navController.openHidden(GateRoutes.KEY_INVALIDATED)
                     GateOutcome.Unavailable -> navController.openHidden(GateRoutes.UNAVAILABLE)
                 }
             }
@@ -332,10 +366,12 @@ private suspend fun createVault(holder: VaultHolder, password: CharArray): GateO
         GateOutcome.Unavailable
     } else {
         when (val outcome = unlockWith(holder, password)) {
-            GateOutcome.Rejected -> GateOutcome.Unavailable
+            GateOutcome.Rejected, GateOutcome.Cancelled -> GateOutcome.Unavailable
             else -> outcome
         }
     }
+} catch (e: VaultAuthRequiredException) {
+    GateOutcome.Cancelled
 } catch (e: VaultException) {
     GateOutcome.Unavailable
 } finally {
@@ -344,7 +380,7 @@ private suspend fun createVault(holder: VaultHolder, password: CharArray): GateO
 
 /**
  * Unlocks with [password], which the vault zeroes, and keeps the session if the vault was not locked meanwhile.
- * A damaged vault gives [GateOutcome.Unavailable].
+ * A damaged vault gives [GateOutcome.Unavailable], and a deleted vault key gives [GateOutcome.KeyInvalidated].
  */
 private suspend fun unlockWith(holder: VaultHolder, password: CharArray): GateOutcome {
     val epoch = holder.unlockEpoch()
@@ -354,6 +390,10 @@ private suspend fun unlockWith(holder: VaultHolder, password: CharArray): GateOu
                 if (holder.adopt(result.session, epoch)) GateOutcome.Opened else GateOutcome.Rejected
             UnlockResult.Rejected -> GateOutcome.Rejected
         }
+    } catch (e: VaultAuthRequiredException) {
+        GateOutcome.Cancelled
+    } catch (e: VaultKeyInvalidatedException) {
+        GateOutcome.KeyInvalidated
     } catch (e: VaultException) {
         GateOutcome.Unavailable
     }
