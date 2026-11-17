@@ -195,7 +195,8 @@ internal fun AccountRoute(
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
     if (session == null) return
-    val state = rememberWalletsState(app, session, mode, listVersion, refreshOnOpen = false)
+    // Opening the account reads the networks, as opening the wallet does, so the balance shown is the one the network reports now.
+    val state = rememberWalletsState(app, session, mode, listVersion, refreshOnOpen = true)
     val view = state.view ?: return
     val account = view.accountsOf(walletId).firstOrNull { it.chain == chain && it.index == index }
     if (account == null) {
@@ -210,6 +211,9 @@ internal fun AccountRoute(
         showBalance = state.display.showAssets,
         tokens = tokens,
         activity = activity,
+        refreshing = state.refreshing,
+        notice = state.notice,
+        onRefresh = state.refresh,
         onSend = { navController.navigate(sendRoute(account, mode)) },
         onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
         onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(item.tx.account, item.tx.id)) },

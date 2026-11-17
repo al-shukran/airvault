@@ -40,10 +40,13 @@ internal class ChainScan(val used: List<UsedAddress>)
  * It is kept in memory and never saved, so a new session starts with an empty one.
  */
 class AddressStatsCache {
-    private val byChain = ConcurrentHashMap<String, ConcurrentMap<String, EsploraAddressStats>>()
+    private val byChain = ConcurrentHashMap<String, ConcurrentMap<String, MemoStats>>()
 
-    internal fun forNetwork(net: NetworkId): ConcurrentMap<String, EsploraAddressStats> = byChain.getOrPut(net.chain) { ConcurrentHashMap() }
+    internal fun forNetwork(net: NetworkId): ConcurrentMap<String, MemoStats> = byChain.getOrPut(net.chain) { ConcurrentHashMap() }
 }
+
+/** An address's statistics as a walk read them, and the wall-clock time of that read. An unused address is trusted only for [DEFAULT_SHORT_TTL_MS]. */
+class MemoStats(val stats: EsploraAddressStats, val readAtMs: Long)
 
 /**
  * Walks one chain of an account (receive or change) with the gap limit. It asks for each address in turn, and it stops once
@@ -51,12 +54,15 @@ class AddressStatsCache {
  * ends the walk.
  *
  * [memo] holds what an earlier walk of this session read. An address it found unused, and that lies before the last used address of that
- * walk, is not asked again. The gap window after that address is asked again, since new activity shows there first.
+ * walk, is not asked again while its read is younger than [DEFAULT_SHORT_TTL_MS] at [nowMs]. Past that, it is asked again: a payment to an
+ * address below a used one must show within a minute, not only after a restart. The gap window after that address is asked again, since new
+ * activity shows there first.
  */
 internal suspend fun scanChain(
     addressAt: (Int) -> String,
     statsOf: suspend (String) -> EsploraAddressStats,
-    memo: ConcurrentMap<String, EsploraAddressStats> = ConcurrentHashMap(),
+    memo: ConcurrentMap<String, MemoStats> = ConcurrentHashMap(),
+    nowMs: Long = 0L,
 ): ChainScan {
     val used = mutableListOf<UsedAddress>()
     val lastUsed = lastUsedIn(addressAt, memo)
@@ -65,7 +71,8 @@ internal suspend fun scanChain(
     while (unused < BtcAccount.GAP_LIMIT) {
         coroutineContext.ensureActive()
         val address = addressAt(index)
-        val stats = memo[address]?.takeIf { !it.used && index <= lastUsed } ?: statsOf(address).also { memo[address] = it }
+        val fresh = memo[address]?.takeIf { !it.stats.used && index <= lastUsed && nowMs - it.readAtMs < DEFAULT_SHORT_TTL_MS }
+        val stats = fresh?.stats ?: statsOf(address).also { memo[address] = MemoStats(it, nowMs) }
         if (stats.used) {
             used += UsedAddress(index, address, stats)
             unused = 0
@@ -78,12 +85,12 @@ internal suspend fun scanChain(
 }
 
 /** The last index that [memo] holds as used, counting up from index 0 while [memo] holds the address; -1 when none is used. */
-private fun lastUsedIn(addressAt: (Int) -> String, memo: Map<String, EsploraAddressStats>): Int {
+private fun lastUsedIn(addressAt: (Int) -> String, memo: Map<String, MemoStats>): Int {
     var last = -1
     var index = 0
     while (true) {
         val stats = memo[addressAt(index)] ?: return last
-        if (stats.used) last = index
+        if (stats.stats.used) last = index
         index++
     }
 }
@@ -99,7 +106,7 @@ suspend fun scanAccount(
     scheduler: Scheduler,
     priority: Priority,
     nowMs: Long,
-    memo: ConcurrentMap<String, EsploraAddressStats> = ConcurrentHashMap(),
+    memo: ConcurrentMap<String, MemoStats> = ConcurrentHashMap(),
     detail: Boolean = false,
     step: suspend (Int) -> Unit = {},
     onTxs: suspend (address: String, txs: List<EsploraTx>, tipHeight: Long) -> Unit = { _, _, _ -> },
@@ -122,8 +129,8 @@ suspend fun scanAccount(
         CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "tip/${net.chain}", jsonCodec()),
     )
     val (receiveWalk, changeWalk) = coroutineScope {
-        val receive = async { scanChain(account::receiveAddress, statsOf, memo) }
-        val change = async { scanChain(account::changeAddress, statsOf, memo) }
+        val receive = async { scanChain(account::receiveAddress, statsOf, memo, nowMs) }
+        val change = async { scanChain(account::changeAddress, statsOf, memo, nowMs) }
         receive.await() to change.await()
     }
     val used = receiveWalk.used + changeWalk.used
