@@ -23,6 +23,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
 import app.lensly.app.notesOf
 import app.lensly.app.sign.WhitelistedCall
@@ -65,8 +66,11 @@ fun TxReviewScreen(
     onApprove: () -> Unit,
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens an address of the review in the Address Book, with its chain. Null leaves the address rows without a tap. */
+    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
     val isMessage = review.function == SIGN_MESSAGE_FUNCTION
+    val open = addressTapOn(AddressChain.EVM, onOpenAddress)
     // The To row names the recipient, or the contract of a whitelisted or decoded call. A message has none.
     val showTo = !isMessage && review.toAddress.isNotEmpty()
     val read = rememberReviewRead(review)
@@ -121,26 +125,26 @@ fun TxReviewScreen(
             }
             if (!isMessage && review.typed == null) {
                 ReviewSection(title = "Parameters") {
-                    ParameterFields(review.params, review.addressNotes)
+                    ParameterFields(review.params, review.addressNotes, open)
                 }
             }
             review.typed?.let { typed ->
                 ReviewSection(title = "Domain") {
                     typed.domain.forEach { (name, value) ->
-                        ReviewField(label = name, value = value, notes = review.addressNotes.notesOf(value))
+                        ReviewField(label = name, value = value, notes = review.addressNotes.notesOf(value), onOpen = open)
                     }
                 }
                 ReviewSection(title = "Fields") {
-                    typed.fields.forEach { row -> TypedFieldRow(row, review.addressNotes) }
+                    typed.fields.forEach { row -> TypedFieldRow(row, review.addressNotes, open) }
                 }
             }
             if (review.nested.isNotEmpty()) {
                 ReviewSection(title = "Calls") {
-                    review.nested.forEach { call -> NestedCallView(call, review.addressNotes) }
+                    review.nested.forEach { call -> NestedCallView(call, review.addressNotes, open) }
                 }
             }
             ReviewSection(title = "Transaction") {
-                TransactionFields(review, showTo)
+                TransactionFields(review, showTo, open)
             }
             review.whitelisted?.let { whitelisted ->
                 ReviewSection(title = "Raw data") {
@@ -356,22 +360,22 @@ private fun NumberedSteps(lines: List<String>) {
 
 /** The arguments of a call, or "None" when it has none. Each address shows its names. */
 @Composable
-private fun ParameterFields(params: List<Pair<String, String>>, notes: Map<String, AddressNotes>) {
+private fun ParameterFields(params: List<Pair<String, String>>, notes: Map<String, AddressNotes>, open: ((String) -> Unit)?) {
     if (params.isEmpty()) {
         NoteText("None")
     } else {
-        params.forEach { (name, value) -> ReviewField(label = name, value = value, notes = notes.notesOf(value)) }
+        params.forEach { (name, value) -> ReviewField(label = name, value = value, notes = notes.notesOf(value), onOpen = open) }
     }
 }
 
 /** One line of a typed message, indented by its depth. A header line names a struct or an array and its type. */
 @Composable
-private fun TypedFieldRow(row: TypedRow, notes: Map<String, AddressNotes>) {
+private fun TypedFieldRow(row: TypedRow, notes: Map<String, AddressNotes>, open: ((String) -> Unit)?) {
     val label = "${row.label} · ${row.type}"
     Column(modifier = Modifier.fillMaxWidth().padding(start = (row.depth * 12).dp)) {
         val value = row.value
         if (value != null) {
-            ReviewField(label = label, value = value, notes = notes.notesOf(value))
+            ReviewField(label = label, value = value, notes = notes.notesOf(value), onOpen = open)
         } else {
             Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -383,7 +387,7 @@ private fun TypedFieldRow(row: TypedRow, notes: Map<String, AddressNotes>) {
  * shows its target, its function and its arguments, and the approved meaning of a call the whitelist approves.
  */
 @Composable
-private fun NestedCallView(call: NestedCall, notes: Map<String, AddressNotes>) {
+private fun NestedCallView(call: NestedCall, notes: Map<String, AddressNotes>, open: ((String) -> Unit)?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -394,8 +398,8 @@ private fun NestedCallView(call: NestedCall, notes: Map<String, AddressNotes>) {
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurface,
         )
-        call.target?.let { target -> ReviewField(label = "Target", value = target, notes = notes.notesOf(target)) }
-        call.params.forEach { (name, value) -> ReviewField(label = name, value = value, notes = notes.notesOf(value)) }
+        call.target?.let { target -> ReviewField(label = "Target", value = target, notes = notes.notesOf(target), onOpen = open) }
+        call.params.forEach { (name, value) -> ReviewField(label = name, value = value, notes = notes.notesOf(value), onOpen = open) }
         call.whitelisted?.let { whitelisted ->
             Text(
                 text = whitelisted.meaning,
@@ -409,7 +413,7 @@ private fun NestedCallView(call: NestedCall, notes: Map<String, AddressNotes>) {
             whitelisted.call.words.forEachIndexed { index, word ->
                 ReviewField(label = "Word ${index + 1}", value = "0x${groupHex(word)}")
             }
-            whitelisted.call.proxy?.let { proxy -> ProxyFields(proxy, notes) }
+            whitelisted.call.proxy?.let { proxy -> ProxyFields(proxy, notes, open) }
         }
         call.note?.let { note -> NoteText(note) }
     }
@@ -420,11 +424,11 @@ private fun NestedCallView(call: NestedCall, notes: Map<String, AddressNotes>) {
  * Book. A whitelisted call adds the protocol its approved meaning belongs to, and the implementation of a proxy it is bound to.
  */
 @Composable
-private fun TransactionFields(review: TxReview, showTo: Boolean) {
+private fun TransactionFields(review: TxReview, showTo: Boolean, open: ((String) -> Unit)?) {
     val notes = review.addressNotes
-    ReviewField(label = "From", value = review.fromAddress, notes = notes.notesOf(review.fromAddress))
+    ReviewField(label = "From", value = review.fromAddress, notes = notes.notesOf(review.fromAddress), onOpen = open)
     if (showTo) {
-        ReviewField(label = "To", value = review.toAddress, notes = notes.notesOf(review.toAddress))
+        ReviewField(label = "To", value = review.toAddress, notes = notes.notesOf(review.toAddress), onOpen = open)
     }
     review.whitelisted?.let { whitelisted ->
         protocolOfMeaning(whitelisted.meaning).takeIf { it.isNotEmpty() }?.let { protocol ->
@@ -433,15 +437,15 @@ private fun TransactionFields(review: TxReview, showTo: Boolean) {
         ReviewField(label = "Function signature", value = whitelisted.signature)
         // The To row names the contract, so the block leaves it out when that row shows.
         if (!showTo) {
-            ReviewField(label = "Contract", value = whitelisted.call.target, notes = notes.notesOf(whitelisted.call.target))
+            ReviewField(label = "Contract", value = whitelisted.call.target, notes = notes.notesOf(whitelisted.call.target), onOpen = open)
         }
-        whitelisted.call.proxy?.let { proxy -> ProxyFields(proxy, notes) }
+        whitelisted.call.proxy?.let { proxy -> ProxyFields(proxy, notes, open) }
     }
     review.tokenContract?.let { contract ->
         if (review.token == null) {
             ReviewFactRow(label = "Token", value = UNKNOWN_TOKEN_NAME, mono = false)
         }
-        ReviewField(label = "Token contract", value = contract, notes = notes.notesOf(contract))
+        ReviewField(label = "Token contract", value = contract, notes = notes.notesOf(contract), onOpen = open)
     }
     if (review.function != SIGN_MESSAGE_FUNCTION) {
         ReviewFactRow(label = "Function", value = review.function, mono = false)
@@ -458,9 +462,9 @@ private fun TransactionFields(review: TxReview, showTo: Boolean) {
 
 /** The implementation a whitelisted proxy is bound to, in full: its address, its code hash, or both. */
 @Composable
-private fun ProxyFields(proxy: ProxyBinding, notes: Map<String, AddressNotes>) {
+private fun ProxyFields(proxy: ProxyBinding, notes: Map<String, AddressNotes>, open: ((String) -> Unit)?) {
     proxy.implementationAddress?.let { address ->
-        ReviewField(label = "Approved implementation", value = address, notes = notes.notesOf(address))
+        ReviewField(label = "Approved implementation", value = address, notes = notes.notesOf(address), onOpen = open)
     }
     proxy.implementationCodeHash?.let { hash ->
         ReviewField(label = "Approved code hash", value = groupHex(hash.removePrefix("0x")))
