@@ -12,8 +12,11 @@ object InProcessSandbox : SandboxTransport {
     override fun reset() = Unit
 }
 
-/** The app's parser over [InProcessSandbox]. */
-val inProcessSandboxParser: RequestParser = SandboxedParser(InProcessSandbox)
+/**
+ * The app's parser over [InProcessSandbox]. Its reply wait is far longer than any test's scan, so a slow CI runner cannot turn a
+ * scan into a refusal. A test that wants a short wait builds its own [SandboxedParser].
+ */
+val inProcessSandboxParser: RequestParser = SandboxedParser(InProcessSandbox, timeoutMillis = 120_000L)
 
 /**
  * A sandbox whose answer a test scripts: [reply] returns the reply to each call, or throws, as a crashed or silent sandbox
