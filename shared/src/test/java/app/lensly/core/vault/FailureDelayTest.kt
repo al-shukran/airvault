@@ -239,11 +239,11 @@ class FailureDelayTest {
 
     @Test
     fun ownerCapFromTheStateAppliesToEveryWait() {
-        val capped = stateWithCap(5_000L, failures = 3)
+        val capped = stateWithCap(10_000L, failures = 3)
         val delay = FailureDelay(created, FailureDelay.configuredCapFor(capped))
-        // The spec delay after three failures is 40 s, and the owner's 5 s cap is the smaller one.
-        assertEquals(5_000L, delay.delayFor(capped.failures, afterLearning))
-        assertEquals(5_000L, delay.delayFor(1, created))
+        // The spec delay after three failures is 40 s, and the owner's 10 s cap is the smaller one.
+        assertEquals(10_000L, delay.delayFor(capped.failures, afterLearning))
+        assertEquals(10_000L, delay.delayFor(1, created))
     }
 
     @Test

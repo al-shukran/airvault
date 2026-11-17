@@ -325,7 +325,7 @@ class VaultDuressTest {
 
         // The real App Password still saves a real change.
         assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureLimits(APP.toCharArray(), 10_000L) })
-        assertEquals(5_000L, runBlocking { vault.failureDelayCapMs() })
+        assertEquals(10_000L, runBlocking { vault.failureDelayCapMs() })
     }
 
     @Test

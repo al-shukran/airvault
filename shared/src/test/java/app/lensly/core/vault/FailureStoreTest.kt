@@ -671,10 +671,10 @@ class FailureStoreTest {
         // The legacy key is deleted, and the one key that remains is the new one.
         assertNull(keys.legacyFailureMacKey())
         assertEquals(1, keys.failureMacKeyCount())
-        // The pending wait is what it was before the migration: 5 s, the owner's cap, measured from the failure.
+        // The pending wait is what it was before the migration: 10 s, the owner's cap, measured from the failure.
         val delay = FailureDelay(FakeClock.START_WALL, FailureDelay.configuredCapFor(migrated))
         assertTrue(delay.isBlocked(migrated, clock))
-        clock.advance(5_000)
+        clock.advance(10_000)
         assertFalse(delay.isBlocked(migrated, clock))
         // Loading again gives the same state, with nothing more to settle.
         assertEquals(migrated, open(dir).load(clock))
