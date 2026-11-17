@@ -103,7 +103,7 @@ internal fun TransactionsRoute(navController: NavHostController, holder: VaultHo
         val open = vault ?: return@LaunchedEffect
         refreshing = true
         try {
-            withContext(Dispatchers.IO) { TxSync.run(app, open, current) { stored.update { it + 1 } } }
+            withContext(Dispatchers.IO) { TxSync.run(app, open, current, onStored = { stored.update { it + 1 } }) }
         } finally {
             refreshing = false
         }

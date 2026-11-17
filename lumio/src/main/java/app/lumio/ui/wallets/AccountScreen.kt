@@ -1,28 +1,46 @@
 package app.lumio.ui.wallets
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import app.lensly.core.registry.Amounts
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
+import app.lumio.home.Masking
+import app.lumio.tokens.TokenHolding
+import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.transactions.TxCard
+import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
+import java.time.ZoneId
 
-/** One account: its chain and network, its full address, its balance, and the two text actions, Send and Receive. */
+/**
+ * One account: its chain and network, its full address, its balance, and the two text actions, Send and Receive. An Ethereum account also lists its
+ * ERC-20 balances, and every account lists its newest [activity], each row opening its transaction.
+ */
 @Composable
 fun AccountScreen(
     walletName: String,
     account: WalletAccount,
     showBalance: Boolean,
+    tokens: List<TokenHolding> = emptyList(),
+    activity: List<TxFeedItem> = emptyList(),
     onSend: () -> Unit,
     onReceive: () -> Unit,
+    onOpenTransaction: (TxFeedItem) -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    zone: ZoneId = ZoneId.systemDefault(),
 ) {
     LenslyScreen(title = account.chain.label, modifier = modifier, onBack = onBack) {
         Text(
@@ -49,6 +67,73 @@ fun AccountScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         TextButton(onClick = onSend) { Text("Send") }
         TextButton(onClick = onReceive) { Text("Receive") }
+        if (account.chain == AccountChain.ETHEREUM) {
+            Spacer(Modifier.height(LenslySpacing.lg))
+            Text(
+                text = "Tokens",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            val held = tokens.filter { it.amount.signum() > 0 }
+            if (held.isEmpty()) {
+                Text(
+                    text = "No token balances yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            held.forEach { holding -> HeldTokenLine(holding = holding, shown = showBalance) }
+        }
+        Spacer(Modifier.height(LenslySpacing.lg))
+        Text(
+            text = "Activity",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        when {
+            account.chain == AccountChain.SOLANA || account.chain == AccountChain.ALGORAND -> Text(
+                text = "Activity is not read for ${account.chain.label} yet.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            activity.isEmpty() -> Text(
+                text = "No transactions yet.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            else -> activity.forEach { item ->
+                TxCard(item = item, zone = zone, onClick = { onOpenTransaction(item) })
+            }
+        }
+    }
+}
+
+/** One token the address holds on a network: its symbol and network, with the balance, hidden when the owner hides balances. */
+@Composable
+private fun HeldTokenLine(holding: TokenHolding, shown: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = LenslySpacing.xxs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = holding.token.symbol,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = holding.chain.name,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = Masking.amount(Amounts.format(holding.amount, holding.token.decimals), hidden = !shown),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
