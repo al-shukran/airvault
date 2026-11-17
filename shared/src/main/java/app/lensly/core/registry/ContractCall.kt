@@ -66,10 +66,16 @@ sealed class ContractCall(val name: String, val signature: String) {
         /** 2^256 - 1, the "unlimited allowance" value most contracts use. */
         val MAX_UINT256: BigInteger = BigInteger.ONE.shiftLeft(256).subtract(BigInteger.ONE)
 
-        /** An allowance of 2^255 or more is unlimited for any token that exists. */
-        private val UNLIMITED_FROM: BigInteger = BigInteger.ONE.shiftLeft(255)
+        /**
+         * The start of the warning on an unlimited approval, which names the spender and the token after it. The review and the
+         * Permit2 steps build that warning from this start, so the review can recognise it.
+         */
+        const val UNLIMITED_APPROVAL_PREFIX = "Unlimited approval:"
 
-        /** True when [amount] is an unlimited allowance: 2^255 or more. */
+        /** 2^160 - 1, the least allowance that counts as unlimited. No token supply comes near it, and it is the largest Permit2 amount. */
+        private val UNLIMITED_FROM: BigInteger = BigInteger.ONE.shiftLeft(160).subtract(BigInteger.ONE)
+
+        /** True when [amount] is an unlimited allowance: 2^160 - 1 or more. */
         fun isUnlimited(amount: BigInteger): Boolean = amount >= UNLIMITED_FROM
 
         private const val SELECTOR_BYTES = 4

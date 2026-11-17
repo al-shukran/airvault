@@ -183,6 +183,7 @@ private val ReviewCheck.label: String
         ReviewCheck.DENYLIST -> "I understand this is a risky request"
         ReviewCheck.REGISTRY -> "I checked the chain ID and contract"
         ReviewCheck.UNKNOWN_CALL -> "I understand Lensly cannot say what this does."
+        ReviewCheck.UNLIMITED -> "I understand this lets the spender take all of this token."
         ReviewCheck.WHITELIST -> "I checked this is what I intend"
         ReviewCheck.UPGRADE -> "I accept the implementation cannot be checked"
     }
@@ -225,8 +226,15 @@ internal fun evmRiskItems(review: TxReview, checked: Set<ReviewCheck>, onCheck: 
     return items
 }
 
-/** The check a warning needs. An unknown call's warning needs the owner's tick that Lensly cannot say what the call does. */
-private fun warningCheck(warning: String): ReviewCheck? = ReviewCheck.UNKNOWN_CALL.takeIf { warning == UNKNOWN_CALL_WARNING }
+/**
+ * The check a warning needs. An unknown call's warning needs the owner's tick that Lensly cannot say what the call does, and an
+ * unlimited approval's warning needs the tick that the spender can take every token.
+ */
+private fun warningCheck(warning: String): ReviewCheck? = when {
+    warning == UNKNOWN_CALL_WARNING -> ReviewCheck.UNKNOWN_CALL
+    isUnlimitedApprovalWarning(warning) -> ReviewCheck.UNLIMITED
+    else -> null
+}
 
 /**
  * The sentence of the summary: the verb, the amount and the counterparty. A personal message, a typed message, and a whitelisted call

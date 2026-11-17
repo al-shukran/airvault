@@ -30,9 +30,6 @@ internal object UniversalRouterSteps {
     /** CONTRACT_BALANCE in ActionConstants: an amount that means the whole balance the router holds. */
     private val CONTRACT_BALANCE: BigInteger = BigInteger.ONE.shiftLeft(255)
 
-    /** 2^160 - 1, the largest Permit2 amount, which Permit2 reads as an unlimited approval. */
-    private val MAX_UINT160: BigInteger = BigInteger.ONE.shiftLeft(160).subtract(BigInteger.ONE)
-
     /** The two router deployments approved on Ethereum mainnet, by chain and address. */
     private enum class Dialect { V1_2, V2 }
 
@@ -207,7 +204,7 @@ internal object UniversalRouterSteps {
         return permitSteps(call, single[1].address(), listOf(single[0].items()))
     }
 
-    /** One approval line per permit detail. An amount of the largest Permit2 value is an unlimited approval, and it warns. */
+    /** One approval line per permit detail. An amount that [ContractCall.isUnlimited] reads as unlimited warns. */
     private fun permitSteps(call: StepCall, spender: String, details: List<List<AbiValue>>): Step {
         val who = if (spender == call.contract) "the Universal Router" else shortAddress(spender)
         val lines = ArrayList<String>()
@@ -216,11 +213,11 @@ internal object UniversalRouterSteps {
             val token = detail[0].address()
             val amount = detail[1].word()
             val until = untilText(detail[2].word())
-            val unlimited = amount == MAX_UINT160
+            val unlimited = ContractCall.isUnlimited(amount)
             val quantity = if (unlimited) "unlimited" else call.quantity(amount, token)
             lines += "Approve $who to spend ${call.symbolOf(token)} amount $quantity until $until"
             if (unlimited) {
-                warnings += "Unlimited approval: $who can spend all of your ${call.symbolOf(token)} until $until"
+                warnings += "${ContractCall.UNLIMITED_APPROVAL_PREFIX} $who can spend all of your ${call.symbolOf(token)} until $until"
             }
         }
         if (details.isEmpty()) lines += "Approve nothing: the permit holds no details"

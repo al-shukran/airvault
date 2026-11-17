@@ -384,6 +384,40 @@ class TxReviewScreenTest {
         compose.onNodeWithText("Storage key 1").assertExists()
     }
 
+    /** An unlimited approval is read, and still waits for its tick: the sign control opens only once both are done. */
+    @Test
+    fun anUnlimitedApprovalSignsOnlyAfterItsTickAndItsRead() {
+        val unlimited = plainTransfer().copy(warnings = listOf(unlimitedApprovalWarning("USDC")))
+        compose.setContent {
+            LenslyTheme {
+                Box(Modifier.size(width = 360.dp, height = 640.dp)) {
+                    TxReviewScreen(review = unlimited, onApprove = {}, onReject = {})
+                }
+            }
+        }
+
+        compose.onNodeWithText("Scroll to the end to review everything").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+        // The row is toggled through its click action, as the unknown-call test does, so the banner's position does not matter.
+        compose.onNodeWithText("I understand this lets the spender take all of this token.").fetchSemanticsNode()
+            .config[SemanticsActions.OnClick].action?.invoke()
+        compose.waitForIdle()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+
+        compose.scrollReviewToEnd()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
+    }
+
+    @Test
+    fun anUnlimitedApprovalWithoutItsTickStaysUnsignableOnceReadToTheEnd() {
+        val unlimited = plainTransfer().copy(warnings = listOf(unlimitedApprovalWarning("USDC")))
+        compose.setContent { LenslyTheme { TxReviewScreen(review = unlimited, onApprove = {}, onReject = {}) } }
+
+        compose.scrollReviewToEnd()
+        compose.onNodeWithText("Tick the checkbox above to sign").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+    }
+
     @Test
     fun theHoldControlIsDisabledAndSaysWhyUntilTheReviewIsReadToTheEnd() {
         // A message this long is taller than the screen, so the review has to be scrolled to its end before it can be signed.
@@ -474,11 +508,13 @@ class TxReviewScreenTest {
     }
 
     @Test
-    fun aWarningReviewThatFitsOnScreenNeedsOnlyItsCheck() {
-        // The summary and the banner fit, and the review is read. Its check is still owed until it is ticked.
+    fun aWarningReviewStillOwesItsChecksOnceRead() {
+        // An approval of an unregistered token owes two checks, the registry and the unlimited tick. Reading the review to its end
+        // does not tick either, so both stay owed.
         compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
-        compose.onNodeWithText("Tick the checkbox above to sign").assertExists()
+        compose.scrollReviewToEnd()
+        compose.onNodeWithText("Tick the checkboxes above to sign").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
     }
 

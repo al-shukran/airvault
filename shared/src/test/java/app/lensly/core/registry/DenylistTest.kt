@@ -38,6 +38,16 @@ class DenylistTest {
         assertEquals(listOf("0x095ea7b3"), selectorsMatching(data))
     }
 
+    /** The unlimited entry takes the review's threshold: 2^160 - 1 matches, and the value one below it does not. */
+    @Test
+    fun theUnlimitedEntryMatchesFromTwoToThe160MinusOneUp() {
+        val atThreshold = amount(BigInteger.ONE.shiftLeft(160).subtract(BigInteger.ONE))
+        val below = amount(BigInteger.ONE.shiftLeft(160).subtract(BigInteger.valueOf(2)))
+
+        assertEquals(listOf("0x095ea7b3"), selectorsMatching(calldata(APPROVE, SPENDER, atThreshold)))
+        assertEquals(emptyList(), selectorsMatching(calldata(APPROVE, SPENDER, below)))
+    }
+
     @Test
     fun aLimitedApprovalMatchesNothing() {
         val data = calldata(APPROVE, SPENDER, amount(BigInteger.valueOf(100_000_000)))

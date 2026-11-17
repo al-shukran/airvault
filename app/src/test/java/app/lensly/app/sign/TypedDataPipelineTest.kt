@@ -135,6 +135,7 @@ class TypedDataPipelineTest {
 
         assertTrue(review.typed!!.summary.toMap().getValue("Amount").startsWith("Unlimited"))
         assertEquals(listOf(unlimitedApprovalWarning("USDC")), review.warnings)
+        assertEquals(listOf(ReviewCheck.UNLIMITED), review.requiredChecks)
     }
 
     @Test
