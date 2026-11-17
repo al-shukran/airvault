@@ -4,7 +4,6 @@ import java.security.SecureRandom
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Test
 
@@ -29,7 +28,6 @@ class VaultKeyFileTest {
 
         assertEquals(VaultKeyFile.FILE_BYTES, file.size)
         val contents = VaultKeyFile.decode(file)
-        assertFalse(contents.legacy)
         assertEquals(2, contents.slots.size)
         assertTrue(contents.slots.all { it.size == VaultKeyFile.SLOT_BYTES })
     }
@@ -85,13 +83,12 @@ class VaultKeyFileTest {
     }
 
     @Test
-    fun aLegacyFileIsReadAsOneBlobWithNoOwner() {
-        val blob = ByteArray(88) { random.nextInt().toByte() }
-        val contents = VaultKeyFile.decode(VaultKeyFile.encodeLegacy(blob))
+    fun anOlderVersionIsRefusedAsAFormatChange() {
+        // Version 2 is the file before the slot key. It is refused, and nothing is migrated from it.
+        val file = VaultKeyFile.encode(listOf(randomSlot(), randomSlot()), random)
+        file[4] = 2
 
-        assertTrue(contents.legacy)
-        assertContentEquals(blob, contents.sealedOf(0))
-        assertEquals(-1, VaultKeyFile.ownerIndex(contents, keyA))
+        assertFailsWith<VaultFormatChangedException> { VaultKeyFile.decode(file) }
     }
 
     @Test

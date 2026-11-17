@@ -1,6 +1,7 @@
 package app.lensly.core.vault
 
 import javax.crypto.KeyGenerator
+import javax.crypto.Mac
 import javax.crypto.SecretKey
 
 /**
@@ -9,6 +10,7 @@ import javax.crypto.SecretKey
  */
 class MemoryKeystore : KeystoreBackend {
     private var hardware: SecretKey? = null
+    private var slotKey: SecretKey? = null
     private val failureMacs = mutableMapOf<Long, SecretKey>()
     private var legacyFailureMac: SecretKey? = null
     private val folderKeys = mutableMapOf<String, SecretKey>()
@@ -20,6 +22,16 @@ class MemoryKeystore : KeystoreBackend {
 
     override fun hardwareKey(): SecretKey =
         hardware ?: throw VaultException("The vault's hardware key is missing from the Keystore.")
+
+    /** Replaces the slot key. A vault sealed under the old key no longer opens, which is how a test shows the binding. */
+    override fun createSlotKey() {
+        slotKey = newHmacKey()
+    }
+
+    override fun slotMac(message: ByteArray): ByteArray {
+        val key = slotKey ?: throw VaultException("The vault's slot key is missing from the Keystore.")
+        return Mac.getInstance("HmacSHA256").apply { init(key) }.doFinal(message)
+    }
 
     override fun createFailureMacKey(seq: Long): SecretKey = newHmacKey().also { failureMacs[seq] = it }
 
@@ -62,6 +74,7 @@ class MemoryKeystore : KeystoreBackend {
 
     override fun deleteAll() {
         hardware = null
+        slotKey = null
         failureMacs.clear()
         legacyFailureMac = null
         folderKeys.clear()
