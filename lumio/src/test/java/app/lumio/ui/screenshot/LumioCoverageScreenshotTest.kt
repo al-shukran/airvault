@@ -433,7 +433,7 @@ class LumioCoverageScreenshotTest {
             PairingApp(
                 app = PairImport.ETHEREUM,
                 keys = listOf(PairingKey.ethereumAddress(0, AccountAddresses.addressXpub(wallet.accountXpub(0), 0))),
-                accounts = listOf(PairingAccount(key = 0, child = 0, name = null, label = null, group = null)),
+                accounts = listOf(PairingAccount(key = 0, name = null, label = null, group = null)),
             ),
         )
         if (withBitcoin) {
@@ -441,7 +441,7 @@ class LumioCoverageScreenshotTest {
             apps += PairingApp(
                 app = PairImport.BITCOIN,
                 keys = listOf(PairingKey.bitcoinAccount(account)),
-                accounts = listOf(PairingAccount(key = 0, child = null, name = null, label = null, group = null)),
+                accounts = listOf(PairingAccount(key = 0, name = null, label = null, group = null)),
             )
         }
         return PairingPayload(fingerprint = 0x1a2b3c4dL, name = "Demo", apps = apps)

@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import java.io.File
 
 /**
@@ -30,33 +28,14 @@ abstract class LumioDatabase : RoomDatabase() {
 
         /**
          * Opens the database in [file], creating the file now. The folder of [file] must exist already, which it does while a vault is open. The file
-         * is created at once, so a later check that it still exists tells whether a vault wipe has removed it.
+         * is created at once, so a later check that it still exists tells whether a vault wipe has removed it. A file of another schema version is
+         * dropped and created again: the cache, the scan queue and the history are read from the chains again, so no owner data is lost.
          */
         fun open(context: Context, file: File): LumioDatabase =
             Room.databaseBuilder(context.applicationContext, LumioDatabase::class.java, file.absolutePath)
-                .addMigrations(MIGRATION_1_2)
+                .fallbackToDestructiveMigration()
                 .build()
                 .also { it.openHelper.writableDatabase }
 
-        /**
-         * Version 2 adds the transaction history: its rows, their search terms and the comments. It creates the three tables and the one index that Room
-         * expects, and nothing else changes, so the cache and the scan queue survive the upgrade. No comment exists before version 2.
-         */
-        val MIGRATION_1_2: Migration = object : Migration(1, 2) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    "CREATE TABLE IF NOT EXISTS `tx` (`txId` BLOB NOT NULL, `accountKey` BLOB NOT NULL, `assetKey` BLOB NOT NULL, " +
-                        "`network` TEXT NOT NULL, `timestampMs` INTEGER NOT NULL, `amountKey` TEXT NOT NULL, `feeKey` TEXT NOT NULL, " +
-                        "`assetSymbol` TEXT NOT NULL, `direction` TEXT NOT NULL, `status` TEXT NOT NULL, `spam` INTEGER NOT NULL, " +
-                        "`settled` INTEGER NOT NULL, `payload` BLOB NOT NULL, PRIMARY KEY(`txId`, `accountKey`))",
-                )
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tx_accountKey` ON `tx` (`accountKey`)")
-                db.execSQL(
-                    "CREATE TABLE IF NOT EXISTS `tx_term` (`txId` BLOB NOT NULL, `accountKey` BLOB NOT NULL, `term` BLOB NOT NULL, " +
-                        "PRIMARY KEY(`txId`, `accountKey`, `term`))",
-                )
-                db.execSQL("CREATE TABLE IF NOT EXISTS `tx_comment` (`txId` BLOB NOT NULL, `text` BLOB NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`txId`))")
-            }
-        }
     }
 }

@@ -171,7 +171,7 @@ class PairedWalletsTest {
     }
 
     private fun account(index: Int, name: String?, label: String? = null, group: String? = null) =
-        PairingAccount(key = 0, child = index, name = name, label = label, group = group)
+        PairingAccount(key = 0, name = name, label = label, group = group)
 
     @Test
     fun aPairingsAddressBookIsStoredWithItsWalletAndListedWithIt() {
@@ -246,7 +246,7 @@ class PairedWalletsTest {
         addressBook: List<AddressBookEntry> = emptyList(),
     ): PairingPayload {
         val wallet = HdWallet(seed)
-        val numbered = accounts.mapIndexed { index, account -> account.copy(key = index, child = null) }
+        val numbered = accounts.mapIndexed { index, account -> account.copy(key = index) }
         val apps = mutableListOf(
             PairingApp(
                 app = "ethereum",
@@ -258,7 +258,7 @@ class PairedWalletsTest {
             apps += PairingApp(
                 app = "bitcoin",
                 keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
-                accounts = bitcoin.indices.map { PairingAccount(key = it, child = null, name = null, label = null, group = null) },
+                accounts = bitcoin.indices.map { PairingAccount(key = it, name = null, label = null, group = null) },
             )
         }
         return PairingPayload(

@@ -73,18 +73,7 @@ class EvmSettingsTest {
 
         EvmSettingsStore.write(session, settings)
 
-        assertEquals(settings.copy(version = EvmSettings.CURRENT_VERSION), EvmSettingsStore.read(session))
-    }
-
-    @Test
-    fun aRecordSavedBeforeMonadTestnetWasOnByDefaultGetsItOn() {
-        session.putVaultRecord(EvmSettings.RECORD, """{"addressCount":3,"enabled":[1,11155111]}""".encodeToByteArray())
-
-        val read = EvmSettingsStore.read(session)
-
-        assertEquals(setOf(1L, 10143L, 11155111L), read.enabled)
-        assertEquals(3, read.addressCount)
-        assertEquals(EvmSettings.CURRENT_VERSION, read.version)
+        assertEquals(settings, EvmSettingsStore.read(session))
     }
 
     @Test

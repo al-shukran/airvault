@@ -6,47 +6,23 @@ import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.Cbor
-import app.lensly.core.ur.PRIVATE_KEY_REFUSAL
 import app.lensly.core.wallet.HdWallet
 import com.sparrowwallet.hummingbird.UR
-import com.sparrowwallet.hummingbird.registry.CryptoAccount
-import com.sparrowwallet.hummingbird.registry.CryptoHDKey
-import com.sparrowwallet.hummingbird.registry.CryptoKeypath
-import com.sparrowwallet.hummingbird.registry.CryptoOutput
-import com.sparrowwallet.hummingbird.registry.ScriptExpression
-import com.sparrowwallet.hummingbird.registry.pathcomponent.IndexPathComponent
-import java.nio.ByteBuffer
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertIs
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Codes that Lumio refuses, with the reason it shows. Each one holds more than public data, breaks a rule of the pairing, or is a code Lensly no longer sends. */
+private const val OLDER_CODE = "This pairing code is from an older Lensly. Update both apps and pair again."
+
 class PairRefusalTest {
 
     @Test
-    fun aPrivateKeyFlagIsRefusedEvenOnAPublicKey() {
-        assertEquals(PRIVATE_KEY_REFUSAL, refusalOf(hdKey(privateFlag = true, key = publicKey()).toUR()))
-    }
-
-    @Test
-    fun a32ByteKeyIsRefusedAsPrivateMaterial() {
-        assertEquals(PRIVATE_KEY_REFUSAL, refusalOf(hdKey(privateFlag = null, key = ByteArray(32) { 7 }).toUR()))
-    }
-
-    @Test
     fun aSeedIsRefusedAsPrivateMaterial() {
-        assertEquals(PRIVATE_KEY_REFUSAL, refusalOf(UR("crypto-seed", byteArrayOf(0x01, 0x02))))
-    }
-
-    @Test
-    fun aBitcoinOutputWithAPrivateKeyIsRefused() {
-        val output = CryptoOutput(listOf(ScriptExpression.WITNESS_PUBLIC_KEY_HASH), hdKey(privateFlag = null, key = ByteArray(32) { 9 }))
-        assertEquals(PRIVATE_KEY_REFUSAL, refusalOf(CryptoAccount(fingerprintBytes(0x1a2b3c4d), listOf(output)).toUR()))
+        assertEquals(PairImport.PRIVATE_KEY_REFUSAL, refusalOf(UR("crypto-seed", byteArrayOf(0x01, 0x02))))
     }
 
     @Test
@@ -56,21 +32,10 @@ class PairRefusalTest {
     }
 
     @Test
-    fun anOlderLenslyEthereumCodeIsRefusedWithTheReasonToPairAgain() {
-        val reason = refusalOf(hdKey(privateFlag = null, key = publicKey()).toUR())
-        assertTrue(reason, reason.contains("older Lensly"))
-    }
-
-    @Test
-    fun anOlderLenslyBitcoinCodeIsRefusedWithTheReasonToPairAgain() {
-        val refusal = assertIs<ScanStep.Refused>(scanToEnd(BtcWatchOnly.cryptoAccountParts(PairFixtures.allAccounts(PairFixtures.seed))))
-        assertTrue(refusal.reason, refusal.reason.contains("older Lensly"))
-    }
-
-    @Test
-    fun aMalformedOlderHdKeyIsRefused() {
-        val reason = refusalOf(UR("crypto-hdkey", byteArrayOf(0x01, 0x02)))
-        assertTrue(reason, reason.contains("crypto-hdkey"))
+    fun anOlderLenslyCodeOfAnyFormatIsRefusedWithTheReasonToPairAgain() {
+        for (type in listOf("crypto-hdkey", "crypto-account")) {
+            assertEquals(OLDER_CODE, refusalOf(UR(type, byteArrayOf(0x01, 0x02))), type)
+        }
     }
 
     @Test
@@ -219,29 +184,8 @@ class PairRefusalTest {
     private fun bitcoinKeys(keys: List<PairingKey>) = PairingApp(
         app = "bitcoin",
         keys = keys,
-        accounts = keys.indices.map { PairingAccount(key = it, child = null, name = null, label = null, group = null) },
+        accounts = keys.indices.map { PairingAccount(key = it, name = null, label = null, group = null) },
     )
 
-    private fun account(index: Int) = PairingAccount(key = index, child = null, name = "Demo $index", label = null, group = null)
-
-    /** An account key on the Ethereum account path, with [privateFlag] and [key] as given. */
-    private fun hdKey(privateFlag: Boolean?, key: ByteArray): CryptoHDKey = CryptoHDKey(
-        privateFlag,
-        key,
-        ByteArray(32) { 3 },
-        null,
-        CryptoKeypath(
-            listOf(IndexPathComponent(44, true), IndexPathComponent(60, true), IndexPathComponent(0, true)),
-            fingerprintBytes(0x1a2b3c4d),
-            3,
-        ),
-        null,
-        fingerprintBytes(0x5e6f7a8b),
-        "Demo",
-        null,
-    )
-
-    private fun publicKey(): ByteArray = HdWallet(PairFixtures.seed).accountXpub().publicKey
-
-    private fun fingerprintBytes(value: Int): ByteArray = ByteBuffer.allocate(4).putInt(value).array()
+    private fun account(index: Int) = PairingAccount(key = index, name = "Demo $index", label = null, group = null)
 }
