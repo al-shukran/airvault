@@ -19,6 +19,7 @@ import java.nio.ByteOrder
 import java.security.MessageDigest
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -38,6 +39,7 @@ class SolanaReviewRowsTest {
             listOf(
                 "Signer" to address(1),
                 "Fee payer" to address(1),
+                "Recent blockhash" to BLOCKHASH,
                 "Program" to SYSTEM_ADDRESS,
                 "SOL transfer" to "1.5 SOL",
                 "From" to address(1),
@@ -48,12 +50,16 @@ class SolanaReviewRowsTest {
         assertEquals("Sends 1.5 SOL to ${address(9)}.", solanaSentence(review))
     }
 
-    /** WI-24: an account loaded from a lookup table shows the table, its index and the note that it cannot be checked offline. */
+    /**
+     * WI-24: an account loaded from a lookup table shows the table, its index and the note that it cannot be checked offline. The
+     * instruction here is one Lensly does not read, so the account is shown; a value sent to one is refused instead.
+     */
     @Test
     fun anAccountFromALookupTableShowsTheTableIndexAndTheOfflineNote() {
-        val review = transaction(v0FromLookupTable())
+        val review = transaction(v0FromLookupTable(data = le32(9)))
         assertEquals(1, review.lookups.size)
-        assertEquals("lookup table $TABLE, index 0 (can't be checked offline)", solanaRows(review).toMap()["To"])
+        assertEquals("lookup table $TABLE, index 0 (can't be checked offline)", solanaRows(review).toMap()["Account (writable)"])
+        assertContains(review.warnings, SolanaWarning.LOOKUP_TABLE)
     }
 
     @Test
@@ -63,12 +69,73 @@ class SolanaReviewRowsTest {
             listOf(
                 "Signer" to address(1),
                 "Fee payer" to address(1),
+                "Recent blockhash" to BLOCKHASH,
                 "Unknown program" to address(7),
                 "Instruction data" to "0x0909",
-                "Accounts" to address(1),
+                "Account (signer, writable)" to address(1),
             ),
             solanaRows(transaction(signData)),
         )
+    }
+
+    /** R05: a known program's instruction that Lensly does not read is labelled as not decoded, not as an unknown program. */
+    @Test
+    fun aTokenInstructionThatIsNotReadIsLabelledAsNotDecoded() {
+        // SetAuthority is tag 6 of the SPL Token program, which Lensly reads only for Transfer and TransferChecked.
+        val signData = legacy(
+            keys = listOf(key(1), key(7), TOKEN),
+            instructions = listOf(Instruction(program = 2, accounts = listOf(1), data = byteArrayOf(6))),
+        )
+        assertEquals("Program not decoded: instruction is not read" to TOKEN_ADDRESS, solanaRows(transaction(signData))[3])
+    }
+
+    /** R07: a raw instruction's accounts show whether each signs and whether it is writable; a second required signer is named. */
+    @Test
+    fun aRawInstructionShowsEachAccountsSignerAndWritableRoles() {
+        // Keys 0 and 1 sign and are writable. Key 2 is the program the instruction calls, writable as an unsigned key. Key 3 is read-only.
+        val signData = legacy(
+            keys = listOf(key(1), key(2), key(7), key(8)),
+            instructions = listOf(Instruction(program = 2, accounts = listOf(0, 1, 3), data = byteArrayOf(9))),
+            signers = 2,
+            readonly = 1,
+        )
+        val rows = solanaRows(transaction(signData))
+        assertContains(rows, "Other required signer" to address(2))
+        assertEquals(
+            listOf(
+                "Account (signer, writable)" to address(1),
+                "Account (signer, writable)" to address(2),
+                "Account (read-only)" to address(8),
+            ),
+            rows.filter { it.first.startsWith("Account") },
+        )
+    }
+
+    /** R03, the review's tick: an instruction Lensly does not read needs the owner's tick, and a transfer it reads does not. */
+    @Test
+    fun anInstructionThatIsNotReadNeedsTheUnderstandingTick() {
+        val rawReview = transaction(legacy(keys = listOf(key(1), key(7)), instructions = listOf(Instruction(1, listOf(0), byteArrayOf(9)))))
+        val transferReview = transaction(legacy(keys = listOf(key(1), key(9), SYSTEM), instructions = listOf(transfer(from = 0, to = 1, lamports = 5L))))
+        assertTrue(solanaNeedsUnderstanding(rawReview))
+        assertFalse(solanaNeedsUnderstanding(transferReview))
+    }
+
+    /** R03: a price with no limit shows a priority fee at the default units, marked as at most, with the base and the most fee. */
+    @Test
+    fun aPriceWithNoLimitShowsItsPriorityFeeAsUpToWithTheBaseAndMostFee() {
+        val signData = legacy(
+            keys = listOf(key(1), key(9), SYSTEM, COMPUTE_BUDGET),
+            instructions = listOf(
+                // SetComputeUnitPrice: tag 3, then a u64 of micro-lamports per unit, 1,000,000 here.
+                Instruction(program = 3, accounts = emptyList(), data = byteArrayOf(3) + le64(1_000_000L)),
+                transfer(from = 0, to = 1, lamports = 5L),
+            ),
+            readonly = 2,
+        )
+        val facts = solanaFacts(transaction(signData)).toMap()
+        assertEquals("up to 200000 lamports", facts["Priority fee"])
+        assertEquals("5000 lamports", facts["Base fee"])
+        assertEquals("up to 205000 lamports", facts["Max fee"])
     }
 
     /** An off-chain message shows its signer, its application domain and its text, as the owner reads it. */
@@ -156,14 +223,18 @@ class SolanaReviewRowsTest {
         assertEquals(emptyList(), record.params)
     }
 
-    /** A durable nonce: the advance names the nonce account and its authority, and nothing in the review says the blockhash expires. */
+    /**
+     * R06: a durable nonce names its nonce account and authority, shows its recent blockhash, which is the stored nonce, and warns that the
+     * transaction has no expiry and stays valid until the nonce advances.
+     */
     @Test
-    fun aDurableNonceTransferNamesTheNonceAndShowsNoExpiry() {
+    fun aDurableNonceTransferWarnsThatItHasNoExpiry() {
         val review = transaction(nonceTransfer(authority = 0))
         assertEquals(
             listOf(
                 "Signer" to address(1),
                 "Fee payer" to address(1),
+                "Recent blockhash" to BLOCKHASH,
                 "Program" to SYSTEM_ADDRESS,
                 "Uses durable nonce account" to address(2),
                 "Nonce authority" to address(1),
@@ -175,10 +246,8 @@ class SolanaReviewRowsTest {
             solanaRows(review),
         )
         assertEquals("Sends 1.5 SOL to ${address(9)}.", solanaSentence(review))
-        val shown = solanaRows(review).flatMap { listOf(it.first, it.second) } + solanaSentence(review) +
-            solanaFacts(review).flatMap { listOf(it.first, it.second) }
-        assertTrue(shown.none { it.contains("expire", ignoreCase = true) || it.contains("blockhash", ignoreCase = true) })
-        assertEquals(emptyList(), review.warnings)
+        assertEquals(listOf(SolanaWarning.DURABLE_NONCE), review.warnings)
+        assertContains(solanaWarningText(SolanaWarning.DURABLE_NONCE), "no expiry")
     }
 
     /**
@@ -192,6 +261,8 @@ class SolanaReviewRowsTest {
             listOf(
                 "Signer" to address(1),
                 "Fee payer" to address(1),
+                "Other required signer" to address(2),
+                "Recent blockhash" to BLOCKHASH,
                 "Program" to SYSTEM_ADDRESS,
                 "Create a nonce account" to address(2),
                 "Rent" to "0.00144768 SOL",
@@ -217,6 +288,7 @@ class SolanaReviewRowsTest {
             listOf(
                 "Signer" to address(1),
                 "Fee payer" to address(1),
+                "Recent blockhash" to BLOCKHASH,
                 "Program" to SYSTEM_ADDRESS,
                 "Create a nonce account" to account,
                 "Base account" to address(1),
@@ -233,7 +305,10 @@ class SolanaReviewRowsTest {
     /** A nonce authority that is not the signing account is an error-level warning, and the review still shows. */
     @Test
     fun aNonceAuthorityThatIsNotTheSignerWarnsAtErrorLevel() {
-        assertEquals(listOf(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), transaction(nonceTransfer(authority = 1)).warnings)
+        assertEquals(
+            listOf(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER, SolanaWarning.DURABLE_NONCE),
+            transaction(nonceTransfer(authority = 1)).warnings,
+        )
         assertEquals(listOf(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), transaction(nonceSetup(authority = key(9))).warnings)
         assertEquals(BannerTone.Error, solanaWarningTone(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER))
         assertContains(solanaWarningText(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), "Nonce authority is not this account")
@@ -367,9 +442,11 @@ class SolanaReviewRowsTest {
         return out.toByteArray()
     }
 
-    /** A v0 message: a System transfer from account 0 to account 2, where account 2 is loaded from [TABLE] at index 0. */
-    private fun v0FromLookupTable(): ByteArray {
-        val data = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN).putInt(2).putLong(1_000L).array()
+    /**
+     * A v0 message with one System instruction on [data], from account 0 to account 2, where account 2 is loaded from [TABLE] at index 0.
+     * The default data is a transfer of 1000 lamports.
+     */
+    private fun v0FromLookupTable(data: ByteArray = le32(2) + le64(1_000L)): ByteArray {
         val out = ByteArrayOutputStream()
         out.write(0x80)
         out.write(byteArrayOf(1, 0, 1))
@@ -395,7 +472,13 @@ class SolanaReviewRowsTest {
         const val WALLET = "w1"
         const val TABLE = "CUDp5gcuAm64fAXUdWviywAdmrnTbrMbFPmP5u7tUL8q"
         const val SYSTEM_ADDRESS = "11111111111111111111111111111111"
+        const val TOKEN_ADDRESS = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        const val COMPUTE_BUDGET_ADDRESS = "ComputeBudget111111111111111111111111111111"
         val SYSTEM: ByteArray = Base58.decode(SYSTEM_ADDRESS)
+        val TOKEN: ByteArray = Base58.decode(TOKEN_ADDRESS)
+        val COMPUTE_BUDGET: ByteArray = Base58.decode(COMPUTE_BUDGET_ADDRESS)
+        /** The recent blockhash every test message carries: 32 bytes of 7. */
+        val BLOCKHASH: String = Base58.encode(ByteArray(32) { 7 })
         const val RECENT_BLOCKHASHES_ADDRESS = "SysvarRecentB1ockHashes11111111111111111111"
         const val RENT_ADDRESS = "SysvarRent111111111111111111111111111111111"
         val RECENT_BLOCKHASHES: ByteArray = Base58.decode(RECENT_BLOCKHASHES_ADDRESS)

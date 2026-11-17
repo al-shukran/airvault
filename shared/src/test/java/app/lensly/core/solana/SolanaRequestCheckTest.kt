@@ -9,6 +9,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -100,15 +101,70 @@ class SolanaRequestCheckTest {
         assertEquals(SolanaRequestCheck.NOT_A_SIGNER, refusal(request(signData), listOf(key(1))))
     }
 
-    /** (c): a v0 message that loads an account from an address lookup table shows the lookup warning, with the table and index. */
+    /**
+     * R04: a SOL transfer whose recipient is loaded from an address lookup table is refused. Lensly cannot check that address offline, so
+     * it does not sign a transfer to it.
+     */
     @Test
-    fun aV0MessageWithALookupTableShowsTheLookupWarning() {
+    fun aTransferToALookupTableAccountIsRefused() {
         val bytes = SolanaVectors["v0-sol-transfer-alt"]
         val payer = assertIs<SolanaMessage.Result.Ok>(SolanaMessage.decode(bytes)).message.accountKeys[0]
-        val review = review(request(bytes), listOf(payer))
-        assertEquals(listOf(SolanaVectors.TABLE), review.lookups.map { it.tableAddress })
-        assertTrue(review.warnings.contains(SolanaWarning.LOOKUP_TABLE))
-        assertEquals(1, review.instructions.size)
+        assertEquals(SolanaRequestCheck.LOOKUP_RECIPIENT_REFUSAL, refusal(request(bytes), listOf(payer)))
+    }
+
+    /** R03: a price with no limit pays for the default units: 200,000 for the one instruction that is not a compute budget one. */
+    @Test
+    fun aPriceWithNoLimitHasAPriorityFeeAtTheDefaultUnits() {
+        val signData = legacyMessage(
+            keys = listOf(key(1), key(9), system(), computeBudget()),
+            instructions = listOf(computePrice(1_000_000L), transfer(from = 0, to = 1)),
+            readonlyUnsigned = 2,
+        )
+        val review = review(request(signData), listOf(key(1)))
+        assertNull(review.computeUnitLimit)
+        assertEquals(200_000uL, review.priorityFeeLamports)
+        assertTrue(review.priorityFeeIsBound)
+    }
+
+    /** R03: a set limit sets the units the priority fee pays for, so the fee is exact. */
+    @Test
+    fun aSetLimitSetsTheUnitsOfThePriorityFee() {
+        val signData = legacyMessage(
+            keys = listOf(key(1), key(9), system(), computeBudget()),
+            instructions = listOf(computeLimit(100_000u), computePrice(1_000_000L), transfer(from = 0, to = 1)),
+            readonlyUnsigned = 2,
+        )
+        val review = review(request(signData), listOf(key(1)))
+        assertEquals(100_000u, review.computeUnitLimit)
+        assertEquals(100_000uL, review.priorityFeeLamports)
+        assertFalse(review.priorityFeeIsBound)
+    }
+
+    /** R03: a transaction that sets its compute limit twice is refused, since its fee cannot be read from one limit. */
+    @Test
+    fun aTransactionThatSetsItsComputeLimitTwiceIsRefused() {
+        val signData = legacyMessage(
+            keys = listOf(key(1), key(9), system(), computeBudget()),
+            instructions = listOf(computeLimit(100_000u), computeLimit(200_000u), transfer(from = 0, to = 1)),
+            readonlyUnsigned = 2,
+        )
+        assertEquals(SolanaRequestCheck.DUPLICATE_COMPUTE_BUDGET, refusal(request(signData), listOf(key(1))))
+    }
+
+    /** R06: a durable-nonce advance warns that the transaction has no expiry, which the review shows as information. */
+    @Test
+    fun aDurableNonceAdvanceWarnsThatItHasNoExpiry() {
+        val recentBlockhashes = fr.acinq.bitcoin.Base58.decode(RECENT_BLOCKHASHES)
+        val signData = legacyMessage(
+            keys = listOf(key(1), key(9), key(2), system(), recentBlockhashes),
+            instructions = listOf(
+                // AdvanceNonceAccount: accounts [nonce, RecentBlockhashes sysvar, authority]; data u32 LE 4.
+                Compiled(program = 3, accounts = listOf(2, 4, 0), data = le32(4)),
+                transfer(from = 0, to = 1, program = 3),
+            ),
+            readonlyUnsigned = 2,
+        )
+        assertEquals(listOf(SolanaWarning.DURABLE_NONCE), review(request(signData), listOf(key(1))).warnings)
     }
 
     @Test
@@ -224,6 +280,52 @@ class SolanaRequestCheckTest {
     private fun key(seed: Int): ByteArray = ByteArray(32) { seed.toByte() }
 
     private fun system(): ByteArray = fr.acinq.bitcoin.Base58.decode(SolanaVectors.SYSTEM)
+
+    private fun computeBudget(): ByteArray = fr.acinq.bitcoin.Base58.decode(COMPUTE_BUDGET)
+
+    /** A compiled instruction: its program and accounts as indices into the keys, and its data. */
+    private class Compiled(val program: Int, val accounts: List<Int>, val data: ByteArray)
+
+    /** A System Program transfer of 1000 lamports from key index [from] to key index [to]. The System Program is key index [program]. */
+    private fun transfer(from: Int, to: Int, program: Int = 2) =
+        Compiled(program = program, accounts = listOf(from, to), data = le32(2) + le64(1_000L))
+
+    /** A SetComputeUnitLimit to [units]: tag 2, then a u32. The program is key index 3, the compute budget program. */
+    private fun computeLimit(units: UInt) = Compiled(program = 3, accounts = emptyList(), data = byteArrayOf(2) + le32(units.toInt()))
+
+    /** A SetComputeUnitPrice of [microLamports] per unit: tag 3, then a u64. The program is key index 3, the compute budget program. */
+    private fun computePrice(microLamports: Long) =
+        Compiled(program = 3, accounts = emptyList(), data = byteArrayOf(3) + le64(microLamports))
+
+    private fun le32(value: Int): ByteArray = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(value).array()
+
+    private fun le64(value: Long): ByteArray = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(value).array()
+
+    /**
+     * A legacy message with one signer, the first key, and [readonlyUnsigned] read-only unsigned keys at the end of [keys]. Key 2 is the
+     * System Program in every test that uses [transfer].
+     */
+    private fun legacyMessage(keys: List<ByteArray>, instructions: List<Compiled>, readonlyUnsigned: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        out.write(byteArrayOf(1, 0, readonlyUnsigned.toByte()))
+        out.write(keys.size)
+        keys.forEach { out.write(it) }
+        out.write(ByteArray(32) { 7 })
+        out.write(instructions.size)
+        instructions.forEach { instruction ->
+            out.write(instruction.program)
+            out.write(instruction.accounts.size)
+            out.write(instruction.accounts.map { it.toByte() }.toByteArray())
+            out.write(instruction.data.size)
+            out.write(instruction.data)
+        }
+        return out.toByteArray()
+    }
+
+    private companion object {
+        const val COMPUTE_BUDGET = "ComputeBudget111111111111111111111111111111"
+        const val RECENT_BLOCKHASHES = "SysvarRecentB1ockHashes11111111111111111111"
+    }
 
     private fun path(vararg indexes: Int): List<PathStep> =
         indexes.mapIndexed { position, index -> PathStep(index, position < 3) }

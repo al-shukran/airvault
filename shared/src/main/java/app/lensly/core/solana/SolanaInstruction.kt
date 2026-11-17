@@ -93,12 +93,14 @@ sealed interface SolanaInstruction {
 
     /**
      * Any other program, or a known program with a shape this decoder does not read. [dataHex] is the instruction data, and
-     * [accountIndices] are the instruction's indices into the message.
+     * [accountIndices] are the instruction's indices into the message. [knownProgram] is set when the program is one this decoder reads
+     * in some of its instructions, so the review can say the instruction is not read rather than that the program is unknown.
      */
     data class Raw(
         override val programId: SolanaMessageAccount,
         val accountIndices: List<Int>,
         val accounts: List<SolanaMessageAccount>,
         val dataHex: String,
+        val knownProgram: Boolean,
     ) : SolanaInstruction
 }

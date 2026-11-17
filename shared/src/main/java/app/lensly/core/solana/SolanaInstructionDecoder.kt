@@ -53,8 +53,12 @@ private fun SolanaMessage.decodeInstruction(instruction: SolanaMessage.CompiledI
         ASSOCIATED_TOKEN_PROGRAM -> associatedTokenCreate(program, accounts, data)
         else -> null
     }
-    return decoded ?: SolanaInstruction.Raw(program, instruction.accountIndices, accounts, data.toHex())
+    val readProgram = known != null && known in READ_PROGRAMS
+    return decoded ?: SolanaInstruction.Raw(program, instruction.accountIndices, accounts, data.toHex(), knownProgram = readProgram)
 }
+
+/** The programs this decoder reads in some of their instructions. An instruction of one of them that is not read is not an unknown program. */
+private val READ_PROGRAMS = setOf(SYSTEM_PROGRAM, COMPUTE_BUDGET_PROGRAM, TOKEN_PROGRAM, TOKEN_2022_PROGRAM, ASSOCIATED_TOKEN_PROGRAM)
 
 /**
  * The System Program instructions Lensly reads. Transfer is index 2. AdvanceNonceAccount is index 4, and it is read only as the first

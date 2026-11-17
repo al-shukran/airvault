@@ -38,6 +38,24 @@ private const val MESSAGE = "Message"
 /** The label of the priority fee, in the facts under the sentence. */
 private const val PRIORITY_FEE = "Priority fee"
 
+/** The label of the base fee, in the facts under the sentence. */
+private const val BASE_FEE = "Base fee"
+
+/** The label of the most the transaction can cost in fees, in the facts under the sentence. */
+private const val MAX_FEE = "Max fee"
+
+/** The label of the recent blockhash, which a durable nonce stores in its place. */
+private const val RECENT_BLOCKHASH = "Recent blockhash"
+
+/** The label of a required signer that is neither this account nor the fee payer. */
+private const val OTHER_SIGNER = "Other required signer"
+
+/** The label of a program Lensly does not know at all. */
+private const val UNKNOWN_PROGRAM = "Unknown program"
+
+/** The label of a program Lensly reads in other instructions, for an instruction it does not read. */
+private const val NOT_DECODED = "Program not decoded: instruction is not read"
+
 /** The label of the mint, in the facts under the sentence, when one mint is named. */
 private const val MINT = "Mint"
 
@@ -45,9 +63,9 @@ private const val MINT = "Mint"
 private const val LAMPORT_DECIMALS = 9
 
 /**
- * The label and value rows a Solana review shows, in order. A transaction gives the signer, the fee payer and then each instruction,
- * with its accounts. An off-chain message gives the signer, the application domain and the message text, whole. The review screen and
- * the Review Record both show these rows, so they say the same thing.
+ * The label and value rows a Solana review shows, in order. A transaction gives the signer, the fee payer, any other required signer, the
+ * recent blockhash and then each instruction, with its accounts. An off-chain message gives the signer, the application domain and the
+ * message text, whole. The review screen and the Review Record both show these rows, so they say the same thing.
  */
 fun solanaRows(review: SolanaRequestReview): List<Pair<String, String>> = buildList {
     add(SIGNER to review.signerAddress)
@@ -58,9 +76,17 @@ fun solanaRows(review: SolanaRequestReview): List<Pair<String, String>> = buildL
         add(MESSAGE to message.text)
     } else if (feePayer != null) {
         add(FEE_PAYER to feePayer)
+        review.otherRequiredSigners.forEach { add(OTHER_SIGNER to it) }
+        review.recentBlockhash?.let { add(RECENT_BLOCKHASH to it) }
         review.instructions.forEach { addAll(instructionRows(it, review)) }
     }
 }
+
+/**
+ * Whether the owner ticks, before the review signs, that Lensly cannot say what an instruction does. That is so when an instruction is one
+ * Lensly does not read, from an unknown program or from a known one.
+ */
+fun solanaNeedsUnderstanding(review: SolanaRequestReview): Boolean = SolanaWarning.UNKNOWN_PROGRAM in review.warnings
 
 /**
  * The network row of a Solana review, for the header: the cluster that Lumio states, marked as stated by Lumio, or "Not stated" when the
@@ -147,11 +173,21 @@ private fun detailRows(instruction: SolanaInstruction, review: SolanaRequestRevi
     is SolanaInstruction.SetComputeUnitLimit -> listOf("Compute limit" to "${instruction.units} units")
     is SolanaInstruction.SetComputeUnitPrice ->
         listOf("Compute price" to "${instruction.microLamports} micro-lamports per unit")
-    is SolanaInstruction.Raw -> listOf(
-        "Unknown program" to solanaAccountText(instruction.programId),
-        "Instruction data" to "0x" + instruction.dataHex,
-        "Accounts" to instruction.accounts.joinToString(", ") { solanaAccountText(it) }.ifEmpty { "none" },
-    )
+    is SolanaInstruction.Raw -> rawRows(instruction, review)
+}
+
+/**
+ * The rows of an instruction Lensly does not read: its program, its data, and each account with the roles the message gives it, so the
+ * owner sees which accounts sign and which are writable. A program Lensly reads in other instructions is not called unknown.
+ */
+private fun rawRows(raw: SolanaInstruction.Raw, review: SolanaRequestReview): List<Pair<String, String>> = buildList {
+    add((if (raw.knownProgram) NOT_DECODED else UNKNOWN_PROGRAM) to solanaAccountText(raw.programId))
+    add("Instruction data" to "0x" + raw.dataHex)
+    if (raw.accounts.isEmpty()) add("Accounts" to "none")
+    raw.accounts.zip(raw.accountIndices).forEach { (account, index) ->
+        val roles = review.message?.roles(index)
+        add((if (roles == null) "Account" else "Account ($roles)") to solanaAccountText(account))
+    }
 }
 
 /**
@@ -218,16 +254,19 @@ fun solanaSentence(review: SolanaRequestReview): String {
 }
 
 /**
- * The short facts under the sentence: the instruction count, the fee payer, the priority fee when the transaction sets one, and the mint
- * when a single mint is named. The fee payer and the mint are shortened here, as the sentence shortens addresses. The details hold each
- * whole address.
+ * The short facts under the sentence: the instruction count, the fee payer, the base, priority and most fee in lamports, and the mint when
+ * a single mint is named. A priority fee and a maximum fee that rest on the default compute limit say "up to", since the default is an
+ * upper bound. The fee payer and the mint are shortened here, as the sentence shortens addresses. The details hold each whole address.
  */
 fun solanaFacts(review: SolanaRequestReview): List<Pair<String, String>> {
     val feePayer = review.feePayer ?: return emptyList()
+    val bound = if (review.priorityFeeIsBound) "up to " else ""
     return buildList {
         add("Instructions" to messageInstructionCount(review).toString())
         add(FEE_PAYER to shortAddress(feePayer))
-        review.priorityFeeLamports?.let { add(PRIORITY_FEE to "$it lamports") }
+        add(BASE_FEE to "${review.baseFeeLamports} lamports")
+        add(PRIORITY_FEE to "$bound${review.priorityFeeLamports} lamports")
+        add(MAX_FEE to "$bound${review.maxFeeLamports} lamports")
         review.mints.singleOrNull()?.let { add(MINT to mintFactText(it)) }
     }
 }
@@ -244,10 +283,11 @@ private fun mintFactText(mint: SolanaMessageAccount): String = when (mint) {
 /** The text of each warning the review shows, in the order the review holds them. */
 fun solanaWarningText(warning: SolanaWarning): String = when (warning) {
     SolanaWarning.UNKNOWN_PROGRAM ->
-        "Unknown program. An instruction calls a program that Lensly does not read, so Lensly cannot say what it does. " +
-            "Its raw bytes are shown below."
+        "Unknown or undecoded instruction. Lensly does not read it, so Lensly cannot say what it does. Its raw bytes are shown below."
     SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER ->
         "Nonce authority is not this account. Only the authority can advance a durable nonce, and this account is not the authority."
+    SolanaWarning.DURABLE_NONCE ->
+        "Durable nonce. This transaction has no expiry. It stays valid until the nonce advances, and advancing the nonce cancels it."
     SolanaWarning.LOOKUP_TABLE ->
         "Some accounts come from address lookup tables. Lensly cannot check those addresses offline."
     SolanaWarning.UNKNOWN_TOKEN ->

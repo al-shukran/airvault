@@ -54,7 +54,7 @@ class SolanaSplReviewTest {
             review.instructions,
         )
         assertEquals(listOf(SolanaWarning.DECIMALS_UNKNOWN), review.warnings)
-        assertNull(review.priorityFeeLamports)
+        assertEquals(0uL, review.priorityFeeLamports)
     }
 
     @Test
@@ -158,6 +158,7 @@ class SolanaSplReviewTest {
                     accountIndices = listOf(0),
                     accounts = listOf(key(SolanaVectors.PAYER)),
                     dataHex = "deadbeef",
+                    knownProgram = false,
                 ),
             ),
             review.instructions,
