@@ -20,6 +20,12 @@ sealed class BtcWarning {
 
     /** The fee is [percent] per cent of the amount the request sends to others, above the owner's limit of [thresholdPercent]. */
     data class HighFeeShare(val percent: Double, val thresholdPercent: Int) : BtcWarning()
+
+    /**
+     * The transaction cannot confirm before [lockTime], a block height or a Unix time. The lock holds whenever it is enforced, so
+     * the warning does not say whether that point has passed: the review works offline and cannot see the current block or time.
+     */
+    data class LockTime(val lockTime: Long) : BtcWarning()
 }
 
 /** The warnings of this review, in the order the review shows them. An empty list is a review with nothing to point out. */
@@ -30,5 +36,6 @@ fun BtcReview.warnings(): List<BtcWarning> = buildList {
     if (unverified > 0) add(BtcWarning.UnverifiedAmounts(unverified))
     val unknownChange = outputs.count { it.claimsOwnKey && !it.isOwnChange }
     if (unknownChange > 0) add(BtcWarning.UnknownChange(unknownChange))
+    if (lockTimeEnforced) add(BtcWarning.LockTime(lockTime))
     addAll(feeWarnings)
 }

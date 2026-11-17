@@ -72,5 +72,5 @@ internal fun signingSourceLabel(source: SigningSourcePolicy): String = when (sou
 /** What a signing source policy means, in one line under its name. */
 internal fun signingSourceDescription(source: SigningSourcePolicy): String = when (source) {
     SigningSourcePolicy.ANY -> "Any online wallet whose code the vault reads."
-    SigningSourcePolicy.COMPANION_ONLY -> "Only requests that Lumio marked are signed."
+    SigningSourcePolicy.COMPANION_ONLY -> "Only requests marked by Lumio are signed; the mark is not checked."
 }

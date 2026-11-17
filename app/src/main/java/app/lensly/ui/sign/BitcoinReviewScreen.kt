@@ -13,12 +13,17 @@ import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcReview
+import app.lensly.core.btc.BtcReviewInput
 import app.lensly.core.btc.BtcWarning
+import app.lensly.core.btc.LOCK_TIME_THRESHOLD
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.warnings
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** The check that unlocks signing when a review has unverified amounts. */
@@ -91,6 +96,7 @@ fun BitcoinReviewScreen(
                             NoteText("Not owned by this account, so Lensly does not sign it")
                         }
                         if (!input.amountVerified) NoteText("Amount not verified against its previous transaction")
+                        NoteText(sequenceText(input))
                         Spacer(Modifier.height(LenslySpacing.sm))
                     }
                 }
@@ -121,6 +127,10 @@ fun BitcoinReviewScreen(
                     )
                     ReviewFactRow(label = "Estimated size", value = "${review.estimatedVsize} vB")
                     NoteText("Estimated from the unsigned request, so the signed size may differ by a few vbytes.")
+                    ReviewFactRow(label = "Locktime", value = lockTimeText(review.lockTime), mono = review.lockTime != 0L)
+                    if (review.lockTime != 0L && !review.lockTimeEnforced) {
+                        NoteText("Not enforced, because every input is final.")
+                    }
                     if (review.feeSats == null) {
                         NoteText("Unknown until every input amount is verified or confirmed.")
                     }
@@ -157,7 +167,7 @@ internal fun btcText(sats: Long): String {
 /** An amount in BTC with no zeros at its end, for the summary sentence. Only the trailing zeros go, so the value stays exact. */
 internal fun btcShort(sats: Long): String = btcText(sats).removeSuffix(" BTC").trimEnd('0').trimEnd('.') + " BTC"
 
-/** An address shortened to its first and last characters, for the summary sentence. The full address is in the details. */
+/** An address shortened to its first and last characters, for a sentence with no room for the full one. */
 internal fun shortAddress(address: String): String =
     if (address.length <= SHORT_ADDRESS_LIMIT) address else "${address.take(10)}...${address.takeLast(6)}"
 
@@ -172,7 +182,7 @@ internal fun BtcReview.totalSats(): Long? = feeSats?.let { sentToOthersSats() + 
 
 /**
  * The summary sentence: the verb, the amount sent to others, and the counterparty. A single outside output names its counterparty by
- * its Address Book name, or else by its short address, and several are counted. A request that pays nothing outside the wallet says so.
+ * its Address Book name, or else by its full address, and several are counted. A request that pays nothing outside the wallet says so.
  */
 internal fun btcSentence(review: BtcReview, notes: Map<String, AddressNotes>): AnnotatedString {
     val others = review.outputs.filterNot { it.isOwnChange }
@@ -188,7 +198,7 @@ internal fun btcSentence(review: BtcReview, notes: Map<String, AddressNotes>): A
                 val name = address?.let { notes.notesOf(it)?.shownName() }
                 when {
                     name != null -> append(name)
-                    address != null -> appendMono(shortAddress(address))
+                    address != null -> appendMono(address)
                     else -> append("a script with no address")
                 }
             }
@@ -241,7 +251,8 @@ private fun btcRiskItems(review: BtcReview, confirmed: Boolean, onConfirmedChang
  */
 internal fun warningTone(warning: BtcWarning): BannerTone = when (warning) {
     is BtcWarning.UnverifiedAmounts -> BannerTone.Error
-    is BtcWarning.ExternalInputs, is BtcWarning.UnknownChange, is BtcWarning.HighFeeRate, is BtcWarning.HighFeeShare -> BannerTone.Warning
+    is BtcWarning.ExternalInputs, is BtcWarning.UnknownChange, is BtcWarning.LockTime,
+    is BtcWarning.HighFeeRate, is BtcWarning.HighFeeShare -> BannerTone.Warning
 }
 
 /** The words a warning shows on the review. */
@@ -258,7 +269,25 @@ internal fun warningText(warning: BtcWarning): String = when (warning) {
     is BtcWarning.HighFeeShare ->
         "The fee is ${String.format(Locale.ROOT, "%.1f", warning.percent)}% of the amount sent to others, above your limit " +
             "of ${warning.thresholdPercent}%."
+    is BtcWarning.LockTime -> "The transaction cannot confirm before ${lockTimePoint(warning.lockTime)}."
 }
+
+/** The point a locktime holds the transaction until: "block N" for a block height, else the UTC date and time of a Unix time. */
+internal fun lockTimePoint(lockTime: Long): String =
+    if (lockTime < LOCK_TIME_THRESHOLD) "block $lockTime" else LOCK_TIME_DATE.format(Instant.ofEpochSecond(lockTime))
+
+/** A locktime as the Transaction section shows it: "None" for zero, otherwise its point with a capital first letter. */
+internal fun lockTimeText(lockTime: Long): String =
+    if (lockTime == 0L) "None" else lockTimePoint(lockTime).replaceFirstChar { it.uppercaseChar() }
+
+/** The sequence of an input and its replace-by-fee state, for the input's row. */
+internal fun sequenceText(input: BtcReviewInput): String {
+    val sequence = String.format(Locale.ROOT, "0x%08X", input.sequence)
+    return "Sequence $sequence, replace-by-fee ${if (input.replaceableByFee) "on" else "off"}"
+}
+
+private val LOCK_TIME_DATE: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMM yyyy HH:mm 'UTC'", Locale.ROOT).withZone(ZoneOffset.UTC)
 
 private const val SATS_PER_BTC = 100_000_000L
 

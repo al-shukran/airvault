@@ -43,7 +43,7 @@ class BtcSigner(
             if (scriptTypeOf(spent.script, input) != account.scriptType) refuse(BtcRefusal.ScriptTypeNotUsed(index))
             val owner = ownerOf(index, input, spent.script)
             if (owner != null && !sighashIsAll(input)) refuse(BtcRefusal.SighashNotAll(index))
-            BtcReviewInput(index, spent.amountSats, spent.verified, owner)
+            BtcReviewInput(index, spent.amountSats, spent.verified, owner, txIn.sequence)
         }
         // The user's own Change Output is a change-path address of this Account within the known index range. Any other
         // path or index, including every receive address, is an outside Address.
@@ -79,6 +79,7 @@ class BtcSigner(
             feeSats = feeSats,
             requiresConfirmation = inputPolicy == InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING && !allVerified,
             estimatedVsize = estimatedVsize,
+            lockTime = tx.lockTime,
             feeWarnings = feeSats?.let { feeThresholds.warnings(it, paidSats, estimatedVsize) }.orEmpty(),
         )
     }
