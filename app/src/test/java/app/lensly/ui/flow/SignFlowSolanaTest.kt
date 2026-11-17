@@ -12,6 +12,7 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.solana.SolanaInstruction
 import app.lensly.core.solana.SolanaRequestCheck
 import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaWarning
@@ -57,6 +58,24 @@ class SignFlowSolanaTest {
         assertTrue(Ed25519Signer.verify(SOLANA_KEYS[0], transfer(), signatureOf(signature)))
         assertEquals(listOf(ReviewOutcome.SIGNED), ports.records.map { it.outcome })
         assertEquals(1, ports.signCalls)
+    }
+
+    @Test
+    fun aSplTransferCheckedIsReviewedSignedAndVerifiedWithTheAccountKey() = runBlocking {
+        val ports = SolanaPorts()
+        val flow = SignFlow(ports, walletId = WALLET)
+        val message = splTransferChecked(SOLANA_KEYS[0])
+
+        flow.onScanned(partOf(requestCbor(message)))
+
+        val review = assertIs<SignStep.SolanaReview>(flow.state.value)
+        assertTrue(review.ready.review.instructions.any { it is SolanaInstruction.TokenTransferChecked })
+        flow.approve()
+        flow.confirm("the password".toCharArray())
+
+        val signature = assertIs<SignStep.Signature>(flow.state.value).parts
+        assertTrue(Ed25519Signer.verify(SOLANA_KEYS[0], message, signatureOf(signature)))
+        assertEquals(listOf(ReviewOutcome.SIGNED), ports.records.map { it.outcome })
     }
 
     @Test
@@ -209,6 +228,8 @@ class SignFlowSolanaTest {
         const val FINGERPRINT = 0x12121212
         const val SYSTEM_ADDRESS = "11111111111111111111111111111111"
         const val TABLE = "CUDp5gcuAm64fAXUdWviywAdmrnTbrMbFPmP5u7tUL8q"
+        const val TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        const val USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
         val REQUEST_ID = ByteArray(16) { 0x11 }
         const val MNEMONIC_A = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
         val SEED: ByteArray = MnemonicUtils.generateSeed(MNEMONIC_A, "")
@@ -249,6 +270,33 @@ class SignFlowSolanaTest {
             keys.forEach { out.write(it) }
             out.write(ByteArray(32) { 7 })
             out.write(byteArrayOf(1, 2, 2, 0, 1, 12))
+            out.write(data)
+            return out.toByteArray()
+        }
+
+        /**
+         * A legacy SPL TransferChecked of 1000 units of USDC, with 6 decimals, from one token account to another. The fee payer [payer] is
+         * the one signer and the authority. The Token program and the mint are readonly, and the two token accounts are writable.
+         */
+        fun splTransferChecked(payer: ByteArray): ByteArray {
+            val data = ByteBuffer.allocate(10).order(ByteOrder.LITTLE_ENDIAN).put(12).putLong(1_000L).put(6).array()
+            val out = ByteArrayOutputStream()
+            // Header: one required signature, no readonly signed accounts, and two readonly unsigned accounts (the mint and the program).
+            out.write(byteArrayOf(1, 0, 2))
+            // Keys: the fee payer, the source, the destination, the mint, and the Token program.
+            out.write(5)
+            out.write(payer)
+            out.write(ByteArray(32) { 5 })
+            out.write(ByteArray(32) { 6 })
+            out.write(Base58.decode(USDC_MINT))
+            out.write(Base58.decode(TOKEN_PROGRAM))
+            out.write(ByteArray(32) { 7 })
+            // One instruction: the program is key 4, its accounts are source 1, mint 3, destination 2 and authority 0, then the data.
+            out.write(1)
+            out.write(4)
+            out.write(4)
+            out.write(byteArrayOf(1, 3, 2, 0))
+            out.write(data.size)
             out.write(data)
             return out.toByteArray()
         }

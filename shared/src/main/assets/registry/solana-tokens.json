@@ -1,0 +1,699 @@
+{
+  "source": "CoinGecko public API, category solana-ecosystem, top 100 by market cap; data provided by CoinGecko",
+  "retrieved": "2026-11-17",
+  "tokens": [
+    {
+      "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "symbol": "USDT",
+      "name": "Tether",
+      "decimals": 6,
+      "coingeckoId": "tether"
+    },
+    {
+      "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "symbol": "USDC",
+      "name": "USDC",
+      "decimals": 6,
+      "coingeckoId": "usd-coin"
+    },
+    {
+      "mint": "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA",
+      "symbol": "USDS",
+      "name": "USDS",
+      "decimals": 6,
+      "coingeckoId": "usds"
+    },
+    {
+      "mint": "5XZw2LKTyrfvfiskJ78AMpackRjPcyCif1WhUsPDuVqQ",
+      "symbol": "WBTC",
+      "name": "Wrapped Bitcoin",
+      "decimals": 8,
+      "coingeckoId": "wrapped-bitcoin"
+    },
+    {
+      "mint": "LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L",
+      "symbol": "LINK",
+      "name": "Chainlink",
+      "decimals": 9,
+      "coingeckoId": "chainlink"
+    },
+    {
+      "mint": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",
+      "symbol": "CBBTC",
+      "name": "Coinbase Wrapped BTC",
+      "decimals": 8,
+      "coingeckoId": "coinbase-wrapped-btc"
+    },
+    {
+      "mint": "DEkqHyPN7GMRJ5cArtQFAWefqbZb33Hyf6s5iCwjEonT",
+      "symbol": "USDE",
+      "name": "Ethena USDe",
+      "decimals": 9,
+      "coingeckoId": "ethena-usde"
+    },
+    {
+      "mint": "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB",
+      "symbol": "USD1",
+      "name": "USD1",
+      "decimals": 6,
+      "coingeckoId": "usd1-wlfi"
+    },
+    {
+      "mint": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+      "symbol": "USDG",
+      "name": "Global Dollar",
+      "decimals": 6,
+      "coingeckoId": "global-dollar"
+    },
+    {
+      "mint": "A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6",
+      "symbol": "USDY",
+      "name": "Ondo US Dollar Yield",
+      "decimals": 6,
+      "coingeckoId": "ondo-us-dollar-yield"
+    },
+    {
+      "mint": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+      "symbol": "PYUSD",
+      "name": "PayPal USD",
+      "decimals": 6,
+      "coingeckoId": "paypal-usd"
+    },
+    {
+      "mint": "7LWanZteUKtvFjv4MHYgKXXdAuCQYFPJysL9pxxdRQGn",
+      "symbol": "USYC",
+      "name": "Circle USYC",
+      "decimals": 6,
+      "coingeckoId": "hashnote-usyc"
+    },
+    {
+      "mint": "AavE1kKKnesPw4MuRJmJ9jZs9QzEE8CPxQ3ViczUDfc1",
+      "symbol": "AAVE",
+      "name": "Aave",
+      "decimals": 8,
+      "coingeckoId": "aave"
+    },
+    {
+      "mint": "5GgRAEmv8ZxF2PR5hY72Qs5x1bnQ6UK2RbTPoqJ3wSwW",
+      "symbol": "PAXG",
+      "name": "PAX Gold",
+      "decimals": 6,
+      "coingeckoId": "pax-gold"
+    },
+    {
+      "mint": "GyWgeqpy5GueU2YbkE8xqUeVEokCMMCEeUrfbtMw6phr",
+      "symbol": "BUIDL",
+      "name": "BlackRock USD Institutional Digital Liquidity Fund",
+      "decimals": 6,
+      "coingeckoId": "blackrock-usd-institutional-digital-liquidity-fund"
+    },
+    {
+      "mint": "72QvBVwpxqmheEPfaCwWSWqEFsUy3rhWt6JhQBMNTwD1",
+      "symbol": "ENA",
+      "name": "Ethena",
+      "decimals": 9,
+      "coingeckoId": "ethena"
+    },
+    {
+      "mint": "WLFinEv6ypjkczcS83FZqFpgFZYwQXutRbxGe7oC16g",
+      "symbol": "WLFI",
+      "name": "World Liberty Financial",
+      "decimals": 6,
+      "coingeckoId": "world-liberty-financial"
+    },
+    {
+      "mint": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
+      "symbol": "PUMP",
+      "name": "Pump.fun",
+      "decimals": 6,
+      "coingeckoId": "pump-fun"
+    },
+    {
+      "mint": "Eh6XEPhSwoLv5wFApukmnaVSHQ6sAnoD9BmgmwQoN2sN",
+      "symbol": "SUSDE",
+      "name": "Ethena Staked USDe",
+      "decimals": 9,
+      "coingeckoId": "ethena-staked-usde"
+    },
+    {
+      "mint": "72puLt71H93Z9CzHuBRTwFpL4TG3WZUhnoCC7p8gxigu",
+      "symbol": "USDGO",
+      "name": "USDGO",
+      "decimals": 6,
+      "coingeckoId": "usdgo"
+    },
+    {
+      "mint": "So11111111111111111111111111111111111111112",
+      "symbol": "WSOL",
+      "name": "Wrapped SOL",
+      "decimals": 9,
+      "coingeckoId": "wrapped-solana"
+    },
+    {
+      "mint": "ousd2mJsPEckLHcSCDxyKD7NDGARZcfLbDZkKiatYHB",
+      "symbol": "OUSD",
+      "name": "Open USD",
+      "decimals": 6,
+      "coingeckoId": "open-usd"
+    },
+    {
+      "mint": "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
+      "symbol": "SYRUPUSDC",
+      "name": "syrupUSDC",
+      "decimals": 6,
+      "coingeckoId": "syrupusdc"
+    },
+    {
+      "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "symbol": "JUP",
+      "name": "Jupiter",
+      "decimals": 6,
+      "coingeckoId": "jupiter-exchange-solana"
+    },
+    {
+      "mint": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
+      "symbol": "RENDER",
+      "name": "Render",
+      "decimals": 8,
+      "coingeckoId": "render-token"
+    },
+    {
+      "mint": "BNso1VUJnh4zcfpZa6986Ea66P6TCp59hvtNJ8b1X85",
+      "symbol": "BNSOL",
+      "name": "Binance Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "binance-staked-sol"
+    },
+    {
+      "mint": "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+      "symbol": "JITOSOL",
+      "name": "Jito Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "jito-staked-sol"
+    },
+    {
+      "mint": "1NJMqVM4PadjuzYmeB7zV7q7DV8oB3ExaQCd9x6KsLz",
+      "symbol": "INJ",
+      "name": "Injective",
+      "decimals": 9,
+      "coingeckoId": "injective-protocol"
+    },
+    {
+      "mint": "CCz3SGVziFeLYk2xfEstkiqJfYkjaSWb2GCABYsVcjo2",
+      "symbol": "USTB",
+      "name": "Invesco Short Duration US Government Securities Fund",
+      "decimals": 6,
+      "coingeckoId": "superstate-short-duration-us-government-securities-fund-ustb"
+    },
+    {
+      "mint": "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4",
+      "symbol": "JLP",
+      "name": "Jupiter Perpetuals Liquidity Provider Token",
+      "decimals": 6,
+      "coingeckoId": "jupiter-perpetuals-liquidity-provider-token"
+    },
+    {
+      "mint": "AAAJXeGjpKu7W3X4QTSU4pm1Wbj4G2LPcdg7A6xJLLyG",
+      "symbol": "JAAA",
+      "name": "Janus Henderson Anemoy AAA CLO Fund",
+      "decimals": 6,
+      "coingeckoId": "janus-henderson-anemoy-aaa-clo-fund"
+    },
+    {
+      "mint": "3orqhCKM5admbcHkHQhRAEKbXhUT5VPgsQqz7fBa6QdF",
+      "symbol": "FBTC",
+      "name": "Function FBTC",
+      "decimals": 8,
+      "coingeckoId": "ignition-fbtc"
+    },
+    {
+      "mint": "3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7",
+      "symbol": "PRIME",
+      "name": "Hastra PRIME",
+      "decimals": 6,
+      "coingeckoId": "hastra-prime"
+    },
+    {
+      "mint": "4qQeZ5LwSz6HuupUu8jCtgXyW1mYQcNbFAW1sWZp89HL",
+      "symbol": "CAKE",
+      "name": "PancakeSwap",
+      "decimals": 9,
+      "coingeckoId": "pancakeswap-token"
+    },
+    {
+      "mint": "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr",
+      "symbol": "EURC",
+      "name": "EURC",
+      "decimals": 6,
+      "coingeckoId": "euro-coin"
+    },
+    {
+      "mint": "sUSDai6Y3GxysDEtA9BVcEFTaog6UZpYUVxJiMhAKYE",
+      "symbol": "SUSDAI",
+      "name": "Staked USDai",
+      "decimals": 6,
+      "coingeckoId": "susdai"
+    },
+    {
+      "mint": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+      "symbol": "PYTH",
+      "name": "Pyth Network",
+      "decimals": 6,
+      "coingeckoId": "pyth-network"
+    },
+    {
+      "mint": "59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw",
+      "symbol": "PSTUSDC",
+      "name": "PayFi Strategy Token USDC",
+      "decimals": 6,
+      "coingeckoId": "payfi-strategy-token-usdc"
+    },
+    {
+      "mint": "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY",
+      "symbol": "LBTC",
+      "name": "Lombard BTC",
+      "decimals": 8,
+      "coingeckoId": "lombard-staked-btc"
+    },
+    {
+      "mint": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "symbol": "RAY",
+      "name": "Raydium",
+      "decimals": 6,
+      "coingeckoId": "raydium"
+    },
+    {
+      "mint": "SoLvHDFVstC74Jr9eNLTDoG4goSUsn1RENmjNtFKZvW",
+      "symbol": "SOLVBTC",
+      "name": "Solv Protocol BTC",
+      "decimals": 8,
+      "coingeckoId": "solv-btc"
+    },
+    {
+      "mint": "jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v",
+      "symbol": "JUPSOL",
+      "name": "Jupiter Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "jupiter-staked-sol"
+    },
+    {
+      "mint": "2uxaYT1fVrp6Fg2BrxQcyKSW91hefM6dG9krpbeDiirT",
+      "symbol": "REUSD",
+      "name": "Re Protocol reUSD",
+      "decimals": 9,
+      "coingeckoId": "re-protocol-reusd"
+    },
+    {
+      "mint": "APhcqtzE73es3KAGiVksZFMLGwJDiAey5qZKUrQHEHfS",
+      "symbol": "SOFID",
+      "name": "SoFiUSD",
+      "decimals": 6,
+      "coingeckoId": "sofiusd"
+    },
+    {
+      "mint": "8yXrtJ54jZtE84xEBzTESKuegjcAkAuDrdAhRd8i8n3T",
+      "symbol": "USDTB",
+      "name": "USDtb",
+      "decimals": 6,
+      "coingeckoId": "usdtb"
+    },
+    {
+      "mint": "i7u4r16TcsJTgq1kAG8opmVZyVnAKBwLKu6ZPMwzxNc",
+      "symbol": "OUSG",
+      "name": "Ondo Short-Term U.S. Government Bond Fund",
+      "decimals": 6,
+      "coingeckoId": "ousg"
+    },
+    {
+      "mint": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+      "symbol": "PENGU",
+      "name": "Pudgy Penguins",
+      "decimals": 6,
+      "coingeckoId": "pudgy-penguins"
+    },
+    {
+      "mint": "HAYQtfJEQ9DbDbaHEhxfGsWbSZ3ywthdsVB3PuB72DYe",
+      "symbol": "APXUSD",
+      "name": "apxUSD",
+      "decimals": 6,
+      "coingeckoId": "apxusd"
+    },
+    {
+      "mint": "Dso1bDeDjCQxTrWHqUUi63oBvV7Mdm6WaobLbQ7gnPQ",
+      "symbol": "DSOL",
+      "name": "Drift Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "drift-staked-sol"
+    },
+    {
+      "mint": "3iQL8BFS2vE7mww4ehAqQHAsbmRNCrPxizWAT2Zfyr9y",
+      "symbol": "VIRTUAL",
+      "name": "Virtuals Protocol",
+      "decimals": 9,
+      "coingeckoId": "virtual-protocol"
+    },
+    {
+      "mint": "J3NKxxXZcnNiMjKw9hYb2K4LUxgwB6t1FtPtQVsv3KFr",
+      "symbol": "SPX",
+      "name": "SPX6900",
+      "decimals": 8,
+      "coingeckoId": "spx6900"
+    },
+    {
+      "mint": "Grass7B4RdKfBCjTKgSqnXkqjwiGvQyFbuSCUJr3XXjs",
+      "symbol": "GRASS",
+      "name": "Grass",
+      "decimals": 9,
+      "coingeckoId": "grass"
+    },
+    {
+      "mint": "BPxxfRCXkUVhig4HS1Lh7kZqV6SPJhzfEk4x6fVBjPCy",
+      "symbol": "BP",
+      "name": "Backpack",
+      "decimals": 9,
+      "coingeckoId": "backpack"
+    },
+    {
+      "mint": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+      "symbol": "TRUMP",
+      "name": "Official Trump",
+      "decimals": 6,
+      "coingeckoId": "official-trump"
+    },
+    {
+      "mint": "HsRpHQn6VbyMs5b5j5SV6xQ2VvpvvCCzu19GjytVSCoz",
+      "symbol": "STRK",
+      "name": "Starknet",
+      "decimals": 9,
+      "coingeckoId": "starknet"
+    },
+    {
+      "mint": "6DNSN2BJsaPFdFFc1zP37kkeNe4Usc1Sqkzr9C9vPWcU",
+      "symbol": "TBTC",
+      "name": "tBTC",
+      "decimals": 8,
+      "coingeckoId": "tbtc"
+    },
+    {
+      "mint": "2Xva1NeLRuBFdK41gEuXqgeWtnKKDve9PKeCnMEpNG6K",
+      "symbol": "OHM",
+      "name": "Olympus",
+      "decimals": 9,
+      "coingeckoId": "olympus"
+    },
+    {
+      "mint": "8fr7WGTVFszfyNWRMXj6fRjZZAnDwmXwEpCrtzmUkdih",
+      "symbol": "WYLDS",
+      "name": "Hastra Wrapped YLDS",
+      "decimals": 6,
+      "coingeckoId": "hastra-wrapped-ylds"
+    },
+    {
+      "mint": "gtBTCGWvSRYYoZpU9UZj6i3eUGUpgksXzzsbHk2K9So",
+      "symbol": "GTBTC",
+      "name": "Gate Wrapped BTC",
+      "decimals": 8,
+      "coingeckoId": "gate-wrapped-btc"
+    },
+    {
+      "mint": "sctmB7GPi5L2Q5G9tUSzXvhZ4YiDMEGcRov9KfArQpx",
+      "symbol": "DFDVSOL",
+      "name": "DFDV Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "dfdv-staked-sol"
+    },
+    {
+      "mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+      "symbol": "BONK",
+      "name": "Bonk",
+      "decimals": 5,
+      "coingeckoId": "bonk"
+    },
+    {
+      "mint": "6FrrzDk5mQARGc1TDYoyVnSyRdds1t4PbtohCD6p3tgG",
+      "symbol": "USX",
+      "name": "USX",
+      "decimals": 6,
+      "coingeckoId": "usx"
+    },
+    {
+      "mint": "DghpMkatCiUsofbTmid3M3kAbDTPqDwKiYHnudXeGG52",
+      "symbol": "EURCV",
+      "name": "EUR CoinVertible",
+      "decimals": 2,
+      "coingeckoId": "societe-generale-forge-eurcv"
+    },
+    {
+      "mint": "ZBCNpuD7YMXzTHB2fhGkGi78MNsHGLRXUhRewNRm9RU",
+      "symbol": "ZBCN",
+      "name": "Zebec Network",
+      "decimals": 6,
+      "coingeckoId": "zebec-network"
+    },
+    {
+      "mint": "uniBKsEV37qLRFZD7v3Z9drX6voyiCM8WcaePqeSSLc",
+      "symbol": "UNIBTC",
+      "name": "Universal BTC",
+      "decimals": 8,
+      "coingeckoId": "universal-btc"
+    },
+    {
+      "mint": "KMNo3nJsBXfcpJTVhZcXLW7RmTwTt4GVFE7suUBo9sS",
+      "symbol": "KMNO",
+      "name": "Kamino",
+      "decimals": 6,
+      "coingeckoId": "kamino"
+    },
+    {
+      "mint": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+      "symbol": "MSOL",
+      "name": "Marinade Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "msol"
+    },
+    {
+      "mint": "METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL",
+      "symbol": "MET",
+      "name": "Meteora",
+      "decimals": 6,
+      "coingeckoId": "meteora"
+    },
+    {
+      "mint": "7JA5eZdCzztSfQbJvS8aVVxMFfd81Rs9VvwnocV1mKHu",
+      "symbol": "GEOD",
+      "name": "Geodnet",
+      "decimals": 9,
+      "coingeckoId": "geodnet"
+    },
+    {
+      "mint": "AUSD1jCcCyPLybk1YnvPWsHQSrZ46dxwoMniN4N2UEB9",
+      "symbol": "AUSD",
+      "name": "AUSD",
+      "decimals": 6,
+      "coingeckoId": "agora-dollar"
+    },
+    {
+      "mint": "4Zp52aF4hZi9fzH19xpbWKYKQvgLyCN67KFbrQDqeTKh",
+      "symbol": "ZAMA",
+      "name": "Zama",
+      "decimals": 9,
+      "coingeckoId": "zama"
+    },
+    {
+      "mint": "DuEy8wWrzCUun5ZbbG9hkVqXqqicpTQw8gB7nEAzpCHQ",
+      "symbol": "FLUID",
+      "name": "Fluid",
+      "decimals": 9,
+      "coingeckoId": "instadapp"
+    },
+    {
+      "mint": "EPeUFDgHRxs9xxEPVaL6kfGQvCon7jmAWKVUHuux1Tpz",
+      "symbol": "BAT",
+      "name": "Basic Attention",
+      "decimals": 8,
+      "coingeckoId": "basic-attention-token"
+    },
+    {
+      "mint": "CARDSccUMFKoPRZxt5vt3ksUbxEFEcnZ3H2pd3dKxYjp",
+      "symbol": "CARDS",
+      "name": "Collector Crypt",
+      "decimals": 6,
+      "coingeckoId": "collector-crypt"
+    },
+    {
+      "mint": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+      "symbol": "JTO",
+      "name": "Jito",
+      "decimals": 9,
+      "coingeckoId": "jito-governance-token"
+    },
+    {
+      "mint": "Ex8hKasfFCfj3yGuN5TyYRUjHePgVs3uYUJRT8geT7rv",
+      "symbol": "APYUSD",
+      "name": "apyUSD",
+      "decimals": 6,
+      "coingeckoId": "apyusd"
+    },
+    {
+      "mint": "5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm",
+      "symbol": "INF",
+      "name": "Sanctum Infinity",
+      "decimals": 9,
+      "coingeckoId": "socean-staked-sol"
+    },
+    {
+      "mint": "3dQTr7ror2QPKQ3GbBCokJUmjErGg8kTJzdnYjNfvi3Z",
+      "symbol": "BORG",
+      "name": "SwissBorg",
+      "decimals": 9,
+      "coingeckoId": "swissborg"
+    },
+    {
+      "mint": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+      "symbol": "WIF",
+      "name": "dogwifhat",
+      "decimals": 6,
+      "coingeckoId": "dogwifcoin"
+    },
+    {
+      "mint": "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH",
+      "symbol": "CASH",
+      "name": "CASH",
+      "decimals": 6,
+      "coingeckoId": "cash-4"
+    },
+    {
+      "mint": "BCNT4t3rv5Hva8RnUtJUJLnxzeFAabcYp8CghC1SmWin",
+      "symbol": "BC",
+      "name": "BCGame Coin",
+      "decimals": 6,
+      "coingeckoId": "bc-token"
+    },
+    {
+      "mint": "Xs78JED6PFZxWc2wCEPspZW9kL3Se5J7L5TChKgsidH",
+      "symbol": "STRCX",
+      "name": "Strategy PP Variable xStock",
+      "decimals": 8,
+      "coingeckoId": "strategy-pp-variable-xstock"
+    },
+    {
+      "mint": "pSo1f9nQXWgXibFtKf7NWYxb5enAM4qfP6UJSiXRQfL",
+      "symbol": "PSOL",
+      "name": "Phantom Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "phantom-staked-sol"
+    },
+    {
+      "mint": "GNE6oDS6jHrfaV3GQVVCCp37fDnT7PiPuewMKBj2bqNm",
+      "symbol": "AUTO",
+      "name": "Hastra AUTO",
+      "decimals": 6,
+      "coingeckoId": "hastra-auto"
+    },
+    {
+      "mint": "AymATz4TCL9sWNEEV9Kvyz45CHVhDZ6kUgjTJPzLpU9P",
+      "symbol": "XAUT0",
+      "name": "Tether Gold Tokens",
+      "decimals": 6,
+      "coingeckoId": "tether-gold-tokens"
+    },
+    {
+      "mint": "GArhnnDj3GYhmQeApKVXaRv4TQFwhPcs3SNF6FXsTeXq",
+      "symbol": "NOPAL",
+      "name": "Nest BlackOpal LiquidStone II Vault",
+      "decimals": 6,
+      "coingeckoId": "nest-blackopal-liquidstone-ii-vault"
+    },
+    {
+      "mint": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+      "symbol": "NVDAX",
+      "name": "NVIDIA xStock",
+      "decimals": 8,
+      "coingeckoId": "nvidia-xstock"
+    },
+    {
+      "mint": "XsueG8BtpquVJX9LVLLEGuViXUungE6WmK5YZ3p3bd1",
+      "symbol": "CRCLX",
+      "name": "Circle xStock",
+      "decimals": 8,
+      "coingeckoId": "circle-xstock"
+    },
+    {
+      "mint": "6eftxVbSAunVEoxUWdGhPdxg5UdsJ8Wkwy5w5YFuxouw",
+      "symbol": "CHZ",
+      "name": "Chiliz",
+      "decimals": 8,
+      "coingeckoId": "chiliz"
+    },
+    {
+      "mint": "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+      "symbol": "MSTRX",
+      "name": "MicroStrategy xStock",
+      "decimals": 8,
+      "coingeckoId": "microstrategy-xstock"
+    },
+    {
+      "mint": "A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS",
+      "symbol": "ZEC",
+      "name": "OmniBridge Bridged Zcash (Solana)",
+      "decimals": 8,
+      "coingeckoId": "omnibridge-bridged-zcash-solana"
+    },
+    {
+      "mint": "5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5",
+      "symbol": "ONYC",
+      "name": "OnRe Tokenized Reinsurance",
+      "decimals": 9,
+      "coingeckoId": "onyc"
+    },
+    {
+      "mint": "BeGY8KqKxboEwRbJd1q9H2K829jS4Rc5dEyNMYXCbV5p",
+      "symbol": "NPC",
+      "name": "Non-Playable Coin",
+      "decimals": 8,
+      "coingeckoId": "non-playable-coin"
+    },
+    {
+      "mint": "vSoLxydx6akxyMD9XEcPvGYNGq6Nn66oqVb3UkGkei7",
+      "symbol": "VSOL",
+      "name": "The Vault Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "the-vault-staked-sol"
+    },
+    {
+      "mint": "7bxM8cRFZpzonzZtzmrcWHNX1dijrEVU4VkjjtVyBmqE",
+      "symbol": "WSRUSD",
+      "name": "Wrapped Savings rUSD",
+      "decimals": 9,
+      "coingeckoId": "wrapped-savings-rusd"
+    },
+    {
+      "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+      "symbol": "USELESS",
+      "name": "Useless Coin",
+      "decimals": 6,
+      "coingeckoId": "useless-3"
+    },
+    {
+      "mint": "Bybit2vBJGhPF52GBdNaQfUJ6ZpThSgHBobjWZpLPb4B",
+      "symbol": "BBSOL",
+      "name": "Bybit Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "bybit-staked-sol"
+    },
+    {
+      "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+      "symbol": "FARTCOIN",
+      "name": "Fartcoin",
+      "decimals": 6,
+      "coingeckoId": "fartcoin"
+    },
+    {
+      "mint": "7Q2afV64in6N6SeZsAAB81TJzwDoD6zpqmHkzi9Dcavn",
+      "symbol": "JSOL",
+      "name": "JPool Staked SOL",
+      "decimals": 9,
+      "coingeckoId": "jpool"
+    }
+  ]
+}
