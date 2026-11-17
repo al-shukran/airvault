@@ -54,7 +54,7 @@ class PairCodePasswordTest {
         pressDone()
         assertEquals(listOf(wallet), built)
         compose.onNodeWithText(PASSWORD_PROMPT, substring = true).assertDoesNotExist()
-        compose.onNodeWithText("Done").assertExists()
+        compose.onNodeWithText("Done", ignoreCase = true).assertExists()
     }
 
     @Test
@@ -120,7 +120,8 @@ class PairCodePasswordTest {
             }
         }
         compose.onNodeWithText("LUMIO (AIRVAULT COMPANION)").performClick()
-        compose.onNodeWithText("Show code").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Show code", ignoreCase = true).performClick()
         compose.waitForIdle()
     }
 
