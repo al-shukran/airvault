@@ -63,6 +63,8 @@ fun ShowSecretScreen(
     modifier: Modifier = Modifier,
     /** The Done of the last page of the words. It runs in place of [onDone] there, so a caller can record the backup first. */
     onFinish: () -> Unit = onDone,
+    /** The line near the erase on the password step, such as "2 tries left before this vault is erased". */
+    warning: String? = null,
 ) {
     when (step) {
         is RevealStep.Password -> PasswordStep(
@@ -76,6 +78,7 @@ fun ShowSecretScreen(
             title = TITLE,
             prompt = SHOW_PROMPT,
             stepCount = STEP_COUNT,
+            warning = warning,
         )
         RevealStep.Warning -> WarningStep(onShow = onShow, onBack = onDone, modifier = modifier)
         is RevealStep.Revealed -> RevealedStep(

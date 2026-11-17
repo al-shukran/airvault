@@ -24,8 +24,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.core.vault.FailureDelay
-import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.SliderSetting
@@ -38,12 +36,11 @@ private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 3_600_000L
 
 /**
- * The wrong password lockout caps the owner may choose, from 1 s to 1 h. The default is [DEFAULT], 1 min: the cap a vault that has
- * never saved one uses, which the slider captions as Default. [capMs] is the longest wait after a wrong try.
+ * The wrong password lockout caps the owner may choose, from 10 s to 1 h. Shorter caps are not offered, because they make guessing
+ * faster. The default is [DEFAULT], 1 min: the cap a vault that has never saved one uses, which the slider captions as Default.
+ * [capMs] is the longest wait after a wrong try.
  */
 enum class FailureCapChoice(val label: String, val capMs: Long) {
-    ONE_SECOND("1 s", 1_000L),
-    FIVE_SECONDS("5 s", 5_000L),
     TEN_SECONDS("10 s", 10_000L),
     THIRTY_SECONDS("30 s", 30_000L),
     ONE_MINUTE("1 min", 60_000L),
@@ -72,37 +69,44 @@ sealed interface FailureCapStep {
     /** The owner picks a cap and continues. */
     data object Choose : FailureCapStep
 
-    /** The owner continued with [choice]. The App Password is asked, and [busy] while it is checked. */
-    data class Password(val choice: FailureCapChoice, val busy: Boolean) : FailureCapStep
+    /** The owner continued with [choice] and [eraseAfter]. The App Password is asked, and [busy] while it is checked. */
+    data class Password(val choice: FailureCapChoice, val eraseAfter: Int, val busy: Boolean) : FailureCapStep
 }
 
 /**
- * The wrong password lockout, which is the Failure Delay cap, in two steps. On the first, the owner picks the longest wait on a slider.
- * The screen shows the waits that follow each wrong try under the pick, and a cap below 10 s shows the spec warning, and Continue
- * then reads "Continue anyway", so the owner confirms it. The second step asks for the App Password, and the caller checks it
- * before anything is saved, because the lockout is a security setting. [saved] is the cap in force, null while it is read.
- * [selected] is the owner's pick, or null before one is made, and the saved cap is shown until then. Continue is off until the pick
- * differs from the saved cap.
+ * The wrong password lockout, in two steps. On the first, the owner picks the longest wait on a slider, and how many wrong tries in
+ * a row erase the vault. The screen shows the waits that follow each wrong try under the pick. The second step asks for the App
+ * Password, and the caller checks it before anything is saved, because the lockout is a security setting. [saved] and [savedErase]
+ * are the cap and the erase count in force, null while they are read. [selected] and [selectedErase] are the owner's picks, or null
+ * before one is made, and the saved values are shown until then. Continue is off until a pick differs from what is saved.
  */
 @Composable
 fun FailureCapScreen(
     step: FailureCapStep,
     saved: FailureCapChoice?,
     selected: FailureCapChoice?,
+    savedErase: Int?,
+    selectedErase: Int?,
     passwordLength: Int,
     onSelect: (FailureCapChoice) -> Unit,
+    onSelectErase: (Int) -> Unit,
     onContinue: () -> Unit,
     onKey: (Char) -> Unit,
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
+    /** The line near the erase on the App Password step, such as "2 tries left before this vault is erased". */
+    warning: String? = null,
     modifier: Modifier = Modifier,
 ) {
     when (step) {
         FailureCapStep.Choose -> ChooseContent(
             saved = saved,
             shown = selected ?: saved,
+            savedErase = savedErase,
+            shownErase = selectedErase ?: savedErase,
             onSelect = onSelect,
+            onSelectErase = onSelectErase,
             onContinue = onContinue,
             onBack = onBack,
             modifier = modifier,
@@ -119,6 +123,7 @@ fun FailureCapScreen(
             prompt = "Enter your Application Password to save this lockout.",
             stepCount = STEP_COUNT,
             step = 2,
+            warning = warning,
         )
     }
 }
@@ -127,20 +132,23 @@ fun FailureCapScreen(
 private fun ChooseContent(
     saved: FailureCapChoice?,
     shown: FailureCapChoice?,
+    savedErase: Int?,
+    shownErase: Int?,
     onSelect: (FailureCapChoice) -> Unit,
+    onSelectErase: (Int) -> Unit,
     onContinue: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier,
 ) {
-    val warn = FailureDelay.warnsAt(shown?.capMs)
-    val canContinue = shown != null && saved != null && shown != saved
+    val canContinue = (shown != null && saved != null && shown != saved) ||
+        (shownErase != null && savedErase != null && shownErase != savedErase)
     LenslyScreen(
         title = TITLE,
         modifier = modifier,
         onBack = onBack,
         bottomAction = {
             PillButton(
-                text = if (warn) "Continue anyway" else "Continue",
+                text = "Continue",
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth(),
                 accent = true,
@@ -174,17 +182,27 @@ private fun ChooseContent(
             Spacer(Modifier.height(LenslySpacing.md))
             WaitSteps(choice = shown)
         }
-        if (warn) {
-            Spacer(Modifier.height(LenslySpacing.md))
-            InlineBanner(
-                title = "Below 10 seconds",
-                message = "Short waits make guessing your password faster. With a cap this short, each wrong try costs " +
-                    "less time, so someone guessing gets more tries in the same time. Continue only if you accept that.",
-                tone = BannerTone.Warning,
-            )
-        }
+        Spacer(Modifier.height(LenslySpacing.lg))
+        SliderSetting(
+            title = "Erase after",
+            options = ERASE_OPTIONS,
+            selected = shownErase,
+            label = { "$it tries" },
+            onSelect = onSelectErase,
+            caption = { if (it == FailureDelay.DEFAULT_WIPE_AFTER) "Default" else null },
+        )
+        Spacer(Modifier.height(LenslySpacing.xs))
+        Text(
+            text = "After this many wrong tries in a row, Lensly erases this vault. It warns you " +
+                "${FailureDelay.WARN_TRIES_LEFT} tries before that. This cannot be turned off.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
+
+/** The erase counts the owner may choose: 5 to 20 wrong tries in a row. */
+private val ERASE_OPTIONS: List<Int> = (FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER).toList()
 
 /**
  * The waits after the first wrong tries under [choice], one bar to each. The bars grow toward the longest wait, and a bar at the

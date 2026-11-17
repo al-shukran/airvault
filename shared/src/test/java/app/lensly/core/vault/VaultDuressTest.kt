@@ -286,7 +286,7 @@ class VaultDuressTest {
     @Test
     fun theFailureDelayCapIsChangedOnlyByTheRealAppPassword() {
         createVault()
-        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureDelayCap(APP.toCharArray(), 30_000L) })
+        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureLimits(APP.toCharArray(), 30_000L) })
         assertEquals(30_000L, runBlocking { vault.failureDelayCapMs() })
 
         val real = unlocked(attempt(APP))
@@ -296,12 +296,12 @@ class VaultDuressTest {
         // Each vault takes only its own password. The Duress Password is not the real App Password, so it cannot save the cap.
         assertEquals(
             FailureCapResult.Rejected,
-            runBlocking { vault.setFailureDelayCap(DURESS.toCharArray(), 5_000L) },
+            runBlocking { vault.setFailureLimits(DURESS.toCharArray(), 10_000L) },
         )
         // The App Password typed into the decoy is not the decoy's password either.
         assertEquals(
             FailureCapResult.Rejected,
-            runBlocking { vault.setFailureDelayCap(APP.toCharArray(), 5_000L, inDecoy = true) },
+            runBlocking { vault.setFailureLimits(APP.toCharArray(), 10_000L, inDecoy = true) },
         )
         assertEquals(30_000L, runBlocking { vault.failureDelayCapMs() })
     }
@@ -309,7 +309,7 @@ class VaultDuressTest {
     @Test
     fun aDecoyCapChangeAppearsToSaveButNeverReachesTheRealCap() {
         createVault()
-        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureDelayCap(APP.toCharArray(), 30_000L) })
+        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureLimits(APP.toCharArray(), 30_000L) })
         val real = unlocked(attempt(APP))
         assertEquals(DuressResult.Enabled, setDuress(real))
         real.close()
@@ -318,14 +318,14 @@ class VaultDuressTest {
         // The decoy's own password is accepted, so the change looks saved, but the real cap stays where it was.
         assertEquals(
             FailureCapResult.Saved,
-            runBlocking { vault.setFailureDelayCap(DURESS.toCharArray(), 5_000L, inDecoy = true) },
+            runBlocking { vault.setFailureLimits(DURESS.toCharArray(), 10_000L, inDecoy = true) },
         )
         decoy.close()
         assertEquals(30_000L, runBlocking { vault.failureDelayCapMs() })
 
         // The real App Password still saves a real change.
-        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureDelayCap(APP.toCharArray(), 5_000L) })
-        assertEquals(5_000L, runBlocking { vault.failureDelayCapMs() })
+        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureLimits(APP.toCharArray(), 10_000L) })
+        assertEquals(10_000L, runBlocking { vault.failureDelayCapMs() })
     }
 
     @Test

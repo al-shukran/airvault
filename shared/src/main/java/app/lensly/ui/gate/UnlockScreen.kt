@@ -23,8 +23,15 @@ import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslySpacing
 
 /**
+ * The notice shown as the last tries come: "2 tries left before this vault is erased". Sentence case, and no full stop, as the
+ * gate's other notices have none.
+ */
+fun eraseWarning(triesLeft: Int): String =
+    (if (triesLeft == 1) "1 try left" else "$triesLeft tries left") + " before this vault is erased"
+
+/**
  * Unlock screen. It shows no error text, ever: a wrong password just clears the field, so the screen
- * never says which factor failed or how many tries are left.
+ * never says which factor failed. Near the erase, [warning] says how many tries are left (see [eraseWarning]).
  *
  * The keyboard is up when the screen opens, since the password is the only task. A tap outside the field or the system
  * Back hides it, and a tap on the field brings it back.
@@ -40,6 +47,7 @@ fun UnlockScreen(
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
+    warning: String? = null,
 ) {
     var focused by rememberSaveable { mutableStateOf(true) }
     KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
@@ -62,7 +70,7 @@ fun UnlockScreen(
 
             PasswordField(length = length, onClick = { focused = true })
             Spacer(Modifier.height(LenslySpacing.sm))
-            GateStatusLine(text = if (busy) "Unlocking" else null, working = busy)
+            GateStatusLine(text = if (busy) "Unlocking" else warning, working = busy)
 
             Spacer(Modifier.weight(1f))
 

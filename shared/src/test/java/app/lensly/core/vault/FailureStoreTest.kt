@@ -249,7 +249,7 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir) { 8 }
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L, clock)
+        store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         store.recordFailure(store.load(clock), clock)
 
         // No reboot lowers the count. The copies still verify, and the owner's 5 s cap is kept on paper, but the lock is the strictest one.
@@ -353,16 +353,16 @@ class FailureStoreTest {
         val store = open(dir)
         store.initialize(clock)
 
-        store.recordCap(store.load(clock), 5_000L, clock)
-        assertEquals(5_000L, open(dir).load(clock).capMs)
+        store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
+        assertEquals(10_000L, open(dir).load(clock).capMs)
 
-        store.recordCap(open(dir).load(clock), FailureDelay.MAX_CAP_MS, clock)
+        store.recordLimits(open(dir).load(clock), FailureDelay.MAX_CAP_MS, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         assertEquals(FailureDelay.MAX_CAP_MS, open(dir).load(clock).capMs)
 
-        store.recordCap(open(dir).load(clock), FailureDelay.MIN_CAP_MS, clock)
+        store.recordLimits(open(dir).load(clock), FailureDelay.MIN_CAP_MS, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         assertEquals(FailureDelay.MIN_CAP_MS, open(dir).load(clock).capMs)
 
-        store.recordCap(open(dir).load(clock), null, clock)
+        store.recordLimits(open(dir).load(clock), null, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         assertNull(open(dir).load(clock).capMs)
     }
 
@@ -372,7 +372,7 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 300_000L, clock)
+        store.recordLimits(store.load(clock), 300_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
 
         store.recordFailure(store.load(clock), clock)
         assertEquals(300_000L, open(dir).load(clock).capMs)
@@ -391,8 +391,8 @@ class FailureStoreTest {
         store.initialize(clock)
         val state = store.load(clock)
 
-        assertFailsWith<IllegalArgumentException> { store.recordCap(state, 999L, clock) }
-        assertFailsWith<IllegalArgumentException> { store.recordCap(state, FailureDelay.MAX_CAP_MS + 1, clock) }
+        assertFailsWith<IllegalArgumentException> { store.recordLimits(state, 999L, FailureDelay.DEFAULT_WIPE_AFTER, clock) }
+        assertFailsWith<IllegalArgumentException> { store.recordLimits(state, FailureDelay.MAX_CAP_MS + 1, FailureDelay.DEFAULT_WIPE_AFTER, clock) }
         assertNull(open(dir).load(clock).capMs)
     }
 
@@ -402,7 +402,7 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L, clock)
+        store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
 
         // Change the owner's 5 s cap in the primary copy, and leave its MAC as it was.
         val bytes = dir.primary().readBytes()
@@ -412,10 +412,10 @@ class FailureStoreTest {
         // The backup still verifies, so its cap is kept, and saving the lockout rewrites the primary.
         val locked = open(dir).load(clock)
         assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
-        assertEquals(5_000L, locked.capMs)
+        assertEquals(10_000L, locked.capMs)
         val repaired = open(dir).load(clock)
         assertEquals(FailureStore.TAMPER_FAILURES, repaired.failures)
-        assertEquals(5_000L, repaired.capMs)
+        assertEquals(10_000L, repaired.capMs)
     }
 
     @Test
@@ -424,7 +424,7 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L, clock)
+        store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
 
         for (file in listOf(dir.primary(), dir.backup())) {
             val bytes = file.readBytes()
@@ -443,12 +443,12 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L, clock)
+        store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         dir.backup().delete()
 
         val locked = open(dir).load(clock)
         assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
-        assertEquals(5_000L, locked.capMs)
+        assertEquals(10_000L, locked.capMs)
     }
 
     @Test
@@ -457,7 +457,7 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L, clock)
+        store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         dir.primary().delete()
         dir.backup().delete()
 
@@ -472,16 +472,16 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS, clock)
+        store.recordLimits(store.load(clock), FailureDelay.MAX_CAP_MS, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         val olderOneHour = dir.primary().readBytes()
-        store.recordCap(store.load(clock), 5_000L, clock)
+        store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
 
         // The primary is put back to the one-hour copy. Its key was deleted at the 5 s save, so it does not verify.
         dir.primary().writeBytes(olderOneHour)
 
         val locked = open(dir).load(clock)
         assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
-        assertEquals(5_000L, locked.capMs)
+        assertEquals(10_000L, locked.capMs)
     }
 
     @Test
@@ -490,9 +490,9 @@ class FailureStoreTest {
         val clock = FakeClock()
         val store = open(dir)
         store.initialize(clock)
-        store.recordCap(store.load(clock), 5_000L, clock)
+        store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         val olderFiveSeconds = dir.primary().readBytes()
-        store.recordCap(store.load(clock), FailureDelay.MAX_CAP_MS, clock)
+        store.recordLimits(store.load(clock), FailureDelay.MAX_CAP_MS, FailureDelay.DEFAULT_WIPE_AFTER, clock)
 
         // The primary is put back to the 5 s copy. After a restart this process has seen nothing, and its key is gone.
         dir.primary().writeBytes(olderFiveSeconds)
@@ -538,7 +538,7 @@ class FailureStoreTest {
             state = store.recordFailure(state, clock)
             assertEquals(1, keys.failureMacKeyCount())
         }
-        state = store.recordCap(state, 5_000L, clock)
+        state = store.recordLimits(state, 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         assertEquals(1, keys.failureMacKeyCount())
         store.recordSuccess(state, clock)
         assertEquals(1, keys.failureMacKeyCount())
@@ -657,7 +657,7 @@ class FailureStoreTest {
             failures = 3,
             lastFailureWallMs = clock.wall,
             lastFailureElapsedMs = clock.elapsed,
-            capMs = 5_000L,
+            capMs = 10_000L,
         )
         val legacy = encodeLegacy(version = 2, legacyState, legacyKey)
         dir.mkdirs()
@@ -666,15 +666,15 @@ class FailureStoreTest {
 
         val migrated = open(dir).load(clock)
         assertEquals(3, migrated.failures)
-        assertEquals(5_000L, migrated.capMs)
+        assertEquals(10_000L, migrated.capMs)
         assertEquals(8L, migrated.seq)
         // The legacy key is deleted, and the one key that remains is the new one.
         assertNull(keys.legacyFailureMacKey())
         assertEquals(1, keys.failureMacKeyCount())
-        // The pending wait is what it was before the migration: 5 s, the owner's cap, measured from the failure.
+        // The pending wait is what it was before the migration: 10 s, the owner's cap, measured from the failure.
         val delay = FailureDelay(FakeClock.START_WALL, FailureDelay.configuredCapFor(migrated))
         assertTrue(delay.isBlocked(migrated, clock))
-        clock.advance(5_000)
+        clock.advance(10_000)
         assertFalse(delay.isBlocked(migrated, clock))
         // Loading again gives the same state, with nothing more to settle.
         assertEquals(migrated, open(dir).load(clock))
@@ -685,7 +685,7 @@ class FailureStoreTest {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val legacyKey = keys.createLegacyFailureMacKey()
-        val legacyState = FailureState(seq = 7, failures = 3, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed, capMs = 5_000L)
+        val legacyState = FailureState(seq = 7, failures = 3, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed, capMs = 10_000L)
         val legacy = encodeLegacy(version = 2, legacyState, legacyKey)
         dir.mkdirs()
         dir.primary().writeBytes(legacy)
@@ -697,7 +697,7 @@ class FailureStoreTest {
 
         val settled = open(dir).load(clock)
         assertEquals(3, settled.failures)
-        assertEquals(5_000L, settled.capMs)
+        assertEquals(10_000L, settled.capMs)
         assertEquals(9L, settled.seq)
         assertNull(keys.legacyFailureMacKey())
         assertEquals(1, keys.failureMacKeyCount())

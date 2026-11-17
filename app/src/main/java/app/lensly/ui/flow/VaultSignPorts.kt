@@ -169,6 +169,11 @@ internal class VaultSignPorts(
                 PasswordCheck.Accepted
             }
             UnlockResult.Rejected -> PasswordCheck.Rejected
+            // The last allowed try erased the vault, so the open session goes with it, as on a wipe.
+            UnlockResult.Erased -> {
+                holder.lock()
+                PasswordCheck.Rejected
+            }
         }
     } catch (e: VaultException) {
         PasswordCheck.Unavailable

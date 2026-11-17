@@ -40,6 +40,7 @@ import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.gate.UnavailableScreen
 import app.lensly.ui.gate.UnlockScreen
+import app.lensly.ui.gate.eraseWarning
 import app.lensly.ui.theme.LenslyBlack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -216,7 +217,7 @@ fun NavHostController.openHidden(route: String) {
  * The outcome of creating or unlocking the vault from a screen. [Cancelled] is a device check the owner did not pass; nothing
  * is opened or changed, and the owner can try again.
  */
-private enum class GateOutcome { Opened, Rejected, Unavailable, Cancelled, KeyInvalidated }
+private enum class GateOutcome { Opened, Rejected, Erased, Unavailable, Cancelled, KeyInvalidated }
 
 @Composable
 private fun GateRoute(navController: NavHostController, holder: VaultHolder, home: String) {
@@ -317,15 +318,18 @@ private fun UnlockRoute(navController: NavHostController, holder: VaultHolder, h
     val buffer = remember { PasswordBuffer() }
     var length by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
+    var triesLeft by remember { mutableStateOf<Int?>(null) }
 
     BackHandler { leaveHidden(navController, holder) }
     DisposableEffect(Unit) {
         onDispose { buffer.clear() }
     }
+    LaunchedEffect(Unit) { triesLeft = holder.vault.triesBeforeErase() }
 
     UnlockScreen(
         length = length,
         busy = busy,
+        warning = triesLeft?.let(::eraseWarning),
         onKey = { c ->
             if (!busy && buffer.append(c)) length = buffer.length
         },
@@ -348,8 +352,12 @@ private fun UnlockRoute(navController: NavHostController, holder: VaultHolder, h
                 busy = false
                 when (outcome) {
                     GateOutcome.Opened -> navController.openHidden(home)
-                    // A wrong password clears the field and says nothing. The field was cleared on submit, and so is a cancelled check.
-                    GateOutcome.Rejected, GateOutcome.Cancelled -> Unit
+                    // A wrong password clears the field. Near the erase, the warning is read again, since this try may have counted.
+                    GateOutcome.Rejected -> triesLeft = holder.vault.triesBeforeErase()
+                    // A cancelled check counted no try, and the field was cleared on submit, so nothing is read again.
+                    GateOutcome.Cancelled -> Unit
+                    // The last allowed try erased the vault, so the owner leaves as after any wipe.
+                    GateOutcome.Erased -> leaveHidden(navController, holder)
                     GateOutcome.KeyInvalidated -> navController.openHidden(GateRoutes.KEY_INVALIDATED)
                     GateOutcome.Unavailable -> navController.openHidden(GateRoutes.UNAVAILABLE)
                 }
@@ -391,6 +399,7 @@ private suspend fun unlockWith(holder: VaultHolder, password: CharArray, context
             is UnlockResult.Unlocked ->
                 if (holder.adopt(result.session, epoch)) GateOutcome.Opened else GateOutcome.Rejected
             UnlockResult.Rejected -> GateOutcome.Rejected
+            UnlockResult.Erased -> GateOutcome.Erased
         }
     } catch (e: VaultAuthRequiredException) {
         GateOutcome.Cancelled
