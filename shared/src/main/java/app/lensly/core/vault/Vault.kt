@@ -87,6 +87,10 @@ open class VaultException(message: String, cause: Throwable? = null) : IllegalSt
 /** What the gate says for a vault in another format. It names no secret. */
 const val VAULT_FORMAT_CHANGED = "The vault format changed. Restore your wallets from their seed phrases."
 
+/** What the gate says for vault files without a whole vault. It names no secret. */
+const val VAULT_DAMAGED =
+    "The vault files are incomplete, so this device cannot open or create a vault. Clear the app's data to start again."
+
 /**
  * The vault on disk is in another format than this build reads. Nothing is checked against a password, and nothing is migrated: the owner
  * restores the wallets from their seed phrases into a new vault.
@@ -142,6 +146,9 @@ class Vault constructor(
     /** True once a vault has been created and not wiped. */
     fun exists(): Boolean = layout.exists()
 
+    /** True when vault files are left without a whole vault. The gate then shows [VAULT_DAMAGED], and [create] refuses. */
+    fun isPartial(): Boolean = layout.isPartial()
+
     /**
      * True when the vault on disk is in another format than this build reads. [unlock] refuses such a vault before it checks any password,
      * and the gate shows [VAULT_FORMAT_CHANGED] instead of the password screen. It reads only `header.bin`.
@@ -176,7 +183,7 @@ class Vault constructor(
      * release build the vault key must be hardware-backed, or the result is [CreateResult.DeviceUnsupported]. A build that allows
      * backup gets [CreateResult.BackupAllowed] before anything is checked or written.
      *
-     * @throws IllegalStateException if a vault already exists. Call [wipe] first.
+     * @throws IllegalStateException if a vault already exists, or vault files are left without one (see [isPartial]). Call [wipe] first.
      */
     suspend fun create(password: CharArray): CreateResult =
         withContext(Dispatchers.IO) { mutex.withLock { createLocked(password) } }
@@ -312,6 +319,7 @@ class Vault constructor(
             val policy = PasswordPolicy.check(password)
             if (policy is PolicyResult.Refused) return CreateResult.PolicyRejected(policy.reason)
             check(!layout.exists()) { "A vault already exists. Call wipe() before creating another." }
+            check(!layout.isPartial()) { "Vault files are left without a vault. Call wipe() before creating one." }
 
             val hardwareKey = keystoreOrNull { keys.createHardwareKey() } ?: return CreateResult.DeviceUnsupported
             val securityLevel = keystoreOrNull { keys.securityLevel(hardwareKey) } ?: UNKNOWN_SECURITY_LEVEL
