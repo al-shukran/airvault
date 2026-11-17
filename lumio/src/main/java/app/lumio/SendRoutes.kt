@@ -102,10 +102,10 @@ private const val NO_BROWSER = "No browser can open the explorer."
 private const val REQUEST_ID_BYTES = 16
 
 /**
- * A send from one address of a paired wallet: the form, the review, the request that Lensly signs, the scan of its signature, and the
- * transaction that is sent. Lumio holds no key. It builds the transaction from public reads, and it broadcasts only a signature that
- * answers its own request from the account that sends. [preferredChainId] and [preferredToken] start the form on that chain and that
- * ERC-20 token, as an asset's page does; without a token the form starts on the native coin.
+ * A send from one address of a paired wallet, on the network [chainId]: the form, the review, the request that Lensly signs, the scan of its
+ * signature, and the transaction that is sent. The network is fixed, so the form offers no other. Lumio holds no key. It builds the transaction
+ * from public reads, and it broadcasts only a signature that answers its own request from the account that sends. [preferredToken] starts the
+ * form on that ERC-20 token; without a token the form starts on the native coin.
  */
 @Composable
 internal fun SendRoute(
@@ -114,7 +114,7 @@ internal fun SendRoute(
     walletId: String,
     index: Int,
     mode: NetworkMode,
-    preferredChainId: Long? = null,
+    chainId: Long,
     preferredToken: String? = null,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
@@ -136,7 +136,6 @@ internal fun SendRoute(
     var step by remember { mutableStateOf<SendStep>(SendStep.Form) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
-    var chainId by remember { mutableStateOf(preferredChainId) }
     // The contract of the token the send moves, or null for the native coin of the chain.
     var contract by remember { mutableStateOf(preferredToken) }
     var busy by remember { mutableStateOf(false) }
@@ -149,11 +148,10 @@ internal fun SendRoute(
     // The send the network prepared. The review's Advanced sheet edits a copy of it, and the warnings compare against it.
     var suggested by remember { mutableStateOf<PreparedSend?>(null) }
 
-    val selectedChain = ready.chains.firstOrNull { it.chainId == chainId } ?: ready.chains.firstOrNull()
+    // The network the send is bound to. Null when that network is off, and the form then says so.
+    val selectedChain = ready.chains.firstOrNull { it.chainId == chainId }
     // The coins the chain offers: the native coin, the tokens held here, and the preferred token. The send moves the chosen one, native by default.
-    val assets = selectedChain?.let { chain ->
-        SendAssets.onChain(chain, ready.tokensOf(chain), ready.held, preferredToken.takeIf { chain.chainId == preferredChainId })
-    }.orEmpty()
+    val assets = selectedChain?.let { chain -> SendAssets.onChain(chain, ready.tokensOf(chain), ready.held, preferredToken) }.orEmpty()
     val asset = assets.firstOrNull { it.token?.contract == contract } ?: assets.firstOrNull()
 
     fun review() {
@@ -289,12 +287,7 @@ internal fun SendRoute(
         SendStep.Form -> SendFormScreen(
             fromLabel = "Address ${index + 1}",
             fromAddress = ready.from,
-            chains = ready.chains,
-            selectedChainId = selectedChain?.chainId,
-            onSelectChain = {
-                chainId = it
-                contract = null
-            },
+            chain = selectedChain,
             assets = assets,
             selectedAsset = asset,
             onSelectAsset = { contract = it.token?.contract },

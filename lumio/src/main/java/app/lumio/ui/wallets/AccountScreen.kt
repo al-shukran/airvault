@@ -11,13 +11,9 @@ import androidx.compose.ui.Modifier
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
-import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
 
-/**
- * One account: its chain and network, its full address, its balance, and the two text actions, Send and Receive. Send is offered on Bitcoin,
- * Ethereum, Solana and Algorand.
- */
+/** One account: its chain and network, its full address, its balance, and the two text actions, Send and Receive. */
 @Composable
 fun AccountScreen(
     walletName: String,
@@ -28,7 +24,6 @@ fun AccountScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val sendable = account.chain in setOf(AccountChain.BITCOIN, AccountChain.ETHEREUM, AccountChain.SOLANA, AccountChain.ALGORAND)
     LenslyScreen(title = account.chain.label, modifier = modifier, onBack = onBack) {
         Text(
             text = walletName,
@@ -52,14 +47,7 @@ fun AccountScreen(
         )
         BalanceValue(account, shown = showBalance, large = true)
         Spacer(Modifier.height(LenslySpacing.lg))
-        TextButton(onClick = onSend, enabled = sendable) { Text("Send") }
-        if (!sendable) {
-            Text(
-                text = "Coming soon",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        TextButton(onClick = onSend) { Text("Send") }
         TextButton(onClick = onReceive) { Text("Receive") }
     }
 }
