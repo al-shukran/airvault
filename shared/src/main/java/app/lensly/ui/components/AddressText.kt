@@ -1,7 +1,5 @@
 package app.lensly.ui.components
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.combinedClickable
@@ -41,7 +39,7 @@ internal const val ADDRESS_COPIED = "Address copied"
  * the address shortened or grouped. The copy button and a long press on the text copy it to the clipboard, and a short toast confirms
  * it. [icon] puts the chain's logo before the address: the Bitcoin logo when [bitcoin], else the Ethereum logo, which every EVM
  * chain shares. [onClick], when set, runs on a tap of the text, for an address that sits in a
- * row which is itself tapped. The clip is not marked sensitive, because an address is public.
+ * row which is itself tapped. The clip is marked sensitive and cleared after a minute, as every copy in Lensly is.
  */
 @Composable
 fun AddressText(
@@ -93,12 +91,8 @@ fun AddressText(
 /** [address] in groups of four characters separated by spaces. The full address is kept, and text wraps only at the spaces. */
 fun groupAddress(address: String): String = address.chunked(4).joinToString(" ")
 
-/**
- * Puts [address] on the clipboard as plain text, then confirms with a short toast. The clip is not marked sensitive: an address is
- * public, and a sensitive clip would hide it from the clipboard preview.
- */
+/** Copies [address] through [copyToClipboard], then confirms with a short toast. */
 internal fun copyAddress(context: Context, address: String) {
-    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
-    clipboard.setPrimaryClip(ClipData.newPlainText("Address", address))
+    copyToClipboard(context, "Address", address)
     Toast.makeText(context, ADDRESS_COPIED, Toast.LENGTH_SHORT).show()
 }
