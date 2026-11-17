@@ -15,6 +15,9 @@ class SolanaTokenList private constructor(private val byMint: Map<String, Solana
     /** The token of [mint], a base58 address, or null when the list does not hold it. */
     fun token(mint: String): SolanaToken? = byMint[mint]
 
+    /** Every token in the list, in the order the file gives them. */
+    val tokens: List<SolanaToken> get() = byMint.values.toList()
+
     companion object {
         /** The largest decimals count a token in the list can have. */
         private const val MAX_DECIMALS = 18
