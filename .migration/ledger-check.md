@@ -35,7 +35,7 @@ Algorand keys follow Ledger's own Ed25519 scheme (BOLOS `HDW_NORMAL`), not SLIP-
 | Bitcoin | Sparrow Wallet | Verified. Sparrow's default Native Segwit path is `m/84'/0'/0'`, read from Sparrow's source (`ScriptType.P2WPKH`, drongo `protocol/ScriptType.java`, master, 2026-11-17). Address values were produced with `bip_utils`, which implements the same path. The Sparrow GUI was not driven in that run; the owner reproduces it. Sparrow release not pinned. |
 | Ethereum | Ian Coleman's BIP39 tool (offline HTML) | Verified. In `src/js/index.js`, row i of the BIP32 table shows the custom path, then `/`, then i (`getDerivationPath() + "/" + index`), and its key is `derive(i)` of that path. Address values were produced with ethers 6.17.0. The standalone HTML was not driven in that run. |
 | Solana | `solana-keygen` (Agave CLI 4.4.1) | Verified. `prompt://?key=N` gives `m/44'/501'/N'`. The Agave source describes `key` as the account index, and `derivation-path` builds `new_bip44(Some(N), None)` as `m/44'/501'/N'`. The pubkeys for N=0 and N=4 match an independent SLIP-0010 derivation of `m/44'/501'/N'`. |
-| Algorand | Ledger's app-algorand in Speculos | Not checked. The app builds (see the Algorand section). The Speculos run and the address read-out have not been done, so Algorand blocks acceptance. |
+| Algorand | Ledger's app-algorand in Speculos | Verified. Speculos ran app-algorand commit 62adedc with the public test mnemonic. The index 0 and index 4 public keys match Lensly's, and the addresses derived from them match Lensly's addresses. See the Algorand section. |
 
 ## Bitcoin: Sparrow Wallet
 
@@ -87,32 +87,42 @@ Compare the two pubkeys with Lensly's Solana addresses for accounts 0 and 4.
 
 ## Algorand: Ledger's app-algorand in Speculos
 
-Status: not checked. Lensly's values are recorded below, but the Speculos run has not been done, so no address has been read from app-algorand yet.
+Status: verified. Speculos ran Ledger's app-algorand with the public test mnemonic. For index 0 and index 4, the public key the app returned matches Lensly's key, and the address derived from that key matches Lensly's address.
 
 Tool: Speculos, Ledger's emulator, running Ledger's app-algorand. This is the same app code a Ledger runs. Speculos is at https://github.com/LedgerHQ/speculos. The app is at https://github.com/LedgerHQ/app-algorand. Speculos is an emulator, and its README warns that its behaviour is not guaranteed to match hardware.
 
 Why this route: no software wallet was found that implements the Ledger Algorand path. Lensly's own doc says xHD wallets, including Pera, show different addresses.
 
-Verified in this run:
-- Clone `https://github.com/LedgerHQ/app-algorand` and check out `develop` (commit 62adedc was used). Then run `git submodule update --init --recursive --depth 1`. Without the submodules, `make` stops with `ICONNAME is not set`.
-- Build inside the builder image (arm64 on an M1 Mac, no emulation needed):
-  `docker run --rm --user "$(id -u):$(id -g)" -v "$(pwd -P):/app" ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest bash -c "cd /app && make DEBUG=1"`
-  This exits 0 and writes `app/build/nanos2/bin/app.elf`. The build also prints two "must have indexed colors" lines for the apex icon; they do not fail the build.
-- `--seed` takes a BIP39 mnemonic or a `hex:` seed (`speculos/main.py`). The APDU server listens on `0.0.0.0` at `--apdu-port` (default 9999).
-- The APDU framing, from `speculos/mcu/apdu.py`: a request is a 4-byte big-endian length followed by the APDU. A reply is a 4-byte big-endian data length, then the data, then the 2-byte status word.
-- GET PUBLIC KEY is CLA `0x80`, INS `0x03`, P1 `0x00`, P2 `0x00`. Its data is the account number as a 4-byte big-endian integer (`pack_account_id` in `tests/utils.py`), not a BIP32 path. The app builds `m/44'/283'/N'/0/0` itself.
-- Address encoding: the Algorand address is base32 of the 32-byte public key followed by the last 4 bytes of SHA-512/256 of that key, without padding. This reproduces Lensly's addresses from Lensly's public keys (checked for accounts 0 and 4).
+Versions used:
+- app-algorand commit `62adedc`, on `develop`. The submodules are `ledger-secure-sdk` `c426645`, `ledger-zxlib` `5d26f9e` and `picohash` `3a9eff9`.
+- Builder image `ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite@sha256:670f123c1b656bd878c5ef5fa12943fd3156fe054b0b62b3ae2dd3b01a78af58`.
+- Speculos image `ghcr.io/ledgerhq/speculos@sha256:56c7ec84c903147dac28e68706d3241218a3d9beb9562dd4a8c02947b2a24f47`. Its entrypoint is `python ./speculos.py`. Its log reports the app as version 2.7.3.
+
+Steps run. `<TEST_SEED>` is the public 24-word test mnemonic from the Safety section. In the run it was passed in a shell variable and never written to a file.
+1. Clone and pin the commit. Without the submodules, `make` stops with `ICONNAME is not set`.
+  `git clone https://github.com/LedgerHQ/app-algorand.git app-algorand`, then `git -C app-algorand checkout 62adedc` and `git -C app-algorand submodule update --init --recursive --depth 1`.
+2. Build in the clone root:
+  `docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd -P):/app" -w /app ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite:latest bash -c "make DEBUG=1"`
+  The image's default `BOLOS_SDK` is the Nano S Plus SDK, so no SDK argument is needed. The build exits 0, prints `TARGET_NAME = [TARGET_NANOS2]`, and writes `app/build/nanos2/bin/app.elf`. The two "must have indexed colors" lines for the apex icon do not fail the build. An earlier run used `ledger-app-dev-tools:latest` with `cd /app && make DEBUG=1` and wrote the same path.
+3. Start Speculos as a Nano S Plus, headless, with the APDU server on loopback port 9999. On this Mac, port 5000 is held by macOS ControlCenter (AirPlay Receiver), so the web UI is mapped to host port 5001. Open http://127.0.0.1:5001/ to see the emulated screen. `--seed` takes a BIP39 mnemonic (`speculos/main.py`).
+  `docker run -d --name algo-check-speculos -p 127.0.0.1:9999:9999 -p 127.0.0.1:5001:5000 -p 127.0.0.1:5902:5900 -v "$(pwd -P)/app/build/nanos2/bin:/app:ro" ghcr.io/ledgerhq/speculos:latest --model nanosp --display headless --apdu-port 9999 --api-port 5000 --vnc-port 5900 --vnc-password <VNC_PASSWORD> --seed "<TEST_SEED>" /app/app.elf`
+4. Send the APDUs through the web UI's `/apdu` endpoint. `data` is the APDU in hex, and the reply is the data followed by the 2-byte status word.
+  `curl -s -X POST http://127.0.0.1:5001/apdu -H 'Content-Type: application/json' -d '{"data":"8000000000"}'` (GET VERSION, reply ends `9000`)
+  `curl -s -X POST http://127.0.0.1:5001/apdu -H 'Content-Type: application/json' -d '{"data":"800300000400000000"}'` (GET PUBLIC KEY, account 0)
+  `curl -s -X POST http://127.0.0.1:5001/apdu -H 'Content-Type: application/json' -d '{"data":"800300000400000004"}'` (GET PUBLIC KEY, account 4)
+  GET PUBLIC KEY takes P1 `0x00` (no confirmation) and a payload of the account number as a 4-byte big-endian integer, as `docs/APDUSPEC.md` says. Each reply was 32 bytes followed by `9000`. `docs/APDUSPEC.md` also lists a 65-byte key and a 58-byte address in this reply, but this build returns only the 32-byte key, so the address is derived from it in step 5. The same APDUs sent to TCP port 9999, with a 4-byte big-endian length before each request (the framing in `speculos/mcu/apdu.py`), returned the same bytes.
 
 Lensly's public keys for the public mnemonic (from `LedgerEd25519.algorandAccount`):
 - Account 0: `7491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538`
 - Account 4: `816cf2a86f72eb9d812f563eb4466aa30b179dc7b1f8e3e8840f06f40210b7dc`
 
-Not verified yet (the remaining steps for this check):
-1. Start Speculos with airplane mode on. The Speculos image was pulled, but was not started in this run. Use `--model nanosp --display headless --apdu-port 9999 --seed "<TEST_SEED>"` and the built `app.elf`. Confirm the container entrypoint before you rely on this.
-2. Send GET PUBLIC KEY for account 0 and account 4 to port 9999, with the framing above.
-3. Compare the returned public keys with the two keys above, then convert them to addresses and compare with Lensly's addresses.
+5. Convert each 32-byte key to an address. The address is base32, without padding, of the key followed by the last 4 bytes of SHA-512/256 of the key. Replace `<KEY_HEX>` with the 64-character key from step 4.
+  `python3 -I -c 'import base64,hashlib,sys; pk=bytes.fromhex(sys.argv[1]); print(base64.b32encode(pk+hashlib.new("sha512_256",pk).digest()[-4:]).decode().rstrip("="))' <KEY_HEX>`
+6. Compare with Lensly. The results from the run:
+- Account 0: key `7491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538` matches Lensly's key. Address `OSI2442FE4NVQHRW4RVLUWO5AF43TPIUM7DS4PDGB7EMFPJMMU4KNIN3GQ` matches Lensly's address.
+- Account 4: key `816cf2a86f72eb9d812f563eb4466aa30b179dc7b1f8e3e8840f06f40210b7dc` matches Lensly's key. Address `QFWPFKDPOLVZ3AJPKY7LIRTKUMFRPHOHWH4OH2EEB4DPIAQQW7OBI2YXUY` matches Lensly's address.
 
-Until steps 1 to 3 pass, Algorand index 0 and index 4 are "not checked".
+Algorand index 0 and index 4 are verified. Afterwards, `docker rm -f algo-check-speculos` stops the emulator.
 
 ## Ethereum legacy path note
 
@@ -127,7 +137,7 @@ The owner reproduces this table first, with the public 24-word test mnemonic, us
 | Bitcoin (native segwit) | `m/84'/0'/0'/0/i` | `bc1qzmtrqsfuaf6l6kkcsseumq26ukaphfj9skkug6` | `bc1qzmtrqsfuaf6l6kkcsseumq26ukaphfj9skkug6` | `bc1qmml5thvhpyvqjfhj7hfrhqsd4lm86vn8dh4v02` | `bc1qmml5thvhpyvqjfhj7hfrhqsd4lm86vn8dh4v02` | ✓ |
 | Ethereum (Ledger Live) | `m/44'/60'/N'/0/0` | `0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb` | `0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb` | `0x290C2D6fa111595Df8A636d36763bFe4cD8D9e6F` | `0x290C2D6fa111595Df8A636d36763bFe4cD8D9e6F` | ✓ |
 | Solana | `m/44'/501'/N'` | `4BZp4ci5rhNYqbayj1uppeTas1osK2Q4b74x7UENC5Hd` | `4BZp4ci5rhNYqbayj1uppeTas1osK2Q4b74x7UENC5Hd` | `D1FuzHHPZsU4GeFbcnM8ReDBUaXmoG1F2iVgp3CN8hxj` | `D1FuzHHPZsU4GeFbcnM8ReDBUaXmoG1F2iVgp3CN8hxj` | ✓ |
-| Algorand | `m/44'/283'/N'/0/0` | `OSI2442FE4NVQHRW4RVLUWO5AF43TPIUM7DS4PDGB7EMFPJMMU4KNIN3GQ` | not checked | `QFWPFKDPOLVZ3AJPKY7LIRTKUMFRPHOHWH4OH2EEB4DPIAQQW7OBI2YXUY` | not checked | not checked |
+| Algorand | `m/44'/283'/N'/0/0` | `OSI2442FE4NVQHRW4RVLUWO5AF43TPIUM7DS4PDGB7EMFPJMMU4KNIN3GQ` | `OSI2442FE4NVQHRW4RVLUWO5AF43TPIUM7DS4PDGB7EMFPJMMU4KNIN3GQ` | `QFWPFKDPOLVZ3AJPKY7LIRTKUMFRPHOHWH4OH2EEB4DPIAQQW7OBI2YXUY` | `QFWPFKDPOLVZ3AJPKY7LIRTKUMFRPHOHWH4OH2EEB4DPIAQQW7OBI2YXUY` | ✓ |
 
 Lensly's values came from its own derivation code on the public mnemonic (`HdWallet`, `BtcAccount.fromSeed(..., NATIVE_SEGWIT, 0).receiveAddress`, `SolanaAccount.address`, `LedgerEd25519.algorandAccount` with `AlgoAddress.encode`). The Ethereum index 0 value is the one in `AccountAddressesTest`.
 
