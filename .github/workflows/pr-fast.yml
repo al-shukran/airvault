@@ -250,6 +250,23 @@ jobs:
       - name: Run ${{ matrix.partition }}
         run: ./scripts/ci/run-partition.sh "${{ matrix.partition }}"
 
+      # Lensly (:app) is offline in release too. check-manifest.sh reads only the debug merge, so the release merge is read here, in
+      # the manifest partition. Lumio (the companion) may request INTERNET, so only :app is checked.
+      - name: Refuse INTERNET in the release manifest of :app
+        if: matrix.partition == 'manifest'
+        run: |
+          ./gradlew :app:processReleaseMainManifest
+          merged="$(find app/build/intermediates -path '*merged_manifest*/release/*' -name AndroidManifest.xml | head -n 1)"
+          if [ -z "$merged" ]; then
+            echo "error: merged release manifest of :app not found under app/build/intermediates" >&2
+            exit 1
+          fi
+          if grep -q '"android.permission.INTERNET"' "$merged"; then
+            echo "error: android.permission.INTERNET is in the merged release manifest of :app; Lensly is offline by design" >&2
+            exit 1
+          fi
+          echo "ok: the merged release manifest of :app has no android.permission.INTERNET"
+
   # Lumio's lint runs in its own job, not in the test job: lintDebug on top of the lumio partition took the test job past its 5-minute cap (PR 181
   # ran 5m17s). The lumio-a filter is the same as the lumio-b partition's, and pr-ok counts a skip as a pass.
   lint:
