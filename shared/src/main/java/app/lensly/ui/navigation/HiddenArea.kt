@@ -240,6 +240,7 @@ private fun GateRoute(navController: NavHostController, holder: VaultHolder, hom
 
 @Composable
 private fun CreatePasswordRoute(navController: NavHostController, holder: VaultHolder, home: String) {
+    val context = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
     val buffer = remember { PasswordBuffer() }
     var first by remember { mutableStateOf<CharArray?>(null) }
@@ -294,7 +295,7 @@ private fun CreatePasswordRoute(navController: NavHostController, holder: VaultH
                     first = null
                     busy = true
                     scope.launch {
-                        val outcome = createVault(holder, expected)
+                        val outcome = createVault(holder, expected, context)
                         busy = false
                         when (outcome) {
                             GateOutcome.Opened -> navController.openHidden(home)
@@ -343,7 +344,7 @@ private fun UnlockRoute(navController: NavHostController, holder: VaultHolder, h
             // The app's warm-up runs while the key is derived, so what Home shows is ready when it opens.
             scope.launch(Dispatchers.IO) { runCatching { warmUp(context) } }
             scope.launch {
-                val outcome = unlockWith(holder, password)
+                val outcome = unlockWith(holder, password, context)
                 busy = false
                 when (outcome) {
                     GateOutcome.Opened -> navController.openHidden(home)
@@ -361,11 +362,11 @@ private fun UnlockRoute(navController: NavHostController, holder: VaultHolder, h
  * Creates the vault with [password], then opens it with the same password. [app.lensly.core.vault.Vault.create]
  * zeroes the array it is given, so it gets a copy. The original is zeroed here, on every path.
  */
-private suspend fun createVault(holder: VaultHolder, password: CharArray): GateOutcome = try {
+private suspend fun createVault(holder: VaultHolder, password: CharArray, context: Context): GateOutcome = try {
     if (holder.vault.create(password.copyOf()) != CreateResult.Created) {
         GateOutcome.Unavailable
     } else {
-        when (val outcome = unlockWith(holder, password)) {
+        when (val outcome = unlockWith(holder, password, context)) {
             GateOutcome.Rejected, GateOutcome.Cancelled -> GateOutcome.Unavailable
             else -> outcome
         }
@@ -380,9 +381,10 @@ private suspend fun createVault(holder: VaultHolder, password: CharArray): GateO
 
 /**
  * Unlocks with [password], which the vault zeroes, and keeps the session if the vault was not locked meanwhile.
- * A damaged vault gives [GateOutcome.Unavailable], and a deleted vault key gives [GateOutcome.KeyInvalidated].
+ * A damaged vault gives [GateOutcome.Unavailable]. A deleted vault key gives [GateOutcome.KeyInvalidated]: either the Keystore says so,
+ * or it fails for the vault key on a device with no screen lock left, which is what removing the lock does to the key.
  */
-private suspend fun unlockWith(holder: VaultHolder, password: CharArray): GateOutcome {
+private suspend fun unlockWith(holder: VaultHolder, password: CharArray, context: Context): GateOutcome {
     val epoch = holder.unlockEpoch()
     return try {
         when (val result = holder.vault.unlock(password)) {
@@ -395,7 +397,7 @@ private suspend fun unlockWith(holder: VaultHolder, password: CharArray): GateOu
     } catch (e: VaultKeyInvalidatedException) {
         GateOutcome.KeyInvalidated
     } catch (e: VaultException) {
-        GateOutcome.Unavailable
+        if (VaultKeystore.isDeviceSecure(context)) GateOutcome.Unavailable else GateOutcome.KeyInvalidated
     }
 }
 
