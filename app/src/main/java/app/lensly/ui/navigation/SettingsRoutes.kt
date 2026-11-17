@@ -112,6 +112,18 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
                 }
             }
         },
+        unknownCallPolicy = settings?.unknownCallPolicy,
+        onUnknownCallPolicy = { policy ->
+            scope.launch {
+                whileUnlocked(navController, holder) {
+                    // Only the policy changes, so the other saved settings are kept.
+                    val next = withContext(Dispatchers.IO) {
+                        SettingsStore(session).let { store -> store.load().copy(unknownCallPolicy = policy).also(store::save) }
+                    }
+                    settings = next
+                }
+            }
+        },
         onChangePassword = { navController.navigate(HiddenRoute.CHANGE_PASSWORD) },
         entryGesture = entryGestures.current,
         onEntryGesture = { navController.navigate(HiddenRoute.ENTRY_GESTURE) },

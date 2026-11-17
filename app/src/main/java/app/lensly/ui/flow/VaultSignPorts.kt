@@ -92,8 +92,9 @@ internal class VaultSignPorts(
             val position = listed.indexOfFirst { it.id == walletId }
             if (position < 0) null else viewOf(session, listed[position], position)
         }
-        val proxyPolicy = readWallet { SettingsStore(it).load().proxyPolicy }
-        val prepared = SignPipeline(RegistryHolder.get(context), parser, proxyPolicy).prepare(parsed, wallet)
+        val settings = readWallet { SettingsStore(it).load() }
+        val prepared = SignPipeline(RegistryHolder.get(context), parser, settings.proxyPolicy, settings.unknownCallPolicy)
+            .prepare(parsed, wallet)
         if (prepared !is Prepared.Ready) return@withContext prepared
         val review = prepared.review
         val shown = listOfNotNull(review.toAddress.ifEmpty { null }) +
@@ -252,7 +253,8 @@ internal class VaultSignPorts(
             ?: return@withContext SolanaPrepared.Refused("The request does not say which wallet it is for")
         if (sourceFingerprint != masterFingerprint) return@withContext SolanaPrepared.Refused("This request is for a different wallet")
         val keys = readWallet { WalletStore(it).solanaKeys(walletId) }
-        when (val checked = SolanaRequestCheck.check(request, keys, SolanaTokensHolder.get(context))) {
+        val unknownCalls = readWallet { SettingsStore(it).load().unknownCallPolicy }
+        when (val checked = SolanaRequestCheck.check(request, keys, SolanaTokensHolder.get(context), unknownCalls)) {
             is SolanaRequestCheck.Result.Ok -> SolanaPrepared.Ready(walletId, request, checked.review)
             is SolanaRequestCheck.Result.Refused -> SolanaPrepared.Refused(checked.reason)
         }

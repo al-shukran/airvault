@@ -1,5 +1,6 @@
 package app.lensly.core.solana
 
+import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.SolSignRequest
@@ -118,6 +119,31 @@ class SolanaRequestCheckTest {
         assertTrue(review.warnings.contains(SolanaWarning.UNKNOWN_PROGRAM))
     }
 
+    /** Under Warn an unknown program is reviewed under its warning; under Refuse the same transaction is refused. */
+    @Test
+    fun anUnknownProgramIsReviewedUnderWarnAndRefusedUnderRefuse() {
+        val bytes = SolanaVectors["legacy-unknown-program"]
+        val payer = assertIs<SolanaMessage.Result.Ok>(SolanaMessage.decode(bytes)).message.accountKeys[0]
+        assertTrue(review(request(bytes), listOf(payer), UnknownCallPolicy.WARN).warnings.contains(SolanaWarning.UNKNOWN_PROGRAM))
+        assertEquals(SolanaRequestCheck.UNKNOWN_PROGRAM_REFUSAL, refusal(request(bytes), listOf(payer), UnknownCallPolicy.REFUSE))
+    }
+
+    /** Under Refuse a transaction that calls only known programs is still reviewed, with no warning. */
+    @Test
+    fun aKnownTransferIsReviewedUnderRefuse() {
+        val signData = legacyTransfer(listOf(key(1), key(9), system()))
+        assertEquals(emptyList(), review(request(signData), listOf(key(1)), UnknownCallPolicy.REFUSE).warnings)
+    }
+
+    /** The signer rule still decides first: a transaction the account does not sign is refused as before, under either policy. */
+    @Test
+    fun aTransactionThatDoesNotSignIsStillRefusedUnderEitherPolicy() {
+        val bytes = SolanaVectors["legacy-unknown-program"]
+        for (policy in UnknownCallPolicy.entries) {
+            assertEquals(SolanaRequestCheck.NOT_A_SIGNER, refusal(request(bytes), listOf(key(1)), policy), "policy $policy")
+        }
+    }
+
     @Test
     fun aKnownTransferWithNoLookupHasNoWarning() {
         val signData = legacyTransfer(listOf(key(1), key(9), system()))
@@ -134,14 +160,22 @@ class SolanaRequestCheckTest {
         assertEquals(emptyList(), review.warnings)
     }
 
-    private fun review(request: ByteArray, keys: List<ByteArray>): SolanaRequestReview {
+    private fun review(
+        request: ByteArray,
+        keys: List<ByteArray>,
+        unknownCalls: UnknownCallPolicy = UnknownCallPolicy.WARN,
+    ): SolanaRequestReview {
         val parsed = assertIs<SolSignRequest.Result.Ok>(SolSignRequest.decode(request)).request
-        return assertIs<SolanaRequestCheck.Result.Ok>(SolanaRequestCheck.check(parsed, keys)).review
+        return assertIs<SolanaRequestCheck.Result.Ok>(SolanaRequestCheck.check(parsed, keys, unknownCalls = unknownCalls)).review
     }
 
-    private fun refusal(request: ByteArray, keys: List<ByteArray>): String {
+    private fun refusal(
+        request: ByteArray,
+        keys: List<ByteArray>,
+        unknownCalls: UnknownCallPolicy = UnknownCallPolicy.WARN,
+    ): String {
         val parsed = assertIs<SolSignRequest.Result.Ok>(SolSignRequest.decode(request)).request
-        return assertIs<SolanaRequestCheck.Result.Refused>(SolanaRequestCheck.check(parsed, keys)).reason
+        return assertIs<SolanaRequestCheck.Result.Refused>(SolanaRequestCheck.check(parsed, keys, unknownCalls = unknownCalls)).reason
     }
 
     private fun key(seed: Int): ByteArray = ByteArray(32) { seed.toByte() }
