@@ -3,15 +3,12 @@ package app.lumio.home
 import app.lensly.core.vault.VaultSession
 import app.lumio.LumioApp
 import app.lumio.bitcoinRefs
-import app.lumio.btc.BtcRow
 import app.lumio.btc.networkId
-import app.lumio.chains.NativeBalanceCache
 import app.lumio.chains.NativeBalances
 import app.lumio.chains.NativeFailure
 import app.lumio.data.asset.AssetId
 import app.lumio.data.price.Price
 import app.lumio.data.sched.Priority
-import app.lumio.evm.BalanceCache
 import app.lumio.evm.ChainFailure
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
@@ -19,38 +16,17 @@ import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.evm.Portfolio
 import app.lumio.network.NetworkMode
-import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.queueScans
-import app.lumio.rowsOf
-import app.lumio.tokens.CustomTokenStore
-import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenPortfolio
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Home's reads. Each step reads one source and returns what it read, so Home adds it to the list at once: the cached balances first, then the
- * prices, the Ethereum balances and the Bitcoin scans. Every vault read and every database read runs off the main thread.
+ * The wallet screens' reads. Each step reads one source and returns what it read: the prices, the Ethereum balances and tokens, the native balances, and
+ * the Bitcoin scans. Every vault read and every database read runs off the main thread.
  */
 internal object HomeLoader {
-    /**
-     * The balances of [mode]'s side from the vault, native and token: the balance cache for Ethereum, Algorand and Solana, the token cache, and the last
-     * scans for Bitcoin. It reads no network.
-     */
-    suspend fun cached(app: LumioApp, session: VaultSession, mode: NetworkMode): List<HomeAsset> = withContext(Dispatchers.IO) {
-        val settings = EvmSettingsStore.read(session)
-        val chains = evmChains(app, settings, mode)
-        val wallets = PairedWallets.list(session)
-        val holdings = Portfolio.holdings(wallets, settings.addressCount, chains, BalanceCache.read(session))
-        val tokensOf = app.tokensFor(session)
-        val tokenCache = TokenBalanceCache.read(session)
-        val tokens = wallets.flatMap { TokenPortfolio.holdings(it, settings.addressCount, chains, tokensOf, tokenCache) }
-        val owned = CustomTokenStore.read(session)
-        HomeBalances.evm(chains, holdings) + HomeBalances.bitcoin(bitcoinRows(app, session, mode)) + nativeCached(session, wallets, mode) +
-            HomeBalances.tokens(tokens, isKnown = app::isKnownToken, isCustom = { network, contract -> CustomTokenStore.holds(owned, network, contract) })
-    }
-
     /** The prices of the coins of [assets], keyed by asset. An asset with no price, or whose sources do not answer, is absent. */
     suspend fun prices(app: LumioApp, assets: List<HomeAsset>): Map<AssetId, Price> = withContext(Dispatchers.IO) {
         app.prices.assetPrices(assets.map { it.assetId }.distinct())
@@ -90,10 +66,6 @@ internal object HomeLoader {
         }
     }
 
-    /** The Algorand and Solana coins of [mode]'s side that the balance cache holds for [wallets]. It reads no network. */
-    internal fun nativeCached(session: VaultSession, wallets: List<PairedWallet>, mode: NetworkMode): List<HomeAsset> =
-        HomeBalances.nativeCoins(wallets, NativeBalanceCache.read(session), NativeBalances.coinsOf(mode))
-
     /**
      * Queues a scan of each Bitcoin account of [mode]'s side, and runs the scans. The scan queue reports each account as it finishes, so Home can
      * read the scans as they land.
@@ -109,8 +81,4 @@ internal object HomeLoader {
     /** The chains of [mode]'s side that the owner has turned on. The registry is read on first use, so the caller runs this off the main thread. */
     private fun evmChains(app: LumioApp, settings: EvmSettings, mode: NetworkMode): List<EvmChain> =
         EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
-
-    /** The Bitcoin rows of [mode]'s side, each with its last scan. */
-    private suspend fun bitcoinRows(app: LumioApp, session: VaultSession, mode: NetworkMode): List<BtcRow> =
-        rowsOf(app.lumioVault(), bitcoinRefs(session).filter { mode.holds(it.account.network) })
 }

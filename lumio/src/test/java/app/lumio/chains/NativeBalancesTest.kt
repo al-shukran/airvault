@@ -20,8 +20,8 @@ import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.provider.solana.SolanaRpc
 import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.sched.Scheduler
+import app.lumio.home.HomeBalances
 import app.lumio.home.HomeFormat
-import app.lumio.home.HomeLoader
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairRecords
@@ -40,8 +40,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * Algorand and Solana native balances: a refresh stores each coin's balance in the vault, Home lists it in the coin's own unit, and a read that fails keeps
- * the balance it had.
+ * Algorand and Solana native balances: a refresh stores each coin's balance in the vault, the wallet screens show it in the coin's own unit, and a read
+ * that fails keeps the balance it had.
  */
 class NativeBalancesTest {
 
@@ -80,16 +80,16 @@ class NativeBalancesTest {
         NativeBalances.refresh(session, wallets, NativeBalances.coinsOf(NetworkMode.TESTNET), scheduler, nowMs = { at })
     }
 
-    /** The lines Home shows for the testnet side: each amount in its coin's unit, with the symbol. */
-    private fun homeLines(wallets: List<PairedWallet>): List<String> =
-        HomeLoader.nativeCached(session, wallets, NetworkMode.TESTNET).map { HomeFormat.coins(it.balance) + " " + it.symbol }
+    /** The coin rows the wallet accounts show on [mode]'s side, read from the cache. It reads no network. */
+    private fun shown(wallets: List<PairedWallet>, mode: NetworkMode) =
+        HomeBalances.nativeCoins(wallets, NativeBalanceCache.read(session), NativeBalances.coinsOf(mode))
 
-    /** The lines Home shows for the mainnet side: each amount in its coin's unit, with the symbol. */
-    private fun mainnetLines(wallets: List<PairedWallet>): List<String> =
-        HomeLoader.nativeCached(session, wallets, NetworkMode.MAINNET).map { HomeFormat.coins(it.balance) + " " + it.symbol }
+    /** The lines the wallet screens show on [mode]'s side: each amount in its coin's unit, with the symbol. */
+    private fun lines(wallets: List<PairedWallet>, mode: NetworkMode): List<String> =
+        shown(wallets, mode).map { HomeFormat.coins(it.balance) + " " + it.symbol }
 
     @Test
-    fun aRefreshStoresEachCoinAndHomeListsItInItsOwnUnit() {
+    fun aRefreshStoresEachCoinAndTheWalletsShowItInItsOwnUnit() {
         val wallets = pairedWallets()
         algorand.outcomes.add(BigInteger("1500000"))
         solana.outcomes.add(BigInteger("1500000000"))
@@ -98,8 +98,8 @@ class NativeBalancesTest {
 
         assertEquals(emptyList<NativeFailure>(), failures)
         assertEquals(listOf("1500000", "1500000000"), NativeBalanceCache.read(session).map { it.amount })
-        assertEquals(listOf("ALGO-testnet", "SOL-devnet"), HomeLoader.nativeCached(session, wallets, NetworkMode.TESTNET).map { it.id })
-        assertEquals(listOf("1.5 ALGO", "1.5 SOL"), homeLines(wallets))
+        assertEquals(listOf("ALGO-testnet", "SOL-devnet"), shown(wallets, NetworkMode.TESTNET).map { it.id })
+        assertEquals(listOf("1.5 ALGO", "1.5 SOL"), lines(wallets, NetworkMode.TESTNET))
     }
 
     @Test
@@ -117,7 +117,7 @@ class NativeBalancesTest {
         val cached = NativeBalanceCache.read(session).associateBy { it.network }
         assertEquals("1500000", cached.getValue(ALGORAND_TESTNET).amount)
         assertEquals(1_000L, cached.getValue(ALGORAND_TESTNET).atMs)
-        assertEquals(listOf("1.5 ALGO", "2 SOL"), homeLines(wallets))
+        assertEquals(listOf("1.5 ALGO", "2 SOL"), lines(wallets, NetworkMode.TESTNET))
     }
 
     @Test
@@ -159,7 +159,7 @@ class NativeBalancesTest {
         assertEquals(1, algorand.calls)
         assertEquals(1, solana.calls)
         assertEquals(listOf(ALGORAND_MAINNET, SOLANA_MAINNET), NativeBalanceCache.read(session).map { it.network })
-        assertEquals(listOf("2.5 ALGO", "0.5 SOL"), mainnetLines(wallets))
-        assertTrue(HomeLoader.nativeCached(session, wallets, NetworkMode.TESTNET).isEmpty())
+        assertEquals(listOf("2.5 ALGO", "0.5 SOL"), lines(wallets, NetworkMode.MAINNET))
+        assertTrue(shown(wallets, NetworkMode.TESTNET).isEmpty())
     }
 }

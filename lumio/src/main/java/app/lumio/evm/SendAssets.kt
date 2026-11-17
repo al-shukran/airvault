@@ -19,16 +19,11 @@ class SendAsset(val chain: EvmChain, val token: Token?, val balance: BigInteger?
 /** The coins a send from one address can move, for the asset picker of the send form. */
 object SendAssets {
     /**
-     * The coins a send can move on [chain]: the native coin first, then each of [tokens] that [held] shows the address holding, with a positive
-     * balance. [preferred] names the token a send starts on, and it is listed even with no balance, so the form can say why it cannot be sent.
-     * Holdings of other chains are not listed.
+     * The coins a send can move on [chain]: the native coin first, then each token that [held] shows the address holding on the chain, with a positive
+     * balance. Holdings of other chains are not listed.
      */
-    fun onChain(chain: EvmChain, tokens: List<Token>, held: List<TokenHolding>, preferred: String?): List<SendAsset> {
+    fun onChain(chain: EvmChain, held: List<TokenHolding>): List<SendAsset> {
         val holding = held.filter { it.chain.chainId == chain.chainId && it.amount.signum() > 0 }
-        val listed = holding.map { it.token.contract }.toSet()
-        val preferredToken = tokens.firstOrNull { it.contract == preferred && it.contract !in listed }
-        return listOf(SendAsset(chain, null, null)) +
-            holding.map { SendAsset(chain, it.token, it.amount) } +
-            listOfNotNull(preferredToken?.let { SendAsset(chain, it, null) })
+        return listOf(SendAsset(chain, null, null)) + holding.map { SendAsset(chain, it.token, it.amount) }
     }
 }
