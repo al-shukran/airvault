@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.lensly.core.wallet.EntropyMixer
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.toHex
+import java.security.MessageDigest
 import java.security.SecureRandom
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +27,10 @@ class WalletDraft {
     var commitmentHex: String = ""
         private set
 
-    /** SHA-256 of the device's entropy plus the owner's input. This is the entropy the words encode. Empty until mixed. */
+    /**
+     * A one-way verification of the mix: SHA-256 over a domain tag and the entropy the words encode. It is not that
+     * entropy, and the entropy cannot be read back from it. Empty until mixed.
+     */
     var mixedHashHex: String = ""
         private set
 
@@ -56,8 +60,12 @@ class WalletDraft {
 
     /** Starts a ceremony with fresh device randomness, and publishes its commitment. */
     fun startCeremony() {
+        startCeremony(ByteArray(Mnemonic.ENTROPY_BYTES).also { SecureRandom().nextBytes(it) })
+    }
+
+    /** Starts a ceremony from [entropy], which the draft takes and [wipe] zeroes. Tests fix the entropy with it. */
+    internal fun startCeremony(entropy: ByteArray) {
         wipe()
-        val entropy = ByteArray(Mnemonic.ENTROPY_BYTES).also { SecureRandom().nextBytes(it) }
         deviceEntropy = entropy
         commitmentHex = EntropyMixer.commitment(entropy)
     }
@@ -70,13 +78,21 @@ class WalletDraft {
         val entropy = checkNotNull(deviceEntropy) { "No ceremony is running." }
         val mixed = EntropyMixer.mix(entropy, input)
         try {
-            mixedHashHex = mixed.toHex()
+            mixedHashHex = verificationHex(mixed)
             replaceMnemonic(Mnemonic.fromEntropy(mixed))
             deviceGenerated = false
             backedUp = false
         } finally {
             mixed.fill(0)
         }
+    }
+
+    /** SHA-256 over a domain tag and the mixed entropy, as lowercase hex. The entropy cannot be read back from it. */
+    private fun verificationHex(mixed: ByteArray): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update("lensly.ceremony.mixed-verification".toByteArray(Charsets.US_ASCII))
+        digest.update(mixed)
+        return digest.digest().toHex()
     }
 
     /** Skips the ceremony. The words then come from the device's randomness alone. */
