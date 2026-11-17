@@ -79,13 +79,24 @@ class SignFlowSolanaTest {
     }
 
     @Test
-    fun aSolanaRequestWithNoWalletIsRefusedBeforeAnyCheck() = runBlocking {
-        val ports = SolanaPorts()
+    fun aSolanaRequestScannedWithoutAWalletReachesTheReviewOfTheWalletItIsFor() = runBlocking {
+        val view = WalletView(id = WALLET, masterFingerprint = FINGERPRINT, accountCount = 1, autoNameBase = "Solana", addressAt = { "" })
+        val flow = SignFlow(SolanaPorts(wallets = listOf(view)), walletId = null)
+
+        flow.onScanned(partOf(requestCbor(transfer())))
+
+        assertEquals(WALLET, assertIs<SignStep.SolanaReview>(flow.state.value).ready.walletId)
+    }
+
+    @Test
+    fun aSolanaRequestNoWalletIsForIsRefusedInPlainWordsBeforeAnyCheck() = runBlocking {
+        val other = WalletView(id = "other", masterFingerprint = FINGERPRINT xor 1, accountCount = 1, autoNameBase = "Other", addressAt = { "" })
+        val ports = SolanaPorts(wallets = listOf(other))
         val flow = SignFlow(ports, walletId = null)
 
         flow.onScanned(partOf(requestCbor(transfer())))
 
-        assertIs<SignStep.Refused>(flow.state.value)
+        assertEquals(SignStep.Refused("No wallet in this vault can sign this request"), flow.state.value)
         assertEquals(0, ports.prepareCalls)
         assertTrue(ports.records.isEmpty())
     }
@@ -159,12 +170,13 @@ class SignFlowSolanaTest {
         private val keys: List<ByteArray> = SOLANA_KEYS,
         private val password: PasswordCheck = PasswordCheck.Accepted,
         private val parser: RequestParser = inProcessSandboxParser,
+        private val wallets: List<WalletView> = emptyList(),
     ) : SignFlowPorts {
         val records = mutableListOf<SolanaReviewEntry>()
         var prepareCalls = 0
         var signCalls = 0
 
-        override suspend fun wallets(): List<WalletView> = emptyList()
+        override suspend fun wallets(): List<WalletView> = wallets
 
         override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
 

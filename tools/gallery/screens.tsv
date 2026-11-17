@@ -38,7 +38,6 @@ app	key_entry	Key entry	key_entry_*
 app	mnemonic_confirm	Mnemonic confirm	mnemonic_confirm_*
 app	mnemonic_display	Mnemonic display	mnemonic_display_screen
 app	networks	Networks	networks_all
-app	no_matching_wallet	No matching wallet	no_matching_wallet_screen
 app	passphrase	Passphrase	passphrase_*
 app	passphrase_backup	Passphrase backup	passphrase_backup_screen
 app	pair_wizard	Pair wizard	pair_wizard_*

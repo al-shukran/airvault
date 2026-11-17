@@ -6,13 +6,16 @@ import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
+import app.lensly.app.sign.ScannedRequest
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
-import app.lensly.app.sign.matchWallet
+import app.lensly.app.sign.routeScan
 import app.lensly.core.algorand.AlgorandRequestReview
+import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcRefusedException
+import app.lensly.core.parse.NOT_A_PSBT
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.solana.SolanaRequestReview
@@ -37,12 +40,6 @@ sealed interface SignStep {
      * cannot decode, so the screen can show all of it.
      */
     data class Refused(val reason: String, val call: UndecodedCall? = null) : SignStep
-
-    /**
-     * A scan of any wallet found no wallet for [request], or [several] wallets for it. Lensly does not choose between them,
-     * so the owner scans again.
-     */
-    data class NoMatchingWallet(val request: EthSignRequest, val several: Boolean) : SignStep
 
     /** The request passed every check. The owner reads the review, then approves or rejects it. */
     data class Review(val ready: Prepared.Ready) : SignStep
@@ -256,15 +253,6 @@ class SignFlow(
         return scannedChars <= MAX_SCAN_CHARS
     }
 
-    /** SCAN AGAIN after a request matched no wallet, or several. The scan starts from nothing. */
-    fun scanAgain() {
-        if (current.value !is SignStep.NoMatchingWallet) return
-        parts.clear()
-        scannedChars = 0L
-        progress = null
-        current.value = SignStep.Scanning(progress = null, status = SCAN_HINT)
-    }
-
     /**
      * APPROVE on the review. The App Password is asked before anything is signed. A Bitcoin review that asks for a confirmation of its
      * unverified amounts waits until the owner has given it.
@@ -395,18 +383,23 @@ class SignFlow(
     }
 
     /**
-     * Reviews a complete Bitcoin request against the flow's wallet. A flow with no wallet refuses it: a Bitcoin review is checked
-     * against one wallet's Bitcoin accounts, so the owner scans from that wallet's sign screen. A refusal is recorded under that wallet.
+     * Reviews a complete Bitcoin request against the wallet it is for. A refusal is recorded under that wallet.
      */
     private suspend fun decideBitcoin(started: Int, psbt: ByteArray): SignStep {
-        val target = walletId ?: return SignStep.Refused(BITCOIN_NEEDS_WALLET)
-        return try {
-            when (val prepared = ports.bitcoinPrepare(target, psbt)) {
-                is BitcoinPrepared.Ready -> SignStep.BitcoinReview(prepared, confirmed = false)
-                is BitcoinPrepared.Refused -> bitcoinRefusal(started, target, psbt, prepared.reason, reviewed = null)
+        val parsed = try {
+            BtcPsbt.parse(psbt)
+        } catch (e: IllegalArgumentException) {
+            return SignStep.Refused(NOT_A_PSBT)
+        }
+        return routed(ScannedRequest.Bitcoin(parsed)) { target ->
+            try {
+                when (val prepared = ports.bitcoinPrepare(target, psbt)) {
+                    is BitcoinPrepared.Ready -> SignStep.BitcoinReview(prepared, confirmed = false)
+                    is BitcoinPrepared.Refused -> bitcoinRefusal(started, target, psbt, prepared.reason, reviewed = null)
+                }
+            } catch (e: WalletUnavailable) {
+                bitcoinRefusal(started, target, psbt, WALLET_UNREADABLE, reviewed = null)
             }
-        } catch (e: WalletUnavailable) {
-            bitcoinRefusal(started, target, psbt, WALLET_UNREADABLE, reviewed = null)
         }
     }
 
@@ -477,24 +470,25 @@ class SignFlow(
         if (!waiting.busy) current.value = SignStep.SolanaReview(waiting.ready)
     }
 
-    /**
-     * Reviews a complete Solana request against the flow's wallet. A flow with no wallet refuses it: a Solana review is checked against one
-     * wallet's Solana accounts, so the owner scans from that wallet's sign screen. A refusal is recorded under that wallet.
-     */
+    /** Reviews a complete Solana request against the wallet it is for. A refusal is recorded under that wallet. */
     private suspend fun decideSolana(started: Int, payload: ByteArray): SignStep {
-        val target = walletId ?: return SignStep.Refused(SOLANA_NEEDS_WALLET)
         val request = when (val decoded = SolSignRequest.decode(payload)) {
             is SolSignRequest.Result.Ok -> decoded.request
             is SolSignRequest.Result.Rejected -> return SignStep.Refused(decoded.reason)
         }
-        if (request.requestId == null) return solanaRefusal(started, target, request, NO_REQUEST_ID, ready = null)
-        return try {
-            when (val prepared = ports.solanaPrepare(target, request)) {
-                is SolanaPrepared.Ready -> SignStep.SolanaReview(prepared)
-                is SolanaPrepared.Refused -> solanaRefusal(started, target, request, prepared.reason, ready = null)
+        return routed(ScannedRequest.Solana(request)) { target ->
+            if (request.requestId == null) {
+                solanaRefusal(started, target, request, NO_REQUEST_ID, ready = null)
+            } else {
+                try {
+                    when (val prepared = ports.solanaPrepare(target, request)) {
+                        is SolanaPrepared.Ready -> SignStep.SolanaReview(prepared)
+                        is SolanaPrepared.Refused -> solanaRefusal(started, target, request, prepared.reason, ready = null)
+                    }
+                } catch (e: WalletUnavailable) {
+                    solanaRefusal(started, target, request, WALLET_UNREADABLE, ready = null)
+                }
             }
-        } catch (e: WalletUnavailable) {
-            solanaRefusal(started, target, request, WALLET_UNREADABLE, ready = null)
         }
     }
 
@@ -566,23 +560,21 @@ class SignFlow(
         if (!waiting.busy) current.value = SignStep.AlgorandReview(waiting.ready)
     }
 
-    /**
-     * Reviews a complete Algorand request against the flow's wallet. A flow with no wallet refuses it: an Algorand review is checked against
-     * one wallet's Algorand accounts, so the owner scans from that wallet's sign screen. A refusal is recorded under that wallet.
-     */
+    /** Reviews a complete Algorand request against the wallet it is for. A refusal is recorded under that wallet. */
     private suspend fun decideAlgorand(started: Int, payload: ByteArray): SignStep {
-        val target = walletId ?: return SignStep.Refused(ALGORAND_NEEDS_WALLET)
         val request = when (val decoded = AlgoSignRequest.decode(payload)) {
             is AlgoSignRequest.Result.Ok -> decoded.request
             is AlgoSignRequest.Result.Rejected -> return SignStep.Refused(decoded.reason)
         }
-        return try {
-            when (val prepared = ports.algorandPrepare(target, request)) {
-                is AlgorandPrepared.Ready -> SignStep.AlgorandReview(prepared)
-                is AlgorandPrepared.Refused -> algorandRefusal(started, target, request, prepared.reason, ready = null)
+        return routed(ScannedRequest.Algorand(request)) { target ->
+            try {
+                when (val prepared = ports.algorandPrepare(target, request)) {
+                    is AlgorandPrepared.Ready -> SignStep.AlgorandReview(prepared)
+                    is AlgorandPrepared.Refused -> algorandRefusal(started, target, request, prepared.reason, ready = null)
+                }
+            } catch (e: WalletUnavailable) {
+                algorandRefusal(started, target, request, WALLET_UNREADABLE, ready = null)
             }
-        } catch (e: WalletUnavailable) {
-            algorandRefusal(started, target, request, WALLET_UNREADABLE, ready = null)
         }
     }
 
@@ -655,25 +647,40 @@ class SignFlow(
         if (request.requestId == null) {
             return refusal(started = started, wallet = walletId, request = request, reason = NO_REQUEST_ID)
         }
-        return try {
-            val target = walletId ?: when (val match = matchWallet(request, ports.wallets())) {
-                is WalletMatch.One -> match.walletId
-                WalletMatch.None -> return SignStep.NoMatchingWallet(request, several = false)
-                is WalletMatch.Several -> return SignStep.NoMatchingWallet(request, several = true)
+        return routed(ScannedRequest.Ethereum(request)) { target ->
+            try {
+                when (val prepared = ports.prepare(target, parsed)) {
+                    is Prepared.Ready -> SignStep.Review(prepared)
+                    is Prepared.Refused -> refusal(
+                        started = started,
+                        wallet = target,
+                        request = request,
+                        reason = prepared.reason,
+                        call = prepared.call,
+                    )
+                }
+            } catch (e: WalletUnavailable) {
+                refusal(started = started, wallet = target, request = request, reason = WALLET_UNREADABLE)
             }
-            when (val prepared = ports.prepare(target, parsed)) {
-                is Prepared.Ready -> SignStep.Review(prepared)
-                is Prepared.Refused -> refusal(
-                    started = started,
-                    wallet = target,
-                    request = request,
-                    reason = prepared.reason,
-                    call = prepared.call,
-                )
+        }
+    }
+
+    /**
+     * Runs [decide] for the wallet that a scanned [request] is for. A flow with its own wallet decides for that wallet. A scan of any
+     * wallet decides for the one wallet of the vault the request is for, and refuses in plain words when none, or several, are. Nothing
+     * is recorded for a request that no wallet is for.
+     */
+    private suspend fun routed(request: ScannedRequest, decide: suspend (String) -> SignStep): SignStep {
+        val target = walletId ?: try {
+            when (val match = routeScan(request, ports.wallets())) {
+                is WalletMatch.One -> match.walletId
+                WalletMatch.None -> return SignStep.Refused(NO_WALLET)
+                is WalletMatch.Several -> return SignStep.Refused(SEVERAL_WALLETS)
             }
         } catch (e: WalletUnavailable) {
-            return refusal(started = started, wallet = walletId, request = request, reason = WALLET_UNREADABLE)
+            return SignStep.Refused(WALLET_UNREADABLE)
         }
+        return decide(target)
     }
 
     /**
@@ -772,8 +779,7 @@ class SignFlow(
         const val VAULT_UNCHECKED = "The Application Password could not be checked. Nothing was signed."
         const val NOT_SAVED = "The review could not be saved, so the signature is not shown."
         const val SIGN_REFUSED = "The request could not be signed."
-        const val BITCOIN_NEEDS_WALLET = "Open the wallet this Bitcoin request spends from, then scan it on that wallet's sign screen."
-        const val SOLANA_NEEDS_WALLET = "Open the wallet this Solana request is for, then scan it on that wallet's sign screen."
-        const val ALGORAND_NEEDS_WALLET = "Open the wallet this Algorand request is for, then scan it on that wallet's sign screen."
+        const val NO_WALLET = "No wallet in this vault can sign this request"
+        const val SEVERAL_WALLETS = "More than one wallet in this vault can sign this request. Lensly will not guess which one signs."
     }
 }
