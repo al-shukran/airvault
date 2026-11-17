@@ -6,6 +6,7 @@ import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.AsaCatalog
 import app.lensly.core.ur.PathStep
 import app.lensly.ui.sign.AlgorandReviewScreen
+import app.lensly.ui.sign.SignRefusedScreen
 import java.io.File
 import org.junit.Rule
 import org.junit.Test
@@ -17,7 +18,8 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * The Algorand review in the asset states the bundled catalog produces: a known asset's transfer on mainnet, an opt-in, an opt-out with
  * its close-to warning, and an asset the catalog does not name. Each review comes from an SDK fixture through the same check the sign
- * flow runs, against the bundled catalog at app/src/main/assets/algorand/asa-catalog.json.
+ * flow runs, against the bundled catalog at app/src/main/assets/algorand/asa-catalog.json. A clawback is refused by that check, so its
+ * golden is the refusal screen that the sign flow shows for it.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -47,8 +49,8 @@ class AlgorandReviewScreenshotTest {
     }
 
     @Test
-    fun reviewTestnetUsdcClawback() = compose.snapshotSettled("algorand_review_clawback") {
-        AlgorandReviewScreen(review = review(TESTNET_USDC_CLAWBACK), onApprove = {}, onReject = {})
+    fun refusedTestnetUsdcClawback() = compose.snapshot("algorand_review_clawback") {
+        SignRefusedScreen(reason = refusalReason(TESTNET_USDC_CLAWBACK), onDone = {})
     }
 
     /** The review of [hex] for account 0 of a wallet whose account 0 is the sender's key, against the bundled catalog. */
@@ -63,6 +65,20 @@ class AlgorandReviewScreenshotTest {
         val catalog = AsaCatalog.parse(File(BUNDLED_CATALOG).readText())
         val checked = AlgorandRequestCheck.check(hexBytes(hex), path, null, listOf(hexBytes(SENDER_PUB)), catalog)
         return (checked as AlgorandRequestCheck.Result.Ok).review
+    }
+
+    /** The reason the sign flow refuses [hex] for, against the bundled catalog. */
+    private fun refusalReason(hex: String): String {
+        val path = listOf(
+            PathStep(44, true),
+            PathStep(283, true),
+            PathStep(0, true),
+            PathStep(0, false),
+            PathStep(0, false),
+        )
+        val catalog = AsaCatalog.parse(File(BUNDLED_CATALOG).readText())
+        val checked = AlgorandRequestCheck.check(hexBytes(hex), path, null, listOf(hexBytes(SENDER_PUB)), catalog)
+        return (checked as AlgorandRequestCheck.Result.Refused).reason
     }
 
     private fun hexBytes(hex: String): ByteArray = ByteArray(hex.length / 2) { hex.substring(2 * it, 2 * it + 2).toInt(16).toByte() }

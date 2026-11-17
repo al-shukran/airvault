@@ -18,8 +18,8 @@ import app.lensly.ui.theme.LenslySpacing
 
 /**
  * The Algorand review, the counterpart of [SolanaReviewScreen]. The header names the network and the signing account. One sentence says
- * what the transaction does, with its fee under it. A clawback and a close-to warning sit in banners at the error tone. An unknown-asset
- * warning and a group warning sit at the warning tone. A request with a warning is signed only after its details are read to the end. REJECT is always
+ * what the transaction does, with its fee under it. A close-to warning sits in a banner at the error tone. An unknown-asset warning and a
+ * group warning sit at the warning tone. A request with a warning is signed only after its details are read to the end. REJECT is always
  * enabled.
  */
 @Composable
@@ -71,11 +71,8 @@ fun AlgorandReviewScreen(
     }
 }
 
-/**
- * The tone of a warning's banner: a clawback and a close-to warning are errors, and an unknown asset or a group is only a warning.
- */
+/** The tone of a warning's banner: a close-to warning is an error, and an unknown asset or a group is only a warning. */
 private fun algorandWarningTone(warning: AlgorandWarning): BannerTone = when (warning) {
-    AlgorandWarning.CLAWBACK -> BannerTone.Error
     AlgorandWarning.CLOSE_TO -> BannerTone.Error
     AlgorandWarning.UNKNOWN_ASSET -> BannerTone.Warning
     AlgorandWarning.GROUP -> BannerTone.Warning

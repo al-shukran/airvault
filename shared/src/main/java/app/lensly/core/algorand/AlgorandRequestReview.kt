@@ -24,12 +24,6 @@ enum class AlgorandNetwork(val genesisId: String, genesisHashBase64: String, val
 
 /** A warning the review shows beside an Algorand request. The owner reads each one before the request can be signed. */
 enum class AlgorandWarning {
-    /**
-     * The transfer takes the asset from another account, the one it names as the clawback source. The asset leaves that account, not the
-     * signing one, so the review shows it as a strong warning.
-     */
-    CLAWBACK,
-
     /** The transaction closes the account or the asset holding, and sends what is left to a close-to address. */
     CLOSE_TO,
 
@@ -69,14 +63,9 @@ class AlgorandRequestReview internal constructor(
             is AssetTransfer -> t.closeTo
         }
 
-    /** The account a clawback takes the asset from, its `asnd`. Null when the transfer is not a clawback. */
-    val clawbackFrom: ByteArray?
-        get() = (txn as? AssetTransfer)?.assetSender
-
     /** Every warning this review shows, in a fixed order. */
     val warnings: List<AlgorandWarning>
         get() = buildList {
-            if (clawbackFrom != null) add(AlgorandWarning.CLAWBACK)
             if (closeTo != null) add(AlgorandWarning.CLOSE_TO)
             if (txn is AssetTransfer && asset == null) add(AlgorandWarning.UNKNOWN_ASSET)
             if (txn.group != null) add(AlgorandWarning.GROUP)
@@ -110,6 +99,9 @@ object AlgorandRequestCheck {
     /** The reason for a transaction that rekeys the sender. */
     const val REKEY_REFUSED = "This transaction would give another address control of the account (rekey). Lensly refuses to sign it."
 
+    /** The reason for an asset transfer that takes assets from another account. */
+    const val CLAWBACK_REFUSED = "This asset transfer takes assets from another account (clawback). Lensly refuses to sign it."
+
     /** The reason for a genesis ID other than the testnet and mainnet ones. */
     const val UNKNOWN_NETWORK = "This transaction is for a network Lensly does not sign for. Lensly signs for Algorand testnet and mainnet."
 
@@ -138,9 +130,9 @@ object AlgorandRequestCheck {
      * Checks a request to sign [signData] with the account at [derivationPath], for the request [requestId]. [signData] is the canonical
      * msgpack of the transaction without the "TX" tag: Lensly adds the tag when it signs, as the Ledger app does. A request is refused when
      * its path is not m/44'/283'/N', when the wallet has no account N, when [signData] is not a payment or an asset transfer that Lensly
-     * can read, when it rekeys the sender, when the sender is not account N's key, when its genesis ID is not the testnet or the mainnet
-     * one, or when its genesis hash is not that network's. A clawback is not refused: it is reviewed with a strong warning. [assets] only
-     * names the asset of an asset transfer for the review: an asset it does not name is warned about, not refused.
+     * can read, when it rekeys the sender, when the sender is not account N's key, when it is a clawback, when its genesis ID is not the
+     * testnet or the mainnet one, or when its genesis hash is not that network's. [assets] only names the asset of an asset transfer for the
+     * review: an asset it does not name is warned about, not refused.
      */
     fun check(
         signData: ByteArray,
@@ -158,6 +150,7 @@ object AlgorandRequestCheck {
         }
         if (txn.rekeyTo != null) return Result.Refused(REKEY_REFUSED)
         if (!txn.sender.contentEquals(signer)) return Result.Refused(NOT_THIS_SENDER)
+        if (txn is AssetTransfer && txn.assetSender != null) return Result.Refused(CLAWBACK_REFUSED)
         val network = AlgorandNetwork.ofGenesisId(txn.genesisId) ?: return Result.Refused(UNKNOWN_NETWORK)
         if (!txn.genesisHash.contentEquals(network.genesisHash)) return Result.Refused(GENESIS_HASH_MISMATCH)
         val asset = (txn as? AssetTransfer)?.let { assets.lookup(network, it.assetId) }
