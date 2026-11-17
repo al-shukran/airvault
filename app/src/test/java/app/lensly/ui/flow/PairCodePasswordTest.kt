@@ -77,6 +77,7 @@ class PairCodePasswordTest {
         assertEquals(1, built.size)
 
         stopApp()
+        startApp()
 
         compose.onNodeWithText(PASSWORD_PROMPT, substring = true).assertExists()
         assertEquals(1, built.size, "a locked code builds nothing new")
@@ -92,6 +93,7 @@ class PairCodePasswordTest {
         stopApp()
         answer.complete(PasswordCheck.Accepted)
         compose.waitForIdle()
+        startApp()
 
         assertTrue(built.isEmpty(), "a check that ends after the app stopped does not unlock the code")
         compose.onNodeWithText(PASSWORD_PROMPT, substring = true).assertExists()
@@ -136,11 +138,15 @@ class PairCodePasswordTest {
     }
 
     /** Moves the activity to the background, as a stop does when the owner leaves the app. */
-    private fun stopApp() {
+    private fun stopApp() = moveActivity(Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP)
+
+    /** Brings the activity back to the foreground. The Compose test owner finds no hierarchy while the activity is stopped. */
+    private fun startApp() = moveActivity(Lifecycle.Event.ON_START, Lifecycle.Event.ON_RESUME)
+
+    private fun moveActivity(vararg events: Lifecycle.Event) {
         compose.runOnIdle {
             val lifecycle = compose.activity.lifecycle as LifecycleRegistry
-            lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-            lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+            events.forEach { lifecycle.handleLifecycleEvent(it) }
         }
         compose.waitForIdle()
     }
