@@ -17,6 +17,7 @@ private const val SELECTOR_INCREASE_ALLOWANCE = "39509351"
 private const val SELECTOR_DECREASE_ALLOWANCE = "a457c2d7"
 private const val SELECTOR_SET_APPROVAL_FOR_ALL = "a22cb465"
 private const val SELECTOR_SAFE_TRANSFER_FROM = "42842e0e"
+private val TWO_TO_THE_160: BigInteger = BigInteger.ONE.shiftLeft(160)
 private val TWO_TO_THE_255: BigInteger = BigInteger.ONE.shiftLeft(255)
 
 private fun hexBytes(hex: String): ByteArray =
@@ -81,13 +82,25 @@ class ContractCallTest {
         assertTrue((call as ContractCall.Approve).unlimited)
     }
 
+    /** The threshold is 2^160 - 1: that value is unlimited, and the value one below it is not. */
     @Test
-    fun twoToTheTo255IsUnlimitedAndOneBelowIsNot() {
-        val atThreshold = ContractCall.decode(calldata(SELECTOR_APPROVE, SPENDER, TWO_TO_THE_255))
-        val belowThreshold = ContractCall.decode(calldata(SELECTOR_APPROVE, SPENDER, TWO_TO_THE_255.subtract(BigInteger.ONE)))
+    fun theUnlimitedThresholdIsTwoToThe160MinusOne() {
+        val atThreshold = ContractCall.decode(calldata(SELECTOR_APPROVE, SPENDER, TWO_TO_THE_160.subtract(BigInteger.ONE)))
+        val belowThreshold = ContractCall.decode(calldata(SELECTOR_APPROVE, SPENDER, TWO_TO_THE_160.subtract(BigInteger.valueOf(2))))
 
         assertTrue((atThreshold as ContractCall.Approve).unlimited)
         assertFalse((belowThreshold as ContractCall.Approve).unlimited)
+    }
+
+    /** Every amount from the threshold up is unlimited, for an approve and for an increaseAllowance alike. */
+    @Test
+    fun everyAmountFromTheThresholdUpIsUnlimited() {
+        for (amount in listOf(TWO_TO_THE_160.subtract(BigInteger.ONE), TWO_TO_THE_255.subtract(BigInteger.ONE), ContractCall.MAX_UINT256)) {
+            assertTrue((ContractCall.decode(calldata(SELECTOR_APPROVE, SPENDER, amount)) as ContractCall.Approve).unlimited)
+            assertTrue(
+                (ContractCall.decode(calldata(SELECTOR_INCREASE_ALLOWANCE, SPENDER, amount)) as ContractCall.IncreaseAllowance).unlimited,
+            )
+        }
     }
 
     @Test

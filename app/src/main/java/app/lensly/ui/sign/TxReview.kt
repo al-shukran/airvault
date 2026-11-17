@@ -6,6 +6,7 @@ import app.lensly.app.addressesIn
 import app.lensly.app.generatedIdentity
 import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.evm.AccessListEntry
+import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
@@ -22,6 +23,9 @@ enum class ReviewCheck {
      * An unknown call that the signed whitelist does not approve. The owner has read that Lensly cannot say what it does.
      */
     UNKNOWN_CALL,
+
+    /** An approval that lets the spender take every token of the contract, and the owner has read that it is unlimited. */
+    UNLIMITED,
 
     /** The call is on the signed whitelist, and the owner has read its approved meaning. */
     WHITELIST,
@@ -47,7 +51,10 @@ const val UNKNOWN_DECIMALS_NOTE = "Decimals unknown: raw integer amount, not ver
 
 /** The warning on an approval that lets the spender take every token. [symbol] is the token, or null when it is unknown. */
 fun unlimitedApprovalWarning(symbol: String?): String =
-    "Unlimited approval: this contract can spend all your ${symbol ?: "tokens of this contract"}"
+    "${ContractCall.UNLIMITED_APPROVAL_PREFIX} this contract can spend all your ${symbol ?: "tokens of this contract"}"
+
+/** True when [warning] is an unlimited-approval warning, whatever token it names. */
+fun isUnlimitedApprovalWarning(warning: String): Boolean = warning.startsWith(ContractCall.UNLIMITED_APPROVAL_PREFIX)
 
 /** The warning on `setApprovalForAll(operator, true)`: the operator controls every token of the contract. */
 const val ALL_NFTS_WARNING = "Grants control of ALL your NFTs in this collection"
@@ -152,10 +159,12 @@ data class TxReview(
             // A whitelisted or unregistered call may sit in a multicall, so every such call of the review counts.
             val whitelistedCalls = listOfNotNull(whitelisted) + nested.mapNotNull { it.whitelisted }
             val unknownCall = UNKNOWN_CALL_WARNING in warnings || nested.any { UNKNOWN_CALL_WARNING in it.warnings }
+            val unlimited = (warnings + nested.flatMap { it.warnings }).any(::isUnlimitedApprovalWarning)
             return listOfNotNull(
                 ReviewCheck.DENYLIST.takeIf { denylisted.isNotEmpty() || nested.any { it.denylisted.isNotEmpty() } },
                 ReviewCheck.REGISTRY.takeIf { needsRegistryConfirmation || nested.any { it.unregistered } },
                 ReviewCheck.UNKNOWN_CALL.takeIf { unknownCall },
+                ReviewCheck.UNLIMITED.takeIf { unlimited },
                 ReviewCheck.WHITELIST.takeIf { whitelistedCalls.isNotEmpty() },
                 ReviewCheck.UPGRADE.takeIf { whitelistedCalls.any { it.call.proxy != null } },
             )
