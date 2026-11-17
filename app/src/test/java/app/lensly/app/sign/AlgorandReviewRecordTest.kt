@@ -35,6 +35,8 @@ class AlgorandReviewRecordTest {
                 "Receiver" to RECEIVER_ADDRESS,
                 "Amount" to "1.500000 ALGO",
                 "Fee" to "0.001000 ALGO",
+                "Valid from round" to "50000000",
+                "Valid until round" to "50001000",
             ),
             record.params,
         )

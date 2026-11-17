@@ -37,6 +37,8 @@ class AlgorandReviewRowsTest {
                 "Receiver" to RECEIVER_ADDRESS,
                 "Amount" to "1.500000 ALGO",
                 "Fee" to "0.001000 ALGO",
+                "Valid from round" to "50000000",
+                "Valid until round" to "50001000",
             ),
             algorandRows(review),
         )
@@ -55,6 +57,8 @@ class AlgorandReviewRowsTest {
                 "Receiver" to RECEIVER_ADDRESS,
                 "Amount" to "2000.000000 ALGO",
                 "Fee" to "0.001000 ALGO",
+                "Valid from round" to "50000000",
+                "Valid until round" to "50001000",
                 "Note" to "rent for March",
                 "Close remainder to" to CLOSE_ADDRESS,
             ),
@@ -85,6 +89,14 @@ class AlgorandReviewRowsTest {
     }
 
     @Test
+    fun aLeaseAndAGroupIdAreShownInHexWhenThePayloadCarriesThem() {
+        val review = reviewOf(withLeaseAndGroup(PAY_BASIC))
+
+        assertEquals("0x" + "33".repeat(32), algorandRows(review).single { it.first == "Lease" }.second)
+        assertEquals("0x" + "22".repeat(32), algorandRows(review).single { it.first == "Group ID" }.second)
+    }
+
+    @Test
     fun aTransactionWithoutANoteShowsNoNoteRow() {
         assertEquals(emptyList(), algorandRows(reviewOf(PAY_BASIC)).filter { it.first == "Note" })
     }
@@ -101,6 +113,8 @@ class AlgorandReviewRowsTest {
                 "Amount" to "250 base units",
                 "Receiver" to RECEIVER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
+                "Valid from round" to "50000000",
+                "Valid until round" to "50001000",
             ),
             algorandRows(review),
         )
@@ -125,6 +139,8 @@ class AlgorandReviewRowsTest {
                 "Amount" to "0 base units",
                 "Receiver" to SENDER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
+                "Valid from round" to "50000000",
+                "Valid until round" to "50001000",
             ),
             algorandRows(review),
         )
@@ -144,6 +160,8 @@ class AlgorandReviewRowsTest {
                 "Amount" to "0 base units",
                 "Receiver" to RECEIVER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
+                "Valid from round" to "50000000",
+                "Valid until round" to "50001000",
                 "Close holding to" to RECEIVER_ADDRESS,
             ),
             algorandRows(review),
@@ -194,6 +212,8 @@ class AlgorandReviewRowsTest {
                 "Amount" to "0.000250 USDC",
                 "Receiver" to RECEIVER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
+                "Valid from round" to "50000000",
+                "Valid until round" to "50001000",
             ),
             algorandRows(review),
         )
@@ -256,6 +276,11 @@ class AlgorandReviewRowsTest {
         val result = AlgorandRequestCheck.check(hexBytes(hex), path, null, listOf(hexBytes(SENDER_PUB)))
         return assertIs<AlgorandRequestCheck.Result.Ok>(result).review
     }
+
+    /** [hex] with a group ID of 0x22 repeated and a lease of 0x33 repeated, each in its canonical key position. */
+    private fun withLeaseAndGroup(hex: String): String = hex
+        .replaceFirst("89a3616d74", "8ba3616d74")
+        .replaceFirst("a26c76ce02faf468", "a3677270c420${"22".repeat(32)}a26c76ce02faf468a26c78c420${"33".repeat(32)}")
 
     private fun hexBytes(hex: String): ByteArray = ByteArray(hex.length / 2) { hex.substring(2 * it, 2 * it + 2).toInt(16).toByte() }
 
