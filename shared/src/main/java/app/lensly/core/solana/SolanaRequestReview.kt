@@ -11,6 +11,12 @@ enum class SolanaWarning {
     /** An instruction calls a program Lensly does not read. Lensly shows its raw bytes. */
     UNKNOWN_PROGRAM,
 
+    /**
+     * A durable nonce names an authority that is not the signing account. Only the authority can advance the nonce, so this account
+     * cannot. The review shows this at error level.
+     */
+    NONCE_AUTHORITY_NOT_SIGNER,
+
     /** An account comes from an address lookup table. The table is not in the request, so Lensly cannot check the address offline. */
     LOOKUP_TABLE,
 
@@ -71,9 +77,24 @@ class SolanaRequestReview internal constructor(
     val warnings: List<SolanaWarning>
         get() = buildList {
             if (instructions.any { it is SolanaInstruction.Raw }) add(SolanaWarning.UNKNOWN_PROGRAM)
+            if (nonceAuthorityIsNotSigner) add(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER)
             if (instructions.any { it is SolanaInstruction.TokenTransfer }) add(SolanaWarning.DECIMALS_UNKNOWN)
             if (mints.any { tokenOf(it) == null }) add(SolanaWarning.UNKNOWN_TOKEN)
             if (lookups.isNotEmpty()) add(SolanaWarning.LOOKUP_TABLE)
+        }
+
+    /**
+     * Whether a durable nonce, in its advance or its setup, names an authority other than the signing account. The check is by key. An
+     * account from a lookup table never signs, so it is never the signer.
+     */
+    private val nonceAuthorityIsNotSigner: Boolean
+        get() = instructions.any { instruction ->
+            val authority = when (instruction) {
+                is SolanaInstruction.AdvanceNonce -> instruction.authority
+                is SolanaInstruction.CreateNonceAccount -> instruction.authority
+                else -> return@any false
+            }
+            authority != SolanaMessageAccount.Static(signerAddress)
         }
 }
 
