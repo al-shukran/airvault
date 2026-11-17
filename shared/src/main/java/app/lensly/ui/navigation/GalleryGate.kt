@@ -25,9 +25,10 @@ import kotlinx.coroutines.withContext
  * The media folder that [password] opens: the real vault's for the App Password, the Decoy Vault's for the Duress Password. Null when it
  * opens neither, or the vault cannot be read. The check unlocks the vault only to prove the password, and the session is closed at once,
  * so the vault stays locked. It goes through [Vault.unlock], so the Failure Delay counts gallery guesses too. NonCancellable, so a session
- * that opened is always closed. [password] is zeroed by the vault.
+ * that opened is always closed. [password] is zeroed by the vault. A wrong try that is the owner's last allowed one erases the vault, and
+ * [onErased] runs instead of a folder.
  */
-suspend fun galleryStoreFor(vault: Vault, filesDir: File, password: CharArray): PhotoStore? =
+suspend fun galleryStoreFor(vault: Vault, filesDir: File, password: CharArray, onErased: () -> Unit = {}): PhotoStore? =
     withContext(NonCancellable) {
         try {
             when (val result = vault.unlock(password)) {
@@ -37,6 +38,10 @@ suspend fun galleryStoreFor(vault: Vault, filesDir: File, password: CharArray): 
                     PhotoStore.of(filesDir, decoy = decoy)
                 }
                 UnlockResult.Rejected -> null
+                UnlockResult.Erased -> {
+                    onErased()
+                    null
+                }
             }
         } catch (e: VaultException) {
             null
@@ -49,7 +54,7 @@ suspend fun galleryStoreFor(vault: Vault, filesDir: File, password: CharArray): 
  * photos.
  */
 @Composable
-fun GalleryGate(vault: Vault, onBack: () -> Unit) {
+fun GalleryGate(vault: Vault, onBack: () -> Unit, onErased: () -> Unit) {
     val filesDir = LocalContext.current.filesDir
     val scope = rememberCoroutineScope()
     val buffer = remember { PasswordBuffer() }
@@ -85,7 +90,7 @@ fun GalleryGate(vault: Vault, onBack: () -> Unit) {
                     length = 0
                     busy = true
                     scope.launch {
-                        store = galleryStoreFor(vault, filesDir, password)
+                        store = galleryStoreFor(vault, filesDir, password, onErased)
                         busy = false
                     }
                 },

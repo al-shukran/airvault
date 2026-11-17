@@ -94,7 +94,15 @@ fun CoverNavHost(
                     // The gallery opens from the camera while the vault is locked, so it shows no lock icon.
                     // Its gate asks for a vault password before any photo is shown.
                     CompositionLocalProvider(LocalVaultLock provides null) {
-                        GalleryGate(vault = holder.vault, onBack = { navController.popBackStack() })
+                        GalleryGate(
+                            vault = holder.vault,
+                            onBack = { navController.popBackStack() },
+                            // The last allowed try erased the vault, so the gallery leaves with the session locked, as after any wipe.
+                            onErased = {
+                                holder.lock()
+                                navController.popBackStack()
+                            },
+                        )
                     }
                 }
                 hidden(navController, holder)
