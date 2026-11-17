@@ -30,8 +30,8 @@ enum class SolanaWarning {
 
 /**
  * A Solana request as Lensly reviews it before it signs. [accountIndex] is N of the account `m/44'/501'/N'` that signs, and [signer] is
- * its 32-byte public key. A transaction holds its parsed [message] and its [instructions], in order. A message to sign holds its
- * [messageBytes]. [lookups] lists each lookup-table account that the instructions use, in the order they first appear. [tokens] names
+ * its 32-byte public key. A transaction holds its parsed [message] and its [instructions], in order. A message to sign holds its parsed
+ * [offchainMessage]. [lookups] lists each lookup-table account that the instructions use, in the order they first appear. [tokens] names
  * the mints the review shows. [cluster] is the cluster the request states, or null when it states none. Every field holds public data only.
  */
 class SolanaRequestReview internal constructor(
@@ -41,7 +41,7 @@ class SolanaRequestReview internal constructor(
     val message: SolanaMessage?,
     val instructions: List<SolanaInstruction>,
     val lookups: List<SolanaMessageAccount.Lookup>,
-    val messageBytes: ByteArray?,
+    val offchainMessage: SolanaOffchainMessage?,
     val tokens: SolanaTokenList,
     val cluster: SolCluster?,
 ) {
@@ -147,6 +147,12 @@ object SolanaRequestCheck {
     const val UNKNOWN_PROGRAM_REFUSAL =
         "This transaction calls a program that Lensly does not read, and your Unknown contract calls setting refuses it."
 
+    /** The reason for a message whose bytes decode as a transaction. Lensly does not sign a transaction as a message. */
+    const val TRANSACTION_AS_MESSAGE = "These bytes are a Solana transaction. Lensly does not sign a transaction as a message."
+
+    /** The reason for an off-chain message that does not name the requesting account as a signer. */
+    const val SIGNER_NOT_NAMED = "This message does not name this account as a signer."
+
     private const val PURPOSE = 44
     private const val SOLANA_COIN_TYPE = 501
 
@@ -163,7 +169,8 @@ object SolanaRequestCheck {
      * request is refused when its path is not m/44'/501'/N', when the wallet has no account N, when it names a signer address other than
      * account N's key, or when a transaction cannot be read, lists an account twice, or does not take account N as a signer. A
      * transaction that calls a program Lensly does not read is refused when [unknownCalls] is REFUSE, and reviewed under an error-level
-     * warning when it is WARN, which is the default.
+     * warning when it is WARN, which is the default. A message is refused unless it is a Solana off-chain message that names account N
+     * as a signer, and bytes that decode as a transaction are refused as a message whatever their format.
      */
     fun check(
         request: SolSignRequest,
@@ -177,19 +184,7 @@ object SolanaRequestCheck {
         if (named != null && !named.contentEquals(signer)) return Result.Refused(DIFFERENT_ADDRESS)
         return when (request.signType) {
             SolSignType.TRANSACTION -> transaction(request.signData, index, signer, tokens, unknownCalls, request.cluster)
-            SolSignType.MESSAGE -> Result.Ok(
-                SolanaRequestReview(
-                    signType = SolSignType.MESSAGE,
-                    accountIndex = index,
-                    signer = signer,
-                    message = null,
-                    instructions = emptyList(),
-                    lookups = emptyList(),
-                    messageBytes = request.signData,
-                    tokens = tokens,
-                    cluster = request.cluster,
-                ),
-            )
+            SolSignType.MESSAGE -> messageToSign(request.signData, index, signer, tokens, request.cluster)
         }
     }
 
@@ -225,7 +220,39 @@ object SolanaRequestCheck {
                 message = message,
                 instructions = instructions,
                 lookups = lookups,
-                messageBytes = null,
+                offchainMessage = null,
+                tokens = tokens,
+                cluster = cluster,
+            ),
+        )
+    }
+
+    /**
+     * A message is signed only in the off-chain format, and only for an account it names as a signer. Bytes that decode as a transaction
+     * are refused whatever their format, so a signature Lensly makes over a message is never a transaction signature.
+     */
+    private fun messageToSign(
+        bytes: ByteArray,
+        index: Int,
+        signer: ByteArray,
+        tokens: SolanaTokenList,
+        cluster: SolCluster?,
+    ): Result {
+        if (SolanaMessage.decode(bytes) is SolanaMessage.Result.Ok) return Result.Refused(TRANSACTION_AS_MESSAGE)
+        val offchain = when (val parsed = SolanaOffchainMessage.parse(bytes)) {
+            is SolanaOffchainMessage.Result.Ok -> parsed.message
+            is SolanaOffchainMessage.Result.Rejected -> return Result.Refused(parsed.reason)
+        }
+        if (offchain.signers.none { it.contentEquals(signer) }) return Result.Refused(SIGNER_NOT_NAMED)
+        return Result.Ok(
+            SolanaRequestReview(
+                signType = SolSignType.MESSAGE,
+                accountIndex = index,
+                signer = signer,
+                message = null,
+                instructions = emptyList(),
+                lookups = emptyList(),
+                offchainMessage = offchain,
                 tokens = tokens,
                 cluster = cluster,
             ),
