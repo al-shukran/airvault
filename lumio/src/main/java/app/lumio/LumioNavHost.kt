@@ -41,7 +41,6 @@ internal object LumioRoute {
     const val SETTINGS = "settings"
     const val PAIR_SCAN = "pair-scan"
     const val PAIR_REVIEW = "pair-review"
-    const val BTC_SEND = "bitcoin-send"
     const val DATA_PROVIDERS = "settings/providers"
     const val LICENCES = "settings/licences"
 
@@ -123,7 +122,7 @@ internal object LumioRoute {
     /** The optional argument of the send's route: the contract of the ERC-20 token the form starts on. Absent, it starts on the native coin. */
     const val SEND_TOKEN_ARG = "token"
 
-    /** The send from one address of the wallet in [WALLET_ARG], starting on the chain and the token in the optional arguments when they are given. */
+    /** The Ethereum send from one address of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG], starting on the token [SEND_TOKEN_ARG] when it is given. */
     const val SEND = "send/{$WALLET_ARG}/{$SEND_INDEX_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}&$SEND_TOKEN_ARG={$SEND_TOKEN_ARG}"
 
     /** The Solana send from the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
@@ -138,10 +137,16 @@ internal object LumioRoute {
     /** The route of the Algorand send from account [index] of [walletId]. */
     fun algorandSend(walletId: String, index: Int): String = "algorand-send/$walletId/$index"
 
-    /** The route of a send from address [index] of [walletId], starting on [chainId] and on the token [token] when they are given. */
-    fun send(walletId: String, index: Int, chainId: Long? = null, token: String? = null): String {
-        val query = listOfNotNull(chainId?.let { "$SEND_CHAIN_ARG=$it" }, token?.let { "$SEND_TOKEN_ARG=$it" })
-        return "send/$walletId/$index" + if (query.isEmpty()) "" else "?" + query.joinToString("&")
+    /** The Bitcoin send from the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. Its side (testnet4 or mainnet) is the selected side. */
+    const val BTC_SEND = "bitcoin-send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+
+    /** The route of the Bitcoin send from account [index] of [walletId]. */
+    fun btcSend(walletId: String, index: Int): String = "bitcoin-send/$walletId/$index"
+
+    /** The route of a send from address [index] of [walletId] on the network [chainId], and on the token [token] when it is given. */
+    fun send(walletId: String, index: Int, chainId: Long, token: String? = null): String {
+        val query = listOfNotNull("$SEND_CHAIN_ARG=$chainId", token?.let { "$SEND_TOKEN_ARG=$it" })
+        return "send/$walletId/$index?" + query.joinToString("&")
     }
 
     /** The receive page of one account, with the wallet's ID, the chain and the place as its arguments. */
@@ -296,8 +301,18 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             composable(LumioRoute.PAIR_SCAN) {
                 LumioBackdrop(selection) { PairScanRoute(navController = navController, draft = draft) }
             }
-            composable(LumioRoute.BTC_SEND) {
-                LumioBackdrop(selection) { BtcSendRoute(navController = navController, holder = holder, mode = selection.mode) }
+            composable(
+                route = LumioRoute.BTC_SEND,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                LumioBackdrop(selection) {
+                    BtcSendRoute(navController = navController, holder = holder, walletId = walletId, accountIndex = index, mode = selection.mode)
+                }
             }
             composable(
                 route = LumioRoute.SOLANA_SEND,
@@ -416,7 +431,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                         walletId = walletId,
                         index = index,
                         mode = selection.mode,
-                        preferredChainId = chain.takeIf { it != NO_CHAIN },
+                        chainId = chain,
                         preferredToken = token.takeIf { it.isNotEmpty() },
                     )
                 }

@@ -94,9 +94,7 @@ class LumioScreenshotTest {
         SendFormScreen(
             fromLabel = "Address 1",
             fromAddress = address,
-            chains = chains,
-            selectedChainId = 1L,
-            onSelectChain = {},
+            chain = ethereum,
             assets = assets,
             selectedAsset = assets.first(),
             onSelectAsset = {},
@@ -118,9 +116,7 @@ class LumioScreenshotTest {
         SendFormScreen(
             fromLabel = "Address 1",
             fromAddress = address,
-            chains = chains,
-            selectedChainId = 1L,
-            onSelectChain = {},
+            chain = ethereum,
             assets = assets,
             selectedAsset = assets[1],
             onSelectAsset = {},
@@ -138,11 +134,9 @@ class LumioScreenshotTest {
 
     @Test
     fun bitcoinSendForm() = compose.snapshot("bitcoin_send_form") {
-        val refs = bitcoinAccounts(BtcNetwork.MAINNET).map { BtcAccountRef("wallet-Demo", it) }
+        val account = BtcAccountRef("wallet-Demo", bitcoinAccounts(BtcNetwork.MAINNET).first())
         BtcSendFormScreen(
-            accounts = refs,
-            selectedKey = refs.first().key,
-            onSelect = {},
+            account = account,
             recipient = "",
             onRecipient = {},
             onScan = {},

@@ -74,13 +74,20 @@ private const val BROADCAST_FAILED = "The transaction could not be sent. Check t
 private const val NETWORK_FAILED = "The Bitcoin network could not be read. Try again."
 private const val NO_BROWSER = "No browser can open the explorer."
 
+/** The account a Bitcoin send is from: [Missing] when the vault has no such account on the side the owner chose. */
+private sealed interface BtcSendLoad {
+    data object Missing : BtcSendLoad
+
+    class Ready(val account: BtcAccountRef) : BtcSendLoad
+}
+
 /**
- * A Bitcoin send from one of the paired accounts: the form, the review, the request that Lensly signs, the scan of its signed answer, and the
- * transaction that is sent. Lumio holds no key. It builds the unsigned transaction from public reads, and it broadcasts only a signed answer
- * that carries the same transaction, with every input signed.
+ * A Bitcoin send from the paired account [accountIndex] of the wallet [walletId], which is fixed: the form, the review, the request that Lensly
+ * signs, the scan of its signed answer, and the transaction that is sent. Lumio holds no key. It builds the unsigned transaction from public reads,
+ * and it broadcasts only a signed answer that carries the same transaction, with every input signed.
  */
 @Composable
-internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder, mode: NetworkMode) {
+internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder, walletId: String, accountIndex: Int, mode: NetworkMode) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
     val session = holder.openSession()
@@ -89,18 +96,26 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
     }
     if (session == null) return
     val scope = rememberCoroutineScope()
-    // Only the accounts of the side the owner chose. A mainnet send never offers a testnet account, and a testnet send never a mainnet one.
-    val refs by produceState<List<BtcAccountRef>?>(initialValue = null, session, mode) {
-        value = withContext(Dispatchers.IO) { bitcoinRefs(session).filter { mode.holds(it.account.network) } }
+    // The account at [accountIndex] of the wallet, on the side the owner chose: a mainnet send never opens a testnet account, and a testnet send never a mainnet one.
+    val load by produceState<BtcSendLoad?>(initialValue = null, session, walletId, accountIndex, mode) {
+        value = withContext(Dispatchers.IO) {
+            bitcoinRefs(session).filter { it.walletId == walletId }.getOrNull(accountIndex)
+                ?.takeIf { mode.holds(it.account.network) }
+                ?.let { BtcSendLoad.Ready(it) }
+                ?: BtcSendLoad.Missing
+        }
     }
     // The paired wallets, for the names of the review: the Address Book of the wallet that holds the plan's account.
     val wallets by produceState<List<PairedWallet>>(initialValue = emptyList(), session) {
         value = onVault(emptyList()) { PairedWallets.list(session) }
     }
-    val accounts = refs ?: return
+    if (load == BtcSendLoad.Missing) {
+        LaunchedEffect(Unit) { navController.popBackStack() }
+        return
+    }
+    val selected = (load as? BtcSendLoad.Ready)?.account ?: return
 
     var step by remember { mutableStateOf<BtcSendStep>(BtcSendStep.Form) }
-    var accountKey by rememberSaveable { mutableStateOf<String?>(null) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     var feeRate by rememberSaveable { mutableStateOf("") }
@@ -116,14 +131,12 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
     var suggestedRate by remember { mutableStateOf<Double?>(null) }
     var spendable by remember { mutableStateOf<BtcSpendable?>(null) }
 
-    val selected = accounts.firstOrNull { it.key == accountKey } ?: accounts.firstOrNull()
-    val network = selected?.account?.network
+    val network = selected.account.network
 
-    // The fee rate starts at the server's estimate for the selected network. A rate the owner has typed is never replaced.
+    // The fee rate starts at the server's estimate for the network. A rate the owner has typed is never replaced.
     LaunchedEffect(network) {
-        val net = network ?: return@LaunchedEffect
         val estimates = runCatching {
-            withContext(Dispatchers.IO) { app.scheduler.run(FeeEstimates(net.networkId()), Priority.FOREGROUND) }
+            withContext(Dispatchers.IO) { app.scheduler.run(FeeEstimates(network.networkId()), Priority.FOREGROUND) }
         }.getOrNull() ?: return@LaunchedEffect
         val rate = BtcSend.suggestedFeeRate(estimates)
         suggestedRate = rate
@@ -133,7 +146,7 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
     }
 
     fun review() {
-        val ref = selected ?: return
+        val ref = selected
         busy = true
         notice = null
         scope.launch {
@@ -177,8 +190,7 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
 
     /** A scanned recipient fills To, and the amount when the form has none. A code that is refused keeps the camera on, with the words why. */
     fun onRecipientText(text: String) {
-        val net = network ?: return
-        runCatching { BtcPaymentCode.read(text, net) }
+        runCatching { BtcPaymentCode.read(text, network) }
             .onSuccess { payment ->
                 recipient = payment.address
                 if (payment.amount != null && amount.isBlank()) amount = payment.amount
@@ -279,9 +291,7 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
 
     when (val current = step) {
         BtcSendStep.Form -> BtcSendFormScreen(
-            accounts = accounts,
-            selectedKey = selected?.key,
-            onSelect = { accountKey = it },
+            account = selected,
             recipient = recipient,
             onRecipient = { recipient = it },
             onScan = {
