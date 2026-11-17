@@ -123,9 +123,9 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
     /** The SQL of [query] over the table's alias `t`, with its values appended to [args] in order. */
     private fun where(query: TxQuery, args: MutableList<Any?>): String {
         val clauses = ArrayList<String>()
-        query.account?.let {
-            clauses += "t.accountKey = ?"
-            args += accountKeyOf(it)
+        if (query.accounts.isNotEmpty()) {
+            clauses += "t.accountKey IN (${marks(query.accounts.size)})"
+            query.accounts.forEach { args += accountKeyOf(it) }
         }
         if (query.networks.isNotEmpty()) {
             clauses += "t.network IN (${marks(query.networks.size)})"

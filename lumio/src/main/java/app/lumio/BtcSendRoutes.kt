@@ -99,10 +99,7 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
     // The account at [accountIndex] of the wallet, on the side the owner chose: a mainnet send never opens a testnet account, and a testnet send never a mainnet one.
     val load by produceState<BtcSendLoad?>(initialValue = null, session, walletId, accountIndex, mode) {
         value = withContext(Dispatchers.IO) {
-            bitcoinRefs(session).filter { it.walletId == walletId }.getOrNull(accountIndex)
-                ?.takeIf { mode.holds(it.account.network) }
-                ?.let { BtcSendLoad.Ready(it) }
-                ?: BtcSendLoad.Missing
+            bitcoinAccountRef(session, walletId, accountIndex, mode)?.let { BtcSendLoad.Ready(it) } ?: BtcSendLoad.Missing
         }
     }
     // The paired wallets, for the names of the review: the Address Book of the wallet that holds the plan's account.

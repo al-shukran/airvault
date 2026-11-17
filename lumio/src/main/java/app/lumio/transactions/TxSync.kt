@@ -49,9 +49,10 @@ object TxSync {
     /**
      * Reads [plan] into the store of [vault], one read after another, so that the scheduler's rate limits hold. [onStored] runs after each read, so the
      * feed shows what has landed. A read that fails is skipped, and the store keeps what it held. Each Bitcoin account is scanned in detail, which reads
-     * the transactions of every address it uses. Call it off the main thread.
+     * the transactions of every address it uses. [onAddress] names each Bitcoin address that a scan turns up, as the scan reads it. Call it off the
+     * main thread.
      */
-    suspend fun run(app: LumioApp, vault: LumioVault, plan: TxSyncPlan, onStored: () -> Unit) {
+    suspend fun run(app: LumioApp, vault: LumioVault, plan: TxSyncPlan, onStored: () -> Unit, onAddress: (String) -> Unit = {}) {
         val history = app.txHistory(vault)
         for (read in plan.evm) {
             attempt { history.refresh(read.net, read.address) }
@@ -68,6 +69,7 @@ object TxSync {
                     memo = app.addressStats.forNetwork(net),
                     detail = true,
                     onTxs = { address, txs, tipHeight ->
+                        onAddress(address)
                         history.storeBitcoin(net, address, txs, tipHeight)
                         onStored()
                     },

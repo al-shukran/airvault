@@ -91,7 +91,7 @@ class TxFilterTest {
         assertEquals(TxSort.AMOUNT, q.sort)
         assertFalse(q.descending)
         assertEquals(networks, q.networks)
-        assertNull(q.account)
+        assertTrue(q.accounts.isEmpty())
     }
 
     @Test
