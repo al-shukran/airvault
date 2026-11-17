@@ -10,6 +10,7 @@ import java.nio.ByteOrder
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -150,14 +151,56 @@ class SolanaRequestCheckTest {
         assertEquals(emptyList(), review(request(signData), listOf(key(1))).warnings)
     }
 
+    /** An off-chain message that names the account is reviewed as its text and its application domain. */
     @Test
-    fun aMessageToSignIsReviewedAsItsBytes() {
-        val text = "hello".toByteArray()
-        val review = review(request(text, signType = 2L), listOf(key(1)))
+    fun aMessageToSignIsReviewedAsItsText() {
+        val envelope = offchainEnvelope("hello".toByteArray(), domain = key(5), signers = listOf(key(9), key(1)))
+        val review = review(request(envelope, signType = 2L), listOf(key(1)))
         assertEquals(SolSignType.MESSAGE, review.signType)
-        assertContentEquals(text, review.messageBytes)
+        val message = assertNotNull(review.offchainMessage)
+        assertEquals("hello", message.text)
+        assertContentEquals(key(5), message.applicationDomain)
         assertNull(review.message)
         assertEquals(emptyList(), review.warnings)
+    }
+
+    /** A transfer that decodes as a transaction is refused when it is sent as a message, so no message signature is a transaction's. */
+    @Test
+    fun aTransferSentAsAMessageIsRefusedAsATransaction() {
+        val signData = legacyTransfer(listOf(key(1), key(9), system()))
+        assertEquals(SolanaRequestCheck.TRANSACTION_AS_MESSAGE, refusal(request(signData, signType = 2L), listOf(key(1))))
+    }
+
+    @Test
+    fun headerlessBytesSentAsAMessageAreRefused() {
+        assertEquals(SolanaOffchainMessage.NOT_OFF_CHAIN, refusal(request(byteArrayOf(1, 2, 3), signType = 2L), listOf(key(1))))
+    }
+
+    @Test
+    fun aMessageThatDoesNotNameTheAccountAsASignerIsRefused() {
+        val envelope = offchainEnvelope("hello".toByteArray(), signers = listOf(key(9)))
+        assertEquals(SolanaRequestCheck.SIGNER_NOT_NAMED, refusal(request(envelope, signType = 2L), listOf(key(1))))
+    }
+
+    @Test
+    fun aMessageInExtendedUtf8IsRefused() {
+        val envelope = offchainEnvelope("hello".toByteArray(), format = 2)
+        assertEquals(SolanaOffchainMessage.UNSUPPORTED_FORMAT, refusal(request(envelope, signType = 2L), listOf(key(1))))
+    }
+
+    /** A length field that names more bytes than the message holds is refused, with no crash. */
+    @Test
+    fun aMessageWhoseLengthOverrunsItsBytesIsRefused() {
+        val envelope = offchainEnvelope("hello".toByteArray(), declaredLength = 500)
+        assertEquals(SolanaOffchainMessage.LENGTH_MISMATCH, refusal(request(envelope, signType = 2L), listOf(key(1))))
+    }
+
+    /** A line break is part of a text message, so the review keeps the whole text. */
+    @Test
+    fun aMessageWithALineBreakIsReviewedAsItsWholeText() {
+        val envelope = offchainEnvelope("Sign in\nNonce 42".toByteArray(), format = 1)
+        val review = review(request(envelope, signType = 2L), listOf(key(1)))
+        assertEquals("Sign in\nNonce 42", assertNotNull(review.offchainMessage).text)
     }
 
     private fun review(

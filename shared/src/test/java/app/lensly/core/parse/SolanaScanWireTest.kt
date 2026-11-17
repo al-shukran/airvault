@@ -1,6 +1,7 @@
 package app.lensly.core.parse
 
 import app.lensly.core.solana.SolanaVectors
+import app.lensly.core.solana.offchainEnvelope
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.framesOf
 import com.sparrowwallet.hummingbird.UR
@@ -32,10 +33,13 @@ class SolanaScanWireTest {
         assertIs<ScanReply.Refused>(InProcessParser.scan(parts(payload)))
     }
 
-    /** A message to sign is not a transaction, so its bytes are not parsed as one, and the sandbox answers with the payload. */
+    /**
+     * A message to sign is an off-chain message, so its bytes are not parsed as a transaction. A valid v0 envelope is answered with its
+     * payload, and the sandbox does not read it as a transaction.
+     */
     @Test
     fun aSolanaMessageToSignIsAnsweredWithoutAMessageParse() {
-        val payload = requestCbor(signData = byteArrayOf(0x7f, 1, 2), signType = 2L)
+        val payload = requestCbor(signData = offchainEnvelope("hello".toByteArray()), signType = 2L)
         assertContentEquals(payload, assertIs<ScanReply.Solana>(InProcessParser.scan(parts(payload))).payload)
     }
 

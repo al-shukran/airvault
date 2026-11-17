@@ -8,7 +8,7 @@ enum class SolSignType(val wire: Int) {
     /** A serialized Solana transaction message. */
     TRANSACTION(1),
 
-    /** Message bytes, which the owner reads as text before signing. */
+    /** An off-chain message, which the owner reads as text before signing. */
     MESSAGE(2);
 
     companion object {

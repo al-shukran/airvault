@@ -10,6 +10,7 @@ import app.lensly.core.registry.AbiDecoder
 import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.solana.SolanaMessage
+import app.lensly.core.solana.SolanaOffchainMessage
 import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.DataType
@@ -127,8 +128,8 @@ object InProcessParser : RequestParser {
     }
 
     /**
-     * The reply for a complete `ur:sol-sign-request`: its CBOR, when the request parses and, for a transaction, its message parses too.
-     * Otherwise the reason it is refused.
+     * The reply for a complete `ur:sol-sign-request`: its CBOR, when the request parses and its sign data parses too. A transaction must
+     * parse as a transaction, and a message must parse as a Solana off-chain message. Otherwise the reason it is refused.
      */
     private fun solanaReply(ur: UR): ScanReply {
         val request = when (val decoded = SolSignRequest.decode(ur.cborBytes)) {
@@ -137,6 +138,10 @@ object InProcessParser : RequestParser {
         }
         if (request.signType == SolSignType.TRANSACTION) {
             (SolanaMessage.decode(request.signData) as? SolanaMessage.Result.Rejected)?.let { return ScanReply.Refused(it.reason) }
+        }
+        if (request.signType == SolSignType.MESSAGE) {
+            val parsed = SolanaOffchainMessage.parse(request.signData)
+            if (parsed is SolanaOffchainMessage.Result.Rejected) return ScanReply.Refused(parsed.reason)
         }
         return ScanReply.Solana(ur.cborBytes)
     }

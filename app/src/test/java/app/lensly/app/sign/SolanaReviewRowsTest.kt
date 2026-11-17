@@ -71,32 +71,48 @@ class SolanaReviewRowsTest {
         )
     }
 
+    /** An off-chain message shows its signer, its application domain and its text, as the owner reads it. */
     @Test
-    fun aMessageShowsItsTextWhenEveryCharacterCanBeReadAndItsBytesOtherwise() {
-        assertEquals("hello\nworld", solanaMessageText("hello\nworld".toByteArray()))
-        assertEquals("0x0102", solanaMessageText(byteArrayOf(1, 2)))
-        // A right-to-left override is a format character, so the message shows its bytes rather than text that could mislead.
-        assertEquals("0xe280ae", solanaMessageText("‮".toByteArray()))
+    fun aMessageToSignShowsTheSignerTheApplicationDomainAndTheText() {
+        val review = review(request(offchain("hello", domain = key(5)), signType = SolSignType.MESSAGE))
+        assertEquals(listOf("Signer" to address(1), "Application domain" to address(5), "Message" to "hello"), solanaRows(review))
+        assertEquals("Signs a message as text.", solanaSentence(review))
+    }
+
+    /** A text with line breaks shows every line, so the owner reads all of what is signed. */
+    @Test
+    fun aMessageWithLineBreaksShowsItsWholeText() {
+        val text = "Sign in to Example\nNonce 42"
+        val review = review(request(offchain(text, format = 1), signType = SolSignType.MESSAGE))
+        assertEquals(text, solanaRows(review).toMap()["Message"])
     }
 
     @Test
-    fun aMessageToSignShowsTheSignerAndTheMessage() {
-        val review = review(request("hello".toByteArray(), signType = SolSignType.MESSAGE))
-        assertEquals(listOf("Signer" to address(1), "Message" to "hello"), solanaRows(review))
-        assertEquals("Signs a message as text.", solanaSentence(review))
+    fun theRecordOfASignedMessageHoldsItsTextAndTheHashOfTheEnvelope() {
+        val signData = offchain("hello")
+        val review = review(request(signData, signType = SolSignType.MESSAGE))
+
+        val record = solanaReviewRecordOf(
+            SolanaReviewEntry(WALLET, ReviewOutcome.SIGNED, request(signData, signType = SolSignType.MESSAGE), review, null),
+            atMs = 1L,
+        )
+
+        assertEquals(ReviewKind.MESSAGE, record.kind)
+        assertContains(record.params, "Message" to "hello")
+        assertEquals(MessageDigest.getInstance("SHA-256").digest(signData).toHex(), record.dataHash)
     }
 
     /** The header's network row names the cluster that Lumio states, and marks it as stated by Lumio. */
     @Test
     fun aRequestForDevnetShowsItsNetworkRowAsStatedByLumio() {
-        val review = review(request("hello".toByteArray(), signType = SolSignType.MESSAGE, cluster = SolCluster.DEVNET))
+        val review = review(request(offchain("hello"), signType = SolSignType.MESSAGE, cluster = SolCluster.DEVNET))
         assertEquals(ReviewFact(label = "Network", value = "Solana devnet (stated by Lumio)", mono = false), solanaNetworkFact(review))
     }
 
     /** A request that names no cluster, as Keystone's does, shows its network row as not stated. */
     @Test
     fun aRequestThatNamesNoClusterShowsItsNetworkRowAsNotStated() {
-        val review = review(request("hello".toByteArray(), signType = SolSignType.MESSAGE))
+        val review = review(request(offchain("hello"), signType = SolSignType.MESSAGE))
         assertEquals(ReviewFact(label = "Network", value = "Not stated", mono = false), solanaNetworkFact(review))
     }
 
@@ -299,6 +315,27 @@ class SolanaReviewRowsTest {
         signType = signType,
         cluster = cluster,
     )
+
+    /** An off-chain message at header version 0 for [text] in [format], naming [signers]: the layout the Solana proposal gives. */
+    private fun offchain(
+        text: String,
+        format: Int = 0,
+        domain: ByteArray = key(5),
+        signers: List<ByteArray> = listOf(key(1)),
+    ): ByteArray {
+        val body = text.toByteArray(Charsets.UTF_8)
+        val out = ByteArrayOutputStream()
+        out.write(byteArrayOf(0xff.toByte()))
+        out.write("solana offchain".toByteArray(Charsets.US_ASCII))
+        out.write(0)
+        out.write(domain)
+        out.write(format)
+        out.write(signers.size)
+        signers.forEach { out.write(it) }
+        out.write(ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(body.size.toShort()).array())
+        out.write(body)
+        return out.toByteArray()
+    }
 
     private fun key(seed: Int): ByteArray = ByteArray(32) { seed.toByte() }
 
