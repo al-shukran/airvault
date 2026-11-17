@@ -27,6 +27,7 @@ import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
+import app.lensly.ui.gate.GateStatusLine
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyPillShape
@@ -35,7 +36,8 @@ import app.lensly.ui.theme.LenslySurfaceHighest
 
 /**
  * The App Password step, shared by every flow that asks for the App Password again: Show Secret, Delete Wallet, Wipe, the Hidden Entry
- * Gesture and the settings changes. [title], [prompt] and [stepCount] say which action it belongs to.
+ * Gesture and the settings changes. [title], [prompt] and [stepCount] say which action it belongs to. [warning] is the line shown near
+ * the erase (see eraseWarning in the gate), and it is hidden while a check runs.
  */
 @Composable
 fun PasswordStep(
@@ -50,6 +52,7 @@ fun PasswordStep(
     prompt: String,
     stepCount: Int,
     step: Int = 1,
+    warning: String? = null,
 ) {
     // The keyboard is up when the step opens. A tap outside the field or the system Back hides it, and a tap on the field brings it back.
     var focused by rememberSaveable { mutableStateOf(true) }
@@ -85,7 +88,7 @@ fun PasswordStep(
             PasswordField(length = length, onClick = { focused = true })
             Spacer(Modifier.height(LenslySpacing.sm))
             // Reserved height, so the keyboard does not move while the progress row comes and goes. A wrong password shows
-            // nothing, as at the gate.
+            // nothing, as at the gate, except the warning near the erase.
             Box(
                 modifier = Modifier.fillMaxWidth().height(PROGRESS_SLOT_HEIGHT),
                 contentAlignment = Alignment.Center,
@@ -100,6 +103,8 @@ fun PasswordStep(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                } else if (warning != null) {
+                    GateStatusLine(text = warning)
                 }
             }
 

@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
+import app.lensly.ui.gate.eraseWarning
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertEquals
@@ -179,6 +180,44 @@ class FailureCapScreenTest {
         assertEquals(FailureCapChoice.ONE_MINUTE, FailureCapChoice.of(null))
         // A cap the app does not offer reads as the default, as it did before.
         assertEquals(FailureCapChoice.ONE_MINUTE, FailureCapChoice.of(45_000L))
+    }
+
+    @Test
+    fun theAppPasswordStepShowsTheTriesLeftBeforeTheErase() {
+        showPassword(busy = false, warning = eraseWarning(2))
+
+        compose.onNodeWithText("2 TRIES LEFT BEFORE THIS VAULT IS ERASED").assertIsDisplayed()
+    }
+
+    @Test
+    fun theTriesLeftAreNotShownWhileTheCheckRuns() {
+        showPassword(busy = true, warning = eraseWarning(2))
+
+        compose.onNodeWithText("CHECKING").assertIsDisplayed()
+        compose.onNodeWithText("2 TRIES LEFT BEFORE THIS VAULT IS ERASED").assertDoesNotExist()
+    }
+
+    private fun showPassword(busy: Boolean, warning: String?) {
+        compose.setContent {
+            LenslyTheme {
+                FailureCapScreen(
+                    step = FailureCapStep.Password(FailureCapChoice.ONE_MINUTE, FailureDelay.DEFAULT_WIPE_AFTER, busy),
+                    saved = FailureCapChoice.TEN_SECONDS,
+                    selected = FailureCapChoice.ONE_MINUTE,
+                    savedErase = FailureDelay.DEFAULT_WIPE_AFTER,
+                    selectedErase = FailureDelay.DEFAULT_WIPE_AFTER,
+                    passwordLength = 0,
+                    onSelect = {},
+                    onSelectErase = {},
+                    onContinue = {},
+                    onKey = {},
+                    onBackspace = {},
+                    onSubmit = {},
+                    onBack = {},
+                    warning = warning,
+                )
+            }
+        }
     }
 
     @Test

@@ -7,6 +7,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -23,6 +24,7 @@ import app.lensly.ui.flow.RevealFlow
 import app.lensly.ui.flow.RevealStep
 import app.lensly.ui.flow.VaultRevealPorts
 import app.lensly.ui.gate.PasswordBuffer
+import app.lensly.ui.gate.eraseWarning
 import app.lensly.ui.wallet.ShowSecretScreen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +50,7 @@ internal fun ShowSecretRoute(navController: NavHostController, holder: VaultHold
     var length by remember { mutableIntStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val awaitingPassword = (step as? RevealStep.Password)?.busy == false
+    var triesLeft by remember { mutableStateOf<Int?>(null) }
 
     BackHandler { flow.leave(ClearReason.DONE) }
     DisposableEffect(lifecycleOwner, flow) {
@@ -70,6 +73,8 @@ internal fun ShowSecretRoute(navController: NavHostController, holder: VaultHold
             flow.tick()
         }
     }
+    // The tries left are read each time the App Password is asked, so the warning counts the wrong tries just made.
+    LaunchedEffect(awaitingPassword) { if (awaitingPassword) triesLeft = holder.vault.triesBeforeErase() }
     // A lock has its own navigation, so LOCKED does nothing here.
     LaunchedEffect(step) {
         when ((step as? RevealStep.Cleared)?.reason) {
@@ -110,6 +115,7 @@ internal fun ShowSecretRoute(navController: NavHostController, holder: VaultHold
                 flow.leave(ClearReason.DONE)
             }
         },
+        warning = triesLeft?.let(::eraseWarning),
     )
 }
 

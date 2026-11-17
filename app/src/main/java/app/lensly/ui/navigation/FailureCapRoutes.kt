@@ -16,6 +16,7 @@ import app.lensly.core.vault.FailureCapResult
 import app.lensly.core.vault.FailureDelay
 import app.lensly.core.vault.VaultException
 import app.lensly.ui.gate.PasswordBuffer
+import app.lensly.ui.gate.eraseWarning
 import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.FailureCapScreen
 import app.lensly.ui.settings.FailureCapStep
@@ -43,11 +44,15 @@ internal fun FailureCapRoute(navController: NavHostController, holder: VaultHold
     var length by remember { mutableIntStateOf(0) }
     val shown = selected ?: saved
     val shownErase = selectedErase ?: savedErase
+    var triesLeft by remember { mutableStateOf<Int?>(null) }
+    val awaitingPassword = (step as? FailureCapStep.Password)?.busy == false
 
     LaunchedEffect(Unit) {
         saved = readFailureCap(holder)
         savedErase = readEraseAfter(holder)
     }
+    // The tries left are read each time the App Password is asked, so the warning counts the wrong tries just made.
+    LaunchedEffect(awaitingPassword) { if (awaitingPassword) triesLeft = holder.vault.triesBeforeErase() }
     DisposableEffect(Unit) {
         onDispose { password.clear() }
     }
@@ -114,6 +119,7 @@ internal fun FailureCapRoute(navController: NavHostController, holder: VaultHold
                 is FailureCapStep.Password -> if (!current.busy) backToChoose()
             }
         },
+        warning = triesLeft?.let(::eraseWarning),
     )
 }
 

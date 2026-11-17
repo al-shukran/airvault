@@ -91,7 +91,7 @@ fun PasswordField(
  * is empty when [text] is null. Its text is announced as it changes.
  */
 @Composable
-internal fun GateStatusLine(
+fun GateStatusLine(
     text: String?,
     modifier: Modifier = Modifier,
     working: Boolean = false,

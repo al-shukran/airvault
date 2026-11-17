@@ -95,6 +95,8 @@ fun FailureCapScreen(
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
+    /** The line near the erase on the App Password step, such as "2 tries left before this vault is erased". */
+    warning: String? = null,
     modifier: Modifier = Modifier,
 ) {
     when (step) {
@@ -121,6 +123,7 @@ fun FailureCapScreen(
             prompt = "Enter your Application Password to save this lockout.",
             stepCount = STEP_COUNT,
             step = 2,
+            warning = warning,
         )
     }
 }
