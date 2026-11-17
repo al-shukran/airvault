@@ -39,7 +39,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -54,7 +53,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -86,11 +84,8 @@ import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurfaceHigh
-import java.io.File
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /** How long a failed capture stays on screen, in milliseconds. */
 private const val CAPTURE_NOTICE_MS = 3500L
@@ -144,7 +139,8 @@ fun CameraScreen(
     }
 
     if (granted) {
-        val store = remember(context) { PhotoStore.of(context) }
+        // The cover has no open session, so every photo it takes goes to the real vault's folder.
+        val store = remember(context) { PhotoStore.of(context.filesDir, decoy = false) }
         CameraViewfinder(
             store = store,
             onOpenGallery = onOpenGallery,
@@ -190,7 +186,6 @@ private fun CameraViewfinder(
     var hasFlash by remember { mutableStateOf(false) }
     var unavailable by remember { mutableStateOf(false) }
     var bindAttempt by remember { mutableIntStateOf(0) }
-    var photoVersion by remember { mutableIntStateOf(0) }
     var captureFailures by remember { mutableIntStateOf(0) }
     var showCaptureFailure by remember { mutableStateOf(false) }
     var failureNotice by remember { mutableStateOf(PHOTO_NOT_SAVED) }
@@ -217,10 +212,6 @@ private fun CameraViewfinder(
                 delay(TIMER_TICK_MS)
             }
         }
-    }
-
-    val latestPhoto by produceState<File?>(initialValue = null, photoVersion) {
-        value = withContext(Dispatchers.IO) { store.list().firstOrNull() }
     }
 
     LaunchedEffect(previewView, lensFacing, bindAttempt) {
@@ -274,11 +265,7 @@ private fun CameraViewfinder(
             executor = ContextCompat.getMainExecutor(context),
             onFinished = { saved ->
                 recordingSince = null
-                if (saved) {
-                    photoVersion++
-                } else {
-                    showFailure(VIDEO_NOT_SAVED)
-                }
+                if (!saved) showFailure(VIDEO_NOT_SAVED)
             },
         )
         if (started) {
@@ -297,7 +284,6 @@ private fun CameraViewfinder(
                     file = store.newFile(),
                     executor = ContextCompat.getMainExecutor(context),
                     onSaved = {
-                        photoVersion++
                         scope.launch {
                             shutterFlash.snapTo(SHUTTER_FLASH_ALPHA)
                             shutterFlash.animateTo(0f, tween(SHUTTER_FLASH_MS))
@@ -359,7 +345,6 @@ private fun CameraViewfinder(
                 },
                 showCaptureFailure = showCaptureFailure,
                 captureFailureText = failureNotice,
-                latestPhoto = latestPhoto,
                 onOpenGallery = onOpenGallery,
                 mode = mode,
                 onModeChange = onModeChange,
@@ -398,8 +383,8 @@ private fun CameraViewfinder(
 
 /**
  * The viewfinder controls: the Photo and Video switch, the flash toggle and the recording timer on top, the gallery
- * thumbnail, shutter and camera switch at the bottom. A failed capture shows a notice under the top bar. The space between
- * is the touch area for focus and zoom, and [onViewfinderBounds] reports it.
+ * thumbnail, shutter and camera switch at the bottom. Under the top bar sit the warning about recovery words and, after a failed
+ * capture, its notice. The space between is the touch area for focus and zoom, and [onViewfinderBounds] reports it.
  */
 @Composable
 fun ViewfinderOverlay(
@@ -407,7 +392,6 @@ fun ViewfinderOverlay(
     flashOn: Boolean,
     onToggleFlash: () -> Unit,
     showCaptureFailure: Boolean,
-    latestPhoto: File?,
     onOpenGallery: () -> Unit,
     onShutter: () -> Unit,
     onFlip: () -> Unit,
@@ -433,6 +417,7 @@ fun ViewfinderOverlay(
             recording = recording,
             elapsedMs = elapsedMs,
         )
+        RecoveryWordsWarning()
         if (showCaptureFailure) {
             CaptureFailedBanner(message = captureFailureText)
         }
@@ -455,7 +440,6 @@ fun ViewfinderOverlay(
                 },
         )
         ViewfinderBottomBar(
-            latestPhoto = latestPhoto,
             onOpenGallery = onOpenGallery,
             onShutter = onShutter,
             onFlip = onFlip,
@@ -494,6 +478,22 @@ internal fun CameraHint(message: String, modifier: Modifier = Modifier) {
             .background(LenslyBlack),
     ) {
         InlineBanner(message = message, tone = BannerTone.Info)
+    }
+}
+
+/**
+ * The standing warning under the top bar. The cover photographs whatever it points at, so the warning stays on every camera screen.
+ */
+@Composable
+internal fun RecoveryWordsWarning(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs)
+            .clip(RoundedCornerShape(LenslyRadius.md))
+            .background(LenslyBlack),
+    ) {
+        InlineBanner(message = "Never photograph recovery words.", tone = BannerTone.Warning)
     }
 }
 
@@ -608,7 +608,6 @@ private fun RecordingTimer(elapsedMs: Long) {
 
 @Composable
 private fun ViewfinderBottomBar(
-    latestPhoto: File?,
     onOpenGallery: () -> Unit,
     onShutter: () -> Unit,
     onFlip: () -> Unit,
@@ -625,7 +624,6 @@ private fun ViewfinderBottomBar(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         GalleryThumbnail(
-            latestPhoto = latestPhoto,
             onClick = onOpenGallery,
             onPlaced = { onControlPlaced(EntryRegion.THUMBNAIL, it) },
         )
@@ -651,7 +649,7 @@ private fun ViewfinderBottomBar(
 }
 
 @Composable
-private fun GalleryThumbnail(latestPhoto: File?, onClick: () -> Unit, onPlaced: (LayoutCoordinates) -> Unit) {
+private fun GalleryThumbnail(onClick: () -> Unit, onPlaced: (LayoutCoordinates) -> Unit) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
     Box(
@@ -669,15 +667,15 @@ private fun GalleryThumbnail(latestPhoto: File?, onClick: () -> Unit, onPlaced: 
                 onClick = onClick,
             )
             .semantics { contentDescription = "Open gallery" },
+        contentAlignment = Alignment.Center,
     ) {
-        if (latestPhoto != null) {
-            PhotoImage(
-                file = latestPhoto,
-                maxSidePx = 240,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+        // The newest photo is not shown here: the cover is locked, and the gallery asks for a password first.
+        Icon(
+            imageVector = CameraIcons.Photos,
+            contentDescription = null,
+            tint = LenslyOnSurface,
+            modifier = Modifier.size(26.dp),
+        )
     }
 }
 

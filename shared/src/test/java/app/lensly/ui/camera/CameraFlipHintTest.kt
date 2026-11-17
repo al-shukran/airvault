@@ -31,7 +31,6 @@ class CameraFlipHintTest {
                         flashOn = false,
                         onToggleFlash = {},
                         showCaptureFailure = false,
-                        latestPhoto = null,
                         onOpenGallery = {},
                         onShutter = {},
                         onFlip = {},

@@ -1,11 +1,10 @@
 package app.lensly.ui.camera
 
-import android.content.Context
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-/** App-private media folder (`filesDir/photos`) for photos and videos. Nothing is written to shared storage. */
+/** One vault's app-private media folder for photos and videos. Nothing is written to shared storage. */
 class PhotoStore(val directory: File) {
 
     /** A new, unused file for one JPEG. */
@@ -31,7 +30,12 @@ class PhotoStore(val directory: File) {
     companion object {
         private val MEDIA_EXTENSIONS = setOf("jpg", "mp4")
 
-        fun of(context: Context): PhotoStore = PhotoStore(File(context.filesDir, "photos"))
+        /**
+         * The real vault's media folder under [filesDir], or the Decoy Vault's when [decoy] is true. The two folders are kept apart, so
+         * a decoy lists none of the real vault's photos.
+         */
+        fun of(filesDir: File, decoy: Boolean): PhotoStore =
+            PhotoStore(File(filesDir, if (decoy) "photos/decoy" else "photos/real"))
     }
 }
 
