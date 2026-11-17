@@ -4,7 +4,6 @@ import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.wallet.AccountAddresses
 import app.lumio.btc.BtcRow
 import app.lumio.chains.CachedNativeBalance
 import app.lumio.chains.NativeCoin
@@ -118,7 +117,7 @@ object WalletAccounts {
         val chainId = primaryEvmChainId(mode)
         val primary = chains.firstOrNull { it.chainId == chainId }
         return wallet.evmAccounts.take(addressCount).mapIndexed { index, account ->
-            val address = AccountAddresses.addressOfKey(account.key)
+            val address = account.address
             val read = cache.firstOrNull { it.walletId == wallet.id && it.chainId == chainId && it.address == address }
             val balance = if (primary != null && read != null) {
                 HomeBalances.evm(listOf(primary), listOf(Holding(primary, BigInteger(read.wei), read.atMs))).singleOrNull()

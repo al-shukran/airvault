@@ -112,10 +112,9 @@ class WalletStoreSolanaTest {
         assertEquals("solana", app.app)
         assertEquals(listOf(listOf(hardened(44), hardened(501), hardened(0)), listOf(hardened(44), hardened(501), hardened(1))), app.keys.map { it.path })
         app.keys.forEachIndexed { index, key ->
-            assertEquals(3, key.depth)
-            assertEquals(0.toByte(), key.publicKey[0])
-            assertContentEquals(SolanaAccount.publicKey(seed, index), key.publicKey.copyOfRange(1, key.publicKey.size))
-            assertContentEquals(SolanaAccount.chainCode(seed, index), key.chainCode)
+            assertEquals(3, key.path.size)
+            assertContentEquals(SolanaAccount.publicKey(seed, index), key.material)
+            assertEquals(null, key.chainCode)
         }
         assertEquals(listOf(0, 1), app.accounts.map { it.key })
         assertEquals("Test 0", app.accounts.first().name)

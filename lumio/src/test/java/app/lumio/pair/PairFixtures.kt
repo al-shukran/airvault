@@ -7,8 +7,8 @@ import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.AccountAddresses
-import app.lensly.core.wallet.AccountXpub
 import app.lensly.core.wallet.HdWallet
+import app.lensly.core.wallet.toHex
 
 /** Seeds of two public 24-word BIP39 test vectors. They hold no funds, and the tests derive every key from them. */
 internal object PairFixtures {
@@ -21,12 +21,12 @@ internal object PairFixtures {
     val seed: ByteArray = seedOf(ABANDON)
     val otherSeed: ByteArray = seedOf(ZOO)
 
-    /** The public key of the address of account [account] of [seed], m/44'/60'/[account]'/0/0, as a pairing carries it. */
-    fun addressKey(seed: ByteArray, account: Int): AccountXpub = AccountAddresses.addressXpub(HdWallet(seed).accountXpub(account), 0)
+    /** The EIP-55 address of account [account] of [seed], m/44'/60'/[account]'/0/0, as a pairing carries it. */
+    fun address(seed: ByteArray, account: Int): String = AccountAddresses.addressOfKey(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(account), 0))
 
     /** The first [count] paired Ethereum accounts of [seed], with no name, label or group. */
     fun evmAccounts(count: Int = 1, seed: ByteArray = PairFixtures.seed): List<PairedAccount> =
-        (0 until count).map { PairedAccount(it, addressKey(seed, it), null, null, null) }
+        (0 until count).map { PairedAccount(it, address(seed, it), null, null, null) }
 
     /** The watch-only Account of [seed] for [network] and [scriptType], at account index 0. */
     fun account(seed: ByteArray, network: BtcNetwork, scriptType: ScriptType): BtcWatchOnlyAccount =
@@ -39,6 +39,10 @@ internal object PairFixtures {
 
     private fun seedOf(phrase: String): ByteArray = Mnemonic.of(phrase.split(" ")).use { it.deriveSeed("") }
 }
+
+/** What a Bitcoin account is to Lumio: its place, its keys and its path. The parent fingerprint is not in the pairing, so it is left out. */
+internal fun BtcWatchOnlyAccount.shape(): List<Any> =
+    listOf(network, scriptType, path.path, xpub.publickeybytes.toByteArray().toHex(), xpub.chaincode.toByteArray().toHex())
 
 /**
  * Feeds [parts] to a [PairScan] in order, as the camera would, and returns the step that ends the scan: the first Complete or Refused.

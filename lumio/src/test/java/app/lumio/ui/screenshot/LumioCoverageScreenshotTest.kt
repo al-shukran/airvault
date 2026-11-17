@@ -432,8 +432,8 @@ class LumioCoverageScreenshotTest {
         val apps = mutableListOf(
             PairingApp(
                 app = PairImport.ETHEREUM,
-                keys = listOf(PairingKey.ethereumAddress(0, AccountAddresses.addressXpub(wallet.accountXpub(0), 0))),
-                accounts = listOf(PairingAccount(key = 0, name = null, label = null, group = null)),
+                keys = listOf(PairingKey.ethereumAddress(0, AccountAddresses.addressOfKey(AccountAddresses.addressXpub(wallet.accountXpub(0), 0)))),
+                accounts = listOf(PairingAccount(key = 0, name = "Demo 0", label = null, group = null)),
             ),
         )
         if (withBitcoin) {
@@ -441,10 +441,10 @@ class LumioCoverageScreenshotTest {
             apps += PairingApp(
                 app = PairImport.BITCOIN,
                 keys = listOf(PairingKey.bitcoinAccount(account)),
-                accounts = listOf(PairingAccount(key = 0, name = null, label = null, group = null)),
+                accounts = listOf(PairingAccount(key = 0, name = "Demo 0", label = null, group = null)),
             )
         }
-        return PairingPayload(fingerprint = 0x1a2b3c4dL, name = "Demo", apps = apps)
+        return PairingPayload(fingerprint = 0x1a2b3c4dL, name = "Demo", autoNameBase = "Demo", apps = apps)
     }
 
     /** The provider row of a fake provider. [enabled] is the owner's switch, and the other fields are as in [LumioScreenshotTest]. */

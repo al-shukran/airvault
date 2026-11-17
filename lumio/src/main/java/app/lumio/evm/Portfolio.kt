@@ -1,8 +1,6 @@
 package app.lumio.evm
 
 import app.lensly.core.vault.VaultSession
-import app.lensly.core.wallet.AccountAddresses
-import app.lensly.core.wallet.AccountXpub
 import app.lumio.pair.PairedWallet
 import java.math.BigInteger
 import kotlinx.coroutines.Dispatchers
@@ -34,13 +32,13 @@ class PortfolioRefresh(
     /** The reads that succeeded for a wallet, and the chains that failed. */
     class WalletReads(val reads: List<CachedBalance>, val failures: List<ChainFailure>)
 
-    suspend fun wallet(walletId: String, keys: List<AccountXpub>, count: Int, chains: List<EvmChain>): WalletReads = coroutineScope {
-        val results = chains.map { chain -> async { readChain(walletId, keys, count, chain) } }.awaitAll()
+    suspend fun wallet(walletId: String, addresses: List<String>, count: Int, chains: List<EvmChain>): WalletReads = coroutineScope {
+        val results = chains.map { chain -> async { readChain(walletId, addresses, count, chain) } }.awaitAll()
         WalletReads(results.flatMap { it.reads }, results.mapNotNull { it.failure })
     }
 
-    private suspend fun readChain(walletId: String, keys: List<AccountXpub>, count: Int, chain: EvmChain): ChainResult = try {
-        val fresh = Portfolio.addresses(keys, count).map { address ->
+    private suspend fun readChain(walletId: String, addresses: List<String>, count: Int, chain: EvmChain): ChainResult = try {
+        val fresh = addresses.take(count).map { address ->
             CachedBalance(
                 walletId = walletId,
                 chainId = chain.chainId,
@@ -63,13 +61,10 @@ object Portfolio {
     /** One refresh at a time: a second request waits, and then reads the cache the first one wrote. */
     private val lock = Mutex()
 
-    /** The address of each of the first [count] accounts of a wallet: the address that each key in [keys] controls, in account order. */
-    fun addresses(keys: List<AccountXpub>, count: Int): List<String> = keys.take(count).map { AccountAddresses.addressOfKey(it) }
-
     /** The rows of [walletId]'s shown addresses, each with its cached read on [chains]. */
-    fun rows(walletId: String, keys: List<AccountXpub>, count: Int, chains: List<EvmChain>, cache: List<CachedBalance>): List<AddressRow> {
+    fun rows(walletId: String, addresses: List<String>, count: Int, chains: List<EvmChain>, cache: List<CachedBalance>): List<AddressRow> {
         val byKey = cache.associateBy { it.key }
-        return addresses(keys, count).mapIndexed { index, address ->
+        return addresses.take(count).mapIndexed { index, address ->
             val reads = chains.mapNotNull { chain -> byKey[Triple(walletId, chain.chainId, address)]?.let { chain.chainId to it } }
             AddressRow(index, address, reads.toMap())
         }
@@ -79,7 +74,7 @@ object Portfolio {
     fun holdings(wallets: List<PairedWallet>, count: Int, chains: List<EvmChain>, cache: List<CachedBalance>): List<Holding> {
         val byKey = cache.associateBy { it.key }
         return wallets.flatMap { wallet ->
-            addresses(wallet.evmKeys, count).flatMap { address ->
+            wallet.evmAddresses.take(count).flatMap { address ->
                 chains.mapNotNull { chain ->
                     byKey[Triple(wallet.id, chain.chainId, address)]?.let { Holding(chain, BigInteger(it.wei), it.atMs) }
                 }
@@ -103,9 +98,9 @@ object Portfolio {
         var cache = withContext(Dispatchers.IO) { BalanceCache.read(session) }
         val failures = LinkedHashMap<String, List<ChainFailure>>()
         for (wallet in wallets) {
-            val keys = wallet.evmKeys.takeIf { it.isNotEmpty() } ?: continue
-            val result = refresher.wallet(wallet.id, keys, settings.addressCount, chains)
-            cache = merged(cache, wallet.id, addresses(keys, settings.addressCount).toSet(), result.reads)
+            val addresses = wallet.evmAddresses.takeIf { it.isNotEmpty() } ?: continue
+            val result = refresher.wallet(wallet.id, addresses, settings.addressCount, chains)
+            cache = merged(cache, wallet.id, addresses.take(settings.addressCount).toSet(), result.reads)
             failures[wallet.id] = result.failures
         }
         withContext(Dispatchers.IO) { BalanceCache.write(session, cache) }

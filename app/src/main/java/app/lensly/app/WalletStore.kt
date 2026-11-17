@@ -538,8 +538,10 @@ class WalletStore(private val session: VaultSession) {
             val fingerprint = HdWallet(seed).masterFingerprint.toLong() and UINT32_MASK
             val apps = WalletApp.entries.mapNotNull { app -> app.pairedApp(this, id, seed) }
             val name = fitBytes(meta.name.ifBlank { DEFAULT_PAIRING_NAME }, PairingCodec.MAX_NAME_BYTES)
+            val autoNameBase = fitBytes(meta.autoNameBase, PairingCodec.MAX_NAME_BYTES)
             val book = AddressBookStore(session).load().take(PairingCodec.MAX_ADDRESS_BOOK)
-            return PairingCodec.urParts(PairingPayload(fingerprint = fingerprint, name = name, apps = apps, addressBook = book), brotli)
+            val payload = PairingPayload(fingerprint = fingerprint, name = name, autoNameBase = autoNameBase, apps = apps, addressBook = book)
+            return PairingCodec.urParts(payload, brotli)
         } finally {
             seed.fill(0)
         }
@@ -565,17 +567,11 @@ class WalletStore(private val session: VaultSession) {
         if (stored.isEmpty()) throw BtcRefusedException(BtcRefusal.NoStoredAccount)
         val seed = seedOf(id)
         try {
-            val accounts = heldBitcoinKeys(stored).map { (scriptType, network, index) ->
-                BtcAccount.fromSeed(seed, network, scriptType, index)
-            }
+            val accounts = stored.map { BtcAccount.fromSeed(seed, it.network, it.scriptType, it.index) }
             val account = BtcAccountSelection.select(accounts, psbt)
             val review = BtcSigner(account, inputPolicy, sourcePolicy, feeThresholds).review(psbt)
-            val record = recordOf(account, stored)
-            // The accounts the review names: the stored ones, and the one the request spends from, stored or not.
-            val named = accounts.filter { candidate ->
-                candidate.recordKey == account.recordKey || stored.any { it.key == candidate.recordKey }
-            }
-            val internal = otherBitcoinAccounts(id) + ownBitcoinAccounts(id, named.map { recordOf(it, stored) }, named)
+            val record = stored.first { it.key == Triple(account.scriptType, account.network, account.accountIndex) }
+            val internal = otherBitcoinAccounts(id) + ownBitcoinAccounts(id, stored, accounts)
             val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, AddressChain.BITCOIN, internal, book)
             val owner = meta(id)
             val signer = SigningAccount(
@@ -609,13 +605,13 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * The Bitcoin accounts of wallet [id] that [accounts] derives, keyed by the receive and change addresses within the gap limit. [records]
-     * are the records of [accounts], in the same order. Only this wallet's accounts are read, since only its seed is open for a review.
+     * The Bitcoin accounts of wallet [id] that [accounts] derives, keyed by the receive and change addresses within the gap limit. Only
+     * this wallet's accounts are read, since only its seed is open for a review.
      */
-    private fun ownBitcoinAccounts(id: String, records: List<BitcoinAccountRecord>, accounts: List<BtcAccount>): Map<String, InternalAccount> {
+    private fun ownBitcoinAccounts(id: String, stored: List<BitcoinAccountRecord>, accounts: List<BtcAccount>): Map<String, InternalAccount> {
         val base = meta(id)?.autoNameBase.orEmpty()
         return buildMap {
-            records.zip(accounts).forEach { (record, account) ->
+            stored.zip(accounts).forEach { (record, account) ->
                 val internal = InternalAccount(record.profile.name, autoAccountName(base, record.index), record.profile.label)
                 for (index in 0 until BtcAccount.GAP_LIMIT) {
                     put(addressKeyOf(account.receiveAddress(index)), internal)
@@ -641,7 +637,7 @@ class WalletStore(private val session: VaultSession) {
         sourcePolicy: SigningSourcePolicy,
         unverifiedConfirmed: Boolean,
     ): List<String> {
-        require(heldBitcoinKeys(bitcoinAccounts(id)).contains(account.key)) { "Wallet $id holds no such Bitcoin account." }
+        require(bitcoinAccounts(id).any { it.key == account.key }) { "Wallet $id holds no such Bitcoin account." }
         val seed = seedOf(id)
         val signed = try {
             val key = BtcAccount.fromSeed(seed, account.network, account.scriptType, account.index)

@@ -113,7 +113,7 @@ class TokenPortfolioMergeTest {
     fun holdingsAreTheCachedReadsOfTheListedTokensOnTheShownAddresses() {
         val paired = PairedWallet(id = wallet, name = "Demo", fingerprint = 1L, createdAtMs = 0L, evmAccounts = PairFixtures.evmAccounts(2), bitcoin = emptyList())
         val mainnet = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
-        val shown = Portfolio.addresses(paired.evmKeys, count = 2)
+        val shown = paired.evmAddresses.take(2)
         val cache = listOf(
             read(shown[0], USDC, amount = "250", at = 5L),
             read(shown[1], DAI, amount = "3", at = 6L),

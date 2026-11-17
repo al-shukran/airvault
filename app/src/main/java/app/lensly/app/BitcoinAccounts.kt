@@ -64,27 +64,5 @@ internal fun nextBitcoinIndex(existing: List<BitcoinAccountRecord>, scriptType: 
         ?.plus(1)
         ?: 0
 
-/**
- * The Bitcoin accounts a wallet's requests may spend from, as (Script Type, network, index): every Script Type on each network and index
- * the wallet stores an account at. The pairing carries all four Script Types of each index, so Lumio builds a request from any of them,
- * and each one must route, review and sign. An input still belongs to an account only when the key at its path produces its script.
- */
-internal fun heldBitcoinKeys(stored: List<BitcoinAccountRecord>): List<Triple<ScriptType, BtcNetwork, Int>> =
-    stored.map { it.network to it.index }.distinct().flatMap { (network, index) ->
-        ScriptType.entries.map { Triple(it, network, index) }
-    }
-
-/** The identity of [account] inside its wallet: the same triple as [BitcoinAccountRecord.key]. */
-internal val BtcAccount.recordKey: Triple<ScriptType, BtcNetwork, Int>
-    get() = Triple(scriptType, network, accountIndex)
-
-/**
- * The record of [account] in a wallet whose stored records are [stored]. A Script Type with no stored record is an account with no profile,
- * so it has its Auto-Name, and its first receive address is derived from the seed as a stored record's is.
- */
-internal fun recordOf(account: BtcAccount, stored: List<BitcoinAccountRecord>): BitcoinAccountRecord =
-    stored.firstOrNull { it.key == account.recordKey }
-        ?: BitcoinAccountRecord(account.network, account.scriptType, account.accountIndex, account.receiveAddress(0))
-
 /** Why a Single Key wallet refuses a Bitcoin account. It has no seed to derive one from. */
 internal const val SINGLE_KEY_NO_BITCOIN = "A Single Key wallet has no seed, so it cannot hold Bitcoin accounts."

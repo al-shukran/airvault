@@ -65,7 +65,7 @@ class NativeBalancesTest {
         val id = session.createWallet()
         val records = mapOf(
             WalletRecordNames.META to PairRecords.encodeMeta(
-                PairRecords.Meta(fingerprint = 1L, createdAtMs = 0L, name = "Demo", accountKeys = listOf(PairFixtures.addressKey(PairFixtures.seed, 0))),
+                PairRecords.Meta(fingerprint = 1L, createdAtMs = 0L, name = "Demo", addresses = listOf(PairFixtures.address(PairFixtures.seed, 0))),
             ),
             WalletRecordNames.account(0) to PairRecords.encodeAccount(PairRecords.Account(name = null, label = null, group = null)),
             WalletRecordNames.ALGORAND to PairRecords.encodeAlgorand(listOf(AlgorandAccount.publicKey(PairFixtures.seed, 0))),

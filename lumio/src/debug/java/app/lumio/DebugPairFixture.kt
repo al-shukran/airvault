@@ -2,6 +2,7 @@ package app.lumio
 
 import android.content.Intent
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
@@ -10,9 +11,9 @@ import app.lensly.app.export.PairingPayload
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
-import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.wallet.Mnemonic
 
 /**
@@ -27,6 +28,9 @@ internal object DebugPairFixture {
     private const val EXTRA = "debugPairFixture"
     private const val PARTS_EXTRA = "debugPairParts"
     private const val UINT32_MASK = 0xFFFFFFFFL
+
+    /** The Auto-Name base of the wallet: the Bitcoin accounts keep their Auto-Names, which the codec sends as no name. */
+    private const val AUTO_NAME_BASE = "Demo"
 
     /** The 24-word BIP39 test vector of 256 zero bits. */
     private val WORDS = ("abandon ".repeat(23) + "art").split(" ")
@@ -49,7 +53,8 @@ internal object DebugPairFixture {
         val ethereum = PairingApp(
             app = "ethereum",
             keys = (0..1).map { account ->
-                PairingKey.ethereumAddress(account, AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
+                val address = AccountAddresses.addressOfKey(AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
+                PairingKey.ethereumAddress(account, address)
             },
             accounts = listOf(
                 PairingAccount(key = 0, name = "DEMO 0", label = "Savings", group = null),
@@ -60,25 +65,22 @@ internal object DebugPairFixture {
         return PairingPayload(
             fingerprint = wallet.masterFingerprint.toLong() and UINT32_MASK,
             name = "Demo",
+            autoNameBase = AUTO_NAME_BASE,
             apps = listOf(
                 ethereum,
                 PairingApp(
                     app = "bitcoin",
                     keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
-                    accounts = bitcoin.indices.map { PairingAccount(key = it, name = null, label = null, group = null) },
+                    accounts = bitcoin.indices.map { PairingAccount(key = it, name = autoAccountName(AUTO_NAME_BASE, it), label = null, group = null) },
                 ),
                 PairingApp(
                     app = "solana",
-                    keys = (0..1).map { account ->
-                        PairingKey.solanaAccount(account, SolanaAccount.publicKey(seed, account), SolanaAccount.chainCode(seed, account))
-                    },
+                    keys = (0..1).map { account -> PairingKey.solanaAccount(account, SolanaAccount.publicKey(seed, account)) },
                     accounts = (0..1).map { PairingAccount(key = it, name = "Solana $it", label = null, group = null) },
                 ),
                 PairingApp(
                     app = "algorand",
-                    keys = (0..1).map { account ->
-                        PairingKey.algorandAccount(account, AlgorandAccount.publicKey(seed, account), AlgorandAccount.chainCode(seed, account))
-                    },
+                    keys = (0..1).map { account -> PairingKey.algorandAccount(account, AlgorandAccount.publicKey(seed, account)) },
                     accounts = (0..1).map { PairingAccount(key = it, name = "Algorand $it", label = null, group = null) },
                 ),
             ),

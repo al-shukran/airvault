@@ -6,20 +6,19 @@ import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
-import app.lensly.core.wallet.AccountXpub
 
 /** The chain families a paired wallet can hold. */
 enum class PairFamily { EVM, BITCOIN, SOLANA, ALGORAND }
 
 /**
- * One Ethereum account of a paired wallet, as Lensly names it: its number N, which is its key's account m/44'/60'/N'/0/0, the public [key] of that
- * address, and its name, label and group.
+ * One Ethereum account of a paired wallet, as Lensly names it: its number N, its [address] (EIP-55, the address of m/44'/60'/N'/0/0), and its
+ * name, label and group.
  */
-data class PairedAccount(val index: Int, val key: AccountXpub, val name: String?, val label: String?, val group: String?)
+data class PairedAccount(val index: Int, val address: String, val name: String?, val label: String?, val group: String?)
 
 /**
- * A paired wallet: one Lensly wallet, identified by its master fingerprint, with the public data of its Apps. It holds no key material. [evmAccounts]
- * are the Ethereum accounts, each with the public key of its one address. [bitcoin] holds the watch-only Bitcoin Accounts, if any.
+ * A paired wallet: one Lensly wallet, identified by its master fingerprint, with the public data of its Apps. It holds no key material.
+ * [evmAccounts] are the Ethereum accounts, each with its address. [bitcoin] holds the watch-only Bitcoin Accounts, if any.
  * [addressBook] is the Address Book that Lensly sent with the pairing, in the order it was sent. It is empty when there is none.
  * [solana] holds the public key of each Solana account, 32 bytes, in account order. Lumio shows each one's base58 address.
  * [algorand] holds the public key of each Algorand account, 32 bytes, in account order. Lumio shows each one's address.
@@ -35,9 +34,9 @@ data class PairedWallet(
     val solana: List<ByteArray> = emptyList(),
     val algorand: List<ByteArray> = emptyList(),
 ) {
-    /** The public key of each Ethereum account, in account order. Empty when the wallet holds no Ethereum account. */
-    val evmKeys: List<AccountXpub>
-        get() = evmAccounts.map { it.key }
+    /** The address of each Ethereum account, in account order. Empty when the wallet holds no Ethereum account. */
+    val evmAddresses: List<String>
+        get() = evmAccounts.map { it.address }
 
     val families: Set<PairFamily>
         get() = buildSet {
@@ -53,7 +52,7 @@ data class PairSaved(val id: String, val created: Boolean)
 
 /**
  * The paired wallets of an open Lumio vault. Each is one wallet folder of the vault, so its records are sealed with the wallet's own key:
- * META holds the fingerprint, the creation time, the name and the public key of each Ethereum account, each account's record holds its name,
+ * META holds the fingerprint, the creation time, the name and the address of each Ethereum account, each account's record holds its name,
  * label and group, and the BITCOIN record holds the watch-only Accounts. A pairing whose fingerprint is already paired replaces that wallet's
  * records, and never adds a second one.
  */
@@ -105,7 +104,7 @@ object PairedWallets {
             fingerprint = pairing.fingerprint,
             createdAtMs = createdAtMs,
             name = pairing.name,
-            accountKeys = PairImport.ethereumAccountKeysOf(pairing),
+            addresses = PairImport.ethereumAddressesOf(pairing),
         )
         val records = mutableMapOf(WalletRecordNames.META to PairRecords.encodeMeta(meta))
         for ((index, account) in ethereum.accounts.withIndex()) {
@@ -138,9 +137,9 @@ object PairedWallets {
     /** The paired wallet in folder [id], or null when the folder is not one (another folder kind, or a damaged record). */
     private fun read(session: VaultSession, id: String): PairedWallet? = try {
         val meta = session.getRecord(id, WalletRecordNames.META)?.let { PairRecords.decodeMeta(it) } ?: return null
-        val accounts = meta.accountKeys.mapIndexed { index, key ->
+        val accounts = meta.addresses.mapIndexed { index, address ->
             val account = PairRecords.decodeAccount(session.getRecord(id, WalletRecordNames.account(index)) ?: return null)
-            PairedAccount(index, key, account.name, account.label, account.group)
+            PairedAccount(index, address, account.name, account.label, account.group)
         }
         val bitcoin = session.getRecord(id, WalletRecordNames.BITCOIN)
             ?.let { PairRecords.decodeBitcoin(it, meta.fingerprint) }
