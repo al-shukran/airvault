@@ -63,11 +63,14 @@ object JsonRpc {
     /** What the owner reads when the node refuses a transaction for its balance. */
     const val INSUFFICIENT_FUNDS_MESSAGE = "The network refused the transaction: the account does not hold enough for the amount and the fee."
 
-    /** The wording of a Solana node that refuses a transaction whose recent blockhash has passed: "Blockhash not found" in its simulation error. */
-    private val BLOCKHASH_EXPIRED = Regex("blockhash not found", RegexOption.IGNORE_CASE)
+    /** The wording of a Solana node that refuses a transaction whose blockhash it does not know: "Blockhash not found" in its simulation error. */
+    private val BLOCKHASH_UNKNOWN = Regex("blockhash not found", RegexOption.IGNORE_CASE)
 
-    /** What the owner reads when the network refuses a transaction because its recent blockhash has expired. */
-    const val BLOCKHASH_EXPIRED_MESSAGE = "The network refused the transaction because it is too old. Make the send again."
+    /**
+     * What a caller reads when the network refuses a transaction over its blockhash. A blockhash that has aged out and a durable nonce that has moved
+     * draw the same answer, so the caller says which of the two it was.
+     */
+    const val BLOCKHASH_REFUSED_MESSAGE = "The network refused the transaction because it does not know its blockhash."
     private val JSON_TYPE = "application/json".toMediaType()
 
     /** The HTTP stack for RPC calls: no redirects, and each call bounded by [timeoutMs]. */
@@ -130,7 +133,7 @@ object JsonRpc {
             if (code == RATE_LIMITED_CODE || message.contains("rate limit", ignoreCase = true)) throw ProviderError.RateLimited()
             if (code == METHOD_NOT_FOUND_CODE || NOT_SERVED.containsMatchIn(message)) throw ProviderError.Unsupported()
             if (INSUFFICIENT_FUNDS.containsMatchIn(message)) throw ProviderError.Fatal(INSUFFICIENT_FUNDS_MESSAGE)
-            if (BLOCKHASH_EXPIRED.containsMatchIn(message)) throw ProviderError.Fatal(BLOCKHASH_EXPIRED_MESSAGE)
+            if (BLOCKHASH_UNKNOWN.containsMatchIn(message)) throw ProviderError.Fatal(BLOCKHASH_REFUSED_MESSAGE)
             throw ProviderError.Fatal("The endpoint returned a JSON-RPC error.")
         }
         val result = root["result"]
