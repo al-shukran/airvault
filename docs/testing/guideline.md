@@ -107,11 +107,12 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 | `ui-a` | `ui/**` in `app` and `shared`, their tests, `shared/src/testFixtures/`, `res/values/strings.xml` (same paths as `ui-b`) | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme}.*` (`screenshot` is excluded by `-PprLane`) |
 | `ui-b` | same as `ui-a` | `:app` `app.lensly.ui.{flow,home,sign,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
 | `lumio-a` | `lumio/**`, `shared/**`, the root build files (same paths as `lumio-b`) | `:lumio:assembleDebug`, `:lumio:testDebugUnitTest` `app.lumio.ui.*` |
-| `lumio-b` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.{btc,data,evm,home,network,pair,send,tokens,wallets}.*`, `app.lumio.LumioBackdropTest`, `app.lumio.EntryGestureSettingTest` and `app.lumio.SendRouteTest` |
+| `lumio-b` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.{chains,data,evm,home,network,pair,send,tokens,wallets}.*`, `app.lumio.LumioBackdropTest`, `app.lumio.EntryGestureSettingTest`, `app.lumio.CoverLockTest` and `app.lumio.SendRouteTest` |
+| `lumio-c` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.btc.*` |
 | `manifest` | `app/src/**/AndroidManifest.xml`, `shared/src/**/AndroidManifest.xml`, `lumio/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts`, `shared/build.gradle.kts`, `lumio/build.gradle.kts`, `scripts/ci/check-manifest.sh` | `check-manifest.sh` (`:app` offline, `:lumio` allow-list) |
 | `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml` | `bash -n` on every script, `check-ui-partitions.sh`, `check-lumio-partitions.sh`, then `check-test-network.sh` |
 
-The `ui` tests split in two so each half stays under the 3-minute cap. Every `ui` subpackage, and any test class directly in `app.lensly.ui`, must be listed in exactly one of `ui-a` or `ui-b`; `check-ui-partitions.sh` fails the `ci` partition otherwise. The `lumio` tests split the same way into `lumio-a` and `lumio-b` (every lumio subpackage in exactly one arm, checked by `check-lumio-partitions.sh`), so the `test` job of `pr-fast` stays under its 5-minute cap.
+The `ui` tests split in two so each half stays under the 3-minute cap. Every `ui` subpackage, and any test class directly in `app.lensly.ui`, must be listed in exactly one of `ui-a` or `ui-b`; `check-ui-partitions.sh` fails the `ci` partition otherwise. The `lumio` tests split the same way into `lumio-a`, `lumio-b` and `lumio-c` (every lumio subpackage in exactly one arm, checked by `check-lumio-partitions.sh`), so each `test` job of `pr-fast` stays under its 5-minute cap.
 
 Build paths (`build.gradle.kts`, `gradle.properties`, `settings.gradle.kts`, `gradle/**`) trigger every unit partition. This is the one exception to "touched code only", because build changes can affect any package. Owner to confirm.
 
