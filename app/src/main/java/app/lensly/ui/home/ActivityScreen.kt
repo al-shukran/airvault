@@ -29,6 +29,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.lensly.app.AddressBookEntry
+import app.lensly.app.AddressChain
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
@@ -79,8 +81,10 @@ fun ActivityScreen(
     networkOf: (Long) -> NetworkEntry?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Opens the Address Book form with an address of a record, for "Add to Address Book" on its sheet. Null hides the action. */
-    onAddToAddressBook: ((String) -> Unit)? = null,
+    /** The Address Book, read for the notes of each address a record's sheet shows. */
+    addressBook: List<AddressBookEntry> = emptyList(),
+    /** Opens the Address Book for an address a record's sheet shows, on its chain. Null shows the addresses without a tap. */
+    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
     val haptics = rememberKeyHaptics()
     var filter by remember { mutableStateOf(ActivityFilter.ALL) }
@@ -133,7 +137,7 @@ fun ActivityScreen(
         }
     }
     open?.let { record ->
-        HistoryDetailSheet(record = record, onDismiss = { open = null }, onAddToAddressBook = onAddToAddressBook)
+        HistoryDetailSheet(record = record, addressBook = addressBook, onDismiss = { open = null }, onOpenAddress = onOpenAddress)
     }
 }
 

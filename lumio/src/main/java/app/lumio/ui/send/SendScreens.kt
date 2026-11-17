@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.AddressChain
 import app.lensly.app.addressNotesOf
 import app.lensly.core.registry.Amounts
 import app.lensly.ui.components.AddressField
@@ -185,7 +186,7 @@ fun SendReviewScreen(
             Spacer(Modifier.height(LenslySpacing.sm))
         }
         ReviewAddress("From", send.from)
-        ReviewAddress("To", send.to, name = addressNotesOf(send.to, emptyMap(), addressBook)?.entry?.name)
+        ReviewAddress("To", send.to, name = addressNotesOf(send.to, AddressChain.EVM, emptyMap(), addressBook)?.entry?.name)
         if (token == null) {
             ReviewField("Amount", EvmFormat.amount(send.valueWei, chain.decimals, chain.symbol))
         } else {

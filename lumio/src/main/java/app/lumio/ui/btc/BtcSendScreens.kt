@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.AddressChain
 import app.lensly.app.addressNotesOf
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.components.AddressField
@@ -157,7 +158,7 @@ fun BtcSendReviewScreen(
     ) {
         NetworkHeader(plan.network)
         ReviewField("From", "${PairLabels.scriptType(plan.account.scriptType)}, ${plan.account.path.asString('\'')}")
-        ReviewAddress("To", plan.recipient, name = addressNotesOf(plan.recipient, emptyMap(), addressBook)?.entry?.name)
+        ReviewAddress("To", plan.recipient, name = addressNotesOf(plan.recipient, AddressChain.BITCOIN, emptyMap(), addressBook)?.entry?.name)
         ReviewField("Amount", btcText(plan.amountSats))
         ReviewField("Fee", "${btcText(plan.feeSats)}, at ${rateText(plan.feeRateSatPerVb)} sat/vB for about ${plan.vsize} vB")
         ReviewField(

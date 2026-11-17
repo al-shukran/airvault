@@ -18,12 +18,17 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import app.lensly.app.ADDRESS_NOTES_MAX_LENGTH
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressBookStore
+import app.lensly.app.AddressChain
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.PROFILE_TEXT_MAX_LENGTH
 import app.lensly.app.VaultHolder
+import app.lensly.app.addressBookEntryFor
 import app.lensly.app.addressBookEntryOf
+import app.lensly.app.chainOfAddress
+import app.lensly.core.vault.VaultSession
 import app.lensly.ui.settings.ADDRESS_BOOK_ADDRESS_MAX_LENGTH
 import app.lensly.ui.settings.AddressBookField
 import app.lensly.ui.settings.AddressBookFormScreen
@@ -52,6 +57,28 @@ internal fun NavGraphBuilder.addressBookRoutes(navController: NavHostController,
     }
 }
 
+/**
+ * Opens the Address Book for [address] on [chain], from a record's sheet: its entry to edit when [book] has one, or a new entry started with
+ * the address. The owner types a name, a label and notes, and never the address.
+ */
+internal fun NavHostController.openAddressBookFor(book: List<AddressBookEntry>, address: String, chain: AddressChain) {
+    val entry = addressBookEntryFor(address, chain, book)
+    navigate(if (entry != null) HiddenRoute.addressBookEdit(entry.id) else HiddenRoute.addressBookAdd(address))
+}
+
+/**
+ * The Address Book, read again each time the screen is shown, so an entry saved on the form shows on the record it came from. A damaged
+ * book reads as empty, as a review does. Null until the first read.
+ */
+@Composable
+internal fun rememberAddressBook(navController: NavHostController, session: VaultSession): List<AddressBookEntry>? {
+    val shown by navController.currentBackStackEntryAsState()
+    val read by produceState<List<AddressBookEntry>?>(initialValue = null, session, shown) {
+        value = withContext(Dispatchers.IO) { runCatching { AddressBookStore(session).load() }.getOrDefault(emptyList()) }
+    }
+    return read
+}
+
 @Composable
 private fun AddressBookRoute(navController: NavHostController, holder: VaultHolder) {
     val session = rememberOpenSession(navController, holder) ?: return
@@ -71,8 +98,9 @@ private fun AddressBookRoute(navController: NavHostController, holder: VaultHold
 }
 
 /**
- * The form for entry [entryId], or for a new entry filled with [prefilled] when [entryId] is null. A save checks the entry with
- * [addressBookEntryOf] before it is written. Delete asks first. The form returns to the list once the book has changed.
+ * The form for entry [entryId], or for an address [prefilled] from a record. An address the book already holds opens that entry to edit, so
+ * a second entry is never made for it. A save checks the entry with [addressBookEntryOf] before it is written. Delete asks first. The form
+ * returns to the list once the book has changed.
  */
 @Composable
 private fun AddressBookFormRoute(navController: NavHostController, holder: VaultHolder, entryId: String?, prefilled: String) {
@@ -83,6 +111,9 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
     val loaded = read ?: return
     val book = loaded.getOrDefault(emptyList())
     val entry = entryId?.let { id -> book.firstOrNull { it.id == id } }
+        ?: prefilled.takeIf { it.isNotEmpty() }?.let { typed ->
+            chainOfAddress(typed)?.let { chain -> addressBookEntryFor(typed, chain, book) }
+        }
     if (entryId != null && entry == null && loaded.isSuccess) {
         // The entry was removed on another screen, so there is nothing to edit.
         LaunchedEffect(Unit) { navController.popBackStack() }
@@ -93,29 +124,34 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
     var address by rememberSaveable(entryId) { mutableStateOf(entry?.address ?: prefilled) }
     var name by rememberSaveable(entryId) { mutableStateOf(entry?.name.orEmpty()) }
     var label by rememberSaveable(entryId) { mutableStateOf(entry?.label.orEmpty()) }
+    var notes by rememberSaveable(entryId) { mutableStateOf(entry?.notes.orEmpty()) }
     var focused by remember { mutableStateOf<AddressBookField?>(null) }
     var error by remember { mutableStateOf(if (loaded.isFailure) "The Address Book could not be read." else null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // The address is the entry's key. It is typed only for a new entry the owner starts from the list.
+    val addressFixed = entry != null || prefilled.isNotEmpty()
 
     val onKey: (Char) -> Unit = { key ->
         when (focused) {
-            AddressBookField.ADDRESS -> if (address.length < ADDRESS_BOOK_ADDRESS_MAX_LENGTH) address += key
+            AddressBookField.ADDRESS -> if (!addressFixed && address.length < ADDRESS_BOOK_ADDRESS_MAX_LENGTH) address += key
             AddressBookField.NAME -> if (name.length < DISPLAY_NAME_MAX_LENGTH) name += key
             AddressBookField.LABEL -> if (label.length < PROFILE_TEXT_MAX_LENGTH) label += key
+            AddressBookField.NOTES -> if (notes.length < ADDRESS_NOTES_MAX_LENGTH) notes += key
             null -> Unit
         }
     }
     val onBackspace: () -> Unit = {
         when (focused) {
-            AddressBookField.ADDRESS -> address = address.dropLast(1)
+            AddressBookField.ADDRESS -> if (!addressFixed) address = address.dropLast(1)
             AddressBookField.NAME -> name = name.dropLast(1)
             AddressBookField.LABEL -> label = label.dropLast(1)
+            AddressBookField.NOTES -> notes = notes.dropLast(1)
             null -> Unit
         }
     }
     val onSave: () -> Unit = {
         scope.launch {
-            val next = runCatching { addressBookEntryOf(id, address, name, label, book) }
+            val next = runCatching { addressBookEntryOf(id, address, name, label, book, notes) }
                 .getOrElse {
                     error = it.message
                     return@launch
@@ -136,12 +172,14 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
         address = address,
         name = name,
         label = label,
+        notes = notes,
         focused = focused,
         onFocus = { focused = it },
         onKey = onKey,
         onBackspace = onBackspace,
         onSave = onSave,
         onBack = { navController.popBackStack() },
+        addressFixed = addressFixed,
         onDelete = if (entry == null) null else ({ confirmDelete = true }),
         error = error,
     )

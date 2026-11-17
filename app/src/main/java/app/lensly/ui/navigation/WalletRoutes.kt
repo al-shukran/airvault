@@ -861,6 +861,7 @@ private fun HistoryRoute(navController: NavHostController, holder: VaultHolder, 
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
     var records by remember(walletId) { mutableStateOf<List<ReviewRecord>?>(null) }
     var registry by remember { mutableStateOf<Registry?>(null) }
+    val book = rememberAddressBook(navController, session)
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
             wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
@@ -871,12 +872,14 @@ private fun HistoryRoute(navController: NavHostController, holder: VaultHolder, 
     val shown = wallet ?: return
     val list = records ?: return
     val networks = registry ?: return
+    val entries = book ?: return
     WalletHistoryScreen(
         walletName = shown.name,
         records = list,
         networkOf = networks::network,
         onBack = { navController.popBackStack() },
-        onAddToAddressBook = { navController.navigate(HiddenRoute.addressBookAdd(it)) },
+        addressBook = entries,
+        onOpenAddress = { address, chain -> navController.openAddressBookFor(entries, address, chain) },
     )
 }
 
@@ -891,6 +894,7 @@ private fun ActivityRoute(navController: NavHostController, holder: VaultHolder)
     val listing = rememberWalletListing(navController, holder, session)
     var records by remember { mutableStateOf<List<WalletReviewRecord>?>(null) }
     var registry by remember { mutableStateOf<Registry?>(null) }
+    val book = rememberAddressBook(navController, session)
     LaunchedEffect(session) {
         whileUnlocked(navController, holder) {
             records = withContext(Dispatchers.IO) { ReviewHistory(session).listAll() }
@@ -900,13 +904,15 @@ private fun ActivityRoute(navController: NavHostController, holder: VaultHolder)
     val list = records ?: return
     val networks = registry ?: return
     val wallets = listing ?: return
+    val entries = book ?: return
     ActivityScreen(
         records = list,
         wallets = wallets.wallets,
         profiles = wallets.profiles,
         networkOf = networks::network,
         onBack = { navController.popBackStack() },
-        onAddToAddressBook = { navController.navigate(HiddenRoute.addressBookAdd(it)) },
+        addressBook = entries,
+        onOpenAddress = { address, chain -> navController.openAddressBookFor(entries, address, chain) },
     )
 }
 

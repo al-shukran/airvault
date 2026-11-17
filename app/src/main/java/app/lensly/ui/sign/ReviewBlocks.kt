@@ -42,6 +42,7 @@ import app.lensly.app.AddressNotes
 import app.lensly.app.isAddressValue
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.RowArrow
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyError
@@ -361,11 +362,20 @@ internal fun ReviewActions(
 
 /**
  * An address with what the Address Book and the device's accounts say of it. The name it goes by sits above the address, and the full
- * address follows. Under it: the address-book label, or "Not in address book" when the Address Book holds no entry for it, and the
- * device's own account notes. The Address Book is read for every counterparty, so a miss is shown, and it is not a warning.
+ * address follows. Under it: the address-book label and notes, or "Not in address book" when the Address Book holds no entry for it, and
+ * the device's own account notes. The Address Book is read for every counterparty, so a miss is shown, and it is not a warning.
+ *
+ * With [onClick] the address is a list row: a tap opens it, and a chevron shows that it does. It is the one address component every review
+ * and the Activity detail share.
  */
 @Composable
-internal fun ReviewAddress(address: String, notes: AddressNotes?, bitcoin: Boolean = false, modifier: Modifier = Modifier) {
+internal fun ReviewAddress(
+    address: String,
+    notes: AddressNotes?,
+    bitcoin: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
     Column(modifier = modifier.fillMaxWidth()) {
         notes?.shownName()?.let { name ->
             Text(
@@ -375,7 +385,10 @@ internal fun ReviewAddress(address: String, notes: AddressNotes?, bitcoin: Boole
             )
             Spacer(Modifier.height(LenslySpacing.xxs))
         }
-        AddressText(address = address, bitcoin = bitcoin)
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AddressText(address = address, bitcoin = bitcoin, modifier = Modifier.weight(1f), onClick = onClick)
+            if (onClick != null) RowArrow()
+        }
         AddressNoteLines(notes = notes)
     }
 }
@@ -397,6 +410,7 @@ internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifie
             NoteText(NOT_IN_ADDRESS_BOOK)
         } else {
             entry.label?.let { ReviewFactRow(label = "Address label", value = it, mono = false) }
+            entry.notes?.let { ReviewFactRow(label = "Address notes", value = it, mono = false) }
         }
     }
 }

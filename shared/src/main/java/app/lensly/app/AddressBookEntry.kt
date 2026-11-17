@@ -1,9 +1,13 @@
 package app.lensly.app
 
+/** The chains an address can be on. [chainOfAddress] tells which one a valid address is on. */
+enum class AddressChain { EVM, BITCOIN, SOLANA, ALGORAND }
+
 /**
- * One Address Book entry: a name and an optional label for an address the owner saved. It is for display only. No signing rule or
- * policy reads it. [address] is canonical: an EVM address in its checksum form, or a Bitcoin address as bitcoin-kmp writes it. [id]
- * is random and never changes, so an entry keeps its identity when it is edited or synced.
+ * One Address Book entry: a name, an optional label and optional notes for an address the owner saved. It is for display only. No
+ * signing rule or policy reads it. [address] is canonical: an EVM address in its checksum form, a Bitcoin address as bitcoin-kmp writes
+ * it, or a Solana or Algorand address as written. [id] is random and never changes, so an entry keeps its identity when it is edited or
+ * synced.
  */
 data class AddressBookEntry(
     val id: String,
@@ -11,13 +15,28 @@ data class AddressBookEntry(
     val name: String,
     /** The label, or null when the owner gave none. */
     val label: String?,
-)
+    /** The notes, or null when the owner wrote none. */
+    val notes: String? = null,
+) {
+    /** The chain [address] is on, or null when it is not a valid address. A lookup matches an entry only on its own chain. */
+    val chain: AddressChain?
+        get() = chainOfAddress(address)
+}
 
 /**
- * The key an address is matched by. An EVM address matches in any letter case, since its case only carries the checksum. A Bitcoin
- * address matches exactly, as its canonical form is kept.
+ * The key an address is matched by. An EVM address matches in any letter case, since its case only carries the checksum. Solana, Algorand
+ * and Bitcoin addresses match exactly, as their canonical form is kept.
  */
 fun addressKeyOf(address: String): String = if (address.startsWith("0x")) address.lowercase() else address
+
+/**
+ * The entry of [book] that is [address] on [chain], or null when the book has none. The address is matched by [addressKeyOf], and the entry
+ * must be on the same chain, so an address is looked up on the chain it was seen on.
+ */
+fun addressBookEntryFor(address: String, chain: AddressChain, book: List<AddressBookEntry>): AddressBookEntry? {
+    val key = addressKeyOf(address)
+    return book.firstOrNull { addressKeyOf(it.address) == key && it.chain == chain }
+}
 
 private val EVM_ADDRESS_SHAPE = Regex("0x[0-9a-fA-F]{40}")
 private val SOLANA_ADDRESS_SHAPE = Regex("[1-9A-HJ-NP-Za-km-z]{32,44}")

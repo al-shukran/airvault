@@ -8,30 +8,54 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
 
+/** The most characters an entry's notes take. */
+const val ADDRESS_NOTES_MAX_LENGTH = 200
+
+/** True when [notes] is an entry's notes: up to [ADDRESS_NOTES_MAX_LENGTH] characters, with no control character. */
+fun isValidAddressNotes(notes: String): Boolean = notes.length <= ADDRESS_NOTES_MAX_LENGTH && notes.none { it.isISOControl() }
+
 /**
- * The entry that the form's [address], [name] and [label] make, under [id]. [book] holds the entries already saved, so an address is in the
- * book once.
+ * The entry that the form's [address], [name], [label] and [notes] make, under [id]. [book] holds the entries already saved, so an address
+ * is in the book once on its chain. The chain is the one the address is valid on.
  *
- * @throws IllegalArgumentException with the reason, when the address is not a valid EVM or Bitcoin address, the name is not a Display
- * Name, the label is too long or has a control character, or another entry of [book] has the address.
+ * @throws IllegalArgumentException with the reason, when the address is not a valid Ethereum, Bitcoin, Solana or Algorand address, another
+ * entry of [book] has the address on the same chain, the name is not a Display Name, the label is too long or has a control character, or
+ * the notes are too long or have one.
  */
-fun addressBookEntryOf(id: String, address: String, name: String, label: String, book: List<AddressBookEntry>): AddressBookEntry {
-    val canonical = requireNotNull(canonicalAddressOf(address)) { "Enter a valid Ethereum or Bitcoin address." }
-    require(book.none { it.id != id && addressKeyOf(it.address) == addressKeyOf(canonical) }) {
+fun addressBookEntryOf(
+    id: String,
+    address: String,
+    name: String,
+    label: String,
+    book: List<AddressBookEntry>,
+    notes: String = "",
+): AddressBookEntry {
+    val canonical = requireNotNull(canonicalAddressOf(address)) { "Enter a valid Ethereum, Bitcoin, Solana or Algorand address." }
+    val chain = chainOfAddress(canonical)
+    require(book.none { it.id != id && it.chain == chain && addressKeyOf(it.address) == addressKeyOf(canonical) }) {
         "That address is already in the Address Book."
     }
     val shownName = name.trim()
     require(isValidDisplayName(shownName)) { "Enter a name of 1 to $DISPLAY_NAME_MAX_LENGTH characters." }
     val shownLabel = label.trim()
     require(shownLabel.isEmpty() || isValidProfileText(shownLabel)) { "Enter a label of up to $PROFILE_TEXT_MAX_LENGTH characters." }
-    return AddressBookEntry(id = id, address = canonical, name = shownName, label = shownLabel.ifEmpty { null })
+    val shownNotes = notes.trim()
+    require(shownNotes.isEmpty() || isValidAddressNotes(shownNotes)) { "Enter notes of up to $ADDRESS_NOTES_MAX_LENGTH characters." }
+    return AddressBookEntry(
+        id = id,
+        address = canonical,
+        name = shownName,
+        label = shownLabel.ifEmpty { null },
+        notes = shownNotes.ifEmpty { null },
+    )
 }
 
 /**
  * The Address Book, stored as the vault record `address-book` through [VaultSession.putVaultRecord]. A vault record belongs to the vault, so
- * it is sealed under the Vault Key, removed when the vault is wiped, and kept apart from a Decoy Vault's. The record holds a version byte
- * (1), the entry count (int), then each entry as four texts: id, address, name and label (empty when there is none). A text is its length
- * (int) and its UTF-8 bytes, as the Review Records write theirs. A later pairing sync can send these same fields.
+ * it is sealed under the Vault Key, removed when the vault is wiped, and kept apart from a Decoy Vault's. The record holds a version byte,
+ * then the entry count (int), then each entry as its texts: id, address, name, label and, from version 2, notes. A text is its length (int)
+ * and its UTF-8 bytes, as the Review Records write theirs. An empty label or notes is an empty text. A version 1 book has no notes.
+ * A later pairing sync can send these same fields.
  *
  * [load] throws [VaultException] when the record cannot be read, so a save never replaces a book it could not read.
  */
@@ -58,7 +82,9 @@ class AddressBookStore(private val session: VaultSession) {
 
     private companion object {
         const val NAME = "address-book"
-        const val VERSION = 1
+
+        /** Version 2 adds each entry's notes. Version 1 books are still read, and they have no notes. */
+        const val VERSION = 2
         const val MAX_ENTRIES = 10_000
         const val MAX_TEXT_BYTES = 4096
 
@@ -72,6 +98,7 @@ class AddressBookStore(private val session: VaultSession) {
                     out.writeText(entry.address)
                     out.writeText(entry.name)
                     out.writeText(entry.label.orEmpty())
+                    out.writeText(entry.notes.orEmpty())
                 }
             }
             return buffer.toByteArray()
@@ -79,16 +106,17 @@ class AddressBookStore(private val session: VaultSession) {
 
         fun decode(bytes: ByteArray): List<AddressBookEntry> = try {
             DataInputStream(ByteArrayInputStream(bytes)).use { input ->
-                require(input.readUnsignedByte() == VERSION) { "Unknown Address Book version." }
+                val version = input.readUnsignedByte()
+                require(version in 1..VERSION) { "Unknown Address Book version." }
                 val count = input.readInt()
                 require(count in 0..MAX_ENTRIES) { "Too many Address Book entries." }
                 List(count) {
-                    AddressBookEntry(
-                        id = input.readText(),
-                        address = input.readText(),
-                        name = input.readText(),
-                        label = input.readText().ifEmpty { null },
-                    )
+                    val id = input.readText()
+                    val address = input.readText()
+                    val name = input.readText()
+                    val label = input.readText().ifEmpty { null }
+                    val notes = if (version >= 2) input.readText().ifEmpty { null } else null
+                    AddressBookEntry(id = id, address = address, name = name, label = label, notes = notes)
                 }
             }
         } catch (e: IOException) {

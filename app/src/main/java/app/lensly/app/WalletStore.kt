@@ -576,7 +576,7 @@ class WalletStore(private val session: VaultSession) {
                 candidate.recordKey == account.recordKey || stored.any { it.key == candidate.recordKey }
             }
             val internal = otherBitcoinAccounts(id) + ownBitcoinAccounts(id, named.map { recordOf(it, stored) }, named)
-            val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, internal, book)
+            val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, AddressChain.BITCOIN, internal, book)
             val owner = meta(id)
             val signer = SigningAccount(
                 name = record.profile.name ?: autoAccountName(owner?.autoNameBase.orEmpty(), record.index),
