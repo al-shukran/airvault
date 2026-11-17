@@ -15,8 +15,8 @@ import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
 
 /**
- * One account: its chain and network, its full address, its balance, and the two text actions, Send and Receive. Send is not offered on
- * Algorand yet, so it reads "Coming soon" there.
+ * One account: its chain and network, its full address, its balance, and the two text actions, Send and Receive. Send is offered on Bitcoin,
+ * Ethereum, Solana and Algorand.
  */
 @Composable
 fun AccountScreen(
@@ -28,7 +28,7 @@ fun AccountScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val sendable = account.chain == AccountChain.BITCOIN || account.chain == AccountChain.ETHEREUM || account.chain == AccountChain.SOLANA
+    val sendable = account.chain in setOf(AccountChain.BITCOIN, AccountChain.ETHEREUM, AccountChain.SOLANA, AccountChain.ALGORAND)
     LenslyScreen(title = account.chain.label, modifier = modifier, onBack = onBack) {
         Text(
             text = walletName,

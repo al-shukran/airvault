@@ -107,7 +107,7 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 | `ui-a` | `ui/**` in `app` and `shared`, their tests, `shared/src/testFixtures/`, `res/values/strings.xml` (same paths as `ui-b`) | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme}.*` (`screenshot` is excluded by `-PprLane`) |
 | `ui-b` | same as `ui-a` | `:app` `app.lensly.ui.{flow,home,sign,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
 | `lumio-a` | `lumio/**`, `shared/**`, the root build files (same paths as `lumio-b`) | `:lumio:assembleDebug`, `:lumio:testDebugUnitTest` `app.lumio.ui.*` |
-| `lumio-b` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.{btc,data,evm,home,network,pair,send,tokens}.*`, `app.lumio.LumioBackdropTest` and `app.lumio.EntryGestureSettingTest` |
+| `lumio-b` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.{btc,data,evm,home,network,pair,send,tokens}.*`, `app.lumio.LumioBackdropTest`, `app.lumio.EntryGestureSettingTest` and `app.lumio.SendRouteTest` |
 | `manifest` | `app/src/**/AndroidManifest.xml`, `shared/src/**/AndroidManifest.xml`, `lumio/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts`, `shared/build.gradle.kts`, `lumio/build.gradle.kts`, `scripts/ci/check-manifest.sh` | `check-manifest.sh` (`:app` offline, `:lumio` allow-list) |
 | `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml` | `bash -n` on every script, `check-ui-partitions.sh`, `check-lumio-partitions.sh`, then `check-test-network.sh` |
 

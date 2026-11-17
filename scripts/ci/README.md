@@ -15,7 +15,7 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 | `ui-a` | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme}.*`; the pixel tests are excluded (see below) |
 | `ui-b` | `:app` `app.lensly.ui.{flow,home,sign,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
 | `lumio-a` | `:lumio` `app.lumio.ui.*`, and `assembleDebug` |
-| `lumio-b` | `:lumio` `app.lumio.{btc,data,evm,network,pair}.*` and `app.lumio.LumioBackdropTest` |
+| `lumio-b` | `:lumio` `app.lumio.{btc,data,evm,network,pair}.*` and `app.lumio.LumioBackdropTest` and `app.lumio.SendRouteTest` |
 | `app` | `:app` `app.lensly.app.*`, `app.lensly.SmokeTest` and `app.lensly.core.vault.BackupExclusionTest` |
 | `registry-pack` | `:tools:registry-pack:test` |
 | `manifest` | `check-manifest.sh` |
