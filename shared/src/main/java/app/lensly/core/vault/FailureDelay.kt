@@ -26,6 +26,9 @@ package app.lensly.core.vault
  *    under it. While no new key can be made, the reset stays in memory for this process.
  * 14. Crash between the write of a save and the deletion of the old key: the deletion is repeated on every load and save, so the
  *    next load recovers it.
+ * 15. Count wrong tries: the owner's erase count is in the MAC-protected payload, so an edit cannot change it. When the last allowed
+ *    try is wrong, the vault is erased. A tampered state keeps its cap and is never erased, because a copy that does not verify is a
+ *    storage or Keystore fault, not a failed try, and erasing on it would destroy a vault the owner did not fail.
  */
 
 /**
@@ -37,6 +40,7 @@ package app.lensly.core.vault
  * [capMs] is the Failure Delay cap the owner chose, or null for Default, which is the spec default.
  * [bootCount] is `Settings.Global.BOOT_COUNT` when the state was written, or null when the device did not report it.
  * [elapsedAtSave] is how much of the delay had run when the state was written, so a reboot continues the wait.
+ * [wipeAfter] is the owner's erase count: the vault is erased when this many wrong tries come in a row (see [FailureDelay.erases]).
  */
 data class FailureState(
     val seq: Long,
@@ -46,6 +50,7 @@ data class FailureState(
     val capMs: Long? = null,
     val bootCount: Int? = null,
     val elapsedAtSave: Long = 0L,
+    val wipeAfter: Int = FailureDelay.DEFAULT_WIPE_AFTER,
 )
 
 /**
@@ -60,7 +65,7 @@ class FailureDelay(
     private val configuredCapMs: Long = DEFAULT_CAP_MS,
 ) {
     init {
-        require(configuredCapMs in MIN_CAP_MS..MAX_CAP_MS) { "cap must be between 1 s and 1 h" }
+        require(configuredCapMs in MIN_CAP_MS..MAX_CAP_MS) { "cap must be between 10 s and 1 h" }
     }
 
     /** The cap in force at wall-clock time [nowWallMs]. */
@@ -94,17 +99,26 @@ class FailureDelay(
         const val LEARNING_PERIOD_MS = 7L * 24 * 60 * 60 * 1000
         const val LEARNING_CAP_MS = 10_000L
         const val DEFAULT_CAP_MS = 60_000L
-        const val MIN_CAP_MS = 1_000L
+        const val MIN_CAP_MS = 10_000L
         const val MAX_CAP_MS = 3_600_000L
 
-        /** A cap below this is offered only after the owner confirms the spec warning. */
-        const val WARNING_BELOW_CAP_MS = 10_000L
+        /** The erase count the owner may choose, from 5 to 20. Erasing cannot be switched off. */
+        const val MIN_WIPE_AFTER = 5
+        const val MAX_WIPE_AFTER = 20
+        const val DEFAULT_WIPE_AFTER = 10
+
+        /** The warning starts when this many tries, or fewer, are left before the vault is erased. */
+        const val WARN_TRIES_LEFT = 3
 
         /** The cap that applies to [state]: the owner's choice, or [DEFAULT_CAP_MS] for Default. */
         fun configuredCapFor(state: FailureState): Long = state.capMs ?: DEFAULT_CAP_MS
 
-        /** True when choosing [capMs] must show the spec warning first. Default ([capMs] null) never does. */
-        fun warnsAt(capMs: Long?): Boolean = capMs != null && capMs < WARNING_BELOW_CAP_MS
+        /** True once [state] has had its last allowed wrong try, so the vault is erased. A tampered state is never erased (threat 15). */
+        fun erases(state: FailureState): Boolean =
+            state.failures >= state.wipeAfter && state.failures < FailureStore.TAMPER_FAILURES
+
+        /** The tries left before the vault is erased, when that is [WARN_TRIES_LEFT] or fewer. Null otherwise. */
+        fun triesLeftToWarn(state: FailureState): Int? = (state.wipeAfter - state.failures).takeIf { it in 1..WARN_TRIES_LEFT }
 
         /** From this exponent on, `BASE_DELAY_MS shl exponent` exceeds every cap, so the cap applies. */
         private const val MAX_EXPONENT = 40

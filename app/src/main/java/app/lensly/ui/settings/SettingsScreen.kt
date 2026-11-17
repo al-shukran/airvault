@@ -25,6 +25,7 @@ import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WalletEntry
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.vault.FailureDelay
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.components.ChainIcon
@@ -76,6 +77,7 @@ fun SettingsScreen(
     entryGesture: EntryGesture = EntryGesture.DEFAULT,
     onEntryGesture: () -> Unit = {},
     failureDelayCap: FailureCapChoice?,
+    failureEraseAfter: Int = FailureDelay.DEFAULT_WIPE_AFTER,
     onFailureDelayCap: () -> Unit,
     catalog: Catalog?,
     onNetworks: () -> Unit,
@@ -174,7 +176,7 @@ fun SettingsScreen(
             SettingsRow(
                 title = "Wrong password lockout",
                 description = failureDelayCap?.let {
-                    "${it.summary}. The longest wait after a wrong Application Password."
+                    "${it.summary}. Erased after $failureEraseAfter wrong tries in a row."
                 } ?: "Reading the saved lockout…",
                 onClick = onFailureDelayCap,
                 loading = failureDelayCap == null,

@@ -25,6 +25,11 @@ suspend fun checkAppPassword(holder: VaultHolder, password: CharArray): Password
                     if (sameVault) PasswordCheck.Accepted else PasswordCheck.Rejected
                 }
                 UnlockResult.Rejected -> PasswordCheck.Rejected
+                // The last allowed try erased the vault, so the open session goes with it, as on a wipe.
+                UnlockResult.Erased -> {
+                    holder.lock()
+                    PasswordCheck.Rejected
+                }
             }
         } catch (e: VaultException) {
             PasswordCheck.Unavailable

@@ -32,6 +32,13 @@ import app.lensly.ui.theme.LenslySpacing
  * While [busy] (key derivation takes about a second) the status line shows a progress row, and the keyboard ignores
  * input. The line has a fixed height, so the keyboard does not move when the row comes and goes.
  */
+/**
+ * The notice shown as the last tries come: "2 tries left before this vault is erased". Sentence case, and no full stop, as the
+ * gate's other notices have none.
+ */
+fun eraseWarning(triesLeft: Int): String =
+    (if (triesLeft == 1) "1 try left" else "$triesLeft tries left") + " before this vault is erased"
+
 @Composable
 fun UnlockScreen(
     length: Int,
@@ -40,6 +47,7 @@ fun UnlockScreen(
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
+    warning: String? = null,
 ) {
     var focused by rememberSaveable { mutableStateOf(true) }
     KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
@@ -62,7 +70,7 @@ fun UnlockScreen(
 
             PasswordField(length = length, onClick = { focused = true })
             Spacer(Modifier.height(LenslySpacing.sm))
-            GateStatusLine(text = if (busy) "Unlocking" else null, working = busy)
+            GateStatusLine(text = if (busy) "Unlocking" else warning, working = busy)
 
             Spacer(Modifier.weight(1f))
 

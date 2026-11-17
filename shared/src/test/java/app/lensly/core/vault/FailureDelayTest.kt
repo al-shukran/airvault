@@ -36,7 +36,7 @@ class FailureDelayTest {
     @Test
     fun hugeFailureCountsDoNotOverflow() {
         assertEquals(60_000L, FailureDelay(created).delayFor(Int.MAX_VALUE, afterLearning))
-        assertEquals(1_000L, FailureDelay(created, configuredCapMs = 1_000L).delayFor(Int.MAX_VALUE, created))
+        assertEquals(10_000L, FailureDelay(created, configuredCapMs = 10_000L).delayFor(Int.MAX_VALUE, created))
     }
 
     @Test
@@ -48,9 +48,9 @@ class FailureDelayTest {
 
     @Test
     fun configuredCapBoundsBothPeriods() {
-        val oneSecondCap = FailureDelay(created, configuredCapMs = 1_000L)
-        assertEquals(1_000L, oneSecondCap.delayFor(1, created))
-        assertEquals(1_000L, oneSecondCap.delayFor(5, afterLearning))
+        val tenSecondCap = FailureDelay(created, configuredCapMs = 10_000L)
+        assertEquals(10_000L, tenSecondCap.delayFor(1, created))
+        assertEquals(10_000L, tenSecondCap.delayFor(5, afterLearning))
 
         val oneHourCap = FailureDelay(created, configuredCapMs = FailureDelay.MAX_CAP_MS)
         assertEquals(10_000L, oneHourCap.delayFor(1, afterLearning))
@@ -59,8 +59,8 @@ class FailureDelayTest {
     }
 
     @Test
-    fun rejectsCapsOutsideOneSecondToOneHour() {
-        assertFailsWith<IllegalArgumentException> { FailureDelay(created, configuredCapMs = 999L) }
+    fun rejectsCapsOutsideTenSecondsToOneHour() {
+        assertFailsWith<IllegalArgumentException> { FailureDelay(created, configuredCapMs = 9_999L) }
         assertFailsWith<IllegalArgumentException> { FailureDelay(created, configuredCapMs = 3_600_001L) }
     }
 
@@ -247,11 +247,11 @@ class FailureDelayTest {
     }
 
     @Test
-    fun capBelowTenSecondsAlsoLimitsTheLearningPeriod() {
-        val delay = FailureDelay(created, configuredCapMs = 5_000L)
-        assertEquals(5_000L, delay.delayFor(1, created))
-        assertEquals(5_000L, delay.delayFor(1, afterLearning))
-        assertEquals(5_000L, delay.delayFor(9, afterLearning))
+    fun theFloorCapHoldsAfterTheLearningPeriod() {
+        val delay = FailureDelay(created, configuredCapMs = FailureDelay.MIN_CAP_MS)
+        assertEquals(10_000L, delay.delayFor(1, created))
+        assertEquals(10_000L, delay.delayFor(1, afterLearning))
+        assertEquals(10_000L, delay.delayFor(9, afterLearning))
     }
 
     @Test
@@ -261,15 +261,6 @@ class FailureDelayTest {
         val delay = FailureDelay(created, FailureDelay.configuredCapFor(default))
         assertEquals(10_000L, delay.delayFor(1, created))
         assertEquals(60_000L, delay.delayFor(4, afterLearning))
-    }
-
-    @Test
-    fun warningIsShownOnlyForCapsBelowTenSeconds() {
-        assertTrue(FailureDelay.warnsAt(1_000L))
-        assertTrue(FailureDelay.warnsAt(9_999L))
-        assertFalse(FailureDelay.warnsAt(10_000L))
-        assertFalse(FailureDelay.warnsAt(3_600_000L))
-        assertFalse(FailureDelay.warnsAt(null))
     }
 
     private fun stateWithCap(capMs: Long?, failures: Int) = FailureState(

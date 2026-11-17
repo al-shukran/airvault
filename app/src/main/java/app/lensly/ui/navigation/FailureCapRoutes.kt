@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.FailureCapResult
+import app.lensly.core.vault.FailureDelay
 import app.lensly.core.vault.VaultException
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.settings.FailureCapChoice
@@ -23,10 +24,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The Failure Delay cap, in the hidden graph, from Settings. The owner picks a cap, reads the warning if it is below 10 s,
- * and continues. The App Password is then checked through the vault's own check, so a running delay refuses the change and
- * a wrong password counts as a failure. The cap is saved only when the password is right, and the owner returns to Settings.
- * A wrong password, or one refused during a Failure Delay, clears the field and shows nothing, as at the gate.
+ * The wrong password lockout, in the hidden graph, from Settings: the longest wait and the erase count. The owner picks both and
+ * continues. The App Password is then checked through the vault's own check, so a running delay refuses the change and a wrong
+ * password counts as a failure. Both are saved only when the password is right, and the owner returns to Settings. A wrong password,
+ * or one refused during a Failure Delay, clears the field and shows nothing, as at the gate. The try that erases the vault leaves
+ * the hidden area, as after any wipe.
  */
 @Composable
 internal fun FailureCapRoute(navController: NavHostController, holder: VaultHolder) {
@@ -35,12 +37,16 @@ internal fun FailureCapRoute(navController: NavHostController, holder: VaultHold
     val password = remember { PasswordBuffer() }
     var saved by remember { mutableStateOf<FailureCapChoice?>(null) }
     var selected by remember { mutableStateOf<FailureCapChoice?>(null) }
+    var savedErase by remember { mutableStateOf<Int?>(null) }
+    var selectedErase by remember { mutableStateOf<Int?>(null) }
     var step by remember { mutableStateOf<FailureCapStep>(FailureCapStep.Choose) }
     var length by remember { mutableIntStateOf(0) }
     val shown = selected ?: saved
+    val shownErase = selectedErase ?: savedErase
 
     LaunchedEffect(Unit) {
         saved = readFailureCap(holder)
+        savedErase = readEraseAfter(holder)
     }
     DisposableEffect(Unit) {
         onDispose { password.clear() }
@@ -64,12 +70,16 @@ internal fun FailureCapRoute(navController: NavHostController, holder: VaultHold
         step = step,
         saved = saved,
         selected = selected,
+        savedErase = savedErase,
+        selectedErase = selectedErase,
         passwordLength = length,
         onSelect = { choice -> selected = choice },
+        onSelectErase = { erase -> selectedErase = erase },
         onContinue = {
             val choice = shown
-            if (choice != null && saved != null && choice != saved) {
-                step = FailureCapStep.Password(choice, busy = false)
+            val erase = shownErase
+            if (choice != null && erase != null && saved != null && savedErase != null && (choice != saved || erase != savedErase)) {
+                step = FailureCapStep.Password(choice, erase, busy = false)
             }
         },
         onKey = { c ->
@@ -90,9 +100,10 @@ internal fun FailureCapRoute(navController: NavHostController, holder: VaultHold
             length = 0
             step = current.copy(busy = true)
             scope.launch {
-                when (saveFailureCap(holder, entered, current.choice.capMs)) {
+                when (saveFailureLimits(holder, entered, current.choice.capMs, current.eraseAfter)) {
                     FailureCapOutcome.Saved -> navController.popBackStack()
                     FailureCapOutcome.Rejected -> step = current.copy(busy = false)
+                    FailureCapOutcome.Erased -> leaveHidden(navController, holder)
                     FailureCapOutcome.Unavailable -> navController.openHidden(HiddenRoute.UNAVAILABLE)
                 }
             }
@@ -106,29 +117,33 @@ internal fun FailureCapRoute(navController: NavHostController, holder: VaultHold
     )
 }
 
-/** What a save of the cap found. */
+/** What a save of the limits found. */
 private enum class FailureCapOutcome {
-    /** The App Password was right, and the cap is saved. */
+    /** The App Password was right, and the limits are saved. */
     Saved,
 
     /** The App Password was wrong, or a Failure Delay is running. Nothing was saved. */
     Rejected,
+
+    /** The wrong try was the last one allowed, so the vault was erased. */
+    Erased,
 
     /** The vault cannot be read or written. Nothing was saved. */
     Unavailable,
 }
 
 /**
- * Checks the App Password and saves the cap in one vault call. NonCancellable, so a check that has started runs to its
- * result, and the vault zeroes [password] on every path.
+ * Checks the App Password and saves the cap and the erase count in one vault call. NonCancellable, so a check that has started runs
+ * to its result, and the vault zeroes [password] on every path.
  */
-private suspend fun saveFailureCap(holder: VaultHolder, password: CharArray, capMs: Long?): FailureCapOutcome =
+private suspend fun saveFailureLimits(holder: VaultHolder, password: CharArray, capMs: Long?, eraseAfter: Int): FailureCapOutcome =
     withContext(NonCancellable) {
         try {
-            // A decoy's change is accepted and nothing is written, so it can never weaken the real cap (see Vault).
-            when (holder.vault.setFailureDelayCap(password, capMs, inDecoy = holder.openSession()?.isDecoy == true)) {
+            // A decoy's change is accepted and nothing is written, so it can never weaken the real limits (see Vault).
+            when (holder.vault.setFailureLimits(password, capMs, eraseAfter, inDecoy = holder.openSession()?.isDecoy == true)) {
                 FailureCapResult.Saved -> FailureCapOutcome.Saved
                 FailureCapResult.Rejected -> FailureCapOutcome.Rejected
+                FailureCapResult.Erased -> FailureCapOutcome.Erased
             }
         } catch (e: VaultException) {
             FailureCapOutcome.Unavailable
@@ -141,4 +156,12 @@ internal suspend fun readFailureCap(holder: VaultHolder): FailureCapChoice =
         FailureCapChoice.of(holder.vault.failureDelayCapMs())
     } catch (e: VaultException) {
         FailureCapChoice.DEFAULT
+    }
+
+/** The erase count in force. A vault that cannot be read shows the default, and nothing is saved from that reading. */
+internal suspend fun readEraseAfter(holder: VaultHolder): Int =
+    try {
+        holder.vault.failureEraseAfter()
+    } catch (e: VaultException) {
+        FailureDelay.DEFAULT_WIPE_AFTER
     }
