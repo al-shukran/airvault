@@ -17,6 +17,7 @@ import app.lumio.data.MonotonicClock
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.SolanaAccountState
 import app.lumio.data.provider.solana.CustomSolanaRpc
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
@@ -25,11 +26,14 @@ import app.lumio.data.sched.Scheduler
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.Base64
 import kotlin.random.Random
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -310,8 +314,63 @@ class SolanaSendTest {
 
         val failure = assertFailsWith<ProviderError.Fatal> { SolanaSend.broadcast(scheduler(), SOLANA_DEVNET, signed) }
 
-        assertEquals(JsonRpc.BLOCKHASH_EXPIRED_MESSAGE, failure.message)
+        assertEquals(JsonRpc.BLOCKHASH_REFUSED_MESSAGE, failure.message)
     }
+
+    @Test
+    fun aSetupRefusedForAnAgedOutBlockhashSaysToStartItAgainAndOffersNoRetry() {
+        val failure = solanaFailure(ProviderError.Fatal(JsonRpc.BLOCKHASH_REFUSED_MESSAGE), setup = true)
+
+        assertEquals(SETUP_EXPIRED, failure.message)
+        assertFalse(failure.retryable)
+    }
+
+    @Test
+    fun aSendRefusedForAMovedNonceSaysTheNonceMovedAndNeverClaimsAge() {
+        val failure = solanaFailure(ProviderError.Fatal(JsonRpc.BLOCKHASH_REFUSED_MESSAGE), setup = false)
+
+        assertEquals(NONCE_MOVED, failure.message)
+        assertFalse(failure.retryable)
+        assertFalse(failure.message.contains("too old"))
+    }
+
+    @Test
+    fun aFailureThatIsNotARefusedBlockhashKeepsItsWordsAndItsRetry() {
+        val failure = solanaFailure(IllegalArgumentException("Enter an amount."), setup = false)
+
+        assertEquals("Enter an amount.", failure.message)
+        assertTrue(failure.retryable)
+    }
+
+    @Test
+    fun theNoncePathIsTheSetupWhileNoNonceAccountExists() {
+        assertEquals(SolanaNoncePath.Setup, SolanaSend.noncePath(null, sender))
+    }
+
+    @Test
+    fun theStoredNonceOfAnInitializedNonceAccountOfThisAccountIsTheDurablePath() {
+        val stored = ByteArray(32) { (it * 3 + 1).toByte() }
+        val state = SolanaAccountState(owner = Base58.encode(ByteArray(32)), data = nonceAccount(authority = sender, nonce = stored))
+
+        val path = assertIs<SolanaNoncePath.Durable>(SolanaSend.noncePath(state, sender))
+
+        assertContentEquals(stored, path.nonceValue)
+    }
+
+    @Test
+    fun aNonceAccountOwnedByAnotherProgramOrAuthorisedByAnotherKeyIsRefused() {
+        val stored = ByteArray(32) { 7 }
+        val other = SolanaAccount.publicKey(seed, 0)
+        val byOtherOwner = SolanaAccountState(owner = Base58.encode(other), data = nonceAccount(authority = sender, nonce = stored))
+        val byOtherAuthority = SolanaAccountState(owner = Base58.encode(ByteArray(32)), data = nonceAccount(authority = other, nonce = stored))
+
+        assertFailsWith<IllegalArgumentException> { SolanaSend.noncePath(byOtherOwner, sender) }
+        assertFailsWith<IllegalArgumentException> { SolanaSend.noncePath(byOtherAuthority, sender) }
+    }
+
+    /** An initialized nonce account's 80 bytes: version 1, state 1, the authority, the nonce value, then a fee of 5000 lamports per signature. */
+    private fun nonceAccount(authority: ByteArray, nonce: ByteArray): ByteArray =
+        ByteBuffer.allocate(80).order(ByteOrder.LITTLE_ENDIAN).putInt(1).putInt(1).put(authority).put(nonce).putLong(5_000L).array()
 
     @Test
     fun confirmationStopsAtAFailedStatusAndWaitsBetweenPolls() = runBlocking {

@@ -368,7 +368,7 @@ class SolanaProviderTest {
 
         val failure = assertFailsWith<ProviderError.Fatal> { call(Broadcast(devnet, byteArrayOf(1))) }
 
-        assertEquals(JsonRpc.BLOCKHASH_EXPIRED_MESSAGE, failure.message)
+        assertEquals(JsonRpc.BLOCKHASH_REFUSED_MESSAGE, failure.message)
     }
 
     @Test

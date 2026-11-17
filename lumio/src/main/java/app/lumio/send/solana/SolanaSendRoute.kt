@@ -89,8 +89,6 @@ private const val SIGNATURE_FAILED = "That code could not be used. Scan the sign
 private const val BROADCAST_FAILED = "The transaction could not be sent. Check the balance, then try again."
 private const val NETWORK_FAILED = "The Solana network could not be read. Try again."
 private const val NO_BROWSER = "No browser can open the explorer."
-private const val SYSTEM_PROGRAM = "11111111111111111111111111111111"
-private const val NONCE_UNUSABLE = "The nonce account of this account cannot be used for a send."
 private const val SETUP_DONE = "Offline signing is set up. Review the send again to sign it."
 private const val SETUP_PENDING = "The setup is not confirmed yet. Review the send again in a minute."
 private const val SETUP_FAILED = "The setup did not go through. Start it again from the send."
@@ -172,15 +170,15 @@ internal fun SolanaSendRoute(
                     // A send names the nonce that the account's nonce account holds. Until that account exists, the one-time setup comes first.
                     val nonceAccount = SolanaNonce.accountOf(from.key)
                     val state = scheduler.run(SolanaAccountRead(network, Base58.encode(nonceAccount)), Priority.FOREGROUND)
-                    if (state == null) {
-                        val rent = scheduler.run(RentExemptMinimum(network, SolanaNonce.ACCOUNT_BYTES), Priority.FOREGROUND)
-                        SolanaSend.checkSetupFunds(available, rent)
-                        SolanaSendStep.SetupReview(Base58.encode(nonceAccount), rent)
-                    } else {
-                        // The nonce account is the System Program's, and its data names this account as the authority.
-                        val nonceValue = state.takeIf { it.owner == SYSTEM_PROGRAM }?.let { SolanaNonce.nonceValue(it.data, from.key) }
-                            ?: throw IllegalArgumentException(NONCE_UNUSABLE)
-                        SolanaSendStep.Review(SolanaSend.plan(network, from, to, lamports, available, nonceValue, SolanaSend.newRequestId()))
+                    when (val path = SolanaSend.noncePath(state, from.key)) {
+                        SolanaNoncePath.Setup -> {
+                            val rent = scheduler.run(RentExemptMinimum(network, SolanaNonce.ACCOUNT_BYTES), Priority.FOREGROUND)
+                            SolanaSend.checkSetupFunds(available, rent)
+                            SolanaSendStep.SetupReview(Base58.encode(nonceAccount), rent)
+                        }
+                        is SolanaNoncePath.Durable -> SolanaSendStep.Review(
+                            SolanaSend.plan(network, from, to, lamports, available, path.nonceValue, SolanaSend.newRequestId()),
+                        )
                     }
                 }
             }
@@ -259,7 +257,7 @@ internal fun SolanaSendRoute(
                     val machine = SubmitMachine(
                         signed = send,
                         broadcast = { signedSend -> withContext(Dispatchers.IO) { SolanaSend.broadcast(scheduler, network, signedSend) } },
-                        describe = { error -> solanaFailure(error) },
+                        describe = { error -> solanaFailure(error, setup = current.setup) },
                     )
                     notice = null
                     step = SolanaSendStep.Submit(current.plan, current.parts, machine, current.setup)
@@ -443,13 +441,14 @@ private fun ownerWords(error: Throwable, fallback: String): String = when (error
 }
 
 /**
- * The words of a failed Solana submission. A blockhash the network no longer accepts can never be sent again, so the owner starts the send over
- * and the screen offers no retry.
+ * The words of a failed Solana submission. The network refuses a transaction whose blockhash it does not know, and the words say which of the two
+ * that was: a setup whose blockhash aged out is started again, and a send whose nonce moved is made again. Neither can be sent as it is, so the
+ * screen offers no retry.
  */
-private fun solanaFailure(error: Throwable): SubmitFailure {
-    val expired = error is ProviderError.Fatal && error.message == JsonRpc.BLOCKHASH_EXPIRED_MESSAGE
-    return if (expired) {
-        SubmitFailure(JsonRpc.BLOCKHASH_EXPIRED_MESSAGE, retryable = false)
+internal fun solanaFailure(error: Throwable, setup: Boolean): SubmitFailure {
+    val refused = error is ProviderError.Fatal && error.message == JsonRpc.BLOCKHASH_REFUSED_MESSAGE
+    return if (refused) {
+        SubmitFailure(if (setup) SETUP_EXPIRED else NONCE_MOVED, retryable = false)
     } else {
         SubmitFailure(ownerWords(error, BROADCAST_FAILED))
     }

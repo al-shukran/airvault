@@ -13,6 +13,7 @@ import app.lensly.core.ur.SolSignature
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.SolanaAccountState
 import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.sched.Priority
@@ -67,6 +68,25 @@ class SolanaSendPlan(
 /** A signed transaction, as `sendTransaction` takes it, and the signature the network must report for it. */
 class SolanaSignedSend(val raw: ByteArray, val signature: String)
 
+/**
+ * The nonce that a send names: the one-time setup while the account has no nonce account, or the nonce value that an initialized nonce account of the
+ * account holds. A [Durable] send names no blockhash that ages out, so it stays valid until its nonce moves.
+ */
+sealed interface SolanaNoncePath {
+    data object Setup : SolanaNoncePath
+
+    class Durable(val nonceValue: ByteArray) : SolanaNoncePath
+}
+
+/** What the owner reads when the one-time setup is refused because its blockhash has aged out. Nothing was created, so the setup is started again. */
+internal const val SETUP_EXPIRED = "The setup is too old for the network, so no nonce account was made. Start the setup again and sign it within about a minute."
+
+/** What the owner reads when a send is refused because the nonce it names has moved since the send was prepared. */
+internal const val NONCE_MOVED = "The network refused the send: this account's nonce changed after the send was prepared. Make the send again."
+
+/** What the owner reads when the account at the nonce address is not an initialized nonce account of this account. */
+internal const val NONCE_UNUSABLE = "The nonce account of this account cannot be used for a send."
+
 /** How a send ended on the network, as far as the status reads showed. [PENDING] means no read showed the answer in time. */
 enum class SolanaOutcome { CONFIRMED, FAILED, PENDING }
 
@@ -82,6 +102,20 @@ object SolanaSend {
         val spendable = balance - BigInteger.valueOf(SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS)
         if (spendable.signum() <= 0) return null
         return spendable.min(BigInteger.valueOf(Long.MAX_VALUE)).toLong()
+    }
+
+    private const val SYSTEM_PROGRAM = "11111111111111111111111111111111"
+
+    /**
+     * The nonce path of a send from [account], given the state of its nonce account. While no nonce account exists the path is [SolanaNoncePath.Setup].
+     * Otherwise the nonce account must be the System Program's and name [account] as its authority, and the path is [SolanaNoncePath.Durable] with the
+     * nonce value that it holds. Throws IllegalArgumentException, with the owner's words, for any other account.
+     */
+    fun noncePath(state: SolanaAccountState?, account: ByteArray): SolanaNoncePath {
+        if (state == null) return SolanaNoncePath.Setup
+        val nonceValue = state.takeIf { it.owner == SYSTEM_PROGRAM }?.let { SolanaNonce.nonceValue(it.data, account) }
+            ?: throw IllegalArgumentException(NONCE_UNUSABLE)
+        return SolanaNoncePath.Durable(nonceValue)
     }
 
     /** A fresh 16-byte request ID. Lensly's answer must echo it, so an old answer cannot be used for this send. */
