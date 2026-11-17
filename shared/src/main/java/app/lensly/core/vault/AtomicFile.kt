@@ -6,27 +6,41 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 /**
- * Writes [bytes] to a synced `<name>.tmp` beside [target] and returns that temp file.
+ * Writes [bytes] to a synced temp file beside [target] and returns it. The name is unique, so a stale or planted
+ * `<name>.tmp` is neither written nor renamed over [target]. A failed write deletes the temp file.
  * Nothing at [target] changes until [commitTemp] runs.
  */
 internal fun writeTemp(target: File, bytes: ByteArray): File {
-    val temp = File(target.parentFile, target.name + ".tmp")
-    FileOutputStream(temp).use { out ->
-        out.write(bytes)
-        out.flush()
-        out.fd.sync()
+    val temp = File.createTempFile("${target.name}.", ".tmp", target.parentFile)
+    try {
+        FileOutputStream(temp).use { out ->
+            out.write(bytes)
+            out.flush()
+            out.fd.sync()
+        }
+    } catch (e: Throwable) {
+        temp.delete()
+        throw e
     }
     return temp
 }
 
-/** Atomically renames [temp] over [target], so a reader sees either the old file or the new one. */
+/**
+ * Atomically renames [temp] over [target], so a reader sees either the old file or the new one. A failed rename
+ * deletes [temp].
+ */
 internal fun commitTemp(temp: File, target: File) {
-    Files.move(
-        temp.toPath(),
-        target.toPath(),
-        StandardCopyOption.REPLACE_EXISTING,
-        StandardCopyOption.ATOMIC_MOVE,
-    )
+    try {
+        Files.move(
+            temp.toPath(),
+            target.toPath(),
+            StandardCopyOption.REPLACE_EXISTING,
+            StandardCopyOption.ATOMIC_MOVE,
+        )
+    } catch (e: Throwable) {
+        temp.delete()
+        throw e
+    }
 }
 
 /** [writeTemp] followed by [commitTemp]. */
