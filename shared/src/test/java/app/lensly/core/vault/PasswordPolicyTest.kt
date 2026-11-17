@@ -6,10 +6,14 @@ import org.junit.Test
 
 class PasswordPolicyTest {
     @Test
-    fun refusesFewerThanEightCodePointsFirst() {
+    fun refusesFewerThanTwelveCodePointsFirst() {
         assertEquals(
             PolicyResult.Refused(PolicyReason.TOO_SHORT),
-            PasswordPolicy.evaluate(codePoints = 7, score = 4, guessesLog10 = 40.0),
+            PasswordPolicy.evaluate(codePoints = 11, score = 4, guessesLog10 = 40.0),
+        )
+        assertEquals(
+            PolicyResult.Accepted,
+            PasswordPolicy.evaluate(codePoints = 12, score = 4, guessesLog10 = 40.0),
         )
     }
 
@@ -55,20 +59,20 @@ class PasswordPolicyTest {
         // 12.0 * log2(10) is about 39.9 bits, 12.1 * log2(10) is about 40.2 bits.
         assertEquals(
             PolicyResult.Refused(PolicyReason.LOW_ENTROPY),
-            PasswordPolicy.evaluate(codePoints = 8, score = 2, guessesLog10 = 12.0),
+            PasswordPolicy.evaluate(codePoints = 12, score = 2, guessesLog10 = 12.0),
         )
         assertEquals(
             PolicyResult.Accepted,
-            PasswordPolicy.evaluate(codePoints = 8, score = 2, guessesLog10 = 12.1),
+            PasswordPolicy.evaluate(codePoints = 12, score = 2, guessesLog10 = 12.1),
         )
     }
 
     @Test
     fun checkCountsCodePointsNotUtf16Units() {
-        // Seven emoji are 14 UTF-16 units but only 7 code points.
+        // Eleven emoji are 22 UTF-16 units but only 11 code points, one short of the minimum.
         assertEquals(
             PolicyResult.Refused(PolicyReason.TOO_SHORT),
-            PasswordPolicy.check("😀".repeat(7).toCharArray()),
+            PasswordPolicy.check("😀".repeat(11).toCharArray()),
         )
     }
 
@@ -89,10 +93,10 @@ class PasswordPolicyTest {
     }
 
     @Test
-    fun checkRefusesEightRepeatedCharacters() {
+    fun checkRefusesTwelveRepeatedCharacters() {
         assertEquals(
             PolicyResult.Refused(PolicyReason.WEAK_SCORE),
-            PasswordPolicy.check("aaaaaaaa".toCharArray()),
+            PasswordPolicy.check("a".repeat(12).toCharArray()),
         )
     }
 

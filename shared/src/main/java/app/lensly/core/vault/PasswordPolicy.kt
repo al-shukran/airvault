@@ -21,7 +21,7 @@ sealed interface PolicyResult {
  * The checks run in that order and the first failure is reported.
  */
 object PasswordPolicy {
-    const val MIN_CODE_POINTS = 8
+    const val MIN_CODE_POINTS = 12
     const val MIN_ZXCVBN_SCORE = 2
     const val MIN_ENTROPY_BITS = 40.0
 
