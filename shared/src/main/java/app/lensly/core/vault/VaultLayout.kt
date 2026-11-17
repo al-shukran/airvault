@@ -25,6 +25,12 @@ class VaultLayout(val root: File) {
     /** A vault exists once both the header and the wrapped vault key have been written. */
     fun exists(): Boolean = header.isFile && vaultKey.isFile
 
+    /**
+     * True when files of a vault are on disk without a whole vault: the header or the key file is missing, or a wallet folder is left.
+     * Creating a vault refuses them, because a new hardware key would replace the one they were sealed under.
+     */
+    fun isPartial(): Boolean = !exists() && (header.exists() || vaultKey.exists() || wallets.exists())
+
     fun walletDir(walletId: String): File = File(wallets, walletId)
 }
 
