@@ -38,7 +38,6 @@ import app.lumio.pair.PairedWallet
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallets
 import app.lumio.send.EvmPaymentCode
-import app.lumio.tokens.Token
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
@@ -56,15 +55,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * What a send reads from the open vault: the wallet, the address that sends, the settings, the chains that are on, the tokens each chain lists,
- * and the tokens that the sending address holds in the balance cache.
+ * What a send reads from the open vault: the wallet, the address that sends, the settings, the chains that are on, and the tokens that the sending
+ * address holds in the balance cache.
  */
 private class SendContext(
     val wallet: PairedWallet,
     val from: String,
     val settings: EvmSettings,
     val chains: List<EvmChain>,
-    val tokensOf: (EvmChain) -> List<Token>,
     val held: List<TokenHolding>,
 )
 
@@ -104,8 +102,7 @@ private const val REQUEST_ID_BYTES = 16
 /**
  * A send from one address of a paired wallet, on the network [chainId]: the form, the review, the request that Lensly signs, the scan of its
  * signature, and the transaction that is sent. The network is fixed, so the form offers no other. Lumio holds no key. It builds the transaction
- * from public reads, and it broadcasts only a signature that answers its own request from the account that sends. [preferredToken] starts the
- * form on that ERC-20 token; without a token the form starts on the native coin.
+ * from public reads, and it broadcasts only a signature that answers its own request from the account that sends. The form starts on the native coin.
  */
 @Composable
 internal fun SendRoute(
@@ -115,7 +112,6 @@ internal fun SendRoute(
     index: Int,
     mode: NetworkMode,
     chainId: Long,
-    preferredToken: String? = null,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
@@ -137,7 +133,7 @@ internal fun SendRoute(
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     // The contract of the token the send moves, or null for the native coin of the chain.
-    var contract by remember { mutableStateOf(preferredToken) }
+    var contract by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     var scan by remember { mutableStateOf(SignatureScan()) }
@@ -151,7 +147,7 @@ internal fun SendRoute(
     // The network the send is bound to. Null when that network is off, and the form then says so.
     val selectedChain = ready.chains.firstOrNull { it.chainId == chainId }
     // The coins the chain offers: the native coin, the tokens held here, and the preferred token. The send moves the chosen one, native by default.
-    val assets = selectedChain?.let { chain -> SendAssets.onChain(chain, ready.tokensOf(chain), ready.held, preferredToken) }.orEmpty()
+    val assets = selectedChain?.let { chain -> SendAssets.onChain(chain, ready.held) }.orEmpty()
     val asset = assets.firstOrNull { it.token?.contract == contract } ?: assets.firstOrNull()
 
     fun review() {
@@ -364,7 +360,7 @@ private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, ind
     val from = AccountAddresses.addressOfKey(account)
     val tokensOf = app.tokensFor(session)
     val held = TokenPortfolio.holdingsAt(wallet.id, from, chains, tokensOf, TokenBalanceCache.read(session))
-    SendLoad.Ready(SendContext(wallet, from, settings, chains, tokensOf, held))
+    SendLoad.Ready(SendContext(wallet, from, settings, chains, held))
 }.getOrDefault(SendLoad.Missing)
 
 /** The words a failure shows: the owner's words for a refusal (an invalid input, a signature that is not this one, an endpoint's answer), else [fallback]. */

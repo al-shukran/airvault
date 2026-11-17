@@ -6,7 +6,7 @@ import java.math.BigInteger
 import kotlin.test.assertEquals
 import org.junit.Test
 
-/** The asset picker's list: the native coin, then the tokens the sending address holds on the chain, then a preferred token that is not held. */
+/** The asset picker's list: the native coin, then the tokens the sending address holds on the chain. */
 class SendAssetsTest {
     private val mainnet = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
     private val sepolia = EvmChain(11155111L, "Sepolia", "ETH", 18, testnet = true, explorerUrl = null)
@@ -20,7 +20,7 @@ class SendAssetsTest {
     fun theNativeCoinIsFirstThenEachTokenHeldOnTheChain() {
         val held = listOf(holding(mainnet, usdc, 10_000_000L), holding(mainnet, dai, 5L))
 
-        val assets = SendAssets.onChain(mainnet, listOf(usdc, dai), held, preferred = null)
+        val assets = SendAssets.onChain(mainnet, held)
 
         assertEquals(listOf<String?>(null, "USDC", "DAI"), assets.map { it.token?.symbol })
         assertEquals("ETH", assets[0].symbol)
@@ -29,42 +29,18 @@ class SendAssetsTest {
     }
 
     @Test
-    fun aTokenWithNoBalanceIsNotListedUnlessItIsPreferred() {
+    fun aTokenWithNoBalanceIsNotListed() {
         val held = listOf(holding(mainnet, usdc, 0L))
 
-        assertEquals(listOf<String?>(null), SendAssets.onChain(mainnet, listOf(usdc), held, preferred = null).map { it.token?.symbol })
-    }
-
-    @Test
-    fun aPreferredTokenIsListedWithNoBalanceWhenItIsNotHeld() {
-        val assets = SendAssets.onChain(mainnet, listOf(usdc, dai), held = emptyList(), preferred = DAI)
-
-        assertEquals(listOf<String?>(null, "DAI"), assets.map { it.token?.symbol })
-        assertEquals(null, assets[1].balance)
-    }
-
-    @Test
-    fun aPreferredTokenThatIsHeldIsListedOnce() {
-        val held = listOf(holding(mainnet, usdc, 1L))
-
-        val assets = SendAssets.onChain(mainnet, listOf(usdc), held, preferred = USDC)
-
-        assertEquals(listOf<String?>(null, "USDC"), assets.map { it.token?.symbol })
-    }
-
-    @Test
-    fun aPreferredTokenThatTheChainDoesNotListIsNotListed() {
-        val assets = SendAssets.onChain(mainnet, listOf(usdc), held = emptyList(), preferred = "0x" + "ab".repeat(20))
-
-        assertEquals(listOf<String?>(null), assets.map { it.token?.symbol })
+        assertEquals(listOf<String?>(null), SendAssets.onChain(mainnet, held).map { it.token?.symbol })
     }
 
     @Test
     fun holdingsOfAnotherChainAreNotListed() {
         val held = listOf(holding(sepolia, usdcSepolia, 9L))
 
-        assertEquals(listOf<String?>(null), SendAssets.onChain(mainnet, listOf(usdc), held, preferred = null).map { it.token?.symbol })
-        assertEquals(listOf<String?>(null, "USDC"), SendAssets.onChain(sepolia, listOf(usdcSepolia), held, preferred = null).map { it.token?.symbol })
+        assertEquals(listOf<String?>(null), SendAssets.onChain(mainnet, held).map { it.token?.symbol })
+        assertEquals(listOf<String?>(null, "USDC"), SendAssets.onChain(sepolia, held).map { it.token?.symbol })
     }
 
     private companion object {

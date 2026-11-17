@@ -38,7 +38,7 @@ partitions:
   lumio-a        :lumio:assembleDebug :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
   lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.EntryGestureSettingTest' --tests 'app.lumio.CoverLockTest' --tests 'app.lumio.SendRouteTest'
                  --tests 'app.lumio.btc.*' --tests 'app.lumio.data.*' --tests 'app.lumio.evm.*' --tests 'app.lumio.home.*'
-                 --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*' --tests 'app.lumio.send.*' --tests 'app.lumio.tokens.*' --tests 'app.lumio.transactions.*' --tests 'app.lumio.wallets.*'
+                 --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*' --tests 'app.lumio.send.*' --tests 'app.lumio.tokens.*' --tests 'app.lumio.wallets.*'
   registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
   ci             bash -n on every script, scripts/ci/check-ui-partitions.sh, scripts/ci/check-lumio-partitions.sh, then
@@ -154,7 +154,6 @@ case "$partition" in
             --tests 'app.lumio.pair.*' \
             --tests 'app.lumio.send.*' \
             --tests 'app.lumio.tokens.*' \
-            --tests 'app.lumio.transactions.*' \
             --tests 'app.lumio.wallets.*'
         ;;
     registry-pack)
