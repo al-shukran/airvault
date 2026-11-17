@@ -8,6 +8,7 @@ import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -43,6 +44,54 @@ class AlgoTxnDecoderTest {
 
     @Test
     fun `asset transfer with all sixteen keys decodes to the SDK fields`() = assertDecodesTo("axfer_full_16_keys")
+
+    @Test
+    fun `opt-out by close-out decodes to the SDK fields`() = assertDecodesTo("axfer_closeout")
+
+    @Test
+    fun `opt-out whose remaining holding goes to another address decodes to the SDK fields`() =
+        assertDecodesTo("axfer_optout_to_other")
+
+    @Test
+    fun `asset transfer that also closes the holding decodes to the SDK fields`() = assertDecodesTo("axfer_close_with_amount")
+
+    @Test
+    fun `clawback fixture decodes to the SDK fields`() = assertDecodesTo("axfer_clawback")
+
+    @Test
+    fun `asset rekey fixture decodes to the SDK fields`() = assertDecodesTo("axfer_rekey")
+
+    @Test
+    fun `mainnet USDC transfer fixture decodes to the SDK fields`() = assertDecodesTo("axfer_mainnet_usdc")
+
+    @Test
+    fun `mainnet USDC opt-in fixture decodes to the SDK fields`() = assertDecodesTo("axfer_optin_mainnet_usdc")
+
+    @Test
+    fun `an opt-in and an opt-out are told apart by the amount and the close-to`() {
+        fun asset(name: String) = AlgoTxnDecoder.decode(vector(name).raw) as AssetTransfer
+
+        assertTrue(asset("axfer_optin").isOptIn)
+        assertFalse(asset("axfer_optin").isOptOut)
+        assertTrue(asset("axfer_optin_mainnet_usdc").isOptIn)
+        assertTrue(asset("axfer_closeout").isOptOut)
+        assertFalse(asset("axfer_closeout").isOptIn)
+        assertTrue(asset("axfer_optout_to_other").isOptOut)
+        // A close-to with an amount is a transfer that also closes the holding, not an opt-out.
+        assertFalse(asset("axfer_close_with_amount").isOptOut)
+        assertFalse(asset("axfer_close_with_amount").isOptIn)
+        assertFalse(asset("axfer").isOptIn)
+        assertFalse(asset("axfer").isOptOut)
+    }
+
+    @Test
+    fun `a zero transfer with a close-to to the sender itself is an opt-out, not an opt-in`() {
+        val txn = AlgoTxnDecoder.decode(assetWith("arcv" to bin(KEY_A), "aamt" to null, "aclose" to bin(KEY_C))) as AssetTransfer
+
+        assertTrue(txn.isOptOut)
+        assertFalse(txn.isOptIn)
+        assertContentEquals(KEY_C, txn.closeTo)
+    }
 
     @Test
     fun `opt-in is a transfer of amount zero to the sender`() {

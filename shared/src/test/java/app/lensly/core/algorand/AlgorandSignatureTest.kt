@@ -49,6 +49,28 @@ class AlgorandSignatureTest {
         }
     }
 
+    @Test
+    fun everySdkFixtureSentFromAccountZeroVerifiesWithTheAccountZeroPublicKey() {
+        val key = LedgerEd25519.algorandAccount(seed(), 0)
+        try {
+            val sentFromAccountZero = AlgoTxnVectors.valid().filter {
+                AlgoTxnDecoder.decode(it.raw).sender.contentEquals(hexToBytes(ACCOUNT_0_PUBLIC_KEY))
+            }
+            val names = sentFromAccountZero.map { it.name }
+            assertTrue(
+                names.containsAll(listOf("axfer", "axfer_optin", "axfer_closeout", "axfer_clawback", "axfer_mainnet_usdc")),
+                "fixtures sent from account 0: $names",
+            )
+            for (v in sentFromAccountZero) {
+                val signed = bytesToSign(v.raw)
+                val signature = Ed25519Signer.sign(key.kL, signed)
+                assertTrue(Ed25519Signer.verify(key.publicKey, signed, signature), v.name)
+            }
+        } finally {
+            key.wipe()
+        }
+    }
+
     private fun seed(): ByteArray = Mnemonic.toSeed(PHRASE)
 
     private companion object {
