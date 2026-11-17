@@ -43,7 +43,7 @@ class SolanaNonceTest {
             ),
             review.instructions,
         )
-        assertEquals(emptyList(), review.warnings)
+        assertEquals(listOf(SolanaWarning.DURABLE_NONCE), review.warnings)
         // The recent blockhash field holds the nonce value.
         assertContentEquals(NONCE_VALUE, review.message!!.recentBlockhash)
     }
@@ -80,7 +80,7 @@ class SolanaNonceTest {
                 ),
             ),
         )
-        assertEquals(listOf(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), review.warnings)
+        assertEquals(listOf(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER, SolanaWarning.DURABLE_NONCE), review.warnings)
         assertEquals(at(OTHER), assertIs<SolanaInstruction.AdvanceNonce>(review.instructions[0]).authority)
     }
 

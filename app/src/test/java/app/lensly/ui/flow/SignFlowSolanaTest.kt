@@ -15,7 +15,6 @@ import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaInstruction
 import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.solana.SolanaWarning
 import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.SolSignRequest
@@ -157,13 +156,12 @@ class SignFlowSolanaTest {
 
     /** A v0 message that loads an account from a lookup table is reviewed with the lookup warning, and holds its signature for the read. */
     @Test
-    fun aLookupTableRequestIsReviewedWithItsWarning() = runBlocking {
+    fun aLookupTableRecipientIsRefusedInTheFlow() = runBlocking {
         val flow = SignFlow(SolanaPorts(), walletId = WALLET)
 
         flow.onScanned(partOf(requestCbor(v0FromLookupTable(payer = SOLANA_KEYS[0]))))
 
-        val review = assertIs<SignStep.SolanaReview>(flow.state.value).ready.review
-        assertTrue(SolanaWarning.LOOKUP_TABLE in review.warnings)
+        assertEquals(SignStep.Refused(SolanaRequestCheck.LOOKUP_RECIPIENT_REFUSAL), flow.state.value)
     }
 
     /** The fake ports. The wallet holds the Solana accounts of mnemonic A, and the App Password check is [password]. */

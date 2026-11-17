@@ -14,6 +14,9 @@ import org.junit.Test
 /** The rows, sentence and facts of the SPL vectors, as the Solana review shows them. */
 class SolanaSplRowsTest {
 
+    /** The recent blockhash of every SPL fixture message. */
+    private val BLOCKHASH = "3K2oo9odsrvknS7gMzJ4eLBnjd3UG14yPuJc8DiviJqY"
+
     private val computeBudget = "ComputeBudget111111111111111111111111111111"
     private val token = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
     private val ata = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
@@ -54,6 +57,7 @@ class SolanaSplRowsTest {
             listOf(
                 "Signer" to payer,
                 "Fee payer" to payer,
+                "Recent blockhash" to BLOCKHASH,
                 "Program" to computeBudget,
                 "Compute limit" to "300000 units",
                 "Program" to computeBudget,
@@ -106,7 +110,9 @@ class SolanaSplRowsTest {
             listOf(
                 "Instructions" to "4",
                 "Fee payer" to "AWxggjuZRm...2QbW7U",
+                "Base fee" to "5000 lamports",
                 "Priority fee" to "200 lamports",
+                "Max fee" to "5200 lamports",
                 "Mint" to "EPjFWdd5Au...yTDt1v",
             ),
             solanaFacts(review),
@@ -122,6 +128,7 @@ class SolanaSplRowsTest {
             listOf(
                 "Signer" to payer,
                 "Fee payer" to payer,
+                "Recent blockhash" to BLOCKHASH,
                 "Program" to token,
                 "Token transfer" to "7 base units, decimals unknown",
                 "From token account" to SolanaSplFixtures.PLAIN_SOURCE,
@@ -131,7 +138,16 @@ class SolanaSplRowsTest {
             solanaRows(review),
         )
         // A plain Transfer names no mint, so the facts show no mint.
-        assertEquals(listOf("Instructions" to "1", "Fee payer" to "AWxggjuZRm...2QbW7U"), solanaFacts(review))
+        assertEquals(
+            listOf(
+                "Instructions" to "1",
+                "Fee payer" to "AWxggjuZRm...2QbW7U",
+                "Base fee" to "5000 lamports",
+                "Priority fee" to "0 lamports",
+                "Max fee" to "5000 lamports",
+            ),
+            solanaFacts(review),
+        )
     }
 
     @Test
@@ -142,7 +158,7 @@ class SolanaSplRowsTest {
             listOf(
                 "Unknown program" to unknownProgram,
                 "Instruction data" to "0xdeadbeef",
-                "Accounts" to payer,
+                "Account (signer, writable)" to payer,
             ),
             rows.subList(rows.size - 3, rows.size),
         )

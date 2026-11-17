@@ -57,6 +57,23 @@ class SolanaMessage internal constructor(
      */
     val accountCount: Int = accountKeys.size + addressTableLookups.sumOf { it.writableIndexes.size + it.readonlyIndexes.size }
 
+    /** Whether the account at [index] signs: a static key among the first [Header.numRequiredSignatures]. A loaded account never signs. */
+    fun isSigner(index: Int): Boolean = index < accountKeys.size && index < header.numRequiredSignatures
+
+    /**
+     * Whether the account at [index] is writable. A static key follows the header: signed keys are writable before the read-only signed
+     * ones, and unsigned keys are writable before the read-only unsigned ones. A loaded account is writable when its table entry is.
+     */
+    fun isWritable(index: Int): Boolean = when {
+        index >= accountKeys.size -> (account(index) as? SolanaMessageAccount.Lookup)?.writable == true
+        isSigner(index) -> index < header.numRequiredSignatures - header.numReadonlySignedAccounts
+        else -> index < accountKeys.size - header.numReadonlyUnsignedAccounts
+    }
+
+    /** The roles of the account at [index], as the review words them: "signer" when it signs, then "writable" or "read-only". */
+    fun roles(index: Int): String =
+        listOfNotNull(if (isSigner(index)) "signer" else null, if (isWritable(index)) "writable" else "read-only").joinToString(", ")
+
     /** The account an index names. [index] must be below [accountCount]. */
     fun account(index: Int): SolanaMessageAccount {
         require(index in 0 until accountCount) { "account index $index is out of range" }
