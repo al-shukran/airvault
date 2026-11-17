@@ -582,10 +582,16 @@ class FailureStoreTest {
         store.initialize(clock)
         val previous = store.load(clock)
 
-        // A directory where the backup's temp file must go makes the second write fail, after the primary has the new state.
-        File(dir, "failures.bak.tmp").mkdirs()
+        // A non-empty directory at the backup's path makes the second write fail at the rename, after the primary has the
+        // new state. The old backup is put back afterwards, as it is on disk when the crash comes before the second write.
+        val backup = File(dir, "failures.bak")
+        val oldBackup = backup.readBytes()
+        backup.delete()
+        backup.mkdirs()
+        File(backup, "held").writeText("x")
         assertFailsWith<IOException> { store.recordFailure(previous, clock) }
-        File(dir, "failures.bak.tmp").deleteRecursively()
+        backup.deleteRecursively()
+        backup.writeBytes(oldBackup)
 
         val settled = open(dir).load(clock)
         assertEquals(1, settled.failures)

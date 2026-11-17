@@ -7,7 +7,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -25,7 +24,13 @@ class PasswordChangeTest {
     private val vault = Vault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
     private val vaultRoot = File(context.noBackupFilesDir, "vault")
     private val vaultKeyFile = File(vaultRoot, "vault.key")
-    private val pendingKeyFile = File(vaultRoot, "vault.key.tmp")
+    // Stands in for the temp file a stopped change leaves behind. The commit names its temp file uniquely and the vault
+    // never reads temp files, so any name shows the same thing.
+    private val pendingKeyFile = File(vaultRoot, "vault.key.stopped.tmp")
+
+    /** Every temp file under the vault folder, by path. */
+    private fun tempFiles(): Set<String> =
+        vaultRoot.walkTopDown().filter { it.name.endsWith(".tmp") }.map { it.path }.toSet()
 
     @Before
     fun startFromNoVault() {
@@ -120,10 +125,11 @@ class PasswordChangeTest {
             assertArrayEquals(SEED, stillOpen.getRecord(wallet, "secret"))
             stillOpen.close()
 
-            // A retry replaces the partial file, commits, and leaves no pending file behind.
+            // A retry commits and leaves no temp file of its own. The partial file from the stopped write stays as it is.
+            val leftovers = tempFiles()
             assertEquals(CreateResult.Created, vault.rekey(session, NEW.toCharArray()))
             session.close()
-            assertFalse(pendingKeyFile.exists())
+            assertEquals(leftovers, tempFiles())
             clock.advance(FailureDelay.LEARNING_CAP_MS)
             unlocked(vault.unlock(NEW.toCharArray())).close()
             assertTrue(vault.exists())

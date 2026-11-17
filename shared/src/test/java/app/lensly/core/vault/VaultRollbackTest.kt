@@ -9,6 +9,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -201,16 +202,22 @@ class VaultRollbackTest {
     fun aStorageErrorNeverThrowsFromUnlockAndTheCorrectPasswordOpensAfterTheWait() {
         createVault()
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
-        // Every write of the Delay State fails, as on a full disk: its temp file cannot be created.
-        File(layout.root, "${FailureStore.PRIMARY_FILE_NAME}.tmp").mkdirs()
+        // Every write of the Delay State fails, as on a full disk: the vault folder takes no new file, so no temp file
+        // can be made. Reads still work. A root user can write to a read-only folder, so the test is skipped there.
+        layout.root.setWritable(false)
+        try {
+            assumeFalse(layout.root.canWrite())
 
-        // A wrong password whose failure cannot be saved locks at the strictest cap, and nothing is thrown.
-        assertRejected(attempt(WRONG))
-        assertRejected(attempt(APP))
-        clock.advance(FailureDelay.MAX_CAP_MS - 1)
-        assertRejected(attempt(APP))
-        clock.advance(1)
-        unlocked(attempt(APP)).close()
+            // A wrong password whose failure cannot be saved locks at the strictest cap, and nothing is thrown.
+            assertRejected(attempt(WRONG))
+            assertRejected(attempt(APP))
+            clock.advance(FailureDelay.MAX_CAP_MS - 1)
+            assertRejected(attempt(APP))
+            clock.advance(1)
+            unlocked(attempt(APP)).close()
+        } finally {
+            layout.root.setWritable(true)
+        }
     }
 
     private fun createVault() {
