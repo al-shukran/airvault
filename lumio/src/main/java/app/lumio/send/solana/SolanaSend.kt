@@ -5,6 +5,7 @@ import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTransaction
 import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.SolCluster
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignRequestEncoder
 import app.lensly.core.ur.SolSignType
@@ -152,7 +153,7 @@ object SolanaSend {
 
     /**
      * The sign request of [plan] as the frames of an animated code. It names the account's path m/44'/501'/N' and its key, so Lensly refuses a
-     * request for another account.
+     * request for another account. It also states the cluster of the plan's network, which Lensly shows as stated by Lumio.
      */
     fun requestParts(plan: SolanaSendPlan): List<String> {
         val request = SolSignRequest(
@@ -163,6 +164,9 @@ object SolanaSend {
             address = plan.account.key,
             origin = ORIGIN,
             signType = SolSignType.TRANSACTION,
+            cluster = requireNotNull(SolCluster.fromWire(plan.network.chain)) {
+                "Lumio has no Solana cluster named ${plan.network.chain}."
+            },
         )
         return partsOf(SolSignRequestEncoder.encode(request))
     }

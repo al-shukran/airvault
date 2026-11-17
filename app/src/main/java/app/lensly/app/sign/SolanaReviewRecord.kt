@@ -6,7 +6,7 @@ import app.lensly.core.ur.SolSignType
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
 
-/** The network a Solana record names. A sol-sign-request names no cluster, so the record names none either. */
+/** The network a Solana record names: the chain. The record does not keep the cluster a request states. */
 const val SOLANA_NETWORK = "Solana"
 
 /**

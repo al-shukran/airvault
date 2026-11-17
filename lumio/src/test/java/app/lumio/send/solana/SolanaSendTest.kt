@@ -7,6 +7,7 @@ import app.lensly.core.solana.SolanaRequestCheck
 import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaTransaction
 import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.SolCluster
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.SolSignatureEncoder
@@ -201,9 +202,21 @@ class SolanaSendTest {
         assertEquals(0x0BADF00D, request.sourceFingerprint)
         assertEquals("Lumio", request.origin)
         assertEquals(SolSignType.TRANSACTION, request.signType)
+        assertEquals(SolCluster.DEVNET, request.cluster)
         // Lensly's own check takes the request for account 2 of the wallet's keys, in account order.
         val review = assertIs<SolanaRequestCheck.Result.Ok>(SolanaRequestCheck.check(request, wallet)).review
         assertEquals(accountIndex, review.accountIndex)
+        assertEquals(SolCluster.DEVNET, review.cluster)
+    }
+
+    /** The request states the cluster of the send's network, so a mainnet send says mainnet-beta and not devnet. */
+    @Test
+    fun theSignRequestStatesTheClusterOfTheNetworkOfTheSend() {
+        val mainnet = SolanaSend.plan(SOLANA_MAINNET, account, recipient, lamports, neededBalance, blockhash, requestId)
+
+        val request = assertIs<SolSignRequest.Result.Ok>(SolSignRequest.decode(urOfParts(SolanaSend.requestParts(mainnet)))).request
+
+        assertEquals(SolCluster.MAINNET_BETA, request.cluster)
     }
 
     @Test

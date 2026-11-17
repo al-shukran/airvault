@@ -11,6 +11,7 @@ import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
 import app.lensly.app.sign.SOLANA_NETWORK
 import app.lensly.app.sign.solanaFacts
+import app.lensly.app.sign.solanaNetworkFact
 import app.lensly.app.sign.solanaRows
 import app.lensly.app.sign.solanaSentence
 import app.lensly.app.sign.solanaWarningText
@@ -21,10 +22,10 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
 
 /**
- * The Solana review, the counterpart of [BitcoinReviewScreen]. The header names Solana, since the request names no cluster, and the
- * signing account, its wallet and its address. One sentence says what the request does, with a few facts under it. Every warning
- * sits in one banner, and every detail is shown on first render. The request is signed only after it is read to its end. REJECT is always
- * enabled.
+ * The Solana review, the counterpart of [BitcoinReviewScreen]. The header names Solana, then a network row that names the cluster Lumio
+ * states, or says it is not stated, then the signing account, its wallet and its address. One sentence says what the request does, with a
+ * few facts under it. Every warning sits in one banner, and every detail is shown on first render. The request is signed only after it is
+ * read to its end. REJECT is always enabled.
  */
 @Composable
 fun SolanaReviewScreen(
@@ -56,6 +57,7 @@ fun SolanaReviewScreen(
                     network = SOLANA_NETWORK,
                     testnet = false,
                     chainDetail = null,
+                    networkFact = solanaNetworkFact(review),
                     account = signer.name,
                     wallet = signer.walletName,
                     address = signer.address,

@@ -119,6 +119,22 @@ class SolSignRequestTest {
     }
 
     @Test
+    fun aClusterIsOptionalAndTheThreeSolanaClustersDecode() {
+        assertNull(okOf(SolSignRequest.decode(payload())).cluster)
+
+        assertEquals(SolCluster.MAINNET_BETA, okOf(SolSignRequest.decode(payload(cluster = Cbor.Text("mainnet-beta")))).cluster)
+        assertEquals(SolCluster.DEVNET, okOf(SolSignRequest.decode(payload(cluster = Cbor.Text("devnet")))).cluster)
+        assertEquals(SolCluster.TESTNET, okOf(SolSignRequest.decode(payload(cluster = Cbor.Text("testnet")))).cluster)
+    }
+
+    @Test
+    fun aClusterNameLensDoesNotHoldIsRefused() {
+        assertTrue(rejectedReason(payload(cluster = Cbor.Text("localnet"))).contains("unsupported cluster"))
+        assertTrue(rejectedReason(payload(cluster = Cbor.Text(""))).contains("unsupported cluster"))
+        assertTrue(rejectedReason(payload(cluster = Cbor.Uint(2))).contains("cluster must be text"))
+    }
+
+    @Test
     fun aUrOfAnotherTypeIsRefused() {
         assertIs<SolSignRequest.Result.Rejected>(SolSignRequest.decode(UR("sol-signature", payload())))
         assertIs<SolSignRequest.Result.Rejected>(SolSignRequest.decode(UR("eth-sign-request", payload())))
@@ -157,8 +173,9 @@ class SolSignRequestTest {
         address: Cbor? = null,
         origin: Cbor? = Cbor.Text("solflare"),
         signType: Cbor? = Cbor.Uint(1),
+        cluster: Cbor? = null,
     ): ByteArray = Cbor.encode(
-        dictOf(1L to requestId, 2L to signData, 3L to path, 4L to address, 5L to origin, 6L to signType),
+        dictOf(1L to requestId, 2L to signData, 3L to path, 4L to address, 5L to origin, 6L to signType, 7L to cluster),
     )
 
     /** The flat component list of a keypath: index, hardened flag, index, hardened flag, and so on. */
