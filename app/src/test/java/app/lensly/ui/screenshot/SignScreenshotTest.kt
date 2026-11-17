@@ -16,7 +16,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import app.lensly.app.sign.SolanaSplFixtures
 import app.lensly.app.sign.UndecodedCall
+import app.lensly.app.sign.solanaWarningText
 import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.AbiDecoder
 import app.lensly.core.registry.AbiRows
@@ -28,13 +30,22 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.WhitelistParam
+import app.lensly.core.solana.SolanaRequestCheck
+import app.lensly.core.solana.SolanaRequestReview
+import app.lensly.core.solana.SolanaTokenList
+import app.lensly.core.solana.SolanaWarning
+import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.SolSignRequest
+import app.lensly.core.ur.SolSignType
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SignRefusedScreen
+import app.lensly.ui.sign.SolanaReviewScreen
 import app.lensly.ui.sign.TxReviewScreen
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyTheme
 import com.github.takahirom.roborazzi.captureRoboImage
+import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
 import org.junit.Rule
 import org.junit.Test
@@ -292,6 +303,26 @@ private fun ComposeContentTestRule.snapshotScrolled(
     onNodeWithTag(REVIEW_TAG).captureRoboImage(filePath = "$SCREENSHOT_DIR/$name.png")
 }
 
+/** The token list that names USDC as the bundled list does, so the Solana reviews name the token as the app shows it. */
+private val SOLANA_USDC_TOKENS = SolanaTokenList.parse(
+    """{"tokens": [{"mint": "${SolanaSplFixtures.USDC}", "symbol": "USDC", "name": "USD Coin", "decimals": 6}]}""",
+)
+
+/** The Solana review of the SPL vector [name] for account 0, whose fee payer is that account, checked against [tokens]. */
+private fun solanaReviewOf(name: String, tokens: SolanaTokenList): SolanaRequestReview {
+    val request = SolSignRequest(
+        requestId = null,
+        signData = SolanaSplFixtures[name],
+        derivationPath = listOf(PathStep(44, true), PathStep(501, true), PathStep(0, true)),
+        sourceFingerprint = null,
+        address = null,
+        origin = null,
+        signType = SolSignType.TRANSACTION,
+    )
+    val checked = SolanaRequestCheck.check(request, listOf(Base58.decode(SolanaSplFixtures.PAYER)), tokens)
+    return (checked as SolanaRequestCheck.Result.Ok).review
+}
+
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -302,6 +333,27 @@ class SignScreenshotTest {
     @Test
     fun reviewNativeTransfer() = compose.snapshotSettled("tx_review_native") {
         TxReviewScreen(review = sampleNativeReview, onApprove = {}, onReject = {})
+    }
+
+    @Test
+    fun reviewSolanaSplTransferChecked() = compose.snapshotScrolled("solana_spl_transfer_checked", label = "Priority fee") {
+        SolanaReviewScreen(review = solanaReviewOf("spl-usdc-first-transfer", SOLANA_USDC_TOKENS), onApprove = {}, onReject = {})
+    }
+
+    @Test
+    fun reviewSolanaUnknownProgram() = compose.snapshotScrolled(
+        "solana_spl_unknown_program",
+        label = solanaWarningText(SolanaWarning.UNKNOWN_PROGRAM),
+    ) {
+        SolanaReviewScreen(review = solanaReviewOf("spl-unknown-program-usdc", SOLANA_USDC_TOKENS), onApprove = {}, onReject = {})
+    }
+
+    @Test
+    fun reviewSolanaPlainTransfer() = compose.snapshotScrolled(
+        "solana_plain_transfer",
+        label = solanaWarningText(SolanaWarning.DECIMALS_UNKNOWN),
+    ) {
+        SolanaReviewScreen(review = solanaReviewOf("spl-transfer-plain", SOLANA_USDC_TOKENS), onApprove = {}, onReject = {})
     }
 
     @Test

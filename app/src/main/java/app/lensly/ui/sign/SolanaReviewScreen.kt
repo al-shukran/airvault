@@ -12,6 +12,7 @@ import app.lensly.app.sign.solanaRows
 import app.lensly.app.sign.solanaSentence
 import app.lensly.app.sign.solanaWarningText
 import app.lensly.core.solana.SolanaRequestReview
+import app.lensly.core.solana.SolanaWarning
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
@@ -56,12 +57,20 @@ fun SolanaReviewScreen(
                     },
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
-                RiskBanner(items = review.warnings.map { RiskItem(text = solanaWarningText(it), tone = BannerTone.Warning) })
+                RiskBanner(items = review.warnings.map { RiskItem(text = solanaWarningText(it), tone = solanaWarningTone(it)) })
                 Spacer(Modifier.height(LenslySpacing.md))
-                DetailsSection(title = if (review.message == null) "Instructions" else "Message", onOpen = read::openDetails) {
-                    solanaRows(review).forEach { (label, value) -> ReviewFactRow(label = label, value = value) }
+                // A signed message has no parsed transaction, so its details are the message. A transaction's details are its instructions.
+                DetailsSection(title = if (review.message == null) "Message" else "Instructions", onOpen = read::openDetails) {
+                    // Each value is set under its label, so a full base58 address wraps in full rather than squeezing its label.
+                    solanaRows(review).forEach { (label, value) -> ReviewField(label = label, value = value) }
                 }
             }
         }
     }
+}
+
+/** An unknown program is an error, since Lensly cannot say what its instruction does. Every other Solana warning is a warning. */
+private fun solanaWarningTone(warning: SolanaWarning): BannerTone = when (warning) {
+    SolanaWarning.UNKNOWN_PROGRAM -> BannerTone.Error
+    SolanaWarning.LOOKUP_TABLE, SolanaWarning.UNKNOWN_TOKEN, SolanaWarning.DECIMALS_UNKNOWN -> BannerTone.Warning
 }

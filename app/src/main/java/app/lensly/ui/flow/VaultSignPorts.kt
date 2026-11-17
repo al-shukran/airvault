@@ -4,6 +4,7 @@ import android.content.Context
 import app.lensly.app.AddressBookStore
 import app.lensly.app.AddressNotes
 import app.lensly.app.RegistryHolder
+import app.lensly.app.SolanaTokensHolder
 import app.lensly.app.ReviewHistory
 import app.lensly.app.SettingsStore
 import app.lensly.app.addressNotesOf
@@ -250,7 +251,7 @@ internal class VaultSignPorts(
             ?: return@withContext SolanaPrepared.Refused("The request does not say which wallet it is for")
         if (sourceFingerprint != masterFingerprint) return@withContext SolanaPrepared.Refused("This request is for a different wallet")
         val keys = readWallet { WalletStore(it).solanaKeys(walletId) }
-        when (val checked = SolanaRequestCheck.check(request, keys)) {
+        when (val checked = SolanaRequestCheck.check(request, keys, SolanaTokensHolder.get(context))) {
             is SolanaRequestCheck.Result.Ok -> SolanaPrepared.Ready(walletId, request, checked.review)
             is SolanaRequestCheck.Result.Refused -> SolanaPrepared.Refused(checked.reason)
         }
