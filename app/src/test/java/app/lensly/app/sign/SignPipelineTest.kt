@@ -43,6 +43,7 @@ import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.shippedRegistry
 import app.lensly.ui.sign.ReviewCheck
 import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
+import app.lensly.ui.sign.evmSentence
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
@@ -536,6 +537,18 @@ class SignPipelineTest {
         assertEquals(listOf("amount (uint256)" to "1500000 (1.5 USDC)"), ready.review.params)
     }
 
+    /** Under Warn an unknown call is signable only once the owner ticks that Lensly cannot say what it does, as a Solana unknown is. */
+    @Test
+    fun anUnknownCallUnderWarnWaitsForTheOwnersTickBeforeItSigns() {
+        val data = erc20Call(SELECTOR_BALANCE_OF, RECIPIENT, BigInteger.ZERO) + "ab"
+        val cbor = requestCbor(eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data), chainId = ETHEREUM)
+        val review = assertIs<Prepared.Ready>(underPolicy(UnknownCallPolicy.WARN, cbor)).review
+
+        assertEquals(listOf(ReviewCheck.UNKNOWN_CALL), review.requiredChecks)
+        assertFalse(review.canApprove(everyFactShown = true, checked = emptySet()))
+        assertTrue(review.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.UNKNOWN_CALL)))
+    }
+
     @Test
     fun theValueOfAWhitelistedCallIsShownInTheNetworkCoin() {
         val tx = swapTx(ETHEREUM, WHITELISTED, BigInteger.TEN.pow(16))
@@ -658,6 +671,26 @@ class SignPipelineTest {
         )
 
         assertNull(assertIs<Prepared.Ready>(pipeline.prepare(noOrigin, VIEW)).review.origin)
+    }
+
+    /** A right-to-left override makes an origin read as another site, so a request that holds one is refused, not shown. */
+    @Test
+    fun anOriginWithACharacterTheOwnerCannotReadIsRefused() {
+        val request = EthSignRequest(
+            requestId = REQUEST_ID,
+            signData = eip1559Tx(),
+            dataType = DataType.TYPED_TRANSACTION,
+            chainId = MONAD_TESTNET,
+            derivationPath = accountPath(0),
+            sourceFingerprint = WALLET.masterFingerprint,
+            address = null,
+            origin = "app.uniswap.org‮",
+        )
+
+        assertEquals(
+            "The request names an origin with a character Lensly cannot show.",
+            assertIs<Prepared.Refused>(pipeline.prepare(request, VIEW)).reason,
+        )
     }
 
     @Test
@@ -1300,6 +1333,14 @@ class SignPipelineTest {
         assertEquals("EIP-2930", ready(requestCbor(signData)).review.txType)
     }
 
+    /** The access list is shown on the review, with its addresses checksummed as the rest of the review shows them. */
+    @Test
+    fun theAccessListIsOnTheReviewWithItsAddressChecksummed() {
+        val signData = eip1559TxWithAccessList(listOf(AccessListObject(RECIPIENT.lowercase(), listOf(STORAGE_KEY))))
+
+        assertEquals(listOf(AccessListEntry(RECIPIENT, listOf(STORAGE_KEY))), ready(requestCbor(signData)).review.accessList)
+    }
+
     @Test
     fun aSandboxThatChangesTheAccessListIsRefused() {
         val cbor = requestCbor(eip1559TxWithAccessList(listOf(AccessListObject(RECIPIENT, listOf(STORAGE_KEY)))))
@@ -1371,6 +1412,41 @@ class SignPipelineTest {
         val changed = ready.copy(tx = tx.copy(value = tx.value + BigInteger.ONE))
 
         assertFailsWith<IllegalArgumentException> { pipeline.sign(changed, WALLET.privateKey(0)) }
+    }
+
+    /** Every personal message carries a warning, and a message needs no tick, since it is not a transaction. */
+    @Test
+    fun everyPersonalMessageCarriesAWarningAndNeedsNoTick() {
+        val review = ready(requestCbor("Sign in to Lensly".toByteArray(Charsets.UTF_8), dataType = 3)).review
+
+        assertTrue(review.warnings.single().startsWith("The signature proves you hold this account"))
+        assertTrue(review.requiredChecks.isEmpty())
+    }
+
+    /** A batch that sends no native currency has no amount to state, so its headline names its calls, not a zero send. */
+    @Test
+    fun aBatchThatSendsNoNativeCurrencyHeadlinesItsCallsNotAZeroSend() {
+        val sweep = callOf(
+            WhitelistEntry.selectorOf(SWEEP_SIGNATURE).removePrefix("0x"),
+            addressWord(USDC_ETHEREUM),
+            uintWord(BigInteger.TEN),
+            addressWord(RECIPIENT),
+        )
+        val unwrap = callOf(
+            WhitelistEntry.selectorOf(UNWRAP_SIGNATURE).removePrefix("0x"),
+            uintWord(BigInteger.ONE),
+            addressWord(RECIPIENT),
+        )
+        val calls = batchData(listOf(sweep, unwrap))
+
+        val silent = assertIs<Prepared.Ready>(batch(calls)).review
+        assertEquals("", silent.amount)
+        assertTrue(evmSentence(silent).text.startsWith("Run 2 calls on "), evmSentence(silent).text)
+
+        // A batch that does send native currency keeps its amount in the headline.
+        val paying = assertIs<Prepared.Ready>(batch(calls, value = ONE_CENT_OF_MON)).review
+        assertEquals("0.01", paying.amount)
+        assertTrue(evmSentence(paying).text.startsWith("Send 0.01 ETH to "), evmSentence(paying).text)
     }
 
     // A multicall is read level by level, and each of its calls is decided where it sits.

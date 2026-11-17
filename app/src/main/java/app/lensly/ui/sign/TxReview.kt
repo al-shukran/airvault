@@ -5,6 +5,7 @@ import app.lensly.app.VisualIdentity
 import app.lensly.app.addressesIn
 import app.lensly.app.generatedIdentity
 import app.lensly.app.sign.WhitelistedCall
+import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
@@ -16,6 +17,11 @@ enum class ReviewCheck {
 
     /** The chain ID and the contract are outside the registry, and the owner has checked them. */
     REGISTRY,
+
+    /**
+     * An unknown call that the signed whitelist does not approve. The owner has read that Lensly cannot say what it does.
+     */
+    UNKNOWN_CALL,
 
     /** The call is on the signed whitelist, and the owner has read its approved meaning. */
     WHITELIST,
@@ -45,6 +51,14 @@ fun unlimitedApprovalWarning(symbol: String?): String =
 
 /** The warning on `setApprovalForAll(operator, true)`: the operator controls every token of the contract. */
 const val ALL_NFTS_WARNING = "Grants control of ALL your NFTs in this collection"
+
+/**
+ * The warning on a call Lensly cannot read that the signed whitelist does not approve. The Warn policy reviews it under this warning, and
+ * the owner ticks [ReviewCheck.UNKNOWN_CALL] before signing.
+ */
+const val UNKNOWN_CALL_WARNING =
+    "Unknown contract call. Lensly does not read this call, so it cannot say what it does. " +
+        "Check the contract and the calldata before you sign."
 
 /**
  * One call inside a multicall, as the review lists it. [depth] is its level: 1 for a call of the outer multicall, 2 for a call inside
@@ -121,6 +135,8 @@ data class TxReview(
     val typed: TypedReview? = null,
     /** What the Address Book and the device's accounts say of the addresses shown, keyed by [app.lensly.app.addressKeyOf]. Empty when none. */
     val addressNotes: Map<String, AddressNotes> = emptyMap(),
+    /** The access list of the transaction, which the review lists in its details. Empty when there is none. */
+    val accessList: List<AccessListEntry> = emptyList(),
 ) {
     /**
      * True when the chain or the token is outside the registry. Such a review carries the registry warning, and APPROVE
@@ -135,9 +151,11 @@ data class TxReview(
         get() {
             // A whitelisted or unregistered call may sit in a multicall, so every such call of the review counts.
             val whitelistedCalls = listOfNotNull(whitelisted) + nested.mapNotNull { it.whitelisted }
+            val unknownCall = UNKNOWN_CALL_WARNING in warnings || nested.any { UNKNOWN_CALL_WARNING in it.warnings }
             return listOfNotNull(
                 ReviewCheck.DENYLIST.takeIf { denylisted.isNotEmpty() || nested.any { it.denylisted.isNotEmpty() } },
                 ReviewCheck.REGISTRY.takeIf { needsRegistryConfirmation || nested.any { it.unregistered } },
+                ReviewCheck.UNKNOWN_CALL.takeIf { unknownCall },
                 ReviewCheck.WHITELIST.takeIf { whitelistedCalls.isNotEmpty() },
                 ReviewCheck.UPGRADE.takeIf { whitelistedCalls.any { it.call.proxy != null } },
             )
@@ -183,6 +201,7 @@ data class TxReview(
                     typed.summary.forEach { add(it.second) }
                     typed.fields.forEach { row -> row.value?.let(::add) }
                 }
+                accessList.forEach { add(it.address) }
             },
         )
 }

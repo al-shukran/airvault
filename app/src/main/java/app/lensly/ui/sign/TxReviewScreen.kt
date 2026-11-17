@@ -27,6 +27,7 @@ import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
 import app.lensly.app.notesOf
 import app.lensly.app.sign.WhitelistedCall
+import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ChainIcon
@@ -49,6 +50,12 @@ private const val WHITELIST_TEXT =
 private const val UPGRADE_TEXT =
     "The implementation could have been upgraded since it was approved, and Lensly cannot check it offline. The implementation it was " +
         "approved with is in the details."
+
+/** The function name of an approval for every token of a collection, as the review names it. */
+private const val SET_APPROVAL_FOR_ALL = "setApprovalForAll"
+
+/** The label of the origin a request names. The request sets it, so the review does not vouch for it. */
+private const val CLAIMED_ORIGIN_LABEL = "Claimed by request (not verified)"
 
 /**
  * Transaction review. The header names the network in full, the account that signs with its wallet and address. A sentence says what
@@ -175,6 +182,7 @@ private val ReviewCheck.label: String
     get() = when (this) {
         ReviewCheck.DENYLIST -> "I understand this is a risky request"
         ReviewCheck.REGISTRY -> "I checked the chain ID and contract"
+        ReviewCheck.UNKNOWN_CALL -> "I understand Lensly cannot say what this does."
         ReviewCheck.WHITELIST -> "I checked this is what I intend"
         ReviewCheck.UPGRADE -> "I accept the implementation cannot be checked"
     }
@@ -198,7 +206,7 @@ internal fun evmRiskItems(review: TxReview, checked: Set<ReviewCheck>, onCheck: 
     }
     review.denylisted.forEach { row("Known risky request. ${it.reason}", BannerTone.Error, ReviewCheck.DENYLIST) }
     if (review.needsRegistryConfirmation) row(REGISTRY_TEXT, BannerTone.Error, ReviewCheck.REGISTRY)
-    review.warnings.forEach { row(it, BannerTone.Error) }
+    review.warnings.forEach { row(it, BannerTone.Error, warningCheck(it)) }
     review.whitelisted?.let { whitelisted ->
         row(WHITELIST_TEXT, BannerTone.Warning, ReviewCheck.WHITELIST)
         if (whitelisted.call.proxy != null) row(UPGRADE_TEXT, BannerTone.Error, ReviewCheck.UPGRADE)
@@ -208,7 +216,7 @@ internal fun evmRiskItems(review: TxReview, checked: Set<ReviewCheck>, onCheck: 
         if (call.unregistered) {
             row("${call.function}: outside Lensly's registry. Check its chain ID and contract.", BannerTone.Error, ReviewCheck.REGISTRY)
         }
-        call.warnings.forEach { row("${call.function}: $it", BannerTone.Error) }
+        call.warnings.forEach { row("${call.function}: $it", BannerTone.Error, warningCheck(it)) }
         call.whitelisted?.let { whitelisted ->
             row("${call.function}: $WHITELIST_TEXT", BannerTone.Warning, ReviewCheck.WHITELIST)
             if (whitelisted.call.proxy != null) row("${call.function}: $UPGRADE_TEXT", BannerTone.Error, ReviewCheck.UPGRADE)
@@ -216,6 +224,9 @@ internal fun evmRiskItems(review: TxReview, checked: Set<ReviewCheck>, onCheck: 
     }
     return items
 }
+
+/** The check a warning needs. An unknown call's warning needs the owner's tick that Lensly cannot say what the call does. */
+private fun warningCheck(warning: String): ReviewCheck? = ReviewCheck.UNKNOWN_CALL.takeIf { warning == UNKNOWN_CALL_WARNING }
 
 /**
  * The sentence of the summary: the verb, the amount and the counterparty. A personal message, a typed message, and a whitelisted call
@@ -250,6 +261,20 @@ internal fun evmSentence(review: TxReview): AnnotatedString = buildAnnotatedStri
                 appendCounterparty(review, review.toAddress)
             }
         }
+        review.function == SET_APPROVAL_FOR_ALL && review.tokenContract != null -> {
+            // The operator is the counterparty, and the collection is the contract whose tokens it may move.
+            if (review.params.firstOrNull { it.first == "approved" }?.second == "true") {
+                append("Give ")
+                appendCounterparty(review, review.toAddress)
+                append(" control of ")
+                appendCounterparty(review, review.tokenContract)
+            } else {
+                append("Remove control of ")
+                appendCounterparty(review, review.tokenContract)
+                append(" from ")
+                appendCounterparty(review, review.toAddress)
+            }
+        }
         review.toAddress.isNotEmpty() -> {
             append("Call ${review.function} on ")
             appendCounterparty(review, review.toAddress)
@@ -266,7 +291,7 @@ private fun AnnotatedString.Builder.appendCounterparty(review: TxReview, address
 
 /**
  * The key/value list of the summary: the maximum network fee, the total when it can be added up, the typed message's own summary,
- * and who requested the transaction. An address of the typed summary shows its name when the Address Book or this device names it,
+ * and the origin the request claims. An address of the typed summary shows its name when the Address Book or this device names it,
  * and its full address in the fields otherwise. The request names no origin as "Not stated".
  */
 internal fun evmFacts(review: TxReview): List<ReviewFact> = buildList {
@@ -277,7 +302,12 @@ internal fun evmFacts(review: TxReview): List<ReviewFact> = buildList {
         val name = review.addressNotes.notesOf(value)?.shownName()
         add(ReviewFact(label = label, value = name ?: value, mono = name == null))
     }
-    add(ReviewFact(label = "Requested by", value = review.origin ?: NOT_STATED, mono = false))
+    val origin = review.origin
+    if (origin != null) {
+        add(ReviewFact(label = CLAIMED_ORIGIN_LABEL, value = origin, mono = false))
+    } else {
+        add(ReviewFact(label = "Requested by", value = NOT_STATED, mono = false))
+    }
 }
 
 /**
@@ -456,8 +486,27 @@ private fun TransactionFields(review: TxReview, showTo: Boolean, open: ((String)
         review.fee.forEach { (name, value) -> ReviewFactRow(label = name, value = value) }
         review.feeNote?.let { note -> NoteText(note) }
         ReviewFactRow(label = "Nonce", value = review.nonce.toString())
+        if (review.accessList.isNotEmpty()) AccessListFields(review.accessList, notes, open)
     }
     ReviewFactRow(label = "Type", value = review.txType, mono = false)
+}
+
+/**
+ * The access list of a transaction: the addresses and storage keys it warms, counted, then each address with its keys. Each address names
+ * its Address Book entry. The access list is signed, so the owner can read what it warms.
+ */
+@Composable
+private fun AccessListFields(entries: List<AccessListEntry>, notes: Map<String, AddressNotes>, open: ((String) -> Unit)?) {
+    val keys = entries.sumOf { it.storageKeys.size }
+    val addresses = "${entries.size} ${if (entries.size == 1) "address" else "addresses"}"
+    val storageKeys = "$keys ${if (keys == 1) "storage key" else "storage keys"}"
+    ReviewFactRow(label = "Access list", value = "$addresses, $storageKeys", mono = false)
+    entries.forEachIndexed { index, entry ->
+        ReviewField(label = "Address ${index + 1}", value = entry.address, notes = notes.notesOf(entry.address), onOpen = open)
+        entry.storageKeys.forEachIndexed { keyIndex, key ->
+            ReviewField(label = "Storage key ${keyIndex + 1}", value = "0x${groupHex(key.removePrefix("0x"))}")
+        }
+    }
 }
 
 /** The implementation a whitelisted proxy is bound to, in full: its address, its code hash, or both. */

@@ -12,6 +12,7 @@ import app.lensly.core.registry.TokenEntry
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TxReviewTest {
@@ -143,5 +144,68 @@ class TxReviewTest {
         assertTrue(denylisted.hasWarnings)
         assertTrue(whitelisted(proxy = null).hasWarnings)
         assertTrue(nestedWarning.hasWarnings)
+    }
+
+    private val operator = "0x2222222222222222222222222222222222222222"
+    private val collection = "0x3333333333333333333333333333333333333333"
+
+    /** An approval for every token of [collection] to [operator], granted when [approved] and revoked when it is not. */
+    private fun approvalForAll(approved: Boolean) = review(base, tokenContract = collection, token = null).copy(
+        function = "setApprovalForAll",
+        toAddress = operator,
+        amount = "",
+        symbol = "",
+        params = listOf("operator" to operator, "approved" to approved.toString()),
+    )
+
+    @Test
+    fun anApprovalForAllNamesItsOperatorAndItsCollectionInTheHeadline() {
+        val grant = evmSentence(approvalForAll(approved = true)).text
+        val revoke = evmSentence(approvalForAll(approved = false)).text
+
+        assertEquals("Give ${shortAddress(operator)} control of ${shortAddress(collection)}", grant)
+        assertEquals("Remove control of ${shortAddress(collection)} from ${shortAddress(operator)}", revoke)
+    }
+
+    @Test
+    fun theOriginIsShownAsAClaimThatLensleyDoesNotVerify() {
+        val plain = review(base, tokenContract = null, token = null)
+        val claimed = evmFacts(plain.copy(origin = "app.uniswap.org"))
+
+        assertTrue(claimed.contains(ReviewFact(label = "Claimed by request (not verified)", value = "app.uniswap.org", mono = false)))
+        assertTrue(evmFacts(plain).contains(ReviewFact(label = "Requested by", value = "Not stated", mono = false)))
+    }
+
+    /** The tick of an unknown call sits on the first row that warns of it, and is owed once for the whole review. */
+    @Test
+    fun theUnknownCallTickSitsOnItsWarningRowAndIsOwedOnce() {
+        val unknown = review(base, tokenContract = null, token = null).copy(
+            warnings = listOf(UNKNOWN_CALL_WARNING),
+            nested = listOf(
+                NestedCall(
+                    depth = 1,
+                    target = null,
+                    function = "0x12345678",
+                    params = emptyList(),
+                    warnings = listOf(UNKNOWN_CALL_WARNING),
+                ),
+            ),
+        )
+
+        assertEquals(listOf(ReviewCheck.UNKNOWN_CALL), unknown.requiredChecks)
+        assertFalse(unknown.canApprove(everyFactShown = true, checked = emptySet()))
+        assertTrue(unknown.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.UNKNOWN_CALL)))
+
+        val rows = evmRiskItems(unknown, emptySet()) { _, _ -> }
+        assertEquals(listOf("I understand Lensly cannot say what this does."), rows.mapNotNull { it.check?.label })
+        assertTrue(rows[0].check != null)
+        assertNull(rows[1].check)
+    }
+
+    @Test
+    fun aPlainWarningAsksForNoTick() {
+        val warned = review(base, tokenContract = null, token = null).copy(warnings = listOf("A plain warning"))
+
+        assertTrue(warned.requiredChecks.isEmpty())
     }
 }

@@ -2,6 +2,7 @@ package app.lensly.app.sign
 
 import app.lensly.app.autoAccountName
 import app.lensly.app.export.partsOf
+import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.evm.MessageSigner
 import app.lensly.core.evm.TxSigner
 import app.lensly.core.evm.TxType
@@ -48,6 +49,7 @@ import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TypedReview
 import app.lensly.ui.sign.evmNetworkName
+import app.lensly.ui.sign.UNKNOWN_CALL_WARNING
 import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
 import app.lensly.ui.sign.UNKNOWN_UNIT
 import app.lensly.ui.sign.assumedAmountNote
@@ -141,6 +143,9 @@ class SignPipeline(
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) {
             return Prepared.Refused("The data to sign is larger than 64 KiB")
         }
+        // The origin is the wallet's claim, and the review shows it as text. A claim with a character the owner cannot read is refused.
+        val origin = request.origin
+        if (origin != null && !origin.all(::isPrintable)) return Prepared.Refused(UNREADABLE_ORIGIN)
         val masterFingerprint = wallet.masterFingerprint
         val index: Int
         val address: String
@@ -351,7 +356,8 @@ class SignPipeline(
             function = shape.function,
             signature = shape.signature,
             toAddress = checksum(to),
-            amount = nativeAmount(tx.value, network),
+            // A batch that sends no native currency of its own states no amount, so its headline names its calls instead.
+            amount = if (tx.value.signum() == 0) "" else nativeAmount(tx.value, network),
             symbol = nativeUnit(network),
             amountNote = if (network == null) assumedAmountNote(tx.value) else null,
             params = deadlineParams(multicall),
@@ -480,6 +486,7 @@ class SignPipeline(
                     TxType.EIP1559 -> "EIP-1559"
                 },
                 denylisted = denied,
+                accessList = tx.accessList.map { AccessListEntry(checksum(it.address), it.storageKeys) },
             ),
             target.request,
             target.index,
@@ -642,6 +649,7 @@ class SignPipeline(
             function = SIGN_MESSAGE_FUNCTION,
             txType = "Personal message",
             params = listOf("message" to messageText(bytes), "size" to sizeText(bytes)),
+            warnings = listOf(PERSONAL_MESSAGE_WARNING),
         )
         return Prepared.Ready(review, target.request, target.index, target.walletId)
     }
@@ -802,8 +810,9 @@ class SignPipeline(
         fun unknownTypedChain(chainId: Long): String =
             "The typed data is for chain $chainId, which is not in Lensly's network registry, so it is refused."
         const val UNKNOWN_CALL = "Unknown contract call"
-        const val UNKNOWN_CALL_WARNING =
-            "Unknown contract call. Lensly does not read this call, so it cannot say what it does. Check the contract and the calldata before you sign."
+        const val UNREADABLE_ORIGIN = "The request names an origin with a character Lensly cannot show."
+        const val PERSONAL_MESSAGE_WARNING = "The signature proves you hold this account to whoever checks it, and a site can use it to " +
+            "act for you. Sign only a message from a site you trust."
         const val BOUND_PROXY_REFUSAL = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is " +
             "still the approved version, so your Proxy Policy refuses it."
         const val ANY_PROXY_REFUSAL = "This contract is an upgradeable proxy, and your Proxy Policy refuses every proxy."

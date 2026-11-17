@@ -33,6 +33,7 @@ import app.lensly.app.VisualIdentity
 import app.lensly.app.addressKeyOf
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
+import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.registry.DenylistCondition
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
@@ -316,7 +317,7 @@ class TxReviewScreenTest {
 
         compose.onNodeWithText("ACCOUNT WITH A LONG DISPLAY NAME 12").assertExists()
         compose.onNodeWithText("Base").assertExists()
-        compose.onNodeWithText("Requested by").assertExists()
+        compose.onNodeWithText("Claimed by request (not verified)").assertExists()
         compose.onNodeWithText(LONG_ORIGIN).assertExists()
         compose.onNodeWithText(LONG_WALLET).assertExists()
         // The header and the From row both show the signing address, so it is found among the matches.
@@ -330,6 +331,57 @@ class TxReviewScreenTest {
         }
 
         compose.onNodeWithText("Not stated").assertExists()
+    }
+
+    /** An unknown call is read, and still waits for its tick: the sign control opens only once both are done. */
+    @Test
+    fun anUnknownCallSignsOnlyAfterItsTickAndItsRead() {
+        val unknown = plainTransfer().copy(warnings = listOf(UNKNOWN_CALL_WARNING))
+        compose.setContent {
+            LenslyTheme {
+                Box(Modifier.size(width = 360.dp, height = 640.dp)) {
+                    TxReviewScreen(review = unknown, onApprove = {}, onReject = {})
+                }
+            }
+        }
+
+        compose.onNodeWithText("Scroll to the end to review everything").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+        // The row is toggled through its click action, so the tick does not depend on the banner being above the bottom action in this window.
+        compose.onNodeWithText("I understand Lensly cannot say what this does.").fetchSemanticsNode()
+            .config[SemanticsActions.OnClick].action?.invoke()
+        compose.waitForIdle()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+
+        compose.scrollReviewToEnd()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
+    }
+
+    @Test
+    fun anUnknownCallWithoutItsTickStaysUnsignableOnceReadToTheEnd() {
+        val unknown = plainTransfer().copy(warnings = listOf(UNKNOWN_CALL_WARNING))
+        compose.setContent {
+            LenslyTheme {
+                Box(Modifier.size(width = 360.dp, height = 640.dp)) {
+                    TxReviewScreen(review = unknown, onApprove = {}, onReject = {})
+                }
+            }
+        }
+
+        compose.scrollReviewToEnd()
+        compose.onNodeWithText("Tick the checkbox above to sign").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+    }
+
+    @Test
+    fun theAccessListIsCountedAndEachEntryIsShownInTheDetails() {
+        val warmed = plainTransfer().copy(accessList = listOf(AccessListEntry(TO, listOf("0x" + "22".repeat(32)))))
+        compose.setContent { LenslyTheme { TxReviewScreen(review = warmed, onApprove = {}, onReject = {}) } }
+
+        compose.onNodeWithText("Access list").assertExists()
+        compose.onNodeWithText("1 address, 1 storage key").assertExists()
+        compose.onNodeWithText("Address 1").assertExists()
+        compose.onNodeWithText("Storage key 1").assertExists()
     }
 
     @Test
