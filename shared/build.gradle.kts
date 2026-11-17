@@ -119,20 +119,23 @@ dependencies {
     implementation(libs.secp256k1.kmp.jni.android)
     testImplementation(libs.secp256k1.kmp.jni.jvm)
 
-    // Transitive pins for Dependabot alerts 6-12, 15-23 and 24. Both libraries arrive through web3j
-    // 4.12.3, which is still the current release, and it asks for jackson 2.17.1 and guava
-    // 33.3.1-android. These are constraints, not forces: they only raise the floor, so a future web3j
-    // that asks for a newer version still wins.
+    // Transitive pins for Dependabot alerts 6-12, 15-23, 24 and 37-39. web3j 4.12.3 is api here, and it asks for
+    // jackson 2.17.1, guava 33.3.1-android and bcprov 1.78.1. These are api constraints, not implementation ones,
+    // so they also reach the compile classpaths of :app and :lumio, where web3j is on the API surface. They only
+    // raise the floor, so a future web3j that asks for a newer version still wins.
     constraints {
         // Alerts 6-12, 15-23: every listed range ends at or before 2.18.11, and 2.18 is the patch line
         // that keeps the 2.x API web3j was built against. The 2.22 line (used on the build classpath) is
         // deliberately not used here: it is a newer minor than web3j has ever been tested with.
-        implementation("com.fasterxml.jackson.core:jackson-databind:2.18.11")
-        implementation("com.fasterxml.jackson.core:jackson-core:2.18.11")
-        implementation("com.fasterxml.jackson.core:jackson-annotations:2.18.11")
+        api("com.fasterxml.jackson.core:jackson-databind:2.18.11") { because("Dependabot alerts 6-12, 15-23") }
+        api("com.fasterxml.jackson.core:jackson-core:2.18.11") { because("Dependabot alerts 6-12, 15-23") }
+        api("com.fasterxml.jackson.core:jackson-annotations:2.18.11") { because("Dependabot alerts 6-12, 15-23") }
         // Alert 24: 33.7.2 is the first release outside the range. The -android flavor is kept so no
         // jre-only guava classes land on the Android classpath.
-        implementation("com.google.guava:guava:33.7.2-android")
+        api("com.google.guava:guava:33.7.2-android") { because("Dependabot alert 24") }
+        // Alerts 37-39: web3j asks for bcprov 1.78.1. 1.86 is the version this module ships (libs.versions.toml),
+        // and it is also above the 1.85 floor of alerts 13 and 14.
+        api("org.bouncycastle:bcprov-jdk18on:1.86") { because("Dependabot alerts 37-39") }
     }
 
     // Password strength estimation for the vault's App Password policy.

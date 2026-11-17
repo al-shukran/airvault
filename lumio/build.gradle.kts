@@ -96,6 +96,11 @@ dependencies {
     // The cache and the scan queue are one Room database in the app's private storage. Room's processor runs through KSP.
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
+    constraints {
+        // Alert 24: room-compiler-processing 2.8.5 brings guava 33.2.1-jre into the KSP processor classpath. The floor
+        // applies to that classpath only; no processor code reaches the APK.
+        ksp("com.google.guava:guava:33.7.2-jre") { because("Dependabot alert 24") }
+    }
 
     // The pairing codes are read as UR and Bitcoin key types, the same libraries :shared reads them with.
     implementation(libs.sparrowwallet.hummingbird)
