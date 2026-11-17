@@ -149,7 +149,9 @@ class SolanaReviewRowsTest {
         assertEquals(emptyList(), review.warnings)
     }
 
-    /** The one-time setup shows its account, its rent in SOL and its authority, and the facts count both of its instructions. */
+    /**
+     * The one-time setup shows its account, its rent in SOL, its authority and its payer, and the facts count both of its instructions.
+     */
     @Test
     fun aNonceAccountSetupShowsTheAccountRentAndAuthority() {
         val review = transaction(nonceSetup(authority = key(1)))
@@ -162,10 +164,37 @@ class SolanaReviewRowsTest {
                 "Create a nonce account" to address(2),
                 "Rent" to "0.00144768 SOL",
                 "Nonce authority" to address(1),
+                "Paid by" to address(1),
             ),
             solanaRows(review),
         )
         assertEquals("2", solanaFacts(review).toMap()["Instructions"])
+        assertEquals(emptyList(), review.warnings)
+    }
+
+    /**
+     * A seeded setup shows its base and its seed beside the account it creates. The account is the seeded address of the base: SHA-256 of
+     * the base, the seed and the System owner. The payer is the signer, and is also the base.
+     */
+    @Test
+    fun aSeededNonceSetupShowsItsBaseSeedAccountRentAuthorityAndPayer() {
+        val account = SolanaAccount.addressOf(seededAccount(key(1), SEED))
+        val review = transaction(seededNonceSetup(account))
+        assertEquals("Create a nonce account $account, rent 0.00144768 SOL, authority ${address(1)}.", solanaSentence(review))
+        assertEquals(
+            listOf(
+                "Signer" to address(1),
+                "Fee payer" to address(1),
+                "Program" to SYSTEM_ADDRESS,
+                "Create a nonce account" to account,
+                "Base account" to address(1),
+                "Seed" to SEED,
+                "Rent" to "0.00144768 SOL",
+                "Nonce authority" to address(1),
+                "Paid by" to address(1),
+            ),
+            solanaRows(review),
+        )
         assertEquals(emptyList(), review.warnings)
     }
 
@@ -202,6 +231,33 @@ class SolanaReviewRowsTest {
         signers = 2,
         readonly = 3,
     )
+
+    /**
+     * The seeded setup for [nonce], where key 1 pays, is the base and is the authority. CreateAccountWithSeed names [SEED] as the seed, and
+     * InitializeNonceAccount names key 1.
+     */
+    private fun seededNonceSetup(nonce: String): ByteArray {
+        val seed = SEED.toByteArray()
+        return legacy(
+            keys = listOf(key(1), Base58.decode(nonce), SYSTEM, RECENT_BLOCKHASHES, RENT),
+            instructions = listOf(
+                // CreateAccountWithSeed: accounts [funder, new account, base]; data u32 LE 3, the 32-byte base, the seed as a u64 LE length
+                // and its bytes, u64 LE lamports, u64 LE space 80, then the 32-byte owner.
+                Instruction(
+                    program = 2,
+                    accounts = listOf(0, 1, 0),
+                    data = le32(3) + key(1) + le64(seed.size.toLong()) + seed + le64(1_447_680L) + le64(80L) + ByteArray(32),
+                ),
+                // InitializeNonceAccount: accounts [nonce, RecentBlockhashes sysvar, Rent sysvar]; data u32 LE 6, then the authority.
+                Instruction(program = 2, accounts = listOf(1, 3, 4), data = le32(6) + key(1)),
+            ),
+            readonly = 3,
+        )
+    }
+
+    /** The address CreateAccountWithSeed gives: SHA-256 of the 32-byte [base], then the seed bytes, then the 32-byte System owner. */
+    private fun seededAccount(base: ByteArray, seed: String): ByteArray =
+        MessageDigest.getInstance("SHA-256").digest(base + seed.toByteArray() + ByteArray(32))
 
     private fun le32(value: Int): ByteArray = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(value).array()
 
@@ -286,5 +342,8 @@ class SolanaReviewRowsTest {
         const val RENT_ADDRESS = "SysvarRent111111111111111111111111111111111"
         val RECENT_BLOCKHASHES: ByteArray = Base58.decode(RECENT_BLOCKHASHES_ADDRESS)
         val RENT: ByteArray = Base58.decode(RENT_ADDRESS)
+
+        /** The seed of the seeded nonce account in these tests. */
+        const val SEED = "lumio-nonce-0"
     }
 }
