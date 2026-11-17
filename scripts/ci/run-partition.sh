@@ -37,8 +37,9 @@ partitions:
                  --tests 'app.lensly.core.vault.BackupExclusionTest'
   lumio-a        :lumio:assembleDebug :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
   lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.EntryGestureSettingTest' --tests 'app.lumio.CoverLockTest' --tests 'app.lumio.SendRouteTest'
-                 --tests 'app.lumio.btc.*' --tests 'app.lumio.data.*' --tests 'app.lumio.evm.*' --tests 'app.lumio.home.*'
+                 --tests 'app.lumio.chains.*' --tests 'app.lumio.data.*' --tests 'app.lumio.evm.*' --tests 'app.lumio.home.*'
                  --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*' --tests 'app.lumio.send.*' --tests 'app.lumio.tokens.*' --tests 'app.lumio.wallets.*'
+  lumio-c        :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
   registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
   ci             bash -n on every script, scripts/ci/check-ui-partitions.sh, scripts/ci/check-lumio-partitions.sh, then
@@ -130,10 +131,11 @@ case "$partition" in
             --tests 'app.lensly.SmokeTest' \
             --tests 'app.lensly.core.vault.BackupExclusionTest'
         ;;
-    # The app.lumio tests split in two so the lumio test job stays under its 5-minute cap (guideline 2.1). lumio-a holds the ui
-    # packages, which include the Roborazzi pixel tests, and assembles the debug APK. lumio-b holds the rest. A new lumio package,
-    # or a test class directly in app.lumio, must be added to ONE of the two arms. scripts/ci/check-lumio-partitions.sh fails when
-    # one is in neither. lumio-a runs it first, so a PR that adds a package fails on every lumio PR, not only when scripts change.
+    # The app.lumio tests split in three so each lumio test job stays under its 5-minute cap (guideline 2.1). lumio-a holds the ui
+    # packages, which include the Roborazzi pixel tests, and assembles the debug APK. lumio-c holds btc, whose BtcScanTest alone takes
+    # about 50 s. lumio-b holds the rest. A new lumio package, or a test class directly in app.lumio, must be added to ONE of the three
+    # arms. scripts/ci/check-lumio-partitions.sh fails when one is in none. lumio-a runs it first, so a PR that adds a package fails on
+    # every lumio PR, not only when scripts change.
     # Lumio's cover, gate and theme come from :shared, which the shared partitions test.
     lumio-a)
         "$ROOT/scripts/ci/check-lumio-partitions.sh"
@@ -145,7 +147,6 @@ case "$partition" in
             --tests 'app.lumio.EntryGestureSettingTest' \
             --tests 'app.lumio.CoverLockTest' \
             --tests 'app.lumio.SendRouteTest' \
-            --tests 'app.lumio.btc.*' \
             --tests 'app.lumio.chains.*' \
             --tests 'app.lumio.data.*' \
             --tests 'app.lumio.evm.*' \
@@ -155,6 +156,9 @@ case "$partition" in
             --tests 'app.lumio.send.*' \
             --tests 'app.lumio.tokens.*' \
             --tests 'app.lumio.wallets.*'
+        ;;
+    lumio-c)
+        ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
         ;;
     registry-pack)
         ./gradlew :tools:registry-pack:test

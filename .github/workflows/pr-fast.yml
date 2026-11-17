@@ -29,7 +29,7 @@ jobs:
 
       # One filter per row of the 2.2 partition map. Build paths are the 2.2 exception:
       # a build change can affect any package, so it runs every unit partition.
-      # core-parse, app, registry-pack, lumio-a and lumio-b are partitions run-partition.sh supports beyond
+      # core-parse, app, registry-pack, lumio-a, lumio-b and lumio-c are partitions run-partition.sh supports beyond
       # 2.2; those packages already hold tests, so leaving them out would run nothing.
       - id: filter
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -182,7 +182,7 @@ jobs:
               - 'gradle.properties'
               - 'settings.gradle.kts'
             # Lumio is a second app on the shared cover, gate and theme in :shared, so any change to :shared can break its build.
-            # The lumio tests run as two partitions (lumio-a, lumio-b) with the same paths, so each change runs both.
+            # The lumio tests run as three partitions (lumio-a, lumio-b, lumio-c) with the same paths, so each change runs all three.
             lumio-a:
               - 'lumio/**'
               - 'shared/**'
@@ -191,6 +191,13 @@ jobs:
               - 'gradle.properties'
               - 'settings.gradle.kts'
             lumio-b:
+              - 'lumio/**'
+              - 'shared/**'
+              - 'build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            lumio-c:
               - 'lumio/**'
               - 'shared/**'
               - 'build.gradle.kts'

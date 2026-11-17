@@ -15,7 +15,8 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 | `ui-a` | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme}.*`; the pixel tests are excluded (see below) |
 | `ui-b` | `:app` `app.lensly.ui.{flow,home,sign,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
 | `lumio-a` | `:lumio` `app.lumio.ui.*`, and `assembleDebug` |
-| `lumio-b` | `:lumio` `app.lumio.{btc,data,evm,network,pair,wallets}.*` and `app.lumio.LumioBackdropTest` and `app.lumio.SendRouteTest` |
+| `lumio-b` | `:lumio` `app.lumio.{chains,data,evm,home,network,pair,send,tokens,wallets}.*` and `app.lumio.LumioBackdropTest`, `app.lumio.EntryGestureSettingTest`, `app.lumio.CoverLockTest` and `app.lumio.SendRouteTest` |
+| `lumio-c` | `:lumio` `app.lumio.btc.*` |
 | `app` | `:app` `app.lensly.app.*`, `app.lensly.SmokeTest` and `app.lensly.core.vault.BackupExclusionTest` |
 | `registry-pack` | `:tools:registry-pack:test` |
 | `manifest` | `check-manifest.sh` |
@@ -31,7 +32,7 @@ Each partition is one Gradle call per module, `./gradlew :shared:testDebugUnitTe
 
 The `ui-a` and `ui-b` partitions split the `app.lensly.ui` tests so each stays under the 3-minute cap (guideline 2.1). Every ui subpackage in `app/src/test` or `shared/src/test`, and any test class directly in `app.lensly.ui`, must appear in exactly one of the two halves in `run-partition.sh`. `check-ui-partitions.sh` (run by the `ci` partition) fails when one is missing from both.
 
-The `lumio-a` and `lumio-b` partitions split the `app.lumio` tests the same way, so the `lumio` test job stays under its 5-minute cap. Every lumio subpackage in `lumio/src/test`, and any test class directly in `app.lumio`, must appear in exactly one of the two arms; `check-lumio-partitions.sh` (run by the `ci` partition) fails when one is missing from both.
+The `lumio-a`, `lumio-b` and `lumio-c` partitions split the `app.lumio` tests the same way, so each `lumio` test job stays under its 5-minute cap. `lumio-c` holds `btc`, whose `BtcScanTest` alone takes about 50 s. Every lumio subpackage in `lumio/src/test`, and any test class directly in `app.lumio`, must appear in exactly one of the three arms; `check-lumio-partitions.sh` (run by the `ci` partition) fails when one is missing from all three.
 
 Both halves pass `-PprLane`, which makes `app/build.gradle.kts` exclude `app.lensly.ui.screenshot.*`. The Roborazzi pixel tests would push the partitions past the cap, so they are night-only: the nightly workflow runs `./gradlew ... verifyRoborazziDebug` against the committed goldens (guideline 2.7). Adding `-PprLane` to a local run reproduces the PR lane; leave it off to run everything.
 
