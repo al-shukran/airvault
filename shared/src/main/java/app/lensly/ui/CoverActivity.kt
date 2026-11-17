@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.lensly.DebugBtcFixture
 import app.lensly.DebugLaunch
+import app.lensly.ui.components.clearStaleCopy
 import app.lensly.ui.theme.LenslyTheme
 
 /**
@@ -59,6 +60,12 @@ abstract class CoverActivity : ComponentActivity() {
         super.onNewIntent(intent)
         requestDebugHidden(intent)
         DebugBtcFixture.offer(intent)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Each return to the foreground gains focus, and the clipboard can be read and cleared only with focus.
+        if (hasFocus) clearStaleCopy(this)
     }
 
     private fun requestDebugHidden(intent: Intent) {
