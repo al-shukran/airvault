@@ -36,6 +36,9 @@ private const val CLOSE_REMAINDER_TO = "Close remainder to"
 /** The label of an asset transfer's close-to row: the address that takes the rest of the holding. */
 private const val CLOSE_HOLDING_TO = "Close holding to"
 
+/** The label of a clawback's row: the account the asset is taken from. */
+private const val CLAWBACK_FROM = "Clawback from"
+
 /** The decimal places of a microAlgo: one ALGO is 10^6 microAlgos. */
 private const val MICRO_ALGO_DECIMALS = 6
 
@@ -56,6 +59,7 @@ fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> = bu
             add(ASSET_ID to txn.assetId.toString())
             add(AMOUNT to assetAmount(txn.amount, review.asset))
             add(RECEIVER to AlgoAddress.encode(txn.receiver))
+            txn.assetSender?.let { add(CLAWBACK_FROM to AlgoAddress.encode(it)) }
         }
     }
     add(FEE to algoText(txn.fee))
@@ -76,7 +80,8 @@ fun algorandSentence(review: AlgorandRequestReview): String = when (val txn = re
 }
 
 /**
- * The sentence for an asset transfer. An opt-in adds the asset to the account. An opt-out removes it and sends what it holds to the
+ * The sentence for an asset transfer. A clawback takes the asset from the account it names and sends it to the receiver. An opt-in adds the
+ * asset to the account. An opt-out removes it and sends what it holds to the
  * close-to address. Any other transfer that also closes the holding says where the rest goes. An asset the catalog does not name is
  * called by its ID, and its amount is in base units.
  */
@@ -85,7 +90,9 @@ private fun assetSentence(txn: AssetTransfer, asset: Asa?): String {
     val amount = if (asset == null) "${txn.amount} base units of asset ${txn.assetId}" else assetAmount(txn.amount, asset)
     val receiver = AlgoAddress.encode(txn.receiver)
     val closeTo = txn.closeTo?.let { AlgoAddress.encode(it) }
+    val clawbackFrom = txn.assetSender?.let { AlgoAddress.encode(it) }
     return when {
+        clawbackFrom != null -> "Takes $amount from $clawbackFrom and sends it to $receiver."
         txn.isOptIn -> "Opt in to $name."
         txn.isOptOut && closeTo != null -> "Opt out of $name, remaining balance goes to $closeTo."
         closeTo != null -> "Sends $amount to $receiver. The rest goes to $closeTo, and the asset is removed."
@@ -109,6 +116,8 @@ fun algorandWarningText(review: AlgorandRequestReview, warning: AlgorandWarning)
             "Unknown asset #${txn.assetId}: Lensly does not know its name or decimals, so its amount is shown in base units."
         is Payment -> "Lensly does not know this asset."
     }
+    AlgorandWarning.CLAWBACK ->
+        "Clawback: this takes the asset from the account below, not from this one, and sends it to the receiver. Check that address before signing."
     AlgorandWarning.GROUP -> "Part of a group: other transactions in the group are not shown"
 }
 

@@ -46,6 +46,11 @@ class AlgorandReviewScreenshotTest {
         AlgorandReviewScreen(review = review(TESTNET_UNKNOWN_ASSET), onApprove = {}, onReject = {})
     }
 
+    @Test
+    fun reviewTestnetUsdcClawback() = compose.snapshotSettled("algorand_review_clawback") {
+        AlgorandReviewScreen(review = review(TESTNET_USDC_CLAWBACK), onApprove = {}, onReject = {})
+    }
+
     /** The review of [hex] for account 0 of a wallet whose account 0 is the sender's key, against the bundled catalog. */
     private fun review(hex: String): AlgorandRequestReview {
         val path = listOf(
@@ -97,3 +102,11 @@ private const val TESTNET_UNKNOWN_ASSET =
         "cd03e8a26676ce02faf080a367656eac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081cb0f" +
         "71f059a7ac20dec62f7f70e5093a22a26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467" +
         "c72e3c660fc8c2bd2c6538a474797065a56178666572a478616964ce0012d687"
+
+/** The `axfer_clawback` vector: 250 testnet USDC units taken from account 2 (asnd) and sent to account 1. */
+private const val TESTNET_USDC_CLAWBACK =
+    "8ba461616d74ccfaa461726376c420c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da46173" +
+        "6e64c4208d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d219a165d006da3666565cd03e8a26676ce02faf0" +
+        "80a367656eac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f" +
+        "70e5093a22a26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c65" +
+        "38a474797065a56178666572a478616964ce009f973d"

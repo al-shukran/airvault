@@ -231,6 +231,31 @@ class AlgorandReviewRowsTest {
         assertEquals("Unknown asset #10458941", algorandRows(reviewWith(AXFER, mainnetOnly)).single { it.first == "Asset" }.second)
     }
 
+    @Test
+    fun aClawbackShowsTheAccountItTakesFromAndAStrongWarning() {
+        val review = reviewWith(AXFER_CLAWBACK, CATALOG)
+
+        assertEquals(
+            listOf(
+                "Sender" to SENDER_ADDRESS,
+                "Asset" to "USDC",
+                "Asset ID" to "10458941",
+                "Amount" to "0.000250 USDC",
+                "Receiver" to RECEIVER_ADDRESS,
+                "Clawback from" to CLOSE_ADDRESS,
+                "Fee" to "0.001000 ALGO",
+            ),
+            algorandRows(review),
+        )
+        assertEquals("Takes 0.000250 USDC from $CLOSE_ADDRESS and sends it to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals(listOf(AlgorandWarning.CLAWBACK), review.warnings)
+        assertEquals(
+            "Clawback: this takes the asset from the account below, not from this one, and sends it to the receiver. " +
+                "Check that address before signing.",
+            algorandWarningText(review, AlgorandWarning.CLAWBACK),
+        )
+    }
+
     /** The review of [hex] for account 0, whose key is the sender's, with the assets [assets] names. */
     private fun reviewWith(hex: String, assets: AsaCatalog): AlgorandRequestReview {
         val path = listOf(
@@ -335,5 +360,13 @@ class AlgorandReviewRowsTest {
                 "a3666565cd03e8a26676ce02faf080a367656eac6d61696e6e65742d76312e30a26768c420c061c4d8fc1dbdded2d7604be4" +
                 "568e3f6d041987ac37bde4b620b5ab39248adfa26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179" +
                 "b9bd1467c72e3c660fc8c2bd2c6538a474797065a56178666572a478616964ce01e1ab70"
+
+        /** The `axfer_clawback` vector: 250 testnet USDC units taken from account 2 (asnd) and sent to account 1. */
+        const val AXFER_CLAWBACK =
+            "8ba461616d74ccfaa461726376c420c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da46173" +
+                "6e64c4208d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d219a165d006da3666565cd03e8a26676ce02faf0" +
+                "80a367656eac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f" +
+                "70e5093a22a26c76ce02faf468a3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c65" +
+                "38a474797065a56178666572a478616964ce009f973d"
     }
 }

@@ -1,6 +1,5 @@
 package app.lensly.core.algorand
 
-import app.lensly.core.algorand.AlgorandRequestCheck.CLAWBACK_REFUSED
 import app.lensly.core.algorand.AlgorandRequestCheck.DIFFERENT_ADDRESS
 import app.lensly.core.algorand.AlgorandRequestCheck.GENESIS_HASH_MISMATCH
 import app.lensly.core.algorand.AlgorandRequestCheck.NOT_A_TRANSACTION
@@ -110,14 +109,41 @@ class AlgorandRequestCheckTest {
     }
 
     @Test
-    fun aClawbackIsRefused() {
-        assertEquals(CLAWBACK_REFUSED, refusalOf(assetWith("asnd" to bin(KEY_B))))
+    fun aClawbackIsReviewedWithAStrongWarningAndNamesTheAccountItTakesFrom() {
+        val review = reviewWith(fixture("axfer_clawback"), CATALOG)
+
+        val transfer = assertIs<AssetTransfer>(review.txn)
+        assertEquals(250UL, transfer.amount)
+        assertContentEquals(KEY_B, transfer.receiver)
+        assertContentEquals(KEY_C, transfer.assetSender)
+        assertContentEquals(KEY_C, review.clawbackFrom)
+        assertEquals(listOf(AlgorandWarning.CLAWBACK), review.warnings)
     }
 
     @Test
-    fun anSdkClawbackAndAnSdkAssetRekeyAreRefused() {
-        assertEquals(CLAWBACK_REFUSED, refusalOf(fixture("axfer_clawback")))
+    fun aClawbackOfAnAssetTheCatalogDoesNotNameWarnsForTheClawbackAndTheUnknownAsset() {
+        val review = reviewOf(assetWith("asnd" to bin(KEY_B)))
+
+        assertEquals(listOf(AlgorandWarning.CLAWBACK, AlgorandWarning.UNKNOWN_ASSET), review.warnings)
+    }
+
+    @Test
+    fun aClawbackThatAlsoClosesTheHoldingWarnsForBothInTheReviewOrder() {
+        val review = reviewOf(assetWith("asnd" to bin(KEY_C), "aclose" to bin(KEY_B)))
+
+        assertContentEquals(KEY_C, review.clawbackFrom)
+        assertContentEquals(KEY_B, review.closeTo)
+        assertEquals(listOf(AlgorandWarning.CLAWBACK, AlgorandWarning.CLOSE_TO, AlgorandWarning.UNKNOWN_ASSET), review.warnings)
+    }
+
+    @Test
+    fun anSdkAssetRekeyIsRefusedLikeAPaymentRekey() {
         assertEquals(REKEY_REFUSED, refusalOf(fixture("axfer_rekey")))
+    }
+
+    @Test
+    fun aClawbackThatRekeysTheSenderIsRefusedForTheRekey() {
+        assertEquals(REKEY_REFUSED, refusalOf(assetWith("asnd" to bin(KEY_B), "rekey" to bin(KEY_C))))
     }
 
     @Test
