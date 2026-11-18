@@ -93,6 +93,9 @@ tasks.withType<Test>().configureEach {
 }
 
 dependencies {
+    // CBOR, parser limits and keypaths live in core/signer-api. Their types are part of this module's API, so :app and :lumio see them.
+    api(project(":core:signer-api"))
+
     // Compose, activity and coroutines types are part of this module's public API, so they reach :app as api.
     api(platform(libs.androidx.compose.bom))
     api(libs.androidx.compose.ui)

@@ -9,9 +9,9 @@ import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 
 /** Raised for CBOR that is malformed or for a payload that breaks the schema of its UR type. */
-internal class MalformedPayloadException(message: String) : Exception(message)
+class MalformedPayloadException(message: String) : Exception(message)
 
-internal fun malformed(reason: String): Nothing = throw MalformedPayloadException(reason)
+fun malformed(reason: String): Nothing = throw MalformedPayloadException(reason)
 
 /**
  * The CBOR subset that Lensly's UR types use.
