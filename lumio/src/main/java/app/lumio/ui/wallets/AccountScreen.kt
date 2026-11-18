@@ -22,6 +22,7 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LumenMono
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
 import app.lumio.transactions.TxFeedItem
@@ -33,7 +34,6 @@ import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioRow
 import app.lumio.ui.kit.LumioTextAction
 import app.lumio.ui.kit.rememberCopyAction
-import app.lumio.ui.theme.LumioMono
 import app.lumio.ui.transactions.ActivityRow
 import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
@@ -164,7 +164,7 @@ private fun AddressLine(network: String, address: String) {
         )
         Text(
             text = if (copy.copied) "Copied" else shortAddress(address),
-            style = LumioMono,
+            style = LumenMono,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
         )
