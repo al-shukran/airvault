@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -56,7 +55,6 @@ import app.lumio.ui.kit.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTag
 import app.lumio.ui.kit.LumioTextAction
-import app.lumio.ui.theme.LumioRadius
 
 private const val TESTNET_LABEL = "Testnet"
 
@@ -275,7 +273,7 @@ fun SignRequestScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(LumioRadius.lg))
+                .clip(MaterialTheme.shapes.large)
                 .background(Color.White)
                 .padding(LenslySpacing.md),
         ) {

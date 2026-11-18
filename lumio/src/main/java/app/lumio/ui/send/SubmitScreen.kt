@@ -29,6 +29,8 @@ import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalReducedMotion
+import app.lensly.ui.theme.LumenMotion
 import app.lensly.core.btc.BtcNetwork
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.btcText
@@ -45,8 +47,6 @@ import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTextAction
 import app.lumio.ui.kit.rememberLumioHaptics
 import app.lumio.ui.pair.PairLabels
-import app.lumio.ui.theme.LocalReducedMotion
-import app.lumio.ui.theme.LumioMotion
 import java.math.BigInteger
 
 /** One line of what a signed transaction does, as the owner reads it. */
@@ -160,7 +160,7 @@ fun SubmitScreen(
 private fun SentMark() {
     val reduced = LocalReducedMotion.current
     val scale = remember { Animatable(if (reduced) 1f else 0.6f) }
-    LaunchedEffect(reduced) { if (!reduced) scale.animateTo(1f, LumioMotion.bouncy) }
+    LaunchedEffect(reduced) { if (!reduced) scale.animateTo(1f, LumenMotion.bouncy) }
     Box(
         modifier = Modifier
             .padding(bottom = LenslySpacing.sm)
