@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -42,7 +41,7 @@ import app.lumio.ui.home.letterOf
 import app.lumio.ui.kit.AnimatedAmount
 import app.lumio.ui.kit.LumenRing
 import app.lumio.ui.kit.LumioAssetIcon
-import app.lumio.ui.kit.LumioRow
+import app.lensly.ui.components.LumioRow
 import app.lumio.ui.kit.SharedKeys
 import app.lumio.ui.kit.lumioSharedBounds
 import app.lumio.ui.kit.lumioSharedElement
@@ -252,12 +251,6 @@ internal fun LumenRefreshBox(
         },
         content = content,
     )
-}
-
-/** The hairline between two rows of an island. */
-@Composable
-internal fun IslandDivider() {
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = LenslySpacing.md))
 }
 
 /**

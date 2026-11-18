@@ -1,4 +1,4 @@
-package app.lumio.ui.kit
+package app.lensly.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -6,12 +6,15 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.theme.LenslySpacing
 
 /**
  * An island: the rows of one group on one rounded surface (section 1.3). It has no shadow. The light theme draws a 1 dp hairline instead,
@@ -29,4 +32,10 @@ fun LumioIsland(modifier: Modifier = Modifier, content: @Composable ColumnScope.
             .then(hairline),
         content = content,
     )
+}
+
+/** The hairline between two rows of an island. */
+@Composable
+fun IslandDivider() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = LenslySpacing.md))
 }

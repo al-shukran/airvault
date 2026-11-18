@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -30,12 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -48,6 +42,7 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.visualIdentity
 import app.lensly.ui.components.LenslyIcons
+import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.WalletArt
 import app.lensly.ui.components.pressFeedback
@@ -158,55 +153,38 @@ internal fun WalletCard(
 }
 
 /**
- * The dashed add tile that ends a list of wallets: a plus and the words "Add Wallet". It is a tile rather than a floating
- * button, so it sits where a new wallet would go.
+ * One wallet as a row of an island, on the Home wallet list and the Wallets list: its avatar, its name, and under the name its accounts, a
+ * Single Key label when it is one, and its master fingerprint when [showFingerprint] is set. A tap calls [onClick]; a long press calls
+ * [onLongPress] when it is set. The row carries the card's test tag, so a test counts the wallets on screen the same way.
  */
 @Composable
-internal fun AddWalletTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    val corner = MaterialTheme.shapes.extraLarge.topStart
+internal fun WalletRow(
+    wallet: WalletMeta,
+    profile: WalletProfile,
+    position: Int,
+    onClick: () -> Unit,
+    onLongPress: (() -> Unit)?,
+    showFingerprint: Boolean,
+) {
     val haptics = rememberKeyHaptics()
-    val interaction = remember { MutableInteractionSource() }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(96.dp)
-            .testTag(ADD_WALLET_TAG)
-            .pressFeedback(interaction, enabled = true)
-            .drawBehind {
-                drawRoundRect(
-                    color = colors.outline,
-                    cornerRadius = CornerRadius(corner.toPx(size, this)),
-                    style = Stroke(
-                        width = 1.5.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 8.dp.toPx())),
-                    ),
-                )
+    val feedback = LocalHapticFeedback.current
+    val identity = visualIdentity(profile.colour, profile.icon, position)
+    val kind = if (wallet.kind == WalletKind.SINGLE_KEY) "Single key" else null
+    val fingerprint = if (showFingerprint) wallet.masterFingerprintHex?.let { "master ${it.uppercase()}" } else null
+    val details = listOfNotNull(kind, accountCountLabel(wallet.accountCount), fingerprint).joinToString(" · ")
+    LumioRow(
+        title = wallet.name,
+        description = details,
+        leading = { ProfileAvatar(identity = identity, size = 40.dp) },
+        onClick = onClick,
+        onLongClick = onLongPress?.let { open ->
+            {
+                feedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                open()
             }
-            .tapHaptic(haptics)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                role = Role.Button,
-                onClick = onClick,
-            )
-            .padding(horizontal = LenslySpacing.lg),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Add,
-            contentDescription = null,
-            tint = colors.onSurface,
-            modifier = Modifier.size(24.dp),
-        )
-        Spacer(Modifier.width(LenslySpacing.sm))
-        Text(
-            text = "Add Wallet",
-            style = MaterialTheme.typography.titleSmall,
-            color = colors.onSurface,
-        )
-    }
+        },
+        modifier = Modifier.testTag(WALLET_CARD_TAG).tapHaptic(haptics),
+    )
 }
 
 /**

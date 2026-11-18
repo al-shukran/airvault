@@ -38,10 +38,10 @@ import app.lumio.btc.BtcAdvanced
 import app.lumio.btc.BtcSendInput
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.btcText
-import app.lumio.ui.kit.LumioIsland
+import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTag
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.pair.PairLabels
 import app.lumio.ui.send.AmountField
 import app.lumio.ui.send.ReviewAddress

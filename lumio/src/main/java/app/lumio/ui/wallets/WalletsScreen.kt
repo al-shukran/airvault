@@ -27,9 +27,10 @@ import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
 import app.lumio.ui.pair.PairIntro
 import app.lumio.ui.kit.GlowBackdrop
-import app.lumio.ui.kit.LumioIsland
-import app.lumio.ui.kit.LumioRow
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.IslandDivider
+import app.lensly.ui.components.LumioRow
+import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.SharedKeys
 import app.lumio.ui.kit.WalletOrb
 import app.lumio.ui.kit.lumioSharedBounds

@@ -43,7 +43,7 @@ import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.network.NetworkModeStore
 import app.lumio.ui.kit.LocalSharedScope
-import app.lumio.ui.kit.MirrorNavMotion
+import app.lensly.ui.navigation.MirrorNavMotion
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.network.NetworkSideSheet
 import app.lumio.ui.network.TestnetStrip

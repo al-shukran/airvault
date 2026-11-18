@@ -24,10 +24,10 @@ import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.algorand.AlgorandFormat
-import app.lumio.ui.kit.LumioIsland
+import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTag
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.send.AmountField
 import app.lumio.ui.send.ReviewAddress
 import app.lumio.ui.send.ReviewField
