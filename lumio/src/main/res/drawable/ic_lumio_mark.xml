@@ -1,112 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Lumio mark beside the Home wordmark: the glyph of ic_launcher_foreground.xml at 24 dp, from lumio/design/lumio.svg. -->
+<!--
+  The Lumio mark: the Lumen ring (Phase 2.8 design, section 1.6). A ring open at 1 o'clock, with a solid dot in the gap where the light
+  escapes. The glyph is one colour, so the theme tints it: gold on ink in Night, ink on paper in Day (LumioMark applies the tint).
+  Geometry, in the 24 x 24 viewport (1 unit = 1 dp). The spinner, the pull-to-refresh indicator and the pairing progress ring reuse
+  these numbers in LumenRing, so change them here and there together:
+    ring centre        (12, 12)
+    ring radius        8 (centre line of the 2.5 dp stroke; outer 9.25, inner 6.75)
+    gap start          18 degrees clockwise from 12 o'clock (the arc's end)
+    gap end            42 degrees clockwise from 12 o'clock (the arc's start); the gap is centred on 30 degrees, 1 o'clock
+    gap ends           butt caps, cut radially
+    dot centre         (16, 12 - 4 * sqrt(3)) = (16, 5.0718), on the ring radius at 30 degrees
+    dot radius         1.25 (diameter equals the stroke, 2.5)
+  Points on the ring: angle a clockwise from 12 o'clock is (12 + 8 sin a, 12 - 8 cos a).
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- The SVG drop shadow of the body and of the antenna, as a hard copy 22 units lower. -->
+    <!-- The open ring: from 42 degrees round the long way to 18 degrees. -->
     <path
-        android:pathData="M0.85,9.869 C0.85,8.363 2.067,7.145 3.573,7.145 L7.546,7.145 L9.405,4.998 L14.659,4.998 L16.518,7.145 L20.427,7.145 C21.933,7.145 23.15,8.363 23.15,9.869 L23.15,20.57 C23.15,22.108 21.933,23.326 20.427,23.326 L3.573,23.326 C2.067,23.326 0.85,22.108 0.85,20.57 L0.85,9.869 Z"
-        android:fillColor="#2E0F52"
-        android:fillAlpha="0.22"
-    />
+        android:pathData="M17.353,6.055 A8,8 0 1 1 14.472,4.392"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="butt" />
+    <!-- The dot in the gap, centred on the ring radius at 30 degrees. -->
     <path
-        android:pathData="M19.786,2.755 L20.042,1.089 M21.356,3.236 L22.349,1.922"
-        android:strokeColor="#2E0F52"
-        android:strokeAlpha="0.22"
-        android:strokeWidth="0.769"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-    />
-    <path
-        android:pathData="M0.85,9.164 C0.85,7.658 2.067,6.44 3.573,6.44 L7.546,6.44 L9.405,4.293 L14.659,4.293 L16.518,6.44 L20.427,6.44 C21.933,6.44 23.15,7.658 23.15,9.164 L23.15,19.865 C23.15,21.403 21.933,22.621 20.427,22.621 L3.573,22.621 C2.067,22.621 0.85,21.403 0.85,19.865 L0.85,9.164 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="4.195" android:startY="4.293" android:endX="15.998" android:endY="24.811">
-                <item android:color="#FFFFFF" android:offset="0" />
-                <item android:color="#E9E7FF" android:offset="1" />
-            </gradient>
-        </aapt:attr>
-    </path>
-    <path
-        android:pathData="M5.047,8.331 L3.189,8.331 C2.923,8.331 2.708,8.546 2.708,8.811 C2.708,9.077 2.923,9.292 3.189,9.292 L5.047,9.292 C5.313,9.292 5.528,9.077 5.528,8.811 C5.528,8.546 5.313,8.331 5.047,8.331 Z"
-        android:fillColor="#000000"
-    />
-    <path
-        android:pathData="M12,20.826 C15.575,20.826 18.472,17.929 18.472,14.354 C18.472,10.78 15.575,7.882 12,7.882 C8.425,7.882 5.528,10.78 5.528,14.354 C5.528,17.929 8.425,20.826 12,20.826 Z"
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.72"
-    />
-    <path
-        android:pathData="M12,19.993 C15.114,19.993 17.639,17.469 17.639,14.354 C17.639,11.24 15.114,8.715 12,8.715 C8.886,8.715 6.361,11.24 6.361,14.354 C6.361,17.469 8.886,19.993 12,19.993 Z"
-        android:fillColor="#24133F"
-    />
-    <path
-        android:pathData="M12,19.192 C14.672,19.192 16.838,17.026 16.838,14.354 C16.838,11.682 14.672,9.516 12,9.516 C9.328,9.516 7.162,11.682 7.162,14.354 C7.162,17.026 9.328,19.192 12,19.192 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="7.162" android:startY="9.516" android:endX="16.838" android:endY="19.192">
-                <item android:color="#FFB72E" android:offset="0" />
-                <item android:color="#FF4E9A" android:offset="0.28" />
-                <item android:color="#693DFF" android:offset="0.58" />
-                <item android:color="#08BFEA" android:offset="0.82" />
-                <item android:color="#23E0B0" android:offset="1" />
-            </gradient>
-        </aapt:attr>
-    </path>
-    <path
-        android:pathData="M12,17.815 C13.911,17.815 15.46,16.265 15.46,14.354 C15.46,12.443 13.911,10.894 12,10.894 C10.089,10.894 8.54,12.443 8.54,14.354 C8.54,16.265 10.089,17.815 12,17.815 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient android:type="radial" android:centerX="10.962" android:centerY="12.832" android:gradientRadius="5.191">
-                <item android:color="#47206E" android:offset="0" />
-                <item android:color="#160E35" android:offset="0.55" />
-                <item android:color="#080A23" android:offset="1" />
-            </gradient>
-        </aapt:attr>
-    </path>
-    <path
-        android:pathData="M10.496,12.131 C10.982,11.693 11.175,11.114 10.927,10.838 C10.678,10.561 10.082,10.693 9.595,11.131 C9.109,11.569 8.916,12.148 9.164,12.424 C9.413,12.7 10.009,12.569 10.496,12.131 Z"
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.72"
-    />
-    <path
-        android:pathData="M19.786,2.051 L20.042,0.384"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="0.769"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-    />
-    <path
-        android:pathData="M21.356,2.531 L22.349,1.218"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="0.769"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-    />
-    <!-- The photo card with its own drop shadow, then the card. -->
-    <path
-        android:pathData="M21.392,18.123 L16.091,17.189 C15.429,17.072 14.798,17.514 14.681,18.176 L13.947,22.341 C13.83,23.004 14.272,23.635 14.934,23.752 L20.235,24.687 C20.897,24.803 21.529,24.361 21.646,23.699 L22.38,19.534 C22.497,18.872 22.055,18.24 21.392,18.123 Z"
-        android:fillColor="#2E0F52"
-        android:fillAlpha="0.22"
-    />
-    <path
-        android:pathData="M21.392,17.418 L16.091,16.484 C15.429,16.367 14.798,16.809 14.681,17.471 L13.947,21.636 C13.83,22.299 14.272,22.93 14.934,23.047 L20.235,23.982 C20.897,24.098 21.529,23.656 21.646,22.994 L22.38,18.829 C22.497,18.167 22.055,17.535 21.392,17.418 Z"
-        android:fillColor="#FFFFFF"
-    />
-    <path
-        android:pathData="M21.129,17.99 L16.143,17.111 C15.725,17.037 15.326,17.317 15.253,17.735 L14.574,21.584 C14.5,22.003 14.779,22.401 15.198,22.475 L20.183,23.354 C20.601,23.428 21,23.149 21.074,22.73 L21.753,18.881 C21.826,18.463 21.547,18.064 21.129,17.99 Z"
-        android:fillColor="#40C8F2"
-    />
-    <path
-        android:pathData="M19.693,20.047 C20.128,20.124 20.544,19.833 20.621,19.397 C20.697,18.961 20.407,18.546 19.971,18.469 C19.535,18.392 19.12,18.683 19.043,19.119 C18.966,19.555 19.257,19.97 19.693,20.047 Z"
-        android:fillColor="#FFE16A"
-    />
-    <path
-        android:pathData="M14.744,20.801 L16.942,19.041 C17.547,18.562 18.261,18.753 18.666,19.41 L20.909,23.482 L14.472,22.347 L14.744,20.801 Z"
-        android:fillColor="#36DDA8"
-    />
-    <path
-        android:pathData="M17.28,22.842 L19.26,21.207 C19.902,20.702 20.496,20.839 20.927,21.533 L21.233,22.01 L20.972,23.493 L17.28,22.842 Z"
-        android:fillColor="#1DBF91"
-    />
+        android:pathData="M14.75,5.072 A1.25,1.25 0 1 0 17.25,5.072 A1.25,1.25 0 1 0 14.75,5.072 Z"
+        android:fillColor="#FF000000" />
 </vector>
