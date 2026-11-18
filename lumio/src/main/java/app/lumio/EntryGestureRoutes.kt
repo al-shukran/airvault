@@ -7,7 +7,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import androidx.navigation.compose.composable
+import app.lumio.ui.kit.lumioComposable
 import androidx.navigation.navArgument
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
@@ -22,10 +22,10 @@ import app.lensly.ui.settings.EntryGestureScreen
  * shared through :shared, so the two apps offer the same gestures and check the App Password the same way.
  */
 internal fun NavGraphBuilder.entryGestureRoutes(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection) {
-    composable(LumioRoute.ENTRY_GESTURE) {
+    lumioComposable(LumioRoute.ENTRY_GESTURE) {
         LumioBackdrop(selection) { EntryGestureChoiceRoute(navController, holder) }
     }
-    composable(
+    lumioComposable(
         route = LumioRoute.ENTRY_GESTURE_CHANGE,
         arguments = listOf(navArgument(LumioRoute.GESTURE_ARG) { type = NavType.IntType }),
     ) { entry ->

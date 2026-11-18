@@ -58,7 +58,7 @@ import app.lumio.ui.btc.BtcSendReviewScreen
 import app.lumio.ui.send.btcSummary
 import app.lumio.ui.btc.BtcSignRequestScreen
 import app.lumio.ui.network.NetworkSwitch
-import app.lumio.ui.network.TestnetBanner
+import app.lumio.ui.network.TestnetStrip
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
 import app.lumio.ui.send.AdvancedSendFields
@@ -224,7 +224,7 @@ class LumioCoverageScreenshotTest {
     @Test
     fun networkSwitchOnTestnetWithBanner() = compose.lumioSnapshot("network_switch_testnet_banner") {
         Column {
-            TestnetBanner()
+            TestnetStrip(onOpen = {})
             Column(Modifier.padding(LenslySpacing.md)) {
                 NetworkSwitch(mode = NetworkMode.TESTNET, onChange = {})
             }
