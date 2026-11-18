@@ -35,9 +35,6 @@ import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.LumioTextAction
-import app.lumio.ui.kit.SharedKeys
-import app.lumio.ui.kit.lumioSharedBounds
-import app.lumio.ui.kit.lumioSharedElement
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.transactions.ActivityRow
 import app.lumio.wallets.AccountChain
@@ -104,10 +101,7 @@ internal fun AccountScreen(
         Spacer(Modifier.height(LenslySpacing.sm))
         Row(verticalAlignment = Alignment.CenterVertically) {
             native?.let { coin ->
-                LumioAssetIcon(
-                    testnet = coin.testnet,
-                    modifier = Modifier.lumioSharedElement(SharedKeys.accountIcon(account.walletId, account.chain.name, account.index)),
-                ) {
+                LumioAssetIcon(testnet = coin.testnet) {
                     AssetIcon(spec = coin.icon, size = 24.dp)
                 }
                 Spacer(Modifier.width(LenslySpacing.xs))
@@ -115,11 +109,7 @@ internal fun AccountScreen(
             if (heroText == null) {
                 Text(text = NOT_READ, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                AnimatedAmount(
-                    text = heroText,
-                    hidden = !showBalance,
-                    modifier = Modifier.lumioSharedBounds(SharedKeys.accountBalance(account.walletId, account.chain.name, account.index)),
-                )
+                AnimatedAmount(text = heroText, hidden = !showBalance)
             }
         }
         heroFiat?.let { fiat ->

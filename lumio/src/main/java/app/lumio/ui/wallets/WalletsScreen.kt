@@ -31,10 +31,7 @@ import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.LumioTextAction
-import app.lumio.ui.kit.SharedKeys
 import app.lumio.ui.kit.WalletOrb
-import app.lumio.ui.kit.lumioSharedBounds
-import app.lumio.ui.kit.lumioSharedElement
 import app.lumio.ui.theme.LumioGutter
 
 /**
@@ -124,20 +121,14 @@ private fun WalletsTotal(totalUsd: Double?, showTotal: Boolean, refreshing: Bool
     }
 }
 
-/**
- * One wallet of the list: its orb, its name and summary, and its total on the right, or nothing when it has no price. The orb, the name and the total are
- * the wallet screen's shared elements, so they move into it when the row opens.
- */
+/** One wallet of the list: its orb, its name and summary, and its total on the right, or nothing when it has no price. */
 @Composable
 private fun WalletRowItem(row: WalletRow, showTotal: Boolean, running: Boolean, index: Int, onClick: () -> Unit) {
     LumioRow(
         title = row.name,
-        titleModifier = Modifier.lumioSharedBounds(SharedKeys.walletName(row.id)),
         description = row.summary,
-        leading = {
-            WalletOrb(fingerprint = row.fingerprint, modifier = Modifier.lumioSharedElement(SharedKeys.walletOrb(row.id)))
-        },
-        trailing = if (row.usd == null) null else ({ WalletRowTotal(walletId = row.id, usd = row.usd, shown = showTotal) }),
+        leading = { WalletOrb(fingerprint = row.fingerprint) },
+        trailing = if (row.usd == null) null else ({ WalletRowTotal(usd = row.usd, shown = showTotal) }),
         onClick = onClick,
         modifier = Modifier.staggeredEnter(index, running),
     )
@@ -145,10 +136,9 @@ private fun WalletRowItem(row: WalletRow, showTotal: Boolean, running: Boolean, 
 
 /** The dollar total of a wallet row, masked while the owner hides totals. */
 @Composable
-private fun WalletRowTotal(walletId: String, usd: Double, shown: Boolean) {
+private fun WalletRowTotal(usd: Double, shown: Boolean) {
     Text(
         text = Masking.amount(HomeFormat.usd(usd), hidden = !shown),
-        modifier = Modifier.lumioSharedBounds(SharedKeys.walletTotal(walletId)),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,
