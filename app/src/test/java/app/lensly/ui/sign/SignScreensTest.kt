@@ -752,7 +752,7 @@ class RefusalScreensTest {
             }
         }
 
-        compose.onNodeWithText("APPROVED IMPLEMENTATION").assertExists()
+        compose.onNodeWithText("Approved implementation").assertExists()
         compose.onNodeWithText(groupAddress(IMPLEMENTATION)).assertExists()
     }
 }

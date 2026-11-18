@@ -52,14 +52,14 @@ data class ChangeCopy(
     companion object {
         val APP_PASSWORD = ChangeCopy(
             title = "Application Password",
-            newHeadline = "NEW PASSWORD",
+            newHeadline = "New password",
             newHint = "$MIN_PASSWORD_LENGTH+ characters, hard to guess",
             changedText = "The new password opens the vault now. The old one does not.",
         )
 
         val DURESS_PASSWORD = ChangeCopy(
             title = "Duress Password",
-            newHeadline = "NEW PASSWORD",
+            newHeadline = "New password",
             newHint = "$MIN_PASSWORD_LENGTH+ characters, not your Application Password",
             changedText = "The Duress Password is set. The old one does not open anything.",
         )
@@ -183,7 +183,7 @@ private fun ChangedContent(copy: ChangeCopy, onDone: () -> Unit, modifier: Modif
             modifier = Modifier.size(48.dp),
         )
         Spacer(Modifier.height(LenslySpacing.sm))
-        DotHeadline(text = "CHANGED")
+        DotHeadline(text = "Changed")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = copy.changedText,
@@ -194,9 +194,9 @@ private fun ChangedContent(copy: ChangeCopy, onDone: () -> Unit, modifier: Modif
 }
 
 private fun headline(step: ChangeStep, copy: ChangeCopy): String = when (step) {
-    ChangeStep.Current -> "CURRENT"
+    ChangeStep.Current -> "Current"
     ChangeStep.New -> copy.newHeadline
-    ChangeStep.Confirm -> "CONFIRM"
+    ChangeStep.Confirm -> "Confirm"
 }
 
 private fun hint(step: ChangeStep, copy: ChangeCopy): String = when (step) {

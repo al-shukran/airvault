@@ -178,7 +178,7 @@ internal class SignRouteDriver(
 
         val signed = awaitStep("the signature") { it is SignStep.Signature || it is SignStep.Refused }
         if (signed is SignStep.Refused) fail("the signature was refused: ${signed.reason}")
-        compose.onNodeWithText("SIGNATURE").assertExists()
+        compose.onNodeWithText("Signature").assertExists()
         compose.onNodeWithText("Scan this with your online wallet").assertExists()
         return (signed as SignStep.Signature).parts
     }

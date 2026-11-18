@@ -1,8 +1,10 @@
 package app.lensly.ui.home
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -26,7 +28,7 @@ import org.robolectric.annotation.Config
 
 /**
  * The Bitcoin App of a wallet: its accounts, each with its network badge, its Script Type and its first receive address. The filter by
- * Script Type starts on All, and each choice keeps only the accounts of that type. GENERATE ACCOUNTS opens the bulk screen on this App,
+ * Script Type starts on All, and each choice keeps only the accounts of that type. Generate accounts opens the bulk screen on this App,
  * and a Single Key wallet has no such row, because it has no seed.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -76,7 +78,7 @@ class BitcoinAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("ALL").assertIsDisplayed()
+        compose.onNodeWithText("All").assertIsDisplayed()
         compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertIsDisplayed()
         compose.onNodeWithText(groupedInFours(nativeMainnet.firstReceiveAddress)).assertIsDisplayed()
         compose.onNodeWithText(groupedInFours(nativeTestnet.firstReceiveAddress)).assertIsDisplayed()
@@ -91,7 +93,7 @@ class BitcoinAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("NATIVE SEGWIT BIP84").performClick()
+        compose.onNodeWithText("Native SegWit BIP84").performClick()
         compose.onNodeWithText(groupedInFours(nativeMainnet.firstReceiveAddress)).assertIsDisplayed()
         compose.onNodeWithText(groupedInFours(nativeTestnet.firstReceiveAddress)).assertIsDisplayed()
         compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertDoesNotExist()
@@ -100,16 +102,16 @@ class BitcoinAccountsScreenTest {
         compose.onNodeWithText("Mainnet").assertIsDisplayed()
         compose.onNodeWithText("Testnet").assertIsDisplayed()
 
-        compose.onNodeWithText("TAPROOT BIP86").performClick()
+        compose.onNodeWithText("Taproot BIP86").performClick()
         compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertIsDisplayed()
         compose.onNodeWithText(groupedInFours(nativeMainnet.firstReceiveAddress)).assertDoesNotExist()
         compose.onNodeWithText(groupedInFours(nativeTestnet.firstReceiveAddress)).assertDoesNotExist()
 
-        compose.onNodeWithText("LEGACY BIP44").performClick()
+        compose.onNodeWithText("Legacy BIP44").performClick()
         compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertIsDisplayed()
         compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertDoesNotExist()
 
-        compose.onNodeWithText("ALL").performClick()
+        compose.onNodeWithText("All").performClick()
         compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertIsDisplayed()
         compose.onNodeWithText(groupedInFours(nativeMainnet.firstReceiveAddress)).assertIsDisplayed()
     }
@@ -122,7 +124,7 @@ class BitcoinAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("NESTED SEGWIT BIP49").performClick()
+        compose.onNodeWithText("Nested SegWit BIP49").performClick()
         compose.onNodeWithText("No accounts of this script type.").assertIsDisplayed()
     }
 
@@ -135,7 +137,7 @@ class BitcoinAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("GENERATE ACCOUNTS").performScrollTo().performClick()
+        compose.onNodeWithText("Generate accounts").performScrollTo().performClick()
         assertTrue(route.generated)
     }
 
@@ -149,7 +151,7 @@ class BitcoinAccountsScreenTest {
         }
 
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onNodeWithText("Generate accounts").assertIsDisplayed()
+        compose.onAllNodesWithText("Generate accounts").assertCountEquals(2)
         compose.onNodeWithText("Select accounts").assertDoesNotExist()
         compose.onNodeWithText("Pair this wallet").performClick()
         assertTrue(route.paired)
@@ -169,7 +171,7 @@ class BitcoinAccountsScreenTest {
 
         compose.onNodeWithText("No Bitcoin accounts yet.").assertIsDisplayed()
         compose.onNodeWithText(SINGLE_KEY_NO_BITCOIN, substring = true).assertIsDisplayed()
-        compose.onNodeWithText("GENERATE ACCOUNTS").assertDoesNotExist()
+        compose.onNodeWithText("Generate accounts").assertDoesNotExist()
         compose.onNodeWithContentDescription("App options").performClick()
         compose.onNodeWithText("Generate accounts").assertDoesNotExist()
     }
@@ -183,11 +185,11 @@ class BitcoinAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("COLD").assertIsDisplayed()
+        compose.onNodeWithText("Cold").assertIsDisplayed()
         // The label chip shows the label as it was typed.
         compose.onNodeWithText("vault").assertIsDisplayed()
         // The taproot account has no name, so it shows the Auto-Name its wallet gives its index, as an Ethereum account does.
-        compose.onNodeWithText("SEED WALLET 0").assertIsDisplayed()
+        compose.onNodeWithText("Seed wallet 0").assertIsDisplayed()
     }
 
     @Test

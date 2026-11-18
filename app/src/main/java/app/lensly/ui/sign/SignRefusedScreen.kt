@@ -61,7 +61,7 @@ fun SignRefusedScreen(
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
         Text(
-            text = "REFUSED",
+            text = "Refused",
             modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.displaySmall,
             color = MaterialTheme.colorScheme.error,

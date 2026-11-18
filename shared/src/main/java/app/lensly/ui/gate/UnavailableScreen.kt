@@ -35,7 +35,7 @@ fun UnavailableScreen(
             .padding(horizontal = LenslySpacing.md),
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "NOT AVAILABLE")
+        DotHeadline(text = "Not available")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "Lensly cannot open on this device.",

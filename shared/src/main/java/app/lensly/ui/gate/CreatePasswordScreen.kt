@@ -32,6 +32,7 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.labelCase
 
 /** Minimum password length, shown to the user as "N+ characters". It is the policy's minimum, so the copy cannot drift from it. */
 const val MIN_PASSWORD_LENGTH = PasswordPolicy.MIN_CODE_POINTS
@@ -53,9 +54,9 @@ data class CreatePasswordState(
 )
 
 internal fun PolicyError.message(): String = when (this) {
-    PolicyError.TooShort -> "NEEDS $MIN_PASSWORD_LENGTH+ CHARACTERS"
-    PolicyError.TooWeak -> "TOO EASY TO GUESS. ADD VARIETY."
-    PolicyError.Mismatch -> "DOES NOT MATCH. TRY AGAIN."
+    PolicyError.TooShort -> "Needs $MIN_PASSWORD_LENGTH+ characters"
+    PolicyError.TooWeak -> "Too easy to guess. Add variety."
+    PolicyError.Mismatch -> "Does not match. Try again."
     PolicyError.SameAsApp -> "THAT IS THE APPLICATION PASSWORD. CHOOSE ANOTHER."
 }
 
@@ -103,7 +104,7 @@ fun CreatePasswordScreen(
             Spacer(Modifier.height(LenslySpacing.lg))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = if (confirming) "STEP 2 OF 2" else "STEP 1 OF 2",
+                    text = labelCase(if (confirming) "Step 2 of 2" else "Step 1 of 2"),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.onSurfaceVariant,
                 )
@@ -115,7 +116,7 @@ fun CreatePasswordScreen(
             Spacer(Modifier.height(LenslySpacing.sm))
             // A fixed height keeps the policy chip in the same place on both steps.
             Box(modifier = Modifier.fillMaxWidth().height(HEADLINE_HEIGHT)) {
-                DotHeadline(text = if (confirming) "CONFIRM" else "SET PASSWORD")
+                DotHeadline(text = if (confirming) "Confirm" else "Set password")
             }
             Spacer(Modifier.height(LenslySpacing.md))
             PillChip(

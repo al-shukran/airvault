@@ -348,7 +348,7 @@ fun ScanPermissionPrompt(
         )
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
-            text = if (refused) "CAMERA IS OFF" else "CAMERA ACCESS",
+            text = if (refused) "Camera is off" else "Camera access",
             modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.headlineSmall,
             color = colors.onSurface,

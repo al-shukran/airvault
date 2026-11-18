@@ -81,7 +81,7 @@ fun ApprovedContractsScreen(
             )
             if (entries.isEmpty()) {
                 Spacer(Modifier.height(LenslySpacing.lg))
-                DotHeadline(text = "NO APPROVED CONTRACTS")
+                DotHeadline(text = "No approved contracts")
                 Spacer(Modifier.height(LenslySpacing.sm))
                 Text(
                     text = "Contracts are added only through a signed offline update (Update catalog). This prevents anyone from " +

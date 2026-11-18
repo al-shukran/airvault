@@ -43,7 +43,7 @@ class AccountProfileScreenTest {
         setEditor()
 
         compose.onNodeWithContentDescription("Done").assertDoesNotExist()
-        compose.onNodeWithText("SAVE").assertExists()
+        compose.onNodeWithText("Save").assertExists()
     }
 
     @Test
@@ -55,7 +55,7 @@ class AccountProfileScreenTest {
 
         compose.onNodeWithText("Account profile").performClick()
         compose.waitUntilKeyboardHidden()
-        compose.onNodeWithText("SAVE").assertExists()
+        compose.onNodeWithText("Save").assertExists()
     }
 
     @Test
@@ -87,7 +87,7 @@ class AccountProfileScreenTest {
         compose.waitUntilKeyboardHidden()
         assertEquals(0, saved)
 
-        compose.onNodeWithText("SAVE").performClick()
+        compose.onNodeWithText("Save").performClick()
         assertEquals(1, saved)
     }
 

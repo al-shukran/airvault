@@ -186,15 +186,15 @@ class FailureCapScreenTest {
     fun theAppPasswordStepShowsTheTriesLeftBeforeTheErase() {
         showPassword(busy = false, warning = eraseWarning(2))
 
-        compose.onNodeWithText("2 TRIES LEFT BEFORE THIS VAULT IS ERASED").assertIsDisplayed()
+        compose.onNodeWithText("2 tries left before this vault is erased").assertIsDisplayed()
     }
 
     @Test
     fun theTriesLeftAreNotShownWhileTheCheckRuns() {
         showPassword(busy = true, warning = eraseWarning(2))
 
-        compose.onNodeWithText("CHECKING").assertIsDisplayed()
-        compose.onNodeWithText("2 TRIES LEFT BEFORE THIS VAULT IS ERASED").assertDoesNotExist()
+        compose.onNodeWithText("Checking").assertIsDisplayed()
+        compose.onNodeWithText("2 tries left before this vault is erased").assertDoesNotExist()
     }
 
     private fun showPassword(busy: Boolean, warning: String?) {

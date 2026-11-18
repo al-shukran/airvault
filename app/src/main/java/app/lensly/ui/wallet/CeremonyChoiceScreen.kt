@@ -77,7 +77,7 @@ fun CeremonyChoiceScreen(
         },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "MIX IN YOURS")
+        DotHeadline(text = "Mix in yours")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "The device has already committed to its randomness.",
