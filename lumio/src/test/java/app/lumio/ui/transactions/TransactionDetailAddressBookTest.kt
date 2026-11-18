@@ -5,7 +5,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.app.AddressBookEntry
 import app.lensly.ui.components.groupAddress
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.tx.LumioTx
@@ -86,7 +86,7 @@ class TransactionDetailAddressBookTest {
 
     private fun setDetail(tx: LumioTx, book: List<AddressBookEntry>, onEdit: (String) -> Unit) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 TransactionDetailScreen(
                     detail = TxDetail(tx = tx, usd = null, comment = null, chain = "Bitcoin", feeText = null, explorerUrl = null, flags = emptyList()),
                     onBack = {},

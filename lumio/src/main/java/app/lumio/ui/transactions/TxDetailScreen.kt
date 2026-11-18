@@ -38,13 +38,13 @@ import app.lensly.core.registry.Amounts
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LumenMono
 import app.lumio.home.HomeFormat
 import app.lumio.transactions.TxDetail
 import app.lumio.ui.kit.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTextAction
 import app.lumio.ui.kit.rememberCopyAction
-import app.lumio.ui.theme.LumioMono
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
 import java.time.Instant
@@ -181,7 +181,7 @@ private fun PartyRow(
         }
         Text(
             text = groupAddress(value),
-            style = LumioMono,
+            style = LumenMono,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
                 .fillMaxWidth()
@@ -198,7 +198,7 @@ private fun HashRow(hash: String) {
         Text(text = "Transaction hash", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             text = if (copy.copied) "Copied" else hash,
-            style = LumioMono,
+            style = LumenMono,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.fillMaxWidth().clickable(onClick = copy.copy),
         )

@@ -24,9 +24,9 @@ import app.lensly.app.AddressChain
 import app.lensly.app.addressKeyOf
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LumenMono
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTextAction
-import app.lumio.ui.theme.LumioMono
 
 /** The test tag of the name field of the address-book sheet. */
 const val ADDRESS_NAME_TAG = "address-name"
@@ -48,7 +48,7 @@ fun AddressBookSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = LenslySpacing.md).padding(bottom = LenslySpacing.lg)) {
             Text(text = "Address book", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-            Text(text = groupAddress(address), style = LumioMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = groupAddress(address), style = LumenMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(LenslySpacing.sm))
             OutlinedTextField(
                 value = name,
