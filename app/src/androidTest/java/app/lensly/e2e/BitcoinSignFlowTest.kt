@@ -53,7 +53,8 @@ class BitcoinSignFlowTest : SignFlowE2eBase() {
 
         // The summary sentence names the amount sent and the recipient's full address: a shortened one could pass a look-alike (R26).
         compose.onNodeWithText("Send 0.0015 BTC to $recipient").assertExists()
-        compose.onNodeWithText("TESTNET4").assertExists()
+        compose.onNodeWithText("Bitcoin testnet4").assertExists()
+        driver.readToTheEnd()
         assertTrue(driver.approvable())
 
         val parts = driver.approveAndSign { it is SignStep.BitcoinConfirming }

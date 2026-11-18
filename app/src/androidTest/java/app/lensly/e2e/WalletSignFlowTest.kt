@@ -2,7 +2,6 @@ package app.lensly.e2e
 
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -10,8 +9,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.lensly.app.WalletStore
 import app.lensly.app.export.PairingExport
@@ -85,7 +82,8 @@ class WalletSignFlowTest : SignFlowE2eBase() {
         // The header and the account row both name the account now, so the label is looked for among them.
         compose.onAllNodesWithText(ACCOUNT_LABEL).onFirst().assertExists()
 
-        scrollReviewToTheEnd()
+        driver.readToTheEnd()
+        assertTrue("the review shows its check hint", checkHintShown())
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
         // The check is a row of the risk banner, above the end of the review, so it is scrolled into view before it is ticked.
         compose.onNodeWithText("I checked the chain ID and contract").performScrollTo().performClick()
@@ -93,19 +91,6 @@ class WalletSignFlowTest : SignFlowE2eBase() {
 
         val parts = driver.approveAndSign { it is SignStep.Confirming }
         assertSignatureEchoes(request, parts, address)
-    }
-
-    /**
-     * Opens the Transaction details, which a review with a warning must have open before it can be read, then scrolls them to the end.
-     * The review shows its check hint only once every fact has been seen, so the swipes stop there.
-     */
-    private fun scrollReviewToTheEnd() {
-        compose.onNodeWithText("Transaction").performClick()
-        repeat(MAX_SWIPES) {
-            if (checkHintShown()) return
-            compose.onNode(hasScrollAction()).performTouchInput { swipeUp() }
-        }
-        assertTrue("the review was not read to its end", checkHintShown())
     }
 
     private fun checkHintShown(): Boolean =
@@ -220,9 +205,4 @@ class WalletSignFlowTest : SignFlowE2eBase() {
     }
 
     private class Request(val requestId: ByteArray, val signData: ByteArray, val parts: List<String>)
-
-    private companion object {
-        /** A full swipe per screen, with room to spare, before the review must have reached its end. */
-        const val MAX_SWIPES = 6
-    }
 }

@@ -74,9 +74,15 @@ internal inline fun <T> keystoreCall(block: () -> T): T = try {
     throw VaultException("The Keystore could not complete a wallet folder key operation.", e)
 }
 
-/** The app's backend: the non-exportable keys in the Android Keystore, through [VaultKeystore]. */
-internal class AndroidKeystoreBackend(private val context: Context) : KeystoreBackend {
-    override fun createHardwareKey(): SecretKey = VaultKeystore.createHardwareKey()
+/**
+ * The app's backend: the non-exportable keys in the Android Keystore, through [VaultKeystore]. [hardwareKeyUserAuth] is true in the
+ * app; only [app.lensly.core.vault.instrumentedVault] passes false.
+ */
+internal class AndroidKeystoreBackend(
+    private val context: Context,
+    private val hardwareKeyUserAuth: Boolean = true,
+) : KeystoreBackend {
+    override fun createHardwareKey(): SecretKey = VaultKeystore.createHardwareKey(userAuth = hardwareKeyUserAuth)
 
     override fun hardwareKey(): SecretKey = VaultKeystore.hardwareKey()
 

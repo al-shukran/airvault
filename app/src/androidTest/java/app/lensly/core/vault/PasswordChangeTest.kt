@@ -21,7 +21,7 @@ import org.junit.runner.RunWith
 class PasswordChangeTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val clock = FakeClock()
-    private val vault = Vault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
+    private val vault = instrumentedVault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
     private val vaultRoot = File(context.noBackupFilesDir, "vault")
     private val vaultKeyFile = File(vaultRoot, "vault.key")
     // Stands in for the temp file a stopped change leaves behind. The commit names its temp file uniquely and the vault
