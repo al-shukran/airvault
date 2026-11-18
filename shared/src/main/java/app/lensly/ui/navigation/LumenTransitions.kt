@@ -3,6 +3,7 @@ package app.lensly.ui.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -24,7 +25,7 @@ import app.lensly.ui.theme.LumenMotion
  * The class of a screen's transition (section 3.2 of the Phase 2.8 spec). A screen's class sets how it comes in and how it goes out; the screen it
  * meets sets the other half of a move. [ROOT] keeps the NavHost's own transition, which is Lensly's fade and slide.
  */
-enum class NavMotion { ROOT, PUSH, RISE, FADE }
+enum class NavMotion { ROOT, PUSH, RISE, FADE, COVER }
 
 /**
  * Reduced motion for the NavHost's transitions (section 3.6). Transition lambdas are built outside composition, so they cannot read
@@ -47,13 +48,14 @@ fun <T> cutWhenReduced(reduced: Boolean, cut: T, motion: () -> T): T = if (reduc
 /** The distance a Rise screen scales from, and the scale a screen beneath it goes to (section 3.2). */
 private const val RISE_SCALE = 0.94f
 
-/** The spatial spring as an offset: the bounds and slides of section 3.1. */
-private val spatialOffset = spring<IntOffset>(dampingRatio = 0.86f, stiffness = 380f)
+/** The spatial spring as an offset: the bounds and slides of section 3.1, with the ratio and stiffness of [LumenMotion.spatial]. */
+private val spatialOffset = spring<IntOffset>(dampingRatio = LumenMotion.spatial.dampingRatio, stiffness = LumenMotion.spatial.stiffness)
 
 /** How a screen of class [motion] comes in when it is pushed. A ROOT keeps Lensly's enter. */
 fun AnimatedContentTransitionScope<NavBackStackEntry>.enterOf(motion: NavMotion): EnterTransition = when (motion) {
     NavMotion.PUSH -> pushEnter()
     NavMotion.RISE -> riseEnter()
+    NavMotion.COVER -> coverEnter()
     NavMotion.FADE -> fadeThroughEnter()
     NavMotion.ROOT -> LenslyNavTransitions.enter(this)
 }
@@ -61,6 +63,7 @@ fun AnimatedContentTransitionScope<NavBackStackEntry>.enterOf(motion: NavMotion)
 /** How a screen goes out when a screen of class [target] is pushed over it. A Rise makes the screen beneath it scale back. */
 fun AnimatedContentTransitionScope<NavBackStackEntry>.exitTowards(target: NavMotion?): ExitTransition = when (target) {
     NavMotion.RISE -> riseUnderExit()
+    NavMotion.COVER -> ExitTransition.KeepUntilTransitionsFinished
     NavMotion.FADE -> fadeOutQuick()
     else -> pushExit()
 }
@@ -68,6 +71,7 @@ fun AnimatedContentTransitionScope<NavBackStackEntry>.exitTowards(target: NavMot
 /** How a screen comes back when the screen of class [popped] over it is popped. The revealed screen takes the shape of the one that leaves. */
 fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnterFrom(popped: NavMotion?): EnterTransition = when (popped) {
     NavMotion.RISE -> riseUnderEnter()
+    NavMotion.COVER -> EnterTransition.None
     NavMotion.FADE -> fadeThroughEnter()
     NavMotion.PUSH -> pushBackEnter()
     NavMotion.ROOT, null -> LenslyNavTransitions.popEnter(this)
@@ -77,6 +81,7 @@ fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnterFrom(popped: NavMo
 fun AnimatedContentTransitionScope<NavBackStackEntry>.popExitOf(motion: NavMotion): ExitTransition = when (motion) {
     NavMotion.PUSH -> pushBackExit()
     NavMotion.RISE -> riseBackExit()
+    NavMotion.COVER -> coverExit()
     NavMotion.FADE -> fadeOutQuick()
     NavMotion.ROOT -> LenslyNavTransitions.popExit(this)
 }
@@ -108,3 +113,13 @@ private fun fadeThroughEnter(): EnterTransition =
     fadeIn(tween(210, delayMillis = 90)) + scaleIn(tween(210, delayMillis = 90), initialScale = 0.96f)
 
 private fun fadeOutQuick(): ExitTransition = fadeOut(tween(90))
+
+/**
+ * The Cover of Settings: it slides over the whole width on a critically damped spring, settled in about 290 ms, while the screen beneath stays
+ * still under the scrim the route draws. Back slides it out the same way.
+ */
+private val coverOffset = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 400f)
+
+private fun coverEnter(): EnterTransition = slideInHorizontally(coverOffset) { it }
+
+private fun coverExit(): ExitTransition = slideOutHorizontally(coverOffset) { it }

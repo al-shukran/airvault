@@ -90,7 +90,7 @@ class AlgoSignRequest(
             if (signData.isEmpty()) malformed("signData is empty")
             if (signData.size > MAX_SIGN_DATA_BYTES) malformed("signData exceeds $MAX_SIGN_DATA_BYTES bytes")
 
-            val (path, sourceFingerprint) = EthSignRequest.keyPathOf(fields[3L] ?: malformed("derivationPath is missing"))
+            val (path, sourceFingerprint) = keyPathOf(fields[3L] ?: malformed("derivationPath is missing"))
             checkLedgerPath(path)
 
             val address = textOf(fields[4L] ?: malformed("address is missing"), "address")
