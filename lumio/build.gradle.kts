@@ -91,6 +91,9 @@ tasks.withType<Test>().configureEach {
 dependencies {
     implementation(project(":shared"))
 
+    // Chain apps compiled into Lumio; see lumio/src/main/java/app/lumio/chains/InstalledWallets.kt.
+    implementation(project(":chains:algorand:wallet"))
+
     // The Esplora client reads JSON with the kotlinx.serialization library that :shared already ships in the APK.
     implementation(libs.kotlinx.serialization.json)
 
