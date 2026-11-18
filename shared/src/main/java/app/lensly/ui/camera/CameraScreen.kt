@@ -383,8 +383,8 @@ private fun CameraViewfinder(
 
 /**
  * The viewfinder controls: the Photo and Video switch, the flash toggle and the recording timer on top, the gallery
- * thumbnail, shutter and camera switch at the bottom. Under the top bar sit the warning about recovery words and, after a failed
- * capture, its notice. The space between is the touch area for focus and zoom, and [onViewfinderBounds] reports it.
+ * thumbnail, shutter and camera switch at the bottom. Under the top bar sits, after a failed capture, its notice. The space
+ * between is the touch area for focus and zoom, and [onViewfinderBounds] reports it.
  */
 @Composable
 fun ViewfinderOverlay(
@@ -417,7 +417,6 @@ fun ViewfinderOverlay(
             recording = recording,
             elapsedMs = elapsedMs,
         )
-        RecoveryWordsWarning()
         if (showCaptureFailure) {
             CaptureFailedBanner(message = captureFailureText)
         }
@@ -478,22 +477,6 @@ internal fun CameraHint(message: String, modifier: Modifier = Modifier) {
             .background(LenslyBlack),
     ) {
         InlineBanner(message = message, tone = BannerTone.Info)
-    }
-}
-
-/**
- * The standing warning under the top bar. The cover photographs whatever it points at, so the warning stays on every camera screen.
- */
-@Composable
-internal fun RecoveryWordsWarning(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs)
-            .clip(RoundedCornerShape(LenslyRadius.md))
-            .background(LenslyBlack),
-    ) {
-        InlineBanner(message = "Never photograph recovery words.", tone = BannerTone.Warning)
     }
 }
 

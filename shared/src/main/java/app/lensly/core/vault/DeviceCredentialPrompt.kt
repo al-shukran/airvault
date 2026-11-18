@@ -17,7 +17,7 @@ internal suspend fun confirmDeviceCredential(context: Context): Boolean = withCo
         val signal = CancellationSignal()
         continuation.invokeOnCancellation { signal.cancel() }
         val prompt = BiometricPrompt.Builder(context)
-            .setTitle("Unlock the vault")
+            .setTitle("Unlock")
             .setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL,
             )
