@@ -65,8 +65,7 @@ class ReviewHistory(private val session: VaultSession) {
 /**
  * The binary layout of a Review Record, written the way [WalletRecords] writes its records: a version byte, then each field in
  * order. Text is a length and its UTF-8 bytes, so a long message fits, which DataOutputStream.writeUTF refuses past 64 KiB. Each
- * optional field is a flag, then its value when the flag is set. Version 2 appends the Bitcoin facts, which a version 1 record
- * does not have, so it reads with none.
+ * optional field is a flag, then its value when the flag is set. The Bitcoin facts come last, after the data hash.
  */
 internal object ReviewRecordCodec {
     private const val VERSION = 2
@@ -98,7 +97,7 @@ internal object ReviewRecordCodec {
 
     fun decode(bytes: ByteArray): ReviewRecord = WalletRecords.readBytes(bytes) { input ->
         val version = input.readUnsignedByte()
-        require(version in 1..VERSION) { "Unknown record version $version." }
+        require(version == VERSION) { "Unknown record version $version." }
         val outcome = ReviewOutcome.fromWire(input.readUnsignedByte())
         val kind = ReviewKind.fromWire(input.readUnsignedByte())
         val atMs = input.readLong()
@@ -115,7 +114,7 @@ internal object ReviewRecordCodec {
         val origin = input.readOptional { readText() }
         val refusal = input.readOptional { readText() }
         val dataHash = input.readText()
-        val bitcoin = if (version >= 2) input.readOptional { readBitcoin() } else null
+        val bitcoin = input.readOptional { readBitcoin() }
         ReviewRecord(
             atMs = atMs,
             outcome = outcome,

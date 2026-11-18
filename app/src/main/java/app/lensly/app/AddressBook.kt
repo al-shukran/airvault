@@ -53,8 +53,8 @@ fun addressBookEntryOf(
 /**
  * The Address Book, stored as the vault record `address-book` through [VaultSession.putVaultRecord]. A vault record belongs to the vault, so
  * it is sealed under the Vault Key, removed when the vault is wiped, and kept apart from a Decoy Vault's. The record holds a version byte,
- * then the entry count (int), then each entry as its texts: id, address, name, label and, from version 2, notes. A text is its length (int)
- * and its UTF-8 bytes, as the Review Records write theirs. An empty label or notes is an empty text. A version 1 book has no notes.
+ * then the entry count (int), then each entry as its texts: id, address, name, label and notes. A text is its length (int)
+ * and its UTF-8 bytes, as the Review Records write theirs. An empty label or notes is an empty text.
  * A later pairing sync can send these same fields.
  *
  * [load] throws [VaultException] when the record cannot be read, so a save never replaces a book it could not read.
@@ -83,7 +83,7 @@ class AddressBookStore(private val session: VaultSession) {
     private companion object {
         const val NAME = "address-book"
 
-        /** Version 2 adds each entry's notes. Version 1 books are still read, and they have no notes. */
+        /** The version of the book. Each entry holds its notes. */
         const val VERSION = 2
         const val MAX_ENTRIES = 10_000
         const val MAX_TEXT_BYTES = 4096
@@ -107,7 +107,7 @@ class AddressBookStore(private val session: VaultSession) {
         fun decode(bytes: ByteArray): List<AddressBookEntry> = try {
             DataInputStream(ByteArrayInputStream(bytes)).use { input ->
                 val version = input.readUnsignedByte()
-                require(version in 1..VERSION) { "Unknown Address Book version." }
+                require(version == VERSION) { "Unknown Address Book version." }
                 val count = input.readInt()
                 require(count in 0..MAX_ENTRIES) { "Too many Address Book entries." }
                 List(count) {
@@ -115,7 +115,7 @@ class AddressBookStore(private val session: VaultSession) {
                     val address = input.readText()
                     val name = input.readText()
                     val label = input.readText().ifEmpty { null }
-                    val notes = if (version >= 2) input.readText().ifEmpty { null } else null
+                    val notes = input.readText().ifEmpty { null }
                     AddressBookEntry(id = id, address = address, name = name, label = label, notes = notes)
                 }
             }
