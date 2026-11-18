@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
@@ -75,6 +76,8 @@ internal fun AccountScreen(
     val heroText = balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" }
     val native = assets.firstOrNull { it.isNative }
     val heroFiat = native?.fiatText
+    // The balance starts after the 40 dp coin icon and its gap, so the network line under it starts at the same edge.
+    val balanceStart = if (native != null) 40.dp + LenslySpacing.xs else 0.dp
     LenslyScreen(
         title = account.chain.label,
         modifier = modifier,
@@ -105,7 +108,7 @@ internal fun AccountScreen(
                 ) {
                     AssetIcon(spec = coin.icon, size = 24.dp)
                 }
-                Spacer(Modifier.width(LenslySpacing.sm))
+                Spacer(Modifier.width(LenslySpacing.xs))
             }
             if (heroText == null) {
                 Text(text = NOT_READ, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -120,12 +123,13 @@ internal fun AccountScreen(
         heroFiat?.let { fiat ->
             Text(
                 text = Masking.amount(fiat, hidden = !showBalance),
+                modifier = Modifier.padding(start = balanceStart),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Spacer(Modifier.height(LenslySpacing.md))
-        AddressLine(network = account.networkName, address = account.address)
+        AddressLine(network = account.networkName, address = account.address, indent = balanceStart)
         notice?.let {
             Spacer(Modifier.height(LenslySpacing.sm))
             InlineBanner(message = it, tone = BannerTone.Warning)
@@ -173,14 +177,16 @@ internal fun AccountScreen(
 }
 
 /**
- * The network and the address of the account, the address in mono. A tap copies the address, and the address reads "Copied" for 1.5 s.
+ * The network and the address of the account, the address in mono. A tap copies the address, and the address reads "Copied" for 1.5 s. [indent]
+ * moves its start to the balance's start edge above it.
  */
 @Composable
-private fun AddressLine(network: String, address: String) {
+private fun AddressLine(network: String, address: String, indent: Dp) {
     val copy = rememberCopyAction(value = address, label = "Address")
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(start = indent)
             .clickable(role = Role.Button, onClick = copy.copy),
         verticalAlignment = Alignment.CenterVertically,
     ) {

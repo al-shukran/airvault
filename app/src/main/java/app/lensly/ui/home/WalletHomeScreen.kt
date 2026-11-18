@@ -256,14 +256,14 @@ private fun ScanToSignButton(onClick: () -> Unit, modifier: Modifier = Modifier)
         Icon(
             imageVector = LenslyIcons.QrScan,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(24.dp),
         )
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
             text = "Scan to Sign",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = MaterialTheme.colorScheme.onPrimary,
         )
     }
 }
