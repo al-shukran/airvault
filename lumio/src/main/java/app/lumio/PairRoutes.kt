@@ -36,6 +36,13 @@ import kotlinx.coroutines.withContext
 
 private const val SCAN_HINT = "Point the camera at the pairing code that Lensly shows."
 private const val SCAN_READING = "Reading the code. Keep the camera on it."
+
+/** The pause after the last part, while the ring closes and the check shows, before the review opens (section 2.1). */
+private const val COMPLETE_MS = 350L
+
+/** The line under the viewfinder while an animated code is read: how many of its parts are in, against the number that it declares. */
+private fun readingStatus(received: Int, expected: Int): String =
+    if (expected <= 0) SCAN_READING else "${minOf(received, expected)} of about $expected parts · hold steady"
 private const val SAVE_FAILED = "The pairing could not be saved. Try again."
 
 /** The pause between the frames of the debug fixture, long enough for the progress to show. */
@@ -52,19 +59,27 @@ internal fun PairScanRoute(navController: NavHostController, draft: PairDraft) {
     var progress by remember { mutableStateOf<Float?>(null) }
     var status by remember { mutableStateOf(SCAN_HINT) }
     var finished by remember { mutableStateOf(false) }
+    var complete by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     fun onText(text: String) {
         if (finished) return
         when (val step = scan.onText(text)) {
             is ScanStep.Reading -> {
                 progress = step.fraction
-                status = SCAN_READING
+                status = readingStatus(step.received, step.expected)
             }
             is ScanStep.Complete -> {
                 finished = true
                 draft.pairing = step.pairing
-                navController.navigate(LumioRoute.PAIR_REVIEW) {
-                    popUpTo(LumioRoute.PAIR_SCAN) { inclusive = true }
+                progress = 1f
+                complete = true
+                // The ring closes and the check shows for a moment before the review opens (section 2.1).
+                scope.launch {
+                    delay(COMPLETE_MS)
+                    navController.navigate(LumioRoute.PAIR_REVIEW) {
+                        popUpTo(LumioRoute.PAIR_SCAN) { inclusive = true }
+                    }
                 }
             }
             is ScanStep.Refused -> {
@@ -87,6 +102,7 @@ internal fun PairScanRoute(navController: NavHostController, draft: PairDraft) {
     PairScanScreen(
         progress = progress,
         status = status,
+        complete = complete,
         onText = ::onText,
         onCancel = { navController.popBackStack() },
     )

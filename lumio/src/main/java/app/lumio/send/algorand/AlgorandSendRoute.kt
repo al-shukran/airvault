@@ -19,7 +19,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
-import app.lensly.ui.qr.ScanScreen
+import app.lumio.ui.scan.LumioScanScreen
 import app.lumio.LumioApp
 import app.lumio.chains.ChainHoldings
 import app.lumio.data.net.NetworkId
@@ -404,7 +404,7 @@ internal fun AlgorandSendRoute(
             onBack = { navController.popBackStack() },
         )
         AlgorandSendStep.Reading -> AlgorandOptInReadingScreen(notice = notice, onBack = { navController.popBackStack() })
-        AlgorandSendStep.ScanRecipient -> ScanScreen(
+        AlgorandSendStep.ScanRecipient -> LumioScanScreen(
             title = "Scan address",
             progress = null,
             statusText = recipientStatus,
@@ -429,7 +429,7 @@ internal fun AlgorandSendRoute(
                 step = AlgorandSendStep.Review(current.plan)
             },
         )
-        is AlgorandSendStep.Scanning -> ScanScreen(
+        is AlgorandSendStep.Scanning -> LumioScanScreen(
             title = "Scan signature",
             progress = scanProgress,
             statusText = scanStatus,
