@@ -114,7 +114,7 @@ class PairCodePasswordTest {
                     onLeave = {},
                     lumioParts = { meta ->
                         built += meta
-                        listOf("ur:airvault-pairing/1-1/aa")
+                        listOf("ur:x-airvault-pairing/1-1/aa")
                     },
                     checkPassword = check,
                     onUnavailable = onUnavailable,
