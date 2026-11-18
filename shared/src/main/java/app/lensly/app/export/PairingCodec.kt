@@ -125,7 +125,7 @@ fun interface BrotliDecompressor {
  * The body is at most [MAX_BODY_BYTES] bytes, compressed or not. The encoder keeps it compressed only when that makes it smaller.
  */
 object PairingCodec {
-    /** The UR type of the pairing. The name before 2.9 was `airvault-pairing`, and its codes are refused: the owner pairs again. */
+    /** The UR type of the pairing. Any other type is refused. */
     const val UR_TYPE = "x-airvault-pairing"
 
     /**
@@ -169,8 +169,6 @@ object PairingCodec {
     const val MAX_ENTRY_NAME_BYTES = 128
 
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
-    /** The refusal of a code of an older layout, which Lumio also shows for a code of the old UR type: the owner pairs again. */
-    const val OLDER_CODE = "This pairing code is from an older Lensly. Update both apps and pair again."
     private const val UINT32_MAX = 0xFFFFFFFFL
     private const val HARDENED = 0x80000000L
     private const val INDEX_MASK = 0x7FFFFFFFL
@@ -229,8 +227,7 @@ object PairingCodec {
             ?.firstOrNull { (key, _) -> (key as? Cbor.Uint)?.value == 1L }
             ?.let { (_, value) -> (value as? Cbor.Uint)?.value }
             ?: refuse()
-        if (version < VERSION) throw IllegalArgumentException(OLDER_CODE)
-        if (version > VERSION) {
+        if (version != VERSION) {
             throw IllegalArgumentException(
                 "This pairing uses format $version, and this app reads format $VERSION. Update the app, then pair again.",
             )

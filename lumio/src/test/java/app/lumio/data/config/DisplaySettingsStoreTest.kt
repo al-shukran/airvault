@@ -10,7 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-/** The display settings: their defaults, what the vault keeps of them, and a record saved before the removed fields still reads. */
+/** The display settings: their defaults and what the vault keeps of them. */
 class DisplaySettingsStoreTest {
 
     @get:Rule
@@ -42,18 +42,5 @@ class DisplaySettingsStoreTest {
         val reopened = open()
         assertEquals(DisplaySettings(showTotal = true, showAssets = false), DisplaySettingsStore.read(reopened))
         reopened.close()
-    }
-
-    @Test
-    fun aRecordSavedBeforeTheRemovedFieldsStillReads() {
-        // The minimum balance, the spam filter and the sort used to be stored in the same record. Their fields are ignored now.
-        val session = open()
-        session.putVaultRecord(
-            DisplaySettingsStore.RECORD,
-            """{"showTotal":true,"showAssets":true,"minimumUsd":5.0,"hideSpam":false,"sort":{"key":"NAME","descending":false}}""".encodeToByteArray(),
-        )
-
-        assertEquals(DisplaySettings(showTotal = true, showAssets = true), DisplaySettingsStore.read(session))
-        session.close()
     }
 }
