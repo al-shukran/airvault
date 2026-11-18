@@ -33,6 +33,15 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+
+        // Release's code for the emulator's jank and smoke checks: the same R8 build, signed with the debug key so a device can
+        // install it. It is not debuggable, so its timings are release's. Its debug exemptions (FLAG_SECURE, the debugHidden extra)
+        // apply on an emulator only, through BuildConfig.BENCHMARK in :shared. A phone running it is secure, as release is.
+        create("benchmark") {
+            initWith(getByName("release"))
+            matchingFallbacks += "release"
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     compileOptions {
