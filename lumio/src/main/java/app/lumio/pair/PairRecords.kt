@@ -14,8 +14,8 @@ import java.nio.ByteBuffer
 /**
  * The bytes of one paired wallet's records, as Lumio writes them into a wallet folder. Each record starts with a version byte. The META
  * and account records hold length-prefixed text and fixed fields in big-endian order, and the Bitcoin record holds the watch-only Accounts.
- * A record holds public data only. Every decoder rejects a record it cannot read in full, so a damaged record reads as no pairing, and a
- * record of another layout version reads as no pairing too.
+ * A record holds public data only. Each record type has one layout, and every decoder rejects a record it cannot read in full,
+ * including one of another version. The rejection is an error for the caller, never a missing pairing.
  */
 internal object PairRecords {
     /** The layout of the META and account records. */

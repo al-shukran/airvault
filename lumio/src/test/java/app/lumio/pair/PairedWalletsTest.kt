@@ -12,7 +12,9 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.HdWallet
+import kotlin.test.assertFailsWith
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -182,6 +184,16 @@ class PairedWalletsTest {
         PairedWallets.delete(session, saved.id)
 
         assertTrue(PairedWallets.list(session).isEmpty())
+    }
+
+    @Test
+    fun aRecordOfAnotherVersionThrowsInsteadOfReadingAsNoPairing() {
+        val saved = PairedWallets.save(session, payload(accounts = listOf(account(0, "A"))), nowMs = 1L)
+        val meta = session.getRecord(saved.id, WalletRecordNames.META)!!
+        meta[0] = (meta[0] - 1).toByte()
+        session.putRecords(saved.id, mapOf(WalletRecordNames.META to meta), emptyList())
+
+        assertFailsWith<IllegalArgumentException> { PairedWallets.list(session) }
     }
 
     private fun account(index: Int, name: String, label: String? = null, group: String? = null) =
