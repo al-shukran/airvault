@@ -44,6 +44,10 @@ internal fun assetIconSpec(asset: HomeAsset, network: NetworkEntry?, token: Toke
 /** True when the registry names a logo for [token] and Lensly ships it. */
 private fun hasLogo(token: TokenEntry): Boolean = token.icon?.let { tokenIconDrawables.containsKey(it) } == true
 
+/** The icon of an ERC-20 row: the token's logo when Lensly ships it, else a letter, so a token never shows a chain logo. */
+internal fun tokenIcon(token: TokenEntry?, network: NetworkEntry?, symbol: String): AssetIconSpec =
+    if (token != null && hasLogo(token)) AssetIconSpec.Token(token, network) else AssetIconSpec.Letter(letterOf(symbol))
+
 /** The letter of a token avatar: the first letter or digit of [symbol] in capitals, or "?" when the symbol has neither. */
 internal fun letterOf(symbol: String): String =
     symbol.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"

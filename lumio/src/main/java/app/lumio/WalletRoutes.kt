@@ -18,7 +18,11 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.chains.ChainHolding
 import app.lumio.chains.ChainHoldings
+import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.price.ChartRange
+import app.lumio.data.price.Price
+import app.lumio.data.price.PriceSeries
 import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import app.lumio.data.provider.solana.SOLANA_DEVNET
@@ -41,6 +45,9 @@ import app.lumio.transactions.accountPage
 import app.lumio.ui.receive.ReceiveScreen
 import app.lumio.ui.settings.WalletsSettings
 import app.lumio.ui.wallets.AccountScreen
+import app.lumio.ui.wallets.AssetRowModel
+import app.lumio.ui.wallets.AssetRows
+import app.lumio.ui.wallets.AssetScreen
 import app.lumio.ui.wallets.WalletRow
 import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletsScreen
@@ -216,17 +223,96 @@ internal fun AccountRoute(
         walletName = view.wallets.firstOrNull { it.id == walletId }?.name.orEmpty(),
         account = account,
         showBalance = state.display.showAssets,
-        tokens = tokens,
-        chainHoldings = chainHoldings,
+        assets = rememberAssetRows(app, account, tokens, chainHoldings),
         activity = activity,
         refreshing = state.refreshing,
         notice = state.notice,
         onRefresh = state.refresh,
         onSend = { navController.navigate(sendRoute(account, mode)) },
         onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
+        onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, chain, index, asset.assetKey)) },
         onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(item.tx.account, item.tx.id)) },
         onBack = { navController.popBackStack() },
     )
+}
+
+/**
+ * One asset of an account on [mode]'s side: its amount and value, its price chart when it is priced, and its activity. The asset is found among the
+ * account's rows by [assetKey], and a missing one (its holding has gone) leaves the screen. Send and Receive act on the account.
+ */
+@Composable
+internal fun AssetRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    walletId: String,
+    chain: AccountChain,
+    index: Int,
+    assetKey: String,
+    mode: NetworkMode,
+    listVersion: Int,
+) {
+    val app = LocalContext.current.applicationContext as LumioApp
+    val session = holder.openSession()
+    LaunchedEffect(session == null) {
+        if (session == null) navController.openHidden(GateRoutes.GATE)
+    }
+    if (session == null) return
+    val state = rememberWalletsState(app, session, mode, listVersion, refreshOnOpen = true)
+    val view = state.view ?: return
+    val account = view.accountsOf(walletId).firstOrNull { it.chain == chain && it.index == index }
+    if (account == null) {
+        LaunchedEffect(Unit) { navController.popBackStack() }
+        return
+    }
+    val tokens = rememberAccountTokens(app, session, mode, account)
+    val chainHoldings = rememberChainHoldings(app, session, mode, account)
+    val asset = rememberAssetRows(app, account, tokens, chainHoldings).firstOrNull { it.assetKey == assetKey }
+    if (asset == null) {
+        LaunchedEffect(Unit) { navController.popBackStack() }
+        return
+    }
+    val chart by produceState<PriceSeries?>(null, asset.assetId) {
+        value = asset.assetId?.let { id ->
+            withContext(Dispatchers.IO) { runCatching { app.prices.chart(id, ChartRange.D7) }.getOrNull() }
+        }
+    }
+    val activity = rememberAccountActivity(app, session, mode, account)
+    AssetScreen(
+        asset = asset,
+        showBalance = state.display.showAssets,
+        chart = chart,
+        activity = activity.filter { AssetRows.assetKeyOf(it.tx) == assetKey },
+        onSend = { navController.navigate(sendRoute(account, mode)) },
+        onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
+        onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(item.tx.account, item.tx.id)) },
+        onBack = { navController.popBackStack() },
+    )
+}
+
+/**
+ * The assets of [account] as its rows: the native coin, the ERC-20 tokens, and the SPL tokens or Algorand assets. A priced row shows its value in
+ * dollars once its price is read, and until then it shows its amount alone.
+ */
+@Composable
+private fun rememberAssetRows(app: LumioApp, account: WalletAccount, tokens: List<TokenHolding>, holdings: List<ChainHolding>): List<AssetRowModel> {
+    val prices = rememberAssetPrices(app, account, tokens)
+    return remember(account, tokens, holdings, prices) {
+        AssetRows.of(account, tokens, holdings, prices, app.registry::network, app.registry::token)
+    }
+}
+
+/** The USD prices of the coins that [account] and its [tokens] can have, read as the screen opens. A failed read leaves the rows unpriced. */
+@Composable
+private fun rememberAssetPrices(app: LumioApp, account: WalletAccount, tokens: List<TokenHolding>): Map<AssetId, Price> {
+    val ids = AssetRows.pricedIds(account, tokens)
+    val prices by produceState<Map<AssetId, Price>>(emptyMap(), ids) {
+        value = if (ids.isEmpty()) {
+            emptyMap()
+        } else {
+            withContext(Dispatchers.IO) { runCatching { app.prices.assetPrices(ids) }.getOrDefault(emptyMap()) }
+        }
+    }
+    return prices
 }
 
 /** The ERC-20 balances the cache holds for the Ethereum address of [account], on the enabled networks of [mode]'s side. Empty for other chains. */

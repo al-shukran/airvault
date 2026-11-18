@@ -1,10 +1,14 @@
 package app.lumio.ui.wallets
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import app.lensly.ui.theme.LenslySpacing
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
 import app.lumio.wallets.AccountChain
@@ -30,14 +34,15 @@ internal fun shortAddress(address: String): String = "${address.take(8)}…${add
  * replaces the amount while the owner hides balances.
  */
 @Composable
-internal fun BalanceValue(account: WalletAccount, shown: Boolean, large: Boolean = false) {
+internal fun BalanceValue(account: WalletAccount, shown: Boolean) {
     val amount = account.balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" } ?: NOT_READ
     Column(horizontalAlignment = Alignment.End) {
         Text(
             text = Masking.amount(amount, hidden = !shown),
-            style = if (large) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
+        Spacer(Modifier.height(LenslySpacing.xxs))
         Text(
             text = account.networkName,
             style = MaterialTheme.typography.labelSmall,

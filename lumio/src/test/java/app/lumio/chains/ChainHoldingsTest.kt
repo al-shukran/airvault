@@ -26,8 +26,8 @@ class ChainHoldingsTest {
 
         assertEquals(
             listOf(
-                ChainHolding("USDC", "Solana devnet", BigInteger("1500000"), 6),
-                ChainHolding("5UHr...2XJ6", "Solana devnet", BigInteger("42"), 9),
+                ChainHolding("USDC", "Solana devnet", BigInteger("1500000"), 6, USDC_MINT),
+                ChainHolding("5UHr...2XJ6", "Solana devnet", BigInteger("42"), 9, UNKNOWN_MINT),
             ),
             rows,
         )
@@ -55,7 +55,7 @@ class ChainHoldingsTest {
             "Algorand testnet",
         )
 
-        assertEquals(listOf(ChainHolding("USDC", "Algorand testnet", BigInteger("2500000"), 6)), rows)
+        assertEquals(listOf(ChainHolding("USDC", "Algorand testnet", BigInteger("2500000"), 6, "$USDC_ASSET")), rows)
         assertEquals("2.5", Amounts.format(rows.single().amount, rows.single().decimals))
     }
 
