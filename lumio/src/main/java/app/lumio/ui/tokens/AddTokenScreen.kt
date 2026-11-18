@@ -65,12 +65,12 @@ fun AddTokenScreen(
             FoundToken(token = it, chainName = chainName, busy = busy, onAdd = onAdd, onCancel = onCancel)
         }
         Spacer(Modifier.height(LenslySpacing.lg))
-        SettingsSection(title = "Default tokens") {
+        SettingsSection(title = "Default Tokens") {
             if (defaults.isEmpty()) EmptyLine("No default tokens on this chain.")
             defaults.forEach { TokenLine(token = it, onRemove = null) }
         }
         Spacer(Modifier.height(LenslySpacing.md))
-        SettingsSection(title = "Your tokens") {
+        SettingsSection(title = "Your Tokens") {
             if (custom.isEmpty()) EmptyLine("No tokens added yet.")
             custom.forEach { token -> TokenLine(token = token, onRemove = { onRemove(token) }) }
         }
@@ -85,7 +85,7 @@ private fun AddressField(address: String, busy: Boolean, onAddress: (String) -> 
         value = address,
         onValueChange = onAddress,
         modifier = Modifier.fillMaxWidth().testTag("token-address"),
-        label = { Text("Contract address") },
+        label = { Text("Contract Address") },
         placeholder = { Text("0x…") },
         singleLine = true,
         enabled = !busy,
@@ -107,7 +107,7 @@ private fun AddressField(address: String, busy: Boolean, onAddress: (String) -> 
             enabled = !busy && address.isNotBlank(),
             modifier = Modifier.testTag("token-lookup"),
         ) {
-            Text("Look up")
+            Text("Look Up")
         }
     }
 }
@@ -141,7 +141,7 @@ private fun FoundToken(token: Token, chainName: String, busy: Boolean, onAdd: (T
             horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Button(onClick = { onAdd(token) }, enabled = !busy, modifier = Modifier.testTag("token-add")) { Text("Add token") }
+            Button(onClick = { onAdd(token) }, enabled = !busy, modifier = Modifier.testTag("token-add")) { Text("Add Token") }
             TextAction(text = "Cancel", onClick = onCancel, enabled = !busy)
         }
     }

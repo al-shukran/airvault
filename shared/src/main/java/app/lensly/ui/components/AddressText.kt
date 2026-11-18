@@ -29,7 +29,7 @@ import app.lensly.ui.theme.LocalMonoFamily
 internal const val ADDRESS_TEXT_TAG = "address-text"
 
 /** What a long press and the copy button are called for assistive technology. */
-internal const val COPY_ADDRESS_LABEL = "Copy address"
+internal const val COPY_ADDRESS_LABEL = "Copy Address"
 
 /** The short confirmation after a copy. */
 internal const val ADDRESS_COPIED = "Address copied"

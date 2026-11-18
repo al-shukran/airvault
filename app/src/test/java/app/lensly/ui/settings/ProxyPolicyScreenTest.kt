@@ -50,11 +50,11 @@ class ProxyPolicyScreenTest {
     fun eachPolicyIsNamedAndExplainedInPlainWords() {
         show(saved = ProxyPolicy.DEFAULT, selected = null)
 
-        compose.onNodeWithText("Bind to implementation").assertExists()
+        compose.onNodeWithText("Bind to Implementation").assertExists()
         compose.onNodeWithText(ProxyPolicy.BIND_TO_IMPLEMENTATION.explanation).assertExists()
-        compose.onNodeWithText("Refuse all proxies").assertExists()
+        compose.onNodeWithText("Refuse All Proxies").assertExists()
         compose.onNodeWithText(ProxyPolicy.REFUSE_ALL_PROXIES.explanation).assertExists()
-        compose.onNodeWithText("Warn and confirm").assertExists()
+        compose.onNodeWithText("Warn and Confirm").assertExists()
         compose.onNodeWithText(ProxyPolicy.WARN_AND_CONFIRM.explanation).assertExists()
     }
 
@@ -86,7 +86,7 @@ class ProxyPolicyScreenTest {
             }
         }
 
-        compose.onNodeWithText("Warn and confirm").performClick()
+        compose.onNodeWithText("Warn and Confirm").performClick()
         compose.onNodeWithText("Continue").assertIsEnabled().performClick()
 
         assertTrue(continued)

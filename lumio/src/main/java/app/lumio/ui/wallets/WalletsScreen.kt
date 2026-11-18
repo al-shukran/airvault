@@ -32,7 +32,7 @@ import app.lumio.ui.pair.PairIntro
 data class WalletRow(val id: String, val name: String, val detail: String)
 
 /**
- * The start screen (section 2): one row per paired wallet, each opening the wallet, and "Pair a wallet" as the one text action under them. The top bar
+ * The start screen (section 2): one row per paired wallet, each opening the wallet, and "Pair a Wallet" as the one text action under them. The top bar
  * is the screen's title with the gear, which opens Settings, and the lock. [notice] names a read that did not answer, and pull to refresh reads the
  * balances again.
  */
@@ -74,7 +74,7 @@ fun WalletsScreen(
                 }
                 if (rows.isNotEmpty()) {
                     item(key = "pair") {
-                        TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumenPalette.current.accentInk)) { Text("Pair a wallet") }
+                        TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumenPalette.current.accentInk)) { Text("Pair a Wallet") }
                     }
                 }
             }

@@ -34,7 +34,7 @@ class QrScreenshotTest {
     @Test
     fun scanWaiting() = compose.snapshot("scan_waiting") {
         ScanFrame(
-            title = "Sign request",
+            title = "Sign Request",
             progress = null,
             statusText = "Scan the sign request from your online wallet.",
             onCancel = {},
@@ -45,7 +45,7 @@ class QrScreenshotTest {
     @Test
     fun scanProgress() = compose.snapshot("scan_progress") {
         ScanFrame(
-            title = "Sign request",
+            title = "Sign Request",
             progress = 0.4f,
             statusText = "Reading the request. Keep the code in view.",
             onCancel = {},
@@ -56,7 +56,7 @@ class QrScreenshotTest {
     @Test
     fun scanNotPartOfRequest() = compose.snapshot("scan_not_part_of_request") {
         ScanFrame(
-            title = "Sign request",
+            title = "Sign Request",
             progress = null,
             statusText = "That code is not part of this request.",
             onCancel = {},
@@ -67,7 +67,7 @@ class QrScreenshotTest {
     @Test
     fun scanPermissionNeeded() = compose.snapshot("scan_permission_needed") {
         ScanFrame(
-            title = "Sign request",
+            title = "Sign Request",
             progress = null,
             statusText = "Scan the sign request from your online wallet.",
             onCancel = {},
@@ -82,7 +82,7 @@ class QrScreenshotTest {
     @Test
     fun scanPermissionRefused() = compose.snapshot("scan_permission_refused") {
         ScanFrame(
-            title = "Sign request",
+            title = "Sign Request",
             progress = null,
             statusText = "Scan the sign request from your online wallet.",
             onCancel = {},
@@ -97,7 +97,7 @@ class QrScreenshotTest {
     @Test
     fun showSingleCode() = compose.snapshot("show_qr_single") {
         ShowQrScreen(
-            title = "Pair wallet",
+            title = "Pair Wallet",
             subtitle = "In Rabby: Add address → Hardware wallet → AirGap Vault → scan",
             parts = listOf(SAMPLE_UR),
             onDone = {},

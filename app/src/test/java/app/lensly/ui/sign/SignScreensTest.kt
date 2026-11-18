@@ -186,7 +186,7 @@ private fun approvalReview(origin: String? = LONG_ORIGIN) = TxReview(
     tokenContract = BASE_USDC,
     function = "approve",
     params = listOf("spender" to TO, "value" to MAX_UINT256_DECIMAL),
-    fee = listOf("Gas limit" to "46000", "Max fee" to "0.0001 ETH"),
+    fee = listOf("Gas Limit" to "46000", "Max Fee" to "0.0001 ETH"),
     feeNote = null,
     warnings = listOf(UNLIMITED),
     nonce = 42L,
@@ -223,7 +223,7 @@ private fun permitReview(notes: Map<String, AddressNotes>) = TxReview(
             "Name" to "USD Coin",
             "Version" to "2",
             "Chain ID" to "${BASE.chainId} (Base)",
-            "Verifying contract" to BASE_USDC,
+            "Verifying Contract" to BASE_USDC,
         ),
         summary = listOf("Owner" to FROM, "Spender" to TO, "Amount" to "100 USDC", "Deadline" to "1 Jan 2030, 00:00 UTC"),
         fields = listOf(
@@ -248,7 +248,7 @@ private fun plainTransfer() = approvalReview(origin = null).copy(
     symbol = "ETH",
     tokenContract = null,
     token = null,
-    function = "Native transfer",
+    function = "Native Transfer",
     params = emptyList(),
     signature = null,
     warnings = emptyList(),
@@ -276,7 +276,7 @@ private fun messageReview() = TxReview(
     feeNote = null,
     warnings = emptyList(),
     nonce = 0L,
-    txType = "Personal message",
+    txType = "Personal Message",
     network = BASE,
     walletName = "Main wallet",
 )
@@ -378,7 +378,7 @@ class TxReviewScreenTest {
         val warmed = plainTransfer().copy(accessList = listOf(AccessListEntry(TO, listOf("0x" + "22".repeat(32)))))
         compose.setContent { LumenTheme { TxReviewScreen(review = warmed, onApprove = {}, onReject = {}) } }
 
-        compose.onNodeWithText("Access list").assertExists()
+        compose.onNodeWithText("Access List").assertExists()
         compose.onNodeWithText("1 address, 1 storage key").assertExists()
         compose.onNodeWithText("Address 1").assertExists()
         compose.onNodeWithText("Storage key 1").assertExists()
@@ -463,7 +463,7 @@ class TxReviewScreenTest {
         )
         compose.setContent { LumenTheme { TxReviewScreen(review = saved, onApprove = {}, onReject = {}) } }
         compose.onNodeWithText("Alice").assertExists()
-        compose.onNodeWithText("Address label").assertExists()
+        compose.onNodeWithText("Address Label").assertExists()
         // The sender is not saved, so its row says so, while the saved recipient shows no such line.
         assertTrue(compose.onAllNodesWithText("Not in address book").fetchSemanticsNodes().isNotEmpty())
     }
@@ -534,7 +534,7 @@ class TxReviewScreenTest {
         compose.onNodeWithText("amountIn (uint256)").assertExists()
         compose.onNodeWithText("10").assertExists()
         // The raw words live in the folded section, so they are shown only when it opens.
-        compose.onNodeWithText("Raw data").performScrollTo().performClick()
+        compose.onNodeWithText("Raw Data").performScrollTo().performClick()
         compose.onNodeWithText("0x6e17e9f6").assertExists()
         compose.onNodeWithText("0 ETH").assertExists()
         SWAP_WORDS.forEachIndexed { index, word ->
@@ -559,7 +559,7 @@ class TxReviewScreenTest {
         compose.onNodeWithText("Transaction").performScrollTo().performClick()
         compose.onNodeWithText("To").assertExists()
         compose.onNodeWithText("Base lending pool").assertExists()
-        compose.onNodeWithText("Known contract").assertExists()
+        compose.onNodeWithText("Known Contract").assertExists()
         compose.onNodeWithText("Aave V3").assertExists()
         // The To row names the contract, so the approved-call block does not repeat it under a Contract label.
         compose.onAllNodesWithText("Contract").assertCountEquals(0)
@@ -641,7 +641,7 @@ class TxReviewScreenTest {
 
         compose.onNodeWithText(UPGRADE_WARNING).assertExists()
         compose.onNodeWithText("Transaction").performScrollTo().performClick()
-        compose.onNodeWithText("Approved implementation").assertExists()
+        compose.onNodeWithText("Approved Implementation").assertExists()
         compose.onNodeWithText(groupAddress(IMPLEMENTATION)).assertExists()
         compose.onNodeWithText("I checked this is what I intend").assertExists()
         compose.onNodeWithText("I accept the implementation cannot be checked").assertExists()
@@ -720,7 +720,7 @@ class RefusalScreensTest {
             words = words,
         )
         compose.setContent {
-            LumenTheme { SignRefusedScreen(reason = "Unknown contract call", onDone = {}, call = call) }
+            LumenTheme { SignRefusedScreen(reason = "Unknown Contract Call", onDone = {}, call = call) }
         }
 
         compose.onNodeWithText(
@@ -752,7 +752,7 @@ class RefusalScreensTest {
             }
         }
 
-        compose.onNodeWithText("Approved implementation").assertExists()
+        compose.onNodeWithText("Approved Implementation").assertExists()
         compose.onNodeWithText(groupAddress(IMPLEMENTATION)).assertExists()
     }
 }

@@ -88,7 +88,7 @@ fun CreatePasswordScreen(
         null
     }
     val status: String? = when {
-        busy -> "Creating vault"
+        busy -> "Creating Vault"
         error != null -> error.message()
         else -> hint
     }
@@ -116,7 +116,7 @@ fun CreatePasswordScreen(
             Spacer(Modifier.height(LenslySpacing.sm))
             // A fixed height keeps the policy chip in the same place on both steps.
             Box(modifier = Modifier.fillMaxWidth().height(HEADLINE_HEIGHT)) {
-                DotHeadline(text = if (confirming) "Confirm" else "Set password")
+                DotHeadline(text = if (confirming) "Confirm" else "Set Password")
             }
             Spacer(Modifier.height(LenslySpacing.md))
             PillChip(

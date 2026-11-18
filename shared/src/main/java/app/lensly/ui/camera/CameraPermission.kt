@@ -72,7 +72,7 @@ fun CameraPermissionRationale(
         )
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
-            text = labelCase(if (canOpenSettings) "Camera is off" else "Camera access"),
+            text = labelCase(if (canOpenSettings) "Camera Is Off" else "Camera Access"),
             modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.headlineSmall,
             color = colors.onSurface,
@@ -91,11 +91,11 @@ fun CameraPermissionRationale(
         )
         Spacer(Modifier.height(LenslySpacing.xl))
         if (canOpenSettings) {
-            PillButton(text = "Open settings", onClick = onOpenSettings, accent = true, modifier = Modifier.fillMaxWidth())
+            PillButton(text = "Open Settings", onClick = onOpenSettings, accent = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(LenslySpacing.sm))
-            PillButton(text = "Allow camera", onClick = onAllow, modifier = Modifier.fillMaxWidth())
+            PillButton(text = "Allow Camera", onClick = onAllow, modifier = Modifier.fillMaxWidth())
         } else {
-            PillButton(text = "Allow camera", onClick = onAllow, accent = true, modifier = Modifier.fillMaxWidth())
+            PillButton(text = "Allow Camera", onClick = onAllow, accent = true, modifier = Modifier.fillMaxWidth())
         }
     }
 }

@@ -52,7 +52,7 @@ object HomeBalances {
             NativeAsset(
                 id = NativeAsset.idOf(id),
                 symbol = "BTC",
-                name = if (network == BtcNetwork.TESTNET4) "Bitcoin testnet4" else "Bitcoin",
+                name = if (network == BtcNetwork.TESTNET4) "Bitcoin Testnet4" else "Bitcoin",
                 network = id,
                 balance = BigDecimal.valueOf(sats).movePointLeft(BTC_DECIMALS),
             )

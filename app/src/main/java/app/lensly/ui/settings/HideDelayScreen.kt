@@ -24,7 +24,7 @@ fun HideDelayScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LenslyScreen(title = "Hide delay", modifier = modifier, onBack = onBack) {
+    LenslyScreen(title = "Hide Delay", modifier = modifier, onBack = onBack) {
         Text(
             text = "The dice and coin tiles stay hidden for a random time after a tap, drawn evenly from the shortest to the longest. " +
                 "Each is from 0 to ${HideDelay.LIMIT_MS} ms.",
@@ -35,7 +35,7 @@ fun HideDelayScreen(
         SettingsItem {
             key(longest) {
                 NumberFieldSetting(
-                    title = "Shortest delay",
+                    title = "Shortest Delay",
                     value = shortest,
                     range = 0..(longest ?: HideDelay.LIMIT_MS.toInt()),
                     suffix = "ms",
@@ -46,7 +46,7 @@ fun HideDelayScreen(
         SettingsItem {
             key(shortest) {
                 NumberFieldSetting(
-                    title = "Longest delay",
+                    title = "Longest Delay",
                     value = longest,
                     range = (shortest ?: 0)..HideDelay.LIMIT_MS.toInt(),
                     suffix = "ms",

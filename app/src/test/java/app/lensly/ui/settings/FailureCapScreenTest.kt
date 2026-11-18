@@ -64,7 +64,7 @@ class FailureCapScreenTest {
     fun theScreenIsTitledWrongPasswordLockout() {
         show(saved = FailureCapChoice.TEN_SECONDS, selected = null)
 
-        compose.onNodeWithText("Wrong password lockout").assertIsDisplayed()
+        compose.onNodeWithText("Wrong Password Lockout").assertIsDisplayed()
     }
 
     @Test

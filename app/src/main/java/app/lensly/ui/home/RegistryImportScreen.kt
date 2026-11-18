@@ -92,7 +92,7 @@ fun RegistryImportScreen(
         modifier = modifier,
         footer = {
             PillButton(
-                text = "Choose file",
+                text = "Choose File",
                 onClick = onChooseFile,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -101,10 +101,10 @@ fun RegistryImportScreen(
                 enabled = state !is ImportState.Checking,
             )
         },
-        topBar = { DetailTopBar(title = "Update catalog", onBack = onBack) },
+        topBar = { DetailTopBar(title = "Update Catalog", onBack = onBack) },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        WalletEyebrow("Offline catalog")
+        WalletEyebrow("Offline Catalog")
         Spacer(Modifier.height(LenslySpacing.xs))
         DotText(text = "Catalog", fontSize = 40.sp)
         Spacer(Modifier.height(LenslySpacing.md))
@@ -124,9 +124,9 @@ fun RegistryImportScreen(
         when (state) {
             ImportState.Idle -> Unit
             ImportState.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
-                DotProgress(description = "Checking the package")
+                DotProgress(description = "Checking the Package")
                 Spacer(Modifier.width(LenslySpacing.sm))
-                WalletEyebrow("Checking the package")
+                WalletEyebrow("Checking the Package")
             }
             is ImportState.Installed -> InstalledResult(state)
             is ImportState.Refused -> InlineBanner(

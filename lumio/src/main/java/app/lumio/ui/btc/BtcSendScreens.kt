@@ -77,7 +77,7 @@ fun BtcSendFormScreen(
 ) {
     SendStepScaffold(
         step = SEND_STEP_DETAILS,
-        title = "Send bitcoin",
+        title = "Send Bitcoin",
         onBack = onBack,
         bottomAction = { LumioPrimaryButton(text = "Review", onClick = onReview, enabled = !busy) },
     ) {
@@ -89,7 +89,7 @@ fun BtcSendFormScreen(
         AddressField(
             value = recipient,
             onValueChange = onRecipient,
-            label = "Recipient address",
+            label = "Recipient Address",
             validate = { text -> btcRecipientError(text, account.account.network) },
             enabled = !busy,
             onScan = onScan,
@@ -98,7 +98,7 @@ fun BtcSendFormScreen(
         StepLabel("Amount in BTC")
         AmountField(value = amount, onValueChange = onAmount, enabled = !busy)
 
-        StepLabel("Fee rate")
+        StepLabel("Fee Rate")
         OutlinedTextField(
             value = feeRate,
             onValueChange = onFeeRate,
@@ -137,7 +137,7 @@ fun BtcSendReviewScreen(
     val recipient = addressNotesOf(plan.recipient, AddressChain.BITCOIN, emptyMap(), addressBook)?.headline() ?: plan.recipient
     SendStepScaffold(
         step = SEND_STEP_REVIEW,
-        title = "Review send",
+        title = "Review Send",
         onBack = onBack,
         bottomAction = { LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm) },
     ) {
@@ -209,7 +209,7 @@ fun BtcSignRequestScreen(
         title = "Sign in Lensly",
         onBack = onBack,
         scrollable = false,
-        bottomAction = { LumioPrimaryButton(text = "Scan Lensly's signature", onClick = onScan) },
+        bottomAction = { LumioPrimaryButton(text = "Scan Lensly's Signature", onClick = onScan) },
     ) {
         NetworkHeader(network)
         Text(
@@ -272,7 +272,7 @@ private fun AccountLine(ref: BtcAccountRef) {
 private fun NetworkHeader(network: BtcNetwork) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            if (network == BtcNetwork.MAINNET) "Bitcoin mainnet" else "Bitcoin testnet4",
+            if (network == BtcNetwork.MAINNET) "Bitcoin Mainnet" else "Bitcoin Testnet4",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )

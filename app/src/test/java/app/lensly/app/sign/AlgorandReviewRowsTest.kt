@@ -37,8 +37,8 @@ class AlgorandReviewRowsTest {
                 "Receiver" to RECEIVER_ADDRESS,
                 "Amount" to "1.500000 ALGO",
                 "Fee" to "0.001000 ALGO",
-                "Valid from round" to "50000000",
-                "Valid until round" to "50001000",
+                "Valid from Round" to "50000000",
+                "Valid until Round" to "50001000",
             ),
             algorandRows(review),
         )
@@ -57,10 +57,10 @@ class AlgorandReviewRowsTest {
                 "Receiver" to RECEIVER_ADDRESS,
                 "Amount" to "2000.000000 ALGO",
                 "Fee" to "0.001000 ALGO",
-                "Valid from round" to "50000000",
-                "Valid until round" to "50001000",
+                "Valid from Round" to "50000000",
+                "Valid until Round" to "50001000",
                 "Note" to "rent for March",
-                "Close remainder to" to CLOSE_ADDRESS,
+                "Close Remainder To" to CLOSE_ADDRESS,
             ),
             algorandRows(review),
         )
@@ -113,8 +113,8 @@ class AlgorandReviewRowsTest {
                 "Amount" to "250 base units",
                 "Receiver" to RECEIVER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
-                "Valid from round" to "50000000",
-                "Valid until round" to "50001000",
+                "Valid from Round" to "50000000",
+                "Valid until Round" to "50001000",
             ),
             algorandRows(review),
         )
@@ -137,8 +137,8 @@ class AlgorandReviewRowsTest {
                 "Asset" to "Unknown asset #10458941",
                 "Asset ID" to "10458941",
                 "Fee" to "0.001000 ALGO",
-                "Valid from round" to "50000000",
-                "Valid until round" to "50001000",
+                "Valid from Round" to "50000000",
+                "Valid until Round" to "50001000",
             ),
             algorandRows(review),
         )
@@ -147,8 +147,8 @@ class AlgorandReviewRowsTest {
 
     @Test
     fun onlyAnAssetOptInIsTitledAsOptingIn() {
-        assertEquals("Opt in to asset", algorandTitle(reviewOf(AXFER_OPTIN)))
-        assertEquals("Opt in to asset", algorandTitle(reviewWith(AXFER_OPTIN, CATALOG)))
+        assertEquals("Opt In to Asset", algorandTitle(reviewOf(AXFER_OPTIN)))
+        assertEquals("Opt In to Asset", algorandTitle(reviewWith(AXFER_OPTIN, CATALOG)))
         assertEquals("Review", algorandTitle(reviewOf(AXFER)))
         assertEquals("Review", algorandTitle(reviewOf(AXFER_CLOSEOUT)))
         assertEquals("Review", algorandTitle(reviewOf(PAY_BASIC)))
@@ -167,9 +167,9 @@ class AlgorandReviewRowsTest {
                 "Amount" to "0 base units",
                 "Receiver" to RECEIVER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
-                "Valid from round" to "50000000",
-                "Valid until round" to "50001000",
-                "Close holding to" to RECEIVER_ADDRESS,
+                "Valid from Round" to "50000000",
+                "Valid until Round" to "50001000",
+                "Close Holding To" to RECEIVER_ADDRESS,
             ),
             algorandRows(review),
         )
@@ -181,7 +181,7 @@ class AlgorandReviewRowsTest {
         val review = reviewOf(AXFER_OPTOUT_TO_OTHER)
 
         assertEquals("Opt out of asset 10458941, remaining balance goes to $CLOSE_ADDRESS.", algorandSentence(review))
-        assertEquals(CLOSE_ADDRESS, algorandRows(review).single { it.first == "Close holding to" }.second)
+        assertEquals(CLOSE_ADDRESS, algorandRows(review).single { it.first == "Close Holding To" }.second)
     }
 
     @Test
@@ -199,7 +199,7 @@ class AlgorandReviewRowsTest {
     fun aCloseToOnAnAssetTransferIsNamedAsCloseHoldingWithItsWarning() {
         val review = reviewOf(AXFER.replace(AXFER_HEADER_OLD, AXFER_HEADER_WITH_ACLOSE))
 
-        assertEquals(CLOSE_ADDRESS, algorandRows(review).single { it.first == "Close holding to" }.second)
+        assertEquals(CLOSE_ADDRESS, algorandRows(review).single { it.first == "Close Holding To" }.second)
         assertEquals(listOf(AlgorandWarning.CLOSE_TO, AlgorandWarning.UNKNOWN_ASSET), review.warnings)
         assertEquals(
             "This sends all of the remaining units of this asset to the close-to address below and removes the asset from the account.",
@@ -219,8 +219,8 @@ class AlgorandReviewRowsTest {
                 "Amount" to "0.000250 USDC",
                 "Receiver" to RECEIVER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
-                "Valid from round" to "50000000",
-                "Valid until round" to "50001000",
+                "Valid from Round" to "50000000",
+                "Valid until Round" to "50001000",
             ),
             algorandRows(review),
         )
@@ -232,7 +232,7 @@ class AlgorandReviewRowsTest {
     fun aKnownMainnetUsdcTransferIsShownOnMainnetInUsdcUnits() {
         val review = reviewWith(AXFER_MAINNET_USDC, CATALOG)
 
-        assertEquals("Algorand mainnet", review.network.displayName)
+        assertEquals("Algorand Mainnet", review.network.displayName)
         assertEquals("1.000000 USDC", algorandRows(review).single { it.first == "Amount" }.second)
         assertEquals("Sends 1.000000 USDC to $RECEIVER_ADDRESS.", algorandSentence(review))
         assertEquals(emptyList(), review.warnings)

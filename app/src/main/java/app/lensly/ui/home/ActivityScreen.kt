@@ -48,10 +48,10 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletScaffold
 
-private const val EMPTY_TITLE = "No activity yet"
+private const val EMPTY_TITLE = "No Activity Yet"
 private const val EMPTY_BODY =
     "Each request you review on any wallet is listed here, with what you decided. The list stays on this device."
-private const val FILTERED_TITLE = "Nothing here yet"
+private const val FILTERED_TITLE = "Nothing Here Yet"
 private const val FILTERED_BODY = "No review matches this filter. Choose another one."
 
 /** The filters above the list: every record, or only the records of one outcome. */

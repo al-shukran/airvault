@@ -54,7 +54,7 @@ fun KeyBackupScreen(
     saving: Boolean = false,
 ) {
     LenslyScreen(
-        title = "Key backup",
+        title = "Key Backup",
         modifier = modifier,
         bottomAction = {
             Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
@@ -64,7 +64,7 @@ fun KeyBackupScreen(
                     label = "I copied the key onto my backup",
                 )
                 PillButton(
-                    text = if (saving) "Saving…" else "Create wallet",
+                    text = if (saving) "Saving…" else "Create Wallet",
                     onClick = onCreate,
                     accent = true,
                     enabled = copied && !saving,
@@ -74,9 +74,9 @@ fun KeyBackupScreen(
         },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        WalletEyebrow("Single key. Shown once")
+        WalletEyebrow("Single Key, Shown Once")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotHeadline(text = "Write down")
+        DotHeadline(text = "Write Down")
         Spacer(Modifier.height(LenslySpacing.sm))
         InlineBanner(message = "Never photograph this key.", tone = BannerTone.Warning)
         Spacer(Modifier.height(LenslySpacing.md))
@@ -88,7 +88,7 @@ fun KeyBackupScreen(
         )
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletPanel {
-            WalletEyebrow("Private key")
+            WalletEyebrow("Private Key")
             HashLines(hex = hex)
         }
         if (errorMessage != null) {

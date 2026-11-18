@@ -121,13 +121,13 @@ fun BitcoinReviewScreen(
                     }
                 }
                 ReviewSection(title = "Transaction") {
-                    ReviewFactRow(label = "Script type", value = scriptTypeName(scriptType), mono = false)
+                    ReviewFactRow(label = "Script Type", value = scriptTypeName(scriptType), mono = false)
                     ReviewFactRow(
                         label = "Fee",
                         value = review.feeSats?.let { "$it sat" } ?: "Unknown",
                         mono = review.feeSats != null,
                     )
-                    ReviewFactRow(label = "Estimated size", value = "${review.estimatedVsize} vB")
+                    ReviewFactRow(label = "Estimated Size", value = "${review.estimatedVsize} vB")
                     NoteText("Estimated from the unsigned request, so the signed size may differ by a few vbytes.")
                     ReviewFactRow(label = "Locktime", value = lockTimeText(review.lockTime), mono = review.lockTime != 0L)
                     if (review.lockTime != 0L && !review.lockTimeEnforced) {
@@ -154,8 +154,8 @@ private fun btcHint(review: BtcReview, read: ReviewRead, confirmed: Boolean): St
 /** The Script Type a review shows, with its address kind. */
 internal fun scriptTypeName(scriptType: ScriptType): String = when (scriptType) {
     ScriptType.LEGACY -> "Legacy P2PKH"
-    ScriptType.NESTED_SEGWIT -> "Nested segwit P2SH-P2WPKH"
-    ScriptType.NATIVE_SEGWIT -> "Native segwit P2WPKH"
+    ScriptType.NESTED_SEGWIT -> "Nested Segwit P2SH-P2WPKH"
+    ScriptType.NATIVE_SEGWIT -> "Native Segwit P2WPKH"
     ScriptType.TAPROOT -> "Taproot P2TR"
 }
 
@@ -223,14 +223,14 @@ internal fun btcFacts(review: BtcReview): List<ReviewFact> {
     val total = review.totalSats()
     val change = review.changeBackSats()
     return listOf(
-        ReviewFact(label = "Network fee", value = fee?.let(::btcText) ?: "Unknown", mono = fee != null),
+        ReviewFact(label = "Network Fee", value = fee?.let(::btcText) ?: "Unknown", mono = fee != null),
         ReviewFact(
-            label = "Fee rate",
+            label = "Fee Rate",
             value = rate?.let { String.format(Locale.ROOT, "%.1f sat/vB", it) } ?: "Unknown",
             mono = rate != null,
         ),
         ReviewFact(label = "Total", value = total?.let(::btcText) ?: "Unknown", mono = total != null),
-        ReviewFact(label = "Change back", value = if (change > 0) btcText(change) else "None", mono = change > 0),
+        ReviewFact(label = "Change Back", value = if (change > 0) btcText(change) else "None", mono = change > 0),
     )
 }
 

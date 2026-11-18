@@ -21,7 +21,7 @@ internal fun AccountOptionsSheet(
 ) {
     OptionsSheet(onDismiss = onDismiss) {
         SheetHeader(name = name, identity = identity, address = address)
-        if (onExport != null) SheetOption(icon = Icons.Filled.Share, label = "Export address", onClick = onExport)
-        SheetOption(icon = Icons.Filled.Edit, label = "Edit profile", onClick = onEdit)
+        if (onExport != null) SheetOption(icon = Icons.Filled.Share, label = "Export Address", onClick = onExport)
+        SheetOption(icon = Icons.Filled.Edit, label = "Edit Profile", onClick = onEdit)
     }
 }

@@ -77,7 +77,7 @@ class AddressBookScreenshotTest {
     @Test
     fun addressBookFormAdd() = compose.snapshot("address_book_form_add") {
         AddressBookFormScreen(
-            title = "Add address",
+            title = "Add Address",
             address = CAROL_ADDRESS,
             name = "Carol",
             label = "",
@@ -94,7 +94,7 @@ class AddressBookScreenshotTest {
     @Test
     fun addressBookFormEdit() = compose.snapshot("address_book_form_edit") {
         AddressBookFormScreen(
-            title = "Edit address",
+            title = "Edit Address",
             address = CAROL_ADDRESS,
             name = "Carol",
             label = "Cold storage",

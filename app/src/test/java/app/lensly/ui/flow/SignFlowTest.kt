@@ -307,7 +307,7 @@ class SignFlowTest {
         val review = reviewOf(SignFlow(FakePorts(), WALLET_ID)).ready.review
         assertEquals(ART_ADDRESS, review.fromAddress)
         assertEquals(MONAD_TESTNET, review.chainId)
-        assertEquals("Sign message", review.function)
+        assertEquals("Sign Message", review.function)
     }
 
     @Test
@@ -640,7 +640,7 @@ class SignFlowTest {
         scan(flow, framesOf(transactionRequest(data), FRAGMENT))
 
         val refused = assertIs<SignStep.Refused>(flow.state.value)
-        assertEquals("Unknown contract call", refused.reason)
+        assertEquals("Unknown Contract Call", refused.reason)
         assertEquals("70a08231", assertNotNull(refused.call).selector)
     }
 

@@ -27,7 +27,7 @@ fun FeeWarningScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LenslyScreen(title = "Fee warnings", modifier = modifier, onBack = onBack) {
+    LenslyScreen(title = "Fee Warnings", modifier = modifier, onBack = onBack) {
         Text(
             text = "A Bitcoin review warns when its fee rate is above the first limit, or when its fee is above the share of the amount " +
                 "sent. A warning does not stop signing.",
@@ -36,7 +36,7 @@ fun FeeWarningScreen(
         )
         SettingsItem {
             NumberFieldSetting(
-                title = "Fee rate above",
+                title = "Fee Rate Above",
                 value = rate,
                 range = BtcFeeThresholds.MIN_RATE_SAT_PER_VB..BtcFeeThresholds.MAX_RATE_SAT_PER_VB,
                 suffix = "sat/vB",
@@ -45,7 +45,7 @@ fun FeeWarningScreen(
         }
         SettingsItem {
             SliderSetting(
-                title = "Fee share above",
+                title = "Fee Share Above",
                 options = SHARE_OPTIONS,
                 selected = share,
                 label = { "$it%" },

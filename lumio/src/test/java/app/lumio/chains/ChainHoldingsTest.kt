@@ -21,13 +21,13 @@ class ChainHoldingsTest {
                 SplBalance(ACCOUNT, UNKNOWN_MINT, SPL_2022_PROGRAM, BigInteger("42"), 9),
             ),
             names,
-            "Solana devnet",
+            "Solana Devnet",
         )
 
         assertEquals(
             listOf(
-                ChainHolding("USDC", "Solana devnet", BigInteger("1500000"), 6, USDC_MINT),
-                ChainHolding("5UHr...2XJ6", "Solana devnet", BigInteger("42"), 9, UNKNOWN_MINT),
+                ChainHolding("USDC", "Solana Devnet", BigInteger("1500000"), 6, USDC_MINT),
+                ChainHolding("5UHr...2XJ6", "Solana Devnet", BigInteger("42"), 9, UNKNOWN_MINT),
             ),
             rows,
         )
@@ -35,14 +35,14 @@ class ChainHoldingsTest {
 
     @Test
     fun anSplAccountHoldingNothingIsNotListed() {
-        val rows = ChainHoldings.solanaRows(listOf(SplBalance(ACCOUNT, USDC_MINT, CLASSIC_PROGRAM, BigInteger.ZERO, 6)), names, "Solana devnet")
+        val rows = ChainHoldings.solanaRows(listOf(SplBalance(ACCOUNT, USDC_MINT, CLASSIC_PROGRAM, BigInteger.ZERO, 6)), names, "Solana Devnet")
 
         assertEquals(emptyList(), rows)
     }
 
     @Test
     fun aSplAmountReadsInWholeUnitsWithTheDecimalsTheAccountReports() {
-        val row = ChainHoldings.solanaRows(listOf(SplBalance(ACCOUNT, USDC_MINT, CLASSIC_PROGRAM, BigInteger("1500000"), 6)), names, "Solana devnet").single()
+        val row = ChainHoldings.solanaRows(listOf(SplBalance(ACCOUNT, USDC_MINT, CLASSIC_PROGRAM, BigInteger("1500000"), 6)), names, "Solana Devnet").single()
 
         assertEquals("1.5", Amounts.format(row.amount, row.decimals))
     }
@@ -52,10 +52,10 @@ class ChainHoldingsTest {
         val rows = ChainHoldings.algorandRows(
             listOf(AsaHolding(USDC_ASSET, BigInteger("2500000"), frozen = false)),
             mapOf(USDC_ASSET to AsaInfo(decimals = 6, unitName = "USDC", name = "USDC test")),
-            "Algorand testnet",
+            "Algorand Testnet",
         )
 
-        assertEquals(listOf(ChainHolding("USDC", "Algorand testnet", BigInteger("2500000"), 6, "$USDC_ASSET")), rows)
+        assertEquals(listOf(ChainHolding("USDC", "Algorand Testnet", BigInteger("2500000"), 6, "$USDC_ASSET")), rows)
         assertEquals("2.5", Amounts.format(rows.single().amount, rows.single().decimals))
     }
 
@@ -64,7 +64,7 @@ class ChainHoldingsTest {
         val rows = ChainHoldings.algorandRows(
             listOf(AsaHolding(1234567UL, BigInteger.ONE, frozen = false)),
             mapOf(1234567UL to AsaInfo(decimals = 0, unitName = "", name = "")),
-            "Algorand mainnet",
+            "Algorand Mainnet",
         )
 
         assertEquals("ASA 1234567", rows.single().symbol)

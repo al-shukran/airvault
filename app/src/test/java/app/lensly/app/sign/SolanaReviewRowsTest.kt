@@ -38,10 +38,10 @@ class SolanaReviewRowsTest {
         assertEquals(
             listOf(
                 "Signer" to address(1),
-                "Fee payer" to address(1),
-                "Recent blockhash" to BLOCKHASH,
+                "Fee Payer" to address(1),
+                "Recent Blockhash" to BLOCKHASH,
                 "Program" to SYSTEM_ADDRESS,
-                "SOL transfer" to "1.5 SOL",
+                "SOL Transfer" to "1.5 SOL",
                 "From" to address(1),
                 "To" to address(9),
             ),
@@ -68,10 +68,10 @@ class SolanaReviewRowsTest {
         assertEquals(
             listOf(
                 "Signer" to address(1),
-                "Fee payer" to address(1),
-                "Recent blockhash" to BLOCKHASH,
-                "Unknown program" to address(7),
-                "Instruction data" to "0x0909",
+                "Fee Payer" to address(1),
+                "Recent Blockhash" to BLOCKHASH,
+                "Unknown Program" to address(7),
+                "Instruction Data" to "0x0909",
                 "Account (signer, writable)" to address(1),
             ),
             solanaRows(transaction(signData)),
@@ -100,7 +100,7 @@ class SolanaReviewRowsTest {
             readonly = 1,
         )
         val rows = solanaRows(transaction(signData))
-        assertContains(rows, "Other required signer" to address(2))
+        assertContains(rows, "Other Required Signer" to address(2))
         assertEquals(
             listOf(
                 "Account (signer, writable)" to address(1),
@@ -133,16 +133,16 @@ class SolanaReviewRowsTest {
             readonly = 2,
         )
         val facts = solanaFacts(transaction(signData)).toMap()
-        assertEquals("up to 3000 lamports", facts["Priority fee"])
-        assertEquals("5000 lamports", facts["Base fee"])
-        assertEquals("up to 8000 lamports", facts["Max fee"])
+        assertEquals("up to 3000 lamports", facts["Priority Fee"])
+        assertEquals("5000 lamports", facts["Base Fee"])
+        assertEquals("up to 8000 lamports", facts["Max Fee"])
     }
 
     /** An off-chain message shows its signer, its application domain and its text, as the owner reads it. */
     @Test
     fun aMessageToSignShowsTheSignerTheApplicationDomainAndTheText() {
         val review = review(request(offchain("hello", domain = key(5)), signType = SolSignType.MESSAGE))
-        assertEquals(listOf("Signer" to address(1), "Application domain" to address(5), "Message" to "hello"), solanaRows(review))
+        assertEquals(listOf("Signer" to address(1), "Application Domain" to address(5), "Message" to "hello"), solanaRows(review))
         assertEquals("Signs a message as text.", solanaSentence(review))
     }
 
@@ -173,7 +173,7 @@ class SolanaReviewRowsTest {
     @Test
     fun aRequestForDevnetShowsItsNetworkRowAsStatedByLumio() {
         val review = review(request(offchain("hello"), signType = SolSignType.MESSAGE, cluster = SolCluster.DEVNET))
-        assertEquals(ReviewFact(label = "Network", value = "Solana devnet (stated by Lumio)", mono = false), solanaNetworkFact(review))
+        assertEquals(ReviewFact(label = "Network", value = "Solana Devnet (stated by Lumio)", mono = false), solanaNetworkFact(review))
     }
 
     /** A request that names no cluster, as Keystone's does, shows its network row as not stated. */
@@ -233,13 +233,13 @@ class SolanaReviewRowsTest {
         assertEquals(
             listOf(
                 "Signer" to address(1),
-                "Fee payer" to address(1),
-                "Recent blockhash" to BLOCKHASH,
+                "Fee Payer" to address(1),
+                "Recent Blockhash" to BLOCKHASH,
                 "Program" to SYSTEM_ADDRESS,
-                "Uses durable nonce account" to address(2),
-                "Nonce authority" to address(1),
+                "Uses Durable Nonce Account" to address(2),
+                "Nonce Authority" to address(1),
                 "Program" to SYSTEM_ADDRESS,
-                "SOL transfer" to "1.5 SOL",
+                "SOL Transfer" to "1.5 SOL",
                 "From" to address(1),
                 "To" to address(9),
             ),
@@ -260,13 +260,13 @@ class SolanaReviewRowsTest {
         assertEquals(
             listOf(
                 "Signer" to address(1),
-                "Fee payer" to address(1),
-                "Other required signer" to address(2),
-                "Recent blockhash" to BLOCKHASH,
+                "Fee Payer" to address(1),
+                "Other Required Signer" to address(2),
+                "Recent Blockhash" to BLOCKHASH,
                 "Program" to SYSTEM_ADDRESS,
-                "Create a nonce account" to address(2),
+                "Create a Nonce Account" to address(2),
                 "Rent" to "0.00144768 SOL",
-                "Nonce authority" to address(1),
+                "Nonce Authority" to address(1),
                 "Paid by" to address(1),
             ),
             solanaRows(review),
@@ -287,14 +287,14 @@ class SolanaReviewRowsTest {
         assertEquals(
             listOf(
                 "Signer" to address(1),
-                "Fee payer" to address(1),
-                "Recent blockhash" to BLOCKHASH,
+                "Fee Payer" to address(1),
+                "Recent Blockhash" to BLOCKHASH,
                 "Program" to SYSTEM_ADDRESS,
-                "Create a nonce account" to account,
-                "Base account" to address(1),
+                "Create a Nonce Account" to account,
+                "Base Account" to address(1),
                 "Seed" to SEED,
                 "Rent" to "0.00144768 SOL",
-                "Nonce authority" to address(1),
+                "Nonce Authority" to address(1),
                 "Paid by" to address(1),
             ),
             solanaRows(review),

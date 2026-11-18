@@ -32,7 +32,7 @@ fun PassphraseBackupScreen(
     saving: Boolean = false,
 ) {
     LenslyScreen(
-        title = "Passphrase backup",
+        title = "Passphrase Backup",
         modifier = modifier,
         bottomAction = {
             Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
@@ -42,7 +42,7 @@ fun PassphraseBackupScreen(
                     label = "I wrote the passphrase down separately",
                 )
                 PillButton(
-                    text = if (saving) "Saving…" else "Create wallet",
+                    text = if (saving) "Saving…" else "Create Wallet",
                     onClick = onCreate,
                     accent = true,
                     enabled = writtenDown && !saving,
@@ -52,9 +52,9 @@ fun PassphraseBackupScreen(
         },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        WalletEyebrow("Part of the backup")
+        WalletEyebrow("Part of the Backup")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotHeadline(text = "Write down")
+        DotHeadline(text = "Write Down")
         Spacer(Modifier.height(LenslySpacing.sm))
         InlineBanner(message = "Write it down separately from the 24 words.", tone = BannerTone.Warning)
         Spacer(Modifier.height(LenslySpacing.md))

@@ -86,7 +86,7 @@ internal fun AlgorandAddAssetScreen(
     onPick: (AddAssetRow) -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(title = "Add asset", onBack = onBack) {
+    LenslyScreen(title = "Add Asset", onBack = onBack) {
         OutlinedTextField(
             value = query,
             onValueChange = onQuery,

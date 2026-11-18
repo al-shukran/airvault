@@ -48,7 +48,7 @@ class WalletDashboardTest {
 
         compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(2)
         compose.onNodeWithTag(ADD_WALLET_TAG).assertDoesNotExist()
-        compose.onNodeWithText("Update catalog", substring = true, ignoreCase = true).assertDoesNotExist()
+        compose.onNodeWithText("Update Catalog", substring = true, ignoreCase = true).assertDoesNotExist()
     }
 
     @Test
@@ -79,7 +79,7 @@ class WalletDashboardTest {
         // The carousel holds all five wallets. Its cards on screen are fewer, so the row is checked by its item count.
         assertEquals(5, compose.onNodeWithTag(HOME_CAROUSEL_TAG).fetchSemanticsNode().config[SemanticsProperties.CollectionInfo].columnCount)
 
-        compose.onNodeWithText("All wallets").performClick()
+        compose.onNodeWithText("All Wallets").performClick()
         settle()
 
         assertEquals(HiddenRoute.WALLETS, nav.currentBackStackEntry?.destination?.route)

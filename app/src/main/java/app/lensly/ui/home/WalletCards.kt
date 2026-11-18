@@ -128,7 +128,7 @@ internal fun WalletCard(
         )
         Column(modifier = Modifier.fillMaxSize().padding(if (compact) 14.dp else 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PillChip(text = if (wallet.kind == WalletKind.SINGLE_KEY) "Single key" else "Mnemonic")
+                PillChip(text = if (wallet.kind == WalletKind.SINGLE_KEY) "Single Key" else "Mnemonic")
                 Spacer(Modifier.weight(1f))
                 ProfileAvatar(identity = identity, size = if (compact) 24.dp else 28.dp)
             }
@@ -158,7 +158,7 @@ internal fun WalletCard(
 }
 
 /**
- * The dashed add tile that ends a list of wallets: a plus and the words "Add wallet". It is a tile rather than a floating
+ * The dashed add tile that ends a list of wallets: a plus and the words "Add Wallet". It is a tile rather than a floating
  * button, so it sits where a new wallet would go.
  */
 @Composable
@@ -202,7 +202,7 @@ internal fun AddWalletTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
-            text = "Add wallet",
+            text = "Add Wallet",
             style = MaterialTheme.typography.titleSmall,
             color = colors.onSurface,
         )
@@ -240,11 +240,11 @@ internal fun WalletContextSheet(
                 onDismiss()
                 onOpen(wallet.id)
             }
-            SheetAction(icon = Icons.Filled.Edit, label = "Edit wallet profile") {
+            SheetAction(icon = Icons.Filled.Edit, label = "Edit Wallet Profile") {
                 onDismiss()
                 onEdit(wallet.id)
             }
-            SheetAction(icon = LenslyIcons.QrCode, label = "Pair this wallet") {
+            SheetAction(icon = LenslyIcons.QrCode, label = "Pair This Wallet") {
                 onDismiss()
                 onPair(wallet.id)
             }

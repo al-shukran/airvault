@@ -32,7 +32,7 @@ class PairScreensScreenshotTest {
     @Test
     fun scanPairProgress() = compose.lumioSnapshot("scan_pair_progress") {
         LumioScanFrame(
-            title = "Scan pairing code",
+            title = "Scan Pairing Code",
             progress = 0.6f,
             statusText = "12 of about 20 parts · hold steady",
             complete = false,
