@@ -24,6 +24,7 @@ internal class SealedVideoView(
     private val player = MediaPlayer()
     private val controls = MediaController(context)
     private var prepared = false
+    private var released = false
     private var videoWidth = 0
     private var videoHeight = 0
 
@@ -38,7 +39,8 @@ internal class SealedVideoView(
                 override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
 
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
-                    player.setDisplay(null)
+                    // The surface goes after release when the view leaves, and a released player takes no display.
+                    if (!released) player.setDisplay(null)
                 }
             },
         )
@@ -69,8 +71,10 @@ internal class SealedVideoView(
         }
     }
 
-    /** Stops and frees the player. */
+    /** Stops and frees the player. The controls and the surface stop using it first, so no call reaches a released player. */
     fun release() {
+        released = true
+        prepared = false
         controls.hide()
         player.release()
     }
