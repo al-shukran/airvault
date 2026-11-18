@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslySpacing
@@ -69,10 +70,11 @@ fun LumioRow(
             .then(
                 when {
                     onClick == null -> Modifier
-                    onLongClick == null -> Modifier.clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
+                    onLongClick == null -> Modifier.clickable(interactionSource = interaction, indication = LocalIndication.current, role = Role.Button, onClick = onClick)
                     else -> Modifier.combinedClickable(
                         interactionSource = interaction,
                         indication = LocalIndication.current,
+                        role = Role.Button,
                         onClick = onClick,
                         onLongClick = onLongClick,
                     )

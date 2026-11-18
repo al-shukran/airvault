@@ -48,6 +48,7 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
 import app.lensly.ui.components.LenslyIcons
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
@@ -66,8 +67,8 @@ internal const val HOME_SCROLL_TAG = "home-scroll"
 
 private val SCAN_HEIGHT = 56.dp
 
-/** The room between two parts of the content. */
-private val SECTION_GAP = 20.dp
+/** The room between two parts of the content: the 24 dp section step of the 8 dp grid. */
+private val SECTION_GAP = LenslySpacing.lg
 
 /** The room before Readiness, which is the group of device checks rather than of the wallet. */
 private val READINESS_GAP = 40.dp
@@ -288,10 +289,13 @@ private fun EmptyVault(onCreate: () -> Unit, onRestore: () -> Unit, modifier: Mo
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(LenslySpacing.md))
-        Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
-            PillButton(text = "Create", onClick = onCreate, accent = true, modifier = Modifier.weight(1f))
-            PillButton(text = "Restore", onClick = onRestore, modifier = Modifier.weight(1f))
-        }
+        // One primary action, and Restore as the text action beside it (control rule 1).
+        PillButton(text = "Create", onClick = onCreate, accent = true, modifier = Modifier.fillMaxWidth())
+        LumioTextAction(
+            text = "Restore",
+            onClick = onRestore,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "Nothing leaves this device.",
