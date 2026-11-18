@@ -6,8 +6,8 @@ name: cache-warm
 # That is what broke PR #63, where the first run of test (core-registry) was cancelled by the
 # job's timeout-minutes: 3 on a cold cache, while warm runs of the same job take about 1m54s.
 #
-# This job only compiles, so it fills the cache the PR lane reads. It is not a test gate: it runs
-# no tests, and a red run here never blocks a pull request.
+# This job compiles and resolves the dependencies the PR lane reads, so it fills the cache the PR lane
+# restores. It is not a gate: a red run here never blocks a pull request.
 #
 # Two details make the warm cache actually reachable from a PR:
 #   - setup-gradle writes cache entries only on the default branch (master) unless
@@ -51,6 +51,18 @@ jobs:
           # would leave phase-1-5 without a cache of its own.
           cache-read-only: false
 
+      # Compile resolves only the compile classpaths. The test runtime classpaths (JUnit, Robolectric,
+      # Roborazzi, ...) were never saved, so every PR test partition downloaded them from Maven Central at
+      # once. Central answered that burst with HTTP 429 ("Could not GET ... Received status code 429"), and
+      # the partition failed on the first one. One selector per module resolves each module's unit-test
+      # runtime classpath; the selectors are small, and the downloads are what this step is for.
+      - name: Resolve unit-test runtime classpaths
+        run: >
+          ./gradlew
+          :shared:testDebugUnitTest --tests 'app.lensly.core.btc.*'
+          :app:testDebugUnitTest --tests 'app.lensly.SmokeTest'
+          :lumio:testDebugUnitTest --tests 'app.lumio.data.cache.*'
+
       # Compile every variant the PR lane compiles, and nothing else. Each task was confirmed
       # present with `./gradlew <tasks> --dry-run`. Keep this list in step with the build types
       # in app/build.gradle.kts and shared/build.gradle.kts and the modules in settings.gradle.kts.
@@ -71,3 +83,26 @@ jobs:
           :lumio:compileDebugUnitTestKotlin
           :lumio:assembleDebug
           :tools:registry-pack:testClasses
+
+  # pr-fast.yml's `lint` job has its own Gradle User Home key, and nothing on master wrote it, so a PR's lint
+  # started cold: 40 to 76 s of task-graph configuration, then every compile task of :shared and :lumio ran
+  # instead of coming from the build cache. This job runs the same lint task so the key gets a master entry.
+  lint: # the job id must match pr-fast.yml's `lint` job (see the note above)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: false
+
+      - name: Lint lumio
+        run: ./gradlew :lumio:lintDebug
