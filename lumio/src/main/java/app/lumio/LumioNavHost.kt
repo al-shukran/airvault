@@ -163,11 +163,11 @@ internal object LumioRoute {
     const val TX_ACCOUNT_ARG = "account"
     const val TX_ID_ARG = "txId"
 
-    /** A transaction's page, for the row of [TX_ACCOUNT_ARG] and [TX_ID_ARG]. */
-    const val TRANSACTION = "transaction/{$TX_ACCOUNT_ARG}/{$TX_ID_ARG}"
+    /** A transaction's page, for the row of [TX_ACCOUNT_ARG] and [TX_ID_ARG] in the wallet [WALLET_ARG], whose Address Book the addresses are named in. */
+    const val TRANSACTION = "transaction/{$WALLET_ARG}/{$TX_ACCOUNT_ARG}/{$TX_ID_ARG}"
 
-    /** The route of the page of transaction [txId] for [account]. */
-    fun transaction(account: String, txId: String): String = "transaction/$account/$txId"
+    /** The route of the page of transaction [txId] for [account], an account of the wallet [walletId]. */
+    fun transaction(walletId: String, account: String, txId: String): String = "transaction/$walletId/$account/$txId"
 }
 
 /** The chain argument of a send that names no chain. Chain IDs are never zero. */
@@ -294,14 +294,16 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             composable(
                 route = LumioRoute.TRANSACTION,
                 arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.TX_ACCOUNT_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.TX_ID_ARG) { type = NavType.StringType },
                 ),
             ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.arguments?.getString(LumioRoute.TX_ACCOUNT_ARG).orEmpty()
                 val txId = entry.arguments?.getString(LumioRoute.TX_ID_ARG).orEmpty()
                 LumioBackdrop(selection) {
-                    TransactionDetailRoute(navController = navController, holder = holder, account = account, txId = txId)
+                    TransactionDetailRoute(navController = navController, holder = holder, walletId = walletId, account = account, txId = txId)
                 }
             }
             composable(LumioRoute.PAIR_SCAN) {
