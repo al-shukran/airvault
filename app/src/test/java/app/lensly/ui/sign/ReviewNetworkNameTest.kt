@@ -1,7 +1,7 @@
 package app.lensly.ui.sign
 
+import app.airvault.chains.algorand.AlgorandNetwork
 import app.lensly.app.sign.SOLANA_NETWORK
-import app.lensly.core.algorand.AlgorandNetwork
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry

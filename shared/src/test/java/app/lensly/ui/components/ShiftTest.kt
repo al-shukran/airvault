@@ -104,10 +104,26 @@ class ShiftTest {
     }
 
     @Test
-    fun digitsSymbolsSpaceAndPunctuationKeepOneShot() {
+    fun theNumberRowTypesItsSymbolAndSpendsOneShot() {
         tapAt(0)
 
-        for (key in "1234567890@#\$%&*()-+!?_'\"/\\:; ,.[]{}<>=~^|") {
+        assertEquals('!', shift.type('1'))
+        assertEquals(ShiftMode.Off, shift.mode)
+        assertEquals('2', shift.type('2'))
+    }
+
+    @Test
+    fun everyDigitTypesTheSymbolAboveItUnderOneShot() {
+        val typed = "1234567890".map { digit -> Shift(mode = ShiftMode.OneShot).type(digit) }.joinToString("")
+
+        assertEquals("!@#\$%^&*()", typed)
+    }
+
+    @Test
+    fun spaceCommaPeriodAndSymbolsKeepOneShot() {
+        tapAt(0)
+
+        for (key in " ,.-+[]{}<>=~^|!?_'\"/\\:;@#\$%&*()") {
             assertEquals(key, shift.type(key))
             assertEquals(ShiftMode.OneShot, shift.mode, "'$key' must not spend shift")
         }
@@ -125,11 +141,20 @@ class ShiftTest {
     }
 
     @Test
-    fun labelShowsCaseWithoutSpendingOneShot() {
+    fun capsLockLeavesTheNumberRowAsDigits() {
+        tapAt(0)
+        tapAt(100)
+
+        assertEquals("1234567890", "1234567890".map { shift.labelFor(it) }.joinToString(""))
+    }
+
+    @Test
+    fun labelShowsCaseAndSymbolWithoutSpendingOneShot() {
         tapAt(0)
 
         assertEquals('A', shift.labelFor('a'))
         assertEquals('A', shift.labelFor('a'))
+        assertEquals('!', shift.labelFor('1'))
         assertEquals(ShiftMode.OneShot, shift.mode)
     }
 
@@ -143,8 +168,20 @@ class ShiftTest {
     }
 
     @Test
-    fun labelIsLowercaseWhileShiftIsOff() {
+    fun labelIsLowercaseAndDigitsWhileShiftIsOff() {
         assertEquals('q', Shift().labelFor('q'))
+        assertEquals('1', Shift().labelFor('1'))
+    }
+
+    @Test
+    fun resetClearsOneShotAndCapsLock() {
+        tapAt(0)
+        tapAt(100)
+
+        shift.reset()
+
+        assertEquals(ShiftMode.Off, shift.mode)
+        assertEquals('a', shift.type('a'))
     }
 
     @Test

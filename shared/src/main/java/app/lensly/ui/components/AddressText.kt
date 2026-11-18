@@ -19,6 +19,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -69,6 +70,7 @@ fun AddressText(
                 .weight(1f)
                 .testTag(ADDRESS_TEXT_TAG)
                 .combinedClickable(
+                    role = if (onClick != null) Role.Button else null,
                     onClick = onClick ?: {},
                     onLongClickLabel = COPY_ADDRESS_LABEL,
                     onLongClick = {

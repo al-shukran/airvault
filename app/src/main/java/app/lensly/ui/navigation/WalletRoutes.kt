@@ -121,7 +121,7 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
         HiddenBackdrop { PassphraseBackupRoute(navController, holder, entry) }
     }
     vaultComposable(HiddenRoute.WALLETS) { HiddenBackdrop { WalletsRoute(navController, holder) } }
-    vaultComposable(HiddenRoute.PAIR) { HiddenBackdrop { PairWalletRoute(navController, holder, walletId = null) } }
+    vaultComposable(HiddenRoute.PAIR, motion = NavMotion.RISE) { HiddenBackdrop { PairWalletRoute(navController, holder, walletId = null) } }
     vaultComposable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DetailRoute(navController, holder, entry.walletId()) }
     }
@@ -131,7 +131,7 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     vaultComposable(HiddenRoute.BULK, arguments = walletIdArguments() + appArgument()) { entry ->
         HiddenBackdrop { BulkRoute(navController, holder, entry.walletId(), entry.walletApp()) }
     }
-    vaultComposable(HiddenRoute.EXPORT, arguments = walletIdArguments()) { entry ->
+    vaultComposable(HiddenRoute.EXPORT, arguments = walletIdArguments(), motion = NavMotion.RISE) { entry ->
         HiddenBackdrop { PairWalletRoute(navController, holder, walletId = entry.walletId()) }
     }
     vaultComposable(
@@ -140,11 +140,11 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     ) { entry ->
         HiddenBackdrop { ExportAccountsRoute(navController, holder, entry.walletId(), entry.accountIndices()) }
     }
-    vaultComposable(HiddenRoute.SCAN, arguments = walletIdArguments()) { entry ->
+    vaultComposable(HiddenRoute.SCAN, arguments = walletIdArguments(), motion = NavMotion.RISE) { entry ->
         HiddenBackdrop { SignWalletRoute(navController, holder, entry.walletId()) }
     }
     // A scan of any wallet of the vault: the wallet the request is for is found among them.
-    vaultComposable(HiddenRoute.SCAN_ANY) {
+    vaultComposable(HiddenRoute.SCAN_ANY, motion = NavMotion.RISE) {
         HiddenBackdrop { SignWalletRoute(navController, holder, walletId = null) }
     }
     vaultComposable(HiddenRoute.SHOW_SECRET, arguments = walletIdArguments()) { entry ->

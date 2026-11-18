@@ -25,7 +25,7 @@ object EthSignRequestEncoder {
         fun put(key: Long, value: Cbor?) {
             if (value != null) fields += Cbor.Uint(key) to value
         }
-        put(1L, request.requestId?.let { Cbor.Tagged(EthSignRequest.UUID_TAG, Cbor.Bytes(it)) })
+        put(1L, request.requestId?.let { Cbor.Tagged(UUID_TAG, Cbor.Bytes(it)) })
         put(2L, Cbor.Bytes(request.signData))
         put(3L, Cbor.Uint(request.dataType.wire.toLong()))
         put(4L, request.chainId?.let { Cbor.Uint(it) })

@@ -1,6 +1,9 @@
 package app.lumio.ui.screenshot
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lumio.btc.networkId
 import app.lumio.data.Clock
@@ -28,6 +31,9 @@ import app.lumio.ui.wallets.AssetRowModel
 import app.lumio.ui.wallets.AssetRows
 import app.lumio.ui.wallets.AssetScreen
 import app.lumio.ui.wallets.WalletRow
+import app.lumio.ui.wallets.WalletSheet
+import app.lumio.ui.wallets.WalletSheetHost
+import app.lumio.ui.wallets.WalletSheets
 import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletsScreen
 import app.lumio.wallets.AccountChain
@@ -35,6 +41,8 @@ import app.lumio.wallets.WalletAccount
 import app.lensly.core.btc.BtcNetwork
 import java.math.BigDecimal
 import java.math.BigInteger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -205,7 +213,6 @@ class WalletScreensScreenshotTest {
     @Test
     fun walletAccountsTestnet() = compose.lumioSnapshot("wallet_accounts_testnet") {
         WalletScreen(
-            walletId = "wallet-demo",
             walletName = "Demo",
             fingerprint = 0x1a2b3c4d,
             mode = NetworkMode.TESTNET,
@@ -219,7 +226,6 @@ class WalletScreensScreenshotTest {
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
-            onRefresh = {},
             onBack = {},
             clock = fixedClock,
         )
@@ -228,7 +234,6 @@ class WalletScreensScreenshotTest {
     @Test
     fun walletAccountsHiddenWhileReading() = compose.lumioSnapshot("wallet_accounts_reading") {
         WalletScreen(
-            walletId = "wallet-demo",
             walletName = "Demo",
             fingerprint = 0x1a2b3c4d,
             mode = NetworkMode.MAINNET,
@@ -242,7 +247,6 @@ class WalletScreensScreenshotTest {
             updatedAtMs = null,
             notice = null,
             onAccount = {},
-            onRefresh = {},
             onBack = {},
             clock = fixedClock,
         )
@@ -252,7 +256,6 @@ class WalletScreensScreenshotTest {
     @Test
     fun walletAccountsEmpty() = compose.lumioSnapshot("wallet_accounts_empty") {
         WalletScreen(
-            walletId = "wallet-demo",
             walletName = "Demo",
             fingerprint = 0x1a2b3c4d,
             mode = NetworkMode.MAINNET,
@@ -266,8 +269,26 @@ class WalletScreensScreenshotTest {
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
-            onRefresh = {},
             onBack = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** The Wallets home before its balances are read: skeleton rows hold the places of the wallets, and the pair intro does not show. */
+    @Test
+    fun walletsLoading() = compose.lumioSnapshot("wallets_loading") {
+        WalletsScreen(
+            rows = emptyList(),
+            totalUsd = null,
+            showTotal = true,
+            refreshing = false,
+            updatedAtMs = null,
+            notice = null,
+            onWallet = {},
+            onPair = {},
+            onRefresh = {},
+            onSettings = {},
+            loading = true,
             clock = fixedClock,
         )
     }
@@ -276,7 +297,6 @@ class WalletScreensScreenshotTest {
     @Test
     fun walletLongName() = compose.lumioSnapshot("wallet_long_name") {
         WalletScreen(
-            walletId = "wallet-demo",
             walletName = "A wallet name that runs on past the width of the screen",
             fingerprint = 0x1a2b3c4d,
             mode = NetworkMode.TESTNET,
@@ -290,7 +310,6 @@ class WalletScreensScreenshotTest {
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
-            onRefresh = {},
             onBack = {},
             clock = fixedClock,
         )
@@ -331,6 +350,23 @@ class WalletScreensScreenshotTest {
             account = zeroEthereum,
             showBalance = true,
             assets = rowsOf(zeroEthereum),
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    /** An account whose tokens and activity are still being read: its native row shows, and the rows that follow hold their places as skeleton bars. */
+    @Test
+    fun accountLoadingReads() = compose.lumioSnapshot("account_loading") {
+        AccountScreen(
+            walletName = "Demo",
+            account = ethereum,
+            showBalance = true,
+            assets = rowsOf(ethereum),
+            loadingAssets = true,
+            activity = emptyList(),
+            loadingActivity = true,
             onSend = {},
             onReceive = {},
             onBack = {},
@@ -495,7 +531,6 @@ class WalletScreensScreenshotTest {
     @Test
     fun walletAccountsWithAPrice() = compose.lumioSnapshot("wallet_accounts_priced") {
         WalletScreen(
-            walletId = "wallet-demo",
             walletName = "Demo",
             fingerprint = 0x1a2b3c4d,
             mode = NetworkMode.MAINNET,
@@ -509,9 +544,64 @@ class WalletScreensScreenshotTest {
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
-            onRefresh = {},
             onBack = {},
             clock = fixedClock,
         )
+    }
+
+    /** The Demo wallet's screen as a sheet: the same accounts as its screen, with the sheet's top edge and grab strip over the home. */
+    private val walletSheetScreen: @Composable () -> Unit = {
+        WalletScreen(
+            walletName = "Demo",
+            fingerprint = 0x1a2b3c4d,
+            mode = NetworkMode.TESTNET,
+            accounts = listOf(bitcoin, ethereum, solana, algorand),
+            tokenCounts = mapOf(ethereum to 2),
+            network = { null },
+            totalUsd = null,
+            showTotal = true,
+            showBalances = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onAccount = {},
+            onBack = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** The sheets open at rest, with reduced motion so each one is open on its first frame. */
+    private fun openedSheets(vararg opened: WalletSheet): WalletSheets {
+        val sheets = WalletSheets(reducedMotion = { true }, scope = CoroutineScope(Dispatchers.Unconfined))
+        opened.forEach { sheets.open(it) }
+        return sheets
+    }
+
+    /** The Wallets home with [sheets] open over it. A Wallet sheet shows the wallet, and an Account sheet the Ethereum account. */
+    @Composable
+    private fun SheetOverHome(sheets: WalletSheets) {
+        Box(Modifier.fillMaxSize()) {
+            walletsScreen()
+            WalletSheetHost(sheets) { opened ->
+                when (opened.sheet) {
+                    is WalletSheet.Wallet -> walletSheetScreen()
+                    is WalletSheet.Account -> accountEthereumScreen()
+                }
+            }
+        }
+    }
+
+    /** The Wallet sheet rises over the still, dimmed Wallets home: the home shows at its top edge, under the scrim. */
+    @Test
+    fun walletSheetOverHome() {
+        val sheets = openedSheets(WalletSheet.Wallet("wallet-demo"))
+        compose.lumioSnapshot("wallet_sheet_over_home") { SheetOverHome(sheets) }
+    }
+
+    /** The Account sheet rises over the dimmed Wallet sheet, which stays visible beneath it at its top edge. */
+    @Test
+    fun accountSheetOverWalletSheet() {
+        val sheets = openedSheets(WalletSheet.Wallet("wallet-demo"), WalletSheet.Account("wallet-demo", AccountChain.ETHEREUM, 0))
+        compose.lumioSnapshot("account_sheet_over_wallet_sheet") { SheetOverHome(sheets) }
     }
 }

@@ -1,15 +1,18 @@
 package app.lumio
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
@@ -18,17 +21,13 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.chains.ChainHolding
 import app.lumio.chains.ChainHoldings
-import app.lumio.data.WallClock
-import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.price.ChartRange
-import app.lumio.data.price.Price
 import app.lumio.data.price.PriceSeries
 import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
-import app.lumio.data.scan.ScanEvent
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.network.NetworkMode
@@ -36,7 +35,6 @@ import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.tokens.TokenBalanceCache
-import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
 import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.TxSync
@@ -48,85 +46,51 @@ import app.lumio.ui.wallets.AccountScreen
 import app.lumio.ui.wallets.AssetRowModel
 import app.lumio.ui.wallets.AssetRows
 import app.lumio.ui.wallets.AssetScreen
+import app.lumio.ui.wallets.OpenSheet
+import app.lumio.ui.wallets.WalletLoadingScreen
 import app.lumio.ui.wallets.WalletRow
 import app.lumio.ui.wallets.WalletScreen
+import app.lumio.ui.wallets.WalletSheet
+import app.lumio.ui.wallets.WalletSheetHost
+import app.lumio.ui.wallets.WalletSheets
 import app.lumio.ui.wallets.WalletsScreen
 import app.lumio.ui.wallets.summaryLine
 import app.lumio.wallets.AccountActivity
 import app.lumio.wallets.AccountChain
+import app.lumio.wallets.AccountReads
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
+import app.lumio.wallets.WalletsBoard
 import app.lumio.wallets.WalletsLoader
 import app.lumio.wallets.WalletsView
-import app.lumio.wallets.readOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The notice a read that did not answer leaves on the wallet screens. The last known balances stay on them. */
-private const val REFRESH_NOTICE = "Some balances could not be refreshed. The last known balances are shown."
-
 /** How many of an account's newest transactions its screen shows. */
 private const val ACTIVITY_ROWS = 10
 
-/**
- * What the wallet screens show: the balances of the side, whether a read runs and its notice, the time of the last complete read, the display settings,
- * and a refresh.
- */
-private class WalletsState(
-    val view: WalletsView?,
-    val refreshing: Boolean,
-    val notice: String?,
-    val updatedAtMs: Long?,
-    val display: DisplaySettings,
-    val refresh: () -> Unit,
-)
-
-/**
- * The balances of the open vault on [mode]'s side. They show from the caches when the screen opens. With [refreshOnOpen] the networks are read then too:
- * the Ethereum, Algorand and Solana balances, and the Bitcoin scans. A scan that finishes adds its balance at once, and [refresh] reads them all again.
- */
+/** The display settings of the open vault: whether totals and balances show. */
 @Composable
-private fun rememberWalletsState(
-    app: LumioApp,
-    session: VaultSession,
-    mode: NetworkMode,
-    listVersion: Int,
-    refreshOnOpen: Boolean,
-): WalletsState {
+private fun rememberDisplay(app: LumioApp): DisplaySettings {
     val fallback = remember { MutableStateFlow(DisplaySettings()) }
     val display by (app.lumioVault()?.display ?: fallback).collectAsState()
-    var view by remember { mutableStateOf<WalletsView?>(null) }
-    var refreshing by remember { mutableStateOf(false) }
-    var notice by remember { mutableStateOf<String?>(null) }
-    var updatedAtMs by remember { mutableStateOf<Long?>(null) }
-    var refreshTick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(session, mode) {
-        app.scanQueue.events.collect { event ->
-            when (event) {
-                is ScanEvent.Finished -> readOrNull { WalletsLoader.read(app, session, mode) }?.let { view = it }
-                is ScanEvent.Failed -> notice = REFRESH_NOTICE
-                is ScanEvent.Progress -> Unit
-            }
-        }
+    return display
+}
+
+/**
+ * The balances of the open vault, which every wallet screen shares. Its side and list version are shown as they change, from the vault's caches only: the
+ * network reads start on the Wallets home alone. Null while the vault is locked. [ready] holds the showing back until the side the owner chose is read.
+ */
+@Composable
+private fun rememberWalletsBoard(app: LumioApp, mode: NetworkMode, listVersion: Int, ready: Boolean = true): WalletsBoard? {
+    val board = app.lumioVault()?.wallets
+    LaunchedEffect(board, mode, listVersion, ready) {
+        if (ready) board?.showSide(mode, listVersion)
     }
-    // Every read runs in this one effect, so a new read cancels the one before it. A side, a pairing and a refresh each start one.
-    LaunchedEffect(session, mode, listVersion, refreshTick) {
-        view = readOrNull { WalletsLoader.read(app, session, mode) } ?: view
-        if (refreshTick == 0 && !refreshOnOpen) return@LaunchedEffect
-        refreshing = true
-        notice = null
-        try {
-            val failed = WalletsLoader.refresh(app, session, mode)
-            view = readOrNull { WalletsLoader.read(app, session, mode) } ?: view
-            if (failed) notice = REFRESH_NOTICE else updatedAtMs = WallClock.nowMs()
-        } finally {
-            refreshing = false
-        }
-    }
-    return WalletsState(view, refreshing, notice, updatedAtMs, display) { if (!refreshing) refreshTick++ }
+    return board
 }
 
 /** The Wallets start screen: one row per paired wallet, with its total in dollars or its count of accounts per chain. */
@@ -144,119 +108,138 @@ internal fun WalletsRoute(
     }
     if (session == null) return
     // The side the owner chose is kept in the vault. It is read when the vault opens, so the app opens on the side it was left on.
+    var sideRead by remember(session) { mutableStateOf(false) }
     LaunchedEffect(session) {
         selection.mode = withContext(Dispatchers.IO) { NetworkModeStore.read(session) }
+        sideRead = true
     }
-    val state = rememberWalletsState(app, session, selection.mode, listVersion, refreshOnOpen = true)
-    val view = state.view ?: return
-    WalletsScreen(
-        rows = view.wallets.map { wallet -> walletRow(view, wallet) },
-        totalUsd = allWalletsUsd(view),
-        showTotal = state.display.showTotal,
-        refreshing = state.refreshing,
-        updatedAtMs = state.updatedAtMs,
-        notice = state.notice,
-        onWallet = { id -> navController.navigate(LumioRoute.wallet(id)) },
-        onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
-        onRefresh = state.refresh,
-        onSettings = { navController.navigate(LumioRoute.SETTINGS) { launchSingleTop = true } },
-    )
+    val board = rememberWalletsBoard(app, selection.mode, listVersion, ready = sideRead) ?: return
+    // The Wallets home is the one screen that reads the networks as it opens: once per unlock, after a return from the background, and after a change of side.
+    LaunchedEffect(board, sideRead, board.refreshDue) {
+        if (sideRead && board.refreshDue) board.refresh()
+    }
+    val sheets = app.lumioVault()?.sheets ?: return
+    SideEffect { sheets.keepSide(selection.mode) }
+    val display = rememberDisplay(app)
+    val view = board.view
+    Box(modifier = Modifier.fillMaxSize()) {
+        WalletsScreen(
+            rows = view?.let { shown -> shown.wallets.map { wallet -> walletRow(shown, wallet) } }.orEmpty(),
+            loading = view == null,
+            totalUsd = view?.let(::allWalletsUsd),
+            showTotal = display.showTotal,
+            refreshing = board.refreshing,
+            refreshByPull = board.refreshByPull,
+            updatedAtMs = board.updatedAtMs,
+            notice = board.notice,
+            onWallet = { id -> sheets.open(WalletSheet.Wallet(id)) },
+            onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
+            onRefresh = { board.refresh(pulled = true) },
+            onSettings = { navController.navigate(LumioRoute.SETTINGS) { launchSingleTop = true } },
+        )
+        WalletSheetHost(sheets) { opened ->
+            when (val sheet = opened.sheet) {
+                is WalletSheet.Wallet -> WalletSheetScreen(opened, sheets, sheet.walletId, board, display, selection.mode, app)
+                is WalletSheet.Account -> AccountSheetScreen(opened, sheets, navController, session, sheet, board, display, selection.mode, app)
+            }
+        }
+    }
 }
 
-/** One paired wallet: its accounts on the side [mode] chooses. Missing when the wallet is not in the open vault. */
+/**
+ * The Wallet sheet: one paired wallet and its accounts on the side [mode] chooses. The balances come from the open vault's shared board, so the sheet shows
+ * them on its first frame. It closes when the wallet is not on the board.
+ */
 @Composable
-internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode, listVersion: Int) {
-    val app = LocalContext.current.applicationContext as LumioApp
-    val session = holder.openSession()
-    LaunchedEffect(session == null) {
-        if (session == null) navController.openHidden(GateRoutes.GATE)
-    }
-    if (session == null) return
-    val state = rememberWalletsState(app, session, mode, listVersion, refreshOnOpen = true)
-    val view = state.view ?: return
-    val wallet = view.wallets.firstOrNull { it.id == walletId }
-    if (wallet == null) {
-        LaunchedEffect(Unit) { navController.popBackStack() }
+private fun WalletSheetScreen(
+    opened: OpenSheet,
+    sheets: WalletSheets,
+    walletId: String,
+    board: WalletsBoard,
+    display: DisplaySettings,
+    mode: NetworkMode,
+    app: LumioApp,
+) {
+    val view = board.view
+    val wallet = view?.wallets?.firstOrNull { it.id == walletId }
+    if (view == null || wallet == null) {
+        LaunchedEffect(Unit) { sheets.closeSheet(opened) }
         return
     }
-    val accounts = view.accountsOf(walletId)
     WalletScreen(
-        walletId = walletId,
         walletName = wallet.name,
         fingerprint = wallet.fingerprint.toInt(),
         mode = mode,
-        accounts = accounts,
-        tokenCounts = rememberTokenCounts(app, session, mode, accounts),
+        accounts = view.accountsOf(walletId),
+        tokenCounts = board.tokenCounts,
         network = app.registry::network,
         totalUsd = view.usd(walletId),
-        showTotal = state.display.showTotal,
-        showBalances = state.display.showAssets,
-        refreshing = state.refreshing,
-        updatedAtMs = state.updatedAtMs,
-        notice = state.notice,
-        onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.chain, account.index)) },
-        onRefresh = state.refresh,
-        onBack = { navController.popBackStack() },
+        showTotal = display.showTotal,
+        showBalances = display.showAssets,
+        refreshing = board.refreshing,
+        updatedAtMs = board.updatedAtMs,
+        notice = board.notice,
+        onAccount = { account -> sheets.open(WalletSheet.Account(walletId, account.chain, account.index)) },
+        onBack = { sheets.closeSheet(opened) },
     )
 }
 
 /**
- * One account of a wallet on the side [mode] chooses: its chain, address and balance, its ERC-20 balances, its recent activity, and the Send and Receive
- * actions. The balances and the tokens come from the caches, so opening it reads no balance from the network. Its activity is read from the providers as
- * it opens, and its rows show as each read lands. Missing when the account is not in the open vault.
+ * The Account sheet: one account of a wallet on [mode]'s side. Its balance comes from the shared board, and its other reads from the account's kept reads. Its
+ * Send, Receive, asset and transaction pages are pushed over the Wallets home as before. It closes when the account is not on the board.
  */
 @Composable
-internal fun AccountRoute(
+private fun AccountSheetScreen(
+    opened: OpenSheet,
+    sheets: WalletSheets,
     navController: NavHostController,
-    holder: VaultHolder,
-    walletId: String,
-    chain: AccountChain,
-    index: Int,
+    session: VaultSession,
+    sheet: WalletSheet.Account,
+    board: WalletsBoard,
+    display: DisplaySettings,
     mode: NetworkMode,
-    listVersion: Int,
+    app: LumioApp,
 ) {
-    val app = LocalContext.current.applicationContext as LumioApp
-    val session = holder.openSession()
-    LaunchedEffect(session == null) {
-        if (session == null) navController.openHidden(GateRoutes.GATE)
-    }
-    if (session == null) return
-    // Opening the account reads the networks, as opening the wallet does, so the balance shown is the one the network reports now.
-    val state = rememberWalletsState(app, session, mode, listVersion, refreshOnOpen = true)
-    val view = state.view ?: return
-    val account = view.accountsOf(walletId).firstOrNull { it.chain == chain && it.index == index }
-    if (account == null) {
-        LaunchedEffect(Unit) { navController.popBackStack() }
+    val walletId = sheet.walletId
+    val chain = sheet.chain
+    val index = sheet.index
+    val view = board.view
+    val account = view?.accountsOf(walletId)?.firstOrNull { it.chain == chain && it.index == index }
+    if (view == null || account == null) {
+        LaunchedEffect(Unit) { sheets.closeSheet(opened) }
         return
     }
-    val tokens = rememberAccountTokens(app, session, mode, account)
-    val chainHoldings = rememberChainHoldings(app, session, mode, account)
-    val activity = rememberAccountActivity(app, session, mode, account)
+    val reads = remember(board, account, mode) { board.readsOf(account, mode) }
+    AccountReadsEffects(app, session, mode, account, reads)
+    val activity = rememberAccountActivity(app, session, mode, account, reads)
     AccountScreen(
         walletName = view.wallets.firstOrNull { it.id == walletId }?.name.orEmpty(),
         account = account,
-        showBalance = state.display.showAssets,
-        assets = rememberAssetRows(app, account, tokens, chainHoldings),
-        activity = activity,
-        refreshing = state.refreshing,
-        notice = state.notice,
-        onRefresh = state.refresh,
+        showBalance = display.showAssets,
+        assets = rememberAssetRows(app, account, reads),
+        loadingAssets = reads.tokens == null || reads.holdings == null,
+        activity = activity.orEmpty(),
+        loadingActivity = activity == null,
+        refreshing = board.refreshing,
+        notice = board.notice,
+        onRefresh = { board.refresh() },
         onSend = { navController.navigate(sendRoute(account, mode)) },
         onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
         onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, chain, index, asset.assetKey)) },
-        onAddAsset = if (account.chain == AccountChain.ALGORAND) {
+        onAddAsset = if (chain == AccountChain.ALGORAND) {
             { navController.navigate(LumioRoute.algorandAddAsset(walletId, index)) }
         } else {
             null
         },
         onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
-        onBack = { navController.popBackStack() },
+        onBack = { sheets.closeSheet(opened) },
     )
 }
 
 /**
  * One asset of an account on [mode]'s side: its amount and value, its price chart when it is priced, and its activity. The asset is found among the
- * account's rows by [assetKey], and a missing one (its holding has gone) leaves the screen. Send and Receive act on the account.
+ * account's rows by [assetKey]. A row that the account's reads have not landed yet keeps the screen on its placeholder, and a row that is still missing
+ * once they have leaves the screen. Send and Receive act on the account.
  */
 @Composable
 internal fun AssetRoute(
@@ -275,31 +258,45 @@ internal fun AssetRoute(
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
     if (session == null) return
-    val state = rememberWalletsState(app, session, mode, listVersion, refreshOnOpen = true)
-    val view = state.view ?: return
+    val board = rememberWalletsBoard(app, mode, listVersion) ?: return
+    val display = rememberDisplay(app)
+    val view = board.view
+    if (view == null) {
+        WalletLoadingScreen(onBack = { navController.popBackStack() })
+        return
+    }
     val account = view.accountsOf(walletId).firstOrNull { it.chain == chain && it.index == index }
     if (account == null) {
         LaunchedEffect(Unit) { navController.popBackStack() }
         return
     }
-    val tokens = rememberAccountTokens(app, session, mode, account)
-    val chainHoldings = rememberChainHoldings(app, session, mode, account)
-    val asset = rememberAssetRows(app, account, tokens, chainHoldings).firstOrNull { it.assetKey == assetKey }
+    val reads = remember(board, account, mode) { board.readsOf(account, mode) }
+    AccountReadsEffects(app, session, mode, account, reads)
+    val asset = rememberAssetRows(app, account, reads).firstOrNull { it.assetKey == assetKey }
     if (asset == null) {
-        LaunchedEffect(Unit) { navController.popBackStack() }
+        if (reads.tokens == null || reads.holdings == null) {
+            WalletLoadingScreen(onBack = { navController.popBackStack() })
+        } else {
+            LaunchedEffect(Unit) { navController.popBackStack() }
+        }
         return
     }
-    val chart by produceState<PriceSeries?>(null, asset.assetId) {
-        value = asset.assetId?.let { id ->
-            withContext(Dispatchers.IO) { runCatching { app.prices.chart(id, ChartRange.D7) }.getOrNull() }
+    val assetId = asset.assetId
+    val chart by produceState<PriceSeries?>(assetId?.let(board::chartOf), assetId) {
+        if (assetId == null) {
+            value = null
+            return@produceState
         }
+        val series = withContext(Dispatchers.IO) { runCatching { app.prices.chart(assetId, ChartRange.D7) }.getOrNull() }
+        if (series != null) board.putChart(assetId, series)
+        value = series
     }
-    val activity = rememberAccountActivity(app, session, mode, account)
+    val activity = rememberAccountActivity(app, session, mode, account, reads)
     AssetScreen(
         asset = asset,
-        showBalance = state.display.showAssets,
+        showBalance = display.showAssets,
         chart = chart,
-        activity = activity.filter { AssetRows.assetKeyOf(it.tx) == assetKey },
+        activity = activity.orEmpty().filter { AssetRows.assetKeyOf(it.tx) == assetKey },
         onSend = { navController.navigate(sendRoute(account, mode)) },
         onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
         onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
@@ -308,36 +305,14 @@ internal fun AssetRoute(
 }
 
 /**
- * The assets of [account] as its rows: the native coin, the ERC-20 tokens, and the SPL tokens or Algorand assets. A priced row shows its value in
- * dollars once its price is read, and until then it shows its amount alone.
+ * Reads the tokens, the holdings of other assets and the prices of [account] into [reads] as its screen opens. Each part keeps the value it had until the new
+ * one lands, so an account that opens again shows what it read before at once. A read that fails leaves its part empty, and the rest of the screen stays as
+ * it is.
  */
 @Composable
-private fun rememberAssetRows(app: LumioApp, account: WalletAccount, tokens: List<TokenHolding>, holdings: List<ChainHolding>): List<AssetRowModel> {
-    val prices = rememberAssetPrices(app, account, tokens)
-    return remember(account, tokens, holdings, prices) {
-        AssetRows.of(account, tokens, holdings, prices, app.registry::network, app.registry::token)
-    }
-}
-
-/** The USD prices of the coins that [account] and its [tokens] can have, read as the screen opens. A failed read leaves the rows unpriced. */
-@Composable
-private fun rememberAssetPrices(app: LumioApp, account: WalletAccount, tokens: List<TokenHolding>): Map<AssetId, Price> {
-    val ids = AssetRows.pricedIds(account, tokens)
-    val prices by produceState<Map<AssetId, Price>>(emptyMap(), ids) {
-        value = if (ids.isEmpty()) {
-            emptyMap()
-        } else {
-            withContext(Dispatchers.IO) { runCatching { app.prices.assetPrices(ids) }.getOrDefault(emptyMap()) }
-        }
-    }
-    return prices
-}
-
-/** The ERC-20 balances the cache holds for the Ethereum address of [account], on the enabled networks of [mode]'s side. Empty for other chains. */
-@Composable
-private fun rememberAccountTokens(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): List<TokenHolding> {
-    val tokens by produceState<List<TokenHolding>>(emptyList(), session, mode, account.walletId, account.chain, account.index) {
-        value = if (account.chain != AccountChain.ETHEREUM) {
+private fun AccountReadsEffects(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount, reads: AccountReads) {
+    LaunchedEffect(session, mode, account.walletId, account.chain, account.index) {
+        reads.tokens = if (account.chain != AccountChain.ETHEREUM) {
             emptyList()
         } else {
             withContext(Dispatchers.IO) {
@@ -347,44 +322,69 @@ private fun rememberAccountTokens(app: LumioApp, session: VaultSession, mode: Ne
                     .filter { it.amount.signum() > 0 }
             }
         }
-    }
-    return tokens
-}
-
-/**
- * The SPL tokens of a Solana account, or the assets of an Algorand account, that the address holds on [mode]'s network, read as the screen opens. Other
- * chains have none. A read that fails shows no holdings, and the rest of the screen stays as it is.
- */
-@Composable
-private fun rememberChainHoldings(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): List<ChainHolding> {
-    val holdings by produceState<List<ChainHolding>>(emptyList(), session, mode, account.walletId, account.chain, account.index) {
-        value = withContext(Dispatchers.IO) {
-            val scheduler = app.nativeSchedulerFor(session)
-            runCatching {
-                when (account.chain) {
-                    AccountChain.SOLANA -> {
-                        val network = if (mode == NetworkMode.TESTNET) SOLANA_DEVNET else SOLANA_MAINNET
-                        ChainHoldings.solana(scheduler, network, account.address, ChainHoldings.solanaNames(app), account.networkName)
-                    }
-                    AccountChain.ALGORAND -> {
-                        val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
-                        ChainHoldings.algorand(scheduler, network, account.address, account.networkName)
-                    }
-                    else -> emptyList()
-                }
-            }.getOrDefault(emptyList())
+        reads.holdings = when (account.chain) {
+            AccountChain.SOLANA, AccountChain.ALGORAND -> withContext(Dispatchers.IO) { chainHoldingsOf(app, session, mode, account) }
+            else -> emptyList()
         }
     }
-    return holdings
+    val ids = AssetRows.pricedIds(account, reads.tokens.orEmpty())
+    LaunchedEffect(ids) {
+        reads.prices = if (ids.isEmpty()) {
+            emptyMap()
+        } else {
+            reads.prices + withContext(Dispatchers.IO) { runCatching { app.prices.assetPrices(ids) }.getOrDefault(emptyMap()) }
+        }
+    }
 }
 
 /**
- * The newest rows of [account] on [mode]'s side. Its reads are planned as the screen opens, and they run then: the Ethereum address on each enabled
- * network, or the Bitcoin account's scan. A Bitcoin account's rows are those of every address that the scan turns up, and each read that lands shows its
- * rows. Solana and Algorand have no history provider yet, so they show none.
+ * The SPL tokens of a Solana account, or the assets of an Algorand account, that the address holds on [mode]'s network. Other chains have none, and a
+ * read that fails shows none. It runs off the main thread.
+ */
+private suspend fun chainHoldingsOf(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): List<ChainHolding> {
+    val scheduler = app.nativeSchedulerFor(session)
+    return runCatching {
+        when (account.chain) {
+            AccountChain.SOLANA -> {
+                val network = if (mode == NetworkMode.TESTNET) SOLANA_DEVNET else SOLANA_MAINNET
+                ChainHoldings.solana(scheduler, network, account.address, ChainHoldings.solanaNames(app), account.networkName)
+            }
+            AccountChain.ALGORAND -> {
+                val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
+                ChainHoldings.algorand(scheduler, network, account.address, account.networkName)
+            }
+            else -> emptyList()
+        }
+    }.getOrDefault(emptyList())
+}
+
+/**
+ * The assets of [account] as its rows: the native coin, the ERC-20 tokens, and the SPL tokens or Algorand assets, from what [reads] holds. A priced row
+ * shows its value in dollars once its price is read, and until then it shows its amount alone.
  */
 @Composable
-private fun rememberAccountActivity(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): List<TxFeedItem> {
+private fun rememberAssetRows(app: LumioApp, account: WalletAccount, reads: AccountReads): List<AssetRowModel> {
+    val tokens = reads.tokens.orEmpty()
+    val holdings = reads.holdings.orEmpty()
+    val prices = reads.prices
+    return remember(account, tokens, holdings, prices) {
+        AssetRows.of(account, tokens, holdings, prices, app.registry::network, app.registry::token)
+    }
+}
+
+/**
+ * The newest rows of [account] on [mode]'s side, from [reads] and then as they land. Its reads are planned as the screen opens, and they run then: the
+ * Ethereum address on each enabled network, or the Bitcoin account's scan. A Bitcoin account's rows are those of every address that the scan turns up, and
+ * each read that lands shows its rows. Solana and Algorand have no history provider yet, so they show none. Null until the first page is read.
+ */
+@Composable
+private fun rememberAccountActivity(
+    app: LumioApp,
+    session: VaultSession,
+    mode: NetworkMode,
+    account: WalletAccount,
+    reads: AccountReads,
+): List<TxFeedItem>? {
     val vault = app.lumioVault()
     val plan by produceState<TxSyncPlan?>(null, session, mode, account.walletId, account.chain, account.index) {
         value = withContext(Dispatchers.IO) { accountPlanOf(app, session, mode, account) }
@@ -406,10 +406,12 @@ private fun rememberAccountActivity(app: LumioApp, session: VaultSession, mode: 
         AccountChain.BITCOIN -> ownedNow
         AccountChain.SOLANA, AccountChain.ALGORAND -> emptySet()
     }
-    val items by produceState<List<TxFeedItem>>(emptyList(), plan, addresses, landedNow) {
+    val items by produceState(reads.activity, plan, addresses, landedNow) {
         val current = plan ?: return@produceState
         val open = vault ?: return@produceState
-        value = withContext(Dispatchers.IO) { accountPage(app, open, addresses, current.networks, ACTIVITY_ROWS).items }
+        val page = withContext(Dispatchers.IO) { accountPage(app, open, addresses, current.networks, ACTIVITY_ROWS).items }
+        reads.activity = page
+        value = page
     }
     return items
 }
@@ -498,25 +500,6 @@ private fun walletRow(view: WalletsView, wallet: PairedWallet): WalletRow = Wall
 
 /** The dollar total of every wallet on the side, or null when none of its balances has a price. */
 private fun allWalletsUsd(view: WalletsView): Double? = view.wallets.mapNotNull { view.usd(it.id) }.takeIf { it.isNotEmpty() }?.sum()
-
-/**
- * The tokens that each Ethereum account of [accounts] holds on [mode]'s enabled networks, read from the vault's caches as the screen opens. Other chains
- * have no tokens here, so they are not counted.
- */
-@Composable
-private fun rememberTokenCounts(app: LumioApp, session: VaultSession, mode: NetworkMode, accounts: List<WalletAccount>): Map<WalletAccount, Int> {
-    val counts by produceState<Map<WalletAccount, Int>>(emptyMap(), session, mode, accounts) {
-        value = withContext(Dispatchers.IO) {
-            val settings = EvmSettingsStore.read(session)
-            val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
-            val cache = TokenBalanceCache.read(session)
-            accounts.filter { it.chain == AccountChain.ETHEREUM }.associateWith { account ->
-                TokenPortfolio.holdingsAt(account.walletId, account.address, chains, app.tokensFor(session), cache).count { it.amount.signum() > 0 }
-            }
-        }
-    }
-    return counts
-}
 
 /**
  * The paired wallets of the open vault, read again when [listVersion] changes. Empty while the vault is locked, and the gate takes over then.

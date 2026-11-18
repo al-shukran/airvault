@@ -1,10 +1,10 @@
 package app.lensly.app
 
+import app.airvault.chains.algorand.bytesToSign
 import app.lensly.app.export.AlgorandPairingKeys
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.algorand.AlgorandRequestCheck
 import app.lensly.core.algorand.AlgorandRequestReview
-import app.lensly.core.algorand.bytesToSign
 import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.ur.PathStep
 import app.lensly.core.vault.MemoryKeystore

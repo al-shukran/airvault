@@ -42,9 +42,6 @@ import app.lumio.ui.kit.AnimatedAmount
 import app.lumio.ui.kit.LumenRing
 import app.lumio.ui.kit.LumioAssetIcon
 import app.lensly.ui.components.LumioRow
-import app.lumio.ui.kit.SharedKeys
-import app.lumio.ui.kit.lumioSharedBounds
-import app.lumio.ui.kit.lumioSharedElement
 import app.lumio.ui.kit.rememberLumioHaptics
 import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
@@ -212,12 +209,13 @@ internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock
 }
 
 /**
- * The pull to refresh of a wallet list (section 3.4): the Lumen ring draws with the pull and gives a select haptic at the threshold. While [refreshing] the
- * ring spins, and when the read ends it closes to a dot and goes.
+ * The pull to refresh of a wallet list (section 3.4): the Lumen ring draws with the pull and gives a select haptic at the threshold. While [refreshByPull] the
+ * ring spins, and when the read ends it closes to a dot and goes. A refresh the owner did not pull draws no ring over the list: its freshness line says
+ * "Refreshing…" instead.
  */
 @Composable
 internal fun LumenRefreshBox(
-    refreshing: Boolean,
+    refreshByPull: Boolean,
     onRefresh: () -> Unit,
     modifier: Modifier,
     content: @Composable BoxScope.() -> Unit,
@@ -229,17 +227,17 @@ internal fun LumenRefreshBox(
         if (pastThreshold) haptics.select()
     }
     PullToRefreshBox(
-        isRefreshing = refreshing,
+        isRefreshing = refreshByPull,
         onRefresh = onRefresh,
         modifier = modifier,
         state = state,
         contentAlignment = Alignment.TopCenter,
         indicator = {
-            val pulled = if (refreshing) 1f else state.distanceFraction.coerceIn(0f, 1f)
+            val pulled = if (refreshByPull) 1f else state.distanceFraction.coerceIn(0f, 1f)
             LumenRing(
                 progress = pulled,
                 size = PULL_RING,
-                spinning = refreshing,
+                spinning = refreshByPull,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .graphicsLayer {
@@ -252,16 +250,13 @@ internal fun LumenRefreshBox(
     )
 }
 
-/**
- * The balance of [account] in its coin, such as "1.5 MON", and its shared bounds from the wallet's row to the account's hero. The mask replaces it while the
- * owner hides balances.
- */
+/** The balance of [account] in its coin, such as "1.5 MON". The mask replaces it while the owner hides balances. */
 @Composable
 internal fun AccountBalance(account: WalletAccount, shown: Boolean, modifier: Modifier = Modifier) {
     val amount = account.balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" } ?: NOT_READ
     Text(
         text = Masking.amount(amount, hidden = !shown),
-        modifier = modifier.lumioSharedBounds(SharedKeys.accountBalance(account.walletId, account.chain.name, account.index)),
+        modifier = modifier,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
         textAlign = TextAlign.End,
@@ -288,10 +283,7 @@ internal fun AccountRowItem(
         title = "Account ${account.index + 1}",
         description = shortAddress(account.address),
         leading = {
-            LumioAssetIcon(
-                testnet = mode == NetworkMode.TESTNET,
-                modifier = Modifier.lumioSharedElement(SharedKeys.accountIcon(account.walletId, account.chain.name, account.index)),
-            ) {
+            LumioAssetIcon(testnet = mode == NetworkMode.TESTNET) {
                 AssetIcon(spec = icon, size = 24.dp)
             }
         },

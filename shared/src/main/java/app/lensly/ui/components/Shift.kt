@@ -11,15 +11,19 @@ internal enum class ShiftMode { Off, OneShot, CapsLock }
 /** Two taps on shift this close together, in milliseconds, lock caps. */
 internal const val DOUBLE_TAP_MS = 400L
 
+/** The digits of the number row, and the symbol on each digit's key with shift on, in the same order. */
+internal const val DIGIT_KEYS = "1234567890"
+internal const val SHIFTED_DIGIT_KEYS = "!@#\$%^&*()"
+
 /**
  * Shift state for [SecureKeyboard], kept free of composables so the rules can be unit tested.
  *
- * A tap on shift arms it for one letter, and the next letter typed turns it off. A second tap within [DOUBLE_TAP_MS] of the first
- * locks caps, so every letter stays uppercase until shift is tapped again. A tap at any other time turns shift off without typing
- * anything.
+ * A tap on shift arms it for one key. The next letter or digit typed spends it: a letter comes out uppercase, and a digit comes out as
+ * the symbol on its key (1 gives !). Caps lock uppercases letters and leaves the digits alone, as a hardware keyboard does. Space, the
+ * comma, the period, and the other symbols do not spend a one-shot shift, as in AOSP LatinIME. A second tap within [DOUBLE_TAP_MS] of
+ * the first locks caps until shift is tapped again. Any other tap turns shift off without typing anything.
  *
- * Only a letter spends a one-shot shift. Digits, symbols, space, comma, and period are returned unchanged and leave shift as it is.
- * Backspace and the page keys never reach [type], so they leave it alone too.
+ * [reset] clears shift. The keyboard calls it when it leaves the letters, so an armed shift never reaches the symbols page.
  *
  * [now] reads the clock in milliseconds. Tests pass their own, so a double tap needs no real waiting.
  */
@@ -33,8 +37,15 @@ internal class Shift(
     /** When shift was last tapped. A second tap counts as a double tap only if it follows the arming tap in time. */
     private var lastTapAt: Long? = null
 
-    /** The label for [letter] now: uppercase while shift is on. Does not spend shift. */
-    fun labelFor(letter: Char): Char = if (mode == ShiftMode.Off) letter else letter.uppercaseChar()
+    /**
+     * The label for [key] now: a letter is uppercase while shift is on, and a digit shows its symbol while a one-shot shift is armed.
+     * Does not spend shift.
+     */
+    fun labelFor(key: Char): Char = when {
+        key.isLetter() -> if (mode == ShiftMode.Off) key else key.uppercaseChar()
+        mode == ShiftMode.OneShot && key in DIGIT_KEYS -> SHIFTED_DIGIT_KEYS[DIGIT_KEYS.indexOf(key)]
+        else -> key
+    }
 
     /** A tap on the shift key. */
     fun tapShift() {
@@ -49,14 +60,19 @@ internal class Shift(
     }
 
     /**
-     * Returns the character to type for a key tap. A letter takes the case of shift, and a one-shot shift is spent. Any other
-     * character is returned as it is and shift is not changed.
+     * Returns the character to type for a key tap. A letter or digit takes the case or symbol of shift, and a one-shot shift is spent on
+     * it. Any other key is returned as it is and shift is not changed.
      */
     fun type(key: Char): Char {
-        if (!key.isLetter()) return key
         val typed = labelFor(key)
-        if (mode == ShiftMode.OneShot) mode = ShiftMode.Off
+        if (mode == ShiftMode.OneShot && (key.isLetter() || key in DIGIT_KEYS)) mode = ShiftMode.Off
         return typed
+    }
+
+    /** Clears shift and caps lock, as leaving the letters does. */
+    fun reset() {
+        mode = ShiftMode.Off
+        lastTapAt = null
     }
 }
 

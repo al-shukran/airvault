@@ -10,9 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +20,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -38,7 +40,6 @@ import app.lumio.send.algorand.AlgorandAddAssetRoute
 import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.network.NetworkModeStore
-import app.lumio.ui.kit.LocalSharedScope
 import app.lensly.ui.navigation.MirrorNavMotion
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.network.NetworkSideSheet
@@ -104,12 +105,6 @@ internal object LumioRoute {
     /** The argument of a paired wallet's routes: the wallet's ID. */
     const val WALLET_ARG = "walletId"
 
-    /** A paired wallet's accounts, with the wallet's ID as [WALLET_ARG]. */
-    const val WALLET = "wallet/{$WALLET_ARG}"
-
-    /** The route of the accounts of [walletId]. */
-    fun wallet(walletId: String): String = "wallet/$walletId"
-
     /** The first sync of the wallet named by [WALLET_ARG], opened when its pairing is saved. */
     const val FIRST_SYNC = "first-sync/{$WALLET_ARG}"
 
@@ -121,12 +116,6 @@ internal object LumioRoute {
 
     /** The argument of an account's route: the account's place among the accounts of its chain in the wallet. */
     const val ACCOUNT_INDEX_ARG = "index"
-
-    /** One account of a wallet, with the wallet's ID, the chain and the place as its arguments. */
-    const val ACCOUNT = "account/{$WALLET_ARG}/{$ACCOUNT_CHAIN_ARG}/{$ACCOUNT_INDEX_ARG}"
-
-    /** The route of account [index] of [chain] in [walletId]. */
-    fun account(walletId: String, chain: AccountChain, index: Int): String = "account/$walletId/${chain.route}/$index"
 
     /** The argument of an asset's route: the asset's key among the account's assets, as [AssetRows] keys them. */
     const val ASSET_KEY_ARG = "assetKey"
@@ -283,20 +272,16 @@ internal fun LumioBackdrop(selection: NetworkSelection, content: @Composable () 
 
 /**
  * Lumio's navigation: the camera cover and the gate that Lensly shares, around the companion's Hidden Area. The Hidden Area opens on the gate and
- * then shows the wallets. Settings opens from the gear on Wallets. A wallet opens its accounts, an account opens its Send and Receive, and the pairing
- * of a wallet from Lensly starts from the wallets. Settings is a list of pages, each its own screen: the network side, Display, Transactions, Networks
- * (the servers and the chains), Data providers, Address book (the wallets), Security, About and.
+ * then shows the wallets. Settings opens from the gear on Wallets. A wallet opens as a sheet over the wallets, and an account as a sheet over its
+ * wallet. An account's Send and Receive push over them, and the pairing of a wallet from Lensly starts from the wallets. Settings is a list of pages,
+ * each its own screen: the network side, Display, Transactions, Networks (the servers and the chains), Data providers, Address book (the wallets),
+ * Security, About and.
  *
  * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
  */
 @Composable
 fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
-    // The shared-element scope lets a screen move one element to the next screen (section 3.3).
-    SharedTransitionLayout {
-        CompositionLocalProvider(LocalSharedScope provides this) {
-            LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier)
-        }
-    }
+    LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier)
 }
 
 @Composable
@@ -317,6 +302,15 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
         })
     }
     val lockChoices = remember { LockSettingsState(app.lockSettings) }
+    // Coming back from the background reads the networks again once, when the Wallets home shows. The mark waits for the home, so no pushed screen reads.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) app.lumioVault()?.wallets?.markRefreshDue()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     // Counts the saves and deletions, so Home and Settings read the paired wallets again.
     var listVersion by remember { mutableIntStateOf(0) }
     CoverNavHost(
@@ -443,11 +437,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                     )
                 }
             }
-            lumioComposable(LumioRoute.SETTINGS) {
-                LumioBackdrop(selection) {
-                    SettingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection)
-                }
-            }
+            settingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection)
             settingsPageRoutes(
                 navController = navController,
                 holder = holder,
@@ -477,40 +467,6 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 LumioBackdrop(selection) { AddressBookRoute(navController = navController, holder = holder, walletId = walletId) }
-            }
-            lumioComposable(
-                route = LumioRoute.WALLET,
-                arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
-            ) { entry ->
-                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                LumioBackdrop(selection) {
-                    WalletRoute(navController = navController, holder = holder, walletId = walletId, mode = selection.mode, listVersion = listVersion)
-                }
-            }
-            lumioComposable(
-                route = LumioRoute.ACCOUNT,
-                arguments = listOf(
-                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.ACCOUNT_CHAIN_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.ACCOUNT_INDEX_ARG) { type = NavType.IntType },
-                ),
-            ) { entry ->
-                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val chain = AccountChain.ofRoute(entry.arguments?.getString(LumioRoute.ACCOUNT_CHAIN_ARG).orEmpty())
-                val index = entry.arguments?.getInt(LumioRoute.ACCOUNT_INDEX_ARG) ?: 0
-                LumioBackdrop(selection) {
-                    if (chain != null) {
-                        AccountRoute(
-                            navController = navController,
-                            holder = holder,
-                            walletId = walletId,
-                            chain = chain,
-                            index = index,
-                            mode = selection.mode,
-                            listVersion = listVersion,
-                        )
-                    }
-                }
             }
             lumioComposable(
                 route = LumioRoute.ASSET,

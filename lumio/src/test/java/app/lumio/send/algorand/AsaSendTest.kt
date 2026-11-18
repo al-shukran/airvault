@@ -1,8 +1,8 @@
 package app.lumio.send.algorand
 
-import app.lensly.core.algorand.AlgoTxnDecoder
+import app.airvault.chains.algorand.AssetTransfer
+import app.airvault.chains.algorand.signer.AlgoTxnDecoder
 import app.lensly.core.algorand.AlgoTxnEncoder
-import app.lensly.core.algorand.AssetTransfer
 import app.lumio.data.provider.AlgorandSuggestedParams
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import java.math.BigInteger

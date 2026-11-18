@@ -31,10 +31,7 @@ import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.LumioTextAction
-import app.lumio.ui.kit.SharedKeys
 import app.lumio.ui.kit.WalletOrb
-import app.lumio.ui.kit.lumioSharedBounds
-import app.lumio.ui.kit.lumioSharedElement
 import app.lumio.ui.theme.LumioGutter
 
 /**
@@ -62,11 +59,13 @@ fun WalletsScreen(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
     clock: Clock = WallClock,
+    refreshByPull: Boolean = false,
+    loading: Boolean = false,
 ) {
     val running = rememberStagger()
     Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
         DetailTopBar(title = "Wallets", onBack = null, onOptions = onSettings, optionsIcon = Icons.Filled.Settings, optionsLabel = "Settings")
-        LumenRefreshBox(refreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
+        LumenRefreshBox(refreshByPull = refreshByPull, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),
@@ -79,7 +78,10 @@ fun WalletsScreen(
                         InlineBanner(message = message, tone = BannerTone.Warning, modifier = Modifier.padding(bottom = LenslySpacing.sm))
                     }
                 }
-                if (rows.isEmpty()) {
+                if (loading) {
+                    // The balances are read on the first frame of the home; until they are, the rows keep their places.
+                    item(key = "loading") { LumioIsland { LoadingRow(); IslandDivider(); LoadingRow() } }
+                } else if (rows.isEmpty()) {
                     item(key = "intro") {
                         PairIntro(onScan = onPair, modifier = Modifier.fillParentMaxHeight())
                     }
@@ -119,20 +121,14 @@ private fun WalletsTotal(totalUsd: Double?, showTotal: Boolean, refreshing: Bool
     }
 }
 
-/**
- * One wallet of the list: its orb, its name and summary, and its total on the right, or nothing when it has no price. The orb, the name and the total are
- * the wallet screen's shared elements, so they move into it when the row opens.
- */
+/** One wallet of the list: its orb, its name and summary, and its total on the right, or nothing when it has no price. */
 @Composable
 private fun WalletRowItem(row: WalletRow, showTotal: Boolean, running: Boolean, index: Int, onClick: () -> Unit) {
     LumioRow(
         title = row.name,
-        titleModifier = Modifier.lumioSharedBounds(SharedKeys.walletName(row.id)),
         description = row.summary,
-        leading = {
-            WalletOrb(fingerprint = row.fingerprint, modifier = Modifier.lumioSharedElement(SharedKeys.walletOrb(row.id)))
-        },
-        trailing = if (row.usd == null) null else ({ WalletRowTotal(walletId = row.id, usd = row.usd, shown = showTotal) }),
+        leading = { WalletOrb(fingerprint = row.fingerprint) },
+        trailing = if (row.usd == null) null else ({ WalletRowTotal(usd = row.usd, shown = showTotal) }),
         onClick = onClick,
         modifier = Modifier.staggeredEnter(index, running),
     )
@@ -140,10 +136,9 @@ private fun WalletRowItem(row: WalletRow, showTotal: Boolean, running: Boolean, 
 
 /** The dollar total of a wallet row, masked while the owner hides totals. */
 @Composable
-private fun WalletRowTotal(walletId: String, usd: Double, shown: Boolean) {
+private fun WalletRowTotal(usd: Double, shown: Boolean) {
     Text(
         text = Masking.amount(HomeFormat.usd(usd), hidden = !shown),
-        modifier = Modifier.lumioSharedBounds(SharedKeys.walletTotal(walletId)),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,

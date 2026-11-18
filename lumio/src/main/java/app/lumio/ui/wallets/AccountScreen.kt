@@ -35,9 +35,6 @@ import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.LumioTextAction
-import app.lumio.ui.kit.SharedKeys
-import app.lumio.ui.kit.lumioSharedBounds
-import app.lumio.ui.kit.lumioSharedElement
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.transactions.ActivityRow
 import app.lumio.wallets.AccountChain
@@ -69,6 +66,8 @@ internal fun AccountScreen(
     refreshing: Boolean = false,
     notice: String? = null,
     onRefresh: (() -> Unit)? = null,
+    loadingAssets: Boolean = false,
+    loadingActivity: Boolean = false,
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
     val balance = account.balance
@@ -102,10 +101,7 @@ internal fun AccountScreen(
         Spacer(Modifier.height(LenslySpacing.sm))
         Row(verticalAlignment = Alignment.CenterVertically) {
             native?.let { coin ->
-                LumioAssetIcon(
-                    testnet = coin.testnet,
-                    modifier = Modifier.lumioSharedElement(SharedKeys.accountIcon(account.walletId, account.chain.name, account.index)),
-                ) {
+                LumioAssetIcon(testnet = coin.testnet) {
                     AssetIcon(spec = coin.icon, size = 24.dp)
                 }
                 Spacer(Modifier.width(LenslySpacing.xs))
@@ -113,11 +109,7 @@ internal fun AccountScreen(
             if (heroText == null) {
                 Text(text = NOT_READ, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                AnimatedAmount(
-                    text = heroText,
-                    hidden = !showBalance,
-                    modifier = Modifier.lumioSharedBounds(SharedKeys.accountBalance(account.walletId, account.chain.name, account.index)),
-                )
+                AnimatedAmount(text = heroText, hidden = !showBalance)
             }
         }
         heroFiat?.let { fiat ->
@@ -147,12 +139,17 @@ internal fun AccountScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         SectionTitle("Assets")
         LumioIsland {
+            // A read that has not landed yet keeps its row's place, so the rows that follow it do not jump when it does.
             if (assets.isEmpty()) {
-                EmptyLine(if (balance == null) NOT_READ else "No assets yet.")
+                if (loadingAssets) LoadingRow() else EmptyLine(if (balance == null) NOT_READ else "No assets yet.")
             } else {
                 assets.forEachIndexed { index, asset ->
                     if (index > 0) Divider()
                     AssetRow(asset = asset, shown = showBalance, onClick = { onAsset(asset) })
+                }
+                if (loadingAssets) {
+                    Divider()
+                    LoadingRow()
                 }
             }
             onAddAsset?.let { addAsset ->
@@ -166,6 +163,7 @@ internal fun AccountScreen(
             when {
                 account.chain == AccountChain.SOLANA || account.chain == AccountChain.ALGORAND ->
                     EmptyLine("Activity is not read for ${account.chain.label} yet.")
+                activity.isEmpty() && loadingActivity -> LoadingRow()
                 activity.isEmpty() -> EmptyLine("No transactions yet.")
                 else -> activity.forEachIndexed { index, item ->
                     if (index > 0) Divider()
