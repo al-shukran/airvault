@@ -29,6 +29,7 @@ import app.lumio.pair.SyncStep
 import app.lumio.ui.pair.FirstSyncScreen
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
+import app.lumio.ui.wallets.WalletSheet
 import app.lumio.wallets.WalletsLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -193,7 +194,8 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
         value = session?.let { s -> onVault(null) { PairedWallets.list(s).firstOrNull { it.id == walletId } } }
     }
     fun openWallet() {
-        navController.navigate(LumioRoute.wallet(walletId)) { popUpTo(LumioRoute.WALLETS) { inclusive = false } }
+        navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
+        app.lumioVault()?.sheets?.open(WalletSheet.Wallet(walletId))
     }
     BackHandler { openWallet() }
     if (session == null) {

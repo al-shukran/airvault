@@ -1,7 +1,10 @@
 package app.lumio
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -9,6 +12,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
@@ -42,9 +46,13 @@ import app.lumio.ui.wallets.AccountScreen
 import app.lumio.ui.wallets.AssetRowModel
 import app.lumio.ui.wallets.AssetRows
 import app.lumio.ui.wallets.AssetScreen
+import app.lumio.ui.wallets.OpenSheet
 import app.lumio.ui.wallets.WalletLoadingScreen
 import app.lumio.ui.wallets.WalletRow
 import app.lumio.ui.wallets.WalletScreen
+import app.lumio.ui.wallets.WalletSheet
+import app.lumio.ui.wallets.WalletSheetHost
+import app.lumio.ui.wallets.WalletSheets
 import app.lumio.ui.wallets.WalletsScreen
 import app.lumio.ui.wallets.summaryLine
 import app.lumio.wallets.AccountActivity
@@ -110,101 +118,95 @@ internal fun WalletsRoute(
     LaunchedEffect(board, sideRead, board.refreshDue) {
         if (sideRead && board.refreshDue) board.refresh()
     }
+    val sheets = app.lumioVault()?.sheets ?: return
+    SideEffect { sheets.keepSide(selection.mode) }
     val display = rememberDisplay(app)
     val view = board.view
-    WalletsScreen(
-        rows = view?.let { shown -> shown.wallets.map { wallet -> walletRow(shown, wallet) } }.orEmpty(),
-        loading = view == null,
-        totalUsd = view?.let(::allWalletsUsd),
-        showTotal = display.showTotal,
-        refreshing = board.refreshing,
-        refreshByPull = board.refreshByPull,
-        updatedAtMs = board.updatedAtMs,
-        notice = board.notice,
-        onWallet = { id -> navController.navigate(LumioRoute.wallet(id)) },
-        onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
-        onRefresh = { board.refresh(pulled = true) },
-        onSettings = { navController.navigate(LumioRoute.SETTINGS) { launchSingleTop = true } },
-    )
+    Box(modifier = Modifier.fillMaxSize()) {
+        WalletsScreen(
+            rows = view?.let { shown -> shown.wallets.map { wallet -> walletRow(shown, wallet) } }.orEmpty(),
+            loading = view == null,
+            totalUsd = view?.let(::allWalletsUsd),
+            showTotal = display.showTotal,
+            refreshing = board.refreshing,
+            refreshByPull = board.refreshByPull,
+            updatedAtMs = board.updatedAtMs,
+            notice = board.notice,
+            onWallet = { id -> sheets.open(WalletSheet.Wallet(id)) },
+            onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
+            onRefresh = { board.refresh(pulled = true) },
+            onSettings = { navController.navigate(LumioRoute.SETTINGS) { launchSingleTop = true } },
+        )
+        WalletSheetHost(sheets) { opened ->
+            when (val sheet = opened.sheet) {
+                is WalletSheet.Wallet -> WalletSheetScreen(opened, sheets, sheet.walletId, board, display, selection.mode, app)
+                is WalletSheet.Account -> AccountSheetScreen(opened, sheets, navController, session, sheet, board, display, selection.mode, app)
+            }
+        }
+    }
 }
 
 /**
- * One paired wallet: its accounts on the side [mode] chooses. The balances come from the open vault's shared board, so the screen shows them on its
- * first frame and starts no read of its own. Missing when the wallet is not in the open vault.
+ * The Wallet sheet: one paired wallet and its accounts on the side [mode] chooses. The balances come from the open vault's shared board, so the sheet shows
+ * them on its first frame. It closes when the wallet is not on the board.
  */
 @Composable
-internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode, listVersion: Int) {
-    val app = LocalContext.current.applicationContext as LumioApp
-    val session = holder.openSession()
-    LaunchedEffect(session == null) {
-        if (session == null) navController.openHidden(GateRoutes.GATE)
-    }
-    if (session == null) return
-    val board = rememberWalletsBoard(app, mode, listVersion) ?: return
-    val display = rememberDisplay(app)
+private fun WalletSheetScreen(
+    opened: OpenSheet,
+    sheets: WalletSheets,
+    walletId: String,
+    board: WalletsBoard,
+    display: DisplaySettings,
+    mode: NetworkMode,
+    app: LumioApp,
+) {
     val view = board.view
-    if (view == null) {
-        WalletLoadingScreen(onBack = { navController.popBackStack() })
+    val wallet = view?.wallets?.firstOrNull { it.id == walletId }
+    if (view == null || wallet == null) {
+        LaunchedEffect(Unit) { sheets.closeSheet(opened) }
         return
     }
-    val wallet = view.wallets.firstOrNull { it.id == walletId }
-    if (wallet == null) {
-        LaunchedEffect(Unit) { navController.popBackStack() }
-        return
-    }
-    val accounts = view.accountsOf(walletId)
     WalletScreen(
-        walletId = walletId,
         walletName = wallet.name,
         fingerprint = wallet.fingerprint.toInt(),
         mode = mode,
-        accounts = accounts,
+        accounts = view.accountsOf(walletId),
         tokenCounts = board.tokenCounts,
         network = app.registry::network,
         totalUsd = view.usd(walletId),
         showTotal = display.showTotal,
         showBalances = display.showAssets,
         refreshing = board.refreshing,
-        refreshByPull = board.refreshByPull,
         updatedAtMs = board.updatedAtMs,
         notice = board.notice,
-        onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.chain, account.index)) },
-        onRefresh = { board.refresh(pulled = true) },
-        onBack = { navController.popBackStack() },
+        onAccount = { account -> sheets.open(WalletSheet.Account(walletId, account.chain, account.index)) },
+        onBack = { sheets.closeSheet(opened) },
     )
 }
 
 /**
- * One account of a wallet on the side [mode] chooses: its chain, address and balance, its tokens, its holdings, its recent activity, and the Send and Receive
- * actions. The balance comes from the shared board, and the other parts from the account's reads, which the board keeps: a revisit shows them at once, and
- * a first visit reserves their rows until they land. Missing when the account is not in the open vault.
+ * The Account sheet: one account of a wallet on [mode]'s side. Its balance comes from the shared board, and its other reads from the account's kept reads. Its
+ * Send, Receive, asset and transaction pages are pushed over the Wallets home as before. It closes when the account is not on the board.
  */
 @Composable
-internal fun AccountRoute(
+private fun AccountSheetScreen(
+    opened: OpenSheet,
+    sheets: WalletSheets,
     navController: NavHostController,
-    holder: VaultHolder,
-    walletId: String,
-    chain: AccountChain,
-    index: Int,
+    session: VaultSession,
+    sheet: WalletSheet.Account,
+    board: WalletsBoard,
+    display: DisplaySettings,
     mode: NetworkMode,
-    listVersion: Int,
+    app: LumioApp,
 ) {
-    val app = LocalContext.current.applicationContext as LumioApp
-    val session = holder.openSession()
-    LaunchedEffect(session == null) {
-        if (session == null) navController.openHidden(GateRoutes.GATE)
-    }
-    if (session == null) return
-    val board = rememberWalletsBoard(app, mode, listVersion) ?: return
-    val display = rememberDisplay(app)
+    val walletId = sheet.walletId
+    val chain = sheet.chain
+    val index = sheet.index
     val view = board.view
-    if (view == null) {
-        WalletLoadingScreen(onBack = { navController.popBackStack() })
-        return
-    }
-    val account = view.accountsOf(walletId).firstOrNull { it.chain == chain && it.index == index }
-    if (account == null) {
-        LaunchedEffect(Unit) { navController.popBackStack() }
+    val account = view?.accountsOf(walletId)?.firstOrNull { it.chain == chain && it.index == index }
+    if (view == null || account == null) {
+        LaunchedEffect(Unit) { sheets.closeSheet(opened) }
         return
     }
     val reads = remember(board, account, mode) { board.readsOf(account, mode) }
@@ -224,13 +226,13 @@ internal fun AccountRoute(
         onSend = { navController.navigate(sendRoute(account, mode)) },
         onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
         onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, chain, index, asset.assetKey)) },
-        onAddAsset = if (account.chain == AccountChain.ALGORAND) {
+        onAddAsset = if (chain == AccountChain.ALGORAND) {
             { navController.navigate(LumioRoute.algorandAddAsset(walletId, index)) }
         } else {
             null
         },
         onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
-        onBack = { navController.popBackStack() },
+        onBack = { sheets.closeSheet(opened) },
     )
 }
 
