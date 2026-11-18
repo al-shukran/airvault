@@ -14,7 +14,8 @@ import app.lensly.ui.theme.LumenTheme
 /**
  * A screen of Lensly's hidden area, in the Lumen theme, with the transition of its [motion] class (section 3.2 of the Phase 2.8 spec). The
  * default is a Push. A [NavMotion.ROOT] screen keeps the NavHost's transition. The activity sets the camera cover's theme at the root, so the
- * cover and the gate keep it and every route that goes through here takes Lumen, including the status and navigation bar icons.
+ * cover and the gate keep it and every route that goes through here takes Lumen, including the status and navigation bar icons. The screen
+ * sits on the Lumen backdrop, which runs behind the bars, so the icons are drawn on the palette and not on the cover's black.
  */
 fun NavGraphBuilder.vaultComposable(
     route: String,
@@ -26,7 +27,7 @@ fun NavGraphBuilder.vaultComposable(
     val screen: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit = { entry ->
         LumenTheme {
             MirrorNavMotion()
-            content(entry)
+            HiddenBackdrop { content(entry) }
         }
     }
     if (motion == NavMotion.ROOT) {
