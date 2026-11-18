@@ -52,7 +52,7 @@ import kotlinx.coroutines.withContext
 
 /** The Settings screen and the App Password change, in the hidden graph. */
 internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, holder: VaultHolder) {
-    vaultComposable(HiddenRoute.SETTINGS) { HiddenBackdrop { SettingsRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.SETTINGS, motion = NavMotion.FADE) { HiddenBackdrop { SettingsRoute(navController, holder) } }
     vaultComposable(HiddenRoute.CHANGE_PASSWORD) { HiddenBackdrop { ChangePasswordRoute(navController, holder) } }
     vaultComposable(HiddenRoute.DURESS) { HiddenBackdrop { ChangePasswordRoute(navController, holder, duress = true) } }
     vaultComposable(HiddenRoute.DURESS_REMOVE) { HiddenBackdrop { RemoveDuressRoute(navController, holder) } }

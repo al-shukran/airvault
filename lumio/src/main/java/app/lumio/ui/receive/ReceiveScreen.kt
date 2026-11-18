@@ -25,7 +25,7 @@ import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LumenMono
 import app.lumio.ui.kit.LumioPrimaryButton
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.rememberCopyAction
 
 /** The test tag of the address on the receive page. */
