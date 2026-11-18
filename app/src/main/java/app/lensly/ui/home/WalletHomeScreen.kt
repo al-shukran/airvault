@@ -99,7 +99,7 @@ private const val NOTICE_MS = 2_400L
  * activity read. [nowMs] is the time that the relative times and the chart's days are read against. The callbacks take a wallet's id
  * where the action is about one wallet, and [onBackup] opens the Show Secret flow of that wallet. [debugNotice], when set, shows a short
  * warning chip beside the wordmark, for example that the keystore is software-only. [notice], when set, shows a short confirmation such as
- * "Wallet paired", and [onNoticeShown] is called once it has appeared, so the caller can forget it.
+ * "Wallet Paired", and [onNoticeShown] is called once it has appeared, so the caller can forget it.
  */
 @Composable
 fun WalletHomeScreen(
@@ -261,7 +261,7 @@ private fun ScanToSignButton(onClick: () -> Unit, modifier: Modifier = Modifier)
         )
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
-            text = "Scan to sign",
+            text = "Scan to Sign",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )

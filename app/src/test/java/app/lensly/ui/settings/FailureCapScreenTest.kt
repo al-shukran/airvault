@@ -64,7 +64,7 @@ class FailureCapScreenTest {
     fun theScreenIsTitledWrongPasswordLockout() {
         show(saved = FailureCapChoice.TEN_SECONDS, selected = null)
 
-        compose.onNodeWithText("Wrong password lockout").assertIsDisplayed()
+        compose.onNodeWithText("Wrong Password Lockout").assertIsDisplayed()
     }
 
     @Test
@@ -218,6 +218,34 @@ class FailureCapScreenTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun theEraseSliderOffersThreeTriesAsItsLowestStop() {
+        val erased = mutableListOf<Int>()
+        compose.setContent {
+            LumenTheme {
+                FailureCapScreen(
+                    step = FailureCapStep.Choose,
+                    saved = FailureCapChoice.DEFAULT,
+                    selected = null,
+                    savedErase = FailureDelay.DEFAULT_WIPE_AFTER,
+                    selectedErase = null,
+                    passwordLength = 0,
+                    onSelect = {},
+                    onSelectErase = { erased += it },
+                    onContinue = {},
+                    onKey = {},
+                    onBackspace = {},
+                    onSubmit = {},
+                    onBack = {},
+                )
+            }
+        }
+        // The cap slider comes first, so the erase slider is the second. Its first stop is the lowest erase count.
+        compose.onAllNodes(slider)[1].performSemanticsAction(SemanticsActions.SetProgress) { it(0f) }
+
+        assertEquals(listOf(3), erased)
     }
 
     @Test

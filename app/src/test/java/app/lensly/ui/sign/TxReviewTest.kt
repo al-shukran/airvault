@@ -39,7 +39,7 @@ class TxReviewTest {
         amount = "1",
         symbol = "USDC",
         tokenContract = tokenContract,
-        function = "Token transfer",
+        function = "Token Transfer",
         params = emptyList(),
         fee = emptyList(),
         feeNote = null,

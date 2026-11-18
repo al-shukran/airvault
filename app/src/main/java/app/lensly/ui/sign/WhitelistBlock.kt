@@ -11,12 +11,12 @@ import app.lensly.ui.components.AddressText
 @Composable
 internal fun ProxyFacts(proxy: ProxyBinding) {
     proxy.implementationAddress?.let { address ->
-        FactRow(label = "Approved implementation") {
+        FactRow(label = "Approved Implementation") {
             AddressText(address = address)
         }
     }
     proxy.implementationCodeHash?.let { hash ->
-        FactRow(label = "Approved code hash") {
+        FactRow(label = "Approved Code Hash") {
             MonoText(text = groupHex(hash.removePrefix("0x")))
         }
     }

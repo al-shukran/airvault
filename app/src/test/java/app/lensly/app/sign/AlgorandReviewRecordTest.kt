@@ -24,7 +24,7 @@ class AlgorandReviewRecordTest {
 
         assertEquals(ReviewOutcome.SIGNED, record.outcome)
         assertEquals(ReviewKind.TRANSACTION, record.kind)
-        assertEquals("Algorand testnet", record.networkName)
+        assertEquals("Algorand Testnet", record.networkName)
         assertEquals(0, record.accountIndex)
         assertEquals(SENDER_ADDRESS, record.address)
         assertEquals("lumio", record.origin)
@@ -35,8 +35,8 @@ class AlgorandReviewRecordTest {
                 "Receiver" to RECEIVER_ADDRESS,
                 "Amount" to "1.500000 ALGO",
                 "Fee" to "0.001000 ALGO",
-                "Valid from round" to "50000000",
-                "Valid until round" to "50001000",
+                "Valid from Round" to "50000000",
+                "Valid until Round" to "50001000",
             ),
             record.params,
         )

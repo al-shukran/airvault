@@ -499,7 +499,7 @@ class SignPipeline(
     private fun nativeReview(target: Target, to: String, value: BigInteger): TxReview {
         val network = target.network
         return target.review(
-            function = "Native transfer",
+            function = "Native Transfer",
             toAddress = to,
             amount = nativeAmount(value, network),
             symbol = nativeUnit(network),
@@ -647,7 +647,7 @@ class SignPipeline(
         val bytes = target.request.signData
         val review = target.review(
             function = SIGN_MESSAGE_FUNCTION,
-            txType = "Personal message",
+            txType = "Personal Message",
             params = listOf("message" to messageText(bytes), "size" to sizeText(bytes)),
             warnings = listOf(PERSONAL_MESSAGE_WARNING),
         )
@@ -747,18 +747,18 @@ class SignPipeline(
             TxType.LEGACY_EIP155, TxType.EIP2930 -> {
                 val gasPrice = checkNotNull(tx.gasPrice)
                 listOf(
-                    "Gas limit" to tx.gasLimit.toString(),
-                    "Gas price" to gwei(gasPrice),
-                    "Max fee" to "${nativeAmount(tx.gasLimit * gasPrice, network)} ${nativeUnit(network)}",
+                    "Gas Limit" to tx.gasLimit.toString(),
+                    "Gas Price" to gwei(gasPrice),
+                    "Max Fee" to "${nativeAmount(tx.gasLimit * gasPrice, network)} ${nativeUnit(network)}",
                 )
             }
             TxType.EIP1559 -> {
                 val maxFee = checkNotNull(tx.maxFeePerGas)
                 listOf(
-                    "Gas limit" to tx.gasLimit.toString(),
-                    "Max fee per gas" to gwei(maxFee),
-                    "Max priority fee" to gwei(checkNotNull(tx.maxPriorityFeePerGas)),
-                    "Max fee" to "${nativeAmount(tx.gasLimit * maxFee, network)} ${nativeUnit(network)}",
+                    "Gas Limit" to tx.gasLimit.toString(),
+                    "Max Fee per Gas" to gwei(maxFee),
+                    "Max Priority Fee" to gwei(checkNotNull(tx.maxPriorityFeePerGas)),
+                    "Max Fee" to "${nativeAmount(tx.gasLimit * maxFee, network)} ${nativeUnit(network)}",
                 )
             }
         }
@@ -809,7 +809,7 @@ class SignPipeline(
         /** The refusal of typed data for a chain the registry does not hold. */
         fun unknownTypedChain(chainId: Long): String =
             "The typed data is for chain $chainId, which is not in Lensly's network registry, so it is refused."
-        const val UNKNOWN_CALL = "Unknown contract call"
+        const val UNKNOWN_CALL = "Unknown Contract Call"
         const val UNREADABLE_ORIGIN = "The request names an origin with a character Lensly cannot show."
         const val PERSONAL_MESSAGE_WARNING = "The signature proves you hold this account to whoever checks it, and a site can use it to " +
             "act for you. Sign only a message from a site you trust."

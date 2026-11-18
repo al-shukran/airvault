@@ -526,7 +526,7 @@ class Vault constructor(
                 require(capMs in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS) { "cap must be between 10 s and 1 h" }
             }
             if (wipeAfter != null) {
-                require(wipeAfter in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) { "erase count must be between 5 and 20" }
+                require(wipeAfter in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) { "erase count must be between 3 and 20" }
             }
             val opened = when (val checked = checkPasswordLocked(password)) {
                 is Checked.Opened -> checked.slot

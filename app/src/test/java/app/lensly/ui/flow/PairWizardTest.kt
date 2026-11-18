@@ -67,7 +67,7 @@ class PairWizardTest {
 
         compose.onNodeWithText("Step 2 of 4", ignoreCase = true).assertExists()
         // The banner title is shown in capitals, so the match ignores case.
-        compose.onNodeWithText("Cannot be paired", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Cannot Be Paired", ignoreCase = true).assertExists()
     }
 
     @Test
@@ -85,11 +85,11 @@ class PairWizardTest {
             }
         }
 
-        compose.onNodeWithText("Wallet entry").assertDoesNotExist()
+        compose.onNodeWithText("Wallet Entry").assertDoesNotExist()
         compose.onNodeWithText("RABBY (AIRGAP VAULT)").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Wallet entry").assertExists()
+        compose.onNodeWithText("Wallet Entry").assertExists()
         compose.onNodeWithText("Rabby").assertExists()
         compose.onNodeWithText("Known limitations: ", substring = true).assertExists()
     }
@@ -113,7 +113,7 @@ class PairWizardTest {
         compose.onNodeWithText("LUMIO (AIRVAULT COMPANION)").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Wallet entry").assertDoesNotExist()
+        compose.onNodeWithText("Wallet Entry").assertDoesNotExist()
     }
 
     @Test
@@ -162,7 +162,7 @@ class PairWizardTest {
         // The one code covers every App of the wallet, so no App is offered on its own. Its frames are still being prepared.
         compose.onNodeWithText("Ethereum", ignoreCase = true).assertDoesNotExist()
         compose.onNodeWithText("Bitcoin", ignoreCase = true).assertDoesNotExist()
-        compose.onNodeWithText("Preparing code", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Preparing Code", ignoreCase = true).assertExists()
     }
 
     private fun mnemonic(id: String, name: String) = WalletMeta(

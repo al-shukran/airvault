@@ -78,7 +78,7 @@ fun SecuritySettingsPage(
 ) {
     SettingsPageScreen(SettingsPage.SECURITY, onBack) {
         SettingsSection(title = "Entry") {
-            SettingsRow(title = "Hidden entry gesture", description = entryGesture.title, onClick = onEntryGesture)
+            SettingsRow(title = "Hidden Entry Gesture", description = entryGesture.title, onClick = onEntryGesture)
             Spacer(Modifier.height(LenslySpacing.sm))
             Text(
                 "Choosing another gesture asks for the App Password first.",
@@ -88,14 +88,14 @@ fun SecuritySettingsPage(
         }
         SettingsSection(title = "Password") {
             SettingsRow(
-                title = "Change password",
+                title = "Change Password",
                 description = "Opens Lumio. Lensly's password is separate.",
                 onClick = onChangePassword,
             )
         }
         SettingsSection(title = "Lock") {
             SliderSetting(
-                title = "Lock after inactivity",
+                title = "Lock after Inactivity",
                 options = LockSettings.IDLE_CHOICES,
                 selected = lock.idleMinutes,
                 label = ::idleLabel,
@@ -109,7 +109,7 @@ fun SecuritySettingsPage(
             )
             Spacer(Modifier.height(LenslySpacing.sm))
             SettingsSwitchRow(
-                title = "Lock when switching apps",
+                title = "Lock When Switching Apps",
                 description = "Lumio locks as soon as you leave it. Off, it stays unlocked until the inactivity lock.",
                 checked = lock.lockWhenSwitchingApps,
                 onCheckedChange = onLockWhenSwitching,

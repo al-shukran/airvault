@@ -35,9 +35,9 @@ sealed interface ProxyPolicyStep {
 /** The policy's name, as the Settings row and the choice show it. */
 internal val ProxyPolicy.title: String
     get() = when (this) {
-        ProxyPolicy.BIND_TO_IMPLEMENTATION -> "Bind to implementation"
-        ProxyPolicy.REFUSE_ALL_PROXIES -> "Refuse all proxies"
-        ProxyPolicy.WARN_AND_CONFIRM -> "Warn and confirm"
+        ProxyPolicy.BIND_TO_IMPLEMENTATION -> "Bind to Implementation"
+        ProxyPolicy.REFUSE_ALL_PROXIES -> "Refuse All Proxies"
+        ProxyPolicy.WARN_AND_CONFIRM -> "Warn and Confirm"
     }
 
 /** What the policy does with a whitelisted proxy, in plain words. */
@@ -166,5 +166,5 @@ private fun PolicyOption(policy: ProxyPolicy, selected: Boolean, onClick: () -> 
     }
 }
 
-private const val TITLE = "Proxy policy"
+private const val TITLE = "Proxy Policy"
 private const val STEP_COUNT = 2

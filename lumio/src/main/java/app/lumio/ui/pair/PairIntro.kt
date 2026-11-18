@@ -49,7 +49,7 @@ fun PairIntro(onScan: () -> Unit, modifier: Modifier = Modifier) {
     ) {
         Column {
             Text(
-                text = "Connect your vault",
+                text = "Connect Your Vault",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -61,7 +61,7 @@ fun PairIntro(onScan: () -> Unit, modifier: Modifier = Modifier) {
             IntroStep(number = 3, text = "Lumio reads balances. Keys stay in Lensly.")
         }
         Spacer(Modifier.height(LenslySpacing.md))
-        LumioPrimaryButton(text = "Scan pairing code", onClick = onScan)
+        LumioPrimaryButton(text = "Scan Pairing Code", onClick = onScan)
     }
 }
 

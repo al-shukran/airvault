@@ -94,7 +94,7 @@ fun SendFormScreen(
         if (chain == null) {
             EmptyState(
                 icon = LenslyIcons.Wallets,
-                title = "Network is off",
+                title = "Network Is Off",
                 body = "Turn it on in EVM settings to send on it.",
             )
             return@SendStepScaffold
@@ -123,7 +123,7 @@ fun SendFormScreen(
         AddressField(
             value = recipient,
             onValueChange = onRecipient,
-            label = "Recipient address (0x)",
+            label = "Recipient Address (0x)",
             validate = ::recipientError,
             enabled = !busy,
             onScan = onScan,
@@ -168,7 +168,7 @@ fun SendReviewScreen(
     val recipient = addressNotesOf(send.to, AddressChain.EVM, accounts, addressBook)?.headline() ?: send.to
     SendStepScaffold(
         step = SEND_STEP_REVIEW,
-        title = "Review send",
+        title = "Review Send",
         onBack = onBack,
         bottomAction = {
             LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm)
@@ -186,22 +186,22 @@ fun SendReviewScreen(
                 ReviewAddress("From", send.from, notes = addressNotesOf(send.from, AddressChain.EVM, accounts, addressBook))
                 ReviewAddress("To", send.to, notes = addressNotesOf(send.to, AddressChain.EVM, accounts, addressBook))
                 ReviewField("Amount", amount)
-                if (token != null) ReviewAddress("Token contract", send.tx.to ?: token.contract)
+                if (token != null) ReviewAddress("Token Contract", send.tx.to ?: token.contract)
             }
         }
         Spacer(Modifier.height(LenslySpacing.md))
         LumioIsland {
             Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
-                ReviewField("Fee, at most", EvmFormat.amount(send.maxFeeWei, chain.decimals, chain.symbol))
-                ReviewField("Fee cap per gas", "${Amounts.format(send.maxFeePerGas, GWEI_DECIMALS)} gwei")
-                ReviewField("Priority fee per gas", "${Amounts.format(send.maxPriorityFeePerGas, GWEI_DECIMALS)} gwei")
-                ReviewField("Gas limit", send.gasLimit.toString())
+                ReviewField("Fee, at Most", EvmFormat.amount(send.maxFeeWei, chain.decimals, chain.symbol))
+                ReviewField("Fee Cap per Gas", "${Amounts.format(send.maxFeePerGas, GWEI_DECIMALS)} gwei")
+                ReviewField("Priority Fee per Gas", "${Amounts.format(send.maxPriorityFeePerGas, GWEI_DECIMALS)} gwei")
+                ReviewField("Gas Limit", send.gasLimit.toString())
                 ReviewField("Nonce", send.nonce.toString())
                 if (token == null) {
                     ReviewField("Balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
                 } else {
                     ReviewField("Balance", send.tokenBalance?.let { EvmFormat.amount(it, token.decimals, token.symbol) }.orEmpty())
-                    ReviewField("Gas balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
+                    ReviewField("Gas Balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
                 }
             }
         }
@@ -237,7 +237,7 @@ fun SendReviewScreen(
 /** The camera scan of a recipient: an address or a payment code. [status] says what to scan, or why the last code was refused. */
 @Composable
 fun RecipientScanScreen(status: String, onText: (String) -> Unit, onCancel: () -> Unit) {
-    LumioScanScreen(title = "Scan address", progress = null, statusText = status, onText = onText, onCancel = onCancel)
+    LumioScanScreen(title = "Scan Address", progress = null, statusText = status, onText = onText, onCancel = onCancel)
 }
 
 /**
@@ -258,7 +258,7 @@ fun SignRequestScreen(
         onBack = onBack,
         scrollable = false,
         bottomAction = {
-            LumioPrimaryButton(text = "Scan Lensly's signature", onClick = onScan)
+            LumioPrimaryButton(text = "Scan Lensly's Signature", onClick = onScan)
         },
     ) {
         NetworkHeader(send.chain)
@@ -288,7 +288,7 @@ fun SignRequestScreen(
 @Composable
 fun SignatureScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit) {
     LumioScanScreen(
-        title = "Scan signature",
+        title = "Scan Signature",
         progress = progress,
         statusText = status,
         onText = onText,
@@ -352,7 +352,7 @@ private fun AssetRow(asset: SendAsset, selected: Boolean, onSelect: () -> Unit) 
 
 /** What the picker says under a coin: the native coin, the token's balance on this address, or that none is held. */
 private fun assetDetail(asset: SendAsset): String {
-    val token = asset.token ?: return "Native coin"
+    val token = asset.token ?: return "Native Coin"
     val balance = asset.balance ?: return "No balance on this address"
     return "Balance " + EvmFormat.amount(balance, token.decimals, token.symbol)
 }
@@ -388,14 +388,14 @@ internal fun ReviewField(label: String, value: String) {
 /**
  * A [ReviewField] whose value is an address: the same label and text, with the copy action. The name the address goes by is shown above
  * it, so the owner sees whom it is for: an account of this device as "Your account", else the Address Book name. An address that is both
- * also shows its Address Book name below, as "Address name".
+ * also shows its Address Book name below, as "Address Name".
  */
 @Composable
 internal fun ReviewAddress(label: String, address: String, notes: AddressNotes? = null) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         notes?.headline()?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
-        if (notes?.internal != null) notes.entry?.let { entry -> ReviewField("Address name", entry.name) }
+        if (notes?.internal != null) notes.entry?.let { entry -> ReviewField("Address Name", entry.name) }
         AddressText(address = address, shown = address, icon = false, style = MaterialTheme.typography.bodyMedium)
     }
 }

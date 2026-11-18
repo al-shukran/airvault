@@ -59,7 +59,7 @@ private fun transferReview() = TxReview(
     tokenContract = CONTRACT_ADDR,
     function = "transfer",
     params = listOf("to" to RECIPIENT, "value" to "1500000 (1.5 USDC)"),
-    fee = listOf("Gas limit" to "21000", "Max fee" to "0.0021 MON"),
+    fee = listOf("Gas Limit" to "21000", "Max Fee" to "0.0021 MON"),
     feeNote = "L1 data fee is not computable offline; total may be higher",
     warnings = emptyList(),
     nonce = 4L,
@@ -92,8 +92,8 @@ class ReviewRecordTest {
         assertEquals(CONTRACT_ADDR, record.tokenContract)
         assertEquals(
             listOf(
-                "Gas limit" to "21000",
-                "Max fee" to "0.0021 MON",
+                "Gas Limit" to "21000",
+                "Max Fee" to "0.0021 MON",
                 "Note" to "L1 data fee is not computable offline; total may be higher",
             ),
             record.fee,
@@ -107,7 +107,7 @@ class ReviewRecordTest {
     @Test
     fun aRefusalBeforeAnyReviewNamesTheChainAndKeepsTheReason() {
         val record = reviewRecordOf(
-            ReviewEntry("wallet", ReviewOutcome.REFUSED, request(), null, refusal = "Unknown contract call"),
+            ReviewEntry("wallet", ReviewOutcome.REFUSED, request(), null, refusal = "Unknown Contract Call"),
             atMs = 1L,
             registry = REGISTRY,
         )
@@ -118,7 +118,7 @@ class ReviewRecordTest {
         assertNull(record.address)
         assertNull(record.function)
         assertTrue(record.fee.isEmpty())
-        assertEquals("Unknown contract call", record.refusal)
+        assertEquals("Unknown Contract Call", record.refusal)
     }
 
     @Test
@@ -157,7 +157,7 @@ class ReviewRecordTest {
             params = listOf("message" to "Sign in to Lensly"),
             fee = emptyList(),
             feeNote = null,
-            txType = "Personal message",
+            txType = "Personal Message",
         )
         val request = request(dataType = DataType.PERSONAL_MESSAGE, signData = message)
 

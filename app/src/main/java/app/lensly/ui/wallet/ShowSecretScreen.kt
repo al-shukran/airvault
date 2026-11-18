@@ -30,7 +30,7 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalMonoFamily
 
-private const val TITLE = "Show secret"
+private const val TITLE = "Show Secret"
 private const val SHOW_PROMPT = "Enter your Application Password to show the secret."
 
 /** The three steps: App Password, warning, and the secret. */
@@ -114,7 +114,7 @@ private fun WarningStep(
         DotHeadline(text = "Warning")
         Spacer(Modifier.height(LenslySpacing.lg))
         InlineBanner(
-            title = "Keep it private",
+            title = "Keep It Private",
             message = "Anyone who sees these can take your funds. Make sure no one is watching. " +
                 "Never photograph or share them.",
             tone = BannerTone.Warning,
@@ -204,9 +204,9 @@ private fun RevealedStep(
         }
         Spacer(Modifier.height(LenslySpacing.lg))
         if (secret.isKey) {
-            WalletEyebrow("Single key. Check it against your backup")
+            WalletEyebrow("Single Key, Check It against Your Backup")
             Spacer(Modifier.height(LenslySpacing.xs))
-            WalletWarningChip(text = "Never photograph")
+            WalletWarningChip(text = "Never Photograph")
             Spacer(Modifier.height(LenslySpacing.lg))
             Box(
                 modifier = Modifier
@@ -220,7 +220,7 @@ private fun RevealedStep(
         } else {
             val isPassphrase = step.part == RevealPart.PASSPHRASE
             val count = secret.pageCount(step.part)
-            val title = if (isPassphrase) "Passphrase" else "Recovery phrase"
+            val title = if (isPassphrase) "Passphrase" else "Recovery Phrase"
             WalletEyebrow("$title. Word ${step.index + 1} of $count")
             Spacer(Modifier.height(LenslySpacing.xs))
             StepSegments(count = count, filled = step.index + 1)
@@ -232,7 +232,7 @@ private fun RevealedStep(
             ) {
                 WordPage(text = secret.page(step.part, step.index), passphrase = isPassphrase)
             }
-            WalletWarningChip(text = "Never photograph", modifier = Modifier.align(Alignment.CenterHorizontally))
+            WalletWarningChip(text = "Never Photograph", modifier = Modifier.align(Alignment.CenterHorizontally))
         }
     }
 }

@@ -81,7 +81,7 @@ internal fun BackupPanel(
         Spacer(Modifier.width(LenslySpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = if (wallets.size == 1) "Back up your 24 words" else "Back up ${wallets.size} wallets",
+                text = if (wallets.size == 1) "Back Up Your 24 Words" else "Back Up ${wallets.size} Wallets",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )

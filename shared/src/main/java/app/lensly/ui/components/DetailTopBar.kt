@@ -38,7 +38,8 @@ private val TOP_BAR_HEIGHT = 56.dp
 /**
  * The one top bar of every detail screen: Back on the left when [onBack] is set, the [title] in the dot-matrix headline face, the lock
  * icon on the right while the vault is unlocked (see [LocalVaultLock]), and the options icon after it, which [optionsLabel] names for a
- * reader of the screen. A null [onOptions] leaves the options icon out, and a null [title] leaves the title out.
+ * reader of the screen. A null [onOptions] leaves the options icon out, and a null [title] leaves the title out. [titleModifier] is laid on the title,
+ * so a screen can move it to the next screen.
  */
 @Composable
 fun DetailTopBar(
@@ -47,6 +48,7 @@ fun DetailTopBar(
     onOptions: (() -> Unit)? = null,
     optionsLabel: String = "Options",
     optionsIcon: ImageVector = Icons.Filled.MoreVert,
+    titleModifier: Modifier = Modifier,
 ) {
     val haptics = rememberKeyHaptics()
     val onLock = LocalVaultLock.current
@@ -70,6 +72,7 @@ fun DetailTopBar(
                 text = if (LocalUppercaseLabels.current) title.uppercase() else title,
                 modifier = Modifier
                     .weight(1f)
+                    .then(titleModifier)
                     .semantics { heading() },
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,

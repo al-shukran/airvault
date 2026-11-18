@@ -137,7 +137,7 @@ class BitcoinAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("Generate accounts").performScrollTo().performClick()
+        compose.onNodeWithText("Generate Accounts").performScrollTo().performClick()
         assertTrue(route.generated)
     }
 
@@ -151,13 +151,13 @@ class BitcoinAccountsScreenTest {
         }
 
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onAllNodesWithText("Generate accounts").assertCountEquals(2)
-        compose.onNodeWithText("Select accounts").assertDoesNotExist()
-        compose.onNodeWithText("Pair this wallet").performClick()
+        compose.onAllNodesWithText("Generate Accounts").assertCountEquals(2)
+        compose.onNodeWithText("Select Accounts").assertDoesNotExist()
+        compose.onNodeWithText("Pair This Wallet").performClick()
         assertTrue(route.paired)
 
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onNodeWithText("Scan to sign").performClick()
+        compose.onNodeWithText("Scan to Sign").performClick()
         assertTrue(route.scanned)
     }
 
@@ -171,9 +171,9 @@ class BitcoinAccountsScreenTest {
 
         compose.onNodeWithText("No Bitcoin accounts yet.").assertIsDisplayed()
         compose.onNodeWithText(SINGLE_KEY_NO_BITCOIN, substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Generate accounts").assertDoesNotExist()
+        compose.onNodeWithText("Generate Accounts").assertDoesNotExist()
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onNodeWithText("Generate accounts").assertDoesNotExist()
+        compose.onNodeWithText("Generate Accounts").assertDoesNotExist()
     }
 
     @Test
@@ -202,7 +202,7 @@ class BitcoinAccountsScreenTest {
         }
 
         compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).performClick()
-        compose.onNodeWithText("Edit profile").performClick()
+        compose.onNodeWithText("Edit Profile").performClick()
         // The taproot account is the fourth one the wallet made, so its place is 3.
         assertEquals(3, route.edited)
     }

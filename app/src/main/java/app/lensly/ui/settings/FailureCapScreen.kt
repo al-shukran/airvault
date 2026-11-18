@@ -170,7 +170,7 @@ private fun ChooseContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         SliderSetting(
-            title = "Longest wait",
+            title = "Longest Wait",
             options = FailureCapChoice.entries,
             selected = shown,
             label = { it.label },
@@ -200,7 +200,7 @@ private fun ChooseContent(
     }
 }
 
-/** The erase counts the owner may choose: 5 to 20 wrong tries in a row. */
+/** The erase counts the owner may choose: 3 to 20 wrong tries in a row. */
 private val ERASE_OPTIONS: List<Int> = (FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER).toList()
 
 /**
@@ -215,7 +215,7 @@ private fun WaitSteps(choice: FailureCapChoice) {
     val description = "Waits after wrong tries: " + steps.joinToString(", ") { formatWait(it) }
     Column(modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description }) {
         Text(
-            text = "Wait after each wrong try",
+            text = "Wait after Each Wrong Try",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -276,7 +276,7 @@ internal fun formatWait(ms: Long): String = when {
     else -> "${ms / HOUR_MS} h"
 }
 
-private const val TITLE = "Wrong password lockout"
+private const val TITLE = "Wrong Password Lockout"
 private const val STEP_COUNT = 2
 /** The height of the tallest bar, of the area that holds a step's label and bar, and of the shortest bar. */
 private val BAR_MAX: Dp = 56.dp

@@ -96,7 +96,7 @@ class DataProvidersScreenTest {
     fun theMevBadgeShowsOnlyOnAProtectedProvider() {
         show()
 
-        compose.onAllNodesWithText("MEV-protected", ignoreCase = true).assertCountEquals(1)
+        compose.onAllNodesWithText("MEV-Protected", ignoreCase = true).assertCountEquals(1)
     }
 
     @Test
@@ -193,7 +193,7 @@ class DataProvidersScreenTest {
             }
         }
 
-        compose.onNodeWithText("Explorers and privacy", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Explorers and Privacy", ignoreCase = true).assertExists()
         compose.onNodeWithTag("prefer-rpc").performClick()
 
         assertEquals(true, reported)

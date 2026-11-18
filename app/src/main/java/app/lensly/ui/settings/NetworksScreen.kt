@@ -196,7 +196,7 @@ private fun NetworkCard(
         ) {
             Column(modifier = Modifier.padding(top = LenslySpacing.sm)) {
                 Text(
-                    text = "Fee model",
+                    text = "Fee Model",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -207,7 +207,7 @@ private fun NetworkCard(
                 )
                 Spacer(Modifier.height(LenslySpacing.xs))
                 Text(
-                    text = "Supported tokens",
+                    text = "Supported Tokens",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -79,12 +79,12 @@ object WalletAccounts {
         nativeAccounts(wallet, AccountChain.SOLANA, Family.SOL, wallet.solana, coins, nativeCache) { SolanaAccount.addressOf(it) } +
         nativeAccounts(wallet, AccountChain.ALGORAND, Family.ALGO, wallet.algorand, coins, nativeCache) { AlgorandAccount.addressOf(it) }
 
-    /** The name of a Bitcoin script type as the screens show it, such as "native segwit". */
+    /** The name of a Bitcoin script type as the screens show it, such as "Native SegWit". */
     fun scriptLabel(type: ScriptType): String = when (type) {
-        ScriptType.LEGACY -> "legacy"
-        ScriptType.NESTED_SEGWIT -> "nested segwit"
-        ScriptType.NATIVE_SEGWIT -> "native segwit"
-        ScriptType.TAPROOT -> "taproot"
+        ScriptType.LEGACY -> "Legacy"
+        ScriptType.NESTED_SEGWIT -> "Nested SegWit"
+        ScriptType.NATIVE_SEGWIT -> "Native SegWit"
+        ScriptType.TAPROOT -> "Taproot"
     }
 
     /**
@@ -100,7 +100,7 @@ object WalletAccounts {
                 chain = AccountChain.BITCOIN,
                 index = wallet.bitcoin.indexOfFirst { it.path.path == account.path.path },
                 address = account.receiveAddress(0),
-                networkName = if (account.network == BtcNetwork.TESTNET4) "Bitcoin testnet4" else "Bitcoin",
+                networkName = if (account.network == BtcNetwork.TESTNET4) "Bitcoin Testnet4" else "Bitcoin",
                 balance = HomeBalances.bitcoin(listOf(row)).singleOrNull(),
                 script = scriptLabel(account.scriptType),
             )

@@ -39,8 +39,8 @@ data class NativeCoin(val network: NetworkId, val symbol: String, val name: Stri
 val NATIVE_COINS: List<NativeCoin> = listOf(
     NativeCoin(ALGORAND_MAINNET, symbol = "ALGO", name = "Algorand", decimals = 6),
     NativeCoin(SOLANA_MAINNET, symbol = "SOL", name = "Solana", decimals = 9),
-    NativeCoin(ALGORAND_TESTNET, symbol = "ALGO", name = "Algorand testnet", decimals = 6),
-    NativeCoin(SOLANA_DEVNET, symbol = "SOL", name = "Solana devnet", decimals = 9),
+    NativeCoin(ALGORAND_TESTNET, symbol = "ALGO", name = "Algorand Testnet", decimals = 6),
+    NativeCoin(SOLANA_DEVNET, symbol = "SOL", name = "Solana Devnet", decimals = 9),
 )
 
 /** A read that did not answer: its [network], and the owner's words for why. The cached balance of that network stays as it was. */

@@ -54,7 +54,7 @@ internal fun AccountExportScreen(
     val last = accounts.lastIndex
     val current = accounts[step.coerceIn(0, last)]
     LenslyScreen(
-        title = if (accounts.size == 1) "Export account" else "Export ${accounts.size} accounts",
+        title = if (accounts.size == 1) "Export Account" else "Export ${accounts.size} Accounts",
         modifier = modifier,
         onBack = onBack,
         scrollable = false,
@@ -149,7 +149,7 @@ private fun AccountAddressDetails(address: String, derivationPath: String?) {
         )
         if (derivationPath != null) {
             Spacer(Modifier.height(LenslySpacing.sm))
-            WalletEyebrow("Derivation path")
+            WalletEyebrow("Derivation Path")
             Spacer(Modifier.height(LenslySpacing.xxs))
             Text(
                 text = derivationPath,

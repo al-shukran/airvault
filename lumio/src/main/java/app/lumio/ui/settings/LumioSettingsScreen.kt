@@ -18,9 +18,9 @@ enum class SettingsPage(val title: String) {
     DISPLAY("Display"),
     TRANSACTIONS("Transactions"),
     NETWORKS("Networks"),
-    PROVIDERS("Data providers"),
+    PROVIDERS("Data Providers"),
     WALLETS("Wallets"),
-    ADDRESS_BOOK("Address book"),
+    ADDRESS_BOOK("Address Book"),
     SECURITY("Security"),
     ABOUT("About"),
 }

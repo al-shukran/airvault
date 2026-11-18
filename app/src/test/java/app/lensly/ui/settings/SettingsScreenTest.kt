@@ -121,14 +121,14 @@ class SettingsScreenTest {
     fun theProxyPolicyRowNamesTheSavedPolicyAndMarksTheDefault() {
         show(proxyPolicy = ProxyPolicy.DEFAULT)
 
-        compose.onNodeWithText("Bind to implementation (default)").assertExists()
+        compose.onNodeWithText("Bind to Implementation (default)").assertExists()
     }
 
     @Test
     fun theProxyPolicyRowShowsAChangedPolicyWithoutTheDefaultMark() {
         show(proxyPolicy = ProxyPolicy.WARN_AND_CONFIRM)
 
-        compose.onNodeWithText("Warn and confirm").assertExists()
+        compose.onNodeWithText("Warn and Confirm").assertExists()
     }
 
     @Test
@@ -136,7 +136,7 @@ class SettingsScreenTest {
         var opened = false
         show(onProxyPolicy = { opened = true })
 
-        compose.onNodeWithText("Proxy policy").performScrollTo().performClick()
+        compose.onNodeWithText("Proxy Policy").performScrollTo().performClick()
 
         assertTrue(opened)
     }
@@ -145,7 +145,7 @@ class SettingsScreenTest {
     fun theLockoutRowNamesTheLongestWait() {
         show()
 
-        compose.onNodeWithText("Wrong password lockout").assertExists()
+        compose.onNodeWithText("Wrong Password Lockout").assertExists()
         compose.onNodeWithText("Up to 1 min (default). Erased after 10 wrong tries in a row.").assertExists()
     }
 
@@ -154,7 +154,7 @@ class SettingsScreenTest {
         val chosen = mutableListOf<BulkCap>()
         show(bulkCap = BulkCap.HUNDRED, onBulkCap = { chosen += it })
 
-        compose.onNodeWithText("Bulk cap · 100").performScrollTo().performClick()
+        compose.onNodeWithText("Bulk Cap · 100").performScrollTo().performClick()
         compose.onNodeWithText("50").performClick()
 
         assertEquals(listOf(BulkCap.FIFTY), chosen)
@@ -164,7 +164,7 @@ class SettingsScreenTest {
     fun theBulkCapRowShowsTheSavedCapInOneLine() {
         show(bulkCap = BulkCap.TWENTY)
 
-        compose.onNodeWithText("Bulk cap · 20").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Bulk Cap · 20").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -173,7 +173,7 @@ class SettingsScreenTest {
         show(hideDelay = HideDelay(250L, 4_000L), onHideDelay = { opened = true })
 
         compose.onNodeWithText("From 250 to 4000 ms after a tap.").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Hide delay").performScrollTo().performClick()
+        compose.onNodeWithText("Hide Delay").performScrollTo().performClick()
 
         assertTrue(opened)
     }
@@ -182,9 +182,9 @@ class SettingsScreenTest {
     fun theEntryRowsUseSentenceCase() {
         show()
 
-        compose.onNodeWithText("Change application password").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Duress password").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Remove duress password").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Change Application Password").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Duress Password").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Remove Duress Password").performScrollTo().assertIsDisplayed()
     }
 
     @Test

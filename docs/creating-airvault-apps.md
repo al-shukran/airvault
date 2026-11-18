@@ -284,7 +284,7 @@ The app turns a parsed request into a `Review`. The core renders it. The app nev
 
 ```kotlin
 data class Review(
-    val title: String,                       // sentence case: "Send bitcoin", "Opt in to asset"
+    val title: String,                       // CMOS title case: "Send Bitcoin", "Opt In to Asset"
     val chain: ChainId,
     val sections: List<ReviewSection>,       // in display order
     val warnings: List<Warning>,

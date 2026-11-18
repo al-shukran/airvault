@@ -131,8 +131,8 @@ class LumioCoverageScreenshotTest {
     @Test
     fun evmAddCustomChainDialog() = dialogSnapshot(
         name = "evm_add_custom_chain_dialog",
-        title = "Add a chain",
-        open = { onNodeWithText("Add custom chain").performClick() },
+        title = "Add a Chain",
+        open = { onNodeWithText("Add Custom Chain").performClick() },
     ) {
         LenslyScreen(title = "SETTINGS", onBack = {}) {
             EvmSettingsSection(
@@ -199,7 +199,7 @@ class LumioCoverageScreenshotTest {
     fun licences() = compose.lumioSnapshot("licences") {
         ThirdPartyLicencesScreen(
             blocks = listOf(
-                NoticeBlock("Third-party licences", heading = true),
+                NoticeBlock("Third-Party Licences", heading = true),
                 NoticeBlock("Kotlin, Jetpack Compose and Roborazzi are licensed under the Apache License, Version 2.0.", heading = false),
                 NoticeBlock("The Bitcoin and Ethereum libraries are licensed under the MIT License.", heading = false),
             ),

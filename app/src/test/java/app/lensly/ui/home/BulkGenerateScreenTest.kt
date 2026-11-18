@@ -91,7 +91,7 @@ class BulkGenerateScreenTest {
         setDigits("100")
 
         assertNotShown("Above the Bulk Cap of 100")
-        compose.onNodeWithText("Generate 100 accounts").assertIsEnabled()
+        compose.onNodeWithText("Generate 100 Accounts").assertIsEnabled()
     }
 
     @Test
@@ -104,26 +104,26 @@ class BulkGenerateScreenTest {
         setDigits("20")
 
         assertNotShown("Above the Bulk Cap of 20")
-        compose.onNodeWithText("Generate 20 accounts").assertIsEnabled()
+        compose.onNodeWithText("Generate 20 Accounts").assertIsEnabled()
     }
 
     @Test
     fun aChangedCapIsReflectedInTheScreen() {
         showScreen(BulkCap.HUNDRED, digits = "30")
-        assertShown("Up to 100 per run. Change the Bulk cap in Settings.")
-        compose.onNodeWithText("Generate 30 accounts").assertIsEnabled()
+        assertShown("Up to 100 per run. Change the Bulk Cap in Settings.")
+        compose.onNodeWithText("Generate 30 Accounts").assertIsEnabled()
 
         setCap(BulkCap.TWENTY)
 
-        assertShown("Up to 20 per run. Change the Bulk cap in Settings.")
+        assertShown("Up to 20 per run. Change the Bulk Cap in Settings.")
         assertShown("Above the Bulk Cap of 20")
         compose.onNodeWithText("Generate").assertIsNotEnabled()
 
         setCap(BulkCap.HUNDRED)
 
-        assertShown("Up to 100 per run. Change the Bulk cap in Settings.")
+        assertShown("Up to 100 per run. Change the Bulk Cap in Settings.")
         assertNotShown("Above the Bulk Cap of 20")
-        compose.onNodeWithText("Generate 30 accounts").assertIsEnabled()
+        compose.onNodeWithText("Generate 30 Accounts").assertIsEnabled()
     }
 
     @Test
@@ -132,7 +132,7 @@ class BulkGenerateScreenTest {
 
         compose.onNode(hasSetTextAction()).performTextReplacement("25")
 
-        compose.onNodeWithText("Generate 25 accounts").assertIsEnabled()
+        compose.onNodeWithText("Generate 25 Accounts").assertIsEnabled()
         assertShown("Adds Seed wallet 3 to Seed wallet 27")
     }
 
@@ -169,7 +169,7 @@ class BulkGenerateScreenTest {
         assertNotShown("Above the Bulk Cap of 100")
 
         compose.onNode(hasSetTextAction()).performTextReplacement("5")
-        compose.onNodeWithText("Generate 5 accounts").assertIsEnabled()
+        compose.onNodeWithText("Generate 5 Accounts").assertIsEnabled()
     }
 
     @Test
@@ -187,14 +187,14 @@ class BulkGenerateScreenTest {
         assertNotShown("10")
         assertNotShown("20")
         assertNotShown("100")
-        assertShown("Ethereum · all networks")
+        assertShown("Ethereum · All Networks")
     }
 
     @Test
     fun anEthereumRunHasNoScriptTypeRow() {
         showScreen(BulkCap.HUNDRED, digits = "2")
 
-        assertNotShown("Script type · Native Segwit")
+        assertNotShown("Script Type · Native Segwit")
     }
 
     @Test
@@ -202,7 +202,7 @@ class BulkGenerateScreenTest {
         showScreen(BulkCap.HUNDRED, digits = "3", chain = DEFAULT_BITCOIN)
 
         assertShown("Bitcoin")
-        assertShown("Script type · Native Segwit")
+        assertShown("Script Type · Native Segwit")
         assertShown("Adds 3 Native Segwit accounts")
     }
 
@@ -210,22 +210,22 @@ class BulkGenerateScreenTest {
     fun pickingAScriptTypeFromTheListSetsTheRun() {
         showScreen(BulkCap.HUNDRED, digits = "3", chain = DEFAULT_BITCOIN)
 
-        compose.onNodeWithText("Script type · Native Segwit").performClick()
+        compose.onNodeWithText("Script Type · Native Segwit").performClick()
         compose.onNodeWithText("Taproot").performClick()
 
         assertEquals(BulkChain.Bitcoin(ScriptType.TAPROOT, BtcNetwork.MAINNET), inputs.chain)
-        assertShown("Script type · Taproot")
+        assertShown("Script Type · Taproot")
         assertShown("Adds 3 Taproot accounts")
-        compose.onNodeWithText("Generate 3 accounts").assertIsEnabled()
+        compose.onNodeWithText("Generate 3 Accounts").assertIsEnabled()
     }
 
     @Test
     fun theListOffersTheFourScriptTypes() {
         showScreen(BulkCap.HUNDRED, digits = "3", chain = DEFAULT_BITCOIN)
 
-        compose.onNodeWithText("Script type · Native Segwit").performClick()
+        compose.onNodeWithText("Script Type · Native Segwit").performClick()
 
-        assertShown("Script type")
+        assertShown("Script Type")
         assertShown("Native Segwit")
         assertShown("Taproot")
         assertShown("Nested Segwit")
@@ -236,7 +236,7 @@ class BulkGenerateScreenTest {
     fun theScriptTypeCannotBeChangedWhileARunDerives() {
         showScreen(BulkCap.HUNDRED, digits = "3", chain = DEFAULT_BITCOIN, running = true)
 
-        compose.onNodeWithText("Script type · Native Segwit").assertIsNotEnabled()
-        assertNotShown("Script type")
+        compose.onNodeWithText("Script Type · Native Segwit").assertIsNotEnabled()
+        assertNotShown("Script Type")
     }
 }

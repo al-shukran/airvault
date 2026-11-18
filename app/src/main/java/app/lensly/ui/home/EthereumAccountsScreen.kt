@@ -66,7 +66,7 @@ private sealed interface AppSheet {
  * index.
  *
  * A tap or a long press on a row opens the account's options: [onExportAccounts] with the one index, and [onEditAccount]. The App's
- * options open from the overflow icon and hold [onBulkGenerate], selection, [onPair] and [onScan]. "Add account" is the last row, and a
+ * options open from the overflow icon and hold [onBulkGenerate], selection, [onPair] and [onScan]. "Add Account" is the last row, and a
  * Single Key wallet shows a note in its place. SELECT turns each row into a checkbox. The selected accounts can then be exported,
  * renamed, styled, or reset to their Auto-Names, through [onExportAccounts], [onRenameAccounts], [onStyleAccounts] and
  * [onResetAccountNames], each of which gets the selected indices in order.
@@ -114,7 +114,7 @@ fun EthereumAccountsScreen(
         scrollable = false,
         topBar = {
             DetailTopBar(
-                title = "Ethereum accounts",
+                title = "Ethereum Accounts",
                 onBack = onBack,
                 onOptions = { sheet = AppSheet.Options },
                 optionsLabel = "App options",
@@ -157,7 +157,7 @@ fun EthereumAccountsScreen(
                             WalletEyebrow("${selected.size} selected")
                             Spacer(Modifier.weight(1f))
                             WalletPill(
-                                text = "Select all",
+                                text = "Select All",
                                 onClick = { selected = (0 until wallet.accountCount).toSet() },
                                 modifier = Modifier.tapHaptic(haptics),
                                 style = WalletPillStyle.Outline,
@@ -194,7 +194,7 @@ fun EthereumAccountsScreen(
                                 enabled = selected.isNotEmpty(),
                             )
                             WalletPill(
-                                text = "Reset names",
+                                text = "Reset Names",
                                 onClick = {
                                     onResetAccountNames(selected.sorted())
                                     selecting = false
@@ -215,9 +215,9 @@ fun EthereumAccountsScreen(
                         modifier = Modifier.padding(vertical = LenslySpacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        DotProgress(description = "Deriving addresses")
+                        DotProgress(description = "Deriving Addresses")
                         Spacer(Modifier.width(LenslySpacing.sm))
-                        WalletEyebrow("Deriving addresses")
+                        WalletEyebrow("Deriving Addresses")
                     }
                 }
             } else {
@@ -251,7 +251,7 @@ fun EthereumAccountsScreen(
                     // A Single Key has one account, so there is nothing to add and nothing to generate.
                     InlineBanner(message = SINGLE_KEY_ONE_ACCOUNT, tone = BannerTone.Info)
                 } else {
-                    AddAccountRow(label = "Add account", onClick = onAddAccount)
+                    AddAccountRow(label = "Add Account", onClick = onAddAccount)
                 }
             }
             item(key = "tip") {
@@ -397,9 +397,9 @@ private fun PendingAccountRow(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(vertical = LenslySpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DotProgress(description = "Deriving address")
+            DotProgress(description = "Deriving Address")
             Spacer(Modifier.width(LenslySpacing.sm))
-            WalletEyebrow("Deriving address")
+            WalletEyebrow("Deriving Address")
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }

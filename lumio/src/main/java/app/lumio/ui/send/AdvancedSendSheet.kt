@@ -68,7 +68,7 @@ fun AdvancedSendFields(suggested: PreparedSend, current: PreparedSend, onSave: (
         )
         Spacer(Modifier.height(LenslySpacing.xs))
         NumberField(
-            label = "Gas limit",
+            label = "Gas Limit",
             value = fields.gasLimit,
             error = errors[EvmField.GAS_LIMIT],
             keyboard = KeyboardType.Number,
@@ -76,7 +76,7 @@ fun AdvancedSendFields(suggested: PreparedSend, current: PreparedSend, onSave: (
         )
         Spacer(Modifier.height(LenslySpacing.xs))
         NumberField(
-            label = "Max fee per gas (gwei)",
+            label = "Max Fee per Gas (gwei)",
             value = fields.maxFeeGwei,
             error = errors[EvmField.MAX_FEE],
             keyboard = KeyboardType.Decimal,
@@ -84,7 +84,7 @@ fun AdvancedSendFields(suggested: PreparedSend, current: PreparedSend, onSave: (
         )
         Spacer(Modifier.height(LenslySpacing.xs))
         NumberField(
-            label = "Max priority fee per gas (gwei)",
+            label = "Max Priority Fee per Gas (gwei)",
             value = fields.maxPriorityGwei,
             error = errors[EvmField.MAX_PRIORITY],
             keyboard = KeyboardType.Decimal,
@@ -128,7 +128,7 @@ private fun NumberField(label: String, value: String, error: String?, keyboard: 
 @Composable
 internal fun SheetButtons(onReset: () -> Unit, onCancel: () -> Unit, onSave: () -> Unit, saveEnabled: Boolean) {
     TextButton(onClick = onReset) {
-        Text("Reset to suggested")
+        Text("Reset to Suggested")
     }
     Row(
         modifier = Modifier.fillMaxWidth(),
