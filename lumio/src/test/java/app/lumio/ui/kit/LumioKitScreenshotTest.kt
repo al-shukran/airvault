@@ -148,6 +148,18 @@ class LumioKitScreenshotTest {
         }
     }
 
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    @Test
+    fun ringAtZeroHalfAndFullLight() = compose.lumioSnapshot("kit_ring_light") {
+        KitColumn {
+            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.lg)) {
+                LumenRing(progress = 0f, size = 72.dp)
+                LumenRing(progress = 0.5f, size = 72.dp)
+                LumenRing(progress = 1f, size = 72.dp)
+            }
+        }
+    }
+
     @Test
     fun ringAtZeroHalfAndFull() = compose.lumioSnapshot("kit_ring") {
         KitColumn {
