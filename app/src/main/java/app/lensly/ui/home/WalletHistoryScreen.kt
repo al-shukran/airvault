@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressChain
+import app.lensly.app.InternalAccount
 import app.lensly.app.VisualIdentity
 import app.lensly.app.addressNotesOf
 import app.lensly.app.canonicalAddressOn
@@ -95,6 +96,7 @@ fun WalletHistoryScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     addressBook: List<AddressBookEntry> = emptyList(),
+    accounts: Map<String, InternalAccount> = emptyMap(),
     onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
     val haptics = rememberKeyHaptics()
@@ -124,6 +126,7 @@ fun WalletHistoryScreen(
         HistoryDetailSheet(
             record = record,
             addressBook = addressBook,
+            accounts = accounts,
             onDismiss = { open = null },
             onOpenAddress = onOpenAddress,
         )
@@ -227,6 +230,7 @@ internal fun HistoryRow(
 internal fun HistoryDetailSheet(
     record: ReviewRecord,
     addressBook: List<AddressBookEntry>,
+    accounts: Map<String, InternalAccount> = emptyMap(),
     onDismiss: () -> Unit,
     onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
@@ -249,19 +253,20 @@ internal fun HistoryDetailSheet(
                 value = address,
                 chain = chain,
                 book = addressBook,
+                accounts = accounts,
                 open = open,
             )
         }
         FactRow("Kind") { FactText(kindLabel(record.kind)) }
-        record.bitcoin?.let { facts -> BitcoinFacts(record, facts, addressBook, open) }
+        record.bitcoin?.let { facts -> BitcoinFacts(record, facts, addressBook, accounts, open) }
         record.function?.let { function -> FactRow("Function") { FactText(function) } }
-        record.to?.let { to -> AddressFact(label = "To", value = to, chain = chain, book = addressBook, open = open) }
+        record.to?.let { to -> AddressFact(label = "To", value = to, chain = chain, book = addressBook, accounts = accounts, open = open) }
         record.amount?.let { amount -> FactRow("Amount") { MonoText(amount) } }
         record.tokenContract?.let { contract ->
-            AddressFact(label = "Token contract", value = contract, chain = chain, book = addressBook, open = open)
+            AddressFact(label = "Token contract", value = contract, chain = chain, book = addressBook, accounts = accounts, open = open)
         }
-        if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, open) }
-        if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, open) }
+        if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, accounts, open) }
+        if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, accounts, open) }
         record.origin?.let { origin -> FactRow("Origin") { FactText(origin) } }
         record.refusal?.let { reason -> FactRow("Refusal reason") { FactText(reason) } }
         FactRow("Data hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
@@ -294,23 +299,33 @@ private fun AddressFact(
     value: String,
     chain: AddressChain?,
     book: List<AddressBookEntry>,
+    accounts: Map<String, InternalAccount>,
     open: ((String) -> Unit)?,
 ) {
     FactRow(label) {
         if (chain != null && isAddressOn(value, chain)) {
-            AddressBlock(address = value, chain = chain, book = book, open = open)
+            AddressBlock(address = value, chain = chain, book = book, accounts = accounts, open = open)
         } else {
             FactText(value)
         }
     }
 }
 
-/** One address as a [ReviewAddress] row, with what the Address Book holds for it on [chain]. A tap opens it when [open] is set. */
+/**
+ * One address as a [ReviewAddress] row, with what the vault's [accounts] and the Address Book hold for it on [chain]. A tap opens it when
+ * [open] is set.
+ */
 @Composable
-private fun AddressBlock(address: String, chain: AddressChain, book: List<AddressBookEntry>, open: ((String) -> Unit)?) {
+private fun AddressBlock(
+    address: String,
+    chain: AddressChain,
+    book: List<AddressBookEntry>,
+    accounts: Map<String, InternalAccount>,
+    open: ((String) -> Unit)?,
+) {
     ReviewAddress(
         address = address,
-        notes = addressNotesOf(address, chain, emptyMap(), book),
+        notes = addressNotesOf(address, chain, accounts, book),
         bitcoin = chain == AddressChain.BITCOIN,
         onClick = open?.let { tap -> { tap(address) } },
     )
@@ -326,13 +341,19 @@ private fun FactText(text: String) {
  * notice the review gave, as a warning or as the reason it was blocked. Each output address is an address row, and so is a change output.
  */
 @Composable
-private fun BitcoinFacts(record: ReviewRecord, facts: BitcoinRecordFacts, book: List<AddressBookEntry>, open: ((String) -> Unit)?) {
+private fun BitcoinFacts(
+    record: ReviewRecord,
+    facts: BitcoinRecordFacts,
+    book: List<AddressBookEntry>,
+    accounts: Map<String, InternalAccount>,
+    open: ((String) -> Unit)?,
+) {
     record.accountIndex?.let { index -> FactRow("Account $index") { FactText(facts.scriptType) } }
     facts.outputs.forEachIndexed { index, output ->
         FactRow("Output $index") {
             val address = output.address
             if (address != null) {
-                AddressBlock(address = address, chain = AddressChain.BITCOIN, book = book, open = open)
+                AddressBlock(address = address, chain = AddressChain.BITCOIN, book = book, accounts = accounts, open = open)
             } else {
                 MutedText("No address. The script is not paid to an address.")
             }
@@ -356,12 +377,18 @@ private fun BitcoinFacts(record: ReviewRecord, facts: BitcoinRecordFacts, book: 
  * monospace face, so each character can be compared by eye.
  */
 @Composable
-private fun LabelledRows(rows: List<Pair<String, String>>, chain: AddressChain?, book: List<AddressBookEntry>, open: ((String) -> Unit)?) {
+private fun LabelledRows(
+    rows: List<Pair<String, String>>,
+    chain: AddressChain?,
+    book: List<AddressBookEntry>,
+    accounts: Map<String, InternalAccount>,
+    open: ((String) -> Unit)?,
+) {
     rows.forEachIndexed { index, (label, value) ->
         if (index > 0) Spacer(Modifier.height(LenslySpacing.sm))
         MutedText(label)
         if (isAddressOn(value, chain)) {
-            AddressBlock(address = value, chain = requireNotNull(chain), book = book, open = open)
+            AddressBlock(address = value, chain = requireNotNull(chain), book = book, accounts = accounts, open = open)
         } else {
             MonoText(value)
         }

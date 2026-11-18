@@ -122,7 +122,10 @@ class AddressBookScreenshotTest {
     }
 
     @Test
-    fun reviewToInternalAccount() = compose.snapshot("tx_review_to_internal", beforeCapture = scrollReviewTo(recipientAccount.label.orEmpty())) {
+    fun reviewToInternalAccount() = compose.snapshot(
+        "tx_review_to_internal",
+        beforeCapture = scrollReviewTo("Your account · Savings · ${recipientAccount.label}"),
+    ) {
         TxReviewScreen(review = reviewWith(AddressNotes(internal = recipientAccount, entry = null)), onApprove = {}, onReject = {})
     }
 

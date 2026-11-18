@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressChain
+import app.lensly.app.InternalAccount
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
@@ -83,6 +84,8 @@ fun ActivityScreen(
     modifier: Modifier = Modifier,
     /** The Address Book, read for the notes of each address a record's sheet shows. */
     addressBook: List<AddressBookEntry> = emptyList(),
+    /** The accounts of every wallet, read for the name of each address of this device that a record's sheet shows. */
+    accounts: Map<String, InternalAccount> = emptyMap(),
     /** Opens the Address Book for an address a record's sheet shows, on its chain. Null shows the addresses without a tap. */
     onOpenAddress: ((String, AddressChain) -> Unit)? = null,
 ) {
@@ -137,7 +140,13 @@ fun ActivityScreen(
         }
     }
     open?.let { record ->
-        HistoryDetailSheet(record = record, addressBook = addressBook, onDismiss = { open = null }, onOpenAddress = onOpenAddress)
+        HistoryDetailSheet(
+            record = record,
+            addressBook = addressBook,
+            accounts = accounts,
+            onDismiss = { open = null },
+            onOpenAddress = onOpenAddress,
+        )
     }
 }
 
