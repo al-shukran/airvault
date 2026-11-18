@@ -324,11 +324,13 @@ jobs:
 
   # Lumio's lint runs in its own job, not in the test job: lintDebug on top of the lumio partition took the test job past its 5-minute cap (PR 181
   # ran 5m17s). The lumio-a filter is the same as the lumio-b partition's, and pr-ok counts a skip as a pass.
+  # The cap is 8 minutes: a cold lint job ran 4m52s (Gradle: 4m34s), and one run was cancelled at the old 5-minute cap
+  # (315 s). A warm run took 2m33s. cache-warm.yml's `lint` job writes the cache this job restores, so cold runs get rare.
   lint:
     needs: changes
     if: needs.changes.result == 'success' && contains(fromJSON(needs.changes.outputs.partitions), 'lumio-a')
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
