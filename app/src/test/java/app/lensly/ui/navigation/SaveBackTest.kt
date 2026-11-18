@@ -20,7 +20,7 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import java.io.File
 import java.io.IOException
 import kotlin.test.assertEquals
@@ -168,7 +168,7 @@ class SaveBackTest {
     private fun openHome(): WalletDraftViewModel {
         val holder = openHolder()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 nav = rememberNavController()
                 val controller = remember { nav }
                 NavHost(navController = controller, startDestination = LenslyRoute.CAMERA) {

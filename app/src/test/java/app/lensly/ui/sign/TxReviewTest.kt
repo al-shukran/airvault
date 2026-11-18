@@ -9,6 +9,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.TokenEntry
+import app.lensly.ui.theme.SpaceMonoFamily
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -160,8 +161,8 @@ class TxReviewTest {
 
     @Test
     fun anApprovalForAllNamesItsOperatorAndItsCollectionInTheHeadline() {
-        val grant = evmSentence(approvalForAll(approved = true)).text
-        val revoke = evmSentence(approvalForAll(approved = false)).text
+        val grant = evmSentence(approvalForAll(approved = true), SpaceMonoFamily).text
+        val revoke = evmSentence(approvalForAll(approved = false), SpaceMonoFamily).text
 
         assertEquals("Give ${shortAddress(operator)} control of ${shortAddress(collection)}", grant)
         assertEquals("Remove control of ${shortAddress(collection)} from ${shortAddress(operator)}", revoke)

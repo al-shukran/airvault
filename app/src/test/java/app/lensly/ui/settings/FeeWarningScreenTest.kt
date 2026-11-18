@@ -9,7 +9,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -29,7 +29,7 @@ class FeeWarningScreenTest {
     @Test
     fun theSavedLimitsAreShown() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 FeeWarningScreen(rate = 200, share = 10, onRate = {}, onShare = {}, onBack = {})
             }
         }
@@ -42,7 +42,7 @@ class FeeWarningScreenTest {
     fun aRateInItsRangeIsAppliedAsItIsTyped() {
         val applied = mutableListOf<Int>()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 FeeWarningScreen(rate = 200, share = 10, onRate = { applied += it }, onShare = {}, onBack = {})
             }
         }
@@ -57,7 +57,7 @@ class FeeWarningScreenTest {
     fun aRateOutsideItsRangeIsNotAppliedAndTheRangeIsNamed() {
         val applied = mutableListOf<Int>()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 FeeWarningScreen(rate = 200, share = 10, onRate = { applied += it }, onShare = {}, onBack = {})
             }
         }
@@ -73,7 +73,7 @@ class FeeWarningScreenTest {
     fun theShareSliderAppliesTheStopItEndsOn() {
         val applied = mutableListOf<Int>()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 FeeWarningScreen(rate = 200, share = 10, onRate = {}, onShare = { applied += it }, onBack = {})
             }
         }

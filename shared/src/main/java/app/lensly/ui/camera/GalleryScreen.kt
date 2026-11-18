@@ -55,13 +55,8 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyPillShape
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurface
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -166,7 +161,7 @@ private fun MediaTile(store: PhotoStore, file: File, onClick: () -> Unit) {
         modifier = Modifier
             .aspectRatio(1f)
             .pressFeedback(interaction, enabled = true)
-            .clip(RoundedCornerShape(LenslyRadius.xs))
+            .clip(MaterialTheme.shapes.extraSmall)
             .tapHaptic(haptics)
             .clickable(
                 role = Role.Button,
@@ -203,10 +198,10 @@ private fun DurationBadge(store: PhotoStore, file: File, modifier: Modifier = Mo
         Text(
             text = formatDuration(ms),
             style = MaterialTheme.typography.labelSmall,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = modifier
                 .clip(LenslyPillShape)
-                .background(LenslyBlack.copy(alpha = 0.6f))
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f))
                 .padding(horizontal = LenslySpacing.xs, vertical = LenslySpacing.xxs),
         )
     }
@@ -226,7 +221,7 @@ private fun MediaViewer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(LenslyBlack),
+            .background(MaterialTheme.colorScheme.background),
     ) {
         if (file.isVideo) {
             VideoPlayer(store = store, file = file, modifier = Modifier.fillMaxSize())
@@ -246,7 +241,7 @@ private fun MediaViewer(
                 .height(VIEWER_SCRIM_HEIGHT)
                 .background(
                     Brush.verticalGradient(
-                        listOf(LenslyBlack.copy(alpha = 0.7f), Color.Transparent),
+                        listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.7f), Color.Transparent),
                     ),
                 ),
         )
@@ -262,14 +257,14 @@ private fun MediaViewer(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Close",
-                    tint = LenslyOnSurface,
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
             IconButton(onClick = { confirmingDelete = true }) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = "Delete $kind",
-                    tint = LenslyOnSurface,
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
         }
@@ -278,12 +273,12 @@ private fun MediaViewer(
     if (confirmingDelete) {
         AlertDialog(
             onDismissRequest = { confirmingDelete = false },
-            containerColor = LenslySurface,
+            containerColor = MaterialTheme.colorScheme.surface,
             title = {
                 Text(
                     text = "DELETE ${kind.uppercase()}?",
                     style = MaterialTheme.typography.titleMedium,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             },
             text = {
@@ -298,7 +293,7 @@ private fun MediaViewer(
                     Text(
                         text = "DELETE",
                         style = MaterialTheme.typography.labelLarge,
-                        color = LenslyError,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             },

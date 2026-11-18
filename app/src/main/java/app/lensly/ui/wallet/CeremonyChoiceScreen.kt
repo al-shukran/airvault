@@ -25,7 +25,7 @@ import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalMonoFamily
 
 /**
  * Start of the seed ceremony. The device has already committed to its randomness, so the commitment
@@ -116,7 +116,7 @@ private fun CommitmentPanel(commitmentHex: String, expanded: Boolean, onToggle: 
         } else {
             Text(
                 text = previewHex(commitmentHex),
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }

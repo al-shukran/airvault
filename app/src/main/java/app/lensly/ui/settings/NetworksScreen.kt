@@ -44,12 +44,7 @@ import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurface
 
 /** The filters of the Networks screen: every network, the mainnets, or the testnets. */
 internal enum class NetworkFilter(val label: String) {
@@ -158,13 +153,13 @@ private fun NetworkCard(
     modifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     Column(
         modifier = modifier
             .pressFeedback(interaction, enabled = true)
             .clip(shape)
-            .background(LenslySurface)
-            .border(1.dp, LenslyOutline, shape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onToggle)
             .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
             .testTag("network-card-${network.chainId}")
@@ -176,19 +171,19 @@ private fun NetworkCard(
         Text(
             text = network.name,
             style = MaterialTheme.typography.titleMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
             minLines = 2,
         )
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(
             text = "Chain ID ${network.chainId}",
             style = MaterialTheme.typography.labelMedium,
-            color = LenslyMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = network.nativeSymbol,
             style = MaterialTheme.typography.labelMedium,
-            color = LenslyMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (network.testnet) {
             Spacer(Modifier.height(LenslySpacing.xs))
@@ -203,23 +198,23 @@ private fun NetworkCard(
                 Text(
                     text = "Fee model",
                     style = MaterialTheme.typography.labelSmall,
-                    color = LenslyMuted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = network.feeModel.plainName(),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.height(LenslySpacing.xs))
                 Text(
                     text = "Supported tokens",
                     style = MaterialTheme.typography.labelSmall,
-                    color = LenslyMuted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = "$tokenCount ${if (tokenCount == 1) "token" else "tokens"}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
         }

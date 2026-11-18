@@ -34,22 +34,22 @@ import kotlinx.coroutines.withContext
  * saves on DONE and returns to the wallet, whose detail reads the profiles again when it is shown.
  */
 internal fun NavGraphBuilder.profileRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.EDIT_WALLET, arguments = walletIdArguments()) { entry ->
+    vaultComposable(HiddenRoute.EDIT_WALLET, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { EditWalletRoute(navController, holder, entry.walletId()) }
     }
-    composable(
+    vaultComposable(
         HiddenRoute.EDIT_ACCOUNT,
         arguments = walletIdArguments() + navArgument(HiddenRoute.ACCOUNT_INDEX_ARG) { type = NavType.IntType },
     ) { entry ->
         HiddenBackdrop { EditAccountRoute(navController, holder, entry.walletId(), entry.accountIndex()) }
     }
-    composable(
+    vaultComposable(
         HiddenRoute.EDIT_BITCOIN_ACCOUNT,
         arguments = walletIdArguments() + navArgument(HiddenRoute.ACCOUNT_INDEX_ARG) { type = NavType.IntType },
     ) { entry ->
         HiddenBackdrop { EditBitcoinAccountRoute(navController, holder, entry.walletId(), entry.accountIndex()) }
     }
-    composable(
+    vaultComposable(
         HiddenRoute.STYLE_ACCOUNTS,
         arguments = walletIdArguments() + navArgument(HiddenRoute.ACCOUNT_INDICES_ARG) { type = NavType.StringType },
     ) { entry ->

@@ -27,52 +27,52 @@ class GateScreensScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun createPasswordFirstStepEmpty() = compose.snapshot("create_password_enter_empty") {
+    fun createPasswordFirstStepEmpty() = compose.snapshot("create_password_enter_empty", theme = coverTheme) {
         create(CreatePasswordState())
     }
 
     @Test
-    fun createPasswordCountsDownToTheMinimum() = compose.snapshot("create_password_enter_hint") {
+    fun createPasswordCountsDownToTheMinimum() = compose.snapshot("create_password_enter_hint", theme = coverTheme) {
         create(CreatePasswordState(length = 5))
     }
 
     @Test
-    fun createPasswordRefusesAShortPassword() = compose.snapshot("create_password_enter_too_short") {
+    fun createPasswordRefusesAShortPassword() = compose.snapshot("create_password_enter_too_short", theme = coverTheme) {
         create(CreatePasswordState(error = PolicyError.TooShort))
     }
 
     @Test
-    fun createPasswordRefusesAWeakPassword() = compose.snapshot("create_password_enter_too_weak") {
+    fun createPasswordRefusesAWeakPassword() = compose.snapshot("create_password_enter_too_weak", theme = coverTheme) {
         create(CreatePasswordState(error = PolicyError.TooWeak))
     }
 
     @Test
-    fun createPasswordConfirmStep() = compose.snapshot("create_password_confirm") {
+    fun createPasswordConfirmStep() = compose.snapshot("create_password_confirm", theme = coverTheme) {
         create(CreatePasswordState(step = CreateStep.Confirm, length = 6))
     }
 
     @Test
-    fun createPasswordMismatch() = compose.snapshot("create_password_mismatch") {
+    fun createPasswordMismatch() = compose.snapshot("create_password_mismatch", theme = coverTheme) {
         create(CreatePasswordState(step = CreateStep.Confirm, error = PolicyError.Mismatch))
     }
 
     @Test
-    fun createPasswordCreatingVault() = compose.snapshot("create_password_creating") {
+    fun createPasswordCreatingVault() = compose.snapshot("create_password_creating", theme = coverTheme) {
         create(CreatePasswordState(step = CreateStep.Confirm, length = 10), busy = true)
     }
 
     @Test
-    fun unlockIdle() = compose.snapshot("unlock_idle") {
+    fun unlockIdle() = compose.snapshot("unlock_idle", theme = coverTheme) {
         UnlockScreen(length = 6, busy = false, onKey = {}, onBackspace = {}, onSubmit = {})
     }
 
     @Test
-    fun unlockWhileKeyIsDerived() = compose.snapshot("unlock_unlocking") {
+    fun unlockWhileKeyIsDerived() = compose.snapshot("unlock_unlocking", theme = coverTheme) {
         UnlockScreen(length = 0, busy = true, onKey = {}, onBackspace = {}, onSubmit = {})
     }
 
     @Test
-    fun unavailableVault() = compose.snapshot("unavailable_vault") {
+    fun unavailableVault() = compose.snapshot("unavailable_vault", theme = coverTheme) {
         UnavailableScreen(onClose = {})
     }
 

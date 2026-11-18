@@ -28,7 +28,7 @@ import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalMonoFamily
 import app.lumio.data.net.NetworkId
 import app.lumio.send.solana.SOLANA_FEE_LAMPORTS
 import app.lumio.send.solana.SOLANA_RENT_RESERVE_LAMPORTS
@@ -299,7 +299,7 @@ private fun RecipientField(value: String, onValueChange: (String) -> Unit, enabl
 
 /** Body size in the mono face, for amounts, addresses and hashes. */
 private val MonoBody: TextStyle
-    @Composable get() = MaterialTheme.typography.bodyLarge.copy(fontFamily = SpaceMonoFamily)
+    @Composable get() = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalMonoFamily.current)
 
 private fun networkName(network: NetworkId): String = if (network.testnet) "Devnet" else "Mainnet-beta"
 

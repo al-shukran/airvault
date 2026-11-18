@@ -45,13 +45,8 @@ import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.settings.FailureCapChoice
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySuccess
-import app.lensly.ui.theme.LenslySurfaceContainer
-import app.lensly.ui.theme.LenslyWarning
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.wallet.WALLET_GUTTER
 
 /** The test tags of the Home sections, the carousel and the readiness tiles. */
@@ -111,7 +106,7 @@ internal fun RecentActivitySection(
                 EmptyLine(text = "Nothing signed yet")
             } else {
                 records.forEachIndexed { index, item ->
-                    if (index > 0) HorizontalDivider(color = LenslyOutline)
+                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     ActivityRow(item = item, walletName = walletNames[item.walletId], nowMs = nowMs)
                 }
             }
@@ -201,7 +196,7 @@ internal fun ReadinessSection(
                 ReadinessTile(
                     label = "Catalog",
                     value = readiness.catalogSequence?.let { "Sequence $it" } ?: "Built-in",
-                    status = LenslySuccess,
+                    status = LocalLumenPalette.current.positive,
                     tag = READINESS_CATALOG_TAG,
                     onClick = onCatalog,
                     modifier = Modifier.weight(1f),
@@ -235,7 +230,7 @@ internal fun SectionHeader(
             text = title.uppercase(),
             modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.labelLarge,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.weight(1f))
         action?.invoke()
@@ -253,12 +248,12 @@ private fun SectionLink(text: String, onClick: () -> Unit) {
             .clickable(role = Role.Button, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = text.uppercase(), style = MaterialTheme.typography.labelMedium, color = LenslyOnSurface)
+        Text(text = text.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.width(LenslySpacing.xxs))
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
             contentDescription = null,
-            tint = LenslyOnSurface,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(16.dp),
         )
     }
@@ -278,7 +273,7 @@ private fun ActivityRow(item: WalletReviewRecord, walletName: String?, nowMs: Lo
             Text(
                 text = activitySummary(record),
                 style = MaterialTheme.typography.bodyMedium,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -312,8 +307,8 @@ private fun OutcomeMark(outcome: ReviewOutcome) {
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(LenslySurfaceContainer)
-            .border(1.dp, LenslyOutline, CircleShape),
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -340,15 +335,15 @@ private fun ReadinessTile(
 ) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     Column(
         modifier = modifier
             .height(TILE_HEIGHT)
             .testTag(tag)
             .pressFeedback(interaction, enabled = true)
             .clip(shape)
-            .background(LenslySurfaceContainer)
-            .border(1.dp, LenslyOutline, shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .tapHaptic(haptics)
             .clickable(
                 interactionSource = interaction,
@@ -373,7 +368,7 @@ private fun ReadinessTile(
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -381,12 +376,14 @@ private fun ReadinessTile(
 }
 
 /** A count is ready when the catalog holds any of it. */
-private fun countStatus(count: Int): Color = if (count > 0) LenslySuccess else LenslyWarning
+@Composable
+private fun countStatus(count: Int): Color = if (count > 0) LocalLumenPalette.current.positive else LocalLumenPalette.current.warning
 
 /** A lockout under [SHORT_LOCKOUT_MS] warns. The default and the longer caps are ready. */
+@Composable
 private fun lockoutStatus(choice: FailureCapChoice): Color {
     val cap = choice.capMs
-    return if (cap != null && cap < SHORT_LOCKOUT_MS) LenslyWarning else LenslySuccess
+    return if (cap != null && cap < SHORT_LOCKOUT_MS) LocalLumenPalette.current.warning else LocalLumenPalette.current.positive
 }
 
 /** One line in a card, for a list with nothing in it yet. */
@@ -395,8 +392,8 @@ private fun EmptyLine(text: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(LenslyRadius.lg))
-            .background(LenslySurfaceContainer)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(LenslySpacing.md),
     ) {
         Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

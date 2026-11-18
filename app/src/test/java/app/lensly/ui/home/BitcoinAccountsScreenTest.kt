@@ -15,7 +15,7 @@ import app.lensly.app.WalletMeta
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -71,7 +71,7 @@ class BitcoinAccountsScreenTest {
     @Test
     fun theFilterStartsOnAllAndShowsEveryAccount() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Bitcoin(Route(), accounts = accounts)
             }
         }
@@ -86,7 +86,7 @@ class BitcoinAccountsScreenTest {
     @Test
     fun aScriptFilterKeepsOnlyTheAccountsOfThatTypeAndShowsTheirNetwork() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Bitcoin(Route(), accounts = accounts)
             }
         }
@@ -97,8 +97,8 @@ class BitcoinAccountsScreenTest {
         compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertDoesNotExist()
         compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertDoesNotExist()
         // Each row names its network: one account on mainnet and one on testnet4, which shows as Testnet.
-        compose.onNodeWithText("MAINNET").assertIsDisplayed()
-        compose.onNodeWithText("TESTNET").assertIsDisplayed()
+        compose.onNodeWithText("Mainnet").assertIsDisplayed()
+        compose.onNodeWithText("Testnet").assertIsDisplayed()
 
         compose.onNodeWithText("TAPROOT BIP86").performClick()
         compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertIsDisplayed()
@@ -117,7 +117,7 @@ class BitcoinAccountsScreenTest {
     @Test
     fun aFilterWithNoAccountsSaysSo() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Bitcoin(Route(), accounts = accounts)
             }
         }
@@ -130,7 +130,7 @@ class BitcoinAccountsScreenTest {
     fun generateAccountsOpensTheBulkScreenOfThisApp() {
         val route = Route()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Bitcoin(route, accounts = accounts)
             }
         }
@@ -143,7 +143,7 @@ class BitcoinAccountsScreenTest {
     fun theAppOptionsOfferGeneratingPairingAndSigning() {
         val route = Route()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Bitcoin(route, accounts = accounts)
             }
         }
@@ -162,7 +162,7 @@ class BitcoinAccountsScreenTest {
     @Test
     fun aSingleKeyWalletHasNoBitcoinAccountsGenerateRowOrGenerateOption() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Bitcoin(Route(), accounts = emptyList(), kind = WalletKind.SINGLE_KEY)
             }
         }
@@ -178,14 +178,14 @@ class BitcoinAccountsScreenTest {
     fun aNamedAccountShowsItsNameAndLabelAndAnUnnamedOneItsAutoName() {
         val named = nativeMainnet.copy(profile = AccountProfile(name = "Cold", label = "vault"))
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Bitcoin(Route(), accounts = listOf(named, taproot))
             }
         }
 
         compose.onNodeWithText("COLD").assertIsDisplayed()
-        // The label chip is set in capitals, as every chip of the app is.
-        compose.onNodeWithText("VAULT").assertIsDisplayed()
+        // The label chip shows the label as it was typed.
+        compose.onNodeWithText("vault").assertIsDisplayed()
         // The taproot account has no name, so it shows the Auto-Name its wallet gives its index, as an Ethereum account does.
         compose.onNodeWithText("SEED WALLET 0").assertIsDisplayed()
     }
@@ -194,7 +194,7 @@ class BitcoinAccountsScreenTest {
     fun aPressOnAnAccountOffersItsProfileEditorForThatAccount() {
         val route = Route()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Bitcoin(route, accounts = accounts)
             }
         }

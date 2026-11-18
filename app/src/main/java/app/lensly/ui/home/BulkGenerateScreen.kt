@@ -23,7 +23,6 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslySegmentedControl
 import app.lensly.ui.components.NumberField
 import app.lensly.ui.components.PillButton
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletScaffold
 
@@ -140,7 +139,7 @@ fun BulkGenerateScreen(
                     is BulkChain.Bitcoin -> bitcoinAddsLabel(chain.scriptType, count)
                 },
                 style = MaterialTheme.typography.bodyLarge,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(LenslySpacing.sm))
         }
@@ -152,7 +151,7 @@ fun BulkGenerateScreen(
             LinearProgressIndicator(
                 progress = { derived.toFloat() / count },
                 modifier = Modifier.fillMaxWidth(),
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
             Spacer(Modifier.height(LenslySpacing.xs))

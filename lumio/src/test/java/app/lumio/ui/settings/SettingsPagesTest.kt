@@ -10,7 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.camera.EntryGesture
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.btc.EsploraServers
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
@@ -33,7 +33,7 @@ class SettingsPagesTest {
     val compose = createComposeRule()
 
     private fun assertNoSave(page: @Composable () -> Unit) {
-        compose.setContent { LenslyTheme { page() } }
+        compose.setContent { LumenTheme { page() } }
         compose.onAllNodesWithText("Save", ignoreCase = true).assertCountEquals(0)
     }
 
@@ -87,7 +87,7 @@ class SettingsPagesTest {
         var opened: String? = null
         val wallet = PairedWallet(id = "w1", name = "Demo", fingerprint = 1L, createdAtMs = 0L, evmAccounts = emptyList(), bitcoin = emptyList())
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 AddressBookSettingsPage(
                     onBack = {},
                     wallets = { AddressBookRows(wallets = listOf(wallet), onAddressBook = { opened = it.id }) },
@@ -105,7 +105,7 @@ class SettingsPagesTest {
     fun theSecurityPageHasNoSaveAndOpensTheGestureChoice() {
         var opened = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
@@ -127,7 +127,7 @@ class SettingsPagesTest {
     fun theSecurityPageOpensTheAppPasswordChange() {
         var opened = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
@@ -148,7 +148,7 @@ class SettingsPagesTest {
     fun theSecurityLockSwitchAppliesAtOnceAndTheTimeoutShowsItsValue() {
         var switching: Boolean? = null
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),

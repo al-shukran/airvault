@@ -43,9 +43,6 @@ import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.rememberKeyHaptics
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
@@ -157,8 +154,8 @@ private fun FilterChip(option: ActivityFilter, chosen: Boolean, onClick: () -> U
     Box(
         modifier = Modifier
             .clip(shape)
-            .background(if (chosen) LenslyOnSurface else Color.Transparent)
-            .border(1.dp, if (chosen) LenslyOnSurface else LenslyOutline, shape)
+            .background(if (chosen) MaterialTheme.colorScheme.onSurface else Color.Transparent)
+            .border(1.dp, if (chosen) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant, shape)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xxs)
             .semantics { selected = chosen },
@@ -166,7 +163,7 @@ private fun FilterChip(option: ActivityFilter, chosen: Boolean, onClick: () -> U
         Text(
             text = option.label.uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = if (chosen) LenslyBlack else LenslyOnSurface,
+            color = if (chosen) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface,
         )
     }
 }

@@ -10,7 +10,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.network.NetworkMode
@@ -37,7 +37,7 @@ class LumioControlsTest {
     @Test
     fun theSideChoiceIsOneRadioGroupNotTwoButtons() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 NetworkSwitch(mode = NetworkMode.MAINNET, onChange = {})
             }
         }
@@ -49,7 +49,7 @@ class LumioControlsTest {
     @Test
     fun aProviderSwitchIsAToggleSwitch() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 DataProvidersScreen(
                     data = listOf(provider("mempool")),
                     rpc = emptyList(),
@@ -67,7 +67,7 @@ class LumioControlsTest {
     @Test
     fun aChainIsAToggleSwitchAndAddingAChainIsARow() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 EvmSettingsSection(
                     settings = EvmSettings(enabled = setOf(1L)),
                     chains = listOf(EvmChain(1L, "Ethereum", "ETH", 18, false, null)),
@@ -90,7 +90,7 @@ class LumioControlsTest {
     @Test
     fun theAddressStepperStopsAtItsLimits() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 EvmSettingsSection(
                     settings = EvmSettings(addressCount = EvmSettings.MAX_ADDRESS_COUNT),
                     chains = emptyList(),

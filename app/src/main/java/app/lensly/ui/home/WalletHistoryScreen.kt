@@ -59,12 +59,9 @@ import app.lensly.ui.sign.MutedText
 import app.lensly.ui.sign.ReviewAddress
 import app.lensly.ui.sign.btcText
 import app.lensly.ui.sign.groupHex
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySuccess
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalLumenPalette
+import app.lensly.ui.theme.LocalMonoFamily
 import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletScaffold
@@ -177,7 +174,7 @@ internal fun HistoryRow(
             Text(
                 text = record.function ?: record.refusal ?: requestLabel(record),
                 style = MaterialTheme.typography.titleSmall,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -213,8 +210,8 @@ internal fun HistoryRow(
             Spacer(Modifier.width(LenslySpacing.sm))
             Text(
                 text = amount,
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
-                color = LenslyOnSurface,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.End,
             )
         }
@@ -245,7 +242,7 @@ internal fun HistoryDetailSheet(
         Spacer(Modifier.height(LenslySpacing.xxs))
         MutedText(dateTimeOf(record.atMs))
         Spacer(Modifier.height(LenslySpacing.sm))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         FactRow("Network") { FactText(networkLine(record)) }
         record.address?.let { address ->
             AddressFact(
@@ -333,7 +330,7 @@ private fun AddressBlock(
 
 @Composable
 private fun FactText(text: String) {
-    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = LenslyOnSurface)
+    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
 }
 
 /**
@@ -403,10 +400,11 @@ internal fun outcomeIcon(outcome: ReviewOutcome): ImageVector = when (outcome) {
 }
 
 /** The colour of an outcome, shared with the Home activity rows. */
+@Composable
 internal fun outcomeTint(outcome: ReviewOutcome): Color = when (outcome) {
-    ReviewOutcome.SIGNED -> LenslySuccess
-    ReviewOutcome.REFUSED -> LenslyError
-    ReviewOutcome.CANCELLED -> LenslyMuted
+    ReviewOutcome.SIGNED -> LocalLumenPalette.current.positive
+    ReviewOutcome.REFUSED -> MaterialTheme.colorScheme.error
+    ReviewOutcome.CANCELLED -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 /** The word for an outcome, shared with the Home activity rows. */

@@ -12,7 +12,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextReplacement
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -68,7 +68,7 @@ class DataProvidersScreenTest {
 
     private fun show() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 DataProvidersScreen(
                     data = listOf(etherscan, mempool),
                     rpc = listOf(oneRpc),
@@ -179,7 +179,7 @@ class DataProvidersScreenTest {
     fun thePreferRpcSwitchReportsItsNewState() {
         var reported: Boolean? = null
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 DataProvidersScreen(
                     data = listOf(etherscan),
                     rpc = listOf(oneRpc),

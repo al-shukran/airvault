@@ -18,9 +18,9 @@ import kotlinx.coroutines.withContext
 
 /** The Networks, Tokens and Approved contracts lists, in the hidden graph, from Settings. */
 internal fun NavGraphBuilder.catalogRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.NETWORKS) { HiddenBackdrop { NetworksRoute(navController, holder) } }
-    composable(HiddenRoute.TOKENS) { HiddenBackdrop { TokensRoute(navController, holder) } }
-    composable(HiddenRoute.APPROVED_CONTRACTS) { HiddenBackdrop { ApprovedContractsRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.NETWORKS) { HiddenBackdrop { NetworksRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.TOKENS) { HiddenBackdrop { TokensRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.APPROVED_CONTRACTS) { HiddenBackdrop { ApprovedContractsRoute(navController, holder) } }
 }
 
 /** The networks, tokens and whitelist the catalog holds. The first read loads the assets, so it runs off the main thread. */

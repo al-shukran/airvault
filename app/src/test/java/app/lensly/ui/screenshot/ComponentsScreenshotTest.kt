@@ -21,7 +21,6 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.LoadingState
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PrimaryCircleButton
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import org.junit.Rule
 import org.junit.Test
@@ -86,7 +85,7 @@ class ComponentsScreenshotTest {
             Text(
                 text = "Body copy sits here, in the sans face.",
                 style = MaterialTheme.typography.bodyLarge,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(LenslySpacing.lg))
             PrimaryCircleButton(icon = Icons.Filled.Info, onClick = {}, contentDescription = "Enabled")

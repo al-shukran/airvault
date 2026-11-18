@@ -19,9 +19,6 @@ import app.lensly.core.registry.ProxyPolicy
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.PasswordStep
 import app.lensly.ui.wallet.StepHeader
@@ -146,19 +143,19 @@ private fun ChooseContent(
 /** One policy as a choice: its name and what it does. The chosen one is outlined in light grey, and the row reads as a radio. */
 @Composable
 private fun PolicyOption(policy: ProxyPolicy, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(LenslyRadius.md)
+    val shape = MaterialTheme.shapes.medium
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .border(1.dp, if (selected) LenslyOnSurface else LenslyOutline, shape)
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant, shape)
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(LenslySpacing.md),
     ) {
         Text(
             text = policy.title,
             style = MaterialTheme.typography.titleMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(

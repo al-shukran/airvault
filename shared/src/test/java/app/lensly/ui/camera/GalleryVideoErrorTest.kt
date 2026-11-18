@@ -6,7 +6,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
 import java.io.File
 import org.junit.Rule
 import org.junit.Test
@@ -34,7 +34,7 @@ class GalleryVideoErrorTest {
         File(store.directory, "VID_1000.sealed").writeBytes(ByteArray(32))
 
         compose.setContent {
-            LenslyTheme {
+            CoverTheme {
                 GalleryScreen(store = store, onBack = {})
             }
         }

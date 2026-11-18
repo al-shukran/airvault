@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import app.lensly.ui.theme.LenslySpacing
-import app.lumio.ui.theme.LumioFullShape
+import app.lensly.ui.theme.LenslyPillShape
 
 /** A small capsule label, such as a count of tokens or a network. Its text is sentence case, in the label face. */
 @Composable
@@ -22,7 +22,7 @@ fun LumioTag(
     Text(
         text = text,
         modifier = modifier
-            .clip(LumioFullShape)
+            .clip(LenslyPillShape)
             .background(background)
             .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xxs),
         style = MaterialTheme.typography.labelSmall,

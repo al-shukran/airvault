@@ -75,16 +75,8 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyAccent
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
-import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslyPillShape
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceHigh
 import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -317,7 +309,7 @@ private fun CameraViewfinder(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(LenslyBlack)
+            .background(MaterialTheme.colorScheme.background)
             .onGloballyPositioned { touch.root = it }
             .pointerInput(touch) {
                 detectEntryGestures(
@@ -463,8 +455,8 @@ internal fun CaptureFailedBanner(message: String, modifier: Modifier = Modifier)
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs)
-            .clip(RoundedCornerShape(LenslyRadius.md))
-            .background(LenslyBlack),
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.background),
     ) {
         InlineBanner(message = message, tone = BannerTone.Error)
     }
@@ -480,8 +472,8 @@ internal fun CameraHint(message: String, modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs)
-            .clip(RoundedCornerShape(LenslyRadius.md))
-            .background(LenslyBlack),
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.background),
     ) {
         InlineBanner(message = message, tone = BannerTone.Info)
     }
@@ -492,7 +484,7 @@ internal fun CameraHint(message: String, modifier: Modifier = Modifier) {
 fun CameraUnavailable(onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .background(LenslyBlack)
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .navigationBarsPadding(),
         contentAlignment = Alignment.Center,
@@ -540,7 +532,7 @@ private fun ViewfinderTopBar(
                 Icon(
                     imageVector = if (flashOn) CameraIcons.FlashOn else CameraIcons.FlashOff,
                     contentDescription = null,
-                    tint = if (flashOn) LenslyOnSurface else LenslyMuted,
+                    tint = if (flashOn) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(22.dp),
                 )
             }
@@ -554,8 +546,8 @@ private fun ModeSwitch(mode: CameraMode, videoAvailable: Boolean, onChange: (Cam
     Row(
         modifier = Modifier
             .clip(LenslyPillShape)
-            .background(LenslyBlack.copy(alpha = 0.6f))
-            .border(1.dp, LenslyOutline, LenslyPillShape)
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, LenslyPillShape)
             .padding(LenslySpacing.xxs),
     ) {
         val modes = if (videoAvailable) CameraMode.entries else listOf(CameraMode.PHOTO)
@@ -564,10 +556,10 @@ private fun ModeSwitch(mode: CameraMode, videoAvailable: Boolean, onChange: (Cam
             Text(
                 text = option.name,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (selected) LenslyBlack else LenslyMuted,
+                color = if (selected) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .clip(LenslyPillShape)
-                    .background(if (selected) LenslyOnSurface else Color.Transparent)
+                    .background(if (selected) MaterialTheme.colorScheme.onSurface else Color.Transparent)
                     .selectable(selected = selected, role = Role.Tab, onClick = { onChange(option) })
                     .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xs),
             )
@@ -582,16 +574,16 @@ private fun RecordingTimer(elapsedMs: Long) {
     Row(
         modifier = Modifier
             .clip(LenslyPillShape)
-            .background(LenslyBlack.copy(alpha = 0.6f))
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f))
             .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(modifier = Modifier.size(LenslySpacing.xs).clip(CircleShape).background(LenslyAccent))
+        Box(modifier = Modifier.size(LenslySpacing.xs).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
         Spacer(modifier = Modifier.width(LenslySpacing.xs))
         Text(
             text = formatDuration(elapsedMs),
             style = MaterialTheme.typography.labelLarge,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -631,7 +623,7 @@ private fun ViewfinderBottomBar(
             Icon(
                 imageVector = Icons.Filled.Refresh,
                 contentDescription = null,
-                tint = LenslyOnSurface,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(26.dp),
             )
         }
@@ -648,7 +640,7 @@ private fun GalleryThumbnail(onClick: () -> Unit, onPlaced: (LayoutCoordinates) 
             .onGloballyPositioned(onPlaced)
             .pressFeedback(interaction, enabled = true)
             .clip(CircleShape)
-            .border(1.dp, LenslyOutlineInteractive, CircleShape)
+            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
             .tapHaptic(haptics)
             .clickable(
                 role = Role.Button,
@@ -663,7 +655,7 @@ private fun GalleryThumbnail(onClick: () -> Unit, onPlaced: (LayoutCoordinates) 
         Icon(
             imageVector = CameraIcons.Photos,
             contentDescription = null,
-            tint = LenslyOnSurface,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(26.dp),
         )
     }
@@ -690,7 +682,7 @@ private fun ShutterButton(
             .onGloballyPositioned(onPlaced)
             .pressFeedback(interaction, enabled = true)
             .clip(CircleShape)
-            .background(LenslyOnSurface)
+            .background(MaterialTheme.colorScheme.onSurface)
             .tapHaptic(haptics)
             .clickable(
                 role = Role.Button,
@@ -703,9 +695,9 @@ private fun ShutterButton(
     ) {
         // A red disc while idle and a red square while recording, the usual video shutter.
         if (mode == CameraMode.VIDEO && recording) {
-            Box(Modifier.size(28.dp).clip(RoundedCornerShape(LenslyRadius.xs)).background(LenslyAccent))
+            Box(Modifier.size(28.dp).clip(MaterialTheme.shapes.extraSmall).background(MaterialTheme.colorScheme.primary))
         } else if (mode == CameraMode.VIDEO) {
-            Box(Modifier.size(64.dp).clip(CircleShape).background(LenslyAccent))
+            Box(Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
         }
     }
 }
@@ -724,7 +716,7 @@ private fun RoundControl(
             .size(size)
             .pressFeedback(interaction, enabled = true)
             .clip(CircleShape)
-            .background(LenslySurfaceHigh)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .tapHaptic(haptics)
             .clickable(
                 role = Role.Button,

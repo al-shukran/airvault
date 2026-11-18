@@ -27,7 +27,7 @@ import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.sign.SAMPLE_SIGNER
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
 import org.junit.Rule
@@ -55,7 +55,7 @@ class BitcoinReviewScreenTest {
      */
     private fun show(review: BtcReview, small: Boolean = false) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 var confirmed by remember { mutableStateOf(false) }
                 Box(modifier = if (small) Modifier.size(width = 360.dp, height = 640.dp) else Modifier.fillMaxSize()) {
                     BitcoinReviewScreen(

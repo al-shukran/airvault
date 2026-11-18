@@ -14,7 +14,7 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -74,7 +74,7 @@ class WalletDetailScreenTest {
     @Test
     fun theWalletListsItsTwoAppsWithTheirAccountCounts() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Detail(Route(), accounts = 3, bitcoin = 2)
             }
         }
@@ -89,7 +89,7 @@ class WalletDetailScreenTest {
     fun tappingAnAppOpensIt() {
         val route = Route()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Detail(route, accounts = 3, bitcoin = 2)
             }
         }
@@ -103,7 +103,7 @@ class WalletDetailScreenTest {
     @Test
     fun theWalletOptionsHoldTheWalletActionsAndNoAccountActions() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Detail(Route(), accounts = 3, bitcoin = 2)
             }
         }
@@ -122,7 +122,7 @@ class WalletDetailScreenTest {
     fun theHistoryOptionOpensTheHistoryOfTheWallet() {
         val route = Route()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Detail(route, accounts = 1, bitcoin = 0)
             }
         }
@@ -136,7 +136,7 @@ class WalletDetailScreenTest {
     @Test
     fun aLongPressOnTheWalletHeaderOpensTheWalletOptions() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Detail(Route(), accounts = 3, bitcoin = 2)
             }
         }
@@ -149,7 +149,7 @@ class WalletDetailScreenTest {
     fun showingTheSecretAsksForAWarningBeforeItOpens() {
         val route = Route()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Detail(route, accounts = 3, bitcoin = 2)
             }
         }
@@ -172,7 +172,7 @@ class WalletDetailScreenTest {
     @Test
     fun aSingleKeyWalletShowsItsOneAccountAndItsPrivateKey() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Detail(Route(), accounts = 1, bitcoin = 0, kind = WalletKind.SINGLE_KEY)
             }
         }

@@ -4,7 +4,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
 import app.lumio.network.NetworkMode
 import app.lumio.ui.network.TESTNET_BANNER_TAG
 import org.junit.Rule
@@ -50,7 +50,7 @@ class LumioBackdropTest {
 
     private fun setScreen(selection: NetworkSelection) {
         compose.setContent {
-            LenslyTheme {
+            CoverTheme {
                 LumioBackdrop(selection) {
                     Text("Screen body")
                 }

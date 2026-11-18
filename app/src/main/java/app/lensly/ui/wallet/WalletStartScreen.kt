@@ -29,11 +29,7 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
 
 /**
  * First screen of the wallet flow: create a new wallet, restore one from its 24 words, or import a single private key.
@@ -95,14 +91,14 @@ private fun ChoiceRow(
 ) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(LenslyRadius.lg)
-    val ink = if (primary) LenslyBlack else LenslyOnSurface
+    val shape = MaterialTheme.shapes.large
+    val ink = if (primary) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .pressFeedback(interaction, enabled = true)
             .clip(shape)
-            .background(if (primary) LenslyOnSurface else LenslySurfaceContainer, shape)
+            .background(if (primary) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainer, shape)
             .tapHaptic(haptics)
             .clickable(
                 interactionSource = interaction,
@@ -125,7 +121,7 @@ private fun ChoiceRow(
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (primary) LenslyBlack else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (primary) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Spacer(Modifier.width(LenslySpacing.sm))

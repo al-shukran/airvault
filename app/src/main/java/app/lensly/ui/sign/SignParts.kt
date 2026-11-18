@@ -12,7 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalMonoFamily
 
 /** One fact: a muted uppercase label above its value, with a divider underneath. */
 @Composable
@@ -29,7 +29,7 @@ internal fun FactRow(
         Spacer(Modifier.height(LenslySpacing.xs))
         content()
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 /** Text in the monospace face, such as a selector or a hex word. It wraps and is never cut short. */
@@ -37,7 +37,7 @@ internal fun FactRow(
 internal fun MonoText(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
         color = MaterialTheme.colorScheme.onSurface,
         modifier = modifier,
     )

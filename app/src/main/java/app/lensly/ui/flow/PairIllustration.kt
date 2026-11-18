@@ -2,6 +2,8 @@ package app.lensly.ui.flow
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -14,11 +16,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyAccent
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutlineInteractive
-import app.lensly.ui.theme.LenslySurfaceContainer
 
 /** The pairing code as a grid of modules, one string per row. A "1" is a dark module. */
 private val CODE_GRID = listOf(
@@ -39,6 +36,7 @@ private val ILLUSTRATION_HEIGHT = 156.dp
  */
 @Composable
 internal fun PairIllustration(modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
     Canvas(
         modifier = modifier
             .height(ILLUSTRATION_HEIGHT)
@@ -55,8 +53,8 @@ internal fun PairIllustration(modifier: Modifier = Modifier) {
         val phoneSize = Size(phoneWidth, phoneHeight)
 
         // Lensly's phone, with the code on its screen.
-        drawRoundRect(LenslySurfaceContainer, Offset(leftX, top), phoneSize, corner)
-        drawRoundRect(LenslyOutlineInteractive, Offset(leftX, top), phoneSize, corner, style = outline)
+        drawRoundRect(colors.surfaceContainer, Offset(leftX, top), phoneSize, corner)
+        drawRoundRect(colors.outline, Offset(leftX, top), phoneSize, corner, style = outline)
         val module = phoneWidth * 0.08f
         val codeLeft = leftX + (phoneWidth - module * CODE_GRID.first().length) / 2f
         val codeTop = centreY - module * CODE_GRID.size / 2f
@@ -64,7 +62,7 @@ internal fun PairIllustration(modifier: Modifier = Modifier) {
             line.forEachIndexed { column, cell ->
                 if (cell == '1') {
                     drawRect(
-                        color = LenslyOnSurface,
+                        color = colors.onSurface,
                         topLeft = Offset(codeLeft + column * module, codeTop + row * module),
                         size = Size(module, module),
                     )
@@ -73,14 +71,14 @@ internal fun PairIllustration(modifier: Modifier = Modifier) {
         }
 
         // The online wallet's phone, with a viewfinder and a scan line across it.
-        drawRoundRect(LenslySurfaceContainer, Offset(rightX, top), phoneSize, corner)
-        drawRoundRect(LenslyOutlineInteractive, Offset(rightX, top), phoneSize, corner, style = outline)
+        drawRoundRect(colors.surfaceContainer, Offset(rightX, top), phoneSize, corner)
+        drawRoundRect(colors.outline, Offset(rightX, top), phoneSize, corner, style = outline)
         val frame = phoneWidth * 0.62f
         val frameLeft = rightX + (phoneWidth - frame) / 2f
         val frameTop = centreY - frame / 2f
-        viewfinderCorners(frameLeft, frameTop, frame)
+        viewfinderCorners(frameLeft, frameTop, frame, colors)
         drawLine(
-            color = LenslyAccent.copy(alpha = 0.8f),
+            color = colors.primary.copy(alpha = 0.8f),
             start = Offset(frameLeft, centreY),
             end = Offset(frameLeft + frame, centreY),
             strokeWidth = 1.dp.toPx(),
@@ -89,7 +87,7 @@ internal fun PairIllustration(modifier: Modifier = Modifier) {
         // The beam from the code to the camera.
         val gap = 10.dp.toPx()
         drawLine(
-            color = LenslyMuted,
+            color = colors.onSurfaceVariant,
             start = Offset(leftX + phoneWidth + gap, centreY),
             end = Offset(rightX - gap, centreY),
             strokeWidth = 1.5.dp.toPx(),
@@ -103,7 +101,7 @@ internal fun PairIllustration(modifier: Modifier = Modifier) {
  * The four corners of a square viewfinder at ([left], [top]) with side [side]. Each corner is two short arms in the accent colour,
  * one along each edge it sits on.
  */
-private fun DrawScope.viewfinderCorners(left: Float, top: Float, side: Float) {
+private fun DrawScope.viewfinderCorners(left: Float, top: Float, side: Float, colors: ColorScheme) {
     val arm = side * 0.28f
     val stroke = 2.dp.toPx()
     val right = left + side
@@ -116,7 +114,7 @@ private fun DrawScope.viewfinderCorners(left: Float, top: Float, side: Float) {
         Triple(Offset(right, bottom), Offset(right - arm, bottom), Offset(right, bottom - arm)),
     )
     corners.forEach { (corner, along, down) ->
-        drawLine(LenslyAccent, corner, along, strokeWidth = stroke, cap = StrokeCap.Round)
-        drawLine(LenslyAccent, corner, down, strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(colors.primary, corner, along, strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(colors.primary, corner, down, strokeWidth = stroke, cap = StrokeCap.Round)
     }
 }

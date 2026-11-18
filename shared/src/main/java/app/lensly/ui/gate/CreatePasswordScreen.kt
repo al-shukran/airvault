@@ -162,7 +162,7 @@ private fun StepBar(active: Boolean) {
             .width(STEP_BAR_WIDTH)
             .height(STEP_BAR_HEIGHT)
             .clip(LenslyPillShape)
-            .background(if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline),
+            .background(if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant),
     )
 }
 

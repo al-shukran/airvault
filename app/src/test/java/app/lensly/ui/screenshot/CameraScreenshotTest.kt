@@ -3,6 +3,7 @@ package app.lensly.ui.screenshot
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -13,7 +14,6 @@ import app.lensly.ui.camera.GalleryScreen
 import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.camera.ViewfinderOverlay
 import app.lensly.ui.components.LocalVaultLock
-import app.lensly.ui.theme.LenslySurfaceContainer
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,23 +34,23 @@ class CameraScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun permissionRequest() = compose.snapshot("camera_permission_request") {
+    fun permissionRequest() = compose.snapshot("camera_permission_request", theme = coverTheme) {
         CameraPermissionRationale(canOpenSettings = false, onAllow = {}, onOpenSettings = {})
     }
 
     @Test
-    fun permissionRefused() = compose.snapshot("camera_permission_refused") {
+    fun permissionRefused() = compose.snapshot("camera_permission_refused", theme = coverTheme) {
         CameraPermissionRationale(canOpenSettings = true, onAllow = {}, onOpenSettings = {})
     }
 
     @Test
-    fun unavailable() = compose.snapshot("camera_unavailable") {
+    fun unavailable() = compose.snapshot("camera_unavailable", theme = coverTheme) {
         CameraUnavailable(onRetry = {}, modifier = Modifier.fillMaxSize())
     }
 
     @Test
-    fun viewfinderControls() = compose.snapshot("camera_viewfinder_controls") {
-        Box(Modifier.fillMaxSize().background(LenslySurfaceContainer)) {
+    fun viewfinderControls() = compose.snapshot("camera_viewfinder_controls", theme = coverTheme) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)) {
             ViewfinderOverlay(
                 flashAvailable = true,
                 flashOn = false,
@@ -64,8 +64,8 @@ class CameraScreenshotTest {
     }
 
     @Test
-    fun captureFailed() = compose.snapshot("camera_capture_failed") {
-        Box(Modifier.fillMaxSize().background(LenslySurfaceContainer)) {
+    fun captureFailed() = compose.snapshot("camera_capture_failed", theme = coverTheme) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)) {
             ViewfinderOverlay(
                 flashAvailable = true,
                 flashOn = true,
@@ -79,7 +79,7 @@ class CameraScreenshotTest {
     }
 
     @Test
-    fun galleryEmpty() = compose.snapshot("gallery_empty") {
+    fun galleryEmpty() = compose.snapshot("gallery_empty", theme = coverTheme) {
         // The gallery opens from the camera while the vault is locked, so it shows no lock icon.
         CompositionLocalProvider(LocalVaultLock provides null) {
             GalleryScreen(store = PhotoStore.of(VaultLayout.of(RuntimeEnvironment.getApplication()), decoy = false), onBack = {})

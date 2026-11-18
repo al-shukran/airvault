@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
@@ -55,13 +54,7 @@ import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.profile.ProfileAvatar
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
-import app.lensly.ui.theme.LenslyOutlineInteractive
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
 
 /** The test tag of every wallet card, so a test can count the cards on screen. */
 internal const val WALLET_CARD_TAG = "wallet-card"
@@ -74,7 +67,6 @@ private val COMPACT_CARD_HEIGHT = 104.dp
 
 /** A compact card whose name takes two lines, as the Home carousel's does. The height holds the name, the chip and the line under it. */
 private val COMPACT_TWO_LINE_CARD_HEIGHT = 120.dp
-private val CARD_SHAPE = RoundedCornerShape(LenslyRadius.xl)
 
 /**
  * One wallet as a card: its generated [WalletArt] under a scrim, the type chip and the avatar on top, then the name and the
@@ -116,8 +108,8 @@ internal fun WalletCard(
             )
             .testTag(WALLET_CARD_TAG)
             .pressFeedback(interaction, enabled = true)
-            .clip(CARD_SHAPE)
-            .border(1.dp, LenslyOutline, CARD_SHAPE)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.extraLarge)
             .tapHaptic(haptics)
             .combinedClickable(
                 interactionSource = interaction,
@@ -132,7 +124,7 @@ internal fun WalletCard(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(Brush.verticalGradient(listOf(LenslyBlack.copy(alpha = 0f), LenslyBlack.copy(alpha = 0.8f)))),
+                .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.background.copy(alpha = 0f), MaterialTheme.colorScheme.background.copy(alpha = 0.8f)))),
         )
         Column(modifier = Modifier.fillMaxSize().padding(if (compact) 14.dp else 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -149,7 +141,7 @@ internal fun WalletCard(
                     nameLines > 1 -> MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp, lineHeight = 16.sp)
                     else -> MaterialTheme.typography.titleMedium
                 },
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = if (compact) nameLines else 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -171,6 +163,8 @@ internal fun WalletCard(
  */
 @Composable
 internal fun AddWalletTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val corner = MaterialTheme.shapes.extraLarge.topStart
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
     Row(
@@ -181,8 +175,8 @@ internal fun AddWalletTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .pressFeedback(interaction, enabled = true)
             .drawBehind {
                 drawRoundRect(
-                    color = LenslyOutlineInteractive,
-                    cornerRadius = CornerRadius(LenslyRadius.xl.toPx()),
+                    color = colors.outline,
+                    cornerRadius = CornerRadius(corner.toPx(size, this)),
                     style = Stroke(
                         width = 1.5.dp.toPx(),
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 8.dp.toPx())),
@@ -203,14 +197,14 @@ internal fun AddWalletTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.Filled.Add,
             contentDescription = null,
-            tint = LenslyOnSurface,
+            tint = colors.onSurface,
             modifier = Modifier.size(24.dp),
         )
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
             text = "Add wallet",
             style = MaterialTheme.typography.titleSmall,
-            color = LenslyOnSurface,
+            color = colors.onSurface,
         )
     }
 }
@@ -228,7 +222,7 @@ internal fun WalletContextSheet(
     onEdit: (String) -> Unit,
     onPair: (String) -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = LenslySurfaceContainer) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -237,7 +231,7 @@ internal fun WalletContextSheet(
             Text(
                 text = wallet.name.uppercase(),
                 style = MaterialTheme.typography.titleMedium,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -270,8 +264,8 @@ private fun SheetAction(icon: ImageVector, label: String, onClick: () -> Unit) {
             .clickable(role = Role.Button, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = LenslyOnSurface, modifier = Modifier.size(24.dp))
+        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
         Spacer(Modifier.width(LenslySpacing.md))
-        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = LenslyOnSurface)
+        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
     }
 }

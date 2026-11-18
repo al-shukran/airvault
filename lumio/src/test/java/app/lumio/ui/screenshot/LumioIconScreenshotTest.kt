@@ -14,6 +14,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
+import app.lensly.ui.screenshot.coverTheme
 import app.lensly.ui.screenshot.snapshot
 import app.lumio.R
 import org.junit.Rule
@@ -36,7 +37,7 @@ class LumioIconScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun launcherIcon() = compose.snapshot("lumio_launcher_icon") {
+    fun launcherIcon() = compose.snapshot("lumio_launcher_icon", theme = coverTheme) {
         Row(
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.Center,

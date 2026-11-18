@@ -4,7 +4,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.app.InternalAccount
 import app.lensly.app.addressKeyOf
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.tx.LumioTx
@@ -70,7 +70,7 @@ class TransactionDetailOwnAccountTest {
 
     private fun setDetail(tx: LumioTx, accounts: Map<String, InternalAccount>) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 TransactionDetailScreen(
                     detail = TxDetail(tx = tx, usd = null, comment = null, chain = "Ethereum", feeText = null, explorerUrl = null, flags = emptyList()),
                     onBack = {},

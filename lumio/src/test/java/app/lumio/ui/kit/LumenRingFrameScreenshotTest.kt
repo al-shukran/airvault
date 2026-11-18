@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import app.lumio.ui.screenshot.LUMIO_DARK_QUALIFIERS
-import app.lumio.ui.theme.LumioTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lensly.ui.screenshot.snapshot
 import org.junit.Rule
 import org.junit.Test
@@ -46,7 +46,7 @@ class LumenRingFrameScreenshotTest {
         compose.snapshot(
             name = name,
             beforeCapture = { mainClock.advanceTimeBy(atMs) },
-            theme = { LumioTheme(content = it) },
+            theme = { LumenTheme(content = it) },
         ) {
             val progress = remember { Animatable(0f) }
             LaunchedEffect(Unit) { progress.animateTo(1f, tween(RING_MS, easing = LinearEasing)) }

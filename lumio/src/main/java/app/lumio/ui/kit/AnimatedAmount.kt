@@ -21,8 +21,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.IntOffset
-import app.lumio.ui.theme.LocalReducedMotion
-import app.lumio.ui.theme.LumioMotion
+import app.lensly.ui.theme.LocalReducedMotion
+import app.lensly.ui.theme.LumenMotion
 
 /** What a hidden amount shows. It is the same at every size, so a hidden balance never shows how large it is. */
 const val HIDDEN_AMOUNT = "••••"
@@ -34,7 +34,7 @@ private val rollSpring = spring<IntOffset>(dampingRatio = 0.90f, stiffness = 700
  * An amount, such as a balance, shown as [text], its exact formatted string (section 3.4). A hidden amount shows [HIDDEN_AMOUNT] and never moves.
  *
  * [countUp] is the count of the first sync: while it runs, each frame shows `countUp(fraction)`, as the fraction goes from 0 to 1 over
- * [LumioMotion.COUNT_UP], and then [text] takes its place. A later change of [text] rolls each digit like an odometer, and the digits keep their
+ * [LumenMotion.COUNT_UP], and then [text] takes its place. A later change of [text] rolls each digit like an odometer, and the digits keep their
  * width. A value shown on open passes no [countUp], so it never animates. Reduced motion shows [text] at once.
  */
 @Composable
@@ -52,7 +52,7 @@ fun AnimatedAmount(
     LaunchedEffect(counting) {
         if (counting) {
             fraction.snapTo(0f)
-            fraction.animateTo(1f, tween(LumioMotion.COUNT_UP, easing = LumioMotion.Emphasized))
+            fraction.animateTo(1f, tween(LumenMotion.COUNT_UP, easing = LumenMotion.Emphasized))
         }
     }
     when {
@@ -74,8 +74,8 @@ private fun Odometer(text: String, modifier: Modifier, style: TextStyle, color: 
                     targetState = char,
                     transitionSpec = {
                         val up = targetState > initialState
-                        (slideInVertically(rollSpring) { if (up) it else -it } + fadeIn(LumioMotion.effects))
-                            .togetherWith(slideOutVertically(rollSpring) { if (up) -it else it } + fadeOut(LumioMotion.effects))
+                        (slideInVertically(rollSpring) { if (up) it else -it } + fadeIn(LumenMotion.effects))
+                            .togetherWith(slideOutVertically(rollSpring) { if (up) -it else it } + fadeOut(LumenMotion.effects))
                     },
                     label = "amount digit $index",
                 ) { digit ->

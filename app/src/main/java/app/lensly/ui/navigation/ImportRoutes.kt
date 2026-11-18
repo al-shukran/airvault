@@ -33,8 +33,8 @@ import app.lensly.ui.wallet.KeyImportStep
  * comes. The write-down is the last step, and it is the one that saves the wallet.
  */
 internal fun NavGraphBuilder.importRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.IMPORT_KEY) { entry -> HiddenBackdrop { KeyImportRoute(navController, entry) } }
-    composable(HiddenRoute.KEY_BACKUP) { entry ->
+    vaultComposable(HiddenRoute.IMPORT_KEY) { entry -> HiddenBackdrop { KeyImportRoute(navController, entry) } }
+    vaultComposable(HiddenRoute.KEY_BACKUP) { entry ->
         HiddenBackdrop { KeyBackupRoute(navController, holder, entry) }
     }
 }

@@ -46,7 +46,6 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.profile.ProfileAvatar
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
@@ -367,7 +366,7 @@ private fun AccountRow(
                 Text(
                     text = name.uppercase(),
                     style = MaterialTheme.typography.titleSmall,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -386,7 +385,7 @@ private fun AccountRow(
                 )
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -402,7 +401,7 @@ private fun PendingAccountRow(modifier: Modifier = Modifier) {
             Spacer(Modifier.width(LenslySpacing.sm))
             WalletEyebrow("Deriving address")
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 

@@ -10,7 +10,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.home.groupedAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -35,7 +35,7 @@ class TokensScreenTest {
 
     private fun show() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 TokensScreen(
                     networks = listOf(alpha, beta),
                     tokens = listOf(alphaOne, alphaTwo, betaOne),

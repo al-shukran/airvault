@@ -39,7 +39,6 @@ import app.lensly.ui.components.chainIconDrawables
 import app.lensly.ui.components.chainIconsNeedingBackdrop
 import app.lensly.ui.components.tokenIconDrawables
 import app.lensly.ui.components.tokenIconsNeedingBackdrop
-import app.lensly.ui.theme.LenslyBlack
 
 /**
  * Debug-only grid of every icon: each chain logo, each token logo, the unknown-token icon, the Lensly logo and the
@@ -51,7 +50,7 @@ internal fun IconsPreview() {
         columns = GridCells.Adaptive(minSize = 112.dp),
         modifier = Modifier
             .fillMaxSize()
-            .background(LenslyBlack),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

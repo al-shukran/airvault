@@ -36,9 +36,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.rememberKeyHaptics
-import app.lensly.ui.theme.LenslyAccent
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyPillShape
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -82,7 +79,7 @@ internal fun HoldToSignButton(
             .testTag(HOLD_TO_SIGN_TAG)
             .height(56.dp)
             .clip(LenslyPillShape)
-            .background(if (enabled) LenslyOnSurface else colors.surfaceVariant)
+            .background(if (enabled) MaterialTheme.colorScheme.onSurface else colors.surfaceVariant)
             .semantics {
                 role = Role.Button
                 if (!enabled) disabled()
@@ -113,12 +110,12 @@ internal fun HoldToSignButton(
                 .align(Alignment.CenterStart)
                 .fillMaxHeight()
                 .fillMaxWidth(fill.value)
-                .background(LenslyAccent),
+                .background(MaterialTheme.colorScheme.primary),
         )
         Text(
             text = "Hold to sign",
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-            color = if (enabled) LenslyBlack else colors.onSurfaceVariant,
+            color = if (enabled) MaterialTheme.colorScheme.background else colors.onSurfaceVariant,
         )
     }
 }

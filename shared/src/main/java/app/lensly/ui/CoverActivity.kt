@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import app.lensly.DebugBtcFixture
 import app.lensly.DebugLaunch
 import app.lensly.ui.components.clearStaleCopy
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
 
 /**
  * The activity of a cover app, Lensly or Lumio. It sets FLAG_SECURE, the dark system bars and the theme, then shows the app's
@@ -45,7 +45,7 @@ abstract class CoverActivity : ComponentActivity() {
         }
 
         setContent {
-            LenslyTheme {
+            CoverTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,

@@ -60,7 +60,7 @@ fun CeremonyResultScreen(
             HashLines(hex = mixedHashHex)
         }
         Spacer(Modifier.height(LenslySpacing.lg))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md),
             verticalAlignment = Alignment.CenterVertically,
@@ -68,6 +68,6 @@ fun CeremonyResultScreen(
             WalletEyebrow("Checksum word", modifier = Modifier.weight(1f))
             DotText(text = checksumWord.uppercase(), fontSize = 28.sp)
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
