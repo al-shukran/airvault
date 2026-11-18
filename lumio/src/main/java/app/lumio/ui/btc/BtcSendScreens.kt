@@ -1,5 +1,7 @@
 package app.lumio.ui.btc
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -18,30 +21,38 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressChain
 import app.lensly.app.addressNotesOf
+import app.lensly.app.headline
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.components.AddressField
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.SettingsRow
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.qr.AnimatedQr
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcAdvanced
 import app.lumio.btc.BtcSendInput
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.btcText
+import app.lumio.ui.kit.LumioIsland
+import app.lumio.ui.kit.LumioPrimaryButton
+import app.lumio.ui.kit.LumioTag
+import app.lumio.ui.kit.LumioTextAction
 import app.lumio.ui.pair.PairLabels
+import app.lumio.ui.send.AmountField
 import app.lumio.ui.send.ReviewAddress
 import app.lumio.ui.send.ReviewField
-import app.lumio.ui.send.SectionLabel
+import app.lumio.ui.send.SEND_STEP_DETAILS
+import app.lumio.ui.send.SEND_STEP_REVIEW
+import app.lumio.ui.send.SEND_STEP_SIGN
+import app.lumio.ui.send.SendStepScaffold
+import app.lumio.ui.send.StepLabel
+import app.lumio.ui.theme.LumioRadius
 
 private const val TESTNET_LABEL = "Testnet"
 
@@ -66,30 +77,17 @@ fun BtcSendFormScreen(
     onReview: () -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(
+    SendStepScaffold(
+        step = SEND_STEP_DETAILS,
         title = "Send bitcoin",
         onBack = onBack,
-        bottomAction = {
-            WalletPill(
-                text = "Review",
-                onClick = onReview,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-                enabled = !busy,
-            )
-        },
+        bottomAction = { LumioPrimaryButton(text = "Review", onClick = onReview, enabled = !busy) },
     ) {
-        if (busy) {
-            Text(
-                "Reading the network",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        SectionLabel("From")
+        if (busy) StepLabel("Reading the network")
+        StepLabel("From")
         AccountLine(ref = account)
 
-        SectionLabel("Send to")
+        StepLabel("Send to")
         AddressField(
             value = recipient,
             onValueChange = onRecipient,
@@ -98,21 +96,15 @@ fun BtcSendFormScreen(
             enabled = !busy,
             onScan = onScan,
         )
-        Spacer(Modifier.height(LenslySpacing.sm))
-        OutlinedTextField(
-            value = amount,
-            onValueChange = onAmount,
-            label = { Text("Amount in BTC") },
-            singleLine = true,
-            enabled = !busy,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(LenslySpacing.sm))
+
+        StepLabel("Amount in BTC")
+        AmountField(value = amount, onValueChange = onAmount, enabled = !busy)
+
+        StepLabel("Fee rate")
         OutlinedTextField(
             value = feeRate,
             onValueChange = onFeeRate,
-            label = { Text("Fee rate in sat/vB") },
+            label = { Text("Sat per vByte") },
             singleLine = true,
             enabled = !busy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -144,40 +136,44 @@ fun BtcSendReviewScreen(
     addressBook: List<AddressBookEntry> = emptyList(),
 ) {
     var advanced by remember { mutableStateOf(false) }
-    LenslyScreen(
+    val recipient = addressNotesOf(plan.recipient, AddressChain.BITCOIN, emptyMap(), addressBook)?.headline() ?: plan.recipient
+    SendStepScaffold(
+        step = SEND_STEP_REVIEW,
         title = "Review send",
         onBack = onBack,
-        bottomAction = {
-            WalletPill(
-                text = "Sign with Lensly",
-                onClick = onConfirm,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
-        },
+        bottomAction = { LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm) },
     ) {
         NetworkHeader(plan.network)
-        ReviewField("From", "${PairLabels.scriptType(plan.account.scriptType)}, ${plan.account.path.asString('\'')}")
-        ReviewAddress("To", plan.recipient, notes = addressNotesOf(plan.recipient, AddressChain.BITCOIN, emptyMap(), addressBook))
-        ReviewField("Amount", btcText(plan.amountSats))
-        ReviewField("Fee", "${btcText(plan.feeSats)}, at ${rateText(plan.feeRateSatPerVb)} sat/vB for about ${plan.vsize} vB")
-        ReviewField(
-            "Change",
-            plan.changeIndex?.let { "${btcText(plan.changeSats)}, to change address $it" } ?: "None. The remainder goes to the fee.",
+        Text(
+            "Send ${btcText(plan.amountSats)} to $recipient",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
-        ReviewField("Spends", "${plan.coins.size} output(s), ${btcText(plan.inputSats)}")
+        Spacer(Modifier.height(LenslySpacing.md))
+        LumioIsland {
+            Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
+                ReviewField("From", "${PairLabels.scriptType(plan.account.scriptType)}, ${plan.account.path.asString('\'')}")
+                ReviewAddress("To", plan.recipient, notes = addressNotesOf(plan.recipient, AddressChain.BITCOIN, emptyMap(), addressBook))
+                ReviewField("Amount", btcText(plan.amountSats))
+            }
+        }
+        Spacer(Modifier.height(LenslySpacing.md))
+        LumioIsland {
+            Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
+                ReviewField("Fee", "${btcText(plan.feeSats)}, at ${rateText(plan.feeRateSatPerVb)} sat/vB for about ${plan.vsize} vB")
+                ReviewField(
+                    "Change",
+                    plan.changeIndex?.let { "${btcText(plan.changeSats)}, to change address $it" } ?: "None. The remainder goes to the fee.",
+                )
+                ReviewField("Spends", "${plan.coins.size} output(s), ${btcText(plan.inputSats)}")
+            }
+        }
         BtcAdvanced.warnings(suggestedRate, plan.feeRateSatPerVb).forEach { warning ->
             Spacer(Modifier.height(LenslySpacing.xs))
             InlineBanner(message = warning, tone = BannerTone.Warning)
         }
-        Spacer(Modifier.height(LenslySpacing.md))
-        WalletPill(
-            text = "Advanced",
-            onClick = { advanced = true },
-            modifier = Modifier.fillMaxWidth(),
-            style = WalletPillStyle.Outline,
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
+        LumioTextAction(text = "Advanced", onClick = { advanced = true }, modifier = Modifier.padding(top = LenslySpacing.xs))
+        Spacer(Modifier.height(LenslySpacing.xs))
         Text(
             "Lumio holds no key. Lensly signs this transaction, and Lumio sends only the signed transaction that Lensly shows.",
             style = MaterialTheme.typography.bodyMedium,
@@ -201,7 +197,7 @@ fun BtcSendReviewScreen(
     }
 }
 
-/** The unsigned request as an animated code for Lensly to scan. [notice] is why the last signature did not send. */
+/** The unsigned request as an animated code for Lensly to scan, on a white card. [notice] is why the last signature did not send. */
 @Composable
 fun BtcSignRequestScreen(
     network: BtcNetwork,
@@ -210,27 +206,29 @@ fun BtcSignRequestScreen(
     onScan: () -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(
+    SendStepScaffold(
+        step = SEND_STEP_SIGN,
         title = "Sign in Lensly",
         onBack = onBack,
         scrollable = false,
-        bottomAction = {
-            WalletPill(
-                text = "Scan Lensly's signature",
-                onClick = onScan,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
-        },
+        bottomAction = { LumioPrimaryButton(text = "Scan Lensly's signature", onClick = onScan) },
     ) {
         NetworkHeader(network)
         Text(
-            "In Lensly, scan this code, check the review and approve. Then scan the signature that Lensly shows.",
+            "On Lensly, tap Scan and point it here.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.weight(1f))
-        AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(LumioRadius.lg))
+                .background(Color.White)
+                .padding(LenslySpacing.md),
+        ) {
+            AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        }
         Spacer(Modifier.weight(1f))
         notice?.let {
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -243,33 +241,35 @@ internal fun btcRecipientError(text: String, network: BtcNetwork): String? = run
     .exceptionOrNull()
     ?.let { it.message ?: "Enter a valid recipient address." }
 
-/** The account the send pays from: its script type and path, with a TESTNET label on testnet4. It is fixed by the send, so it is not a choice. */
+/** The account the send pays from: its script type and path, with a Testnet tag on testnet4. It is fixed by the send, so it is not a choice. */
 @Composable
 private fun AccountLine(ref: BtcAccountRef) {
     val account = ref.account
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = LenslySpacing.xxs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                PairLabels.scriptType(account.scriptType),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                account.path.asString('\''),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    LumioIsland {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    PairLabels.scriptType(account.scriptType),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    account.path.asString('\''),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (account.network == BtcNetwork.TESTNET4) LumioTag(text = TESTNET_LABEL)
         }
-        if (account.network == BtcNetwork.TESTNET4) PillChip(text = TESTNET_LABEL)
     }
 }
 
-/** The network's name, with a TESTNET label when it is testnet4. */
+/** The network's name as a title, with a Testnet tag when it is testnet4. */
 @Composable
 private fun NetworkHeader(network: BtcNetwork) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -280,7 +280,7 @@ private fun NetworkHeader(network: BtcNetwork) {
         )
         if (network == BtcNetwork.TESTNET4) {
             Spacer(Modifier.width(LenslySpacing.xs))
-            PillChip(text = TESTNET_LABEL)
+            LumioTag(text = TESTNET_LABEL)
         }
     }
     Spacer(Modifier.height(LenslySpacing.sm))

@@ -1,10 +1,5 @@
 package app.lumio.send.algorand
 
-import app.lumio.send.SubmitFailure
-import app.lumio.send.SubmitMachine
-import app.lumio.send.SubmitState
-import app.lumio.ui.send.SubmitScreen
-import app.lumio.ui.send.algorandSummary
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.activity.compose.BackHandler
@@ -26,15 +21,27 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.qr.ScanScreen
 import app.lumio.LumioApp
-import app.lumio.evm.SignatureScan
-import app.lumio.evm.SignatureStep
+import app.lumio.chains.ChainHoldings
+import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.AsaHolding
+import app.lumio.data.provider.AsaHoldings
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
+import app.lumio.data.provider.algorand.AlgorandFormat
+import app.lumio.data.sched.Priority
+import app.lumio.data.sched.Scheduler
+import app.lumio.evm.SignatureScan
+import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.send.SubmitFailure
+import app.lumio.send.SubmitMachine
+import app.lumio.send.SubmitState
+import app.lumio.ui.send.SubmitScreen
+import app.lumio.ui.send.algorandSummary
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import java.security.SecureRandom
@@ -43,14 +50,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The screens of an Algorand send, in the order the owner goes through them. */
+/** The screens of an Algorand send, in the order the owner goes through them. The recipient and the amount are on the Details step. */
 private sealed interface AlgorandSendStep {
-    data object Recipient : AlgorandSendStep
+    data object Form : AlgorandSendStep
 
     /** The camera reads a recipient address. */
     data object ScanRecipient : AlgorandSendStep
-
-    data object Amount : AlgorandSendStep
 
     class Review(val plan: AlgorandSendPlan) : AlgorandSendStep
 
@@ -81,8 +86,9 @@ private const val POLL_MS = 3_000L
 private const val POLL_LIMIT = 20
 
 /**
- * An Algorand send from one account of a paired wallet: the recipient, the amount, the review, the request that Lensly signs, the scan of its
- * signature, and the transaction that is sent. The account is fixed by the caller, and the network is the side the owner chose. Lumio holds no key.
+ * An Algorand send from one account of a paired wallet: the details (the coin, the recipient and the amount), the review, the request that Lensly signs,
+ * the scan of its signature, and the transaction that is sent. The account is fixed by the caller, and the network is the side the owner chose. The coins
+ * are ALGO, the assets the account holds, and USDC to opt in to. Lumio holds no key.
  */
 @Composable
 internal fun AlgorandSendRoute(
@@ -109,10 +115,14 @@ internal fun AlgorandSendRoute(
     val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
     val scheduler = app.nativeSchedulerFor(session)
 
-    var step by remember { mutableStateOf<AlgorandSendStep>(AlgorandSendStep.Recipient) }
+    var step by remember { mutableStateOf<AlgorandSendStep>(AlgorandSendStep.Form) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
+    // The coin the send moves, by its key: ALGO, or the ID of an asset. It is saved, so that a rotation keeps the owner's choice.
+    var selectedKey by rememberSaveable { mutableStateOf(AlgorandAssets.ALGO_KEY) }
+    var assets by remember { mutableStateOf(listOf(AlgorandAssets.native)) }
     var funds by remember { mutableStateOf<AlgorandFunds?>(null) }
+    var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     var recipientStatus by remember { mutableStateOf(RECIPIENT_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
@@ -123,24 +133,41 @@ internal fun AlgorandSendRoute(
     var sentNotice by remember { mutableStateOf<String?>(null) }
     var sentTxid by remember { mutableStateOf<String?>(null) }
 
-    val to: ByteArray? = runCatching { AlgorandSend.recipientKey(recipient) }.getOrNull()
+    val selected = assets.firstOrNull { it.key == selectedKey } ?: AlgorandAssets.native
+    val optIn = AlgorandAssets.needsOptIn(selected)
     val loaded = funds
-    // The fee the send would pay, and the most it can send, both worked out from the loaded parameters. A fee the parameters cannot give is unknown.
-    val feeEstimate: BigInteger? = if (loaded != null && to != null) {
+    val to: ByteArray? = runCatching { AlgorandSend.recipientKey(recipient) }.getOrNull()
+    val isAlgo = selected.assetId == null
+    // The fee of an ALGO send and the most that can be sent, both worked out from the loaded parameters. An asset's most is what the account holds.
+    val feeEstimate: BigInteger? = if (loaded != null && to != null && isAlgo) {
         runCatching { AlgorandSend.estimateFee(loaded, signer, to, BigInteger.ONE) }.getOrNull()
     } else {
         null
     }
-    val maxMicro: BigInteger? = if (loaded != null && feeEstimate != null) AlgorandSend.maxMicro(loaded.balance, feeEstimate) else null
-    val amountError = amountError(amount, maxMicro)
-    val canReview = loaded != null && to != null && amount.isNotBlank() && amountError == null
+    val maxUnits: BigInteger? = when {
+        loaded == null -> null
+        isAlgo -> feeEstimate?.let { AlgorandSend.maxMicro(loaded.balance, it) }
+        else -> selected.held
+    }
+    val amountError = amountError(amount, selected, maxUnits)
+    val canReview = loaded != null && !busy && (optIn || (to != null && amount.isNotBlank() && amountError == null))
 
-    // The balance and the parameters are read when the amount step opens. A failed read keeps the step, with the words why.
+    // The balance, the parameters and the coins are read when the details open. A failed read keeps the form, with the words why.
     LaunchedEffect(step) {
-        if (step !is AlgorandSendStep.Amount) return@LaunchedEffect
+        if (step !is AlgorandSendStep.Form) return@LaunchedEffect
         funds = null
-        runCatching { withContext(Dispatchers.IO) { AlgorandSend.funds(scheduler, network, address) } }
-            .onSuccess { funds = it }
+        runCatching {
+            withContext(Dispatchers.IO) {
+                val known = AlgorandAssets.knownAssets(network)
+                val holdings = optedInAssets(scheduler, network, address)
+                val infos = AlgorandAssets.infoIds(holdings, known).associateWith { ChainHoldings.info(scheduler, network, it) }
+                AlgorandSend.funds(scheduler, network, address) to AlgorandAssets.choices(holdings, known, infos)
+            }
+        }
+            .onSuccess { (read, choices) ->
+                funds = read
+                assets = choices
+            }
             .onFailure { notice = AlgorandSend.ownerWords(it, READ_FAILED) }
     }
 
@@ -173,15 +200,39 @@ internal fun AlgorandSendRoute(
         }
     }
 
+    /**
+     * The plan of the send, routed by the coin: an opt-in for a coin the account has not opted in to, else a payment of ALGO or a transfer of the asset. A
+     * transfer first reads whether the recipient has opted in to the asset, since the network refuses a transfer to one who has not.
+     */
     fun review() {
-        val read = funds ?: return
-        val key = to ?: return
-        runCatching { AlgorandSend.plan(network, read, wallet.fingerprint, accountIndex, signer, key, AlgorandSend.microAlgos(amount)) }
-            .onSuccess { plan ->
-                notice = null
-                step = AlgorandSendStep.Review(plan)
+        val read = loaded ?: return
+        val asset = selected
+        busy = true
+        notice = null
+        scope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    if (AlgorandAssets.needsOptIn(asset)) {
+                        AlgorandAssets.plan(asset, network, read, wallet.fingerprint, accountIndex, signer, signer, BigInteger.ZERO, recipientOptedIn = false)
+                    } else {
+                        val key = AlgorandSend.recipientKey(recipient)
+                        val units = AlgorandAssets.units(amount, asset.decimals, asset.symbol)
+                        val recipientOptedIn = asset.assetId?.let { id ->
+                            AlgorandAssets.optedIn(id, optedInAssets(scheduler, network, AlgorandAccount.addressOf(key)))
+                        } ?: true
+                        AlgorandAssets.plan(asset, network, read, wallet.fingerprint, accountIndex, signer, key, units, recipientOptedIn)
+                    }
+                }
             }
-            .onFailure { error -> notice = AlgorandSend.ownerWords(error, PREPARE_FAILED) }
+            busy = false
+            outcome.fold(
+                onSuccess = { plan ->
+                    notice = null
+                    step = AlgorandSendStep.Review(plan)
+                },
+                onFailure = { error -> notice = AlgorandSend.ownerWords(error, PREPARE_FAILED) },
+            )
+        }
     }
 
     fun confirm(plan: AlgorandSendPlan) {
@@ -200,7 +251,7 @@ internal fun AlgorandSendRoute(
         if (AlgorandSend.recipientError(trimmed) == null) {
             recipient = trimmed
             recipientStatus = RECIPIENT_HINT
-            step = AlgorandSendStep.Recipient
+            step = AlgorandSendStep.Form
         } else {
             recipientStatus = RECIPIENT_REFUSED
         }
@@ -280,11 +331,11 @@ internal fun AlgorandSendRoute(
 
     BackHandler {
         when (val current = step) {
-            AlgorandSendStep.Recipient -> navController.popBackStack()
-            AlgorandSendStep.ScanRecipient, AlgorandSendStep.Amount -> step = AlgorandSendStep.Recipient
+            AlgorandSendStep.Form -> navController.popBackStack()
+            AlgorandSendStep.ScanRecipient -> step = AlgorandSendStep.Form
             is AlgorandSendStep.Review -> {
                 notice = null
-                step = AlgorandSendStep.Amount
+                step = AlgorandSendStep.Form
             }
             is AlgorandSendStep.Request -> {
                 notice = null
@@ -303,18 +354,29 @@ internal fun AlgorandSendRoute(
     }
 
     when (val current = step) {
-        AlgorandSendStep.Recipient -> AlgorandRecipientScreen(
+        AlgorandSendStep.Form -> AlgorandSendFormScreen(
             network = network,
+            fromAddress = address,
+            assets = assets,
+            selected = selected,
+            onSelect = { selectedKey = it.key },
+            balanceText = balanceText(loaded, selected),
             recipient = recipient,
             onRecipient = { recipient = it },
             onScan = {
                 recipientStatus = RECIPIENT_HINT
                 step = AlgorandSendStep.ScanRecipient
             },
-            onContinue = {
-                notice = null
-                step = AlgorandSendStep.Amount
-            },
+            amount = amount,
+            onAmount = { amount = it },
+            maxEnabled = maxUnits != null && maxUnits.signum() > 0,
+            onMax = { maxUnits?.let { amount = AlgorandAssets.text(it, selected.decimals) } },
+            feeText = feeEstimate?.let { AlgorandFormat.amount(it) },
+            amountError = amountError,
+            busy = busy || loaded == null,
+            notice = notice,
+            canReview = canReview,
+            onReview = ::review,
             onBack = { navController.popBackStack() },
         )
         AlgorandSendStep.ScanRecipient -> ScanScreen(
@@ -322,33 +384,17 @@ internal fun AlgorandSendRoute(
             progress = null,
             statusText = recipientStatus,
             onText = ::onRecipientText,
-            onCancel = { step = AlgorandSendStep.Recipient },
-        )
-        AlgorandSendStep.Amount -> AlgorandAmountScreen(
-            network = network,
-            toAddress = recipient.trim(),
-            balance = loaded?.balance,
-            feeEstimate = feeEstimate,
-            maxEnabled = maxMicro != null && maxMicro.signum() > 0,
-            amount = amount,
-            onAmount = { amount = it },
-            onMax = { maxMicro?.let { amount = AlgorandSend.algoText(it) } },
-            error = amountError,
-            notice = notice,
-            canReview = canReview,
-            onReview = ::review,
-            onBack = {
-                notice = null
-                step = AlgorandSendStep.Recipient
-            },
+            onCancel = { step = AlgorandSendStep.Form },
         )
         is AlgorandSendStep.Review -> AlgorandReviewScreen(
             plan = current.plan,
+            symbol = selected.symbol,
+            decimals = selected.decimals,
             notice = notice,
             onConfirm = { confirm(current.plan) },
             onBack = {
                 notice = null
-                step = AlgorandSendStep.Amount
+                step = AlgorandSendStep.Form
             },
         )
         is AlgorandSendStep.Request -> AlgorandSignRequestScreen(
@@ -370,7 +416,7 @@ internal fun AlgorandSendRoute(
         )
         is AlgorandSendStep.Submit -> SubmitScreen(
             machine = current.machine,
-            rows = algorandSummary(current.plan),
+            rows = algorandSummary(current.plan, selected.symbol, selected.decimals),
             explorerUrl = { txid -> AlgorandSend.explorerUrl(current.plan.network, txid) },
             status = sentStatus,
             explorerNotice = sentNotice,
@@ -378,7 +424,7 @@ internal fun AlgorandSendRoute(
             onOpenExplorer = { txid -> openExplorer(AlgorandSend.explorerUrl(current.plan.network, txid)) },
             onStartOver = {
                 notice = null
-                step = AlgorandSendStep.Recipient
+                step = AlgorandSendStep.Form
             },
             onBack = {
                 notice = null
@@ -389,10 +435,27 @@ internal fun AlgorandSendRoute(
     }
 }
 
-/** The reason [text] cannot be sent, given the most that can be: null when it can, or when nothing is typed yet. */
-private fun amountError(text: String, max: BigInteger?): String? {
+/**
+ * The assets that [address] has opted in to, zero balances included, so that an opted-in asset is never offered an opt-in. An address the network does not
+ * know has opted in to none.
+ */
+private suspend fun optedInAssets(scheduler: Scheduler, network: NetworkId, address: String): List<AsaHolding> = try {
+    scheduler.run(AsaHoldings(network, address), Priority.FOREGROUND)
+} catch (e: ProviderError.NotFound) {
+    emptyList()
+}
+
+/** The balance the Details show for [asset]: ALGO's balance, or the asset's held amount. Null until the network has been read, or when the asset is not held. */
+private fun balanceText(funds: AlgorandFunds?, asset: AlgorandAsset): String? = when {
+    funds == null -> null
+    asset.assetId == null -> AlgorandFormat.amount(funds.balance)
+    else -> asset.held?.let { "${AlgorandAssets.text(it, asset.decimals)} ${asset.symbol}" }
+}
+
+/** The reason [text] cannot be sent in [asset], given the most that can be: null when it can, or when nothing is typed yet. */
+private fun amountError(text: String, asset: AlgorandAsset, max: BigInteger?): String? {
     if (text.isBlank()) return null
-    val micro = runCatching { AlgorandSend.microAlgos(text) }.getOrElse { return it.message ?: "Enter an amount in ALGO." }
-    if (max != null && micro > max) return "More than you can send. The most is ${AlgorandSend.algoText(max)} ALGO."
+    val units = runCatching { AlgorandAssets.units(text, asset.decimals, asset.symbol) }.getOrElse { return it.message ?: "Enter an amount in ${asset.symbol}." }
+    if (max != null && units > max) return "More than you can send. The most is ${AlgorandAssets.text(max, asset.decimals)} ${asset.symbol}."
     return null
 }

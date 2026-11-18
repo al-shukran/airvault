@@ -1,5 +1,7 @@
 package app.lumio.ui.send.solana
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,93 +9,112 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import app.lensly.ui.components.AddressField
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillButton
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LocalMonoFamily
 import app.lumio.data.net.NetworkId
 import app.lumio.send.solana.SOLANA_FEE_LAMPORTS
 import app.lumio.send.solana.SOLANA_RENT_RESERVE_LAMPORTS
+import app.lumio.send.solana.SolanaAssets
 import app.lumio.send.solana.SolanaOutcome
+import app.lumio.send.solana.SolanaSendAsset
 import app.lumio.send.solana.SolanaSendInput
 import app.lumio.send.solana.SolanaSendPlan
+import app.lumio.ui.kit.LumioIsland
+import app.lumio.ui.kit.LumioPrimaryButton
+import app.lumio.ui.kit.LumioTag
+import app.lumio.ui.kit.LumioTextAction
+import app.lumio.ui.send.AmountField
+import app.lumio.ui.send.ReviewAddress
+import app.lumio.ui.send.ReviewField
+import app.lumio.ui.send.SEND_STEP_DETAILS
+import app.lumio.ui.send.SEND_STEP_REVIEW
+import app.lumio.ui.send.SEND_STEP_SIGN
+import app.lumio.ui.send.SendAssetRow
+import app.lumio.ui.send.SendStepScaffold
+import app.lumio.ui.send.StepLabel
 import java.math.BigInteger
 
 /**
- * The send form: the account the send comes from, which is fixed, the recipient, and the amount in SOL with a Max text action. [busy] holds the
- * form while the network is read. [notice] is why the last attempt did not go through.
+ * The Details step of a Solana send: the account the send comes from, which is fixed, the coin that the send moves (SOL, or a token the account holds), the
+ * recipient, and the amount in that coin with a Use max text action. [balanceText] is the balance of the coin. [busy] holds the review while the network
+ * is read, and [notice] is why the last attempt did not go through.
  */
 @Composable
 internal fun SolanaSendFormScreen(
     network: NetworkId,
     sender: String,
-    balance: BigInteger?,
+    assets: List<SolanaSendAsset>,
+    selected: SolanaSendAsset,
+    onSelect: (SolanaSendAsset) -> Unit,
+    balanceText: String?,
     recipient: String,
     onRecipient: (String) -> Unit,
     onScan: () -> Unit,
     amount: String,
     onAmount: (String) -> Unit,
+    maxEnabled: Boolean,
     onMax: () -> Unit,
     busy: Boolean,
     notice: String?,
     onReview: () -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(
-        title = "Send SOL",
+    SendStepScaffold(
+        step = SEND_STEP_DETAILS,
+        title = "Send ${selected.symbol}",
         onBack = onBack,
-        bottomAction = {
-            PillButton(text = "Review", onClick = onReview, modifier = Modifier.fillMaxWidth(), enabled = !busy)
-        },
+        bottomAction = { LumioPrimaryButton(text = "Review", onClick = onReview, enabled = !busy) },
     ) {
-        NetworkName(network)
-        Spacer(Modifier.height(LenslySpacing.sm))
-        AddressText(address = sender, shown = sender, icon = false)
-        balance?.let {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Balance ", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    "${SolanaSendInput.format(it)} SOL",
-                    style = MonoBody,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        if (busy) StepLabel("Reading the network")
+        StepLabel("From")
+        AddressText(address = sender, shown = sender, icon = false, style = MaterialTheme.typography.bodyMedium)
+
+        StepLabel("Network")
+        NetworkLine(network)
+
+        StepLabel("Asset")
+        LumioIsland {
+            assets.forEach { asset ->
+                SendAssetRow(
+                    symbol = asset.symbol,
+                    detail = assetDetail(asset),
+                    selected = asset.key == selected.key,
+                    onSelect = { onSelect(asset) },
                 )
             }
         }
-        Spacer(Modifier.height(LenslySpacing.md))
-        RecipientField(value = recipient, onValueChange = onRecipient, enabled = !busy, onScan = onScan)
-        Spacer(Modifier.height(LenslySpacing.sm))
+
+        StepLabel("Send to")
+        AddressField(
+            value = recipient,
+            onValueChange = onRecipient,
+            label = "Recipient address",
+            validate = ::recipientError,
+            enabled = !busy,
+            onScan = onScan,
+        )
+
+        StepLabel("Amount in ${selected.symbol}")
+        AmountField(value = amount, onValueChange = onAmount, enabled = !busy && balanceText != null)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = amount,
-                onValueChange = onAmount,
-                label = { Text("Amount") },
-                suffix = { Text("SOL") },
-                singleLine = true,
-                enabled = !busy,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            Text(
+                balanceText?.let { "Balance $it" }.orEmpty(),
                 modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TextButton(onClick = onMax, enabled = !busy && balance != null) {
-                Text("Max")
-            }
+            LumioTextAction(text = "Use max", onClick = onMax, enabled = !busy && maxEnabled)
         }
         notice?.let {
             Spacer(Modifier.height(LenslySpacing.md))
@@ -103,34 +124,42 @@ internal fun SolanaSendFormScreen(
 }
 
 /**
- * The review of a send before Lensly is asked to sign it: a sentence that says what leaves, then the rows the owner checks. Lensly keeps the rent
- * reserve in the sender, so the account stays open.
+ * The review of a send before Lensly is asked to sign it: a sentence that says what leaves, then the rows the owner checks. [symbol] names the coin of a
+ * token send. Lensly keeps the rent reserve in the sender, so the account stays open.
  */
 @Composable
-internal fun SolanaSendReviewScreen(plan: SolanaSendPlan, notice: String?, onConfirm: () -> Unit, onBack: () -> Unit) {
-    val amount = BigInteger.valueOf(plan.lamports)
+internal fun SolanaSendReviewScreen(plan: SolanaSendPlan, symbol: String, notice: String?, onConfirm: () -> Unit, onBack: () -> Unit) {
+    val token = plan.token
+    val lamports = BigInteger.valueOf(plan.lamports)
     val fee = BigInteger.valueOf(plan.feeLamports)
-    LenslyScreen(
-        title = "Review",
+    val amount = if (token == null) {
+        "${SolanaSendInput.format(lamports)} SOL"
+    } else {
+        "${SolanaAssets.text(token.amount, token.decimals)} $symbol"
+    }
+    SendStepScaffold(
+        step = SEND_STEP_REVIEW,
+        title = "Review send",
         onBack = onBack,
-        bottomAction = {
-            PillButton(text = "Show to Lensly", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
-        },
+        bottomAction = { LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm) },
     ) {
-        NetworkName(plan.network)
-        Spacer(Modifier.height(LenslySpacing.sm))
+        NetworkHeader(plan.network)
         Text(
-            "Send ${SolanaSendInput.format(amount)} SOL to ${shortAddress(plan.recipientAddress)}",
+            "Send $amount to ${shortAddress(plan.recipientAddress)}",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(LenslySpacing.md))
-        ReviewAddress(label = "From", address = plan.senderAddress)
-        ReviewAddress(label = "To", address = plan.recipientAddress)
-        ReviewValue(label = "Amount", value = "${SolanaSendInput.format(amount)} SOL", mono = true)
-        ReviewValue(label = "Network fee", value = "${SolanaSendInput.format(fee)} SOL, ${plan.feeLamports} lamports", mono = true)
-        ReviewValue(label = "Total", value = "${SolanaSendInput.format(amount + fee)} SOL", mono = true)
-        ReviewValue(label = "Network", value = networkName(plan.network), mono = false)
+        LumioIsland {
+            Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
+                ReviewAddress("From", plan.senderAddress)
+                ReviewAddress("To", plan.recipientAddress)
+                ReviewField("Amount", amount)
+                ReviewField("Network fee", "${SolanaSendInput.format(fee)} SOL, ${plan.feeLamports} lamports")
+                if (token == null) ReviewField("Total", "${SolanaSendInput.format(lamports + fee)} SOL")
+                ReviewField("Network", networkName(plan.network))
+            }
+        }
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             "Lensly keeps ${SolanaSendInput.format(BigInteger.valueOf(SOLANA_RENT_RESERVE_LAMPORTS))} SOL in this account, so it stays open. " +
@@ -159,33 +188,30 @@ internal fun SolanaSetupReviewScreen(
     onConfirm: () -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(
+    SendStepScaffold(
+        step = SEND_STEP_REVIEW,
         title = "Offline signing",
         onBack = onBack,
-        bottomAction = {
-            PillButton(text = "Show to Lensly", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
-        },
+        bottomAction = { LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm) },
     ) {
-        NetworkName(network)
-        Spacer(Modifier.height(LenslySpacing.sm))
+        NetworkHeader(network)
         Text(
             "Create the nonce account for this account. You do this once.",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(LenslySpacing.md))
-        ReviewAddress(label = "Account", address = sender)
-        ReviewAddress(label = "Nonce account", address = nonceAccount)
-        ReviewValue(
-            label = "Rent, paid into the nonce account",
-            value = "${SolanaSendInput.format(BigInteger.valueOf(rentLamports))} SOL",
-            mono = true,
-        )
-        ReviewValue(
-            label = "Network fee",
-            value = "${SolanaSendInput.format(BigInteger.valueOf(SOLANA_FEE_LAMPORTS))} SOL, $SOLANA_FEE_LAMPORTS lamports",
-            mono = true,
-        )
+        LumioIsland {
+            Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
+                ReviewAddress("Account", sender)
+                ReviewAddress("Nonce account", nonceAccount)
+                ReviewField("Rent, paid into the nonce account", "${SolanaSendInput.format(BigInteger.valueOf(rentLamports))} SOL")
+                ReviewField(
+                    "Network fee",
+                    "${SolanaSendInput.format(BigInteger.valueOf(SOLANA_FEE_LAMPORTS))} SOL, $SOLANA_FEE_LAMPORTS lamports",
+                )
+            }
+        }
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             "Offline signing lets this account send SOL without a blockhash that could expire while Lensly reviews the send. " +
@@ -205,18 +231,17 @@ internal fun SolanaSetupReviewScreen(
 internal const val SETUP_SIGN_TEXT = "One-time setup. Scan with Lensly and sign within about 20 seconds."
 
 /**
- * The request as an animated code for Lensly to scan. [notice] is why the last signature did not send. A [setup] request says so in plain words and
- * gives the time the setup's blockhash allows.
+ * The request as an animated code for Lensly to scan, on a white card so that the code reads on either palette. [notice] is why the last signature did not
+ * send. A [setup] request says so in plain words and gives the time the setup's blockhash allows.
  */
 @Composable
 internal fun SolanaSignRequestScreen(parts: List<String>, notice: String?, onScan: () -> Unit, onBack: () -> Unit, setup: Boolean = false) {
-    LenslyScreen(
+    SendStepScaffold(
+        step = SEND_STEP_SIGN,
         title = "Sign in Lensly",
         onBack = onBack,
         scrollable = false,
-        bottomAction = {
-            PillButton(text = "Scan signature", onClick = onScan, modifier = Modifier.fillMaxWidth())
-        },
+        bottomAction = { LumioPrimaryButton(text = "Scan Lensly's signature", onClick = onScan) },
     ) {
         Text(
             if (setup) SETUP_SIGN_TEXT else "In Lensly, scan this code, check the review and approve. Then scan the signature that Lensly shows.",
@@ -224,7 +249,15 @@ internal fun SolanaSignRequestScreen(parts: List<String>, notice: String?, onSca
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.weight(1f))
-        AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(Color.White)
+                .padding(LenslySpacing.md),
+        ) {
+            AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        }
         Spacer(Modifier.weight(1f))
         notice?.let {
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -237,71 +270,45 @@ internal fun recipientError(text: String): String? = runCatching { SolanaSendInp
     .exceptionOrNull()
     ?.let { it.message ?: "Enter a Solana address." }
 
-/** The network's name, with a Testnet chip when it is the devnet. */
+/** What the picker says under a coin: the native coin, or the balance of the token that the account holds. */
+private fun assetDetail(asset: SolanaSendAsset): String {
+    val token = asset.token ?: return "Native coin"
+    return "Balance ${SolanaAssets.text(token.amount, asset.decimals)} ${asset.symbol}"
+}
+
+private fun networkName(network: NetworkId): String = if (network.testnet) "Devnet" else "Mainnet-beta"
+
+/** The network the send is on, with a Testnet tag on the devnet, as a row of the Details step. */
 @Composable
-private fun NetworkName(network: NetworkId) {
+private fun NetworkLine(network: NetworkId) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = LenslySpacing.xxs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            networkName(network),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (network.testnet) LumioTag(text = "Testnet")
+    }
+}
+
+/** The network's name as a title, with a Testnet tag on the devnet. */
+@Composable
+private fun NetworkHeader(network: NetworkId) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(networkName(network), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         if (network.testnet) {
             Spacer(Modifier.width(LenslySpacing.xs))
-            PillChip(text = "Testnet")
+            LumioTag(text = "Testnet")
         }
     }
+    Spacer(Modifier.height(LenslySpacing.sm))
 }
-
-/** A label in sans, with its value under it: an amount in mono, or a name in sans. */
-@Composable
-private fun ReviewValue(label: String, value: String, mono: Boolean) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            value,
-            style = if (mono) MonoBody else MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-@Composable
-private fun ReviewAddress(label: String, address: String) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        AddressText(address = address, shown = address, icon = false)
-    }
-}
-
-/** The recipient field: the address in mono, a scan action beside it, and the reason an address is refused under it. */
-@Composable
-private fun RecipientField(value: String, onValueChange: (String) -> Unit, enabled: Boolean, onScan: () -> Unit) {
-    val error = if (value.isEmpty()) null else recipientError(value)
-    val supporting: (@Composable () -> Unit)? = if (error != null) {
-        { Text(error) }
-    } else {
-        null
-    }
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text("Recipient address") },
-        singleLine = true,
-        enabled = enabled,
-        isError = error != null,
-        supportingText = supporting,
-        textStyle = MonoBody.copy(color = MaterialTheme.colorScheme.onSurface),
-        trailingIcon = {
-            IconButton(onClick = onScan, enabled = enabled) {
-                Icon(LenslyIcons.QrScan, contentDescription = "Scan a QR code")
-            }
-        },
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
-
-/** Body size in the mono face, for amounts, addresses and hashes. */
-private val MonoBody: TextStyle
-    @Composable get() = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalMonoFamily.current)
-
-private fun networkName(network: NetworkId): String = if (network.testnet) "Devnet" else "Mainnet-beta"
 
 internal fun solanaOutcomeText(network: NetworkId, outcome: SolanaOutcome?): String = when (outcome) {
     null -> "Checking the network."

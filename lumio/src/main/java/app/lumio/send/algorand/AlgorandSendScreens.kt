@@ -1,148 +1,149 @@
 package app.lumio.send.algorand
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import app.lensly.ui.components.AddressField
+import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillChip
-import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillStyle
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.algorand.AlgorandFormat
+import app.lumio.ui.kit.LumioIsland
+import app.lumio.ui.kit.LumioPrimaryButton
+import app.lumio.ui.kit.LumioTag
+import app.lumio.ui.kit.LumioTextAction
+import app.lumio.ui.send.AmountField
 import app.lumio.ui.send.ReviewAddress
 import app.lumio.ui.send.ReviewField
-import java.math.BigInteger
+import app.lumio.ui.send.SEND_STEP_DETAILS
+import app.lumio.ui.send.SEND_STEP_REVIEW
+import app.lumio.ui.send.SEND_STEP_SIGN
+import app.lumio.ui.send.SendAssetRow
+import app.lumio.ui.send.SendStepScaffold
+import app.lumio.ui.send.StepLabel
+import app.lumio.ui.theme.LumioRadius
 
-private const val TESTNET_LABEL = "TESTNET"
-
-/** The recipient step: the address that receives the ALGO, typed or scanned. Continue is the one primary action. */
+/**
+ * The Details step of an Algorand send, on the Lumen kit: the network, the coin that the send moves, then the recipient and the amount in that coin.
+ * [assets] are the coins the account can choose, and [selected] is the one the send moves. A coin the account has not opted in to replaces the recipient
+ * and the amount with the opt-in, whose primary action reads "Opt in to <symbol>". [balanceText] is the balance of the coin, [feeText] the network fee,
+ * and [amountError] why the amount cannot be sent. [busy] holds the form until the network has answered.
+ */
 @Composable
-internal fun AlgorandRecipientScreen(
+internal fun AlgorandSendFormScreen(
     network: NetworkId,
+    fromAddress: String,
+    assets: List<AlgorandAsset>,
+    selected: AlgorandAsset,
+    onSelect: (AlgorandAsset) -> Unit,
+    balanceText: String?,
     recipient: String,
     onRecipient: (String) -> Unit,
     onScan: () -> Unit,
-    onContinue: () -> Unit,
-    onBack: () -> Unit,
-) {
-    val valid = recipient.isNotBlank() && AlgorandSend.recipientError(recipient) == null
-    LenslyScreen(
-        title = "Send ALGO",
-        onBack = onBack,
-        bottomAction = {
-            WalletPill(
-                text = "Continue",
-                onClick = onContinue,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-                enabled = valid,
-            )
-        },
-    ) {
-        NetworkHeader(network)
-        Text(
-            "Enter an Algorand address, or scan one.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
-        AddressField(
-            value = recipient,
-            onValueChange = onRecipient,
-            label = "Recipient address",
-            validate = AlgorandSend::recipientError,
-            onScan = onScan,
-        )
-    }
-}
-
-/**
- * The amount step: the ALGO to send, a text action that fills in the most that can be sent, and the balance and fee the network gave. [error] is
- * the reason the amount cannot be sent, shown under the field. Review is the one primary action.
- */
-@Composable
-internal fun AlgorandAmountScreen(
-    network: NetworkId,
-    toAddress: String,
-    balance: BigInteger?,
-    feeEstimate: BigInteger?,
-    maxEnabled: Boolean,
     amount: String,
     onAmount: (String) -> Unit,
+    maxEnabled: Boolean,
     onMax: () -> Unit,
-    error: String?,
+    feeText: String?,
+    amountError: String?,
+    busy: Boolean,
     notice: String?,
     canReview: Boolean,
     onReview: () -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(
-        title = "Amount",
+    val symbol = selected.symbol
+    val optIn = AlgorandAssets.needsOptIn(selected)
+    val action = if (optIn) "Opt in to $symbol" else "Review"
+    SendStepScaffold(
+        step = SEND_STEP_DETAILS,
+        title = if (optIn) "Opt in to $symbol" else "Send $symbol",
         onBack = onBack,
-        bottomAction = {
-            WalletPill(
-                text = "Review",
-                onClick = onReview,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-                enabled = canReview,
-            )
-        },
+        bottomAction = { LumioPrimaryButton(text = action, onClick = onReview, enabled = canReview) },
     ) {
-        NetworkHeader(network)
-        ReviewAddress("To", toAddress)
-        balance?.let { ReviewField("Balance", AlgorandFormat.amount(it)) }
-        Spacer(Modifier.height(LenslySpacing.md))
-        val supporting: (@Composable () -> Unit)? = if (error != null) {
-            { Text(error) }
-        } else {
-            null
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = amount,
-                onValueChange = onAmount,
-                label = { Text("Amount") },
-                suffix = { Text("ALGO") },
-                singleLine = true,
-                isError = error != null,
-                supportingText = supporting,
-                enabled = balance != null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onMax, enabled = maxEnabled) {
-                Text("Max")
+        if (busy) StepLabel("Reading the network")
+        StepLabel("From")
+        AddressText(address = fromAddress, shown = fromAddress, icon = false, style = MaterialTheme.typography.bodyMedium)
+
+        StepLabel("Network")
+        NetworkLine(network)
+
+        StepLabel("Asset")
+        LumioIsland {
+            assets.forEach { asset ->
+                SendAssetRow(
+                    symbol = asset.symbol,
+                    detail = assetDetail(asset),
+                    selected = asset.key == selected.key,
+                    onSelect = { onSelect(asset) },
+                )
             }
         }
-        feeEstimate?.let {
-            Spacer(Modifier.height(LenslySpacing.sm))
-            ReviewField("Network fee", AlgorandFormat.amount(it))
+
+        if (optIn) {
+            Spacer(Modifier.height(LenslySpacing.md))
+            Text(
+                "This account can't hold $symbol yet. Algorand needs a one-time opt-in; 0.1 ALGO stays reserved.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            StepLabel("Send to")
+            AddressField(
+                value = recipient,
+                onValueChange = onRecipient,
+                label = "Recipient address",
+                validate = AlgorandSend::recipientError,
+                enabled = !busy,
+                onScan = onScan,
+            )
+            StepLabel("Amount in $symbol")
+            AmountField(value = amount, onValueChange = onAmount, enabled = !busy && balanceText != null)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    balanceText?.let { "Balance $it" }.orEmpty(),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                LumioTextAction(text = "Use max", onClick = onMax, enabled = maxEnabled)
+            }
+            if (selected.assetId == null) {
+                Text(
+                    "The account keeps 0.1 ALGO. That part is never sent.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            feeText?.let {
+                Text(
+                    "Network fee $it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            amountError?.let {
+                Spacer(Modifier.height(LenslySpacing.xs))
+                InlineBanner(message = it, tone = BannerTone.Error)
+            }
         }
-        Spacer(Modifier.height(LenslySpacing.sm))
-        Text(
-            "The account keeps 0.1 ALGO. That part is never sent.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         notice?.let {
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -151,40 +152,46 @@ internal fun AlgorandAmountScreen(
 }
 
 /**
- * The review: the sentence that says what leaves and to whom, then the addresses, the amount, the fee, the total and the network. Nothing here
- * signs. Lensly signs after the owner scans the request.
+ * The review: one sentence of what leaves and to whom, or of what the opt-in does, then the sender, the recipient, the amount and the fee. Nothing here
+ * signs. Lensly signs after the owner scans the request. [symbol] and [decimals] name the coin of an asset send.
  */
 @Composable
 internal fun AlgorandReviewScreen(
     plan: AlgorandSendPlan,
+    symbol: String,
+    decimals: Int,
     notice: String?,
     onConfirm: () -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(
-        title = "Review",
+    val optIn = plan is AsaSendPlan && plan.isOptIn
+    val amount = AlgorandAssets.amountText(plan, symbol, decimals)
+    SendStepScaffold(
+        step = SEND_STEP_REVIEW,
+        title = "Review send",
         onBack = onBack,
-        bottomAction = {
-            WalletPill(
-                text = "Sign with Lensly",
-                onClick = onConfirm,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
-        },
+        bottomAction = { LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm) },
     ) {
         NetworkHeader(plan.network)
         Text(
-            "Send ${AlgorandFormat.amount(plan.amount)} to ${plan.toAddress}",
+            if (optIn) "Opt in to $symbol" else "Send $amount to ${plan.toAddress}",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(Modifier.height(LenslySpacing.sm))
-        ReviewAddress("From", plan.fromAddress)
-        ReviewAddress("To", plan.toAddress)
-        ReviewField("Amount", AlgorandFormat.amount(plan.amount))
-        ReviewField("Network fee", AlgorandFormat.amount(plan.fee))
-        ReviewField("Total", AlgorandFormat.amount(plan.amount + plan.fee))
+        Spacer(Modifier.height(LenslySpacing.md))
+        LumioIsland {
+            Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
+                ReviewAddress("From", plan.fromAddress)
+                if (optIn) {
+                    ReviewField("Asset", symbol)
+                } else {
+                    ReviewAddress("To", plan.toAddress)
+                    ReviewField("Amount", amount)
+                }
+                ReviewField("Network fee", AlgorandFormat.amount(plan.fee))
+                if (plan is AlgorandPaymentPlan) ReviewField("Total", AlgorandFormat.amount(plan.amount + plan.fee))
+            }
+        }
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             "Lumio holds no key. Lensly signs this transaction, and Lumio sends only the signature that Lensly shows.",
@@ -198,7 +205,7 @@ internal fun AlgorandReviewScreen(
     }
 }
 
-/** The request as an animated code for Lensly to scan. [notice] is why the last signature did not send. */
+/** The request as an animated code for Lensly to scan, on a white card so that the code reads on either palette. [notice] is why the last signature did not send. */
 @Composable
 internal fun AlgorandSignRequestScreen(
     network: NetworkId,
@@ -207,27 +214,29 @@ internal fun AlgorandSignRequestScreen(
     onScan: () -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(
+    SendStepScaffold(
+        step = SEND_STEP_SIGN,
         title = "Sign in Lensly",
         onBack = onBack,
         scrollable = false,
-        bottomAction = {
-            WalletPill(
-                text = "Scan Lensly's signature",
-                onClick = onScan,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
-        },
+        bottomAction = { LumioPrimaryButton(text = "Scan Lensly's signature", onClick = onScan) },
     ) {
         NetworkHeader(network)
         Text(
-            "In Lensly, scan this code, check the review and approve. Then scan the signature that Lensly shows.",
+            "On Lensly, tap Scan and point it here.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.weight(1f))
-        AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(LumioRadius.lg))
+                .background(Color.White)
+                .padding(LenslySpacing.md),
+        ) {
+            AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        }
         Spacer(Modifier.weight(1f))
         notice?.let {
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -235,18 +244,41 @@ internal fun AlgorandSignRequestScreen(
     }
 }
 
-/** The network's name, with a TESTNET label on testnet. */
+/** What the picker says under a coin: the native coin, the balance that the account holds, or that the account has not opted in yet. */
+private fun assetDetail(asset: AlgorandAsset): String {
+    val held = asset.held ?: return if (asset.assetId == null) "Native coin" else "Not opted in yet"
+    return "Balance ${AlgorandAssets.text(held, asset.decimals)} ${asset.symbol}"
+}
+
+private fun networkName(network: NetworkId): String = if (network.testnet) "Algorand testnet" else "Algorand mainnet"
+
+/** The network the send is on, with a Testnet tag on testnet, as a row of the Details step. */
+@Composable
+private fun NetworkLine(network: NetworkId) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = LenslySpacing.xxs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            networkName(network),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (network.testnet) LumioTag(text = "Testnet")
+    }
+}
+
+/** The network's name as a title, with a Testnet tag on testnet. */
 @Composable
 private fun NetworkHeader(network: NetworkId) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            if (network.testnet) "Algorand testnet" else "Algorand mainnet",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Text(networkName(network), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         if (network.testnet) {
             Spacer(Modifier.width(LenslySpacing.xs))
-            PillChip(text = TESTNET_LABEL)
+            LumioTag(text = "Testnet")
         }
     }
     Spacer(Modifier.height(LenslySpacing.sm))
