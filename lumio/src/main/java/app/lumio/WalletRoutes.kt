@@ -472,7 +472,7 @@ internal fun ReceiveRoute(
 /** The line under the name of a receive: what the address is, its chain and network, and for Ethereum the address number. */
 private fun receiveDetail(account: WalletAccount): String = when (account.chain) {
     AccountChain.ETHEREUM -> "Ethereum and every EVM network, address ${account.index + 1}"
-    AccountChain.BITCOIN -> "${account.script.orEmpty().replaceFirstChar { it.uppercaseChar() }} on ${account.networkName}"
+    AccountChain.BITCOIN -> "${account.script.orEmpty()} on ${account.networkName}"
     AccountChain.SOLANA, AccountChain.ALGORAND -> account.networkName
 }
 

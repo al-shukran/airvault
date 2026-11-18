@@ -91,7 +91,11 @@ internal fun AccountScreen(
             }
         },
     ) {
-        Text(text = walletName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = listOfNotNull(walletName, account.script).joinToString(" · "),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(LenslySpacing.sm))
         Row(verticalAlignment = Alignment.CenterVertically) {
             native?.let { coin ->

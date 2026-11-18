@@ -74,7 +74,7 @@ class WalletScreensScreenshotTest {
         address = "tb1qk3z8f0d6c2m9a7v4w5x1y2z3q4r5s6t7u8v9w0",
         networkName = "Bitcoin Testnet4",
         balance = NativeAsset("BTC-testnet4", "BTC", "Bitcoin Testnet4", BtcNetwork.TESTNET4.networkId(), BigDecimal("0.0012")),
-        script = "native segwit",
+        script = "Native SegWit",
     )
     private val ethereum = WalletAccount(
         walletId = "wallet-demo",
