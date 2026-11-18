@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
@@ -57,10 +60,19 @@ class SemanticsTest {
             }
         }
 
-        for (key in listOf("a", "q", "Shift", "Space", "Backspace", "Done", "Symbols")) {
+        for (key in listOf("a", "q", "1", "Shift", "Space", "Backspace", "Done", "Symbols")) {
             val node = compose.onNodeWithContentDescription(key).assertHasClickAction().fetchSemanticsNode()
             node.assertAtLeast48DpTall()
         }
+    }
+
+    @Test
+    fun shiftAnnouncesItsOneShotState() {
+        compose.setContent { LenslyTheme { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) } }
+
+        compose.onNodeWithContentDescription("Shift").performClick()
+
+        compose.onNodeWithContentDescription("Shift").assert(hasStateDescription("Shift on"))
     }
 
     @Test

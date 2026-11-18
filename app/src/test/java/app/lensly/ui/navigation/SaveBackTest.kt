@@ -40,7 +40,7 @@ import org.robolectric.annotation.Config
  * Back works again once the save has ended.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = "w360dp-h640dp-port-mdpi")
+@Config(qualifiers = "w411dp-h914dp-port-mdpi")
 class SaveBackTest {
 
     @get:Rule
