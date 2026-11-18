@@ -12,7 +12,7 @@ import app.lensly.ui.flow.PairFormat
 import app.lensly.ui.flow.PairLoading
 import app.lensly.ui.flow.PairStep
 import app.lensly.ui.flow.PairWizardScreen
-import app.lensly.ui.qr.awaitQrCodes
+import app.lensly.ui.qr.primeQrCodes
 import app.lensly.ui.shippedRegistry
 import org.junit.Rule
 import org.junit.Test
@@ -69,8 +69,11 @@ class FlowScreenshotTest {
     }
 
     @Test
-    fun pairWizardShowsTheCode() = compose.snapshot("pair_wizard_step4_code", beforeCapture = { awaitQrCodes() }) {
-        pairWizard(step = PairStep.CODE, format = PairFormat.RABBY, frames = listOf(SAMPLE_UR))
+    fun pairWizardShowsTheCode() {
+        primeQrCodes(listOf(SAMPLE_UR))
+        compose.snapshot("pair_wizard_step4_code") {
+            pairWizard(step = PairStep.CODE, format = PairFormat.RABBY, frames = listOf(SAMPLE_UR))
+        }
     }
 
     @Test
@@ -79,7 +82,13 @@ class FlowScreenshotTest {
     }
 
     @Test
-    fun accountExport() = compose.snapshot("account_export_screen", beforeCapture = { awaitQrCodes() }) {
+    fun accountExport() {
+        primeQrCodes(listOf(SAMPLE_UR))
+        compose.snapshot("account_export_screen") { accountExportScreen() }
+    }
+
+    @Composable
+    private fun accountExportScreen() {
         // A fixed code and fields, as the pair wizard's screenshot uses SAMPLE_UR. The live encoder is covered by unit tests.
         AccountExportScreen(
             accounts = listOf(
@@ -103,7 +112,13 @@ class FlowScreenshotTest {
     }
 
     @Test
-    fun accountExportSingleKey() = compose.snapshot("account_export_single_key", beforeCapture = { awaitQrCodes() }) {
+    fun accountExportSingleKey() {
+        primeQrCodes(listOf("0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"), keepCase = true)
+        compose.snapshot("account_export_single_key") { accountExportSingleKeyScreen() }
+    }
+
+    @Composable
+    private fun accountExportSingleKeyScreen() {
         AccountExportScreen(
             accounts = listOf(
                 AccountExportView(

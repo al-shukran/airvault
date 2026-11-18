@@ -13,7 +13,7 @@ import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.qr.ScanFrame
 import app.lensly.ui.qr.ScanPermissionPrompt
 import app.lensly.ui.qr.ShowQrScreen
-import app.lensly.ui.qr.awaitQrCodes
+import app.lensly.ui.qr.primeQrCodes
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyMuted
 import app.lensly.ui.theme.LenslySurfaceContainer
@@ -99,25 +99,32 @@ class QrScreenshotTest {
     }
 
     @Test
-    fun showSingleCode() = compose.snapshot("show_qr_single", beforeCapture = { awaitQrCodes() }) {
-        ShowQrScreen(
-            title = "Pair wallet",
-            subtitle = "In Rabby: Add address → Hardware wallet → AirGap Vault → scan",
-            parts = listOf(SAMPLE_UR),
-            onDone = {},
-            subtitleLeading = { AddressIcon(size = 16.dp) },
-            onBack = {},
-        )
+    fun showSingleCode() {
+        primeQrCodes(listOf(SAMPLE_UR))
+        compose.snapshot("show_qr_single") {
+            ShowQrScreen(
+                title = "Pair wallet",
+                subtitle = "In Rabby: Add address → Hardware wallet → AirGap Vault → scan",
+                parts = listOf(SAMPLE_UR),
+                onDone = {},
+                subtitleLeading = { AddressIcon(size = 16.dp) },
+                onBack = {},
+            )
+        }
     }
 
     @Test
-    fun showAnimatedCode() = compose.snapshot("show_qr_animated", beforeCapture = { awaitQrCodes() }) {
-        ShowQrScreen(
-            title = "Signature",
-            subtitle = "Scan this with your online wallet",
-            parts = sampleUrParts(12),
-            onDone = {},
-        )
+    fun showAnimatedCode() {
+        val parts = sampleUrParts(12)
+        primeQrCodes(parts)
+        compose.snapshot("show_qr_animated") {
+            ShowQrScreen(
+                title = "Signature",
+                subtitle = "Scan this with your online wallet",
+                parts = parts,
+                onDone = {},
+            )
+        }
     }
 
     /** Stands in for the camera preview. It is flat, with a label, so the frame around it is what gets checked. */

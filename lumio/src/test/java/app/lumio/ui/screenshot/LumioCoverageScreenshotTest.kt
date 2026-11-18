@@ -37,7 +37,7 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.qr.awaitQrCodes
+import app.lensly.ui.qr.primeQrCodes
 import app.lensly.ui.screenshot.SCREENSHOT_DIR
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
@@ -257,8 +257,12 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun bitcoinSignRequest() = compose.lumioSnapshot("bitcoin_send_sign_request", beforeCapture = { awaitQrCodes() }) {
-        BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = btcPlan.parts(), notice = null, onScan = {}, onBack = {})
+    fun bitcoinSignRequest() {
+        val parts = btcPlan.parts()
+        primeQrCodes(parts)
+        compose.lumioSnapshot("bitcoin_send_sign_request") {
+            BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = parts, notice = null, onScan = {}, onBack = {})
+        }
     }
 
     @Test
@@ -282,8 +286,12 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun bitcoinBroadcastError() = compose.lumioSnapshot("bitcoin_broadcast_error", beforeCapture = { awaitQrCodes() }) {
-        BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = btcPlan.parts(), notice = BROADCAST_FAILED, onScan = {}, onBack = {})
+    fun bitcoinBroadcastError() {
+        val parts = btcPlan.parts()
+        primeQrCodes(parts)
+        compose.lumioSnapshot("bitcoin_broadcast_error") {
+            BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = parts, notice = BROADCAST_FAILED, onScan = {}, onBack = {})
+        }
     }
 
     // Ethereum send: review, sign request, and the broadcast states
@@ -361,8 +369,11 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun ethereumSignRequest() = compose.lumioSnapshot("ethereum_send_sign_request", beforeCapture = { awaitQrCodes() }) {
-        SignRequestScreen(send = ethSend, parts = ethParts, notice = null, onScan = {}, onBack = {})
+    fun ethereumSignRequest() {
+        primeQrCodes(ethParts)
+        compose.lumioSnapshot("ethereum_send_sign_request") {
+            SignRequestScreen(send = ethSend, parts = ethParts, notice = null, onScan = {}, onBack = {})
+        }
     }
 
     @Test
@@ -396,8 +407,11 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun ethereumBroadcastError() = compose.lumioSnapshot("ethereum_broadcast_error", beforeCapture = { awaitQrCodes() }) {
-        SignRequestScreen(send = ethSend, parts = ethParts, notice = BROADCAST_FAILED, onScan = {}, onBack = {})
+    fun ethereumBroadcastError() {
+        primeQrCodes(ethParts)
+        compose.lumioSnapshot("ethereum_broadcast_error") {
+            SignRequestScreen(send = ethSend, parts = ethParts, notice = BROADCAST_FAILED, onScan = {}, onBack = {})
+        }
     }
 
     // Pairing: the scan, and the import result

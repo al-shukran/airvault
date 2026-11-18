@@ -1,14 +1,13 @@
 package app.lensly.ui.qr
 
-import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import kotlinx.coroutines.runBlocking
 
 /**
- * Waits until the QR code on screen is encoded. [AnimatedQr] encodes off the main thread, so a capture taken straight
- * after the first frame would show a blank card. Use it as the `beforeCapture` of a screenshot of a screen with a code.
+ * Encodes [parts] into the frame cache before a screenshot composes the screen that shows them, so [AnimatedQr] draws the
+ * codes on its first frame. [AnimatedQr] encodes off the main thread and draws the result after a recomposition. The
+ * screenshot tests run a paused clock, and that recomposition does not reach the screen before the capture, so the golden
+ * would show a blank card. Call it before `snapshot` with the same parts and [keepCase] as the screen.
  */
-fun ComposeContentTestRule.awaitQrCodes() {
-    waitUntil(timeoutMillis = 10_000L) {
-        onAllNodes(hasContentDescription("QR code", substring = true)).fetchSemanticsNodes().isNotEmpty()
-    }
+fun primeQrCodes(parts: List<String>, keepCase: Boolean = false) {
+    runBlocking { QrFrameCache.put(parts, keepCase, encodeQrFrames(parts, keepCase)) }
 }

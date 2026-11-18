@@ -6,7 +6,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.wallet.Mnemonic
-import app.lensly.ui.qr.awaitQrCodes
+import app.lensly.ui.qr.primeQrCodes
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.send.solana.SolanaOutcome
 import app.lumio.send.solana.SolanaSend
@@ -72,8 +72,12 @@ class SolanaSendScreenshotTest {
     }
 
     @Test
-    fun solanaSignRequest() = compose.lumioSnapshot("solana_send_request", beforeCapture = { awaitQrCodes() }) {
-        SolanaSignRequestScreen(parts = SolanaSend.requestParts(plan), notice = null, onScan = {}, onBack = {})
+    fun solanaSignRequest() {
+        val parts = SolanaSend.requestParts(plan)
+        primeQrCodes(parts)
+        compose.lumioSnapshot("solana_send_request") {
+            SolanaSignRequestScreen(parts = parts, notice = null, onScan = {}, onBack = {})
+        }
     }
 
     @Test
