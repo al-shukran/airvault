@@ -96,7 +96,7 @@ class WalletScreensScreenshotTest {
             onWallet = {},
             onPair = {},
             onRefresh = {},
-            onLock = {},
+            onSettings = {},
         )
     }
 
@@ -109,7 +109,7 @@ class WalletScreensScreenshotTest {
             onWallet = {},
             onPair = {},
             onRefresh = {},
-            onLock = {},
+            onSettings = {},
         )
     }
 
@@ -122,7 +122,7 @@ class WalletScreensScreenshotTest {
             onWallet = {},
             onPair = {},
             onRefresh = {},
-            onLock = {},
+            onSettings = {},
         )
     }
 

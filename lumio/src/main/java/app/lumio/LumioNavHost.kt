@@ -4,8 +4,16 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,9 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import app.lensly.app.export.PairingPayload
+import app.lensly.app.vaultHolder
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.navigation.CoverNavHost
 import app.lensly.ui.navigation.HiddenBackdrop
@@ -28,11 +36,14 @@ import app.lumio.data.config.LockSettingsStore
 import app.lumio.network.NetworkMode
 import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
-import app.lumio.ui.network.TestnetBanner
+import app.lumio.network.NetworkModeStore
+import app.lumio.ui.kit.LocalSharedScope
+import app.lumio.ui.kit.lumioComposable
+import app.lumio.ui.network.NetworkSideSheet
+import app.lumio.ui.network.TestnetStrip
 import app.lumio.ui.settings.SettingsPage
-import app.lumio.ui.shell.LumioTab
-import app.lumio.ui.shell.LumioTabFrame
 import app.lumio.ui.theme.LumioTheme
+import kotlinx.coroutines.launch
 import app.lumio.wallets.AccountChain
 
 /** Lumio's own routes inside its Hidden Area. The gate's routes are shared, see `app.lensly.ui.navigation.GateRoutes`. */
@@ -177,11 +188,17 @@ internal class PairDraft {
 }
 
 /**
- * The side of the networks the owner chose in Settings. Settings writes it to the vault when the owner switches, and the wallet screens read it, so the
- * testnet banner shows on every Lumio screen while the side is testnet.
+ * The side of the networks the owner chose. The wallet screens read it, so the testnet strip shows on every Lumio screen while the side is testnet.
+ * [choose] applies a side at once, and passes it to [store], which keeps it in the vault.
  */
-internal class NetworkSelection {
+internal class NetworkSelection(private val store: (NetworkMode) -> Unit = {}) {
     var mode by mutableStateOf(NetworkMode.MAINNET)
+
+    /** Applies [next] at once, and keeps it. */
+    fun choose(next: NetworkMode) {
+        mode = next
+        store(next)
+    }
 }
 
 /**
@@ -201,39 +218,39 @@ internal class LockSettingsState(private val store: LockSettingsStore) {
 }
 
 /**
- * A Lumio screen in the Hidden Area: the shared backdrop in Lumio's theme, with the testnet banner above the screen while [selection] is testnet.
+ * A Lumio screen in the Hidden Area: the shared backdrop in Lumio's theme, with the testnet strip under the status bar while [selection] is testnet.
  * The gate screens are not Lumio's, so they keep the plain backdrop in Lensly's theme.
  */
 @Composable
 internal fun LumioBackdrop(selection: NetworkSelection, content: @Composable () -> Unit) {
     LumioTheme {
         HiddenBackdrop {
+            var sideOpen by remember { mutableStateOf(false) }
             Column(modifier = Modifier.fillMaxSize()) {
-                if (selection.mode == NetworkMode.TESTNET) TestnetBanner()
-                Box(modifier = Modifier.weight(1f)) { content() }
+                // The band takes the status bar's height, and the strip sits under it. The screen below consumes the same inset, so its own
+                // top bar meets the strip with no second gap.
+                Box(modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)) {
+                    if (selection.mode == NetworkMode.TESTNET) TestnetStrip(onOpen = { sideOpen = true })
+                }
+                Box(modifier = Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(WindowInsets.statusBars)) { content() }
+            }
+            if (sideOpen) {
+                NetworkSideSheet(
+                    mode = selection.mode,
+                    onSelect = { next ->
+                        selection.choose(next)
+                        sideOpen = false
+                    },
+                    onDismiss = { sideOpen = false },
+                )
             }
         }
     }
 }
 
 /**
- * Opens [tab]. The tabs are root screens: a tab opens over Home, and Home is never popped by a tab, so the stack holds Home and at most one tab
- * above it.
- */
-internal fun NavHostController.openTab(tab: LumioTab) {
-    val route = when (tab) {
-        LumioTab.WALLETS -> LumioRoute.WALLETS
-        LumioTab.SETTINGS -> LumioRoute.SETTINGS
-    }
-    navigate(route) {
-        popUpTo(LumioRoute.WALLETS) { inclusive = false }
-        launchSingleTop = true
-    }
-}
-
-/**
  * Lumio's navigation: the camera cover and the gate that Lensly shares, around the companion's Hidden Area. The Hidden Area opens on the gate and
- * then shows the wallets. Wallets and Settings are the two tabs. A wallet opens its accounts, an account opens its Send and Receive, and the pairing
+ * then shows the wallets. Settings opens from the gear on Wallets. A wallet opens its accounts, an account opens its Send and Receive, and the pairing
  * of a wallet from Lensly starts from the wallets. Settings is a list of pages, each its own screen: the network side, Display, Transactions, Networks
  * (the servers and the chains), Data providers, Address book (the wallets), Security, About and.
  *
@@ -241,9 +258,31 @@ internal fun NavHostController.openTab(tab: LumioTab) {
  */
 @Composable
 fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
+    // The shared-element scope lets a screen move one element to the next screen (section 3.3).
+    SharedTransitionLayout {
+        CompositionLocalProvider(LocalSharedScope provides this) {
+            LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier)
+        }
+    }
+}
+
+@Composable
+private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
     val app = LocalContext.current.applicationContext as LumioApp
     val draft = remember { PairDraft() }
-    val selection = remember { NetworkSelection() }
+    // The side is kept in the vault when the owner picks it, as Settings kept it, so the next open shows the same side.
+    val appHolder = LocalContext.current.vaultHolder()
+    val scope = rememberCoroutineScope()
+    val selection = remember {
+        NetworkSelection(store = { next ->
+            scope.launch {
+                onVault(Unit) {
+                    val session = appHolder.openSession()
+                    if (session != null) NetworkModeStore.write(session, next)
+                }
+            }
+        })
+    }
     val lockChoices = remember { LockSettingsState(app.lockSettings) }
     // Counts the saves and deletions, so Home and Settings read the paired wallets again.
     var listVersion by remember { mutableIntStateOf(0) }
@@ -262,7 +301,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             leaveHidden(navController, holder)
         }
         hiddenArea(navController, holder, home = LumioRoute.WALLETS) {
-            composable(LumioRoute.WALLETS) {
+            lumioComposable(LumioRoute.WALLETS) {
                 // The wallets are the root screen and have no back arrow. System back locks the vault first, so leaving the app never
                 // leaves the vault open, then closes the app as Android does at a root screen.
                 val activity = LocalActivity.current
@@ -271,18 +310,15 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     activity?.finish()
                 }
                 LumioBackdrop(selection) {
-                    LumioTabFrame(selected = LumioTab.WALLETS, onSelect = { navController.openTab(it) }) {
-                        WalletsRoute(
-                            navController = navController,
-                            holder = holder,
-                            selection = selection,
-                            listVersion = listVersion,
-                            onLock = ::lock,
-                        )
-                    }
+                    WalletsRoute(
+                        navController = navController,
+                        holder = holder,
+                        selection = selection,
+                        listVersion = listVersion,
+                    )
                 }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.TRANSACTION,
                 arguments = listOf(
                     navArgument(LumioRoute.TX_ACCOUNT_ARG) { type = NavType.StringType },
@@ -295,10 +331,10 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     TransactionDetailRoute(navController = navController, holder = holder, account = account, txId = txId)
                 }
             }
-            composable(LumioRoute.PAIR_SCAN) {
+            lumioComposable(LumioRoute.PAIR_SCAN) {
                 LumioBackdrop(selection) { PairScanRoute(navController = navController, draft = draft) }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.BTC_SEND,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
@@ -311,7 +347,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     BtcSendRoute(navController = navController, holder = holder, walletId = walletId, accountIndex = index, mode = selection.mode)
                 }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.SOLANA_SEND,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
@@ -324,7 +360,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     SolanaSendRoute(navController = navController, holder = holder, walletId = walletId, accountIndex = index, mode = selection.mode)
                 }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.ALGORAND_SEND,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
@@ -337,11 +373,9 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     AlgorandSendRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, accountIndex = index)
                 }
             }
-            composable(LumioRoute.SETTINGS) {
+            lumioComposable(LumioRoute.SETTINGS) {
                 LumioBackdrop(selection) {
-                    LumioTabFrame(selected = LumioTab.SETTINGS, onSelect = { navController.openTab(it) }) {
-                        SettingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection)
-                    }
+                    SettingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection)
                 }
             }
             settingsPageRoutes(
@@ -354,27 +388,27 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
             )
             entryGestureRoutes(navController = navController, holder = holder, selection = selection)
             changePasswordRoutes(navController = navController, holder = holder, selection = selection)
-            composable(LumioRoute.DATA_PROVIDERS) {
+            lumioComposable(LumioRoute.DATA_PROVIDERS) {
                 LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }
             }
-            composable(LumioRoute.LICENCES) {
+            lumioComposable(LumioRoute.LICENCES) {
                 LumioBackdrop(selection) { LicencesRoute(navController = navController) }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.TOKENS,
                 arguments = listOf(navArgument(LumioRoute.CHAIN_ARG) { type = NavType.LongType }),
             ) { entry ->
                 val chainId = entry.arguments?.getLong(LumioRoute.CHAIN_ARG) ?: 0L
                 LumioBackdrop(selection) { AddTokenRoute(navController = navController, holder = holder, chainId = chainId) }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.ADDRESS_BOOK,
                 arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 LumioBackdrop(selection) { AddressBookRoute(navController = navController, holder = holder, walletId = walletId) }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.WALLET,
                 arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
             ) { entry ->
@@ -383,7 +417,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     WalletRoute(navController = navController, holder = holder, walletId = walletId, mode = selection.mode, listVersion = listVersion)
                 }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.ACCOUNT,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
@@ -408,7 +442,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     }
                 }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.SEND,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
@@ -430,7 +464,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     )
                 }
             }
-            composable(
+            lumioComposable(
                 route = LumioRoute.RECEIVE,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
@@ -454,7 +488,7 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                     }
                 }
             }
-            composable(LumioRoute.PAIR_REVIEW) {
+            lumioComposable(LumioRoute.PAIR_REVIEW) {
                 BackHandler {
                     draft.clear()
                     navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
