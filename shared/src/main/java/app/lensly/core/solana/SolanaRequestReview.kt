@@ -76,8 +76,7 @@ class SolanaRequestReview internal constructor(
 
     /**
      * The priority fee in lamports: the compute price times the units the transaction pays for. Those are the limit it sets. With no limit
-     * they are [DEFAULT_UNITS_PER_INSTRUCTION] for each instruction that is not a compute budget one, capped at [MAX_UNITS]. Zero when the
-     * transaction sets no price.
+     * they are the defaults of its instructions, see [defaultUnits]. Zero when the transaction sets no price.
      */
     val priorityFeeLamports: ULong
         get() {
@@ -110,12 +109,13 @@ class SolanaRequestReview internal constructor(
                 .filter { it != signerAddress && it != tx.feePayer }
         }
 
-    /** The units a transaction with no limit pays for: the default for each instruction that is not a compute budget one, capped. */
+    /**
+     * The units a transaction with no limit pays for, as the runtime allocates them: each instruction of the message is counted by its
+     * program, capped at [MAX_UNITS]. A nonce setup is two instructions, so it counts twice.
+     */
     private fun defaultUnits(): UInt {
         val tx = message ?: return 0u
-        val computeBudget = instructions.count { it is SolanaInstruction.SetComputeUnitLimit || it is SolanaInstruction.SetComputeUnitPrice }
-        val others = (tx.instructions.size - computeBudget).coerceAtLeast(0)
-        return minOf(others.toUInt() * DEFAULT_UNITS_PER_INSTRUCTION, MAX_UNITS)
+        return minOf(tx.instructions.sumOf { defaultUnitsOf(tx.account(it.programIdIndex)) }, MAX_UNITS)
     }
 
     /** Every warning this review shows, in a fixed order. */
@@ -162,8 +162,26 @@ private val LAMPORTS_PER_SIGNATURE: ULong = 5_000uL
 /** The compute units an instruction is given when its transaction sets no limit, for an instruction that is not a built-in. */
 private val DEFAULT_UNITS_PER_INSTRUCTION: UInt = 200_000u
 
+/**
+ * The compute units an instruction of the System Program is given when its transaction sets no limit. The runtime's
+ * MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT, from SIMD-0170: a builtin uses far fewer units than the default for other programs.
+ */
+private val MAX_BUILTIN_UNITS: UInt = 3_000u
+
 /** The largest compute limit a transaction can request. */
 private val MAX_UNITS: UInt = 1_400_000u
+
+/**
+ * The default compute units of one instruction, by the program it calls. A System Program instruction is a builtin and gets
+ * [MAX_BUILTIN_UNITS]. The compute budget program's instructions set the limit and price, so they pay for nothing by default. Any other
+ * program, including one a lookup table names, gets [DEFAULT_UNITS_PER_INSTRUCTION].
+ */
+private fun defaultUnitsOf(program: SolanaMessageAccount): UInt =
+    when ((program as? SolanaMessageAccount.Static)?.address) {
+        SYSTEM_PROGRAM -> MAX_BUILTIN_UNITS
+        COMPUTE_BUDGET_PROGRAM -> 0u
+        else -> DEFAULT_UNITS_PER_INSTRUCTION
+    }
 
 /**
  * Checks a sol-sign-request against the Solana accounts of its wallet, and builds the review the owner reads. Nothing here signs, and

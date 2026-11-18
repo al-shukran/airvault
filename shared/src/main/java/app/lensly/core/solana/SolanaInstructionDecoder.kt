@@ -8,8 +8,8 @@ import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 
-private const val SYSTEM_PROGRAM = "11111111111111111111111111111111"
-private const val COMPUTE_BUDGET_PROGRAM = "ComputeBudget111111111111111111111111111111"
+internal const val SYSTEM_PROGRAM = "11111111111111111111111111111111"
+internal const val COMPUTE_BUDGET_PROGRAM = "ComputeBudget111111111111111111111111111111"
 private const val TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 private const val TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 private const val ASSOCIATED_TOKEN_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
