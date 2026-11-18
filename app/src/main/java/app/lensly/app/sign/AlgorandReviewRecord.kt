@@ -1,9 +1,9 @@
 package app.lensly.app.sign
 
-import app.lensly.core.algorand.AlgorandNetwork
+import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.AlgoSignType
+import app.airvault.chains.algorand.AlgorandNetwork
 import app.lensly.core.algorand.AlgorandRequestReview
-import app.lensly.core.ur.AlgoSignRequest
-import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
 

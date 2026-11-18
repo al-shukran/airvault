@@ -18,6 +18,8 @@ kotlin {
 
 dependencies {
     api(project(":core:model"))
+    // The request codec and the transaction types use CBOR, the parser limits and the UR type.
+    api(project(":core:signer-api"))
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

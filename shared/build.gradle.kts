@@ -95,6 +95,9 @@ tasks.withType<Test>().configureEach {
 dependencies {
     // CBOR, parser limits and keypaths live in core/signer-api. Their types are part of this module's API, so :app and :lumio see them.
     api(project(":core:signer-api"))
+    // The Algorand transaction types and the request codec live in chains/algorand/common; the decoder in .../signer.
+    api(project(":chains:algorand:common"))
+    api(project(":chains:algorand:signer"))
 
     // Compose, activity and coroutines types are part of this module's public API, so they reach :app as api.
     api(platform(libs.androidx.compose.bom))

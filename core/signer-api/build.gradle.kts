@@ -18,4 +18,6 @@ kotlin {
 
 dependencies {
     api(project(":core:model"))
+    // framesOf and the UR codecs expose the hummingbird UR type.
+    api(libs.sparrowwallet.hummingbird)
 }

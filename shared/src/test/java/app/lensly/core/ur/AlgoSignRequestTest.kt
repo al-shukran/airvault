@@ -1,5 +1,8 @@
 package app.lensly.core.ur
 
+import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.AlgoSignRequestEncoder
+import app.airvault.chains.algorand.AlgoSignType
 import app.lensly.app.export.partsOf
 import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertContentEquals

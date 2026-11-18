@@ -1,4 +1,4 @@
-package app.lensly.core.algorand
+package app.airvault.chains.algorand
 
 /**
  * An unsigned Algorand transaction that the app can review: a payment or an asset transfer. Get one only from

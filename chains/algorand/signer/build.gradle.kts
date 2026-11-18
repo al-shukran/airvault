@@ -18,5 +18,5 @@ kotlin {
 
 dependencies {
     api(project(":core:signer-api"))
-    implementation(project(":chains:algorand:common"))
+    api(project(":chains:algorand:common"))
 }

@@ -53,7 +53,6 @@ class EthSignRequest(
         // The other fields are small, so the whole payload has a fixed headroom above the sign data. The Parser Sandbox's
         // wire format bounds the origin by it, so an origin the decoder accepts always crosses the wire.
         const val MAX_PAYLOAD_BYTES = MAX_SIGN_DATA_BYTES + 4096
-        internal const val UUID_TAG = 37L
 
         /** Decodes the CBOR payload of an eth-sign-request UR. */
         fun decode(urCbor: ByteArray): Result {

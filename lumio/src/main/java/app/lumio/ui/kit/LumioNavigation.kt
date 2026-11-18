@@ -3,15 +3,12 @@ package app.lumio.ui.kit
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
@@ -26,15 +23,9 @@ import app.lensly.ui.navigation.popEnterFrom
 import app.lensly.ui.navigation.popExitOf
 import app.lumio.LumioRoute
 
-/** The shared-element scope of the NavHost. [app.lumio.LumioNavHost] provides it, and it is null outside the NavHost. */
-val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
-
-/** The visibility scope of the screen on show, which [lumioComposable] provides. A shared element animates with it. */
-val LocalNavScope = staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
-
 /**
  * The class of the route pattern [route] (section 2): Settings is the Cover, the send and pairing sheets are the Rises, and every other Lumio screen is a
- * Push. The wallet pages drill in instead (see [isDrill]). The Wallets root has no class of its own (ROOT). Null when there is no route.
+ * Push. The asset page drills in instead (see [isDrill]). The Wallets root has no class of its own (ROOT). Null when there is no route.
  */
 internal fun navMotionOf(route: String?): NavMotion? = when (route) {
     null -> null
@@ -46,19 +37,16 @@ internal fun navMotionOf(route: String?): NavMotion? = when (route) {
 }
 
 /**
- * Whether [route] is a wallet page: the Wallet, its Account and an Asset. They drill in: the screen beneath holds its place under a scrim, and the page
- * slides in and out on a critically damped spring (the Phase 2.8 push targets). Every other route moves by its class.
+ * Whether [route] is the asset page. It drills in over the Wallets home: the screen beneath holds its place under a scrim, and the page slides in and out
+ * on a critically damped spring (the Phase 2.8 push targets). Every other route moves by its class. The Wallet and the Account are sheets, see
+ * [app.lumio.ui.wallets.WalletSheets].
  */
-private fun isDrill(route: String?): Boolean = when (route) {
-    LumioRoute.WALLET, LumioRoute.ACCOUNT, LumioRoute.ASSET -> true
-    else -> false
-}
+private fun isDrill(route: String?): Boolean = route == LumioRoute.ASSET
 
 /**
  * A Lumio screen of the NavHost, with the transitions of its class (section 3.2). A screen's own class sets how it comes in and how it goes out.
  * The screen it meets sets the other half of the move: a Rise makes the screen beneath it scale back, and a screen that comes back takes the
- * shape of the one it leaves. The class comes from [navMotionOf], so one route has one class wherever it is reached. The content gets
- * [LocalNavScope].
+ * shape of the one it leaves. The class comes from [navMotionOf], so one route has one class wherever it is reached.
  */
 internal fun NavGraphBuilder.lumioComposable(
     route: String,
@@ -86,10 +74,7 @@ internal fun NavGraphBuilder.lumioComposable(
         popExitTransition = {
             cutWhenReduced(NavReducedMotion.reduced, ExitTransition.None) { if (drill) drillBackExit() else popExitOf(own) }
         },
-    ) { entry ->
-        val scope = this
-        CompositionLocalProvider(LocalNavScope provides scope) { scope.content(entry) }
-    }
+    ) { entry -> content(entry) }
 }
 
 /**
