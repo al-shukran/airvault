@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lensly.ui.wallet.WalletWarningChip
@@ -50,7 +49,7 @@ fun HomeTopBar(wordmark: String, onLock: () -> Unit, debugNotice: String? = null
         Text(
             text = wordmark,
             style = MaterialTheme.typography.headlineSmall,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         if (debugNotice != null) {
             Spacer(Modifier.width(LenslySpacing.sm))
@@ -61,7 +60,7 @@ fun HomeTopBar(wordmark: String, onLock: () -> Unit, debugNotice: String? = null
             onClick = onLock,
             modifier = Modifier.testTag(HOME_LOCK_TAG).tapHaptic(haptics),
         ) {
-            Icon(imageVector = Icons.Filled.Lock, contentDescription = "Lock the vault", tint = LenslyOnSurface)
+            Icon(imageVector = Icons.Filled.Lock, contentDescription = "Lock the vault", tint = MaterialTheme.colorScheme.onSurface)
         }
     }
 }

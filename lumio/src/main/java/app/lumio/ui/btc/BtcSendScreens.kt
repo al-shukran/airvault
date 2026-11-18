@@ -43,7 +43,7 @@ import app.lumio.ui.send.ReviewAddress
 import app.lumio.ui.send.ReviewField
 import app.lumio.ui.send.SectionLabel
 
-private const val TESTNET_LABEL = "TESTNET"
+private const val TESTNET_LABEL = "Testnet"
 
 /**
  * The Bitcoin send form: the account that pays, which the send opened from and so is fixed, the recipient, the amount and the fee rate.
@@ -67,7 +67,7 @@ fun BtcSendFormScreen(
     onBack: () -> Unit,
 ) {
     LenslyScreen(
-        title = "SEND BITCOIN",
+        title = "Send bitcoin",
         onBack = onBack,
         bottomAction = {
             WalletPill(
@@ -145,7 +145,7 @@ fun BtcSendReviewScreen(
 ) {
     var advanced by remember { mutableStateOf(false) }
     LenslyScreen(
-        title = "REVIEW SEND",
+        title = "Review send",
         onBack = onBack,
         bottomAction = {
             WalletPill(
@@ -211,7 +211,7 @@ fun BtcSignRequestScreen(
     onBack: () -> Unit,
 ) {
     LenslyScreen(
-        title = "SIGN IN LENSLY",
+        title = "Sign in Lensly",
         onBack = onBack,
         scrollable = false,
         bottomAction = {

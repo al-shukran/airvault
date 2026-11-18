@@ -33,7 +33,7 @@ import app.lumio.ui.send.ReviewAddress
 @Composable
 fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit) {
     ScanScreen(
-        title = "PAIR FROM LENSLY",
+        title = "Pair from Lensly",
         progress = progress,
         statusText = status,
         onText = onText,
@@ -58,7 +58,7 @@ fun PairReviewScreen(
     val bitcoin = PairImport.bitcoinAccountsOf(pairing)
     val bitcoinNames = pairing.apps.firstOrNull { it.app == PairImport.BITCOIN }?.accounts.orEmpty().associateBy { it.key }
     LenslyScreen(
-        title = "REVIEW PAIRING",
+        title = "Review pairing",
         onBack = onCancel,
         bottomAction = {
             WalletPill(
@@ -196,7 +196,7 @@ private fun ReviewHeader(title: String, fingerprint: Long) {
 @Composable
 private fun ReviewField(label: String, value: String) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }

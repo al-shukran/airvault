@@ -1,8 +1,7 @@
 package app.lumio.ui.screenshot
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.screenshot.snapshot
 import app.lumio.btc.networkId
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
@@ -38,7 +37,7 @@ import org.robolectric.annotation.GraphicsMode
  * the testnet side where the owner's coins are. Recorded with `:lumio:recordRoborazziDebug`, checked with `:lumio:verifyRoborazziDebug`.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = SCREENSHOT_QUALIFIERS)
+@Config(qualifiers = LUMIO_DARK_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WalletScreensScreenshotTest {
 
@@ -80,7 +79,13 @@ class WalletScreensScreenshotTest {
     )
 
     @Test
-    fun wallets() = compose.snapshot("wallets") {
+    fun wallets() = compose.lumioSnapshot("wallets", content = walletsScreen)
+
+    @Test
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    fun walletsLight() = compose.lumioSnapshot("wallets_light", content = walletsScreen)
+
+    private val walletsScreen: @Composable () -> Unit = {
         WalletsScreen(
             rows = listOf(
                 WalletRow("wallet-demo", "Demo", "1 Bitcoin, 1 Ethereum, 1 Solana, 1 Algorand"),
@@ -96,7 +101,7 @@ class WalletScreensScreenshotTest {
     }
 
     @Test
-    fun walletsEmpty() = compose.snapshot("wallets_empty") {
+    fun walletsEmpty() = compose.lumioSnapshot("wallets_empty") {
         WalletsScreen(
             rows = emptyList(),
             refreshing = false,
@@ -109,7 +114,7 @@ class WalletScreensScreenshotTest {
     }
 
     @Test
-    fun walletsNotice() = compose.snapshot("wallets_notice") {
+    fun walletsNotice() = compose.lumioSnapshot("wallets_notice") {
         WalletsScreen(
             rows = listOf(WalletRow("wallet-demo", "Demo", "1 Bitcoin, 1 Ethereum")),
             refreshing = true,
@@ -122,7 +127,7 @@ class WalletScreensScreenshotTest {
     }
 
     @Test
-    fun walletAccountsTestnet() = compose.snapshot("wallet_accounts_testnet") {
+    fun walletAccountsTestnet() = compose.lumioSnapshot("wallet_accounts_testnet") {
         WalletScreen(
             walletName = "Demo",
             mode = NetworkMode.TESTNET,
@@ -139,7 +144,7 @@ class WalletScreensScreenshotTest {
     }
 
     @Test
-    fun walletAccountsHiddenWhileReading() = compose.snapshot("wallet_accounts_reading") {
+    fun walletAccountsHiddenWhileReading() = compose.lumioSnapshot("wallet_accounts_reading") {
         WalletScreen(
             walletName = "Demo",
             mode = NetworkMode.MAINNET,
@@ -157,7 +162,13 @@ class WalletScreensScreenshotTest {
 
     /** An Ethereum account with one held token and two transactions: the Tokens and Activity sections as the owner sees them. */
     @Test
-    fun accountEthereumWithTokensAndActivity() = compose.snapshot("account_ethereum_activity") {
+    fun accountEthereumWithTokensAndActivity() = compose.lumioSnapshot("account_ethereum_activity", content = accountEthereumScreen)
+
+    @Test
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    fun accountEthereumLight() = compose.lumioSnapshot("account_ethereum_light", content = accountEthereumScreen)
+
+    private val accountEthereumScreen: @Composable () -> Unit = {
         val chain = EvmChain(1L, "Ethereum", "ETH", 18, false, "https://etherscan.io")
         val usdc = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
         AccountScreen(
@@ -198,7 +209,7 @@ class WalletScreensScreenshotTest {
     )
 
     @Test
-    fun accountBitcoin() = compose.snapshot("account_bitcoin") {
+    fun accountBitcoin() = compose.lumioSnapshot("account_bitcoin") {
         AccountScreen(
             walletName = "Demo",
             account = bitcoin,
@@ -210,7 +221,7 @@ class WalletScreensScreenshotTest {
     }
 
     @Test
-    fun accountSolanaSend() = compose.snapshot("account_solana") {
+    fun accountSolanaSend() = compose.lumioSnapshot("account_solana") {
         AccountScreen(
             walletName = "Demo",
             account = solana,
@@ -222,7 +233,7 @@ class WalletScreensScreenshotTest {
     }
 
     @Test
-    fun walletAccountsWithAPrice() = compose.snapshot("wallet_accounts_priced") {
+    fun walletAccountsWithAPrice() = compose.lumioSnapshot("wallet_accounts_priced") {
         WalletScreen(
             walletName = "Demo",
             mode = NetworkMode.MAINNET,

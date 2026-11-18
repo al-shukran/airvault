@@ -36,8 +36,6 @@ import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.screenshot.SCREENSHOT_DIR
-import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.screenshot.snapshot
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
 import app.lensly.ui.theme.LenslyBlack
@@ -91,7 +89,7 @@ import org.robolectric.annotation.GraphicsMode
  * `:lumio:recordRoborazziDebug`.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = SCREENSHOT_QUALIFIERS)
+@Config(qualifiers = LUMIO_DARK_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class LumioCoverageScreenshotTest {
 
@@ -108,7 +106,7 @@ class LumioCoverageScreenshotTest {
     // Settings
 
     @Test
-    fun evmSettingsWithACustomChain() = compose.snapshot("evm_settings_custom_chain") {
+    fun evmSettingsWithACustomChain() = compose.lumioSnapshot("evm_settings_custom_chain") {
         LenslyScreen(title = "SETTINGS", onBack = {}) {
             EvmSettingsSection(
                 settings = EvmSettings(
@@ -175,7 +173,7 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun dataProvidersWithEveryStatus() = compose.snapshot("data_providers_statuses") {
+    fun dataProvidersWithEveryStatus() = compose.lumioSnapshot("data_providers_statuses") {
         DataProvidersScreen(
             data = listOf(
                 providerRow("etherscan", acceptsKey = true, status = ProviderStatus.NeedsKey, canMoveUp = false),
@@ -198,7 +196,7 @@ class LumioCoverageScreenshotTest {
     // Licences
 
     @Test
-    fun licences() = compose.snapshot("licences") {
+    fun licences() = compose.lumioSnapshot("licences") {
         ThirdPartyLicencesScreen(
             blocks = listOf(
                 NoticeBlock("Third-party licences", heading = true),
@@ -210,21 +208,21 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun licencesLoading() = compose.snapshot("licences_loading") {
+    fun licencesLoading() = compose.lumioSnapshot("licences_loading") {
         ThirdPartyLicencesScreen(blocks = null, onBack = {})
     }
 
     // Network controls
 
     @Test
-    fun networkSwitchOnMainnet() = compose.snapshot("network_switch_mainnet") {
+    fun networkSwitchOnMainnet() = compose.lumioSnapshot("network_switch_mainnet") {
         Column(Modifier.padding(LenslySpacing.md)) {
             NetworkSwitch(mode = NetworkMode.MAINNET, onChange = {})
         }
     }
 
     @Test
-    fun networkSwitchOnTestnetWithBanner() = compose.snapshot("network_switch_testnet_banner") {
+    fun networkSwitchOnTestnetWithBanner() = compose.lumioSnapshot("network_switch_testnet_banner") {
         Column {
             TestnetBanner()
             Column(Modifier.padding(LenslySpacing.md)) {
@@ -243,47 +241,47 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun bitcoinSendReview() = compose.snapshot("bitcoin_send_review") {
+    fun bitcoinSendReview() = compose.lumioSnapshot("bitcoin_send_review") {
         BtcSendReviewScreen(plan = btcPlan, suggestedRate = 2.0, notice = null, onSave = {}, onConfirm = {}, onBack = {})
     }
 
     @Test
-    fun bitcoinSendReviewRequestFailed() = compose.snapshot("bitcoin_send_review_error") {
+    fun bitcoinSendReviewRequestFailed() = compose.lumioSnapshot("bitcoin_send_review_error") {
         BtcSendReviewScreen(plan = btcPlan, suggestedRate = 2.0, notice = REQUEST_FAILED, onSave = {}, onConfirm = {}, onBack = {})
     }
 
     @Test
-    fun bitcoinAdvancedSheet() = compose.snapshot("bitcoin_advanced_sheet") {
+    fun bitcoinAdvancedSheet() = compose.lumioSnapshot("bitcoin_advanced_sheet") {
         BtcAdvancedFields(suggestedRate = 2.0, rate = 9.0, onSave = {}, onCancel = {})
     }
 
     @Test
-    fun bitcoinSignRequest() = compose.snapshot("bitcoin_send_sign_request") {
+    fun bitcoinSignRequest() = compose.lumioSnapshot("bitcoin_send_sign_request") {
         BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = btcPlan.parts(), notice = null, onScan = {}, onBack = {})
     }
 
     @Test
-    fun bitcoinBroadcastIdle() = compose.snapshot("bitcoin_broadcast_idle") {
+    fun bitcoinBroadcastIdle() = compose.lumioSnapshot("bitcoin_broadcast_idle") {
         SignatureScanScreen(progress = null, status = SCAN_HINT, onText = {}, onCancel = {})
     }
 
     @Test
-    fun bitcoinBroadcastSending() = compose.snapshot("bitcoin_broadcast_sending") {
+    fun bitcoinBroadcastSending() = compose.lumioSnapshot("bitcoin_broadcast_sending") {
         SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onCancel = {})
     }
 
     @Test
-    fun bitcoinBroadcastSuccess() = compose.snapshot("bitcoin_broadcast_success") {
+    fun bitcoinBroadcastSuccess() = compose.lumioSnapshot("bitcoin_broadcast_success") {
         SubmitFixture(sentSubmit(TXID), btcSummary(btcPlan), explorerUrl = { "https://mempool.space/tx/$it" })
     }
 
     @Test
-    fun bitcoinBroadcastSuccessWithoutBrowser() = compose.snapshot("bitcoin_broadcast_success_no_browser") {
+    fun bitcoinBroadcastSuccessWithoutBrowser() = compose.lumioSnapshot("bitcoin_broadcast_success_no_browser") {
         SubmitFixture(sentSubmit(TXID), btcSummary(btcPlan), explorerUrl = { "https://mempool.space/tx/$it" }, notice = NO_BROWSER)
     }
 
     @Test
-    fun bitcoinBroadcastError() = compose.snapshot("bitcoin_broadcast_error") {
+    fun bitcoinBroadcastError() = compose.lumioSnapshot("bitcoin_broadcast_error") {
         BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = btcPlan.parts(), notice = BROADCAST_FAILED, onScan = {}, onBack = {})
     }
 
@@ -307,7 +305,7 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun ethereumSendReview() = compose.snapshot("ethereum_send_review") {
+    fun ethereumSendReview() = compose.lumioSnapshot("ethereum_send_review") {
         SendReviewScreen(send = ethSend, suggested = ethSend, notice = null, onSave = {}, onConfirm = {}, onBack = {})
     }
 
@@ -328,18 +326,18 @@ class LumioCoverageScreenshotTest {
     )
 
     @Test
-    fun ethereumTokenSendReview() = compose.snapshot("ethereum_token_send_review") {
+    fun ethereumTokenSendReview() = compose.lumioSnapshot("ethereum_token_send_review") {
         SendReviewScreen(send = usdcSend, suggested = usdcSend, notice = null, onSave = {}, onConfirm = {}, onBack = {})
     }
 
     @Test
-    fun ethereumSendReviewRequestFailed() = compose.snapshot("ethereum_send_review_error") {
+    fun ethereumSendReviewRequestFailed() = compose.lumioSnapshot("ethereum_send_review_error") {
         SendReviewScreen(send = ethSend, suggested = ethSend, notice = REQUEST_FAILED, onSave = {}, onConfirm = {}, onBack = {})
     }
 
     /** The advanced sheet as the owner leaves it: a nonce below the pending one and a fee cap four times the suggested one, both warned. */
     @Test
-    fun ethereumAdvancedSheet() = compose.snapshot("ethereum_advanced_sheet") {
+    fun ethereumAdvancedSheet() = compose.lumioSnapshot("ethereum_advanced_sheet") {
         val edited = ethSend.withFees(
             nonce = 6,
             gasLimit = BigInteger.valueOf(21_000),
@@ -351,7 +349,7 @@ class LumioCoverageScreenshotTest {
 
     /** The advanced sheet with a gas limit below a transfer's: the field says why, and Save is off. */
     @Test
-    fun ethereumAdvancedSheetRefused() = compose.snapshot(
+    fun ethereumAdvancedSheetRefused() = compose.lumioSnapshot(
         name = "ethereum_advanced_sheet_error",
         beforeCapture = {
             onNodeWithText("21000").performTextReplacement("20000")
@@ -362,69 +360,69 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun ethereumSignRequest() = compose.snapshot("ethereum_send_sign_request") {
+    fun ethereumSignRequest() = compose.lumioSnapshot("ethereum_send_sign_request") {
         SignRequestScreen(send = ethSend, parts = ethParts, notice = null, onScan = {}, onBack = {})
     }
 
     @Test
-    fun ethereumBroadcastIdle() = compose.snapshot("ethereum_broadcast_idle") {
+    fun ethereumBroadcastIdle() = compose.lumioSnapshot("ethereum_broadcast_idle") {
         SignatureScanScreen(progress = null, status = SCAN_HINT, onText = {}, onCancel = {})
     }
 
     @Test
-    fun ethereumBroadcastSending() = compose.snapshot("ethereum_broadcast_sending") {
+    fun ethereumBroadcastSending() = compose.lumioSnapshot("ethereum_broadcast_sending") {
         SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onCancel = {})
     }
 
     @Test
-    fun ethereumBroadcastSuccess() = compose.snapshot("ethereum_broadcast_success") {
+    fun ethereumBroadcastSuccess() = compose.lumioSnapshot("ethereum_broadcast_success") {
         SubmitFixture(sentSubmit(TXHASH), evmSummary(ethSend), explorerUrl = { "https://etherscan.io/tx/$it" })
     }
 
     @Test
-    fun ethereumBroadcastSuccessOnAChainWithoutExplorer() = compose.snapshot("ethereum_broadcast_success_no_explorer") {
+    fun ethereumBroadcastSuccessOnAChainWithoutExplorer() = compose.lumioSnapshot("ethereum_broadcast_success_no_explorer") {
         SubmitFixture(sentSubmit(TXHASH), evmSummary(ethSend))
     }
 
     @Test
-    fun ethereumSubmitIdle() = compose.snapshot("ethereum_submit_idle") {
+    fun ethereumSubmitIdle() = compose.lumioSnapshot("ethereum_submit_idle") {
         SubmitFixture(idleSubmit(), evmSummary(ethSend))
     }
 
     @Test
-    fun ethereumSubmitRefused() = compose.snapshot("ethereum_submit_refused") {
+    fun ethereumSubmitRefused() = compose.lumioSnapshot("ethereum_submit_refused") {
         SubmitFixture(refusedSubmit(BROADCAST_FAILED), evmSummary(ethSend))
     }
 
     @Test
-    fun ethereumBroadcastError() = compose.snapshot("ethereum_broadcast_error") {
+    fun ethereumBroadcastError() = compose.lumioSnapshot("ethereum_broadcast_error") {
         SignRequestScreen(send = ethSend, parts = ethParts, notice = BROADCAST_FAILED, onScan = {}, onBack = {})
     }
 
     // Pairing: the scan, and the import result
 
     @Test
-    fun pairScanIdle() = compose.snapshot("pair_scan_idle") {
+    fun pairScanIdle() = compose.lumioSnapshot("pair_scan_idle") {
         PairScanScreen(progress = null, status = PAIR_SCAN_HINT, onText = {}, onCancel = {})
     }
 
     @Test
-    fun pairScanReadingAnAnimatedCode() = compose.snapshot("pair_scan_reading") {
+    fun pairScanReadingAnAnimatedCode() = compose.lumioSnapshot("pair_scan_reading") {
         PairScanScreen(progress = 0.4f, status = PAIR_SCAN_READING, onText = {}, onCancel = {})
     }
 
     @Test
-    fun pairReviewWhenAlreadyPaired() = compose.snapshot("pair_review_already_paired") {
+    fun pairReviewWhenAlreadyPaired() = compose.lumioSnapshot("pair_review_already_paired") {
         PairReviewScreen(pairing = pairing(withBitcoin = false), alreadyPaired = true, error = null, onSave = {}, onCancel = {})
     }
 
     @Test
-    fun pairReviewWhenSaveFails() = compose.snapshot("pair_review_save_failed") {
+    fun pairReviewWhenSaveFails() = compose.lumioSnapshot("pair_review_save_failed") {
         PairReviewScreen(pairing = pairing(withBitcoin = false), alreadyPaired = false, error = PAIR_SAVE_FAILED, onSave = {}, onCancel = {})
     }
 
     @Test
-    fun pairReviewWithBitcoinAccounts() = compose.snapshot("pair_review_bitcoin") {
+    fun pairReviewWithBitcoinAccounts() = compose.lumioSnapshot("pair_review_bitcoin") {
         PairReviewScreen(pairing = pairing(withBitcoin = true), alreadyPaired = false, error = null, onSave = {}, onCancel = {})
     }
 

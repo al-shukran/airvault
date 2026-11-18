@@ -27,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import kotlin.math.roundToInt
 
@@ -71,7 +70,7 @@ fun RadioRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
+                Text(text = title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(LenslySpacing.xxs))
                 Text(
                     text = description,
@@ -106,11 +105,11 @@ fun <T> SliderSetting(
     var position by remember(selectedIndex) { mutableFloatStateOf((selectedIndex ?: 0).toFloat()) }
     val shown = options[position.roundToInt().coerceIn(0, options.lastIndex)]
     Column(modifier = modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
-        Text(text = title, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
+        Text(text = title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Text(
             text = if (selectedIndex == null) "—" else label(shown),
             style = MaterialTheme.typography.displaySmall,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = (if (selectedIndex == null) null else caption(shown)) ?: " ",
@@ -177,7 +176,7 @@ fun NumberField(
     error: String? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
-        Text(text = title, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
+        Text(text = title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(LenslySpacing.xs))
         OutlinedTextField(
             value = text,
@@ -223,7 +222,7 @@ fun <T> ChoiceDialogRow(
                 Text(
                     text = if (value == null) label else "$label · $value",
                     style = MaterialTheme.typography.titleMedium,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 if (description != null) {
                     Spacer(Modifier.height(LenslySpacing.xxs))
@@ -242,7 +241,7 @@ fun <T> ChoiceDialogRow(
         AlertDialog(
             onDismissRequest = { open = false },
             title = {
-                Text(text = dialogTitle, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
+                Text(text = dialogTitle, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
             },
             text = {
                 Column {
@@ -276,6 +275,6 @@ private fun ChoiceOption(label: String, selected: Boolean, onSelect: () -> Unit)
     ) {
         RadioButton(selected = selected, onClick = null)
         Spacer(Modifier.width(LenslySpacing.sm))
-        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = LenslyOnSurface)
+        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
     }
 }

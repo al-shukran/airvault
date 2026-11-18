@@ -98,7 +98,7 @@ fun SubmitScreen(
                 val id = current.id
                 Spacer(Modifier.height(LenslySpacing.md))
                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
-                    Text("TRANSACTION ID", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Transaction ID", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     AddressText(address = id, shown = id, icon = false)
                 }
                 status?.let {

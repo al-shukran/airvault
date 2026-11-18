@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,6 +22,7 @@ import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lumio.ui.home.LumioMark
+import app.lumio.ui.theme.LocalLumioPalette
 
 /** One row of the Wallets list: the wallet's [id], its [name], and the [detail] under it, a total in dollars or the count of its accounts per chain. */
 data class WalletRow(val id: String, val name: String, val detail: String)
@@ -71,7 +73,7 @@ fun WalletsScreen(
                     SettingsRow(title = row.name, description = row.detail, onClick = { onWallet(row.id) })
                 }
                 item(key = "pair") {
-                    TextButton(onClick = onPair) { Text("Pair a wallet") }
+                    TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumioPalette.current.accentInk)) { Text("Pair a wallet") }
                 }
             }
         }

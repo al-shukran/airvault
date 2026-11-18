@@ -29,9 +29,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
 
 /** The tabs of Lumio's bar, in the order the bar shows them. Each is a root screen, so a tab opens in place of the one before it. */
 enum class LumioTab(val label: String, val tag: String) {
@@ -76,7 +73,7 @@ fun LumioTabBar(selected: LumioTab, onSelect: (LumioTab) -> Unit, modifier: Modi
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(LenslyBlack)
+            .background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.navigationBars)
             .height(BAR_HEIGHT),
     ) {
@@ -93,7 +90,7 @@ fun LumioTabBar(selected: LumioTab, onSelect: (LumioTab) -> Unit, modifier: Modi
 
 @Composable
 private fun TabItem(tab: LumioTab, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val color: Color = if (selected) LenslyOnSurface else LenslyMuted
+    val color: Color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -106,7 +103,7 @@ private fun TabItem(tab: LumioTab, selected: Boolean, onClick: () -> Unit, modif
             modifier = Modifier
                 .fillMaxWidth()
                 .height(MARK_HEIGHT)
-                .background(if (selected) LenslyOnSurface else Color.Transparent),
+                .background(if (selected) MaterialTheme.colorScheme.onSurface else Color.Transparent),
         )
         Spacer(Modifier.height(TAB_GAP))
         Icon(imageVector = iconOf(tab), contentDescription = null, tint = color)

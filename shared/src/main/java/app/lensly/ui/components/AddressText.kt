@@ -23,7 +23,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalMonoFamily
 
 /** The test tag of the address text, so a test can long-press it. */
 internal const val ADDRESS_TEXT_TAG = "address-text"
@@ -46,7 +46,7 @@ fun AddressText(
     address: String,
     modifier: Modifier = Modifier,
     shown: String = groupAddress(address),
-    style: TextStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+    style: TextStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
     color: Color = MaterialTheme.colorScheme.onSurface,
     icon: Boolean = true,
     bitcoin: Boolean = false,

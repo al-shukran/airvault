@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.theme.LocalUppercaseLabels
 
 /** Small, non-interactive outline chip with a fully rounded shape. */
 @Composable
@@ -24,7 +25,7 @@ fun PillChip(
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(
-            text = text.uppercase(),
+            text = if (LocalUppercaseLabels.current) text.uppercase() else text,
             style = MaterialTheme.typography.labelSmall,
             color = colors.onSurface,
         )

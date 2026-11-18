@@ -18,11 +18,10 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyError
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySuccess
 import app.lumio.data.price.PriceSeries
 import app.lumio.home.HomeFormat
+import app.lumio.ui.theme.LocalLumioPalette
 
 private val CHART_HEIGHT: Dp = 160.dp
 private val LINE_WIDTH: Dp = 2.dp
@@ -36,7 +35,7 @@ private val LINE_WIDTH: Dp = 2.dp
 fun AssetChart(series: PriceSeries, modifier: Modifier = Modifier) {
     val low = series.low ?: return
     val high = series.high ?: return
-    val color = if (series.rising) LenslySuccess else LenslyError
+    val color = if (series.rising) LocalLumioPalette.current.positive else MaterialTheme.colorScheme.error
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     Column(modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

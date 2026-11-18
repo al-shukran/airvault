@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -32,7 +32,7 @@ fun LenslyScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(LenslyBlack)
+            .background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         DetailTopBar(title = title, onBack = onBack)
