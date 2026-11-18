@@ -182,6 +182,7 @@ A vendor builds a chain app the same way the core team does:
 2. Fill in the manifest and the interfaces in section 3.
 3. Pass the conformance kit (section 9).
 4. Open a PR that adds the modules and one line to each `Installed*.kt`.
+5. Sign the manifest with the vendor's key. A human reviewer checks the key scope and capabilities and records the review before the app is added to a build. Unsigned or unreviewed vendor apps are never shipped.
 
 A vendor may ship a signer without a wallet side (for example, when the vendor runs its own online wallet that speaks AirVault's QR types). The reverse is not allowed: a wallet side without a signer has nothing to sign with.
 
@@ -622,7 +623,7 @@ Lumio shows a missing precondition as its own step with its own QR request. It n
 
 ### 5.5 Out of scope for now
 
-Runes, BRC-20 and Ordinals live on top of Bitcoin outputs and need indexers. They are out of scope. But a Bitcoin-family signer must still guard against them: spending an output that carries an inscription or a rune can destroy it. Raising a warning needs indexer data that Lensly does not have. **[UNVERIFIED]** how to surface this offline; listed in section 12.
+Runes, BRC-20 and Ordinals live on top of Bitcoin outputs and need indexers. They are out of scope. But a Bitcoin-family signer must still guard against them: spending an output that carries an inscription or a rune can destroy it. Lensly has no indexer, so the work is split: Lumio checks an indexer and marks risky inputs in the PSBT (a proprietary PSBT input field defined by the Bitcoin app). Lensly shows a danger warning for every marked input. For unmarked inputs it shows a note that inscription and rune status is not verified offline.
 
 ---
 
@@ -743,7 +744,7 @@ Today's types and owners:
 
 | Type | Direction | Owner after 2.9 | Defined by |
 |---|---|---|---|
-| `airvault-pairing` | pairing | core | AirVault (`PairingCodec.kt`) |
+| `x-airvault-pairing` | pairing | core | AirVault (`PairingCodec.kt`) |
 | `crypto-multi-accounts` | pairing | core | Keystone-style; not in BCR-2020-006 |
 | `crypto-psbt` | request and response | `bitcoin` app | BCR-2020-006 (alias of `psbt`, tag 40310) |
 | `eth-sign-request`, `eth-signature` | request, response | `evm` app | not in BCR-2020-006; Keystone-style |
@@ -774,9 +775,9 @@ CBOR map:
 
 The response carries `version`, `requestId`, `chain`, and the app-defined `signature` bytes.
 
-The four existing chains keep their current types in 2.9 (they match formats other wallets use). Whether to also accept the envelope for them is an open question (section 12). The core gives envelope and legacy types the same treatment: same sandbox, same review, same record.
+The four existing chains keep their current types in 2.9 (they match formats other wallets use). They do not accept the envelope; it is for new chains only (decision, section 12). The core gives envelope and legacy types the same treatment: same sandbox, same review, same record.
 
-Whether the existing `airvault-pairing` type should become `x-airvault-pairing` to follow the `x-` rule is also open.
+The pairing type is renamed to `x-airvault-pairing` to follow the `x-` rule. This is a hard switch: both apps change together and the old name is not accepted. Devices paired under the old name pair again.
 
 ### 7.4 Versioning
 
@@ -1029,15 +1030,15 @@ Feature gaps the refactor exposes but does not have to close: Lumio building ASA
 
 ## 12. Open questions and unverified items
 
-Open design questions:
+Design decisions (owner, 2026-11-18):
 
-1. **Vendor manifest signing.** Should third-party chain apps carry a signed manifest and a human review record, as Ledger requires for device apps? Ledger's rule is from search results only (<https://developers.ledger.com/docs/device-app/develop/requirements/security>, **[UNVERIFIED]**).
-2. **Envelope for existing chains.** Should Bitcoin, EVM, Solana and Algorand also accept `x-airvault-sign-request`, or keep only their current types?
-3. **`airvault-pairing` naming.** Rename to `x-airvault-pairing` to follow BCR-2020-006's `x-` rule?
-4. **Descriptor-driven clear signing.** Should EVM review move to ERC-7730 descriptors as data (validated in CI), replacing hand-written protocol steps? ERC-7730 v2 is a draft; Ledger tools target v1 (<https://developers.ledger.com/docs/clear-signing/reference/specifications>). The claim that stewardship moved to the Ethereum Foundation on 2026-05-12 is **[UNVERIFIED]**.
-5. **Lumio runtime plugins.** Lumio is online and could load chain apps at run time. This spec says no, for both apps. Revisit only with a concrete vendor need.
-6. **Code generation.** Trust Wallet Core generates per-chain boilerplate from a registry entry and gives EVM chains a coin id of `10000000 + chainId` (search results only, **[UNVERIFIED]**, <https://developer.trustwallet.com/wallet-core/newblockchain>). AirVault adds EVM chains as data in the `evm` app, so a generator is likely not needed.
-7. **Ordinals and Runes protection.** How can an offline signer warn about spending an inscribed or rune-bearing output without indexer data?
+1. **Vendor manifest signing.** Third-party chain apps carry a vendor-signed manifest and a human review record before they ship (section 2.5).
+2. **Envelope for existing chains.** No. Bitcoin, EVM, Solana and Algorand keep only their current UR types. `x-airvault-sign-request` is for new chains.
+3. **Pairing type name.** Rename to `x-airvault-pairing` as a hard switch. The old name is not accepted, and devices pair again.
+4. **Descriptor-driven clear signing.** Adopt ERC-7730 v1 descriptors, validated in CI. Every hand-written EVM protocol step migrates to descriptors before the first AirVault release. Whether ERC-7730 stewardship moved to the Ethereum Foundation on 2026-05-12 is still **[UNVERIFIED]**.
+5. **Lumio runtime plugins.** No. Chain apps are included at compile time only, in both apps.
+6. **Code generation.** No generator. New chains copy `chains/_template/`; EVM chains are data in the `evm` app.
+7. **Ordinals and Runes protection.** Lumio flags risky inputs from an indexer, and Lensly warns on them (section 5).
 
 Carried-over **[UNVERIFIED]** items from research (do not rely on them until checked against a primary source):
 
