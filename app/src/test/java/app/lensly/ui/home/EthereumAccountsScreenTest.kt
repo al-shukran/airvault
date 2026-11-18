@@ -182,7 +182,7 @@ class EthereumAccountsScreenTest {
         }
 
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onNodeWithText("Generate accounts").performClick()
+        compose.onNodeWithText("Generate Accounts").performClick()
         assertTrue(route.generated)
 
         compose.onNodeWithContentDescription("App options").performClick()
@@ -205,7 +205,7 @@ class EthereumAccountsScreenTest {
 
         compose.onNodeWithText("Add Account").assertDoesNotExist()
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onNodeWithText("Generate accounts").assertDoesNotExist()
+        compose.onNodeWithText("Generate Accounts").assertDoesNotExist()
         compose.onNodeWithText("Select Accounts").assertDoesNotExist()
         compose.onNodeWithText("Pair This Wallet").assertIsDisplayed()
     }

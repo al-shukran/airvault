@@ -137,7 +137,7 @@ class BitcoinAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("Generate accounts").performScrollTo().performClick()
+        compose.onNodeWithText("Generate Accounts").performScrollTo().performClick()
         assertTrue(route.generated)
     }
 
@@ -151,7 +151,7 @@ class BitcoinAccountsScreenTest {
         }
 
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onAllNodesWithText("Generate accounts").assertCountEquals(2)
+        compose.onAllNodesWithText("Generate Accounts").assertCountEquals(2)
         compose.onNodeWithText("Select Accounts").assertDoesNotExist()
         compose.onNodeWithText("Pair This Wallet").performClick()
         assertTrue(route.paired)
@@ -171,9 +171,9 @@ class BitcoinAccountsScreenTest {
 
         compose.onNodeWithText("No Bitcoin accounts yet.").assertIsDisplayed()
         compose.onNodeWithText(SINGLE_KEY_NO_BITCOIN, substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Generate accounts").assertDoesNotExist()
+        compose.onNodeWithText("Generate Accounts").assertDoesNotExist()
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onNodeWithText("Generate accounts").assertDoesNotExist()
+        compose.onNodeWithText("Generate Accounts").assertDoesNotExist()
     }
 
     @Test

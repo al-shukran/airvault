@@ -118,7 +118,7 @@ private fun assetSentence(txn: AssetTransfer, asset: Asa?): String {
 }
 
 /** The title of the Algorand review. An asset opt-in is titled as one, so that it does not read as a transfer of zero units. */
-fun algorandTitle(review: AlgorandRequestReview): String = if ((review.txn as? AssetTransfer)?.isOptIn == true) "Opt in to Asset" else "Review"
+fun algorandTitle(review: AlgorandRequestReview): String = if ((review.txn as? AssetTransfer)?.isOptIn == true) "Opt In to Asset" else "Review"
 
 /** The short facts under the sentence: the fee, in ALGO. */
 fun algorandFacts(review: AlgorandRequestReview): List<Pair<String, String>> = listOf(FEE to algoText(review.txn.fee))

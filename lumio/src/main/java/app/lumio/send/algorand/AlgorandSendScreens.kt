@@ -235,7 +235,7 @@ internal fun AlgorandSignRequestScreen(
 internal fun AlgorandOptInReadingScreen(notice: String?, onBack: () -> Unit) {
     SendStepScaffold(
         step = SEND_STEP_DETAILS,
-        title = "Opt in to Asset",
+        title = "Opt In to Asset",
         onBack = onBack,
         bottomAction = {},
     ) {

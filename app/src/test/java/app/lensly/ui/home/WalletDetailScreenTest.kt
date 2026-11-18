@@ -114,7 +114,7 @@ class WalletDetailScreenTest {
         compose.onNodeWithText("Show Secret Phrase").assertIsDisplayed()
         compose.onNodeWithText("Delete Wallet").assertIsDisplayed()
         // Generating, selecting, pairing and signing are on each App, so the wallet's options do not hold them.
-        compose.onNodeWithText("Generate accounts").assertDoesNotExist()
+        compose.onNodeWithText("Generate Accounts").assertDoesNotExist()
         compose.onNodeWithText("Select Accounts").assertDoesNotExist()
     }
 

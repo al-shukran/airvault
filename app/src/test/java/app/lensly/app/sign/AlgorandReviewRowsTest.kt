@@ -147,8 +147,8 @@ class AlgorandReviewRowsTest {
 
     @Test
     fun onlyAnAssetOptInIsTitledAsOptingIn() {
-        assertEquals("Opt in to Asset", algorandTitle(reviewOf(AXFER_OPTIN)))
-        assertEquals("Opt in to Asset", algorandTitle(reviewWith(AXFER_OPTIN, CATALOG)))
+        assertEquals("Opt In to Asset", algorandTitle(reviewOf(AXFER_OPTIN)))
+        assertEquals("Opt In to Asset", algorandTitle(reviewWith(AXFER_OPTIN, CATALOG)))
         assertEquals("Review", algorandTitle(reviewOf(AXFER)))
         assertEquals("Review", algorandTitle(reviewOf(AXFER_CLOSEOUT)))
         assertEquals("Review", algorandTitle(reviewOf(PAY_BASIC)))

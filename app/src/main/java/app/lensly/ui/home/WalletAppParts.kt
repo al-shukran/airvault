@@ -184,7 +184,7 @@ internal fun AppOptionsSheet(
             modifier = Modifier.padding(bottom = LenslySpacing.xs),
         )
         if (onGenerate != null) {
-            SheetOption(icon = Icons.Filled.Add, label = "Generate accounts", onClick = onGenerate)
+            SheetOption(icon = Icons.Filled.Add, label = "Generate Accounts", onClick = onGenerate)
         }
         if (onSelect != null) {
             SheetOption(icon = Icons.Filled.Check, label = "Select Accounts", onClick = onSelect)

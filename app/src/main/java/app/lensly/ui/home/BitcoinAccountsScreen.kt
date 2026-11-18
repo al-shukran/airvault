@@ -188,7 +188,7 @@ fun BitcoinAccountsScreen(
             if (!singleKey) {
                 item(key = "generate") {
                     Spacer(Modifier.height(LenslySpacing.md))
-                    AddAccountRow(label = "Generate accounts", onClick = onGenerate)
+                    AddAccountRow(label = "Generate Accounts", onClick = onGenerate)
                 }
                 item(key = "tip") {
                     Text(
