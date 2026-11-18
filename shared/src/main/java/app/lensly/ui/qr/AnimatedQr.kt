@@ -60,9 +60,7 @@ fun AnimatedQr(
     var frames by remember(parts, keepCase) { mutableStateOf(QrFrameCache.get(parts, keepCase)) }
     LaunchedEffect(parts, keepCase) {
         if (frames == null) {
-            val encoded = withContext(Dispatchers.Default) {
-                parts.map { part -> QrMatrix.toPixels(QrMatrix.encode(part, keepCase)).toImageBitmap() }
-            }
+            val encoded = encodeQrFrames(parts, keepCase)
             QrFrameCache.put(parts, keepCase, encoded)
             frames = encoded
         }
@@ -113,6 +111,20 @@ fun AnimatedQr(
     }
 }
 
+/**
+ * Encodes each part to a bitmap on [Dispatchers.Default]. [encode] is [QrMatrix.encode] and [QrMatrix.toPixels]; it is a
+ * parameter only so a test can see which thread runs the encode.
+ */
+internal suspend fun encodeQrFrames(
+    parts: List<String>,
+    keepCase: Boolean,
+    encode: (part: String, keepCase: Boolean) -> QrPixels = { part, asWritten ->
+        QrMatrix.toPixels(QrMatrix.encode(part, asWritten))
+    },
+): List<ImageBitmap> = withContext(Dispatchers.Default) {
+    parts.map { part -> encode(part, keepCase).toImageBitmap() }
+}
+
 private fun QrPixels.toImageBitmap(): ImageBitmap =
     Bitmap.createBitmap(argb, size, size, Bitmap.Config.ARGB_8888).asImageBitmap()
 
@@ -120,7 +132,7 @@ private fun QrPixels.toImageBitmap(): ImageBitmap =
  * The encoded frames of recently shown parts, least recently used first out, bounded by bytes: one animated code of a
  * dozen parts fits, and so do about fourteen single addresses. [LruCache] is synchronized, so any thread may use it.
  */
-private object QrFrameCache {
+internal object QrFrameCache {
     private const val MAX_BYTES = 8 shl 20
 
     private val frames = object : LruCache<Pair<List<String>, Boolean>, List<ImageBitmap>>(MAX_BYTES) {

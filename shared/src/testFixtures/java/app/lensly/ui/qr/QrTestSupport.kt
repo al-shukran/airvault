@@ -2,7 +2,6 @@ package app.lensly.ui.qr
 
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
-import androidx.compose.ui.test.onAllNodes
 
 /**
  * Waits until the QR code on screen is encoded. [AnimatedQr] encodes off the main thread, so a capture taken straight
