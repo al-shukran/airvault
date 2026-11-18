@@ -45,6 +45,7 @@ class AlgorandSignFlowTest : SignFlowE2eBase() {
 
         // 1,500,000 microAlgos is 1.5 ALGO, sent to the receiver of the vector.
         compose.onNodeWithText("Sends 1.500000 ALGO to ${AlgoAddress.encode(RECEIVER)}.").assertExists()
+        driver.readToTheEnd()
         assertTrue(driver.approvable())
 
         val parts = driver.approveAndSign { it is SignStep.AlgorandConfirming }

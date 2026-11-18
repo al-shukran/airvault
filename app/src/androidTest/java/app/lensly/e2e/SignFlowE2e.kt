@@ -7,12 +7,16 @@ import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -148,6 +152,20 @@ internal class SignRouteDriver(
     fun approvable(): Boolean = runCatching { compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled() }.isSuccess
 
     /**
+     * Scrolls the review to its end. APPROVE stays off until every line has been read, so the owner reads a review before it is approved.
+     * The read hint goes once the end is reached, so the swipes stop there.
+     */
+    fun readToTheEnd() {
+        repeat(MAX_SWIPES) {
+            if (!readHintShown()) return
+            compose.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        }
+        assertTrue("the review was not read to its end", !readHintShown())
+    }
+
+    private fun readHintShown(): Boolean = compose.onAllNodesWithText(READ_HINT).fetchSemanticsNodes().isNotEmpty()
+
+    /**
      * APPROVE: holds the hold-to-sign control until the flow is at [confirming], types the App Password, taps Done, and returns the
      * signature frames the flow shows. The screen checks are the ones a signature must pass on the device.
      */
@@ -257,6 +275,12 @@ internal class SignRouteDriver(
     private companion object {
         /** Long enough for Argon2 with the test parameters plus the keystore and file work around it. */
         const val STEP_TIMEOUT_MS = 60_000L
+
+        /** A full swipe per screen, with room to spare, before a review must have reached its end. */
+        const val MAX_SWIPES = 12
+
+        /** The line at the foot of a review until every line has been read. */
+        const val READ_HINT = "Scroll to the end to review everything"
     }
 }
 
