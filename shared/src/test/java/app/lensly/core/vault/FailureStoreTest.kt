@@ -27,11 +27,11 @@ class FailureStoreTest {
 
     private fun File.backup() = File(this, FailureStore.BACKUP_FILE_NAME)
 
-    /** Where the cap starts in a version 2 or 3 record: magic (4) + version (1) + seq (8) + failures (4) + wall (8) + elapsed (8). */
+    /** Where the cap starts in a record: magic (4) + version (1) + seq (8) + failures (4) + wall (8) + elapsed (8). */
     private val capOffset = 33
 
-    /** The MAC-covered part of a version 3 record: everything before the 32-byte MAC. */
-    private val payloadBytes = 53
+    /** The MAC-covered part of a record: everything before the 32-byte MAC. */
+    private val payloadBytes = 57
 
     /** The magic that opens every record. */
     private val magic = "LNFS".toByteArray(Charsets.US_ASCII)
@@ -39,36 +39,6 @@ class FailureStoreTest {
     private fun macOf(key: SecretKey, payload: ByteArray): ByteArray = Mac.getInstance("HmacSHA256").run {
         init(key)
         doFinal(payload)
-    }
-
-    /** A version 3 record for [state], MAC'd under [key]: the layout the store writes. */
-    private fun encodeV3(state: FailureState, key: SecretKey): ByteArray {
-        val payload = ByteBuffer.allocate(payloadBytes)
-            .put(magic)
-            .put(3)
-            .putLong(state.seq)
-            .putInt(state.failures)
-            .putLong(state.lastFailureWallMs)
-            .putLong(state.lastFailureElapsedMs)
-            .putLong(state.capMs ?: 0L)
-            .putInt(state.bootCount ?: -1)
-            .putLong(state.elapsedAtSave)
-            .array()
-        return payload + macOf(key, payload)
-    }
-
-    /** A version 1 or 2 record for [state], MAC'd under the legacy key: the layout written before per-save keys. */
-    private fun encodeLegacy(version: Int, state: FailureState, key: SecretKey): ByteArray {
-        val buffer = ByteBuffer.allocate(if (version == 1) 33 else 41)
-            .put(magic)
-            .put(version.toByte())
-            .putLong(state.seq)
-            .putInt(state.failures)
-            .putLong(state.lastFailureWallMs)
-            .putLong(state.lastFailureElapsedMs)
-        if (version == 2) buffer.putLong(state.capMs ?: 0L)
-        val payload = buffer.array()
-        return payload + macOf(key, payload)
     }
 
     /** Wraps a keystore so that its key deletion fails, which is what a Keystore error after the write looks like. */
@@ -645,79 +615,6 @@ class FailureStoreTest {
         assertEquals(1, recovered.failures)
         assertEquals(2L, recovered.seq)
         assertEquals(1, keys.failureMacKeyCount())
-    }
-
-    @Test
-    fun migrationFromTheSingleKeyLayoutKeepsAPendingDelay() {
-        val dir = File(tmp.root, "vault")
-        val clock = FakeClock()
-        val legacyKey = keys.createLegacyFailureMacKey()
-        val legacyState = FailureState(
-            seq = 7,
-            failures = 3,
-            lastFailureWallMs = clock.wall,
-            lastFailureElapsedMs = clock.elapsed,
-            capMs = 10_000L,
-        )
-        val legacy = encodeLegacy(version = 2, legacyState, legacyKey)
-        dir.mkdirs()
-        dir.primary().writeBytes(legacy)
-        dir.backup().writeBytes(legacy)
-
-        val migrated = open(dir).load(clock)
-        assertEquals(3, migrated.failures)
-        assertEquals(10_000L, migrated.capMs)
-        assertEquals(8L, migrated.seq)
-        // The legacy key is deleted, and the one key that remains is the new one.
-        assertNull(keys.legacyFailureMacKey())
-        assertEquals(1, keys.failureMacKeyCount())
-        // The pending wait is what it was before the migration: 10 s, the owner's cap, measured from the failure.
-        val delay = FailureDelay(FakeClock.START_WALL, FailureDelay.configuredCapFor(migrated))
-        assertTrue(delay.isBlocked(migrated, clock))
-        clock.advance(10_000)
-        assertFalse(delay.isBlocked(migrated, clock))
-        // Loading again gives the same state, with nothing more to settle.
-        assertEquals(migrated, open(dir).load(clock))
-    }
-
-    @Test
-    fun aMigrationInterruptedBetweenTheCopiesIsSettled() {
-        val dir = File(tmp.root, "vault")
-        val clock = FakeClock()
-        val legacyKey = keys.createLegacyFailureMacKey()
-        val legacyState = FailureState(seq = 7, failures = 3, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed, capMs = 10_000L)
-        val legacy = encodeLegacy(version = 2, legacyState, legacyKey)
-        dir.mkdirs()
-        dir.primary().writeBytes(legacy)
-        dir.backup().writeBytes(legacy)
-
-        // The primary already holds the new layout, the backup still the legacy one, and the legacy key is alive.
-        val newKey = keys.createFailureMacKey(8L)
-        dir.primary().writeBytes(encodeV3(legacyState.copy(seq = 8L), newKey))
-
-        val settled = open(dir).load(clock)
-        assertEquals(3, settled.failures)
-        assertEquals(10_000L, settled.capMs)
-        assertEquals(9L, settled.seq)
-        assertNull(keys.legacyFailureMacKey())
-        assertEquals(1, keys.failureMacKeyCount())
-    }
-
-    @Test
-    fun aVersionOneRecordFromBeforeTheCapLoadsAsDefaultWithItsCount() {
-        val dir = File(tmp.root, "vault")
-        val clock = FakeClock()
-        val legacyKey = keys.createLegacyFailureMacKey()
-        val legacyState = FailureState(seq = 2, failures = 1, lastFailureWallMs = clock.wall, lastFailureElapsedMs = clock.elapsed)
-        val record = encodeLegacy(version = 1, legacyState, legacyKey)
-        dir.mkdirs()
-        dir.primary().writeBytes(record)
-        dir.backup().writeBytes(record)
-
-        val loaded = open(dir).load(clock)
-        assertEquals(1, loaded.failures)
-        assertNull(loaded.capMs)
-        assertNull(keys.legacyFailureMacKey())
     }
 
     @Test

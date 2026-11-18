@@ -49,11 +49,6 @@ class FailureStoreKeystoreErrorTest {
             if (failReads) throw ProviderException("the key could not be read")
             return inner.failureMacKey(seq)
         }
-
-        override fun legacyFailureMacKey(): SecretKey? {
-            if (failReads) throw ProviderException("the key could not be read")
-            return inner.legacyFailureMacKey()
-        }
     }
 
     @Test
@@ -212,8 +207,6 @@ class FailureStoreKeystoreErrorTest {
         override fun createFailureMacKey(seq: Long): SecretKey = if (failing) fail() else inner.createFailureMacKey(seq)
 
         override fun failureMacKey(seq: Long): SecretKey? = if (failing) fail() else inner.failureMacKey(seq)
-
-        override fun legacyFailureMacKey(): SecretKey? = if (failing) fail() else inner.legacyFailureMacKey()
 
         override fun failureMacKeySeqs(): List<Long> = if (failing) fail() else inner.failureMacKeySeqs()
 

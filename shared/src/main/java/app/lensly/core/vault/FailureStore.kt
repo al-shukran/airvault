@@ -24,8 +24,8 @@ import javax.crypto.SecretKey
  * The cap, the boot count and the time the wait had already run are in the MAC-protected payload. Each check made while a wait runs
  * saves the time served so far (see [checkDelay]), so a reboot continues the wait.
  *
- * Copies written before per-save keys (layout versions 1 and 2) verify under the one legacy key. [load] settles such a pair by
- * saving it again under a new sequence number, which deletes the legacy key. The pending delay is kept.
+ * A pair whose copies hold different sequence numbers, which a crash between the two writes leaves, is settled by saving it again
+ * under a new sequence number. The pending delay is kept.
  *
  * No storage or Keystore error is thrown past [load], [checkDelay], [recordFailureOrLock] or [recordSuccess]. A lock or a reset that
  * this process could not save is held in memory (see [PENDING]), so the delay still applies to this process until a save goes through.
@@ -55,9 +55,6 @@ internal class FailureStore(
     private val backup = File(dir, BACKUP_FILE_NAME)
     private val seenKey = dir.absolutePath
 
-    /** A copy that verified. [legacy] is true for a layout written before per-save keys. */
-    private class Copy(val state: FailureState, val legacy: Boolean)
-
     /** Saves attempted by this instance, so [checkDelay] can tell whether its load already made this attempt's save. */
     private var saveAttempts = 0
 
@@ -75,24 +72,24 @@ internal class FailureStore(
         // The newest Delay State key the Keystore holds, or the pair this process wrote last. A pair older than either was replaced by a
         // later save, even when a failed deletion left its key behind.
         val newest = maxOf(written?.state?.seq ?: 0L, keystoreOrNull { keys.failureMacKeySeqs() }?.maxOrNull() ?: 0L)
-        val highestSeq = maxOf(p?.state?.seq ?: 0L, b?.state?.seq ?: 0L, newest)
+        val highestSeq = maxOf(p?.seq ?: 0L, b?.seq ?: 0L, newest)
         PENDING[seenKey]?.let { pending ->
             // A state this process could not save stays in force, with the times it was first made, until a save goes through.
             return trySave(pending.copy(seq = maxOf(highestSeq, pending.seq) + 1), clock) ?: pending
         }
         val bootCount = readBootCount()
         // A boot count that went down is tampering, whatever the copies say, because no reboot does that.
-        val recorded = listOfNotNull(p, b).map { it.state } + listOfNotNull(written?.state)
+        val recorded = listOfNotNull(p, b) + listOfNotNull(written?.state)
         if (recorded.any { FailureDelay.bootCountWentBack(it, bootCount) }) {
             return lockAsTampered(clock, highestSeq, verified = emptyList())
         }
-        if (p != null && b != null && p.state.seq >= b.state.seq && p.state.seq >= newest && !clockWentBack(p.state, clock, bootCount)) {
-            // A legacy copy, or copies that are not one save apart, means a save or a migration was interrupted. Saving the state
-            // again under a new sequence number settles both copies and deletes the keys they no longer use.
-            if (p.legacy || b.legacy || p.state.seq != b.state.seq) return settle(p.state, clock)
+        if (p != null && b != null && p.seq >= b.seq && p.seq >= newest && !clockWentBack(p, clock, bootCount)) {
+            // Copies that differ in sequence number mean a save was interrupted. Saving the state again under a new sequence number
+            // settles both copies and deletes the keys they no longer use.
+            if (p.seq != b.seq) return settle(p, clock)
             // Keys left behind by an interrupted save, or by a deletion the Keystore refused, are deleted here.
-            deleteOtherKeys(p.state.seq)
-            return p.state
+            deleteOtherKeys(p.seq)
+            return p
         }
         // The lock this process wrote last is kept while the copies still hold exactly those bytes. Without this, a Keystore that cannot
         // read the key of that lock would lock again at every load, and the owner could never get through.
@@ -101,11 +98,11 @@ internal class FailureStore(
         }
         // A copy verifies when its MAC checks out under its own key and no later save is known. Only copies that are not older than
         // the newest key count.
-        val verified = listOfNotNull(p, b).map { it.state }.filter { it.seq >= newest }
+        val verified = listOfNotNull(p, b).filter { it.seq >= newest }
         return lockAsTampered(clock, highestSeq, verified)
     }
 
-    /** Saves a pair that [load] found legacy or out of step, under a new sequence number. A failed save leaves the pair as it verified. */
+    /** Saves a pair that [load] found out of step, under a new sequence number. A failed save leaves the pair as it verified. */
     private fun settle(state: FailureState, clock: Clock): FailureState =
         trySave(state.copy(seq = state.seq + 1), clock) ?: state
 
@@ -349,61 +346,43 @@ internal class FailureStore(
     }
 
     /** The copy at [file] if it verifies under its own key, or null. A missing or unreadable file is not a copy. */
-    private fun readCopy(file: File): Copy? {
+    private fun readCopy(file: File): FailureState? {
         val bytes = try {
             file.readBytes()
         } catch (e: IOException) {
             return null
         }
-        if (bytes.size < MAGIC.size + 1 || !bytes.copyOf(MAGIC.size).contentEquals(MAGIC)) return null
-        val version = bytes[MAGIC.size]
-        val payloadSize = when (version) {
-            VERSION_1 -> PAYLOAD_SIZE_V1
-            VERSION_2 -> PAYLOAD_SIZE_V2
-            VERSION_3 -> PAYLOAD_SIZE_V3
-            VERSION -> PAYLOAD_SIZE
-            else -> return null
+        if (bytes.size != PAYLOAD_SIZE + MAC_SIZE || !bytes.copyOf(MAGIC.size).contentEquals(MAGIC) || bytes[MAGIC.size] != VERSION) {
+            return null
         }
-        if (bytes.size != payloadSize + MAC_SIZE) return null
-        val payload = bytes.copyOfRange(0, payloadSize)
-        val mac = bytes.copyOfRange(payloadSize, bytes.size)
-        // A Keystore error reading the key, or making the MAC, leaves the copy unverified. It does not fail the load.
-        val key = keystoreOrNull {
-            // Version 3 and later name their key by sequence number, which is read before the MAC is checked. A wrong number names no
-            // key, or another one, so the MAC then fails.
-            if (version >= VERSION_3) keys.failureMacKey(ByteBuffer.wrap(payload).getLong(MAGIC.size + 1)) else keys.legacyFailureMacKey()
-        } ?: return null
+        val payload = bytes.copyOfRange(0, PAYLOAD_SIZE)
+        val mac = bytes.copyOfRange(PAYLOAD_SIZE, bytes.size)
+        // A Keystore error reading the key, or making the MAC, leaves the copy unverified. It does not fail the load. The key is named by
+        // its sequence number, which is read before the MAC is checked. A wrong number names no key, or another one, so the MAC fails.
+        val key = keystoreOrNull { keys.failureMacKey(ByteBuffer.wrap(payload).getLong(MAGIC.size + 1)) } ?: return null
         val expected = keystoreOrNull { macOf(key, payload) } ?: return null
         if (!MessageDigest.isEqual(mac, expected)) return null
-        return parse(payload, version)
+        return parse(payload)
     }
 
-    private fun parse(payload: ByteArray, version: Byte): Copy? {
+    private fun parse(payload: ByteArray): FailureState? {
         val buffer = ByteBuffer.wrap(payload).apply { position(MAGIC.size + 1) }
         val seq = buffer.getLong()
         val failures = buffer.getInt()
         val lastFailureWallMs = buffer.getLong()
         val lastFailureElapsedMs = buffer.getLong()
-        if (version == VERSION_1) {
-            // Written before the cap existed, so the owner had not chosen one.
-            return Copy(FailureState(seq, failures, lastFailureWallMs, lastFailureElapsedMs), legacy = true)
-        }
         val capMs = when (val stored = buffer.getLong()) {
             NO_CAP_ON_DISK -> null
             // A MAC-valid cap outside the offered range is not something this app writes, so the copy is not trusted.
             in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS -> stored
             else -> return null
         }
-        // Version 2 is the layout from before the boot count, so it has none. Versions 2 and 3 have no erase count, so it is the default.
-        val bootCount = if (version == VERSION_2) null else bootCountOf(buffer.getInt())
-        val elapsedAtSave = if (version == VERSION_2) 0L else buffer.getLong()
-        val wipeAfter = if (version == VERSION) buffer.getInt() else FailureDelay.DEFAULT_WIPE_AFTER
+        val bootCount = bootCountOf(buffer.getInt())
+        val elapsedAtSave = buffer.getLong()
+        val wipeAfter = buffer.getInt()
         // A MAC-valid erase count outside the offered range is not something this app writes, so the copy is not trusted.
         if (wipeAfter !in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) return null
-        return Copy(
-            FailureState(seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs, bootCount, elapsedAtSave, wipeAfter),
-            legacy = version != VERSION,
-        )
+        return FailureState(seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs, bootCount, elapsedAtSave, wipeAfter)
     }
 
     private fun encode(state: FailureState, key: SecretKey): ByteArray {
@@ -441,14 +420,7 @@ internal class FailureStore(
         private const val MAC_ALGORITHM = "HmacSHA256"
         private val MAGIC = "LNFS".toByteArray(Charsets.US_ASCII)
 
-        /**
-         * Version 1 has no cap. Version 2 adds the cap, and both use the legacy key. Version 3 has the same fields as version 2,
-         * plus the boot count and the time the wait had run at the save, and it is MAC'd under the key for its sequence number.
-         * Version 4 adds the erase count.
-         */
-        private const val VERSION_1: Byte = 1
-        private const val VERSION_2: Byte = 2
-        private const val VERSION_3: Byte = 3
+        /** The layout of a copy that this build writes and reads. A copy of any other version is not a copy. */
         private const val VERSION: Byte = 4
 
         /** The cap on disk when the owner chose Default. Zero is outside the offered range, so it cannot be a real cap. */
@@ -457,17 +429,8 @@ internal class FailureStore(
         /** The boot count on disk when the device did not report one. A real count is never negative. */
         private const val NO_BOOT_COUNT = -1
 
-        /** magic (4) + version (1) + seq (8) + failures (4) + wall (8) + elapsed (8). */
-        private const val PAYLOAD_SIZE_V1 = 4 + 1 + 8 + 4 + 8 + 8
-
-        /** Version 1 payload plus the cap (8). */
-        private const val PAYLOAD_SIZE_V2 = PAYLOAD_SIZE_V1 + 8
-
-        /** Version 2 payload plus the boot count (4) and the time the wait had run at the save (8). */
-        private const val PAYLOAD_SIZE_V3 = PAYLOAD_SIZE_V2 + 4 + 8
-
-        /** Version 3 payload plus the erase count (4). */
-        private const val PAYLOAD_SIZE = PAYLOAD_SIZE_V3 + 4
+        /** magic (4), version (1), seq (8), failures (4), wall (8), elapsed (8), cap (8), boot count (4), time served (8), erase count (4). */
+        private const val PAYLOAD_SIZE = 4 + 1 + 8 + 4 + 8 + 8 + 8 + 4 + 8 + 4
         private const val MAC_SIZE = 32
 
         private const val STATE_UNAVAILABLE = "The Failure Delay state could not be read or written through the Keystore."

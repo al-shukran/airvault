@@ -1,13 +1,10 @@
 package app.lensly.core.vault
 
 import java.io.File
-import java.nio.ByteBuffer
 import java.security.GeneralSecurityException
-import javax.crypto.Mac
 import javax.crypto.SecretKey
 import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Assume.assumeFalse
 import org.junit.Before
@@ -16,7 +13,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * The Failure Delay through [Vault.unlock]: a restored older state, a reboot, and an upgrade from the single-key layout. Each
+ * The Failure Delay through [Vault.unlock]: a restored older state and a reboot. Each
  * test restarts the vault by forgetting the in-process sequence number and building a new [Vault] over the same files and keys.
  */
 class VaultRollbackTest {
@@ -87,32 +84,6 @@ class VaultRollbackTest {
         clock.advance(FailureDelay.LEARNING_CAP_MS)
         unlocked(attempt(APP)).close()
         assertEquals(0, vault.failureCountForTesting())
-    }
-
-    @Test
-    fun aPendingWaitFromTheSingleKeyLayoutSurvivesTheMigration() {
-        createVault()
-        // The state the app wrote before per-save keys: two failures, with one legacy key that is the only one left.
-        val legacyState = FailureState(
-            seq = 5,
-            failures = 2,
-            lastFailureWallMs = clock.wall,
-            lastFailureElapsedMs = clock.elapsed,
-        )
-        keys.deleteFailureMacKeysExcept(null)
-        val legacyKey = keys.createLegacyFailureMacKey()
-        val legacy = encodeLegacyV2(legacyState, legacyKey)
-        File(layout.root, FailureStore.PRIMARY_FILE_NAME).writeBytes(legacy)
-        File(layout.root, FailureStore.BACKUP_FILE_NAME).writeBytes(legacy)
-        restart()
-
-        // Inside the 10 s wait for two failures, so even the right password is refused. The migration happens on this attempt.
-        assertRejected(attempt(APP))
-        assertNull(keys.legacyFailureMacKey())
-        clock.advance(FailureDelay.LEARNING_CAP_MS - 1)
-        assertRejected(attempt(APP))
-        clock.advance(1)
-        unlocked(attempt(APP)).close()
     }
 
     @Test
@@ -249,24 +220,6 @@ class VaultRollbackTest {
 
     private fun restoreFailureFiles(snapshot: Map<String, ByteArray>) {
         snapshot.forEach { (name, bytes) -> File(layout.root, name).writeBytes(bytes) }
-    }
-
-    /** A version 2 record under [key]: the layout the app wrote before per-save keys. */
-    private fun encodeLegacyV2(state: FailureState, key: SecretKey): ByteArray {
-        val payload = ByteBuffer.allocate(41)
-            .put("LNFS".toByteArray(Charsets.US_ASCII))
-            .put(2)
-            .putLong(state.seq)
-            .putInt(state.failures)
-            .putLong(state.lastFailureWallMs)
-            .putLong(state.lastFailureElapsedMs)
-            .putLong(state.capMs ?: 0L)
-            .array()
-        val mac = Mac.getInstance("HmacSHA256").run {
-            init(key)
-            doFinal(payload)
-        }
-        return payload + mac
     }
 
     private companion object {
