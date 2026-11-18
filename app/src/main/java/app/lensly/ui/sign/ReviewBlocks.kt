@@ -375,9 +375,10 @@ internal fun ReviewActions(
 }
 
 /**
- * An address with what the Address Book and the device's accounts say of it. The name it goes by sits above the address, and the full
- * address follows. Under it: the address-book label and notes, or "Not in address book" when the Address Book holds no entry for it, and
- * the device's own account notes. The Address Book is read for every counterparty, so a miss is shown, and it is not a warning.
+ * An address with what the Address Book and the vault's accounts say of it. The bold line above the address is [headline]: an account of this
+ * device takes it, and the full address follows. Under it: the wallet of an account of another wallet, the Address Book name when an account
+ * holds the headline, the address-book label and notes, or "Not in address book" when the Address Book holds no entry for it. The Address
+ * Book is read for every counterparty, so a miss is shown, and it is not a warning.
  *
  * With [onClick] the address is a list row: a tap opens it, and a chevron shows that it does. It is the one address component every review
  * and the Activity detail share.
@@ -391,9 +392,9 @@ internal fun ReviewAddress(
     onClick: (() -> Unit)? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        notes?.shownName()?.let { name ->
+        notes?.headline()?.let { line ->
             Text(
-                text = name,
+                text = line,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                 color = LenslyOnSurface,
             )
@@ -408,21 +409,18 @@ internal fun ReviewAddress(
 }
 
 /**
- * The notes of an address that are not its name, in sans: what this device's account is, its wallet, its Address Book label, and
- * "Not in address book" when the Address Book holds no entry for it.
+ * The notes of an address that are not its bold line, in sans: the wallet of an account of another wallet, the Address Book name when an
+ * account holds the bold line, the Address Book label and notes, and "Not in address book" when the Address Book holds no entry for it.
  */
 @Composable
 internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
-        notes?.internal?.let { account ->
-            NoteText("An account of this device")
-            account.walletName?.let { ReviewFactRow(label = "Wallet", value = it, mono = false) }
-            account.label?.let { ReviewFactRow(label = "Label", value = it, mono = false) }
-        }
+        notes?.internal?.walletName?.let { ReviewFactRow(label = "Wallet", value = it, mono = false) }
         val entry = notes?.entry
         if (entry == null) {
             NoteText(NOT_IN_ADDRESS_BOOK)
         } else {
+            if (notes?.internal != null) ReviewFactRow(label = "Address name", value = entry.name, mono = false)
             entry.label?.let { ReviewFactRow(label = "Address label", value = it, mono = false) }
             entry.notes?.let { ReviewFactRow(label = "Address notes", value = it, mono = false) }
         }
@@ -433,9 +431,22 @@ internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifie
 internal const val NOT_IN_ADDRESS_BOOK = "Not in address book"
 
 /**
- * The name an address goes by: its Address Book name, or else the name of this device's account. Null when neither gives one.
+ * The bold line above an address. An account of this device takes it, as "Your account · <name> · <label>", and the label is left out when
+ * the account has none. Otherwise it is the Address Book name. Null when neither gives one.
  */
-internal fun AddressNotes.shownName(): String? = entry?.name ?: internal?.let { account -> account.displayName ?: account.autoName }
+internal fun AddressNotes.headline(): String? {
+    val account = internal ?: return entry?.name
+    return listOfNotNull(YOUR_ACCOUNT, account.displayName ?: account.autoName, account.label).joinToString(" · ")
+}
+
+/** The start of the bold line of an account of this device. */
+internal const val YOUR_ACCOUNT = "Your account"
+
+/**
+ * The name an address goes by in a sentence: the name of this device's account when it is one, else its Address Book name. Null when
+ * neither gives one.
+ */
+internal fun AddressNotes.shownName(): String? = internal?.let { account -> account.displayName ?: account.autoName } ?: entry?.name
 
 /** Appends [text] in the mono face, for an amount or an address inside a sentence. */
 internal fun AnnotatedString.Builder.appendMono(text: String) {

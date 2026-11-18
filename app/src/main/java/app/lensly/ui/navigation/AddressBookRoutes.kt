@@ -23,11 +23,14 @@ import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressBookStore
 import app.lensly.app.AddressChain
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
+import app.lensly.app.InternalAccount
 import app.lensly.app.PROFILE_TEXT_MAX_LENGTH
 import app.lensly.app.VaultHolder
+import app.lensly.app.WalletStore
 import app.lensly.app.addressBookEntryFor
 import app.lensly.app.addressBookEntryOf
 import app.lensly.app.chainOfAddress
+import app.lensly.app.internalAccountsOf
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.settings.ADDRESS_BOOK_ADDRESS_MAX_LENGTH
 import app.lensly.ui.settings.AddressBookField
@@ -75,6 +78,23 @@ internal fun rememberAddressBook(navController: NavHostController, session: Vaul
     val shown by navController.currentBackStackEntryAsState()
     val read by produceState<List<AddressBookEntry>?>(initialValue = null, session, shown) {
         value = withContext(Dispatchers.IO) { runCatching { AddressBookStore(session).load() }.getOrDefault(emptyList()) }
+    }
+    return read
+}
+
+/**
+ * The accounts of every wallet of the vault on every chain, read again each time the screen is shown, so an account renamed or added on
+ * another screen shows here. [signingWalletId] is the wallet the screen is for, or null for every wallet. Null until the first read.
+ */
+@Composable
+internal fun rememberInternalAccounts(
+    navController: NavHostController,
+    session: VaultSession,
+    signingWalletId: String?,
+): Map<String, InternalAccount>? {
+    val shown by navController.currentBackStackEntryAsState()
+    val read by produceState<Map<String, InternalAccount>?>(initialValue = null, session, signingWalletId, shown) {
+        value = withContext(Dispatchers.IO) { runCatching { internalAccountsOf(WalletStore(session), signingWalletId) }.getOrDefault(emptyMap()) }
     }
     return read
 }
