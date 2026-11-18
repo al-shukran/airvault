@@ -1,5 +1,7 @@
 package app.lumio.ui.send
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,9 +10,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,8 +23,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
@@ -35,12 +42,7 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.SettingsRow
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.wallet.WalletEyebrow
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.theme.LenslySpacing
@@ -50,6 +52,11 @@ import app.lumio.evm.EvmFormat
 import app.lumio.evm.PreparedSend
 import app.lumio.evm.SendAsset
 import app.lumio.evm.SendInput
+import app.lumio.ui.kit.LumioIsland
+import app.lumio.ui.kit.LumioPrimaryButton
+import app.lumio.ui.kit.LumioTag
+import app.lumio.ui.kit.LumioTextAction
+import app.lumio.ui.theme.LumioRadius
 
 private const val TESTNET_LABEL = "Testnet"
 
@@ -57,9 +64,10 @@ private const val TESTNET_LABEL = "Testnet"
 internal const val RECIPIENT_SCAN_HINT = "Point the camera at an address or a payment code."
 
 /**
- * The send form: the address that sends, the network the send is bound to (the account fixes it, so there is no picker), the asset of that network
- * (the native coin or a token the address holds), the recipient and the amount in that asset. [chain] is null when that network is off, and the form
- * then says so. [notice] is why the last attempt did not go through. [busy] holds the review until the endpoint has answered.
+ * The Details step of a send: the address that sends, the network the send is bound to (the account fixes it, so there is no picker), the asset of
+ * that network (the native coin or a token the address holds), the recipient and the amount in that asset, typed on the system's decimal keyboard.
+ * [chain] is null when that network is off, and the form then says so. [notice] is why the last attempt did not go through. [busy] holds the review
+ * until the endpoint has answered.
  */
 @Composable
 fun SendFormScreen(
@@ -79,17 +87,12 @@ fun SendFormScreen(
     onReview: () -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(
-        title = "Send",
+    SendStepScaffold(
+        step = SEND_STEP_DETAILS,
+        title = if (chain == null) "Send" else "Send ${selectedAsset?.symbol ?: chain.symbol}",
         onBack = onBack,
         bottomAction = {
-            WalletPill(
-                text = "Review",
-                onClick = onReview,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-                enabled = !busy && chain != null,
-            )
+            LumioPrimaryButton(text = "Review", onClick = onReview, enabled = !busy && chain != null)
         },
     ) {
         if (chain == null) {
@@ -98,16 +101,10 @@ fun SendFormScreen(
                 title = "Network is off",
                 body = "Turn it on in EVM settings to send on it.",
             )
-            return@LenslyScreen
+            return@SendStepScaffold
         }
-        if (busy) {
-            Text(
-                "Reading the network",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        SectionLabel("From")
+        if (busy) StepLabel("Reading the network")
+        StepLabel("From")
         Text(fromLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         AddressText(
             address = fromAddress,
@@ -116,15 +113,17 @@ fun SendFormScreen(
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        SectionLabel("Network")
+        StepLabel("Network")
         ChainLine(chain = chain)
 
-        SectionLabel("Asset")
-        assets.forEach { asset ->
-            AssetRow(asset = asset, selected = asset.token?.contract == selectedAsset?.token?.contract, onSelect = { onSelectAsset(asset) })
+        StepLabel("Asset")
+        LumioIsland {
+            assets.forEach { asset ->
+                AssetRow(asset = asset, selected = asset.token?.contract == selectedAsset?.token?.contract, onSelect = { onSelectAsset(asset) })
+            }
         }
 
-        SectionLabel("Send to")
+        StepLabel("Send to")
         AddressField(
             value = recipient,
             onValueChange = onRecipient,
@@ -133,16 +132,12 @@ fun SendFormScreen(
             enabled = !busy,
             onScan = onScan,
         )
-        Spacer(Modifier.height(LenslySpacing.sm))
-        OutlinedTextField(
-            value = amount,
-            onValueChange = onAmount,
-            label = { Text("Amount in ${selectedAsset?.symbol ?: chain.symbol}") },
-            singleLine = true,
-            enabled = !busy,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth(),
-        )
+
+        StepLabel("Amount in ${selectedAsset?.symbol ?: chain.symbol}")
+        AmountField(value = amount, onValueChange = onAmount, enabled = !busy)
+        selectedAsset?.let {
+            Text(assetDetail(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         notice?.let {
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -151,8 +146,8 @@ fun SendFormScreen(
 }
 
 /**
- * The review of a send before anything is requested: what leaves, where it goes, and the most the fee can be. [suggested] is the send the
- * network prepared; Advanced edits the nonce, the gas limit and the fees, and [onSave] takes the edited send.
+ * The review of a send before anything is requested: one sentence of what leaves and where it goes, then the parties and the most the fee can be.
+ * [suggested] is the send the network prepared; Advanced edits the nonce, the gas limit and the fees, and [onSave] takes the edited send.
  */
 @Composable
 fun SendReviewScreen(
@@ -167,60 +162,59 @@ fun SendReviewScreen(
     accounts: Map<String, InternalAccount> = emptyMap(),
 ) {
     val chain = send.chain
+    val token = send.token
     var advanced by remember { mutableStateOf(false) }
-    LenslyScreen(
+    val amount = if (token == null) {
+        EvmFormat.amount(send.valueWei, chain.decimals, chain.symbol)
+    } else {
+        EvmFormat.amount(send.valueWei, token.decimals, token.symbol)
+    }
+    val recipient = addressNotesOf(send.to, AddressChain.EVM, accounts, addressBook)?.headline() ?: send.to
+    SendStepScaffold(
+        step = SEND_STEP_REVIEW,
         title = "Review send",
         onBack = onBack,
         bottomAction = {
-            WalletPill(
-                text = "Sign with Lensly",
-                onClick = onConfirm,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
+            LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm)
         },
     ) {
         NetworkHeader(chain)
-        val token = send.token
-        if (token != null) {
-            Text(
-                "Send ${EvmFormat.amount(send.valueWei, token.decimals, token.symbol)} to ${send.to}",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(LenslySpacing.sm))
+        Text(
+            "Send $amount to $recipient",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(LenslySpacing.md))
+        LumioIsland {
+            Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
+                ReviewAddress("From", send.from, notes = addressNotesOf(send.from, AddressChain.EVM, accounts, addressBook))
+                ReviewAddress("To", send.to, notes = addressNotesOf(send.to, AddressChain.EVM, accounts, addressBook))
+                ReviewField("Amount", amount)
+                if (token != null) ReviewAddress("Token contract", send.tx.to ?: token.contract)
+            }
         }
-        ReviewAddress("From", send.from, notes = addressNotesOf(send.from, AddressChain.EVM, accounts, addressBook))
-        ReviewAddress("To", send.to, notes = addressNotesOf(send.to, AddressChain.EVM, accounts, addressBook))
-        if (token == null) {
-            ReviewField("Amount", EvmFormat.amount(send.valueWei, chain.decimals, chain.symbol))
-        } else {
-            ReviewField("Amount", EvmFormat.amount(send.valueWei, token.decimals, token.symbol))
-            ReviewAddress("Token contract", send.tx.to ?: token.contract)
-        }
-        ReviewField("Fee, at most", EvmFormat.amount(send.maxFeeWei, chain.decimals, chain.symbol))
-        ReviewField("Fee cap per gas", "${Amounts.format(send.maxFeePerGas, GWEI_DECIMALS)} gwei")
-        ReviewField("Priority fee per gas", "${Amounts.format(send.maxPriorityFeePerGas, GWEI_DECIMALS)} gwei")
-        ReviewField("Gas limit", send.gasLimit.toString())
-        ReviewField("Nonce", send.nonce.toString())
-        if (token == null) {
-            ReviewField("Balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
-        } else {
-            ReviewField("Balance", send.tokenBalance?.let { EvmFormat.amount(it, token.decimals, token.symbol) }.orEmpty())
-            ReviewField("Gas balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
+        Spacer(Modifier.height(LenslySpacing.md))
+        LumioIsland {
+            Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
+                ReviewField("Fee, at most", EvmFormat.amount(send.maxFeeWei, chain.decimals, chain.symbol))
+                ReviewField("Fee cap per gas", "${Amounts.format(send.maxFeePerGas, GWEI_DECIMALS)} gwei")
+                ReviewField("Priority fee per gas", "${Amounts.format(send.maxPriorityFeePerGas, GWEI_DECIMALS)} gwei")
+                ReviewField("Gas limit", send.gasLimit.toString())
+                ReviewField("Nonce", send.nonce.toString())
+                if (token == null) {
+                    ReviewField("Balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
+                } else {
+                    ReviewField("Balance", send.tokenBalance?.let { EvmFormat.amount(it, token.decimals, token.symbol) }.orEmpty())
+                    ReviewField("Gas balance", EvmFormat.amount(send.balanceWei, chain.decimals, chain.symbol))
+                }
+            }
         }
         EvmAdvanced.warnings(suggested, send).forEach { warning ->
             Spacer(Modifier.height(LenslySpacing.xs))
             InlineBanner(message = warning, tone = BannerTone.Warning)
         }
-        Spacer(Modifier.height(LenslySpacing.md))
-        WalletPill(
-            text = "Advanced",
-            onClick = { advanced = true },
-            modifier = Modifier.fillMaxWidth(),
-            style = WalletPillStyle.Outline,
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
+        LumioTextAction(text = "Advanced", onClick = { advanced = true }, modifier = Modifier.padding(top = LenslySpacing.xs))
+        Spacer(Modifier.height(LenslySpacing.xs))
         Text(
             "Lumio holds no key. Lensly signs this transaction, and Lumio sends only the signature that Lensly shows.",
             style = MaterialTheme.typography.bodyMedium,
@@ -250,7 +244,10 @@ fun RecipientScanScreen(status: String, onText: (String) -> Unit, onCancel: () -
     ScanScreen(title = "Scan address", progress = null, statusText = status, onText = onText, onCancel = onCancel)
 }
 
-/** The request as an animated code for Lensly to scan. [notice] is why the last signature did not send. */
+/**
+ * The request as an animated code for Lensly to scan, on a white card so that the code reads on either palette. [notice] is why the last signature
+ * did not send.
+ */
 @Composable
 fun SignRequestScreen(
     send: PreparedSend,
@@ -259,27 +256,31 @@ fun SignRequestScreen(
     onScan: () -> Unit,
     onBack: () -> Unit,
 ) {
-    LenslyScreen(
+    SendStepScaffold(
+        step = SEND_STEP_SIGN,
         title = "Sign in Lensly",
         onBack = onBack,
         scrollable = false,
         bottomAction = {
-            WalletPill(
-                text = "Scan Lensly's signature",
-                onClick = onScan,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
+            LumioPrimaryButton(text = "Scan Lensly's signature", onClick = onScan)
         },
     ) {
         NetworkHeader(send.chain)
         Text(
-            "In Lensly, scan this code, check the review and approve. Then scan the signature that Lensly shows.",
+            "On Lensly, tap Scan and point it here.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.weight(1f))
-        AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(LumioRadius.lg))
+                .background(Color.White)
+                .padding(LenslySpacing.md),
+        ) {
+            AnimatedQr(parts = parts, modifier = Modifier.fillMaxWidth())
+        }
         Spacer(Modifier.weight(1f))
         notice?.let {
             InlineBanner(message = it, tone = BannerTone.Error)
@@ -299,7 +300,7 @@ fun SignatureScanScreen(progress: Float?, status: String, onText: (String) -> Un
     )
 }
 
-/** The network the send is on: its name, with a TESTNET label when it is a testnet. The send offers no other network. */
+/** The network the send is on: its name, with a testnet tag when it is a testnet. The send offers no other network. */
 @Composable
 private fun ChainLine(chain: EvmChain) {
     Row(
@@ -314,8 +315,37 @@ private fun ChainLine(chain: EvmChain) {
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        if (chain.testnet) PillChip(text = TESTNET_LABEL)
+        if (chain.testnet) LumioTag(text = TESTNET_LABEL)
     }
+}
+
+/**
+ * The amount: the figure is set large where the owner reads it, and it is typed on the system's decimal keyboard. There is no keypad and no preset
+ * amount.
+ */
+@Composable
+private fun AmountField(value: String, onValueChange: (String) -> Unit, enabled: Boolean) {
+    val figure = MaterialTheme.typography.displaySmall
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = LenslySpacing.sm),
+        enabled = enabled,
+        singleLine = true,
+        textStyle = figure.copy(color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        decorationBox = { field ->
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                if (value.isEmpty()) {
+                    Text("0", style = figure, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                field()
+            }
+        },
+    )
 }
 
 /** One coin of the asset picker: its symbol, and what the sending address holds of it. */
@@ -325,7 +355,7 @@ private fun AssetRow(asset: SendAsset, selected: Boolean, onSelect: () -> Unit) 
         modifier = Modifier
             .fillMaxWidth()
             .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
-            .padding(vertical = LenslySpacing.xxs),
+            .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = selected, onClick = null)
@@ -348,14 +378,14 @@ private fun assetDetail(asset: SendAsset): String {
     return "Balance " + EvmFormat.amount(balance, token.decimals, token.symbol)
 }
 
-/** The chain's name, with a TESTNET label when it is a testnet. */
+/** The chain's name, with a testnet tag when it is a testnet. */
 @Composable
 private fun NetworkHeader(chain: EvmChain) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(chain.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         if (chain.testnet) {
             Spacer(Modifier.width(LenslySpacing.xs))
-            PillChip(text = TESTNET_LABEL)
+            LumioTag(text = TESTNET_LABEL)
         }
     }
     Spacer(Modifier.height(LenslySpacing.sm))
