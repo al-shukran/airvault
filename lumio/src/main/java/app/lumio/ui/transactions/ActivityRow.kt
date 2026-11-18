@@ -3,13 +3,8 @@ package app.lumio.ui.transactions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,115 +14,75 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.Amounts
-import app.lensly.ui.components.ListRow
-import app.lensly.ui.theme.LenslySpacing
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
 import app.lumio.home.HomeFormat
+import app.lumio.home.Masking
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.kit.LumioRow
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** The test tag of a feed row. A test finds the rows by it. */
-const val TX_CARD_TAG = "tx-card"
+/** The test tag of an activity row. A test finds the rows by it. */
+const val TX_ROW_TAG = "tx-row"
 
 /**
- * One transaction in the feed, in the style of a social feed: the direction mark, who it went to or came from, the chain, the time, and the comment
- * when there is one. The amount and its value in dollars sit at the right. A tap opens the transaction.
+ * One transaction of an activity island (section 2.1): its direction, the counterparty and the time under it, and the signed amount with its value in
+ * dollars at the right. [shown] is false while the owner hides balances, and the amounts then read as the mask. A tap opens the transaction.
  */
 @Composable
-fun TxCard(item: TxFeedItem, zone: ZoneId, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ActivityRow(item: TxFeedItem, zone: ZoneId, onClick: () -> Unit, modifier: Modifier = Modifier, shown: Boolean = true) {
     val tx = item.tx
-    ListRow(onClick = onClick, modifier = modifier.testTag(TX_CARD_TAG)) {
-        DirectionBadge(tx.direction)
-        Spacer(Modifier.width(LenslySpacing.sm))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = directionTitle(tx.direction), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-            Row(verticalAlignment = Alignment.CenterVertically) {
+    LumioRow(
+        title = directionTitle(tx.direction),
+        description = counterpartyLine(tx) + " · " + timeText(tx.timestampMs, zone) + statusNote(tx.status),
+        modifier = modifier.testTag(TX_ROW_TAG),
+        leading = { DirectionMark(tx.direction) },
+        trailing = {
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = counterpartyLine(tx),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                Spacer(Modifier.width(LenslySpacing.xs))
-                ChainBadge(item.chain)
-            }
-            Text(
-                text = timeText(tx.timestampMs, zone) + statusNote(tx.status),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-            item.comment?.let { comment ->
-                Text(
-                    text = comment,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = Masking.amount(signedAmount(tx), hidden = !shown),
+                    style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontStyle = FontStyle.Italic,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End,
                 )
+                item.usd?.let {
+                    Text(
+                        text = Masking.amount(HomeFormat.usd(it), hidden = !shown),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End,
+                    )
+                }
             }
-        }
-        Spacer(Modifier.width(LenslySpacing.sm))
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = signedAmount(tx),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.End,
-            )
-            item.usd?.let {
-                Text(text = HomeFormat.usd(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
-            }
-        }
-    }
+        },
+        onClick = onClick,
+    )
 }
 
 /** The round mark of a direction, which is an arrow in, an arrow out, or a swap for a transfer to the account itself. */
 @Composable
-private fun DirectionBadge(direction: TxDirection) {
+private fun DirectionMark(direction: TxDirection) {
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(40.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = directionIcon(direction),
-            contentDescription = directionTitle(direction),
+            contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(18.dp),
         )
     }
-}
-
-/** The chain of a row, in a small rounded label, such as "Ethereum" or "Bitcoin testnet4". */
-@Composable
-private fun ChainBadge(name: String) {
-    Text(
-        text = name,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurface,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .clip(RoundedCornerShape(percent = 50))
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-            .padding(horizontal = LenslySpacing.xs, vertical = 2.dp),
-    )
 }
 
 /** The mark of [direction]. */

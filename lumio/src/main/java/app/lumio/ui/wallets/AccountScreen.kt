@@ -1,182 +1,232 @@
 package app.lumio.ui.wallets
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import app.lensly.core.registry.Amounts
-import app.lensly.ui.components.AddressText
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
-import app.lumio.chains.ChainHolding
+import app.lensly.ui.theme.LumenMono
+import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
-import app.lumio.tokens.TokenHolding
 import app.lumio.transactions.TxFeedItem
-import app.lumio.ui.transactions.TxCard
+import app.lumio.ui.home.AssetIcon
+import app.lumio.ui.kit.AnimatedAmount
+import app.lumio.ui.kit.LumioAssetIcon
+import app.lumio.ui.kit.LumioIsland
+import app.lumio.ui.kit.LumioPrimaryButton
+import app.lumio.ui.kit.LumioRow
+import app.lumio.ui.kit.LumioTextAction
+import app.lumio.ui.kit.rememberCopyAction
+import app.lumio.ui.transactions.ActivityRow
 import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
-import java.math.BigInteger
 import java.time.ZoneId
 
+/** The hero's text while no read of the account's balance is kept. */
+private const val NOT_READ = "Not read yet"
+
 /**
- * One account: its chain and network, its full address, its balance, and the two text actions, Send and Receive. An Ethereum account also lists its
- * ERC-20 balances, and every account lists its newest [activity], each row opening its transaction.
+ * One account (section 2.1, Account): its balance as the hero with its value in dollars, then its network and address, which copy when tapped. Its
+ * assets and its newest activity follow, each in an island. Send is the primary action, with Receive as the text action above it. An account that
+ * holds nothing makes Receive the primary, and Send drops out.
  */
 @Composable
-fun AccountScreen(
+internal fun AccountScreen(
     walletName: String,
     account: WalletAccount,
     showBalance: Boolean,
-    tokens: List<TokenHolding> = emptyList(),
-    chainHoldings: List<ChainHolding> = emptyList(),
-    activity: List<TxFeedItem> = emptyList(),
     onSend: () -> Unit,
     onReceive: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    assets: List<AssetRowModel> = emptyList(),
+    activity: List<TxFeedItem> = emptyList(),
+    onAsset: (AssetRowModel) -> Unit = {},
     onOpenTransaction: (TxFeedItem) -> Unit = {},
     refreshing: Boolean = false,
     notice: String? = null,
     onRefresh: (() -> Unit)? = null,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
-    LenslyScreen(title = account.chain.label, modifier = modifier, onBack = onBack) {
-        Text(
-            text = walletName,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
-        Field(label = "Network", value = account.networkName)
-        account.script?.let { Field(label = "Script", value = it) }
-        Text(
-            text = "Address",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        AddressText(address = account.address, icon = false)
-        Spacer(Modifier.height(LenslySpacing.md))
-        Text(
-            text = "Balance",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        BalanceValue(account, shown = showBalance, large = true)
-        Spacer(Modifier.height(LenslySpacing.lg))
-        TextButton(onClick = onSend) { Text("Send") }
-        TextButton(onClick = onReceive) { Text("Receive") }
-        if (refreshing) {
+    val balance = account.balance
+    val empty = assets.isNotEmpty() && assets.all { it.zero }
+    val heroText = balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" }
+    val heroFiat = assets.firstOrNull { it.isNative }?.fiatText
+    LenslyScreen(
+        title = account.chain.label,
+        modifier = modifier,
+        onBack = onBack,
+        bottomAction = {
+            if (empty) {
+                LumioPrimaryButton(text = "Receive", onClick = onReceive)
+            } else {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    LumioTextAction(text = "Receive", onClick = onReceive)
+                }
+                Spacer(Modifier.height(LenslySpacing.xs))
+                LumioPrimaryButton(text = "Send", onClick = onSend)
+            }
+        },
+    ) {
+        Text(text = walletName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(LenslySpacing.sm))
+        if (heroText == null) {
+            Text(text = NOT_READ, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            AnimatedAmount(text = heroText, hidden = !showBalance)
+        }
+        heroFiat?.let { fiat ->
             Text(
-                text = "Reading the network",
-                style = MaterialTheme.typography.labelMedium,
+                text = Masking.amount(fiat, hidden = !showBalance),
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(Modifier.height(LenslySpacing.md))
+        AddressLine(network = account.networkName, address = account.address)
         notice?.let {
             Spacer(Modifier.height(LenslySpacing.sm))
             InlineBanner(message = it, tone = BannerTone.Warning)
         }
-        onRefresh?.let { refresh -> TextButton(onClick = refresh, enabled = !refreshing) { Text("Refresh") } }
-        if (account.chain == AccountChain.ETHEREUM || chainHoldings.isNotEmpty()) {
-            Spacer(Modifier.height(LenslySpacing.lg))
+        if (refreshing) {
             Text(
-                text = "Tokens",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            val held = tokens.filter { it.amount.signum() > 0 }
-            if (held.isEmpty() && chainHoldings.isEmpty()) {
-                Text(
-                    text = "No token balances yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            held.forEach { holding -> HeldTokenLine(holding = holding, shown = showBalance) }
-            chainHoldings.forEach { holding ->
-                TokenLine(
-                    symbol = holding.symbol,
-                    network = holding.network,
-                    amount = holding.amount,
-                    decimals = holding.decimals,
-                    shown = showBalance,
-                )
-            }
-        }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        Text(
-            text = "Activity",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        when {
-            account.chain == AccountChain.SOLANA || account.chain == AccountChain.ALGORAND -> Text(
-                text = "Activity is not read for ${account.chain.label} yet.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            activity.isEmpty() -> Text(
-                text = "No transactions yet.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            else -> activity.forEach { item ->
-                TxCard(item = item, zone = zone, onClick = { onOpenTransaction(item) })
-            }
-        }
-    }
-}
-
-/** One ERC-20 token the address holds on a network, with the balance, hidden when the owner hides balances. */
-@Composable
-private fun HeldTokenLine(holding: TokenHolding, shown: Boolean) =
-    TokenLine(holding.token.symbol, holding.chain.name, holding.amount, holding.token.decimals, shown)
-
-/** One token line: its symbol and its network, with the amount in whole units, hidden when the owner hides balances. */
-@Composable
-private fun TokenLine(symbol: String, network: String, amount: BigInteger, decimals: Int, shown: Boolean) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = LenslySpacing.xxs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = symbol,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = network,
+                text = "Reading the network",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        onRefresh?.let { refresh ->
+            LumioTextAction(text = "Refresh", onClick = refresh, enabled = !refreshing)
+        }
+        Spacer(Modifier.height(LenslySpacing.lg))
+        SectionTitle("Assets")
+        LumioIsland {
+            if (assets.isEmpty()) {
+                EmptyLine(if (balance == null) NOT_READ else "No assets yet.")
+            } else {
+                assets.forEachIndexed { index, asset ->
+                    if (index > 0) Divider()
+                    AssetRow(asset = asset, shown = showBalance, onClick = { onAsset(asset) })
+                }
+            }
+        }
+        Spacer(Modifier.height(LenslySpacing.lg))
+        SectionTitle("Activity")
+        LumioIsland {
+            when {
+                account.chain == AccountChain.SOLANA || account.chain == AccountChain.ALGORAND ->
+                    EmptyLine("Activity is not read for ${account.chain.label} yet.")
+                activity.isEmpty() -> EmptyLine("No transactions yet.")
+                else -> activity.forEachIndexed { index, item ->
+                    if (index > 0) Divider()
+                    ActivityRow(item = item, zone = zone, shown = showBalance, onClick = { onOpenTransaction(item) })
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The network and the address of the account, the address in mono. A tap copies the address, and the address reads "Copied" for 1.5 s.
+ */
+@Composable
+private fun AddressLine(network: String, address: String) {
+    val copy = rememberCopyAction(value = address, label = "Address")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = copy.copy),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
-            text = Masking.amount(Amounts.format(amount, decimals), hidden = !shown),
-            style = MaterialTheme.typography.bodyLarge,
+            text = "$network · ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = if (copy.copied) "Copied" else shortAddress(address),
+            style = LumenMono,
             color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
         )
     }
 }
 
-/** A label above a value on the account page. */
+/** One asset row of the Assets island: its logo, its symbol and network, and its amount with its value in dollars. A tap opens the asset. */
 @Composable
-private fun Field(label: String, value: String) {
-    Column {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-        Spacer(Modifier.height(LenslySpacing.sm))
-    }
+private fun AssetRow(asset: AssetRowModel, shown: Boolean, onClick: () -> Unit) {
+    LumioRow(
+        title = asset.symbol,
+        description = asset.network,
+        leading = { LumioAssetIcon(testnet = asset.testnet) { AssetIcon(spec = asset.icon, size = 24.dp) } },
+        trailing = {
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = Masking.amount(asset.amountText, hidden = !shown),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.End,
+                )
+                asset.fiatText?.let { fiat ->
+                    Text(
+                        text = Masking.amount(fiat, hidden = !shown),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End,
+                    )
+                }
+            }
+        },
+        onClick = onClick,
+    )
+}
+
+/** The label of an island, in the label face and sentence case. */
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = LenslySpacing.xs),
+    )
+}
+
+/** A line of an island that says there is nothing to list. */
+@Composable
+private fun EmptyLine(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm),
+    )
+}
+
+/** The hairline between two rows of an island. */
+@Composable
+private fun Divider() {
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant,
+        modifier = Modifier.padding(horizontal = LenslySpacing.md),
+    )
 }

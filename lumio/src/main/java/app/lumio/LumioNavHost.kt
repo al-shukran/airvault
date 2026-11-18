@@ -109,6 +109,15 @@ internal object LumioRoute {
     /** The route of account [index] of [chain] in [walletId]. */
     fun account(walletId: String, chain: AccountChain, index: Int): String = "account/$walletId/${chain.route}/$index"
 
+    /** The argument of an asset's route: the asset's key among the account's assets, as [AssetRows] keys them. */
+    const val ASSET_KEY_ARG = "assetKey"
+
+    /** One asset of an account, with the account's wallet, chain and place, and the asset's key, as its arguments. */
+    const val ASSET = "asset/{$WALLET_ARG}/{$ACCOUNT_CHAIN_ARG}/{$ACCOUNT_INDEX_ARG}/{$ASSET_KEY_ARG}"
+
+    /** The route of the asset [assetKey] of account [index] of [chain] in [walletId]. */
+    fun asset(walletId: String, chain: AccountChain, index: Int, assetKey: String): String = "asset/$walletId/${chain.route}/$index/$assetKey"
+
     /** The route of the read-only Address Book of [walletId], opened from the wallet's row in Settings. */
     const val ADDRESS_BOOK = "settings/address-book/{$WALLET_ARG}"
 
@@ -402,6 +411,34 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                             walletId = walletId,
                             chain = chain,
                             index = index,
+                            mode = selection.mode,
+                            listVersion = listVersion,
+                        )
+                    }
+                }
+            }
+            composable(
+                route = LumioRoute.ASSET,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.ACCOUNT_CHAIN_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.ACCOUNT_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ASSET_KEY_ARG) { type = NavType.StringType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val chain = AccountChain.ofRoute(entry.arguments?.getString(LumioRoute.ACCOUNT_CHAIN_ARG).orEmpty())
+                val index = entry.arguments?.getInt(LumioRoute.ACCOUNT_INDEX_ARG) ?: 0
+                val assetKey = entry.arguments?.getString(LumioRoute.ASSET_KEY_ARG).orEmpty()
+                LumioBackdrop(selection) {
+                    if (chain != null) {
+                        AssetRoute(
+                            navController = navController,
+                            holder = holder,
+                            walletId = walletId,
+                            chain = chain,
+                            index = index,
+                            assetKey = assetKey,
                             mode = selection.mode,
                             listVersion = listVersion,
                         )

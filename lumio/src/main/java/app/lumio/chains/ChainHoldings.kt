@@ -16,9 +16,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * One token that an account holds on a Solana or Algorand network, as the account screen lists it: its [symbol], its [amount] in base units, the
- * [decimals] that turn the amount into whole units, and the [network] it sits on.
+ * [decimals] that turn the amount into whole units, the [network] it sits on, and its [key], the mint or the asset ID that names it in the asset route.
  */
-data class ChainHolding(val symbol: String, val network: String, val amount: BigInteger, val decimals: Int)
+data class ChainHolding(val symbol: String, val network: String, val amount: BigInteger, val decimals: Int, val key: String)
 
 /**
  * The SPL tokens and Algorand assets that an address holds, read from the network now. A token's decimals come from the network: the SPL account's
@@ -50,6 +50,7 @@ object ChainHoldings {
                 network = networkName,
                 amount = balance.amount,
                 decimals = balance.decimals,
+                key = balance.mint,
             )
         }
 
@@ -68,6 +69,7 @@ object ChainHoldings {
             network = networkName,
             amount = asset.amount,
             decimals = info.decimals,
+            key = asset.assetId.toString(),
         )
     }
 
