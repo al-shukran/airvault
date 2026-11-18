@@ -98,7 +98,7 @@ class SolSignRequest(
             if (signData.isEmpty()) malformed("signData is empty")
             if (signData.size > MAX_SIGN_DATA_BYTES) malformed("signData exceeds $MAX_SIGN_DATA_BYTES bytes")
 
-            val (path, sourceFingerprint) = EthSignRequest.keyPathOf(fields[3L] ?: malformed("derivationPath is missing"))
+            val (path, sourceFingerprint) = keyPathOf(fields[3L] ?: malformed("derivationPath is missing"))
             if (path.any { !it.hardened }) malformed("derivationPath must be hardened at every step")
             if (path.size < 2 || path[0] != PathStep(PURPOSE_HARDENED, true) || path[1] != PathStep(SOLANA_COIN_TYPE_HARDENED, true)) {
                 malformed("derivationPath must start with 44'/501'")
