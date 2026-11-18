@@ -33,6 +33,15 @@ jobs:
       - name: Nightly gates
         run: ./gradlew test lintDebug verifyRoborazziDebug :lumio:verifyRoborazziDebug --continue
 
+      # The release build of :app is minified by R8 (app/build.gradle.kts, app/proguard-rules.pro). It runs here and not in the
+      # PR lane: a cold R8 build does not fit the 5-minute `test` cap (guideline 2.1). mapping.txt is written only when minify
+      # runs, so a build that skipped R8 fails this step. `if` keeps it running after a failed gate, as the OWASP steps do.
+      - name: Release build of :app (R8)
+        if: ${{ !cancelled() }}
+        run: |
+          ./gradlew :app:assembleRelease
+          test -s app/build/outputs/mapping/release/mapping.txt
+
       # OWASP dependency-check (guideline 1.8) runs in three steps after the gates, so one run still reports every
       # broken gate. It needs the NVD database. The database is cached per ISO week in the plugin's data directory,
       # ~/.gradle/dependency-check-data (the default of dependency-check-gradle 13.0.0, see app/build.gradle.kts). A new
