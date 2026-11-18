@@ -123,6 +123,7 @@ internal fun AccountScreen(
         heroFiat?.let { fiat ->
             Text(
                 text = Masking.amount(fiat, hidden = !showBalance),
+                modifier = Modifier.padding(start = balanceStart),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
