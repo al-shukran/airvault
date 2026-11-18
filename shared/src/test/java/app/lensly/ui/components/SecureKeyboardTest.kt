@@ -36,18 +36,23 @@ class SecureKeyboardTest {
         compose.waitForIdle()
         assertEquals(1, deletes)
 
-        compose.mainClock.advanceTimeBy(300)
+        advanceTo(300)
         assertEquals(1, deletes, "nothing repeats before 400 ms")
-        compose.mainClock.advanceTimeBy(120)
+        advanceTo(420)
         assertEquals(2, deletes, "the first repeat is due at 400 ms")
-        compose.mainClock.advanceTimeBy(60)
+        advanceTo(480)
         assertEquals(3, deletes, "the second repeat is due at 450 ms")
-        compose.mainClock.advanceTimeBy(50)
+        advanceTo(530)
         assertEquals(4, deletes, "the third repeat is due at 500 ms")
 
         compose.onNodeWithContentDescription("Backspace").performTouchInput { up() }
         compose.mainClock.advanceTimeBy(1_000)
         assertEquals(4, deletes, "releasing stops the repeat")
+    }
+
+    /** Steps the test clock to [ms] in 5 ms steps. One large advance runs whole frames, so it can pass a repeat's due time. */
+    private fun advanceTo(ms: Long) {
+        while (compose.mainClock.currentTime < ms) compose.mainClock.advanceTimeBy(5)
     }
 
     @Test
