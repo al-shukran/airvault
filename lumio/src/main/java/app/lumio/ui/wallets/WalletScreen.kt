@@ -28,10 +28,7 @@ import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.GlowBackdrop
 import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.IslandDivider
-import app.lumio.ui.kit.SharedKeys
 import app.lumio.ui.kit.WalletOrb
-import app.lumio.ui.kit.lumioSharedBounds
-import app.lumio.ui.kit.lumioSharedElement
 import app.lumio.ui.network.label
 import app.lumio.ui.theme.LumioGutter
 import app.lumio.wallets.AccountChain
@@ -40,13 +37,12 @@ import app.lumio.wallets.WalletAccounts
 
 /**
  * One paired wallet (section 2.1, Wallet): its name in the top bar, then its orb and total under a glow, the side and the summary of its accounts, and
- * the freshness line. Each chain of the wallet is an island of its accounts, with the address and the token count of each. An account opens it, and
- * pulling down reads the balances again. [tokenCounts] holds the tokens each Ethereum account holds, and [network] looks up the logo of its network.
- * [notice] names a read that did not answer.
+ * the freshness line. Each chain of the wallet is an island of its accounts, with the address and the token count of each. An account opens it. The
+ * wallet is a sheet over the Wallets home, where a drag down closes it, so it does not pull to refresh. [tokenCounts] holds the tokens each Ethereum
+ * account holds, and [network] looks up the logo of its network. [notice] names a read that did not answer.
  */
 @Composable
 fun WalletScreen(
-    walletId: String,
     walletName: String,
     fingerprint: Int,
     mode: NetworkMode,
@@ -60,65 +56,60 @@ fun WalletScreen(
     updatedAtMs: Long?,
     notice: String?,
     onAccount: (WalletAccount) -> Unit,
-    onRefresh: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     clock: Clock = WallClock,
-    refreshByPull: Boolean = false,
 ) {
     // A pushed wallet is populated on its first frame, so its rows do not stagger in. The Wallets home alone staggers its list.
     val running = false
     val evmChainId = WalletAccounts.primaryEvmChainId(mode)
     Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-        DetailTopBar(title = walletName, onBack = onBack, titleModifier = Modifier.lumioSharedBounds(SharedKeys.walletName(walletId)))
-        LumenRefreshBox(refreshByPull = refreshByPull, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),
-            ) {
-                item(key = "hero") {
-                    WalletHero(
-                        walletId = walletId,
-                        fingerprint = fingerprint,
-                        mode = mode,
-                        accounts = accounts,
-                        totalUsd = totalUsd,
-                        showTotal = showTotal,
-                        refreshing = refreshing,
-                        updatedAtMs = updatedAtMs,
-                        clock = clock,
+        DetailTopBar(title = walletName, onBack = onBack)
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),
+        ) {
+            item(key = "hero") {
+                WalletHero(
+                    fingerprint = fingerprint,
+                    mode = mode,
+                    accounts = accounts,
+                    totalUsd = totalUsd,
+                    showTotal = showTotal,
+                    refreshing = refreshing,
+                    updatedAtMs = updatedAtMs,
+                    clock = clock,
+                )
+            }
+            notice?.let { message ->
+                item(key = "notice") {
+                    InlineBanner(message = message, tone = BannerTone.Warning, modifier = Modifier.padding(bottom = LenslySpacing.sm))
+                }
+            }
+            if (accounts.isEmpty()) {
+                item(key = "none") {
+                    Text(
+                        text = "This wallet has no accounts on ${mode.label().lowercase()} yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = LenslySpacing.md),
                     )
                 }
-                notice?.let { message ->
-                    item(key = "notice") {
-                        InlineBanner(message = message, tone = BannerTone.Warning, modifier = Modifier.padding(bottom = LenslySpacing.sm))
-                    }
-                }
-                if (accounts.isEmpty()) {
-                    item(key = "none") {
-                        Text(
-                            text = "This wallet has no accounts on ${mode.label().lowercase()} yet.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = LenslySpacing.md),
-                        )
-                    }
-                }
-                accountsByChain(accounts).forEach { (chain, group) ->
-                    item(key = "chain-${chain.name}") {
-                        ChainIsland(
-                            chain = chain,
-                            group = group,
-                            accounts = accounts,
-                            mode = mode,
-                            evmChainId = evmChainId,
-                            network = network,
-                            tokenCounts = tokenCounts,
-                            showBalances = showBalances,
-                            running = running,
-                            onAccount = onAccount,
-                        )
-                    }
+            }
+            accountsByChain(accounts).forEach { (chain, group) ->
+                item(key = "chain-${chain.name}") {
+                    ChainIsland(
+                        chain = chain,
+                        group = group,
+                        accounts = accounts,
+                        mode = mode,
+                        evmChainId = evmChainId,
+                        network = network,
+                        tokenCounts = tokenCounts,
+                        showBalances = showBalances,
+                        running = running,
+                        onAccount = onAccount,
+                    )
                 }
             }
         }
@@ -128,7 +119,6 @@ fun WalletScreen(
 /** The hero of a wallet: its orb at 72 dp and its total under a glow, then its side and summary, and the freshness line. */
 @Composable
 private fun WalletHero(
-    walletId: String,
     fingerprint: Int,
     mode: NetworkMode,
     accounts: List<WalletAccount>,
@@ -140,13 +130,9 @@ private fun WalletHero(
 ) {
     GlowBackdrop(breathing = refreshing, modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            WalletOrb(
-                fingerprint = fingerprint,
-                diameter = 72.dp,
-                modifier = Modifier.lumioSharedElement(SharedKeys.walletOrb(walletId)),
-            )
+            WalletOrb(fingerprint = fingerprint, diameter = 72.dp)
             Spacer(Modifier.height(LenslySpacing.sm))
-            TotalAmount(usd = totalUsd, shown = showTotal, modifier = Modifier.lumioSharedBounds(SharedKeys.walletTotal(walletId)))
+            TotalAmount(usd = totalUsd, shown = showTotal)
             Text(
                 text = "${mode.label()} · ${summaryLine(accounts)}",
                 modifier = Modifier.padding(top = LenslySpacing.xs),
