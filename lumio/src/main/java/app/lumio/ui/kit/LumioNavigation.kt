@@ -27,7 +27,7 @@ import androidx.navigation.compose.composable
 import app.lensly.ui.navigation.LenslyNavTransitions
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lumio.LumioRoute
-import app.lumio.ui.theme.LumioMotion
+import app.lensly.ui.theme.LumenMotion
 
 /** The shared-element scope of the NavHost. [app.lumio.LumioNavHost] provides it, and it is null outside the NavHost. */
 val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
@@ -137,26 +137,26 @@ private fun NavTransitionScope.popExitOf(motion: NavMotion): ExitTransition = wh
 }
 
 private fun pushEnter(): EnterTransition =
-    fadeIn(tween(LumioMotion.MEDIUM, delayMillis = 40, easing = LumioMotion.EmphDecel)) +
+    fadeIn(tween(LumenMotion.MEDIUM, delayMillis = 40, easing = LumenMotion.EmphDecel)) +
         slideInHorizontally(spatialOffset) { it / 12 }
 
 private fun pushExit(): ExitTransition = fadeOut(tween(90)) + slideOutHorizontally(spatialOffset) { -it / 24 }
 
 private fun pushBackEnter(): EnterTransition =
-    fadeIn(tween(LumioMotion.MEDIUM, delayMillis = 40, easing = LumioMotion.EmphDecel)) +
+    fadeIn(tween(LumenMotion.MEDIUM, delayMillis = 40, easing = LumenMotion.EmphDecel)) +
         slideInHorizontally(spatialOffset) { -it / 24 }
 
 private fun pushBackExit(): ExitTransition = fadeOut(tween(90)) + slideOutHorizontally(spatialOffset) { it / 12 }
 
-private fun riseEnter(): EnterTransition = slideInVertically(spatialOffset) { it / 8 } + fadeIn(tween(LumioMotion.MEDIUM))
+private fun riseEnter(): EnterTransition = slideInVertically(spatialOffset) { it / 8 } + fadeIn(tween(LumenMotion.MEDIUM))
 
 private fun riseUnderExit(): ExitTransition =
-    scaleOut(LumioMotion.spatial, targetScale = RISE_SCALE) + fadeOut(tween(LumioMotion.MEDIUM))
+    scaleOut(LumenMotion.spatial, targetScale = RISE_SCALE) + fadeOut(tween(LumenMotion.MEDIUM))
 
 private fun riseUnderEnter(): EnterTransition =
-    scaleIn(LumioMotion.spatial, initialScale = RISE_SCALE) + fadeIn(tween(LumioMotion.MEDIUM))
+    scaleIn(LumenMotion.spatial, initialScale = RISE_SCALE) + fadeIn(tween(LumenMotion.MEDIUM))
 
-private fun riseBackExit(): ExitTransition = slideOutVertically(spatialOffset) { it / 8 } + fadeOut(tween(LumioMotion.MEDIUM))
+private fun riseBackExit(): ExitTransition = slideOutVertically(spatialOffset) { it / 8 } + fadeOut(tween(LumenMotion.MEDIUM))
 
 /** The fade-through of the Settings root (section 3.2): the old screen fades quickly, and the new one fades in and grows from 0.96 after it. */
 private fun fadeThroughEnter(): EnterTransition =
