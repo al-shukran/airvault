@@ -46,8 +46,11 @@ internal const val MAX_WAIT_MS = 4_000L
 /** A public key, which is also the size of a blockhash: 32 bytes in base58, so 32 to 44 characters. */
 private val PUBLIC_KEY = Regex("[1-9A-HJ-NP-Za-km-z]{32,44}")
 
-/** The classic SPL token program. Token-2022 accounts are not read. */
+/** The classic SPL token program. */
 private const val SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+
+/** The Token-2022 program. Its token accounts are read beside the classic ones. */
+private const val SPL_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 
 /**
  * The commitment that blockhashes and block heights are read at. "confirmed" is the newest block that a cluster has voted on, and "finalized" lags
@@ -180,21 +183,31 @@ internal class SolanaCalls(
         return after[index].whole(0, Long.MAX_VALUE) - before[index].whole(0, Long.MAX_VALUE)
     }
 
-    /** `getTokenAccountsByOwner` for the classic token program, with jsonParsed accounts. Each account's parsed info gives its mint and amount. */
-    private suspend fun tokenBalances(owner: String): List<SplBalance> {
+    /** The token accounts of [owner] under the classic token program, then under Token-2022: one `getTokenAccountsByOwner` for each program. */
+    private suspend fun tokenBalances(owner: String): List<SplBalance> =
+        listOf(SPL_TOKEN_PROGRAM, SPL_2022_PROGRAM).flatMap { program -> tokenAccounts(owner, program) }
+
+    /**
+     * `getTokenAccountsByOwner` for one token [program], with jsonParsed accounts. Each account's own address is its pubkey, and its parsed info gives
+     * its mint and amount.
+     */
+    private suspend fun tokenAccounts(owner: String, program: String): List<SplBalance> {
         val params = JsonArray(
             listOf(
                 JsonPrimitive(owner),
-                options("programId" to JsonPrimitive(SPL_TOKEN_PROGRAM)),
+                options("programId" to JsonPrimitive(program)),
                 options("encoding" to JsonPrimitive("jsonParsed")),
             ),
         )
         val accounts = call("getTokenAccountsByOwner", params).asObject()["value"].asArray()
-        return accounts.map { account ->
-            val info = account.asObject()["account"].asObject()["data"].asObject()["parsed"].asObject()["info"].asObject()
+        return accounts.map { entry ->
+            val account = entry.asObject()
+            val info = account["account"].asObject()["data"].asObject()["parsed"].asObject()["info"].asObject()
             val tokenAmount = info["tokenAmount"].asObject()
             SplBalance(
+                account = account["pubkey"].matching(PUBLIC_KEY),
                 mint = info["mint"].matching(PUBLIC_KEY),
+                program = program,
                 amount = tokenAmount["amount"].amount(),
                 decimals = tokenAmount["decimals"].whole(0, 255L).toInt(),
             )

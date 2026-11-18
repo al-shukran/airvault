@@ -4,6 +4,10 @@ import app.lensly.core.algorand.AlgorandAccount
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.AsaAssetInfo
+import app.lumio.data.provider.AsaHolding
+import app.lumio.data.provider.AsaHoldings
+import app.lumio.data.provider.AsaInfo
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.MAX_ANSWER_BYTES
 import app.lumio.data.provider.NativeBalance
@@ -57,6 +61,60 @@ class AlgorandAlgodTest {
     private fun account(amount: String) = MockResponse().setBody(
         """{"address":"$address","amount":$amount,"amount-without-pending-rewards":$amount,"min-balance":100000,"round":1}""",
     )
+
+    @Test
+    fun theAssetHoldingsAreTheAssetsOfTheAccountWithTheirAmountsAndFrozenFlags() {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"address":"$address","amount":1500000,"assets":[""" +
+                    """{"amount":1500000,"asset-id":10458941,"is-frozen":false},""" +
+                    """{"amount":0,"asset-id":31566704,"is-frozen":true}]}""",
+            ),
+        )
+
+        assertEquals(
+            listOf(AsaHolding(10458941UL, BigInteger("1500000"), frozen = false), AsaHolding(31566704UL, BigInteger.ZERO, frozen = true)),
+            call(AsaHoldings(ALGORAND_TESTNET, address)),
+        )
+        assertEquals("/v2/accounts/$address", server.takeRequest().path)
+    }
+
+    @Test
+    fun anAccountWithNoAssetsListHoldsNoAssets() {
+        server.enqueue(account("1500000"))
+
+        assertEquals(emptyList(), call(AsaHoldings(ALGORAND_TESTNET, address)))
+    }
+
+    @Test
+    fun anAssetEntryThatIsNotAnObjectIsAMalformedAnswer() {
+        server.enqueue(MockResponse().setBody("""{"address":"$address","amount":1,"assets":[3]}"""))
+
+        assertFailsWith<ProviderError.Fatal> { call(AsaHoldings(ALGORAND_TESTNET, address)) }
+    }
+
+    @Test
+    fun anAssetsDecimalsAndUnitNameAreReadFromItsParams() {
+        server.enqueue(
+            MockResponse().setBody("""{"index":10458941,"params":{"creator":"$address","decimals":6,"name":"USDC","unit-name":"USDC","total":1}}"""),
+        )
+
+        assertEquals(AsaInfo(decimals = 6, unitName = "USDC", name = "USDC"), call(AsaAssetInfo(ALGORAND_TESTNET, 10458941UL)))
+        assertEquals("/v2/assets/10458941", server.takeRequest().path)
+    }
+
+    @Test
+    fun aMissingNameIsEmptyAndDecimalsOutsideZeroToNineteenAreMalformed() {
+        server.enqueue(MockResponse().setBody("""{"index":7,"params":{"creator":"$address","decimals":0}}"""))
+        assertEquals(AsaInfo(decimals = 0, unitName = "", name = ""), call(AsaAssetInfo(ALGORAND_TESTNET, 7UL)))
+        server.enqueue(MockResponse().setBody("""{"index":8,"params":{"decimals":20}}"""))
+        assertFailsWith<ProviderError.Fatal> { call(AsaAssetInfo(ALGORAND_TESTNET, 8UL)) }
+    }
+
+    @Test
+    fun anAssetIdOfZeroIsRefusedBeforeItIsSent() {
+        assertFailsWith<IllegalArgumentException> { AsaAssetInfo(ALGORAND_TESTNET, 0UL) }
+    }
 
     @Test
     fun theBalanceIsTheAmountOfTheAccountInMicroAlgos() {
