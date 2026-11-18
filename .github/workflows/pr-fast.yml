@@ -178,6 +178,7 @@ jobs:
               - 'scripts/ci/check-manifest.sh'
             app:
               - 'app/src/main/java/app/lensly/app/**'
+              - 'app/src/main/java/app/lensly/chains/**'
               - 'shared/src/main/java/app/lensly/app/**'
               - 'app/src/test/java/app/lensly/app/**'
               - 'app/src/test/java/app/lensly/SmokeTest.kt'
@@ -194,6 +195,14 @@ jobs:
               - 'build.gradle.kts'
               - 'app/build.gradle.kts'
               - 'shared/build.gradle.kts'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            # The chain-app contract and the Algorand modules. Their tests run as one partition (scripts/ci/run-partition.sh).
+            chain-api:
+              - 'core/**'
+              - 'chains/**'
+              - 'build.gradle.kts'
               - 'gradle/**'
               - 'gradle.properties'
               - 'settings.gradle.kts'
@@ -259,6 +268,8 @@ jobs:
               - 'lumio/build.gradle.kts'
               - 'shared/build.gradle.kts'
               - 'tools/*/build.gradle.kts'
+              - 'core/**/build.gradle.kts'
+              - 'chains/**/build.gradle.kts'
               - 'gradle/libs.versions.toml'
               - 'gradle/wrapper/**'
               - 'gradle.properties'
