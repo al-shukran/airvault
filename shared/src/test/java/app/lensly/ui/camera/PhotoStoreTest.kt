@@ -80,7 +80,7 @@ class PhotoStoreTest {
     fun listLeavesOutFilesThatAreNotSealedMedia() {
         val store = keyedStore(folder.root)
         store.savePhoto(jpeg(7), nowMs = 1_000L)
-        // A plain photo from an earlier build, and a stray file.
+        // A plain photo, which is not sealed, and a stray file.
         File(store.directory, "IMG_0.jpg").writeBytes(jpeg(8))
         File(store.directory, "notes.txt").writeBytes(ByteArray(1))
 
