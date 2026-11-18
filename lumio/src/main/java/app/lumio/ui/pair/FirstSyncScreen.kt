@@ -40,9 +40,9 @@ import app.lumio.ui.kit.LumioRow
 import app.lumio.ui.kit.LumioTextAction
 import app.lumio.ui.kit.WalletOrb
 import app.lumio.ui.kit.rememberLumioHaptics
-import app.lumio.ui.theme.LocalLumioPalette
-import app.lumio.ui.theme.LocalReducedMotion
-import app.lumio.ui.theme.LumioMotion
+import app.lensly.ui.theme.LocalLumenPalette
+import app.lensly.ui.theme.LocalReducedMotion
+import app.lensly.ui.theme.LumenMotion
 import kotlinx.coroutines.delay
 
 /** The pause after the last row settles, before the wallet opens (section 2.1). */
@@ -130,7 +130,7 @@ private fun Trailing(state: SyncState) {
     AnimatedContent(
         targetState = shown,
         transitionSpec = {
-            (fadeIn(LumioMotion.effects) + scaleIn(LumioMotion.bouncy, initialScale = 0.8f)).togetherWith(fadeOut(LumioMotion.effects))
+            (fadeIn(LumenMotion.effects) + scaleIn(LumenMotion.bouncy, initialScale = 0.8f)).togetherWith(fadeOut(LumenMotion.effects))
         },
         label = "sync row state",
     ) { kind ->
@@ -146,7 +146,7 @@ private fun Trailing(state: SyncState) {
             Shown.DONE -> Icon(
                 imageVector = Icons.Filled.Check,
                 contentDescription = "Done",
-                tint = LocalLumioPalette.current.positive,
+                tint = LocalLumenPalette.current.positive,
                 modifier = Modifier.size(20.dp),
             )
             Shown.FAILED -> Row(verticalAlignment = Alignment.CenterVertically) {
