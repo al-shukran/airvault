@@ -23,7 +23,6 @@ import app.lensly.app.AddressBookEntry
 import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressBookEntryFor
-import app.lensly.app.addressKeyOf
 import app.lensly.app.chainOfAddress
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
@@ -50,7 +49,7 @@ import kotlinx.coroutines.withContext
 
 /** The detail of one transaction, with its comment that the owner edits here. A transaction the store does not hold leaves the screen. */
 @Composable
-internal fun TransactionDetailRoute(navController: NavHostController, holder: VaultHolder, account: String, txId: String) {
+internal fun TransactionDetailRoute(navController: NavHostController, holder: VaultHolder, walletId: String, account: String, txId: String) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
     val session = holder.openSession()
@@ -62,7 +61,7 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
     val scope = rememberCoroutineScope()
     var version by remember { mutableIntStateOf(0) }
     var naming by remember { mutableStateOf<String?>(null) }
-    val load by produceState<DetailLoad?>(null, account, txId, version) {
+    val load by produceState<DetailLoad?>(null, walletId, account, txId, version) {
         val open = vault
         value = if (open == null) {
             DetailLoad.Missing
@@ -70,9 +69,8 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
             withContext(Dispatchers.IO) {
                 txDetailOf(app, open, account, txId)?.let { detail ->
                     val wallets = PairedWallets.list(session)
-                    val accounts = ownAccountsOf(wallets)
-                    val walletId = accounts[addressKeyOf(account)]?.walletName?.let { name -> wallets.firstOrNull { it.name == name }?.id }
-                    DetailLoad.Ready(detail, accounts, walletId, wallets.firstOrNull { it.id == walletId }?.addressBook.orEmpty())
+                    val wallet = wallets.firstOrNull { it.id == walletId }
+                    DetailLoad.Ready(detail, ownAccountsOf(wallets), wallet?.id, wallet?.addressBook.orEmpty())
                 }
             } ?: DetailLoad.Missing
         }
@@ -84,12 +82,11 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
             return
         }
         is DetailLoad.Ready -> {
-            val walletId = current.walletId
             TransactionDetailScreen(
                 detail = current.detail,
                 accounts = current.accounts,
                 book = current.book,
-                onEditAddress = if (walletId == null) null else { address -> naming = address },
+                onEditAddress = if (current.walletId == null) null else { address -> naming = address },
                 onBack = { navController.popBackStack() },
                 onExplorer = {
                     current.detail.explorerUrl?.let { openExplorer(context, it) }
@@ -106,7 +103,8 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
             )
             val address = naming
             val chain = address?.let(::chainOfAddress)
-            if (address != null && walletId != null && chain != null) {
+            val editing = current.walletId
+            if (address != null && editing != null && chain != null) {
                 AddressBookSheet(
                     address = address,
                     entry = addressBookEntryFor(address, chain, current.book),
@@ -114,8 +112,8 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
                         naming = null
                         scope.launch {
                             withContext(Dispatchers.IO) {
-                                val book = PairAddressBooks.load(session)[walletId].orEmpty()
-                                PairAddressBooks.replace(session, walletId, addressBookWith(book, address, chain, name, UUID.randomUUID().toString()))
+                                val book = PairAddressBooks.load(session)[editing].orEmpty()
+                                PairAddressBooks.replace(session, editing, addressBookWith(book, address, chain, name, UUID.randomUUID().toString()))
                             }
                             version++
                         }
@@ -124,8 +122,8 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
                         naming = null
                         scope.launch {
                             withContext(Dispatchers.IO) {
-                                val book = PairAddressBooks.load(session)[walletId].orEmpty()
-                                PairAddressBooks.replace(session, walletId, addressBookWithout(book, address, chain))
+                                val book = PairAddressBooks.load(session)[editing].orEmpty()
+                                PairAddressBooks.replace(session, editing, addressBookWithout(book, address, chain))
                             }
                             version++
                         }

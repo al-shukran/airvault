@@ -2,6 +2,7 @@ package app.lumio.ui.transactions
 
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressChain
+import app.lensly.app.addressBookEntryFor
 import kotlin.test.assertEquals
 import org.junit.Test
 
@@ -24,6 +25,16 @@ class AddressBookEditsTest {
         val after = addressBookWith(before, friend, AddressChain.EVM, "New", newId = "x")
 
         assertEquals(listOf(AddressBookEntry("a", friend, "New", label = "Family"), AddressBookEntry("b", other, "Other", label = null)), after)
+    }
+
+    @Test
+    fun aBitcoinAddressIsNamedAndFoundOnItsChain() {
+        val btc = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"
+
+        val book = addressBookWith(emptyList(), btc, AddressChain.BITCOIN, "Rent", newId = "n1")
+
+        assertEquals("Rent", addressBookEntryFor(btc, AddressChain.BITCOIN, book)?.name)
+        assertEquals(null, addressBookEntryFor(btc, AddressChain.EVM, book))
     }
 
     @Test

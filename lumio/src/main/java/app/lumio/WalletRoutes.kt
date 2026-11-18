@@ -231,7 +231,7 @@ internal fun AccountRoute(
         onSend = { navController.navigate(sendRoute(account, mode)) },
         onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
         onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, chain, index, asset.assetKey)) },
-        onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(item.tx.account, item.tx.id)) },
+        onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
         onBack = { navController.popBackStack() },
     )
 }
@@ -284,7 +284,7 @@ internal fun AssetRoute(
         activity = activity.filter { AssetRows.assetKeyOf(it.tx) == assetKey },
         onSend = { navController.navigate(sendRoute(account, mode)) },
         onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
-        onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(item.tx.account, item.tx.id)) },
+        onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
         onBack = { navController.popBackStack() },
     )
 }
