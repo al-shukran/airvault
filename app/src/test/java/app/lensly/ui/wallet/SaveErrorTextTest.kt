@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config
 
 /** A failed wallet save says so on the name screen and on the passphrase write-down, and a screen with no failure says nothing. */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = "w360dp-h640dp-port-mdpi")
+@Config(qualifiers = "w411dp-h914dp-port-mdpi")
 class SaveErrorTextTest {
 
     @get:Rule
