@@ -38,6 +38,16 @@ class EraseRuleTest {
     }
 
     @Test
+    fun theLowestEraseCountErasesOnTheThirdWrongTryAndWarnsOnlyAfterAWrongTry() {
+        assertEquals(3, FailureDelay.MIN_WIPE_AFTER)
+        assertFalse(FailureDelay.erases(state(2, wipeAfter = 3)))
+        assertTrue(FailureDelay.erases(state(3, wipeAfter = 3)))
+        assertNull(FailureDelay.triesLeftToWarn(state(0, wipeAfter = 3)))
+        assertEquals(2, FailureDelay.triesLeftToWarn(state(1, wipeAfter = 3)))
+        assertEquals(1, FailureDelay.triesLeftToWarn(state(2, wipeAfter = 3)))
+    }
+
+    @Test
     fun theWarningStartsThreeTriesBeforeTheErase() {
         // With five allowed tries, two wrong tries leave three, and the fifth wrong try erases.
         assertNull(FailureDelay.triesLeftToWarn(state(1, wipeAfter = 5)))
@@ -86,15 +96,15 @@ class EraseRuleTest {
     }
 
     @Test
-    fun theEraseCountIsBoundedToFiveThroughTwenty() {
+    fun theEraseCountIsBoundedToThreeThroughTwenty() {
         val dir = tmp.newFolder("failures")
         val store = FailureStore(dir, keys)
         store.initialize(clock)
         val state = store.load(clock)
 
-        assertFailsWith<IllegalArgumentException> { store.recordLimits(state, null, 4, clock) }
+        assertFailsWith<IllegalArgumentException> { store.recordLimits(state, null, 2, clock) }
         assertFailsWith<IllegalArgumentException> { store.recordLimits(state, null, 21, clock) }
-        assertEquals(5, store.recordLimits(state, null, 5, clock).wipeAfter)
+        assertEquals(3, store.recordLimits(state, null, 3, clock).wipeAfter)
         assertEquals(20, store.recordLimits(store.load(clock), null, 20, clock).wipeAfter)
     }
 

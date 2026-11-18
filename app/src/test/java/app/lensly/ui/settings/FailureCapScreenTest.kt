@@ -221,6 +221,34 @@ class FailureCapScreenTest {
     }
 
     @Test
+    fun theEraseSliderOffersThreeTriesAsItsLowestStop() {
+        val erased = mutableListOf<Int>()
+        compose.setContent {
+            LumenTheme {
+                FailureCapScreen(
+                    step = FailureCapStep.Choose,
+                    saved = FailureCapChoice.DEFAULT,
+                    selected = null,
+                    savedErase = FailureDelay.DEFAULT_WIPE_AFTER,
+                    selectedErase = null,
+                    passwordLength = 0,
+                    onSelect = {},
+                    onSelectErase = { erased += it },
+                    onContinue = {},
+                    onKey = {},
+                    onBackspace = {},
+                    onSubmit = {},
+                    onBack = {},
+                )
+            }
+        }
+        // The cap slider comes first, so the erase slider is the second. Its first stop is the lowest erase count.
+        compose.onAllNodes(slider)[1].performSemanticsAction(SemanticsActions.SetProgress) { it(0f) }
+
+        assertEquals(listOf(3), erased)
+    }
+
+    @Test
     fun everyChoiceIsOneOfTheSixCapsFromTenSecondsToOneHour() {
         assertEquals(
             listOf("10 s", "30 s", "1 min", "5 min", "15 min", "1 h"),
