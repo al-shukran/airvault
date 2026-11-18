@@ -2,6 +2,7 @@ package app.lumio.ui.transactions
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import app.lensly.app.AddressBookEntry
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslyTheme
