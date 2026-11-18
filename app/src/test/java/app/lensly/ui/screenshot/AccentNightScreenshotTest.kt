@@ -38,4 +38,16 @@ class AccentNightScreenshotTest {
             SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {})
         }
     }
+
+    /** The primary button enabled and disabled in the night theme. A disabled button dims as a whole, label included. */
+    @Test
+    fun accentEnabledAndDisabledInTheNightTheme() = compose.snapshot("accent_enabled_disabled_night") {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(LenslySpacing.md),
+            verticalArrangement = Arrangement.spacedBy(LenslySpacing.md),
+        ) {
+            PillButton(text = "Create", onClick = {}, accent = true, modifier = Modifier.fillMaxWidth())
+            PillButton(text = "Create", onClick = {}, accent = true, enabled = false, modifier = Modifier.fillMaxWidth())
+        }
+    }
 }
