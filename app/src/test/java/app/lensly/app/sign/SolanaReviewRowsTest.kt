@@ -133,9 +133,9 @@ class SolanaReviewRowsTest {
             readonly = 2,
         )
         val facts = solanaFacts(transaction(signData)).toMap()
-        assertEquals("up to 200000 lamports", facts["Priority fee"])
+        assertEquals("up to 3000 lamports", facts["Priority fee"])
         assertEquals("5000 lamports", facts["Base fee"])
-        assertEquals("up to 205000 lamports", facts["Max fee"])
+        assertEquals("up to 8000 lamports", facts["Max fee"])
     }
 
     /** An off-chain message shows its signer, its application domain and its text, as the owner reads it. */

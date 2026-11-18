@@ -112,7 +112,10 @@ class SolanaRequestCheckTest {
         assertEquals(SolanaRequestCheck.LOOKUP_RECIPIENT_REFUSAL, refusal(request(bytes), listOf(payer)))
     }
 
-    /** R03: a price with no limit pays for the default units: 200,000 for the one instruction that is not a compute budget one. */
+    /**
+     * R03: a price with no limit pays for the default units. A System Program transfer is a builtin, so it is given 3,000 units, not the
+     * 200,000 of a program that is not a builtin. At one lamport per unit here, the fee is 3,000 lamports.
+     */
     @Test
     fun aPriceWithNoLimitHasAPriorityFeeAtTheDefaultUnits() {
         val signData = legacyMessage(
@@ -122,8 +125,45 @@ class SolanaRequestCheckTest {
         )
         val review = review(request(signData), listOf(key(1)))
         assertNull(review.computeUnitLimit)
-        assertEquals(200_000uL, review.priorityFeeLamports)
+        assertEquals(3_000uL, review.priorityFeeLamports)
         assertTrue(review.priorityFeeIsBound)
+    }
+
+    /**
+     * R03: a nonce advance and a transfer are two System Program instructions, so they are two builtin defaults: 6,000 units. The nonce
+     * advance comes first, as a durable nonce requires.
+     */
+    @Test
+    fun aNonceAdvanceAndATransferPayForTwoBuiltinDefaults() {
+        val recentBlockhashes = fr.acinq.bitcoin.Base58.decode(RECENT_BLOCKHASHES)
+        val signData = legacyMessage(
+            keys = listOf(key(1), key(9), key(2), computeBudget(), system(), recentBlockhashes),
+            instructions = listOf(
+                // AdvanceNonceAccount: accounts [nonce, RecentBlockhashes sysvar, authority]; data u32 LE 4.
+                Compiled(program = 4, accounts = listOf(2, 5, 0), data = le32(4)),
+                computePrice(1_000_000L),
+                transfer(from = 0, to = 1, program = 4),
+            ),
+            readonlyUnsigned = 3,
+        )
+        val review = review(request(signData), listOf(key(1)))
+        assertNull(review.computeUnitLimit)
+        assertEquals(6_000uL, review.priorityFeeLamports)
+    }
+
+    /** R03: an SPL TransferChecked is not a builtin, so it pays for the full 200,000 units by default. */
+    @Test
+    fun aTokenTransferPaysForTheFullDefaultUnits() {
+        val review = review(request(tokenTransfers(count = 1)), listOf(key(1)))
+        assertNull(review.computeUnitLimit)
+        assertEquals(200_000uL, review.priorityFeeLamports)
+    }
+
+    /** R03: the default units are capped at the 1,400,000 a transaction can request: eight token transfers would be 1,600,000. */
+    @Test
+    fun theDefaultUnitsAreCappedAtTheMaximumLimit() {
+        val review = review(request(tokenTransfers(count = 8)), listOf(key(1)))
+        assertEquals(1_400_000uL, review.priorityFeeLamports)
     }
 
     /** R03: a set limit sets the units the priority fee pays for, so the fee is exact. */
@@ -282,6 +322,24 @@ class SolanaRequestCheckTest {
     private fun system(): ByteArray = fr.acinq.bitcoin.Base58.decode(SolanaVectors.SYSTEM)
 
     private fun computeBudget(): ByteArray = fr.acinq.bitcoin.Base58.decode(COMPUTE_BUDGET)
+
+    /**
+     * A legacy message with a price of 1,000,000 micro-lamports per unit and [count] SPL TransferChecked instructions of 2,000,000 units
+     * each from key 2 to key 1 through the mint at key 4. The token program is key 5, the compute budget program key 3.
+     */
+    private fun tokenTransfers(count: Int): ByteArray {
+        val tokenProgram = fr.acinq.bitcoin.Base58.decode(SolanaVectors.TOKEN)
+        val transferChecked = Compiled(
+            program = 5,
+            accounts = listOf(2, 4, 1, 0),
+            data = byteArrayOf(12) + le64(2_000_000L) + byteArrayOf(6),
+        )
+        return legacyMessage(
+            keys = listOf(key(1), key(9), key(2), computeBudget(), key(3), tokenProgram),
+            instructions = listOf(computePrice(1_000_000L)) + List(count) { transferChecked },
+            readonlyUnsigned = 3,
+        )
+    }
 
     /** A compiled instruction: its program and accounts as indices into the keys, and its data. */
     private class Compiled(val program: Int, val accounts: List<Int>, val data: ByteArray)
