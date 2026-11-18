@@ -15,6 +15,11 @@ import androidx.compose.ui.graphics.Color
 data class LumenPalette(
     /** The colour of text actions, links and the selected icon. */
     val accentInk: Color,
+    /**
+     * The Lumen ring: the spinner, the pull-to-refresh indicator and the first-sync ring. Gold on ink in Night, ink on paper in Day.
+     * It is a UI component, so it reads at 3:1.
+     */
+    val ring: Color,
     /** The testnet strip and tag. It is also the scheme's tertiary role. */
     val testnet: Color,
     /** Received amounts, a rise in price and success. */
@@ -34,6 +39,7 @@ val LocalLumenPalette = staticCompositionLocalOf<LumenPalette> { error("No theme
 
 internal val NightPalette = LumenPalette(
     accentInk = Color(0xFFF4C46A),
+    ring = Color(0xFFF4C46A),
     testnet = Color(0xFF6FD6E8),
     positive = Color(0xFF4CD69B),
     warning = Color(0xFFFF8A4C),
@@ -44,6 +50,7 @@ internal val NightPalette = LumenPalette(
 
 internal val DayPalette = LumenPalette(
     accentInk = Color(0xFF7A5200),
+    ring = Color(0xFF15171C),
     testnet = Color(0xFF006C7C),
     positive = Color(0xFF107144),
     warning = Color(0xFF9C4C00),
