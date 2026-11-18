@@ -17,7 +17,7 @@ import javax.crypto.spec.SecretKeySpec
  * so a session lists and opens only its own files (see [ownsWallet] and [VaultRecordNames]).
  *
  * The photos and videos are plain files under [photos] (`filesDir/photos` in the app), in `real/` and `decoy/` (see [photoDir]).
- * That folder also holds the flat files of builds from before the photos were kept per vault. [wipeVault] removes the whole folder.
+ * [wipeVault] removes the whole folder, both vaults' photos with it.
  */
 class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
     val header = File(root, "header.bin")
