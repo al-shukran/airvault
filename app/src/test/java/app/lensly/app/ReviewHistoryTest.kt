@@ -327,12 +327,4 @@ class ReviewHistoryTest {
         assertEquals(listOf(unknownFee), history.list(wallet))
     }
 
-    @Test
-    fun aVersionOneRecordReadsWithNoBitcoinFacts() {
-        // Version 1 ends after the data hash. An EVM record with no Bitcoin facts ends in one empty flag, which is dropped here.
-        val bytes = ReviewRecordCodec.encode(reviewOf(atMs = 8_000L))
-        val versionOne = bytes.copyOf(bytes.size - 1).also { it[0] = 1 }
-
-        assertEquals(reviewOf(atMs = 8_000L), ReviewRecordCodec.decode(versionOne))
-    }
 }

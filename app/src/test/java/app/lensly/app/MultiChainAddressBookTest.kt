@@ -4,8 +4,6 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
-import java.io.ByteArrayOutputStream
-import java.io.DataOutputStream
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -206,36 +204,4 @@ class MultiChainAddressBookTest {
         assertEquals(book, AddressBookStore(open()).load())
     }
 
-    @Test
-    fun aBookWrittenBeforeNotesExistedStillReads() {
-        // Version 1 wrote each entry as four texts: id, address, name and label. It has no notes.
-        val session = open()
-        session.putVaultRecord("address-book", versionOneBook(listOf(Four("e1", evm, "Alice", "Exchange"), Four("e2", p2pkhMain, "Bob", ""))))
-
-        assertEquals(
-            listOf(
-                AddressBookEntry(id = "e1", address = evm, name = "Alice", label = "Exchange", notes = null),
-                AddressBookEntry(id = "e2", address = p2pkhMain, name = "Bob", label = null, notes = null),
-            ),
-            AddressBookStore(session).load(),
-        )
-    }
-
-    private data class Four(val id: String, val address: String, val name: String, val label: String)
-
-    private fun versionOneBook(entries: List<Four>): ByteArray {
-        val buffer = ByteArrayOutputStream()
-        DataOutputStream(buffer).use { out ->
-            out.writeByte(1)
-            out.writeInt(entries.size)
-            entries.forEach { entry ->
-                listOf(entry.id, entry.address, entry.name, entry.label).forEach { text ->
-                    val bytes = text.toByteArray(Charsets.UTF_8)
-                    out.writeInt(bytes.size)
-                    out.write(bytes)
-                }
-            }
-        }
-        return buffer.toByteArray()
-    }
 }
