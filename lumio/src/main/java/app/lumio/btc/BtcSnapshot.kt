@@ -37,6 +37,8 @@ data class BtcSnapshot(
     val nextReceiveAddress: String,
     val utxos: List<BtcUtxo>,
     val transactions: List<BtcTx>,
+    /** The addresses the scan found in use. Their stored transactions are the account's activity, which a screen reads before any scan runs. */
+    val addresses: List<String> = emptyList(),
 ) {
     /** The confirmations of [tx] at the tip this scan saw. An unconfirmed transaction has none. */
     fun confirmations(tx: BtcTx): Long = tx.blockHeight?.let { maxOf(0L, tipHeight - it + 1) } ?: 0L

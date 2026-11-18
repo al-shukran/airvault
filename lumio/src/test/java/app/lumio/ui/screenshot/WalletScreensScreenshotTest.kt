@@ -337,6 +337,35 @@ class WalletScreensScreenshotTest {
         )
     }
 
+    /**
+     * A Bitcoin account on its first frame. The board holds its activity from the store before the sheet opens, so its rows show at once, with no loading row.
+     */
+    @Test
+    fun accountBitcoinFirstFrameWithActivity() = compose.lumioSnapshot("account_bitcoin_first_frame") {
+        AccountScreen(
+            walletName = "Demo",
+            account = bitcoin,
+            showBalance = true,
+            assets = rowsOf(bitcoin),
+            activity = listOf(
+                accountTx(
+                    1,
+                    TxDirection.IN,
+                    BigInteger.valueOf(120_000L),
+                    "tb1qk3z8f0d6c2m9a7v4w5x1y2z3q4r5s6t7u8v9w0",
+                    1_731_800_000_000L,
+                    asset = TxAsset(contract = null, symbol = "BTC", name = "Bitcoin", decimals = 8),
+                ),
+            ),
+            loadingAssets = false,
+            loadingActivity = false,
+            onSend = {},
+            onReceive = {},
+            onOpenTransaction = {},
+            onBack = {},
+        )
+    }
+
     private val ethereumActivity = listOf(
         accountTx(1, TxDirection.IN, BigInteger.valueOf(1_500_000_000_000_000_000L), "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", 1_731_800_000_000L),
         accountTx(2, TxDirection.OUT, BigInteger.valueOf(250_000_000_000_000_000L), "0x2b5634C42055806a59e9107ED44D43c426E58258", 1_731_700_000_000L),

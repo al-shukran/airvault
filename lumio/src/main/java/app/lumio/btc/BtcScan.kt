@@ -185,6 +185,7 @@ suspend fun scanAccount(
         nextReceiveAddress = account.receiveAddress(nextIndex),
         utxos = utxos,
         transactions = recent,
+        addresses = used.map { it.address },
     )
 }
 
