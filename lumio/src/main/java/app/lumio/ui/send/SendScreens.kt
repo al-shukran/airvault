@@ -24,7 +24,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressChain
+import app.lensly.app.AddressNotes
+import app.lensly.app.InternalAccount
 import app.lensly.app.addressNotesOf
+import app.lensly.app.headline
 import app.lensly.core.registry.Amounts
 import app.lensly.ui.components.AddressField
 import app.lensly.ui.components.AddressText
@@ -160,6 +163,8 @@ fun SendReviewScreen(
     onConfirm: () -> Unit,
     onBack: () -> Unit,
     addressBook: List<AddressBookEntry> = emptyList(),
+    /** The Ethereum accounts of the paired wallets, so the sending and receiving accounts are named. */
+    accounts: Map<String, InternalAccount> = emptyMap(),
 ) {
     val chain = send.chain
     var advanced by remember { mutableStateOf(false) }
@@ -185,8 +190,8 @@ fun SendReviewScreen(
             )
             Spacer(Modifier.height(LenslySpacing.sm))
         }
-        ReviewAddress("From", send.from)
-        ReviewAddress("To", send.to, name = addressNotesOf(send.to, AddressChain.EVM, emptyMap(), addressBook)?.entry?.name)
+        ReviewAddress("From", send.from, notes = addressNotesOf(send.from, AddressChain.EVM, accounts, addressBook))
+        ReviewAddress("To", send.to, notes = addressNotesOf(send.to, AddressChain.EVM, accounts, addressBook))
         if (token == null) {
             ReviewField("Amount", EvmFormat.amount(send.valueWei, chain.decimals, chain.symbol))
         } else {
@@ -372,14 +377,16 @@ internal fun ReviewField(label: String, value: String) {
 }
 
 /**
- * A [ReviewField] whose value is an address: the same label and text, with the copy action. A [name] from the Address Book is shown above
- * the address, so the owner sees whom it is for.
+ * A [ReviewField] whose value is an address: the same label and text, with the copy action. The name the address goes by is shown above
+ * it, so the owner sees whom it is for: an account of this device as "Your account", else the Address Book name. An address that is both
+ * also shows its Address Book name below, as "Address name".
  */
 @Composable
-internal fun ReviewAddress(label: String, address: String, name: String? = null) {
+internal fun ReviewAddress(label: String, address: String, notes: AddressNotes? = null) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
         Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        name?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
+        notes?.headline()?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
+        if (notes?.internal != null) notes.entry?.let { entry -> ReviewField("Address name", entry.name) }
         AddressText(address = address, shown = address, icon = false, style = MaterialTheme.typography.bodyMedium)
     }
 }

@@ -1,6 +1,9 @@
 package app.lumio.pair
 
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.InternalAccount
+import app.lensly.app.addressKeyOf
+import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.vault.VaultException
@@ -45,6 +48,20 @@ data class PairedWallet(
             if (solana.isNotEmpty()) add(PairFamily.SOLANA)
             if (algorand.isNotEmpty()) add(PairFamily.ALGORAND)
         }
+}
+
+/**
+ * The Ethereum accounts of [wallets], each keyed by [addressKeyOf] its address, with the name and label the pairing sent for it. A pairing
+ * names only its Ethereum accounts, so the Solana, Algorand and Bitcoin accounts of a wallet are not named here. An account with no name
+ * keeps its Auto-Name, as Lensly names it.
+ */
+fun ownAccountsOf(wallets: List<PairedWallet>): Map<String, InternalAccount> = buildMap {
+    wallets.forEach { wallet ->
+        wallet.evmAccounts.forEach { account ->
+            val autoName = autoAccountName(wallet.name, account.index)
+            put(addressKeyOf(account.address), InternalAccount(displayName = account.name, autoName = autoName, label = account.label))
+        }
+    }
 }
 
 /** The result of a save: the wallet that now holds the pairing, and whether this save created it. False means an update. */

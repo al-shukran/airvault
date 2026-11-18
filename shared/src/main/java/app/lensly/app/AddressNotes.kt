@@ -40,3 +40,15 @@ fun addressNotesOf(
 
 /** The notes of [address] in a map that [addressNotesOf] built, or null when there are none. */
 fun Map<String, AddressNotes>.notesOf(address: String): AddressNotes? = this[addressKeyOf(address)]
+
+/** The start of the bold line of an account of this device. */
+const val YOUR_ACCOUNT = "Your account"
+
+/**
+ * The bold line above an address. An account of this device takes it, as "Your account · <name> · <label>", and the label is left out when the
+ * account has none. Otherwise it is the Address Book name. Null when neither gives one.
+ */
+fun AddressNotes.headline(): String? {
+    val account = internal ?: return entry?.name
+    return listOfNotNull(YOUR_ACCOUNT, account.displayName ?: account.autoName, account.label).joinToString(" · ")
+}
