@@ -47,6 +47,9 @@ class BtcStore(private val cache: Cache) {
 /** The snapshot record: a version byte, the count, then each snapshot in full, in DataOutputStream style. */
 private object SnapshotCodec {
     private const val VERSION = 3
+
+    /** The version before the addresses were kept. Its balances still read; the account has no addresses until its next scan. */
+    private const val VERSION_WITHOUT_ADDRESSES = 2
     private const val MAX_ENTRIES = 256
     private const val MAX_LIST = 100_000
 
@@ -86,7 +89,8 @@ private object SnapshotCodec {
     }
 
     fun decode(bytes: ByteArray): Map<String, BtcSnapshot> = DataInputStream(ByteArrayInputStream(bytes)).use { input ->
-        require(input.readUnsignedByte() == VERSION) { "unknown scan cache version" }
+        val version = input.readUnsignedByte()
+        require(version == VERSION || version == VERSION_WITHOUT_ADDRESSES) { "unknown scan cache version" }
         val count = input.readInt()
         require(count in 0..MAX_ENTRIES) { "scan cache count out of range" }
         List(count) {
@@ -108,9 +112,7 @@ private object SnapshotCodec {
             val txs = List(txCount) {
                 BtcTx(input.readUTF(), input.readLong(), readOptionalLong(input), readOptionalLong(input))
             }
-            val addressCount = input.readInt()
-            require(addressCount in 0..MAX_LIST) { "address count out of range" }
-            val addresses = List(addressCount) { input.readUTF() }
+            val addresses = if (version == VERSION) readAddresses(input) else emptyList()
             BtcSnapshot(
                 key = key,
                 identity = identity,
@@ -125,6 +127,12 @@ private object SnapshotCodec {
                 addresses = addresses,
             )
         }.associateBy { it.key }
+    }
+
+    private fun readAddresses(input: DataInputStream): List<String> {
+        val count = input.readInt()
+        require(count in 0..MAX_LIST) { "address count out of range" }
+        return List(count) { input.readUTF() }
     }
 
     private fun writeOptionalLong(out: DataOutputStream, value: Long?) {
