@@ -4,6 +4,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -111,14 +112,11 @@ internal fun staggerDelayMs(index: Int): Long = minOf(index, LumenMotion.STAGGER
 /** An address as a list shows it: its first eight and last six characters. */
 internal fun shortAddress(address: String): String = "${address.take(8)}…${address.takeLast(6)}"
 
-/** The line of an account row under its title: its address, its script when it has one, and its token count on Ethereum. */
-internal fun accountDescription(account: WalletAccount, tokens: Int): String {
-    val tokenLine = when {
-        tokens <= 0 -> null
-        tokens == 1 -> "+1 token"
-        else -> "+$tokens tokens"
-    }
-    return listOfNotNull(shortAddress(account.address), account.script, tokenLine).joinToString(" · ")
+/** The token count of an account, as the line under its balance: "+2 tokens", or null when it holds none. */
+internal fun tokenLine(tokens: Int): String? = when {
+    tokens <= 0 -> null
+    tokens == 1 -> "+1 token"
+    else -> "+$tokens tokens"
 }
 
 /** The icon of an account row: the Bitcoin mark, the Ethereum network's logo on [evmChainId], or the first letter of a Solana or Algorand coin. */
@@ -278,7 +276,10 @@ internal fun AccountBalance(account: WalletAccount, shown: Boolean, modifier: Mo
     )
 }
 
-/** An account's row in the wallet's island: its chain's logo, its title, its address line, and its balance. A tap opens the account. */
+/**
+ * An account's row in the wallet's island: its chain's logo, its title, its short address under the title, and its balance with its token count under
+ * the balance. A tap opens the account.
+ */
 @Composable
 internal fun AccountRowItem(
     account: WalletAccount,
@@ -292,7 +293,7 @@ internal fun AccountRowItem(
 ) {
     LumioRow(
         title = "Account ${account.index + 1}",
-        description = accountDescription(account, tokens),
+        description = shortAddress(account.address),
         leading = {
             LumioAssetIcon(
                 testnet = mode == NetworkMode.TESTNET,
@@ -301,7 +302,20 @@ internal fun AccountRowItem(
                 AssetIcon(spec = icon, size = 24.dp)
             }
         },
-        trailing = { AccountBalance(account = account, shown = showBalance) },
+        trailing = {
+            Column(horizontalAlignment = Alignment.End) {
+                AccountBalance(account = account, shown = showBalance)
+                tokenLine(tokens)?.let { line ->
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End,
+                        maxLines = 1,
+                    )
+                }
+            }
+        },
         onClick = onClick,
         modifier = Modifier.staggeredEnter(index, running),
     )

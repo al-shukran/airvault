@@ -9,21 +9,19 @@ import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
 import java.math.BigDecimal
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import org.junit.Test
 
 /** The wallet screens' state and text: the line under a wallet, the freshness of a total, the cents of a total, the stagger and the account rows. */
 class WalletRowsTest {
     private val fingerprint = 0x1a2b3c4dL
 
-    private fun account(chain: AccountChain, index: Int = 0, script: String? = null, balance: NativeAsset? = null) = WalletAccount(
+    private fun account(chain: AccountChain, index: Int = 0, balance: NativeAsset? = null) = WalletAccount(
         walletId = "wallet-demo",
         chain = chain,
         index = index,
         address = "0x" + "a1b2c3d4".repeat(5),
         networkName = "network",
         balance = balance,
-        script = script,
     )
 
     @Test
@@ -90,13 +88,10 @@ class WalletRowsTest {
     }
 
     @Test
-    fun accountDescriptionShowsTheTokenCountOnlyWhenThereAreTokens() {
-        val ethereum = account(AccountChain.ETHEREUM)
-        assertEquals(shortAddress(ethereum.address), accountDescription(ethereum, tokens = 0))
-        assertTrue(accountDescription(ethereum, tokens = 1).endsWith(" · +1 token"))
-        assertTrue(accountDescription(ethereum, tokens = 2).endsWith(" · +2 tokens"))
-        val bitcoin = account(AccountChain.BITCOIN, script = "native segwit")
-        assertTrue(accountDescription(bitcoin, tokens = 0).endsWith(" · native segwit"))
+    fun tokenLineShowsTheCountOnlyWhenThereAreTokens() {
+        assertEquals(null, tokenLine(0))
+        assertEquals("+1 token", tokenLine(1))
+        assertEquals("+2 tokens", tokenLine(2))
     }
 
     @Test
