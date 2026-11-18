@@ -73,7 +73,7 @@ fun PasswordStep(
         ) {
             StepHeader(step = step, count = stepCount)
             Spacer(Modifier.height(LenslySpacing.lg))
-            DotHeadline(text = "PASSWORD")
+            DotHeadline(text = "Password")
             Spacer(Modifier.height(LenslySpacing.sm))
             Text(
                 text = prompt,
@@ -96,7 +96,7 @@ fun PasswordStep(
                         DotProgress(description = "Checking password")
                         Spacer(Modifier.width(LenslySpacing.xs))
                         Text(
-                            text = "CHECKING",
+                            text = "Checking",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

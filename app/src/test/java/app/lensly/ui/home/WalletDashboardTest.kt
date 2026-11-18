@@ -79,7 +79,7 @@ class WalletDashboardTest {
         // The carousel holds all five wallets. Its cards on screen are fewer, so the row is checked by its item count.
         assertEquals(5, compose.onNodeWithTag(HOME_CAROUSEL_TAG).fetchSemanticsNode().config[SemanticsProperties.CollectionInfo].columnCount)
 
-        compose.onNodeWithText("ALL WALLETS").performClick()
+        compose.onNodeWithText("All wallets").performClick()
         settle()
 
         assertEquals(HiddenRoute.WALLETS, nav.currentBackStackEntry?.destination?.route)

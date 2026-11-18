@@ -1,5 +1,6 @@
 package app.lensly.ui.home
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -85,7 +86,7 @@ class ActivityScreenTest {
         showActivity()
         compose.onNodeWithText("transfer").assertIsDisplayed()
 
-        compose.onNodeWithText("REFUSED").performClick()
+        compose.onNodeWithText("Refused").performClick()
         compose.waitForIdle()
 
         compose.onNodeWithText("Unknown contract call").assertIsDisplayed()
@@ -100,7 +101,7 @@ class ActivityScreenTest {
         compose.onNodeWithText("transfer").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Signed").assertIsDisplayed()
+        compose.onAllNodesWithText("Signed").assertCountEquals(2)
         compose.onNodeWithText("Monad Testnet · chain 10143").assertIsDisplayed()
         compose.onNodeWithText(groupAddress(SAMPLE_ACCOUNT)).assertIsDisplayed()
         compose.onAllNodesWithText(groupAddress(SAMPLE_RECIPIENT)).onFirst().assertIsDisplayed()

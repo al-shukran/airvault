@@ -106,7 +106,7 @@ fun RegistryImportScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Offline catalog")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotText(text = "CATALOG", fontSize = 40.sp)
+        DotText(text = "Catalog", fontSize = 40.sp)
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "Insert removable storage with a signed package.",

@@ -261,7 +261,7 @@ private fun ScanToSignButton(onClick: () -> Unit, modifier: Modifier = Modifier)
         )
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
-            text = "Scan to sign".uppercase(),
+            text = "Scan to sign",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -351,7 +351,7 @@ private fun HomeNotice(notice: String?, onShown: () -> Unit, modifier: Modifier 
         exit = fadeOut(tween(ENTER_MS)),
     ) {
         Text(
-            text = text.uppercase(),
+            text = text,
             modifier = Modifier
                 .clip(LenslyPillShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)

@@ -200,7 +200,7 @@ class WalletHomeScreenTest {
         }
         settle()
 
-        compose.onNodeWithText("SEE ALL").performClick()
+        compose.onNodeWithText("See all").performClick()
         settle()
 
         assertEquals(HiddenRoute.ACTIVITY, nav.currentBackStackEntry?.destination?.route)
@@ -382,10 +382,10 @@ class WalletHomeScreenTest {
         settle()
 
         val actions = listOf(
-            HOME_DOCK_PAIR_TAG to "PAIR",
-            HOME_DOCK_ACTIVITY_TAG to "ACTIVITY",
-            HOME_DOCK_WALLETS_TAG to "WALLETS",
-            HOME_DOCK_SETTINGS_TAG to "SETTINGS",
+            HOME_DOCK_PAIR_TAG to "Pair",
+            HOME_DOCK_ACTIVITY_TAG to "Activity",
+            HOME_DOCK_WALLETS_TAG to "Wallets",
+            HOME_DOCK_SETTINGS_TAG to "Settings",
         )
         actions.forEach { (tag, label) -> compose.onNodeWithTag(tag).assertTextEquals(label) }
         val centres = actions.map { (tag, _) -> compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.center.x }

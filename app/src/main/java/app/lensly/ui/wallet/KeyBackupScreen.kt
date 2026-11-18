@@ -76,7 +76,7 @@ fun KeyBackupScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Single key. Shown once")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotHeadline(text = "WRITE DOWN")
+        DotHeadline(text = "Write down")
         Spacer(Modifier.height(LenslySpacing.sm))
         InlineBanner(message = "Never photograph this key.", tone = BannerTone.Warning)
         Spacer(Modifier.height(LenslySpacing.md))

@@ -148,7 +148,7 @@ internal fun LogoCollageSection(
         }
         Spacer(Modifier.height(LenslySpacing.xs))
         Text(
-            text = caption.uppercase(),
+            text = caption,
             modifier = Modifier.padding(horizontal = WALLET_GUTTER),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

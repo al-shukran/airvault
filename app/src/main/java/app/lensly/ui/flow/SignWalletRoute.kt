@@ -85,7 +85,7 @@ internal fun SignWalletRoute(
 
     when (val shown = step) {
         is SignStep.Scanning -> ScanScreen(
-            title = "SIGN REQUEST",
+            title = "Sign request",
             progress = shown.progress,
             statusText = shown.status,
             onText = flow::onScanned,
@@ -139,7 +139,7 @@ internal fun SignWalletRoute(
         )
         is SignStep.AlgorandConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.Signature -> ShowQrScreen(
-            title = "SIGNATURE",
+            title = "Signature",
             subtitle = "Scan this with your online wallet",
             parts = shown.parts,
             onDone = flow::leave,

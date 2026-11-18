@@ -58,6 +58,7 @@ import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
 import java.io.File
+import app.lensly.ui.theme.labelCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -276,7 +277,7 @@ private fun MediaViewer(
             containerColor = MaterialTheme.colorScheme.surface,
             title = {
                 Text(
-                    text = "DELETE ${kind.uppercase()}?",
+                    text = labelCase("Delete $kind?"),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -291,7 +292,7 @@ private fun MediaViewer(
             confirmButton = {
                 TextButton(onClick = onDelete) {
                     Text(
-                        text = "DELETE",
+                        text = labelCase("Delete"),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -300,7 +301,7 @@ private fun MediaViewer(
             dismissButton = {
                 TextButton(onClick = { confirmingDelete = false }) {
                     Text(
-                        text = "CANCEL",
+                        text = labelCase("Cancel"),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

@@ -237,7 +237,7 @@ private fun AppRow(app: WalletApp, count: Int, onClick: () -> Unit) {
             Spacer(Modifier.width(LenslySpacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = app.label.uppercase(),
+                    text = app.label,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -364,7 +364,7 @@ internal fun SheetHeader(name: String, identity: VisualIdentity, address: String
         Spacer(Modifier.width(LenslySpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = name.uppercase(),
+                text = name,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,

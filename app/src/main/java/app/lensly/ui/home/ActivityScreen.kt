@@ -161,7 +161,7 @@ private fun FilterChip(option: ActivityFilter, chosen: Boolean, onClick: () -> U
             .semantics { selected = chosen },
     ) {
         Text(
-            text = option.label.uppercase(),
+            text = option.label,
             style = MaterialTheme.typography.labelSmall,
             color = if (chosen) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface,
         )

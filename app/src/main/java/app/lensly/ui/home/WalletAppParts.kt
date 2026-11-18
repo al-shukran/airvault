@@ -174,7 +174,7 @@ internal fun AppOptionsSheet(
             AppIcon(app = app, size = 40.dp)
             Spacer(Modifier.width(LenslySpacing.sm))
             Text(
-                text = app.label.uppercase(),
+                text = app.label,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )

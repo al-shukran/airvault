@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.labelCase
 
 /**
  * Password display: one dot-matrix dot per entered character, on a hairline rule that marks the field. It takes only the
@@ -107,7 +108,7 @@ fun GateStatusLine(
         }
         if (text != null) {
             Text(
-                text = text.uppercase(),
+                text = labelCase(text),
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 style = MaterialTheme.typography.labelMedium,
                 color = tone,

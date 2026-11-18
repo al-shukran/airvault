@@ -19,11 +19,11 @@ fun SoonScreen(
     LenslyScreen(title = "Pair and sign", modifier = modifier, onBack = onBack, scrollable = false) {
         Spacer(Modifier.height(LenslySpacing.lg))
         Text(
-            text = "NOT BUILT YET",
+            text = "Not built yet",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(LenslySpacing.sm))
-        DotHeadline(text = "SOON")
+        DotHeadline(text = "Soon")
     }
 }
