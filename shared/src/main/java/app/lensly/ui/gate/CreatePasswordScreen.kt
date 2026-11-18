@@ -124,7 +124,7 @@ fun CreatePasswordScreen(
             if (!confirming) {
                 Spacer(Modifier.height(LenslySpacing.md))
                 Text(
-                    text = "Removing the screen lock invalidates the vault key. The vault must then be restored from its seed phrase.",
+                    text = "Removing the screen lock makes the vault unreadable. The vault must then be restored from its backup.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                 )
