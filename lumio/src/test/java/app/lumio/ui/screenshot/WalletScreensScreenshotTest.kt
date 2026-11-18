@@ -3,8 +3,13 @@ package app.lumio.ui.screenshot
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lumio.btc.networkId
+import app.lumio.chains.ChainHolding
+import app.lumio.data.asset.AssetId
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.price.Price
+import app.lumio.data.price.PricePoint
+import app.lumio.data.price.PriceSeries
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
@@ -16,7 +21,11 @@ import app.lumio.network.NetworkMode
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenHolding
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.wallets.AccountScreen
+import app.lumio.ui.wallets.AssetRowModel
+import app.lumio.ui.wallets.AssetRows
+import app.lumio.ui.wallets.AssetScreen
 import app.lumio.ui.wallets.WalletRow
 import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletsScreen
@@ -32,9 +41,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+/** One day in milliseconds, the spacing of the price points in the chart golden. */
+private const val DAY_MS = 86_400_000L
+
 /**
- * The goldens of the wallet-first screens: the Wallets start screen, one wallet's accounts, and one account. Each shows its fullest common state, on
- * the testnet side where the owner's coins are. Recorded with `:lumio:recordRoborazziDebug`, checked with `:lumio:verifyRoborazziDebug`.
+ * The goldens of the wallet-first screens: the Wallets start screen, one wallet's accounts, one account and one asset. Each shows its fullest common state,
+ * on the testnet side where the owner's coins are, and the edge states: an empty activity, a zero balance, hidden balances and long names. Recorded with
+ * `:lumio:recordRoborazziDebug` (on the Linux runner, `record-goldens.yml`), checked with `:lumio:verifyRoborazziDebug`.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
@@ -77,6 +90,26 @@ class WalletScreensScreenshotTest {
         networkName = "Algorand testnet",
         balance = null,
     )
+    private val zeroEthereum = ethereum.copy(
+        balance = NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Family.EVM, "10143", testnet = true), BigDecimal.ZERO),
+    )
+
+    private val monad = EvmChain(10143L, "Monad testnet", "MON", 18, true, "https://testnet.monadexplorer.com")
+    private val usdc = Token(10143L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
+    private val usdcHolding = TokenHolding(monad, usdc, BigInteger.valueOf(1_250_500_000L), atMs = 0L)
+    private val etherAsset = TxAsset(contract = null, symbol = "MON", name = "Monad", decimals = 18)
+    private val usdcAsset = TxAsset(contract = usdc.contract, symbol = "USDC", name = "USD Coin", decimals = 6)
+    private val splUsdc = ChainHolding("USDC", "Solana devnet", BigInteger("1500000"), 6, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+
+    /** The prices the goldens show: the Monad coin at $2.50 and the USDC token at $1. */
+    private val prices: Map<AssetId, Price> = mapOf(
+        AssetId.Native(NetworkId(Family.EVM, "10143", testnet = true)) to Price(usd = 2.5, change24hPct = null, asOfMs = 0L, stale = false),
+        AssetId.Erc20.of(NetworkId(Family.EVM, "10143", testnet = true), usdc.contract) to Price(usd = 1.0, change24hPct = 0.01, asOfMs = 0L, stale = false),
+    )
+
+    /** The asset rows of [account] as the account screen lists them, priced by [prices] and with no registry logos. */
+    private fun rowsOf(account: WalletAccount, tokens: List<TokenHolding> = emptyList(), holdings: List<ChainHolding> = emptyList()): List<AssetRowModel> =
+        AssetRows.of(account, tokens, holdings, prices, network = { null }, token = { _, _ -> null })
 
     @Test
     fun wallets() = compose.lumioSnapshot("wallets", content = walletsScreen)
@@ -160,7 +193,7 @@ class WalletScreensScreenshotTest {
         )
     }
 
-    /** An Ethereum account with one held token and two transactions: the Tokens and Activity sections as the owner sees them. */
+    /** An Ethereum account with one held token and two transactions: the Assets and Activity islands as the owner sees them. */
     @Test
     fun accountEthereumWithTokensAndActivity() = compose.lumioSnapshot("account_ethereum_activity", content = accountEthereumScreen)
 
@@ -169,17 +202,12 @@ class WalletScreensScreenshotTest {
     fun accountEthereumLight() = compose.lumioSnapshot("account_ethereum_light", content = accountEthereumScreen)
 
     private val accountEthereumScreen: @Composable () -> Unit = {
-        val chain = EvmChain(1L, "Ethereum", "ETH", 18, false, "https://etherscan.io")
-        val usdc = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
         AccountScreen(
             walletName = "Demo",
             account = ethereum,
             showBalance = true,
-            tokens = listOf(TokenHolding(chain, usdc, BigInteger.valueOf(1_250_500_000L), atMs = 0L)),
-            activity = listOf(
-                accountTx(1, TxDirection.IN, BigInteger.valueOf(1_500_000_000_000_000_000L), "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", 1_731_800_000_000L),
-                accountTx(2, TxDirection.OUT, BigInteger.valueOf(250_000_000_000_000_000L), "0x2b5634C42055806a59e9107ED44D43c426E58258", 1_731_700_000_000L),
-            ),
+            assets = rowsOf(ethereum, tokens = listOf(usdcHolding)),
+            activity = ethereumActivity,
             onSend = {},
             onReceive = {},
             onOpenTransaction = {},
@@ -187,15 +215,168 @@ class WalletScreensScreenshotTest {
         )
     }
 
-    /** One native Ethereum transaction of the account, as the activity lists it. */
-    private fun accountTx(n: Int, direction: TxDirection, amount: BigInteger, counterparty: String, timestampMs: Long) = TxFeedItem(
+    private val ethereumActivity = listOf(
+        accountTx(1, TxDirection.IN, BigInteger.valueOf(1_500_000_000_000_000_000L), "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", 1_731_800_000_000L),
+        accountTx(2, TxDirection.OUT, BigInteger.valueOf(250_000_000_000_000_000L), "0x2b5634C42055806a59e9107ED44D43c426E58258", 1_731_700_000_000L),
+    )
+
+    /** A zero balance: no coin in the account, so Receive is the primary action and Send drops out. */
+    @Test
+    fun accountZeroBalance() = compose.lumioSnapshot("account_zero_balance") {
+        AccountScreen(
+            walletName = "Demo",
+            account = zeroEthereum,
+            showBalance = true,
+            assets = rowsOf(zeroEthereum),
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    /** A funded account with no transaction yet: the Activity island says so. */
+    @Test
+    fun accountEmptyActivity() = compose.lumioSnapshot("account_empty_activity") {
+        AccountScreen(
+            walletName = "Demo",
+            account = ethereum,
+            showBalance = true,
+            assets = rowsOf(ethereum, tokens = listOf(usdcHolding)),
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    /** Hidden balances: every amount, the hero included, reads as the mask. */
+    @Test
+    fun accountHiddenBalances() = compose.lumioSnapshot("account_hidden_balances") {
+        AccountScreen(
+            walletName = "Demo",
+            account = ethereum,
+            showBalance = false,
+            assets = rowsOf(ethereum, tokens = listOf(usdcHolding)),
+            activity = ethereumActivity,
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    /** Long names: a wallet, a network and its address run past the width of the screen, and they truncate rather than wrap. */
+    @Test
+    fun accountLongNames() = compose.lumioSnapshot("account_long_names") {
+        val longNetwork = EvmChain(10143L, "Monad testnet and every other EVM network this wallet reads", "MON", 18, true, monad.explorerUrl)
+        val longAccount = ethereum.copy(networkName = longNetwork.name)
+        AccountScreen(
+            walletName = "A wallet name that runs on past the width of the screen",
+            account = longAccount,
+            showBalance = true,
+            assets = AssetRows.of(
+                longAccount,
+                listOf(TokenHolding(longNetwork, usdc, BigInteger.valueOf(1_250_500_000L), atMs = 0L)),
+                emptyList(),
+                prices,
+                network = { null },
+                token = { _, _ -> null },
+            ),
+            activity = ethereumActivity,
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun accountBitcoin() = compose.lumioSnapshot("account_bitcoin") {
+        AccountScreen(
+            walletName = "Demo",
+            account = bitcoin,
+            showBalance = true,
+            assets = rowsOf(bitcoin),
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    /** A Solana account with an SPL token beside its SOL: the holding shows in the Assets island, and Activity is not read yet. */
+    @Test
+    fun accountSolanaSend() = compose.lumioSnapshot("account_solana") {
+        AccountScreen(
+            walletName = "Demo",
+            account = solana,
+            showBalance = true,
+            assets = rowsOf(solana, holdings = listOf(splUsdc)),
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    /** A token's page: its amount and value, its price chart, and its own activity, with Send and Receive as the actions. */
+    @Test
+    fun assetToken() = compose.lumioSnapshot("asset_token") {
+        AssetScreen(
+            asset = rowsOf(ethereum, tokens = listOf(usdcHolding)).single { it.symbol == "USDC" },
+            showBalance = true,
+            chart = usdcChart,
+            activity = listOf(
+                accountTx(3, TxDirection.IN, BigInteger.valueOf(500_000_000L), "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", 1_731_800_000_000L, usdcAsset),
+                accountTx(4, TxDirection.OUT, BigInteger.valueOf(100_000_000L), "0x2b5634C42055806a59e9107ED44D43c426E58258", 1_731_700_000_000L, usdcAsset),
+            ),
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    /** An Algorand asset the account has not opted in to: the notice says why it cannot hold it yet, and no action is offered. */
+    @Test
+    fun assetAsaNotOpted() = compose.lumioSnapshot("asset_asa_not_opted_in") {
+        AssetScreen(
+            asset = AssetRowModel(
+                assetKey = "10458941",
+                symbol = "USDC",
+                name = "USDC",
+                network = "Algorand testnet",
+                amountText = "0",
+                fiatText = null,
+                icon = AssetIconSpec.Letter("U"),
+                assetId = null,
+                isNative = false,
+                testnet = false,
+                zero = true,
+            ),
+            showBalance = true,
+            notice = "This account can't hold USDC yet. Algorand needs a one-time opt-in; 0.1 ALGO stays reserved.",
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    /** A week of USDC prices that rise and fall a little, for the chart. */
+    private val usdcChart = PriceSeries(
+        listOf(0.998, 1.001, 1.004, 0.999, 1.002, 1.006, 1.003).mapIndexed { index, usd -> PricePoint(timeMs = index * DAY_MS, usd = usd) },
+    )
+
+    /** One transaction of the account as the activity lists it: a native transfer on Monad testnet, unless [asset] says otherwise. */
+    private fun accountTx(
+        n: Int,
+        direction: TxDirection,
+        amount: BigInteger,
+        counterparty: String,
+        timestampMs: Long,
+        asset: TxAsset = etherAsset,
+    ) = TxFeedItem(
         tx = LumioTx(
-            id = "EVM:1:tx$n",
-            network = NetworkId(Family.EVM, "1", false),
+            id = "EVM:10143:tx$n",
+            network = NetworkId(Family.EVM, "10143", testnet = true),
             account = "0x" + "ab".repeat(20),
             hash = "0x" + "%064x".format(n),
             timestampMs = timestampMs,
-            asset = TxAsset(contract = null, symbol = "ETH", name = "Ether", decimals = 18),
+            asset = asset,
             amount = amount,
             direction = direction,
             fee = null,
@@ -205,32 +386,8 @@ class WalletScreensScreenshotTest {
             inputData = null,
             memo = null,
         ),
-        chain = "Ethereum",
+        chain = "Monad testnet",
     )
-
-    @Test
-    fun accountBitcoin() = compose.lumioSnapshot("account_bitcoin") {
-        AccountScreen(
-            walletName = "Demo",
-            account = bitcoin,
-            showBalance = true,
-            onSend = {},
-            onReceive = {},
-            onBack = {},
-        )
-    }
-
-    @Test
-    fun accountSolanaSend() = compose.lumioSnapshot("account_solana") {
-        AccountScreen(
-            walletName = "Demo",
-            account = solana,
-            showBalance = true,
-            onSend = {},
-            onReceive = {},
-            onBack = {},
-        )
-    }
 
     @Test
     fun walletAccountsWithAPrice() = compose.lumioSnapshot("wallet_accounts_priced") {

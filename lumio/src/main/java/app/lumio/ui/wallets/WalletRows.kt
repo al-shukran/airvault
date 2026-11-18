@@ -30,12 +30,12 @@ internal fun shortAddress(address: String): String = "${address.take(8)}…${add
  * replaces the amount while the owner hides balances.
  */
 @Composable
-internal fun BalanceValue(account: WalletAccount, shown: Boolean, large: Boolean = false) {
+internal fun BalanceValue(account: WalletAccount, shown: Boolean) {
     val amount = account.balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" } ?: NOT_READ
     Column(horizontalAlignment = Alignment.End) {
         Text(
             text = Masking.amount(amount, hidden = !shown),
-            style = if (large) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(

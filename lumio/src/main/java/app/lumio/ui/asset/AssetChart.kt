@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -21,21 +22,23 @@ import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.data.price.PriceSeries
 import app.lumio.home.HomeFormat
-import app.lensly.ui.theme.LocalLumenPalette
 
 private val CHART_HEIGHT: Dp = 160.dp
 private val LINE_WIDTH: Dp = 2.dp
 
+/** The alpha of the gold fill at the top of the chart. It fades to nothing at the foot (section 2.1, Asset). */
+private const val FILL_ALPHA = 0.18f
+
 /**
- * A price chart: a line through the points of [series], in green when the price ended at or above where it began and red when below. Its least and
- * greatest prices are labelled above it. A series with one point draws a dot. A series with no points draws nothing, since the page shows its own
- * empty state for that.
+ * A price chart in Lumen's gold (section 2.1, Asset): a 2 dp line through the points of [series], over a fill that fades from gold at 18% to nothing. Its
+ * least and greatest prices are labelled above it. A series with one point draws a dot. A series with no points draws nothing, since the page shows its
+ * own empty state for that.
  */
 @Composable
 fun AssetChart(series: PriceSeries, modifier: Modifier = Modifier) {
     val low = series.low ?: return
     val high = series.high ?: return
-    val color = if (series.rising) LocalLumenPalette.current.positive else MaterialTheme.colorScheme.error
+    val gold = MaterialTheme.colorScheme.primary
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     Column(modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -47,15 +50,29 @@ fun AssetChart(series: PriceSeries, modifier: Modifier = Modifier) {
             val points = chartPoints(series, size.width, size.height)
             val width = LINE_WIDTH.toPx()
             if (points.size == 1) {
-                drawCircle(color = color, radius = width, center = points.single())
+                drawCircle(color = gold, radius = width, center = points.single())
             } else if (points.size > 1) {
-                val path = Path()
+                val line = Path()
                 points.forEachIndexed { index, point ->
-                    if (index == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
+                    if (index == 0) line.moveTo(point.x, point.y) else line.lineTo(point.x, point.y)
+                }
+                val fill = Path().apply {
+                    addPath(line)
+                    lineTo(points.last().x, size.height)
+                    lineTo(points.first().x, size.height)
+                    close()
                 }
                 drawPath(
-                    path = path,
-                    color = color,
+                    path = fill,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(gold.copy(alpha = FILL_ALPHA), gold.copy(alpha = 0f)),
+                        startY = 0f,
+                        endY = size.height,
+                    ),
+                )
+                drawPath(
+                    path = line,
+                    color = gold,
                     style = Stroke(width = width, cap = StrokeCap.Round, join = StrokeJoin.Round),
                 )
             }
