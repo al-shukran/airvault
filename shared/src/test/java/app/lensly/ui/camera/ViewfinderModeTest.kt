@@ -7,7 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -32,7 +32,7 @@ class ViewfinderModeTest {
         onModeChange: (CameraMode) -> Unit = {},
     ) {
         compose.setContent {
-            LenslyTheme {
+            CoverTheme {
                 ViewfinderOverlay(
                     flashAvailable = false,
                     flashOn = false,

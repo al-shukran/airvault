@@ -27,9 +27,8 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.home.groupedAddress
 import app.lensly.ui.qr.AnimatedQr
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalMonoFamily
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillSize
@@ -117,7 +116,7 @@ private fun AccountFields(account: AccountExportView, modifier: Modifier = Modif
         Spacer(Modifier.height(LenslySpacing.sm))
         WalletEyebrow("Address")
         Spacer(Modifier.height(LenslySpacing.xxs))
-        AddressText(address = account.address, shown = groupedAddress(account.address), icon = false, color = LenslyOnSurface)
+        AddressText(address = account.address, shown = groupedAddress(account.address), icon = false, color = MaterialTheme.colorScheme.onSurface)
         account.fields.forEach { (label, value) -> FieldText(label = label, value = value) }
     }
 }
@@ -129,8 +128,8 @@ private fun FieldText(label: String, value: String) {
     Spacer(Modifier.height(LenslySpacing.xxs))
     Text(
         text = value,
-        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
-        color = LenslyOnSurface,
+        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
+        color = MaterialTheme.colorScheme.onSurface,
     )
 }
 
@@ -145,7 +144,7 @@ private fun AccountAddressDetails(address: String, derivationPath: String?) {
             address = address,
             shown = groupedAddress(address),
             icon = false,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
         if (derivationPath != null) {
@@ -154,7 +153,7 @@ private fun AccountAddressDetails(address: String, derivationPath: String?) {
             Spacer(Modifier.height(LenslySpacing.xxs))
             Text(
                 text = derivationPath,
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

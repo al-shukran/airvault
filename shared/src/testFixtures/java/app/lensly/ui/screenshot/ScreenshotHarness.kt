@@ -14,7 +14,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.LocalVaultLock
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
+import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 
@@ -37,15 +38,18 @@ private const val SCREEN_DENSITY = 1.75f
 private const val SCREEN_TAG = "lensly-screenshot-screen"
 
 /**
- * Renders [content] in [theme], which is the Lensly dark theme unless a screen names another, at 720 x 1600 px and 280 dpi, then records it
+ * Renders [content] in [theme], which is the Lumen theme unless a screen names another, such as [coverTheme] for the camera cover and the gate, at 720 x 1600 px and 280 dpi, then records it
  * as [SCREENSHOT_DIR]/[name].png. Call it once per test, in one line. The frame is sized in dp so its pixel size is exact. [settleMs]
  * advances the paused clock before the capture, so an entrance animation has finished.
  */
+/** The camera cover and the gate keep the cover theme: Lensly's original look. */
+val coverTheme: @Composable (content: @Composable () -> Unit) -> Unit = { CoverTheme(content = it) }
+
 fun ComposeContentTestRule.snapshot(
     name: String,
     settleMs: Long = 0L,
     beforeCapture: ComposeContentTestRule.() -> Unit = {},
-    theme: @Composable (content: @Composable () -> Unit) -> Unit = { LenslyTheme(content = it) },
+    theme: @Composable (content: @Composable () -> Unit) -> Unit = { LumenTheme(content = it) },
     content: @Composable () -> Unit,
 ) {
     mainClock.autoAdvance = false

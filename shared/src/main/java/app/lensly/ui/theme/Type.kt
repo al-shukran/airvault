@@ -38,16 +38,16 @@ val SpaceMonoFamily = FontFamily(
 val LenslySansFamily: FontFamily = FontFamily.SansSerif
 
 /**
- * The face of data that is compared by eye, such as addresses. Lensly's is Space Mono. Lumio's theme provides JetBrains Mono.
+ * The face of data that is compared by eye, such as addresses. The cover's is Space Mono; the Lumen theme provides JetBrains Mono.
  */
 val LocalMonoFamily = staticCompositionLocalOf { SpaceMonoFamily }
 
 private const val LABEL_TRACKING = 1.5
 
 /**
- * Type scale. Display and headline use Doto, titles and labels use Space Mono, and body text uses the sans.
+ * The cover's type scale. Display and headline use Doto, titles and labels use Space Mono, and body text uses the sans.
  */
-val LenslyTypography = Typography(
+val CoverTypography = Typography(
     // Display and headline styles use the dot-matrix face.
     displayLarge = TextStyle(
         fontFamily = DotoFamily,

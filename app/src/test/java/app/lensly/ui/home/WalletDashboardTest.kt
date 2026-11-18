@@ -16,7 +16,7 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.settings.FailureCapChoice
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -40,7 +40,7 @@ class WalletDashboardTest {
     fun homeShowsOneCardPerWalletWithNoAddTileAndNoCatalogAction() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = wallets(2))
             }
         }
@@ -57,7 +57,7 @@ class WalletDashboardTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
-            LenslyTheme {
+            LumenTheme {
                 NavHost(navController = nav, startDestination = HiddenRoute.HOME) {
                     composable(HiddenRoute.HOME) {
                         Home(wallets = wallets(5), onWallets = { nav.navigate(HiddenRoute.WALLETS) })
@@ -93,7 +93,7 @@ class WalletDashboardTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
-            LenslyTheme {
+            LumenTheme {
                 NavHost(navController = nav, startDestination = HiddenRoute.HOME) {
                     composable(HiddenRoute.HOME) {
                         Home(wallets = wallets(2), onScan = { nav.navigate(HiddenRoute.SCAN_ANY) })

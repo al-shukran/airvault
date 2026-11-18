@@ -24,10 +24,7 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.navigation.PickerStop
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceHigh
 import kotlin.math.roundToInt
 
 /**
@@ -95,7 +92,7 @@ fun ScanFrame(
             Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .clip(RoundedCornerShape(LenslyRadius.xl)),
+                .clip(MaterialTheme.shapes.extraLarge),
         )
         Spacer(Modifier.height(LenslySpacing.md))
         if (progress != null) {
@@ -130,14 +127,14 @@ private fun ScanProgress(progress: Float) {
                 .fillMaxWidth()
                 .height(6.dp)
                 .clip(RoundedCornerShape(percent = 50))
-                .background(LenslySurfaceHigh)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .semantics { progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f) },
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction)
                     .height(6.dp)
-                    .background(LenslyOnSurface),
+                    .background(MaterialTheme.colorScheme.onSurface),
             )
         }
     }

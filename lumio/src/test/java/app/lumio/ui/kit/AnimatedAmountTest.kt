@@ -8,8 +8,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import app.lumio.ui.theme.LocalReducedMotion
-import app.lumio.ui.theme.LumioMotion
+import app.lensly.ui.theme.LocalReducedMotion
+import app.lensly.ui.theme.LumenMotion
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,9 +54,9 @@ class AnimatedAmountTest {
         showAmount(text = "\$12.00", reduced = false, countUp = { "\$%.2f".format(12.0 * it) })
 
         compose.onNodeWithText("\$0.00").assertExists()
-        compose.mainClock.advanceTimeBy(LumioMotion.COUNT_UP / 2L)
+        compose.mainClock.advanceTimeBy(LumenMotion.COUNT_UP / 2L)
         compose.onNodeWithText("\$12.00").assertDoesNotExist()
-        compose.mainClock.advanceTimeBy(LumioMotion.COUNT_UP.toLong())
+        compose.mainClock.advanceTimeBy(LumenMotion.COUNT_UP.toLong())
         compose.onNodeWithContentDescription("\$12.00").assertExists()
     }
 
@@ -66,7 +66,7 @@ class AnimatedAmountTest {
         showAmount(text = "\$12.00", reduced = false, countUp = null)
 
         compose.onNodeWithContentDescription("\$12.00").assertExists()
-        compose.mainClock.advanceTimeBy(LumioMotion.COUNT_UP.toLong())
+        compose.mainClock.advanceTimeBy(LumenMotion.COUNT_UP.toLong())
         compose.onNodeWithContentDescription("\$12.00").assertExists()
     }
 

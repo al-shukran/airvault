@@ -1,6 +1,8 @@
 package app.lensly.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -11,8 +13,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import app.lensly.app.ProfileColour
 import app.lensly.ui.profile.swatch
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslySurfaceLow
 
 private const val RING_COUNT = 6
 
@@ -33,17 +33,18 @@ private const val MIX_TWO = -0x6b2fb644ecceee15L
  */
 @Composable
 fun WalletArt(seed: String, colour: ProfileColour?, modifier: Modifier = Modifier) {
-    Canvas(modifier) { drawWalletArt(seed, colour) }
+    val colors = MaterialTheme.colorScheme
+    Canvas(modifier) { drawWalletArt(seed, colour, colors) }
 }
 
-private fun DrawScope.drawWalletArt(seed: String, colour: ProfileColour?) {
+private fun DrawScope.drawWalletArt(seed: String, colour: ProfileColour?, colors: ColorScheme) {
     val random = ArtRandom(seed)
     val (first, second, third) = seedHues(random, colour)
     val w = size.width
     val h = size.height
     val reach = maxOf(w, h)
 
-    drawRect(LenslySurfaceLow)
+    drawRect(colors.surfaceContainerLow)
     glow(first.swatch(), alpha = 0.55f, centre = Offset(w * random.next(0.15f, 0.85f), h * random.next(0.15f, 0.7f)), radius = reach * 0.75f)
     glow(second.swatch(), alpha = 0.4f, centre = Offset(w * random.next(0.1f, 0.9f), h * random.next(0.5f, 1f)), radius = reach * 0.6f)
     glow(third.swatch(), alpha = 0.3f, centre = Offset(w * random.next(0.5f, 1f), h * random.next(0f, 0.5f)), radius = reach * 0.45f)
@@ -53,7 +54,7 @@ private fun DrawScope.drawWalletArt(seed: String, colour: ProfileColour?) {
     val ringStep = reach * 0.07f
     val stroke = Stroke(width = 1.dp.toPx())
     for (ring in 1..RING_COUNT) {
-        drawCircle(color = LenslyOnSurface.copy(alpha = 0.12f), radius = ringStep * ring, center = ringCentre, style = stroke)
+        drawCircle(color = colors.onSurface.copy(alpha = 0.12f), radius = ringStep * ring, center = ringCentre, style = stroke)
     }
 }
 

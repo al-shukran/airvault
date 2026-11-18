@@ -35,10 +35,6 @@ import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutlineInteractive
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -111,7 +107,7 @@ fun KeyBackupScreen(
 internal fun CopiedCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: String) {
     val interaction = remember { MutableInteractionSource() }
     val haptics = rememberKeyHaptics()
-    val box = RoundedCornerShape(LenslyRadius.xs)
+    val box = MaterialTheme.shapes.extraSmall
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -130,15 +126,15 @@ internal fun CopiedCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit, l
         Box(
             modifier = Modifier
                 .size(24.dp)
-                .border(1.dp, if (checked) LenslyOnSurface else LenslyOutlineInteractive, box)
-                .background(if (checked) LenslyOnSurface else Color.Transparent, box),
+                .border(1.dp, if (checked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline, box)
+                .background(if (checked) MaterialTheme.colorScheme.onSurface else Color.Transparent, box),
             contentAlignment = Alignment.Center,
         ) {
             if (checked) {
                 Icon(
                     imageVector = Icons.Filled.Check,
                     contentDescription = null,
-                    tint = LenslyBlack,
+                    tint = MaterialTheme.colorScheme.background,
                     modifier = Modifier.size(18.dp),
                 )
             }

@@ -61,8 +61,6 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.profile.ProfileAvatar
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WALLET_GUTTER
@@ -241,7 +239,7 @@ private fun AppRow(app: WalletApp, count: Int, onClick: () -> Unit) {
                 Text(
                     text = app.label.uppercase(),
                     style = MaterialTheme.typography.titleSmall,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -255,11 +253,11 @@ private fun AppRow(app: WalletApp, count: Int, onClick: () -> Unit) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = LenslyOnSurface,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp),
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -305,7 +303,7 @@ private fun WalletOptionsSheet(
 /** The warning before a secret. Cancel goes back to the options. Reveal opens the secret route, which asks for the App Password. */
 @Composable
 private fun SecretWarning(title: String, onCancel: () -> Unit, onReveal: () -> Unit) {
-    Text(text = title, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
+    Text(text = title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
     Spacer(Modifier.height(LenslySpacing.sm))
     InlineBanner(title = "Keep it private", message = SECRET_WARNING, tone = BannerTone.Warning)
     Spacer(Modifier.height(LenslySpacing.md))
@@ -337,7 +335,7 @@ internal fun OptionsSheet(onDismiss: () -> Unit, scrollable: Boolean = false, co
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentColor = LenslyOnSurface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         // A sheet's content does not stretch past its end. The stretch read as a bounce when a swipe went up past the last row.
         CompositionLocalProvider(LocalOverscrollFactory provides null) {
@@ -368,7 +366,7 @@ internal fun SheetHeader(name: String, identity: VisualIdentity, address: String
             Text(
                 text = name.uppercase(),
                 style = MaterialTheme.typography.titleSmall,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -384,7 +382,7 @@ internal fun SheetHeader(name: String, identity: VisualIdentity, address: String
         }
     }
     HorizontalDivider(
-        color = MaterialTheme.colorScheme.outline,
+        color = MaterialTheme.colorScheme.outlineVariant,
         modifier = Modifier.padding(bottom = LenslySpacing.xs),
     )
 }
@@ -398,7 +396,7 @@ internal fun SheetOption(
     destructive: Boolean = false,
 ) {
     val haptics = rememberKeyHaptics()
-    val tint = if (destructive) LenslyError else LenslyOnSurface
+    val tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
     Row(
         modifier = Modifier
             .fillMaxWidth()

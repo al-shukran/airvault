@@ -9,7 +9,7 @@ import app.lensly.app.InternalAccount
 import app.lensly.app.addressKeyOf
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.evm.EvmChain
 import app.lumio.evm.PreparedSend
 import app.lumio.pair.ADDRESS_BOOK_ALICE
@@ -68,7 +68,7 @@ class SendReviewAddressBookTest {
 
     private fun setReview(send: PreparedSend, book: List<AddressBookEntry>, accounts: Map<String, InternalAccount> = emptyMap()) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 SendReviewScreen(
                     send = send,
                     suggested = send,

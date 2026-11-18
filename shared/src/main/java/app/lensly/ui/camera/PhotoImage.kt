@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -12,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import app.lensly.ui.theme.LenslySurface
 import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -63,7 +63,7 @@ internal fun PhotoImage(
             }
         }
     }
-    Box(modifier = modifier.background(LenslySurface)) {
+    Box(modifier = modifier.background(MaterialTheme.colorScheme.surface)) {
         bitmap?.let {
             Image(
                 bitmap = it,

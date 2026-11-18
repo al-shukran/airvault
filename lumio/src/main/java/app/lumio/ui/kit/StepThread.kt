@@ -12,8 +12,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
-import app.lumio.ui.theme.LocalReducedMotion
-import app.lumio.ui.theme.LumioMotion
+import app.lensly.ui.theme.LocalReducedMotion
+import app.lensly.ui.theme.LumenMotion
 
 /** The height of the thread, which holds its nodes. */
 private val THREAD_HEIGHT = 16.dp
@@ -31,7 +31,7 @@ fun StepThread(current: Int, modifier: Modifier = Modifier, steps: Int = 4) {
     val last = (steps - 1).coerceAtLeast(1)
     val fill = animateFloatAsState(
         targetValue = current.coerceIn(0, last).toFloat() / last,
-        animationSpec = if (LocalReducedMotion.current) snap() else LumioMotion.spatial,
+        animationSpec = if (LocalReducedMotion.current) snap() else LumenMotion.spatial,
         label = "step thread fill",
     )
     val gold = MaterialTheme.colorScheme.primary

@@ -2,7 +2,7 @@ package app.lensly.ui.qr
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,7 +24,7 @@ class QrScannerSeamTest {
     @Test
     fun withoutAFrameSourceTheScannerKeepsTheCameraPermissionGate() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 QrScanner(onText = {})
             }
         }

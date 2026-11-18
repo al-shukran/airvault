@@ -58,8 +58,6 @@ import app.lensly.ui.components.tokenIconDrawables
 import app.lensly.ui.components.tokenIconsNeedingBackdrop
 import app.lensly.ui.settings.animatorsDisabled
 import app.lensly.ui.theme.LenslyLogoBackdrop
-import app.lensly.ui.theme.LenslyOutline
-import app.lensly.ui.theme.LenslySurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WALLET_GUTTER
 import kotlin.math.roundToInt
@@ -213,7 +211,7 @@ private fun drift(durationMs: Int): State<Float> {
 
 /**
  * The logos too dark for the dark tile: the same set the rest of the app puts on a light disc. Every other logo sits on the dark tile,
- * where its average luminance is at least 0.15, which gives it 3:1 or better against [LenslySurface].
+ * where its average luminance is at least 0.15, which gives it 3:1 or better against [MaterialTheme.colorScheme.surface].
  */
 private val lightDiscRes: Set<Int> = buildSet {
     chainIconsNeedingBackdrop.forEach { name -> chainIconDrawables[name]?.let { add(it) } }
@@ -237,8 +235,8 @@ private fun CollageLogo(painter: Painter, lightDisc: Boolean) {
             modifier = Modifier
                 .requiredSize(LOGO_SIZE)
                 .clip(CircleShape)
-                .background(if (lightDisc) LenslyLogoBackdrop else LenslySurface)
-                .border(1.dp, LenslyOutline, CircleShape),
+                .background(if (lightDisc) LenslyLogoBackdrop else MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Image(

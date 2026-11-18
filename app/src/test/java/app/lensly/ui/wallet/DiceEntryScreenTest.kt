@@ -3,6 +3,7 @@ package app.lensly.ui.wallet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,8 +30,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import app.lensly.app.HideDelay
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import java.security.SecureRandom
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -251,16 +251,16 @@ class DiceEntryScreenTest {
     @Test
     fun doneAndUndoAreDisabledWhileHidden() {
         showEntry(EntropyMode.Dice, initial = "1".repeat(EntropyTargets.DICE_MINIMUM))
-        compose.onNodeWithText("DONE").assertIsEnabled()
+        compose.onNodeWithText("Done").assertIsEnabled()
         compose.onNodeWithTag(UNDO_TAG).assertIsEnabled()
 
         tapTile("Roll 1")
 
-        compose.onNodeWithText("DONE").assertIsNotEnabled()
+        compose.onNodeWithText("Done").assertIsNotEnabled()
         compose.onNodeWithTag(UNDO_TAG).assertIsNotEnabled()
 
         reveal()
-        compose.onNodeWithText("DONE").assertIsEnabled()
+        compose.onNodeWithText("Done").assertIsEnabled()
         compose.onNodeWithTag(UNDO_TAG).assertIsEnabled()
     }
 
@@ -318,17 +318,17 @@ class DiceEntryScreenTest {
 
         compose.onNodeWithText("AT LEAST 50 ROLLS").assertIsDisplayed()
         compose.onNodeWithTag(UNDO_TAG).assertIsDisplayed()
-        compose.onNodeWithText("DONE").assertIsDisplayed()
+        compose.onNodeWithText("Done").assertIsDisplayed()
         assertTrue(compose.onNodeWithTag(UNDO_TAG).getBoundsInRoot().bottom <= PHONE_HEIGHT)
     }
 
     private fun ComposeContentTestRule.setPhone(content: @Composable () -> Unit) {
         setContent {
-            LenslyTheme {
+            LumenTheme {
                 Box(
                     modifier = Modifier
                         .requiredSize(width = PHONE_WIDTH, height = PHONE_HEIGHT)
-                        .background(LenslyBlack),
+                        .background(MaterialTheme.colorScheme.background),
                 ) {
                     content()
                 }

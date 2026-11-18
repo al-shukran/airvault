@@ -34,9 +34,6 @@ import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.home.groupedAddress
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -121,7 +118,7 @@ private fun GroupHeader(chainId: Long, network: NetworkEntry?, count: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(LenslyBlack)
+            .background(MaterialTheme.colorScheme.background)
             .padding(vertical = LenslySpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -130,7 +127,7 @@ private fun GroupHeader(chainId: Long, network: NetworkEntry?, count: Int) {
         Text(
             text = network?.name ?: "Chain $chainId",
             style = MaterialTheme.typography.titleSmall,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -138,7 +135,7 @@ private fun GroupHeader(chainId: Long, network: NetworkEntry?, count: Int) {
         Text(
             text = if (count == 1) "1 token" else "$count tokens",
             style = MaterialTheme.typography.labelMedium,
-            color = LenslyMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -154,7 +151,7 @@ private fun TokenRow(token: TokenEntry, network: NetworkEntry?, modifier: Modifi
                 Text(
                     text = token.symbol,
                     style = MaterialTheme.typography.titleMedium,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = token.name,
@@ -166,7 +163,7 @@ private fun TokenRow(token: TokenEntry, network: NetworkEntry?, modifier: Modifi
                 Text(
                     text = "${token.decimals} decimals",
                     style = MaterialTheme.typography.labelSmall,
-                    color = LenslyMuted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -174,11 +171,11 @@ private fun TokenRow(token: TokenEntry, network: NetworkEntry?, modifier: Modifi
             address = token.contract,
             shown = groupedAddress(token.contract),
             icon = false,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = LenslySpacing.sm),
         )
         HorizontalDivider(
-            color = MaterialTheme.colorScheme.outline,
+            color = MaterialTheme.colorScheme.outlineVariant,
             modifier = Modifier.padding(top = LenslySpacing.md),
         )
     }

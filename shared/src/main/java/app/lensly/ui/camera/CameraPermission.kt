@@ -29,7 +29,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import app.lensly.ui.components.PillButton
-import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslySpacing
 
 fun Context.hasCameraPermission(): Boolean =
@@ -57,7 +56,7 @@ fun CameraPermissionRationale(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(LenslyBlack)
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = LenslySpacing.lg),

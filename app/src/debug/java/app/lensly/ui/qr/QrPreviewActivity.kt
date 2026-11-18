@@ -13,6 +13,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,8 +51,7 @@ import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
 import app.lensly.ui.sign.UNKNOWN_UNIT
 import app.lensly.ui.sign.assumedAmountNote
 import app.lensly.ui.sign.unknownFeeNote
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import java.math.BigInteger
 
 /**
@@ -89,11 +89,11 @@ class QrPreviewActivity : ComponentActivity() {
 
         setContent {
             val current by screen
-            LenslyTheme {
+            LumenTheme {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(LenslyBlack),
+                        .background(MaterialTheme.colorScheme.background),
                 ) {
                     when (current) {
                         SCREEN_SHOW12 -> ShowPreview(title = "SIGNATURE", parts = sampleTwelveParts(), onDone = ::finish)

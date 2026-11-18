@@ -8,6 +8,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -15,7 +16,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyOnSurface
 
 private const val PROGRESS_DOTS = 7
 private val PROGRESS_DOT_DIAMETER = 6.dp
@@ -41,6 +41,7 @@ fun DotProgress(
         label = "unlock-phase",
     )
     val width = PROGRESS_PITCH * (PROGRESS_DOTS - 1) + PROGRESS_DOT_DIAMETER
+    val colors = MaterialTheme.colorScheme
     Canvas(
         modifier = modifier
             .size(width = width, height = PROGRESS_DOT_DIAMETER)
@@ -55,7 +56,7 @@ fun DotProgress(
             val distance = minOf(raw, PROGRESS_DOTS - raw)
             val alpha = (1f - distance / 2.5f).coerceIn(0.15f, 1f)
             drawCircle(
-                color = LenslyOnSurface.copy(alpha = alpha),
+                color = colors.onSurface.copy(alpha = alpha),
                 radius = radius,
                 center = Offset(radius + i * pitch, centerY),
             )

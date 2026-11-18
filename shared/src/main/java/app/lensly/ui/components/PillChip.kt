@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalUppercaseLabels
 
 /** Small, non-interactive outline chip with a fully rounded shape. */
@@ -21,7 +22,7 @@ fun PillChip(
     val shape = RoundedCornerShape(percent = 50)
     Box(
         modifier = modifier
-            .border(1.dp, colors.outline, shape)
+            .border(1.dp, LocalLumenPalette.current.chipEdge, shape)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(

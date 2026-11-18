@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.config.DisplaySettings
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -28,7 +28,7 @@ class DisplaySettingsSectionTest {
 
     private fun show(settings: DisplaySettings = DisplaySettings(), notice: String? = null) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     DisplaySettingsSection(
                         settings = settings,

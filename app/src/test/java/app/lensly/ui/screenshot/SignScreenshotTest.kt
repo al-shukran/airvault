@@ -3,6 +3,7 @@ package app.lensly.ui.screenshot
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -43,8 +44,7 @@ import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.SolanaReviewScreen
 import app.lensly.ui.sign.TxReviewScreen
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
@@ -267,7 +267,7 @@ private fun ComposeContentTestRule.snapshotScrolled(
     mainClock.autoAdvance = false
     setContent {
         CompositionLocalProvider(LocalDensity provides Density(REVIEW_DENSITY)) {
-            LenslyTheme {
+            LumenTheme {
                 Box(
                     modifier = Modifier
                         .testTag(REVIEW_TAG)
@@ -275,7 +275,7 @@ private fun ComposeContentTestRule.snapshotScrolled(
                             width = (720f / REVIEW_DENSITY).dp,
                             height = (1600f / REVIEW_DENSITY).dp,
                         )
-                        .background(LenslyBlack),
+                        .background(MaterialTheme.colorScheme.background),
                 ) {
                     content()
                 }

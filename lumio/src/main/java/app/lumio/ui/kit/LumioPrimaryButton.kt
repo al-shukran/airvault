@@ -20,8 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import app.lumio.ui.theme.LumioFullShape
-import app.lumio.ui.theme.LumioMotion
+import app.lensly.ui.theme.LenslyPillShape
+import app.lensly.ui.theme.LumenMotion
 
 /** The height of the primary button (section 1.3). */
 private val BUTTON_HEIGHT = 56.dp
@@ -39,7 +39,7 @@ fun LumioPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = M
     val pressed by interaction.collectIsPressedAsState()
     val press = animateFloatAsState(
         targetValue = if (pressed && enabled) PRESSED_BUTTON_SCALE else 1f,
-        animationSpec = LumioMotion.spatialFast,
+        animationSpec = LumenMotion.spatialFast,
         label = "primary press",
     )
     val container = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
@@ -52,7 +52,7 @@ fun LumioPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = M
                 scaleX = press.value
                 scaleY = press.value
             }
-            .clip(LumioFullShape)
+            .clip(LenslyPillShape)
             .background(container)
             .clickable(
                 enabled = enabled,

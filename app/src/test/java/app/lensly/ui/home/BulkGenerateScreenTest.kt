@@ -16,7 +16,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -52,7 +52,7 @@ class BulkGenerateScreenTest {
         inputs.chain = chain
         inputs.running = running
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 BulkGenerateScreen(
                     existingAccounts = 3,
                     autoNameBase = "Seed wallet",
@@ -86,12 +86,12 @@ class BulkGenerateScreenTest {
         showScreen(BulkCap.HUNDRED, digits = "101")
 
         assertShown("Above the Bulk Cap of 100")
-        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        compose.onNodeWithText("Generate").assertIsNotEnabled()
 
         setDigits("100")
 
         assertNotShown("Above the Bulk Cap of 100")
-        compose.onNodeWithText("GENERATE 100 ACCOUNTS").assertIsEnabled()
+        compose.onNodeWithText("Generate 100 accounts").assertIsEnabled()
     }
 
     @Test
@@ -99,31 +99,31 @@ class BulkGenerateScreenTest {
         showScreen(BulkCap.TWENTY, digits = "21")
 
         assertShown("Above the Bulk Cap of 20")
-        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        compose.onNodeWithText("Generate").assertIsNotEnabled()
 
         setDigits("20")
 
         assertNotShown("Above the Bulk Cap of 20")
-        compose.onNodeWithText("GENERATE 20 ACCOUNTS").assertIsEnabled()
+        compose.onNodeWithText("Generate 20 accounts").assertIsEnabled()
     }
 
     @Test
     fun aChangedCapIsReflectedInTheScreen() {
         showScreen(BulkCap.HUNDRED, digits = "30")
         assertShown("Up to 100 per run. Change the Bulk cap in Settings.")
-        compose.onNodeWithText("GENERATE 30 ACCOUNTS").assertIsEnabled()
+        compose.onNodeWithText("Generate 30 accounts").assertIsEnabled()
 
         setCap(BulkCap.TWENTY)
 
         assertShown("Up to 20 per run. Change the Bulk cap in Settings.")
         assertShown("Above the Bulk Cap of 20")
-        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        compose.onNodeWithText("Generate").assertIsNotEnabled()
 
         setCap(BulkCap.HUNDRED)
 
         assertShown("Up to 100 per run. Change the Bulk cap in Settings.")
         assertNotShown("Above the Bulk Cap of 20")
-        compose.onNodeWithText("GENERATE 30 ACCOUNTS").assertIsEnabled()
+        compose.onNodeWithText("Generate 30 accounts").assertIsEnabled()
     }
 
     @Test
@@ -132,7 +132,7 @@ class BulkGenerateScreenTest {
 
         compose.onNode(hasSetTextAction()).performTextReplacement("25")
 
-        compose.onNodeWithText("GENERATE 25 ACCOUNTS").assertIsEnabled()
+        compose.onNodeWithText("Generate 25 accounts").assertIsEnabled()
         assertShown("Adds Seed wallet 3 to Seed wallet 27")
     }
 
@@ -142,7 +142,7 @@ class BulkGenerateScreenTest {
 
         assertNotShown("At least 1 account")
         assertNotShown("Above the Bulk Cap of 100")
-        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        compose.onNodeWithText("Generate").assertIsNotEnabled()
     }
 
     @Test
@@ -152,7 +152,7 @@ class BulkGenerateScreenTest {
         compose.onNode(hasSetTextAction()).performTextReplacement("0")
 
         assertShown("At least 1 account")
-        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        compose.onNodeWithText("Generate").assertIsNotEnabled()
     }
 
     @Test
@@ -161,15 +161,15 @@ class BulkGenerateScreenTest {
 
         // Letters and a tenth digit never reach the screen, so the Count stays empty and no error shows.
         compose.onNode(hasSetTextAction()).performTextReplacement("1a")
-        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        compose.onNodeWithText("Generate").assertIsNotEnabled()
         assertNotShown("At least 1 account")
 
         compose.onNode(hasSetTextAction()).performTextReplacement("1234567890")
-        compose.onNodeWithText("GENERATE").assertIsNotEnabled()
+        compose.onNodeWithText("Generate").assertIsNotEnabled()
         assertNotShown("Above the Bulk Cap of 100")
 
         compose.onNode(hasSetTextAction()).performTextReplacement("5")
-        compose.onNodeWithText("GENERATE 5 ACCOUNTS").assertIsEnabled()
+        compose.onNodeWithText("Generate 5 accounts").assertIsEnabled()
     }
 
     @Test
@@ -216,7 +216,7 @@ class BulkGenerateScreenTest {
         assertEquals(BulkChain.Bitcoin(ScriptType.TAPROOT, BtcNetwork.MAINNET), inputs.chain)
         assertShown("Script type · Taproot")
         assertShown("Adds 3 Taproot accounts")
-        compose.onNodeWithText("GENERATE 3 ACCOUNTS").assertIsEnabled()
+        compose.onNodeWithText("Generate 3 accounts").assertIsEnabled()
     }
 
     @Test

@@ -45,7 +45,7 @@ import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -313,7 +313,7 @@ class TxReviewScreenTest {
 
     @Test
     fun theRequestNamesTheAccountOriginAndNetworkInTheHeaderAndTheWalletInItsDetails() {
-        compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText("ACCOUNT WITH A LONG DISPLAY NAME 12").assertExists()
         compose.onNodeWithText("Base").assertExists()
@@ -327,7 +327,7 @@ class TxReviewScreenTest {
     @Test
     fun aRequestThatNamesNoOriginSaysSoInsteadOfShowingNothing() {
         compose.setContent {
-            LenslyTheme { TxReviewScreen(review = approvalReview(origin = null), onApprove = {}, onReject = {}) }
+            LumenTheme { TxReviewScreen(review = approvalReview(origin = null), onApprove = {}, onReject = {}) }
         }
 
         compose.onNodeWithText("Not stated").assertExists()
@@ -338,7 +338,7 @@ class TxReviewScreenTest {
     fun anUnknownCallSignsOnlyAfterItsTickAndItsRead() {
         val unknown = plainTransfer().copy(warnings = listOf(UNKNOWN_CALL_WARNING))
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Box(Modifier.size(width = 360.dp, height = 640.dp)) {
                     TxReviewScreen(review = unknown, onApprove = {}, onReject = {})
                 }
@@ -361,7 +361,7 @@ class TxReviewScreenTest {
     fun anUnknownCallWithoutItsTickStaysUnsignableOnceReadToTheEnd() {
         val unknown = plainTransfer().copy(warnings = listOf(UNKNOWN_CALL_WARNING))
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Box(Modifier.size(width = 360.dp, height = 640.dp)) {
                     TxReviewScreen(review = unknown, onApprove = {}, onReject = {})
                 }
@@ -376,7 +376,7 @@ class TxReviewScreenTest {
     @Test
     fun theAccessListIsCountedAndEachEntryIsShownInTheDetails() {
         val warmed = plainTransfer().copy(accessList = listOf(AccessListEntry(TO, listOf("0x" + "22".repeat(32)))))
-        compose.setContent { LenslyTheme { TxReviewScreen(review = warmed, onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = warmed, onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText("Access list").assertExists()
         compose.onNodeWithText("1 address, 1 storage key").assertExists()
@@ -389,7 +389,7 @@ class TxReviewScreenTest {
     fun anUnlimitedApprovalSignsOnlyAfterItsTickAndItsRead() {
         val unlimited = plainTransfer().copy(warnings = listOf(unlimitedApprovalWarning("USDC")))
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Box(Modifier.size(width = 360.dp, height = 640.dp)) {
                     TxReviewScreen(review = unlimited, onApprove = {}, onReject = {})
                 }
@@ -411,7 +411,7 @@ class TxReviewScreenTest {
     @Test
     fun anUnlimitedApprovalWithoutItsTickStaysUnsignableOnceReadToTheEnd() {
         val unlimited = plainTransfer().copy(warnings = listOf(unlimitedApprovalWarning("USDC")))
-        compose.setContent { LenslyTheme { TxReviewScreen(review = unlimited, onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = unlimited, onApprove = {}, onReject = {}) } }
 
         compose.scrollReviewToEnd()
         compose.onNodeWithText("Tick the checkbox above to sign").assertExists()
@@ -422,7 +422,7 @@ class TxReviewScreenTest {
     fun theHoldControlIsDisabledAndSaysWhyUntilTheReviewIsReadToTheEnd() {
         // A message this long is taller than the screen, so the review has to be scrolled to its end before it can be signed.
         val tall = messageReview().copy(params = listOf("message" to "Sign in to Lensly. ".repeat(400), "size" to "7600 characters"))
-        compose.setContent { LenslyTheme { TxReviewScreen(review = tall, onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = tall, onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText("Scroll to the end to review everything").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
@@ -431,7 +431,7 @@ class TxReviewScreenTest {
     @Test
     fun aShortReviewWithNoWarningCanBeSignedAtOnce() {
         // The review fits on screen, so the fit counts as read and nothing else is owed.
-        compose.setContent { LenslyTheme { TxReviewScreen(review = plainTransfer(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = plainTransfer(), onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText("Scroll to the end to review everything").assertDoesNotExist()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
@@ -439,7 +439,7 @@ class TxReviewScreenTest {
 
     @Test
     fun everyDetailIsShownOnFirstRenderWithoutOpeningAnySection() {
-        compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText("Transaction").assertExists()
         compose.onNodeWithText("Chain ID").assertExists()
@@ -449,7 +449,7 @@ class TxReviewScreenTest {
     @Test
     fun theHeaderNamesTheNetworkAndTheSigningAccountWithItsWallet() {
         val review = plainTransfer()
-        compose.setContent { LenslyTheme { TxReviewScreen(review = review, onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = review, onApprove = {}, onReject = {}) } }
 
         assertTrue(compose.onAllNodesWithText(review.networkName).fetchSemanticsNodes().isNotEmpty())
         compose.onNodeWithText(review.fromAccountLabel).assertExists()
@@ -461,7 +461,7 @@ class TxReviewScreenTest {
         val saved = plainTransfer().copy(
             addressNotes = mapOf(addressKeyOf(TO) to AddressNotes(internal = null, entry = AddressBookEntry("1", TO, "Alice", "Exchange"))),
         )
-        compose.setContent { LenslyTheme { TxReviewScreen(review = saved, onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = saved, onApprove = {}, onReject = {}) } }
         compose.onNodeWithText("Alice").assertExists()
         compose.onNodeWithText("Address label").assertExists()
         // The sender is not saved, so its row says so, while the saved recipient shows no such line.
@@ -470,7 +470,7 @@ class TxReviewScreenTest {
 
     @Test
     fun aCounterpartyNotInTheAddressBookIsSaidSoAsPlainText() {
-        compose.setContent { LenslyTheme { TxReviewScreen(review = plainTransfer(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = plainTransfer(), onApprove = {}, onReject = {}) } }
         compose.onAllNodesWithText("Not in address book").fetchSemanticsNodes().let { assertTrue(it.isNotEmpty()) }
     }
 
@@ -478,7 +478,7 @@ class TxReviewScreenTest {
     fun aShortReviewWithAWarningShowsItsDetailsAndCanBeSignedOnceItFits() {
         // The review fits on screen. The warning has no check to tick, so the fit is the whole read.
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 TxReviewScreen(review = plainTransfer().copy(warnings = listOf(NEW_RECIPIENT)), onApprove = {}, onReject = {})
             }
         }
@@ -492,7 +492,7 @@ class TxReviewScreenTest {
     fun aReviewWithAWarningSignsOnceItsListIsScrolledToTheEnd() {
         // In a window this short the details run past the bottom, so the review must be scrolled to its end.
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Box(Modifier.size(width = 360.dp, height = 640.dp)) {
                     TxReviewScreen(review = plainTransfer().copy(warnings = listOf(NEW_RECIPIENT)), onApprove = {}, onReject = {})
                 }
@@ -511,7 +511,7 @@ class TxReviewScreenTest {
     fun aWarningReviewStillOwesItsChecksOnceRead() {
         // An approval of an unregistered token owes two checks, the registry and the unlimited tick. Reading the review to its end
         // does not tick either, so both stay owed.
-        compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
         compose.scrollReviewToEnd()
         compose.onNodeWithText("Tick the checkboxes above to sign").assertExists()
@@ -520,7 +520,7 @@ class TxReviewScreenTest {
 
     @Test
     fun aWhitelistedCallOpensWithItsApprovedMeaningAndShowsEveryFactAndWord() {
-        compose.setContent { LenslyTheme { TxReviewScreen(review = whitelistedReview(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = whitelistedReview(), onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText(APPROVED_MEANING).assertExists()
         compose.onNodeWithText(
@@ -554,7 +554,7 @@ class TxReviewScreenTest {
                 addressKeyOf(BASE_USDC) to AddressNotes(internal = null, entry = AddressBookEntry("2", BASE_USDC, "Base lending pool", null)),
             ),
         )
-        compose.setContent { LenslyTheme { TxReviewScreen(review = review, onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = review, onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText("Transaction").performScrollTo().performClick()
         compose.onNodeWithText("To").assertExists()
@@ -569,7 +569,7 @@ class TxReviewScreenTest {
     fun aPermitSummaryNamesItsSpenderFromTheAddressBook() {
         val spender = AddressNotes(internal = null, entry = AddressBookEntry("1", TO, "Uniswap Router", null))
         compose.setContent {
-            LenslyTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
+            LumenTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
         }
 
         // The summary names the spender, and the Fields section names it again above its address.
@@ -583,7 +583,7 @@ class TxReviewScreenTest {
             entry = null,
         )
         compose.setContent {
-            LenslyTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
+            LumenTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
         }
 
         // The summary names the account, and the Fields section shows it as the bold line of its address, with its wallet under it.
@@ -595,7 +595,7 @@ class TxReviewScreenTest {
     @Test
     fun anAccountOfAnotherWalletNamesThatWallet() {
         val account = InternalAccount(displayName = null, autoName = "Savings 0", label = null, walletName = "Savings")
-        compose.setContent { LenslyTheme { ReviewAddress(address = TO, notes = AddressNotes(internal = account, entry = null)) } }
+        compose.setContent { LumenTheme { ReviewAddress(address = TO, notes = AddressNotes(internal = account, entry = null)) } }
 
         compose.onNodeWithText("Your account · Savings 0").assertExists()
         compose.onNodeWithText("Wallet").assertExists()
@@ -604,7 +604,7 @@ class TxReviewScreenTest {
 
     @Test
     fun aMulticallListsEachCallLevelByLevelWithItsTargetFunctionAndArguments() {
-        compose.setContent { LenslyTheme { TxReviewScreen(review = multicallReview(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = multicallReview(), onApprove = {}, onReject = {}) } }
 
         // A call outside the registry earns the same warnings a lone call does, and each sits in the banner with its check.
         compose.onNodeWithText("approve: $UNLIMITED").assertExists()
@@ -636,7 +636,7 @@ class TxReviewScreenTest {
     fun aProxyUnderWarnAndConfirmShowsItsRedWarningAndASecondCheck() {
         val proxy = ProxyBinding(implementationAddress = IMPLEMENTATION)
         compose.setContent {
-            LenslyTheme { TxReviewScreen(review = whitelistedReview(proxy), onApprove = {}, onReject = {}) }
+            LumenTheme { TxReviewScreen(review = whitelistedReview(proxy), onApprove = {}, onReject = {}) }
         }
 
         compose.onNodeWithText(UPGRADE_WARNING).assertExists()
@@ -649,14 +649,14 @@ class TxReviewScreenTest {
 
     @Test
     fun anUnlimitedApprovalWarningIsShownInFull() {
-        compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText(UNLIMITED).assertExists()
     }
 
     @Test
     fun aLongMessageIsShownWholeWithItsSize() {
-        compose.setContent { LenslyTheme { TxReviewScreen(review = messageReview(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = messageReview(), onApprove = {}, onReject = {}) } }
 
         compose.onNodeWithText(LONG_MESSAGE).assertExists()
         compose.onNodeWithText("${LONG_MESSAGE.length} characters, ${LONG_MESSAGE.length} bytes").assertExists()
@@ -664,14 +664,14 @@ class TxReviewScreenTest {
 
     @Test
     fun noTextOnAnApprovalReviewIsCutShort() {
-        compose.setContent { LenslyTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
 
         compose.assertNoTextIsCutShort()
     }
 
     @Test
     fun noTextOnAMessageReviewIsCutShort() {
-        compose.setContent { LenslyTheme { TxReviewScreen(review = messageReview(), onApprove = {}, onReject = {}) } }
+        compose.setContent { LumenTheme { TxReviewScreen(review = messageReview(), onApprove = {}, onReject = {}) } }
 
         compose.assertNoTextIsCutShort()
     }
@@ -680,7 +680,7 @@ class TxReviewScreenTest {
     @Test
     fun theCutCheckCatchesATextThatALineLimitCuts() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Column(Modifier.width(120.dp)) {
                     Text(
                         text = "A long line of text that needs several lines to be shown in full",
@@ -720,7 +720,7 @@ class RefusalScreensTest {
             words = words,
         )
         compose.setContent {
-            LenslyTheme { SignRefusedScreen(reason = "Unknown contract call", onDone = {}, call = call) }
+            LumenTheme { SignRefusedScreen(reason = "Unknown contract call", onDone = {}, call = call) }
         }
 
         compose.onNodeWithText(
@@ -747,7 +747,7 @@ class RefusalScreensTest {
             proxy = ProxyBinding(implementationAddress = IMPLEMENTATION),
         )
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 SignRefusedScreen(reason = "This contract is an upgradeable proxy.", onDone = {}, call = call)
             }
         }

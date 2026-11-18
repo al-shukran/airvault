@@ -15,7 +15,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.waitUntilKeyboardHidden
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -105,7 +105,7 @@ class UnlockScreenTest {
     private fun setUnlock() {
         compose.setContent {
             var length by remember { mutableIntStateOf(0) }
-            LenslyTheme {
+            CoverTheme {
                 UnlockScreen(
                     length = length,
                     busy = false,

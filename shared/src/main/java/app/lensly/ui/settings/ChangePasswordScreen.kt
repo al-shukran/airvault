@@ -32,9 +32,8 @@ import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.gate.MIN_PASSWORD_LENGTH
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.gate.PolicyError
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySuccess
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.wallet.WalletEyebrow
 
 /** The three entries of a change: the current password, then the new one, then the new one again. */
@@ -180,7 +179,7 @@ private fun ChangedContent(copy: ChangeCopy, onDone: () -> Unit, modifier: Modif
         Icon(
             imageVector = Icons.Filled.Check,
             contentDescription = null,
-            tint = LenslySuccess,
+            tint = LocalLumenPalette.current.positive,
             modifier = Modifier.size(48.dp),
         )
         Spacer(Modifier.height(LenslySpacing.sm))
@@ -189,7 +188,7 @@ private fun ChangedContent(copy: ChangeCopy, onDone: () -> Unit, modifier: Modif
         Text(
             text = copy.changedText,
             style = MaterialTheme.typography.bodyLarge,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

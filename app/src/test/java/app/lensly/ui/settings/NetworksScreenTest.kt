@@ -16,7 +16,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.shippedRegistry
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -40,7 +40,7 @@ class NetworksScreenTest {
 
     private fun show(networks: List<NetworkEntry>, tokens: List<TokenEntry> = emptyList()) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 NetworksScreen(networks = networks, tokens = tokens, onBack = {})
             }
         }
@@ -83,7 +83,7 @@ class NetworksScreenTest {
     fun aTestnetCardIsMarkedTestnet() {
         show(networks)
 
-        compose.onAllNodesWithText("TESTNET").assertCountEquals(2)
+        compose.onAllNodesWithText("Testnet").assertCountEquals(2)
     }
 
     @Test

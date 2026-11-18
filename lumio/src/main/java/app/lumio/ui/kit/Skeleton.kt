@@ -17,8 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import app.lumio.ui.theme.LocalReducedMotion
-import app.lumio.ui.theme.LumioRadius
+import app.lensly.ui.theme.LocalReducedMotion
 
 /** One crossing of the gold sweep, in milliseconds (section 3.4). */
 private const val SWEEP_MS = 1200
@@ -30,7 +29,7 @@ private const val SWEEP_MS = 1200
 @Composable
 fun Skeleton(modifier: Modifier = Modifier) {
     val base = MaterialTheme.colorScheme.surfaceContainerHigh
-    val shape = RoundedCornerShape(LumioRadius.xs)
+    val shape = MaterialTheme.shapes.extraSmall
     if (LocalReducedMotion.current) {
         Box(modifier = modifier.clip(shape).background(base))
     } else {

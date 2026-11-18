@@ -10,7 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -33,7 +33,7 @@ class HideDelayScreenTest {
     /** The screen with its saved delays held as state, as the route holds them, and every applied value recorded. */
     private fun show(shortest: Int, longest: Int, applied: MutableList<String>) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 var savedShortest by remember { mutableStateOf<Int?>(shortest) }
                 var savedLongest by remember { mutableStateOf<Int?>(longest) }
                 HideDelayScreen(

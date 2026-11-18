@@ -106,58 +106,58 @@ private const val MAX_WORD_LETTERS = 8
  * passphrase and name screens, a wallet's detail, and the pair and sign flows. The create flow is in [createRoutes].
  */
 internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.HOME) { entry ->
+    vaultComposable(HiddenRoute.HOME) { entry ->
         HiddenBackdrop { HomeRoute(navController, holder, entry) }
     }
-    composable(HiddenRoute.WALLET_START) { entry ->
+    vaultComposable(HiddenRoute.WALLET_START) { entry ->
         HiddenBackdrop { WalletStartRoute(navController, entry) }
     }
     createRoutes(navController, holder)
     importRoutes(navController, holder)
-    composable(HiddenRoute.RESTORE) { entry -> HiddenBackdrop { RestoreRoute(navController, entry) } }
-    composable(HiddenRoute.PASSPHRASE) { entry -> HiddenBackdrop { PassphraseRoute(navController, entry) } }
-    composable(HiddenRoute.NAME) { entry -> HiddenBackdrop { NameRoute(navController, holder, entry) } }
-    composable(HiddenRoute.PASSPHRASE_BACKUP) { entry ->
+    vaultComposable(HiddenRoute.RESTORE) { entry -> HiddenBackdrop { RestoreRoute(navController, entry) } }
+    vaultComposable(HiddenRoute.PASSPHRASE) { entry -> HiddenBackdrop { PassphraseRoute(navController, entry) } }
+    vaultComposable(HiddenRoute.NAME) { entry -> HiddenBackdrop { NameRoute(navController, holder, entry) } }
+    vaultComposable(HiddenRoute.PASSPHRASE_BACKUP) { entry ->
         HiddenBackdrop { PassphraseBackupRoute(navController, holder, entry) }
     }
-    composable(HiddenRoute.WALLETS) { HiddenBackdrop { WalletsRoute(navController, holder) } }
-    composable(HiddenRoute.PAIR) { HiddenBackdrop { PairWalletRoute(navController, holder, walletId = null) } }
-    composable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
+    vaultComposable(HiddenRoute.WALLETS) { HiddenBackdrop { WalletsRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.PAIR) { HiddenBackdrop { PairWalletRoute(navController, holder, walletId = null) } }
+    vaultComposable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DetailRoute(navController, holder, entry.walletId()) }
     }
-    composable(HiddenRoute.APP, arguments = walletIdArguments() + appArgument()) { entry ->
+    vaultComposable(HiddenRoute.APP, arguments = walletIdArguments() + appArgument()) { entry ->
         HiddenBackdrop { AppRoute(navController, holder, entry.walletId(), entry.walletApp()) }
     }
-    composable(HiddenRoute.BULK, arguments = walletIdArguments() + appArgument()) { entry ->
+    vaultComposable(HiddenRoute.BULK, arguments = walletIdArguments() + appArgument()) { entry ->
         HiddenBackdrop { BulkRoute(navController, holder, entry.walletId(), entry.walletApp()) }
     }
-    composable(HiddenRoute.EXPORT, arguments = walletIdArguments()) { entry ->
+    vaultComposable(HiddenRoute.EXPORT, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { PairWalletRoute(navController, holder, walletId = entry.walletId()) }
     }
-    composable(
+    vaultComposable(
         HiddenRoute.EXPORT_ACCOUNTS,
         arguments = walletIdArguments() + navArgument(HiddenRoute.ACCOUNT_INDICES_ARG) { type = NavType.StringType },
     ) { entry ->
         HiddenBackdrop { ExportAccountsRoute(navController, holder, entry.walletId(), entry.accountIndices()) }
     }
-    composable(HiddenRoute.SCAN, arguments = walletIdArguments()) { entry ->
+    vaultComposable(HiddenRoute.SCAN, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { SignWalletRoute(navController, holder, entry.walletId()) }
     }
     // A scan of any wallet of the vault: the wallet the request is for is found among them.
-    composable(HiddenRoute.SCAN_ANY) {
+    vaultComposable(HiddenRoute.SCAN_ANY) {
         HiddenBackdrop { SignWalletRoute(navController, holder, walletId = null) }
     }
-    composable(HiddenRoute.SHOW_SECRET, arguments = walletIdArguments()) { entry ->
+    vaultComposable(HiddenRoute.SHOW_SECRET, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { ShowSecretRoute(navController, holder, entry.walletId()) }
     }
-    composable(HiddenRoute.DELETE_WALLET, arguments = walletIdArguments()) { entry ->
+    vaultComposable(HiddenRoute.DELETE_WALLET, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DeleteWalletRoute(navController, holder, entry.walletId()) }
     }
-    composable(HiddenRoute.HISTORY, arguments = walletIdArguments()) { entry ->
+    vaultComposable(HiddenRoute.HISTORY, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { HistoryRoute(navController, holder, entry.walletId()) }
     }
-    composable(HiddenRoute.ACTIVITY) { HiddenBackdrop { ActivityRoute(navController, holder) } }
-    composable(HiddenRoute.CATALOG) { HiddenBackdrop { RegistryImportRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.ACTIVITY) { HiddenBackdrop { ActivityRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.CATALOG) { HiddenBackdrop { RegistryImportRoute(navController, holder) } }
     renameRoutes(navController, holder)
     profileRoutes(navController, holder)
 }

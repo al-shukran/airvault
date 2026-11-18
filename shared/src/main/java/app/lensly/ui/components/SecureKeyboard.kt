@@ -51,11 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import app.lensly.ui.theme.LenslyAccent
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslySurfaceHigh
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalMonoFamily
 
 private enum class KeyboardPage { Letters, Symbols }
 
@@ -176,7 +172,7 @@ fun SecureKeyboard(
         KeyRow {
             Key(
                 description = if (lettersPage) "Symbols" else "Letters",
-                background = LenslySurfaceHigh,
+                background = MaterialTheme.colorScheme.surfaceContainerHigh,
                 enabled = enabled,
                 onClick = { page = if (lettersPage) KeyboardPage.Symbols else KeyboardPage.Letters },
                 modifier = Modifier.weight(1.5f),
@@ -184,13 +180,13 @@ fun SecureKeyboard(
                 Text(
                     text = if (lettersPage) "123" else "ABC",
                     style = MaterialTheme.typography.labelLarge,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
             CharKey(',', Modifier.weight(1f), enabled) { onKey(shift.type(',')) }
             Key(
                 description = "Space",
-                background = LenslySurfaceHigh,
+                background = MaterialTheme.colorScheme.surfaceContainerHigh,
                 enabled = enabled,
                 onClick = { onKey(shift.type(' ')) },
                 modifier = Modifier.weight(5f),
@@ -198,7 +194,7 @@ fun SecureKeyboard(
                 Text(
                     text = "SPACE",
                     style = MaterialTheme.typography.labelSmall,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
             CharKey('.', Modifier.weight(1f), enabled) { onKey(shift.type('.')) }
@@ -343,7 +339,7 @@ private fun CharKey(
 ) {
     Key(
         description = label.toString(),
-        background = LenslySurfaceHigh,
+        background = MaterialTheme.colorScheme.surfaceContainerHigh,
         enabled = enabled,
         onClick = onClick,
         modifier = modifier,
@@ -351,8 +347,8 @@ private fun CharKey(
     ) {
         Text(
             text = label.toString(),
-            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = SpaceMonoFamily, fontSize = LETTER_TEXT_SIZE),
-            color = LenslyOnSurface,
+            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalMonoFamily.current, fontSize = LETTER_TEXT_SIZE),
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -374,13 +370,13 @@ private fun KeyPreview(text: String) {
             modifier = Modifier
                 .size(width = PREVIEW_WIDTH, height = PREVIEW_HEIGHT)
                 .clearAndSetSemantics {}
-                .background(LenslyOnSurface, PREVIEW_SHAPE),
+                .background(MaterialTheme.colorScheme.onSurface, PREVIEW_SHAPE),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = SpaceMonoFamily, fontSize = PREVIEW_TEXT_SIZE),
-                color = LenslyBlack,
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalMonoFamily.current, fontSize = PREVIEW_TEXT_SIZE),
+                color = MaterialTheme.colorScheme.background,
             )
         }
     }
@@ -396,7 +392,7 @@ private fun ShiftKey(
     val on = mode != ShiftMode.Off
     Key(
         description = "Shift",
-        background = if (on) LenslyOnSurface else LenslySurfaceHigh,
+        background = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh,
         enabled = enabled,
         onClick = onClick,
         modifier = modifier,
@@ -406,7 +402,7 @@ private fun ShiftKey(
             ShiftMode.CapsLock -> "Caps lock on"
         },
     ) {
-        ArrowGlyph(color = if (on) LenslyBlack else LenslyOnSurface, filled = on, capsLock = mode == ShiftMode.CapsLock)
+        ArrowGlyph(color = if (on) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface, filled = on, capsLock = mode == ShiftMode.CapsLock)
     }
 }
 
@@ -418,12 +414,12 @@ private fun BackspaceKey(
 ) {
     Key(
         description = "Backspace",
-        background = LenslyAccent,
+        background = MaterialTheme.colorScheme.primary,
         enabled = enabled,
         onClick = onClick,
         modifier = modifier,
     ) {
-        BackspaceGlyph(color = LenslyOnSurface)
+        BackspaceGlyph(color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -435,12 +431,12 @@ private fun DoneKey(
 ) {
     Key(
         description = "Done",
-        background = LenslyOnSurface,
+        background = MaterialTheme.colorScheme.onSurface,
         enabled = enabled,
         onClick = onClick,
         modifier = modifier,
     ) {
-        EnterGlyph(color = LenslyBlack)
+        EnterGlyph(color = MaterialTheme.colorScheme.background)
     }
 }
 

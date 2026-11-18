@@ -43,15 +43,15 @@ import kotlinx.coroutines.withContext
 
 /** The Address Book in the hidden graph: the list, and the form that adds an entry or edits one. Reached from Settings and from a record. */
 internal fun NavGraphBuilder.addressBookRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.ADDRESS_BOOK) { HiddenBackdrop { AddressBookRoute(navController, holder) } }
-    composable(
+    vaultComposable(HiddenRoute.ADDRESS_BOOK) { HiddenBackdrop { AddressBookRoute(navController, holder) } }
+    vaultComposable(
         HiddenRoute.ADDRESS_BOOK_ADD,
         arguments = listOf(navArgument(HiddenRoute.ADDRESS_ARG) { type = NavType.StringType; defaultValue = "" }),
     ) { entry ->
         val prefilled = entry.arguments?.getString(HiddenRoute.ADDRESS_ARG).orEmpty()
         HiddenBackdrop { AddressBookFormRoute(navController, holder, entryId = null, prefilled = prefilled) }
     }
-    composable(
+    vaultComposable(
         HiddenRoute.ADDRESS_BOOK_EDIT,
         arguments = listOf(navArgument(HiddenRoute.ENTRY_ID_ARG) { type = NavType.StringType }),
     ) { entry ->

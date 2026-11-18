@@ -16,7 +16,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.tokens.Token
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -55,7 +55,7 @@ class AddTokenScreenTest {
         busy: Boolean = false,
     ) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 AddTokenScreen(
                     chainName = "Ethereum",
                     defaults = defaults,

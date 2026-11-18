@@ -15,7 +15,7 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -40,14 +40,14 @@ class SemanticsTest {
 
     @Test
     fun emptyPasswordFieldAnnouncesThatItIsEmpty() {
-        compose.setContent { LenslyTheme { PasswordField(length = 0, modifier = Modifier.fillMaxWidth()) } }
+        compose.setContent { LumenTheme { PasswordField(length = 0, modifier = Modifier.fillMaxWidth()) } }
 
         compose.onNodeWithContentDescription("Password empty").assertExists()
     }
 
     @Test
     fun filledPasswordFieldAnnouncesTheCharacterCount() {
-        compose.setContent { LenslyTheme { PasswordField(length = 14, modifier = Modifier.fillMaxWidth()) } }
+        compose.setContent { LumenTheme { PasswordField(length = 14, modifier = Modifier.fillMaxWidth()) } }
 
         compose.onNodeWithContentDescription("14 characters entered").assertExists()
     }
@@ -55,7 +55,7 @@ class SemanticsTest {
     @Test
     fun passwordKeyboardKeysAreLabelledAndTallEnoughToTouch() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {})
             }
         }
@@ -68,7 +68,7 @@ class SemanticsTest {
 
     @Test
     fun shiftAnnouncesItsOneShotState() {
-        compose.setContent { LenslyTheme { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) } }
+        compose.setContent { LumenTheme { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) } }
 
         compose.onNodeWithContentDescription("Shift").performClick()
 
@@ -78,7 +78,7 @@ class SemanticsTest {
     @Test
     fun theScreenFrameBackButtonIsLabelledAnd48Dp() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 LenslyScreen(title = "Review", onBack = {}) {
                     Column {}
                 }

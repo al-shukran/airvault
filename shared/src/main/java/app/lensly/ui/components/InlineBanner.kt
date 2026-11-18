@@ -25,10 +25,9 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalUppercaseLabels
-import app.lensly.ui.theme.LocalWarningColor
 
 /** Severity of an [InlineBanner]. Each tone has its own icon and colour. */
 enum class BannerTone { Info, Warning, Error }
@@ -47,10 +46,10 @@ fun InlineBanner(
     val colors = MaterialTheme.colorScheme
     val color = when (tone) {
         BannerTone.Info -> colors.onSurface
-        BannerTone.Warning -> LocalWarningColor.current
+        BannerTone.Warning -> LocalLumenPalette.current.warning
         BannerTone.Error -> colors.error
     }
-    val shape = RoundedCornerShape(LenslyRadius.md)
+    val shape = MaterialTheme.shapes.medium
     Row(
         modifier = modifier
             .fillMaxWidth()
