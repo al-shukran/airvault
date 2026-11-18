@@ -28,21 +28,25 @@ partitions:
   ui-a           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.settings.*' --tests 'app.lensly.ui.wallet.*'
                  --tests 'app.lensly.ui.navigation.*' --tests 'app.lensly.ui.a11y.*' --tests 'app.lensly.ui.screenshot.*'
                  :shared:testDebugUnitTest -PprLane --tests 'app.lensly.ui.camera.*' --tests 'app.lensly.ui.qr.*'
-                 --tests 'app.lensly.ui.theme.*'
-  ui-b           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.flow.*' --tests 'app.lensly.ui.home.*'
-                 --tests 'app.lensly.ui.sign.*' --tests 'app.lensly.ui.profile.*' --tests 'app.lensly.ui.components.*'
+                 --tests 'app.lensly.ui.theme.*' --tests 'app.lensly.ui.navigation.*' --tests 'app.lensly.ui.settings.*'
+  ui-b           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.flow.*' --tests 'app.lensly.ui.profile.*'
+                 --tests 'app.lensly.ui.components.*'
                  :shared:testDebugUnitTest -PprLane --tests 'app.lensly.ui.components.*' --tests 'app.lensly.ui.gate.*'
                  --tests 'app.lensly.ui.SecureWindowTest'
+  ui-c           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.home.*' --tests 'app.lensly.ui.sign.*'
   app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
                  --tests 'app.lensly.core.vault.BackupExclusionTest'
-  lumio-a        :lumio:assembleDebug :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
-  lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.EntryGestureSettingTest' --tests 'app.lumio.CoverLockTest' --tests 'app.lumio.SendRouteTest'
-                 --tests 'app.lumio.chains.*' --tests 'app.lumio.data.*' --tests 'app.lumio.evm.*' --tests 'app.lumio.home.*'
-                 --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*' --tests 'app.lumio.send.*' --tests 'app.lumio.tokens.*' --tests 'app.lumio.wallets.*'
+  lumio-a        :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
+  lumio-apk      :lumio:assembleDebug
+  lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.EntryGestureSettingTest'
+                 --tests 'app.lumio.CoverLockTest' --tests 'app.lumio.SendRouteTest' --tests 'app.lumio.chains.*'
+                 --tests 'app.lumio.evm.*' --tests 'app.lumio.home.*' --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*'
+                 --tests 'app.lumio.send.*' --tests 'app.lumio.tokens.*' --tests 'app.lumio.wallets.*'
   lumio-c        :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
+  lumio-d        :lumio:testDebugUnitTest --tests 'app.lumio.data.*'
   registry-pack  :tools:registry-pack:test
   manifest       scripts/ci/check-manifest.sh
-  ci             bash -n on every script, scripts/ci/check-ui-partitions.sh, scripts/ci/check-lumio-partitions.sh, then
+  ci             bash -n on every script, scripts/ci/check-partitions.sh, then
                  scripts/ci/check-test-network.sh (no Gradle)
 USAGE_END
 }
@@ -91,12 +95,12 @@ case "$partition" in
     core-btc)
         ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.btc.*'
         ;;
-    # The app.lensly.ui tests are split in two halves so each stays under the 3-minute cap (guideline 2.1).
-    # A new ui subpackage, or a test class directly in app.lensly.ui, must be added to ONE of these two
-    # lists. scripts/ci/check-ui-partitions.sh (run by the ci partition) fails when one is in neither.
-    # Each half runs both modules: :app for the Lensly screens, :shared for the code both apps reuse.
-    # A package with tests in both modules (components) appears in both invocations of its half.
-    # -PprLane drops app.lensly.ui.screenshot.* (Roborazzi pixel tests) from both halves. They are
+    # The app.lensly.ui tests are split in three so each stays under the 3-minute cap (guideline 2.1).
+    # Each test class must be in exactly one arm, under the Gradle call for its own module (:app or :shared).
+    # scripts/ci/check-partitions.sh (run by the ci partition) fails when a class is in none, or in two.
+    # ui-a, ui-b and ui-c hold the Lensly screens (:app) and the code both apps reuse (:shared). ui-c holds
+    # the home and sign screens, split out of ui-b.
+    # -PprLane drops app.lensly.ui.screenshot.* (Roborazzi pixel tests) from every ui arm. They are
     # verified nightly by verifyRoborazziDebug instead (guideline 2.7).
     ui-a)
         # screenshot is listed so the coverage guard sees it. -PprLane excludes its pixel tests anyway.
@@ -109,19 +113,24 @@ case "$partition" in
             :shared:testDebugUnitTest -PprLane \
             --tests 'app.lensly.ui.camera.*' \
             --tests 'app.lensly.ui.qr.*' \
-            --tests 'app.lensly.ui.theme.*'
+            --tests 'app.lensly.ui.theme.*' \
+            --tests 'app.lensly.ui.navigation.*' \
+            --tests 'app.lensly.ui.settings.*'
         ;;
     ui-b)
         ./gradlew :app:testDebugUnitTest -PprLane \
             --tests 'app.lensly.ui.flow.*' \
-            --tests 'app.lensly.ui.home.*' \
-            --tests 'app.lensly.ui.sign.*' \
             --tests 'app.lensly.ui.profile.*' \
             --tests 'app.lensly.ui.components.*' \
             :shared:testDebugUnitTest -PprLane \
             --tests 'app.lensly.ui.components.*' \
             --tests 'app.lensly.ui.gate.*' \
             --tests 'app.lensly.ui.SecureWindowTest'
+        ;;
+    ui-c)
+        ./gradlew :app:testDebugUnitTest -PprLane \
+            --tests 'app.lensly.ui.home.*' \
+            --tests 'app.lensly.ui.sign.*'
         ;;
     app)
         # Wallet stores, settings, export and sign pipelines, plus the module smoke test. BackupExclusionTest
@@ -131,15 +140,18 @@ case "$partition" in
             --tests 'app.lensly.SmokeTest' \
             --tests 'app.lensly.core.vault.BackupExclusionTest'
         ;;
-    # The app.lumio tests split in three so each lumio test job stays under its 5-minute cap (guideline 2.1). lumio-a holds the ui
-    # packages, which include the Roborazzi pixel tests, and assembles the debug APK. lumio-c holds btc, whose BtcScanTest alone takes
-    # about 50 s. lumio-b holds the rest. A new lumio package, or a test class directly in app.lumio, must be added to ONE of the three
-    # arms. scripts/ci/check-lumio-partitions.sh fails when one is in none. lumio-a runs it first, so a PR that adds a package fails on
-    # every lumio PR, not only when scripts change.
+    # The app.lumio tests and the debug APK are split into five partitions so each lumio test job stays under its
+    # 5-minute cap (guideline 2.1). lumio-a holds the ui packages, which include the Roborazzi pixel tests.
+    # lumio-apk assembles the debug APK alone: dexing takes about 85 s on a cold cache, and no test partition
+    # dexes. lumio-c holds btc, whose BtcScanTest alone takes about 50 s. lumio-d holds data, the largest package,
+    # and lumio-b holds the rest. A new lumio package, or a test class directly in app.lumio, must be added to ONE
+    # of the four test arms (lumio-a, lumio-b, lumio-c, lumio-d); scripts/ci/check-partitions.sh checks it.
     # Lumio's cover, gate and theme come from :shared, which the shared partitions test.
     lumio-a)
-        "$ROOT/scripts/ci/check-lumio-partitions.sh"
-        ./gradlew :lumio:assembleDebug :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
+        ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
+        ;;
+    lumio-apk)
+        ./gradlew :lumio:assembleDebug
         ;;
     lumio-b)
         ./gradlew :lumio:testDebugUnitTest \
@@ -148,7 +160,6 @@ case "$partition" in
             --tests 'app.lumio.CoverLockTest' \
             --tests 'app.lumio.SendRouteTest' \
             --tests 'app.lumio.chains.*' \
-            --tests 'app.lumio.data.*' \
             --tests 'app.lumio.evm.*' \
             --tests 'app.lumio.home.*' \
             --tests 'app.lumio.network.*' \
@@ -160,6 +171,9 @@ case "$partition" in
     lumio-c)
         ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
         ;;
+    lumio-d)
+        ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.data.*'
+        ;;
     registry-pack)
         ./gradlew :tools:registry-pack:test
         ;;
@@ -167,16 +181,16 @@ case "$partition" in
         exec "$ROOT/scripts/ci/check-manifest.sh"
         ;;
     ci)
-        # CI's own files: a syntax check of every shell script plus the test-network guard.
-        # No Gradle, so this stays well inside the 3-minute PR budget.
+        # CI's own files: a syntax check of every shell script, the partition coverage check, plus the test-network
+        # guard. No Gradle, so this stays well inside the 3-minute PR budget. The ci filter in pr-fast.yml also
+        # runs it on every change to a test source set, so a new test class is checked on its PR.
         scripts=0
         while IFS= read -r script; do
             bash -n "$script"
             scripts=$((scripts + 1))
         done < <(find "$ROOT/scripts" -type f -name '*.sh' | sort)
         echo "run-partition: bash -n passed for $scripts script(s)"
-        "$ROOT/scripts/ci/check-ui-partitions.sh"
-        "$ROOT/scripts/ci/check-lumio-partitions.sh"
+        "$ROOT/scripts/ci/check-partitions.sh"
         exec "$ROOT/scripts/ci/check-test-network.sh"
         ;;
     *)

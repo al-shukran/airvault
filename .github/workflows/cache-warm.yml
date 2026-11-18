@@ -54,6 +54,8 @@ jobs:
       # Compile every variant the PR lane compiles, and nothing else. Each task was confirmed
       # present with `./gradlew <tasks> --dry-run`. Keep this list in step with the build types
       # in app/build.gradle.kts and shared/build.gradle.kts and the modules in settings.gradle.kts.
+      # The lumio tasks are here so the lumio partitions and lint restore compiled Lumio (main, KSP and
+      # unit tests, about 50 s on a cold cache) and the APK job restores its dex step too.
       - name: Compile without tests
         run: >
           ./gradlew
@@ -66,4 +68,6 @@ jobs:
           :app:compileDebugAndroidTestKotlin
           :app:compileBenchmarkKotlin
           :app:compileBenchmarkAndroidTestKotlin
+          :lumio:compileDebugUnitTestKotlin
+          :lumio:assembleDebug
           :tools:registry-pack:testClasses
