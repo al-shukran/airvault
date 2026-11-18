@@ -2,7 +2,6 @@ package app.lensly.core.vault
 
 import java.io.File
 import kotlinx.coroutines.runBlocking
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -63,28 +62,13 @@ class VaultIoFailureTest {
     }
 
     @Test
-    fun unlockOpensWhenAnEarlierFreeSlotListCannotBeRead() {
+    fun unlockOpensWhenTheFreeSlotListCannotBeRead() {
         create()
         val pad = File(layout.root, WALLET_PAD_FILE_NAME)
-        // An earlier build's list has another size, and it cannot be read.
+        // A list of another size, which cannot be read.
         pad.writeBytes(ByteArray(100) { 1 })
         taken += pad
         pad.setReadable(false)
-
-        assertTrue(unlockOpens())
-    }
-
-    @Test
-    fun unlockOpensWhenAnEarlierVaultRecordCannotBeRenamed() {
-        create()
-        val session = unlock()
-        session.putVaultRecord("settings", byteArrayOf(1))
-        session.close()
-        // An earlier build named the record in plain text. Its keyed name is missing, so the move has somewhere to go.
-        layout.vaultRecords.listFiles().orEmpty().filter { it.name != "settings.bin" }.forEach { it.delete() }
-        File(layout.vaultRecords, "settings.bin").writeBytes(byteArrayOf(1, 2, 3))
-        taken += layout.vaultRecords
-        layout.vaultRecords.setWritable(false)
 
         assertTrue(unlockOpens())
     }
@@ -101,30 +85,6 @@ class VaultIoFailureTest {
         layout.reviewPool.delete()
         assertTrue(unlockOpens())
         assertEquals(ReviewPoolFormat.BATCH, layout.reviewPool.listFiles().orEmpty().count { it.isFile })
-    }
-
-    @Test
-    fun unlockOpensWhenAnEarlierReviewCannotBeReadAndMovesItOnTheNextUnlock() {
-        create()
-        val session = unlock()
-        val wallet = session.createWallet()
-        val bytes = "a review written by an earlier build".toByteArray()
-        val key = session.copyOfVaultKey()
-        LegacyWalletFolder.writeRecord(layout, keys, key, wallet, "review-old", bytes)
-        key.fill(0)
-        session.close()
-        val legacy = File(layout.walletDir(wallet), "review-old.bin")
-        taken += legacy
-        legacy.setReadable(false)
-
-        assertTrue(unlockOpens())
-        assertTrue(legacy.exists())
-
-        legacy.setReadable(true)
-        val reopened = unlock()
-        assertContentEquals(bytes, reopened.getReview(wallet, "review-old"))
-        assertFalse(legacy.exists())
-        reopened.close()
     }
 
     private fun create() {

@@ -156,7 +156,7 @@ internal class ReviewPool(private val dir: File, private val vaultKey: ByteArray
         .flatMap { batch -> (0..ReviewPoolFormat.SLOTS).map { slotFile(batch, it).name } }
         .toSet()
 
-    /** The file that holds record [name] of wallet [walletId], or null if there is none. For tests and migration checks. */
+    /** The file that holds record [name] of wallet [walletId], or null if there is none. */
     internal fun fileOf(walletId: String, name: String): File? {
         val (batch, index) = locate(walletId, name) ?: return null
         return slotFile(batch, index + 1)
