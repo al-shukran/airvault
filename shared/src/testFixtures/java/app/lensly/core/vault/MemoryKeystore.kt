@@ -12,7 +12,6 @@ class MemoryKeystore : KeystoreBackend {
     private var hardware: SecretKey? = null
     private var slotKey: SecretKey? = null
     private val failureMacs = mutableMapOf<Long, SecretKey>()
-    private var legacyFailureMac: SecretKey? = null
     private val folderKeys = mutableMapOf<String, SecretKey>()
 
     /** When true, deleting a folder key fails, as a Keystore error would. The key stays where it was. */
@@ -46,11 +45,8 @@ class MemoryKeystore : KeystoreBackend {
 
     override fun failureMacKey(seq: Long): SecretKey? = failureMacs[seq]
 
-    override fun legacyFailureMacKey(): SecretKey? = legacyFailureMac
-
     override fun deleteFailureMacKeysExcept(keepSeq: Long?) {
         failureMacs.keys.removeAll { it != keepSeq }
-        legacyFailureMac = null
     }
 
     override fun deleteFailureMacKey(seq: Long) {
@@ -70,11 +66,8 @@ class MemoryKeystore : KeystoreBackend {
 
     override fun folderKeyIds(): List<String> = folderKeys.keys.toList()
 
-    /** Makes the single key of the layout before per-save keys, so a test can write a legacy record under it. */
-    fun createLegacyFailureMacKey(): SecretKey = newHmacKey().also { legacyFailureMac = it }
-
-    /** How many Delay State MAC keys exist, the legacy key included. */
-    fun failureMacKeyCount(): Int = failureMacs.size + if (legacyFailureMac != null) 1 else 0
+    /** How many Delay State MAC keys exist. */
+    fun failureMacKeyCount(): Int = failureMacs.size
 
     /** Puts [key] back under [keyId], as if the Keystore had never deleted it. For a test of what a deleted key would have opened. */
     fun restoreFolderKey(keyId: String, key: SecretKey) {
@@ -85,7 +78,6 @@ class MemoryKeystore : KeystoreBackend {
         hardware = null
         slotKey = null
         failureMacs.clear()
-        legacyFailureMac = null
         folderKeys.clear()
     }
 

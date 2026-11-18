@@ -45,8 +45,6 @@ internal object VaultKeystore {
     /** Every wallet folder key alias starts with this. */
     private const val FOLDER_KEY_PREFIX = "lensly.vault.folder."
 
-    /** The one Delay State MAC key of the layout before per-save keys. It is read only to migrate, and then deleted. */
-    private const val LEGACY_FAILURE_MAC_ALIAS = FAILURE_MAC_PREFIX
     private const val SLOT_KEY_ALIAS = "lensly.vault.slot-mac"
     private const val PROBE_ALIAS = "lensly.vault.probe"
     private const val PROVIDER = "AndroidKeyStore"
@@ -115,10 +113,7 @@ internal object VaultKeystore {
     /** The Delay State MAC key for [seq], or null once it has been deleted. */
     fun failureMacKey(seq: Long): SecretKey? = get(failureMacAlias(seq))
 
-    /** The legacy single Delay State MAC key, or null once it has been deleted. */
-    fun legacyFailureMacKey(): SecretKey? = get(LEGACY_FAILURE_MAC_ALIAS)
-
-    /** Deletes every Delay State MAC key except the one for [keepSeq], and the legacy key too. A null [keepSeq] deletes them all. */
+    /** Deletes every Delay State MAC key except the one for [keepSeq]. A null [keepSeq] deletes them all. */
     fun deleteFailureMacKeysExcept(keepSeq: Long?) {
         val store = keyStore()
         val keep = keepSeq?.let { failureMacAlias(it) }
