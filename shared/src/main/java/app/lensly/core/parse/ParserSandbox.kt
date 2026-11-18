@@ -20,10 +20,10 @@ import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.psbt.Psbt
-import java.util.concurrent.RejectedExecutionException
-import java.util.concurrent.SynchronousQueue
-import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 import org.web3j.utils.Numeric
 
@@ -273,10 +273,10 @@ class SandboxedParser(
     private var held: HeldScan? = null
 
     // A binder call cannot be interrupted, so each call gets a thread that the caller can stop waiting for. A thread stays blocked until
-    // its binder call returns, so the threads are bounded: a sandbox that never answers cannot grow them without limit.
-    private val calls = ThreadPoolExecutor(0, MAX_CALLS_IN_FLIGHT, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS, SynchronousQueue()) { work ->
-        Thread(work, "parser-sandbox").apply { isDaemon = true }
-    }
+    // its binder call returns, so [inFlight] holds a permit until then, and a sandbox that never answers cannot grow the calls without
+    // limit. The pool never refuses a task, so the bound is the only refusal.
+    private val inFlight = Semaphore(MAX_CALLS_IN_FLIGHT)
+    private val calls = Executors.newCachedThreadPool { work -> Thread(work, "parser-sandbox").apply { isDaemon = true } }
 
     @Synchronized
     override fun scan(parts: List<String>): ScanReply {
@@ -321,12 +321,20 @@ class SandboxedParser(
         } catch (e: WireException) {
             return null
         }
-        val pending = try {
-            calls.submit<ByteArray> { transport.call(method, payload) }
-        } catch (e: RejectedExecutionException) {
-            // Every thread is still blocked in a call the sandbox has not answered. The caller gets no reply, and the connection drops.
+        if (!inFlight.tryAcquire()) {
+            // Every permit is held by a call the sandbox has not answered. The caller gets no reply, and the connection drops.
             transport.reset()
             return null
+        }
+        // The permit goes back when the binder call returns, not when the caller stops waiting. A call given up before its thread
+        // starts is never made, so its permit goes back in the same place.
+        val abandoned = AtomicBoolean(false)
+        val pending = calls.submit<ByteArray?> {
+            try {
+                if (abandoned.get()) null else transport.call(method, payload)
+            } finally {
+                inFlight.release()
+            }
         }
         val reply = try {
             pending.get(timeoutMillis, TimeUnit.MILLISECONDS)
@@ -335,7 +343,7 @@ class SandboxedParser(
             null
         }
         if (reply == null) {
-            pending.cancel(true)
+            abandoned.set(true)
             transport.reset()
             return null
         }
@@ -357,8 +365,5 @@ class SandboxedParser(
          * more than 4x that on the emulator; slower phones were not measured.
          */
         const val TIMEOUT_MILLIS = 30_000L
-
-        /** How long an idle thread of [calls] waits for its next call before it ends. */
-        const val KEEP_ALIVE_SECONDS = 30L
     }
 }

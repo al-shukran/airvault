@@ -13,6 +13,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -24,6 +25,9 @@ private const val ONE_FRAME = 64 * 1024
 private const val MULTI_PART_FRAGMENT = 60
 private const val MULTI_PART_FRAMES = 40
 private const val TIMEOUT_MILLIS = 50L
+
+/** The calls each caller makes in the hammer test. */
+private const val HAMMER_CALLS = 20_000
 
 /** Bounds a silent sandbox in a test, so a missing timeout fails the test instead of hanging it. */
 private const val SILENCE_BOUND_SECONDS = 10L
@@ -84,6 +88,28 @@ class SandboxedParserTest {
         // The calls past the bound are refused without reaching the sandbox, and each refusal drops the connection.
         assertEquals(MAX_CALLS_IN_FLIGHT, calls.get())
         assertEquals(MAX_CALLS_IN_FLIGHT + 3, resets.get())
+    }
+
+    @Test
+    fun callsFromTwoCallersAtOnceAreNeverRefusedWhileTheSandboxAnswers() {
+        // Two calls in flight are within the bound, so no call may be refused. A pool that refused a call while its last thread was still
+        // finishing the one before refused calls here, though the bound was not reached.
+        val answer = ParserWire.encodeCallReply(CallDecode.Refused("answered"))
+        val parser = SandboxedParser(object : SandboxTransport {
+            override fun call(method: Int, payload: ByteArray): ByteArray = answer
+
+            override fun reset() = Unit
+        })
+        val refused = AtomicInteger()
+        val callers = List(MAX_CALLS_IN_FLIGHT) {
+            thread {
+                repeat(HAMMER_CALLS) {
+                    if (parser.decodeCall(ByteArray(4), emptyList()) != CallDecode.Refused("answered")) refused.incrementAndGet()
+                }
+            }
+        }
+        callers.forEach { it.join() }
+        assertEquals(0, refused.get())
     }
 
     @Test
