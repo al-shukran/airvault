@@ -118,17 +118,14 @@ sealed interface WalletSecret {
  * a profile has one more, and so does a wallet with a profile. All of them use DataOutputStream and DataInputStream behind
  * a version byte. None is JSON.
  *
- * - `meta`, version 3: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int), seed backed up
+ * - `meta`, version 4: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int), seed backed up
  *   (boolean). A Mnemonic wallet then has master fingerprint hex (UTF), account public key and chain code (each an int length,
  *   then bytes), and parent fingerprint (int). A Single Key wallet has nothing more.
- *   Version 2 is the same record without the backed-up flag, and it loads as backed up. Version 1 is the same record without the kind
- *   byte. It is always a Mnemonic wallet, and it still loads.
  * - `secret`, version 1 for a Mnemonic wallet: word count (byte), each word (UTF), has-passphrase (boolean), then the
  *   passphrase (UTF) when present. Version 2 for a Single Key wallet: the 32-byte private key.
  * - `account-<index>`, version 2: a flags byte, then each field the flags name, in order: the Display Name (UTF), the colour
- *   and the icon (one byte each, a code from [ProfileColour] or [ProfileIcon]), the label (UTF) and the group (UTF). Version 1
- *   is the Display Name alone (UTF), as renaming wrote it before profiles, and it still loads. An account whose fields are all
- *   defaults has no record, so an account that keeps its Auto-Name and its generated look costs nothing.
+ *   and the icon (one byte each, a code from [ProfileColour] or [ProfileIcon]), the label (UTF) and the group (UTF). An account
+ *   whose fields are all defaults has no record, so an account that keeps its Auto-Name and its generated look costs nothing.
  * - `profile`, version 1, for a wallet: a flags byte for the colour, icon and label, then those fields that are set, then the
  *   group count (byte) and each group (UTF). A wallet whose fields are all defaults has no record.
  * - `base-name`, version 1: the wallet's name at creation (UTF), which its accounts' Auto-Names are built from. It is
@@ -136,7 +133,7 @@ sealed interface WalletSecret {
  *   current name.
  * - `bitcoin`, version 2: the count (int), then each Bitcoin account: its network as its BIP44 coin type (byte), its Script Type as
  *   its BIP43 purpose (byte), its index (int), its first receive address (UTF), and a byte that is 1 when it has a profile, which then
- *   follows in the layout of an account record. Version 1 is the same record without the profiles, and it still loads. A wallet with no
+ *   follows in the layout of an account record. A wallet with no
  *   record has no Bitcoin account. The record is one fixed size, so the profiles share the room the accounts leave.
  *
  * Encoded bytes are zeroed after they are written or parsed, including the internal buffer of the stream
@@ -1128,7 +1125,7 @@ internal object WalletRecords {
     private const val ALGORAND_VERSION = 1
     private const val ALGORAND_KEY_BYTES = 32
 
-    /** The meta versions before wallet kinds, which have no kind byte, and before the backed-up flag. Version 3 is written now. */
+    /** The version of a meta record. */
     private const val META_VERSION = 4
 
     /** The secret version of a Mnemonic wallet. It is the only secret layout before Single Keys. */
@@ -1136,12 +1133,11 @@ internal object WalletRecords {
     private const val SINGLE_KEY_SECRET_VERSION = 2
     private const val NAME_VERSION = 1
 
-    /** The version of an account profile that holds more than a name. Version 1 holds the Display Name alone. */
+    /** The version of an account profile. */
     private const val ACCOUNT_PROFILE_VERSION = 2
     private const val WALLET_PROFILE_VERSION = 1
 
-    /** The Bitcoin record's layout: version 2 holds each account's profile, and version 1 has none. Version 2 is written now. */
-    private const val BITCOIN_VERSION_WITHOUT_PROFILES = 1
+    /** The version of the Bitcoin record, which holds each account's profile. */
     private const val BITCOIN_VERSION = 2
 
     /** The fields of an account profile, one bit each. The flags byte says which ones follow, in this order. */
@@ -1204,27 +1200,23 @@ internal object WalletRecords {
     }
 
     /**
-     * Reads an account profile. A version 1 record is the Display Name alone, as renaming wrote it before profiles, so it
-     * reads as a name with no style. A colour or icon code this build does not know reads as the default.
+     * Reads an account profile. A colour or icon code this build does not know reads as the default.
      */
     fun decodeAccountProfile(bytes: ByteArray): AccountProfile = readBytes(bytes) { input -> readAccountProfile(input) }
 
     /** Reads one account profile from [input], in the layout [writeAccountProfile] writes. */
-    private fun readAccountProfile(input: DataInputStream): AccountProfile =
-        when (val version = input.readUnsignedByte()) {
-            NAME_VERSION -> AccountProfile(name = displayNameOf(input.readUTF()))
-            ACCOUNT_PROFILE_VERSION -> {
-                val fields = input.readUnsignedByte()
-                require(fields and ACCOUNT_FIELDS.inv() == 0) { "Unknown profile field." }
-                val name = if (fields has FIELD_NAME) displayNameOf(input.readUTF()) else null
-                val colour = if (fields has FIELD_COLOUR) ProfileColour.fromWire(input.readUnsignedByte()) else null
-                val icon = if (fields has FIELD_ICON) ProfileIcon.fromWire(input.readUnsignedByte()) else null
-                val label = if (fields has FIELD_LABEL) profileTextOf(input.readUTF()) else null
-                val group = if (fields has FIELD_GROUP) profileTextOf(input.readUTF()) else null
-                AccountProfile(name = name, colour = colour, icon = icon, label = label, group = group)
-            }
-            else -> throw IllegalArgumentException("Unknown record version $version.")
-        }
+    private fun readAccountProfile(input: DataInputStream): AccountProfile {
+        val version = input.readUnsignedByte()
+        require(version == ACCOUNT_PROFILE_VERSION) { "Unknown record version $version." }
+        val fields = input.readUnsignedByte()
+        require(fields and ACCOUNT_FIELDS.inv() == 0) { "Unknown profile field." }
+        val name = if (fields has FIELD_NAME) displayNameOf(input.readUTF()) else null
+        val colour = if (fields has FIELD_COLOUR) ProfileColour.fromWire(input.readUnsignedByte()) else null
+        val icon = if (fields has FIELD_ICON) ProfileIcon.fromWire(input.readUnsignedByte()) else null
+        val label = if (fields has FIELD_LABEL) profileTextOf(input.readUTF()) else null
+        val group = if (fields has FIELD_GROUP) profileTextOf(input.readUTF()) else null
+        return AccountProfile(name = name, colour = colour, icon = icon, label = label, group = group)
+    }
 
     /**
      * A wallet profile record: the version byte, a flags byte for the colour, icon and label, those fields that are set, then
@@ -1286,10 +1278,10 @@ internal object WalletRecords {
         }
     }
 
-    /** The accounts of a Bitcoin record, with their profiles. A version 1 record has none, so each account reads with an empty profile. */
+    /** The accounts of a Bitcoin record, with their profiles. */
     fun decodeBitcoinAccounts(bytes: ByteArray): List<BitcoinAccountRecord> = readBytes(bytes) { input ->
         val version = input.readUnsignedByte()
-        require(version == BITCOIN_VERSION || version == BITCOIN_VERSION_WITHOUT_PROFILES) { "Unknown record version $version." }
+        require(version == BITCOIN_VERSION) { "Unknown record version $version." }
         val count = input.readInt()
         require(count >= 0) { "Account count out of range." }
         val accounts = List(count) {
@@ -1302,7 +1294,7 @@ internal object WalletRecords {
             val index = input.readInt()
             require(index >= 0) { "Account index out of range." }
             val address = input.readUTF()
-            val profile = if (version == BITCOIN_VERSION && input.readBoolean()) readAccountProfile(input) else AccountProfile()
+            val profile = if (input.readBoolean()) readAccountProfile(input) else AccountProfile()
             BitcoinAccountRecord(network, scriptType, index, address, profile)
         }
         require(accounts.map { it.key }.distinct().size == accounts.size) { "Duplicate Bitcoin account." }

@@ -111,17 +111,6 @@ class ProfileStoreTest {
     }
 
     @Test
-    fun aLegacyNameRecordKeepsItsNameWhenItsStyleChanges() {
-        val id = newWallet(2)
-        session.putRecord(id, WalletRecords.accountRecord(1), LegacyWalletRecords.accountName("Savings"))
-        assertEquals("Savings", store.accountName(id, 1))
-
-        store.changeAccountStyles(id, listOf(1), listOf(StyleChange.Colour(ProfileColour.RED)))
-
-        assertEquals(AccountProfile(name = "Savings", colour = ProfileColour.RED), store.accountProfile(id, 1))
-    }
-
-    @Test
     fun renamingAnAccountKeepsItsStyle() {
         val id = newWallet(1)
         store.saveAccountProfile(id, 0, full)

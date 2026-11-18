@@ -336,24 +336,6 @@ class WalletStoreBitcoinTest {
     }
 
     @Test
-    fun aVersionOneBitcoinRecordLoadsWithEmptyProfiles() {
-        // Version 1 holds the account fields alone, as the record was written before profiles.
-        val versionOne = WalletRecords.writeBytes { out ->
-            out.writeByte(1)
-            out.writeInt(1)
-            out.writeByte(BtcNetwork.MAINNET.coinType)
-            out.writeByte(ScriptType.NATIVE_SEGWIT.purpose)
-            out.writeInt(0)
-            out.writeUTF("bc1qexample")
-        }
-
-        assertEquals(
-            listOf(BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0, "bc1qexample")),
-            WalletRecords.decodeBitcoinAccounts(versionOne),
-        )
-    }
-
-    @Test
     fun theBitcoinPairingCarriesTheNamesLabelsAndGroupsOfItsAccounts() {
         val id = newWallet()
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)
