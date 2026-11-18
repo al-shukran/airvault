@@ -85,6 +85,7 @@ import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslySurfaceHigh
+import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -174,6 +175,8 @@ private fun CameraViewfinder(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val controller = remember { CameraController() }
+    // A video is recorded in the app's cache, sealed into the vault, then shredded. Nothing is recorded anywhere else.
+    val scratch = remember(context) { File(context.cacheDir, "recording.mp4") }
     val slopPx = LocalViewConfiguration.current.touchSlop
     val swipePx = with(LocalDensity.current) { ENTRY_SWIPE_DISTANCE.toPx() }
     // One touch state for the life of the screen, so its control positions survive a change of gesture.
@@ -260,13 +263,20 @@ private fun CameraViewfinder(
     }
 
     fun beginVideo() {
+        // A scratch file that an interrupted recording left behind is shredded before this one starts.
+        shredFile(scratch)
         val started = controller.startRecording(
             context = context,
-            file = store.newVideoFile(),
+            file = scratch,
             executor = ContextCompat.getMainExecutor(context),
             onFinished = { saved ->
                 recordingSince = null
-                if (!saved) showFailure(VIDEO_NOT_SAVED)
+                val main = ContextCompat.getMainExecutor(context)
+                PhotoStore.sealer.execute {
+                    if (!saved) shredFile(scratch)
+                    val kept = saved && store.saveVideo(scratch)
+                    if (!kept) main.execute { showFailure(VIDEO_NOT_SAVED) }
+                }
             },
         )
         if (started) {
@@ -282,12 +292,15 @@ private fun CameraViewfinder(
         touch.onShutterClick {
             when {
                 mode == CameraMode.PHOTO -> controller.takePhoto(
-                    file = store.newFile(),
                     executor = ContextCompat.getMainExecutor(context),
-                    onSaved = {
+                    onCaptured = { jpeg ->
                         scope.launch {
                             shutterFlash.snapTo(SHUTTER_FLASH_ALPHA)
                             shutterFlash.animateTo(0f, tween(SHUTTER_FLASH_MS))
+                        }
+                        val main = ContextCompat.getMainExecutor(context)
+                        PhotoStore.sealer.execute {
+                            if (!store.savePhoto(jpeg)) main.execute { showFailure(PHOTO_NOT_SAVED) }
                         }
                     },
                     onFailure = { showFailure(PHOTO_NOT_SAVED) },
