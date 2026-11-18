@@ -57,11 +57,11 @@ internal fun <T> cutWhenReduced(reduced: Boolean, cut: T, motion: () -> T): T = 
  * The class of a screen's transition (section 3.2). The Wallets root has no class of its own: it keeps Lensly's transitions when the gate opens it,
  * and it takes the class of the screen that comes back to it.
  */
-internal enum class NavMotion { ROOT, PUSH, RISE, FADE }
+internal enum class NavMotion { ROOT, PUSH, DRILL, RISE, FADE }
 
 /**
- * The class of the route pattern [route] (section 2): Settings is the Fade, the send and pairing sheets are the Rises, and every other Lumio screen is a
- * Push. Null when there is no route.
+ * The class of the route pattern [route] (section 2): Settings is the Fade, the send and pairing sheets are the Rises, the wallet pages (Wallet, Account and
+ * Asset) are the Drills, and every other Lumio screen is a Push. Null when there is no route.
  */
 internal fun navMotionOf(route: String?): NavMotion? = when (route) {
     null -> null
@@ -69,6 +69,7 @@ internal fun navMotionOf(route: String?): NavMotion? = when (route) {
     LumioRoute.SETTINGS -> NavMotion.FADE
     LumioRoute.RECEIVE, LumioRoute.SEND, LumioRoute.SOLANA_SEND, LumioRoute.ALGORAND_SEND, LumioRoute.BTC_SEND,
     LumioRoute.PAIR_SCAN, LumioRoute.PAIR_REVIEW -> NavMotion.RISE
+    LumioRoute.WALLET, LumioRoute.ACCOUNT, LumioRoute.ASSET -> NavMotion.DRILL
     else -> NavMotion.PUSH
 }
 
@@ -108,6 +109,7 @@ private val spatialOffset = spring<IntOffset>(dampingRatio = 0.86f, stiffness = 
 /** How a screen comes in when it is pushed. The Wallets root, which has no class, keeps Lensly's enter. */
 private fun NavTransitionScope.enterOf(motion: NavMotion): EnterTransition = when (motion) {
     NavMotion.PUSH -> pushEnter()
+    NavMotion.DRILL -> drillEnter()
     NavMotion.RISE -> riseEnter()
     NavMotion.FADE -> fadeThroughEnter()
     NavMotion.ROOT -> LenslyNavTransitions.enter(this)
@@ -117,6 +119,7 @@ private fun NavTransitionScope.enterOf(motion: NavMotion): EnterTransition = whe
 private fun NavTransitionScope.exitTowards(target: NavMotion?): ExitTransition = when (target) {
     NavMotion.RISE -> riseUnderExit()
     NavMotion.FADE -> fadeOutQuick()
+    NavMotion.DRILL -> drillScrim()
     else -> pushExit()
 }
 
@@ -125,16 +128,42 @@ private fun NavTransitionScope.popEnterFrom(popped: NavMotion?): EnterTransition
     NavMotion.RISE -> riseUnderEnter()
     NavMotion.FADE -> fadeThroughEnter()
     NavMotion.PUSH -> pushBackEnter()
+    NavMotion.DRILL -> drillScrimLift()
     NavMotion.ROOT, null -> LenslyNavTransitions.popEnter(this)
 }
 
 /** How a screen of class [motion] goes out when it is popped. */
 private fun NavTransitionScope.popExitOf(motion: NavMotion): ExitTransition = when (motion) {
     NavMotion.PUSH -> pushBackExit()
+    NavMotion.DRILL -> drillBackExit()
     NavMotion.RISE -> riseBackExit()
     NavMotion.FADE -> fadeOutQuick()
     NavMotion.ROOT -> LenslyNavTransitions.popExit(this)
 }
+
+/**
+ * The spring of the wallet pages' drill. It is critically damped, so a page settles within about 300 ms and does not overshoot, and the alpha and the
+ * position share it so they land together.
+ */
+private val drillSpring = spring<Float>(dampingRatio = 1f, stiffness = 400f)
+
+/** The same spring for positions: the offsets of the drill's slides. */
+private val drillOffset = spring<IntOffset>(dampingRatio = 1f, stiffness = 400f)
+
+/** The alpha a screen keeps under the scrim of a pushed wallet page: the scrim takes the other 40%. */
+private const val DRILL_SCRIM_ALPHA = 0.6f
+
+/** A wallet page slides in from the right edge. It is in place on its first frame, and nothing fades in over the screen beneath it. */
+private fun drillEnter(): EnterTransition = slideInHorizontally(drillOffset) { it }
+
+/** The screen beneath a pushed wallet page holds its place and dims under the scrim. It neither moves nor scales. */
+private fun drillScrim(): ExitTransition = fadeOut(drillSpring, targetAlpha = DRILL_SCRIM_ALPHA)
+
+/** A popped wallet page slides out to the right edge. */
+private fun drillBackExit(): ExitTransition = slideOutHorizontally(drillOffset) { it }
+
+/** The screen that a pop reveals lifts its scrim: it is in place on its first frame, and its alpha rises to full. */
+private fun drillScrimLift(): EnterTransition = fadeIn(drillSpring, initialAlpha = DRILL_SCRIM_ALPHA)
 
 private fun pushEnter(): EnterTransition =
     fadeIn(tween(LumenMotion.MEDIUM, delayMillis = 40, easing = LumenMotion.EmphDecel)) +

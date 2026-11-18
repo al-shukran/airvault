@@ -213,12 +213,13 @@ internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock
 }
 
 /**
- * The pull to refresh of a wallet list (section 3.4): the Lumen ring draws with the pull and gives a select haptic at the threshold. While [refreshing] the
- * ring spins, and when the read ends it closes to a dot and goes.
+ * The pull to refresh of a wallet list (section 3.4): the Lumen ring draws with the pull and gives a select haptic at the threshold. While [refreshByPull] the
+ * ring spins, and when the read ends it closes to a dot and goes. A refresh the owner did not pull draws no ring over the list: its freshness line says
+ * "Refreshing…" instead.
  */
 @Composable
 internal fun LumenRefreshBox(
-    refreshing: Boolean,
+    refreshByPull: Boolean,
     onRefresh: () -> Unit,
     modifier: Modifier,
     content: @Composable BoxScope.() -> Unit,
@@ -230,17 +231,17 @@ internal fun LumenRefreshBox(
         if (pastThreshold) haptics.select()
     }
     PullToRefreshBox(
-        isRefreshing = refreshing,
+        isRefreshing = refreshByPull,
         onRefresh = onRefresh,
         modifier = modifier,
         state = state,
         contentAlignment = Alignment.TopCenter,
         indicator = {
-            val pulled = if (refreshing) 1f else state.distanceFraction.coerceIn(0f, 1f)
+            val pulled = if (refreshByPull) 1f else state.distanceFraction.coerceIn(0f, 1f)
             LumenRing(
                 progress = pulled,
                 size = PULL_RING,
-                spinning = refreshing,
+                spinning = refreshByPull,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .graphicsLayer {

@@ -15,6 +15,7 @@ import app.lumio.data.db.LumioDatabase
 import app.lumio.data.scan.ScanRows
 import app.lumio.data.tx.TxKeys
 import app.lumio.data.tx.TxStore
+import app.lumio.wallets.WalletsBoard
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,6 +73,14 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
         val next = change(displayState.value)
         DisplaySettingsStore.write(session, next)
         displayState.value = next
+    }
+
+    /** The balances that the wallet screens of this vault share. [LumioApp] sets it as the vault opens, and [wipe] closes it when the vault locks. */
+    internal var wallets: WalletsBoard? = null
+
+    override fun wipe() {
+        wallets?.close()
+        wallets = null
     }
 
     private companion object {

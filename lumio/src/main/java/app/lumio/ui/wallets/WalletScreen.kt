@@ -63,12 +63,14 @@ fun WalletScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     clock: Clock = WallClock,
+    refreshByPull: Boolean = false,
 ) {
-    val running = rememberStagger()
+    // A pushed wallet is populated on its first frame, so its rows do not stagger in. The Wallets home alone staggers its list.
+    val running = false
     val evmChainId = WalletAccounts.primaryEvmChainId(mode)
     Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
         DetailTopBar(title = walletName, onBack = onBack, titleModifier = Modifier.lumioSharedBounds(SharedKeys.walletName(walletId)))
-        LumenRefreshBox(refreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
+        LumenRefreshBox(refreshByPull = refreshByPull, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),
