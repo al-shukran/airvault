@@ -13,7 +13,7 @@ Run from the repo root. These wrap the Gradle commands in the guideline.
 
 | Command | What it runs |
 |---|---|
-| `scripts/ci/run-partition.sh <partition>` | One PR partition. Names: `core-wallet`, `core-ur-evm`, `core-parse`, `core-vault`, `core-registry`, `ui-a`, `ui-b`, `lumio-a`, `lumio-b`, `lumio-c`, `app`, `registry-pack`, `manifest`, `ci`. |
+| `scripts/ci/run-partition.sh <partition>` | One PR partition. Names: `core-wallet`, `core-ur-evm`, `core-parse`, `core-vault`, `core-registry`, `core-btc`, `ui-a`, `ui-b`, `ui-c`, `lumio-a`, `lumio-apk`, `lumio-b`, `lumio-c`, `lumio-d`, `app`, `registry-pack`, `manifest`, `ci`. |
 | `scripts/ci/run-extended.sh <kind>` | One nightly layer. Kinds: `instrumented`, `e2e`, `screenshot-testing`, `perf`, `security`, `fuzz`. |
 | `scripts/ci/fuzz-nightly.sh` | Jazzer targets, 15 min each. Slow: CI only. |
 | `scripts/ci/benchmark-gate.sh <result.json>` | Compares a benchmark result against the reference-device baseline; fails past 10% regression. `--record` rewrites the baseline. |
