@@ -19,27 +19,16 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
-import app.lumio.chains.ChainHolding
-import app.lumio.chains.ChainHoldings
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.price.ChartRange
 import app.lumio.data.price.PriceSeries
-import app.lumio.data.provider.algorand.ALGORAND_MAINNET
-import app.lumio.data.provider.algorand.ALGORAND_TESTNET
-import app.lumio.data.provider.solana.SOLANA_DEVNET
-import app.lumio.data.provider.solana.SOLANA_MAINNET
-import app.lumio.evm.EvmCatalog
-import app.lumio.evm.EvmSettingsStore
 import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
-import app.lumio.tokens.TokenBalanceCache
-import app.lumio.tokens.TokenPortfolio
 import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.TxSync
 import app.lumio.transactions.TxSyncPlan
-import app.lumio.transactions.accountPage
 import app.lumio.ui.receive.ReceiveScreen
 import app.lumio.ui.settings.WalletsSettings
 import app.lumio.ui.wallets.AccountScreen
@@ -55,9 +44,9 @@ import app.lumio.ui.wallets.WalletSheetHost
 import app.lumio.ui.wallets.WalletSheets
 import app.lumio.ui.wallets.WalletsScreen
 import app.lumio.ui.wallets.summaryLine
-import app.lumio.wallets.AccountActivity
 import app.lumio.wallets.AccountChain
 import app.lumio.wallets.AccountReads
+import app.lumio.wallets.AccountReadsLoader
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 import app.lumio.wallets.WalletsBoard
@@ -68,9 +57,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-/** How many of an account's newest transactions its screen shows. */
-private const val ACTIVITY_ROWS = 10
 
 /** The display settings of the open vault: whether totals and balances show. */
 @Composable
@@ -210,7 +196,6 @@ private fun AccountSheetScreen(
         return
     }
     val reads = remember(board, account, mode) { board.readsOf(account, mode) }
-    AccountReadsEffects(app, session, mode, account, reads)
     val activity = rememberAccountActivity(app, session, mode, account, reads)
     AccountScreen(
         walletName = view.wallets.firstOrNull { it.id == walletId }?.name.orEmpty(),
@@ -271,7 +256,6 @@ internal fun AssetRoute(
         return
     }
     val reads = remember(board, account, mode) { board.readsOf(account, mode) }
-    AccountReadsEffects(app, session, mode, account, reads)
     val asset = rememberAssetRows(app, account, reads).firstOrNull { it.assetKey == assetKey }
     if (asset == null) {
         if (reads.tokens == null || reads.holdings == null) {
@@ -305,60 +289,6 @@ internal fun AssetRoute(
 }
 
 /**
- * Reads the tokens, the holdings of other assets and the prices of [account] into [reads] as its screen opens. Each part keeps the value it had until the new
- * one lands, so an account that opens again shows what it read before at once. A read that fails leaves its part empty, and the rest of the screen stays as
- * it is.
- */
-@Composable
-private fun AccountReadsEffects(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount, reads: AccountReads) {
-    LaunchedEffect(session, mode, account.walletId, account.chain, account.index) {
-        reads.tokens = if (account.chain != AccountChain.ETHEREUM) {
-            emptyList()
-        } else {
-            withContext(Dispatchers.IO) {
-                val settings = EvmSettingsStore.read(session)
-                val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
-                TokenPortfolio.holdingsAt(account.walletId, account.address, chains, app.tokensFor(session), TokenBalanceCache.read(session))
-                    .filter { it.amount.signum() > 0 }
-            }
-        }
-        reads.holdings = when (account.chain) {
-            AccountChain.SOLANA, AccountChain.ALGORAND -> withContext(Dispatchers.IO) { chainHoldingsOf(app, session, mode, account) }
-            else -> emptyList()
-        }
-    }
-    val ids = AssetRows.pricedIds(account, reads.tokens.orEmpty())
-    LaunchedEffect(ids) {
-        reads.prices = if (ids.isEmpty()) {
-            emptyMap()
-        } else {
-            reads.prices + withContext(Dispatchers.IO) { runCatching { app.prices.assetPrices(ids) }.getOrDefault(emptyMap()) }
-        }
-    }
-}
-
-/**
- * The SPL tokens of a Solana account, or the assets of an Algorand account, that the address holds on [mode]'s network. Other chains have none, and a
- * read that fails shows none. It runs off the main thread.
- */
-private suspend fun chainHoldingsOf(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): List<ChainHolding> {
-    val scheduler = app.nativeSchedulerFor(session)
-    return runCatching {
-        when (account.chain) {
-            AccountChain.SOLANA -> {
-                val network = if (mode == NetworkMode.TESTNET) SOLANA_DEVNET else SOLANA_MAINNET
-                ChainHoldings.solana(scheduler, network, account.address, ChainHoldings.solanaNames(app), account.networkName)
-            }
-            AccountChain.ALGORAND -> {
-                val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
-                ChainHoldings.algorand(scheduler, network, account.address, account.networkName)
-            }
-            else -> emptyList()
-        }
-    }.getOrDefault(emptyList())
-}
-
-/**
  * The assets of [account] as its rows: the native coin, the ERC-20 tokens, and the SPL tokens or Algorand assets, from what [reads] holds. A priced row
  * shows its value in dollars once its price is read, and until then it shows its amount alone.
  */
@@ -373,9 +303,10 @@ private fun rememberAssetRows(app: LumioApp, account: WalletAccount, reads: Acco
 }
 
 /**
- * The newest rows of [account] on [mode]'s side, from [reads] and then as they land. Its reads are planned as the screen opens, and they run then: the
- * Ethereum address on each enabled network, or the Bitcoin account's scan. A Bitcoin account's rows are those of every address that the scan turns up, and
- * each read that lands shows its rows. Solana and Algorand have no history provider yet, so they show none. Null until the first page is read.
+ * The newest rows of [account] on [mode]'s side, from [reads] and then as they land. The board reads the rows as the vault opens, so they show on the first
+ * frame. The account's network reads run as the screen opens: the Ethereum address on each enabled network, or the Bitcoin account's scan. A Bitcoin
+ * account's rows are those of every address that the scan turns up, and each read that lands shows its rows. Solana and Algorand have no history provider
+ * yet, so they show none. Null until the first page is read.
  */
 @Composable
 private fun rememberAccountActivity(
@@ -387,41 +318,34 @@ private fun rememberAccountActivity(
 ): List<TxFeedItem>? {
     val vault = app.lumioVault()
     val plan by produceState<TxSyncPlan?>(null, session, mode, account.walletId, account.chain, account.index) {
-        value = withContext(Dispatchers.IO) { accountPlanOf(app, session, mode, account) }
+        value = withContext(Dispatchers.IO) { AccountReadsLoader.planOf(app, session, mode, account) }
     }
-    // The Bitcoin addresses that the scan has turned up, and a count of the reads that have landed. The reads write both as they run.
-    val owned = remember(session, mode, account.walletId, account.chain, account.index) { MutableStateFlow(emptySet<String>()) }
+    // A count of the reads that have landed. Each read adds the Bitcoin addresses it turns up to the reads, which the board keeps for the next visit.
     val landed = remember(session, mode, account.walletId, account.chain, account.index) { MutableStateFlow(0) }
-    val ownedNow by owned.collectAsState()
     val landedNow by landed.collectAsState()
+    val owned by reads.addresses.collectAsState()
     LaunchedEffect(plan) {
         val current = plan ?: return@LaunchedEffect
         val open = vault ?: return@LaunchedEffect
         withContext(Dispatchers.IO) {
-            TxSync.run(app, open, current, onStored = { landed.update { it + 1 } }, onAddress = { address -> owned.update { it + address } })
+            TxSync.run(app, open, current, onStored = { landed.update { it + 1 } }, onAddress = { address -> reads.addresses.update { it + address } })
         }
     }
     val addresses = when (account.chain) {
         AccountChain.ETHEREUM -> setOf(account.address)
-        AccountChain.BITCOIN -> ownedNow
+        AccountChain.BITCOIN -> owned
         AccountChain.SOLANA, AccountChain.ALGORAND -> emptySet()
     }
     val items by produceState(reads.activity, plan, addresses, landedNow) {
         val current = plan ?: return@produceState
         val open = vault ?: return@produceState
-        val page = withContext(Dispatchers.IO) { accountPage(app, open, addresses, current.networks, ACTIVITY_ROWS).items }
+        // A Bitcoin account with no address known yet has no rows to show: its rows wait for its scan, rather than show none.
+        if (addresses.isEmpty()) return@produceState
+        val page = withContext(Dispatchers.IO) { AccountReadsLoader.activityOf(app, open, addresses, current.networks) }
         reads.activity = page
         value = page
     }
     return items
-}
-
-/** The reads of [account] on [mode]'s side, planned from the open vault: the enabled networks of the side, and the Bitcoin account when it is one. */
-private fun accountPlanOf(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): TxSyncPlan {
-    val settings = EvmSettingsStore.read(session)
-    val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
-    val bitcoin = if (account.chain == AccountChain.BITCOIN) bitcoinAccountRef(session, account.walletId, account.index, mode) else null
-    return AccountActivity.plan(account, chains, bitcoin)
 }
 
 /** The state of [ReceiveRoute]: the account with the name of its wallet, or missing when the vault has no such account. */

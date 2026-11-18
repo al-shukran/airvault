@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.lensly.core.vault.VaultSession
 import app.lumio.LumioApp
+import app.lumio.LumioVault
 import app.lumio.chains.ChainHolding
 import app.lumio.data.WallClock
 import app.lumio.data.asset.AssetId
@@ -19,6 +20,7 @@ import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.wallets.AssetRows
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +28,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -36,8 +40,9 @@ private const val REFRESH_NOTICE = "Some balances could not be refreshed. The la
 private class Loaded(val view: WalletsView, val tokenCounts: Map<WalletAccount, Int>)
 
 /**
- * What an account's screen reads beyond its balance: its tokens, its holdings of other assets, the prices of its assets and its activity. A part that is
- * still null has not been read yet. The parts stay in the board for the visit and the next one, so an account that opens again shows them at once.
+ * What an account's screen reads beyond its balance: its tokens, its holdings of other assets, the prices of its assets, the addresses its activity is read
+ * for, and its activity. A part that is still null has not been read yet. The parts stay in the board for the visit and the next one, so an account that
+ * opens again shows them at once.
  */
 internal class AccountReads(chain: AccountChain) {
     /** The ERC-20 balances of the Ethereum address. Empty for the other chains. Null until an Ethereum account's read lands. */
@@ -53,20 +58,33 @@ internal class AccountReads(chain: AccountChain) {
 
     /** The newest rows of the account's activity. Null until its first read lands. */
     var activity by mutableStateOf<List<TxFeedItem>?>(null)
+
+    /**
+     * The addresses that the activity is read for: the Ethereum address, or the addresses that a Bitcoin account's scans found in use. A flow, since a
+     * history read on a background thread turns up Bitcoin addresses.
+     */
+    val addresses = MutableStateFlow<Set<String>>(emptySet())
 }
 
 /**
  * The balances that the wallet screens of one open vault show, kept in memory for as long as the vault is open. The Wallets home reads the vault's caches
  * and refreshes the balances from the networks when it opens: once per unlock, after a return from the background, and after the side changes. It
- * refreshes again when the owner pulls to refresh. The screens pushed over the home read this board and start no refresh, so their first frame shows
- * what the board already holds. [close] drops it when the vault locks.
+ * refreshes again when the owner pulls to refresh. Each time the home shows a side, it also reads the other parts of each account's screen (see
+ * [readAccounts]), so an Account screen pushed over the home shows its rows on its first frame. [close] drops it when the vault locks.
  */
-internal class WalletsBoard(private val app: LumioApp, private val session: VaultSession) {
+internal class WalletsBoard(
+    private val app: LumioApp,
+    private val vault: LumioVault,
+    /** The prices of [ids] that have one. The board reads each account's asset prices through it; a test stands in for the price sources. */
+    private val readPrices: suspend (ids: Collection<AssetId>) -> Map<AssetId, Price> = { ids -> app.prices.assetPrices(ids) },
+) {
+    private val session: VaultSession = vault.session
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var side: NetworkMode? = null
     private var version = Int.MIN_VALUE
     private var readJob: Job? = null
     private var refreshJob: Job? = null
+    private var accountsJob: Job? = null
     private val accountReads = HashMap<String, AccountReads>()
     private val chartReads = mutableStateMapOf<AssetId, PriceSeries>()
 
@@ -102,7 +120,7 @@ internal class WalletsBoard(private val app: LumioApp, private val session: Vaul
         scope.launch {
             app.scanQueue.events.collect { event ->
                 when (event) {
-                    is ScanEvent.Finished -> side?.let { mode -> readOrNull { load(mode) }?.let { show(mode, it) } }
+                    is ScanEvent.Finished -> side?.let { mode -> readOrNull { load(mode) }?.let { show(mode, it, withAccounts = false) } }
                     is ScanEvent.Failed -> notice = REFRESH_NOTICE
                     is ScanEvent.Progress -> Unit
                 }
@@ -111,8 +129,8 @@ internal class WalletsBoard(private val app: LumioApp, private val session: Vaul
     }
 
     /**
-     * Shows the balances of [mode] for the wallets' [listVersion]. It reads the vault's caches and no network. A change of side clears the balances of the
-     * side before it, and makes the next home open refresh.
+     * Shows the balances of [mode] for the wallets' [listVersion]. It reads the vault's caches and no network for the balances; the accounts' other parts
+     * follow as they are read. A change of side clears the balances of the side before it, and makes the next home open refresh.
      */
     fun showSide(mode: NetworkMode, listVersion: Int) {
         if (mode == side && listVersion == version) return
@@ -128,7 +146,7 @@ internal class WalletsBoard(private val app: LumioApp, private val session: Vaul
         version = listVersion
         readJob?.cancel()
         readJob = scope.launch {
-            readOrNull { load(mode) }?.let { show(mode, it) }
+            readOrNull { load(mode) }?.let { show(mode, it, withAccounts = true) }
         }
     }
 
@@ -149,7 +167,7 @@ internal class WalletsBoard(private val app: LumioApp, private val session: Vaul
         val run = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 val failed = WalletsLoader.refresh(app, session, mode)
-                readOrNull { load(mode) }?.let { show(mode, it) }
+                readOrNull { load(mode) }?.let { show(mode, it, withAccounts = true) }
                 if (failed) notice = REFRESH_NOTICE else updatedAtMs = WallClock.nowMs()
             } finally {
                 if (refreshJob === currentCoroutineContext()[Job]) endRefresh()
@@ -181,6 +199,7 @@ internal class WalletsBoard(private val app: LumioApp, private val session: Vaul
         scope.cancel()
         refreshJob = null
         readJob = null
+        accountsJob = null
         side = null
         view = null
         tokenCounts = emptyMap()
@@ -194,10 +213,48 @@ internal class WalletsBoard(private val app: LumioApp, private val session: Vaul
         refreshByPull = false
     }
 
-    private fun show(mode: NetworkMode, loaded: Loaded) {
+    /**
+     * Shows [loaded] when [mode] is the side the board shows. [withAccounts] reads the other parts of each account again, after the balances are shown, as
+     * a home open or a refresh does; a scan that finishes alone does not, since the refresh that started it reads them once it has ended.
+     */
+    private fun show(mode: NetworkMode, loaded: Loaded, withAccounts: Boolean) {
         if (mode != side) return
         view = loaded.view
         tokenCounts = loaded.tokenCounts
+        if (withAccounts) {
+            accountsJob?.cancel()
+            accountsJob = scope.launch { readAccounts(mode, loaded.view) }
+        }
+    }
+
+    /**
+     * Reads each account of [shown] into its kept reads: its tokens, its holdings, the prices of its assets, the addresses its activity is read for and its
+     * newest rows. The vault's caches answer first. The holdings and the prices may read the networks, and a read that fails keeps the part it had, or
+     * shows none. An account's screen shows what has landed, and its rows update in place as the rest lands.
+     */
+    private suspend fun readAccounts(mode: NetworkMode, shown: WalletsView) {
+        for (wallet in shown.wallets) {
+            for (account in shown.accountsOf(wallet.id)) readAccount(mode, account)
+        }
+    }
+
+    private suspend fun readAccount(mode: NetworkMode, account: WalletAccount) {
+        val reads = readsOf(account, mode)
+        reads.tokens = readOrNull { withContext(Dispatchers.IO) { AccountReadsLoader.tokensOf(app, session, mode, account) } }
+            ?: reads.tokens ?: emptyList()
+        reads.holdings = readOrNull { withContext(Dispatchers.IO) { AccountReadsLoader.holdingsOf(app, session, mode, account) } }
+            ?: reads.holdings ?: emptyList()
+        val ids = AssetRows.pricedIds(account, reads.tokens.orEmpty())
+        if (ids.isNotEmpty()) {
+            reads.prices = reads.prices + readOrNull { withContext(Dispatchers.IO) { readPrices(ids) } }.orEmpty()
+        }
+        readOrNull { withContext(Dispatchers.IO) { AccountReadsLoader.addressesOf(vault, session, mode, account) } }
+            ?.let { found -> reads.addresses.update { known -> known + found } }
+        val addresses = reads.addresses.value
+        if (addresses.isEmpty()) return
+        val networks = withContext(Dispatchers.IO) { AccountReadsLoader.planOf(app, session, mode, account).networks }
+        readOrNull { withContext(Dispatchers.IO) { AccountReadsLoader.activityOf(app, vault, addresses, networks) } }
+            ?.let { reads.activity = it }
     }
 
     /** The balances of [mode] from the vault's caches, and the tokens of its Ethereum accounts. It reads no balance from the network. */
