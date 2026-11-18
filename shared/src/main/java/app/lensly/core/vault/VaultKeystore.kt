@@ -49,10 +49,13 @@ internal object VaultKeystore {
     private const val PROBE_ALIAS = "lensly.vault.probe"
     private const val PROVIDER = "AndroidKeyStore"
 
-    /** Replaces the hardware wrapping key. Tries StrongBox first and falls back to the TEE. It needs a screen lock ([isDeviceSecure]). */
-    fun createHardwareKey(): SecretKey {
+    /**
+     * Replaces the hardware wrapping key. Tries StrongBox first and falls back to the TEE. With [userAuth] it needs a screen lock
+     * ([isDeviceSecure]). Only [app.lensly.core.vault.instrumentedVault] asks for a key without it.
+     */
+    fun createHardwareKey(userAuth: Boolean): SecretKey {
         delete(HARDWARE_KEY_ALIAS)
-        return generateAes(HARDWARE_KEY_ALIAS, userAuth = true)
+        return generateAes(HARDWARE_KEY_ALIAS, userAuth = userAuth)
     }
 
     /** True when the device has a screen lock (a PIN, pattern or password). The hardware key cannot be made without one. */

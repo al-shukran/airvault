@@ -162,9 +162,20 @@ class Vault constructor(
 ) {
     constructor(context: Context, clock: Clock = RealClock) : this(context, clock, null)
 
-    constructor(context: Context, clock: Clock, kdfOverride: KdfParams?) : this(
+    constructor(context: Context, clock: Clock, kdfOverride: KdfParams?) : this(context, clock, kdfOverride, hardwareKeyUserAuth = true)
+
+    /**
+     * [hardwareKeyUserAuth] is false only for [app.lensly.core.vault.instrumentedVault]. Android refuses to make a key that needs a
+     * screen lock on a device without one, and the emulators that run the instrumented tests have none. The app passes true.
+     */
+    internal constructor(
+        context: Context,
+        clock: Clock,
+        kdfOverride: KdfParams?,
+        hardwareKeyUserAuth: Boolean,
+    ) : this(
         layout = VaultLayout.of(context),
-        keys = AndroidKeystoreBackend(context.applicationContext),
+        keys = AndroidKeystoreBackend(context.applicationContext, hardwareKeyUserAuth),
         clock = clock,
         kdfOverride = kdfOverride,
         readBootCount = { bootCountOf(context.applicationContext) },

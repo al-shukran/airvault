@@ -2,7 +2,7 @@ package app.lensly.ui.navigation
 
 import android.content.Context
 import androidx.compose.runtime.remember
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -29,6 +29,8 @@ import org.robolectric.annotation.Config
 @Config(qualifiers = "w360dp-h640dp-port-mdpi")
 class HiddenExitTest {
 
+    // The v2 rule resumes the gate's coroutine on the main thread, as the app does. The v1 rule resumes it on the background thread that
+    // finished the vault check, and Navigation refuses the move off the main thread.
     @get:Rule
     val compose = createComposeRule()
 
@@ -55,14 +57,16 @@ class HiddenExitTest {
             }
         }
 
-        compose.runOnIdle { nav.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } }
-        compose.waitForIdle()
+        compose.runOnUiThread { nav.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } }
+        // The gate checks the vault on a background thread, then moves to the unlock screen. Wait for that move, so the test's
+        // own navigation never races with the gate's.
+        compose.waitUntil(timeoutMillis = 5_000) { nav.currentBackStackEntry?.destination?.route == GateRoutes.UNLOCK }
         // The gate needs a real Keystore to unlock, so the test goes straight to a screen that resolves the draft.
-        compose.runOnIdle { nav.navigate(HiddenRoute.WALLET_START) }
+        compose.runOnUiThread { nav.navigate(HiddenRoute.WALLET_START) }
         compose.waitForIdle()
         assertEquals(HiddenRoute.WALLET_START, nav.currentBackStackEntry?.destination?.route)
 
-        compose.runOnIdle { leaveHidden(nav, holder) }
+        compose.runOnUiThread { leaveHidden(nav, holder) }
         compose.waitForIdle()
 
         assertEquals(LenslyRoute.CAMERA, nav.currentBackStackEntry?.destination?.route)
