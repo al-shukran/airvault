@@ -20,24 +20,24 @@ import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.PillChip
-import app.lensly.ui.qr.ScanScreen
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.pair.PairFamily
 import app.lumio.pair.PairImport
+import app.lumio.ui.kit.LumioPrimaryButton
+import app.lumio.ui.kit.LumioTag
+import app.lumio.ui.scan.LumioScanScreen
 import app.lumio.ui.send.ReviewAddress
 
-/** The camera scan for a pairing code. [progress] shows for an animated code, and [status] says what the scan is doing. */
+/** The camera scan for a pairing code. [progress] shows for an animated code, and [status] says what the scan is doing. [complete] closes the ring. */
 @Composable
-fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit) {
-    ScanScreen(
-        title = "Pair from Lensly",
+fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit, complete: Boolean = false) {
+    LumioScanScreen(
+        title = "Scan pairing code",
         progress = progress,
         statusText = status,
         onText = onText,
         onCancel = onCancel,
+        complete = complete,
     )
 }
 
@@ -60,14 +60,7 @@ fun PairReviewScreen(
     LenslyScreen(
         title = "Review pairing",
         onBack = onCancel,
-        bottomAction = {
-            WalletPill(
-                text = if (alreadyPaired) "Update" else "Save",
-                onClick = onSave,
-                modifier = Modifier.fillMaxWidth(),
-                style = WalletPillStyle.Primary,
-            )
-        },
+        bottomAction = { LumioPrimaryButton(text = if (alreadyPaired) "Update" else "Save", onClick = onSave) },
     ) {
         if (alreadyPaired) {
             InlineBanner(
@@ -93,7 +86,7 @@ fun PairReviewScreen(
 @Composable
 private fun EthereumReview(addresses: List<String>, accounts: List<PairingAccount>) {
     Spacer(Modifier.height(LenslySpacing.md))
-    PillChip(text = PairLabels.family(PairFamily.EVM))
+    LumioTag(text = PairLabels.family(PairFamily.EVM))
     ReviewField("Network", "All EVM networks")
     ReviewField("Accounts", "${accounts.size}")
     accounts.sortedBy { it.key }.forEach { account -> EthereumAccountReview(address = addresses[account.key], account = account) }
@@ -111,9 +104,9 @@ private fun EthereumAccountReview(address: String, account: PairingAccount) {
         if (account.label != null || account.group != null) {
             Spacer(Modifier.height(LenslySpacing.xxs))
             Row {
-                account.label?.let { PillChip(text = it) }
+                account.label?.let { LumioTag(text = it) }
                 if (account.label != null && account.group != null) Spacer(Modifier.width(LenslySpacing.xs))
-                account.group?.let { PillChip(text = it) }
+                account.group?.let { LumioTag(text = it) }
             }
         }
         ReviewAddress("First address", address)
@@ -124,7 +117,7 @@ private fun EthereumAccountReview(address: String, account: PairingAccount) {
 @Composable
 private fun SolanaReview(keys: List<ByteArray>) {
     Spacer(Modifier.height(LenslySpacing.md))
-    PillChip(text = PairLabels.family(PairFamily.SOLANA))
+    LumioTag(text = PairLabels.family(PairFamily.SOLANA))
     ReviewField("Network", "Devnet")
     ReviewField("Accounts", "${keys.size}")
     keys.forEachIndexed { index, key ->
@@ -139,7 +132,7 @@ private fun SolanaReview(keys: List<ByteArray>) {
 @Composable
 private fun AlgorandReview(keys: List<ByteArray>) {
     Spacer(Modifier.height(LenslySpacing.md))
-    PillChip(text = PairLabels.family(PairFamily.ALGORAND))
+    LumioTag(text = PairLabels.family(PairFamily.ALGORAND))
     ReviewField("Accounts", "${keys.size}")
     keys.forEachIndexed { index, key ->
         Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
@@ -153,7 +146,7 @@ private fun AlgorandReview(keys: List<ByteArray>) {
 @Composable
 private fun BitcoinReview(accounts: List<BtcWatchOnlyAccount>, names: Map<Int, PairingAccount>) {
     Spacer(Modifier.height(LenslySpacing.md))
-    PillChip(text = PairLabels.family(PairFamily.BITCOIN))
+    LumioTag(text = PairLabels.family(PairFamily.BITCOIN))
     ReviewField("Accounts", "${accounts.size}")
     accounts.forEachIndexed { key, account -> BitcoinAccountReview(account, names[key]) }
 }
@@ -167,18 +160,18 @@ private fun BitcoinAccountReview(account: BtcWatchOnlyAccount, named: PairingAcc
             Spacer(Modifier.height(LenslySpacing.xxs))
         }
         Row {
-            PillChip(text = PairLabels.network(account.network))
+            LumioTag(text = PairLabels.network(account.network))
             Spacer(Modifier.width(LenslySpacing.xs))
-            PillChip(text = PairLabels.scriptType(account.scriptType))
+            LumioTag(text = PairLabels.scriptType(account.scriptType))
         }
         val label = named?.label
         val group = named?.group
         if (label != null || group != null) {
             Spacer(Modifier.height(LenslySpacing.xxs))
             Row {
-                label?.let { PillChip(text = it) }
+                label?.let { LumioTag(text = it) }
                 if (label != null && group != null) Spacer(Modifier.width(LenslySpacing.xs))
-                group?.let { PillChip(text = it) }
+                group?.let { LumioTag(text = it) }
             }
         }
         ReviewField("Path", account.path.asString('\''))
