@@ -62,11 +62,13 @@ fun WalletsScreen(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
     clock: Clock = WallClock,
+    refreshByPull: Boolean = false,
+    loading: Boolean = false,
 ) {
     val running = rememberStagger()
     Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
         DetailTopBar(title = "Wallets", onBack = null, onOptions = onSettings, optionsIcon = Icons.Filled.Settings, optionsLabel = "Settings")
-        LumenRefreshBox(refreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
+        LumenRefreshBox(refreshByPull = refreshByPull, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),
@@ -79,7 +81,10 @@ fun WalletsScreen(
                         InlineBanner(message = message, tone = BannerTone.Warning, modifier = Modifier.padding(bottom = LenslySpacing.sm))
                     }
                 }
-                if (rows.isEmpty()) {
+                if (loading) {
+                    // The balances are read on the first frame of the home; until they are, the rows keep their places.
+                    item(key = "loading") { LumioIsland { LoadingRow(); IslandDivider(); LoadingRow() } }
+                } else if (rows.isEmpty()) {
                     item(key = "intro") {
                         PairIntro(onScan = onPair, modifier = Modifier.fillParentMaxHeight())
                     }

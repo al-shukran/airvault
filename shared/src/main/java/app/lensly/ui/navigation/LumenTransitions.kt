@@ -48,8 +48,8 @@ fun <T> cutWhenReduced(reduced: Boolean, cut: T, motion: () -> T): T = if (reduc
 /** The distance a Rise screen scales from, and the scale a screen beneath it goes to (section 3.2). */
 private const val RISE_SCALE = 0.94f
 
-/** The spatial spring as an offset: the bounds and slides of section 3.1. */
-private val spatialOffset = spring<IntOffset>(dampingRatio = 0.86f, stiffness = 380f)
+/** The spatial spring as an offset: the bounds and slides of section 3.1, with the ratio and stiffness of [LumenMotion.spatial]. */
+private val spatialOffset = spring<IntOffset>(dampingRatio = LumenMotion.spatial.dampingRatio, stiffness = LumenMotion.spatial.stiffness)
 
 /** How a screen of class [motion] comes in when it is pushed. A ROOT keeps Lensly's enter. */
 fun AnimatedContentTransitionScope<NavBackStackEntry>.enterOf(motion: NavMotion): EnterTransition = when (motion) {

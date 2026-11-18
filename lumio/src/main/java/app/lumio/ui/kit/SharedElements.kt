@@ -1,9 +1,17 @@
 package app.lumio.ui.kit
 
+import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import app.lensly.ui.theme.LumenMotion
+import androidx.compose.ui.geometry.Rect
+
+/**
+ * The bounds of a shared element move on the drill spring, the spring of the wallet pages (section 3.2), so an element lands with the page that carries it.
+ */
+private val drillBounds = BoundsTransform { _, _ -> spring(dampingRatio = 1f, stiffness = 400f, visibilityThreshold = Rect.VisibilityThreshold) }
 
 /**
  * An icon or an orb that moves from one screen to the next (section 3.3). The same [key] on both screens draws the element once, moving between
@@ -17,7 +25,7 @@ fun Modifier.lumioSharedElement(key: String): Modifier {
         this@lumioSharedElement.sharedElement(
             sharedContentState = rememberSharedContentState(key = key),
             animatedVisibilityScope = visible,
-            boundsTransform = LumenMotion.sharedBoundsTransform,
+            boundsTransform = drillBounds,
         )
     }
 }
@@ -34,7 +42,7 @@ fun Modifier.lumioSharedBounds(key: String): Modifier {
         this@lumioSharedBounds.sharedBounds(
             sharedContentState = rememberSharedContentState(key = key),
             animatedVisibilityScope = visible,
-            boundsTransform = LumenMotion.sharedBoundsTransform,
+            boundsTransform = drillBounds,
             resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
         )
     }

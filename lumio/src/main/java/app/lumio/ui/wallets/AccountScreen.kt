@@ -69,6 +69,8 @@ internal fun AccountScreen(
     refreshing: Boolean = false,
     notice: String? = null,
     onRefresh: (() -> Unit)? = null,
+    loadingAssets: Boolean = false,
+    loadingActivity: Boolean = false,
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
     val balance = account.balance
@@ -147,12 +149,17 @@ internal fun AccountScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         SectionTitle("Assets")
         LumioIsland {
+            // A read that has not landed yet keeps its row's place, so the rows that follow it do not jump when it does.
             if (assets.isEmpty()) {
-                EmptyLine(if (balance == null) NOT_READ else "No assets yet.")
+                if (loadingAssets) LoadingRow() else EmptyLine(if (balance == null) NOT_READ else "No assets yet.")
             } else {
                 assets.forEachIndexed { index, asset ->
                     if (index > 0) Divider()
                     AssetRow(asset = asset, shown = showBalance, onClick = { onAsset(asset) })
+                }
+                if (loadingAssets) {
+                    Divider()
+                    LoadingRow()
                 }
             }
             onAddAsset?.let { addAsset ->
@@ -166,6 +173,7 @@ internal fun AccountScreen(
             when {
                 account.chain == AccountChain.SOLANA || account.chain == AccountChain.ALGORAND ->
                     EmptyLine("Activity is not read for ${account.chain.label} yet.")
+                activity.isEmpty() && loadingActivity -> LoadingRow()
                 activity.isEmpty() -> EmptyLine("No transactions yet.")
                 else -> activity.forEachIndexed { index, item ->
                     if (index > 0) Divider()
