@@ -23,7 +23,7 @@ class LumioSettingsScreenTest {
     val compose = createComposeRule()
 
     private val rows = listOf(
-        SettingsRowState(SettingsPage.DISPLAY, "Total Hidden · balances shown"),
+        SettingsRowState(SettingsPage.DISPLAY, "Total hidden · balances shown"),
         SettingsRowState(SettingsPage.TRANSACTIONS, "Spam and scams hidden"),
         SettingsRowState(SettingsPage.NETWORKS, "3 chains on · Bitcoin default"),
         SettingsRowState(SettingsPage.PROVIDERS, "7 of 9 sources on"),

@@ -8,7 +8,7 @@ import app.lumio.data.provider.ProviderCatalog
 
 /** The one-line state under the Display row: whether the total shows, and whether each account's balance does. */
 fun displaySummary(settings: DisplaySettings): String =
-    "${if (settings.showTotal) "Total shown" else "Total Hidden"} · ${if (settings.showAssets) "balances shown" else "balances hidden"}"
+    "${if (settings.showTotal) "Total shown" else "Total hidden"} · ${if (settings.showAssets) "balances shown" else "balances hidden"}"
 
 /** The one-line state under the Transactions row: the comments that the backup keeps. */
 fun transactionsSummary(): String = "Back up transaction comments"

@@ -12,7 +12,7 @@ class SettingsSummariesTest {
 
     @Test
     fun theDisplayRowNamesTheTotalAndTheBalances() {
-        assertEquals("Total Hidden · balances shown", displaySummary(DisplaySettings()))
+        assertEquals("Total hidden · balances shown", displaySummary(DisplaySettings()))
         assertEquals("Total shown · balances shown", displaySummary(DisplaySettings(showTotal = true)))
     }
 
@@ -107,7 +107,7 @@ class SettingsSummariesTest {
     fun eachRowCarriesItsSummary() {
         val rows = settingsRows(facts, EntryGesture.DEFAULT, version = "0.1.0").associateBy { it.page }
 
-        assertEquals("Total Hidden · balances shown", rows.getValue(SettingsPage.DISPLAY).summary)
+        assertEquals("Total hidden · balances shown", rows.getValue(SettingsPage.DISPLAY).summary)
         assertEquals("3 chains on · Bitcoin default", rows.getValue(SettingsPage.NETWORKS).summary)
         assertEquals("7 of 9 sources on", rows.getValue(SettingsPage.PROVIDERS).summary)
         assertEquals("1 wallet · 2 saved addresses", rows.getValue(SettingsPage.ADDRESS_BOOK).summary)
