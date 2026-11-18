@@ -88,7 +88,7 @@ Reactive Streams 1.0.3 (reactive-streams-jvm). The project's LICENSE file names 
 
 SIL Open Font License 1.1:
 
-Doto (Doto Project Authors), Space Mono (Space Mono Project Authors), Manrope (Manrope Project Authors) and JetBrains Mono (JetBrains Mono Project Authors), the application's fonts. Their full texts are quoted below.
+Doto (Doto Project Authors), Space Mono (Space Mono Project Authors), JetBrains Mono (JetBrains Mono Project Authors) and Archivo (Archivo Project Authors), the application's fonts. Their full texts are quoted below.
 
 Algorithms, test vectors and formats taken from these sources:
 
@@ -1176,13 +1176,13 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 
-==== SIL Open Font License 1.1: Manrope ====
+==== SIL Open Font License 1.1: JetBrains Mono ====
 
-Copyright 2018 The Manrope Project Authors (https://github.com/googlefonts/manrope)
+Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
-http://scripts.sil.org/OFL
+https://openfontlicense.org
 
 
 -----------------------------------------------------------
@@ -1272,13 +1272,13 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 
-==== SIL Open Font License 1.1: JetBrains Mono ====
+==== SIL Open Font License 1.1: Archivo ====
 
-Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+Copyright 2020 The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
-https://openfontlicense.org
+http://scripts.sil.org/OFL
 
 
 -----------------------------------------------------------
