@@ -443,7 +443,9 @@ internal fun ReceiveRoute(
             walletName = current.walletName,
             detail = receiveDetail(current.account),
             address = current.account.address,
-            bitcoin = current.account.chain == AccountChain.BITCOIN,
+            onlySend = "Only send ${current.account.networkName} assets here.",
+            title = "Receive ${current.account.balance?.symbol ?: current.account.chain.label}",
+            note = if (current.account.chain == AccountChain.SOLANA) "Tokens arrive at this same address." else null,
             onBack = { navController.popBackStack() },
         )
     }

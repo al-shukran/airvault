@@ -19,8 +19,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
+import app.lensly.app.AddressBookEntry
 import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
+import app.lensly.app.addressBookEntryFor
+import app.lensly.app.addressKeyOf
+import app.lensly.app.chainOfAddress
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.PickerStop
@@ -28,13 +32,18 @@ import app.lensly.ui.navigation.openHidden
 import app.lumio.data.tx.CommentImportException
 import app.lumio.data.tx.TxCommentTransfer
 import app.lumio.data.tx.TxKeys
+import app.lumio.pair.PairAddressBooks
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.ownAccountsOf
 import app.lumio.transactions.TxDetail
 import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.transactions.txDetailOf
+import app.lumio.ui.transactions.AddressBookSheet
 import app.lumio.ui.transactions.TransactionDetailScreen
+import app.lumio.ui.transactions.addressBookWith
+import app.lumio.ui.transactions.addressBookWithout
 import java.io.IOException
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -52,13 +61,19 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
     val vault = app.lumioVault()
     val scope = rememberCoroutineScope()
     var version by remember { mutableIntStateOf(0) }
+    var naming by remember { mutableStateOf<String?>(null) }
     val load by produceState<DetailLoad?>(null, account, txId, version) {
         val open = vault
         value = if (open == null) {
             DetailLoad.Missing
         } else {
             withContext(Dispatchers.IO) {
-                txDetailOf(app, open, account, txId)?.let { DetailLoad.Ready(it, ownAccountsOf(PairedWallets.list(session))) }
+                txDetailOf(app, open, account, txId)?.let { detail ->
+                    val wallets = PairedWallets.list(session)
+                    val accounts = ownAccountsOf(wallets)
+                    val walletId = accounts[addressKeyOf(account)]?.walletName?.let { name -> wallets.firstOrNull { it.name == name }?.id }
+                    DetailLoad.Ready(detail, accounts, walletId, wallets.firstOrNull { it.id == walletId }?.addressBook.orEmpty())
+                }
             } ?: DetailLoad.Missing
         }
     }
@@ -68,31 +83,70 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
             LaunchedEffect(Unit) { navController.popBackStack() }
             return
         }
-        is DetailLoad.Ready -> TransactionDetailScreen(
-            detail = current.detail,
-            accounts = current.accounts,
-            onBack = { navController.popBackStack() },
-            onExplorer = {
-                current.detail.explorerUrl?.let { openExplorer(context, it) }
-            },
-            onSaveComment = { text ->
-                scope.launch {
-                    withContext(Dispatchers.IO) {
-                        // A blank text clears the comment, as the store does.
-                        vault?.txs?.setComment(txId, text, System.currentTimeMillis())
+        is DetailLoad.Ready -> {
+            val walletId = current.walletId
+            TransactionDetailScreen(
+                detail = current.detail,
+                accounts = current.accounts,
+                book = current.book,
+                onEditAddress = if (walletId == null) null else { address -> naming = address },
+                onBack = { navController.popBackStack() },
+                onExplorer = {
+                    current.detail.explorerUrl?.let { openExplorer(context, it) }
+                },
+                onSaveComment = { text ->
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            // A blank text clears the comment, as the store does.
+                            vault?.txs?.setComment(txId, text, System.currentTimeMillis())
+                        }
+                        version++
                     }
-                    version++
-                }
-            },
-        )
+                },
+            )
+            val address = naming
+            val chain = address?.let(::chainOfAddress)
+            if (address != null && walletId != null && chain != null) {
+                AddressBookSheet(
+                    address = address,
+                    entry = addressBookEntryFor(address, chain, current.book),
+                    onSave = { name ->
+                        naming = null
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                val book = PairAddressBooks.load(session)[walletId].orEmpty()
+                                PairAddressBooks.replace(session, walletId, addressBookWith(book, address, chain, name, UUID.randomUUID().toString()))
+                            }
+                            version++
+                        }
+                    },
+                    onRemove = {
+                        naming = null
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                val book = PairAddressBooks.load(session)[walletId].orEmpty()
+                                PairAddressBooks.replace(session, walletId, addressBookWithout(book, address, chain))
+                            }
+                            version++
+                        }
+                    },
+                    onDismiss = { naming = null },
+                )
+            }
+        }
     }
 }
 
-/** The state of [TransactionDetailRoute]: the transaction, or missing when the store does not hold it. */
+/** The state of [TransactionDetailRoute]: the transaction and its owner's address book, or missing when the store does not hold it. */
 private sealed interface DetailLoad {
     data object Missing : DetailLoad
 
-    class Ready(val detail: TxDetail, val accounts: Map<String, InternalAccount>) : DetailLoad
+    class Ready(
+        val detail: TxDetail,
+        val accounts: Map<String, InternalAccount>,
+        val walletId: String?,
+        val book: List<AddressBookEntry>,
+    ) : DetailLoad
 }
 
 /**
