@@ -262,7 +262,7 @@ class LumioApp : Application(), CoverApplication {
     private fun openVault(session: VaultSession): SessionAttachment? {
         if (session.isDecoy) return null
         val vault = LumioVault(session, database())
-        vault.wallets = WalletsBoard(this, session)
+        vault.wallets = WalletsBoard(this, vault)
         // Read now, so Settings is whole on its first frame.
         scope.launch { vault.settingsFacts.refresh() }
         scope.launch {
