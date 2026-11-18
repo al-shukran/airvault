@@ -240,6 +240,10 @@ object MediaEnvelope {
                     shared.fill(0)
                     val chunks = ((body + CHUNK_CIPHER_BYTES - 1) / CHUNK_CIPHER_BYTES).toInt()
                     val lastCipherBytes = (body - (chunks - 1).toLong() * CHUNK_CIPHER_BYTES).toInt()
+                    // Only an empty file has a last chunk with no plain byte. Any other file whose last chunk has none, or is shorter than its
+                    // tag, was cut short. No read would check that chunk's tag, so the file is refused here.
+                    val minLastCipherBytes = if (chunks > 1) TAG_BYTES + 1 else TAG_BYTES
+                    if (lastCipherBytes < minLastCipherBytes) throw damaged()
                     val size = (chunks - 1).toLong() * CHUNK_BYTES + lastCipherBytes - TAG_BYTES
                     return SealedReader(raf, header, prefix, key, chunks, lastCipherBytes, size)
                 } catch (e: Throwable) {

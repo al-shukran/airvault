@@ -16,7 +16,8 @@ import javax.crypto.spec.SecretKeySpec
  * The real vault and the decoy vault share these folders. Every file is sealed under the key of the vault that owns it,
  * so a session lists and opens only its own files (see [ownsWallet] and [VaultRecordNames]).
  *
- * The photos and videos are plain files under [photos] (`filesDir/photos` in the app), in `real/` and `decoy/` (see [photoDir]).
+ * The photos and videos are sealed files (see [MediaEnvelope]) under [photos] (`filesDir/photos` in the app), in `real/` and `decoy/`
+ * (see [photoDir]).
  * [wipeVault] removes the whole folder, both vaults' photos with it.
  */
 class VaultLayout(val root: File, val photos: File = File(root, "photos")) {

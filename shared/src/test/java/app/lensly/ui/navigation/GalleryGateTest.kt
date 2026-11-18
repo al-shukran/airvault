@@ -12,6 +12,7 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.camera.PhotoStore
 import java.io.File
 import kotlinx.coroutines.runBlocking
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -53,7 +54,10 @@ class GalleryGateTest {
     fun theAppPasswordOpensTheRealVaultsPhotos() {
         val photo = saveRealPhoto()
 
-        assertEquals(listOf(photo), galleryAfterDelay(APP)?.list())
+        val gallery = assertNotNull(galleryAfterDelay(APP))
+
+        assertEquals(listOf(photo), gallery.list())
+        assertContentEquals(PHOTO, gallery.photoBytes(photo))
     }
 
     @Test
@@ -64,6 +68,15 @@ class GalleryGateTest {
 
         assertEquals(PhotoStore.of(layout, decoy = true).directory, decoy.directory)
         assertTrue(decoy.list().isEmpty())
+    }
+
+    @Test
+    fun theDecoysGalleryCannotOpenARealPhoto() {
+        val photo = saveRealPhoto()
+
+        val decoy = assertNotNull(galleryAfterDelay(DURESS))
+
+        assertNull(decoy.photoBytes(photo))
     }
 
     @Test
@@ -89,8 +102,11 @@ class GalleryGateTest {
         return gallery(password)
     }
 
-    private fun saveRealPhoto(): File =
-        PhotoStore.of(layout, decoy = false).newFile(nowMs = 1_000L).apply { writeBytes(ByteArray(1)) }
+    /** Saves a photo the way the cover does, with no password: the vault's public key alone seals it. */
+    private fun saveRealPhoto(): File {
+        assertTrue(PhotoStore.of(layout, decoy = false).savePhoto(PHOTO.copyOf(), nowMs = 1_000L))
+        return PhotoStore.of(layout, decoy = false).list().single()
+    }
 
     private fun createVaultWithDuress() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
@@ -104,5 +120,6 @@ class GalleryGateTest {
         const val WRONG = "Zx8#Vb2!Nm5\$Qw7%Ld4"
         const val DURESS = "Gh5%Rt8!Yu2#Pk6@Ws3Fn"
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
+        val PHOTO = ByteArray(300) { (it * 7).toByte() }
     }
 }

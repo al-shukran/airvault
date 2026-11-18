@@ -1,8 +1,5 @@
 package app.lensly.ui.camera
 
-import android.net.Uri
-import android.widget.MediaController
-import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -138,7 +135,7 @@ fun GalleryScreen(
                 horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xxs),
             ) {
                 items(photos, key = { it.name }) { file ->
-                    MediaTile(file = file, onClick = { openedName = file.name })
+                    MediaTile(store = store, file = file, onClick = { openedName = file.name })
                 }
             }
         }
@@ -146,6 +143,7 @@ fun GalleryScreen(
 
     if (opened != null) {
         MediaViewer(
+            store = store,
             file = opened,
             onClose = { openedName = null },
             onDelete = {
@@ -161,7 +159,7 @@ fun GalleryScreen(
 
 /** One grid cell. A video shows its length in the corner. It dims while pressed and plays the key haptic. */
 @Composable
-private fun MediaTile(file: File, onClick: () -> Unit) {
+private fun MediaTile(store: PhotoStore, file: File, onClick: () -> Unit) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
     Box(
@@ -179,22 +177,27 @@ private fun MediaTile(file: File, onClick: () -> Unit) {
             .semantics { contentDescription = if (file.isVideo) "Video" else "Photo" },
     ) {
         PhotoImage(
+            store = store,
             file = file,
             maxSidePx = 320,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
         if (file.isVideo) {
-            DurationBadge(file = file, modifier = Modifier.align(Alignment.BottomEnd).padding(LenslySpacing.xxs))
+            DurationBadge(
+                store = store,
+                file = file,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(LenslySpacing.xxs),
+            )
         }
     }
 }
 
 /** The length of a video in a small dark tag. It appears once the length has been read from the file. */
 @Composable
-private fun DurationBadge(file: File, modifier: Modifier = Modifier) {
-    val durationMs by produceState<Long?>(initialValue = null, file) {
-        value = withContext(Dispatchers.IO) { videoDurationMs(file) }
+private fun DurationBadge(store: PhotoStore, file: File, modifier: Modifier = Modifier) {
+    val durationMs by produceState<Long?>(initialValue = null, store, file) {
+        value = withContext(Dispatchers.IO) { store.videoSource(file)?.use { videoDurationMs(it) } }
     }
     durationMs?.let { ms ->
         Text(
@@ -211,6 +214,7 @@ private fun DurationBadge(file: File, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MediaViewer(
+    store: PhotoStore,
     file: File,
     onClose: () -> Unit,
     onDelete: () -> Unit,
@@ -225,9 +229,10 @@ private fun MediaViewer(
             .background(LenslyBlack),
     ) {
         if (file.isVideo) {
-            VideoPlayer(file = file, modifier = Modifier.fillMaxSize())
+            VideoPlayer(store = store, file = file, modifier = Modifier.fillMaxSize())
         } else {
             PhotoImage(
+                store = store,
                 file = file,
                 maxSidePx = 1600,
                 contentScale = ContentScale.Fit,
@@ -310,13 +315,16 @@ private fun MediaViewer(
     }
 }
 
-/** Plays a saved video with the player's own controls. It starts when opened and stops when closed. */
+/**
+ * Plays a saved video with the system's media controls. The video is decrypted as the player reads it. It starts when opened and stops
+ * when closed. A video the store cannot open, or the player cannot play, shows the app's own error state.
+ */
 @Composable
-private fun VideoPlayer(file: File, modifier: Modifier = Modifier) {
-    // A file the player cannot decode shows the app's own error state instead of the system's "can't play" dialog.
-    var unplayable by remember(file) { mutableStateOf(false) }
+private fun VideoPlayer(store: PhotoStore, file: File, modifier: Modifier = Modifier) {
+    val source = remember(store, file) { store.videoSource(file) }
+    var unplayable by remember(store, file) { mutableStateOf(false) }
     Box(modifier, contentAlignment = Alignment.Center) {
-        if (unplayable) {
+        if (unplayable || source == null) {
             ErrorState(
                 icon = CameraIcons.Photos,
                 title = "Video can't be played",
@@ -324,20 +332,12 @@ private fun VideoPlayer(file: File, modifier: Modifier = Modifier) {
             )
         } else {
             AndroidView(
-                factory = { context ->
-                    VideoView(context).apply {
-                        setMediaController(MediaController(context).also { it.setAnchorView(this) })
-                        setOnErrorListener { _, _, _ ->
-                            unplayable = true
-                            // Handled here, so the player does not show its own error dialog.
-                            true
-                        }
-                        setVideoURI(Uri.fromFile(file))
-                        start()
-                    }
-                },
+                factory = { context -> SealedVideoView(context, source) { unplayable = true } },
                 modifier = Modifier.fillMaxSize(),
-                onRelease = { it.stopPlayback() },
+                onRelease = { view ->
+                    view.release()
+                    source.close()
+                },
             )
         }
     }
