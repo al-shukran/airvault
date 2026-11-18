@@ -19,8 +19,9 @@ import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LocalUppercaseLabels
 
 /**
- * Fully rounded text button on the surface-high fill, or the accent red when [accent] is true. It shrinks and dims while
- * pressed and plays the key haptic. When [enabled] is false it dims and ignores taps.
+ * Fully rounded text button on the surface-high fill, or the accent when [accent] is true. Its label is `onPrimary` on the accent fill,
+ * so it is dark ink on the Lumen gold and white on the cover's red. It shrinks and dims while pressed and plays the key haptic. When
+ * [enabled] is false it dims and ignores taps.
  */
 @Composable
 fun PillButton(
@@ -53,7 +54,7 @@ fun PillButton(
         Text(
             text = if (LocalUppercaseLabels.current) text.uppercase() else text,
             style = MaterialTheme.typography.labelLarge,
-            color = colors.onSurface,
+            color = if (accent) colors.onPrimary else colors.onSurface,
         )
     }
 }
