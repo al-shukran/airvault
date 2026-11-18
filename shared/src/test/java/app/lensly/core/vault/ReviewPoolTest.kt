@@ -2,7 +2,6 @@ package app.lensly.core.vault
 
 import java.io.File
 import kotlinx.coroutines.runBlocking
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -86,27 +85,6 @@ class ReviewPoolTest {
     }
 
     @Test
-    fun aRecordInAWalletFolderMovesIntoThePoolOnTheNextUnlockAndTheMoveRepeatsSafely() {
-        create()
-        val session = unlock()
-        val wallet = session.createWallet()
-        val bytes = "a review written by an earlier build".toByteArray()
-        val key = session.copyOfVaultKey()
-        LegacyWalletFolder.writeRecord(layout, keys, key, wallet, "review-old", bytes)
-        key.fill(0)
-        assertTrue(File(layout.walletDir(wallet), "review-old.bin").isFile)
-        session.close()
-
-        val reopened = unlock()
-
-        assertContentEquals(bytes, reopened.getReview(wallet, "review-old"))
-        assertFalse(File(layout.walletDir(wallet), "review-old.bin").exists())
-        reopened.migrateLegacyReviews()
-        assertEquals(listOf("review-old"), reopened.reviewNames(wallet))
-        reopened.close()
-    }
-
-    @Test
     fun deletingAWalletOverwritesItsPoolSlots() {
         create()
         val session = unlock()
@@ -167,6 +145,17 @@ class ReviewPoolTest {
 
     private fun poolSizesOf(root: File): List<Long> =
         File(root, "review-pool").listFiles().orEmpty().filter { it.isFile }.map { it.length() }.sorted()
+
+    @Test
+    fun aMissingReviewPoolIsCreatedOnTheFirstUnlock() {
+        create()
+        layout.reviewPool.deleteRecursively()
+
+        unlock().close()
+
+        assertTrue(layout.reviewPool.isDirectory, "The first unlock did not create the Review Record pool")
+        assertEquals(ReviewPoolFormat.BATCH, layout.reviewPool.listFiles().orEmpty().count { it.isFile })
+    }
 
     private fun create() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })

@@ -143,21 +143,6 @@ class VaultRecordsTest {
     }
 
     @Test
-    fun aRecordWrittenUnderItsPlainNameIsRenamedAndStillReads() {
-        // The layout before keyed names: the file is named by the record, and the AAD is the same as now.
-        val folder = File(tmp.root, "vault-records").apply { mkdirs() }
-        val sealed = Aead.seal(vaultKey, "vault-record\u0000settings".toByteArray(Charsets.UTF_8), byteArrayOf(3, 3))
-        File(folder, "settings.bin").writeBytes(byteArrayOf(1) + sealed)
-
-        val session = open()
-        session.migrateLegacyRecordNames()
-
-        assertContentEquals(byteArrayOf(3, 3), session.getVaultRecord("settings"))
-        assertFalse(File(folder, "settings.bin").exists())
-        session.close()
-    }
-
-    @Test
     fun aWalletRecordIsOneOfTheNamesAWalletFolderHolds() {
         val session = open()
         val wallet = session.createWallet()

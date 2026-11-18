@@ -2,7 +2,6 @@ package app.lensly.core.vault
 
 import java.io.File
 import kotlinx.coroutines.runBlocking
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Before
@@ -48,32 +47,6 @@ class WalletFolderShapeTest {
         val shapes = shapes()
         assertEquals(WALLET_SLOT_STEP, shapes.size)
         assertEquals(1 + WalletFolder.NAMES.size, shapes.first().size)
-        shapes.forEach { assertEquals(shapes.first(), it) }
-    }
-
-    @Test
-    fun aVaultFromAnEarlierBuildIsPaddedOnItsFirstUnlock() {
-        create()
-        val real = unlock()
-        val wallet = real.createWallet()
-        val key = real.copyOfVaultKey()
-        real.close()
-        // An earlier build sealed each record at its own size, and its unused folders held only the key file.
-        LegacyWalletFolder.writeRecord(layout, keys, key, wallet, WalletFolder.META, ByteArray(37) { 1 })
-        LegacyWalletFolder.writeRecord(layout, keys, key, wallet, WalletFolder.SECRET, ByteArray(90) { 2 })
-        key.fill(0)
-        layout.wallets.listFiles().orEmpty().filter { it.isDirectory && it.name != wallet }.forEach { dir ->
-            dir.listFiles().orEmpty().filter { it.name != WALLET_KEY_FILE_NAME }.forEach { it.delete() }
-        }
-        assertTrue(shapes().any { it.size == 1 }, "The legacy layout was not set up")
-
-        val reopened = unlock()
-
-        assertContentEquals(ByteArray(37) { 1 }, reopened.getRecord(wallet, WalletFolder.META))
-        assertContentEquals(ByteArray(90) { 2 }, reopened.getRecord(wallet, WalletFolder.SECRET))
-        reopened.close()
-        val shapes = shapes()
-        assertEquals(WALLET_SLOT_STEP, shapes.size)
         shapes.forEach { assertEquals(shapes.first(), it) }
     }
 

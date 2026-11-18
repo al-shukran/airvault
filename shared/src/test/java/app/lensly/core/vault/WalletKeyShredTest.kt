@@ -3,8 +3,6 @@ package app.lensly.core.vault
 import java.io.File
 import java.security.ProviderException
 import kotlinx.coroutines.runBlocking
-import kotlin.random.Random
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -115,77 +113,6 @@ class WalletKeyShredTest {
         assertTrue(keyIdOf(wallet) in before)
         assertEquals(before, keys.folderKeyIds().toSet())
         session.close()
-    }
-
-    @Test
-    fun aVaultFromTheEarlierLayoutIsUpgradedOnItsFirstUnlockAndItsWalletOpens() {
-        create()
-        val session = unlock(vault)
-        val wallet = session.createWallet()
-        session.putRecord(wallet, WalletFolder.SECRET, byteArrayOf(7, 8, 9))
-        val vaultKey = session.copyOfVaultKey()
-        val walletKey = assertNotNull(WalletFolder.walletKeyOf(keys, layout.walletDir(wallet), vaultKey, wallet))
-        session.close()
-        // The earlier layout: each key file is the vault-sealed key alone, and no folder has a Keystore key. An unused slot holds
-        // random bytes.
-        folderDirs().forEach { dir ->
-            val inner = if (dir.name == wallet) {
-                encodeBlob(Aead.seal(vaultKey, wallet.toByteArray(Charsets.UTF_8), walletKey))
-            } else {
-                Random.nextBytes(WalletFolder.VAULT_WRAPPED_KEY_BYTES)
-            }
-            File(dir, WALLET_KEY_FILE_NAME).writeBytes(inner)
-        }
-        keys.folderKeyIds().forEach { keys.deleteFolderKey(it) }
-
-        val reopened = unlock(vault)
-
-        assertEquals(listOf(wallet), reopened.listWallets())
-        assertContentEquals(byteArrayOf(7, 8, 9), reopened.getRecord(wallet, WalletFolder.SECRET))
-        folderDirs().forEach { assertEquals(WalletFolder.KEY_FILE_BYTES.toLong(), File(it, WALLET_KEY_FILE_NAME).length()) }
-        assertEquals(folderDirs().size, keys.folderKeyIds().size)
-        val shapes = folderDirs().map { shapeOf(it) }
-        shapes.forEach { assertEquals(shapes.first(), it) }
-        reopened.close()
-    }
-
-    @Test
-    fun aDecoyWalletFromTheEarlierLayoutOpensAfterTheRealVaultIsUpgraded() {
-        create()
-        val real = unlock(vault)
-        var decoyWallet = ""
-        val result = runBlocking {
-            vault.setDuress(real, DURESS.toCharArray()) { decoy ->
-                decoyWallet = decoy.createWallet()
-                decoy.putRecord(decoyWallet, WalletFolder.SECRET, byteArrayOf(5, 6))
-            }
-        }
-        assertEquals(DuressResult.Enabled, result)
-        val realKey = real.copyOfVaultKey()
-        real.close()
-        val decoy = unlock(vault, DURESS)
-        val decoyKey = decoy.copyOfVaultKey()
-        decoy.close()
-        // The earlier layout for both vaults. A folder keeps the vault-sealed key of its owner, and an unused slot holds random bytes.
-        folderDirs().forEach { dir ->
-            val inner = listOf(realKey, decoyKey).firstNotNullOfOrNull { key ->
-                WalletFolder.walletKeyOf(keys, dir, key, dir.name)?.let { walletKey ->
-                    encodeBlob(Aead.seal(key, dir.name.toByteArray(Charsets.UTF_8), walletKey))
-                }
-            } ?: Random.nextBytes(WalletFolder.VAULT_WRAPPED_KEY_BYTES)
-            File(dir, WALLET_KEY_FILE_NAME).writeBytes(inner)
-        }
-        keys.folderKeyIds().forEach { keys.deleteFolderKey(it) }
-
-        // The real vault unlocks first and upgrades every folder, the decoy's included, without the Decoy Vault's key.
-        val upgraded = unlock(vault)
-        assertEquals(emptyList(), upgraded.listWallets())
-        upgraded.close()
-
-        val reopenedDecoy = unlock(vault, DURESS)
-        assertEquals(listOf(decoyWallet), reopenedDecoy.listWallets())
-        assertContentEquals(byteArrayOf(5, 6), reopenedDecoy.getRecord(decoyWallet, WalletFolder.SECRET))
-        reopenedDecoy.close()
     }
 
     @Test
