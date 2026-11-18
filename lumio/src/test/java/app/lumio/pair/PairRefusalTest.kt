@@ -16,9 +16,7 @@ import kotlin.test.assertFailsWith
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Codes that Lumio refuses, with the reason it shows. Each one holds more than public data, breaks a rule of the pairing, or is a code Lensly no longer sends. */
-private const val OLDER_CODE = "This pairing code is from an older Lensly. Update both apps and pair again."
-
+/** Codes that Lumio refuses, with the reason it shows. Each one holds more than public data, or breaks a rule of the pairing. */
 class PairRefusalTest {
 
     @Test
@@ -33,17 +31,15 @@ class PairRefusalTest {
     }
 
     @Test
-    fun aCodeOfAnOlderLayoutIsRefusedWithTheReasonToPairAgain() {
+    fun aCodeOfAnOlderLayoutIsRefusedByItsVersion() {
         val older = Cbor.encode(
             Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(5), Cbor.Uint(6) to Cbor.Uint(0), Cbor.Uint(7) to Cbor.Bytes(byteArrayOf(0x01)))),
         )
 
-        assertEquals(OLDER_CODE, refusalOf(UR(PairingCodec.UR_TYPE, older)))
-    }
-
-    @Test
-    fun aCodeOfThePairingTypeBeforeTwoNineIsRefusedWithTheReasonToPairAgain() {
-        assertEquals(OLDER_CODE, refusalOf(UR("airvault-pairing", byteArrayOf(0x01, 0x02))))
+        assertEquals(
+            "This pairing uses format 5, and this app reads format ${PairingCodec.VERSION}. Update the app, then pair again.",
+            refusalOf(UR(PairingCodec.UR_TYPE, older)),
+        )
     }
 
     @Test

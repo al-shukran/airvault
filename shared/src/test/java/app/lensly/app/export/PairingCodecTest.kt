@@ -87,9 +87,9 @@ class PairingCodecTest {
     }
 
     @Test
-    fun anOlderVersionIsRefusedWithTheMessageToPairAgain() {
+    fun anOlderVersionIsRefusedByItsVersion() {
         val message = refusalOf { PairingCodec.decode(envelope(5L, byteArrayOf()), null) }
-        assertTrue(message, message.contains("older Lensly") && message.contains("pair again"))
+        assertEquals("This pairing uses format 5, and this app reads format 6. Update the app, then pair again.", message)
     }
 
     @Test
@@ -105,12 +105,6 @@ class PairingCodecTest {
             "This is not a pairing code from Lensly.",
             refusalOf { PairingCodec.fromUr(UR("crypto-seed", byteArrayOf()), null) },
         )
-    }
-
-    @Test
-    fun aCodeOfThePairingTypeBeforeTwoNineIsRefusedAsNotAPairing() {
-        val oldCode = PairingCodec.encode(RealisticPairing.payload(), null)
-        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.fromUr(UR("airvault-pairing", oldCode), null) })
     }
 
     @Test

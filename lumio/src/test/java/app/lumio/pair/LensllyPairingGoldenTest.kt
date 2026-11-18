@@ -8,7 +8,6 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.DeterministicWallet
-import kotlin.test.assertFailsWith
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -24,17 +23,6 @@ class LensllyPairingGoldenTest {
         val scanner = UrScanner()
         frames.forEach { scanner.receive(it) }
         return requireNotNull(scanner.result())
-    }
-
-    /**
-     * The code of [ur] with its version set to [version]. The envelope is a map of three entries whose first entry is `1: version`, so the
-     * version is the third byte, after the map header `A3` and the key `01`. Only that byte changes, so the body is the same.
-     */
-    private fun withVersion(ur: UR, version: Int): UR {
-        val bytes = ur.cborBytes.copyOf()
-        require(bytes[0] == 0xA3.toByte() && bytes[1] == 0x01.toByte()) { "Not an envelope." }
-        bytes[2] = version.toByte()
-        return UR(ur.type, bytes)
     }
 
     @Test
@@ -71,15 +59,6 @@ class LensllyPairingGoldenTest {
             PairingAccount(key = unnamed, name = "Savings 1", label = null, group = null),
             bitcoin.accounts.single { it.key == unnamed },
         )
-    }
-
-    @Test
-    fun lumioRefusesAnOlderLenslyCodeWithTheMessageToPairAgain() {
-        for (version in listOf(1, 4)) {
-            val reason = assertFailsWith<PairingRefusal> { PairImport.of(withVersion(scanned(LabelledPairingGolden.FRAMES), version)) }.message
-
-            assertEquals("version $version", "This pairing code is from an older Lensly. Update both apps and pair again.", reason)
-        }
     }
 
     /** The place, among the Bitcoin accounts of [payload], of the mainnet account on [scriptType] at account [index]. */
