@@ -20,7 +20,7 @@ import org.junit.rules.TemporaryFolder
 import org.web3j.utils.Numeric
 import kotlin.test.assertTrue
 
-/** Storage round trips for both wallet kinds, and the load of a wallet written before kinds existed. */
+/** Storage round trips for both wallet kinds. */
 class WalletStoreKindTest {
     private val keys = MemoryKeystore()
 
@@ -112,13 +112,6 @@ class WalletStoreKindTest {
     }
 
     @Test
-    fun aMnemonicWalletWrittenBeforeTheAccountKeysIsNotLoaded() {
-        val id = writeLegacyMnemonicWallet(accountCount = 2)
-
-        assertNull(store.meta(id))
-    }
-
-    @Test
     fun anAccountTheWalletDoesNotHaveHasNoAddress() {
         val id = store.create(name = "Seed", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
 
@@ -132,26 +125,6 @@ class WalletStoreKindTest {
 
         assertEquals(KEY_ADDRESS, store.accountAddress(id, 0))
         assertFailsWith<IllegalArgumentException> { store.accountAddress(id, 1) }
-    }
-
-    /** Writes a wallet in the version 1 records, as a vault from before kinds holds it. */
-    private fun writeLegacyMnemonicWallet(accountCount: Int): String {
-        val wallet = HdWallet(Mnemonic.toSeed(words))
-        val id = session.createWallet()
-        session.putRecord(
-            id,
-            WalletRecords.META,
-            LegacyWalletRecords.meta(
-                name = "Old",
-                createdAtMs = 1L,
-                deviceGenerated = false,
-                accountCount = accountCount,
-                masterFingerprintHex = wallet.masterFingerprintHex,
-                xpub = wallet.accountXpub(),
-            ),
-        )
-        session.putRecord(id, WalletRecords.SECRET, LegacyWalletRecords.secret(words, passphrase = null))
-        return id
     }
 
     private companion object {

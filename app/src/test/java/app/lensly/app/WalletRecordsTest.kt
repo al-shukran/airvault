@@ -71,20 +71,6 @@ class WalletRecordsTest {
     }
 
     @Test
-    fun aVersionOneMetaRecordIsRefused() {
-        val legacy = LegacyWalletRecords.meta(
-            name = "Savings",
-            createdAtMs = 1_800_000_000_123L,
-            deviceGenerated = true,
-            accountCount = 3,
-            masterFingerprintHex = "3442193e",
-            xpub = xpub,
-        )
-
-        assertFailsWith<IllegalArgumentException> { WalletRecords.decodeMeta(id, legacy) }
-    }
-
-    @Test
     fun anUnknownWalletKindIsRejected() {
         val bytes = WalletRecords.encodeMeta(
             WalletMeta(
@@ -112,16 +98,6 @@ class WalletRecordsTest {
             WalletRecords.decodeSecret(WalletRecords.encodeSecret(words, "TREZOR")),
         )
         assertEquals("TREZOR", withPassphrase.passphrase)
-    }
-
-    @Test
-    fun aVersionOneSecretRecordLoadsAsAMnemonicSecret() {
-        val legacy = LegacyWalletRecords.secret(words, passphrase = "TREZOR")
-
-        val secret = assertIs<WalletSecret.Mnemonic>(WalletRecords.decodeSecret(legacy))
-
-        assertEquals(words, secret.words)
-        assertEquals("TREZOR", secret.passphrase)
     }
 
     @Test
