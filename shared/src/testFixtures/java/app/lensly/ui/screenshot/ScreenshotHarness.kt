@@ -72,7 +72,8 @@ fun ComposeContentTestRule.snapshot(
     // [beforeCapture] runs once the entrance has settled, for a step such as a scroll, and the frame is then drawn again.
     beforeCapture()
     waitForIdle()
-    // The goldens are recorded on macOS. The Linux runner rasterizes some anti-aliased edges a few shades off, measured at
+    // The goldens are recorded on the Linux CI runner (the record-goldens workflow), the runner the nightly verifies on. A macOS
+    // render differs on anti-aliased edges, so a local macOS run is advisory. The macOS and Linux renders of one screen differed by at
     // most 2 of 255 per channel on 35 to 62 of a frame's 1,152,000 pixels. A real change moves far more pixels than the threshold.
     onNodeWithTag(SCREEN_TAG).captureRoboImage(
         filePath = "$SCREENSHOT_DIR/$name.png",

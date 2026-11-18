@@ -51,7 +51,8 @@ Run commands assume the wrapper at the repo root.
 - **Tools:** Roborazzi (`roborazzi-compose`) on Robolectric.
 - **Why Roborazzi, not Paparazzi:** Roborazzi captures from the same Robolectric `createComposeRule()` tests as 1.4, so one test source checks behavior and pixels. Paparazzi renders through layoutlib, not Robolectric, and cannot reuse those tests or their shadows.
 - **Files:** goldens in `app/src/test/screenshots/`; move to Git LFS if they exceed about 2 MB.
-- **Run:** `./gradlew :app:verifyRoborazziDebug`; update with `:app:recordRoborazziDebug` and review the PNG diff.
+- **Run:** `./gradlew :app:verifyRoborazziDebug` (and `:lumio:verifyRoborazziDebug`) in the nightly, which compares against the committed PNGs with a 0.0005 pixel-change threshold (`ScreenshotHarness.kt`).
+- **Record:** on Linux CI only. Run the `record-goldens` workflow (`gh workflow run record-goldens`) on the same runner image the nightly uses, download the `goldens-linux` artifact, review the PNG diff, and commit it. A macOS render differs from the Linux runner on anti-aliased edges, so a local macOS run is advisory, not the gate.
 
 ### 1.6 End-to-end
 

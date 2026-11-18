@@ -1,0 +1,40 @@
+name: record-goldens
+
+# Re-records the Roborazzi goldens on the Linux runner and image the nightly `full` job verifies against. The goldens must come from
+# this runner, because a macOS render differs from it on anti-aliased edges. Run it by hand: `gh workflow run record-goldens`. Then
+# download the `goldens-linux` artifact, review the PNG diff, and commit it (docs/testing/guideline.md 1.5).
+
+on:
+  workflow_dispatch:
+
+# Least privilege at the top. The job only reads the repository and uploads an artifact.
+permissions:
+  contents: read
+
+jobs:
+  record:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Record goldens
+        run: ./gradlew :app:recordRoborazziDebug :lumio:recordRoborazziDebug --continue
+
+      - name: Upload goldens
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: goldens-linux
+          path: |
+            app/src/test/screenshots
+            lumio/src/test/screenshots
+          if-no-files-found: error
