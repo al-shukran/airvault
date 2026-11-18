@@ -46,9 +46,6 @@ object PairImport {
     /** The most Algorand accounts a wallet keeps in Lumio: its Algorand record holds this many. */
     const val MAX_ALGORAND_ACCOUNTS = 100
 
-    /** The UR type of the pairing before 2.9, which Lumio refuses. */
-    private const val OLD_UR_TYPE = "airvault-pairing"
-
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
     private const val NO_ETHEREUM = "The code holds no Ethereum account key."
     private const val NOT_ACCOUNT_KEY = "The code's Ethereum key is not the address of its account, m/44'/60'/N'/0/0."
@@ -71,8 +68,6 @@ object PairImport {
      */
     fun of(ur: UR): PairingPayload = when (ur.type.lowercase()) {
         PairingCodec.UR_TYPE -> checked(ur)
-        // The type before 2.9 is a hard switch: its codes are refused, and the owner pairs again.
-        OLD_UR_TYPE -> throw PairingRefusal(PairingCodec.OLDER_CODE)
         // A seed is private material, whatever the owner meant to export, so it gets the private-key refusal.
         "crypto-seed" -> throw PairingRefusal(PRIVATE_KEY_REFUSAL)
         else -> throw PairingRefusal("$NOT_A_PAIRING ur:${ur.type} is not supported.")

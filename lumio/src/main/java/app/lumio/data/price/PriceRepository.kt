@@ -115,7 +115,7 @@ internal fun priceRequestOf(asset: AssetId): Request<PriceQuote>? = when (asset)
     is AssetId.Erc20 -> DefiLlamaChains.prefixOf(asset.net)?.let { TokenPrice(asset.net, asset.contract) }
 }
 
-/** The cache key of the price of [asset]. A native coin keeps the key it has always had, so a kept price still reads. Null when it has no price source. */
+/** The cache key of the price of [asset]. Null when it has no price source. */
 internal fun priceKeyOf(asset: AssetId): String? = when (asset) {
     is AssetId.Native -> NativeCoins.coinOf(asset.net)?.let { "native-price:$it" }
     is AssetId.Erc20 -> DefiLlamaChains.prefixOf(asset.net)?.let { "token-price:$it:${asset.contract}" }

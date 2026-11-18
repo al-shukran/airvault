@@ -76,8 +76,8 @@ data class PairSaved(val id: String, val created: Boolean)
 object PairedWallets {
 
     /**
-     * The paired wallets, oldest first, each with its Address Book. A folder with no META record is left out. A pairing record or a book of
-     * another layout version is wiped, with its wallet, and reads as unpaired. No reader takes an old version.
+     * The paired wallets, oldest first, each with its Address Book. A folder with no META record is left out. A pairing record or a book that does
+     * not read in full is wiped, with its wallet, and reads as unpaired.
      */
     fun list(session: VaultSession): List<PairedWallet> {
         val books = try {
