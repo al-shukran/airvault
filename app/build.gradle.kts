@@ -139,6 +139,8 @@ dependencyCheck {
     getFailBuildOnCVSS().set(7.0f)
     // Scan what ships: the app's runtime classpath.
     getScanConfigurations().set(listOf("releaseRuntimeClasspath"))
+    // One reviewed false positive, each entry with its reason. Scoped to one package, version and CVE (owasp-suppressions.xml).
+    getSuppressionFiles().set(listOf(file("owasp-suppressions.xml").absolutePath))
     // Read the key from the environment (a CI repository secret, NVD_API_KEY) and never from the
     // repo. An absent key is not an error: the scan still runs, rate-limited to one NVD call every
     // 8 seconds instead of every 3.5.
