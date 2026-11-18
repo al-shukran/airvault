@@ -173,7 +173,7 @@ class SolanaReviewRowsTest {
     @Test
     fun aRequestForDevnetShowsItsNetworkRowAsStatedByLumio() {
         val review = review(request(offchain("hello"), signType = SolSignType.MESSAGE, cluster = SolCluster.DEVNET))
-        assertEquals(ReviewFact(label = "Network", value = "Solana devnet (stated by Lumio)", mono = false), solanaNetworkFact(review))
+        assertEquals(ReviewFact(label = "Network", value = "Solana Devnet (stated by Lumio)", mono = false), solanaNetworkFact(review))
     }
 
     /** A request that names no cluster, as Keystone's does, shows its network row as not stated. */

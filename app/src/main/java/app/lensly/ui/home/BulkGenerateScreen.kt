@@ -127,7 +127,7 @@ fun BulkGenerateScreen(
             error = refusal(check),
         )
         Text(
-            text = "Up to ${cap.label} per run. Change the Bulk cap in Settings.",
+            text = "Up to ${cap.label} per run. Change the Bulk Cap in Settings.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -164,7 +164,7 @@ fun BulkGenerateScreen(
     }
 }
 
-/** The GENERATE label names the Count, such as "Generate 20 accounts" or "Generate 1 Account". */
+/** The GENERATE label names the Count, such as "Generate 20 Accounts" or "Generate 1 Account". */
 private fun generateLabel(count: Int?): String = when (count) {
     null -> "Generate"
     1 -> "Generate 1 Account"

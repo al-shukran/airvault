@@ -192,7 +192,7 @@ fun BitcoinAccountsScreen(
                 }
                 item(key = "tip") {
                     Text(
-                        text = "Tip: press and hold an account for options. Pair this wallet to export its Bitcoin accounts",
+                        text = "Tip: press and hold an account for options. Pair This Wallet to export its Bitcoin accounts",
                         modifier = Modifier.padding(top = LenslySpacing.md, bottom = LenslySpacing.xs),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -204,7 +204,7 @@ private fun RevealedStep(
         }
         Spacer(Modifier.height(LenslySpacing.lg))
         if (secret.isKey) {
-            WalletEyebrow("Single key. Check it against your backup")
+            WalletEyebrow("Single Key, Check It Against Your Backup")
             Spacer(Modifier.height(LenslySpacing.xs))
             WalletWarningChip(text = "Never Photograph")
             Spacer(Modifier.height(LenslySpacing.lg))

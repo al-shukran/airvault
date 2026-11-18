@@ -84,7 +84,7 @@ fun ApprovedContractsScreen(
                 DotHeadline(text = "No Approved Contracts")
                 Spacer(Modifier.height(LenslySpacing.sm))
                 Text(
-                    text = "Contracts are added only through a signed offline update (Update catalog). This prevents anyone from " +
+                    text = "Contracts are added only through a signed offline update (Update Catalog). This prevents anyone from " +
                         "approving a contract on this phone.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

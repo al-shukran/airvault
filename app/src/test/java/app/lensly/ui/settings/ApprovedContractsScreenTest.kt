@@ -82,7 +82,7 @@ class ApprovedContractsScreenTest {
 
         compose.onNodeWithText("NO APPROVED CONTRACTS").assertExists()
         compose.onNodeWithText(
-            "Contracts are added only through a signed offline update (Update catalog). This prevents anyone from " +
+            "Contracts are added only through a signed offline update (Update Catalog). This prevents anyone from " +
                 "approving a contract on this phone.",
         ).assertExists()
     }

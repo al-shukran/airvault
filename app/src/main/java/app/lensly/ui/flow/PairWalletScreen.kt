@@ -518,7 +518,7 @@ private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?) {
     )
     Spacer(Modifier.height(LenslySpacing.sm))
     Text(
-        text = "Then tap Show code, and hold the camera of your online wallet over the code on this screen.",
+        text = "Then tap Show Code, and hold the camera of your online wallet over the code on this screen.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

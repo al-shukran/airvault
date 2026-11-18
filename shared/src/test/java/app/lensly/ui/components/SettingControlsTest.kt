@@ -163,7 +163,7 @@ class SettingControlsTest {
             }
         }
 
-        compose.onNodeWithText("Bulk cap · 100").assertIsDisplayed()
+        compose.onNodeWithText("Bulk Cap · 100").assertIsDisplayed()
     }
 
     @Test
@@ -182,7 +182,7 @@ class SettingControlsTest {
             }
         }
 
-        compose.onNodeWithText("Bulk cap · 100").performClick()
+        compose.onNodeWithText("Bulk Cap · 100").performClick()
         compose.onNodeWithText("Cancel").assertIsDisplayed()
         compose.onNodeWithText("50").performClick()
 

@@ -121,7 +121,7 @@ class SettingsScreenTest {
     fun theProxyPolicyRowNamesTheSavedPolicyAndMarksTheDefault() {
         show(proxyPolicy = ProxyPolicy.DEFAULT)
 
-        compose.onNodeWithText("Bind to implementation (default)").assertExists()
+        compose.onNodeWithText("Bind to Implementation (default)").assertExists()
     }
 
     @Test
@@ -154,7 +154,7 @@ class SettingsScreenTest {
         val chosen = mutableListOf<BulkCap>()
         show(bulkCap = BulkCap.HUNDRED, onBulkCap = { chosen += it })
 
-        compose.onNodeWithText("Bulk cap · 100").performScrollTo().performClick()
+        compose.onNodeWithText("Bulk Cap · 100").performScrollTo().performClick()
         compose.onNodeWithText("50").performClick()
 
         assertEquals(listOf(BulkCap.FIFTY), chosen)
@@ -164,7 +164,7 @@ class SettingsScreenTest {
     fun theBulkCapRowShowsTheSavedCapInOneLine() {
         show(bulkCap = BulkCap.TWENTY)
 
-        compose.onNodeWithText("Bulk cap · 20").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Bulk Cap · 20").performScrollTo().assertIsDisplayed()
     }
 
     @Test
