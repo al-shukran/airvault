@@ -131,7 +131,7 @@ fun DiceEntryScreen(
     val atCap = entered.length >= EntropyTargets.MAX_SYMBOLS
     val unit = if (mode == EntropyMode.Dice) "rolls" else "flips"
     LenslyScreen(
-        title = if (mode == EntropyMode.Dice) "Roll the dice" else "Flip the coins",
+        title = if (mode == EntropyMode.Dice) "Roll the Dice" else "Flip the Coins",
         modifier = modifier,
         scrollable = false,
         bottomAction = {

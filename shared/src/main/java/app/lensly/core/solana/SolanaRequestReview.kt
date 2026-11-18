@@ -223,7 +223,7 @@ object SolanaRequestCheck {
 
     /** The reason for a transaction that calls a program Lensly does not read, when the Unknown contract calls setting refuses it. */
     const val UNKNOWN_PROGRAM_REFUSAL =
-        "This transaction calls a program that Lensly does not read, and your Unknown contract calls setting refuses it."
+        "This transaction calls a program that Lensly does not read, and your Unknown Contract Calls setting refuses it."
 
     /** The reason for a message whose bytes decode as a transaction. Lensly does not sign a transaction as a message. */
     const val TRANSACTION_AS_MESSAGE = "These bytes are a Solana transaction. Lensly does not sign a transaction as a message."

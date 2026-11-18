@@ -52,7 +52,7 @@ data class RestoreState(
     val invalidChecksum: Boolean = false,
 )
 
-private const val TITLE = "Restore wallet"
+private const val TITLE = "Restore Wallet"
 private const val SLOTS_PER_ROW = 3
 private val SLOT_HEIGHT = 40.dp
 private val SLOT_GAP = 8.dp
@@ -92,7 +92,7 @@ fun RestoreEntryScreen(
             bottomAction = {
                 if (complete) {
                     WalletPill(
-                        text = "Check words",
+                        text = "Check Words",
                         onClick = onSubmit,
                         modifier = Modifier.fillMaxWidth(),
                         style = WalletPillStyle.Primary,
@@ -143,7 +143,7 @@ fun RestoreEntryScreen(
             if (state.invalidChecksum) {
                 Spacer(Modifier.height(LenslySpacing.xs))
                 InlineBanner(
-                    title = "Invalid checksum",
+                    title = "Invalid Checksum",
                     message = "These 24 words do not form a valid phrase. Check each word, in order.",
                     tone = BannerTone.Error,
                 )

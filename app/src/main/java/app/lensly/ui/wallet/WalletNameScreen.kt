@@ -84,7 +84,7 @@ fun WalletNameScreen(
     var focused by rememberSaveable { mutableStateOf(true) }
     KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
         LenslyScreen(
-            title = title ?: if (onReset != null) "Account name" else "Wallet name",
+            title = title ?: if (onReset != null) "Account Name" else "Wallet Name",
             modifier = modifier,
             scrollable = false,
             bottomAction = {
@@ -99,7 +99,7 @@ fun WalletNameScreen(
         ) {
             WalletEyebrow("Name")
             Spacer(Modifier.height(LenslySpacing.xs))
-            DotHeadline(text = "Name it")
+            DotHeadline(text = "Name It")
             Spacer(Modifier.height(LenslySpacing.sm))
             Text(
                 text = "You can change it later.",

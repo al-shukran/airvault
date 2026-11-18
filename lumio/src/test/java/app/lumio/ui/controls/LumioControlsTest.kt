@@ -84,7 +84,7 @@ class LumioControlsTest {
         }
 
         compose.onNodeWithText("Ethereum").assert(hasRole(Role.Switch))
-        compose.onNodeWithText("Add custom chain", ignoreCase = true).assertIsEnabled()
+        compose.onNodeWithText("Add Custom Chain", ignoreCase = true).assertIsEnabled()
     }
 
     @Test

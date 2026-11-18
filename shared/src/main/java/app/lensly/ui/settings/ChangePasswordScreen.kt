@@ -52,14 +52,14 @@ data class ChangeCopy(
     companion object {
         val APP_PASSWORD = ChangeCopy(
             title = "Application Password",
-            newHeadline = "New password",
+            newHeadline = "New Password",
             newHint = "$MIN_PASSWORD_LENGTH+ characters, hard to guess",
             changedText = "The new password opens the vault now. The old one does not.",
         )
 
         val DURESS_PASSWORD = ChangeCopy(
             title = "Duress Password",
-            newHeadline = "New password",
+            newHeadline = "New Password",
             newHint = "$MIN_PASSWORD_LENGTH+ characters, not your Application Password",
             changedText = "The Duress Password is set. The old one does not open anything.",
         )
@@ -156,7 +156,7 @@ private fun StatusSlot(state: ChangePasswordState) {
         val error = state.error
         when {
             state.busy -> LoadingState(
-                label = if (state.step == ChangeStep.Confirm) "Changing the Application Password" else "Checking the password",
+                label = if (state.step == ChangeStep.Confirm) "Changing the Application Password" else "Checking the Password",
             )
             error != null -> InlineBanner(message = error.sentence(), tone = BannerTone.Error)
         }

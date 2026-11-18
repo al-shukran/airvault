@@ -52,7 +52,7 @@ class WalletHistoryScreenTest {
     fun anEmptyHistorySaysWhatWillBeListedHere() {
         show(emptyList())
 
-        compose.onNodeWithText("No reviews yet").assertIsDisplayed()
+        compose.onNodeWithText("No Reviews Yet").assertIsDisplayed()
     }
 
     @Test
@@ -63,8 +63,8 @@ class WalletHistoryScreenTest {
         compose.onNodeWithText(dayHeading(records.first().atMs)).assertIsDisplayed()
         compose.onNodeWithText(dayHeading(records.last().atMs)).assertIsDisplayed()
         compose.onNodeWithText("transfer").assertIsDisplayed()
-        compose.onNodeWithText("Unknown contract call").assertIsDisplayed()
-        compose.onNodeWithText("Sign message").assertIsDisplayed()
+        compose.onNodeWithText("Unknown Contract Call").assertIsDisplayed()
+        compose.onNodeWithText("Sign Message").assertIsDisplayed()
         compose.onNodeWithText("1.5 USDC").assertIsDisplayed()
     }
 
@@ -79,6 +79,6 @@ class WalletHistoryScreenTest {
         compose.onNodeWithText("Monad Testnet · chain 10143").assertIsDisplayed()
         compose.onNodeWithText(groupAddress(SAMPLE_ACCOUNT)).assertIsDisplayed()
         compose.onAllNodesWithText(groupAddress(SAMPLE_RECIPIENT)).onFirst().assertIsDisplayed()
-        compose.onNodeWithText("Data hash, SHA-256").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Data Hash, SHA-256").performScrollTo().assertIsDisplayed()
     }
 }

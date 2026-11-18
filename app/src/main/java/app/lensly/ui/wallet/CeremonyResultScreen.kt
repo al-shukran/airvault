@@ -30,7 +30,7 @@ fun CeremonyResultScreen(
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(
-        title = "Ceremony result",
+        title = "Ceremony Result",
         modifier = modifier,
         bottomAction = {
             PillButton(
@@ -56,7 +56,7 @@ fun CeremonyResultScreen(
         }
         Spacer(Modifier.height(LenslySpacing.sm))
         WalletPanel {
-            WalletEyebrow("Mixed verification hash")
+            WalletEyebrow("Mixed Verification Hash")
             HashLines(hex = mixedHashHex)
         }
         Spacer(Modifier.height(LenslySpacing.lg))
@@ -65,7 +65,7 @@ fun CeremonyResultScreen(
             modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            WalletEyebrow("Checksum word", modifier = Modifier.weight(1f))
+            WalletEyebrow("Checksum Word", modifier = Modifier.weight(1f))
             DotText(text = checksumWord.uppercase(), fontSize = 28.sp)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

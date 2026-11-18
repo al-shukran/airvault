@@ -77,7 +77,7 @@ class AssetRowsTest {
 
     @Test
     fun anSplTokenIsKeyedByItsMintAndHasNoPrice() {
-        val holding = ChainHolding("USDC", "Solana devnet", BigInteger("1500000"), 6, SPL_MINT)
+        val holding = ChainHolding("USDC", "Solana Devnet", BigInteger("1500000"), 6, SPL_MINT)
         val row = AssetRows.of(account.copy(chain = AccountChain.SOLANA, balance = null), emptyList(), listOf(holding), prices, network = { null }, token = { _, _ -> null }).single()
 
         assertEquals(SPL_MINT, row.assetKey)

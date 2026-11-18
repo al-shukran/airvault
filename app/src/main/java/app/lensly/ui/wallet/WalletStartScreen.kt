@@ -55,7 +55,7 @@ fun WalletStartScreen(
             )
         },
     ) {
-        DotHeadline(text = "New wallet")
+        DotHeadline(text = "New Wallet")
         Spacer(Modifier.height(LenslySpacing.lg))
         ChoiceRow(
             title = "Create",
@@ -71,7 +71,7 @@ fun WalletStartScreen(
         )
         Spacer(Modifier.height(LenslySpacing.sm))
         ChoiceRow(
-            title = "Import private key",
+            title = "Import Private Key",
             description = "Type one key of 64 hex digits, with or without 0x.",
             onClick = onImportKey,
         )

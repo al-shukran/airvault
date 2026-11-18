@@ -62,7 +62,7 @@ fun ApprovedContractsScreen(
     val shown = remember(entries, networks, query) { filterApprovals(entries, networks, query) }
     KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
         LenslyScreen(
-            title = "Approved contracts",
+            title = "Approved Contracts",
             modifier = modifier,
             onBack = onBack,
             bottomAction = {
@@ -81,17 +81,17 @@ fun ApprovedContractsScreen(
             )
             if (entries.isEmpty()) {
                 Spacer(Modifier.height(LenslySpacing.lg))
-                DotHeadline(text = "No approved contracts")
+                DotHeadline(text = "No Approved Contracts")
                 Spacer(Modifier.height(LenslySpacing.sm))
                 Text(
-                    text = "Contracts are added only through a signed offline update (Update catalog). This prevents anyone from " +
+                    text = "Contracts are added only through a signed offline update (Update Catalog). This prevents anyone from " +
                         "approving a contract on this phone.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
                 PillButton(
-                    text = "Update catalog",
+                    text = "Update Catalog",
                     onClick = onUpdateCatalog,
                     modifier = Modifier.fillMaxWidth(),
                     accent = true,
@@ -118,7 +118,7 @@ fun ApprovedContractsScreen(
                 }
                 Spacer(Modifier.height(LenslySpacing.lg))
                 PillButton(
-                    text = "Update catalog",
+                    text = "Update Catalog",
                     onClick = onUpdateCatalog,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -197,7 +197,7 @@ private fun ApprovalCard(entry: WhitelistEntry) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = protocolOf(entry).ifEmpty { "Approved call" },
+                    text = protocolOf(entry).ifEmpty { "Approved Call" },
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -212,7 +212,7 @@ private fun ApprovalCard(entry: WhitelistEntry) {
         FactRow(label = "Selector") {
             MonoText(text = entry.selector)
         }
-        FactRow(label = "Approved meaning") {
+        FactRow(label = "Approved Meaning") {
             Text(
                 text = entry.meaning,
                 style = MaterialTheme.typography.bodyLarge,

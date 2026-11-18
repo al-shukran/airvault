@@ -90,13 +90,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val DEFAULT_PAIR_NAME = "Lensly"
-private const val PAIR_TITLE = "Pair wallet"
+private const val PAIR_TITLE = "Pair Wallet"
 private const val PAIR_PASSWORD_PROMPT = "Enter your Application Password to show the pairing code."
 private const val STEP_ENTER_MS = 240
 private const val STEP_EXIT_MS = 160
 
 /** The message Home shows once a pairing is done. */
-internal const val PAIRED_MESSAGE = "Wallet paired"
+internal const val PAIRED_MESSAGE = "Wallet Paired"
 
 /** The four steps of the pairing wizard, in order. The wallet step is skipped when there is only one wallet to pair. */
 internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
@@ -166,7 +166,7 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
     }
     if (listing == null) {
         // The wallets are read off the main thread. Until they arrive, the screen says so instead of staying blank.
-        PairLoading(label = "Loading wallets", onBack = { navController.popBackStack() })
+        PairLoading(label = "Loading Wallets", onBack = { navController.popBackStack() })
         return
     }
     val preselected = walletId?.let { id -> listing.wallets.firstOrNull { it.id == id } }
@@ -369,7 +369,7 @@ internal fun PairWizardScreen(
         PairStep.INSTRUCTIONS -> {
             {
                 PillButton(
-                    text = "Show code",
+                    text = "Show Code",
                     onClick = onShowCode,
                     accent = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -492,7 +492,7 @@ private fun FormatStep(onPick: (PairFormat) -> Unit) {
 @Composable
 private fun SingleKeyNotice() {
     InlineBanner(
-        title = "Cannot be paired",
+        title = "Cannot Be Paired",
         message = "Pairing shares an account's extended public key and derivation path, and a single key has " +
             "neither. An online wallet that pairs by extended public key cannot watch it.",
         tone = BannerTone.Warning,
@@ -518,7 +518,7 @@ private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?) {
     )
     Spacer(Modifier.height(LenslySpacing.sm))
     Text(
-        text = "Then tap Show code, and hold the camera of your online wallet over the code on this screen.",
+        text = "Then tap Show Code, and hold the camera of your online wallet over the code on this screen.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -542,7 +542,7 @@ private fun WalletEntryNote(entry: WalletEntry) {
             .padding(LenslySpacing.md),
     ) {
         Text(
-            text = "Wallet entry",
+            text = "Wallet Entry",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -593,7 +593,7 @@ private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?) {
     }
     Spacer(Modifier.weight(1f))
     if (frames == null) {
-        LoadingState(label = "Preparing code")
+        LoadingState(label = "Preparing Code")
     } else {
         AnimatedQr(parts = frames, modifier = Modifier.fillMaxWidth())
     }

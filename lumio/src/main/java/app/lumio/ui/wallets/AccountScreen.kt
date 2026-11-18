@@ -129,7 +129,7 @@ internal fun AccountScreen(
             }
             onAddAsset?.let { addAsset ->
                 if (assets.isNotEmpty()) Divider()
-                LumioRow(title = "Add asset", onClick = addAsset)
+                LumioRow(title = "Add Asset", onClick = addAsset)
             }
         }
         Spacer(Modifier.height(LenslySpacing.lg))

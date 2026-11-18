@@ -78,7 +78,7 @@ fun EntryGestureChangeScreen(
             },
             onBack = onBack,
             modifier = Modifier,
-            title = "Hidden entry gesture",
+            title = "Hidden Entry Gesture",
             prompt = "Enter your Application Password to change the gesture.",
             stepCount = GESTURE_STEP_COUNT,
         )

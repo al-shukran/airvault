@@ -99,7 +99,7 @@ internal fun SolanaSendFormScreen(
         AddressField(
             value = recipient,
             onValueChange = onRecipient,
-            label = "Recipient address",
+            label = "Recipient Address",
             validate = ::recipientError,
             enabled = !busy,
             onScan = onScan,
@@ -114,7 +114,7 @@ internal fun SolanaSendFormScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            LumioTextAction(text = "Use max", onClick = onMax, enabled = !busy && maxEnabled)
+            LumioTextAction(text = "Use Max", onClick = onMax, enabled = !busy && maxEnabled)
         }
         notice?.let {
             Spacer(Modifier.height(LenslySpacing.md))
@@ -139,7 +139,7 @@ internal fun SolanaSendReviewScreen(plan: SolanaSendPlan, symbol: String, notice
     }
     SendStepScaffold(
         step = SEND_STEP_REVIEW,
-        title = "Review send",
+        title = "Review Send",
         onBack = onBack,
         bottomAction = { LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm) },
     ) {
@@ -155,7 +155,7 @@ internal fun SolanaSendReviewScreen(plan: SolanaSendPlan, symbol: String, notice
                 ReviewAddress("From", plan.senderAddress)
                 ReviewAddress("To", plan.recipientAddress)
                 ReviewField("Amount", amount)
-                ReviewField("Network fee", "${SolanaSendInput.format(fee)} SOL, ${plan.feeLamports} lamports")
+                ReviewField("Network Fee", "${SolanaSendInput.format(fee)} SOL, ${plan.feeLamports} lamports")
                 if (token == null) ReviewField("Total", "${SolanaSendInput.format(lamports + fee)} SOL")
                 ReviewField("Network", networkName(plan.network))
             }
@@ -190,7 +190,7 @@ internal fun SolanaSetupReviewScreen(
 ) {
     SendStepScaffold(
         step = SEND_STEP_REVIEW,
-        title = "Offline signing",
+        title = "Offline Signing",
         onBack = onBack,
         bottomAction = { LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm) },
     ) {
@@ -204,10 +204,10 @@ internal fun SolanaSetupReviewScreen(
         LumioIsland {
             Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
                 ReviewAddress("Account", sender)
-                ReviewAddress("Nonce account", nonceAccount)
+                ReviewAddress("Nonce Account", nonceAccount)
                 ReviewField("Rent, paid into the nonce account", "${SolanaSendInput.format(BigInteger.valueOf(rentLamports))} SOL")
                 ReviewField(
-                    "Network fee",
+                    "Network Fee",
                     "${SolanaSendInput.format(BigInteger.valueOf(SOLANA_FEE_LAMPORTS))} SOL, $SOLANA_FEE_LAMPORTS lamports",
                 )
             }
@@ -241,7 +241,7 @@ internal fun SolanaSignRequestScreen(parts: List<String>, notice: String?, onSca
         title = "Sign in Lensly",
         onBack = onBack,
         scrollable = false,
-        bottomAction = { LumioPrimaryButton(text = "Scan Lensly's signature", onClick = onScan) },
+        bottomAction = { LumioPrimaryButton(text = "Scan Lensly's Signature", onClick = onScan) },
     ) {
         Text(
             if (setup) SETUP_SIGN_TEXT else "In Lensly, scan this code, check the review and approve. Then scan the signature that Lensly shows.",
@@ -272,7 +272,7 @@ internal fun recipientError(text: String): String? = runCatching { SolanaSendInp
 
 /** What the picker says under a coin: the native coin, or the balance of the token that the account holds. */
 private fun assetDetail(asset: SolanaSendAsset): String {
-    val token = asset.token ?: return "Native coin"
+    val token = asset.token ?: return "Native Coin"
     return "Balance ${SolanaAssets.text(token.amount, asset.decimals)} ${asset.symbol}"
 }
 

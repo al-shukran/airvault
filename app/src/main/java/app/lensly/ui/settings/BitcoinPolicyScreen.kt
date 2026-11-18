@@ -23,8 +23,8 @@ fun BitcoinPolicyScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LenslyScreen(title = "Bitcoin policy", modifier = modifier, onBack = onBack) {
-        SettingsSection("Input amounts") {
+    LenslyScreen(title = "Bitcoin Policy", modifier = modifier, onBack = onBack) {
+        SettingsSection("Input Amounts") {
             InputVerificationPolicy.entries.forEach { policy ->
                 RadioRow(
                     title = inputPolicyLabel(policy),
@@ -35,7 +35,7 @@ fun BitcoinPolicyScreen(
                 )
             }
         }
-        SettingsSection("Signing source") {
+        SettingsSection("Signing Source") {
             SigningSourcePolicy.entries.forEach { source ->
                 RadioRow(
                     title = signingSourceLabel(source),
@@ -52,8 +52,8 @@ fun BitcoinPolicyScreen(
 /** The name of an input verification policy, as its radio row shows it. */
 internal fun inputPolicyLabel(policy: InputVerificationPolicy): String = when (policy) {
     InputVerificationPolicy.STRICT -> "Strict"
-    InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING -> "Segwit unverified"
-    InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED -> "Legacy strict"
+    InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING -> "Segwit Unverified"
+    InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED -> "Legacy Strict"
 }
 
 /** What an input verification policy means, in one line under its name. */
@@ -65,8 +65,8 @@ internal fun inputPolicyDescription(policy: InputVerificationPolicy): String = w
 
 /** The name of a signing source policy, as its radio row shows it. */
 internal fun signingSourceLabel(source: SigningSourcePolicy): String = when (source) {
-    SigningSourcePolicy.ANY -> "Any online wallet"
-    SigningSourcePolicy.COMPANION_ONLY -> "Lumio only"
+    SigningSourcePolicy.ANY -> "Any Online Wallet"
+    SigningSourcePolicy.COMPANION_ONLY -> "Lumio Only"
 }
 
 /** What a signing source policy means, in one line under its name. */

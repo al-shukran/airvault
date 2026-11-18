@@ -44,7 +44,7 @@ fun CeremonyChoiceScreen(
 ) {
     var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
     LenslyScreen(
-        title = "Seed ceremony",
+        title = "Seed Ceremony",
         modifier = modifier,
         bottomAction = {
             Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
@@ -53,7 +53,7 @@ fun CeremonyChoiceScreen(
                     verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
                 ) {
                     PillButton(
-                        text = "Roll dice",
+                        text = "Roll Dice",
                         onClick = onDice,
                         accent = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -65,7 +65,7 @@ fun CeremonyChoiceScreen(
                     verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
                 ) {
                     PillButton(
-                        text = "Flip coins",
+                        text = "Flip Coins",
                         onClick = onCoins,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -77,7 +77,7 @@ fun CeremonyChoiceScreen(
         },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "Mix in yours")
+        DotHeadline(text = "Mix in Yours")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "The device has already committed to its randomness.",

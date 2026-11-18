@@ -58,7 +58,7 @@ fun ReceiveScreen(
                 LumioTextAction(text = "Share", onClick = { share(context, address) })
             }
             Spacer(Modifier.height(LenslySpacing.xs))
-            LumioPrimaryButton(text = if (copy.copied) "Copied" else "Copy address", onClick = copy.copy)
+            LumioPrimaryButton(text = if (copy.copied) "Copied" else "Copy Address", onClick = copy.copy)
         },
     ) {
         Text(

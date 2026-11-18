@@ -417,9 +417,9 @@ internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifie
         if (entry == null) {
             NoteText(NOT_IN_ADDRESS_BOOK)
         } else {
-            if (notes?.internal != null) ReviewFactRow(label = "Address name", value = entry.name, mono = false)
-            entry.label?.let { ReviewFactRow(label = "Address label", value = it, mono = false) }
-            entry.notes?.let { ReviewFactRow(label = "Address notes", value = it, mono = false) }
+            if (notes?.internal != null) ReviewFactRow(label = "Address Name", value = entry.name, mono = false)
+            entry.label?.let { ReviewFactRow(label = "Address Label", value = it, mono = false) }
+            entry.notes?.let { ReviewFactRow(label = "Address Notes", value = it, mono = false) }
         }
     }
 }

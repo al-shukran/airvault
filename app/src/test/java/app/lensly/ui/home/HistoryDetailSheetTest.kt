@@ -131,7 +131,7 @@ class HistoryDetailSheetTest {
         )
         val opened = mutableListOf<Pair<String, AddressChain>>()
 
-        setSheet(record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin testnet4", bitcoin = facts), onOpen = { a, c -> opened += a to c })
+        setSheet(record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin Testnet4", bitcoin = facts), onOpen = { a, c -> opened += a to c })
         // The change output is an address row too, so it can be opened.
         compose.onNodeWithText(groupAddress(bitcoinChange)).performClick()
 
@@ -152,7 +152,7 @@ class HistoryDetailSheetTest {
     @Test
     fun aTapOnAnAlgorandCreatorOpensItOnAlgorand() {
         val opened = mutableListOf<Pair<String, AddressChain>>()
-        val rec = record(networkName = "Algorand testnet", address = algorandSender, params = listOf("Asset creator" to algorandCreator))
+        val rec = record(networkName = "Algorand Testnet", address = algorandSender, params = listOf("Asset creator" to algorandCreator))
 
         setSheet(rec, onOpen = { a, c -> opened += a to c })
         compose.onNodeWithText(groupAddress(algorandCreator)).performClick()
@@ -168,7 +168,7 @@ class HistoryDetailSheetTest {
         setSheet(evmRecord(), book, accounts)
 
         compose.onNodeWithText("Your account · Savings · Cold").assertIsDisplayed()
-        compose.onNodeWithText("Address name").assertIsDisplayed()
+        compose.onNodeWithText("Address Name").assertIsDisplayed()
         compose.onNodeWithText("Alice").assertIsDisplayed()
         // The recipient is neither an account of the vault nor in the Address Book.
         compose.onAllNodesWithText("Not in address book").assertCountEquals(1)
@@ -187,7 +187,7 @@ class HistoryDetailSheetTest {
             notices = emptyList(),
         )
 
-        setSheet(record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin testnet4", bitcoin = facts), accounts = accounts)
+        setSheet(record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin Testnet4", bitcoin = facts), accounts = accounts)
 
         compose.onNodeWithText("Your account · Trading 0").assertIsDisplayed()
         compose.onNodeWithText("Wallet").assertIsDisplayed()

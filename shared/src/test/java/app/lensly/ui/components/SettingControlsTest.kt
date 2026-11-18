@@ -49,11 +49,11 @@ class SettingControlsTest {
         var chosen = 0
         compose.setContent {
             LumenTheme {
-                RadioRow(title = "Lumio only", description = "Only marked requests.", selected = false, onSelect = { chosen++ })
+                RadioRow(title = "Lumio Only", description = "Only marked requests.", selected = false, onSelect = { chosen++ })
             }
         }
 
-        compose.onNodeWithText("Lumio only").performClick()
+        compose.onNodeWithText("Lumio Only").performClick()
 
         assertEquals(1, chosen)
     }
@@ -63,7 +63,7 @@ class SettingControlsTest {
         compose.setContent {
             LumenTheme {
                 SliderSetting(
-                    title = "Longest wait",
+                    title = "Longest Wait",
                     options = WAITS,
                     selected = "10 s",
                     label = { it },
@@ -73,7 +73,7 @@ class SettingControlsTest {
             }
         }
 
-        compose.onNodeWithText("Longest wait").assertIsDisplayed()
+        compose.onNodeWithText("Longest Wait").assertIsDisplayed()
         compose.onNodeWithText("10 s").assertIsDisplayed()
         compose.onNodeWithText("Default").assertIsDisplayed()
     }
@@ -84,7 +84,7 @@ class SettingControlsTest {
         compose.setContent {
             LumenTheme {
                 SliderSetting(
-                    title = "Longest wait",
+                    title = "Longest Wait",
                     options = WAITS,
                     selected = "10 s",
                     label = { it },
@@ -109,7 +109,7 @@ class SettingControlsTest {
         compose.setContent {
             LumenTheme {
                 NumberFieldSetting(
-                    title = "Fee rate above",
+                    title = "Fee Rate Above",
                     value = 200,
                     range = 1..10_000,
                     suffix = "sat/vB",
@@ -132,7 +132,7 @@ class SettingControlsTest {
         compose.setContent {
             LumenTheme {
                 NumberFieldSetting(
-                    title = "Fee rate above",
+                    title = "Fee Rate Above",
                     value = 200,
                     range = 1..10_000,
                     suffix = "sat/vB",
@@ -153,7 +153,7 @@ class SettingControlsTest {
         compose.setContent {
             LumenTheme {
                 ChoiceDialogRow(
-                    label = "Bulk cap",
+                    label = "Bulk Cap",
                     value = "100",
                     options = listOf(20, 50, 100),
                     selected = 100,
@@ -163,7 +163,7 @@ class SettingControlsTest {
             }
         }
 
-        compose.onNodeWithText("Bulk cap · 100").assertIsDisplayed()
+        compose.onNodeWithText("Bulk Cap · 100").assertIsDisplayed()
     }
 
     @Test
@@ -172,7 +172,7 @@ class SettingControlsTest {
         compose.setContent {
             LumenTheme {
                 ChoiceDialogRow(
-                    label = "Bulk cap",
+                    label = "Bulk Cap",
                     value = "100",
                     options = listOf(20, 50, 100),
                     selected = 100,
@@ -182,7 +182,7 @@ class SettingControlsTest {
             }
         }
 
-        compose.onNodeWithText("Bulk cap · 100").performClick()
+        compose.onNodeWithText("Bulk Cap · 100").performClick()
         compose.onNodeWithText("Cancel").assertIsDisplayed()
         compose.onNodeWithText("50").performClick()
 

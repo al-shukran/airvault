@@ -100,7 +100,7 @@ object WalletAccounts {
                 chain = AccountChain.BITCOIN,
                 index = wallet.bitcoin.indexOfFirst { it.path.path == account.path.path },
                 address = account.receiveAddress(0),
-                networkName = if (account.network == BtcNetwork.TESTNET4) "Bitcoin testnet4" else "Bitcoin",
+                networkName = if (account.network == BtcNetwork.TESTNET4) "Bitcoin Testnet4" else "Bitcoin",
                 balance = HomeBalances.bitcoin(listOf(row)).singleOrNull(),
                 script = scriptLabel(account.scriptType),
             )

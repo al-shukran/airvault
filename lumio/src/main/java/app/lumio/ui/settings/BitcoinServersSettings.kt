@@ -75,7 +75,7 @@ fun BitcoinServersSettings(
         InlineBanner(message = it, tone = BannerTone.Error)
     }
     SettingsRow(
-        title = "Reset to defaults",
+        title = "Reset to Defaults",
         onClick = {
             resets++
             onReset()
