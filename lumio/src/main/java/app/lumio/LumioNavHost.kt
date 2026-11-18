@@ -443,11 +443,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                     )
                 }
             }
-            lumioComposable(LumioRoute.SETTINGS) {
-                LumioBackdrop(selection) {
-                    SettingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection)
-                }
-            }
+            settingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection)
             settingsPageRoutes(
                 navController = navController,
                 holder = holder,

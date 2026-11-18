@@ -74,6 +74,9 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
         displayState.value = next
     }
 
+    /** The facts the Settings list shows, read when the vault opens and again when the list is shown. */
+    internal val settingsFacts = SettingsFactsHolder(this)
+
     private companion object {
         const val SCAN_JOB_PURPOSE = "lumio-scan-job-v1"
     }
