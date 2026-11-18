@@ -14,8 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.DetailTopBar
+import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.theme.LenslySpacing
-import app.lumio.ui.kit.LumioIsland
 import app.lumio.ui.kit.Skeleton
 import app.lumio.ui.theme.LumioGutter
 
