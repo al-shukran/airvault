@@ -566,7 +566,7 @@ class WalletStore(private val session: VaultSession) {
             val account = BtcAccountSelection.select(accounts, psbt)
             val review = BtcSigner(account, inputPolicy, sourcePolicy, feeThresholds).review(psbt)
             val record = stored.first { it.key == Triple(account.scriptType, account.network, account.accountIndex) }
-            val internal = otherBitcoinAccounts(id) + ownBitcoinAccounts(id, stored, accounts)
+            val internal = internalAccountsOf(this, id) + ownBitcoinAccounts(id, stored, accounts)
             val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, AddressChain.BITCOIN, internal, book)
             val owner = meta(id)
             val signer = SigningAccount(
@@ -577,25 +577,6 @@ class WalletStore(private val session: VaultSession) {
             return BitcoinReviewed(record, review, signer, notes)
         } finally {
             seed.fill(0)
-        }
-    }
-
-    /**
-     * The first receive address of each Bitcoin account of the other wallets of the vault, keyed by the address and naming its wallet.
-     * Only the stored records are read, so no other seed is derived: an address that is not the first receive address of one of those
-     * accounts is not named.
-     */
-    private fun otherBitcoinAccounts(id: String): Map<String, InternalAccount> = buildMap {
-        list().filter { it.id != id }.forEach { other ->
-            bitcoinAccounts(other.id).forEach { record ->
-                val internal = InternalAccount(
-                    displayName = record.profile.name,
-                    autoName = autoAccountName(other.autoNameBase, record.index),
-                    label = record.profile.label,
-                    walletName = other.name,
-                )
-                put(addressKeyOf(record.firstReceiveAddress), internal)
-            }
         }
     }
 

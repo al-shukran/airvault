@@ -8,6 +8,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressChain
+import app.lensly.app.InternalAccount
+import app.lensly.app.addressKeyOf
 import app.lensly.app.sign.BitcoinRecordFacts
 import app.lensly.app.sign.BitcoinRecordOutput
 import app.lensly.app.sign.ReviewKind
@@ -78,10 +80,15 @@ class HistoryDetailSheetTest {
         bitcoin = bitcoin,
     )
 
-    private fun setSheet(record: ReviewRecord, book: List<AddressBookEntry> = emptyList(), onOpen: (String, AddressChain) -> Unit = { _, _ -> }) {
+    private fun setSheet(
+        record: ReviewRecord,
+        book: List<AddressBookEntry> = emptyList(),
+        accounts: Map<String, InternalAccount> = emptyMap(),
+        onOpen: (String, AddressChain) -> Unit = { _, _ -> },
+    ) {
         compose.setContent {
             LenslyTheme {
-                HistoryDetailSheet(record = record, addressBook = book, onDismiss = {}, onOpenAddress = onOpen)
+                HistoryDetailSheet(record = record, addressBook = book, accounts = accounts, onDismiss = {}, onOpenAddress = onOpen)
             }
         }
     }
@@ -151,5 +158,39 @@ class HistoryDetailSheetTest {
         compose.onNodeWithText(groupAddress(algorandCreator)).performClick()
 
         assertEquals(listOf(algorandCreator to AddressChain.ALGORAND), opened)
+    }
+
+    @Test
+    fun anAccountOfTheVaultIsTheBoldLineAndItsAddressBookNameStillShows() {
+        val accounts = mapOf(addressKeyOf(sender) to InternalAccount(displayName = "Savings", autoName = "Seed 0", label = "Cold"))
+        val book = listOf(AddressBookEntry(id = "1", address = sender, name = "Alice", label = null))
+
+        setSheet(evmRecord(), book, accounts)
+
+        compose.onNodeWithText("Your account · Savings · Cold").assertIsDisplayed()
+        compose.onNodeWithText("Address name").assertIsDisplayed()
+        compose.onNodeWithText("Alice").assertIsDisplayed()
+        // The recipient is neither an account of the vault nor in the Address Book.
+        compose.onAllNodesWithText("Not in address book").assertCountEquals(1)
+    }
+
+    @Test
+    fun aBitcoinOutputToAnotherWalletsAccountNamesTheAccountAndItsWallet() {
+        val accounts = mapOf(
+            addressKeyOf(bitcoinPaid) to InternalAccount(displayName = null, autoName = "Trading 0", label = null, walletName = "Trading"),
+        )
+        val facts = BitcoinRecordFacts(
+            scriptType = "Native SegWit",
+            outputs = listOf(BitcoinRecordOutput(address = bitcoinPaid, amountSats = 30_000, isOwnChange = false)),
+            feeSats = 500,
+            feeRateSatPerVb = 2.0,
+            notices = emptyList(),
+        )
+
+        setSheet(record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin testnet4", bitcoin = facts), accounts = accounts)
+
+        compose.onNodeWithText("Your account · Trading 0").assertIsDisplayed()
+        compose.onNodeWithText("Wallet").assertIsDisplayed()
+        compose.onNodeWithText("Trading").assertIsDisplayed()
     }
 }

@@ -552,6 +552,24 @@ class WalletStoreBitcoinTest {
     }
 
     @Test
+    fun aChangeOutputToTheSigningWalletsOwnAccountIsNamedWithTheAccount() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        val account = walletAccount(BtcNetwork.TESTNET4, 0)
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val psbt = BtcFixtures.psbt(
+            listOf(spend),
+            listOf(payingAddress(account.receiveAddress(0), 30_000L), payingAddress(account.changeAddress(0), 60_000L)),
+        )
+
+        val reviewed = store.bitcoinReview(id, psbt, STRICT, SigningSourcePolicy.ANY)
+
+        val change = assertNotNull(reviewed.addressNotes.notesOf(account.changeAddress(0))?.internal)
+        assertNull(change.walletName)
+        assertEquals(autoAccountName("Test", 0), change.autoName)
+    }
+
+    @Test
     fun anOutputToAnAddressNoAccountOfTheVaultHoldsIsNotNamed() {
         val id = newWallet()
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)

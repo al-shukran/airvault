@@ -862,6 +862,7 @@ private fun HistoryRoute(navController: NavHostController, holder: VaultHolder, 
     var records by remember(walletId) { mutableStateOf<List<ReviewRecord>?>(null) }
     var registry by remember { mutableStateOf<Registry?>(null) }
     val book = rememberAddressBook(navController, session)
+    val owned = rememberInternalAccounts(navController, session, signingWalletId = walletId)
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
             wallet = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
@@ -873,12 +874,14 @@ private fun HistoryRoute(navController: NavHostController, holder: VaultHolder, 
     val list = records ?: return
     val networks = registry ?: return
     val entries = book ?: return
+    val accounts = owned ?: return
     WalletHistoryScreen(
         walletName = shown.name,
         records = list,
         networkOf = networks::network,
         onBack = { navController.popBackStack() },
         addressBook = entries,
+        accounts = accounts,
         onOpenAddress = { address, chain -> navController.openAddressBookFor(entries, address, chain) },
     )
 }
@@ -895,6 +898,7 @@ private fun ActivityRoute(navController: NavHostController, holder: VaultHolder)
     var records by remember { mutableStateOf<List<WalletReviewRecord>?>(null) }
     var registry by remember { mutableStateOf<Registry?>(null) }
     val book = rememberAddressBook(navController, session)
+    val owned = rememberInternalAccounts(navController, session, signingWalletId = null)
     LaunchedEffect(session) {
         whileUnlocked(navController, holder) {
             records = withContext(Dispatchers.IO) { ReviewHistory(session).listAll() }
@@ -905,6 +909,7 @@ private fun ActivityRoute(navController: NavHostController, holder: VaultHolder)
     val networks = registry ?: return
     val wallets = listing ?: return
     val entries = book ?: return
+    val accounts = owned ?: return
     ActivityScreen(
         records = list,
         wallets = wallets.wallets,
@@ -912,6 +917,7 @@ private fun ActivityRoute(navController: NavHostController, holder: VaultHolder)
         networkOf = networks::network,
         onBack = { navController.popBackStack() },
         addressBook = entries,
+        accounts = accounts,
         onOpenAddress = { address, chain -> navController.openAddressBookFor(entries, address, chain) },
     )
 }

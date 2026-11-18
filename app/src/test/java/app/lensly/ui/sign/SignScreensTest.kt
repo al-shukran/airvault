@@ -586,9 +586,9 @@ class TxReviewScreenTest {
             LenslyTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
         }
 
-        // The summary names the account, and the Fields section shows its cue and its wallet under the same address.
-        compose.onAllNodesWithText("Savings 0").assertCountEquals(2)
-        compose.onAllNodesWithText("An account of this device").assertCountEquals(1)
+        // The summary names the account, and the Fields section shows it as the bold line of its address, with its wallet under it.
+        compose.onAllNodesWithText("Savings 0").assertCountEquals(1)
+        compose.onAllNodesWithText("Your account · Savings 0").assertCountEquals(1)
         compose.onAllNodesWithText("Savings").assertCountEquals(1)
     }
 
@@ -597,7 +597,7 @@ class TxReviewScreenTest {
         val account = InternalAccount(displayName = null, autoName = "Savings 0", label = null, walletName = "Savings")
         compose.setContent { LenslyTheme { ReviewAddress(address = TO, notes = AddressNotes(internal = account, entry = null)) } }
 
-        compose.onNodeWithText("An account of this device").assertExists()
+        compose.onNodeWithText("Your account · Savings 0").assertExists()
         compose.onNodeWithText("Wallet").assertExists()
         compose.onNodeWithText("Savings").assertExists()
     }
