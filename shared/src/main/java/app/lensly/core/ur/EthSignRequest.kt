@@ -22,9 +22,6 @@ enum class DataType(val wire: Int) {
     }
 }
 
-/** One derivation step. For example, 44' is PathStep(index = 44, hardened = true). */
-data class PathStep(val index: Int, val hardened: Boolean)
-
 /** A parsed ur:eth-sign-request. Optional fields are null when the wallet left them out. */
 class EthSignRequest(
     /** 16-byte UUID that the response must echo. Null when the wallet omitted it. */
@@ -57,10 +54,6 @@ class EthSignRequest(
         // wire format bounds the origin by it, so an origin the decoder accepts always crosses the wire.
         const val MAX_PAYLOAD_BYTES = MAX_SIGN_DATA_BYTES + 4096
         internal const val UUID_TAG = 37L
-        internal const val KEYPATH_TAG = 304L
-        private const val MAX_PATH_STEPS = 16
-        private const val MAX_INDEX = Int.MAX_VALUE.toLong()
-        private const val MAX_FINGERPRINT = 0xFFFFFFFFL
 
         /** Decodes the CBOR payload of an eth-sign-request UR. */
         fun decode(urCbor: ByteArray): Result {
@@ -130,32 +123,6 @@ class EthSignRequest(
             val bytes = bytesOf(inner, "requestId")
             if (bytes.size != 16) malformed("requestId must be 16 bytes")
             return bytes
-        }
-
-        /** Reads a tag 304 keypath. Shared with [SolSignRequest], which adds its own hardened-only rule. */
-        internal fun keyPathOf(item: Cbor): Pair<List<PathStep>, Int?> {
-            val tagged = item as? Cbor.Tagged
-            if (tagged == null || tagged.tag != KEYPATH_TAG) malformed("derivationPath must be a tag 304 keypath")
-            val fields = fieldsOf(tagged.value)
-
-            val components = (fields[1L] as? Cbor.Arr ?: malformed("keypath components are missing")).items
-            if (components.isEmpty() || components.size % 2 != 0 || components.size > 2 * MAX_PATH_STEPS) {
-                malformed("keypath has an invalid component count")
-            }
-            // Wildcard, range and pair components are refused. Only plain index steps can be signed.
-            val steps = components.chunked(2).map { (index, hardened) ->
-                val number = uintOf(index, "path index")
-                if (number > MAX_INDEX) malformed("path index out of range")
-                val isHardened = (hardened as? Cbor.Bool ?: malformed("path step is missing its hardened flag")).value
-                PathStep(number.toInt(), isHardened)
-            }
-
-            val sourceFingerprint = fields[2L]?.let {
-                val number = uintOf(it, "source fingerprint")
-                if (number > MAX_FINGERPRINT) malformed("source fingerprint exceeds 32 bits")
-                number.toInt()
-            }
-            return steps to sourceFingerprint
         }
 
         private fun uintOf(item: Cbor, name: String): Long =
