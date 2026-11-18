@@ -68,8 +68,11 @@ fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> = bu
         is AssetTransfer -> {
             add(ASSET to assetName(txn.assetId, review.asset))
             add(ASSET_ID to txn.assetId.toString())
-            add(AMOUNT to assetAmount(txn.amount, review.asset))
-            add(RECEIVER to AlgoAddress.encode(txn.receiver))
+            // An opt-in moves no units, and its receiver is the sender itself, so it shows neither an amount nor a receiver.
+            if (!txn.isOptIn) {
+                add(AMOUNT to assetAmount(txn.amount, review.asset))
+                add(RECEIVER to AlgoAddress.encode(txn.receiver))
+            }
         }
     }
     add(FEE to algoText(txn.fee))
@@ -113,6 +116,9 @@ private fun assetSentence(txn: AssetTransfer, asset: Asa?): String {
         else -> "Sends $amount to $receiver."
     }
 }
+
+/** The title of the Algorand review. An asset opt-in is titled as one, so that it does not read as a transfer of zero units. */
+fun algorandTitle(review: AlgorandRequestReview): String = if ((review.txn as? AssetTransfer)?.isOptIn == true) "Opt in to asset" else "Review"
 
 /** The short facts under the sentence: the fee, in ALGO. */
 fun algorandFacts(review: AlgorandRequestReview): List<Pair<String, String>> = listOf(FEE to algoText(review.txn.fee))
