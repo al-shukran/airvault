@@ -79,9 +79,9 @@ class WalletDetailScreenTest {
             }
         }
 
-        compose.onNodeWithText("BITCOIN").assertIsDisplayed()
+        compose.onNodeWithText("Bitcoin").assertIsDisplayed()
         compose.onNodeWithText("2 accounts").assertIsDisplayed()
-        compose.onNodeWithText("ETHEREUM").assertIsDisplayed()
+        compose.onNodeWithText("Ethereum").assertIsDisplayed()
         compose.onNodeWithText("3 accounts").assertIsDisplayed()
     }
 
@@ -94,9 +94,9 @@ class WalletDetailScreenTest {
             }
         }
 
-        compose.onNodeWithText("BITCOIN").performClick()
+        compose.onNodeWithText("Bitcoin").performClick()
         assertEquals(WalletApp.BITCOIN, route.opened)
-        compose.onNodeWithText("ETHEREUM").performClick()
+        compose.onNodeWithText("Ethereum").performClick()
         assertEquals(WalletApp.ETHEREUM, route.opened)
     }
 
@@ -160,12 +160,12 @@ class WalletDetailScreenTest {
         assertFalse(route.revealed)
 
         // Cancel goes back to the options without opening the secret.
-        compose.onNodeWithText("CANCEL").performClick()
+        compose.onNodeWithText("Cancel").performClick()
         compose.onNodeWithText("Show secret phrase").assertIsDisplayed()
         assertFalse(route.revealed)
 
         compose.onNodeWithText("Show secret phrase").performClick()
-        compose.onNodeWithText("REVEAL").performClick()
+        compose.onNodeWithText("Reveal").performClick()
         assertTrue(route.revealed)
     }
 

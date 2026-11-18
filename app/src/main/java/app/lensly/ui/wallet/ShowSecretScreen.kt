@@ -111,7 +111,7 @@ private fun WarningStep(
     ) {
         StepHeader(step = 2, count = STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "WARNING")
+        DotHeadline(text = "Warning")
         Spacer(Modifier.height(LenslySpacing.lg))
         InlineBanner(
             title = "Keep it private",
@@ -172,7 +172,7 @@ private fun RevealedStep(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Hides in ${step.secondsLeft} s".uppercase(),
+                text = "Hides in ${step.secondsLeft} s",
                 style = MaterialTheme.typography.labelMedium,
                 color = if (step.secondsLeft <= LOW_TIME_SECONDS) LocalLumenPalette.current.warning
                 else MaterialTheme.colorScheme.onSurfaceVariant,

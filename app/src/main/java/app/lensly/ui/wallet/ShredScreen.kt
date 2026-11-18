@@ -102,7 +102,7 @@ private fun ConfirmStep(
     ) {
         StepHeader(step = 2, count = SHRED_STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "WARNING")
+        DotHeadline(text = "Warning")
         Spacer(Modifier.height(LenslySpacing.lg))
         InlineBanner(
             title = copy.warningTitle,

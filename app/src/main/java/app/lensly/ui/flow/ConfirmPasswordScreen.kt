@@ -84,7 +84,7 @@ fun ConfirmPasswordScreen(
                         DotProgress(description = "Checking password")
                         Spacer(Modifier.width(LenslySpacing.sm))
                         Text(
-                            text = "CHECKING",
+                            text = "Checking",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

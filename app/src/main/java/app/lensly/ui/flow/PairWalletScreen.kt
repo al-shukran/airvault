@@ -542,7 +542,7 @@ private fun WalletEntryNote(entry: WalletEntry) {
             .padding(LenslySpacing.md),
     ) {
         Text(
-            text = "WALLET ENTRY",
+            text = "Wallet entry",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

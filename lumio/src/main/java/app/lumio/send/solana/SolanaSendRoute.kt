@@ -1,11 +1,5 @@
 package app.lumio.send.solana
 
-import app.lumio.send.SubmitFailure
-import app.lumio.send.SubmitMachine
-import app.lumio.send.SubmitState
-import app.lumio.ui.send.SubmitScreen
-import app.lumio.ui.send.solanaSummary
-import app.lumio.ui.send.solana.solanaOutcomeText
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.activity.compose.BackHandler
@@ -23,16 +17,19 @@ import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.core.solana.SolanaNonce
+import app.lensly.core.solana.SolanaTokenAccounts
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.qr.ScanScreen
 import app.lumio.LumioApp
+import app.lumio.chains.ChainHoldings
 import app.lumio.data.MonotonicClock
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RentExemptMinimum
 import app.lumio.data.provider.SolanaAccountRead
+import app.lumio.data.provider.SplTokenBalances
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.rpc.JsonRpc
@@ -42,10 +39,16 @@ import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.onVault
 import app.lumio.pair.PairedWallets
+import app.lumio.send.SubmitFailure
+import app.lumio.send.SubmitMachine
+import app.lumio.send.SubmitState
+import app.lumio.ui.send.SubmitScreen
 import app.lumio.ui.send.solana.SolanaSendFormScreen
 import app.lumio.ui.send.solana.SolanaSendReviewScreen
 import app.lumio.ui.send.solana.SolanaSetupReviewScreen
 import app.lumio.ui.send.solana.SolanaSignRequestScreen
+import app.lumio.ui.send.solana.solanaOutcomeText
+import app.lumio.ui.send.solanaSummary
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
@@ -96,8 +99,8 @@ private const val SETUP_FAILED = "The setup did not go through. Start it again f
 /**
  * A Solana send from one paired account, which is fixed: the form, the review, the request that Lensly signs, the scan of its answer, and the status
  * of the transaction on the network. [walletId] and [accountIndex] name the account N of the wallet, and [mode] picks the devnet or mainnet-beta side.
- * Lumio holds no key. It builds the transfer from public reads, and it broadcasts only a signature that Lensly made for that message, after the
- * signature has been checked against the account's public key.
+ * The coin is SOL, or an SPL token of the account. Lumio holds no key. It builds the transfer from public reads, and it broadcasts only a signature that
+ * Lensly made for that message, after the signature has been checked against the account's public key.
  */
 @Composable
 internal fun SolanaSendRoute(
@@ -129,6 +132,9 @@ internal fun SolanaSendRoute(
     var step by remember { mutableStateOf<SolanaSendStep>(SolanaSendStep.Form) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
+    // The coin the send moves, by its key: SOL, or the mint of a token. It is saved, so that a rotation keeps the owner's choice.
+    var selectedKey by rememberSaveable { mutableStateOf(SolanaAssets.SOL_KEY) }
+    var assets by remember { mutableStateOf(listOf(SolanaAssets.native)) }
     var balance by remember { mutableStateOf<BigInteger?>(null) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -141,12 +147,29 @@ internal fun SolanaSendRoute(
     var sentNotice by remember { mutableStateOf<String?>(null) }
     var sentSignature by remember { mutableStateOf<String?>(null) }
 
-    // The balance is read once the account is known, for the form's balance line and its Max action.
+    val selected = assets.firstOrNull { it.key == selectedKey } ?: SolanaAssets.native
+    val token = selected.token
+    val balanceText: String? = if (token == null) {
+        balance?.let { "${SolanaSendInput.format(it)} SOL" }
+    } else {
+        "${SolanaAssets.text(token.amount, selected.decimals)} ${selected.symbol}"
+    }
+    val maxText: String? = if (token == null) {
+        balance?.let { SolanaSend.maxLamports(it) }?.let { SolanaSendInput.format(BigInteger.valueOf(it)) }
+    } else {
+        SolanaAssets.text(token.amount, selected.decimals)
+    }
+
+    // The balance and the coins are read once the account is known: SOL, then the SPL tokens that the account holds. A failed token read leaves SOL alone.
     LaunchedEffect(account) {
         val from = account ?: return@LaunchedEffect
-        balance = runCatching {
-            withContext(Dispatchers.IO) { scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND) }
-        }.getOrNull()
+        val read = withContext(Dispatchers.IO) {
+            val sol = runCatching { scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND) }.getOrNull()
+            val tokens = runCatching { scheduler.run(SplTokenBalances(network, from.address), Priority.FOREGROUND) }.getOrDefault(emptyList())
+            sol to SolanaAssets.choices(tokens, ChainHoldings.solanaNames(app))
+        }
+        balance = read.first
+        assets = read.second
     }
 
     // After the send, the status is read until the network confirms it, fails it, or the polls run out.
@@ -157,17 +180,25 @@ internal fun SolanaSendRoute(
         }
     }
 
+    /**
+     * The plan of the send of the selected coin. A send names the account's nonce, and until the account has a nonce account the one-time setup comes
+     * first. A token send opens the recipient's token account for the mint when it has none, and that account pays its rent.
+     */
     fun review() {
         val from = account ?: return
+        val asset = selected
         busy = true
         notice = null
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     val to = SolanaSendInput.recipient(recipient)
-                    val lamports = SolanaSendInput.lamports(amount)
+                    val units = if (asset.token == null) {
+                        BigInteger.valueOf(SolanaSendInput.lamports(amount))
+                    } else {
+                        SolanaSendInput.tokenUnits(amount, asset.decimals)
+                    }
                     val available = scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND)
-                    // A send names the nonce that the account's nonce account holds. Until that account exists, the one-time setup comes first.
                     val nonceAccount = SolanaNonce.accountOf(from.key)
                     val state = scheduler.run(SolanaAccountRead(network, Base58.encode(nonceAccount)), Priority.FOREGROUND)
                     when (val path = SolanaSend.noncePath(state, from.key)) {
@@ -176,9 +207,15 @@ internal fun SolanaSendRoute(
                             SolanaSend.checkSetupFunds(available, rent)
                             SolanaSendStep.SetupReview(Base58.encode(nonceAccount), rent)
                         }
-                        is SolanaNoncePath.Durable -> SolanaSendStep.Review(
-                            SolanaSend.plan(network, from, to, lamports, available, path.nonceValue, SolanaSend.newRequestId()),
-                        )
+                        is SolanaNoncePath.Durable -> {
+                            val mint = asset.token?.let { Base58.decode(it.mint) }
+                            val exists = mint == null ||
+                                scheduler.run(SolanaAccountRead(network, Base58.encode(SolanaTokenAccounts.associatedAddress(to, mint))), Priority.FOREGROUND) != null
+                            val rent = if (exists) 0L else scheduler.run(RentExemptMinimum(network, SolanaAssets.TOKEN_ACCOUNT_BYTES), Priority.FOREGROUND)
+                            SolanaSendStep.Review(
+                                SolanaAssets.plan(network, asset, from, to, units, available, path.nonceValue, SolanaSend.newRequestId(), exists, rent),
+                            )
+                        }
                     }
                 }
             }
@@ -369,7 +406,10 @@ internal fun SolanaSendRoute(
         SolanaSendStep.Form -> SolanaSendFormScreen(
             network = network,
             sender = from.address,
-            balance = balance,
+            assets = assets,
+            selected = selected,
+            onSelect = { selectedKey = it.key },
+            balanceText = balanceText,
             recipient = recipient,
             onRecipient = { recipient = it },
             onScan = {
@@ -378,9 +418,8 @@ internal fun SolanaSendRoute(
             },
             amount = amount,
             onAmount = { amount = it },
-            onMax = {
-                balance?.let { available -> SolanaSend.maxLamports(available)?.let { amount = SolanaSendInput.format(BigInteger.valueOf(it)) } }
-            },
+            maxEnabled = maxText != null,
+            onMax = { maxText?.let { amount = it } },
             busy = busy,
             notice = notice,
             onReview = ::review,
@@ -395,6 +434,7 @@ internal fun SolanaSendRoute(
         )
         is SolanaSendStep.Review -> SolanaSendReviewScreen(
             plan = current.plan,
+            symbol = selected.symbol,
             notice = notice,
             onConfirm = { confirm(current.plan) },
             onBack = {
@@ -433,7 +473,7 @@ internal fun SolanaSendRoute(
         )
         is SolanaSendStep.Submit -> SubmitScreen(
             machine = current.machine,
-            rows = solanaSummary(current.plan),
+            rows = solanaSummary(current.plan, selected.symbol),
             explorerUrl = { signature -> SolanaSend.explorerTxUrl(current.plan.network, signature) },
             status = solanaOutcomeText(current.plan.network, sentOutcome),
             explorerNotice = sentNotice,

@@ -53,7 +53,7 @@ fun WalletsSettingsPage(onBack: () -> Unit, wallets: @Composable () -> Unit) {
     SettingsPageScreen(SettingsPage.WALLETS, onBack) { wallets() }
 }
 
-/** The Address book page: each paired wallet's own address book, which opens read only. [wallets] draws the rows. */
+/** The Address book page: each paired wallet's own address book. [wallets] draws the rows. */
 @Composable
 fun AddressBookSettingsPage(onBack: () -> Unit, wallets: @Composable () -> Unit) {
     SettingsPageScreen(SettingsPage.ADDRESS_BOOK, onBack) {

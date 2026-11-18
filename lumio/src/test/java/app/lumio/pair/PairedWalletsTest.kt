@@ -14,7 +14,9 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.HdWallet
+import java.util.UUID
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -194,6 +196,24 @@ class PairedWalletsTest {
 
         assertTrue(PairedWallets.list(session).isEmpty())
         assertTrue(PairedWallets.save(session, payload(accounts = listOf(account(0, "A"))), nowMs = 2L).created)
+    }
+
+    @Test
+    fun getReadsTheAskedWalletWithItsOwnAccounts() {
+        PairedWallets.save(session, payload(name = "One", accounts = listOf(account(0, "A"))), nowMs = 1L)
+        val two = PairedWallets.save(session, payload(name = "Two", accounts = listOf(account(0, "B")), seed = PairFixtures.otherSeed), nowMs = 2L)
+
+        val wallet = PairedWallets.get(session, two.id)
+
+        assertEquals("Two", wallet?.name)
+        assertEquals(listOf("B"), wallet?.evmAccounts?.map { it.name })
+    }
+
+    @Test
+    fun getOfAFolderThatIsNotPairedIsNull() {
+        PairedWallets.save(session, payload(accounts = listOf(account(0, "A"))), nowMs = 1L)
+
+        assertNull(PairedWallets.get(session, UUID.randomUUID().toString()))
     }
 
     private fun account(index: Int, name: String, label: String? = null, group: String? = null) =

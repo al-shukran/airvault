@@ -38,7 +38,7 @@ fun SkipWarningScreen(
     ) {
         WalletEyebrow("Skip the ceremony")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotHeadline(text = "NO MIXING")
+        DotHeadline(text = "No mixing")
         Spacer(Modifier.height(LenslySpacing.lg))
         Text(
             text = "This wallet will trust only the device's random generator.",

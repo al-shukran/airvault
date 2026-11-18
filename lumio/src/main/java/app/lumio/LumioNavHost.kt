@@ -34,6 +34,7 @@ import app.lensly.ui.navigation.leaveHidden
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
 import app.lumio.network.NetworkMode
+import app.lumio.send.algorand.AlgorandAddAssetRoute
 import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.network.NetworkModeStore
@@ -109,6 +110,12 @@ internal object LumioRoute {
     /** The route of the accounts of [walletId]. */
     fun wallet(walletId: String): String = "wallet/$walletId"
 
+    /** The first sync of the wallet named by [WALLET_ARG], opened when its pairing is saved. */
+    const val FIRST_SYNC = "first-sync/{$WALLET_ARG}"
+
+    /** The route of the first sync of [walletId]. */
+    fun firstSync(walletId: String): String = "first-sync/$walletId"
+
     /** The argument of an account's route: the name of its chain, as [AccountChain.route]. */
     const val ACCOUNT_CHAIN_ARG = "chain"
 
@@ -120,6 +127,15 @@ internal object LumioRoute {
 
     /** The route of account [index] of [chain] in [walletId]. */
     fun account(walletId: String, chain: AccountChain, index: Int): String = "account/$walletId/${chain.route}/$index"
+
+    /** The argument of an asset's route: the asset's key among the account's assets, as [AssetRows] keys them. */
+    const val ASSET_KEY_ARG = "assetKey"
+
+    /** One asset of an account, with the account's wallet, chain and place, and the asset's key, as its arguments. */
+    const val ASSET = "asset/{$WALLET_ARG}/{$ACCOUNT_CHAIN_ARG}/{$ACCOUNT_INDEX_ARG}/{$ASSET_KEY_ARG}"
+
+    /** The route of the asset [assetKey] of account [index] of [chain] in [walletId]. */
+    fun asset(walletId: String, chain: AccountChain, index: Int, assetKey: String): String = "asset/$walletId/${chain.route}/$index/$assetKey"
 
     /** The route of the read-only Address Book of [walletId], opened from the wallet's row in Settings. */
     const val ADDRESS_BOOK = "settings/address-book/{$WALLET_ARG}"
@@ -147,6 +163,21 @@ internal object LumioRoute {
     /** The route of the Algorand send from account [index] of [walletId]. */
     fun algorandSend(walletId: String, index: Int): String = "algorand-send/$walletId/$index"
 
+    /** The Add asset screen of the Algorand account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. */
+    const val ALGORAND_ADD_ASSET = "algorand-add-asset/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+
+    /** The route of the Add asset screen of the Algorand account [index] of [walletId]. */
+    fun algorandAddAsset(walletId: String, index: Int): String = "algorand-add-asset/$walletId/$index"
+
+    /** The argument of an asset: the ID of the Algorand asset that an opt-in adds to the account. */
+    const val ASSET_ARG = "asset"
+
+    /** The opt-in of the Algorand asset in [ASSET_ARG] to the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. */
+    const val ALGORAND_OPT_IN = "algorand-opt-in/{$WALLET_ARG}/{$SEND_INDEX_ARG}/{$ASSET_ARG}"
+
+    /** The route of the opt-in of asset [assetId] to the Algorand account [index] of [walletId]. */
+    fun algorandOptIn(walletId: String, index: Int, assetId: ULong): String = "algorand-opt-in/$walletId/$index/$assetId"
+
     /** The Bitcoin send from the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. Its side (testnet4 or mainnet) is the selected side. */
     const val BTC_SEND = "bitcoin-send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
 
@@ -166,11 +197,11 @@ internal object LumioRoute {
     const val TX_ACCOUNT_ARG = "account"
     const val TX_ID_ARG = "txId"
 
-    /** A transaction's page, for the row of [TX_ACCOUNT_ARG] and [TX_ID_ARG]. */
-    const val TRANSACTION = "transaction/{$TX_ACCOUNT_ARG}/{$TX_ID_ARG}"
+    /** A transaction's page, for the row of [TX_ACCOUNT_ARG] and [TX_ID_ARG] in the wallet [WALLET_ARG], whose Address Book the addresses are named in. */
+    const val TRANSACTION = "transaction/{$WALLET_ARG}/{$TX_ACCOUNT_ARG}/{$TX_ID_ARG}"
 
-    /** The route of the page of transaction [txId] for [account]. */
-    fun transaction(account: String, txId: String): String = "transaction/$account/$txId"
+    /** The route of the page of transaction [txId] for [account], an account of the wallet [walletId]. */
+    fun transaction(walletId: String, account: String, txId: String): String = "transaction/$walletId/$account/$txId"
 }
 
 /** The chain argument of a send that names no chain. Chain IDs are never zero. */
@@ -323,14 +354,16 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
             lumioComposable(
                 route = LumioRoute.TRANSACTION,
                 arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.TX_ACCOUNT_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.TX_ID_ARG) { type = NavType.StringType },
                 ),
             ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.arguments?.getString(LumioRoute.TX_ACCOUNT_ARG).orEmpty()
                 val txId = entry.arguments?.getString(LumioRoute.TX_ID_ARG).orEmpty()
                 LumioBackdrop(selection) {
-                    TransactionDetailRoute(navController = navController, holder = holder, account = account, txId = txId)
+                    TransactionDetailRoute(navController = navController, holder = holder, walletId = walletId, account = account, txId = txId)
                 }
             }
             lumioComposable(LumioRoute.PAIR_SCAN) {
@@ -373,6 +406,41 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
                 LumioBackdrop(selection) {
                     AlgorandSendRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, accountIndex = index)
+                }
+            }
+            lumioComposable(
+                route = LumioRoute.ALGORAND_ADD_ASSET,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                LumioBackdrop(selection) {
+                    AlgorandAddAssetRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, accountIndex = index)
+                }
+            }
+            lumioComposable(
+                route = LumioRoute.ALGORAND_OPT_IN,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ASSET_ARG) { type = NavType.StringType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                val assetId = entry.arguments?.getString(LumioRoute.ASSET_ARG)?.toULongOrNull()
+                LumioBackdrop(selection) {
+                    AlgorandSendRoute(
+                        navController = navController,
+                        holder = holder,
+                        mode = selection.mode,
+                        walletId = walletId,
+                        accountIndex = index,
+                        optInAssetId = assetId,
+                    )
                 }
             }
             lumioComposable(LumioRoute.SETTINGS) {
@@ -445,6 +513,34 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 }
             }
             lumioComposable(
+                route = LumioRoute.ASSET,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.ACCOUNT_CHAIN_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.ACCOUNT_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ASSET_KEY_ARG) { type = NavType.StringType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val chain = AccountChain.ofRoute(entry.arguments?.getString(LumioRoute.ACCOUNT_CHAIN_ARG).orEmpty())
+                val index = entry.arguments?.getInt(LumioRoute.ACCOUNT_INDEX_ARG) ?: 0
+                val assetKey = entry.arguments?.getString(LumioRoute.ASSET_KEY_ARG).orEmpty()
+                LumioBackdrop(selection) {
+                    if (chain != null) {
+                        AssetRoute(
+                            navController = navController,
+                            holder = holder,
+                            walletId = walletId,
+                            chain = chain,
+                            index = index,
+                            assetKey = assetKey,
+                            mode = selection.mode,
+                            listVersion = listVersion,
+                        )
+                    }
+                }
+            }
+            lumioComposable(
                 route = LumioRoute.SEND,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
@@ -502,6 +598,15 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         draft = draft,
                         onChanged = { listVersion++ },
                     )
+                }
+            }
+            lumioComposable(
+                route = LumioRoute.FIRST_SYNC,
+                arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                LumioBackdrop(selection) {
+                    FirstSyncRoute(navController = navController, holder = holder, walletId = walletId, mode = selection.mode)
                 }
             }
         }

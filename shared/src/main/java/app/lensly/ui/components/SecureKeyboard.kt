@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import app.lensly.ui.theme.LocalMonoFamily
+import app.lensly.ui.theme.labelCase
 
 private enum class KeyboardPage { Letters, Symbols }
 
@@ -192,7 +193,7 @@ fun SecureKeyboard(
                 modifier = Modifier.weight(5f),
             ) {
                 Text(
-                    text = "SPACE",
+                    text = labelCase("Space"),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )

@@ -35,14 +35,15 @@ private val ROW_HEIGHT = 64.dp
 private const val PRESSED_ROW_SCALE = 0.98f
 
 /**
- * A row of an island: a [title], with a [description] under it when given, the [trailing] content (an amount or a tag), and a chevron when the row
- * opens something ([onClick]). The row scales to 0.98 while it is pressed, and it has the default ripple.
+ * A row of an island: an optional [leading] mark, a [title] with a [description] under it when given, the [trailing] content (an amount or a tag), and a
+ * chevron when the row opens something ([onClick]). The row scales to 0.98 while it is pressed, and it has the default ripple.
  */
 @Composable
 fun LumioRow(
     title: String,
     modifier: Modifier = Modifier,
     description: String? = null,
+    leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
@@ -71,6 +72,10 @@ fun LumioRow(
             .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(LenslySpacing.sm))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,

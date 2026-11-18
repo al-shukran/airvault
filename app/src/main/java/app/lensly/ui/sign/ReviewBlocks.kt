@@ -132,7 +132,7 @@ internal fun ReviewChip(text: String, tone: Color? = null, leading: (@Composable
             Spacer(Modifier.width(LenslySpacing.xs))
         }
         Text(
-            text = text.uppercase(),
+            text = text,
             style = MaterialTheme.typography.labelSmall,
             color = tone ?: colors.onSurface,
         )

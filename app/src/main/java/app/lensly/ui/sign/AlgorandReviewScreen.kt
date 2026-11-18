@@ -13,6 +13,7 @@ import app.lensly.app.notesOf
 import app.lensly.app.sign.algorandFacts
 import app.lensly.app.sign.algorandRows
 import app.lensly.app.sign.algorandSentence
+import app.lensly.app.sign.algorandTitle
 import app.lensly.app.sign.algorandWarningText
 import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.AlgorandWarning
@@ -42,7 +43,7 @@ fun AlgorandReviewScreen(
     key(review) {
         val read = rememberReviewRead(review)
         LenslyScreen(
-            title = "Review",
+            title = algorandTitle(review),
             modifier = modifier,
             scrollable = false,
             bottomAction = {

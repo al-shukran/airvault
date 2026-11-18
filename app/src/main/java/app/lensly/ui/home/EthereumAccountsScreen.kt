@@ -251,7 +251,7 @@ fun EthereumAccountsScreen(
                     // A Single Key has one account, so there is nothing to add and nothing to generate.
                     InlineBanner(message = SINGLE_KEY_ONE_ACCOUNT, tone = BannerTone.Info)
                 } else {
-                    AddAccountRow(label = "ADD ACCOUNT", onClick = onAddAccount)
+                    AddAccountRow(label = "Add account", onClick = onAddAccount)
                 }
             }
             item(key = "tip") {
@@ -364,7 +364,7 @@ private fun AccountRow(
             Column(modifier = Modifier.weight(1f)) {
                 // The Display Name, or the Auto-Name while the account has none. A long name is cut short.
                 Text(
-                    text = name.uppercase(),
+                    text = name,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,

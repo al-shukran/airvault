@@ -20,15 +20,15 @@ private val CHAINS = listOf("Ethereum", "Bitcoin")
 private fun chainOf(address: String): String = if (address.startsWith("0x")) "Ethereum" else "Bitcoin"
 
 /**
- * The Address Book of one paired wallet, read only: each saved name, its label and its address, grouped by chain. Lensly is the source of
- * truth, so the screen has no edit action. A pairing from Lensly again replaces the book.
+ * The Address Book of one paired wallet: each saved name, its label and its address, grouped by chain. Names are added and changed on a transaction's
+ * addresses, so this screen has no edit action. A pairing from Lensly again replaces the book.
  */
 @Composable
 fun AddressBookScreen(walletName: String, entries: List<AddressBookEntry>, onBack: () -> Unit) {
     LenslyScreen(title = "Address book", onBack = onBack) {
         Text(walletName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Text(
-            text = "Read only. Lensly keeps the Address Book. Pair this wallet again from Lensly to update it.",
+            text = "Add or change a name from an address in a transaction. Pairing this wallet again from Lensly replaces the book.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

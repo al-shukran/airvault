@@ -136,7 +136,7 @@ class HomeScreensScreenshotTest {
     fun homeChartByApp() = compose.snapshot(
         "home_chart_app",
         settleMs = SETTLE_MS,
-        beforeCapture = { tap("APP") },
+        beforeCapture = { tap("App") },
     ) {
         home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, recent = chartActivity())
     }
@@ -146,7 +146,7 @@ class HomeScreensScreenshotTest {
     fun homeChartBySevenDays() = compose.snapshot(
         "home_chart_week",
         settleMs = SETTLE_MS,
-        beforeCapture = { tap("7 DAYS") },
+        beforeCapture = { tap("7 days") },
     ) {
         home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, recent = chartActivity())
     }

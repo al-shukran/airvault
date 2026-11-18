@@ -55,7 +55,7 @@ fun WalletStartScreen(
             )
         },
     ) {
-        DotHeadline(text = "NEW WALLET")
+        DotHeadline(text = "New wallet")
         Spacer(Modifier.height(LenslySpacing.lg))
         ChoiceRow(
             title = "Create",
@@ -114,7 +114,7 @@ private fun ChoiceRow(
             verticalArrangement = Arrangement.spacedBy(LenslySpacing.xxs),
         ) {
             Text(
-                text = title.uppercase(),
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
                 color = ink,
             )

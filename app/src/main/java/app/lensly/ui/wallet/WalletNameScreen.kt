@@ -37,10 +37,10 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalLumenPalette
 
 /** Name suggested before the owner types one. */
-const val DEFAULT_WALLET_NAME = "WALLET 1"
+const val DEFAULT_WALLET_NAME = "Wallet 1"
 
 /** Name used when the owner confirms without typing one and no suggestion has loaded yet. */
-private const val FALLBACK_WALLET_NAME = "WALLET"
+private const val FALLBACK_WALLET_NAME = "Wallet"
 
 private val NAME_FIELD_HEIGHT = 56.dp
 
@@ -99,7 +99,7 @@ fun WalletNameScreen(
         ) {
             WalletEyebrow("Name")
             Spacer(Modifier.height(LenslySpacing.xs))
-            DotHeadline(text = "NAME IT")
+            DotHeadline(text = "Name it")
             Spacer(Modifier.height(LenslySpacing.sm))
             Text(
                 text = "You can change it later.",
@@ -118,7 +118,7 @@ fun WalletNameScreen(
                         full -> "Name is full"
                         name.isEmpty() -> emptyHelp ?: "Leave empty to use ${placeholder ?: "the suggested name"}"
                         else -> "Up to $maxLength characters"
-                    }.uppercase(),
+                    },
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.labelMedium,
                     color = helperColor,

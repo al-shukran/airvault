@@ -46,8 +46,8 @@ class PairWizardTest {
         }
 
         compose.onNodeWithText("Step 1 of 4", ignoreCase = true).assertExists()
-        compose.onNodeWithText("SEED WALLET").assertExists()
-        compose.onNodeWithText("SAVINGS").assertExists()
+        compose.onNodeWithText("Seed wallet").assertExists()
+        compose.onNodeWithText("Savings").assertExists()
     }
 
     @Test
@@ -85,11 +85,11 @@ class PairWizardTest {
             }
         }
 
-        compose.onNodeWithText("WALLET ENTRY").assertDoesNotExist()
+        compose.onNodeWithText("Wallet entry").assertDoesNotExist()
         compose.onNodeWithText("RABBY (AIRGAP VAULT)").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("WALLET ENTRY").assertExists()
+        compose.onNodeWithText("Wallet entry").assertExists()
         compose.onNodeWithText("Rabby").assertExists()
         compose.onNodeWithText("Known limitations: ", substring = true).assertExists()
     }
@@ -113,7 +113,7 @@ class PairWizardTest {
         compose.onNodeWithText("LUMIO (AIRVAULT COMPANION)").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("WALLET ENTRY").assertDoesNotExist()
+        compose.onNodeWithText("Wallet entry").assertDoesNotExist()
     }
 
     @Test

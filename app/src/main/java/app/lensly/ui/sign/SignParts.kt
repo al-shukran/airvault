@@ -25,7 +25,7 @@ internal fun FactRow(
             .fillMaxWidth()
             .padding(vertical = LenslySpacing.sm),
     ) {
-        MutedText(label.uppercase())
+        MutedText(label)
         Spacer(Modifier.height(LenslySpacing.xs))
         content()
     }

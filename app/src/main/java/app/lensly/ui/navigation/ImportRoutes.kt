@@ -152,7 +152,7 @@ private fun KeyBackupRoute(
         saving = saving,
         onCreate = {
             if (!saving && copied) {
-                model.saveSingleKey(name = draft.name.ifEmpty { "WALLET" }, write = singleKeyWriter(session))
+                model.saveSingleKey(name = draft.name.ifEmpty { "Wallet" }, write = singleKeyWriter(session))
             }
         },
     )

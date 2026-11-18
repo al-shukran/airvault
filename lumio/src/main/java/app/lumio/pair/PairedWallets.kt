@@ -92,6 +92,12 @@ object PairedWallets {
     }
 
     /**
+     * The paired wallet in folder [id], or null when the folder is not paired. It reads that folder only, where [list] reads every folder. Its
+     * [PairedWallet.addressBook] is empty: [list] is the read that holds the Address Book.
+     */
+    fun get(session: VaultSession, id: String): PairedWallet? = readOrWipe(session, id)
+
+    /**
      * Stores [pairing], as Lensly exported it. Lensly is the source of truth: the names, labels and groups, the accounts, the keys and the
      * Address Book replace what Lumio held for the same fingerprint, so an account or an entry that Lensly no longer lists is removed. A new
      * fingerprint makes a new wallet.

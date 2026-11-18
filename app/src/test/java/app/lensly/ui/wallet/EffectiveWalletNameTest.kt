@@ -32,7 +32,7 @@ class EffectiveWalletNameTest {
 
     @Test
     fun noSuggestionAndNoInputFallsBackToWallet() {
-        assertEquals("WALLET", effectiveWalletName("", null))
-        assertEquals("WALLET", effectiveWalletName("  ", null))
+        assertEquals("Wallet", effectiveWalletName("", null))
+        assertEquals("Wallet", effectiveWalletName("  ", null))
     }
 }

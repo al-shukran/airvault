@@ -21,6 +21,7 @@ import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.labelCase
 
 /**
  * The notice shown as the last tries come: "2 tries left before this vault is erased". Sentence case, and no full stop, as the
@@ -59,12 +60,12 @@ fun UnlockScreen(
         ) {
             Spacer(Modifier.height(LenslySpacing.lg))
             Text(
-                text = "APPLICATION PASSWORD",
+                text = labelCase("Application password"),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(LenslySpacing.sm))
-            DotHeadline(text = "UNLOCK")
+            DotHeadline(text = "Unlock")
 
             Spacer(Modifier.weight(1f))
 

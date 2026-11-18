@@ -68,11 +68,11 @@ object GateRoutes {
 }
 
 private const val NO_SCREEN_LOCK_DETAIL =
-    "Set a screen lock first. The vault key is tied to it, so the vault cannot be created without one."
+    "Set a screen lock first. The vault is tied to it, so the vault cannot be created without one."
 
 private const val KEY_INVALIDATED_DETAIL =
-    "The screen lock was removed or changed, so Android deleted the vault key. Clear the app's data, " +
-        "then restore your wallets from their seed phrases."
+    "The screen lock was removed or changed, so the vault can no longer be opened. Clear the app's data, " +
+        "then restore your wallets from their backups."
 
 /**
  * The hidden area: a nested graph that opens on the gate. The gate sends the owner to [home], or to the screen that fits the
