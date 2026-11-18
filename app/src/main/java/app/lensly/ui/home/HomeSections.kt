@@ -3,8 +3,6 @@ package app.lensly.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,10 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,7 +36,7 @@ import app.lensly.app.WalletReviewRecord
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.components.pressFeedback
+import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.settings.FailureCapChoice
@@ -58,9 +54,6 @@ internal const val READINESS_LOCKOUT_TAG = "readiness-lockout"
 
 /** How many records Recent activity shows: the newest ones. */
 internal const val HOME_ACTIVITY_LIMIT = 3
-
-/** The height of a readiness tile. Two rows of them make the grid. */
-private val TILE_HEIGHT = 96.dp
 
 /** A wrong-password wait below this is a short one, so its tile carries a warning dot. */
 private const val SHORT_LOCKOUT_MS = 10_000L
@@ -95,12 +88,14 @@ internal fun RecentActivitySection(
         }
         Spacer(Modifier.height(LenslySpacing.xs))
         if (records != null) {
-            if (records.isEmpty()) {
-                EmptyLine(text = "Nothing signed yet")
-            } else {
-                records.forEachIndexed { index, item ->
-                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ActivityRow(item = item, walletName = walletNames[item.walletId], nowMs = nowMs)
+            LumioIsland {
+                if (records.isEmpty()) {
+                    EmptyLine(text = "Nothing signed yet")
+                } else {
+                    records.forEachIndexed { index, item ->
+                        if (index > 0) IslandDivider()
+                        ActivityRow(item = item, walletName = walletNames[item.walletId], nowMs = nowMs)
+                    }
                 }
             }
         }
@@ -142,8 +137,8 @@ internal fun WalletListSection(
 }
 
 /**
- * READINESS: the networks and the tokens the catalog holds, the installed catalog's version, and the lockout cap, as four equal
- * tiles in a two-by-two grid. Each tile has a status dot, and a tap opens its Settings screen.
+ * READINESS: the networks and the tokens the catalog holds, the installed catalog's version, and the lockout cap, as the four rows of
+ * one island. Each row has a status dot after its value, and a tap opens its Settings screen.
  */
 @Composable
 internal fun ReadinessSection(
@@ -157,46 +152,62 @@ internal fun ReadinessSection(
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = WALLET_GUTTER)) {
         SectionHeader(title = "Readiness")
         Spacer(Modifier.height(LenslySpacing.xs))
-        Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-                ReadinessTile(
-                    label = "Networks",
-                    value = readiness.networkCount.toString(),
-                    status = countStatus(readiness.networkCount),
-                    tag = READINESS_NETWORKS_TAG,
-                    onClick = onNetworks,
-                    modifier = Modifier.weight(1f),
-                )
-                ReadinessTile(
-                    label = "Tokens",
-                    value = readiness.tokenCount.toString(),
-                    status = countStatus(readiness.tokenCount),
-                    tag = READINESS_TOKENS_TAG,
-                    onClick = onTokens,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-                ReadinessTile(
-                    label = "Catalog",
-                    value = readiness.catalogSequence?.let { "Sequence $it" } ?: "Built-in",
-                    status = LocalLumenPalette.current.positive,
-                    tag = READINESS_CATALOG_TAG,
-                    onClick = onCatalog,
-                    modifier = Modifier.weight(1f),
-                )
-                ReadinessTile(
-                    label = "Lockout",
-                    // The default cap reads as Default here, as it always has, so a vault that never changed it sees no change.
-                    value = if (readiness.lockout == FailureCapChoice.DEFAULT) "Default" else readiness.lockout.label,
-                    status = lockoutStatus(readiness.lockout),
-                    tag = READINESS_LOCKOUT_TAG,
-                    onClick = onLockout,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+        LumioIsland {
+            ReadinessRow(
+                label = "Networks",
+                value = readiness.networkCount.toString(),
+                status = countStatus(readiness.networkCount),
+                tag = READINESS_NETWORKS_TAG,
+                onClick = onNetworks,
+            )
+            IslandDivider()
+            ReadinessRow(
+                label = "Tokens",
+                value = readiness.tokenCount.toString(),
+                status = countStatus(readiness.tokenCount),
+                tag = READINESS_TOKENS_TAG,
+                onClick = onTokens,
+            )
+            IslandDivider()
+            ReadinessRow(
+                label = "Catalog",
+                value = readiness.catalogSequence?.let { "Sequence $it" } ?: "Built-in",
+                status = LocalLumenPalette.current.positive,
+                tag = READINESS_CATALOG_TAG,
+                onClick = onCatalog,
+            )
+            IslandDivider()
+            ReadinessRow(
+                label = "Lockout",
+                // The default cap reads as Default here, as it always has, so a vault that never changed it sees no change.
+                value = if (readiness.lockout == FailureCapChoice.DEFAULT) "Default" else readiness.lockout.label,
+                status = lockoutStatus(readiness.lockout),
+                tag = READINESS_LOCKOUT_TAG,
+                onClick = onLockout,
+            )
         }
     }
+}
+
+/** One readiness row: its label, then its value and status dot at the end. The whole row opens its Settings screen. */
+@Composable
+private fun ReadinessRow(label: String, value: String, status: Color, tag: String, onClick: () -> Unit) {
+    LumioRow(
+        title = label,
+        modifier = Modifier.testTag(tag),
+        trailing = {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(LenslySpacing.xs))
+            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(status))
+        },
+        onClick = onClick,
+    )
 }
 
 /** A section's heading: its title in the mono caps style, with an optional action at the end of the same row. */
@@ -248,7 +259,10 @@ private fun SectionLink(text: String, onClick: () -> Unit) {
 private fun ActivityRow(item: WalletReviewRecord, walletName: String?, nowMs: Long) {
     val record = item.record
     Row(
-        modifier = Modifier.fillMaxWidth().testTag(HOME_ACTIVITY_ROW_TAG).padding(vertical = LenslySpacing.xs),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(HOME_ACTIVITY_ROW_TAG)
+            .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutcomeMark(outcome = record.outcome)
@@ -304,61 +318,6 @@ private fun OutcomeMark(outcome: ReviewOutcome) {
     }
 }
 
-/**
- * One readiness tile: its label in the caps line, with the status dot at the end of that line, and its value in the mono face under it.
- * Label and value share one left edge. The whole tile is the tap target, and it dims while pressed and plays the key haptic.
- */
-@Composable
-private fun ReadinessTile(
-    label: String,
-    value: String,
-    status: Color,
-    tag: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptics = rememberKeyHaptics()
-    val interaction = remember { MutableInteractionSource() }
-    val shape = MaterialTheme.shapes.large
-    Column(
-        modifier = modifier
-            .height(TILE_HEIGHT)
-            .testTag(tag)
-            .pressFeedback(interaction, enabled = true)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-            .tapHaptic(haptics)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                role = Role.Button,
-                onClick = onClick,
-            )
-            .padding(LenslySpacing.md),
-        verticalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = label,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(status))
-        }
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
 /** A count is ready when the catalog holds any of it. */
 @Composable
 private fun countStatus(count: Int): Color = if (count > 0) LocalLumenPalette.current.positive else LocalLumenPalette.current.warning
@@ -370,16 +329,13 @@ private fun lockoutStatus(choice: FailureCapChoice): Color {
     return if (cap != null && cap < SHORT_LOCKOUT_MS) LocalLumenPalette.current.warning else LocalLumenPalette.current.positive
 }
 
-/** One line in a card, for a list with nothing in it yet. */
+/** One line inside an island, for a list with nothing in it yet. */
 @Composable
 private fun EmptyLine(text: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(LenslySpacing.md),
-    ) {
-        Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    Text(
+        text = text,
+        modifier = Modifier.fillMaxWidth().padding(LenslySpacing.md),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

@@ -214,9 +214,10 @@ fun <T> ChoiceDialogRow(
     description: String? = null,
     dialogTitle: String = label,
     enabled: Boolean = true,
+    divided: Boolean = true,
 ) {
     var open by remember { mutableStateOf(false) }
-    SettingsItem {
+    SettingsItem(divided) {
         ListRow(onClick = { open = true }, enabled = enabled && value != null, modifier = modifier) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(

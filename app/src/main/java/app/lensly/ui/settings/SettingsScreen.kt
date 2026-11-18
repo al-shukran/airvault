@@ -32,7 +32,8 @@ import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.ChoiceDialogRow
 import app.lensly.ui.components.SettingsRow
-import app.lensly.ui.components.SettingsSection
+import app.lensly.ui.components.IslandDivider
+import app.lensly.ui.components.SettingsIsland
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.theme.LenslySpacing
@@ -106,31 +107,38 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = "Settings", modifier = modifier, onBack = onBack) {
-        SettingsSection("Entry") {
+        SettingsIsland("Entry") {
             SettingsRow(
                 title = "Hidden Entry Gesture",
                 description = entryGesture.title,
                 onClick = onEntryGesture,
+                divided = false,
             )
+            IslandDivider()
             SettingsRow(
                 title = "Change Application Password",
                 description = "Enter the current password, then the new one twice. Your wallets stay as they are.",
                 onClick = onChangePassword,
+                divided = false,
             )
+            IslandDivider()
             // The same two rows show in the real vault and in a decoy, so the decoy's Settings look identical.
             SettingsRow(
                 title = "Duress Password",
                 description = "A second password. Enter the Application Password, then the new one twice.",
                 onClick = onDuressPassword,
+                divided = false,
             )
+            IslandDivider()
             SettingsRow(
                 title = "Remove Duress Password",
                 description = "Enter the Application Password. The second password stops opening anything.",
                 onClick = onRemoveDuressPassword,
+                divided = false,
             )
         }
 
-        SettingsSection("Bulk Generation") {
+        SettingsIsland("Bulk Generation") {
             ChoiceDialogRow(
                 label = "Bulk Cap",
                 value = bulkCap?.label,
@@ -140,19 +148,21 @@ fun SettingsScreen(
                 onSelect = onBulkCap,
                 description = "The most accounts one bulk run can create. A run above it is refused.",
                 dialogTitle = "Bulk Cap",
+                divided = false,
             )
         }
 
-        SettingsSection("Dice and Coin Entry") {
+        SettingsIsland("Dice and Coin Entry") {
             SettingsRow(
                 title = "Hide Delay",
                 description = hideDelay?.let { "From ${it.minMs} to ${it.maxMs} ms after a tap." } ?: "Reading the saved delay…",
                 onClick = onHideDelay,
                 loading = hideDelay == null,
+                divided = false,
             )
         }
 
-        SettingsSection("Bitcoin") {
+        SettingsIsland("Bitcoin") {
             val policies = bitcoinInputPolicy?.let { input -> bitcoinSigningSource?.let { input to it } }
             SettingsRow(
                 title = "Bitcoin Policy",
@@ -161,7 +171,9 @@ fun SettingsScreen(
                 } ?: "Reading the saved policy…",
                 onClick = onBitcoinPolicy,
                 loading = policies == null,
+                divided = false,
             )
+            IslandDivider()
             SettingsRow(
                 title = "Fee Warnings",
                 description = bitcoinFeeThresholds?.let {
@@ -169,10 +181,11 @@ fun SettingsScreen(
                 } ?: "Reading the saved limits…",
                 onClick = onBitcoinFeeWarnings,
                 loading = bitcoinFeeThresholds == null,
+                divided = false,
             )
         }
 
-        SettingsSection("Lockout") {
+        SettingsIsland("Lockout") {
             SettingsRow(
                 title = "Wrong Password Lockout",
                 description = failureDelayCap?.let {
@@ -180,63 +193,79 @@ fun SettingsScreen(
                 } ?: "Reading the saved lockout…",
                 onClick = onFailureDelayCap,
                 loading = failureDelayCap == null,
+                divided = false,
             )
         }
 
-        SettingsSection("Catalog") {
+        SettingsIsland("Catalog") {
             SettingsRow(
                 title = "Networks",
                 description = catalog?.let { it.networks.size.countOf("network", "networks") } ?: "Reading the catalog…",
                 onClick = onNetworks,
                 loading = catalog == null,
                 preview = { IconStack(items = catalog?.networks.orEmpty()) { ChainIcon(network = it, size = PREVIEW_ICON_SIZE) } },
+                divided = false,
             )
+            IslandDivider()
             SettingsRow(
                 title = "Tokens",
                 description = catalog?.let { it.tokens.size.countOf("token", "tokens") } ?: "Reading the catalog…",
                 onClick = onTokens,
                 loading = catalog == null,
                 preview = { IconStack(items = catalog?.tokens.orEmpty()) { TokenIcon(token = it, size = PREVIEW_ICON_SIZE) } },
+                divided = false,
             )
+            IslandDivider()
             SettingsRow(
                 title = "Denylist",
                 description = catalog?.let { it.denylist.size.countOf("entry", "entries") } ?: "Reading the catalog…",
                 loading = catalog == null,
+                divided = false,
             )
+            IslandDivider()
             SettingsRow(
                 title = "Wallet Compatibility",
                 description = catalog?.let { it.wallets.size.countOf("wallet", "wallets") } ?: "Reading the catalog…",
                 loading = catalog == null,
+                divided = false,
             )
+            IslandDivider()
             SettingsRow(
                 title = "Update Catalog",
                 description = "Install a signed package from removable storage. It adds networks and tokens, and sets the " +
                     "approved contracts.",
                 onClick = onUpdateCatalog,
+                divided = false,
             )
             if (catalog?.installedUpdateUnverified == true) {
+                IslandDivider()
                 SettingsRow(
                     title = "Installed Update",
                     description = "Installed update could not be verified; using the built-in catalog",
+                    divided = false,
                 )
             }
         }
 
-        SettingsSection("Address Book") {
+        SettingsIsland("Address Book") {
             SettingsRow(
                 title = "Address Book",
                 description = "Saved addresses, each with a name and a label",
                 onClick = onAddressBook,
+                divided = false,
             )
         }
-        SettingsSection("Whitelist") {
+
+        SettingsIsland("Whitelist") {
             SettingsRow(
                 title = "Approved Contracts",
                 description = catalog?.let { it.whitelist.size.countOf("approved call", "approved calls") }
                     ?: "Reading the catalog…",
                 onClick = onApprovedContracts,
                 loading = catalog == null,
+                divided = false,
             )
+            IslandDivider()
             SettingsRow(
                 title = "Proxy Policy",
                 description = proxyPolicy?.let { policy ->
@@ -244,7 +273,9 @@ fun SettingsScreen(
                 } ?: "Reading the saved policy…",
                 onClick = onProxyPolicy,
                 loading = proxyPolicy == null,
+                divided = false,
             )
+            IslandDivider()
             ChoiceDialogRow(
                 label = "Unknown Contract Calls",
                 value = unknownCallPolicy?.let { policy ->
@@ -257,24 +288,29 @@ fun SettingsScreen(
                 description = "A call or program Lensly cannot read. Warn signs it after an error-level warning. " +
                     "Refuse never signs it.",
                 dialogTitle = "Unknown Contract Calls",
+                divided = false,
             )
         }
 
-        SettingsSection("Wipe") {
+        SettingsIsland("Wipe") {
             SettingsRow(
                 title = "Wipe the Vault",
                 description = "Erase every wallet and the Application Password from this device. A new Application Password is set up next.",
                 onClick = onWipe,
+                divided = false,
             )
         }
 
-        SettingsSection("About") {
-            SettingsRow(title = "Version", description = "$versionName ($versionCode)")
-            SettingsRow(title = "License", description = "Apache License 2.0. The text is in the LICENSE file.")
+        SettingsIsland("About") {
+            SettingsRow(title = "Version", description = "$versionName ($versionCode)", divided = false)
+            IslandDivider()
+            SettingsRow(title = "License", description = "Apache License 2.0. The text is in the LICENSE file.", divided = false)
+            IslandDivider()
             SettingsRow(
                 title = "Third-Party Licences",
                 description = "Every library and font the application ships, with the licence it is used under.",
                 onClick = onThirdPartyLicences,
+                divided = false,
             )
         }
         Spacer(Modifier.height(LenslySpacing.xl))
