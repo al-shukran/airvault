@@ -21,6 +21,8 @@ data class LumenPalette(
     val positive: Color,
     /** Warnings. They always come with an icon, and their hue is apart from the gold. */
     val warning: Color,
+    /** The edge of a non-interactive chip: the control edge on the Lumen themes, and the cover's decorative rule on the cover. */
+    val chipEdge: Color,
     /** The core of the hero glow. It is drawn at low alpha. */
     val glowCore: Color,
     /** The edge of the hero glow. It is drawn at low alpha. */
@@ -35,6 +37,7 @@ internal val NightPalette = LumenPalette(
     testnet = Color(0xFF6FD6E8),
     positive = Color(0xFF4CD69B),
     warning = Color(0xFFFF8A4C),
+    chipEdge = Color(0xFF66727F),
     glowCore = Color(0xFFF4C46A).copy(alpha = 0.28f),
     glowEdge = Color(0xFFFF8F70).copy(alpha = 0.12f),
 )
@@ -44,6 +47,7 @@ internal val DayPalette = LumenPalette(
     testnet = Color(0xFF006C7C),
     positive = Color(0xFF107144),
     warning = Color(0xFF9C4C00),
+    chipEdge = Color(0xFF8A8478),
     glowCore = Color(0xFFF4C46A).copy(alpha = 0.35f),
     glowEdge = Color(0xFFFF8F70).copy(alpha = 0.14f),
 )

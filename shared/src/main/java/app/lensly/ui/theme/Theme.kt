@@ -66,6 +66,7 @@ internal val CoverPalette = LumenPalette(
     testnet = CoverMuted,
     positive = CoverSuccess,
     warning = CoverWarning,
+    chipEdge = CoverOutline,
     glowCore = Color.Transparent,
     glowEdge = Color.Transparent,
 )
