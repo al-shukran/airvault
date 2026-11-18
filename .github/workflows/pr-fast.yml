@@ -309,6 +309,18 @@ jobs:
           fi
           echo "ok: the merged release manifest of :app has no android.permission.INTERNET"
 
+      # R56: web3j brings OkHttp, the HTTP client, and shared excludes it from web3j. :app never calls it. This fails if a dependency
+      # change puts OkHttp back on the release runtime classpath of :app.
+      - name: Refuse OkHttp on the release runtime classpath of :app
+        if: matrix.partition == 'manifest'
+        run: |
+          deps="$(./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q)"
+          if printf '%s\n' "$deps" | grep -q 'com\.squareup\.okhttp3'; then
+            echo "error: OkHttp is on the release runtime classpath of :app; Lensly is offline by design (see shared/build.gradle.kts)" >&2
+            exit 1
+          fi
+          echo "ok: no OkHttp on the release runtime classpath of :app"
+
   # Lumio's lint runs in its own job, not in the test job: lintDebug on top of the lumio partition took the test job past its 5-minute cap (PR 181
   # ran 5m17s). The lumio-a filter is the same as the lumio-b partition's, and pr-ok counts a skip as a pass.
   lint:
