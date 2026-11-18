@@ -127,8 +127,7 @@ sealed interface WalletSecret {
  * - `profile`, version 1, for a wallet: a flags byte for the colour, icon and label, then those fields that are set, then the
  *   group count (byte) and each group (UTF). A wallet whose fields are all defaults has no record.
  * - `base-name`, version 1: the wallet's name at creation (UTF), which its accounts' Auto-Names are built from. It is
- *   written once, at creation, and before the first rename of a wallet that has none. A wallet without one uses its
- *   current name.
+ *   written once, at creation. A wallet without one is not listed.
  * - `bitcoin`, version 2: the count (int), then each Bitcoin account: its network as its BIP44 coin type (byte), its Script Type as
  *   its BIP43 purpose (byte), its index (int), its first receive address (UTF), and a byte that is 1 when it has a profile, which then
  *   follows in the layout of an account record. A wallet with no
@@ -1103,7 +1102,7 @@ internal object WalletRecords {
     /** The version of a meta record. */
     private const val META_VERSION = 4
 
-    /** The secret version of a Mnemonic wallet. It is the only secret layout before Single Keys. */
+    /** The secret version of a Mnemonic wallet. A Single Key wallet's secret is version 2. */
     private const val MNEMONIC_SECRET_VERSION = 1
     private const val SINGLE_KEY_SECRET_VERSION = 2
     private const val NAME_VERSION = 1

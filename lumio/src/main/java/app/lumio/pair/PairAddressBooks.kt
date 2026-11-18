@@ -40,6 +40,11 @@ internal object PairAddressBooks {
         session.putVaultRecord(NAME, encode(books))
     }
 
+    /** Writes an empty books record, which drops every book. Used when the stored record does not read, see [PairedWallets.list]. */
+    fun clear(session: VaultSession) {
+        session.putVaultRecord(NAME, encode(emptyMap()))
+    }
+
     private fun encode(books: Map<String, List<AddressBookEntry>>): ByteArray {
         val buffer = ByteArrayOutputStream()
         DataOutputStream(buffer).use { out ->

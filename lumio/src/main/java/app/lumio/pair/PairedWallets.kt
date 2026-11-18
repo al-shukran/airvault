@@ -76,17 +76,18 @@ data class PairSaved(val id: String, val created: Boolean)
 object PairedWallets {
 
     /**
-     * The paired wallets, oldest first, each with its Address Book. A folder that does not read as a pairing is left out. A book that cannot
-     * be read leaves the wallets listed without one, and the next pairing still refuses to replace a book it cannot read.
+     * The paired wallets, oldest first, each with its Address Book. A folder with no META record is left out. A pairing record or a book of
+     * another layout version is wiped, with its wallet, and reads as unpaired. No reader takes an old version.
      */
     fun list(session: VaultSession): List<PairedWallet> {
-        val books: Map<String, List<AddressBookEntry>> = try {
+        val books = try {
             PairAddressBooks.load(session)
         } catch (e: VaultException) {
+            PairAddressBooks.clear(session)
             emptyMap()
         }
         return session.listWallets()
-            .mapNotNull { id -> read(session, id)?.copy(addressBook = books[id].orEmpty()) }
+            .mapNotNull { id -> readOrWipe(session, id)?.copy(addressBook = books[id].orEmpty()) }
             .sortedBy { it.createdAtMs }
     }
 
@@ -151,8 +152,16 @@ object PairedWallets {
         return accounts + bitcoin + solana + algorand
     }
 
-    /** The paired wallet in folder [id], or null when the folder is not one (another folder kind, or a damaged record). */
-    private fun read(session: VaultSession, id: String): PairedWallet? = try {
+    /** The paired wallet in folder [id]. A folder whose record does not read in full is wiped, and reads as null. */
+    private fun readOrWipe(session: VaultSession, id: String): PairedWallet? = try {
+        read(session, id)
+    } catch (e: IllegalArgumentException) {
+        delete(session, id)
+        null
+    }
+
+    /** The paired wallet in folder [id], or null when the folder has no META record. A record that does not read in full throws. */
+    private fun read(session: VaultSession, id: String): PairedWallet? {
         val meta = session.getRecord(id, WalletRecordNames.META)?.let { PairRecords.decodeMeta(it) } ?: return null
         val accounts = meta.addresses.mapIndexed { index, address ->
             val account = PairRecords.decodeAccount(session.getRecord(id, WalletRecordNames.account(index)) ?: return null)
@@ -163,7 +172,7 @@ object PairedWallets {
             .orEmpty()
         val solana = session.getRecord(id, WalletRecordNames.SOLANA)?.let { PairRecords.decodeSolana(it) }.orEmpty()
         val algorand = session.getRecord(id, WalletRecordNames.ALGORAND)?.let { PairRecords.decodeAlgorand(it) }.orEmpty()
-        PairedWallet(
+        return PairedWallet(
             id = id,
             name = meta.name,
             fingerprint = meta.fingerprint,
@@ -173,7 +182,5 @@ object PairedWallets {
             solana = solana,
             algorand = algorand,
         )
-    } catch (e: IllegalArgumentException) {
-        null
     }
 }

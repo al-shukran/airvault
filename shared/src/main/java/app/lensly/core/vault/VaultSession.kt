@@ -618,12 +618,10 @@ class VaultSession constructor(
     /**
      * Makes this vault's photo key pair if it has none, and writes the public half to [VaultLayout.photoKeyFile] when that file differs.
      * The private half is a vault record, so only this vault's password opens it. The real vault also makes sure the Decoy Vault's file
-     * exists, with a placeholder until a Decoy Vault has its own key. The plain photos of an earlier build are shredded too. Called on
-     * unlock, and when a vault is created.
+     * exists, with a placeholder until a Decoy Vault has its own key. Called on unlock, and when a vault is created.
      */
     internal fun ensurePhotoKey(): Unit = synchronized(this) {
         layout.photos.mkdirs()
-        shredPlainPhotos(layout.photoDir(isDecoy))
         val privateKey = getVaultRecord(VaultRecordNames.PHOTO_KEY)
             ?: MediaEnvelope.newPrivateKey().also { putVaultRecord(VaultRecordNames.PHOTO_KEY, it) }
         val publicKey = MediaEnvelope.publicKeyOf(privateKey)
@@ -632,18 +630,6 @@ class VaultSession constructor(
         if (!file.isFile || !file.readBytes().contentEquals(publicKey)) writeAtomically(file, publicKey)
         val decoyFile = layout.photoKeyFile(decoy = true)
         if (!isDecoy && !decoyFile.isFile) writeAtomically(decoyFile, placeholderPhotoKey())
-    }
-
-    /** Shreds the plain JPEG and MP4 files that a build from before photos were sealed left in [dir]. They are deleted, not migrated. */
-    private fun shredPlainPhotos(dir: File) {
-        dir.listFiles { file -> file.isFile && file.extension in setOf("jpg", "mp4") }?.forEach { file ->
-            try {
-                overwriteInPlace(file)
-            } catch (e: IOException) {
-                // Deleted below all the same.
-            }
-            file.delete()
-        }
     }
 
     /** Zeroes the Vault Key and the pad key. Any later call on this session throws [IllegalStateException]. */

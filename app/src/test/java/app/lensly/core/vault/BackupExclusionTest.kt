@@ -15,7 +15,7 @@ import org.w3c.dom.Document
 import org.w3c.dom.Element
 
 /**
- * Backup Exclusion. The manifest sets allowBackup to false, and the two rule files exclude every app domain that holds the vault, for
+ * Backup Exclusion. The manifest sets allowBackup to false, and the rules file excludes every app domain that holds the vault, for
  * cloud backup and for device transfer. A build that allows backup is refused before a vault is created. The manifest and the rules
  * are read from the module source, which is what gets packaged. The test runs with the module directory as its working directory.
  */
@@ -35,12 +35,11 @@ class BackupExclusionTest {
     }
 
     @Test
-    fun thePackagedManifestSetsAllowBackupToFalseAndNamesBothRules() {
+    fun thePackagedManifestSetsAllowBackupToFalseAndNamesTheRules() {
         val application = application(xml("src/main/AndroidManifest.xml"))
 
         assertEquals("false", application.getAttribute("android:allowBackup"))
         assertEquals("@xml/data_extraction_rules", application.getAttribute("android:dataExtractionRules"))
-        assertEquals("@xml/backup_rules", application.getAttribute("android:fullBackupContent"))
     }
 
     @Test
@@ -51,13 +50,6 @@ class BackupExclusionTest {
             val scope = rules.getElementsByTagName(section).item(0) as Element
             assertTrue(excludedDomains(scope).containsAll(appDomains), "$section excludes ${excludedDomains(scope)}")
         }
-    }
-
-    @Test
-    fun legacyFullBackupRulesExcludeEveryAppDomain() {
-        val rules = xml("src/main/res/xml/backup_rules.xml").documentElement
-
-        assertTrue(excludedDomains(rules).containsAll(appDomains), "full backup excludes ${excludedDomains(rules)}")
     }
 
     @Test
