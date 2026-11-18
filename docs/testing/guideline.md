@@ -90,109 +90,59 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 
 ### 2.1 Hard requirements
 
-- **No test demand for untouched code.** A partition runs only when its own paths change. No repo-wide coverage gate; any JaCoCo report is informational and limited to changed files.
-- **PR runs finish in 3 minutes wall clock.** Each partition job sets `timeout-minutes: 3`, covering checkout, JDK, and Gradle setup. The `test` job of `pr-fast` is the exception: see the amendment below.
-- **2.1 amendment (2026-11-12): pr-fast test cap 5 min because** the ui-a partition took 180 s on PR 125 with the Gradle cache restored, and earlier PR runs on the same partitions were killed at the 3-minute cap. Cold work that the cache cannot skip (configuration of about 40 s, since no configuration cache survives to CI, and main and test Kotlin compile of about 55 s) does not fit reliably in 3 minutes. The `test` job sets `timeout-minutes: 5`; the other jobs keep their caps.
-- **Over-budget work moves** to a nightly schedule and a comment command (2.5, 2.6).
-- **Docs, text, and non-build config changes run zero test jobs.** The aggregate job in 2.4 keeps branch protection satisfied.
+- **PR verification finishes in 3 minutes wall clock**, from the first PR job queued to `pr-ok` done. Every job in `pr-fast.yml` sets `timeout-minutes: 3`, which covers checkout, JDK and Gradle setup. The 2026-11-12 amendment that gave the `test` job 5 minutes is withdrawn: the shards in 2.2 bring each job under the cap.
+- **Work that cannot fit moves.** Anything longer goes to the nightly schedule (2.5) or to the push to `master`, where `pr-fast.yml` runs every partition.
+- **No test demand for untouched code.** A partition runs only when a module it can reach changed (2.2). Build logic and CI files are the exceptions: they can change any test, so they run every partition.
+- **Every push to `master` verifies the merge commit** with the same partitions and the same 3-minute cap, so a broken merge shows on the merge commit.
+- **Docs, text, and non-build config changes run zero test jobs.** The `pr-ok` aggregate keeps branch protection satisfied.
 
-### 2.2 Partition map
+### 2.2 Partitions
 
-| Partition | Triggers (paths) | Selector |
-|---|---|---|
-| `core-wallet` | `shared`: `core/wallet/**`, `core/solana/**`, `core/algorand/**`, their tests, `vectors/bip39/**`, `vectors/bip32/**` | `:shared` `app.lensly.core.wallet.*`, `app.lensly.core.solana.*`, `app.lensly.core.algorand.*` |
-| `core-ur-evm` | `shared`: `core/ur/**`, `core/evm/**`, their tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**`, `fuzz/**`, `fuzz-seeds/**` | `:shared` `app.lensly.core.ur.*`, `app.lensly.core.evm.*` and `app.lensly.fuzz.*` |
-| `core-vault` | `shared`: `core/vault/**`, its tests | `:shared` `app.lensly.core.vault.*` (`BackupExclusionTest` runs in `app`) |
-| `core-registry` | `shared`: `core/registry/**`, its tests, the shipped catalogs under `assets/registry/` | `:shared` `app.lensly.core.registry.*` |
-| `core-btc` | `shared`: `core/btc/**`, its tests, `vectors/bitcoin/**` | `:shared` `app.lensly.core.btc.*` |
-| `ui-a` | `ui/**` in `app` and `shared`, their tests, `shared/src/testFixtures/`, `res/values/strings.xml` (same paths as `ui-b`) | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme,navigation,settings}.*` (`screenshot` is excluded by `-PprLane`) |
-| `ui-b` | same as `ui-a` | `:app` `app.lensly.ui.{flow,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
-| `ui-c` | same as `ui-a` | `:app` `app.lensly.ui.{home,sign}.*` |
-| `lumio-a` | `lumio/**`, `shared/**`, the root build files (same paths as `lumio-b`) | `:lumio:testDebugUnitTest` `app.lumio.ui.*` |
-| `lumio-apk` | same as `lumio-a` | `:lumio:assembleDebug` (no tests; dexing alone takes about 85 s on a cold cache) |
-| `lumio-b` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.{chains,evm,home,network,pair,send,tokens,wallets}.*`, `app.lumio.LumioBackdropTest`, `app.lumio.EntryGestureSettingTest`, `app.lumio.CoverLockTest` and `app.lumio.SendRouteTest` |
-| `lumio-c` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.btc.*` |
-| `lumio-d` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.data.*` |
-| `manifest` | `app/src/**/AndroidManifest.xml`, `shared/src/**/AndroidManifest.xml`, `lumio/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts`, `shared/build.gradle.kts`, `lumio/build.gradle.kts`, `scripts/ci/check-manifest.sh` | `check-manifest.sh` (`:app` offline, `:lumio` allow-list) |
-| `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml`, and the test source sets `app/src/test/**`, `shared/src/test/**`, `lumio/src/test/**` | `bash -n` on every script, then `check-partitions.sh` and `check-test-network.sh` |
+Partitions are generated. No list names a test class, so a new test class cannot be left out of the PR lane by an author.
 
-The `ui` tests split in three so each stays under the 3-minute cap, and the `lumio` tests and debug APK split into five so each `test` job of `pr-fast` stays under its 5-minute cap. Every test class in `app`, `shared` and `lumio` must be listed in exactly one arm of `run-partition.sh`, in the Gradle call for the module that holds it. A package can hold classes in two modules (`app.lensly.ui.navigation` has one in each), so the match is per module and per class. `check-partitions.sh` fails the `ci` partition when a class is in no arm or in two. It also runs on any PR that touches a test source set, so a new test class is checked on its own PR.
+- **Shards.** `scripts/ci/shards.sh` reads every test class: each top-level class in a file under `<module>/src/test/java` that contains `@Test`, named from its package line and declaration (a file may declare several). A class joins the shard that the CRC-32 of its fully qualified name selects, so a new class needs no edit and an existing class never moves. The shard count per module (`shared` 4, `app` 2, `lumio` 4) is the only setting. Raise it when a shard's job nears the 2:15 target in 2.3.
+- **Lanes kept out of the shards.** The fuzz package (`app.lensly.fuzz.*`) runs as the `fuzz` partition with `-PfuzzLane`, in its own JVM, because Jazzer and Robolectric cannot share one. The screenshot package (`app.lensly.ui.screenshot.*` in `:app`) is excluded by `-PprLane` and runs nightly (2.7).
+- **Areas.** The `changes` job reads path filters (dorny/paths-filter), and `scripts/ci/plan-partitions.sh` turns them into the matrix:
 
-Build paths (`build.gradle.kts`, `gradle.properties`, `settings.gradle.kts`, `gradle/**`) trigger every unit partition. This is the one exception to "touched code only", because build changes can affect any package. Owner to confirm.
+| Changed paths | Partitions |
+|---|---|
+| `shared/**`, `core/**`, `chains/**` | every `shared-N`, every `app-N`, every `lumio-N`, `fuzz`, `lumio-apk`, `lint`, `ci` (`:app` and `:lumio` are built from `:shared`) |
+| `app/**` | every `app-N`, `ci` |
+| `lumio/**` | every `lumio-N`, `lumio-apk`, `lint`, `ci` |
+| `tools/registry-pack/**` | `registry-pack`, `ci` |
+| `AndroidManifest.xml`, `*.gradle.kts`, `gradle/libs.versions.toml`, `scripts/ci/check-manifest.sh` | `manifest` (added to the rows above) |
+| `build.gradle.kts`, `settings.gradle.kts`, `gradle.properties`, `gradle/**`, `scripts/ci/**`, `.github/workflows/pr-fast.yml`, `.github/workflows/cache-warm.yml`, `.gitleaks.toml` | every partition |
+| Docs and other paths | none |
+| Any push to `master` | every partition |
 
-A `core` change does not run `ui`; `ui` depends on `core`, and the nightly run covers that gap.
+- **Lint.** `lint` is `:lumio:lintDebug` in a job of its own rather than a matrix entry, because setup-gradle keys its cache entry by job id. It runs for shared and lumio changes, since lumio is built from shared.
+- **Guard.** `scripts/ci/check-partitions.sh` (the `ci` partition) fails on a `@Test` outside `src/test/java` and `src/androidTest` (instrumented tests run nightly), on a test file where no class declaration is recognised, and on a class declared twice. The shards read every test source set, so these are the only ways a test can escape them.
+- **Known gap.** The tests of `:core:model` and `:chains:algorand:common` (`core/model/src/test`, `chains/algorand/common/src/test`) are not in any partition. They run nightly with `./gradlew test`, not on the PR lane.
 
 ### 2.3 Speed levers
 
-- Enable `org.gradle.configuration-cache=true`. Build cache is already on.
-- `gradle/actions/setup-gradle` caches the Gradle user home (saved on `master`, restored on PRs). Also cache `~/.m2/repository/org/robolectric`, keyed on the Robolectric version.
-- One filtered Gradle task per job; the build cache absorbs unchanged compile tasks. Measure warm runs in Phase 1.5 and split or move any partition over 3 minutes.
+- **Configuration cache.** `org.gradle.configuration-cache=true` is set in `gradle.properties`. Without a cache that survives to the runner, each job paid about 70 s of configuration. Each partition restores `.gradle/configuration-cache` (about 2 MB) from the latest master push, and every shard of a module shares one entry, because the `--tests` filters are not part of the cache key.
+- **One writer per cache key.** setup-gradle keys its Gradle User Home entry by job id and matrix values, so thirteen matrix entries would write thirteen partial copies. `cache-warm.yml` writes the `test` entry on master (compile and dependency resolution). The `lint` job writes its `lint` entry on master pushes. Partitions on pull requests restore read-only.
+- **Dexing only where it is needed.** The unit-test partitions never assemble the APK; `lumio-apk` does.
+- **Lint.** `lumio/build.gradle.kts` sets `checkTestSources` and `checkDependencies` to `false`. Lint's unit-test analysis still runs (about 25 s in a warm run); see the measurements in the pull request.
+- **Setup costs on CI.** Checkout takes about 5 s, the JDK about 1 s from the runner's tool cache, and the setup-gradle restore about 14 s.
 
 ### 2.4 PR fast lane
 
+`pr-fast.yml` runs on pull requests to `master` and `phase-1-5`, and on pushes to `master`. Abridged; the file is the source of truth:
+
 ```yaml
-# .github/workflows/pr-fast.yml
-name: pr-fast
-on:
-  pull_request:
-    branches: [master]
-concurrency:
-  group: pr-fast-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-permissions:
-  contents: read
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      partitions: ${{ steps.filter.outputs.changes }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            core-wallet:
-              - 'shared/src/main/java/app/lensly/core/wallet/**'
-              - 'shared/src/test/java/app/lensly/core/wallet/**'
-              - 'shared/src/main/java/app/lensly/core/solana/**'
-              - 'shared/src/test/java/app/lensly/core/solana/**'
-              - 'shared/src/main/java/app/lensly/core/algorand/**'
-              - 'shared/src/test/java/app/lensly/core/algorand/**'
-              - 'shared/src/test/resources/vectors/bip39/**'
-              - 'shared/src/test/resources/vectors/bip32/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-            # one entry per row of the 2.2 table
-  test:
-    needs: changes
-    if: needs.changes.outputs.partitions != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    strategy:
-      fail-fast: false
-      matrix:
-        partition: ${{ fromJSON(needs.changes.outputs.partitions) }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-      - run: scripts/ci/run-partition.sh "${{ matrix.partition }}"
-  pr-ok:                       # the single required check
-    needs: [changes, test]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - run: '! { [ "${{ needs.test.result }}" = failure ] || [ "${{ needs.test.result }}" = cancelled ]; }'
+  changes:      # dorny/paths-filter areas, then scripts/ci/plan-partitions.sh; timeout-minutes: 3
+  test:         # matrix over the partitions; read-only setup-gradle; configuration cache; timeout-minutes: 3
+  lint:         # :lumio:lintDebug when shared or lumio changed; timeout-minutes: 3
+  secrets:      # gitleaks over the PR's commits (or the pushed commits); timeout-minutes: 3
+  dependency_review:  # only when dependency files changed and DEPENDENCY_GRAPH_ENABLED=true
+  test_network: # scripts/ci/check-test-network.sh; timeout-minutes: 3
+  pr-ok:        # the single required check; timeout-minutes: 3
 ```
 
-`scripts/ci/run-partition.sh` maps each name to its selector (2.2) and runs `check-manifest.sh` for `manifest`.
+`scripts/ci/run-partition.sh <partition>` runs one matrix entry, and the local equivalent of every entry is listed in `scripts/ci/README.md`.
 
 ### 2.5 Nightly, issue on failure
 
@@ -271,8 +221,8 @@ Durations are estimates, to be measured in Phase 1.5.
 
 | Test type | Trigger | Expected wall clock |
 |---|---|---|
-| Unit `core/*` | PR fast lane, partition paths | 1 to 2 min warm |
-| Integration and UI (Robolectric) | PR fast lane, `ui-a`, `ui-b` and `ui-c` partitions | up to 3 min warm each; split or move if over |
+| Unit (`shared`, `app`, `lumio`) | PR fast lane, shards (2.2) | under 2:15 per shard warm |
+| Integration and UI (Robolectric) | PR fast lane, shards (2.2) | under 2:15 per shard warm |
 | Manifest guard | PR fast lane, manifest and dependency paths | about 1 min |
 | Secrets scan, dependency review | PR fast lane, changed files | under 30 s |
 | Screenshot (Roborazzi verify) | nightly 03:17 UTC; `/run-screenshot-testing` | 5 to 10 min |
@@ -318,14 +268,14 @@ Durations are estimates, to be measured in Phase 1.5.
 Where the shipped build differs from the text above:
 
 - **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The application still targets Java 17.
-- **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
+- **Partitions:** generated from the test sources by `scripts/ci/shards.sh`; no list names a test class (2.2). The fuzz and screenshot packages have their own lanes.
 - **`ui` and pixels:** the `ui-a`, `ui-b` and `ui-c` partitions pass `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly via `verifyRoborazziDebug`.
 - **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and `dependency_review` in `pr-fast.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/heyaibi/lensly/settings/security_analysis.
 - **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
 - **Fuzz isolation:** Jazzer and Robolectric cannot share a JVM. Running a fuzz target first corrupts the Robolectric sandbox, and later Robolectric tests fail with `NoClassDefFoundError: JazzerInternal`. The fuzz tests therefore sit behind `-PfuzzLane`, which `run-partition.sh`, `fuzz-nightly.sh` and `nightly.yml` each pass in a separate Gradle invocation.
 - **Benchmark lane:** the benchmark variant needs `benchmarkImplementation` so `androidx.benchmark.IsolationActivity` merges into the application APK; without it every run fails with "Unable to resolve activity for androidx.benchmark.IsolationActivity". The lane runs only `app.lensly.benchmark.*`. Baselines need a manual AOT compile on a reference device, because a Gradle run reinstalls and clears the compiled code; the procedure is in `app/src/androidTest/benchmark-baselines/README.md`.
 - **Macrobenchmark:** lives in the separate `:benchmark` module (`com.android.test`). Baselines must be recorded on the reference device.
-- **Cache warm:** `scripts/ci/cache-warm.yml` warms the Gradle cache on pushes to `master` and `phase-1-5`. A cold branch previously hit the 3-minute job cap.
+- **Cache warm:** `.github/workflows/cache-warm.yml` is the only writer of the `test` cache entry on pushes to `master` and `phase-1-5`; the PR partitions restore it read-only (2.3). A cold branch previously hit the 3-minute job cap.
 - **E2E:** the `FrameSource` seam plus `app.lensly.e2e.WalletSignFlowTest` are verified on an API 36 arm64 emulator. The `/run-*` comment commands only work once the workflow exists on the default branch.
 - **Policy, `FixtureDecoder` in `src/main`:** `FixtureDecoder` and the public `frameSource` parameter ship in `src/main` so the E2E can feed frames through the real decoder. This is a deliberate exception to §3; moving it to `src/test` would change the application's camera API.
 - **Policy, benchmark gate scope:** the 10% gate enforces only on the reference device (`--reference-device`, or `BENCHMARK_REFERENCE_DEVICE=1`). Elsewhere it prints "no verdict" and never passes silently.

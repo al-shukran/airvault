@@ -43,7 +43,7 @@ fi
 partition="$1"
 
 case "$partition" in
-    shared-* | app-* | lumio-*)
+    shared-[0-9]* | app-[0-9]* | lumio-[0-9]*)
         module=${partition%-*}
         index=${partition##*-}
         count=$(shard_count "$module")
