@@ -1,10 +1,5 @@
 package app.lumio.ui.kit
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,15 +13,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LumenMotion
 
 /** The height of a row with one line. Two lines with an amount take 72 dp. */
 private val ROW_HEIGHT = 64.dp
@@ -49,28 +40,11 @@ fun LumioRow(
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val press = animateFloatAsState(
-        targetValue = if (pressed && onClick != null) PRESSED_ROW_SCALE else 1f,
-        animationSpec = LumenMotion.spatialFast,
-        label = "row press",
-    )
     Row(
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = ROW_HEIGHT)
-            .graphicsLayer {
-                scaleX = press.value
-                scaleY = press.value
-            }
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
-                } else {
-                    Modifier
-                },
-            )
+            .then(if (onClick != null) Modifier.lumioPress(scale = PRESSED_ROW_SCALE, onClick = onClick) else Modifier)
             .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {

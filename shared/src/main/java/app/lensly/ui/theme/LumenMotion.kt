@@ -12,11 +12,14 @@ import androidx.compose.ui.geometry.Rect
  * draw lambda, never in composition (section 3.7).
  */
 object LumenMotion {
-    /** Bounds, container transforms and slides. */
-    val spatial = spring<Float>(dampingRatio = 0.86f, stiffness = 380f)
+    /**
+     * Bounds, container transforms, slides and the navigation spring. Critically damped, so it never overshoots: 90% by about 195 ms, within 2% by
+     * about 290 ms (the Exodus teardown target).
+     */
+    val spatial = spring<Float>(dampingRatio = 1.00f, stiffness = 400f)
 
-    /** Press scale, chips and odometer digits. */
-    val spatialFast = spring<Float>(dampingRatio = 0.90f, stiffness = 700f)
+    /** Press scale and its release, chips and odometer digits. Critically damped: within 2% by about 150 ms. */
+    val spatialFast = spring<Float>(dampingRatio = 1.00f, stiffness = 1500f)
 
     /** The success check, the ring closing and the orb's pop. */
     val bouncy = spring<Float>(dampingRatio = 0.62f, stiffness = 420f)
@@ -36,5 +39,5 @@ object LumenMotion {
     const val STAGGER_MAX_ITEMS = 8
 
     /** The bounds of a shared element move with the spatial spring. */
-    val sharedBoundsTransform = BoundsTransform { _, _ -> spring(dampingRatio = 0.86f, stiffness = 380f, visibilityThreshold = Rect.VisibilityThreshold) }
+    val sharedBoundsTransform = BoundsTransform { _, _ -> spring(dampingRatio = 1.00f, stiffness = 400f, visibilityThreshold = Rect.VisibilityThreshold) }
 }
