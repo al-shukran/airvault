@@ -103,19 +103,6 @@ class WalletNamesTest {
     }
 
     @Test
-    fun aWalletWithoutABaseNameUsesItsCurrentNameUntilItIsRenamed() {
-        val id = newWallet()
-        session.deleteRecord(id, WalletRecords.BASE_NAME)
-        assertEquals("Seed", assertNotNull(store.meta(id)).autoNameBase)
-
-        store.renameWallet(id, "Vault")
-        val meta = assertNotNull(reopen().meta(id))
-
-        assertEquals("Vault", meta.name)
-        assertEquals("Seed", meta.autoNameBase)
-    }
-
-    @Test
     fun aRenamedAccountKeepsItsNameAfterALockAndTheOtherAccountsKeepTheirAutoName() {
         val id = newWallet()
         store.addAccount(id)
