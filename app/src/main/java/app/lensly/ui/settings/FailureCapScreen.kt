@@ -200,7 +200,7 @@ private fun ChooseContent(
     }
 }
 
-/** The erase counts the owner may choose: 5 to 20 wrong tries in a row. */
+/** The erase counts the owner may choose: 3 to 20 wrong tries in a row. */
 private val ERASE_OPTIONS: List<Int> = (FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER).toList()
 
 /**

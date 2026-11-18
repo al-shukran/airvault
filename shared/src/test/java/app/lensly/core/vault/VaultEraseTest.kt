@@ -47,6 +47,21 @@ class VaultEraseTest {
     }
 
     @Test
+    fun theLowestEraseCountErasesOnTheThirdWrongTry() {
+        createVault()
+        setEraseAfter(3)
+
+        assertNull(runBlocking { vault.triesBeforeErase() })
+        assertRejected(attempt(WRONG))
+        assertEquals(2, runBlocking { vault.triesBeforeErase() })
+        assertRejected(attempt(WRONG))
+        assertEquals(1, runBlocking { vault.triesBeforeErase() })
+        assertEquals(UnlockResult.Erased, attempt(WRONG))
+
+        assertFalse(vault.exists())
+    }
+
+    @Test
     fun theWarningShowsFromThreeTriesBeforeTheErase() {
         createVault()
         setEraseAfter(5)
@@ -123,7 +138,7 @@ class VaultEraseTest {
         assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureLimits(APP.toCharArray(), null, 20) })
         assertEquals(20, runBlocking { vault.failureEraseAfter() })
 
-        assertFailsWith<IllegalArgumentException> { runBlocking { vault.setFailureLimits(APP.toCharArray(), null, 4) } }
+        assertFailsWith<IllegalArgumentException> { runBlocking { vault.setFailureLimits(APP.toCharArray(), null, 2) } }
         assertFailsWith<IllegalArgumentException> { runBlocking { vault.setFailureLimits(APP.toCharArray(), null, 21) } }
         assertEquals(20, runBlocking { vault.failureEraseAfter() })
     }

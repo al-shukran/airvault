@@ -102,8 +102,8 @@ class FailureDelay(
         const val MIN_CAP_MS = 10_000L
         const val MAX_CAP_MS = 3_600_000L
 
-        /** The erase count the owner may choose, from 5 to 20. Erasing cannot be switched off. */
-        const val MIN_WIPE_AFTER = 5
+        /** The erase count the owner may choose, from 3 to 20. Erasing cannot be switched off. */
+        const val MIN_WIPE_AFTER = 3
         const val MAX_WIPE_AFTER = 20
         const val DEFAULT_WIPE_AFTER = 10
 
@@ -117,8 +117,12 @@ class FailureDelay(
         fun erases(state: FailureState): Boolean =
             state.failures >= state.wipeAfter && state.failures < FailureStore.TAMPER_FAILURES
 
-        /** The tries left before the vault is erased, when that is [WARN_TRIES_LEFT] or fewer. Null otherwise. */
-        fun triesLeftToWarn(state: FailureState): Int? = (state.wipeAfter - state.failures).takeIf { it in 1..WARN_TRIES_LEFT }
+        /**
+         * The tries left before the vault is erased, when that is [WARN_TRIES_LEFT] or fewer and a wrong try has been made. Null
+         * otherwise: with the lowest erase count, [WARN_TRIES_LEFT] already covers a vault with no wrong tries, which must not warn.
+         */
+        fun triesLeftToWarn(state: FailureState): Int? =
+            (state.wipeAfter - state.failures).takeIf { state.failures > 0 && it in 1..WARN_TRIES_LEFT }
 
         /** From this exponent on, `BASE_DELAY_MS shl exponent` exceeds every cap, so the cap applies. */
         private const val MAX_EXPONENT = 40
