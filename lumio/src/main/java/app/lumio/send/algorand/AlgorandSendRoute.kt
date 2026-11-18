@@ -405,7 +405,7 @@ internal fun AlgorandSendRoute(
         )
         AlgorandSendStep.Reading -> AlgorandOptInReadingScreen(notice = notice, onBack = { navController.popBackStack() })
         AlgorandSendStep.ScanRecipient -> ScanScreen(
-            title = "Scan address",
+            title = "Scan Address",
             progress = null,
             statusText = recipientStatus,
             onText = ::onRecipientText,
@@ -430,7 +430,7 @@ internal fun AlgorandSendRoute(
             },
         )
         is AlgorandSendStep.Scanning -> ScanScreen(
-            title = "Scan signature",
+            title = "Scan Signature",
             progress = scanProgress,
             statusText = scanStatus,
             onText = { text -> onSignatureText(current, text) },

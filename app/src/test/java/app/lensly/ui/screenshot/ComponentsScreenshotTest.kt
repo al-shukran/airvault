@@ -43,12 +43,12 @@ class ComponentsScreenshotTest {
             modifier = Modifier.fillMaxWidth().padding(LenslySpacing.md),
             verticalArrangement = Arrangement.spacedBy(LenslySpacing.lg),
         ) {
-            LoadingState(label = "Loading wallets")
+            LoadingState(label = "Loading Wallets")
             EmptyState(
                 icon = Icons.Filled.Info,
                 title = "No wallets yet",
                 body = "Create or restore a wallet to see it here.",
-                actionLabel = "Create wallet",
+                actionLabel = "Create Wallet",
             )
             ErrorState(
                 icon = Icons.Filled.Close,

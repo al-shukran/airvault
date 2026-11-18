@@ -5,7 +5,7 @@ import app.lensly.core.registry.WhitelistEntry
 
 /**
  * The protocol an approved call belongs to: the text of its meaning before the first colon, such as "Aave V3" in
- * "Aave V3: deposit an asset". A meaning with no colon names no protocol, and the list then shows "Approved call".
+ * "Aave V3: deposit an asset". A meaning with no colon names no protocol, and the list then shows "Approved Call".
  */
 internal fun protocolOf(entry: WhitelistEntry): String = protocolOfMeaning(entry.meaning)
 

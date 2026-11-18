@@ -85,7 +85,7 @@ internal fun SignWalletRoute(
 
     when (val shown = step) {
         is SignStep.Scanning -> ScanScreen(
-            title = "Sign request",
+            title = "Sign Request",
             progress = shown.progress,
             statusText = shown.status,
             onText = flow::onScanned,

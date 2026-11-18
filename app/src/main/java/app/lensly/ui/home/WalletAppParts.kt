@@ -187,9 +187,9 @@ internal fun AppOptionsSheet(
             SheetOption(icon = Icons.Filled.Add, label = "Generate accounts", onClick = onGenerate)
         }
         if (onSelect != null) {
-            SheetOption(icon = Icons.Filled.Check, label = "Select accounts", onClick = onSelect)
+            SheetOption(icon = Icons.Filled.Check, label = "Select Accounts", onClick = onSelect)
         }
-        SheetOption(icon = LenslyIcons.QrCode, label = "Pair this wallet", onClick = onPair)
-        SheetOption(icon = LenslyIcons.QrScan, label = "Scan to sign", onClick = onScan)
+        SheetOption(icon = LenslyIcons.QrCode, label = "Pair This Wallet", onClick = onPair)
+        SheetOption(icon = LenslyIcons.QrScan, label = "Scan to Sign", onClick = onScan)
     }
 }

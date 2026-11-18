@@ -142,18 +142,18 @@ internal fun ShredRoute(
 private const val KEY_CLEANUP_NOTICE = "Wallet deleted. Key cleanup at next unlock."
 
 private val DELETE_WALLET_COPY = ShredCopy(
-    title = "Delete wallet",
+    title = "Delete Wallet",
     prompt = "Enter your Application Password to delete this wallet.",
-    warningTitle = "Cannot be recovered",
+    warningTitle = "Cannot Be Recovered",
     warning = "This wallet and its accounts are erased from this device. It cannot be recovered without its backup: " +
         "the recovery phrase and passphrase, or the single key. Check that the backup is safe before you delete.",
-    action = "Delete wallet",
+    action = "Delete Wallet",
 )
 
 private val WIPE_COPY = ShredCopy(
     title = "Wipe",
     prompt = "Enter your Application Password to wipe the vault.",
-    warningTitle = "Erases everything",
+    warningTitle = "Erases Everything",
     warning = "Every wallet, every account and the Application Password are erased from this device. Only the backups of " +
         "your wallets can bring them back. The application then asks for a new Application Password.",
     action = "Wipe",
@@ -162,7 +162,7 @@ private val WIPE_COPY = ShredCopy(
 private val REMOVE_DURESS_COPY = ShredCopy(
     title = "Duress Password",
     prompt = "Enter your Application Password to remove the Duress Password.",
-    warningTitle = "Cannot be recovered",
+    warningTitle = "Cannot Be Recovered",
     warning = "The Duress Password stops opening anything, and the wallets it opened are erased from this device. " +
         "Your wallets stay.",
     action = "Remove",

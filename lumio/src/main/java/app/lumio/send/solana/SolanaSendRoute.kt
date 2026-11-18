@@ -426,7 +426,7 @@ internal fun SolanaSendRoute(
             onBack = { navController.popBackStack() },
         )
         SolanaSendStep.ScanRecipient -> ScanScreen(
-            title = "Scan address",
+            title = "Scan Address",
             progress = null,
             statusText = recipientStatus,
             onText = ::onRecipientText,
@@ -465,7 +465,7 @@ internal fun SolanaSendRoute(
             setup = current.setup,
         )
         is SolanaSendStep.Scanning -> ScanScreen(
-            title = "Scan signature",
+            title = "Scan Signature",
             progress = scanProgress,
             statusText = scanStatus,
             onText = { text -> onSignatureText(current, text) },

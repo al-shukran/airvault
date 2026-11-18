@@ -188,7 +188,7 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
     }
 
     AddressBookFormScreen(
-        title = if (entry == null) "Add address" else "Edit address",
+        title = if (entry == null) "Add Address" else "Edit Address",
         address = address,
         name = name,
         label = label,
@@ -206,7 +206,7 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete this address?") },
+            title = { Text("Delete This Address?") },
             text = { Text("It is removed from the Address Book on this device. Review Records are not changed.") },
             confirmButton = {
                 TextButton(onClick = {

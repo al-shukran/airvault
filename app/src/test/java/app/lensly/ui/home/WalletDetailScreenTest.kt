@@ -109,13 +109,13 @@ class WalletDetailScreenTest {
         }
 
         compose.onNodeWithContentDescription("Wallet options").performClick()
-        compose.onNodeWithText("Edit wallet profile").assertIsDisplayed()
+        compose.onNodeWithText("Edit Wallet Profile").assertIsDisplayed()
         compose.onNodeWithText("History").assertIsDisplayed()
-        compose.onNodeWithText("Show secret phrase").assertIsDisplayed()
-        compose.onNodeWithText("Delete wallet").assertIsDisplayed()
+        compose.onNodeWithText("Show Secret Phrase").assertIsDisplayed()
+        compose.onNodeWithText("Delete Wallet").assertIsDisplayed()
         // Generating, selecting, pairing and signing are on each App, so the wallet's options do not hold them.
         compose.onNodeWithText("Generate accounts").assertDoesNotExist()
-        compose.onNodeWithText("Select accounts").assertDoesNotExist()
+        compose.onNodeWithText("Select Accounts").assertDoesNotExist()
     }
 
     @Test
@@ -142,7 +142,7 @@ class WalletDetailScreenTest {
         }
 
         compose.onNodeWithText("SEED WALLET").performTouchInput { longClick() }
-        compose.onNodeWithText("Edit wallet profile").assertIsDisplayed()
+        compose.onNodeWithText("Edit Wallet Profile").assertIsDisplayed()
     }
 
     @Test
@@ -155,16 +155,16 @@ class WalletDetailScreenTest {
         }
 
         compose.onNodeWithContentDescription("Wallet options").performClick()
-        compose.onNodeWithText("Show secret phrase").performClick()
+        compose.onNodeWithText("Show Secret Phrase").performClick()
         compose.onNodeWithText("This reveals your secret recovery phrase", substring = true).assertIsDisplayed()
         assertFalse(route.revealed)
 
         // Cancel goes back to the options without opening the secret.
         compose.onNodeWithText("Cancel").performClick()
-        compose.onNodeWithText("Show secret phrase").assertIsDisplayed()
+        compose.onNodeWithText("Show Secret Phrase").assertIsDisplayed()
         assertFalse(route.revealed)
 
-        compose.onNodeWithText("Show secret phrase").performClick()
+        compose.onNodeWithText("Show Secret Phrase").performClick()
         compose.onNodeWithText("Reveal").performClick()
         assertTrue(route.revealed)
     }
@@ -181,6 +181,6 @@ class WalletDetailScreenTest {
         // The Bitcoin, Solana and Algorand rows hold no account, so the count of 0 is shown three times.
         compose.onAllNodesWithText("0 accounts")[0].assertIsDisplayed()
         compose.onNodeWithContentDescription("Wallet options").performClick()
-        compose.onNodeWithText("Show private key").assertIsDisplayed()
+        compose.onNodeWithText("Show Private Key").assertIsDisplayed()
     }
 }

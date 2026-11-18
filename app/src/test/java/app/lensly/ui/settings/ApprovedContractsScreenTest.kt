@@ -92,7 +92,7 @@ class ApprovedContractsScreenTest {
         var opened = false
         show(emptyList(), onUpdateCatalog = { opened = true })
 
-        compose.onNodeWithText("Update catalog").performClick()
+        compose.onNodeWithText("Update Catalog").performClick()
 
         assertTrue(opened)
     }
@@ -153,6 +153,6 @@ class ApprovedContractsScreenTest {
     fun aPopulatedListOffersTheOneAddAction() {
         show(listOf(swap))
 
-        compose.onNodeWithText("Update catalog").assertExists()
+        compose.onNodeWithText("Update Catalog").assertExists()
     }
 }

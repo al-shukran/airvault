@@ -200,7 +200,7 @@ class WalletHomeScreenTest {
         }
         settle()
 
-        compose.onNodeWithText("See all").performClick()
+        compose.onNodeWithText("See All").performClick()
         settle()
 
         assertEquals(HiddenRoute.ACTIVITY, nav.currentBackStackEntry?.destination?.route)

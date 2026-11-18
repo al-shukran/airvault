@@ -63,7 +63,7 @@ class ActivityScreenTest {
     fun withNoRecordTheScreenSaysWhatWillBeListedHere() {
         showActivity(emptyList())
 
-        compose.onNodeWithText("No activity yet").assertIsDisplayed()
+        compose.onNodeWithText("No Activity Yet").assertIsDisplayed()
     }
 
     @Test
@@ -71,14 +71,14 @@ class ActivityScreenTest {
         showActivity()
 
         compose.onNodeWithText("transfer").assertIsDisplayed()
-        compose.onNodeWithText("Unknown contract call").assertIsDisplayed()
-        compose.onNodeWithText("Sign message").assertIsDisplayed()
+        compose.onNodeWithText("Unknown Contract Call").assertIsDisplayed()
+        compose.onNodeWithText("Sign Message").assertIsDisplayed()
         // Each row names its wallet, so the two wallets can be told apart in the one list.
         compose.onAllNodesWithText("Seed wallet").onFirst().assertIsDisplayed()
         compose.onNodeWithText("Trading").assertIsDisplayed()
 
-        assertTrue(topOf("transfer") < topOf("Unknown contract call"), "the newer record is listed first")
-        assertTrue(topOf("Unknown contract call") < topOf("Sign message"), "the older record is listed last")
+        assertTrue(topOf("transfer") < topOf("Unknown Contract Call"), "the newer record is listed first")
+        assertTrue(topOf("Unknown Contract Call") < topOf("Sign Message"), "the older record is listed last")
     }
 
     @Test
@@ -89,9 +89,9 @@ class ActivityScreenTest {
         compose.onNodeWithText("Refused").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Unknown contract call").assertIsDisplayed()
+        compose.onNodeWithText("Unknown Contract Call").assertIsDisplayed()
         compose.onNodeWithText("transfer").assertDoesNotExist()
-        compose.onNodeWithText("Sign message").assertDoesNotExist()
+        compose.onNodeWithText("Sign Message").assertDoesNotExist()
     }
 
     @Test

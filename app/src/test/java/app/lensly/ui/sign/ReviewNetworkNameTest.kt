@@ -32,14 +32,14 @@ class ReviewNetworkNameTest {
 
     @Test
     fun theBitcoinNetworksAreNamedWithTheirChain() {
-        assertEquals("Bitcoin mainnet", bitcoinNetworkName(BtcNetwork.MAINNET))
-        assertEquals("Bitcoin testnet4", bitcoinNetworkName(BtcNetwork.TESTNET4))
+        assertEquals("Bitcoin Mainnet", bitcoinNetworkName(BtcNetwork.MAINNET))
+        assertEquals("Bitcoin Testnet4", bitcoinNetworkName(BtcNetwork.TESTNET4))
     }
 
     @Test
     fun theAlgorandGenesisIdsAreNamedByTheirNetwork() {
-        assertEquals("Algorand testnet", AlgorandNetwork.ofGenesisId("testnet-v1.0")?.displayName)
-        assertEquals("Algorand mainnet", AlgorandNetwork.ofGenesisId("mainnet-v1.0")?.displayName)
+        assertEquals("Algorand Testnet", AlgorandNetwork.ofGenesisId("testnet-v1.0")?.displayName)
+        assertEquals("Algorand Mainnet", AlgorandNetwork.ofGenesisId("mainnet-v1.0")?.displayName)
     }
 
     @Test

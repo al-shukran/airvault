@@ -79,8 +79,8 @@ class AddTokenScreenTest {
     fun theTokensOfTheChainAreListedInTheirTwoGroups() {
         show()
 
-        compose.onNodeWithText("Default tokens", ignoreCase = true).assertExists()
-        compose.onNodeWithText("Your tokens", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Default Tokens", ignoreCase = true).assertExists()
+        compose.onNodeWithText("Your Tokens", ignoreCase = true).assertExists()
         compose.onNodeWithText("USDC").assertExists()
         compose.onNodeWithText("DAI").assertExists()
     }

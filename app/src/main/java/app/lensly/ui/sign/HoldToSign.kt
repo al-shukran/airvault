@@ -113,7 +113,7 @@ internal fun HoldToSignButton(
                 .background(MaterialTheme.colorScheme.primary),
         )
         Text(
-            text = "Hold to sign",
+            text = "Hold to Sign",
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
             color = if (enabled) MaterialTheme.colorScheme.background else colors.onSurfaceVariant,
         )

@@ -81,7 +81,7 @@ class BitcoinServersSettingsTest {
     fun resetPutsTheFieldBackOnThePublicServer() {
         show(mainnet = custom)
 
-        compose.onNodeWithText("Reset to defaults").performClick()
+        compose.onNodeWithText("Reset to Defaults").performClick()
 
         assertEquals(1, resets)
         compose.onNodeWithText(EsploraServers.MAINNET_DEFAULT).assertExists()

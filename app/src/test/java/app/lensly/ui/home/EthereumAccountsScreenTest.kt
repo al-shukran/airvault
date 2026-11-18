@@ -91,7 +91,7 @@ class EthereumAccountsScreenTest {
 
     @Test
     fun addingAnAccountKeepsTheScrollPositionAndAppendsTheRow() {
-        // Twelve accounts, with the list scrolled into the middle, so the "Add account" row is still on screen.
+        // Twelve accounts, with the list scrolled into the middle, so the "Add Account" row is still on screen.
         val route = Route(accounts = 12)
         lateinit var listState: LazyListState
         compose.setContent {
@@ -105,7 +105,7 @@ class EthereumAccountsScreenTest {
         val before = compose.runOnIdle { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
         assertTrue("the list starts scrolled, so the test can see it move", before.first > 0)
 
-        compose.onNodeWithText("Add account").performClick()
+        compose.onNodeWithText("Add Account").performClick()
         compose.waitForIdle()
         // The new account is counted, and its row waits for its address. The rows already shown stay as they were.
         compose.onAllNodesWithText("DERIVING ADDRESS").assertCountEquals(1)
@@ -145,10 +145,10 @@ class EthereumAccountsScreenTest {
         }
 
         compose.onNodeWithText("Main").performTouchInput { longClick() }
-        compose.onNodeWithText("Export address").assertIsDisplayed()
-        compose.onNodeWithText("Edit profile").assertIsDisplayed()
+        compose.onNodeWithText("Export Address").assertIsDisplayed()
+        compose.onNodeWithText("Edit Profile").assertIsDisplayed()
 
-        compose.onNodeWithText("Export address").performClick()
+        compose.onNodeWithText("Export Address").performClick()
         assertEquals(listOf(0), route.exported)
     }
 
@@ -162,7 +162,7 @@ class EthereumAccountsScreenTest {
         }
 
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onNodeWithText("Select accounts").performClick()
+        compose.onNodeWithText("Select Accounts").performClick()
         compose.onNodeWithText(groupedAddress(addressAt(4))).performClick()
         compose.onNodeWithText(groupedAddress(addressAt(1))).performClick()
         compose.onNodeWithText(groupedAddress(addressAt(3))).performClick()
@@ -186,11 +186,11 @@ class EthereumAccountsScreenTest {
         assertTrue(route.generated)
 
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onNodeWithText("Pair this wallet").performClick()
+        compose.onNodeWithText("Pair This Wallet").performClick()
         assertTrue(route.paired)
 
         compose.onNodeWithContentDescription("App options").performClick()
-        compose.onNodeWithText("Scan to sign").performClick()
+        compose.onNodeWithText("Scan to Sign").performClick()
         assertTrue(route.scanned)
     }
 
@@ -203,11 +203,11 @@ class EthereumAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("Add account").assertDoesNotExist()
+        compose.onNodeWithText("Add Account").assertDoesNotExist()
         compose.onNodeWithContentDescription("App options").performClick()
         compose.onNodeWithText("Generate accounts").assertDoesNotExist()
-        compose.onNodeWithText("Select accounts").assertDoesNotExist()
-        compose.onNodeWithText("Pair this wallet").assertIsDisplayed()
+        compose.onNodeWithText("Select Accounts").assertDoesNotExist()
+        compose.onNodeWithText("Pair This Wallet").assertIsDisplayed()
     }
 }
 

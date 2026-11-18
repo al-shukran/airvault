@@ -15,13 +15,13 @@ internal fun unknownNetworkName(chainId: Long): String = "Unknown network (chain
 
 /** The name of a Bitcoin network a review is for. Testnet4 is named as the test network. */
 internal fun bitcoinNetworkName(network: BtcNetwork): String = when (network) {
-    BtcNetwork.MAINNET -> "Bitcoin mainnet"
-    BtcNetwork.TESTNET4 -> "Bitcoin testnet4"
+    BtcNetwork.MAINNET -> "Bitcoin Mainnet"
+    BtcNetwork.TESTNET4 -> "Bitcoin Testnet4"
 }
 
 /** The name of a Solana cluster a request states. Mainnet-beta is named as the mainnet, and devnet and testnet as the test networks. */
 internal fun solanaClusterName(cluster: SolCluster): String = when (cluster) {
-    SolCluster.MAINNET_BETA -> "Solana mainnet"
-    SolCluster.DEVNET -> "Solana devnet"
-    SolCluster.TESTNET -> "Solana testnet"
+    SolCluster.MAINNET_BETA -> "Solana Mainnet"
+    SolCluster.DEVNET -> "Solana Devnet"
+    SolCluster.TESTNET -> "Solana Testnet"
 }

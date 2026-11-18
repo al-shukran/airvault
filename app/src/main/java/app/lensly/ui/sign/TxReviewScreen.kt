@@ -154,7 +154,7 @@ fun TxReviewScreen(
                 TransactionFields(review, showTo, open)
             }
             review.whitelisted?.let { whitelisted ->
-                ReviewSection(title = "Raw data") {
+                ReviewSection(title = "Raw Data") {
                     RawDataFields(whitelisted)
                 }
             }
@@ -245,7 +245,7 @@ internal fun evmSentence(review: TxReview, mono: FontFamily): AnnotatedString = 
     val amount = listOf(review.amount, review.symbol).filter { it.isNotEmpty() }.joinToString(" ")
     val whitelisted = review.whitelisted
     when {
-        review.function == SIGN_MESSAGE_FUNCTION -> append("Sign a message")
+        review.function == SIGN_MESSAGE_FUNCTION -> append("Sign a Message")
         review.typed != null -> append("Sign ${review.function}")
         whitelisted != null -> append(whitelisted.meaning)
         spender != null && review.amount.isNotEmpty() -> {
@@ -303,8 +303,8 @@ private fun AnnotatedString.Builder.appendCounterparty(review: TxReview, address
  * and its full address in the fields otherwise. The request names no origin as "Not stated".
  */
 internal fun evmFacts(review: TxReview): List<ReviewFact> = buildList {
-    val maxFee = review.fee.firstOrNull { it.first == "Max fee" }?.second
-    maxFee?.let { add(ReviewFact(label = "Network fee", value = it)) }
+    val maxFee = review.fee.firstOrNull { it.first == "Max Fee" }?.second
+    maxFee?.let { add(ReviewFact(label = "Network Fee", value = it)) }
     evmTotal(review, maxFee)?.let { add(ReviewFact(label = "Total", value = it)) }
     review.typed?.summary?.forEach { (label, value) ->
         val name = review.addressNotes.notesOf(value)?.shownName()
@@ -445,7 +445,7 @@ private fun NestedCallView(call: NestedCall, notes: Map<String, AddressNotes>, o
                 color = MaterialTheme.colorScheme.onSurface,
             )
             whitelisted.steps?.lines?.takeIf { it.isNotEmpty() }?.let { NumberedSteps(it) }
-            ReviewField(label = "Function signature", value = whitelisted.signature)
+            ReviewField(label = "Function Signature", value = whitelisted.signature)
             ReviewFactRow(label = "Value", value = whitelisted.call.value)
             ReviewFactRow(label = "Selector", value = "0x${whitelisted.call.selector}")
             whitelisted.call.words.forEachIndexed { index, word ->
@@ -470,9 +470,9 @@ private fun TransactionFields(review: TxReview, showTo: Boolean, open: ((String)
     }
     review.whitelisted?.let { whitelisted ->
         protocolOfMeaning(whitelisted.meaning).takeIf { it.isNotEmpty() }?.let { protocol ->
-            ReviewFactRow(label = "Known contract", value = protocol, mono = false)
+            ReviewFactRow(label = "Known Contract", value = protocol, mono = false)
         }
-        ReviewField(label = "Function signature", value = whitelisted.signature)
+        ReviewField(label = "Function Signature", value = whitelisted.signature)
         // The To row names the contract, so the block leaves it out when that row shows.
         if (!showTo) {
             ReviewField(label = "Contract", value = whitelisted.call.target, notes = notes.notesOf(whitelisted.call.target), onOpen = open)
@@ -483,7 +483,7 @@ private fun TransactionFields(review: TxReview, showTo: Boolean, open: ((String)
         if (review.token == null) {
             ReviewFactRow(label = "Token", value = UNKNOWN_TOKEN_NAME, mono = false)
         }
-        ReviewField(label = "Token contract", value = contract, notes = notes.notesOf(contract), onOpen = open)
+        ReviewField(label = "Token Contract", value = contract, notes = notes.notesOf(contract), onOpen = open)
     }
     if (review.function != SIGN_MESSAGE_FUNCTION) {
         ReviewFactRow(label = "Function", value = review.function, mono = false)
@@ -508,7 +508,7 @@ private fun AccessListFields(entries: List<AccessListEntry>, notes: Map<String, 
     val keys = entries.sumOf { it.storageKeys.size }
     val addresses = "${entries.size} ${if (entries.size == 1) "address" else "addresses"}"
     val storageKeys = "$keys ${if (keys == 1) "storage key" else "storage keys"}"
-    ReviewFactRow(label = "Access list", value = "$addresses, $storageKeys", mono = false)
+    ReviewFactRow(label = "Access List", value = "$addresses, $storageKeys", mono = false)
     entries.forEachIndexed { index, entry ->
         ReviewField(label = "Address ${index + 1}", value = entry.address, notes = notes.notesOf(entry.address), onOpen = open)
         entry.storageKeys.forEachIndexed { keyIndex, key ->
@@ -521,10 +521,10 @@ private fun AccessListFields(entries: List<AccessListEntry>, notes: Map<String, 
 @Composable
 private fun ProxyFields(proxy: ProxyBinding, notes: Map<String, AddressNotes>, open: ((String) -> Unit)?) {
     proxy.implementationAddress?.let { address ->
-        ReviewField(label = "Approved implementation", value = address, notes = notes.notesOf(address), onOpen = open)
+        ReviewField(label = "Approved Implementation", value = address, notes = notes.notesOf(address), onOpen = open)
     }
     proxy.implementationCodeHash?.let { hash ->
-        ReviewField(label = "Approved code hash", value = groupHex(hash.removePrefix("0x")))
+        ReviewField(label = "Approved Code Hash", value = groupHex(hash.removePrefix("0x")))
     }
 }
 

@@ -16,12 +16,12 @@ import app.lensly.ui.theme.LenslySpacing
 @Composable
 fun CommentBackupRows(onExport: () -> Unit, onImport: () -> Unit, notice: String?) {
     SettingsRow(
-        title = "Export comments",
+        title = "Export Comments",
         description = "Saves every transaction comment to a file. Only this vault can open it.",
         onClick = onExport,
     )
     SettingsRow(
-        title = "Import comments",
+        title = "Import Comments",
         description = "Restores the comments of a file that this vault exported. A newer comment here is kept.",
         onClick = onImport,
     )

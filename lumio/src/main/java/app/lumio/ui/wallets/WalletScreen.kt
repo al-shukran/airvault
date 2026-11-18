@@ -76,7 +76,7 @@ fun WalletScreen(
 }
 
 /**
- * The total of the wallet: "Total hidden" while the owner keeps totals off, its value in dollars when a balance has a price, else "No price yet". The
+ * The total of the wallet: "Total Hidden" while the owner keeps totals off, its value in dollars when a balance has a price, else "No price yet". The
  * testnet coins have no price, so a testnet wallet reads "No price yet".
  */
 @Composable
@@ -88,7 +88,7 @@ private fun WalletTotal(totalUsd: Double?, showTotal: Boolean) {
     )
     Text(
         text = when {
-            !showTotal -> "Total hidden"
+            !showTotal -> "Total Hidden"
             totalUsd != null -> HomeFormat.usd(totalUsd)
             else -> "No price yet"
         },

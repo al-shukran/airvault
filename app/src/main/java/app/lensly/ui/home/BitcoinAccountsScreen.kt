@@ -111,7 +111,7 @@ fun BitcoinAccountsScreen(
         scrollable = false,
         topBar = {
             DetailTopBar(
-                title = "Bitcoin accounts",
+                title = "Bitcoin Accounts",
                 onBack = onBack,
                 onOptions = { sheetOpen = true },
                 optionsLabel = "App options",

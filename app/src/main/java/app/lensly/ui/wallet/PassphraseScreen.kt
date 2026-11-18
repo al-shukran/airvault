@@ -42,7 +42,7 @@ data class PassphraseState(
     val ledgerIssue: LedgerPassphraseIssue? = null,
 )
 
-private const val TITLE = "Add passphrase"
+private const val TITLE = "Add Passphrase"
 
 /** Shown when [PassphraseState.ledgerIssue] is set. A Ledger cannot type the passphrase, so the accounts cannot be restored there. */
 private const val LEDGER_WARNING = "This passphrase can't be typed on a Ledger, so these accounts can't be restored there."
@@ -95,7 +95,7 @@ private fun PassphraseAsk(
         modifier = modifier,
         bottomAction = {
             WalletPill(
-                text = "Yes, add one",
+                text = "Yes, Add One",
                 onClick = onYes,
                 modifier = Modifier.fillMaxWidth(),
                 style = WalletPillStyle.Primary,
@@ -109,7 +109,7 @@ private fun PassphraseAsk(
             )
         },
     ) {
-        WalletEyebrow("Optional step")
+        WalletEyebrow("Optional Step")
         Spacer(Modifier.height(LenslySpacing.xs))
         DotText(text = "Passphrase", fontSize = 48.sp)
         Spacer(Modifier.height(LenslySpacing.lg))
@@ -120,7 +120,7 @@ private fun PassphraseAsk(
         )
         Spacer(Modifier.height(LenslySpacing.lg))
         InlineBanner(
-            title = "Part of the backup",
+            title = "Part of the Backup",
             message = "Write it down separately from the 24 words. A lost passphrase cannot be recovered.",
             tone = BannerTone.Warning,
         )

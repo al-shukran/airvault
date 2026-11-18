@@ -108,44 +108,44 @@ fun SettingsScreen(
     LenslyScreen(title = "Settings", modifier = modifier, onBack = onBack) {
         SettingsSection("Entry") {
             SettingsRow(
-                title = "Hidden entry gesture",
+                title = "Hidden Entry Gesture",
                 description = entryGesture.title,
                 onClick = onEntryGesture,
             )
             SettingsRow(
-                title = "Change application password",
+                title = "Change Application Password",
                 description = "Enter the current password, then the new one twice. Your wallets stay as they are.",
                 onClick = onChangePassword,
             )
             // The same two rows show in the real vault and in a decoy, so the decoy's Settings look identical.
             SettingsRow(
-                title = "Duress password",
+                title = "Duress Password",
                 description = "A second password. Enter the Application Password, then the new one twice.",
                 onClick = onDuressPassword,
             )
             SettingsRow(
-                title = "Remove duress password",
+                title = "Remove Duress Password",
                 description = "Enter the Application Password. The second password stops opening anything.",
                 onClick = onRemoveDuressPassword,
             )
         }
 
-        SettingsSection("Bulk generation") {
+        SettingsSection("Bulk Generation") {
             ChoiceDialogRow(
-                label = "Bulk cap",
+                label = "Bulk Cap",
                 value = bulkCap?.label,
                 options = BulkCap.entries,
                 selected = bulkCap,
                 optionLabel = { it.label },
                 onSelect = onBulkCap,
                 description = "The most accounts one bulk run can create. A run above it is refused.",
-                dialogTitle = "Bulk cap",
+                dialogTitle = "Bulk Cap",
             )
         }
 
-        SettingsSection("Dice and coin entry") {
+        SettingsSection("Dice and Coin Entry") {
             SettingsRow(
-                title = "Hide delay",
+                title = "Hide Delay",
                 description = hideDelay?.let { "From ${it.minMs} to ${it.maxMs} ms after a tap." } ?: "Reading the saved delay…",
                 onClick = onHideDelay,
                 loading = hideDelay == null,
@@ -155,7 +155,7 @@ fun SettingsScreen(
         SettingsSection("Bitcoin") {
             val policies = bitcoinInputPolicy?.let { input -> bitcoinSigningSource?.let { input to it } }
             SettingsRow(
-                title = "Bitcoin policy",
+                title = "Bitcoin Policy",
                 description = policies?.let { (input, source) ->
                     "Inputs: ${inputPolicyLabel(input)}. Signing: ${signingSourceLabel(source)}."
                 } ?: "Reading the saved policy…",
@@ -163,7 +163,7 @@ fun SettingsScreen(
                 loading = policies == null,
             )
             SettingsRow(
-                title = "Fee warnings",
+                title = "Fee Warnings",
                 description = bitcoinFeeThresholds?.let {
                     "Warn above ${it.highFeeRateSatPerVb} sat/vB, or when the fee is over ${it.feeSharePercent}% of the amount sent."
                 } ?: "Reading the saved limits…",
@@ -174,7 +174,7 @@ fun SettingsScreen(
 
         SettingsSection("Lockout") {
             SettingsRow(
-                title = "Wrong password lockout",
+                title = "Wrong Password Lockout",
                 description = failureDelayCap?.let {
                     "${it.summary}. Erased after $failureEraseAfter wrong tries in a row."
                 } ?: "Reading the saved lockout…",
@@ -204,41 +204,41 @@ fun SettingsScreen(
                 loading = catalog == null,
             )
             SettingsRow(
-                title = "Wallet compatibility",
+                title = "Wallet Compatibility",
                 description = catalog?.let { it.wallets.size.countOf("wallet", "wallets") } ?: "Reading the catalog…",
                 loading = catalog == null,
             )
             SettingsRow(
-                title = "Update catalog",
+                title = "Update Catalog",
                 description = "Install a signed package from removable storage. It adds networks and tokens, and sets the " +
                     "approved contracts.",
                 onClick = onUpdateCatalog,
             )
             if (catalog?.installedUpdateUnverified == true) {
                 SettingsRow(
-                    title = "Installed update",
+                    title = "Installed Update",
                     description = "Installed update could not be verified; using the built-in catalog",
                 )
             }
         }
 
-        SettingsSection("Address book") {
+        SettingsSection("Address Book") {
             SettingsRow(
-                title = "Address book",
+                title = "Address Book",
                 description = "Saved addresses, each with a name and a label",
                 onClick = onAddressBook,
             )
         }
         SettingsSection("Whitelist") {
             SettingsRow(
-                title = "Approved contracts",
+                title = "Approved Contracts",
                 description = catalog?.let { it.whitelist.size.countOf("approved call", "approved calls") }
                     ?: "Reading the catalog…",
                 onClick = onApprovedContracts,
                 loading = catalog == null,
             )
             SettingsRow(
-                title = "Proxy policy",
+                title = "Proxy Policy",
                 description = proxyPolicy?.let { policy ->
                     if (policy == ProxyPolicy.DEFAULT) "${policy.title} (default)" else policy.title
                 } ?: "Reading the saved policy…",
@@ -246,7 +246,7 @@ fun SettingsScreen(
                 loading = proxyPolicy == null,
             )
             ChoiceDialogRow(
-                label = "Unknown contract calls",
+                label = "Unknown Contract Calls",
                 value = unknownCallPolicy?.let { policy ->
                     if (policy == UnknownCallPolicy.DEFAULT) "${policy.label} (default)" else policy.label
                 },
@@ -256,13 +256,13 @@ fun SettingsScreen(
                 onSelect = onUnknownCallPolicy,
                 description = "A call or program Lensly cannot read. Warn signs it after an error-level warning. " +
                     "Refuse never signs it.",
-                dialogTitle = "Unknown contract calls",
+                dialogTitle = "Unknown Contract Calls",
             )
         }
 
         SettingsSection("Wipe") {
             SettingsRow(
-                title = "Wipe the vault",
+                title = "Wipe the Vault",
                 description = "Erase every wallet and the Application Password from this device. A new Application Password is set up next.",
                 onClick = onWipe,
             )
@@ -272,7 +272,7 @@ fun SettingsScreen(
             SettingsRow(title = "Version", description = "$versionName ($versionCode)")
             SettingsRow(title = "License", description = "Apache License 2.0. The text is in the LICENSE file.")
             SettingsRow(
-                title = "Third-party licences",
+                title = "Third-Party Licences",
                 description = "Every library and font the application ships, with the licence it is used under.",
                 onClick = onThirdPartyLicences,
             )

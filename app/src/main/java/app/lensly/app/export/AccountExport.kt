@@ -63,12 +63,12 @@ object AccountExport {
                 ),
             ),
             fields = listOf(
-                "Derivation path" to path,
+                "Derivation Path" to path,
                 "Depth" to ADDRESS_DEPTH.toString(),
-                "Public key" to key.publicKey.toHex(),
-                "Chain code" to key.chainCode.toHex(),
-                "Parent fingerprint" to "%08x".format(key.parentFingerprint),
-                "Master fingerprint" to "%08x".format(masterFingerprint),
+                "Public Key" to key.publicKey.toHex(),
+                "Chain Code" to key.chainCode.toHex(),
+                "Parent Fingerprint" to "%08x".format(key.parentFingerprint),
+                "Master Fingerprint" to "%08x".format(masterFingerprint),
             ),
         )
     }

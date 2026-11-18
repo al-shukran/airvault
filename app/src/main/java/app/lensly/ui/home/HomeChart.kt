@@ -209,7 +209,7 @@ internal fun ActivityChartSection(
     var window by rememberSaveable { mutableStateOf(ChartWindow.MONTH) }
     var breakdown by rememberSaveable { mutableStateOf(ChartBreakdown.STATUS) }
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = WALLET_GUTTER)) {
-        SectionHeader(title = "Signing activity") {
+        SectionHeader(title = "Signing Activity") {
             if (!records.isNullOrEmpty()) {
                 SegmentedToggle(options = ChartWindow.entries, selected = window, label = { it.label }, onSelect = { window = it })
             }

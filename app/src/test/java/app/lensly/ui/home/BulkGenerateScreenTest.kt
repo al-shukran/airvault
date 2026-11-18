@@ -187,7 +187,7 @@ class BulkGenerateScreenTest {
         assertNotShown("10")
         assertNotShown("20")
         assertNotShown("100")
-        assertShown("Ethereum · all networks")
+        assertShown("Ethereum · All Networks")
     }
 
     @Test
@@ -225,7 +225,7 @@ class BulkGenerateScreenTest {
 
         compose.onNodeWithText("Script type · Native Segwit").performClick()
 
-        assertShown("Script type")
+        assertShown("Script Type")
         assertShown("Native Segwit")
         assertShown("Taproot")
         assertShown("Nested Segwit")
@@ -237,6 +237,6 @@ class BulkGenerateScreenTest {
         showScreen(BulkCap.HUNDRED, digits = "3", chain = DEFAULT_BITCOIN, running = true)
 
         compose.onNodeWithText("Script type · Native Segwit").assertIsNotEnabled()
-        assertNotShown("Script type")
+        assertNotShown("Script Type")
     }
 }

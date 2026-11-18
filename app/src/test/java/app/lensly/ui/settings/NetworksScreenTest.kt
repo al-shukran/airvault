@@ -115,11 +115,11 @@ class NetworksScreenTest {
             TokenEntry(chainId = testnet.chainId, contract = "0x" + "%040x".format(index + 1), symbol = "T$index", name = "Token $index", decimals = 18)
         }
         show(networks, tokens)
-        compose.onNodeWithText("Fee model").assertDoesNotExist()
+        compose.onNodeWithText("Fee Model").assertDoesNotExist()
 
         compose.onNodeWithText(testnet.name).performClick()
 
-        compose.onNodeWithText("Fee model").assertIsDisplayed()
+        compose.onNodeWithText("Fee Model").assertIsDisplayed()
         compose.onNodeWithText("3 tokens").assertIsDisplayed()
     }
 }

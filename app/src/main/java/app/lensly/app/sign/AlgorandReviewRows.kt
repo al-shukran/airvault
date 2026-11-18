@@ -32,16 +32,16 @@ private const val ASSET = "Asset"
 private const val ASSET_ID = "Asset ID"
 
 /** The label of a payment's close-to row: the address that takes the rest of the balance. */
-private const val CLOSE_REMAINDER_TO = "Close remainder to"
+private const val CLOSE_REMAINDER_TO = "Close Remainder To"
 
 /** The label of an asset transfer's close-to row: the address that takes the rest of the holding. */
-private const val CLOSE_HOLDING_TO = "Close holding to"
+private const val CLOSE_HOLDING_TO = "Close Holding To"
 
 /** The label of the first round in which the transaction is valid. */
-private const val VALID_FROM = "Valid from round"
+private const val VALID_FROM = "Valid from Round"
 
 /** The label of the last round in which the transaction is valid. A later last round lets the signed transaction be sent later. */
-private const val VALID_UNTIL = "Valid until round"
+private const val VALID_UNTIL = "Valid until Round"
 
 /** The label of the lease row: until the last round, no other transaction with the same lease can be confirmed. */
 private const val LEASE = "Lease"
@@ -118,7 +118,7 @@ private fun assetSentence(txn: AssetTransfer, asset: Asa?): String {
 }
 
 /** The title of the Algorand review. An asset opt-in is titled as one, so that it does not read as a transfer of zero units. */
-fun algorandTitle(review: AlgorandRequestReview): String = if ((review.txn as? AssetTransfer)?.isOptIn == true) "Opt in to asset" else "Review"
+fun algorandTitle(review: AlgorandRequestReview): String = if ((review.txn as? AssetTransfer)?.isOptIn == true) "Opt in to Asset" else "Review"
 
 /** The short facts under the sentence: the fee, in ALGO. */
 fun algorandFacts(review: AlgorandRequestReview): List<Pair<String, String>> = listOf(FEE to algoText(review.txn.fee))

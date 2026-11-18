@@ -96,7 +96,7 @@ internal fun AlgorandSendFormScreen(
         AddressField(
             value = recipient,
             onValueChange = onRecipient,
-            label = "Recipient address",
+            label = "Recipient Address",
             validate = AlgorandSend::recipientError,
             enabled = !busy,
             onScan = onScan,
@@ -110,7 +110,7 @@ internal fun AlgorandSendFormScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            LumioTextAction(text = "Use max", onClick = onMax, enabled = maxEnabled)
+            LumioTextAction(text = "Use Max", onClick = onMax, enabled = maxEnabled)
         }
         if (selected.assetId == null) {
             Text(
@@ -154,7 +154,7 @@ internal fun AlgorandReviewScreen(
     val amount = AlgorandAssets.amountText(plan, symbol, decimals)
     SendStepScaffold(
         step = SEND_STEP_REVIEW,
-        title = "Review send",
+        title = "Review Send",
         onBack = onBack,
         bottomAction = { LumioPrimaryButton(text = "Show to Lensly", onClick = onConfirm) },
     ) {
@@ -174,7 +174,7 @@ internal fun AlgorandReviewScreen(
                     ReviewAddress("To", plan.toAddress)
                     ReviewField("Amount", amount)
                 }
-                ReviewField("Network fee", AlgorandFormat.amount(plan.fee))
+                ReviewField("Network Fee", AlgorandFormat.amount(plan.fee))
                 if (plan is AlgorandPaymentPlan) ReviewField("Total", AlgorandFormat.amount(plan.amount + plan.fee))
             }
         }
@@ -205,7 +205,7 @@ internal fun AlgorandSignRequestScreen(
         title = "Sign in Lensly",
         onBack = onBack,
         scrollable = false,
-        bottomAction = { LumioPrimaryButton(text = "Scan Lensly's signature", onClick = onScan) },
+        bottomAction = { LumioPrimaryButton(text = "Scan Lensly's Signature", onClick = onScan) },
     ) {
         NetworkHeader(network)
         Text(
@@ -235,7 +235,7 @@ internal fun AlgorandSignRequestScreen(
 internal fun AlgorandOptInReadingScreen(notice: String?, onBack: () -> Unit) {
     SendStepScaffold(
         step = SEND_STEP_DETAILS,
-        title = "Opt in to asset",
+        title = "Opt in to Asset",
         onBack = onBack,
         bottomAction = {},
     ) {
@@ -245,11 +245,11 @@ internal fun AlgorandOptInReadingScreen(notice: String?, onBack: () -> Unit) {
 
 /** What the picker says under a coin: the native coin, or the balance that the account holds. */
 private fun assetDetail(asset: AlgorandAsset): String = when (val held = asset.held) {
-    null -> "Native coin"
+    null -> "Native Coin"
     else -> "Balance ${AlgorandAssets.text(held, asset.decimals)} ${asset.symbol}"
 }
 
-private fun networkName(network: NetworkId): String = if (network.testnet) "Algorand testnet" else "Algorand mainnet"
+private fun networkName(network: NetworkId): String = if (network.testnet) "Algorand Testnet" else "Algorand Mainnet"
 
 /** The network the send is on, with a Testnet tag on testnet, as a row of the Details step. */
 @Composable

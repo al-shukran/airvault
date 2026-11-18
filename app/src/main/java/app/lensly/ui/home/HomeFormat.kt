@@ -41,7 +41,7 @@ internal fun activitySummary(record: ReviewRecord): String {
     val what = record.function ?: when {
         refused -> null
         record.kind == ReviewKind.MESSAGE -> "Message"
-        record.kind == ReviewKind.BITCOIN_TRANSACTION -> "Bitcoin transaction"
+        record.kind == ReviewKind.BITCOIN_TRANSACTION -> "Bitcoin Transaction"
         else -> "Request"
     }
     val amount = record.amount.takeIf { record.outcome == ReviewOutcome.SIGNED }

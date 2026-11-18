@@ -45,8 +45,8 @@ class DisplaySettingsSectionTest {
     fun theSwitchesShowTheirValuesAndNoMinimumIsAsked() {
         show()
 
-        compose.onNodeWithText("Show total balance").assertExists()
-        compose.onNodeWithText("Show individual asset balances").assertExists()
+        compose.onNodeWithText("Show Total Balance").assertExists()
+        compose.onNodeWithText("Show Individual Asset Balances").assertExists()
         compose.onNodeWithText("Minimum balance (USD)").assertDoesNotExist()
     }
 
@@ -54,7 +54,7 @@ class DisplaySettingsSectionTest {
     fun aSwitchReportsItsNewValue() {
         show()
 
-        compose.onNodeWithText("Show total balance").performClick()
+        compose.onNodeWithText("Show Total Balance").performClick()
 
         assertEquals(true, showTotal)
         assertNull(showAssets)

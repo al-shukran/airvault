@@ -123,7 +123,7 @@ class PairCodePasswordTest {
         }
         compose.onNodeWithText("LUMIO (AIRVAULT COMPANION)").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Show code", ignoreCase = true).performClick()
+        compose.onNodeWithText("Show Code", ignoreCase = true).performClick()
         compose.waitForIdle()
     }
 

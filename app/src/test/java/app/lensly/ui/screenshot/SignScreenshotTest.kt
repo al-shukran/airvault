@@ -245,7 +245,7 @@ private fun urBatchSample() = sampleNativeReview.copy(
 )
 
 /** A native transfer with one warning and no check. Short enough to fit on screen, so only the details stand between it and signing. */
-private val shortWarningSample = sampleNativeReview.copy(fee = listOf("Max fee" to "52.5 gwei"), feeNote = null)
+private val shortWarningSample = sampleNativeReview.copy(fee = listOf("Max Fee" to "52.5 gwei"), feeNote = null)
 
 private const val REVIEW_TAG = "lensly-scrolled-review"
 private const val REVIEW_DENSITY = 1.75f
@@ -337,7 +337,7 @@ class SignScreenshotTest {
     }
 
     @Test
-    fun reviewSolanaSplTransferChecked() = compose.snapshotScrolled("solana_spl_transfer_checked", label = "Priority fee") {
+    fun reviewSolanaSplTransferChecked() = compose.snapshotScrolled("solana_spl_transfer_checked", label = "Priority Fee") {
         SolanaReviewScreen(review = solanaReviewOf("spl-usdc-first-transfer", SOLANA_USDC_TOKENS), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), onApprove = {}, onReject = {})
     }
 
@@ -381,7 +381,7 @@ class SignScreenshotTest {
     fun reviewWhitelistedRawCalldata() = compose.snapshotScrolled(
         "tx_review_whitelisted_raw",
         "Word 1",
-        toggle = "Raw data",
+        toggle = "Raw Data",
     ) {
         // The raw data section is opened first. Its first word is then scrolled to, which leaves the value and the selector in view above it.
         TxReviewScreen(review = whitelistedSample(), onApprove = {}, onReject = {})

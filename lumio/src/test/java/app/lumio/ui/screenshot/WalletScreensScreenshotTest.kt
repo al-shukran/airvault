@@ -62,8 +62,8 @@ class WalletScreensScreenshotTest {
         chain = AccountChain.BITCOIN,
         index = 0,
         address = "tb1qk3z8f0d6c2m9a7v4w5x1y2z3q4r5s6t7u8v9w0",
-        networkName = "Bitcoin testnet4",
-        balance = NativeAsset("BTC-testnet4", "BTC", "Bitcoin testnet4", BtcNetwork.TESTNET4.networkId(), BigDecimal("0.0012")),
+        networkName = "Bitcoin Testnet4",
+        balance = NativeAsset("BTC-testnet4", "BTC", "Bitcoin Testnet4", BtcNetwork.TESTNET4.networkId(), BigDecimal("0.0012")),
         script = "native segwit",
     )
     private val ethereum = WalletAccount(
@@ -79,15 +79,15 @@ class WalletScreensScreenshotTest {
         chain = AccountChain.SOLANA,
         index = 0,
         address = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-        networkName = "Solana devnet",
-        balance = NativeAsset("SOL-devnet", "SOL", "Solana devnet", SOLANA_DEVNET, BigDecimal("0.4")),
+        networkName = "Solana Devnet",
+        balance = NativeAsset("SOL-devnet", "SOL", "Solana Devnet", SOLANA_DEVNET, BigDecimal("0.4")),
     )
     private val algorand = WalletAccount(
         walletId = "wallet-demo",
         chain = AccountChain.ALGORAND,
         index = 0,
         address = "ALGOADDRESSEXAMPLEFORSCREENSHOTONLY0000000000000000000000000",
-        networkName = "Algorand testnet",
+        networkName = "Algorand Testnet",
         balance = null,
     )
     private val zeroEthereum = ethereum.copy(
@@ -99,7 +99,7 @@ class WalletScreensScreenshotTest {
     private val usdcHolding = TokenHolding(monad, usdc, BigInteger.valueOf(1_250_500_000L), atMs = 0L)
     private val etherAsset = TxAsset(contract = null, symbol = "MON", name = "Monad", decimals = 18)
     private val usdcAsset = TxAsset(contract = usdc.contract, symbol = "USDC", name = "USD Coin", decimals = 6)
-    private val splUsdc = ChainHolding("USDC", "Solana devnet", BigInteger("1500000"), 6, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+    private val splUsdc = ChainHolding("USDC", "Solana Devnet", BigInteger("1500000"), 6, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
 
     /** The prices the goldens show: the Monad coin at $2.50 and the USDC token at $1. */
     private val prices: Map<AssetId, Price> = mapOf(
@@ -339,7 +339,7 @@ class WalletScreensScreenshotTest {
                 assetKey = "10458941",
                 symbol = "USDC",
                 name = "USDC",
-                network = "Algorand testnet",
+                network = "Algorand Testnet",
                 amountText = "0",
                 fiatText = null,
                 icon = AssetIconSpec.Letter("U"),

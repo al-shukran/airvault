@@ -63,7 +63,7 @@ class CoverageScreenshotTest {
     fun licences() = compose.snapshot("licences_screen") {
         ThirdPartyLicencesScreen(
             blocks = listOf(
-                NoticeBlock("Third-party licences", heading = true),
+                NoticeBlock("Third-Party Licences", heading = true),
                 NoticeBlock("Kotlin, Jetpack Compose and Roborazzi are licensed under the Apache License, Version 2.0.", heading = false),
                 NoticeBlock("The Bitcoin and Ethereum libraries are licensed under the MIT License.", heading = false),
             ),
@@ -74,11 +74,11 @@ class CoverageScreenshotTest {
     private companion object {
         /** The copy of Delete Wallet, as the route shows it. */
         val DELETE_WALLET = ShredCopy(
-            title = "Delete wallet",
+            title = "Delete Wallet",
             prompt = "Enter your Application Password to delete this wallet.",
-            warningTitle = "Cannot be recovered",
+            warningTitle = "Cannot Be Recovered",
             warning = "This wallet and its accounts are erased from this device. It cannot be recovered without its backup.",
-            action = "Delete wallet",
+            action = "Delete Wallet",
         )
     }
 }

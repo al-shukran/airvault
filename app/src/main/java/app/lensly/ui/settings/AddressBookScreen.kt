@@ -38,11 +38,11 @@ fun AddressBookScreen(
     error: String? = null,
 ) {
     LenslyScreen(
-        title = "Address book",
+        title = "Address Book",
         modifier = modifier,
         onBack = onBack,
         bottomAction = {
-            WalletPill(text = "Add address", onClick = onAdd, modifier = Modifier.fillMaxWidth(), style = WalletPillStyle.Primary)
+            WalletPill(text = "Add Address", onClick = onAdd, modifier = Modifier.fillMaxWidth(), style = WalletPillStyle.Primary)
         },
     ) {
         if (error != null) {
@@ -52,7 +52,7 @@ fun AddressBookScreen(
         if (entries.isEmpty() && error == null) {
             EmptyState(
                 icon = Icons.Filled.Person,
-                title = "No saved addresses",
+                title = "No Saved Addresses",
                 body = "Add an address here, or from a Review Record in the history.",
             )
         }

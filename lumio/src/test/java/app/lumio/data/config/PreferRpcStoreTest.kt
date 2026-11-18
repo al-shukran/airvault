@@ -9,7 +9,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-/** The "Prefer RPC over explorers" choice: off by default, and kept in the vault once the owner sets it. */
+/** The "Prefer RPC over Explorers" choice: off by default, and kept in the vault once the owner sets it. */
 class PreferRpcStoreTest {
 
     @get:Rule

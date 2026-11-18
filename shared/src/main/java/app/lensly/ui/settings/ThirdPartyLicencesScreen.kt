@@ -70,7 +70,7 @@ fun ThirdPartyLicencesScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LenslyScreen(title = "Third-party licences", modifier = modifier, onBack = onBack, scrollable = false) {
+    LenslyScreen(title = "Third-Party Licences", modifier = modifier, onBack = onBack, scrollable = false) {
         if (blocks == null) {
             DotProgress(description = "Reading the third-party licences")
         } else {

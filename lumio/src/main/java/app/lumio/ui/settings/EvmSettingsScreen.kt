@@ -68,7 +68,7 @@ fun EvmSettingsSection(
         InlineBanner(message = it, tone = BannerTone.Error)
         Spacer(Modifier.height(LenslySpacing.sm))
     }
-    SectionLabel("Addresses per wallet")
+    SectionLabel("Addresses per Wallet")
     AddressCountRow(
         count = settings.addressCount,
         busy = busy,
@@ -88,7 +88,7 @@ fun EvmSettingsSection(
         )
     }
     SettingsRow(
-        title = "Add custom chain",
+        title = "Add Custom Chain",
         description = "A chain the registry does not list",
         onClick = { adding = true },
         enabled = !busy,
@@ -207,7 +207,7 @@ private fun RpcDialog(
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("RPC address (https)") },
+                    label = { Text("RPC Address (https)") },
                     singleLine = true,
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
@@ -231,7 +231,7 @@ private fun RpcDialog(
                     }
                 },
             ) {
-                Text("Check and apply")
+                Text("Check and Apply")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
@@ -253,7 +253,7 @@ private fun AddChainDialog(
     var saving by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add a chain") },
+        title = { Text("Add a Chain") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -261,8 +261,8 @@ private fun AddChainDialog(
             ) {
                 Field("Chain ID", chainId, enabled = !saving, keyboard = KeyboardType.Number) { chainId = it }
                 Field("Name", name, enabled = !saving) { name = it }
-                Field("Native symbol", symbol, enabled = !saving) { symbol = it }
-                Field("RPC address (https)", rpc, enabled = !saving) { rpc = it }
+                Field("Native Symbol", symbol, enabled = !saving) { symbol = it }
+                Field("RPC Address (https)", rpc, enabled = !saving) { rpc = it }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
                     Switch(checked = testnet, onCheckedChange = { testnet = it }, enabled = !saving)
                     Text("Testnet", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)

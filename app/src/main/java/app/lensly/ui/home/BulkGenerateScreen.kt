@@ -75,7 +75,7 @@ fun BulkGenerateScreen(
     val canRun = chain is BulkChain.Evm || bitcoinAllowed
     WalletScaffold(
         modifier = modifier,
-        topBar = { DetailTopBar(title = "Bulk generate", onBack = { if (!running) onBack() }) },
+        topBar = { DetailTopBar(title = "Bulk Generate", onBack = { if (!running) onBack() }) },
         footer = {
             PillButton(
                 text = generateLabel(count),
@@ -107,7 +107,7 @@ fun BulkGenerateScreen(
         }
         if (chain is BulkChain.Bitcoin) {
             ChoiceDialogRow(
-                label = "Script type",
+                label = "Script Type",
                 value = scriptName(chain.scriptType),
                 options = BITCOIN_SCRIPT_TYPES,
                 selected = chain.scriptType,
@@ -164,16 +164,16 @@ fun BulkGenerateScreen(
     }
 }
 
-/** The GENERATE label names the Count, such as "Generate 20 accounts" or "Generate 1 account". */
+/** The GENERATE label names the Count, such as "Generate 20 accounts" or "Generate 1 Account". */
 private fun generateLabel(count: Int?): String = when (count) {
     null -> "Generate"
-    1 -> "Generate 1 account"
-    else -> "Generate $count accounts"
+    1 -> "Generate 1 Account"
+    else -> "Generate $count Accounts"
 }
 
 /** The App, as the subtitle: Ethereum on every EVM network, or Bitcoin. The network and Script Type of a run are chosen below it. */
 private fun subtitle(chain: BulkChain): String = when (chain) {
-    BulkChain.Evm -> "Ethereum · all networks"
+    BulkChain.Evm -> "Ethereum · All Networks"
     BulkChain.Solana -> "Solana"
     BulkChain.Algorand -> "Algorand"
     is BulkChain.Bitcoin -> "Bitcoin"

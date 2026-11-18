@@ -62,7 +62,7 @@ class SendReviewAddressBookTest {
         setReview(send(to = to), listOf(ADDRESS_BOOK_ALICE), accounts = mapOf(addressKeyOf(to) to ownVault1))
 
         compose.onNodeWithText("Your account · Vault 1").assertExists()
-        compose.onNodeWithText("Address name").assertExists()
+        compose.onNodeWithText("Address Name").assertExists()
         compose.onNodeWithText("Alice").assertExists()
     }
 

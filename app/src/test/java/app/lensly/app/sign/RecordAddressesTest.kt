@@ -66,7 +66,7 @@ class RecordAddressesTest {
             feeRateSatPerVb = 2.0,
             notices = emptyList(),
         )
-        val rec = record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin testnet4", bitcoin = facts)
+        val rec = record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin Testnet4", bitcoin = facts)
 
         assertEquals(AddressChain.BITCOIN, recordChainOf(rec))
         assertEquals(
@@ -86,7 +86,7 @@ class RecordAddressesTest {
             address = evmSender,
             to = evmRecipient,
             tokenContract = evmContract,
-            fee = listOf("Gas limit" to "21000"),
+            fee = listOf("Gas Limit" to "21000"),
             params = listOf("spender" to evmSpender, "value" to "25000000", "note" to "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"),
         )
 
@@ -95,7 +95,7 @@ class RecordAddressesTest {
             listOf(
                 RecordAddress("Account", evmSender, AddressChain.EVM),
                 RecordAddress("To", evmRecipient, AddressChain.EVM),
-                RecordAddress("Token contract", evmContract, AddressChain.EVM),
+                RecordAddress("Token Contract", evmContract, AddressChain.EVM),
                 RecordAddress("spender", evmSpender, AddressChain.EVM),
             ),
             recordAddressesOf(rec),

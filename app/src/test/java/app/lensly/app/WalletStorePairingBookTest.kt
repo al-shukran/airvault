@@ -75,7 +75,7 @@ class WalletStorePairingBookTest {
     @Test
     fun theEncodedPairingHoldsNoNotesOfTheAddressBook() {
         val id = newWallet()
-        val book = listOf(entry(0, label = "Exchange").copy(notes = "Recovery hint: blue box"), entry(1).copy(notes = "Keep it private"))
+        val book = listOf(entry(0, label = "Exchange").copy(notes = "Recovery hint: blue box"), entry(1).copy(notes = "Keep It Private"))
         book.forEach { AddressBookStore(session).put(it) }
         // The notes are saved, so the check below is not passing for want of them.
         assertEquals(book, AddressBookStore(session).load())
@@ -87,7 +87,7 @@ class WalletStorePairingBookTest {
 
         assertEquals(book.map { it.copy(notes = null) }, PairingCodec.fromUr(ur, null).addressBook)
         assertFalse(body.contains("Recovery hint"))
-        assertFalse(body.contains("Keep it private"))
+        assertFalse(body.contains("Keep It Private"))
     }
 
     @Test

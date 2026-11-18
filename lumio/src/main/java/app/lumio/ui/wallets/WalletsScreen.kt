@@ -28,7 +28,7 @@ import app.lensly.ui.theme.LocalLumenPalette
 data class WalletRow(val id: String, val name: String, val detail: String)
 
 /**
- * The start screen: one row per paired wallet, each opening the wallet. Under the rows, "Pair a wallet" is the one text action. [notice] names a read
+ * The start screen: one row per paired wallet, each opening the wallet. Under the rows, "Pair a Wallet" is the one text action. [notice] names a read
  * that did not answer, and pull to refresh reads the balances again. The top bar holds the lock, as on every Lumio screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,7 +73,7 @@ fun WalletsScreen(
                     SettingsRow(title = row.name, description = row.detail, onClick = { onWallet(row.id) })
                 }
                 item(key = "pair") {
-                    TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumenPalette.current.accentInk)) { Text("Pair a wallet") }
+                    TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumenPalette.current.accentInk)) { Text("Pair a Wallet") }
                 }
             }
         }
