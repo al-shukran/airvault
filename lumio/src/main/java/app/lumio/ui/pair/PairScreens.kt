@@ -32,7 +32,7 @@ import app.lumio.ui.send.ReviewAddress
 @Composable
 fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit, complete: Boolean = false) {
     LumioScanScreen(
-        title = "Scan pairing code",
+        title = "Scan Pairing Code",
         progress = progress,
         statusText = status,
         onText = onText,
