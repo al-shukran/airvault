@@ -420,7 +420,7 @@ private fun BackspaceKey(
         onClick = onClick,
         modifier = modifier,
     ) {
-        BackspaceGlyph(color = MaterialTheme.colorScheme.onSurface)
+        BackspaceGlyph(color = MaterialTheme.colorScheme.onPrimary)
     }
 }
 
