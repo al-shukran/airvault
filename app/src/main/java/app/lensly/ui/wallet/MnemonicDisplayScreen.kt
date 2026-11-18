@@ -22,9 +22,7 @@ import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
 
 /** Words per row of the grid. The grid reads left to right, then down. */
 private const val GRID_COLUMNS = 2
@@ -98,12 +96,12 @@ private fun WordCell(
     word: String,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(LenslyRadius.md)
+    val shape = MaterialTheme.shapes.medium
     Row(
         modifier = modifier
             .height(CELL_HEIGHT)
             .clip(shape)
-            .background(LenslySurfaceContainer, shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer, shape)
             .padding(horizontal = LenslySpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {

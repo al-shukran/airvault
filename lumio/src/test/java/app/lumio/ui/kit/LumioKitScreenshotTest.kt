@@ -25,7 +25,7 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lumio.ui.screenshot.LUMIO_DARK_QUALIFIERS
 import app.lumio.ui.screenshot.LUMIO_LIGHT_QUALIFIERS
 import app.lumio.ui.screenshot.lumioSnapshot
-import app.lumio.ui.theme.LocalLumioPalette
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lumio.ui.theme.LumioGutter
 import org.junit.Rule
 import org.junit.Test
@@ -73,7 +73,7 @@ class LumioKitScreenshotTest {
         KitColumn {
             Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
                 LumioTag(text = "7 accounts")
-                LumioTag(text = "Testnet", color = LocalLumioPalette.current.testnet, background = LocalLumioPalette.current.testnet.copy(alpha = 0.14f))
+                LumioTag(text = "Testnet", color = LocalLumenPalette.current.testnet, background = LocalLumenPalette.current.testnet.copy(alpha = 0.14f))
             }
         }
     }

@@ -1,4 +1,4 @@
-package app.lumio.ui.theme
+package app.lensly.ui.theme
 
 import android.app.Activity
 import androidx.activity.compose.LocalActivity

@@ -46,18 +46,10 @@ import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslyProfileBlue
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySuccess
-import app.lensly.ui.theme.LenslySurfaceContainer
-import app.lensly.ui.theme.LenslySurfaceHigh
-import app.lensly.ui.theme.LenslyWarning
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.wallet.WALLET_GUTTER
 import java.time.Instant
 import java.time.LocalDate
@@ -182,18 +174,21 @@ private val EMPTY_CHART_HEIGHT = 120.dp
 private const val BAR_FILL = 0.62f
 
 /** The colour of a status segment: signed, refused, or cancelled. */
+@Composable
 private fun statusColour(key: String): Color = when (key) {
-    ReviewOutcome.SIGNED.name -> LenslySuccess
-    ReviewOutcome.REFUSED.name -> LenslyError
-    else -> LenslyMuted
+    ReviewOutcome.SIGNED.name -> LocalLumenPalette.current.positive
+    ReviewOutcome.REFUSED.name -> MaterialTheme.colorScheme.error
+    else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 /** The colour of an App segment: the first three networks in turn, and Other in grey. */
-private val NETWORK_COLOURS = listOf(LenslySuccess, LenslyProfileBlue, LenslyWarning)
+@Composable
+private fun networkColours(): List<Color> = listOf(LocalLumenPalette.current.positive, LenslyProfileBlue, LocalLumenPalette.current.warning)
 
+@Composable
 private fun segmentColour(breakdown: ChartBreakdown, index: Int, key: String): Color = when (breakdown) {
     ChartBreakdown.STATUS -> statusColour(key)
-    ChartBreakdown.APP -> if (key == OTHER_KEY) LenslyMuted else NETWORK_COLOURS[index % NETWORK_COLOURS.size]
+    ChartBreakdown.APP -> if (key == OTHER_KEY) MaterialTheme.colorScheme.onSurfaceVariant else networkColours().let { it[index % it.size] }
 }
 
 /**
@@ -249,14 +244,14 @@ private fun ChartCard(
     onBreakdown: (ChartBreakdown) -> Unit,
 ) {
     val haptics = rememberKeyHaptics()
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     val summary = chartSummary(chart, window, breakdown)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(LenslySurfaceContainer)
-            .border(1.dp, LenslyOutline, shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .padding(LenslySpacing.md),
     ) {
         Column(
@@ -293,6 +288,8 @@ private fun ChartCard(
 /** The bars, one per day, each stacked from the bottom in the order of the segments, over a baseline. */
 @Composable
 private fun ChartBars(chart: ActivityChart, breakdown: ChartBreakdown) {
+    val colors = MaterialTheme.colorScheme
+    val segmentColours = chart.segments.mapIndexed { index, segment -> segmentColour(breakdown, index, segment.key) }
     Canvas(modifier = Modifier.fillMaxWidth().height(CHART_HEIGHT)) {
         val peak = chart.days.maxOf { day -> day.counts.sum() }.coerceAtLeast(1)
         val slot = size.width / chart.days.size
@@ -306,7 +303,7 @@ private fun ChartBars(chart: ActivityChart, breakdown: ChartBreakdown) {
                     val height = count * unit
                     top -= height
                     drawRoundRect(
-                        color = segmentColour(breakdown, segmentIndex, chart.segments[segmentIndex].key),
+                        color = segmentColours[segmentIndex],
                         topLeft = Offset(dayIndex * slot + (slot - barWidth) / 2f, top),
                         size = Size(barWidth, height),
                         cornerRadius = corner,
@@ -315,7 +312,7 @@ private fun ChartBars(chart: ActivityChart, breakdown: ChartBreakdown) {
             }
         }
         drawLine(
-            color = LenslyOutline,
+            color = colors.outlineVariant,
             start = Offset(0f, size.height),
             end = Offset(size.width, size.height),
             strokeWidth = 1.dp.toPx(),
@@ -352,7 +349,7 @@ private fun ChartLegend(segments: List<ChartSegment>, breakdown: ChartBreakdown)
                         Text(
                             text = " ${segment.count}",
                             style = MaterialTheme.typography.labelMedium,
-                            color = LenslyOnSurface,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                         )
                     }
@@ -368,21 +365,22 @@ private fun ChartLegend(segments: List<ChartSegment>, breakdown: ChartBreakdown)
  */
 @Composable
 private fun ChartPlaceholder() {
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val colors = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.large
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(EMPTY_CHART_HEIGHT)
             .clip(shape)
-            .background(LenslySurfaceContainer)
-            .border(1.dp, LenslyOutline, shape)
+            .background(colors.surfaceContainer)
+            .border(1.dp, colors.outlineVariant, shape)
             .padding(LenslySpacing.md),
         verticalArrangement = Arrangement.SpaceBetween,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
             drawLine(
-                color = LenslyOutline,
+                color = colors.outlineVariant,
                 start = Offset(0f, size.height / 2f),
                 end = Offset(size.width, size.height / 2f),
                 strokeWidth = 1.dp.toPx(),
@@ -393,7 +391,7 @@ private fun ChartPlaceholder() {
             text = "No signatures yet — your activity chart appears here",
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = colors.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
     }
@@ -406,8 +404,8 @@ private fun <T> SegmentedToggle(options: List<T>, selected: T, label: (T) -> Str
     Row(
         modifier = Modifier
             .clip(LenslyPillShape)
-            .border(1.dp, LenslyOutline, LenslyPillShape)
-            .background(LenslySurfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, LenslyPillShape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -418,7 +416,7 @@ private fun <T> SegmentedToggle(options: List<T>, selected: T, label: (T) -> Str
                 modifier = Modifier
                     .defaultMinSize(minHeight = 36.dp)
                     .clip(LenslyPillShape)
-                    .background(if (isSelected) LenslySurfaceHigh else Color.Transparent)
+                    .background(if (isSelected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
                     .semantics { this.selected = isSelected }
                     .tapHaptic(haptics)
                     .clickable(role = Role.Tab, onClick = { onSelect(option) })
@@ -428,7 +426,7 @@ private fun <T> SegmentedToggle(options: List<T>, selected: T, label: (T) -> Str
                 Text(
                     text = label(option).uppercase(),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (isSelected) LenslyOnSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
             }

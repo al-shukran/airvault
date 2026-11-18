@@ -16,7 +16,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -52,7 +52,7 @@ class BulkGenerateScreenTest {
         inputs.chain = chain
         inputs.running = running
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 BulkGenerateScreen(
                     existingAccounts = 3,
                     autoNameBase = "Seed wallet",

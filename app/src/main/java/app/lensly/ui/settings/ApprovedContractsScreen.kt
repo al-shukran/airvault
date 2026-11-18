@@ -40,13 +40,7 @@ import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
 import app.lensly.ui.sign.ProxyFacts
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
-import app.lensly.ui.theme.LenslyOutlineInteractive
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurface
-import app.lensly.ui.theme.LenslySurfaceContainer
 
 /**
  * The approved contracts: every whitelist entry of the installed catalog, grouped by network. A search field narrows the list by
@@ -139,14 +133,14 @@ fun ApprovedContractsScreen(
  */
 @Composable
 private fun SearchField(query: String, focused: Boolean, onFocus: () -> Unit) {
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .testTag(SEARCH_TAG)
             .clip(shape)
-            .background(LenslySurfaceContainer, shape)
-            .border(1.dp, LenslyOutlineInteractive, shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer, shape)
+            .border(1.dp, MaterialTheme.colorScheme.outline, shape)
             .clickable(role = Role.Button, onClick = onFocus)
             .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.sm),
         contentAlignment = Alignment.CenterStart,
@@ -155,9 +149,9 @@ private fun SearchField(query: String, focused: Boolean, onFocus: () -> Unit) {
             query.isNotEmpty() -> Text(
                 text = if (focused) "${query}_" else query,
                 style = MaterialTheme.typography.bodyLarge,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
-            focused -> Text(text = "_", style = MaterialTheme.typography.bodyLarge, color = LenslyOnSurface)
+            focused -> Text(text = "_", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
             else -> Text(
                 text = "Search protocol, chain, function or address",
                 style = MaterialTheme.typography.bodyLarge,
@@ -178,7 +172,7 @@ private fun NetworkHeader(network: NetworkEntry?, chainId: Long) {
         Text(
             text = network?.name ?: "Chain $chainId",
             style = MaterialTheme.typography.titleMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         PillChip(text = "Chain $chainId")
     }
@@ -187,13 +181,13 @@ private fun NetworkHeader(network: NetworkEntry?, chainId: Long) {
 /** One approved call as a card: its function and selector, its contract in full, and its approved meaning. */
 @Composable
 private fun ApprovalCard(entry: WhitelistEntry) {
-    val shape = RoundedCornerShape(LenslyRadius.md)
+    val shape = MaterialTheme.shapes.medium
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(LenslySurface)
-            .border(1.dp, LenslyOutline, shape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .padding(horizontal = LenslySpacing.md),
     ) {
         Row(
@@ -205,7 +199,7 @@ private fun ApprovalCard(entry: WhitelistEntry) {
                 Text(
                     text = protocolOf(entry).ifEmpty { "Approved call" },
                     style = MaterialTheme.typography.titleSmall,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 AddressText(address = entry.contract, shown = shortAddress(entry.contract), icon = false)
             }

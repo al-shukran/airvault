@@ -26,7 +26,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslySpacing
-import app.lumio.ui.theme.LumioMotion
+import app.lensly.ui.theme.LumenMotion
 
 /** The height of a row with one line. Two lines with an amount take 72 dp. */
 private val ROW_HEIGHT = 64.dp
@@ -50,7 +50,7 @@ fun LumioRow(
     val pressed by interaction.collectIsPressedAsState()
     val press = animateFloatAsState(
         targetValue = if (pressed && onClick != null) PRESSED_ROW_SCALE else 1f,
-        animationSpec = LumioMotion.spatialFast,
+        animationSpec = LumenMotion.spatialFast,
         label = "row press",
     )
     Row(

@@ -4,7 +4,7 @@ import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import app.lensly.ui.screenshot.snapshot
-import app.lumio.ui.theme.LumioTheme
+import app.lensly.ui.theme.LumenTheme
 import org.robolectric.RuntimeEnvironment
 
 /** The qualifiers of a dark golden. The system is in night mode, so the Night palette shows. */
@@ -24,5 +24,5 @@ fun ComposeContentTestRule.lumioSnapshot(
     content: @Composable () -> Unit,
 ) {
     Settings.Global.putFloat(RuntimeEnvironment.getApplication().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
-    snapshot(name = name, settleMs = settleMs, beforeCapture = beforeCapture, theme = { LumioTheme(content = it) }, content = content)
+    snapshot(name = name, settleMs = settleMs, beforeCapture = beforeCapture, theme = { LumenTheme(content = it) }, content = content)
 }

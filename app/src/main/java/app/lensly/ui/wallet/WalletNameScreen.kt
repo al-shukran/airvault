@@ -33,11 +33,8 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
-import app.lensly.ui.theme.LenslyOutlineInteractive
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
-import app.lensly.ui.theme.LenslyWarning
+import app.lensly.ui.theme.LocalLumenPalette
 
 /** Name suggested before the owner types one. */
 const val DEFAULT_WALLET_NAME = "WALLET 1"
@@ -83,7 +80,7 @@ fun WalletNameScreen(
     saving: Boolean = false,
 ) {
     val full = name.length >= maxLength
-    val helperColor = if (full) LenslyWarning else MaterialTheme.colorScheme.onSurfaceVariant
+    val helperColor = if (full) LocalLumenPalette.current.warning else MaterialTheme.colorScheme.onSurfaceVariant
     var focused by rememberSaveable { mutableStateOf(true) }
     KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
         LenslyScreen(
@@ -164,14 +161,14 @@ fun WalletNameScreen(
  */
 @Composable
 private fun NameField(name: String, placeholder: String?, full: Boolean, focused: Boolean, onFocus: () -> Unit) {
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = NAME_FIELD_HEIGHT)
             .clip(shape)
-            .background(LenslySurfaceContainer, shape)
-            .border(1.dp, if (full) LenslyWarning else LenslyOutlineInteractive, shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer, shape)
+            .border(1.dp, if (full) LocalLumenPalette.current.warning else MaterialTheme.colorScheme.outline, shape)
             .clickable(role = Role.Button, onClick = onFocus)
             .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.sm),
         contentAlignment = Alignment.CenterStart,

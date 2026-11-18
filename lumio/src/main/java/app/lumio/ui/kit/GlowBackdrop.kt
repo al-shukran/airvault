@@ -15,8 +15,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import app.lumio.ui.theme.LocalLumioPalette
-import app.lumio.ui.theme.LocalReducedMotion
+import app.lensly.ui.theme.LocalLumenPalette
+import app.lensly.ui.theme.LocalReducedMotion
 
 /** One breath of the glow, in milliseconds: it scales from 0.96 out to 1.04 and back (section 3.4). */
 private const val BREATH_MS = 4000
@@ -27,7 +27,7 @@ private const val BREATH_MS = 4000
  */
 @Composable
 fun GlowBackdrop(modifier: Modifier = Modifier, breathing: Boolean = false, content: @Composable BoxScope.() -> Unit) {
-    val palette = LocalLumioPalette.current
+    val palette = LocalLumenPalette.current
     Box(
         modifier = modifier
             .drawWithCache {

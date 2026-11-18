@@ -22,7 +22,7 @@ import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lumio.ui.home.LumioMark
-import app.lumio.ui.theme.LocalLumioPalette
+import app.lensly.ui.theme.LocalLumenPalette
 
 /** One row of the Wallets list: the wallet's [id], its [name], and the [detail] under it, a total in dollars or the count of its accounts per chain. */
 data class WalletRow(val id: String, val name: String, val detail: String)
@@ -73,7 +73,7 @@ fun WalletsScreen(
                     SettingsRow(title = row.name, description = row.detail, onClick = { onWallet(row.id) })
                 }
                 item(key = "pair") {
-                    TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumioPalette.current.accentInk)) { Text("Pair a wallet") }
+                    TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumenPalette.current.accentInk)) { Text("Pair a wallet") }
                 }
             }
         }

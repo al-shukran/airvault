@@ -28,8 +28,6 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 
 /** The most height the calldata block takes. Past it, the block scrolls on its own, so every word stays reachable. */
@@ -66,7 +64,7 @@ fun SignRefusedScreen(
             text = "REFUSED",
             modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.displaySmall,
-            color = LenslyError,
+            color = MaterialTheme.colorScheme.error,
         )
         Spacer(Modifier.height(LenslySpacing.md))
         InlineBanner(message = reason, tone = BannerTone.Error)
@@ -120,7 +118,7 @@ private fun UndecodedCallDetails(call: UndecodedCall) {
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = CALLDATA_MAX_HEIGHT)
-                .clip(RoundedCornerShape(LenslyRadius.md))
+                .clip(MaterialTheme.shapes.medium)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .verticalScroll(rememberScrollState())
                 .padding(LenslySpacing.sm),

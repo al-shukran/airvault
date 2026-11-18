@@ -6,7 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.ui.navigation.SAVE_FAILED_MESSAGE
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,7 +24,7 @@ class SaveErrorTextTest {
     @Test
     fun aFailedSaveShowsItsErrorOnTheNameScreen() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 WalletNameScreen(
                     name = "",
                     onKey = {},
@@ -42,7 +42,7 @@ class SaveErrorTextTest {
     @Test
     fun theNameScreenShowsNoErrorBeforeASaveFails() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 WalletNameScreen(name = "", onKey = {}, onBackspace = {}, onDone = {}, placeholder = "WALLET 1")
             }
         }
@@ -53,7 +53,7 @@ class SaveErrorTextTest {
     @Test
     fun aFailedSaveShowsItsErrorOnThePassphraseBackupScreen() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 PassphraseBackupScreen(
                     writtenDown = true,
                     onWrittenDownChange = {},

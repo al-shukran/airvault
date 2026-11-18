@@ -22,9 +22,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.DotProgress
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -42,6 +39,7 @@ fun PasswordField(
     onClick: (() -> Unit)? = null,
 ) {
     val description = if (length == 0) "Password empty" else "$length characters entered"
+    val colors = MaterialTheme.colorScheme
     Canvas(
         modifier = modifier
             .fillMaxWidth()
@@ -56,7 +54,7 @@ fun PasswordField(
         val centerY = (size.height - line) / 2f
 
         drawLine(
-            color = LenslyOutlineInteractive,
+            color = colors.outline,
             start = Offset(0f, size.height - line / 2f),
             end = Offset(size.width, size.height - line / 2f),
             strokeWidth = line,
@@ -66,7 +64,7 @@ fun PasswordField(
             val dashWidth = DASH_WIDTH.toPx()
             val dashHeight = DASH_HEIGHT.toPx()
             drawRect(
-                color = LenslyMuted,
+                color = colors.onSurfaceVariant,
                 topLeft = Offset(0f, centerY - dashHeight / 2f),
                 size = Size(dashWidth, dashHeight),
             )
@@ -79,7 +77,7 @@ fun PasswordField(
         val radius = dot / 2f
         for (i in 0 until shown) {
             val x = radius + i * pitch
-            drawCircle(color = LenslyOnSurface, radius = radius, center = Offset(x, centerY))
+            drawCircle(color = colors.onSurface, radius = radius, center = Offset(x, centerY))
         }
     }
 }

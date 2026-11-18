@@ -25,9 +25,8 @@ import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.TokenIcon
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySuccess
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletScaffold
@@ -112,7 +111,7 @@ fun RegistryImportScreen(
         Text(
             text = "Insert removable storage with a signed package.",
             style = MaterialTheme.typography.bodyLarge,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(LenslySpacing.xs))
         Text(
@@ -144,7 +143,7 @@ private fun InstalledResult(state: ImportState.Installed) {
     Text(
         text = "INSTALLED · SEQUENCE ${state.sequence}",
         style = MaterialTheme.typography.labelLarge,
-        color = LenslySuccess,
+        color = LocalLumenPalette.current.positive,
     )
     Spacer(Modifier.height(LenslySpacing.xxs))
     Text(
@@ -197,7 +196,7 @@ private fun LogoLine(text: String, logo: @Composable () -> Unit) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

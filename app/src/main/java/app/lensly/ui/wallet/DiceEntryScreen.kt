@@ -44,12 +44,7 @@ import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyAccent
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
-import app.lensly.ui.theme.LenslyOutlineInteractive
 import app.lensly.ui.theme.LenslyPillShape
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import java.security.SecureRandom
 import kotlin.math.roundToInt
@@ -76,7 +71,6 @@ private val DIE_PIP_SIZE = 44.dp
 /** Size of the coin drawn on a coin button. */
 private val COIN_ICON_SIZE = 64.dp
 
-private val BUTTON_SHAPE = RoundedCornerShape(LenslyRadius.lg)
 
 /** Test tag of the Undo control. */
 const val UNDO_TAG = "entry-undo"
@@ -244,13 +238,13 @@ private fun recentStrip(entered: String): String {
 private fun FullStrengthChip() {
     Box(
         modifier = Modifier
-            .border(1.dp, LenslyOnSurface, RoundedCornerShape(percent = 50))
+            .border(1.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(percent = 50))
             .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xxs + 2.dp),
     ) {
         Text(
             text = "FULL $FULL_STRENGTH_BITS-BIT",
             style = MaterialTheme.typography.labelSmall,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -288,16 +282,16 @@ private fun LastEntriesRow(mode: EntropyMode, entered: String) {
 @Composable
 private fun LastSlot(mode: EntropyMode, symbol: Char?, newest: Boolean, modifier: Modifier) {
     val border = if (newest) {
-        Modifier.border(2.dp, LenslyAccent, BUTTON_SHAPE)
+        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large)
     } else {
-        Modifier.border(1.dp, LenslyOutline, BUTTON_SHAPE)
+        Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)
     }
     Box(
         modifier = modifier
-            .clip(BUTTON_SHAPE)
+            .clip(MaterialTheme.shapes.large)
             .background(
                 if (symbol != null) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
-                BUTTON_SHAPE,
+                MaterialTheme.shapes.large,
             )
             .then(border),
         contentAlignment = Alignment.Center,
@@ -348,7 +342,7 @@ private fun DicePad(faces: List<Char>, hidden: Boolean, onTile: (Int) -> Unit) {
                             Text(
                                 text = face.toString(),
                                 style = MaterialTheme.typography.headlineLarge,
-                                color = LenslyOnSurface,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                         }
                     }
@@ -383,7 +377,7 @@ private fun CoinPad(faces: List<Char>, hidden: Boolean, onTile: (Int) -> Unit) {
                     Text(
                         text = label.uppercase(),
                         style = MaterialTheme.typography.headlineSmall,
-                        color = LenslyOnSurface,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
@@ -429,13 +423,13 @@ private fun CoinMark(side: Char, markSize: Dp) {
     Box(
         modifier = Modifier
             .size(markSize)
-            .border(2.dp, LenslyOnSurface, CircleShape),
+            .border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = side.toString(),
             style = MaterialTheme.typography.headlineMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -460,10 +454,10 @@ private fun EntryButton(
         modifier = modifier
             .testTag(tag)
             .pressFeedback(interaction, enabled = true)
-            .clip(BUTTON_SHAPE)
+            .clip(MaterialTheme.shapes.large)
             .background(
                 if (enabled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
-                BUTTON_SHAPE,
+                MaterialTheme.shapes.large,
             )
             .tapHaptic(haptics, enabled)
             .clickable(
@@ -490,7 +484,7 @@ private fun UndoControl(enabled: Boolean, onClick: () -> Unit) {
             .height(UNDO_HEIGHT)
             .pressFeedback(interaction, enabled)
             .clip(LenslyPillShape)
-            .border(1.dp, LenslyOutlineInteractive, LenslyPillShape)
+            .border(1.dp, MaterialTheme.colorScheme.outline, LenslyPillShape)
             .tapHaptic(haptics, enabled)
             .clickable(
                 enabled = enabled,
@@ -505,7 +499,7 @@ private fun UndoControl(enabled: Boolean, onClick: () -> Unit) {
         Text(
             text = "UNDO",
             style = MaterialTheme.typography.labelLarge,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -536,7 +530,7 @@ private val DIE_PIPS: Map<Int, List<Offset>> = mapOf(
 
 /** A die face drawn as a rounded square outline with its pips, in the light on-surface colour. */
 @Composable
-private fun DieFace(face: Int, faceSize: Dp, color: Color = LenslyOnSurface) {
+private fun DieFace(face: Int, faceSize: Dp, color: Color = MaterialTheme.colorScheme.onSurface) {
     Canvas(Modifier.size(faceSize)) {
         val w = size.width
         val h = size.height

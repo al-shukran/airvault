@@ -7,6 +7,7 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
@@ -21,6 +22,7 @@ import app.lensly.core.btc.warnings
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalMonoFamily
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -83,7 +85,7 @@ fun BitcoinReviewScreen(
                     bitcoin = true,
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
-                ReviewSummary(sentence = btcSentence(review, addressNotes), facts = btcFacts(review))
+                ReviewSummary(sentence = btcSentence(review, addressNotes, LocalMonoFamily.current), facts = btcFacts(review))
                 Spacer(Modifier.height(LenslySpacing.md))
                 RiskBanner(items = btcRiskItems(review, confirmed, onConfirmedChange))
                 Spacer(Modifier.height(LenslySpacing.md))
@@ -184,7 +186,7 @@ internal fun BtcReview.totalSats(): Long? = feeSats?.let { sentToOthersSats() + 
  * The summary sentence: the verb, the amount sent to others, and the counterparty. A single outside output names its counterparty by
  * its Address Book name, or else by its full address, and several are counted. A request that pays nothing outside the wallet says so.
  */
-internal fun btcSentence(review: BtcReview, notes: Map<String, AddressNotes>): AnnotatedString {
+internal fun btcSentence(review: BtcReview, notes: Map<String, AddressNotes>, mono: FontFamily): AnnotatedString {
     val others = review.outputs.filterNot { it.isOwnChange }
     return buildAnnotatedString {
         when (others.size) {
@@ -193,18 +195,18 @@ internal fun btcSentence(review: BtcReview, notes: Map<String, AddressNotes>): A
                 val output = others.single()
                 val address = output.address
                 append("Send ")
-                appendMono(btcShort(output.amountSats))
+                appendMono(btcShort(output.amountSats), mono)
                 append(" to ")
                 val name = address?.let { notes.notesOf(it)?.shownName() }
                 when {
                     name != null -> append(name)
-                    address != null -> appendMono(address)
+                    address != null -> appendMono(address, mono)
                     else -> append("a script with no address")
                 }
             }
             else -> {
                 append("Send ")
-                appendMono(btcShort(review.sentToOthersSats()))
+                appendMono(btcShort(review.sentToOthersSats()), mono)
                 append(" to ${others.size} addresses")
             }
         }

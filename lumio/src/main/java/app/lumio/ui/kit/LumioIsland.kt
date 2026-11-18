@@ -12,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import app.lumio.ui.theme.LumioRadius
 
 /**
  * An island: the rows of one group on one rounded surface (section 1.3). It has no shadow. The light theme draws a 1 dp hairline instead,
@@ -20,7 +19,7 @@ import app.lumio.ui.theme.LumioRadius
  */
 @Composable
 fun LumioIsland(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(LumioRadius.lg)
+    val shape = MaterialTheme.shapes.large
     val hairline = if (isSystemInDarkTheme()) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
     Column(
         modifier = modifier

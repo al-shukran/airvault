@@ -10,7 +10,7 @@ import androidx.lifecycle.LifecycleRegistry
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.core.wallet.AccountXpub
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlinx.coroutines.CompletableDeferred
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -105,7 +105,7 @@ class PairCodePasswordTest {
         onUnavailable: () -> Unit = {},
     ) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 PairWizard(
                     wallets = listOf(wallet),
                     profiles = emptyMap(),

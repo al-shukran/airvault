@@ -11,7 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -29,7 +29,7 @@ class ProxyPolicyScreenTest {
 
     private fun show(saved: ProxyPolicy?, selected: ProxyPolicy?, onContinue: () -> Unit = {}) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 ProxyPolicyScreen(
                     step = ProxyPolicyStep.Choose,
                     saved = saved,
@@ -69,7 +69,7 @@ class ProxyPolicyScreenTest {
     fun choosingAnotherPolicyEnablesContinueAndContinueOpensThePasswordStep() {
         var continued = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 var selected by remember { mutableStateOf<ProxyPolicy?>(null) }
                 ProxyPolicyScreen(
                     step = ProxyPolicyStep.Choose,
@@ -95,7 +95,7 @@ class ProxyPolicyScreenTest {
     @Test
     fun thePasswordStepAsksForTheAppPasswordBeforeSaving() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 ProxyPolicyScreen(
                     step = ProxyPolicyStep.Password(ProxyPolicy.REFUSE_ALL_PROXIES, busy = false),
                     saved = ProxyPolicy.DEFAULT,

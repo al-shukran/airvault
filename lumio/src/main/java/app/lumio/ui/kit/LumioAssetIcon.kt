@@ -11,7 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import app.lumio.ui.theme.LocalLumioPalette
+import app.lensly.ui.theme.LocalLumenPalette
 
 /**
  * The frame of an asset's logo (section 1.4): the art in a 40 dp circle on surfaceContainerHigh, with a 1 dp outlineVariant halo. A testnet account's
@@ -36,7 +36,7 @@ fun LumioAssetIcon(modifier: Modifier = Modifier, testnet: Boolean = false, cont
                     .align(Alignment.BottomEnd)
                     .size(12.dp)
                     .clip(CircleShape)
-                    .background(LocalLumioPalette.current.testnet),
+                    .background(LocalLumenPalette.current.testnet),
             )
         }
     }

@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,8 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.lensly.ui.applySecureWindow
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -54,11 +54,11 @@ class GatePreviewActivity : ComponentActivity() {
 
         setContent {
             val current by screen
-            LenslyTheme {
+            CoverTheme {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(LenslyBlack),
+                        .background(MaterialTheme.colorScheme.background),
                 ) {
                     when (current) {
                         SCREEN_UNLOCK -> UnlockPreview()

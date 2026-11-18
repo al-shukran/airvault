@@ -30,7 +30,7 @@ import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.settings.FailureCapChoice
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.math.abs
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -64,7 +64,7 @@ class WalletHomeScreenTest {
     fun zeroWalletsShowsTheEmptyStateWithCreateAndRestoreAndNoCarousel() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = emptyList(), recent = emptyList())
             }
         }
@@ -88,7 +88,7 @@ class WalletHomeScreenTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
-            LenslyTheme {
+            LumenTheme {
                 NavHost(navController = nav, startDestination = HiddenRoute.HOME) {
                     composable(HiddenRoute.HOME) {
                         Home(
@@ -115,7 +115,7 @@ class WalletHomeScreenTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
-            LenslyTheme {
+            LumenTheme {
                 NavHost(navController = nav, startDestination = HiddenRoute.HOME) {
                     composable(HiddenRoute.HOME) {
                         Home(
@@ -140,7 +140,7 @@ class WalletHomeScreenTest {
     fun fiveWalletsShowEveryWalletInTheCarouselWithNoAddTile() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = wallets(5), recent = emptyList())
             }
         }
@@ -165,7 +165,7 @@ class WalletHomeScreenTest {
         // Given out of order, so the screen has to sort them.
         val records = listOf(4, 0, 2, 1, 3).map { hoursAgo -> activity(hoursAgo) }
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = wallets(2), recent = records)
             }
         }
@@ -185,7 +185,7 @@ class WalletHomeScreenTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
-            LenslyTheme {
+            LumenTheme {
                 NavHost(navController = nav, startDestination = HiddenRoute.HOME) {
                     composable(HiddenRoute.HOME) {
                         Home(
@@ -210,7 +210,7 @@ class WalletHomeScreenTest {
     fun recentActivityWithNoRecordSaysNothingSignedYet() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = wallets(2), recent = emptyList())
             }
         }
@@ -226,7 +226,7 @@ class WalletHomeScreenTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
-            LenslyTheme {
+            LumenTheme {
                 NavHost(navController = nav, startDestination = HiddenRoute.HOME) {
                     composable(HiddenRoute.HOME) {
                         Home(
@@ -268,7 +268,7 @@ class WalletHomeScreenTest {
     fun catalogTileShowsTheInstalledSequence() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = wallets(2), readiness = READINESS.copy(catalogSequence = 3))
             }
         }
@@ -281,7 +281,7 @@ class WalletHomeScreenTest {
     fun catalogTileReadsBuiltInWhenNoPackageIsInstalled() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = wallets(2), readiness = READINESS.copy(catalogSequence = null))
             }
         }
@@ -296,7 +296,7 @@ class WalletHomeScreenTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
-            LenslyTheme {
+            LumenTheme {
                 NavHost(navController = nav, startDestination = HiddenRoute.HOME) {
                     composable(HiddenRoute.HOME) {
                         Home(wallets = wallets(2), recent = emptyList(), onScan = { nav.navigate(HiddenRoute.SCAN_ANY) })
@@ -319,7 +319,7 @@ class WalletHomeScreenTest {
         compose.mainClock.autoAdvance = false
         var opened = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = wallets(2), recent = listOf(activity(0)), onActivity = { opened = true })
             }
         }
@@ -334,7 +334,7 @@ class WalletHomeScreenTest {
     fun theContentEndsAboveTheDock() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = wallets(2), recent = listOf(activity(0)), readiness = READINESS)
             }
         }
@@ -352,7 +352,7 @@ class WalletHomeScreenTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             nav = rememberNavController()
-            LenslyTheme {
+            LumenTheme {
                 NavHost(navController = nav, startDestination = HiddenRoute.HOME) {
                     composable(HiddenRoute.HOME) {
                         Home(wallets = wallets(2), recent = emptyList(), onSettings = { nav.navigate(HiddenRoute.SETTINGS) })
@@ -375,7 +375,7 @@ class WalletHomeScreenTest {
     fun theDockHoldsFourLabelledActionsEvenlySpaced() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Home(wallets = wallets(2), recent = emptyList())
             }
         }

@@ -9,7 +9,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyOnSurface
 
 /** Thin progress bar: a white fill over a surface track. [fraction] is clamped to 0..1. */
 @Composable
@@ -24,7 +23,7 @@ internal fun ProgressTrack(fraction: Float, modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth(fraction.coerceIn(0f, 1f))
                 .height(4.dp)
-                .background(LenslyOnSurface, CircleShape),
+                .background(MaterialTheme.colorScheme.onSurface, CircleShape),
         )
     }
 }

@@ -3,6 +3,7 @@ package app.lensly.ui.wallet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,8 +30,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import app.lensly.app.HideDelay
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import java.security.SecureRandom
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -324,11 +324,11 @@ class DiceEntryScreenTest {
 
     private fun ComposeContentTestRule.setPhone(content: @Composable () -> Unit) {
         setContent {
-            LenslyTheme {
+            LumenTheme {
                 Box(
                     modifier = Modifier
                         .requiredSize(width = PHONE_WIDTH, height = PHONE_HEIGHT)
-                        .background(LenslyBlack),
+                        .background(MaterialTheme.colorScheme.background),
                 ) {
                     content()
                 }

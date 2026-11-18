@@ -31,19 +31,19 @@ import app.lensly.ui.wallet.WalletStartScreen
  * screen needs the draft of a started ceremony, so a missing draft sends the owner back to the start.
  */
 internal fun NavGraphBuilder.createRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.CEREMONY_CHOICE) { entry ->
+    vaultComposable(HiddenRoute.CEREMONY_CHOICE) { entry ->
         HiddenBackdrop { CeremonyChoiceRoute(navController, entry) }
     }
-    composable(HiddenRoute.DICE) { entry ->
+    vaultComposable(HiddenRoute.DICE) { entry ->
         HiddenBackdrop { EntropyRoute(navController, holder, EntropyMode.Dice, entry) }
     }
-    composable(HiddenRoute.COINS) { entry ->
+    vaultComposable(HiddenRoute.COINS) { entry ->
         HiddenBackdrop { EntropyRoute(navController, holder, EntropyMode.Coins, entry) }
     }
-    composable(HiddenRoute.SKIP) { entry -> HiddenBackdrop { SkipRoute(navController, entry) } }
-    composable(HiddenRoute.RESULT) { entry -> HiddenBackdrop { ResultRoute(navController, entry) } }
-    composable(HiddenRoute.WORDS) { entry -> HiddenBackdrop { WordsRoute(navController, entry) } }
-    composable(HiddenRoute.CONFIRM) { entry -> HiddenBackdrop { ConfirmRoute(navController, entry) } }
+    vaultComposable(HiddenRoute.SKIP) { entry -> HiddenBackdrop { SkipRoute(navController, entry) } }
+    vaultComposable(HiddenRoute.RESULT) { entry -> HiddenBackdrop { ResultRoute(navController, entry) } }
+    vaultComposable(HiddenRoute.WORDS) { entry -> HiddenBackdrop { WordsRoute(navController, entry) } }
+    vaultComposable(HiddenRoute.CONFIRM) { entry -> HiddenBackdrop { ConfirmRoute(navController, entry) } }
 }
 
 /**

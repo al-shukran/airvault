@@ -10,7 +10,7 @@ import androidx.compose.ui.test.performScrollTo
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -31,7 +31,7 @@ class WalletHistoryScreenTest {
 
     private fun show(records: List<ReviewRecord>) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 WalletHistoryScreen(
                     walletName = "Seed wallet",
                     records = records,

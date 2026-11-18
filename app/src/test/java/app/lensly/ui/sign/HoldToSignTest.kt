@@ -9,7 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -34,7 +34,7 @@ class HoldToSignTest {
         signed = 0
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 HoldToSignButton(enabled = enabled, onSign = { signed++ })
             }
         }

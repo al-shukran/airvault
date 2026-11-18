@@ -15,7 +15,7 @@ import app.lensly.app.ProfileColour
 import app.lensly.app.ProfileIcon
 import app.lensly.ui.components.waitUntilKeyboardHidden
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -94,7 +94,7 @@ class AccountProfileScreenTest {
     /** Hosts the editor with its draft in state, under a Back handler that counts leaving the editor. */
     private fun setEditor() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 BackHandler { leftEditor++ }
                 var draft by remember {
                     mutableStateOf(AccountDraft(name = "", colour = ProfileColour.RED, icon = ProfileIcon.STAR, label = "", group = ""))

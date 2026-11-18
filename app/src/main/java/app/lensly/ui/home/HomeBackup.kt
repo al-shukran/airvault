@@ -29,11 +29,8 @@ import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.RowArrow
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
-import app.lensly.ui.theme.LenslyWarning
+import app.lensly.ui.theme.LocalLumenPalette
 
 /** The test tag of the backup panel, so a test can find it. */
 internal const val HOME_BACKUP_TAG = "home-backup"
@@ -53,15 +50,15 @@ internal fun BackupPanel(
     onBackup: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     val haptics = rememberKeyHaptics()
     Row(
         modifier = modifier
             .fillMaxWidth()
             .testTag(HOME_BACKUP_TAG)
             .clip(shape)
-            .background(LenslySurfaceContainer)
-            .border(1.dp, LenslyWarning.copy(alpha = 0.6f), shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, LocalLumenPalette.current.warning.copy(alpha = 0.6f), shape)
             .tapHaptic(haptics)
             .clickable(role = Role.Button, onClick = { onBackup(wallets.first().id) })
             .padding(LenslySpacing.md),
@@ -71,13 +68,13 @@ internal fun BackupPanel(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(LenslyWarning.copy(alpha = 0.16f)),
+                .background(LocalLumenPalette.current.warning.copy(alpha = 0.16f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = LenslyIcons.Shield,
                 contentDescription = null,
-                tint = LenslyWarning,
+                tint = LocalLumenPalette.current.warning,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -86,7 +83,7 @@ internal fun BackupPanel(
             Text(
                 text = if (wallets.size == 1) "Back up your 24 words" else "Back up ${wallets.size} wallets",
                 style = MaterialTheme.typography.titleSmall,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(LenslySpacing.xxs))
             Text(

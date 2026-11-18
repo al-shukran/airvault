@@ -11,7 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -90,7 +90,7 @@ class AddressTextTest {
 
     private fun setAddress(onClick: (() -> Unit)? = null) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 AddressText(address = ADDRESS, shown = SHORT, icon = false, onClick = onClick)
             }
         }

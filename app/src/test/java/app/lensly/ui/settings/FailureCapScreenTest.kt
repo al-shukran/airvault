@@ -19,7 +19,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import app.lensly.ui.gate.eraseWarning
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -40,7 +40,7 @@ class FailureCapScreenTest {
 
     private fun show(saved: FailureCapChoice?, selected: FailureCapChoice?, onSelect: (FailureCapChoice) -> Unit = {}) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 FailureCapScreen(
                     step = FailureCapStep.Choose,
                     saved = saved,
@@ -93,7 +93,7 @@ class FailureCapScreenTest {
     @Test
     fun theWaitsFollowTheSliderAsItMoves() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 var selected by remember { mutableStateOf<FailureCapChoice?>(null) }
                 FailureCapScreen(
                     step = FailureCapStep.Choose,
@@ -199,7 +199,7 @@ class FailureCapScreenTest {
 
     private fun showPassword(busy: Boolean, warning: String?) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 FailureCapScreen(
                     step = FailureCapStep.Password(FailureCapChoice.ONE_MINUTE, FailureDelay.DEFAULT_WIPE_AFTER, busy),
                     saved = FailureCapChoice.TEN_SECONDS,

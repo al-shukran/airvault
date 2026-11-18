@@ -32,7 +32,7 @@ import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.settings.SettingsPage
 import app.lumio.ui.shell.LumioTab
 import app.lumio.ui.shell.LumioTabFrame
-import app.lumio.ui.theme.LumioTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.wallets.AccountChain
 
 /** Lumio's own routes inside its Hidden Area. The gate's routes are shared, see `app.lensly.ui.navigation.GateRoutes`. */
@@ -206,7 +206,7 @@ internal class LockSettingsState(private val store: LockSettingsStore) {
  */
 @Composable
 internal fun LumioBackdrop(selection: NetworkSelection, content: @Composable () -> Unit) {
-    LumioTheme {
+    LumenTheme {
         HiddenBackdrop {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (selection.mode == NetworkMode.TESTNET) TestnetBanner()

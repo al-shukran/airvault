@@ -38,7 +38,7 @@ import app.lensly.ui.flow.SignFlowViewModel
 import app.lensly.ui.flow.SignStep
 import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.sign.HOLD_TO_SIGN_TAG
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -122,7 +122,7 @@ internal class SignRouteDriver(
         // A route that stopped making this view model would build the factory below instead, and its error would fail the run.
         var signFlow: SignFlowViewModel? = null
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 val navController = rememberNavController()
                 val source = remember { FixtureFrameSource(frames) }
                 SignWalletRoute(navController, holder, wallet.id, frameSource = source)

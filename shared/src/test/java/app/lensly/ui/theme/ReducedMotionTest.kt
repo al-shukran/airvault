@@ -1,4 +1,4 @@
-package app.lumio.ui.theme
+package app.lensly.ui.theme
 
 import android.provider.Settings
 import androidx.compose.material3.Text
@@ -39,7 +39,7 @@ class ReducedMotionTest {
 
     private fun showReducedMotion() {
         compose.setContent {
-            LumioTheme {
+            LumenTheme {
                 Text("reduced: ${LocalReducedMotion.current}")
             }
         }

@@ -39,10 +39,7 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurface
 import app.lensly.ui.wallet.StepHeader
 
 /** A change of the gesture has two steps: the App Password, then the practice. */
@@ -90,7 +87,7 @@ fun EntryGestureScreen(
 @Composable
 private fun GestureOption(gesture: EntryGesture, current: Boolean, onChoose: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
     Column(
@@ -98,7 +95,7 @@ private fun GestureOption(gesture: EntryGesture, current: Boolean, onChoose: () 
             .fillMaxWidth()
             .pressFeedback(interaction, enabled = true)
             .clip(shape)
-            .background(LenslySurface)
+            .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, if (current) colors.primary else colors.outline, shape)
             .tapHaptic(haptics, enabled = !current)
             .selectable(
@@ -117,7 +114,7 @@ private fun GestureOption(gesture: EntryGesture, current: Boolean, onChoose: () 
             Icon(
                 imageVector = gesture.icon(),
                 contentDescription = null,
-                tint = LenslyOnSurface,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(24.dp),
             )
             Spacer(Modifier.width(LenslySpacing.sm))
@@ -125,7 +122,7 @@ private fun GestureOption(gesture: EntryGesture, current: Boolean, onChoose: () 
                 Text(
                     text = gesture.title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = gesture.description,

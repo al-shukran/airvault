@@ -12,7 +12,7 @@ import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -63,7 +63,7 @@ class ApprovedContractsScreenTest {
 
     private fun show(entries: List<WhitelistEntry>, onUpdateCatalog: () -> Unit = {}) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 ApprovedContractsScreen(
                     entries = entries,
                     networks = listOf(ethereum),

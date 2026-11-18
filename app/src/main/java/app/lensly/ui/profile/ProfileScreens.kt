@@ -35,7 +35,6 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
@@ -262,7 +261,7 @@ fun StyleAccountsScreen(
             Text(
                 text = "Set for $count accounts",
                 style = MaterialTheme.typography.titleMedium,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(LenslySpacing.xs))
             Text(
@@ -349,7 +348,7 @@ private fun ProfileHeader(identity: VisualIdentity, title: String) {
             text = title.uppercase(),
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

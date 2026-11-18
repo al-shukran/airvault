@@ -1,4 +1,4 @@
-package app.lumio.ui.theme
+package app.lensly.ui.theme
 
 import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.core.CubicBezierEasing
@@ -11,7 +11,7 @@ import androidx.compose.ui.geometry.Rect
  * For a `Dp`, `IntOffset` or `Rect` value, call `spring<T>` with the same damping ratio and stiffness. Read these values in a layout or
  * draw lambda, never in composition (section 3.7).
  */
-object LumioMotion {
+object LumenMotion {
     /** Bounds, container transforms and slides. */
     val spatial = spring<Float>(dampingRatio = 0.86f, stiffness = 380f)
 

@@ -15,7 +15,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +89,7 @@ private fun NoticeText(block: NoticeBlock) {
             text = block.text,
             modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.lg).semantics { heading() },
             style = MaterialTheme.typography.titleSmall,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     } else {
         Text(

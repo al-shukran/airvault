@@ -14,7 +14,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -34,7 +34,7 @@ class SettingControlsTest {
     @Test
     fun aRadioRowShowsItsTitleItsDescriptionAndItsState() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 RadioRow(title = "Strict", description = "Each amount is verified.", selected = true, onSelect = {})
             }
         }
@@ -48,7 +48,7 @@ class SettingControlsTest {
     fun aTapOnARadioRowChoosesIt() {
         var chosen = 0
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 RadioRow(title = "Lumio only", description = "Only marked requests.", selected = false, onSelect = { chosen++ })
             }
         }
@@ -61,7 +61,7 @@ class SettingControlsTest {
     @Test
     fun aSliderShowsTheChosenValueBigWithItsCaption() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 SliderSetting(
                     title = "Longest wait",
                     options = WAITS,
@@ -82,7 +82,7 @@ class SettingControlsTest {
     fun aSliderStepChoosesTheValueItLandsOn() {
         val chosen = mutableListOf<String>()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 SliderSetting(
                     title = "Longest wait",
                     options = WAITS,
@@ -107,7 +107,7 @@ class SettingControlsTest {
     fun aNumberInItsRangeIsAppliedAsItIsTyped() {
         val applied = mutableListOf<Int>()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 NumberFieldSetting(
                     title = "Fee rate above",
                     value = 200,
@@ -130,7 +130,7 @@ class SettingControlsTest {
     fun aNumberOutsideItsRangeIsNotAppliedAndTheRangeIsNamed() {
         val applied = mutableListOf<Int>()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 NumberFieldSetting(
                     title = "Fee rate above",
                     value = 200,
@@ -151,7 +151,7 @@ class SettingControlsTest {
     @Test
     fun aChoiceRowShowsItsLabelAndValue() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 ChoiceDialogRow(
                     label = "Bulk cap",
                     value = "100",
@@ -170,7 +170,7 @@ class SettingControlsTest {
     fun aChoiceRowOpensARadioDialogAndAChoiceIsAppliedAndClosesIt() {
         val chosen = mutableListOf<Int>()
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 ChoiceDialogRow(
                     label = "Bulk cap",
                     value = "100",

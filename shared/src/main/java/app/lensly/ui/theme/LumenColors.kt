@@ -1,4 +1,4 @@
-package app.lumio.ui.theme
+package app.lensly.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
@@ -10,9 +10,9 @@ import androidx.compose.ui.graphics.Color
 // Lumen colours, section 1.1 of the Phase 2.8 design. Night is the dark theme and Day the light one. The Day text colours are darker than
 // the first values in the spec, so that each one reaches 4.5:1 on every Day surface; LumioColorsTest checks every pair.
 
-/** The Lumen roles that Material's colour scheme has no place for. Read them with [LocalLumioPalette]. */
+/** The Lumen roles that Material's colour scheme has no place for. Read them with [LocalLumenPalette]. */
 @Immutable
-data class LumioPalette(
+data class LumenPalette(
     /** The colour of text actions, links and the selected icon. */
     val accentInk: Color,
     /** The testnet strip and tag. It is also the scheme's tertiary role. */
@@ -27,10 +27,10 @@ data class LumioPalette(
     val glowEdge: Color,
 )
 
-/** The palette of the theme in composition. [LumioTheme] provides it. */
-val LocalLumioPalette = staticCompositionLocalOf<LumioPalette> { error("LumioTheme is not in composition") }
+/** The palette of the theme in composition. [LumenTheme] provides it. */
+val LocalLumenPalette = staticCompositionLocalOf<LumenPalette> { error("No theme is in composition: CoverTheme or LumenTheme must wrap it") }
 
-internal val NightPalette = LumioPalette(
+internal val NightPalette = LumenPalette(
     accentInk = Color(0xFFF4C46A),
     testnet = Color(0xFF6FD6E8),
     positive = Color(0xFF4CD69B),
@@ -39,7 +39,7 @@ internal val NightPalette = LumioPalette(
     glowEdge = Color(0xFFFF8F70).copy(alpha = 0.12f),
 )
 
-internal val DayPalette = LumioPalette(
+internal val DayPalette = LumenPalette(
     accentInk = Color(0xFF7A5200),
     testnet = Color(0xFF006C7C),
     positive = Color(0xFF107144),

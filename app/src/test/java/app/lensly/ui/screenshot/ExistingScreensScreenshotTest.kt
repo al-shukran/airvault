@@ -22,12 +22,12 @@ class ExistingScreensScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun unlockScreen() = compose.snapshot("unlock_screen") {
+    fun unlockScreen() = compose.snapshot("unlock_screen", theme = coverTheme) {
         UnlockScreen(length = 4, busy = false, onKey = {}, onBackspace = {}, onSubmit = {})
     }
 
     @Test
-    fun createPasswordScreen() = compose.snapshot("create_password_screen") {
+    fun createPasswordScreen() = compose.snapshot("create_password_screen", theme = coverTheme) {
         CreatePasswordScreen(
             state = CreatePasswordState(length = 6),
             busy = false,
@@ -43,7 +43,7 @@ class ExistingScreensScreenshotTest {
     }
 
     @Test
-    fun unavailableScreen() = compose.snapshot("unavailable_screen") {
+    fun unavailableScreen() = compose.snapshot("unavailable_screen", theme = coverTheme) {
         UnavailableScreen(onClose = {})
     }
 }

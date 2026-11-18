@@ -22,9 +22,8 @@ import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.components.TextAction
 import app.lensly.ui.profile.ProfileFieldRow
 import app.lensly.ui.sign.bitcoinNetworkName
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalMonoFamily
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillStyle
@@ -145,8 +144,8 @@ private fun ReadOnlyRow(label: String, value: String, mono: Boolean) {
         Spacer(Modifier.height(LenslySpacing.xs))
         Text(
             text = value,
-            style = if (mono) MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily) else MaterialTheme.typography.bodyMedium,
-            color = LenslyOnSurface,
+            style = if (mono) MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current) else MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

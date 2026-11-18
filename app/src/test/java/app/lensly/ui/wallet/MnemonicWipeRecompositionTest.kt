@@ -9,7 +9,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.app.WalletDraft
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -42,7 +42,7 @@ class MnemonicWipeRecompositionTest {
         var revision by mutableIntStateOf(0)
 
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 // The screen reads only the instance it holds, and keys a remember on it as the confirmation route does.
                 remember(held) { held.size }
                 // Each revision starts the screen again. Its composition then reads the wiped instance, which an equal

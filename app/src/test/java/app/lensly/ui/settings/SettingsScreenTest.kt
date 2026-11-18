@@ -18,7 +18,7 @@ import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -78,7 +78,7 @@ class SettingsScreenTest {
         onHideDelay: () -> Unit = {},
     ) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 SettingsScreen(
                     bulkCap = bulkCap,
                     onBulkCap = onBulkCap,

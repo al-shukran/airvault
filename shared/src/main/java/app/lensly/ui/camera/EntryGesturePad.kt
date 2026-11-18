@@ -20,8 +20,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyMuted
 import java.util.Locale
 
 /** The lowest and highest zoom the practice surface simulates. */
@@ -52,7 +50,7 @@ fun EntryGesturePad(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(LenslyBlack)
+            .background(MaterialTheme.colorScheme.background)
             .onGloballyPositioned { touch.root = it }
             .pointerInput(touch) {
                 detectEntryGestures(
@@ -86,7 +84,7 @@ fun EntryGesturePad(
         Text(
             text = String.format(Locale.US, "%.1fx", zoom),
             style = MaterialTheme.typography.labelMedium,
-            color = LenslyMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.Center),
         )
     }

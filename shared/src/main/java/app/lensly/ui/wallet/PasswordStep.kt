@@ -29,10 +29,8 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.gate.GateStatusLine
 import app.lensly.ui.gate.PasswordField
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceHighest
 
 /**
  * The App Password step, shared by every flow that asks for the App Password again: Show Secret, Delete Wallet, Wipe, the Hidden Entry
@@ -139,7 +137,7 @@ fun StepSegments(count: Int, filled: Int, modifier: Modifier = Modifier) {
                     .weight(1f)
                     .height(SEGMENT_HEIGHT)
                     .clip(LenslyPillShape)
-                    .background(if (index < filled) LenslyOnSurface else LenslySurfaceHighest),
+                    .background(if (index < filled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHighest),
             )
         }
     }

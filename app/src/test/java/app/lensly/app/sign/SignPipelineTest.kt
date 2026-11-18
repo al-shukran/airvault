@@ -44,6 +44,7 @@ import app.lensly.ui.shippedRegistry
 import app.lensly.ui.sign.ReviewCheck
 import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
 import app.lensly.ui.sign.evmSentence
+import app.lensly.ui.theme.SpaceMonoFamily
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
@@ -1447,12 +1448,12 @@ class SignPipelineTest {
 
         val silent = assertIs<Prepared.Ready>(batch(calls)).review
         assertEquals("", silent.amount)
-        assertTrue(evmSentence(silent).text.startsWith("Run 2 calls on "), evmSentence(silent).text)
+        assertTrue(evmSentence(silent, SpaceMonoFamily).text.startsWith("Run 2 calls on "), evmSentence(silent, SpaceMonoFamily).text)
 
         // A batch that does send native currency keeps its amount in the headline.
         val paying = assertIs<Prepared.Ready>(batch(calls, value = ONE_CENT_OF_MON)).review
         assertEquals("0.01", paying.amount)
-        assertTrue(evmSentence(paying).text.startsWith("Send 0.01 ETH to "), evmSentence(paying).text)
+        assertTrue(evmSentence(paying, SpaceMonoFamily).text.startsWith("Send 0.01 ETH to "), evmSentence(paying, SpaceMonoFamily).text)
     }
 
     // A multicall is read level by level, and each of its calls is decided where it sits.

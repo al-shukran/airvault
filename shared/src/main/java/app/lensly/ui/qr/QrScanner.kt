@@ -66,10 +66,7 @@ import app.lensly.ui.camera.CameraIcons
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.camera.openAppSettings
 import app.lensly.ui.components.PillButton
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceHigh
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
@@ -119,7 +116,7 @@ fun QrScanner(
     }
 
     Box(
-        modifier = modifier.background(LenslyBlack),
+        modifier = modifier.background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
         if (injected != null) {
@@ -276,6 +273,7 @@ private fun ImageProxy.lumaBytes(): ByteArray {
 /** Dims the frame outside a centred square with rounded corners, and outlines the square. */
 @Composable
 private fun ViewfinderOverlay(modifier: Modifier) {
+    val colors = MaterialTheme.colorScheme
     Canvas(
         modifier = modifier.graphicsLayer {
             // Offscreen compositing lets BlendMode.Clear cut the window out of the scrim.
@@ -296,7 +294,7 @@ private fun ViewfinderOverlay(modifier: Modifier) {
             blendMode = BlendMode.Clear,
         )
         drawRoundRect(
-            color = LenslyOnSurface,
+            color = colors.onSurface,
             topLeft = topLeft,
             size = square,
             cornerRadius = corner,
@@ -315,11 +313,11 @@ private fun DecodeFailedNotice(modifier: Modifier) {
         text = "Couldn't read that code",
         modifier = modifier
             .padding(LenslySpacing.md)
-            .background(LenslySurfaceHigh, RoundedCornerShape(percent = 50))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(percent = 50))
             .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm)
             .semantics { liveRegion = LiveRegionMode.Polite },
         style = MaterialTheme.typography.bodyMedium,
-        color = LenslyOnSurface,
+        color = MaterialTheme.colorScheme.onSurface,
     )
 }
 

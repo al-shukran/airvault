@@ -1,4 +1,4 @@
-package app.lumio.ui.theme
+package app.lensly.ui.theme
 
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue

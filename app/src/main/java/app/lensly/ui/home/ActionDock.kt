@@ -34,11 +34,8 @@ import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
 
 /** The test tag of the dock, so a test can measure where it sits. */
 internal const val HOME_DOCK_TAG = "home-dock"
@@ -71,8 +68,8 @@ internal fun ActionDock(
             .height(DOCK_BAR_HEIGHT)
             .testTag(HOME_DOCK_TAG)
             .clip(LenslyPillShape)
-            .background(LenslySurfaceContainer)
-            .border(1.dp, LenslyOutline, LenslyPillShape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, LenslyPillShape)
             .padding(horizontal = LenslySpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -127,7 +124,7 @@ private fun DockItem(icon: ImageVector, label: String, tag: String, onClick: () 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = LenslyOnSurface, modifier = Modifier.size(24.dp))
+        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(
             text = label.uppercase(),

@@ -1,4 +1,4 @@
-package app.lumio.ui.theme
+package app.lensly.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
@@ -15,7 +15,7 @@ class LumioColorsTest {
     @Test
     fun dayTextReadsOnEverySurface() = assertTextPairs(DayScheme, DayPalette)
 
-    private fun assertTextPairs(scheme: ColorScheme, palette: LumioPalette) {
+    private fun assertTextPairs(scheme: ColorScheme, palette: LumenPalette) {
         val texts = mapOf(
             "onSurface" to scheme.onSurface,
             "onSurfaceVariant" to scheme.onSurfaceVariant,
