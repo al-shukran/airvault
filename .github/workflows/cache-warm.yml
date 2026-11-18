@@ -27,9 +27,13 @@ on:
 permissions:
   contents: read
 
+# Runs are never cancelled. A run cancelled by a newer push is killed before setup-gradle saves its Gradle home (its post step logs
+# no "Saved cache entry"), so the commit had no entry. 57 of 213 master runs from 2026-11-16 to 2026-11-18 were cancelled this way,
+# and a PR restores the newest entry that was saved, which can predate a plugin or library version the PR needs. Pending runs
+# still collapse to one: a queued run is replaced by a newer one.
 concurrency:
   group: cache-warm-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   test: # the job id must match pr-fast.yml's `test` job (see above)
