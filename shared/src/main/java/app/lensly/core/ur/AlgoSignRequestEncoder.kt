@@ -38,6 +38,6 @@ object AlgoSignRequestEncoder {
         val fields = ArrayList<Pair<Cbor, Cbor>>()
         fields += Cbor.Uint(1L) to Cbor.Arr(components)
         request.sourceFingerprint?.let { fields += Cbor.Uint(2L) to Cbor.Uint(it.toLong() and 0xFFFFFFFFL) }
-        return Cbor.Tagged(EthSignRequest.KEYPATH_TAG, Cbor.Dict(fields))
+        return Cbor.Tagged(KEYPATH_TAG, Cbor.Dict(fields))
     }
 }
