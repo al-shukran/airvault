@@ -22,7 +22,7 @@ class VaultCalibrationDeviceTest {
     @Test
     fun calibratesArgon2ToAboutOneSecondOnThisDevice() {
         runBlocking {
-            val vault = Vault(context, RealClock)
+            val vault = instrumentedVault(context, RealClock, null)
             vault.wipe()
             try {
                 assertEquals(CreateResult.Created, vault.create("q7Vn!2Lx#Rb9Tm4Wc8Zp".toCharArray()))

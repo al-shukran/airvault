@@ -55,14 +55,16 @@ class HiddenExitTest {
             }
         }
 
-        compose.runOnIdle { nav.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } }
-        compose.waitForIdle()
+        compose.runOnUiThread { nav.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } }
+        // The gate checks the vault on a background thread, then moves to the unlock screen. Wait for that move, so the test's
+        // own navigation never races with the gate's.
+        compose.waitUntil(timeoutMillis = 5_000) { nav.currentBackStackEntry?.destination?.route == GateRoutes.UNLOCK }
         // The gate needs a real Keystore to unlock, so the test goes straight to a screen that resolves the draft.
-        compose.runOnIdle { nav.navigate(HiddenRoute.WALLET_START) }
+        compose.runOnUiThread { nav.navigate(HiddenRoute.WALLET_START) }
         compose.waitForIdle()
         assertEquals(HiddenRoute.WALLET_START, nav.currentBackStackEntry?.destination?.route)
 
-        compose.runOnIdle { leaveHidden(nav, holder) }
+        compose.runOnUiThread { leaveHidden(nav, holder) }
         compose.waitForIdle()
 
         assertEquals(LenslyRoute.CAMERA, nav.currentBackStackEntry?.destination?.route)

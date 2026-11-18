@@ -28,6 +28,7 @@ import app.lensly.core.vault.RealClock
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultSession
+import app.lensly.core.vault.instrumentedVault
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.flow.SignFlowViewModel
 import app.lensly.ui.flow.SignStep
@@ -271,7 +272,7 @@ abstract class SignFlowE2eBase {
     protected val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     // Fixed Argon2 parameters keep the run short. They are a test-only constructor argument, never a stored setting.
-    protected val vault = Vault(context, RealClock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
+    protected val vault = instrumentedVault(context, RealClock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
 
     private var session: VaultSession? = null
 

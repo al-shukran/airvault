@@ -20,7 +20,7 @@ import org.junit.runner.RunWith
 class VaultTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val clock = FakeClock()
-    private val vault = Vault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
+    private val vault = instrumentedVault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
     private val vaultRoot = File(context.noBackupFilesDir, "vault")
     private val failures = File(vaultRoot, "failures.bin")
     private val failuresBackup = File(vaultRoot, "failures.bak")
@@ -86,7 +86,7 @@ class VaultTest {
     fun blockedAttemptSpendsTheSameKdfTimeAsARealCheck() {
         runBlocking {
             // A costly KDF makes the difference easy to measure. Without the fix, a blocked attempt returns in microseconds.
-            val costly = Vault(context, clock, KdfParams(memoryKiB = 64 * 1024, iterations = 3))
+            val costly = instrumentedVault(context, clock, KdfParams(memoryKiB = 64 * 1024, iterations = 3))
             costly.create(PASSWORD.toCharArray())
 
             val realCheckMs = elapsedMs { assertRejected(costly.unlock(WRONG.toCharArray())) }
@@ -331,7 +331,7 @@ class VaultTest {
             assertEquals(0, vault.failureCountForTesting())
 
             // The cap is stored in the failure files, so it is still there after the vault is opened again.
-            val reopened = Vault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
+            val reopened = instrumentedVault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
             assertEquals(10_000L, reopened.failureDelayCapMs())
         }
     }
@@ -340,11 +340,15 @@ class VaultTest {
     fun savedCapShortensTheDelayBeforeAnyUnlock() {
         runBlocking {
             vault.create(PASSWORD.toCharArray())
+            // Past the learning period the owner's cap is the cap in force. One failure waits 10 s whatever the cap, so the second
+            // wrong try is the one that shows it: it would wait 20 s under the Default cap, and 10 s under the owner's.
+            clock.advance(FailureDelay.LEARNING_PERIOD_MS)
             assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), 10_000L))
 
-            // The wrong password makes one failure. The learning cap would allow 10 s, but the owner's 1 s cap is smaller.
             assertRejected(vault.unlock(WRONG.toCharArray()))
-            clock.advance(999)
+            clock.advance(10_000)
+            assertRejected(vault.unlock(WRONG.toCharArray()))
+            clock.advance(9_999)
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
             clock.advance(1)
             unlocked(vault.unlock(PASSWORD.toCharArray())).close()
@@ -372,10 +376,10 @@ class VaultTest {
             bytes[10] = (bytes[10].toInt() xor 1).toByte()
             failures.writeBytes(bytes)
 
-            // The tampering is detected here. The backup still verifies, so the owner's 5 s cap applies to the lockout.
+            // The tampering is detected here. The backup still verifies, so the owner's 10 s cap applies to the lockout.
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
             assertEquals(10_000L, vault.failureDelayCapMs())
-            clock.advance(4_999)
+            clock.advance(9_999)
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
             clock.advance(1)
             unlocked(vault.unlock(PASSWORD.toCharArray())).close()
