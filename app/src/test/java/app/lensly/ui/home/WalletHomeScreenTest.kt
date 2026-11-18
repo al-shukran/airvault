@@ -13,7 +13,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -147,7 +146,6 @@ class WalletHomeScreenTest {
         }
         settle()
 
-        compose.onNodeWithTag(HOME_CAROUSEL_TAG).performScrollTo()
         compose.onNodeWithTag(HOME_CAROUSEL_TAG).assertExists()
         compose.onNodeWithTag(ADD_WALLET_TAG).assertDoesNotExist()
         // The list is one island with a row per wallet, and every row is in the tree, so each one is read from its node.

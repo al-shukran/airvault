@@ -141,7 +141,7 @@ class WalletDetailScreenTest {
             }
         }
 
-        compose.onNodeWithText("SEED WALLET").performTouchInput { longClick() }
+        compose.onNodeWithText("Seed wallet").performTouchInput { longClick() }
         compose.onNodeWithText("Edit Wallet Profile").assertIsDisplayed()
     }
 
