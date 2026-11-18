@@ -22,6 +22,7 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 | `lumio-d` | `:lumio` `app.lumio.data.*` |
 | `app` | `:app` `app.lensly.app.*`, `app.lensly.SmokeTest` and `app.lensly.core.vault.BackupExclusionTest` |
 | `registry-pack` | `:tools:registry-pack:test` |
+| `chain-api` | `:core:model:test` and `:chains:algorand:common:test` (whole modules), then compiles the API and Algorand signer and wallet modules |
 | `manifest` | `check-manifest.sh` |
 | `ci` | `bash -n` on every script, then `check-partitions.sh` and `check-test-network.sh` (no Gradle) |
 

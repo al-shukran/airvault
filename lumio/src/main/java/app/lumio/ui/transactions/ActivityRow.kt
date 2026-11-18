@@ -23,7 +23,7 @@ import app.lumio.data.tx.TxStatus
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
 import app.lumio.transactions.TxFeedItem
-import app.lumio.ui.kit.LumioRow
+import app.lensly.ui.components.LumioRow
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
