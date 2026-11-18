@@ -70,7 +70,7 @@ fun Modifier.lumioPress(
                 )
             }
         }
-        .semantics {
+        .semantics(mergeDescendants = true) {
             role = Role.Button
             if (enabled) {
                 this.onClick(label = null, action = { currentOnClick(); true })
