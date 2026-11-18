@@ -155,7 +155,7 @@ private fun WalletHero(
     }
 }
 
-/** The accounts of one [chain] as an island under the chain's name, each row numbered by its place in [accounts] for its entrance. */
+/** The accounts of one [chain] as an island under the chain's name. A row's place in [accounts] sets its delay in the enter stagger. */
 @Composable
 private fun ChainIsland(
     chain: AccountChain,
