@@ -3,7 +3,7 @@ package app.lumio
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
+import app.lumio.ui.kit.lumioComposable
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.leaveHidden
@@ -17,7 +17,7 @@ import app.lensly.ui.settings.changeAppPassword
  * key of Lumio's own vault. Lensly's vault is not changed. The change runs only while the vault is open, as on every Lumio screen.
  */
 internal fun NavGraphBuilder.changePasswordRoutes(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection) {
-    composable(LumioRoute.CHANGE_PASSWORD) {
+    lumioComposable(LumioRoute.CHANGE_PASSWORD) {
         LumioBackdrop(selection) { LumioChangePasswordRoute(navController, holder) }
     }
 }

@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalUppercaseLabels
@@ -45,6 +46,7 @@ fun DetailTopBar(
     onBack: (() -> Unit)?,
     onOptions: (() -> Unit)? = null,
     optionsLabel: String = "Options",
+    optionsIcon: ImageVector = Icons.Filled.MoreVert,
 ) {
     val haptics = rememberKeyHaptics()
     val onLock = LocalVaultLock.current
@@ -84,7 +86,7 @@ fun DetailTopBar(
         }
         if (onOptions != null) {
             IconButton(onClick = onOptions, modifier = Modifier.tapHaptic(haptics)) {
-                Icon(Icons.Filled.MoreVert, contentDescription = optionsLabel, tint = MaterialTheme.colorScheme.onSurface)
+                Icon(optionsIcon, contentDescription = optionsLabel, tint = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
