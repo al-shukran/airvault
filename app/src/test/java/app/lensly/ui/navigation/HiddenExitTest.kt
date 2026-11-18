@@ -2,7 +2,7 @@ package app.lensly.ui.navigation
 
 import android.content.Context
 import androidx.compose.runtime.remember
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -29,6 +29,8 @@ import org.robolectric.annotation.Config
 @Config(qualifiers = "w360dp-h640dp-port-mdpi")
 class HiddenExitTest {
 
+    // The v2 rule resumes the gate's coroutine on the main thread, as the app does. The v1 rule resumes it on the background thread that
+    // finished the vault check, and Navigation refuses the move off the main thread.
     @get:Rule
     val compose = createComposeRule()
 
