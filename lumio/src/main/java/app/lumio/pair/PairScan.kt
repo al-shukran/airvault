@@ -5,8 +5,10 @@ import app.lensly.core.ur.UrScanner
 
 /** What one scanned text did to a pairing scan. */
 sealed interface ScanStep {
-    /** A frame of an animated code was read. [fraction] is how much of the code is in, from 0 to 1. */
-    data class Reading(val fraction: Float) : ScanStep
+    /**
+     * A frame of an animated code was read. [fraction] is how much of the code is in, from 0 to 1, and [received] of about [expected] parts are in.
+     */
+    data class Reading(val fraction: Float, val received: Int, val expected: Int) : ScanStep
 
     /** The code is whole, and it is a pairing. */
     data class Complete(val pairing: PairingPayload) : ScanStep
@@ -28,7 +30,7 @@ class PairScan {
 
     fun onText(text: String): ScanStep {
         if (finished || !scanner.receive(text)) return ScanStep.Ignored
-        val ur = scanner.result() ?: return ScanStep.Reading(scanner.progress.toFloat())
+        val ur = scanner.result() ?: return ScanStep.Reading(scanner.progress.toFloat(), scanner.receivedParts, scanner.expectedParts)
         finished = true
         return try {
             ScanStep.Complete(PairImport.of(ur))
