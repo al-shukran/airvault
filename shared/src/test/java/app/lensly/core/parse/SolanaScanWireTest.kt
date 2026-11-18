@@ -1,11 +1,13 @@
 package app.lensly.core.parse
 
+import app.lensly.core.solana.SolanaOffchainMessage
 import app.lensly.core.solana.SolanaVectors
 import app.lensly.core.solana.offchainEnvelope
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.framesOf
 import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import org.junit.Test
 
@@ -22,7 +24,8 @@ class SolanaScanWireTest {
     @Test
     fun aReadableSolanaRequestIsAnsweredWithItsPayloadAcrossTheWire() {
         val payload = requestCbor(signData = SolanaVectors["legacy-sol-transfer"], signType = 1L)
-        val reply = ParserWire.decodeScanReply(answer(InProcessParser, ParserWire.SCAN, ParserWire.encodeScanRequest(parts(payload))))
+        val call = ParserWire.encodeScanRequest(session = 1L, base = 0, parts = parts(payload))
+        val reply = ParserWire.decodeScanReply(SandboxAnswers().answer(ParserWire.SCAN, call))
         assertContentEquals(payload, assertIs<ScanReply.Solana>(reply).payload)
     }
 
@@ -41,6 +44,16 @@ class SolanaScanWireTest {
     fun aSolanaMessageToSignIsAnsweredWithoutAMessageParse() {
         val payload = requestCbor(signData = offchainEnvelope("hello".toByteArray()), signType = 2L)
         assertContentEquals(payload, assertIs<ScanReply.Solana>(InProcessParser.scan(parts(payload))).payload)
+    }
+
+    /**
+     * A transaction sent as a message to sign is refused. A message must be an off-chain message, which begins with the signing domain
+     * that no transaction message begins with, so no transaction is ever signed as a message.
+     */
+    @Test
+    fun aSolanaTransactionSentAsAMessageToSignIsRefused() {
+        val payload = requestCbor(signData = SolanaVectors["legacy-sol-transfer"], signType = 2L)
+        assertEquals(ScanReply.Refused(SolanaOffchainMessage.NOT_OFF_CHAIN), InProcessParser.scan(parts(payload)))
     }
 
     /** One complete UR part, uppercase as the wallet shows it. The payload is small, so it is a single frame. */

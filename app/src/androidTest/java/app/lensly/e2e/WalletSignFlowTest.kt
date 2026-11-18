@@ -5,9 +5,11 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -21,6 +23,7 @@ import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.AccountXpub
 import app.lensly.ui.flow.SignStep
 import app.lensly.ui.sign.HOLD_TO_SIGN_TAG
+import app.lensly.ui.sign.UNKNOWN_UNIT
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import org.junit.Assert.assertArrayEquals
@@ -76,14 +79,16 @@ class WalletSignFlowTest : SignFlowE2eBase() {
         // explicit check to be ticked.
         assertTrue(review.toAddress.equals(RECIPIENT, ignoreCase = true))
         compose.onNode(hasText("Not in Lensly's registry", substring = true)).assertExists()
-        compose.onNodeWithText("UNKNOWN CHAIN").assertExists()
-        // An unknown chain has no decimals, so its amount is the raw wei: one cent is 10^16.
-        compose.onNode(hasText("Send $ONE_CENT_WEI", substring = true)).assertExists()
-        compose.onNodeWithText(ACCOUNT_LABEL).assertExists()
+        compose.onNode(hasText("Unknown network (chain id $UNKNOWN_CHAIN_ID)", substring = true)).assertExists()
+        // An unknown chain has no decimals, so its amount is the raw wei, in base units: one cent is 10^16.
+        compose.onNode(hasText("Send $ONE_CENT_WEI $UNKNOWN_UNIT", substring = true)).assertExists()
+        // The header and the account row both name the account now, so the label is looked for among them.
+        compose.onAllNodesWithText(ACCOUNT_LABEL).onFirst().assertExists()
 
         scrollReviewToTheEnd()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
-        compose.onNodeWithText("I checked the chain ID and contract").performClick()
+        // The check is a row of the risk banner, above the end of the review, so it is scrolled into view before it is ticked.
+        compose.onNodeWithText("I checked the chain ID and contract").performScrollTo().performClick()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
 
         val parts = driver.approveAndSign { it is SignStep.Confirming }

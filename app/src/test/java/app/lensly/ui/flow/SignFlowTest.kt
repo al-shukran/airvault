@@ -11,6 +11,7 @@ import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.parse.CANNOT_BE_READ
+import app.lensly.core.parse.DecodeClock
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.RequestParser
@@ -40,6 +41,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 import org.web3j.crypto.RawTransaction
 import org.web3j.crypto.TransactionEncoder
@@ -285,6 +288,19 @@ private fun assertAllZero(keys: List<ByteArray>) {
 }
 
 class SignFlowTest {
+    // These tests are about the flow, not the decode budget (CborTest and RlpTest test the budget with a clock of their own). A slow runner
+    // must not refuse a decode here, so the decode clock stands still for each test.
+    private val wallClock = DecodeClock.nanoTime
+
+    @Before
+    fun stillDecodeClock() {
+        DecodeClock.nanoTime = { 0L }
+    }
+
+    @After
+    fun restoreDecodeClock() {
+        DecodeClock.nanoTime = wallClock
+    }
 
     @Test
     fun aCompleteRequestReachesTheReview() {
@@ -330,14 +346,23 @@ class SignFlowTest {
     }
 
     @Test
-    fun aPartThatDeclaresTooManyPartsIsRefusedWithItsReason() {
+    fun aPartThatDeclaresTooManyPartsIsNotPartOfTheRequest() {
         val flow = SignFlow(FakePorts(), WALLET_ID)
         val declared = "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/aa"
         runBlocking { flow.onScanned(declared) }
-        assertEquals(
-            "The request has more than ${ParserLimits.MAX_UR_PARTS} parts.",
-            assertIs<SignStep.Refused>(flow.state.value).reason,
-        )
+        assertEquals(null, assertIs<SignStep.Scanning>(flow.state.value).progress)
+    }
+
+    @Test
+    fun aStrayCodeOverTheLimitsDoesNotEndTheScan() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        val frames = framesOf(messageRequest(signData = ByteArray(300) { 9 }), FRAGMENT)
+        val stray = "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/aa"
+        runBlocking { flow.onScanned(frames.first()) }
+        runBlocking { flow.onScanned(stray) }
+        assertIs<SignStep.Scanning>(flow.state.value)
+        scan(flow, frames.drop(1))
+        assertIs<SignStep.Review>(flow.state.value)
     }
 
     @Test
