@@ -3,6 +3,7 @@ package app.lensly.ui.sign
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
 import app.lensly.app.InternalAccount
+import app.lensly.app.headline
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import org.junit.Test

@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.InternalAccount
+import app.lensly.app.addressKeyOf
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.theme.LenslyTheme
@@ -30,6 +32,8 @@ class SendReviewAddressBookTest {
 
     private val chain = EvmChain(1L, "Ethereum", "ETH", 18, false, "https://etherscan.io")
     private val from = AccountAddresses.addressAt(HdWallet(PairFixtures.seed).accountXpub(), 0)
+    private val ownSavings = InternalAccount(displayName = "Savings", autoName = "Vault 0", label = "Cold")
+    private val ownVault1 = InternalAccount(displayName = null, autoName = "Vault 1", label = null)
 
     @Test
     fun theReviewShowsTheSavedNameNextToTheToAddress() {
@@ -45,7 +49,24 @@ class SendReviewAddressBookTest {
         compose.onAllNodesWithText("Alice").assertCountEquals(0)
     }
 
-    private fun setReview(send: PreparedSend, book: List<AddressBookEntry>) {
+    @Test
+    fun theReviewNamesTheSendingAccountAsYourAccount() {
+        setReview(send(to = ADDRESS_BOOK_ALICE.address), emptyList(), accounts = mapOf(addressKeyOf(from) to ownSavings))
+
+        compose.onNodeWithText("Your account · Savings · Cold").assertExists()
+    }
+
+    @Test
+    fun anAddressThatIsAnAccountAndAnEntryShowsBoth() {
+        val to = ADDRESS_BOOK_ALICE.address
+        setReview(send(to = to), listOf(ADDRESS_BOOK_ALICE), accounts = mapOf(addressKeyOf(to) to ownVault1))
+
+        compose.onNodeWithText("Your account · Vault 1").assertExists()
+        compose.onNodeWithText("ADDRESS NAME").assertExists()
+        compose.onNodeWithText("Alice").assertExists()
+    }
+
+    private fun setReview(send: PreparedSend, book: List<AddressBookEntry>, accounts: Map<String, InternalAccount> = emptyMap()) {
         compose.setContent {
             LenslyTheme {
                 SendReviewScreen(
@@ -56,6 +77,7 @@ class SendReviewAddressBookTest {
                     onConfirm = {},
                     onBack = {},
                     addressBook = book,
+                    accounts = accounts,
                 )
             }
         }

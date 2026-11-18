@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.DebugBtcFixture
+import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
 import app.lensly.app.export.partsOf
 import app.lensly.core.ur.EthSignRequestEncoder
@@ -36,6 +37,7 @@ import app.lumio.evm.SignatureStep
 import app.lumio.pair.PairedWallet
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallets
+import app.lumio.pair.ownAccountsOf
 import app.lumio.send.EvmPaymentCode
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
@@ -67,6 +69,8 @@ private class SendContext(
     val settings: EvmSettings,
     val chains: List<EvmChain>,
     val held: List<TokenHolding>,
+    /** The Ethereum accounts of every paired wallet, which the review names. */
+    val accounts: Map<String, InternalAccount>,
 )
 
 /** [Missing] when the wallet, its EVM account or the address is not in the open vault, otherwise the context. */
@@ -325,6 +329,7 @@ internal fun SendRoute(
             send = current.send,
             suggested = suggested ?: current.send,
             addressBook = ready.wallet.addressBook,
+            accounts = ready.accounts,
             notice = notice,
             onSave = { edited ->
                 notice = null
@@ -378,14 +383,15 @@ internal fun SendRoute(
  * balance cache. The chains are the enabled ones on the side [mode] chooses, as on the wallet's portfolio. It runs off the main thread.
  */
 private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, index: Int, mode: NetworkMode): SendLoad = runCatching {
-    val wallet = PairedWallets.list(session).firstOrNull { it.id == walletId } ?: return@runCatching SendLoad.Missing
+    val wallets = PairedWallets.list(session)
+    val wallet = wallets.firstOrNull { it.id == walletId } ?: return@runCatching SendLoad.Missing
     val from = wallet.evmAccounts.getOrNull(index)?.address ?: return@runCatching SendLoad.Missing
     val settings = EvmSettingsStore.read(session)
     if (index !in 0 until settings.addressCount) return@runCatching SendLoad.Missing
     val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
     val tokensOf = app.tokensFor(session)
     val held = TokenPortfolio.holdingsAt(wallet.id, from, chains, tokensOf, TokenBalanceCache.read(session))
-    SendLoad.Ready(SendContext(wallet, from, settings, chains, held))
+    SendLoad.Ready(SendContext(wallet, from, settings, chains, held, ownAccountsOf(wallets)))
 }.getOrDefault(SendLoad.Missing)
 
 /** The words a failure shows: the owner's words for a refusal (an invalid input, a signature that is not this one, an endpoint's answer), else [fallback]. */

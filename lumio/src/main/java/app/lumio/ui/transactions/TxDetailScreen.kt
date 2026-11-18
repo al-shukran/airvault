@@ -17,6 +17,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import app.lensly.app.AddressNotes
+import app.lensly.app.InternalAccount
+import app.lensly.app.addressKeyOf
+import app.lensly.app.headline
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
@@ -52,6 +57,8 @@ fun TransactionDetailScreen(
     onSaveComment: (String) -> Unit,
     modifier: Modifier = Modifier,
     zone: ZoneId = ZoneId.systemDefault(),
+    /** The Ethereum accounts of the paired wallets, so an address of one of them is named. */
+    accounts: Map<String, InternalAccount> = emptyMap(),
 ) {
     val tx = detail.tx
     val bitcoin = tx.network.family == Family.BTC
@@ -71,10 +78,10 @@ fun TransactionDetailScreen(
         tx.memo?.let { DetailField("Memo", it) }
         Spacer(Modifier.height(LenslySpacing.md))
 
-        DetailAddress("Account", tx.account, bitcoin)
-        tx.counterparty?.let { DetailAddress(counterpartyLabel(tx.direction), it, bitcoin) }
-        tx.asset.contract?.let { DetailAddress("Token contract", it, bitcoin = false) }
-        DetailAddress("Transaction hash", tx.hash, bitcoin = false)
+        DetailAddress("Account", tx.account, bitcoin, accounts)
+        tx.counterparty?.let { DetailAddress(counterpartyLabel(tx.direction), it, bitcoin, accounts) }
+        tx.asset.contract?.let { DetailAddress("Token contract", it, bitcoin = false, accounts) }
+        DetailAddress("Transaction hash", tx.hash, bitcoin = false, accounts = emptyMap())
         Spacer(Modifier.height(LenslySpacing.md))
 
         CommentEditor(saved = detail.comment, onSave = onSaveComment)
@@ -137,11 +144,21 @@ private fun DetailField(label: String, value: String) {
     }
 }
 
-/** An address or a hash with its label. The whole value is shown, and a long press or the copy button copies it. */
+/**
+ * An address or a hash with its label. An account of this device in [accounts] is named above the address, as "Your account · <name>". The
+ * whole value is shown, and a long press or the copy button copies it.
+ */
 @Composable
-private fun DetailAddress(label: String, value: String, bitcoin: Boolean) {
+private fun DetailAddress(label: String, value: String, bitcoin: Boolean, accounts: Map<String, InternalAccount>) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xs)) {
         Text(text = label, style = MaterialTheme.typography.labelMedium, color = LenslyMuted)
+        accounts[addressKeyOf(value)]?.let { account -> AddressNotes(internal = account, entry = null).headline() }?.let { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                color = LenslyOnSurface,
+            )
+        }
         AddressText(
             address = value,
             shown = value,

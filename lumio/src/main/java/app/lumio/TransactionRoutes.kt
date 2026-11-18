@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
+import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
@@ -27,6 +28,8 @@ import app.lensly.ui.navigation.openHidden
 import app.lumio.data.tx.CommentImportException
 import app.lumio.data.tx.TxCommentTransfer
 import app.lumio.data.tx.TxKeys
+import app.lumio.pair.PairedWallets
+import app.lumio.pair.ownAccountsOf
 import app.lumio.transactions.TxDetail
 import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.transactions.txDetailOf
@@ -54,7 +57,9 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
         value = if (open == null) {
             DetailLoad.Missing
         } else {
-            withContext(Dispatchers.IO) { txDetailOf(app, open, account, txId) }?.let { DetailLoad.Ready(it) } ?: DetailLoad.Missing
+            withContext(Dispatchers.IO) {
+                txDetailOf(app, open, account, txId)?.let { DetailLoad.Ready(it, ownAccountsOf(PairedWallets.list(session))) }
+            } ?: DetailLoad.Missing
         }
     }
     when (val current = load) {
@@ -65,6 +70,7 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
         }
         is DetailLoad.Ready -> TransactionDetailScreen(
             detail = current.detail,
+            accounts = current.accounts,
             onBack = { navController.popBackStack() },
             onExplorer = {
                 current.detail.explorerUrl?.let { openExplorer(context, it) }
@@ -86,7 +92,7 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
 private sealed interface DetailLoad {
     data object Missing : DetailLoad
 
-    class Ready(val detail: TxDetail) : DetailLoad
+    class Ready(val detail: TxDetail, val accounts: Map<String, InternalAccount>) : DetailLoad
 }
 
 /**
