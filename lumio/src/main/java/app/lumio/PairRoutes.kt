@@ -4,19 +4,31 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
+import app.lensly.core.vault.VaultSession
+import app.lumio.data.net.Family
+import app.lumio.home.HomeLoader
+import app.lumio.network.NetworkMode
+import app.lumio.pair.FirstSync
 import app.lumio.pair.PairScan
+import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.ScanStep
+import app.lumio.pair.SyncRow
+import app.lumio.pair.SyncStep
+import app.lumio.ui.pair.FirstSyncScreen
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
+import app.lumio.wallets.WalletsLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -117,7 +129,7 @@ internal fun PairReviewRoute(
                 } else {
                     draft.clear()
                     onChanged()
-                    navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
+                    navController.navigate(LumioRoute.firstSync(saved.id)) { popUpTo(LumioRoute.WALLETS) { inclusive = false } }
                 }
             }
         },
@@ -138,4 +150,69 @@ internal suspend fun <T> onVault(default: T, block: () -> T): T = withContext(Di
     } catch (e: Exception) {
         default
     }
+}
+
+/**
+ * The first sync of the wallet [walletId], opened when its pairing is saved. Its reads run on the application's scope, so they go on when the owner
+ * leaves. The wallet opens once every row settles, or at once from the back arrow, the system back or Open wallet now.
+ */
+@Composable
+internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode) {
+    val app = LocalContext.current.applicationContext as LumioApp
+    val session = holder.openSession()
+    val wallet by produceState<PairedWallet?>(null, session, walletId) {
+        value = session?.let { s -> onVault(null) { PairedWallets.list(s).firstOrNull { it.id == walletId } } }
+    }
+    fun openWallet() {
+        navController.navigate(LumioRoute.wallet(walletId)) { popUpTo(LumioRoute.WALLETS) { inclusive = false } }
+    }
+    BackHandler { openWallet() }
+    if (session == null) {
+        LaunchedEffect(Unit) { navController.popBackStack(LumioRoute.WALLETS, inclusive = false) }
+        return
+    }
+    val current = wallet ?: return
+    val sync = remember(session, current, mode) { FirstSync(firstSyncSteps(app, session, mode, current)) }
+    val rows by sync.rows.collectAsState()
+    LaunchedEffect(sync) { app.runInAppScope { sync.run() } }
+    FirstSyncScreen(walletName = current.name, fingerprint = current.fingerprint.toInt(), rows = rows, onOpenWallet = ::openWallet)
+}
+
+/**
+ * The reads of the first sync of [wallet] on [mode]'s side, in order: the Bitcoin scans, the Ethereum balances, the Solana and Algorand balances,
+ * then the prices. A row exists only for a chain that the wallet has accounts on.
+ */
+internal fun firstSyncSteps(app: LumioApp, session: VaultSession, mode: NetworkMode, wallet: PairedWallet): List<SyncStep> = buildList {
+    if (wallet.bitcoin.isNotEmpty()) {
+        add(
+            SyncStep(listOf(SyncRow.BITCOIN)) {
+                HomeLoader.scanBitcoin(app, session, mode)
+                emptySet()
+            },
+        )
+    }
+    if (wallet.evmAddresses.isNotEmpty()) {
+        add(
+            SyncStep(listOf(SyncRow.EVM)) {
+                if (HomeLoader.refreshEvm(app, session, mode).isEmpty()) emptySet() else setOf(SyncRow.EVM)
+            },
+        )
+    }
+    val native = listOfNotNull(
+        SyncRow.SOLANA.takeIf { wallet.solana.isNotEmpty() },
+        SyncRow.ALGORAND.takeIf { wallet.algorand.isNotEmpty() },
+    )
+    if (native.isNotEmpty()) {
+        add(
+            SyncStep(native) {
+                HomeLoader.refreshNative(app, session, mode).map { if (it.network.family == Family.SOL) SyncRow.SOLANA else SyncRow.ALGORAND }.toSet()
+            },
+        )
+    }
+    add(
+        SyncStep(listOf(SyncRow.PRICES)) {
+            WalletsLoader.read(app, session, mode)
+            emptySet()
+        },
+    )
 }

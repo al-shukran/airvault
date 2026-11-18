@@ -247,6 +247,9 @@ class LumioApp : Application(), CoverApplication {
         if (BuildConfig.DEBUG) Log.d(EsploraProtocol.LOG_TAG, "pass chain=${net.chain} jobs=$jobs ms=${elapsedMs(started)}")
     }
 
+    /** Runs [block] on the application's own scope, so it goes on when the screen that started it closes. */
+    fun runInAppScope(block: suspend () -> Unit): Job = scope.launch { block() }
+
     override fun onCreate() {
         super.onCreate()
         // The QR decoder runs in an isolated process that cannot open preferences or files; it needs none of the app's state.

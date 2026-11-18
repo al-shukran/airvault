@@ -97,6 +97,12 @@ internal object LumioRoute {
     /** The route of the accounts of [walletId]. */
     fun wallet(walletId: String): String = "wallet/$walletId"
 
+    /** The first sync of the wallet named by [WALLET_ARG], opened when its pairing is saved. */
+    const val FIRST_SYNC = "first-sync/{$WALLET_ARG}"
+
+    /** The route of the first sync of [walletId]. */
+    fun firstSync(walletId: String): String = "first-sync/$walletId"
+
     /** The argument of an account's route: the name of its chain, as [AccountChain.route]. */
     const val ACCOUNT_CHAIN_ARG = "chain"
 
@@ -466,6 +472,15 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                         draft = draft,
                         onChanged = { listVersion++ },
                     )
+                }
+            }
+            composable(
+                route = LumioRoute.FIRST_SYNC,
+                arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                LumioBackdrop(selection) {
+                    FirstSyncRoute(navController = navController, holder = holder, walletId = walletId, mode = selection.mode)
                 }
             }
         }
