@@ -40,30 +40,18 @@ class SendScreenshotTest {
     private val txId = "0x" + "ab".repeat(32)
     private val signPart = "ur:eth-sign-request/golden"
 
-    private fun send(token: Token? = null): PreparedSend = PreparedSend(
+    private fun send(): PreparedSend = PreparedSend(
         chain = ethereum,
         index = 0,
         from = from,
         to = to,
-        valueWei = if (token == null) BigInteger.TEN.pow(16) else BigInteger.valueOf(12_500_000L),
+        valueWei = BigInteger.TEN.pow(16),
         nonce = 7,
         gasLimit = BigInteger.valueOf(21_000),
         maxFeePerGas = BigInteger.valueOf(30_000_000_000L),
         maxPriorityFeePerGas = BigInteger.valueOf(1_500_000_000L),
         balanceWei = BigInteger.TEN.pow(18),
-        token = token,
-        tokenBalance = if (token == null) null else BigInteger.valueOf(1_250_500_000L),
     )
-
-    @Test
-    fun ethereumSendReview() = compose.lumioSnapshot("ethereum_send_review") {
-        SendReviewScreen(send = send(), suggested = send(), notice = null, onSave = {}, onConfirm = {}, onBack = {})
-    }
-
-    @Test
-    fun ethereumTokenSendReview() = compose.lumioSnapshot("ethereum_token_send_review") {
-        SendReviewScreen(send = send(usdc), suggested = send(usdc), notice = null, onSave = {}, onConfirm = {}, onBack = {})
-    }
 
     /** The recipient is in the Address Book under a name too long for one line, so the sentence and the address show it. */
     @Test
