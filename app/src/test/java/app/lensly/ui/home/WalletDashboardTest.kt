@@ -52,7 +52,7 @@ class WalletDashboardTest {
     }
 
     @Test
-    fun homeCarouselHoldsEveryWalletAndAllWalletsOpensTheListOfEveryWallet() {
+    fun homeListHoldsEveryWalletAndAllWalletsOpensTheListOfEveryWallet() {
         lateinit var nav: NavHostController
         compose.mainClock.autoAdvance = false
         compose.setContent {
@@ -76,8 +76,8 @@ class WalletDashboardTest {
             }
         }
         settle()
-        // The carousel holds all five wallets. Its cards on screen are fewer, so the row is checked by its item count.
-        assertEquals(5, compose.onNodeWithTag(HOME_CAROUSEL_TAG).fetchSemanticsNode().config[SemanticsProperties.CollectionInfo].columnCount)
+        // The Home list holds a row for each of the five wallets.
+        compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(5)
 
         compose.onNodeWithText("All Wallets").performClick()
         settle()

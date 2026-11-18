@@ -1,4 +1,4 @@
-package app.lumio.ui.kit
+package app.lensly.ui.components
 
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme

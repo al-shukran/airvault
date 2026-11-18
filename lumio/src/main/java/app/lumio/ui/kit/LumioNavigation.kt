@@ -1,34 +1,24 @@
 package app.lumio.ui.kit
 
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
-import app.lensly.ui.navigation.LenslyNavTransitions
-import app.lensly.ui.theme.LocalReducedMotion
+import app.lensly.ui.navigation.NavMotion
+import app.lensly.ui.navigation.NavReducedMotion
+import app.lensly.ui.navigation.cutWhenReduced
+import app.lensly.ui.navigation.enterOf
+import app.lensly.ui.navigation.exitTowards
+import app.lensly.ui.navigation.popEnterFrom
+import app.lensly.ui.navigation.popExitOf
 import app.lumio.LumioRoute
-import app.lensly.ui.theme.LumenMotion
 
 /** The shared-element scope of the NavHost. [app.lumio.LumioNavHost] provides it, and it is null outside the NavHost. */
 val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
@@ -37,32 +27,8 @@ val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
 val LocalNavScope = staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
 
 /**
- * Reduced motion for the NavHost's transitions (section 3.6). Transition lambdas are built outside composition, so they cannot read
- * [app.lensly.ui.theme.LocalReducedMotion]; [MirrorNavMotion] copies the local here, and each transition reads it when it starts.
- */
-internal object NavReducedMotion {
-    var reduced = false
-}
-
-/** Copies the Lumen reduced-motion setting into [NavReducedMotion]. It sits inside the theme, beside the NavHost. */
-@Composable
-internal fun MirrorNavMotion() {
-    val reduced = LocalReducedMotion.current
-    SideEffect { NavReducedMotion.reduced = reduced }
-}
-
-/** A transition under reduced motion is a cut (section 3.6): [cut] is returned and [motion] is never built. */
-internal fun <T> cutWhenReduced(reduced: Boolean, cut: T, motion: () -> T): T = if (reduced) cut else motion()
-
-/**
- * The class of a screen's transition (section 3.2). The Wallets root has no class of its own: it keeps Lensly's transitions when the gate opens it,
- * and it takes the class of the screen that comes back to it.
- */
-internal enum class NavMotion { ROOT, PUSH, RISE, COVER }
-
-/**
- * The class of the route pattern [route] (section 2): Settings is the Cover, the send and pairing sheets are the Rises, and every other Lumio screen is
- * a Push. Null when there is no route.
+ * The class of the route pattern [route] (section 2): Settings is the Cover, the send and pairing sheets are the Rises, and every other Lumio screen is a
+ * Push. The Wallets root has no class of its own (ROOT). Null when there is no route.
  */
 internal fun navMotionOf(route: String?): NavMotion? = when (route) {
     null -> null
@@ -97,74 +63,3 @@ internal fun NavGraphBuilder.lumioComposable(
         CompositionLocalProvider(LocalNavScope provides scope) { scope.content(entry) }
     }
 }
-
-private typealias NavTransitionScope = AnimatedContentTransitionScope<NavBackStackEntry>
-
-/** The distance a Rise screen scales from, and the scale a screen beneath it goes to (section 3.2). */
-private const val RISE_SCALE = 0.94f
-
-/** The spatial spring as an offset: the bounds and slides of section 3.1. */
-private val spatialOffset = spring<IntOffset>(dampingRatio = 0.86f, stiffness = 380f)
-
-/** How a screen comes in when it is pushed. The Wallets root, which has no class, keeps Lensly's enter. */
-private fun NavTransitionScope.enterOf(motion: NavMotion): EnterTransition = when (motion) {
-    NavMotion.PUSH -> pushEnter()
-    NavMotion.RISE -> riseEnter()
-    NavMotion.COVER -> coverEnter()
-    NavMotion.ROOT -> LenslyNavTransitions.enter(this)
-}
-
-/** How a screen goes out when a screen of class [target] is pushed over it. A Rise makes the screen beneath it scale back. */
-private fun NavTransitionScope.exitTowards(target: NavMotion?): ExitTransition = when (target) {
-    NavMotion.RISE -> riseUnderExit()
-    NavMotion.COVER -> ExitTransition.KeepUntilTransitionsFinished
-    else -> pushExit()
-}
-
-/** How a screen comes back when the screen of class [popped] over it is popped. The revealed screen takes the shape of the one that leaves. */
-private fun NavTransitionScope.popEnterFrom(popped: NavMotion?): EnterTransition = when (popped) {
-    NavMotion.RISE -> riseUnderEnter()
-    NavMotion.COVER -> EnterTransition.None
-    NavMotion.PUSH -> pushBackEnter()
-    NavMotion.ROOT, null -> LenslyNavTransitions.popEnter(this)
-}
-
-/** How a screen of class [motion] goes out when it is popped. */
-private fun NavTransitionScope.popExitOf(motion: NavMotion): ExitTransition = when (motion) {
-    NavMotion.PUSH -> pushBackExit()
-    NavMotion.RISE -> riseBackExit()
-    NavMotion.COVER -> coverExit()
-    NavMotion.ROOT -> LenslyNavTransitions.popExit(this)
-}
-
-private fun pushEnter(): EnterTransition =
-    fadeIn(tween(LumenMotion.MEDIUM, delayMillis = 40, easing = LumenMotion.EmphDecel)) +
-        slideInHorizontally(spatialOffset) { it / 12 }
-
-private fun pushExit(): ExitTransition = fadeOut(tween(90)) + slideOutHorizontally(spatialOffset) { -it / 24 }
-
-private fun pushBackEnter(): EnterTransition =
-    fadeIn(tween(LumenMotion.MEDIUM, delayMillis = 40, easing = LumenMotion.EmphDecel)) +
-        slideInHorizontally(spatialOffset) { -it / 24 }
-
-private fun pushBackExit(): ExitTransition = fadeOut(tween(90)) + slideOutHorizontally(spatialOffset) { it / 12 }
-
-private fun riseEnter(): EnterTransition = slideInVertically(spatialOffset) { it / 8 } + fadeIn(tween(LumenMotion.MEDIUM))
-
-private fun riseUnderExit(): ExitTransition =
-    scaleOut(LumenMotion.spatial, targetScale = RISE_SCALE) + fadeOut(tween(LumenMotion.MEDIUM))
-
-private fun riseUnderEnter(): EnterTransition =
-    scaleIn(LumenMotion.spatial, initialScale = RISE_SCALE) + fadeIn(tween(LumenMotion.MEDIUM))
-
-private fun riseBackExit(): ExitTransition = slideOutVertically(spatialOffset) { it / 8 } + fadeOut(tween(LumenMotion.MEDIUM))
-
-/**
- * The Cover of Settings: it slides over the whole width on a critically damped spring, settled in about 290 ms, while the screen beneath stays
- * still under the scrim the route draws. Back slides it out the same way.
- */
-private val coverOffset = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 400f)
-
-private fun coverEnter(): EnterTransition = slideInHorizontally(coverOffset) { it }
-
-private fun coverExit(): ExitTransition = slideOutHorizontally(coverOffset) { it }

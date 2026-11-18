@@ -26,7 +26,7 @@ import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LumenMono
 import app.lumio.ui.kit.LumioPrimaryButton
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioTextAction
 
 /** The test tag of the name field of the address-book sheet. */
 const val ADDRESS_NAME_TAG = "address-name"
