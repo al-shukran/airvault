@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +45,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntOffset
@@ -53,6 +56,9 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import app.lensly.ui.theme.LocalMonoFamily
 import app.lensly.ui.theme.labelCase
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private enum class KeyboardPage { Letters, Symbols }
 
@@ -66,6 +72,10 @@ private val GLYPH_SIZE = 18.dp
 private val LETTER_TEXT_SIZE = 22.sp
 private const val DISABLED_ALPHA = 0.4f
 private const val PRESSED_DARKEN = 0.25f
+
+/** A held key repeats once it has been down this long, and then once per interval while it stays down. */
+private const val KEY_REPEAT_START_MS = 400L
+private const val KEY_REPEAT_INTERVAL_MS = 50L
 
 private const val NUMBER_ROW = "1234567890"
 private const val LETTERS_TOP = "qwertyuiop"
@@ -92,11 +102,12 @@ private val PREVIEW_TEXT_SIZE = 32.sp
  * the keys stretch to the available width at any phone size. The number row sits on top of both
  * pages, so the keyboard keeps one height when the page changes. The letter rows follow the usual
  * phone grid: the `asdf` row is inset by half a key on each side, and the bottom row of letters has
- * shift and backspace at 1.5 key widths. The bottom row is `123`, `,`, SPACE, `.` and done.
+ * shift and backspace at 1.5 key widths. The bottom row is the down-arrow key that hides the keyboard, `123`,
+ * `,`, SPACE, `.` and done.
  *
- * Shift has three states (see [Shift]). A tap makes only the next letter uppercase, and then shift
- * turns itself off. Two taps within [DOUBLE_TAP_MS] lock caps until shift is tapped again. The
- * `123` key switches to the symbols page, and `ABC` returns to letters. Once a password is held by
+ * Shift has three states (see [Shift]). A tap makes only the next letter uppercase, and the number row
+ * shows the symbol for that key. Then shift turns itself off. Two taps within [DOUBLE_TAP_MS] lock caps until shift is tapped again. The
+ * `123` key switches to the symbols page, which clears shift, and `ABC` returns to letters. Once a password is held by
  * the caller, the caller decides what [onDone] means (next step, submit, or unlock).
  */
 @Composable
@@ -123,8 +134,8 @@ fun SecureKeyboard(
         // label is cased at composition, but its tap reads shift when it fires, so a Shift and a
         // letter tapped in the same frame still use the current case.
         KeyRow {
-            for (c in NUMBER_ROW) {
-                CharKey(c, Modifier.weight(1f), enabled) { onKey(shift.type(c)) }
+            for (digit in NUMBER_ROW) {
+                CharKey(shift.labelFor(digit), Modifier.weight(1f), enabled) { onKey(shift.type(digit)) }
             }
         }
         if (lettersPage) {
@@ -171,11 +182,15 @@ fun SecureKeyboard(
         }
 
         KeyRow {
+            DismissKey(Modifier.weight(1f), enabled)
             Key(
                 description = if (lettersPage) "Symbols" else "Letters",
                 background = MaterialTheme.colorScheme.surfaceContainerHigh,
                 enabled = enabled,
-                onClick = { page = if (lettersPage) KeyboardPage.Symbols else KeyboardPage.Letters },
+                onClick = {
+                    if (lettersPage) shift.reset()
+                    page = if (lettersPage) KeyboardPage.Symbols else KeyboardPage.Letters
+                },
                 modifier = Modifier.weight(1.5f),
             ) {
                 Text(
@@ -190,7 +205,7 @@ fun SecureKeyboard(
                 background = MaterialTheme.colorScheme.surfaceContainerHigh,
                 enabled = enabled,
                 onClick = { onKey(shift.type(' ')) },
-                modifier = Modifier.weight(5f),
+                modifier = Modifier.weight(4.5f),
             ) {
                 Text(
                     text = labelCase("Space"),
@@ -251,10 +266,11 @@ fun SecureHexKeyboard(
             Spacer(Modifier.weight(1.5f))
         }
         KeyRow {
-            Spacer(Modifier.weight(2f))
+            DismissKey(Modifier.weight(2f), enabled)
+            Spacer(Modifier.weight(1f))
             BackspaceKey(Modifier.weight(3f), enabled, onBackspace)
             DoneKey(Modifier.weight(3f), enabled, onDone)
-            Spacer(Modifier.weight(2f))
+            Spacer(Modifier.weight(1f))
         }
     }
 }
@@ -288,7 +304,7 @@ private fun KeyRow(inset: Boolean = false, content: @Composable RowScope.() -> U
 /**
  * Base key: a rounded rectangle of [KEY_HEIGHT]. The caller sets the width through [modifier],
  * usually with a row weight. While pressed, the background darkens. A key with [preview] also
- * shows that text above itself while pressed. [stateText] is announced as the key's state.
+ * shows that text above itself while pressed. [stateText] is announced as the key's state. A [repeating] key fires on press, and again while it is held.
  */
 @Composable
 private fun Key(
@@ -299,12 +315,25 @@ private fun Key(
     modifier: Modifier,
     stateText: String? = null,
     preview: String? = null,
+    repeating: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val haptics = rememberKeyHaptics()
     val fill = if (pressed && enabled) lerp(background, Color.Black, PRESSED_DARKEN) else background
+    val activate = onClick
+    val press = if (repeating) {
+        Modifier.repeatWhileHeld(interactionSource, enabled, activate)
+    } else {
+        Modifier.clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            enabled = enabled,
+            role = Role.Button,
+            onClick = activate,
+        )
+    }
 
     Box(
         modifier = modifier
@@ -313,22 +342,54 @@ private fun Key(
             .clip(KEY_SHAPE)
             .background(fill, KEY_SHAPE)
             .tapHaptic(haptics, enabled)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                role = Role.Button,
-                onClick = onClick,
-            )
+            .then(press)
             .semantics {
                 contentDescription = description
                 if (stateText != null) stateDescription = stateText
+                if (repeating) {
+                    role = Role.Button
+                    onClick(label = description, action = {
+                        activate()
+                        true
+                    })
+                }
             },
         contentAlignment = Alignment.Center,
     ) {
         content()
         if (preview != null && pressed) KeyPreview(preview)
     }
+}
+
+/**
+ * Fires [fire] when the pointer goes down, then again every [KEY_REPEAT_INTERVAL_MS] once it has been held for [KEY_REPEAT_START_MS].
+ * The repeats stop when the pointer lifts or leaves the key. The press shows on [interactionSource], as a click does.
+ */
+private fun Modifier.repeatWhileHeld(
+    interactionSource: MutableInteractionSource,
+    enabled: Boolean,
+    fire: () -> Unit,
+): Modifier = pointerInput(enabled, fire) {
+    if (!enabled) return@pointerInput
+    detectTapGestures(
+        onPress = { offset ->
+            val press = PressInteraction.Press(offset)
+            interactionSource.emit(press)
+            fire()
+            coroutineScope {
+                val repeats = launch {
+                    delay(KEY_REPEAT_START_MS)
+                    while (true) {
+                        fire()
+                        delay(KEY_REPEAT_INTERVAL_MS)
+                    }
+                }
+                val released = tryAwaitRelease()
+                repeats.cancel()
+                interactionSource.emit(if (released) PressInteraction.Release(press) else PressInteraction.Cancel(press))
+            }
+        },
+    )
 }
 
 @Composable
@@ -419,6 +480,7 @@ private fun BackspaceKey(
         enabled = enabled,
         onClick = onClick,
         modifier = modifier,
+        repeating = true,
     ) {
         BackspaceGlyph(color = MaterialTheme.colorScheme.onPrimary)
     }
@@ -438,6 +500,43 @@ private fun DoneKey(
         modifier = modifier,
     ) {
         EnterGlyph(color = MaterialTheme.colorScheme.background)
+    }
+}
+
+/** Hides the keyboard by calling [LocalKeyboardDismiss]. It sits at the left of the bottom row, next to the page key. */
+@Composable
+private fun DismissKey(
+    modifier: Modifier,
+    enabled: Boolean,
+) {
+    val dismiss = LocalKeyboardDismiss.current
+    Key(
+        description = "Hide keyboard",
+        background = MaterialTheme.colorScheme.surfaceContainerHigh,
+        enabled = enabled,
+        onClick = dismiss,
+        modifier = modifier,
+    ) {
+        ChevronDownGlyph(color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/** The down arrow of [DismissKey]: a chevron that points at the bottom edge, where the keyboard slides away. */
+@Composable
+private fun ChevronDownGlyph(color: Color) {
+    Canvas(Modifier.size(GLYPH_SIZE)) {
+        val w = size.width
+        val h = size.height
+        val chevron = Path().apply {
+            moveTo(w * 0.14f, h * 0.36f)
+            lineTo(w * 0.5f, h * 0.72f)
+            lineTo(w * 0.86f, h * 0.36f)
+        }
+        drawPath(
+            chevron,
+            color,
+            style = Stroke(width = w * 0.1f, cap = StrokeCap.Round, join = StrokeJoin.Round),
+        )
     }
 }
 
