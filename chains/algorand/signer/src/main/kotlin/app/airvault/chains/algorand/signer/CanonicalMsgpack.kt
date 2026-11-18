@@ -1,4 +1,4 @@
-package app.lensly.core.algorand
+package app.airvault.chains.algorand.signer
 
 /**
  * Reads the msgpack subset that Algorand transactions use, and refuses each encoding that the canonical rules forbid.

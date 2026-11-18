@@ -1,7 +1,9 @@
 package app.lensly.core.parse
 
-import app.lensly.core.algorand.AlgoTxnDecoder
-import app.lensly.core.algorand.AlgoTxnException
+import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.AlgoSignType
+import app.airvault.chains.algorand.signer.AlgoTxnDecoder
+import app.airvault.chains.algorand.signer.AlgoTxnException
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.evm.TypedDataParser
 import app.lensly.core.evm.UnsignedTx
@@ -11,8 +13,6 @@ import app.lensly.core.registry.CallDecode
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.solana.SolanaMessage
 import app.lensly.core.solana.SolanaOffchainMessage
-import app.lensly.core.ur.AlgoSignRequest
-import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.SolSignRequest

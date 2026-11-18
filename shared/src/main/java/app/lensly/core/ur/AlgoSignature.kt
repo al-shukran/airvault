@@ -62,7 +62,7 @@ class AlgoSignature(
         /** The request ID, which must carry tag 37 and hold 16 bytes. */
         private fun requestIdOf(item: Cbor): ByteArray {
             val tagged = item as? Cbor.Tagged
-            if (tagged == null || tagged.tag != EthSignRequest.UUID_TAG) malformed("requestId must use tag 37")
+            if (tagged == null || tagged.tag != UUID_TAG) malformed("requestId must use tag 37")
             val bytes = (tagged.value as? Cbor.Bytes ?: malformed("requestId must be a byte string")).value
             if (bytes.size != 16) malformed("requestId must be 16 bytes")
             return bytes

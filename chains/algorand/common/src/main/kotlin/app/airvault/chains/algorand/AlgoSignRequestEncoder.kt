@@ -1,5 +1,10 @@
-package app.lensly.core.ur
+package app.airvault.chains.algorand
 
+import app.lensly.core.ur.Cbor
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
+import app.lensly.core.ur.KEYPATH_TAG
+import app.lensly.core.ur.UUID_TAG
+import app.lensly.core.ur.framesOf
 import com.sparrowwallet.hummingbird.UR
 
 /**
@@ -23,7 +28,7 @@ object AlgoSignRequestEncoder {
 
     private fun payloadOf(request: AlgoSignRequest): Cbor.Dict = Cbor.Dict(
         listOf(
-            Cbor.Uint(1L) to Cbor.Tagged(EthSignRequest.UUID_TAG, Cbor.Bytes(request.requestId)),
+            Cbor.Uint(1L) to Cbor.Tagged(UUID_TAG, Cbor.Bytes(request.requestId)),
             Cbor.Uint(2L) to Cbor.Bytes(request.signData),
             Cbor.Uint(3L) to keyPathOf(request),
             Cbor.Uint(4L) to Cbor.Text(request.address),

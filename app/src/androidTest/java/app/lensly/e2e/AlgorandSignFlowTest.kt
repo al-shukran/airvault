@@ -2,11 +2,11 @@ package app.lensly.e2e
 
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.airvault.chains.algorand.AlgoSignType
+import app.airvault.chains.algorand.bytesToSign
 import app.lensly.app.export.partsOf
 import app.lensly.core.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.algorand.bytesToSign
-import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.AlgoSignature
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT

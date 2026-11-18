@@ -1,10 +1,16 @@
-package app.lensly.core.ur
+package app.airvault.chains.algorand
 
 // Registry tags: algo-sign-request 1501, algo-signature 1502. Neither number appears in Keystone's registry lists
 // (keystone-sdk-rust registry_types.rs and the keystone-sdk-base ur-registry-* packages, checked 2026-11-17). Like Keystone's
 // 1101 and 1102, the number names the type in the registry and is not written into the payload, which is a plain CBOR map.
 
 import app.lensly.core.parse.ParserLimits
+import app.lensly.core.ur.Cbor
+import app.lensly.core.ur.MalformedPayloadException
+import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.UUID_TAG
+import app.lensly.core.ur.keyPathOf
+import app.lensly.core.ur.malformed
 import com.sparrowwallet.hummingbird.UR
 
 /** What the wallet wants signed, as key 6 of an algo-sign-request. */
@@ -124,7 +130,7 @@ class AlgoSignRequest(
 
         private fun requestIdOf(item: Cbor): ByteArray {
             val tagged = item as? Cbor.Tagged
-            if (tagged == null || tagged.tag != EthSignRequest.UUID_TAG) malformed("requestId must use tag 37")
+            if (tagged == null || tagged.tag != UUID_TAG) malformed("requestId must use tag 37")
             val bytes = bytesOf(tagged.value, "requestId")
             if (bytes.size != REQUEST_ID_BYTES) malformed("requestId must be 16 bytes")
             return bytes

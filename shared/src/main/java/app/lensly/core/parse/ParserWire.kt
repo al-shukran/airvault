@@ -1,5 +1,6 @@
 package app.lensly.core.parse
 
+import app.airvault.chains.algorand.AlgoSignRequest
 import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.evm.EIP712_DOMAIN
 import app.lensly.core.evm.TxType
@@ -14,7 +15,6 @@ import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DecodedParam
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.registry.hexBytesOrNull
-import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep

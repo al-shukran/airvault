@@ -1,7 +1,7 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.algorand.AlgoSignRequest
 import app.lensly.core.btc.claimsAccount
-import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.wallet.toHex
