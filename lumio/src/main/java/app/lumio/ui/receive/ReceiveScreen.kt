@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,11 +23,10 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LumenMono
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTextAction
 import app.lumio.ui.kit.rememberCopyAction
-import app.lumio.ui.theme.LumioMono
-import app.lumio.ui.theme.LumioRadius
 
 /** The test tag of the address on the receive page. */
 const val RECEIVE_ADDRESS_TAG = "receive-address"
@@ -77,7 +75,7 @@ fun ReceiveScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(LumioRadius.lg))
+                .clip(MaterialTheme.shapes.large)
                 .background(Color.White)
                 .padding(LenslySpacing.md),
         ) {
@@ -86,7 +84,7 @@ fun ReceiveScreen(
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = groupAddress(address),
-            style = LumioMono,
+            style = LumenMono,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             modifier = Modifier
