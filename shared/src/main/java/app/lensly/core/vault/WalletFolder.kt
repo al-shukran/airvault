@@ -96,8 +96,7 @@ internal object WalletFolder {
     )
 
     /**
-     * The inner layer of `pwk.bin`: the Per-Wallet Key sealed under the Vault Key. An earlier build wrote this alone as the whole file, so
-     * an earlier file has this size.
+     * The inner layer of `pwk.bin`: the Per-Wallet Key sealed under the Vault Key.
      */
     internal const val VAULT_WRAPPED_KEY_BYTES = 1 + Aead.IV_BYTES + KEY_BYTES + TAG_BYTES
 
@@ -178,18 +177,6 @@ internal object WalletFolder {
         }
     }
 
-    /**
-     * The bytes of a record that an earlier build sealed as [walletId] and [name] with no padding, or null when [file] is not one. The
-     * caller zeroes the array.
-     */
-    fun legacyOpen(walletKey: ByteArray, walletId: String, name: String, file: ByteArray): ByteArray? = try {
-        Aead.open(walletKey, legacyAad(walletId, name), decodeBlob(file))
-    } catch (e: GeneralSecurityException) {
-        null
-    } catch (e: VaultException) {
-        null
-    }
-
     /** Overwrites record [name] of folder [dir] with random bytes of its size, if the folder holds that record. */
     fun erase(dir: File, name: String) {
         val file = File(dir, "$name.bin")
@@ -228,42 +215,28 @@ internal object WalletFolder {
     }
 
     /**
-     * Brings the folder of a wallet that [walletKey] owns to the layout. A record in the layout is kept. A record of an earlier build is
-     * sealed again at its new size, if it fits. A record the wallet does not have is random bytes of its size, and so is a damaged one
-     * that is not the layout's size.
+     * Brings the folder of a wallet that [walletKey] owns to the layout. A record in the layout is kept. A record the wallet does not
+     * have is random bytes of its size, and so is a damaged one that is not the layout's size.
      */
     fun settle(dir: File, walletId: String, walletKey: ByteArray) {
         for (name in NAMES) {
             val file = File(dir, "$name.bin")
             val size = sizeOf(name)
-            val capacity = requireNotNull(capacityOf(name))
             val bytes = if (file.isFile) file.readBytes() else null
             val current = bytes?.let { open(walletKey, walletId, name, it) }
             if (current != null) {
                 current.fill(0)
                 continue
             }
-            if (bytes != null) {
-                val legacy = legacyOpen(walletKey, walletId, name, bytes)
-                if (legacy != null) {
-                    try {
-                        if (legacy.size <= capacity) writeAtomically(file, seal(walletKey, walletId, name, legacy))
-                    } finally {
-                        legacy.fill(0)
-                    }
-                    continue
-                }
-                // Random bytes of the layout's size already read as absent, so they are left as they are.
-                if (bytes.size == size) continue
-            }
+            // Random bytes of the layout's size already read as absent, so they are left as they are.
+            if (bytes != null && bytes.size == size) continue
             writeRandom(file, size)
         }
     }
 
     /**
      * The Per-Wallet Key of the wallet folder [dir], or null when [walletId] does not own it under [vaultKey]: the folder has no key
-     * file, its key file is another vault's or damaged, or its Keystore key is gone. A key file of an earlier build, which has the inner
-     * layer alone, is read too. The caller zeroes the result.
+     * file, its key file is another vault's or damaged, or its Keystore key is gone. The caller zeroes the result.
      *
      * @throws VaultException if the key file cannot be read or the Keystore fails. Neither is a verdict that the folder is not owned, so a
      * caller that deletes folders stops instead of deleting one it cannot check.
@@ -276,11 +249,8 @@ internal object WalletFolder {
         } catch (e: IOException) {
             throw VaultException("The key file of wallet $walletId could not be read.", e)
         }
-        val inner = when (bytes.size) {
-            VAULT_WRAPPED_KEY_BYTES -> bytes
-            KEY_FILE_BYTES -> openOuterLayer(keys, bytes) ?: return null
-            else -> return null
-        }
+        if (bytes.size != KEY_FILE_BYTES) return null
+        val inner = openOuterLayer(keys, bytes) ?: return null
         return try {
             Aead.open(vaultKey, walletId.toByteArray(StandardCharsets.UTF_8), decodeBlob(inner))
         } catch (e: AEADBadTagException) {
@@ -315,27 +285,6 @@ internal object WalletFolder {
             true
         } catch (e: VaultException) {
             false
-        }
-    }
-
-    /**
-     * Wraps the key file of each wallet folder that an earlier build wrote, which is the inner layer alone, under a Keystore key of
-     * the folder's own. The inner layer is kept as it is, so no vault key is needed, and every folder is wrapped whichever vault
-     * unlocks. A folder that cannot be changed keeps its old file, and the next unlock tries again.
-     */
-    fun upgradeKeyFiles(wallets: File, keys: KeystoreBackend) {
-        for (dir in folderDirs(wallets)) {
-            val file = File(dir, WALLET_KEY_FILE_NAME)
-            if (!file.isFile || file.length() != VAULT_WRAPPED_KEY_BYTES.toLong()) continue
-            try {
-                val keyId = UUID.randomUUID().toString()
-                val folderKey = keystoreCall { keys.createFolderKey(keyId) }
-                writeAtomically(file, keyFileOf(keyId, folderKey, file.readBytes()))
-            } catch (e: IOException) {
-                // Left as it was. The next unlock tries again.
-            } catch (e: VaultException) {
-                // Same as above.
-            }
         }
     }
 
@@ -448,9 +397,6 @@ internal object WalletFolder {
         random.nextBytes(it)
         it[0] = BLOB_VERSION
     }
-
-    internal fun legacyAad(walletId: String, name: String): ByteArray =
-        (walletId + "\u0000" + name).toByteArray(StandardCharsets.UTF_8)
 
     private fun paddedAad(walletId: String, name: String): ByteArray =
         ("padded\u0000" + walletId + "\u0000" + name).toByteArray(StandardCharsets.UTF_8)

@@ -11,7 +11,6 @@ import java.security.SecureRandom
 import java.util.Arrays
 import java.util.UUID
 import javax.crypto.AEADBadTagException
-import javax.crypto.SecretKey
 
 /** The key file of a wallet folder. It holds the wallet's Per-Wallet Key, wrapped under the vault key that owns the wallet. */
 internal const val WALLET_KEY_FILE_NAME = "pwk.bin"
@@ -51,11 +50,6 @@ private const val PAD_SECTION_BYTES = Aead.IV_BYTES + PAD_PLAIN_BYTES + 16
 /** The pad file: one section for the real vault, then one for the Decoy Vault. Its size never changes. */
 private const val PAD_FILE_BYTES = 2 * PAD_SECTION_BYTES
 
-/** The layout that the previous build wrote: one blob sealed under the hardware key, a version byte, a count, the ids. */
-private const val LEGACY_PAD_VERSION: Byte = 1
-private const val LEGACY_PAD_HEADER_BYTES = 5
-private val LEGACY_PAD_AAD = "lensly.vault.wallet-pad".toByteArray(StandardCharsets.US_ASCII)
-
 /**
  * File names of vault records. A record's file is named by a keyed hash of its name under the vault key, so the name shows
  * neither the record's name nor its vault. The real vault and the decoy vault keep their records apart in one folder.
@@ -70,21 +64,10 @@ internal object VaultRecordNames {
     /** A record name the app can write. */
     val NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 
-    private val HASHED_FILE = Regex("[0-9a-f]{64}\\.bin")
-
     /** The file name of record [name] under [vaultKey]. */
     fun fileName(vaultKey: ByteArray, name: String): String {
         val digest = labelledHmac(vaultKey, "lensly.vault.record-name\u0000$name")
         return digest.joinToString(separator = "") { "%02x".format(it.toInt() and 0xff) } + ".bin"
-    }
-
-    /**
-     * The record name that [fileName] had before names were hashed, or null when the file is not such a file. A file that is
-     * already named under the scheme is not one.
-     */
-    fun legacyNameOf(fileName: String): String? {
-        if (!fileName.endsWith(".bin") || HASHED_FILE.matches(fileName)) return null
-        return fileName.removeSuffix(".bin").takeIf { NAME.matches(it) }
     }
 }
 
@@ -222,33 +205,6 @@ class WalletPad(
     fun clearForWallet(id: String) {
         val dir = layout.walletDir(id)
         if (!WalletFolder.isUnused(dir)) WalletFolder.makeUnused(dir, keys)
-    }
-
-    /**
-     * Moves the free-slot list that the previous build sealed under the hardware key into this vault's section. Each vault does
-     * this on its first unlock after the upgrade, so the list is kept whichever vault unlocks first. A file already in the
-     * current layout is left alone.
-     */
-    fun migrateLegacy(hardwareKey: SecretKey) {
-        if (!file.isFile || file.length() == PAD_FILE_BYTES.toLong()) return
-        val plain = try {
-            Aead.openWithKeystore(hardwareKey, LEGACY_PAD_AAD, file.readBytes())
-        } catch (e: GeneralSecurityException) {
-            return
-        } catch (e: ProviderException) {
-            return
-        }
-        try {
-            if (plain.size < LEGACY_PAD_HEADER_BYTES || plain[0] != LEGACY_PAD_VERSION) return
-            val count = ByteBuffer.wrap(plain, 1, 4).int
-            if (count < 0 || plain.size != LEGACY_PAD_HEADER_BYTES + count * WALLET_ID_BYTES) return
-            val ids = (0 until count)
-                .map { index -> String(plain, LEGACY_PAD_HEADER_BYTES + index * WALLET_ID_BYTES, WALLET_ID_BYTES, StandardCharsets.US_ASCII) }
-                .filter { id -> id.any { it != '\u0000' } }
-            write(ids.toSet())
-        } finally {
-            plain.fill(0)
-        }
     }
 
     private fun roundUp(size: Int): Int {
@@ -633,91 +589,17 @@ class VaultSession constructor(
         }
     }
 
-    /**
-     * Renames vault records written under plain names, which the app used before names were keyed. A file keeps its contents:
-     * the record name is bound into its AAD, not into its file name. A file that cannot be moved stays where it is, and the
-     * next unlock tries again.
-     */
-    internal fun migrateLegacyRecordNames(): Unit = synchronized(this) {
-        val key = requireOpen()
-        layout.vaultRecords.listFiles()?.forEach { file ->
-            val name = VaultRecordNames.legacyNameOf(file.name) ?: return@forEach
-            val target = vaultRecordFile(key, name)
-            if (target.exists()) return@forEach
-            try {
-                Files.move(file.toPath(), target.toPath())
-            } catch (e: IOException) {
-                // Left in place. The next unlock tries again.
-            }
-        }
-    }
-
-    /**
-     * Moves the Review Records that earlier builds kept in wallet folders into the pool, then overwrites and deletes each original.
-     * A record already in the pool is not stored twice, so an interrupted move is finished by the next unlock. A record that cannot
-     * be read is shredded, since it is lost either way. A record too large for a pool slot stays where it is.
-     */
-    internal fun migrateLegacyReviews(): Unit = synchronized(this) {
-        val key = requireOpen()
-        val pool = ReviewPool(layout.reviewPool, key)
-        for (walletId in listWallets()) {
-            val legacy = layout.walletDir(walletId).listFiles().orEmpty()
-                .filter { it.isFile && it.name.startsWith(REVIEW_RECORD_PREFIX) && it.name.endsWith(".bin") }
-            if (legacy.isEmpty()) continue
-            val walletKey = unwrapWalletKey(key, walletId) ?: continue
-            try {
-                val stored = pool.names(walletId).toSet()
-                legacy.forEach { file ->
-                    migrateLegacyReview(pool, walletId, walletKey, file, file.name.removeSuffix(".bin") in stored)
-                }
-            } finally {
-                Arrays.fill(walletKey, 0)
-            }
-        }
-    }
-
-    private fun migrateLegacyReview(pool: ReviewPool, walletId: String, walletKey: ByteArray, file: File, alreadyStored: Boolean) {
-        val name = file.name.removeSuffix(".bin")
-        val bytes = WalletFolder.legacyOpen(walletKey, walletId, name, file.readBytes())
-        if (bytes == null) {
-            overwriteInPlace(file)
-            file.delete()
-            return
-        }
-        try {
-            if (!alreadyStored) pool.put(walletId, walletKey, name, bytes)
-        } catch (e: IllegalArgumentException) {
-            return
-        } catch (e: VaultException) {
-            return
-        } catch (e: IOException) {
-            return
-        } finally {
-            Arrays.fill(bytes, 0)
-        }
-        overwriteInPlace(file)
-        file.delete()
-    }
-
-    /** Moves the free-slot list of an earlier build into this vault's pad section. See [WalletPad.migrateLegacy]. */
-    internal fun migrateLegacyPad(hardwareKey: SecretKey): Unit = synchronized(this) {
-        requireOpen()
-        pad?.migrateLegacy(hardwareKey)
-    }
-
     /** Creates the pool's first batch if this vault has none, so an empty vault still shows a full pool. */
     internal fun ensureReviewPool(): Unit = synchronized(this) {
         ReviewPool(layout.reviewPool, requireOpen()).ensureFirstBatch()
     }
 
     /**
-     * Brings the wallet folders to the layout: each key file of an earlier build gets a Keystore key of its own, the store is padded to its
-     * size, unused slots take the folder shape, the Keystore keys are reconciled with the folders, and each wallet this session owns is
-     * settled. Called on unlock.
+     * Brings the wallet folders to the layout: the store is padded to its size, unused slots take the folder shape, the Keystore keys are
+     * reconciled with the folders, and each wallet this session owns is settled. Called on unlock.
      */
     internal fun ensurePadded(): Unit = synchronized(this) {
         val key = requireOpen()
-        WalletFolder.upgradeKeyFiles(layout.wallets, keys)
         pad?.ensure()
         WalletFolder.reconcileFolderKeys(layout.wallets, keys)
         for (walletId in listWallets()) {

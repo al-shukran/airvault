@@ -455,14 +455,9 @@ class Vault constructor(
                     isDecoy = isDecoy,
                     pad = WalletPad(layout, keys, opened.vaultKey, if (isDecoy) DECOY_SECTION else REAL_SECTION),
                 )
-                // Records written under plain names are renamed, so that the two vaults never share a file name.
-                if (!session.isDecoy) bestEffort { session.migrateLegacyRecordNames() }
-                // An earlier build kept the free-slot list under the hardware key, which both vaults share. Each vault moves it into its own section.
-                bestEffort { session.migrateLegacyPad(opened.hardwareKey) }
-                // Review Records that an earlier build kept in wallet folders move into the shared pool, before the folders are padded.
+                // The Review Record pool gets its first batch back when it is missing.
                 if (!session.isDecoy) bestEffort { session.ensureReviewPool() }
-                bestEffort { session.migrateLegacyReviews() }
-                // An older store has one folder per wallet. The first unlock after the upgrade pads every folder to the full shape.
+                // The wallet folders and the free-slot list are brought to the layout on every unlock.
                 bestEffort { session.ensurePadded() }
                 return UnlockResult.Unlocked(session)
             } finally {
@@ -543,7 +538,6 @@ class Vault constructor(
         val softKey: ByteArray,
         val vaultKey: ByteArray,
         val role: Byte,
-        val hardwareKey: SecretKey,
         val store: FailureStore,
         val state: FailureState,
     ) {
@@ -596,13 +590,13 @@ class Vault constructor(
             }
             // The software layer authenticated, so the password is right. Reset the count before the hardware step.
             val reset = store.recordSuccess(state, clock)
-            val (hardwareKey, vaultKey, role) = withHardwareAuth {
+            val (vaultKey, role) = withHardwareAuth {
                 val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
                 val (unwrapped, unwrappedRole) = unwrapOpened(key, opened.single().second)
-                Triple(key, unwrapped, unwrappedRole)
+                Pair(unwrapped, unwrappedRole)
             }
             handedOver = true
-            return Checked.Opened(OpenedSlot(softKey, vaultKey, role, hardwareKey, store, reset))
+            return Checked.Opened(OpenedSlot(softKey, vaultKey, role, store, reset))
         } finally {
             if (!handedOver) Arrays.fill(softKey, 0)
         }
