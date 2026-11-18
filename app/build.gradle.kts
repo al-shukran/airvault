@@ -43,12 +43,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 minifies and optimizes the release build, and resource shrinking drops the resources no code path reaches.
+            // proguard-rules.pro holds the keep rules, each with the reason it is needed.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
 
         // Performance tests run release-like code (no debug flag), signed with the debug key so a device
-        // can install it. Release sets no proguard files and leaves minify off, so benchmark mirrors that:
-        // the gate measures the code that ships, not a R8 build that differs from release.
+        // can install it. Release is minified by R8, and benchmark is not: its androidTest classes call app
+        // classes by name, and R8 would rename them. So the gate's timings come from code that R8 has not shrunk.
         create("benchmark") {
             initWith(getByName("debug"))
             // Debug-only dependencies fall back to their debug variant; this app has none yet.
