@@ -4,9 +4,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import app.lensly.ui.theme.LocalMonoFamily
 import app.lensly.ui.theme.LocalUppercaseLabels
 import app.lensly.ui.theme.LocalWarningColor
+import app.lumio.ui.kit.NavReducedMotion
 
 /**
  * Lumio's theme. The Night palette shows in the dark and the Day palette in the light, as the system chooses. Labels are sentence case, and
@@ -17,9 +19,11 @@ fun LumioTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val palette = if (dark) NightPalette else DayPalette
     SystemBarIcons(lightBackground = !dark)
+    val reducedMotion = rememberReducedMotion()
+    SideEffect { NavReducedMotion.reduced = reducedMotion }
     CompositionLocalProvider(
         LocalLumioPalette provides palette,
-        LocalReducedMotion provides rememberReducedMotion(),
+        LocalReducedMotion provides reducedMotion,
         LocalUppercaseLabels provides false,
         LocalWarningColor provides palette.warning,
         LocalMonoFamily provides LumioMonoFamily,

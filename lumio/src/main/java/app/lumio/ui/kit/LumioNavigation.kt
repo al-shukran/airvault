@@ -34,6 +34,17 @@ val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
 val LocalNavScope = staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
 
 /**
+ * Reduced motion for the NavHost's transitions (section 3.6). Transition lambdas are built outside composition, so they cannot read
+ * [app.lumio.ui.theme.LocalReducedMotion]; [app.lumio.ui.theme.LumioTheme] mirrors the local here, and each transition reads it when it starts.
+ */
+internal object NavReducedMotion {
+    var reduced = false
+}
+
+/** A transition under reduced motion is a cut (section 3.6): [cut] is returned and [motion] is never built. */
+internal fun <T> cutWhenReduced(reduced: Boolean, cut: T, motion: () -> T): T = if (reduced) cut else motion()
+
+/**
  * The class of a screen's transition (section 3.2). The Wallets root has no class of its own: it keeps Lensly's transitions when the gate opens it,
  * and it takes the class of the screen that comes back to it.
  */
@@ -67,10 +78,10 @@ internal fun NavGraphBuilder.lumioComposable(
     composable(
         route = route,
         arguments = arguments,
-        enterTransition = { enterOf(own) },
-        exitTransition = { exitTowards(navMotionOf(targetState.destination.route)) },
-        popEnterTransition = { popEnterFrom(navMotionOf(initialState.destination.route)) },
-        popExitTransition = { popExitOf(own) },
+        enterTransition = { cutWhenReduced(NavReducedMotion.reduced, EnterTransition.None) { enterOf(own) } },
+        exitTransition = { cutWhenReduced(NavReducedMotion.reduced, ExitTransition.None) { exitTowards(navMotionOf(targetState.destination.route)) } },
+        popEnterTransition = { cutWhenReduced(NavReducedMotion.reduced, EnterTransition.None) { popEnterFrom(navMotionOf(initialState.destination.route)) } },
+        popExitTransition = { cutWhenReduced(NavReducedMotion.reduced, ExitTransition.None) { popExitOf(own) } },
     ) { entry ->
         val scope = this
         CompositionLocalProvider(LocalNavScope provides scope) { scope.content(entry) }
