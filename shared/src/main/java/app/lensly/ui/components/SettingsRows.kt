@@ -45,12 +45,27 @@ fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) 
     }
 }
 
-/** Wraps a settings row or block with the one divider that closes it. */
+/**
+ * A settings group in the Lumen style: its label, then one island holding the rows. Each row passes `divided = false`, and the
+ * caller places an [IslandDivider] between two rows. The rows are inset by the page gutter inside the island.
+ */
 @Composable
-fun SettingsItem(content: @Composable ColumnScope.() -> Unit) {
+fun SettingsIsland(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.lg)) {
+        WalletEyebrow(title)
+        Spacer(Modifier.height(LenslySpacing.xs))
+        LumioIsland {
+            Column(modifier = Modifier.padding(horizontal = LenslySpacing.md), content = content)
+        }
+    }
+}
+
+/** Wraps a settings row or block with the one divider that closes it. A [divided] false row has none, as an island's rows do. */
+@Composable
+fun SettingsItem(divided: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         content()
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (divided) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -69,8 +84,9 @@ fun SettingsRow(
     enabled: Boolean = true,
     destructive: Boolean = false,
     modifier: Modifier = Modifier,
+    divided: Boolean = true,
 ) {
-    SettingsItem {
+    SettingsItem(divided) {
         ListRow(onClick = onClick, enabled = enabled, modifier = modifier) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -117,10 +133,11 @@ fun SettingsSwitchRow(
     description: String? = null,
     enabled: Boolean = true,
     footer: (@Composable () -> Unit)? = null,
+    divided: Boolean = true,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val haptics = rememberKeyHaptics()
-    SettingsItem {
+    SettingsItem(divided) {
         Row(
             modifier = modifier
                 .fillMaxWidth()
