@@ -40,6 +40,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
+import app.lensly.app.headline
 import app.lensly.app.isAddressValue
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
@@ -429,18 +430,6 @@ internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifie
 
 /** The line a counterparty shows when the Address Book holds no entry for it. It is plain text, not a warning. */
 internal const val NOT_IN_ADDRESS_BOOK = "Not in address book"
-
-/**
- * The bold line above an address. An account of this device takes it, as "Your account · <name> · <label>", and the label is left out when
- * the account has none. Otherwise it is the Address Book name. Null when neither gives one.
- */
-internal fun AddressNotes.headline(): String? {
-    val account = internal ?: return entry?.name
-    return listOfNotNull(YOUR_ACCOUNT, account.displayName ?: account.autoName, account.label).joinToString(" · ")
-}
-
-/** The start of the bold line of an account of this device. */
-internal const val YOUR_ACCOUNT = "Your account"
 
 /**
  * The name an address goes by in a sentence: the name of this device's account when it is one, else its Address Book name. Null when
