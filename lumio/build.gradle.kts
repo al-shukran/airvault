@@ -27,7 +27,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 minifies and optimizes the release build, and resource shrinking drops the resources no code path reaches.
+            // proguard-rules.pro holds the keep rules, each with the reason it is needed.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
