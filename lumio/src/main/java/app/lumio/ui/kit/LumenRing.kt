@@ -8,7 +8,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -21,6 +20,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalReducedMotion
 
 // The Lumen ring's geometry, the same as the mark's (WP7a). It is drawn in a 24-unit box, so at 24 dp one unit is one dp.
@@ -62,7 +62,7 @@ fun LumenRing(
     progress: Float,
     modifier: Modifier = Modifier,
     size: Dp = 24.dp,
-    color: Color = MaterialTheme.colorScheme.primary,
+    color: Color = LocalLumenPalette.current.ring,
     spinning: Boolean = false,
 ) {
     if (spinning && !LocalReducedMotion.current) {
