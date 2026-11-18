@@ -9,7 +9,7 @@ import java.math.BigInteger
 
 /**
  * A coin an Algorand send can move: ALGO ([assetId] null), or an asset with its [symbol] and [decimals]. [held] is what the account holds of the asset, in
- * its base units. It is null when the account has not opted in to the asset, and then the send's primary action is the opt-in. ALGO has no [held].
+ * its base units. It is null when the account has not opted in to the asset, which only the Add asset opt-in plans. ALGO has no [held].
  */
 data class AlgorandAsset(val assetId: ULong?, val symbol: String, val decimals: Int, val held: BigInteger?) {
     /** The coin's key in the picker: the asset's ID, or [AlgorandAssets.ALGO_KEY] for ALGO. */
@@ -24,15 +24,8 @@ object AlgorandAssets {
     /** ALGO's decimal places: a microAlgo is a millionth of an ALGO. */
     private const val ALGO_DECIMALS = 6
 
-    /** USDC on testnet and on mainnet: the assets that the send offers to opt in to. */
-    private val TESTNET_USDC = 10458941UL
-    private val MAINNET_USDC = 31566704UL
-
     /** ALGO, which the account always holds. */
     val native = AlgorandAsset(assetId = null, symbol = "ALGO", decimals = ALGO_DECIMALS, held = null)
-
-    /** The assets that the send offers to opt in to on [network]. */
-    fun knownAssets(network: NetworkId): List<ULong> = listOf(if (network.testnet) TESTNET_USDC else MAINNET_USDC)
 
     /**
      * Whether the account has opted in to [assetId]. A holding with a zero amount counts, since an opted-in asset holds nothing until it is sent to, so
@@ -40,28 +33,21 @@ object AlgorandAssets {
      */
     fun optedIn(assetId: ULong, holdings: List<AsaHolding>): Boolean = holdings.any { it.assetId == assetId }
 
-    /** The assets whose symbol and decimals the picker needs: each asset held with an amount, and each known asset the account has not opted in to. */
-    fun infoIds(holdings: List<AsaHolding>, known: List<ULong>): List<ULong> =
-        holdings.filter { it.amount.signum() > 0 }.map { it.assetId } + known.filterNot { optedIn(it, holdings) }
+    /** The assets whose symbol and decimals the picker needs: each asset the account holds with an amount. */
+    fun infoIds(holdings: List<AsaHolding>): List<ULong> = holdings.filter { it.amount.signum() > 0 }.map { it.assetId }
 
     /**
-     * The coins the send offers: ALGO first, then each asset that the account holds with an amount above zero, then each known asset that the account has
-     * not opted in to, which the send opts in to. [infos] holds the parameters of the assets that [infoIds] lists. An asset whose creator left the unit
-     * name empty is named by its ID, as the account screen names it.
+     * The coins the send offers: ALGO first, then each asset that the account holds with an amount above zero. [infos] holds the parameters of the assets
+     * that [infoIds] lists. An asset whose creator left the unit name empty is named by its ID, as the account screen names it. An asset the account has
+     * not opted in to is not offered: the Add asset screen opts in to it.
      */
-    fun choices(holdings: List<AsaHolding>, known: List<ULong>, infos: Map<ULong, AsaInfo>): List<AlgorandAsset> {
-        val held = holdings.filter { it.amount.signum() > 0 }.map { asset(it.assetId, infos).copy(held = it.amount) }
-        val notOptedIn = known.filterNot { optedIn(it, holdings) }.map { asset(it, infos) }
-        return listOf(native) + held + notOptedIn
-    }
+    fun choices(holdings: List<AsaHolding>, infos: Map<ULong, AsaInfo>): List<AlgorandAsset> =
+        listOf(native) + holdings.filter { it.amount.signum() > 0 }.map { asset(it.assetId, infos).copy(held = it.amount) }
 
     private fun asset(assetId: ULong, infos: Map<ULong, AsaInfo>): AlgorandAsset {
         val info = checkNotNull(infos[assetId]) { "No params for asset $assetId." }
         return AlgorandAsset(assetId, info.unitName.ifEmpty { "ASA $assetId" }, info.decimals, held = null)
     }
-
-    /** The opt-in decision: an asset must be opted in to before the account can hold it. ALGO never needs one. */
-    fun needsOptIn(asset: AlgorandAsset): Boolean = asset.assetId != null && asset.held == null
 
     /**
      * The plan of a send of [amount] of [asset] from the account of [signer] to [to] on [network], at [funds]: an ALGO payment, a transfer of an asset the

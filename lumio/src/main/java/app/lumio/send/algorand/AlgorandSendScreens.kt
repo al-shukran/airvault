@@ -42,9 +42,8 @@ import app.lumio.ui.theme.LumioRadius
 
 /**
  * The Details step of an Algorand send, on the Lumen kit: the network, the coin that the send moves, then the recipient and the amount in that coin.
- * [assets] are the coins the account can choose, and [selected] is the one the send moves. A coin the account has not opted in to replaces the recipient
- * and the amount with the opt-in, whose primary action reads "Opt in to <symbol>". [balanceText] is the balance of the coin, [feeText] the network fee,
- * and [amountError] why the amount cannot be sent. [busy] holds the form until the network has answered.
+ * [assets] are the coins the account can choose, and [selected] is the one the send moves. [balanceText] is the balance of the coin, [feeText] the
+ * network fee, and [amountError] why the amount cannot be sent. [busy] holds the form until the network has answered.
  */
 @Composable
 internal fun AlgorandSendFormScreen(
@@ -70,13 +69,11 @@ internal fun AlgorandSendFormScreen(
     onBack: () -> Unit,
 ) {
     val symbol = selected.symbol
-    val optIn = AlgorandAssets.needsOptIn(selected)
-    val action = if (optIn) "Opt in to $symbol" else "Review"
     SendStepScaffold(
         step = SEND_STEP_DETAILS,
-        title = if (optIn) "Opt in to $symbol" else "Send $symbol",
+        title = "Send $symbol",
         onBack = onBack,
-        bottomAction = { LumioPrimaryButton(text = action, onClick = onReview, enabled = canReview) },
+        bottomAction = { LumioPrimaryButton(text = "Review", onClick = onReview, enabled = canReview) },
     ) {
         if (busy) StepLabel("Reading the network")
         StepLabel("From")
@@ -97,52 +94,43 @@ internal fun AlgorandSendFormScreen(
             }
         }
 
-        if (optIn) {
-            Spacer(Modifier.height(LenslySpacing.md))
+        StepLabel("Send to")
+        AddressField(
+            value = recipient,
+            onValueChange = onRecipient,
+            label = "Recipient address",
+            validate = AlgorandSend::recipientError,
+            enabled = !busy,
+            onScan = onScan,
+        )
+        StepLabel("Amount in $symbol")
+        AmountField(value = amount, onValueChange = onAmount, enabled = !busy && balanceText != null)
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "This account can't hold $symbol yet. Algorand needs a one-time opt-in; 0.1 ALGO stays reserved.",
+                balanceText?.let { "Balance $it" }.orEmpty(),
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        } else {
-            StepLabel("Send to")
-            AddressField(
-                value = recipient,
-                onValueChange = onRecipient,
-                label = "Recipient address",
-                validate = AlgorandSend::recipientError,
-                enabled = !busy,
-                onScan = onScan,
+            LumioTextAction(text = "Use max", onClick = onMax, enabled = maxEnabled)
+        }
+        if (selected.assetId == null) {
+            Text(
+                "The account keeps 0.1 ALGO. That part is never sent.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            StepLabel("Amount in $symbol")
-            AmountField(value = amount, onValueChange = onAmount, enabled = !busy && balanceText != null)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    balanceText?.let { "Balance $it" }.orEmpty(),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                LumioTextAction(text = "Use max", onClick = onMax, enabled = maxEnabled)
-            }
-            if (selected.assetId == null) {
-                Text(
-                    "The account keeps 0.1 ALGO. That part is never sent.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            feeText?.let {
-                Text(
-                    "Network fee $it",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            amountError?.let {
-                Spacer(Modifier.height(LenslySpacing.xs))
-                InlineBanner(message = it, tone = BannerTone.Error)
-            }
+        }
+        feeText?.let {
+            Text(
+                "Network fee $it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        amountError?.let {
+            Spacer(Modifier.height(LenslySpacing.xs))
+            InlineBanner(message = it, tone = BannerTone.Error)
         }
         notice?.let {
             Spacer(Modifier.height(LenslySpacing.md))
@@ -244,10 +232,23 @@ internal fun AlgorandSignRequestScreen(
     }
 }
 
-/** What the picker says under a coin: the native coin, the balance that the account holds, or that the account has not opted in yet. */
-private fun assetDetail(asset: AlgorandAsset): String {
-    val held = asset.held ?: return if (asset.assetId == null) "Native coin" else "Not opted in yet"
-    return "Balance ${AlgorandAssets.text(held, asset.decimals)} ${asset.symbol}"
+/** An opt-in while its asset is read from the network: the title, and the words why the read failed when it did. */
+@Composable
+internal fun AlgorandOptInReadingScreen(notice: String?, onBack: () -> Unit) {
+    SendStepScaffold(
+        step = SEND_STEP_DETAILS,
+        title = "Opt in to asset",
+        onBack = onBack,
+        bottomAction = {},
+    ) {
+        if (notice == null) StepLabel("Reading the network") else InlineBanner(message = notice, tone = BannerTone.Error)
+    }
+}
+
+/** What the picker says under a coin: the native coin, or the balance that the account holds. */
+private fun assetDetail(asset: AlgorandAsset): String = when (val held = asset.held) {
+    null -> "Native coin"
+    else -> "Balance ${AlgorandAssets.text(held, asset.decimals)} ${asset.symbol}"
 }
 
 private fun networkName(network: NetworkId): String = if (network.testnet) "Algorand testnet" else "Algorand mainnet"

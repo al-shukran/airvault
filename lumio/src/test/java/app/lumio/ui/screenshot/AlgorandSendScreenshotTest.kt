@@ -50,7 +50,6 @@ class AlgorandSendScreenshotTest {
     private val usdc = 10458941UL
     private val algo = AlgorandAssets.native
     private val usdcHeld = AlgorandAsset(usdc, "USDC", 6, BigInteger("2500000000"))
-    private val usdcNotOptedIn = AlgorandAsset(usdc, "USDC", 6, null)
     private val plan = AlgorandSend.plan(
         network = ALGORAND_TESTNET,
         funds = funds,
@@ -116,32 +115,6 @@ class AlgorandSendScreenshotTest {
             amount = "1.5",
             onAmount = {},
             maxEnabled = true,
-            onMax = {},
-            feeText = null,
-            amountError = null,
-            busy = false,
-            notice = null,
-            canReview = true,
-            onReview = {},
-            onBack = {},
-        )
-    }
-
-    @Test
-    fun algorandSendFormOptIn() = compose.lumioSnapshot("algorand_send_form_opt_in") {
-        AlgorandSendFormScreen(
-            network = ALGORAND_TESTNET,
-            fromAddress = sender,
-            assets = listOf(algo, usdcNotOptedIn),
-            selected = usdcNotOptedIn,
-            onSelect = {},
-            balanceText = null,
-            recipient = "",
-            onRecipient = {},
-            onScan = {},
-            amount = "",
-            onAmount = {},
-            maxEnabled = false,
             onMax = {},
             feeText = null,
             amountError = null,

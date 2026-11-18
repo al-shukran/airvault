@@ -10,19 +10,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
 
-/** The coins an Algorand send offers, the opt-in decision, and the plan that each coin's send routes to. */
+/** The coins an Algorand send offers, and the plan that each coin's send routes to, including the opt-in of the Add asset screen. */
 class AlgorandAssetsTest {
     private val usdc = 10458941UL
     private val held = 1234UL
-    private val notOptedIn = 999UL
     private val infos = mapOf(
         usdc to AsaInfo(decimals = 6, unitName = "USDC", name = "USD Coin"),
         held to AsaInfo(decimals = 0, unitName = "", name = ""),
-        notOptedIn to AsaInfo(decimals = 3, unitName = "TST", name = "Test"),
     )
     private val signer = ByteArray(32) { 9 }
     private val recipient = ByteArray(32) { 8 }
@@ -38,37 +35,31 @@ class AlgorandAssetsTest {
     )
 
     @Test
-    fun theChoicesAreAlgoThenTheAssetsHeldThenTheKnownAssetsNotOptedIn() {
+    fun theChoicesAreAlgoThenTheAssetsTheAccountHolds() {
         val holdings = listOf(AsaHolding(usdc, BigInteger("2500000"), false), AsaHolding(held, BigInteger("7"), false))
 
-        val choices = AlgorandAssets.choices(holdings, known = listOf(usdc, notOptedIn), infos = infos)
+        val choices = AlgorandAssets.choices(holdings, infos = infos)
 
-        assertEquals(listOf(null, usdc, held, notOptedIn), choices.map { it.assetId })
+        assertEquals(listOf(null, usdc, held), choices.map { it.assetId })
         assertEquals(BigInteger("2500000"), choices[1].held)
         assertEquals("ASA 1234", choices[2].symbol)
-        assertEquals("TST", choices[3].symbol)
-        assertNull(choices[3].held)
+        assertEquals(listOf(usdc, held), AlgorandAssets.infoIds(holdings))
     }
 
     @Test
-    fun aKnownAssetTheAccountHasOptedInToWithNoBalanceIsNeitherOfferedNorOptedInAgain() {
-        // The holdings keep zero balances, so an opted-in asset is not mistaken for one the account has not opted in to.
+    fun aKnownAssetWithNoBalanceIsOptedInButNotOfferedInThePicker() {
+        // The holdings keep zero balances, so an opted-in asset is known to be opted in, though the picker offers only what the account holds.
         val holdings = listOf(AsaHolding(usdc, BigInteger.ZERO, false))
 
         assertTrue(AlgorandAssets.optedIn(usdc, holdings))
-        assertEquals(listOf(null), AlgorandAssets.choices(holdings, listOf(usdc), infos).map { it.assetId })
-        assertEquals(emptyList(), AlgorandAssets.infoIds(holdings, listOf(usdc)))
+        assertEquals(listOf(null), AlgorandAssets.choices(holdings, infos).map { it.assetId })
+        assertEquals(emptyList(), AlgorandAssets.infoIds(holdings))
     }
 
     @Test
-    fun anAssetWithNoHoldingIsNotOptedInAndNeedsTheOptIn() {
-        val notHeld = AlgorandAssets.choices(emptyList(), listOf(usdc), infos).last()
-
+    fun anAssetTheAccountHasNotOptedInToIsNotOfferedInThePicker() {
         assertFalse(AlgorandAssets.optedIn(usdc, emptyList()))
-        assertEquals(usdc, notHeld.assetId)
-        assertTrue(AlgorandAssets.needsOptIn(notHeld))
-        assertFalse(AlgorandAssets.needsOptIn(AlgorandAssets.native))
-        assertFalse(AlgorandAssets.needsOptIn(AlgorandAsset(usdc, "USDC", 6, BigInteger.ZERO)))
+        assertEquals(listOf(null), AlgorandAssets.choices(emptyList(), infos).map { it.assetId })
     }
 
     @Test

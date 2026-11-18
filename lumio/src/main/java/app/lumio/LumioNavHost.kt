@@ -26,6 +26,7 @@ import app.lensly.ui.navigation.leaveHidden
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
 import app.lumio.network.NetworkMode
+import app.lumio.send.algorand.AlgorandAddAssetRoute
 import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.ui.network.TestnetBanner
@@ -143,6 +144,21 @@ internal object LumioRoute {
 
     /** The route of the Algorand send from account [index] of [walletId]. */
     fun algorandSend(walletId: String, index: Int): String = "algorand-send/$walletId/$index"
+
+    /** The Add asset screen of the Algorand account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. */
+    const val ALGORAND_ADD_ASSET = "algorand-add-asset/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+
+    /** The route of the Add asset screen of the Algorand account [index] of [walletId]. */
+    fun algorandAddAsset(walletId: String, index: Int): String = "algorand-add-asset/$walletId/$index"
+
+    /** The argument of an asset: the ID of the Algorand asset that an opt-in adds to the account. */
+    const val ASSET_ARG = "asset"
+
+    /** The opt-in of the Algorand asset in [ASSET_ARG] to the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. */
+    const val ALGORAND_OPT_IN = "algorand-opt-in/{$WALLET_ARG}/{$SEND_INDEX_ARG}/{$ASSET_ARG}"
+
+    /** The route of the opt-in of asset [assetId] to the Algorand account [index] of [walletId]. */
+    fun algorandOptIn(walletId: String, index: Int, assetId: ULong): String = "algorand-opt-in/$walletId/$index/$assetId"
 
     /** The Bitcoin send from the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. Its side (testnet4 or mainnet) is the selected side. */
     const val BTC_SEND = "bitcoin-send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
@@ -346,6 +362,41 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
                 val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
                 LumioBackdrop(selection) {
                     AlgorandSendRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, accountIndex = index)
+                }
+            }
+            composable(
+                route = LumioRoute.ALGORAND_ADD_ASSET,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                LumioBackdrop(selection) {
+                    AlgorandAddAssetRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, accountIndex = index)
+                }
+            }
+            composable(
+                route = LumioRoute.ALGORAND_OPT_IN,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ASSET_ARG) { type = NavType.StringType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                val assetId = entry.arguments?.getString(LumioRoute.ASSET_ARG)?.toULongOrNull()
+                LumioBackdrop(selection) {
+                    AlgorandSendRoute(
+                        navController = navController,
+                        holder = holder,
+                        mode = selection.mode,
+                        walletId = walletId,
+                        accountIndex = index,
+                        optInAssetId = assetId,
+                    )
                 }
             }
             composable(LumioRoute.SETTINGS) {

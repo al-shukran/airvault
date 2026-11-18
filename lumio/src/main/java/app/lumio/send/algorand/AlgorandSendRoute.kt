@@ -54,6 +54,9 @@ import kotlinx.coroutines.withContext
 private sealed interface AlgorandSendStep {
     data object Form : AlgorandSendStep
 
+    /** An opt-in while its asset is read from the network, before its review opens. */
+    data object Reading : AlgorandSendStep
+
     /** The camera reads a recipient address. */
     data object ScanRecipient : AlgorandSendStep
 
@@ -88,7 +91,8 @@ private const val POLL_LIMIT = 20
 /**
  * An Algorand send from one account of a paired wallet: the details (the coin, the recipient and the amount), the review, the request that Lensly signs,
  * the scan of its signature, and the transaction that is sent. The account is fixed by the caller, and the network is the side the owner chose. The coins
- * are ALGO, the assets the account holds, and USDC to opt in to. Lumio holds no key.
+ * are ALGO and the assets the account holds. With [optInAssetId] the route opens the opt-in of that asset instead: its review comes first, and the signing
+ * and the sending are the same. Lumio holds no key.
  */
 @Composable
 internal fun AlgorandSendRoute(
@@ -97,6 +101,7 @@ internal fun AlgorandSendRoute(
     mode: NetworkMode,
     walletId: String,
     accountIndex: Int,
+    optInAssetId: ULong? = null,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
@@ -115,7 +120,7 @@ internal fun AlgorandSendRoute(
     val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
     val scheduler = app.nativeSchedulerFor(session)
 
-    var step by remember { mutableStateOf<AlgorandSendStep>(AlgorandSendStep.Form) }
+    var step by remember { mutableStateOf<AlgorandSendStep>(if (optInAssetId == null) AlgorandSendStep.Form else AlgorandSendStep.Reading) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     // The coin the send moves, by its key: ALGO, or the ID of an asset. It is saved, so that a rotation keeps the owner's choice.
@@ -134,7 +139,6 @@ internal fun AlgorandSendRoute(
     var sentTxid by remember { mutableStateOf<String?>(null) }
 
     val selected = assets.firstOrNull { it.key == selectedKey } ?: AlgorandAssets.native
-    val optIn = AlgorandAssets.needsOptIn(selected)
     val loaded = funds
     val to: ByteArray? = runCatching { AlgorandSend.recipientKey(recipient) }.getOrNull()
     val isAlgo = selected.assetId == null
@@ -150,7 +154,7 @@ internal fun AlgorandSendRoute(
         else -> selected.held
     }
     val amountError = amountError(amount, selected, maxUnits)
-    val canReview = loaded != null && !busy && (optIn || (to != null && amount.isNotBlank() && amountError == null))
+    val canReview = loaded != null && !busy && to != null && amount.isNotBlank() && amountError == null
 
     // The balance, the parameters and the coins are read when the details open. A failed read keeps the form, with the words why.
     LaunchedEffect(step) {
@@ -158,10 +162,9 @@ internal fun AlgorandSendRoute(
         funds = null
         runCatching {
             withContext(Dispatchers.IO) {
-                val known = AlgorandAssets.knownAssets(network)
                 val holdings = optedInAssets(scheduler, network, address)
-                val infos = AlgorandAssets.infoIds(holdings, known).associateWith { ChainHoldings.info(scheduler, network, it) }
-                AlgorandSend.funds(scheduler, network, address) to AlgorandAssets.choices(holdings, known, infos)
+                val infos = AlgorandAssets.infoIds(holdings).associateWith { ChainHoldings.info(scheduler, network, it) }
+                AlgorandSend.funds(scheduler, network, address) to AlgorandAssets.choices(holdings, infos)
             }
         }
             .onSuccess { (read, choices) ->
@@ -169,6 +172,28 @@ internal fun AlgorandSendRoute(
                 assets = choices
             }
             .onFailure { notice = AlgorandSend.ownerWords(it, READ_FAILED) }
+    }
+
+    // An opt-in reads the balance and the asset's name and decimals, then opens its review. A failed read keeps the screen, with the words why.
+    LaunchedEffect(optInAssetId) {
+        val id = optInAssetId ?: return@LaunchedEffect
+        runCatching {
+            withContext(Dispatchers.IO) {
+                val read = AlgorandSend.funds(scheduler, network, address)
+                val info = ChainHoldings.info(scheduler, network, id)
+                val asset = AlgorandAsset(id, info.unitName.ifEmpty { "ASA $id" }, info.decimals, held = null)
+                val plan = AlgorandAssets.plan(asset, network, read, wallet.fingerprint, accountIndex, signer, signer, BigInteger.ZERO, recipientOptedIn = false)
+                Triple(read, asset, plan)
+            }
+        }
+            .onSuccess { (read, asset, plan) ->
+                funds = read
+                assets = listOf(AlgorandAssets.native, asset)
+                selectedKey = asset.key
+                notice = null
+                step = AlgorandSendStep.Review(plan)
+            }
+            .onFailure { notice = AlgorandSend.ownerWords(it, PREPARE_FAILED) }
     }
 
     // The status of the sent transaction, read from the pool until the network confirms it or refuses it, or the pool no longer holds it.
@@ -200,9 +225,15 @@ internal fun AlgorandSendRoute(
         }
     }
 
+    /** Back to the start of the flow: the details of a send, or the Add asset screen that an opt-in opened from. */
+    fun backToStart() {
+        notice = null
+        if (optInAssetId == null) step = AlgorandSendStep.Form else navController.popBackStack()
+    }
+
     /**
-     * The plan of the send, routed by the coin: an opt-in for a coin the account has not opted in to, else a payment of ALGO or a transfer of the asset. A
-     * transfer first reads whether the recipient has opted in to the asset, since the network refuses a transfer to one who has not.
+     * The plan of the send of a held coin: a payment of ALGO, or a transfer of the asset. A transfer first reads whether the recipient has opted in to the
+     * asset, since the network refuses a transfer to one who has not.
      */
     fun review() {
         val read = loaded ?: return
@@ -212,16 +243,12 @@ internal fun AlgorandSendRoute(
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    if (AlgorandAssets.needsOptIn(asset)) {
-                        AlgorandAssets.plan(asset, network, read, wallet.fingerprint, accountIndex, signer, signer, BigInteger.ZERO, recipientOptedIn = false)
-                    } else {
-                        val key = AlgorandSend.recipientKey(recipient)
-                        val units = AlgorandAssets.units(amount, asset.decimals, asset.symbol)
-                        val recipientOptedIn = asset.assetId?.let { id ->
-                            AlgorandAssets.optedIn(id, optedInAssets(scheduler, network, AlgorandAccount.addressOf(key)))
-                        } ?: true
-                        AlgorandAssets.plan(asset, network, read, wallet.fingerprint, accountIndex, signer, key, units, recipientOptedIn)
-                    }
+                    val key = AlgorandSend.recipientKey(recipient)
+                    val units = AlgorandAssets.units(amount, asset.decimals, asset.symbol)
+                    val recipientOptedIn = asset.assetId?.let { id ->
+                        AlgorandAssets.optedIn(id, optedInAssets(scheduler, network, AlgorandAccount.addressOf(key)))
+                    } ?: true
+                    AlgorandAssets.plan(asset, network, read, wallet.fingerprint, accountIndex, signer, key, units, recipientOptedIn)
                 }
             }
             busy = false
@@ -331,12 +358,9 @@ internal fun AlgorandSendRoute(
 
     BackHandler {
         when (val current = step) {
-            AlgorandSendStep.Form -> navController.popBackStack()
+            AlgorandSendStep.Form, AlgorandSendStep.Reading -> navController.popBackStack()
             AlgorandSendStep.ScanRecipient -> step = AlgorandSendStep.Form
-            is AlgorandSendStep.Review -> {
-                notice = null
-                step = AlgorandSendStep.Form
-            }
+            is AlgorandSendStep.Review -> backToStart()
             is AlgorandSendStep.Request -> {
                 notice = null
                 step = AlgorandSendStep.Review(current.plan)
@@ -379,6 +403,7 @@ internal fun AlgorandSendRoute(
             onReview = ::review,
             onBack = { navController.popBackStack() },
         )
+        AlgorandSendStep.Reading -> AlgorandOptInReadingScreen(notice = notice, onBack = { navController.popBackStack() })
         AlgorandSendStep.ScanRecipient -> ScanScreen(
             title = "Scan address",
             progress = null,
@@ -392,10 +417,7 @@ internal fun AlgorandSendRoute(
             decimals = selected.decimals,
             notice = notice,
             onConfirm = { confirm(current.plan) },
-            onBack = {
-                notice = null
-                step = AlgorandSendStep.Form
-            },
+            onBack = { backToStart() },
         )
         is AlgorandSendStep.Request -> AlgorandSignRequestScreen(
             network = current.plan.network,
@@ -422,10 +444,7 @@ internal fun AlgorandSendRoute(
             explorerNotice = sentNotice,
             onSubmit = { submit(current) },
             onOpenExplorer = { txid -> openExplorer(AlgorandSend.explorerUrl(current.plan.network, txid)) },
-            onStartOver = {
-                notice = null
-                step = AlgorandSendStep.Form
-            },
+            onStartOver = { backToStart() },
             onBack = {
                 notice = null
                 step = AlgorandSendStep.Request(current.plan, current.requestId, current.parts)
@@ -439,7 +458,7 @@ internal fun AlgorandSendRoute(
  * The assets that [address] has opted in to, zero balances included, so that an opted-in asset is never offered an opt-in. An address the network does not
  * know has opted in to none.
  */
-private suspend fun optedInAssets(scheduler: Scheduler, network: NetworkId, address: String): List<AsaHolding> = try {
+internal suspend fun optedInAssets(scheduler: Scheduler, network: NetworkId, address: String): List<AsaHolding> = try {
     scheduler.run(AsaHoldings(network, address), Priority.FOREGROUND)
 } catch (e: ProviderError.NotFound) {
     emptyList()
