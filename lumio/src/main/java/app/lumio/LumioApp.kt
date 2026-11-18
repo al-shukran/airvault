@@ -261,6 +261,8 @@ class LumioApp : Application(), CoverApplication {
     private fun openVault(session: VaultSession): SessionAttachment? {
         if (session.isDecoy) return null
         val vault = LumioVault(session, database())
+        // Read now, so Settings is whole on its first frame.
+        scope.launch { vault.settingsFacts.refresh() }
         scope.launch {
             vault.cache.purgeUnreadable()
             scanQueue.purgeUnreadable()
