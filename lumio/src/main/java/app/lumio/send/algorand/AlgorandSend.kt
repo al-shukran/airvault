@@ -58,7 +58,7 @@ object AlgorandSend {
     const val ORIGIN = "Lumio"
 
     /** A transaction is valid for this many rounds from its first valid round, as the suggested parameters give it. */
-    private const val VALID_ROUNDS = 1_000L
+    internal const val VALID_ROUNDS = 1_000L
 
     /** The fee is worked out again this many times at most, since the size of the signed transaction depends on the fee. */
     private const val FEE_ROUNDS = 3

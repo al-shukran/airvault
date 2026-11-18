@@ -72,6 +72,8 @@ class SolanaSendPlan(
     val requestId: ByteArray,
     val message: ByteArray,
     val window: SetupWindow? = null,
+    /** The SPL token that the send moves, or null for a SOL send. A token send moves [SplSendToken.amount] and no lamports. */
+    val token: SplSendToken? = null,
 ) {
     /** The sender's address, in base58. */
     val senderAddress: String get() = account.address
