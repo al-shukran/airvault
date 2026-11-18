@@ -16,7 +16,13 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.chains.ChainHolding
+import app.lumio.chains.ChainHoldings
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.provider.algorand.ALGORAND_MAINNET
+import app.lumio.data.provider.algorand.ALGORAND_TESTNET
+import app.lumio.data.provider.solana.SOLANA_DEVNET
+import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.scan.ScanEvent
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmSettingsStore
@@ -204,12 +210,14 @@ internal fun AccountRoute(
         return
     }
     val tokens = rememberAccountTokens(app, session, mode, account)
+    val chainHoldings = rememberChainHoldings(app, session, mode, account)
     val activity = rememberAccountActivity(app, session, mode, account)
     AccountScreen(
         walletName = view.wallets.firstOrNull { it.id == walletId }?.name.orEmpty(),
         account = account,
         showBalance = state.display.showAssets,
         tokens = tokens,
+        chainHoldings = chainHoldings,
         activity = activity,
         refreshing = state.refreshing,
         notice = state.notice,
@@ -237,6 +245,33 @@ private fun rememberAccountTokens(app: LumioApp, session: VaultSession, mode: Ne
         }
     }
     return tokens
+}
+
+/**
+ * The SPL tokens of a Solana account, or the assets of an Algorand account, that the address holds on [mode]'s network, read as the screen opens. Other
+ * chains have none. A read that fails shows no holdings, and the rest of the screen stays as it is.
+ */
+@Composable
+private fun rememberChainHoldings(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): List<ChainHolding> {
+    val holdings by produceState<List<ChainHolding>>(emptyList(), session, mode, account.walletId, account.chain, account.index) {
+        value = withContext(Dispatchers.IO) {
+            val scheduler = app.nativeSchedulerFor(session)
+            runCatching {
+                when (account.chain) {
+                    AccountChain.SOLANA -> {
+                        val network = if (mode == NetworkMode.TESTNET) SOLANA_DEVNET else SOLANA_MAINNET
+                        ChainHoldings.solana(scheduler, network, account.address, ChainHoldings.solanaNames(app), account.networkName)
+                    }
+                    AccountChain.ALGORAND -> {
+                        val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
+                        ChainHoldings.algorand(scheduler, network, account.address, account.networkName)
+                    }
+                    else -> emptyList()
+                }
+            }.getOrDefault(emptyList())
+        }
+    }
+    return holdings
 }
 
 /**

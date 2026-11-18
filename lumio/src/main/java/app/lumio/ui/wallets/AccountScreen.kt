@@ -18,12 +18,14 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
+import app.lumio.chains.ChainHolding
 import app.lumio.home.Masking
 import app.lumio.tokens.TokenHolding
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.transactions.TxCard
 import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
+import java.math.BigInteger
 import java.time.ZoneId
 
 /**
@@ -36,6 +38,7 @@ fun AccountScreen(
     account: WalletAccount,
     showBalance: Boolean,
     tokens: List<TokenHolding> = emptyList(),
+    chainHoldings: List<ChainHolding> = emptyList(),
     activity: List<TxFeedItem> = emptyList(),
     onSend: () -> Unit,
     onReceive: () -> Unit,
@@ -84,7 +87,7 @@ fun AccountScreen(
             InlineBanner(message = it, tone = BannerTone.Warning)
         }
         onRefresh?.let { refresh -> TextButton(onClick = refresh, enabled = !refreshing) { Text("Refresh") } }
-        if (account.chain == AccountChain.ETHEREUM) {
+        if (account.chain == AccountChain.ETHEREUM || chainHoldings.isNotEmpty()) {
             Spacer(Modifier.height(LenslySpacing.lg))
             Text(
                 text = "Tokens",
@@ -92,7 +95,7 @@ fun AccountScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val held = tokens.filter { it.amount.signum() > 0 }
-            if (held.isEmpty()) {
+            if (held.isEmpty() && chainHoldings.isEmpty()) {
                 Text(
                     text = "No token balances yet.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -100,6 +103,15 @@ fun AccountScreen(
                 )
             }
             held.forEach { holding -> HeldTokenLine(holding = holding, shown = showBalance) }
+            chainHoldings.forEach { holding ->
+                TokenLine(
+                    symbol = holding.symbol,
+                    network = holding.network,
+                    amount = holding.amount,
+                    decimals = holding.decimals,
+                    shown = showBalance,
+                )
+            }
         }
         Spacer(Modifier.height(LenslySpacing.lg))
         Text(
@@ -125,9 +137,14 @@ fun AccountScreen(
     }
 }
 
-/** One token the address holds on a network: its symbol and network, with the balance, hidden when the owner hides balances. */
+/** One ERC-20 token the address holds on a network, with the balance, hidden when the owner hides balances. */
 @Composable
-private fun HeldTokenLine(holding: TokenHolding, shown: Boolean) {
+private fun HeldTokenLine(holding: TokenHolding, shown: Boolean) =
+    TokenLine(holding.token.symbol, holding.chain.name, holding.amount, holding.token.decimals, shown)
+
+/** One token line: its symbol and its network, with the amount in whole units, hidden when the owner hides balances. */
+@Composable
+private fun TokenLine(symbol: String, network: String, amount: BigInteger, decimals: Int, shown: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -136,18 +153,18 @@ private fun HeldTokenLine(holding: TokenHolding, shown: Boolean) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = holding.token.symbol,
+                text = symbol,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = holding.chain.name,
+                text = network,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Text(
-            text = Masking.amount(Amounts.format(holding.amount, holding.token.decimals), hidden = !shown),
+            text = Masking.amount(Amounts.format(amount, decimals), hidden = !shown),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )

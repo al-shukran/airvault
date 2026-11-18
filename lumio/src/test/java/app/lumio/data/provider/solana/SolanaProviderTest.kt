@@ -195,7 +195,7 @@ class SolanaProviderTest {
     }
 
     @Test
-    fun theSplBalancesAreReadWithJsonParsedFromTheClassicTokenProgram() {
+    fun theSplBalancesAreReadWithJsonParsedFromBothTokenPrograms() {
         server.enqueue(
             answer(
                 """{"context":{"slot":1},"value":[{"pubkey":"$other","account":{"data":{"parsed":{"info":{"mint":"$mint","owner":"$address",""" +
@@ -204,12 +204,35 @@ class SolanaProviderTest {
                     """"owner":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA","rentEpoch":0,"space":165}}]}""",
             ),
         )
+        server.enqueue(
+            answer(
+                """{"context":{"slot":1},"value":[{"pubkey":"$SPL_2022_ACCOUNT","account":{"data":{"parsed":{"info":{"mint":"$SPL_2022_MINT",""" +
+                    """"owner":"$address","tokenAmount":{"amount":"42","decimals":9,"uiAmount":0.000000042,"uiAmountString":"0.000000042"}},""" +
+                    """"type":"account"},"program":"spl-token-2022","space":165},"executable":false,"lamports":2039280,""" +
+                    """"owner":"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb","rentEpoch":0,"space":165}}]}""",
+            ),
+        )
 
-        assertEquals(listOf(SplBalance(mint, BigInteger("1500000"), 6)), call(SplTokenBalances(devnet, address)))
-        val body = server.takeRequest().body.readUtf8()
-        assertTrue(body.contains("\"method\":\"getTokenAccountsByOwner\""))
-        assertTrue(body.contains("\"programId\":\"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA\""))
-        assertTrue(body.contains("\"encoding\":\"jsonParsed\""))
+        assertEquals(
+            listOf(
+                SplBalance(other, mint, CLASSIC_PROGRAM, BigInteger("1500000"), 6),
+                SplBalance(SPL_2022_ACCOUNT, SPL_2022_MINT, SPL_2022_PROGRAM, BigInteger("42"), 9),
+            ),
+            call(SplTokenBalances(devnet, address)),
+        )
+        val classic = server.takeRequest().body.readUtf8()
+        val token2022 = server.takeRequest().body.readUtf8()
+        assertTrue(classic.contains("\"method\":\"getTokenAccountsByOwner\""))
+        assertTrue(classic.contains("\"programId\":\"$CLASSIC_PROGRAM\""))
+        assertTrue(token2022.contains("\"programId\":\"$SPL_2022_PROGRAM\""))
+        assertTrue(classic.contains("\"encoding\":\"jsonParsed\""))
+    }
+
+    private companion object {
+        const val CLASSIC_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        const val SPL_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        const val SPL_2022_ACCOUNT = "8dKsy9ECTqRAooTGTuUPhcMF52waQynxz3ByZWWp9jgG"
+        const val SPL_2022_MINT = "5UHrBSdVTrUZxAwCiVT876romMWawWhnDtGrz8jX2XJ6"
     }
 
     @Test
