@@ -13,6 +13,7 @@ import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.qr.ScanFrame
 import app.lensly.ui.qr.ScanPermissionPrompt
 import app.lensly.ui.qr.ShowQrScreen
+import app.lensly.ui.qr.awaitQrCodes
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyMuted
 import app.lensly.ui.theme.LenslySurfaceContainer
@@ -98,7 +99,7 @@ class QrScreenshotTest {
     }
 
     @Test
-    fun showSingleCode() = compose.snapshot("show_qr_single") {
+    fun showSingleCode() = compose.snapshot("show_qr_single", beforeCapture = { awaitQrCodes() }) {
         ShowQrScreen(
             title = "Pair wallet",
             subtitle = "In Rabby: Add address → Hardware wallet → AirGap Vault → scan",
@@ -110,7 +111,7 @@ class QrScreenshotTest {
     }
 
     @Test
-    fun showAnimatedCode() = compose.snapshot("show_qr_animated") {
+    fun showAnimatedCode() = compose.snapshot("show_qr_animated", beforeCapture = { awaitQrCodes() }) {
         ShowQrScreen(
             title = "Signature",
             subtitle = "Scan this with your online wallet",

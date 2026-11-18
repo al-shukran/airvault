@@ -37,6 +37,7 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.qr.awaitQrCodes
 import app.lensly.ui.screenshot.SCREENSHOT_DIR
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
@@ -256,7 +257,7 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun bitcoinSignRequest() = compose.lumioSnapshot("bitcoin_send_sign_request") {
+    fun bitcoinSignRequest() = compose.lumioSnapshot("bitcoin_send_sign_request", beforeCapture = { awaitQrCodes() }) {
         BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = btcPlan.parts(), notice = null, onScan = {}, onBack = {})
     }
 
@@ -281,7 +282,7 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun bitcoinBroadcastError() = compose.lumioSnapshot("bitcoin_broadcast_error") {
+    fun bitcoinBroadcastError() = compose.lumioSnapshot("bitcoin_broadcast_error", beforeCapture = { awaitQrCodes() }) {
         BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = btcPlan.parts(), notice = BROADCAST_FAILED, onScan = {}, onBack = {})
     }
 
@@ -360,7 +361,7 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun ethereumSignRequest() = compose.lumioSnapshot("ethereum_send_sign_request") {
+    fun ethereumSignRequest() = compose.lumioSnapshot("ethereum_send_sign_request", beforeCapture = { awaitQrCodes() }) {
         SignRequestScreen(send = ethSend, parts = ethParts, notice = null, onScan = {}, onBack = {})
     }
 
@@ -395,7 +396,7 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun ethereumBroadcastError() = compose.lumioSnapshot("ethereum_broadcast_error") {
+    fun ethereumBroadcastError() = compose.lumioSnapshot("ethereum_broadcast_error", beforeCapture = { awaitQrCodes() }) {
         SignRequestScreen(send = ethSend, parts = ethParts, notice = BROADCAST_FAILED, onScan = {}, onBack = {})
     }
 

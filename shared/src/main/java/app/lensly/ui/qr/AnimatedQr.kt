@@ -1,6 +1,7 @@
 package app.lensly.ui.qr
 
 import android.graphics.Bitmap
+import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -29,7 +31,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.PillChip
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 private val CARD_CORNER = 24.dp
 private val CARD_PADDING = 16.dp
@@ -39,7 +43,8 @@ private val CARD_PAPER = Color.White
  * Shows one or more QR codes as a black-on-white card, the layout scanners expect.
  *
  * With more than one part, the parts cycle every [frameMillis] and a "PART 3 OF 12" chip sits
- * under the card. Each part is encoded and rendered once per [parts] value and kept in memory.
+ * under the card. The parts are encoded off the main thread and the frames are kept in [QrFrameCache], so a
+ * revisit shows them at once. Until they are ready the card is blank at its final size.
  * The screen stays awake while this composable is shown. [keepCase] encodes the parts as written, see
  * [QrMatrix.encode].
  *
@@ -52,8 +57,15 @@ fun AnimatedQr(
     frameMillis: Long = 200,
     keepCase: Boolean = false,
 ) {
-    val frames: List<ImageBitmap> = remember(parts, keepCase) {
-        parts.map { part -> QrMatrix.toPixels(QrMatrix.encode(part, keepCase)).toImageBitmap() }
+    var frames by remember(parts, keepCase) { mutableStateOf(QrFrameCache.get(parts, keepCase)) }
+    LaunchedEffect(parts, keepCase) {
+        if (frames == null) {
+            val encoded = withContext(Dispatchers.Default) {
+                parts.map { part -> QrMatrix.toPixels(QrMatrix.encode(part, keepCase)).toImageBitmap() }
+            }
+            QrFrameCache.put(parts, keepCase, encoded)
+            frames = encoded
+        }
     }
     var index by remember(parts) { mutableIntStateOf(0) }
 
@@ -85,22 +97,40 @@ fun AnimatedQr(
                 .background(CARD_PAPER)
                 .padding(CARD_PADDING),
         ) {
-            val frame = frames.getOrNull(index)
-            if (frame != null) {
+            frames?.getOrNull(index)?.let { frame ->
                 Image(
                     bitmap = frame,
-                    contentDescription = "QR code ${index + 1} of ${frames.size}",
+                    contentDescription = "QR code ${index + 1} of ${parts.size}",
                     filterQuality = FilterQuality.None,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
         }
-        if (frames.size > 1) {
+        if (parts.size > 1) {
             Spacer(Modifier.height(12.dp))
-            PillChip(text = "Part ${index + 1} of ${frames.size}")
+            PillChip(text = "Part ${index + 1} of ${parts.size}")
         }
     }
 }
 
 private fun QrPixels.toImageBitmap(): ImageBitmap =
     Bitmap.createBitmap(argb, size, size, Bitmap.Config.ARGB_8888).asImageBitmap()
+
+/**
+ * The encoded frames of recently shown parts, least recently used first out, bounded by bytes: one animated code of a
+ * dozen parts fits, and so do about fourteen single addresses. [LruCache] is synchronized, so any thread may use it.
+ */
+private object QrFrameCache {
+    private const val MAX_BYTES = 8 shl 20
+
+    private val frames = object : LruCache<Pair<List<String>, Boolean>, List<ImageBitmap>>(MAX_BYTES) {
+        override fun sizeOf(key: Pair<List<String>, Boolean>, value: List<ImageBitmap>): Int =
+            value.sumOf { it.width * it.height * 4 }
+    }
+
+    fun get(parts: List<String>, keepCase: Boolean): List<ImageBitmap>? = frames.get(parts to keepCase)
+
+    fun put(parts: List<String>, keepCase: Boolean, encoded: List<ImageBitmap>) {
+        frames.put(parts to keepCase, encoded)
+    }
+}

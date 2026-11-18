@@ -12,6 +12,7 @@ import app.lensly.ui.flow.PairFormat
 import app.lensly.ui.flow.PairLoading
 import app.lensly.ui.flow.PairStep
 import app.lensly.ui.flow.PairWizardScreen
+import app.lensly.ui.qr.awaitQrCodes
 import app.lensly.ui.shippedRegistry
 import org.junit.Rule
 import org.junit.Test
@@ -68,7 +69,7 @@ class FlowScreenshotTest {
     }
 
     @Test
-    fun pairWizardShowsTheCode() = compose.snapshot("pair_wizard_step4_code") {
+    fun pairWizardShowsTheCode() = compose.snapshot("pair_wizard_step4_code", beforeCapture = { awaitQrCodes() }) {
         pairWizard(step = PairStep.CODE, format = PairFormat.RABBY, frames = listOf(SAMPLE_UR))
     }
 
@@ -78,7 +79,7 @@ class FlowScreenshotTest {
     }
 
     @Test
-    fun accountExport() = compose.snapshot("account_export_screen") {
+    fun accountExport() = compose.snapshot("account_export_screen", beforeCapture = { awaitQrCodes() }) {
         // A fixed code and fields, as the pair wizard's screenshot uses SAMPLE_UR. The live encoder is covered by unit tests.
         AccountExportScreen(
             accounts = listOf(
@@ -102,7 +103,7 @@ class FlowScreenshotTest {
     }
 
     @Test
-    fun accountExportSingleKey() = compose.snapshot("account_export_single_key") {
+    fun accountExportSingleKey() = compose.snapshot("account_export_single_key", beforeCapture = { awaitQrCodes() }) {
         AccountExportScreen(
             accounts = listOf(
                 AccountExportView(

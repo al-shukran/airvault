@@ -4,6 +4,7 @@ import app.lumio.ui.send.algorandSummary
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgoSignedTxn
+import app.lensly.ui.qr.awaitQrCodes
 import app.lumio.data.provider.AlgorandSuggestedParams
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import app.lumio.send.algorand.AlgorandAmountScreen
@@ -110,7 +111,7 @@ class AlgorandSendScreenshotTest {
     }
 
     @Test
-    fun algorandSendSignRequest() = compose.lumioSnapshot("algorand_send_sign_request") {
+    fun algorandSendSignRequest() = compose.lumioSnapshot("algorand_send_sign_request", beforeCapture = { awaitQrCodes() }) {
         AlgorandSignRequestScreen(
             network = ALGORAND_TESTNET,
             parts = AlgorandSend.requestParts(plan, ByteArray(16) { 1 }),
