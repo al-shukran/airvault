@@ -172,7 +172,7 @@ The registry rejects, at start-up and in a unit test that runs in CI:
 - a key scope that breaks 2.2;
 - a field spec that breaks section 6.
 
-There is no runtime plugin loading. Lensly must not load code from storage or the network (no `DexClassLoader`, no reflection-based discovery). A wallet vendor ships a chain app as source modules, it goes through review, and it is compiled into the build. A manifest signature for vendor apps is an open question (section 12).
+There is no runtime plugin loading. Lensly must not load code from storage or the network (no `DexClassLoader`, no reflection-based discovery). A wallet vendor ships a chain app as source modules, it goes through review, and it is compiled into the build. Vendor apps carry a signed manifest and a human review record (section 2.5).
 
 ### 2.5 Wallet vendors
 
@@ -1028,7 +1028,7 @@ Feature gaps the refactor exposes but does not have to close: Lumio building ASA
 
 ---
 
-## 12. Open questions and unverified items
+## 12. Design decisions and unverified facts
 
 Design decisions (owner, 2026-11-18):
 
