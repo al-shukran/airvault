@@ -25,6 +25,7 @@ import app.lumio.data.Clock
 import app.lumio.data.WallClock
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
+import app.lumio.ui.pair.PairIntro
 import app.lumio.ui.kit.GlowBackdrop
 import app.lumio.ui.kit.LumioIsland
 import app.lumio.ui.kit.LumioRow
@@ -78,13 +79,8 @@ fun WalletsScreen(
                     }
                 }
                 if (rows.isEmpty()) {
-                    item(key = "empty") {
-                        Text(
-                            text = "No wallets paired yet. Pair a wallet from Lensly to see its accounts here.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = LenslySpacing.md),
-                        )
+                    item(key = "intro") {
+                        PairIntro(onScan = onPair, modifier = Modifier.fillParentMaxHeight())
                     }
                 } else {
                     item(key = "wallets") {
@@ -95,10 +91,10 @@ fun WalletsScreen(
                             }
                         }
                     }
-                }
-                item(key = "pair") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs), contentAlignment = Alignment.CenterStart) {
-                        LumioTextAction(text = if (rows.isEmpty()) "Pair a wallet" else "Pair another wallet", onClick = onPair)
+                    item(key = "pair") {
+                        Box(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs), contentAlignment = Alignment.CenterStart) {
+                            LumioTextAction(text = "Pair Another Wallet", onClick = onPair)
+                        }
                     }
                 }
             }
@@ -112,7 +108,7 @@ private fun WalletsTotal(totalUsd: Double?, showTotal: Boolean, refreshing: Bool
     GlowBackdrop(breathing = refreshing, modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
         Column {
             Text(
-                text = "All wallets",
+                text = "All Wallets",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

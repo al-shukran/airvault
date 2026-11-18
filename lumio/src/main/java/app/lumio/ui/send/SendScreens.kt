@@ -41,7 +41,7 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.qr.AnimatedQr
-import app.lensly.ui.qr.ScanScreen
+import app.lumio.ui.scan.LumioScanScreen
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.evm.EvmAdvanced
 import app.lumio.evm.EvmChain
@@ -237,7 +237,7 @@ fun SendReviewScreen(
 /** The camera scan of a recipient: an address or a payment code. [status] says what to scan, or why the last code was refused. */
 @Composable
 fun RecipientScanScreen(status: String, onText: (String) -> Unit, onCancel: () -> Unit) {
-    ScanScreen(title = "Scan address", progress = null, statusText = status, onText = onText, onCancel = onCancel)
+    LumioScanScreen(title = "Scan address", progress = null, statusText = status, onText = onText, onCancel = onCancel)
 }
 
 /**
@@ -287,7 +287,7 @@ fun SignRequestScreen(
 /** The camera scan of Lensly's signature. [progress] shows for an animated code, and [status] says what the scan is doing. */
 @Composable
 fun SignatureScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit) {
-    ScanScreen(
+    LumioScanScreen(
         title = "Scan signature",
         progress = progress,
         statusText = status,

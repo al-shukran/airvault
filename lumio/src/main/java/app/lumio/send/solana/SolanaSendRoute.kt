@@ -20,7 +20,7 @@ import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTokenAccounts
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
-import app.lensly.ui.qr.ScanScreen
+import app.lumio.ui.scan.LumioScanScreen
 import app.lumio.LumioApp
 import app.lumio.chains.ChainHoldings
 import app.lumio.data.MonotonicClock
@@ -425,7 +425,7 @@ internal fun SolanaSendRoute(
             onReview = ::review,
             onBack = { navController.popBackStack() },
         )
-        SolanaSendStep.ScanRecipient -> ScanScreen(
+        SolanaSendStep.ScanRecipient -> LumioScanScreen(
             title = "Scan address",
             progress = null,
             statusText = recipientStatus,
@@ -464,7 +464,7 @@ internal fun SolanaSendRoute(
             },
             setup = current.setup,
         )
-        is SolanaSendStep.Scanning -> ScanScreen(
+        is SolanaSendStep.Scanning -> LumioScanScreen(
             title = "Scan signature",
             progress = scanProgress,
             statusText = scanStatus,

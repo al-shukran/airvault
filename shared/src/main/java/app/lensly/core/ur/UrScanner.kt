@@ -44,6 +44,14 @@ class UrScanner {
         return decoder.receivePart(part)
     }
 
+    /** How many distinct parts of the UR have been received so far. */
+    val receivedParts: Int
+        get() = decoder.receivedPartIndexes.size
+
+    /** How many parts the UR declares, or 0 until a multi-part frame has been read. */
+    val expectedParts: Int
+        get() = decoder.expectedPartCount
+
     /** Fraction of the UR received, from 0.0 to 1.0. */
     val progress: Double
         get() = if (result() != null) 1.0 else decoder.estimatedPercentComplete
