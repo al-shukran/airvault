@@ -51,7 +51,7 @@ import app.lumio.evm.PreparedSend
 import app.lumio.evm.SendAsset
 import app.lumio.evm.SendInput
 
-private const val TESTNET_LABEL = "TESTNET"
+private const val TESTNET_LABEL = "Testnet"
 
 /** What the recipient scan says before a code is read. It stays on screen while the camera looks for one. */
 internal const val RECIPIENT_SCAN_HINT = "Point the camera at an address or a payment code."
@@ -80,7 +80,7 @@ fun SendFormScreen(
     onBack: () -> Unit,
 ) {
     LenslyScreen(
-        title = "SEND",
+        title = "Send",
         onBack = onBack,
         bottomAction = {
             WalletPill(
@@ -169,7 +169,7 @@ fun SendReviewScreen(
     val chain = send.chain
     var advanced by remember { mutableStateOf(false) }
     LenslyScreen(
-        title = "REVIEW SEND",
+        title = "Review send",
         onBack = onBack,
         bottomAction = {
             WalletPill(
@@ -247,7 +247,7 @@ fun SendReviewScreen(
 /** The camera scan of a recipient: an address or a payment code. [status] says what to scan, or why the last code was refused. */
 @Composable
 fun RecipientScanScreen(status: String, onText: (String) -> Unit, onCancel: () -> Unit) {
-    ScanScreen(title = "SCAN ADDRESS", progress = null, statusText = status, onText = onText, onCancel = onCancel)
+    ScanScreen(title = "Scan address", progress = null, statusText = status, onText = onText, onCancel = onCancel)
 }
 
 /** The request as an animated code for Lensly to scan. [notice] is why the last signature did not send. */
@@ -260,7 +260,7 @@ fun SignRequestScreen(
     onBack: () -> Unit,
 ) {
     LenslyScreen(
-        title = "SIGN IN LENSLY",
+        title = "Sign in Lensly",
         onBack = onBack,
         scrollable = false,
         bottomAction = {
@@ -291,7 +291,7 @@ fun SignRequestScreen(
 @Composable
 fun SignatureScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit) {
     ScanScreen(
-        title = "SCAN SIGNATURE",
+        title = "Scan signature",
         progress = progress,
         statusText = status,
         onText = onText,
@@ -371,7 +371,7 @@ internal fun SectionLabel(text: String) {
 @Composable
 internal fun ReviewField(label: String, value: String) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
@@ -384,7 +384,7 @@ internal fun ReviewField(label: String, value: String) {
 @Composable
 internal fun ReviewAddress(label: String, address: String, notes: AddressNotes? = null) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         notes?.headline()?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
         if (notes?.internal != null) notes.entry?.let { entry -> ReviewField("Address name", entry.name) }
         AddressText(address = address, shown = address, icon = false, style = MaterialTheme.typography.bodyMedium)

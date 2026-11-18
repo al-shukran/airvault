@@ -49,7 +49,7 @@ class ThirdPartyLicencesTest {
         val bundled = listOf(
             "OkHttp", "Okio", "Room", "kotlinx-serialization", "Hummingbird", "bitcoin-kmp", "secp256k1-kmp", "web3j",
             "Bouncy Castle", "zxcvbn4j", "ZXing core", "zxing-cpp", "CameraX", "Jackson", "Dagger", "atomicfu", "Tuweni",
-            "cbor", "jc-kzg-4844", "jnr-posix", "Reactive Streams", "SLF4J", "web3icons", "Doto", "Space Mono",
+            "cbor", "jc-kzg-4844", "jnr-posix", "Reactive Streams", "SLF4J", "web3icons", "Doto", "Space Mono", "Manrope", "JetBrains Mono",
         )
         for (library in bundled) {
             assertTrue(listed.contains(library), "The notice does not list $library")

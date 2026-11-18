@@ -4,8 +4,6 @@ import app.lumio.ui.send.algorandSummary
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgoSignedTxn
-import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.screenshot.snapshot
 import app.lumio.data.provider.AlgorandSuggestedParams
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import app.lumio.send.algorand.AlgorandAmountScreen
@@ -26,7 +24,7 @@ import org.robolectric.annotation.Config
  * public values, so the goldens do not depend on any key or any network.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = SCREENSHOT_QUALIFIERS)
+@Config(qualifiers = LUMIO_DARK_QUALIFIERS)
 class AlgorandSendScreenshotTest {
 
     @get:Rule
@@ -57,7 +55,7 @@ class AlgorandSendScreenshotTest {
     private val txid = AlgoSignedTxn.txid(plan.txnBytes)
 
     @Test
-    fun algorandSendRecipient() = compose.snapshot("algorand_send_recipient") {
+    fun algorandSendRecipient() = compose.lumioSnapshot("algorand_send_recipient") {
         AlgorandRecipientScreen(
             network = ALGORAND_TESTNET,
             recipient = recipientAddress,
@@ -69,7 +67,7 @@ class AlgorandSendScreenshotTest {
     }
 
     @Test
-    fun algorandSendAmount() = compose.snapshot("algorand_send_amount") {
+    fun algorandSendAmount() = compose.lumioSnapshot("algorand_send_amount") {
         AlgorandAmountScreen(
             network = ALGORAND_TESTNET,
             toAddress = recipientAddress,
@@ -88,7 +86,7 @@ class AlgorandSendScreenshotTest {
     }
 
     @Test
-    fun algorandSendAmountError() = compose.snapshot("algorand_send_amount_error") {
+    fun algorandSendAmountError() = compose.lumioSnapshot("algorand_send_amount_error") {
         AlgorandAmountScreen(
             network = ALGORAND_TESTNET,
             toAddress = recipientAddress,
@@ -107,12 +105,12 @@ class AlgorandSendScreenshotTest {
     }
 
     @Test
-    fun algorandSendReview() = compose.snapshot("algorand_send_review") {
+    fun algorandSendReview() = compose.lumioSnapshot("algorand_send_review") {
         AlgorandReviewScreen(plan = plan, notice = null, onConfirm = {}, onBack = {})
     }
 
     @Test
-    fun algorandSendSignRequest() = compose.snapshot("algorand_send_sign_request") {
+    fun algorandSendSignRequest() = compose.lumioSnapshot("algorand_send_sign_request") {
         AlgorandSignRequestScreen(
             network = ALGORAND_TESTNET,
             parts = AlgorandSend.requestParts(plan, ByteArray(16) { 1 }),
@@ -123,7 +121,7 @@ class AlgorandSendScreenshotTest {
     }
 
     @Test
-    fun algorandSendSent() = compose.snapshot("algorand_send_sent") {
+    fun algorandSendSent() = compose.lumioSnapshot("algorand_send_sent") {
         SubmitFixture(
             sentSubmit(txid),
             algorandSummary(plan),

@@ -25,8 +25,6 @@ import app.lensly.app.headline
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.data.net.Family
 import app.lumio.data.tx.TxDirection
@@ -62,11 +60,11 @@ fun TransactionDetailScreen(
 ) {
     val tx = detail.tx
     val bitcoin = tx.network.family == Family.BTC
-    LenslyScreen(title = "TRANSACTION", modifier = modifier, onBack = onBack) {
-        Text(text = directionTitle(tx.direction), style = MaterialTheme.typography.titleLarge, color = LenslyOnSurface)
-        Text(text = signedAmount(tx), style = MaterialTheme.typography.headlineSmall, color = LenslyOnSurface)
+    LenslyScreen(title = "Transaction", modifier = modifier, onBack = onBack) {
+        Text(text = directionTitle(tx.direction), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = signedAmount(tx), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         detail.usd?.let {
-            Text(text = HomeFormat.usd(it), style = MaterialTheme.typography.bodyMedium, color = LenslyMuted)
+            Text(text = HomeFormat.usd(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(LenslySpacing.md))
 
@@ -101,7 +99,7 @@ fun TransactionDetailScreen(
                 color = MaterialTheme.colorScheme.error,
             )
             detail.flags.forEach { flag ->
-                Text(text = flag, style = MaterialTheme.typography.bodySmall, color = LenslyMuted)
+                Text(text = flag, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -111,7 +109,7 @@ fun TransactionDetailScreen(
 @Composable
 private fun CommentEditor(saved: String?, onSave: (String) -> Unit) {
     var draft by rememberSaveable(saved) { mutableStateOf(saved.orEmpty()) }
-    Text(text = "Comment", style = MaterialTheme.typography.labelLarge, color = LenslyMuted)
+    Text(text = "Comment", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Spacer(Modifier.height(LenslySpacing.xs))
     OutlinedTextField(
         value = draft,
@@ -139,8 +137,8 @@ private fun CommentEditor(saved: String?, onSave: (String) -> Unit) {
 @Composable
 private fun DetailField(label: String, value: String) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xs)) {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = LenslyMuted)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = LenslyOnSurface)
+        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -151,12 +149,12 @@ private fun DetailField(label: String, value: String) {
 @Composable
 private fun DetailAddress(label: String, value: String, bitcoin: Boolean, accounts: Map<String, InternalAccount>) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xs)) {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = LenslyMuted)
+        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         accounts[addressKeyOf(value)]?.let { account -> AddressNotes(internal = account, entry = null).headline() }?.let { line ->
             Text(
                 text = line,
                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         AddressText(
@@ -165,7 +163,7 @@ private fun DetailAddress(label: String, value: String, bitcoin: Boolean, accoun
             icon = false,
             bitcoin = bitcoin,
             style = MaterialTheme.typography.bodySmall,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

@@ -6,8 +6,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.wallet.Mnemonic
-import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.screenshot.snapshot
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.send.solana.SolanaOutcome
 import app.lumio.send.solana.SolanaSend
@@ -28,7 +26,7 @@ import org.robolectric.annotation.GraphicsMode
 
 /** The Solana send screens, and the one-time setup of offline signing, with fixed public data, as goldens. The account is the 24-word BIP39 test vector's account 0. */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = SCREENSHOT_QUALIFIERS)
+@Config(qualifiers = LUMIO_DARK_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SolanaSendScreenshotTest {
     @get:Rule
@@ -49,7 +47,7 @@ class SolanaSendScreenshotTest {
     )
 
     @Test
-    fun solanaSendForm() = compose.snapshot("solana_send_form") {
+    fun solanaSendForm() = compose.lumioSnapshot("solana_send_form") {
         SolanaSendFormScreen(
             network = SOLANA_DEVNET,
             sender = sender,
@@ -68,17 +66,17 @@ class SolanaSendScreenshotTest {
     }
 
     @Test
-    fun solanaSendReview() = compose.snapshot("solana_send_review") {
+    fun solanaSendReview() = compose.lumioSnapshot("solana_send_review") {
         SolanaSendReviewScreen(plan = plan, notice = null, onConfirm = {}, onBack = {})
     }
 
     @Test
-    fun solanaSignRequest() = compose.snapshot("solana_send_request") {
+    fun solanaSignRequest() = compose.lumioSnapshot("solana_send_request") {
         SolanaSignRequestScreen(parts = SolanaSend.requestParts(plan), notice = null, onScan = {}, onBack = {})
     }
 
     @Test
-    fun solanaSendSent() = compose.snapshot("solana_send_sent") {
+    fun solanaSendSent() = compose.lumioSnapshot("solana_send_sent") {
         SubmitFixture(
             sentSubmit("B".repeat(88)),
             solanaSummary(plan),
@@ -88,7 +86,7 @@ class SolanaSendScreenshotTest {
     }
 
     @Test
-    fun solanaSetupReview() = compose.snapshot("solana_setup_review") {
+    fun solanaSetupReview() = compose.lumioSnapshot("solana_setup_review") {
         SolanaSetupReviewScreen(
             network = SOLANA_DEVNET,
             sender = sender,

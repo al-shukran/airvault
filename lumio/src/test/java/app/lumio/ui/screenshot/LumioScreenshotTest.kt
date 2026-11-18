@@ -14,8 +14,6 @@ import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.gate.PolicyError
-import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.screenshot.snapshot
 import app.lensly.ui.settings.ChangePasswordScreen
 import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
@@ -75,7 +73,7 @@ import kotlin.math.sin
  * `:lumio:recordRoborazziDebug` and checked with `:lumio:verifyRoborazziDebug`. Each screen shows its fullest common state.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = SCREENSHOT_QUALIFIERS)
+@Config(qualifiers = LUMIO_DARK_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class LumioScreenshotTest {
 
@@ -90,7 +88,7 @@ class LumioScreenshotTest {
     private val assets = listOf(SendAsset(ethereum, null, null), SendAsset(ethereum, usdc, BigInteger.valueOf(1_250_500_000L)))
 
     @Test
-    fun ethereumSendForm() = compose.snapshot("ethereum_send_form") {
+    fun ethereumSendForm() = compose.lumioSnapshot("ethereum_send_form") {
         SendFormScreen(
             fromLabel = "Address 1",
             fromAddress = address,
@@ -112,7 +110,7 @@ class LumioScreenshotTest {
 
     /** The form as an asset page starts it: USDC chosen on Ethereum, with the recipient and the amount in USDC. */
     @Test
-    fun ethereumTokenSendForm() = compose.snapshot("ethereum_token_send_form") {
+    fun ethereumTokenSendForm() = compose.lumioSnapshot("ethereum_token_send_form") {
         SendFormScreen(
             fromLabel = "Address 1",
             fromAddress = address,
@@ -133,7 +131,7 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun bitcoinSendForm() = compose.snapshot("bitcoin_send_form") {
+    fun bitcoinSendForm() = compose.lumioSnapshot("bitcoin_send_form") {
         val account = BtcAccountRef("wallet-Demo", bitcoinAccounts(BtcNetwork.MAINNET).first())
         BtcSendFormScreen(
             account = account,
@@ -160,7 +158,13 @@ class LumioScreenshotTest {
 
     /** The top-level list: one row per page with its state, and the Developer row last, as the debug build shows it. */
     @Test
-    fun settings() = compose.snapshot("settings") {
+    fun settings() = compose.lumioSnapshot("settings", content = settingsScreen)
+
+    @Test
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    fun settingsLight() = compose.lumioSnapshot("settings_light", content = settingsScreen)
+
+    private val settingsScreen: @Composable () -> Unit = {
         LumioSettingsScreen(
             rows = settingsRows(
                 facts = SettingsFacts(
@@ -182,7 +186,7 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsDisplay() = compose.snapshot("settings_display") {
+    fun settingsDisplay() = compose.lumioSnapshot("settings_display") {
         DisplaySettingsPage(
             settings = DisplaySettings(showTotal = true),
             notice = null,
@@ -193,7 +197,7 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsTransactions() = compose.snapshot("settings_transactions") {
+    fun settingsTransactions() = compose.lumioSnapshot("settings_transactions") {
         TransactionsSettingsPage(
             onBack = {},
             comments = { CommentBackupRows(onExport = {}, onImport = {}, notice = null) },
@@ -201,7 +205,7 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsNetworks() = compose.snapshot("settings_networks") {
+    fun settingsNetworks() = compose.lumioSnapshot("settings_networks") {
         NetworksSettingsPage(
             onBack = {},
             bitcoin = {
@@ -231,7 +235,7 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsWallets() = compose.snapshot("settings_wallets") {
+    fun settingsWallets() = compose.lumioSnapshot("settings_wallets") {
         WalletsSettingsPage(
             onBack = {},
             wallets = {
@@ -245,7 +249,7 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsAddressBook() = compose.snapshot("settings_address_book") {
+    fun settingsAddressBook() = compose.lumioSnapshot("settings_address_book") {
         AddressBookSettingsPage(
             onBack = {},
             wallets = {
@@ -258,7 +262,7 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsSecurity() = compose.snapshot("settings_security") {
+    fun settingsSecurity() = compose.lumioSnapshot("settings_security") {
         SecuritySettingsPage(
             entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
             lock = LockSettings(),
@@ -271,7 +275,7 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsSecuritySwitching() = compose.snapshot("settings_security_switching") {
+    fun settingsSecuritySwitching() = compose.lumioSnapshot("settings_security_switching") {
         SecuritySettingsPage(
             entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
             lock = LockSettings(idleMinutes = 5, lockWhenSwitchingApps = true),
@@ -285,27 +289,27 @@ class LumioScreenshotTest {
 
     /** The App Password change that Security opens: its first step, a refused new password, and the finished change. */
     @Test
-    fun settingsChangePassword() = compose.snapshot("settings_change_password") {
+    fun settingsChangePassword() = compose.lumioSnapshot("settings_change_password") {
         LumioChangePasswordScreen(ChangePasswordState(step = ChangeStep.Current, length = 6))
     }
 
     @Test
-    fun settingsChangePasswordRefused() = compose.snapshot("settings_change_password_refused") {
+    fun settingsChangePasswordRefused() = compose.lumioSnapshot("settings_change_password_refused") {
         LumioChangePasswordScreen(ChangePasswordState(step = ChangeStep.New, length = 4, error = PolicyError.TooShort))
     }
 
     @Test
-    fun settingsChangePasswordChanged() = compose.snapshot("settings_change_password_changed") {
+    fun settingsChangePasswordChanged() = compose.lumioSnapshot("settings_change_password_changed") {
         LumioChangePasswordScreen(ChangePasswordState(changed = true))
     }
 
     @Test
-    fun settingsAbout() = compose.snapshot("settings_about") {
+    fun settingsAbout() = compose.lumioSnapshot("settings_about") {
         AboutSettingsPage(version = "0.1.0", onLicences = {}, onBack = {})
     }
 
     @Test
-    fun dataProviders() = compose.snapshot("data_providers") {
+    fun dataProviders() = compose.lumioSnapshot("data_providers") {
         DataProvidersScreen(
             data = listOf(
                 providerRow("etherscan", acceptsKey = true, status = ProviderStatus.NeedsKey, canMoveUp = false),
@@ -323,7 +327,7 @@ class LumioScreenshotTest {
 
     /** The Prices group alone, first on screen so the capture shows it: CoinGecko needs its key, DefiLlama is keyless and healthy. */
     @Test
-    fun dataProvidersPrices() = compose.snapshot("data_providers_prices") {
+    fun dataProvidersPrices() = compose.lumioSnapshot("data_providers_prices") {
         DataProvidersScreen(
             data = emptyList(),
             prices = listOf(
@@ -339,7 +343,7 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun pairReview() = compose.snapshot("pair_review") {
+    fun pairReview() = compose.lumioSnapshot("pair_review") {
         PairReviewScreen(
             pairing = PairingPayload(
                 fingerprint = 0x1a2b3c4dL,

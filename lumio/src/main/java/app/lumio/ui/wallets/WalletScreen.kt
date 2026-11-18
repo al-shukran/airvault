@@ -11,7 +11,6 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SettingsRow
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.home.HomeFormat
 import app.lumio.network.NetworkMode
@@ -94,6 +93,6 @@ private fun WalletTotal(totalUsd: Double?, showTotal: Boolean) {
             else -> "No price yet"
         },
         style = MaterialTheme.typography.headlineSmall,
-        color = LenslyOnSurface,
+        color = MaterialTheme.colorScheme.onSurface,
     )
 }

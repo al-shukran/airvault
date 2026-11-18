@@ -29,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
 
@@ -77,7 +76,7 @@ fun SettingsRow(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (destructive) MaterialTheme.colorScheme.error else LenslyOnSurface,
+                    color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 )
                 if (description != null) {
                     Spacer(Modifier.height(LenslySpacing.xxs))
@@ -140,7 +139,7 @@ fun SettingsSwitchRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
+                Text(text = title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 if (description != null) {
                     Spacer(Modifier.height(LenslySpacing.xxs))
                     Text(
@@ -225,8 +224,8 @@ fun TextAction(
         modifier = modifier,
         enabled = enabled,
         colors = ButtonDefaults.textButtonColors(
-            contentColor = if (destructive) colors.error else LenslyOnSurface,
-            disabledContentColor = LenslyOnSurface.copy(alpha = DISABLED_ROW_ALPHA),
+            contentColor = if (destructive) colors.error else MaterialTheme.colorScheme.onSurface,
+            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ROW_ALPHA),
         ),
     ) {
         Text(text = text)

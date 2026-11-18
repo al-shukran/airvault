@@ -3,6 +3,7 @@ package app.lensly.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 
 private val LenslyDarkColors = darkColorScheme(
     primary = LenslyAccent,
@@ -42,3 +43,13 @@ fun LenslyTheme(content: @Composable () -> Unit) {
         content = content,
     )
 }
+
+/**
+ * Whether the shared components set their labels in capitals. Lensly's do. Lumio's are sentence case, so its theme turns this off.
+ */
+val LocalUppercaseLabels = staticCompositionLocalOf { true }
+
+/**
+ * The warning colour of the shared banners. Lumio's theme sets its own, so a warning stays legible on its light surfaces.
+ */
+val LocalWarningColor = staticCompositionLocalOf { LenslyWarning }

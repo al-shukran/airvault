@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslyPillShape
+import app.lensly.ui.theme.LocalUppercaseLabels
 
 /**
  * Fully rounded text button on the surface-high fill, or the accent red when [accent] is true. It shrinks and dims while
@@ -50,7 +51,7 @@ fun PillButton(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = text.uppercase(),
+            text = if (LocalUppercaseLabels.current) text.uppercase() else text,
             style = MaterialTheme.typography.labelLarge,
             color = colors.onSurface,
         )

@@ -32,6 +32,7 @@ import app.lumio.ui.network.TestnetBanner
 import app.lumio.ui.settings.SettingsPage
 import app.lumio.ui.shell.LumioTab
 import app.lumio.ui.shell.LumioTabFrame
+import app.lumio.ui.theme.LumioTheme
 import app.lumio.wallets.AccountChain
 
 /** Lumio's own routes inside its Hidden Area. The gate's routes are shared, see `app.lensly.ui.navigation.GateRoutes`. */
@@ -200,15 +201,17 @@ internal class LockSettingsState(private val store: LockSettingsStore) {
 }
 
 /**
- * A Lumio screen in the Hidden Area: the shared backdrop, with the testnet banner above the screen while [selection] is testnet. The gate
- * screens are not Lumio's, so they keep the plain backdrop.
+ * A Lumio screen in the Hidden Area: the shared backdrop in Lumio's theme, with the testnet banner above the screen while [selection] is testnet.
+ * The gate screens are not Lumio's, so they keep the plain backdrop in Lensly's theme.
  */
 @Composable
 internal fun LumioBackdrop(selection: NetworkSelection, content: @Composable () -> Unit) {
-    HiddenBackdrop {
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (selection.mode == NetworkMode.TESTNET) TestnetBanner()
-            Box(modifier = Modifier.weight(1f)) { content() }
+    LumioTheme {
+        HiddenBackdrop {
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (selection.mode == NetworkMode.TESTNET) TestnetBanner()
+                Box(modifier = Modifier.weight(1f)) { content() }
+            }
         }
     }
 }

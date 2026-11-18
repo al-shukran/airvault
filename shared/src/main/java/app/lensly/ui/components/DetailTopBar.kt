@@ -22,8 +22,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalUppercaseLabels
 
 /**
  * The lock action of the unlocked vault. The cover sets it for the Hidden Area, so every detail screen there shows the lock icon.
@@ -57,7 +57,7 @@ fun DetailTopBar(
     ) {
         if (onBack != null) {
             IconButton(onClick = onBack, modifier = Modifier.tapHaptic(haptics)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = LenslyOnSurface)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
             }
         } else {
             // Keeps the title on the page gutter when there is no back button.
@@ -65,12 +65,12 @@ fun DetailTopBar(
         }
         if (title != null) {
             Text(
-                text = title.uppercase(),
+                text = if (LocalUppercaseLabels.current) title.uppercase() else title,
                 modifier = Modifier
                     .weight(1f)
                     .semantics { heading() },
                 style = MaterialTheme.typography.headlineSmall,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -79,12 +79,12 @@ fun DetailTopBar(
         }
         if (onLock != null) {
             IconButton(onClick = onLock, modifier = Modifier.tapHaptic(haptics)) {
-                Icon(Icons.Filled.Lock, contentDescription = "Lock the vault", tint = LenslyOnSurface)
+                Icon(Icons.Filled.Lock, contentDescription = "Lock the vault", tint = MaterialTheme.colorScheme.onSurface)
             }
         }
         if (onOptions != null) {
             IconButton(onClick = onOptions, modifier = Modifier.tapHaptic(haptics)) {
-                Icon(Icons.Filled.MoreVert, contentDescription = optionsLabel, tint = LenslyOnSurface)
+                Icon(Icons.Filled.MoreVert, contentDescription = optionsLabel, tint = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
