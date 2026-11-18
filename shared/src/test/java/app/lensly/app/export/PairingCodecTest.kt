@@ -108,6 +108,12 @@ class PairingCodecTest {
     }
 
     @Test
+    fun aCodeOfThePairingTypeBeforeTwoNineIsRefusedAsNotAPairing() {
+        val oldCode = PairingCodec.encode(RealisticPairing.payload(), null)
+        assertEquals("This is not a pairing code from Lensly.", refusalOf { PairingCodec.fromUr(UR("airvault-pairing", oldCode), null) })
+    }
+
+    @Test
     fun anEncoderRefusesAnAccountThatNamesAnotherKey() {
         val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(key = account.key + 1) }
         refusalOf { PairingCodec.encode(payload, null) }

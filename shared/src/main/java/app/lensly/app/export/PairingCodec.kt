@@ -104,7 +104,7 @@ fun interface BrotliDecompressor {
 
 /**
  * The AirVault pairing: the code Lensly shows for a wallet, one for all of its Apps, so the online companion imports every account and its
- * names at once. The code is a `ur:airvault-pairing`, animated when it is long. Its CBOR is versioned: a reader refuses a version it does
+ * names at once. The code is a `ur:x-airvault-pairing`, animated when it is long. Its CBOR is versioned: a reader refuses a version it does
  * not know, so it never reads a newer layout as its own, and it does not read an older one. The payload holds public data only: keys, chain
  * codes, paths, addresses and names.
  *
@@ -125,8 +125,8 @@ fun interface BrotliDecompressor {
  * The body is at most [MAX_BODY_BYTES] bytes, compressed or not. The encoder keeps it compressed only when that makes it smaller.
  */
 object PairingCodec {
-    /** The UR type of the pairing. */
-    const val UR_TYPE = "airvault-pairing"
+    /** The UR type of the pairing. The name before 2.9 was `airvault-pairing`, and its codes are refused: the owner pairs again. */
+    const val UR_TYPE = "x-airvault-pairing"
 
     /**
      * The layout version of this build, which it writes and reads. A code of any other version is refused with a message that says why. There is
@@ -169,7 +169,8 @@ object PairingCodec {
     const val MAX_ENTRY_NAME_BYTES = 128
 
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
-    private const val OLDER_CODE = "This pairing code is from an older Lensly. Update both apps and pair again."
+    /** The refusal of a code of an older layout, which Lumio also shows for a code of the old UR type: the owner pairs again. */
+    const val OLDER_CODE = "This pairing code is from an older Lensly. Update both apps and pair again."
     private const val UINT32_MAX = 0xFFFFFFFFL
     private const val HARDENED = 0x80000000L
     private const val INDEX_MASK = 0x7FFFFFFFL
