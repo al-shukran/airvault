@@ -1,98 +1,195 @@
 package app.lumio.ui.wallets
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.theme.LenslySpacing
-import app.lumio.home.HomeFormat
+import app.lumio.data.Clock
+import app.lumio.data.WallClock
 import app.lumio.network.NetworkMode
+import app.lumio.ui.kit.GlowBackdrop
+import app.lumio.ui.kit.LumioIsland
+import app.lumio.ui.kit.SharedKeys
+import app.lumio.ui.kit.WalletOrb
+import app.lumio.ui.kit.lumioSharedBounds
+import app.lumio.ui.kit.lumioSharedElement
 import app.lumio.ui.network.label
+import app.lumio.ui.theme.LumioGutter
+import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
+import app.lumio.wallets.WalletAccounts
 
 /**
- * One paired wallet: its name, then each of its accounts on the side [mode] chooses, with the chain, the short address and the balance. Tapping an
- * account opens it. [refreshing] shows a read in progress, and "Refresh" reads the balances again. [notice] names a read that did not answer.
+ * One paired wallet (section 2.1, Wallet): its name in the top bar, then its orb and total under a glow, the side and the summary of its accounts, and
+ * the freshness line. Each chain of the wallet is an island of its accounts, with the address and the token count of each. An account opens it, and
+ * pulling down reads the balances again. [tokenCounts] holds the tokens each Ethereum account holds, and [network] looks up the logo of its network.
+ * [notice] names a read that did not answer.
  */
 @Composable
 fun WalletScreen(
+    walletId: String,
     walletName: String,
+    fingerprint: Int,
     mode: NetworkMode,
     accounts: List<WalletAccount>,
+    tokenCounts: Map<WalletAccount, Int>,
+    network: (Long) -> NetworkEntry?,
     totalUsd: Double?,
     showTotal: Boolean,
     showBalances: Boolean,
     refreshing: Boolean,
+    updatedAtMs: Long?,
     notice: String?,
     onAccount: (WalletAccount) -> Unit,
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    clock: Clock = WallClock,
 ) {
-    LenslyScreen(title = walletName, modifier = modifier, onBack = onBack) {
-        WalletTotal(totalUsd = totalUsd, showTotal = showTotal)
-        Spacer(Modifier.height(LenslySpacing.md))
-        Text(
-            text = "${mode.label()} accounts",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(LenslySpacing.sm))
-        if (refreshing) {
-            Text(
-                text = "Reading the network",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    val running = rememberStagger()
+    val evmChainId = WalletAccounts.primaryEvmChainId(mode)
+    Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        DetailTopBar(title = walletName, onBack = onBack, titleModifier = Modifier.lumioSharedBounds(SharedKeys.walletName(walletId)))
+        LumenRefreshBox(refreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),
+            ) {
+                item(key = "hero") {
+                    WalletHero(
+                        walletId = walletId,
+                        fingerprint = fingerprint,
+                        mode = mode,
+                        accounts = accounts,
+                        totalUsd = totalUsd,
+                        showTotal = showTotal,
+                        refreshing = refreshing,
+                        updatedAtMs = updatedAtMs,
+                        clock = clock,
+                    )
+                }
+                notice?.let { message ->
+                    item(key = "notice") {
+                        InlineBanner(message = message, tone = BannerTone.Warning, modifier = Modifier.padding(bottom = LenslySpacing.sm))
+                    }
+                }
+                if (accounts.isEmpty()) {
+                    item(key = "none") {
+                        Text(
+                            text = "This wallet has no accounts on ${mode.label().lowercase()} yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = LenslySpacing.md),
+                        )
+                    }
+                }
+                accountsByChain(accounts).forEach { (chain, group) ->
+                    item(key = "chain-${chain.name}") {
+                        ChainIsland(
+                            chain = chain,
+                            group = group,
+                            accounts = accounts,
+                            mode = mode,
+                            evmChainId = evmChainId,
+                            network = network,
+                            tokenCounts = tokenCounts,
+                            showBalances = showBalances,
+                            running = running,
+                            onAccount = onAccount,
+                        )
+                    }
+                }
+            }
         }
-        notice?.let {
-            InlineBanner(message = it, tone = BannerTone.Warning)
-            Spacer(Modifier.height(LenslySpacing.sm))
-        }
-        if (accounts.isEmpty()) {
-            Text(
-                text = "This wallet has no accounts on ${mode.label().lowercase()} yet.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        accounts.forEach { account ->
-            SettingsRow(
-                title = account.chain.label,
-                description = listOfNotNull(account.script, shortAddress(account.address)).joinToString(" · "),
-                onClick = { onAccount(account) },
-                preview = { BalanceValue(account, shown = showBalances) },
-            )
-        }
-        TextButton(onClick = onRefresh, enabled = !refreshing) { Text("Refresh") }
     }
 }
 
-/**
- * The total of the wallet: "Total hidden" while the owner keeps totals off, its value in dollars when a balance has a price, else "No price yet". The
- * testnet coins have no price, so a testnet wallet reads "No price yet".
- */
+/** The hero of a wallet: its orb at 72 dp and its total under a glow, then its side and summary, and the freshness line. */
 @Composable
-private fun WalletTotal(totalUsd: Double?, showTotal: Boolean) {
-    Text(
-        text = "Total",
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Text(
-        text = when {
-            !showTotal -> "Total hidden"
-            totalUsd != null -> HomeFormat.usd(totalUsd)
-            else -> "No price yet"
-        },
-        style = MaterialTheme.typography.headlineSmall,
-        color = MaterialTheme.colorScheme.onSurface,
-    )
+private fun WalletHero(
+    walletId: String,
+    fingerprint: Int,
+    mode: NetworkMode,
+    accounts: List<WalletAccount>,
+    totalUsd: Double?,
+    showTotal: Boolean,
+    refreshing: Boolean,
+    updatedAtMs: Long?,
+    clock: Clock,
+) {
+    GlowBackdrop(breathing = refreshing, modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            WalletOrb(
+                fingerprint = fingerprint,
+                diameter = 72.dp,
+                modifier = Modifier.lumioSharedElement(SharedKeys.walletOrb(walletId)),
+            )
+            Spacer(Modifier.height(LenslySpacing.sm))
+            TotalAmount(usd = totalUsd, shown = showTotal, modifier = Modifier.lumioSharedBounds(SharedKeys.walletTotal(walletId)))
+            Text(
+                text = "${mode.label()} · ${summaryLine(accounts)}",
+                modifier = Modifier.padding(top = LenslySpacing.xs),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = LenslySpacing.xs))
+        }
+    }
+}
+
+/** The accounts of one [chain] as an island under the chain's name. A row's place in [accounts] sets its delay in the enter stagger. */
+@Composable
+private fun ChainIsland(
+    chain: AccountChain,
+    group: List<WalletAccount>,
+    accounts: List<WalletAccount>,
+    mode: NetworkMode,
+    evmChainId: Long,
+    network: (Long) -> NetworkEntry?,
+    tokenCounts: Map<WalletAccount, Int>,
+    showBalances: Boolean,
+    running: Boolean,
+    onAccount: (WalletAccount) -> Unit,
+) {
+    Column(modifier = Modifier.padding(bottom = LenslySpacing.md)) {
+        Text(
+            text = chain.label,
+            modifier = Modifier.padding(bottom = LenslySpacing.xs),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        LumioIsland {
+            group.forEachIndexed { position, account ->
+                if (position > 0) IslandDivider()
+                AccountRowItem(
+                    account = account,
+                    icon = accountIconSpec(account, evmChainId, network),
+                    tokens = tokenCounts[account] ?: 0,
+                    mode = mode,
+                    showBalance = showBalances,
+                    running = running,
+                    index = accounts.indexOf(account),
+                    onClick = { onAccount(account) },
+                )
+            }
+        }
+    }
 }

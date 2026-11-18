@@ -193,7 +193,7 @@ internal class FailureStore(
         if (capMs != null) {
             require(capMs in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS) { "cap must be between 10 s and 1 h" }
         }
-        require(wipeAfter in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) { "erase count must be between 5 and 20" }
+        require(wipeAfter in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) { "erase count must be between 3 and 20" }
         return save(previous.copy(seq = previous.seq + 1, capMs = capMs, wipeAfter = wipeAfter), clock)
     }
 

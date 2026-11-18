@@ -36,12 +36,14 @@ private const val PRESSED_ROW_SCALE = 0.98f
 
 /**
  * A row of an island: an optional [leading] mark, a [title] with a [description] under it when given, the [trailing] content (an amount or a tag), and a
- * chevron when the row opens something ([onClick]). The row scales to 0.98 while it is pressed, and it has the default ripple.
+ * chevron when the row opens something ([onClick]). The row scales to 0.98 while it is pressed, and it has the default ripple. [titleModifier] is laid on
+ * the title, so a screen can move the title to the next screen.
  */
 @Composable
 fun LumioRow(
     title: String,
     modifier: Modifier = Modifier,
+    titleModifier: Modifier = Modifier,
     description: String? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
@@ -79,6 +81,7 @@ fun LumioRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
+                modifier = titleModifier,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,

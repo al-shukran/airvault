@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,6 +34,9 @@ import app.lumio.ui.kit.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioRow
 import app.lumio.ui.kit.LumioTextAction
+import app.lumio.ui.kit.SharedKeys
+import app.lumio.ui.kit.lumioSharedBounds
+import app.lumio.ui.kit.lumioSharedElement
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.transactions.ActivityRow
 import app.lumio.wallets.AccountChain
@@ -69,7 +73,8 @@ internal fun AccountScreen(
     val balance = account.balance
     val empty = assets.isNotEmpty() && assets.all { it.zero }
     val heroText = balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" }
-    val heroFiat = assets.firstOrNull { it.isNative }?.fiatText
+    val native = assets.firstOrNull { it.isNative }
+    val heroFiat = native?.fiatText
     LenslyScreen(
         title = account.chain.label,
         modifier = modifier,
@@ -86,12 +91,31 @@ internal fun AccountScreen(
             }
         },
     ) {
-        Text(text = walletName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = listOfNotNull(walletName, account.script).joinToString(" · "),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(LenslySpacing.sm))
-        if (heroText == null) {
-            Text(text = NOT_READ, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            AnimatedAmount(text = heroText, hidden = !showBalance)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            native?.let { coin ->
+                LumioAssetIcon(
+                    testnet = coin.testnet,
+                    modifier = Modifier.lumioSharedElement(SharedKeys.accountIcon(account.walletId, account.chain.name, account.index)),
+                ) {
+                    AssetIcon(spec = coin.icon, size = 24.dp)
+                }
+                Spacer(Modifier.width(LenslySpacing.sm))
+            }
+            if (heroText == null) {
+                Text(text = NOT_READ, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                AnimatedAmount(
+                    text = heroText,
+                    hidden = !showBalance,
+                    modifier = Modifier.lumioSharedBounds(SharedKeys.accountBalance(account.walletId, account.chain.name, account.index)),
+                )
+            }
         }
         heroFiat?.let { fiat ->
             Text(
