@@ -1,5 +1,6 @@
 package app.lumio.ui.wallets
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -9,56 +10,68 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.wallet.WALLET_GUTTER
-import app.lensly.ui.theme.LocalLumenPalette
-
-/** One row of the Wallets list: the wallet's [id], its [name], and the [detail] under it, a total in dollars or the count of its accounts per chain. */
-data class WalletRow(val id: String, val name: String, val detail: String)
+import app.lumio.data.Clock
+import app.lumio.data.WallClock
+import app.lumio.home.HomeFormat
+import app.lumio.home.Masking
+import app.lumio.ui.kit.GlowBackdrop
+import app.lumio.ui.kit.LumioIsland
+import app.lumio.ui.kit.LumioRow
+import app.lumio.ui.kit.LumioTextAction
+import app.lumio.ui.kit.SharedKeys
+import app.lumio.ui.kit.WalletOrb
+import app.lumio.ui.kit.lumioSharedBounds
+import app.lumio.ui.kit.lumioSharedElement
+import app.lumio.ui.theme.LumioGutter
 
 /**
- * The start screen (section 2): one row per paired wallet, each opening the wallet, and "Pair a wallet" as the one text action under them. The top bar
- * is the screen's title with the gear, which opens Settings, and the lock. [notice] names a read that did not answer, and pull to refresh reads the
- * balances again.
+ * One row of the Wallets list: the wallet's [id] and [name], the [fingerprint] its orb is drawn from, its [summary] line, and its dollar [usd] total, or
+ * null when none of its balances has a price.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+data class WalletRow(val id: String, val name: String, val fingerprint: Int, val summary: String, val usd: Double?)
+
+/**
+ * The start screen (section 2.1): the total of all wallets under a glow, with its freshness line, then one island with a row per wallet and "Pair another
+ * wallet" as the one text action under them. The top bar holds Settings and the lock, and pulling down anywhere reads the balances again. [notice] names a
+ * read that did not answer, and the balances kept from before stay on screen. [clock] is the time the freshness line ages by.
+ */
 @Composable
 fun WalletsScreen(
     rows: List<WalletRow>,
+    totalUsd: Double?,
+    showTotal: Boolean,
     refreshing: Boolean,
+    updatedAtMs: Long?,
     notice: String?,
     onWallet: (String) -> Unit,
     onPair: () -> Unit,
     onRefresh: () -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    clock: Clock = WallClock,
 ) {
+    val running = rememberStagger()
     Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
         DetailTopBar(title = "Wallets", onBack = null, onOptions = onSettings, optionsIcon = Icons.Filled.Settings, optionsLabel = "Settings")
-        PullToRefreshBox(
-            isRefreshing = refreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        ) {
+        LumenRefreshBox(refreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = WALLET_GUTTER, vertical = LenslySpacing.sm),
+                contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),
             ) {
+                if (rows.isNotEmpty()) {
+                    item(key = "total") { WalletsTotal(totalUsd = totalUsd, showTotal = showTotal, refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock) }
+                }
                 notice?.let { message ->
                     item(key = "notice") {
                         InlineBanner(message = message, tone = BannerTone.Warning, modifier = Modifier.padding(bottom = LenslySpacing.sm))
@@ -73,14 +86,69 @@ fun WalletsScreen(
                             modifier = Modifier.padding(vertical = LenslySpacing.md),
                         )
                     }
-                }
-                items(rows, key = { it.id }) { row ->
-                    SettingsRow(title = row.name, description = row.detail, onClick = { onWallet(row.id) })
+                } else {
+                    item(key = "wallets") {
+                        LumioIsland {
+                            rows.forEachIndexed { index, row ->
+                                if (index > 0) IslandDivider()
+                                WalletRowItem(row = row, showTotal = showTotal, running = running, index = index, onClick = { onWallet(row.id) })
+                            }
+                        }
+                    }
                 }
                 item(key = "pair") {
-                    TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumenPalette.current.accentInk)) { Text("Pair a wallet") }
+                    Box(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs), contentAlignment = Alignment.CenterStart) {
+                        LumioTextAction(text = if (rows.isEmpty()) "Pair a wallet" else "Pair another wallet", onClick = onPair)
+                    }
                 }
             }
         }
     }
+}
+
+/** The hero of the list: "All wallets", their total under the glow, and the line that says how fresh it is. */
+@Composable
+private fun WalletsTotal(totalUsd: Double?, showTotal: Boolean, refreshing: Boolean, updatedAtMs: Long?, clock: Clock) {
+    GlowBackdrop(breathing = refreshing, modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
+        Column {
+            Text(
+                text = "All wallets",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TotalAmount(usd = totalUsd, shown = showTotal)
+            FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = LenslySpacing.xs))
+        }
+    }
+}
+
+/**
+ * One wallet of the list: its orb, its name and summary, and its total on the right, or nothing when it has no price. The orb, the name and the total are
+ * the wallet screen's shared elements, so they move into it when the row opens.
+ */
+@Composable
+private fun WalletRowItem(row: WalletRow, showTotal: Boolean, running: Boolean, index: Int, onClick: () -> Unit) {
+    LumioRow(
+        title = row.name,
+        titleModifier = Modifier.lumioSharedBounds(SharedKeys.walletName(row.id)),
+        description = row.summary,
+        leading = {
+            WalletOrb(fingerprint = row.fingerprint, modifier = Modifier.lumioSharedElement(SharedKeys.walletOrb(row.id)))
+        },
+        trailing = if (row.usd == null) null else ({ WalletRowTotal(walletId = row.id, usd = row.usd, shown = showTotal) }),
+        onClick = onClick,
+        modifier = Modifier.staggeredEnter(index, running),
+    )
+}
+
+/** The dollar total of a wallet row, masked while the owner hides totals. */
+@Composable
+private fun WalletRowTotal(walletId: String, usd: Double, shown: Boolean) {
+    Text(
+        text = Masking.amount(HomeFormat.usd(usd), hidden = !shown),
+        modifier = Modifier.lumioSharedBounds(SharedKeys.walletTotal(walletId)),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
+    )
 }

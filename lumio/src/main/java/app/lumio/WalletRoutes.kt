@@ -18,6 +18,7 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.chains.ChainHolding
 import app.lumio.chains.ChainHoldings
+import app.lumio.data.WallClock
 import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.price.ChartRange
@@ -30,7 +31,6 @@ import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.scan.ScanEvent
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmSettingsStore
-import app.lumio.home.HomeFormat
 import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairedWallet
@@ -51,7 +51,7 @@ import app.lumio.ui.wallets.AssetScreen
 import app.lumio.ui.wallets.WalletRow
 import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletsScreen
-import app.lumio.ui.wallets.chainCounts
+import app.lumio.ui.wallets.summaryLine
 import app.lumio.wallets.AccountActivity
 import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
@@ -71,11 +71,15 @@ private const val REFRESH_NOTICE = "Some balances could not be refreshed. The la
 /** How many of an account's newest transactions its screen shows. */
 private const val ACTIVITY_ROWS = 10
 
-/** What the wallet screens show: the balances of the side, whether a read runs and its notice, the display settings, and a refresh. */
+/**
+ * What the wallet screens show: the balances of the side, whether a read runs and its notice, the time of the last complete read, the display settings,
+ * and a refresh.
+ */
 private class WalletsState(
     val view: WalletsView?,
     val refreshing: Boolean,
     val notice: String?,
+    val updatedAtMs: Long?,
     val display: DisplaySettings,
     val refresh: () -> Unit,
 )
@@ -97,6 +101,7 @@ private fun rememberWalletsState(
     var view by remember { mutableStateOf<WalletsView?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var updatedAtMs by remember { mutableStateOf<Long?>(null) }
     var refreshTick by remember { mutableIntStateOf(0) }
     LaunchedEffect(session, mode) {
         app.scanQueue.events.collect { event ->
@@ -116,12 +121,12 @@ private fun rememberWalletsState(
         try {
             val failed = WalletsLoader.refresh(app, session, mode)
             view = readOrNull { WalletsLoader.read(app, session, mode) } ?: view
-            if (failed) notice = REFRESH_NOTICE
+            if (failed) notice = REFRESH_NOTICE else updatedAtMs = WallClock.nowMs()
         } finally {
             refreshing = false
         }
     }
-    return WalletsState(view, refreshing, notice, display) { if (!refreshing) refreshTick++ }
+    return WalletsState(view, refreshing, notice, updatedAtMs, display) { if (!refreshing) refreshTick++ }
 }
 
 /** The Wallets start screen: one row per paired wallet, with its total in dollars or its count of accounts per chain. */
@@ -145,8 +150,11 @@ internal fun WalletsRoute(
     val state = rememberWalletsState(app, session, selection.mode, listVersion, refreshOnOpen = true)
     val view = state.view ?: return
     WalletsScreen(
-        rows = view.wallets.map { wallet -> WalletRow(wallet.id, wallet.name, walletDetail(view, wallet.id, state.display)) },
+        rows = view.wallets.map { wallet -> walletRow(view, wallet) },
+        totalUsd = allWalletsUsd(view),
+        showTotal = state.display.showTotal,
         refreshing = state.refreshing,
+        updatedAtMs = state.updatedAtMs,
         notice = state.notice,
         onWallet = { id -> navController.navigate(LumioRoute.wallet(id)) },
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
@@ -171,14 +179,20 @@ internal fun WalletRoute(navController: NavHostController, holder: VaultHolder, 
         LaunchedEffect(Unit) { navController.popBackStack() }
         return
     }
+    val accounts = view.accountsOf(walletId)
     WalletScreen(
+        walletId = walletId,
         walletName = wallet.name,
+        fingerprint = wallet.fingerprint.toInt(),
         mode = mode,
-        accounts = view.accountsOf(walletId),
+        accounts = accounts,
+        tokenCounts = rememberTokenCounts(app, session, mode, accounts),
+        network = app.registry::network,
         totalUsd = view.usd(walletId),
         showTotal = state.display.showTotal,
         showBalances = state.display.showAssets,
         refreshing = state.refreshing,
+        updatedAtMs = state.updatedAtMs,
         notice = state.notice,
         onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.chain, account.index)) },
         onRefresh = state.refresh,
@@ -473,13 +487,35 @@ internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when
     AccountChain.ALGORAND -> LumioRoute.algorandSend(account.walletId, account.index)
 }
 
+/** One paired wallet as a row of the Wallets list: its name, the fingerprint its orb is drawn from, its summary line and its dollar total. */
+private fun walletRow(view: WalletsView, wallet: PairedWallet): WalletRow = WalletRow(
+    id = wallet.id,
+    name = wallet.name,
+    fingerprint = wallet.fingerprint.toInt(),
+    summary = summaryLine(view.accountsOf(wallet.id)),
+    usd = view.usd(wallet.id),
+)
+
+/** The dollar total of every wallet on the side, or null when none of its balances has a price. */
+private fun allWalletsUsd(view: WalletsView): Double? = view.wallets.mapNotNull { view.usd(it.id) }.takeIf { it.isNotEmpty() }?.sum()
+
 /**
- * The line under a wallet's name on the Wallets list: its total in dollars when the owner shows totals and a price is known, else the count of its
- * accounts per chain.
+ * The tokens that each Ethereum account of [accounts] holds on [mode]'s enabled networks, read from the vault's caches as the screen opens. Other chains
+ * have no tokens here, so they are not counted.
  */
-private fun walletDetail(view: WalletsView, walletId: String, display: DisplaySettings): String {
-    val usd = if (display.showTotal) view.usd(walletId) else null
-    return usd?.let { HomeFormat.usd(it) } ?: chainCounts(view.accountsOf(walletId))
+@Composable
+private fun rememberTokenCounts(app: LumioApp, session: VaultSession, mode: NetworkMode, accounts: List<WalletAccount>): Map<WalletAccount, Int> {
+    val counts by produceState<Map<WalletAccount, Int>>(emptyMap(), session, mode, accounts) {
+        value = withContext(Dispatchers.IO) {
+            val settings = EvmSettingsStore.read(session)
+            val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
+            val cache = TokenBalanceCache.read(session)
+            accounts.filter { it.chain == AccountChain.ETHEREUM }.associateWith { account ->
+                TokenPortfolio.holdingsAt(account.walletId, account.address, chains, app.tokensFor(session), cache).count { it.amount.signum() > 0 }
+            }
+        }
+    }
+    return counts
 }
 
 /**

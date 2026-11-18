@@ -3,6 +3,7 @@ package app.lumio.ui.screenshot
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lumio.btc.networkId
+import app.lumio.data.Clock
 import app.lumio.chains.ChainHolding
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.Family
@@ -43,6 +44,15 @@ import org.robolectric.annotation.GraphicsMode
 
 /** One day in milliseconds, the spacing of the price points in the chart golden. */
 private const val DAY_MS = 86_400_000L
+
+/** The time the wallet goldens are drawn at, so the freshness line reads the same on every run. */
+private const val FIXED_NOW = 1_731_800_000_000L
+
+/** The clock of the goldens: [FIXED_NOW] at every read. */
+private val fixedClock = Clock { FIXED_NOW }
+
+/** A read three minutes before [FIXED_NOW], which the freshness line shows as "Updated 3 min ago". */
+private const val UPDATED_3_MIN_AGO = FIXED_NOW - 3 * 60_000L
 
 /**
  * The goldens of the wallet-first screens: the Wallets start screen, one wallet's accounts, one account and one asset. Each shows its fullest common state,
@@ -121,15 +131,40 @@ class WalletScreensScreenshotTest {
     private val walletsScreen: @Composable () -> Unit = {
         WalletsScreen(
             rows = listOf(
-                WalletRow("wallet-demo", "Demo", "1 Bitcoin, 1 Ethereum, 1 Solana, 1 Algorand"),
-                WalletRow("wallet-second", "Second wallet", "2 Ethereum"),
+                WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = 1234.56),
+                WalletRow("wallet-second", "Savings", fingerprint = 0x5e6f7a8b, summary = "1 chain · 2 accounts", usd = 980.0),
             ),
+            totalUsd = 2214.56,
+            showTotal = true,
             refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onWallet = {},
             onPair = {},
             onRefresh = {},
             onSettings = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** The totals are hidden: the all-wallets total and each wallet's total show the mask, and nothing moves. */
+    @Test
+    fun walletsHiddenTotals() = compose.lumioSnapshot("wallets_hidden") {
+        WalletsScreen(
+            rows = listOf(
+                WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = 1234.56),
+                WalletRow("wallet-second", "Savings", fingerprint = 0x5e6f7a8b, summary = "1 chain · 2 accounts", usd = 980.0),
+            ),
+            totalUsd = 2214.56,
+            showTotal = false,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onWallet = {},
+            onPair = {},
+            onRefresh = {},
+            onSettings = {},
+            clock = fixedClock,
         )
     }
 
@@ -137,59 +172,127 @@ class WalletScreensScreenshotTest {
     fun walletsEmpty() = compose.lumioSnapshot("wallets_empty") {
         WalletsScreen(
             rows = emptyList(),
+            totalUsd = null,
+            showTotal = true,
             refreshing = false,
+            updatedAtMs = null,
             notice = null,
             onWallet = {},
             onPair = {},
             onRefresh = {},
             onSettings = {},
+            clock = fixedClock,
         )
     }
 
     @Test
     fun walletsNotice() = compose.lumioSnapshot("wallets_notice") {
         WalletsScreen(
-            rows = listOf(WalletRow("wallet-demo", "Demo", "1 Bitcoin, 1 Ethereum")),
+            rows = listOf(WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = null)),
+            totalUsd = null,
+            showTotal = true,
             refreshing = true,
+            updatedAtMs = UPDATED_3_MIN_AGO,
             notice = "Some balances could not be refreshed. The last known balances are shown.",
             onWallet = {},
             onPair = {},
             onRefresh = {},
             onSettings = {},
+            clock = fixedClock,
         )
     }
 
     @Test
     fun walletAccountsTestnet() = compose.lumioSnapshot("wallet_accounts_testnet") {
         WalletScreen(
+            walletId = "wallet-demo",
             walletName = "Demo",
+            fingerprint = 0x1a2b3c4d,
             mode = NetworkMode.TESTNET,
             accounts = listOf(bitcoin, ethereum, solana, algorand),
+            tokenCounts = mapOf(ethereum to 2),
+            network = { null },
             totalUsd = null,
             showTotal = true,
             showBalances = true,
             refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
             onRefresh = {},
             onBack = {},
+            clock = fixedClock,
         )
     }
 
     @Test
     fun walletAccountsHiddenWhileReading() = compose.lumioSnapshot("wallet_accounts_reading") {
         WalletScreen(
+            walletId = "wallet-demo",
             walletName = "Demo",
+            fingerprint = 0x1a2b3c4d,
             mode = NetworkMode.MAINNET,
             accounts = listOf(ethereum.copy(networkName = "Ethereum", balance = null)),
+            tokenCounts = emptyMap(),
+            network = { null },
             totalUsd = null,
             showTotal = false,
             showBalances = false,
             refreshing = true,
+            updatedAtMs = null,
             notice = null,
             onAccount = {},
             onRefresh = {},
             onBack = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** A wallet with no account on the side: its hero says so, and no island is drawn. */
+    @Test
+    fun walletAccountsEmpty() = compose.lumioSnapshot("wallet_accounts_empty") {
+        WalletScreen(
+            walletId = "wallet-demo",
+            walletName = "Demo",
+            fingerprint = 0x1a2b3c4d,
+            mode = NetworkMode.MAINNET,
+            accounts = emptyList(),
+            tokenCounts = emptyMap(),
+            network = { null },
+            totalUsd = null,
+            showTotal = true,
+            showBalances = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onAccount = {},
+            onRefresh = {},
+            onBack = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** A wallet name and an account network that run past the width of the screen: each truncates on one line. */
+    @Test
+    fun walletLongName() = compose.lumioSnapshot("wallet_long_name") {
+        WalletScreen(
+            walletId = "wallet-demo",
+            walletName = "A wallet name that runs on past the width of the screen",
+            fingerprint = 0x1a2b3c4d,
+            mode = NetworkMode.TESTNET,
+            accounts = listOf(ethereum.copy(networkName = "Monad testnet and every other EVM network this wallet reads")),
+            tokenCounts = mapOf(ethereum to 12),
+            network = { null },
+            totalUsd = 1234.56,
+            showTotal = true,
+            showBalances = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onAccount = {},
+            onRefresh = {},
+            onBack = {},
+            clock = fixedClock,
         )
     }
 
@@ -392,17 +495,23 @@ class WalletScreensScreenshotTest {
     @Test
     fun walletAccountsWithAPrice() = compose.lumioSnapshot("wallet_accounts_priced") {
         WalletScreen(
+            walletId = "wallet-demo",
             walletName = "Demo",
+            fingerprint = 0x1a2b3c4d,
             mode = NetworkMode.MAINNET,
             accounts = listOf(bitcoin.copy(networkName = "Bitcoin", balance = bitcoin.balance?.copy(network = BtcNetwork.MAINNET.networkId()))),
+            tokenCounts = emptyMap(),
+            network = { null },
             totalUsd = 1234.56,
             showTotal = true,
             showBalances = true,
             refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
             onRefresh = {},
             onBack = {},
+            clock = fixedClock,
         )
     }
 }
