@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -52,7 +51,6 @@ import app.lumio.ui.send.SEND_STEP_REVIEW
 import app.lumio.ui.send.SEND_STEP_SIGN
 import app.lumio.ui.send.SendStepScaffold
 import app.lumio.ui.send.StepLabel
-import app.lumio.ui.theme.LumioRadius
 
 private const val TESTNET_LABEL = "Testnet"
 
@@ -223,7 +221,7 @@ fun BtcSignRequestScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(LumioRadius.lg))
+                .clip(MaterialTheme.shapes.large)
                 .background(Color.White)
                 .padding(LenslySpacing.md),
         ) {

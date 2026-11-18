@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,7 +37,6 @@ import app.lumio.ui.send.SEND_STEP_SIGN
 import app.lumio.ui.send.SendAssetRow
 import app.lumio.ui.send.SendStepScaffold
 import app.lumio.ui.send.StepLabel
-import app.lumio.ui.theme.LumioRadius
 
 /**
  * The Details step of an Algorand send, on the Lumen kit: the network, the coin that the send moves, then the recipient and the amount in that coin.
@@ -219,7 +217,7 @@ internal fun AlgorandSignRequestScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(LumioRadius.lg))
+                .clip(MaterialTheme.shapes.large)
                 .background(Color.White)
                 .padding(LenslySpacing.md),
         ) {
