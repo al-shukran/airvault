@@ -107,6 +107,9 @@ dependencies {
         // web3j pulls in the AWS KMS SDK (and with it Netty and a second jackson-core) for optional
         // KMS signing. Lensly is offline and never signs through KMS, so keep that stack out.
         exclude(group = "software.amazon.awssdk")
+        // web3j's HTTP service is the only user of OkHttp in it. :app and :shared never call it (they use crypto and utils), and
+        // Lensly must not be able to reach the network, so OkHttp stays out of :app. :lumio declares its own OkHttp.
+        exclude(group = "com.squareup.okhttp3")
     }
     implementation(libs.bouncycastle.bcprov.jdk18on)
     implementation(libs.sparrowwallet.hummingbird)
