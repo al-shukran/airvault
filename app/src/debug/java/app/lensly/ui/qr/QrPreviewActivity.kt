@@ -83,8 +83,8 @@ class QrPreviewActivity : ComponentActivity() {
         screen.value = screenFrom(intent)
 
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
-            navigationBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
         )
 
         setContent {
