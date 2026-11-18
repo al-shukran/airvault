@@ -107,16 +107,29 @@ object ParserWire {
         text(reason)
     }.bytes()
 
-    fun encodeScanRequest(parts: List<String>): ByteArray = Out().apply {
+    /**
+     * One call of a scan: the scan's [session], how many of its parts the sandbox already holds ([base]), and the [parts] that follow
+     * them. A call that starts a scan has a base of 0.
+     */
+    data class ScanRequest(val session: Long, val base: Int, val parts: List<String>)
+
+    /** Encodes one call of scan [session] that adds [parts] after the [base] parts the sandbox holds. */
+    fun encodeScanRequest(session: Long, base: Int, parts: List<String>): ByteArray = Out().apply {
         int(VERSION)
         int(SCAN)
+        long(session)
+        count(base, MAX_PARTS)
         count(parts.size, MAX_PARTS)
         parts.forEach { text(it, MAX_PART_BYTES) }
     }.bytes()
 
-    fun decodeScanRequest(payload: ByteArray): List<String> = In(payload).run {
+    fun decodeScanRequest(payload: ByteArray): ScanRequest = In(payload).run {
         method(SCAN)
-        List(count(MAX_PARTS)) { text(MAX_PART_BYTES) }.also { done() }
+        val session = long()
+        val base = count(MAX_PARTS)
+        val parts = List(count(MAX_PARTS)) { text(MAX_PART_BYTES) }
+        done()
+        ScanRequest(session, base, parts)
     }
 
     fun encodeScanReply(reply: ScanReply): ByteArray = Out().apply {

@@ -6,14 +6,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import java.util.concurrent.TimeUnit
 
 /**
  * The Parser Sandbox. The manifest declares it an isolated process, so the parsers that run here have no permissions, no
- * app files and no Keystore. It answers each call with [answer] and keeps nothing between calls.
+ * app files and no Keystore. It answers each call through [SandboxAnswers], and keeps between calls only the scan the app is building.
  */
 class ParserSandboxService : Service() {
+    private val answers = SandboxAnswers()
     private val binder = object : IParserSandbox.Stub() {
-        override fun call(method: Int, payload: ByteArray): ByteArray = answer(InProcessParser, method, payload)
+        override fun call(method: Int, payload: ByteArray): ByteArray = answers.answer(method, payload)
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -21,9 +23,13 @@ class ParserSandboxService : Service() {
 
 /**
  * The binder to [ParserSandboxService]. It binds on the first call. The system restarts a sandbox that died, and a call made
- * meanwhile waits for it, for as long as its caller does. Call it off the main thread, where the connection arrives.
+ * meanwhile waits for it, for at most [connectNanos]. A [reset] ends that wait at once. Call it off the main thread, where the
+ * connection arrives.
  */
-class BinderTransport(context: Context) : SandboxTransport, ServiceConnection {
+class BinderTransport(
+    context: Context,
+    private val connectNanos: Long = CONNECT_NANOS,
+) : SandboxTransport, ServiceConnection {
     private val context = context.applicationContext
     private val lock = Object()
     private var bound = false
@@ -35,10 +41,20 @@ class BinderTransport(context: Context) : SandboxTransport, ServiceConnection {
                 bound = context.bindService(Intent(context, ParserSandboxService::class.java), this, Context.BIND_AUTO_CREATE)
                 check(bound) { "The Parser Sandbox could not be bound." }
             }
-            while (sandbox == null) lock.wait()
-            checkNotNull(sandbox)
+            awaitSandbox()
         }
         return checkNotNull(target.call(method, payload))
+    }
+
+    /** Waits for the connection, for at most [connectNanos], and fails when the binding is dropped meanwhile. Called under [lock]. */
+    private fun awaitSandbox(): IParserSandbox {
+        val deadline = System.nanoTime() + connectNanos
+        while (bound && sandbox == null) {
+            val left = deadline - System.nanoTime()
+            check(left > 0) { "The Parser Sandbox did not connect in time." }
+            TimeUnit.NANOSECONDS.timedWait(lock, left)
+        }
+        return checkNotNull(sandbox) { "The Parser Sandbox was dropped." }
     }
 
     override fun reset() {
@@ -46,6 +62,7 @@ class BinderTransport(context: Context) : SandboxTransport, ServiceConnection {
             if (bound) context.unbindService(this)
             bound = false
             sandbox = null
+            lock.notifyAll()
         }
     }
 
@@ -61,4 +78,12 @@ class BinderTransport(context: Context) : SandboxTransport, ServiceConnection {
     }
 
     override fun onBindingDied(name: ComponentName) = reset()
+
+    private companion object {
+        /**
+         * How long a call waits for the sandbox to connect. It ends before the caller's own timeout, so a sandbox that never
+         * connects is refused there.
+         */
+        const val CONNECT_NANOS = 4_000_000_000L
+    }
 }
