@@ -1,7 +1,12 @@
 package app.lumio.ui.scan
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -22,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +42,7 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,6 +51,7 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.navigation.PickerStop
 import app.lensly.ui.qr.QrScanner
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalReducedMotion
 import app.lensly.ui.theme.LumenMotion
 import app.lumio.ui.kit.rememberLumioHaptics
 
@@ -51,6 +59,15 @@ import app.lumio.ui.kit.rememberLumioHaptics
 private val VIEWFINDER_RADIUS = 28.dp
 private val RING_WIDTH = 3.dp
 private val RING_GAP = 6.dp
+
+/** The gold corner brackets: how far they sit inside the viewfinder, how long each arm is, and their stroke. */
+private val BRACKET_INSET = 16.dp
+private val BRACKET_ARM = 22.dp
+private val BRACKET_WIDTH = 3.dp
+
+/** One breath of the corner brackets, in milliseconds: they fade between [BREATH_FLOOR] and full (section 2.1). */
+private const val BREATH_MS = 1600
+private const val BREATH_FLOOR = 0.45f
 
 /** The check that closes a completed code. */
 private val CHECK_SIZE = 56.dp
@@ -124,6 +141,7 @@ fun LumioScanFrame(
     LenslyScreen(title = title, modifier = modifier, onBack = onCancel, scrollable = false) {
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             viewport(Modifier.fillMaxSize().padding(RING_GAP).clip(RoundedCornerShape(VIEWFINDER_RADIUS)))
+            ViewfinderCorners(modifier = Modifier.fillMaxSize().padding(RING_GAP))
             PerimeterRing(fraction = if (complete) 1f else progress ?: 0f, modifier = Modifier.fillMaxSize())
             CheckMark(visible = complete, modifier = Modifier.align(Alignment.Center))
         }
@@ -172,6 +190,51 @@ private fun PerimeterRing(fraction: Float, modifier: Modifier) {
                     measure.getSegment(0f, length * arc, segment, true)
                     drawPath(segment, gold, style = arcStyle)
                 }
+            }
+        },
+    )
+}
+
+/**
+ * The gold corner brackets inside the viewfinder (section 2.1). They breathe between [BREATH_FLOOR] and full while the scan runs, and stay full under
+ * reduced motion. The alpha is read in the draw phase, so a breath redraws the brackets without a recomposition.
+ */
+@Composable
+private fun ViewfinderCorners(modifier: Modifier) {
+    val gold = MaterialTheme.colorScheme.primary
+    val breath: State<Float>? = if (LocalReducedMotion.current) {
+        null
+    } else {
+        rememberInfiniteTransition(label = "viewfinder corners").animateFloat(
+            initialValue = BREATH_FLOOR,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(BREATH_MS), RepeatMode.Reverse),
+            label = "corner breath",
+        )
+    }
+    Box(
+        modifier = modifier.drawWithCache {
+            val inset = BRACKET_INSET.toPx()
+            val arm = BRACKET_ARM.toPx()
+            val right = size.width - inset
+            val bottom = size.height - inset
+            val brackets = Path().apply {
+                moveTo(inset, inset + arm)
+                lineTo(inset, inset)
+                lineTo(inset + arm, inset)
+                moveTo(right - arm, inset)
+                lineTo(right, inset)
+                lineTo(right, inset + arm)
+                moveTo(right, bottom - arm)
+                lineTo(right, bottom)
+                lineTo(right - arm, bottom)
+                moveTo(inset + arm, bottom)
+                lineTo(inset, bottom)
+                lineTo(inset, bottom - arm)
+            }
+            val style = Stroke(width = BRACKET_WIDTH.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+            onDrawBehind {
+                drawPath(brackets, gold.copy(alpha = breath?.value ?: 1f), style = style)
             }
         },
     )
