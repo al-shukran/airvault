@@ -326,5 +326,4 @@ class ReviewHistoryTest {
 
         assertEquals(listOf(unknownFee), history.list(wallet))
     }
-
 }

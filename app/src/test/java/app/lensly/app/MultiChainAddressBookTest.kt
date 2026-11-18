@@ -203,5 +203,4 @@ class MultiChainAddressBookTest {
 
         assertEquals(book, AddressBookStore(open()).load())
     }
-
 }
