@@ -231,6 +231,11 @@ internal fun AccountRoute(
         onSend = { navController.navigate(sendRoute(account, mode)) },
         onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
         onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, chain, index, asset.assetKey)) },
+        onAddAsset = if (account.chain == AccountChain.ALGORAND) {
+            { navController.navigate(LumioRoute.algorandAddAsset(walletId, index)) }
+        } else {
+            null
+        },
         onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
         onBack = { navController.popBackStack() },
     )

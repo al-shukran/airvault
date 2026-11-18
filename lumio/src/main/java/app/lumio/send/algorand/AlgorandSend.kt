@@ -28,22 +28,35 @@ import java.math.BigInteger
 class AlgorandFunds(val balance: BigInteger, val params: AlgorandSuggestedParams)
 
 /**
- * A payment that Lumio has built and that Lensly is asked to sign: [txn], its [txnBytes] (the canonical msgpack Lensly signs as "TX" and these
- * bytes), and the account that signs it. [signer] is the account's 32-byte public key, [fingerprint] the wallet's master fingerprint, and
- * [accountIndex] the N of the account m/44'/283'/N'/0/0.
+ * What Lumio asks Lensly to sign on an Algorand account: an ALGO payment ([AlgorandPaymentPlan]), or an asset transfer or opt-in ([AsaSendPlan]). The
+ * review, Lensly's answer and the broadcast take this one type. [txnBytes] are the canonical msgpack that Lensly signs as "TX" and these bytes.
+ * [signer] is the account's 32-byte public key, [fingerprint] the wallet's master fingerprint, and [accountIndex] the N of m/44'/283'/N'/0/0.
  */
-class AlgorandSendPlan(
-    val network: NetworkId,
-    val signer: ByteArray,
-    val fromAddress: String,
-    val accountIndex: Int,
-    val fingerprint: Long,
-    val toAddress: String,
-    val amount: BigInteger,
-    val fee: BigInteger,
+sealed interface AlgorandSendPlan {
+    val network: NetworkId
+    val signer: ByteArray
+    val fromAddress: String
+    val accountIndex: Int
+    val fingerprint: Long
+    val toAddress: String
+    val amount: BigInteger
+    val fee: BigInteger
+    val txnBytes: ByteArray
+}
+
+/** A payment of ALGO from [signer] to [toAddress], whose transaction is [txn]. */
+class AlgorandPaymentPlan(
+    override val network: NetworkId,
+    override val signer: ByteArray,
+    override val fromAddress: String,
+    override val accountIndex: Int,
+    override val fingerprint: Long,
+    override val toAddress: String,
+    override val amount: BigInteger,
+    override val fee: BigInteger,
     val txn: Payment,
-    val txnBytes: ByteArray,
-)
+    override val txnBytes: ByteArray,
+) : AlgorandSendPlan
 
 /**
  * An Algorand payment from one account: the amount rules, the fee, the plan that Lensly signs, the check of the signature that comes back, and the
@@ -130,13 +143,13 @@ object AlgorandSend {
         signer: ByteArray,
         to: ByteArray,
         amount: BigInteger,
-    ): AlgorandSendPlan {
+    ): AlgorandPaymentPlan {
         require(amount.signum() > 0 && amount.bitLength() < Long.SIZE_BITS) { "Enter an amount above zero." }
         val fee = feeOf(template(funds.params, signer, to, amount, fee = 0UL), funds.params)
         val txn = template(funds.params, signer, to, amount, fee = fee)
         val total = amount + fee.toBigInteger()
         require(total <= funds.balance - BigInteger.valueOf(MIN_BALANCE)) { NOT_ENOUGH }
-        return AlgorandSendPlan(
+        return AlgorandPaymentPlan(
             network = network,
             signer = signer,
             fromAddress = AlgoAddress.encode(signer),

@@ -127,7 +127,7 @@ class AlgorandReviewRowsTest {
     }
 
     @Test
-    fun anAssetOptInIsDescribedAsOptingIn() {
+    fun anAssetOptInShowsTheAssetAndTheFeeButNoZeroAmountOrReceiver() {
         val review = reviewOf(AXFER_OPTIN)
 
         assertEquals("Opt in to asset 10458941.", algorandSentence(review))
@@ -136,8 +136,6 @@ class AlgorandReviewRowsTest {
                 "Sender" to SENDER_ADDRESS,
                 "Asset" to "Unknown asset #10458941",
                 "Asset ID" to "10458941",
-                "Amount" to "0 base units",
-                "Receiver" to SENDER_ADDRESS,
                 "Fee" to "0.001000 ALGO",
                 "Valid from round" to "50000000",
                 "Valid until round" to "50001000",
@@ -145,6 +143,15 @@ class AlgorandReviewRowsTest {
             algorandRows(review),
         )
         assertEquals(listOf(AlgorandWarning.UNKNOWN_ASSET), review.warnings)
+    }
+
+    @Test
+    fun onlyAnAssetOptInIsTitledAsOptingIn() {
+        assertEquals("Opt in to asset", algorandTitle(reviewOf(AXFER_OPTIN)))
+        assertEquals("Opt in to asset", algorandTitle(reviewWith(AXFER_OPTIN, CATALOG)))
+        assertEquals("Review", algorandTitle(reviewOf(AXFER)))
+        assertEquals("Review", algorandTitle(reviewOf(AXFER_CLOSEOUT)))
+        assertEquals("Review", algorandTitle(reviewOf(PAY_BASIC)))
     }
 
     @Test
