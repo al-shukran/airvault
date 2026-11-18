@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import app.lumio.ui.theme.LumioTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -38,9 +40,7 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.screenshot.SCREENSHOT_DIR
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
-import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslyTheme
 import app.lumio.btc.BtcSend
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.BtcSpendable
@@ -479,11 +479,11 @@ class LumioCoverageScreenshotTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(PHONE_DENSITY)) {
-                LenslyTheme {
+                LumioTheme {
                     Box(
                         modifier = Modifier
                             .requiredSize(width = (PHONE_WIDTH_PX / PHONE_DENSITY).dp, height = (PHONE_HEIGHT_PX / PHONE_DENSITY).dp)
-                            .background(LenslyBlack),
+                            .background(MaterialTheme.colorScheme.background),
                     ) {
                         content()
                     }
