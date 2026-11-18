@@ -13,13 +13,18 @@ android {
 
     defaultConfig {
         minSdk = 31
+        // True only in the benchmark build type of an app. The emulator exemptions (FLAG_SECURE, the debugHidden extra) read it,
+        // and only on an emulator.
+        buildConfigField("boolean", "BENCHMARK", "false")
     }
 
     buildTypes {
-        // Matches :app's benchmark build type by name. Without it, the app's benchmark variant would fall back to this module's
-        // debug variant, which turns on the debug registry overlays and BuildConfig.DEBUG. It is not initWith(debug): that copies
-        // debug's DEBUG flag, and :app's benchmark variant has DEBUG false.
-        create("benchmark")
+        // Matches :app's and :lumio's benchmark build types by name. Without it, their benchmark variants would fall back to this
+        // module's debug variant, which turns on the debug registry overlays and BuildConfig.DEBUG. It is not initWith(debug): that
+        // copies debug's DEBUG flag, and the benchmark variants have DEBUG false.
+        create("benchmark") {
+            buildConfigField("boolean", "BENCHMARK", "true")
+        }
     }
 
     sourceSets {

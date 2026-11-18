@@ -847,7 +847,7 @@ The rule from the owner's design rules applies to every chain app: nothing reach
 
 ### 8.6 Screens and records
 
-- FLAG_SECURE applies to every vault screen, except debug builds on the emulator (existing rule).
+- FLAG_SECURE applies to every vault screen, except debug and benchmark builds on the emulator (existing rule).
 - Each signature produces a review record with `RecordFacts` from the app: chain, kind, addresses, amounts, fields, warnings shown, user acknowledgements. The record format is chain-blind.
 
 ### 8.7 Untrusted input
