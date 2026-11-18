@@ -42,6 +42,11 @@ class PairRefusalTest {
     }
 
     @Test
+    fun aCodeOfThePairingTypeBeforeTwoNineIsRefusedWithTheReasonToPairAgain() {
+        assertEquals(OLDER_CODE, refusalOf(UR("airvault-pairing", byteArrayOf(0x01, 0x02))))
+    }
+
+    @Test
     fun aNewerVersionOfThePairingIsRefusedByItsVersion() {
         val newer = Cbor.encode(
             Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(7), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
