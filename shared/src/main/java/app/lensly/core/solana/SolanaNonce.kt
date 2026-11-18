@@ -109,13 +109,13 @@ object SolanaNonce {
     }
 
     /** One compiled instruction: the index of its program among the keys, the indices of its accounts, and its data. */
-    private class Instruction(val program: Int, val accounts: List<Int>, val data: ByteArray)
+    internal class Instruction(val program: Int, val accounts: List<Int>, val data: ByteArray)
 
     /**
      * A legacy message with one required signature, the first key, and [readonlyUnsigned] read-only keys at the end of [keys]. The keys and the
      * instructions are written in the order given.
      */
-    private fun compile(keys: List<ByteArray>, readonlyUnsigned: Int, recentBlockhash: ByteArray, instructions: List<Instruction>): ByteArray {
+    internal fun compile(keys: List<ByteArray>, readonlyUnsigned: Int, recentBlockhash: ByteArray, instructions: List<Instruction>): ByteArray {
         require(recentBlockhash.size == BLOCKHASH_BYTES) { "A blockhash is 32 bytes." }
         val out = ByteArrayOutputStream()
         out.write(byteArrayOf(1, 0, readonlyUnsigned.toByte()))

@@ -103,11 +103,32 @@ def transfer_checked(
     )
 
 
-def message(instructions: list) -> Message:
-    built = Message.new_with_blockhash(instructions, PAYER, BLOCKHASH)
+def message(instructions: list, blockhash: Hash = BLOCKHASH) -> Message:
+    built = Message.new_with_blockhash(instructions, PAYER, blockhash)
     # The serialized bytes must read back as the same message, or the row would not be a message.
     assert Message.from_bytes(bytes(built)) == built
     return built
+
+
+# A Lumio send from a nonce account (SolanaNonce.transferMessage): AdvanceNonceAccount first, then the token transfer.
+SYSVAR_RECENT_BLOCKHASHES = Pubkey.from_string("SysvarRecentB1ockHashes11111111111111111111")
+SEND_NONCE_VALUE = Hash(hashlib.sha256(b"lensly spl send nonce value").digest())
+RECIPIENT = label_key("recipient")
+NONCE_ACCOUNT = Pubkey.create_with_seed(PAYER, "lumio-nonce-0", SYSTEM)
+SENDER_ATA = Pubkey.find_program_address([bytes(PAYER), bytes(TOKEN), bytes(USDC)], ATA_PROGRAM)[0]
+RECIPIENT_ATA = Pubkey.find_program_address([bytes(RECIPIENT), bytes(TOKEN), bytes(USDC)], ATA_PROGRAM)[0]
+
+
+def advance_nonce(nonce: Pubkey, authority: Pubkey) -> Instruction:
+    return Instruction(
+        SYSTEM,
+        struct.pack("<I", 4),
+        [
+            AccountMeta(nonce, False, True),
+            AccountMeta(SYSVAR_RECENT_BLOCKHASHES, False, False),
+            AccountMeta(authority, True, False),
+        ],
+    )
 
 
 def main() -> None:
@@ -146,6 +167,14 @@ def main() -> None:
             ),
         ),
     ]
+    # Appended after the rows above, so the rows already in vectors.txt print as before.
+    advance = advance_nonce(NONCE_ACCOUNT, PAYER)
+    send_transfer = transfer_checked(SENDER_ATA, USDC, RECIPIENT_ATA, PAYER, 1_234_567, 6)
+    create_recipient = ata_create_idempotent(PAYER, RECIPIENT_ATA, RECIPIENT, USDC)
+    rows += [
+        ("spl-send-nonce-create-ata", message([advance, create_recipient, send_transfer], SEND_NONCE_VALUE)),
+        ("spl-send-nonce-existing-ata", message([advance, send_transfer], SEND_NONCE_VALUE)),
+    ]
     for name, built in rows:
         data = bytes(built)
         if len(data) > 1232:
@@ -161,6 +190,9 @@ def main() -> None:
 
     print(f"usdc owner ATA (base58): {ATA}", file=sys.stderr)
     print(f"mint-token-2022 (base58): {MINT_2022}", file=sys.stderr)
+    print(f"send nonce account (base58): {NONCE_ACCOUNT}", file=sys.stderr)
+    print(f"send sender ATA (base58): {SENDER_ATA}", file=sys.stderr)
+    print(f"send recipient ATA (base58): {RECIPIENT_ATA}", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,33 @@ object AlgoTxnEncoder {
         AlgoTxnDecoder.decode(encoded)
         return encoded
     }
+
+    /**
+     * The canonical encoding of [txn], an asset transfer (`axfer`). An opt-in is one with a zero amount to the sender's own address, and it is
+     * encoded like any other. Zero or empty optional fields are left out, as they are for a payment.
+     */
+    fun encodeAssetTransfer(txn: AssetTransfer): ByteArray {
+        val fields = ArrayList<Pair<String, ByteArray>>()
+        fields += "type" to msgpackStr("axfer")
+        fields += "snd" to msgpackBin(txn.sender)
+        if (txn.fee != 0UL) fields += "fee" to msgpackUInt(txn.fee)
+        fields += "fv" to msgpackUInt(txn.firstValid)
+        fields += "lv" to msgpackUInt(txn.lastValid)
+        if (txn.genesisId.isNotEmpty()) fields += "gen" to msgpackStr(txn.genesisId)
+        fields += "gh" to msgpackBin(txn.genesisHash)
+        if (txn.note.isNotEmpty()) fields += "note" to msgpackBin(txn.note)
+        txn.lease?.takeIf { it.isNotEmpty() }?.let { fields += "lx" to msgpackBin(it) }
+        txn.group?.takeIf { it.isNotEmpty() }?.let { fields += "grp" to msgpackBin(it) }
+        txn.rekeyTo?.takeIf { it.isNotEmpty() }?.let { fields += "rekey" to msgpackBin(it) }
+        fields += "xaid" to msgpackUInt(txn.assetId)
+        if (txn.amount != 0UL) fields += "aamt" to msgpackUInt(txn.amount)
+        fields += "arcv" to msgpackBin(txn.receiver)
+        txn.closeTo?.takeIf { it.isNotEmpty() }?.let { fields += "aclose" to msgpackBin(it) }
+        txn.assetSender?.takeIf { it.isNotEmpty() }?.let { fields += "asnd" to msgpackBin(it) }
+        val encoded = msgpackMap(fields.sortedBy { it.first })
+        AlgoTxnDecoder.decode(encoded)
+        return encoded
+    }
 }
 
 /** An unsigned integer in its shortest msgpack format: a positive fixint, uint8, uint16, uint32 or uint64. */
