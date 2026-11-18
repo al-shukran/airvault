@@ -25,7 +25,7 @@ import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TxReviewScreen
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResult.AccessibilityCheckResultType
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityViewCheckResult
 import com.google.android.apps.common.testing.accessibility.framework.integrations.espresso.AccessibilityValidator
@@ -99,7 +99,7 @@ class AccessibilityTest {
     @Test
     fun gateScreenReportsOnlyItsContainer() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 UnlockScreen(length = 4, busy = false, onKey = {}, onBackspace = {}, onSubmit = {})
             }
         }
@@ -110,7 +110,7 @@ class AccessibilityTest {
     @Test
     fun homeScreenReportsOnlyItsContainer() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 WalletHomeScreen(
                     wallets = listOf(meta("Seed wallet")),
                     recent = emptyList(),
@@ -147,7 +147,7 @@ class AccessibilityTest {
     @Test
     fun reviewScreenReportsOnlyItsContainer() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 TxReviewScreen(review = REVIEW, onApprove = {}, onReject = {})
             }
         }
@@ -158,7 +158,7 @@ class AccessibilityTest {
     @Test
     fun aBrokenComposeScreenIsNotReported() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Box(Modifier.fillMaxSize().background(Color.Black)) {
                     // Well under any touch target minimum, and no label at all.
                     Box(Modifier.testTag("too_small_and_unlabelled").size(20.dp).clickable {})

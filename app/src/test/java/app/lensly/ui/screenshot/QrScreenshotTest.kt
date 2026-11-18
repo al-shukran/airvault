@@ -13,9 +13,6 @@ import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.qr.ScanFrame
 import app.lensly.ui.qr.ScanPermissionPrompt
 import app.lensly.ui.qr.ShowQrScreen
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslySurfaceContainer
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,7 +72,7 @@ class QrScreenshotTest {
             statusText = "Scan the sign request from your online wallet.",
             onCancel = {},
             viewport = { modifier ->
-                Box(modifier.background(LenslyBlack), contentAlignment = Alignment.Center) {
+                Box(modifier.background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
                     ScanPermissionPrompt(refused = false, onAllow = {}, onOpenSettings = {})
                 }
             },
@@ -90,7 +87,7 @@ class QrScreenshotTest {
             statusText = "Scan the sign request from your online wallet.",
             onCancel = {},
             viewport = { modifier ->
-                Box(modifier.background(LenslyBlack), contentAlignment = Alignment.Center) {
+                Box(modifier.background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
                     ScanPermissionPrompt(refused = true, onAllow = {}, onOpenSettings = {})
                 }
             },
@@ -123,13 +120,13 @@ class QrScreenshotTest {
     @Composable
     private fun CameraPlaceholder(modifier: Modifier) {
         Box(
-            modifier = modifier.background(LenslySurfaceContainer),
+            modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainer),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = "CAMERA PREVIEW",
                 style = MaterialTheme.typography.labelMedium,
-                color = LenslyMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

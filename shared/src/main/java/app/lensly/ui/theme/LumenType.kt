@@ -1,4 +1,4 @@
-package app.lumio.ui.theme
+package app.lensly.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -8,7 +8,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import app.lumio.R
+import app.lensly.shared.R
 
 // Archivo is a variable font: each weight selects a point on the one file, and the width axis is set per family. Headings are set at width
 // 114 and body text at width 92.
@@ -26,14 +26,14 @@ private val LumioBodyFamily = archivoFamily(width = 92f)
 // JetBrains Mono is a variable font. Its figures are all one width, so an amount, balance or time never moves the text around it. Addresses
 // and hashes use it too.
 @OptIn(ExperimentalTextApi::class)
-val LumioMonoFamily = FontFamily(
+val LumenMonoFamily = FontFamily(
     Font(R.font.jetbrains_mono_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
     Font(R.font.jetbrains_mono_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
 )
 
 /** The mono style of section 1.2: addresses in groups of four, every other group dimmed by the caller. */
-val LumioMono = TextStyle(
-    fontFamily = LumioMonoFamily,
+val LumenMono = TextStyle(
+    fontFamily = LumenMonoFamily,
     fontWeight = FontWeight.Medium,
     fontSize = 14.sp,
     lineHeight = 20.sp,
@@ -59,11 +59,11 @@ private fun lumioStyle(
  * headings in Archivo at width 114, and the body and label styles set text in Archivo at width 92. The amount styles, which the spec marks as
  * tabular, are set in JetBrains Mono. The roles the spec does not list take the nearest listed style, so no text falls back to the system face.
  */
-val LumioTypography = Typography(
-    displayLarge = lumioStyle(LumioMonoFamily, 44f, 48f, FontWeight.SemiBold, -1.0f),
-    displayMedium = lumioStyle(LumioMonoFamily, 32f, 38f, FontWeight.SemiBold, -0.6f),
-    displaySmall = lumioStyle(LumioMonoFamily, 32f, 38f, FontWeight.SemiBold, -0.6f),
-    headlineLarge = lumioStyle(LumioMonoFamily, 32f, 38f, FontWeight.SemiBold, -0.6f),
+val LumenTypography = Typography(
+    displayLarge = lumioStyle(LumenMonoFamily, 44f, 48f, FontWeight.SemiBold, -1.0f),
+    displayMedium = lumioStyle(LumenMonoFamily, 32f, 38f, FontWeight.SemiBold, -0.6f),
+    displaySmall = lumioStyle(LumenMonoFamily, 32f, 38f, FontWeight.SemiBold, -0.6f),
+    headlineLarge = lumioStyle(LumenMonoFamily, 32f, 38f, FontWeight.SemiBold, -0.6f),
     headlineMedium = lumioStyle(LumioHeadingFamily, 22f, 28f, FontWeight.Bold, -0.3f),
     headlineSmall = lumioStyle(LumioHeadingFamily, 22f, 28f, FontWeight.Bold, -0.3f),
     titleLarge = lumioStyle(LumioHeadingFamily, 22f, 28f, FontWeight.Bold, -0.3f),

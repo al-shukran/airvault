@@ -35,12 +35,7 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutlineInteractive
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
 
 /**
  * UI state for [RestoreEntryScreen]. [words] are the committed words, where index 0 is word #1.
@@ -136,7 +131,7 @@ fun RestoreEntryScreen(
                     noMatch -> Text(
                         text = "No word starts with these letters",
                         style = MaterialTheme.typography.labelMedium,
-                        color = LenslyError,
+                        color = MaterialTheme.colorScheme.error,
                     )
                     state.prefix.isNotEmpty() -> Text(
                         text = "Tap a suggestion, or press space",
@@ -191,14 +186,14 @@ fun RestoreEntryScreen(
  */
 @Composable
 private fun PrefixField(prefix: String, placeholder: String, invalid: Boolean, focused: Boolean, onFocus: () -> Unit) {
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(INPUT_HEIGHT)
             .clip(shape)
-            .background(LenslySurfaceContainer, shape)
-            .border(1.dp, if (invalid) LenslyError else LenslyOutlineInteractive, shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer, shape)
+            .border(1.dp, if (invalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, shape)
             .clickable(role = Role.Button, onClick = onFocus)
             .padding(horizontal = LenslySpacing.md),
         contentAlignment = Alignment.CenterStart,
@@ -213,7 +208,7 @@ private fun PrefixField(prefix: String, placeholder: String, invalid: Boolean, f
             Text(
                 text = if (focused) "${prefix.uppercase()}_" else prefix.uppercase(),
                 style = MaterialTheme.typography.titleLarge,
-                color = if (invalid) LenslyError else LenslyOnSurface,
+                color = if (invalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
         }
     }
@@ -265,7 +260,7 @@ private fun WordSlot(
             .height(SLOT_HEIGHT)
             .clip(shape)
             .background(if (filled) colors.surfaceVariant else Color.Transparent, shape)
-            .border(1.dp, if (active) LenslyOnSurface else colors.outline, shape)
+            .border(1.dp, if (active) MaterialTheme.colorScheme.onSurface else colors.outline, shape)
             .then(
                 if (filled) Modifier.clickable(role = Role.Button) { onEdit(index) }
                 else Modifier,

@@ -6,7 +6,7 @@ import androidx.compose.ui.test.performClick
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.ui.shippedRegistry
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -26,7 +26,7 @@ class PairWizardTest {
     fun withOneWalletTheWizardSkipsTheWalletStepAndStartsAtTheApps() {
         val only = mnemonic("w1", "Seed wallet")
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 PairWizard(wallets = listOf(only), profiles = emptyMap(), preselected = null, onDone = {}, onLeave = {})
             }
         }
@@ -40,7 +40,7 @@ class PairWizardTest {
     fun withTwoWalletsTheWizardStartsWithTheWalletStep() {
         val wallets = listOf(mnemonic("w1", "Seed wallet"), mnemonic("w2", "Savings"))
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 PairWizard(wallets = wallets, profiles = emptyMap(), preselected = null, onDone = {}, onLeave = {})
             }
         }
@@ -54,7 +54,7 @@ class PairWizardTest {
     fun aPreselectedSingleKeyGoesStraightToTheCannotBePairedNotice() {
         val key = mnemonic("w3", "Hardware key").copy(kind = WalletKind.SINGLE_KEY, masterFingerprintHex = null)
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 PairWizard(
                     wallets = listOf(key, mnemonic("w1", "Seed wallet")),
                     profiles = emptyMap(),
@@ -73,7 +73,7 @@ class PairWizardTest {
     @Test
     fun pickingAWalletShowsItsWalletEntryNoteOnTheInstructions() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 PairWizard(
                     wallets = listOf(mnemonic("w1", "Seed wallet")),
                     profiles = emptyMap(),
@@ -97,7 +97,7 @@ class PairWizardTest {
     @Test
     fun aWalletOutsideTheRegistryShowsNoWalletEntryNote() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 PairWizard(
                     wallets = listOf(mnemonic("w1", "Seed wallet")),
                     profiles = emptyMap(),
@@ -122,7 +122,7 @@ class PairWizardTest {
         assertEquals(listOf(PairFormat.LUMIO), PairFormat.entries.filter { it.recommended })
 
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 PairWizard(
                     wallets = listOf(mnemonic("w1", "Seed wallet")),
                     profiles = emptyMap(),
@@ -142,7 +142,7 @@ class PairWizardTest {
     fun theLumioCodeIsOneCodeWithNoEthereumOrBitcoinChoice() {
         val wallet = mnemonic("w1", "Seed wallet")
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 PairWizardScreen(
                     step = PairStep.CODE,
                     wallets = listOf(wallet),

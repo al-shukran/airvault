@@ -1,6 +1,8 @@
 package app.lensly.ui.settings
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -12,7 +14,7 @@ import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.WhitelistParam
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -63,7 +65,7 @@ class ApprovedContractsScreenTest {
 
     private fun show(entries: List<WhitelistEntry>, onUpdateCatalog: () -> Unit = {}) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 ApprovedContractsScreen(
                     entries = entries,
                     networks = listOf(ethereum),
@@ -90,7 +92,7 @@ class ApprovedContractsScreenTest {
         var opened = false
         show(emptyList(), onUpdateCatalog = { opened = true })
 
-        compose.onNodeWithText("UPDATE CATALOG").performClick()
+        compose.onNodeWithText("Update catalog").performClick()
 
         assertTrue(opened)
     }
@@ -110,7 +112,7 @@ class ApprovedContractsScreenTest {
     fun aProxyShowsItsChipAndTheImplementationItIsBoundTo() {
         show(listOf(proxy))
 
-        compose.onNodeWithText("PROXY").assertExists()
+        compose.onNodeWithText("Proxy").assertExists()
         compose.onNodeWithText(groupAddress("0x" + "7".repeat(40))).assertExists()
     }
 
@@ -118,7 +120,7 @@ class ApprovedContractsScreenTest {
     fun aCallOnAChainOutsideTheCatalogIsNamedByItsChainId() {
         show(listOf(proxy.copy(chainId = 10L)))
 
-        compose.onNodeWithText("Chain 10").assertExists()
+        compose.onAllNodesWithText("Chain 10").onFirst().assertExists()
     }
 
     /** Taps the search field, then types [text] on the in-app keyboard, one key at a time. */
@@ -151,6 +153,6 @@ class ApprovedContractsScreenTest {
     fun aPopulatedListOffersTheOneAddAction() {
         show(listOf(swap))
 
-        compose.onNodeWithText("UPDATE CATALOG").assertExists()
+        compose.onNodeWithText("Update catalog").assertExists()
     }
 }

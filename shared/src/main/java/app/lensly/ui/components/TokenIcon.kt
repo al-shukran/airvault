@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -13,7 +14,6 @@ import androidx.compose.ui.unit.Dp
 import app.lensly.shared.R
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
-import app.lensly.ui.theme.LenslyBlack
 
 /**
  * Token logos that are too dark to see on black, so they draw on a light backdrop. Each one averages under 0.15 relative
@@ -115,7 +115,7 @@ fun TokenIcon(token: TokenEntry?, size: Dp, modifier: Modifier = Modifier, chain
                 .align(Alignment.BottomEnd)
                 .size(size * BADGE_SHARE)
                 .clip(CircleShape)
-                .background(LenslyBlack),
+                .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center,
         ) {
             BackdropLogo(

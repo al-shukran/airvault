@@ -15,7 +15,7 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -48,7 +48,7 @@ class HomeArrivalWipeTest {
         val holder = openHolder()
         lateinit var nav: NavHostController
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 nav = rememberNavController()
                 val controller = remember { nav }
                 NavHost(navController = controller, startDestination = LenslyRoute.CAMERA) {

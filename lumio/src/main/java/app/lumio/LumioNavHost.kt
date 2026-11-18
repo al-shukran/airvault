@@ -38,12 +38,13 @@ import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.network.NetworkModeStore
 import app.lumio.ui.kit.LocalSharedScope
+import app.lumio.ui.kit.MirrorNavMotion
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.network.NetworkSideSheet
 import app.lumio.ui.network.TestnetStrip
 import app.lumio.ui.settings.SettingsPage
-import app.lumio.ui.theme.LumioTheme
 import kotlinx.coroutines.launch
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.wallets.AccountChain
 
 /** Lumio's own routes inside its Hidden Area. The gate's routes are shared, see `app.lensly.ui.navigation.GateRoutes`. */
@@ -223,7 +224,8 @@ internal class LockSettingsState(private val store: LockSettingsStore) {
  */
 @Composable
 internal fun LumioBackdrop(selection: NetworkSelection, content: @Composable () -> Unit) {
-    LumioTheme {
+    LumenTheme {
+        MirrorNavMotion()
         HiddenBackdrop {
             var sideOpen by remember { mutableStateOf(false) }
             Column(modifier = Modifier.fillMaxSize()) {

@@ -7,7 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,7 +24,7 @@ class CameraFlipHintTest {
 
     private fun showViewfinder(flipHint: Boolean) {
         compose.setContent {
-            LenslyTheme {
+            CoverTheme {
                 Box(Modifier.fillMaxSize()) {
                     ViewfinderOverlay(
                         flashAvailable = true,

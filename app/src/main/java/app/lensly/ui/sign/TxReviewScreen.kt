@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressChain
@@ -34,9 +35,8 @@ import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.settings.protocolOfMeaning
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalMonoFamily
 
 /** The warning that the request is not in Lensly's registry, and what the owner checks. */
 private const val REGISTRY_TEXT =
@@ -110,7 +110,7 @@ fun TxReviewScreen(
             )
             Spacer(Modifier.height(LenslySpacing.md))
             ReviewSummary(
-                sentence = evmSentence(review),
+                sentence = evmSentence(review, LocalMonoFamily.current),
                 facts = evmFacts(review),
                 icon = if (review.amount.isNotEmpty()) amountIcon(review) else null,
             )
@@ -240,7 +240,7 @@ private fun warningCheck(warning: String): ReviewCheck? = when {
  * The sentence of the summary: the verb, the amount and the counterparty. A personal message, a typed message, and a whitelisted call
  * each name what they are. A transfer names its amount and its recipient, an approval names its spender, and a call names its contract.
  */
-internal fun evmSentence(review: TxReview): AnnotatedString = buildAnnotatedString {
+internal fun evmSentence(review: TxReview, mono: FontFamily): AnnotatedString = buildAnnotatedString {
     val spender = review.params.firstOrNull { it.first.startsWith("spender") }?.second
     val amount = listOf(review.amount, review.symbol).filter { it.isNotEmpty() }.joinToString(" ")
     val whitelisted = review.whitelisted
@@ -250,51 +250,51 @@ internal fun evmSentence(review: TxReview): AnnotatedString = buildAnnotatedStri
         whitelisted != null -> append(whitelisted.meaning)
         spender != null && review.amount.isNotEmpty() -> {
             append("Approve ")
-            appendCounterparty(review, spender)
+            appendCounterparty(review, spender, mono)
             append(" to spend ")
-            appendMono(amount)
+            appendMono(amount, mono)
         }
         review.amount.isNotEmpty() -> {
             append("Send ")
-            appendMono(amount)
+            appendMono(amount, mono)
             if (review.toAddress.isNotEmpty()) {
                 append(" to ")
-                appendCounterparty(review, review.toAddress)
+                appendCounterparty(review, review.toAddress, mono)
             }
         }
         review.nested.isNotEmpty() -> {
             append("Run ${review.nested.count { it.depth == 1 }} calls")
             if (review.toAddress.isNotEmpty()) {
                 append(" on ")
-                appendCounterparty(review, review.toAddress)
+                appendCounterparty(review, review.toAddress, mono)
             }
         }
         review.function == SET_APPROVAL_FOR_ALL && review.tokenContract != null -> {
             // The operator is the counterparty, and the collection is the contract whose tokens it may move.
             if (review.params.firstOrNull { it.first == "approved" }?.second == "true") {
                 append("Give ")
-                appendCounterparty(review, review.toAddress)
+                appendCounterparty(review, review.toAddress, mono)
                 append(" control of ")
-                appendCounterparty(review, review.tokenContract)
+                appendCounterparty(review, review.tokenContract, mono)
             } else {
                 append("Remove control of ")
-                appendCounterparty(review, review.tokenContract)
+                appendCounterparty(review, review.tokenContract, mono)
                 append(" from ")
-                appendCounterparty(review, review.toAddress)
+                appendCounterparty(review, review.toAddress, mono)
             }
         }
         review.toAddress.isNotEmpty() -> {
             append("Call ${review.function} on ")
-            appendCounterparty(review, review.toAddress)
+            appendCounterparty(review, review.toAddress, mono)
         }
         else -> append("Call ${review.function}")
     }
 }
 
 /** The name of an address from the Address Book or this device's accounts, or else its short form in mono. */
-private fun AnnotatedString.Builder.appendCounterparty(review: TxReview, address: String) {
+private fun AnnotatedString.Builder.appendCounterparty(review: TxReview, address: String, mono: FontFamily) {
     val name = review.addressNotes.notesOf(address)?.shownName()
-    if (name != null) append(name) else appendMono(shortAddress(address))
+    if (name != null) append(name) else appendMono(shortAddress(address), mono)
 }
 
 /**
@@ -357,13 +357,13 @@ private fun MessageBlock(review: TxReview) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(LenslyRadius.md))
+            .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(LenslySpacing.sm),
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
             color = MaterialTheme.colorScheme.onSurface,
         )
     }

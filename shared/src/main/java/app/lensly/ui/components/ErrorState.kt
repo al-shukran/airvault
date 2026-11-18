@@ -1,9 +1,9 @@
 package app.lensly.ui.components
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import app.lensly.ui.theme.LenslyError
 
 /**
  * Centred error state for a screen or action that failed: an [icon] in the error colour, a [title] that says what went
@@ -20,7 +20,7 @@ fun ErrorState(
 ) {
     StateBlock(
         icon = icon,
-        iconTint = LenslyError,
+        iconTint = MaterialTheme.colorScheme.error,
         title = title,
         modifier = modifier,
         body = body,

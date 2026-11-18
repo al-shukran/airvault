@@ -52,17 +52,17 @@ import kotlinx.coroutines.withContext
 
 /** The Settings screen and the App Password change, in the hidden graph. */
 internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.SETTINGS) { HiddenBackdrop { SettingsRoute(navController, holder) } }
-    composable(HiddenRoute.CHANGE_PASSWORD) { HiddenBackdrop { ChangePasswordRoute(navController, holder) } }
-    composable(HiddenRoute.DURESS) { HiddenBackdrop { ChangePasswordRoute(navController, holder, duress = true) } }
-    composable(HiddenRoute.DURESS_REMOVE) { HiddenBackdrop { RemoveDuressRoute(navController, holder) } }
-    composable(HiddenRoute.FAILURE_CAP) { HiddenBackdrop { FailureCapRoute(navController, holder) } }
-    composable(HiddenRoute.HIDE_DELAY) { HiddenBackdrop { HideDelayRoute(navController, holder) } }
-    composable(HiddenRoute.BITCOIN_POLICY) { HiddenBackdrop { BitcoinPolicyRoute(navController, holder) } }
-    composable(HiddenRoute.BITCOIN_FEE_WARNINGS) { HiddenBackdrop { BitcoinFeeWarningRoute(navController, holder) } }
-    composable(HiddenRoute.PROXY_POLICY) { HiddenBackdrop { ProxyPolicyRoute(navController, holder) } }
-    composable(HiddenRoute.LICENCES) { HiddenBackdrop { LicencesRoute(navController) } }
-    composable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.SETTINGS) { HiddenBackdrop { SettingsRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.CHANGE_PASSWORD) { HiddenBackdrop { ChangePasswordRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.DURESS) { HiddenBackdrop { ChangePasswordRoute(navController, holder, duress = true) } }
+    vaultComposable(HiddenRoute.DURESS_REMOVE) { HiddenBackdrop { RemoveDuressRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.FAILURE_CAP) { HiddenBackdrop { FailureCapRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.HIDE_DELAY) { HiddenBackdrop { HideDelayRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.BITCOIN_POLICY) { HiddenBackdrop { BitcoinPolicyRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.BITCOIN_FEE_WARNINGS) { HiddenBackdrop { BitcoinFeeWarningRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.PROXY_POLICY) { HiddenBackdrop { ProxyPolicyRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.LICENCES) { HiddenBackdrop { LicencesRoute(navController) } }
+    vaultComposable(HiddenRoute.WIPE) { HiddenBackdrop { WipeRoute(navController, holder) } }
     entryGestureRoutes(navController, holder)
     catalogRoutes(navController, holder)
 }

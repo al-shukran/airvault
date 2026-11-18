@@ -14,7 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -42,7 +42,7 @@ class EntryGesturePadTest {
         performed = 0
         shutterClicks = 0
         compose.setContent {
-            LenslyTheme {
+            CoverTheme {
                 Box(Modifier.testTag(PAD_TAG).fillMaxSize()) {
                     EntryGesturePad(
                         gesture = gesture,

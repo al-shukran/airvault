@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.LenslySegmentedControl
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.network.NetworkMode
-import app.lumio.ui.theme.LocalLumioPalette
+import app.lensly.ui.theme.LocalLumenPalette
 
 /** The test tag of the testnet strip. */
 const val TESTNET_BANNER_TAG = "testnet-banner"
@@ -56,7 +56,7 @@ private fun NetworkMode.summary(): String = when (this) {
  */
 @Composable
 fun TestnetStrip(onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    val testnet = LocalLumioPalette.current.testnet
+    val testnet = LocalLumenPalette.current.testnet
     Row(
         modifier = modifier
             .fillMaxWidth()

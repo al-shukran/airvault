@@ -51,9 +51,6 @@ import app.lensly.app.ProfileIcon
 import app.lensly.app.VisualIdentity
 import app.lensly.ui.components.ProfileIcons
 import app.lensly.ui.components.profileIconSections
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyProfileBlue
 import app.lensly.ui.theme.LenslyProfileGreen
 import app.lensly.ui.theme.LenslyProfileOrange
@@ -62,10 +59,7 @@ import app.lensly.ui.theme.LenslyProfileRed
 import app.lensly.ui.theme.LenslyProfileTeal
 import app.lensly.ui.theme.LenslyProfileViolet
 import app.lensly.ui.theme.LenslyProfileYellow
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
-import app.lensly.ui.theme.LenslySurfaceHighest
 import app.lensly.ui.wallet.WalletEyebrow
 
 /**
@@ -190,7 +184,7 @@ internal fun ProfileAvatar(identity: VisualIdentity, size: Dp, modifier: Modifie
         Icon(
             imageVector = identity.icon.glyph(),
             contentDescription = null,
-            tint = LenslyBlack,
+            tint = MaterialTheme.colorScheme.background,
             modifier = Modifier.size(size * 0.55f),
         )
     }
@@ -224,7 +218,7 @@ internal fun ProfileColourRow(selected: ProfileColour?, onPick: (ProfileColour) 
                             .size(36.dp)
                             .clip(CircleShape)
                             .background(colour.swatch())
-                            .then(if (isSelected) Modifier.border(3.dp, LenslyOnSurface, CircleShape) else Modifier)
+                            .then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
                             .selectable(selected = isSelected, role = Role.RadioButton, onClick = { onPick(colour) })
                             .semantics { contentDescription = colour.spokenName },
                     )
@@ -241,7 +235,7 @@ internal fun ProfileColourRow(selected: ProfileColour?, onPick: (ProfileColour) 
  */
 @Composable
 internal fun ProfileIconRow(selected: ProfileIcon?, onPick: (ProfileIcon) -> Unit, modifier: Modifier = Modifier) {
-    val tile = RoundedCornerShape(LenslyRadius.md)
+    val tile = MaterialTheme.shapes.medium
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
@@ -260,8 +254,8 @@ internal fun ProfileIconRow(selected: ProfileIcon?, onPick: (ProfileIcon) -> Uni
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clip(tile)
-                                    .background(if (isSelected) LenslySurfaceHighest else LenslySurfaceContainer)
-                                    .then(if (isSelected) Modifier.border(2.dp, LenslyOnSurface, tile) else Modifier)
+                                    .background(if (isSelected) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainer)
+                                    .then(if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, tile) else Modifier)
                                     .selectable(selected = isSelected, role = Role.RadioButton, onClick = { onPick(icon) })
                                     .semantics { contentDescription = icon.spokenName },
                                 contentAlignment = Alignment.Center,
@@ -269,7 +263,7 @@ internal fun ProfileIconRow(selected: ProfileIcon?, onPick: (ProfileIcon) -> Uni
                                 Icon(
                                     imageVector = icon.glyph(),
                                     contentDescription = null,
-                                    tint = LenslyOnSurface,
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(22.dp),
                                 )
                             }
@@ -297,7 +291,7 @@ internal fun ProfileFieldRow(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     val scrollIntoView = remember { BringIntoViewRequester() }
     LaunchedEffect(focused) { if (focused) scrollIntoView.bringIntoView() }
     Column(modifier = modifier.fillMaxWidth().bringIntoViewRequester(scrollIntoView)) {
@@ -315,8 +309,8 @@ internal fun ProfileFieldRow(
                 .fillMaxWidth()
                 .heightIn(min = 52.dp)
                 .clip(shape)
-                .background(LenslySurfaceContainer, shape)
-                .border(1.dp, if (focused) LenslyOnSurface else LenslyOutline, shape)
+                .background(MaterialTheme.colorScheme.surfaceContainer, shape)
+                .border(1.dp, if (focused) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant, shape)
                 .clickable(role = Role.Button, onClick = onFocus)
                 .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.sm),
             contentAlignment = Alignment.CenterStart,

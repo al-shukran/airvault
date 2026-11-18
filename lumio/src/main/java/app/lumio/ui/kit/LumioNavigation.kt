@@ -17,6 +17,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NamedNavArgument
@@ -24,6 +25,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import app.lensly.ui.navigation.LenslyNavTransitions
+import app.lensly.ui.theme.LocalReducedMotion
 import app.lumio.LumioRoute
 import app.lumio.ui.theme.LumioMotion
 
@@ -35,10 +37,17 @@ val LocalNavScope = staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
 
 /**
  * Reduced motion for the NavHost's transitions (section 3.6). Transition lambdas are built outside composition, so they cannot read
- * [app.lumio.ui.theme.LocalReducedMotion]; [app.lumio.ui.theme.LumioTheme] mirrors the local here, and each transition reads it when it starts.
+ * [app.lensly.ui.theme.LocalReducedMotion]; [MirrorNavMotion] copies the local here, and each transition reads it when it starts.
  */
 internal object NavReducedMotion {
     var reduced = false
+}
+
+/** Copies the Lumen reduced-motion setting into [NavReducedMotion]. It sits inside the theme, beside the NavHost. */
+@Composable
+internal fun MirrorNavMotion() {
+    val reduced = LocalReducedMotion.current
+    SideEffect { NavReducedMotion.reduced = reduced }
 }
 
 /** A transition under reduced motion is a cut (section 3.6): [cut] is returned and [motion] is never built. */

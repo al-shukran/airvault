@@ -21,7 +21,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import app.lumio.ui.theme.LocalReducedMotion
+import app.lensly.ui.theme.LocalReducedMotion
 
 // The Lumen ring's geometry, the same as the mark's (WP7a). It is drawn in a 24-unit box, so at 24 dp one unit is one dp.
 

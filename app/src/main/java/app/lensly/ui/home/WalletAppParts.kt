@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -37,9 +38,6 @@ import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutlineInteractive
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 
 /** How many accounts an App holds, in words a reader takes in at a glance: "1 account", "3 accounts". */
@@ -59,6 +57,7 @@ internal fun AppIcon(app: WalletApp, size: Dp, modifier: Modifier = Modifier) {
 /** The Solana mark beside a Solana account: three slanted bars. It is decorative: the text beside it names the account. */
 @Composable
 internal fun SolanaIcon(size: Dp, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
     Canvas(modifier = modifier.size(size)) {
         val width = this.size.width
         val height = this.size.height
@@ -73,7 +72,7 @@ internal fun SolanaIcon(size: Dp, modifier: Modifier = Modifier) {
                 lineTo(0f, top + barHeight)
                 close()
             }
-            drawPath(path, color = LenslyOnSurface)
+            drawPath(path, color = colors.onSurface)
         }
     }
 }
@@ -81,6 +80,7 @@ internal fun SolanaIcon(size: Dp, modifier: Modifier = Modifier) {
 /** The Algorand mark beside an Algorand account: a triangle with a bar across it. It is decorative: the text beside it names the account. */
 @Composable
 internal fun AlgorandIcon(size: Dp, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
     Canvas(modifier = modifier.size(size)) {
         val width = this.size.width
         val height = this.size.height
@@ -91,9 +91,9 @@ internal fun AlgorandIcon(size: Dp, modifier: Modifier = Modifier) {
             lineTo(width * 0.06f, height * 0.92f)
             close()
         }
-        drawPath(triangle, color = LenslyOnSurface, style = Stroke(width = stroke))
+        drawPath(triangle, color = colors.onSurface, style = Stroke(width = stroke))
         drawLine(
-            color = LenslyOnSurface,
+            color = colors.onSurface,
             start = Offset(width * 0.3f, height * 0.62f),
             end = Offset(width * 0.7f, height * 0.62f),
             strokeWidth = stroke,
@@ -113,8 +113,9 @@ internal fun AppHeader(app: WalletApp, walletName: String) {
 /** The last row of an App's accounts: a dashed outline with a plus, which [label] names, such as "ADD ACCOUNT". */
 @Composable
 internal fun AddAccountRow(label: String, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
     val haptics = rememberKeyHaptics()
-    val radius = LenslyRadius.md
+    val radius = MaterialTheme.shapes.medium
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -122,10 +123,10 @@ internal fun AddAccountRow(label: String, onClick: () -> Unit) {
             .drawBehind {
                 val stroke = 1.dp.toPx()
                 drawRoundRect(
-                    color = LenslyOutlineInteractive,
+                    color = colors.outline,
                     topLeft = Offset(stroke / 2f, stroke / 2f),
                     size = Size(size.width - stroke, size.height - stroke),
-                    cornerRadius = CornerRadius(radius.toPx()),
+                    cornerRadius = CornerRadius((radius as RoundedCornerShape).topStart.toPx(size, this)),
                     style = Stroke(width = stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))),
                 )
             }
@@ -137,14 +138,14 @@ internal fun AddAccountRow(label: String, onClick: () -> Unit) {
         Icon(
             imageVector = Icons.Filled.Add,
             contentDescription = null,
-            tint = LenslyOnSurface,
+            tint = colors.onSurface,
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(LenslySpacing.xs))
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
-            color = LenslyOnSurface,
+            color = colors.onSurface,
         )
     }
 }
@@ -175,11 +176,11 @@ internal fun AppOptionsSheet(
             Text(
                 text = app.label.uppercase(),
                 style = MaterialTheme.typography.titleSmall,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         HorizontalDivider(
-            color = MaterialTheme.colorScheme.outline,
+            color = MaterialTheme.colorScheme.outlineVariant,
             modifier = Modifier.padding(bottom = LenslySpacing.xs),
         )
         if (onGenerate != null) {

@@ -27,7 +27,6 @@ import app.lensly.core.vault.FailureDelay
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.SliderSetting
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.PasswordStep
 import app.lensly.ui.wallet.StepHeader
@@ -252,7 +251,7 @@ private fun WaitBar(wait: Long, tallest: Long, atCap: Boolean, modifier: Modifie
             modifier = Modifier
                 .fillMaxWidth()
                 .height(height)
-                .clip(RoundedCornerShape(LenslyRadius.xs))
+                .clip(MaterialTheme.shapes.extraSmall)
                 .background(if (atCap) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
         )
     }

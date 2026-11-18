@@ -81,13 +81,8 @@ import app.lensly.ui.navigation.LenslyRoute
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.navigation.rememberWalletListing
 import app.lensly.ui.qr.AnimatedQr
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyOutline
 import app.lensly.ui.theme.LenslyPillShape
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
 import app.lensly.ui.wallet.PasswordStep
 import app.lensly.ui.wallet.WalletEyebrow
 import kotlinx.coroutines.Dispatchers
@@ -429,7 +424,7 @@ private fun PairStepIndicator(step: PairStep) {
         Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xxs)) {
             PairStep.entries.forEach { segment ->
                 val colour by animateColorAsState(
-                    targetValue = if (segment <= step) LenslyOnSurface else LenslyOutline,
+                    targetValue = if (segment <= step) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant,
                     label = "pair-segment",
                 )
                 Box(
@@ -459,7 +454,7 @@ private fun WalletStep(wallets: List<WalletMeta>, profiles: Map<String, WalletPr
         Text(
             text = "There are no wallets to pair yet. Create or restore one first.",
             style = MaterialTheme.typography.bodyMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         return
     }
@@ -519,7 +514,7 @@ private fun InstructionsStep(format: PairFormat?, walletEntry: WalletEntry?) {
     Text(
         text = stringResource(format.instructionRes),
         style = MaterialTheme.typography.titleSmall,
-        color = LenslyOnSurface,
+        color = MaterialTheme.colorScheme.onSurface,
     )
     Spacer(Modifier.height(LenslySpacing.sm))
     Text(
@@ -542,26 +537,26 @@ private fun WalletEntryNote(entry: WalletEntry) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(LenslyRadius.lg))
-            .background(LenslySurfaceContainer)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(LenslySpacing.md),
     ) {
         Text(
             text = "WALLET ENTRY",
             style = MaterialTheme.typography.labelSmall,
-            color = LenslyMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(LenslySpacing.xs))
         Text(
             text = entry.name,
             style = MaterialTheme.typography.titleSmall,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
             text = entry.note,
             style = MaterialTheme.typography.bodyMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
@@ -610,14 +605,14 @@ private fun ColumnScope.CodeStep(format: PairFormat?, frames: List<String>?) {
 private fun PairOptionCard(format: PairFormat, onClick: () -> Unit) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(LenslyRadius.lg)
+    val shape = MaterialTheme.shapes.large
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .pressFeedback(interaction, enabled = true)
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(1.dp, MaterialTheme.colorScheme.outline, shape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .tapHaptic(haptics)
             .clickable(
                 role = Role.Button,

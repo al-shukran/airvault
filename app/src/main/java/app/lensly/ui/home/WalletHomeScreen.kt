@@ -52,12 +52,8 @@ import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyAccent
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceHigh
 import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lensly.ui.components.HomeTopBar
 import kotlinx.coroutines.delay
@@ -141,7 +137,7 @@ fun WalletHomeScreen(
     // A vault with no wallet shows only the empty state.
     val empty = wallets != null && wallets.isEmpty()
     val fadeHeight = DOCK_BAR_HEIGHT + LenslySpacing.xs + DOCK_FADE + navBottom
-    Box(modifier = modifier.fillMaxSize().background(LenslyBlack)) {
+    Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             HomeTopBar(wordmark = "LENSLY", onLock = onLock, debugNotice = debugNotice)
             Column(
@@ -246,7 +242,7 @@ private fun ScanToSignButton(onClick: () -> Unit, modifier: Modifier = Modifier)
             .testTag(HOME_SCAN_TAG)
             .pressFeedback(interaction, enabled = true)
             .clip(LenslyPillShape)
-            .background(LenslyAccent)
+            .background(MaterialTheme.colorScheme.primary)
             .tapHaptic(haptics)
             .clickable(
                 interactionSource = interaction,
@@ -260,14 +256,14 @@ private fun ScanToSignButton(onClick: () -> Unit, modifier: Modifier = Modifier)
         Icon(
             imageVector = LenslyIcons.QrScan,
             contentDescription = null,
-            tint = LenslyOnSurface,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(24.dp),
         )
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
             text = "Scan to sign".uppercase(),
             style = MaterialTheme.typography.titleMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -283,7 +279,7 @@ private fun EmptyVault(onCreate: () -> Unit, onRestore: () -> Unit, modifier: Mo
             // The break keeps the two lines even, so "wallet" never stands alone on the second line.
             text = "Create or restore\nyour first wallet",
             style = MaterialTheme.typography.titleLarge,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(LenslySpacing.xs))
         Text(
@@ -319,9 +315,9 @@ private fun DockFade(height: Dp, stop: Float, modifier: Modifier = Modifier) {
             .height(height)
             .background(
                 Brush.verticalGradient(
-                    0f to LenslyBlack.copy(alpha = 0f),
-                    stop to LenslyBlack,
-                    1f to LenslyBlack,
+                    0f to MaterialTheme.colorScheme.background.copy(alpha = 0f),
+                    stop to MaterialTheme.colorScheme.background,
+                    1f to MaterialTheme.colorScheme.background,
                 ),
             ),
     )
@@ -358,10 +354,10 @@ private fun HomeNotice(notice: String?, onShown: () -> Unit, modifier: Modifier 
             text = text.uppercase(),
             modifier = Modifier
                 .clip(LenslyPillShape)
-                .background(LenslySurfaceHigh)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm),
             style = MaterialTheme.typography.labelMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

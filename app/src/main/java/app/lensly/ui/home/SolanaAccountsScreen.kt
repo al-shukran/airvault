@@ -28,7 +28,6 @@ import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletScaffold
@@ -126,7 +125,7 @@ private fun SolanaAccountRow(name: String, address: String) {
             Text(
                 text = name,
                 style = MaterialTheme.typography.titleSmall,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -138,6 +137,6 @@ private fun SolanaAccountRow(name: String, address: String) {
                 icon = false,
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }

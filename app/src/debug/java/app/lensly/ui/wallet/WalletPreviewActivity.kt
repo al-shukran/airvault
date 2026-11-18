@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,8 +25,7 @@ import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.applySecureWindow
 import app.lensly.ui.gate.PasswordBuffer
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 
 private const val SCREEN_START = "start"
 private const val SCREEN_CHOICE = "choice"
@@ -81,11 +81,11 @@ class WalletPreviewActivity : ComponentActivity() {
 
         setContent {
             val current by screen
-            LenslyTheme {
+            LumenTheme {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(LenslyBlack),
+                        .background(MaterialTheme.colorScheme.background),
                 ) {
                     PreviewHost(screen = current)
                 }

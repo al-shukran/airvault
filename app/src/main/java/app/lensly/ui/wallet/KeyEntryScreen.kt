@@ -31,7 +31,7 @@ import app.lensly.ui.components.SecureHexKeyboard
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.home.groupedAddress
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalMonoFamily
 
 /** The two screens of a private key import. The address is shown only once the typed key has been checked. */
 enum class KeyImportStep { Enter, Address }
@@ -167,7 +167,7 @@ fun KeyAddressScreen(
             AddressText(
                 address = address,
                 shown = groupedAddress(address),
-                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = SpaceMonoFamily),
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalMonoFamily.current),
                 icon = false,
             )
         }

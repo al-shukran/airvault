@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -15,8 +16,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyOnSurface
 
 /**
  * Primary action: a white 80dp circle with a black icon. It shrinks and dims while pressed, plays the key haptic, and
@@ -37,7 +36,7 @@ fun PrimaryCircleButton(
             .size(80.dp)
             .pressFeedback(interaction, enabled)
             .clip(CircleShape)
-            .background(LenslyOnSurface)
+            .background(MaterialTheme.colorScheme.onSurface)
             .tapHaptic(haptics, enabled)
             .clickable(
                 enabled = enabled,
@@ -51,7 +50,7 @@ fun PrimaryCircleButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = LenslyBlack,
+            tint = MaterialTheme.colorScheme.background,
             modifier = Modifier.size(32.dp),
         )
     }

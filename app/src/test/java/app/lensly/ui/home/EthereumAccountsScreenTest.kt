@@ -22,7 +22,7 @@ import app.lensly.app.ProfileColour
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -95,7 +95,7 @@ class EthereumAccountsScreenTest {
         val route = Route(accounts = 12)
         lateinit var listState: LazyListState
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 listState = rememberLazyListState()
                 LaunchedEffect(Unit) { listState.scrollToItem(4, 30) }
                 Ethereum(route, listState)
@@ -124,7 +124,7 @@ class EthereumAccountsScreenTest {
     fun everyAccountRowShowsItsFullAddress() {
         val route = Route(accounts = 3)
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Ethereum(route, rememberLazyListState())
             }
         }
@@ -139,7 +139,7 @@ class EthereumAccountsScreenTest {
     fun aLongPressOnAnAccountOpensItsExportAndEditOptions() {
         val route = Route(accounts = 3)
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Ethereum(route, rememberLazyListState())
             }
         }
@@ -156,7 +156,7 @@ class EthereumAccountsScreenTest {
     fun exportingASelectionSendsEachSelectedAccountOnceInListOrder() {
         val route = Route(accounts = 5)
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Ethereum(route, rememberLazyListState())
             }
         }
@@ -176,7 +176,7 @@ class EthereumAccountsScreenTest {
     fun theAppOptionsOfferGeneratingPairingAndSigning() {
         val route = Route(accounts = 3)
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Ethereum(route, rememberLazyListState())
             }
         }
@@ -198,7 +198,7 @@ class EthereumAccountsScreenTest {
     fun aSingleKeyWalletHasNoAddGenerateOrSelectAction() {
         val route = Route(accounts = 1)
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Ethereum(route, rememberLazyListState(), kind = WalletKind.SINGLE_KEY)
             }
         }

@@ -16,7 +16,7 @@ import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.ui.components.groupAddress
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -87,7 +87,7 @@ class HistoryDetailSheetTest {
         onOpen: (String, AddressChain) -> Unit = { _, _ -> },
     ) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 HistoryDetailSheet(record = record, addressBook = book, accounts = accounts, onDismiss = {}, onOpenAddress = onOpen)
             }
         }

@@ -10,7 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -30,7 +30,7 @@ class GestureDemoTest {
 
     private fun assertDemoShown(gesture: EntryGesture) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 GestureDemo(gesture = gesture, modifier = Modifier)
             }
         }

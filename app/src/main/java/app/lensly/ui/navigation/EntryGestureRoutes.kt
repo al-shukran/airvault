@@ -16,8 +16,8 @@ import app.lensly.ui.settings.EntryGestureScreen
 
 /** The Hidden Entry Gesture in the hidden graph: the choice of a gesture, and the change to the one chosen. */
 internal fun NavGraphBuilder.entryGestureRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(HiddenRoute.ENTRY_GESTURE) { HiddenBackdrop { EntryGestureRoute(navController, holder) } }
-    composable(
+    vaultComposable(HiddenRoute.ENTRY_GESTURE) { HiddenBackdrop { EntryGestureRoute(navController, holder) } }
+    vaultComposable(
         HiddenRoute.ENTRY_GESTURE_CHANGE,
         arguments = listOf(navArgument(HiddenRoute.GESTURE_ID_ARG) { type = NavType.IntType }),
     ) { entry ->

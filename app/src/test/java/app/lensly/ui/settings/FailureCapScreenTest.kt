@@ -19,7 +19,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import app.lensly.ui.gate.eraseWarning
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -40,7 +40,7 @@ class FailureCapScreenTest {
 
     private fun show(saved: FailureCapChoice?, selected: FailureCapChoice?, onSelect: (FailureCapChoice) -> Unit = {}) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 FailureCapScreen(
                     step = FailureCapStep.Choose,
                     saved = saved,
@@ -64,7 +64,7 @@ class FailureCapScreenTest {
     fun theScreenIsTitledWrongPasswordLockout() {
         show(saved = FailureCapChoice.TEN_SECONDS, selected = null)
 
-        compose.onNodeWithText("WRONG PASSWORD LOCKOUT").assertIsDisplayed()
+        compose.onNodeWithText("Wrong password lockout").assertIsDisplayed()
     }
 
     @Test
@@ -93,7 +93,7 @@ class FailureCapScreenTest {
     @Test
     fun theWaitsFollowTheSliderAsItMoves() {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 var selected by remember { mutableStateOf<FailureCapChoice?>(null) }
                 FailureCapScreen(
                     step = FailureCapStep.Choose,
@@ -133,14 +133,14 @@ class FailureCapScreenTest {
     fun continueIsOffUntilThePickDiffersFromTheSavedCap() {
         show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.DEFAULT)
 
-        compose.onNodeWithText("CONTINUE").assertIsNotEnabled()
+        compose.onNodeWithText("Continue").assertIsNotEnabled()
     }
 
     @Test
     fun continueIsOnOnceAnotherCapIsPicked() {
         show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.ONE_HOUR)
 
-        compose.onNodeWithText("CONTINUE").assertIsEnabled()
+        compose.onNodeWithText("Continue").assertIsEnabled()
     }
 
     @Test
@@ -199,7 +199,7 @@ class FailureCapScreenTest {
 
     private fun showPassword(busy: Boolean, warning: String?) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 FailureCapScreen(
                     step = FailureCapStep.Password(FailureCapChoice.ONE_MINUTE, FailureDelay.DEFAULT_WIPE_AFTER, busy),
                     saved = FailureCapChoice.TEN_SECONDS,

@@ -10,7 +10,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import org.junit.Rule
@@ -105,7 +105,7 @@ class AddressFieldTest {
         current = initial
         compose.setContent {
             var text by remember { mutableStateOf(initial) }
-            LenslyTheme {
+            LumenTheme {
                 AddressField(
                     value = text,
                     onValueChange = {

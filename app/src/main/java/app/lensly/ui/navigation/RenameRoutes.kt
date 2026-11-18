@@ -27,7 +27,7 @@ import kotlinx.coroutines.withContext
  * and a wallet's profile are edited on their profile screens.
  */
 internal fun NavGraphBuilder.renameRoutes(navController: NavHostController, holder: VaultHolder) {
-    composable(
+    vaultComposable(
         HiddenRoute.RENAME_ACCOUNTS,
         arguments = walletIdArguments() + navArgument(HiddenRoute.ACCOUNT_INDICES_ARG) { type = NavType.StringType },
     ) { entry ->

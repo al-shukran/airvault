@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
@@ -47,14 +48,9 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.RowArrow
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyRadius
-import app.lensly.ui.theme.LenslySansFamily
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySuccess
-import app.lensly.ui.theme.LenslyWarning
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalLumenPalette
+import app.lensly.ui.theme.LocalMonoFamily
 
 // The review building blocks that the Bitcoin and the transaction reviews share, so both read alike. A review screen is a
 // composition of these: the header, the summary sentence and its key/value list, one risk banner for every
@@ -96,12 +92,12 @@ internal fun ReviewHeader(
             Text(
                 text = network,
                 modifier = Modifier.weight(1f, fill = false),
-                style = MaterialTheme.typography.titleLarge.copy(fontFamily = LenslySansFamily, fontWeight = FontWeight.Bold),
-                color = if (testnet) LenslyWarning else LenslyOnSurface,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = if (testnet) LocalLumenPalette.current.warning else MaterialTheme.colorScheme.onSurface,
             )
             if (testnet) {
                 Spacer(Modifier.width(LenslySpacing.xs))
-                ReviewChip(text = "Testnet", tone = LenslyWarning)
+                ReviewChip(text = "Testnet", tone = LocalLumenPalette.current.warning)
             }
         }
         chainDetail?.let {
@@ -163,8 +159,8 @@ internal fun ReviewSummary(
             Text(
                 text = sentence,
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleLarge.copy(fontFamily = LenslySansFamily, fontWeight = FontWeight.Normal),
-                color = LenslyOnSurface,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal),
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         Spacer(Modifier.height(LenslySpacing.md))
@@ -189,7 +185,7 @@ internal fun ReviewFactRow(label: String, value: String, mono: Boolean = true, m
         )
         Text(
             text = value,
-            style = if (mono) MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily) else MaterialTheme.typography.bodyMedium,
+            style = if (mono) MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current) else MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.End,
         )
@@ -230,7 +226,7 @@ internal fun ReviewField(
         } else {
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -250,16 +246,16 @@ internal fun RiskBanner(items: List<RiskItem>, modifier: Modifier = Modifier) {
                 .padding(vertical = LenslySpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Filled.Check, contentDescription = null, tint = LenslySuccess, modifier = Modifier.size(20.dp))
+            Icon(Icons.Filled.Check, contentDescription = null, tint = LocalLumenPalette.current.positive, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(LenslySpacing.xs))
-            Text(text = "No warnings", style = MaterialTheme.typography.bodyMedium, color = LenslySuccess)
+            Text(text = "No warnings", style = MaterialTheme.typography.bodyMedium, color = LocalLumenPalette.current.positive)
         }
         return
     }
-    val color = if (items.maxOf { it.tone } == BannerTone.Error) LenslyError else LenslyWarning
+    val color = if (items.maxOf { it.tone } == BannerTone.Error) MaterialTheme.colorScheme.error else LocalLumenPalette.current.warning
     val count = items.size
     val title = if (count == 1) "1 warning — review before signing" else "$count warnings — review before signing"
-    val shape = RoundedCornerShape(LenslyRadius.md)
+    val shape = MaterialTheme.shapes.medium
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -275,12 +271,12 @@ internal fun RiskBanner(items: List<RiskItem>, modifier: Modifier = Modifier) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         items.forEach { item ->
             Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.xxs)) {
-                Text(text = item.text, style = MaterialTheme.typography.bodyMedium, color = LenslyOnSurface)
+                Text(text = item.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 item.check?.let { check ->
                     AckCheckbox(label = check.label, checked = check.checked, onCheckedChange = check.onCheckedChange)
                 }
@@ -309,7 +305,7 @@ internal fun AckCheckbox(label: String, checked: Boolean, onCheckedChange: (Bool
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
     }
@@ -326,10 +322,10 @@ internal fun ReviewSection(title: String, modifier: Modifier = Modifier, content
             text = title,
             modifier = Modifier.padding(vertical = LenslySpacing.xs),
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = LenslySpacing.sm), content = content)
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -397,7 +393,7 @@ internal fun ReviewAddress(
             Text(
                 text = line,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(LenslySpacing.xxs))
         }
@@ -438,6 +434,6 @@ internal const val NOT_IN_ADDRESS_BOOK = "Not in address book"
 internal fun AddressNotes.shownName(): String? = internal?.let { account -> account.displayName ?: account.autoName } ?: entry?.name
 
 /** Appends [text] in the mono face, for an amount or an address inside a sentence. */
-internal fun AnnotatedString.Builder.appendMono(text: String) {
-    withStyle(SpanStyle(fontFamily = SpaceMonoFamily)) { append(text) }
+internal fun AnnotatedString.Builder.appendMono(text: String, mono: FontFamily) {
+    withStyle(SpanStyle(fontFamily = mono)) { append(text) }
 }

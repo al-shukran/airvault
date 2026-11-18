@@ -37,12 +37,8 @@ import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.DotoFamily
-import app.lensly.ui.theme.LenslyBlack
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyWarning
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalLumenPalette
+import app.lensly.ui.theme.LocalMonoFamily
 
 private const val DISABLED_ALPHA = 0.4f
 private val ERROR_HEIGHT = 24.dp
@@ -69,12 +65,12 @@ fun WalletPill(
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(percent = 50)
     val background: Color = when (style) {
-        WalletPillStyle.Primary -> LenslyOnSurface
+        WalletPillStyle.Primary -> MaterialTheme.colorScheme.onSurface
         WalletPillStyle.Secondary -> colors.surfaceVariant
         WalletPillStyle.Accent -> colors.primary
         WalletPillStyle.Outline -> Color.Transparent
     }
-    val labelColor: Color = if (style == WalletPillStyle.Primary) LenslyBlack else colors.onSurface
+    val labelColor: Color = if (style == WalletPillStyle.Primary) MaterialTheme.colorScheme.background else colors.onSurface
     val height: Dp = when (size) {
         WalletPillSize.Compact -> 40.dp
         WalletPillSize.Regular -> 56.dp
@@ -192,13 +188,13 @@ fun WalletWarningChip(text: String, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(percent = 50)
     Box(
         modifier = modifier
-            .border(1.dp, LenslyWarning, shape)
+            .border(1.dp, LocalLumenPalette.current.warning, shape)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(
             text = text.uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = LenslyWarning,
+            color = LocalLumenPalette.current.warning,
         )
     }
 }
@@ -219,7 +215,7 @@ fun WalletError(message: String?, modifier: Modifier = Modifier) {
             Text(
                 text = message.uppercase(),
                 style = MaterialTheme.typography.labelMedium,
-                color = LenslyError,
+                color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
             )
         }
@@ -236,8 +232,8 @@ fun DotText(
     Text(
         text = text,
         modifier = modifier,
-        style = TextStyle(fontFamily = DotoFamily, fontSize = fontSize, letterSpacing = 2.sp),
-        color = LenslyOnSurface,
+        style = TextStyle(fontFamily = MaterialTheme.typography.displaySmall.fontFamily, fontSize = fontSize, letterSpacing = 2.sp),
+        color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
@@ -250,8 +246,8 @@ fun HashLines(hex: String, modifier: Modifier = Modifier) {
         for (line in formatHexLines(hex)) {
             Text(
                 text = line,
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = SpaceMonoFamily),
-                color = LenslyOnSurface,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
     }

@@ -26,12 +26,9 @@ import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.flow.RevealPart
 import app.lensly.ui.flow.RevealStep
-import app.lensly.ui.theme.LenslyOnSurface
-import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslySurfaceContainer
-import app.lensly.ui.theme.LenslyWarning
-import app.lensly.ui.theme.SpaceMonoFamily
+import app.lensly.ui.theme.LocalLumenPalette
+import app.lensly.ui.theme.LocalMonoFamily
 
 private const val TITLE = "Show secret"
 private const val SHOW_PROMPT = "Enter your Application Password to show the secret."
@@ -177,7 +174,7 @@ private fun RevealedStep(
             Text(
                 text = "Hides in ${step.secondsLeft} s".uppercase(),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (step.secondsLeft <= LOW_TIME_SECONDS) LenslyWarning
+                color = if (step.secondsLeft <= LOW_TIME_SECONDS) LocalLumenPalette.current.warning
                 else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.weight(1f))
@@ -214,8 +211,8 @@ private fun RevealedStep(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(LenslyRadius.lg))
-                    .background(LenslySurfaceContainer)
+                    .clip(MaterialTheme.shapes.large)
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
                     .padding(LenslySpacing.md),
             ) {
                 HashLines(hex = secret.page(RevealPart.KEY, 0))
@@ -249,8 +246,8 @@ private fun WordPage(text: String, passphrase: Boolean) {
     if (passphrase) {
         Text(
             text = text,
-            style = TextStyle(fontFamily = SpaceMonoFamily, fontSize = 40.sp),
-            color = LenslyOnSurface,
+            style = TextStyle(fontFamily = LocalMonoFamily.current, fontSize = 40.sp),
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
     } else {

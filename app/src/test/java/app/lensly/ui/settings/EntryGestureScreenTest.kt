@@ -7,7 +7,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import org.junit.Rule
@@ -26,7 +26,7 @@ class EntryGestureScreenTest {
 
     private fun showList(current: EntryGesture, onChoose: (EntryGesture) -> Unit) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 EntryGestureScreen(current = current, onChoose = onChoose, onBack = {})
             }
         }

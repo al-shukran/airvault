@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +35,6 @@ import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.TokenIcon
-import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslySpacing
 
 /** The networks, tokens and approved contracts the catalog holds: the built-in entries plus any installed package. */
@@ -296,7 +296,7 @@ private fun <T> IconStack(items: List<T>, icon: @Composable (T) -> Unit) {
                     .offset(x = step * index.toFloat())
                     .size(PREVIEW_ICON_SIZE)
                     .clip(CircleShape)
-                    .background(LenslyBlack),
+                    .background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center,
             ) {
                 icon(item)

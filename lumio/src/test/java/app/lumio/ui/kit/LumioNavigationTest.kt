@@ -8,7 +8,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import app.lumio.LumioRoute
-import app.lumio.ui.theme.LumioTheme
+import app.lensly.ui.theme.LumenTheme
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -97,7 +97,8 @@ class LumioNavigationTest {
     private fun showScreens() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            LumioTheme {
+            LumenTheme {
+                MirrorNavMotion()
                 nav = rememberNavController()
                 NavHost(navController = nav, startDestination = LumioRoute.WALLETS) {
                     lumioComposable(LumioRoute.WALLETS) { Text("Wallets screen") }

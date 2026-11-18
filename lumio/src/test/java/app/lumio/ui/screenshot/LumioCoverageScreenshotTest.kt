@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import app.lumio.ui.theme.LumioTheme
+import app.lensly.ui.theme.LumenTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -479,7 +479,7 @@ class LumioCoverageScreenshotTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(PHONE_DENSITY)) {
-                LumioTheme {
+                LumenTheme {
                     Box(
                         modifier = Modifier
                             .requiredSize(width = (PHONE_WIDTH_PX / PHONE_DENSITY).dp, height = (PHONE_HEIGHT_PX / PHONE_DENSITY).dp)

@@ -11,7 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextReplacement
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.btc.EsploraServers
 import kotlin.test.assertEquals
 import org.junit.Rule
@@ -32,7 +32,7 @@ class BitcoinServersSettingsTest {
 
     private fun show(mainnet: String = EsploraServers.MAINNET_DEFAULT) {
         compose.setContent {
-            LenslyTheme {
+            LumenTheme {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     BitcoinServersSettings(
                         mainnet = mainnet,

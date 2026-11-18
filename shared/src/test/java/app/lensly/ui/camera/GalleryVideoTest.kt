@@ -7,7 +7,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.theme.LenslyTheme
+import app.lensly.ui.theme.CoverTheme
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -42,7 +42,7 @@ class GalleryVideoTest {
         )
 
         compose.setContent {
-            LenslyTheme {
+            CoverTheme {
                 GalleryScreen(store = store, onBack = {})
             }
         }
