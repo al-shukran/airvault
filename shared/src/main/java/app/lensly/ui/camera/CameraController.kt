@@ -1,9 +1,6 @@
 package app.lensly.ui.camera
 
-import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
-import android.content.pm.PackageManager
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.FocusMeteringAction
@@ -134,11 +131,10 @@ class CameraController {
     }
 
     /**
-     * Starts recording an MP4 to [file], with sound when [context] holds the microphone permission. Returns false when no
-     * recording can start. Otherwise [onFinished] runs on [executor] once the file is closed, with false when the recording
-     * failed; a failed file is removed first. A source that goes away mid-recording still keeps what was recorded.
+     * Starts recording an MP4 to [file]. The video has no sound: the app never records audio. Returns false when no recording
+     * can start. Otherwise [onFinished] runs on [executor] once the file is closed, with false when the recording failed; a
+     * failed file is removed first. A source that goes away mid-recording still keeps what was recorded.
      */
-    @SuppressLint("MissingPermission") // RECORD_AUDIO is declared by the hosting app, not by this library; the guard is below.
     fun startRecording(
         context: Context,
         file: File,
@@ -147,16 +143,7 @@ class CameraController {
     ): Boolean {
         val output = videoCapture?.output ?: return false
         val prepared = output.prepareRecording(context, FileOutputOptions.Builder(file).build())
-        // Sound only with the microphone allowed. The check sits right at the call, where lint can see the guard.
-        val pending = if (
-            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
-        ) {
-            prepared.withAudioEnabled()
-        } else {
-            prepared
-        }
-        recording = pending.start(executor) { event ->
+        recording = prepared.start(executor) { event ->
             if (event is VideoRecordEvent.Finalize) {
                 recording = null
                 onFinished(recordingFileSaved(event.hasError(), event.error, file))

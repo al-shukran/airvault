@@ -196,14 +196,12 @@ private fun CameraViewfinder(
     val shutterFlash = remember { Animatable(0f) }
     var mode by rememberSaveable { mutableStateOf(CameraMode.PHOTO) }
     var videoSupported by remember { mutableStateOf(false) }
-    var microphoneAsked by rememberSaveable { mutableStateOf(false) }
     // When the recording in progress started, or null when none is. Its timer runs while it is set.
     var recordingSince by remember { mutableStateOf<Long?>(null) }
     var elapsedMs by remember { mutableLongStateOf(0L) }
     // Each ignored lens switch restarts the brief notice, so a second press shows it again for the full time.
     var flipHints by remember { mutableIntStateOf(0) }
     var showFlipHint by remember { mutableStateOf(false) }
-    val microphoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     // Leaving the camera ends a recording, so its file is closed and kept rather than left open.
     DisposableEffect(controller) {
@@ -314,11 +312,6 @@ private fun CameraViewfinder(
     val onModeChange: (CameraMode) -> Unit = { next ->
         if (recordingSince != null) controller.stopRecording()
         mode = next
-        // The microphone is asked for once, the first time the owner enters video mode. A refusal records without sound.
-        if (next == CameraMode.VIDEO && shouldAskForMicrophone(context.hasMicrophonePermission(), microphoneAsked)) {
-            microphoneAsked = true
-            microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
     }
 
     Box(
