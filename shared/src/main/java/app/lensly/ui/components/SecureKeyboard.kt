@@ -40,11 +40,17 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import app.lensly.ui.theme.LenslyAccent
 import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslyOnSurface
@@ -64,28 +70,36 @@ private val LETTER_TEXT_SIZE = 22.sp
 private const val DISABLED_ALPHA = 0.4f
 private const val PRESSED_DARKEN = 0.25f
 
+private const val NUMBER_ROW = "1234567890"
 private const val LETTERS_TOP = "qwertyuiop"
 private const val LETTERS_MIDDLE = "asdfghjkl"
 private const val LETTERS_BOTTOM = "zxcvbnm"
-private const val SYMBOLS_TOP = "1234567890"
-private const val SYMBOLS_MIDDLE = "@#$%&*()-+"
+private const val SYMBOLS_TOP = "@#$%&*()-+"
+private const val SYMBOLS_MIDDLE = "[]{}<>=~^|"
 private const val SYMBOLS_BOTTOM = "!?_'\"/\\:;"
+
+private val PREVIEW_WIDTH = 44.dp
+private val PREVIEW_HEIGHT = 56.dp
+private val PREVIEW_GAP = 6.dp
+private val PREVIEW_SHAPE = RoundedCornerShape(12.dp)
+private val PREVIEW_TEXT_SIZE = 32.sp
 
 /**
  * In-app keyboard for secret entry. Keys are handled here, so the password never reaches the
- * system IME (no suggestions, no IME logging, no clipboard). There are no key-press popups and no
- * every key gives the same haptic tap on press (see [rememberKeyHaptics]) and no sound, so nothing
- * differs per key and nothing shows which key was pressed. A pressed key only darkens its own
- * background.
+ * system IME (no suggestions, no IME logging, no clipboard). Every key gives the same haptic tap on
+ * press (see [rememberKeyHaptics]) and no sound, so the buzz never differs by key. A pressed
+ * character key shows its character, enlarged, above the key (see [KeyPreview]). Shift, backspace,
+ * space, and done show no preview. A pressed key otherwise only darkens its own background.
  *
  * Keys are rounded rectangles that share the full width of the screen. Every row is weighted, so
- * the keys stretch to the available width at any phone size. The letter rows follow the usual
+ * the keys stretch to the available width at any phone size. The number row sits on top of both
+ * pages, so the keyboard keeps one height when the page changes. The letter rows follow the usual
  * phone grid: the `asdf` row is inset by half a key on each side, and the bottom row of letters has
  * shift and backspace at 1.5 key widths. The bottom row is `123`, `,`, SPACE, `.` and done.
  *
- * Shift is one-shot: a tap makes only the next letter uppercase, and then shift turns itself off. A
- * second tap on shift turns it off early. There is no caps lock (see [OneShotShift]). The `123` key
- * switches to the digits and symbols page, and `ABC` returns to letters. Once a password is held by
+ * Shift has three states (see [Shift]). A tap makes only the next letter uppercase, and then shift
+ * turns itself off. Two taps within [DOUBLE_TAP_MS] lock caps until shift is tapped again. The
+ * `123` key switches to the symbols page, and `ABC` returns to letters. Once a password is held by
  * the caller, the caller decides what [onDone] means (next step, submit, or unlock).
  */
 @Composable
@@ -97,7 +111,7 @@ fun SecureKeyboard(
     enabled: Boolean = true,
 ) {
     var page by rememberSaveable { mutableStateOf(KeyboardPage.Letters) }
-    val shift = rememberSaveable(saver = OneShotShiftSaver) { OneShotShift() }
+    val shift = rememberSaveable(saver = ShiftSaver) { Shift() }
     val lettersPage = page == KeyboardPage.Letters
 
     Column(
@@ -111,6 +125,11 @@ fun SecureKeyboard(
         // Every character key goes through shift.type, and only a letter spends shift. A letter's
         // label is cased at composition, but its tap reads shift when it fires, so a Shift and a
         // letter tapped in the same frame still use the current case.
+        KeyRow {
+            for (c in NUMBER_ROW) {
+                CharKey(c, Modifier.weight(1f), enabled) { onKey(shift.type(c)) }
+            }
+        }
         if (lettersPage) {
             KeyRow {
                 for (base in LETTERS_TOP) {
@@ -127,7 +146,7 @@ fun SecureKeyboard(
                 }
             }
             KeyRow {
-                ShiftKey(Modifier.weight(1.5f), shift.isArmed, enabled) { shift.tapShift() }
+                ShiftKey(Modifier.weight(1.5f), shift.mode, enabled) { shift.tapShift() }
                 for (base in LETTERS_BOTTOM) {
                     CharKey(shift.labelFor(base), Modifier.weight(1f), enabled) {
                         onKey(shift.type(base))
@@ -271,7 +290,8 @@ private fun KeyRow(inset: Boolean = false, content: @Composable RowScope.() -> U
 
 /**
  * Base key: a rounded rectangle of [KEY_HEIGHT]. The caller sets the width through [modifier],
- * usually with a row weight. While pressed, the background darkens. No popup is shown.
+ * usually with a row weight. While pressed, the background darkens. A key with [preview] also
+ * shows that text above itself while pressed. [stateText] is announced as the key's state.
  */
 @Composable
 private fun Key(
@@ -280,6 +300,8 @@ private fun Key(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier,
+    stateText: String? = null,
+    preview: String? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -301,10 +323,15 @@ private fun Key(
                 role = Role.Button,
                 onClick = onClick,
             )
-            .semantics { contentDescription = description },
+            .semantics {
+                contentDescription = description
+                if (stateText != null) stateDescription = stateText
+            },
         contentAlignment = Alignment.Center,
-        content = content,
-    )
+    ) {
+        content()
+        if (preview != null && pressed) KeyPreview(preview)
+    }
 }
 
 @Composable
@@ -320,6 +347,7 @@ private fun CharKey(
         enabled = enabled,
         onClick = onClick,
         modifier = modifier,
+        preview = label.toString(),
     ) {
         Text(
             text = label.toString(),
@@ -329,21 +357,56 @@ private fun CharKey(
     }
 }
 
+/**
+ * The enlarged character above a pressed key. It is a popup window, so it is drawn over the key row and not clipped by the key. Its
+ * secure policy is the default, which inherits FLAG_SECURE from the keyboard's window, so a screenshot or a screen share never
+ * captures it on a phone. It has no semantics, since the key already announces itself.
+ */
+@Composable
+private fun KeyPreview(text: String) {
+    val lift = with(LocalDensity.current) { (PREVIEW_HEIGHT + PREVIEW_GAP).roundToPx() }
+    Popup(
+        alignment = Alignment.TopCenter,
+        offset = IntOffset(0, -lift),
+        properties = PopupProperties(focusable = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = PREVIEW_WIDTH, height = PREVIEW_HEIGHT)
+                .clearAndSetSemantics {}
+                .background(LenslyOnSurface, PREVIEW_SHAPE),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = SpaceMonoFamily, fontSize = PREVIEW_TEXT_SIZE),
+                color = LenslyBlack,
+            )
+        }
+    }
+}
+
 @Composable
 private fun ShiftKey(
     modifier: Modifier,
-    shifted: Boolean,
+    mode: ShiftMode,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
+    val on = mode != ShiftMode.Off
     Key(
-        description = if (shifted) "Shift on" else "Shift",
-        background = if (shifted) LenslyOnSurface else LenslySurfaceHigh,
+        description = "Shift",
+        background = if (on) LenslyOnSurface else LenslySurfaceHigh,
         enabled = enabled,
         onClick = onClick,
         modifier = modifier,
+        stateText = when (mode) {
+            ShiftMode.Off -> null
+            ShiftMode.OneShot -> "Shift on"
+            ShiftMode.CapsLock -> "Caps lock on"
+        },
     ) {
-        ArrowGlyph(color = if (shifted) LenslyBlack else LenslyOnSurface, filled = shifted)
+        ArrowGlyph(color = if (on) LenslyBlack else LenslyOnSurface, filled = on, capsLock = mode == ShiftMode.CapsLock)
     }
 }
 
@@ -381,19 +444,21 @@ private fun DoneKey(
     }
 }
 
+/** The shift arrow. With [capsLock] a bar sits under it, and the arrow is drawn shorter to make room. */
 @Composable
-private fun ArrowGlyph(color: Color, filled: Boolean) {
+private fun ArrowGlyph(color: Color, filled: Boolean, capsLock: Boolean) {
     Canvas(Modifier.size(GLYPH_SIZE)) {
         val w = size.width
         val h = size.height
+        val squash = if (capsLock) 0.7f else 1f
         val path = Path().apply {
-            moveTo(w * 0.5f, h * 0.12f)
-            lineTo(w * 0.12f, h * 0.5f)
-            lineTo(w * 0.34f, h * 0.5f)
-            lineTo(w * 0.34f, h * 0.88f)
-            lineTo(w * 0.66f, h * 0.88f)
-            lineTo(w * 0.66f, h * 0.5f)
-            lineTo(w * 0.88f, h * 0.5f)
+            moveTo(w * 0.5f, h * 0.12f * squash)
+            lineTo(w * 0.12f, h * 0.5f * squash)
+            lineTo(w * 0.34f, h * 0.5f * squash)
+            lineTo(w * 0.34f, h * 0.88f * squash)
+            lineTo(w * 0.66f, h * 0.88f * squash)
+            lineTo(w * 0.66f, h * 0.5f * squash)
+            lineTo(w * 0.88f, h * 0.5f * squash)
             close()
         }
         val style = if (filled) Fill else Stroke(
@@ -402,6 +467,15 @@ private fun ArrowGlyph(color: Color, filled: Boolean) {
             join = StrokeJoin.Round,
         )
         drawPath(path, color, style = style)
+        if (capsLock) {
+            drawLine(
+                color,
+                Offset(w * 0.2f, h * 0.9f),
+                Offset(w * 0.8f, h * 0.9f),
+                strokeWidth = w * 0.1f,
+                cap = StrokeCap.Round,
+            )
+        }
     }
 }
 
