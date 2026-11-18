@@ -166,7 +166,7 @@ fun WalletHomeScreen(
                         Spacer(Modifier.height(SECTION_GAP))
                         RecentActivitySection(records = newest, walletNames = walletNames, nowMs = nowMs, onSeeAll = onActivity)
                         Spacer(Modifier.height(SECTION_GAP))
-                        WalletCarouselSection(
+                        WalletListSection(
                             wallets = wallets,
                             profiles = profiles,
                             onOpen = onOpen,

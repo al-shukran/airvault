@@ -7,7 +7,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,8 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,6 +38,8 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
 import app.lensly.app.sign.ReviewOutcome
+import app.lensly.ui.components.IslandDivider
+import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
@@ -59,12 +58,6 @@ internal const val READINESS_LOCKOUT_TAG = "readiness-lockout"
 
 /** How many records Recent activity shows: the newest ones. */
 internal const val HOME_ACTIVITY_LIMIT = 3
-
-/**
- * A wallet card in the carousel. Two cards fit the screen with the next card's edge showing, and the text of that next card starts past the
- * screen's edge, so no name is cut by it.
- */
-private val CAROUSEL_CARD_WIDTH = 182.dp
 
 /** The height of a readiness tile. Two rows of them make the grid. */
 private val TILE_HEIGHT = 96.dp
@@ -115,12 +108,11 @@ internal fun RecentActivitySection(
 }
 
 /**
- * WALLETS: every wallet of the session as a card, in a row that runs to both edges of the screen. The first card starts at the page
- * gutter, and the rest scroll in from the right. A tap opens a wallet, and a long press opens its context sheet, as on the Wallets
- * list. [onAllWallets] opens the full list.
+ * WALLETS: every wallet of the session as a row of one island, in the order of the Wallets list. A tap opens a wallet, and a long press
+ * opens its context sheet, as on the Wallets list. [onAllWallets] opens the full list.
  */
 @Composable
-internal fun WalletCarouselSection(
+internal fun WalletListSection(
     wallets: List<WalletMeta>,
     profiles: Map<String, WalletProfile>,
     onOpen: (String) -> Unit,
@@ -133,24 +125,16 @@ internal fun WalletCarouselSection(
             SectionLink(text = "All Wallets", onClick = onAllWallets)
         }
         Spacer(Modifier.height(LenslySpacing.xs))
-        LazyRow(
-            modifier = Modifier.fillMaxWidth().testTag(HOME_CAROUSEL_TAG),
-            contentPadding = PaddingValues(horizontal = WALLET_GUTTER),
-            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
-        ) {
-            itemsIndexed(items = wallets, key = { _, wallet -> wallet.id }) { index, wallet ->
-                WalletCard(
+        LumioIsland(modifier = Modifier.testTag(HOME_CAROUSEL_TAG).padding(horizontal = WALLET_GUTTER)) {
+            wallets.forEachIndexed { index, wallet ->
+                if (index > 0) IslandDivider()
+                WalletRow(
                     wallet = wallet,
                     profile = profiles[wallet.id] ?: WalletProfile(),
                     position = index,
                     onClick = { onOpen(wallet.id) },
                     onLongPress = { onLongPress(wallet) },
-                    compact = true,
-                    // The fingerprint is left to the Wallets list: a card this narrow would only cut it short.
                     showFingerprint = false,
-                    // Two lines hold a name of up to about forty characters.
-                    nameLines = 2,
-                    modifier = Modifier.width(CAROUSEL_CARD_WIDTH),
                 )
             }
         }

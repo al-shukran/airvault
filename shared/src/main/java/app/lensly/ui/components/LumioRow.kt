@@ -1,8 +1,9 @@
-package app.lumio.ui.kit
+package app.lensly.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
@@ -36,8 +37,8 @@ private const val PRESSED_ROW_SCALE = 0.98f
 
 /**
  * A row of an island: an optional [leading] mark, a [title] with a [description] under it when given, the [trailing] content (an amount or a tag), and a
- * chevron when the row opens something ([onClick]). The row scales to 0.98 while it is pressed, and it has the default ripple. [titleModifier] is laid on
- * the title, so a screen can move the title to the next screen.
+ * chevron when the row opens something ([onClick]). A long press calls [onLongClick] when it is set. The row scales to 0.98 while it is pressed,
+ * and it has the default ripple. [titleModifier] is laid on the title, so a screen can move the title to the next screen.
  */
 @Composable
 fun LumioRow(
@@ -48,6 +49,7 @@ fun LumioRow(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -65,10 +67,15 @@ fun LumioRow(
                 scaleY = press.value
             }
             .then(
-                if (onClick != null) {
-                    Modifier.clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
-                } else {
-                    Modifier
+                when {
+                    onClick == null -> Modifier
+                    onLongClick == null -> Modifier.clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
+                    else -> Modifier.combinedClickable(
+                        interactionSource = interaction,
+                        indication = LocalIndication.current,
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    )
                 },
             )
             .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs),

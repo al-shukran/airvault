@@ -26,7 +26,8 @@ import app.lumio.data.Clock
 import app.lumio.data.WallClock
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.GlowBackdrop
-import app.lumio.ui.kit.LumioIsland
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.IslandDivider
 import app.lumio.ui.kit.SharedKeys
 import app.lumio.ui.kit.WalletOrb
 import app.lumio.ui.kit.lumioSharedBounds

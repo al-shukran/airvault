@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -137,7 +138,7 @@ class WalletHomeScreenTest {
     }
 
     @Test
-    fun fiveWalletsShowEveryWalletInTheCarouselWithNoAddTile() {
+    fun fiveWalletsShowEveryWalletInTheListWithNoAddTile() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             LumenTheme {
@@ -146,17 +147,13 @@ class WalletHomeScreenTest {
         }
         settle()
 
-        compose.onNodeWithTag(HOME_CAROUSEL_TAG).assertIsDisplayed()
+        compose.onNodeWithTag(HOME_CAROUSEL_TAG).performScrollTo()
+        compose.onNodeWithTag(HOME_CAROUSEL_TAG).assertExists()
         compose.onNodeWithTag(ADD_WALLET_TAG).assertDoesNotExist()
-        // The row holds five items, and the cards on screen are only some of them, so the row scrolls to reach each card.
-        assertEquals(5, compose.onNodeWithTag(HOME_CAROUSEL_TAG).fetchSemanticsNode().carouselItemCount())
-        val cards = mutableSetOf<String>()
-        for (index in 0 until 5) {
-            compose.onNodeWithTag(HOME_CAROUSEL_TAG).performScrollToIndex(index)
-            compose.waitForIdle()
-            compose.onAllNodesWithTag(WALLET_CARD_TAG).fetchSemanticsNodes().forEach { cards += cardText(it) }
-        }
-        assertEquals(5, cards.size, "every wallet has one card in the carousel: $cards")
+        // The list is one island with a row per wallet, and every row is in the tree, so each one is read from its node.
+        compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(5)
+        val cards = compose.onAllNodesWithTag(WALLET_CARD_TAG).fetchSemanticsNodes().map { cardText(it) }.toSet()
+        assertEquals(5, cards.size, "every wallet has one row in the list: $cards")
     }
 
     @Test

@@ -1,24 +1,27 @@
 package app.lensly.ui.home
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
+import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.theme.LenslySpacing
 
 /**
- * The Wallets list, reached from the See all link on Home or from the dock: every wallet as a compact card, in the same order
- * as Home, with the add tile after the last one. A long press opens the same context sheet as on Home. [wallets] is null until
+ * The Wallets list, reached from the See all link on Home or from the dock: every wallet as a row of one island, in the same order
+ * as Home, with Add Wallet as a text action under it. A long press opens the same context sheet as on Home. [wallets] is null until
  * the list has been read.
  */
 @Composable
@@ -44,20 +47,32 @@ fun WalletsScreen(
                 .weight(1f)
                 .fillMaxWidth(),
             contentPadding = PaddingValues(bottom = LenslySpacing.md),
-            verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
         ) {
             if (wallets != null) {
-                itemsIndexed(wallets, key = { _, wallet -> wallet.id }) { position, wallet ->
-                    WalletCard(
-                        wallet = wallet,
-                        profile = profiles[wallet.id] ?: WalletProfile(),
-                        position = position,
-                        compact = true,
-                        onClick = { onOpen(wallet.id) },
-                        onLongPress = { sheetWallet = wallet },
+                item(key = "wallets") {
+                    LumioIsland {
+                        wallets.forEachIndexed { position, wallet ->
+                            if (position > 0) IslandDivider()
+                            WalletRow(
+                                wallet = wallet,
+                                profile = profiles[wallet.id] ?: WalletProfile(),
+                                position = position,
+                                onClick = { onOpen(wallet.id) },
+                                onLongPress = { sheetWallet = wallet },
+                                showFingerprint = true,
+                            )
+                        }
+                    }
+                }
+                item(key = "add") {
+                    LumioTextAction(
+                        text = "Add Wallet",
+                        onClick = onAdd,
+                        modifier = Modifier
+                            .padding(top = LenslySpacing.xs)
+                            .testTag(ADD_WALLET_TAG),
                     )
                 }
-                item { AddWalletTile(onClick = onAdd) }
             }
         }
     }

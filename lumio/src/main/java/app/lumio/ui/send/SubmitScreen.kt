@@ -45,9 +45,9 @@ import app.lumio.send.algorand.AsaSendPlan
 import app.lumio.send.solana.SolanaAssets
 import app.lumio.send.solana.SolanaSendInput
 import app.lumio.send.solana.SolanaSendPlan
-import app.lumio.ui.kit.LumioIsland
+import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.rememberLumioHaptics
 import app.lumio.ui.pair.PairLabels
 import java.math.BigInteger

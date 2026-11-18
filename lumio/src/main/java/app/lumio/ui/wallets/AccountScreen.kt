@@ -30,10 +30,10 @@ import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.kit.AnimatedAmount
 import app.lumio.ui.kit.LumioAssetIcon
-import app.lumio.ui.kit.LumioIsland
+import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
-import app.lumio.ui.kit.LumioRow
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioRow
+import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.SharedKeys
 import app.lumio.ui.kit.lumioSharedBounds
 import app.lumio.ui.kit.lumioSharedElement
