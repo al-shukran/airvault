@@ -63,6 +63,7 @@ internal val CoverScheme = darkColorScheme(
 /** The cover's extended roles: Lensly's own accent, success and warning. The cover shows no testnet strip and no glow. */
 internal val CoverPalette = LumenPalette(
     accentInk = CoverAccent,
+    ring = CoverAccent,
     testnet = CoverMuted,
     positive = CoverSuccess,
     warning = CoverWarning,
