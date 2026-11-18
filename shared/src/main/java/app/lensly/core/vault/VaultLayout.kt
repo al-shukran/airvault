@@ -40,6 +40,13 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
     /** The media folder of the real vault, or of the Decoy Vault when [decoy] is true. The two are kept apart. */
     fun photoDir(decoy: Boolean): File = File(photos, if (decoy) "decoy" else "real")
 
+    /**
+     * The public key that the photos of the real vault, or of the Decoy Vault, are sealed to. It is a plain file beside the photo folders,
+     * so the cover can seal without a session. Until the Decoy Vault has a key of its own, its file holds [placeholderPhotoKey], so the
+     * folder shows the same files whether or not a decoy exists.
+     */
+    fun photoKeyFile(decoy: Boolean): File = File(photos, if (decoy) "decoy.pub" else "real.pub")
+
     companion object {
         /** The app's layout: the vault under its no-backup files folder, and its photos under its files folder. */
         fun of(context: Context): VaultLayout {
@@ -48,6 +55,9 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
         }
     }
 }
+
+/** Random bytes of public key size, in the place of a key file that no key of its own has filled yet. */
+internal fun placeholderPhotoKey(): ByteArray = ByteArray(MediaEnvelope.KEY_BYTES).also { SecureRandom().nextBytes(it) }
 
 /** Which vault a slot holds. The role is stored inside the sealed slot, so the file does not show it. */
 internal object VaultRole {

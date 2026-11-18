@@ -427,6 +427,20 @@ class Vault constructor(
                         keySecurityLevel = securityLevel,
                     )
                     writeAtomically(layout.header, header.encode())
+                    // The photo key is made now, so the cover can seal its first photo before anyone unlocks the vault.
+                    bestEffort {
+                        val session = VaultSession(
+                            layout,
+                            keys,
+                            vaultKey.copyOf(),
+                            pad = WalletPad(layout, keys, vaultKey.copyOf(), REAL_SECTION),
+                        )
+                        try {
+                            session.ensurePhotoKey()
+                        } finally {
+                            session.close()
+                        }
+                    }
                     return CreateResult.Created
                 } finally {
                     Arrays.fill(softKey, 0)
@@ -459,6 +473,8 @@ class Vault constructor(
                 if (!session.isDecoy) bestEffort { session.ensureReviewPool() }
                 // The wallet folders and the free-slot list are brought to the layout on every unlock.
                 bestEffort { session.ensurePadded() }
+                // Each vault's photo key is made on its first unlock, so a vault from before photos were sealed gets one.
+                bestEffort { session.ensurePhotoKey() }
                 return UnlockResult.Unlocked(session)
             } finally {
                 opened.close()
@@ -836,7 +852,7 @@ class Vault constructor(
             }
             // Only the files this key owns go. The real vault's wallets and records are not owned by this key.
             withPadOf(decoyKey, DECOY_SECTION) { discard(decoyKey, it, keepListing = true) }
-            shredFolder(layout.photoDir(decoy = true))
+            dropDecoyPhotos(layout)
         } finally {
             Arrays.fill(decoyKey, 0)
         }
@@ -1019,7 +1035,7 @@ class Vault constructor(
         }
         ReviewPool.shredExcept(layout.reviewPool, keep.flatMap { ReviewPool(layout.reviewPool, it).ownedNames() }.toSet())
         // The Decoy Vault's photos are cleared too. A dropped decoy takes them with it, and a new decoy starts with none.
-        shredFolder(layout.photoDir(decoy = true))
+        dropDecoyPhotos(layout)
     }
 
     /** The real vault's pad for the duration of [block]. Its key is zeroed afterwards. */
@@ -1148,4 +1164,17 @@ private fun overwriteFiles(dir: File) {
 private fun shredFolder(dir: File) {
     overwriteFiles(dir)
     dir.deleteRecursively()
+}
+
+/**
+ * Removes a dropped Decoy Vault's photos, and puts placeholder bytes back in its key file, so the photo folder lists the same files
+ * whether or not a decoy exists. A key file that cannot be written keeps its old bytes, which reveal nothing without the decoy's password.
+ */
+private fun dropDecoyPhotos(layout: VaultLayout) {
+    shredFolder(layout.photoDir(decoy = true))
+    try {
+        writeAtomically(layout.photoKeyFile(decoy = true), placeholderPhotoKey())
+    } catch (e: IOException) {
+        // The next unlock of the decoy would replace it anyway; the drop itself must not fail half way.
+    }
 }
