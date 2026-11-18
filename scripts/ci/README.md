@@ -12,29 +12,32 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 | `core-vault` | `:shared` `app.lensly.core.vault.*` |
 | `core-registry` | `:shared` `app.lensly.core.registry.*` and `app.lensly.core.registry.update.*` |
 | `core-btc` | `:shared` `app.lensly.core.btc.*` |
-| `ui-a` | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme}.*`; the pixel tests are excluded (see below) |
-| `ui-b` | `:app` `app.lensly.ui.{flow,home,sign,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
-| `lumio-a` | `:lumio` `app.lumio.ui.*`, and `assembleDebug` |
-| `lumio-b` | `:lumio` `app.lumio.{chains,data,evm,home,network,pair,send,tokens,wallets}.*` and `app.lumio.LumioBackdropTest`, `app.lumio.EntryGestureSettingTest`, `app.lumio.CoverLockTest` and `app.lumio.SendRouteTest` |
+| `ui-a` | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme,navigation,settings}.*`; the pixel tests are excluded (see below) |
+| `ui-b` | `:app` `app.lensly.ui.{flow,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
+| `ui-c` | `:app` `app.lensly.ui.{home,sign}.*` |
+| `lumio-a` | `:lumio` `app.lumio.ui.*` |
+| `lumio-apk` | `:lumio` `assembleDebug` (no tests) |
+| `lumio-b` | `:lumio` `app.lumio.{chains,evm,home,network,pair,send,tokens,wallets}.*` and `app.lumio.LumioBackdropTest`, `app.lumio.EntryGestureSettingTest`, `app.lumio.CoverLockTest` and `app.lumio.SendRouteTest` |
 | `lumio-c` | `:lumio` `app.lumio.btc.*` |
+| `lumio-d` | `:lumio` `app.lumio.data.*` |
 | `app` | `:app` `app.lensly.app.*`, `app.lensly.SmokeTest` and `app.lensly.core.vault.BackupExclusionTest` |
 | `registry-pack` | `:tools:registry-pack:test` |
 | `manifest` | `check-manifest.sh` |
-| `ci` | `bash -n` on every script, then `check-ui-partitions.sh`, `check-lumio-partitions.sh` and `check-test-network.sh` (no Gradle) |
+| `ci` | `bash -n` on every script, then `check-partitions.sh` and `check-test-network.sh` (no Gradle) |
 
 `core-parse`, `app` and `registry-pack` are not in the guideline 2.2 table: tests already live in those packages, so leaving them out would run nothing for changes there.
 
 `core-ur-evm` also replays the Jazzer fuzz targets (`app.lensly.fuzz.*`): they cover UR/CBOR, the eth-sign request and the unsigned (RLP) transaction decoder. The PR lane runs them as ordinary JUnit tests, so committed seeds are replayed on every change to that partition. They run as a second Gradle invocation with `-PfuzzLane`, in their own JVM: once a fuzz target has run, Jazzer's agent breaks Robolectric's sandbox class loader, so the shared unit-test JVM skips the fuzz package (see the note in `shared/build.gradle.kts`).
 
-`ci` covers CI's own files (`scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml`). It needs no Gradle: it syntax-checks every script under `scripts/` and runs the test-network guard, so a workflow or script edit no longer merges without a check.
+`ci` covers CI's own files (`scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml`) and the test source sets. It needs no Gradle: it syntax-checks every script under `scripts/`, runs the partition coverage check and the test-network guard, so a workflow or script edit no longer merges without a check.
 
-Each partition is one Gradle call per module, `./gradlew :shared:testDebugUnitTest --tests ...` (or `:app:testDebugUnitTest`, for the Lensly-only packages); repeated `--tests` filters are ORed. The `ui-a` and `ui-b` partitions run both modules in one call. Gradle's `*` matches across dots, so `registry.*` already reaches `registry.update`; the explicit second filter is belt-and-braces. Unknown names print usage and exit 2.
+Each partition is one Gradle call per module, `./gradlew :shared:testDebugUnitTest --tests ...` (or `:app:testDebugUnitTest`, for the Lensly-only packages); repeated `--tests` filters are ORed. The `ui-a`, `ui-b` and `ui-c` partitions run both modules in one call. Gradle's `*` matches across dots, so `registry.*` already reaches `registry.update`; the explicit second filter is belt-and-braces. Unknown names print usage and exit 2.
 
-The `ui-a` and `ui-b` partitions split the `app.lensly.ui` tests so each stays under the 3-minute cap (guideline 2.1). Every ui subpackage in `app/src/test` or `shared/src/test`, and any test class directly in `app.lensly.ui`, must appear in exactly one of the two halves in `run-partition.sh`. `check-ui-partitions.sh` (run by the `ci` partition) fails when one is missing from both.
+The `ui-a`, `ui-b` and `ui-c` partitions split the `app.lensly.ui` tests so each stays under the 3-minute cap (guideline 2.1). The `lumio-a`, `lumio-apk`, `lumio-b`, `lumio-c` and `lumio-d` partitions split the `app.lumio` tests and the debug APK the same way, so each `lumio` job stays under its 5-minute cap. `lumio-c` holds `btc`, whose `BtcScanTest` alone takes about 50 s; `lumio-d` holds `data`, the largest package.
 
-The `lumio-a`, `lumio-b` and `lumio-c` partitions split the `app.lumio` tests the same way, so each `lumio` test job stays under its 5-minute cap. `lumio-c` holds `btc`, whose `BtcScanTest` alone takes about 50 s. Every lumio subpackage in `lumio/src/test`, and any test class directly in `app.lumio`, must appear in exactly one of the three arms; `check-lumio-partitions.sh` (run by the `ci` partition) fails when one is missing from all three.
+`check-partitions.sh` (run by the `ci` partition) reads each test class under `app/src/test/java`, `shared/src/test/java` and `lumio/src/test/java`, and fails unless the class matches a `--tests` selector in exactly one arm of `run-partition.sh`, in the Gradle call for its own module. The match is per class and per module: a package with a class in `:app` and another in `:shared` (`app.lensly.ui.navigation`) needs a selector in each call. `tools/registry-pack` is not checked, since its partition runs the whole module.
 
-Both halves pass `-PprLane`, which makes `app/build.gradle.kts` exclude `app.lensly.ui.screenshot.*`. The Roborazzi pixel tests would push the partitions past the cap, so they are night-only: the nightly workflow runs `./gradlew ... verifyRoborazziDebug` against the committed goldens (guideline 2.7). Adding `-PprLane` to a local run reproduces the PR lane; leave it off to run everything.
+Ui partitions pass `-PprLane`, which makes `app/build.gradle.kts` exclude `app.lensly.ui.screenshot.*`. The Roborazzi pixel tests would push the partitions past the cap, so they are night-only: the nightly workflow runs `./gradlew ... verifyRoborazziDebug` against the committed goldens (guideline 2.7). Adding `-PprLane` to a local run reproduces the PR lane; leave it off to run everything.
 
 ```bash
 scripts/ci/run-partition.sh core-wallet
