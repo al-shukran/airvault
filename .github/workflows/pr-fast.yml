@@ -1,289 +1,102 @@
 name: pr-fast
 
-# Guideline docs/testing/guideline.md 2.1-2.4. One job per changed partition, plus the
-# security checks from 1.8 and 3. `pr-ok` is the single required check.
+# Guideline docs/testing/guideline.md 2.1-2.4. Every job has a 3-minute cap: a pull request's verification, from its first job
+# queued to pr-ok done, must fit in 3 minutes. `pr-ok` is the single required check. A push to master runs the same jobs for
+# every partition (guideline 2.4), so a broken merge shows on the merge commit.
 on:
   pull_request:
     branches: [master, phase-1-5]
+  push:
+    branches: [master]
 
 permissions:
   contents: read
 
+# A pull request supersedes its own earlier run. Pushes to master are never cancelled, so each merge commit is verified.
 concurrency:
-  group: pr-fast-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: pr-fast-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
     runs-on: ubuntu-24.04
+    timeout-minutes: 3
     permissions:
       contents: read
       pull-requests: read # dorny/paths-filter lists PR files through the API
     outputs:
-      partitions: ${{ steps.filter.outputs.changes }}
-      dependencies: ${{ steps.deps.outputs.dependencies }}
+      partitions: ${{ steps.plan.outputs.partitions }}
+      lint: ${{ steps.plan.outputs.lint }}
+      dependencies: ${{ steps.filter.outputs.dependencies }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # One filter per row of the 2.2 partition map. Build paths are the 2.2 exception:
-      # a build change can affect any package, so it runs every unit partition.
-      # core-parse, app and registry-pack are partitions run-partition.sh supports beyond 2.2; those packages
-      # already hold tests, so leaving them out would run nothing.
+      # Path filters for guideline 2.2. The areas are coarse on purpose: a change to :shared runs the :app and :lumio shards
+      # too, and a change to core/ or chains/ (which :shared is built from) counts as a :shared change. A push has no filter
+      # and runs every partition.
       - id: filter
+        if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
-            core-wallet:
-              - 'shared/src/main/java/app/lensly/core/wallet/**'
-              - 'shared/src/test/java/app/lensly/core/wallet/**'
-              - 'shared/src/main/java/app/lensly/core/solana/**'
-              - 'shared/src/test/java/app/lensly/core/solana/**'
-              - 'shared/src/main/java/app/lensly/core/algorand/**'
-              - 'shared/src/test/java/app/lensly/core/algorand/**'
-              - 'chains/algorand/**'
-              - 'shared/src/test/resources/vectors/bip39/**'
-              - 'shared/src/test/resources/vectors/bip32/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-ur-evm:
-              - 'shared/src/main/java/app/lensly/core/ur/**'
-              - 'shared/src/main/java/app/lensly/core/evm/**'
-              - 'shared/src/test/java/app/lensly/core/ur/**'
-              - 'chains/algorand/**'
-              - 'core/signer-api/**'
-              - 'shared/src/test/java/app/lensly/core/evm/**'
-              - 'shared/src/main/java/app/lensly/app/export/**'
-              - 'shared/src/test/java/app/lensly/app/export/**'
-              - 'shared/src/test/java/app/lensly/fuzz/**'
-              - 'shared/src/test/resources/fuzz-seeds/**'
-              - 'shared/src/test/resources/keystone/**'
-              - 'shared/src/test/resources/vectors/eip155/**'
-              - 'shared/src/test/resources/vectors/eip1559/**'
-              - 'shared/src/test/resources/vectors/eip712/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-parse:
-              - 'shared/src/main/java/app/lensly/core/parse/**'
-              - 'shared/src/main/aidl/app/lensly/core/parse/**'
-              - 'shared/src/test/java/app/lensly/core/parse/**'
-              - 'core/signer-api/**'
-              - 'shared/src/main/java/app/lensly/core/qr/**'
-              - 'shared/src/main/aidl/app/lensly/core/qr/**'
-              - 'shared/src/test/java/app/lensly/core/qr/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-vault:
-              - 'shared/src/main/java/app/lensly/core/vault/**'
-              - 'shared/src/test/java/app/lensly/core/vault/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-registry:
-              - 'shared/src/main/java/app/lensly/core/registry/**'
-              - 'shared/src/test/java/app/lensly/core/registry/**'
-              - 'shared/src/main/assets/registry/**'
-              - 'shared/src/debug/assets/registry/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-btc:
-              - 'shared/src/main/java/app/lensly/core/btc/**'
-              - 'shared/src/test/java/app/lensly/core/btc/**'
-              - 'shared/src/test/resources/vectors/bitcoin/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            # The ui tests run as three partitions (ui-a, ui-b, ui-c) with the same paths, so each change runs all three.
-            ui-a:
-              - 'app/src/main/java/app/lensly/ui/**'
-              - 'app/src/test/java/app/lensly/ui/**'
-              - 'shared/src/main/java/app/lensly/ui/**'
-              - 'shared/src/test/java/app/lensly/ui/**'
-              - 'shared/src/testFixtures/**'
-              - 'app/src/test/screenshots/**'
-              - 'app/src/main/res/values/strings.xml'
-              - 'shared/src/main/res/**'
-              - 'shared/src/main/java/app/lensly/app/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            ui-b:
-              - 'app/src/main/java/app/lensly/ui/**'
-              - 'app/src/test/java/app/lensly/ui/**'
-              - 'shared/src/main/java/app/lensly/ui/**'
-              - 'shared/src/test/java/app/lensly/ui/**'
-              - 'shared/src/testFixtures/**'
-              - 'app/src/test/screenshots/**'
-              - 'app/src/main/res/values/strings.xml'
-              - 'shared/src/main/res/**'
-              - 'shared/src/main/java/app/lensly/app/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            ui-c:
-              - 'app/src/main/java/app/lensly/ui/**'
-              - 'app/src/test/java/app/lensly/ui/**'
-              - 'shared/src/main/java/app/lensly/ui/**'
-              - 'shared/src/test/java/app/lensly/ui/**'
-              - 'shared/src/testFixtures/**'
-              - 'app/src/test/screenshots/**'
-              - 'app/src/main/res/values/strings.xml'
-              - 'shared/src/main/res/**'
-              - 'shared/src/main/java/app/lensly/app/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            manifest:
-              - 'app/src/**/AndroidManifest.xml'
-              - 'shared/src/**/AndroidManifest.xml'
-              - 'gradle/libs.versions.toml'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'lumio/src/**/AndroidManifest.xml'
-              - 'lumio/build.gradle.kts'
-              - 'scripts/ci/check-manifest.sh'
-            app:
-              - 'app/src/main/java/app/lensly/app/**'
-              - 'app/src/main/java/app/lensly/chains/**'
-              - 'shared/src/main/java/app/lensly/app/**'
-              - 'app/src/test/java/app/lensly/app/**'
-              - 'app/src/test/java/app/lensly/SmokeTest.kt'
-              - 'app/src/test/java/app/lensly/core/vault/BackupExclusionTest.kt'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            registry-pack:
-              - 'tools/registry-pack/**'
-              - 'shared/src/debug/assets/registry/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            # The chain-app contract and the Algorand modules. Their tests run as one partition (scripts/ci/run-partition.sh).
-            chain-api:
+            shared:
+              - 'shared/**'
               - 'core/**'
               - 'chains/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            # Lumio is a second app on the shared cover, gate and theme in :shared, so any change to :shared can break its build.
-            # The lumio tests and the debug APK run as five partitions (lumio-a, lumio-apk, lumio-b, lumio-c, lumio-d)
-            # with the same paths, so each change runs all five.
-            lumio-a:
+            app:
+              - 'app/**'
+            lumio:
               - 'lumio/**'
-              - 'shared/**'
+            registry:
+              - 'tools/registry-pack/**'
+            manifest:
+              - '**/src/**/AndroidManifest.xml'
+              - '**/*.gradle.kts'
+              - 'gradle/libs.versions.toml'
+              - 'scripts/ci/check-manifest.sh'
+            build:
               - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
               - 'settings.gradle.kts'
-            lumio-apk:
-              - 'lumio/**'
-              - 'shared/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
               - 'gradle.properties'
-              - 'settings.gradle.kts'
-            lumio-b:
-              - 'lumio/**'
-              - 'shared/**'
-              - 'build.gradle.kts'
               - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            lumio-c:
-              - 'lumio/**'
-              - 'shared/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            lumio-d:
-              - 'lumio/**'
-              - 'shared/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            # CI's own files cannot run Gradle: the partition syntax-checks every script, runs the partition
-            # coverage check and the test-network guard. Without this row a workflow/script edit ran no test at all.
-            # The test trees are listed too, so a new test class is checked for a partition on its own PR.
             ci:
               - 'scripts/ci/**'
-              - '.github/workflows/**'
-              - 'app/src/test/**'
-              - 'shared/src/test/**'
-              - 'lumio/src/test/**'
+              - '.github/workflows/pr-fast.yml'
+              - '.github/workflows/cache-warm.yml'
               - '.gitleaks.toml'
-
-      # Guideline 1.8: dependency review runs on PRs touching dependency files. Kept in its
-      # own step so the filter name never reaches the partition matrix. The graph it diffs
-      # against is submitted by dependency-graph.yml on pushes to the long-lived branches.
-      - id: deps
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: |
             dependencies:
               - 'build.gradle.kts'
               - 'app/build.gradle.kts'
               - 'lumio/build.gradle.kts'
               - 'shared/build.gradle.kts'
               - 'tools/*/build.gradle.kts'
-              - 'core/**/build.gradle.kts'
-              - 'chains/**/build.gradle.kts'
               - 'gradle/libs.versions.toml'
               - 'gradle/wrapper/**'
               - 'gradle.properties'
               - 'settings.gradle.kts'
 
+      # scripts/ci/plan-partitions.sh turns the flags into the test matrix (the shards come from scripts/ci/shards.sh).
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          SHARED: ${{ steps.filter.outputs.shared }}
+          APP: ${{ steps.filter.outputs.app }}
+          LUMIO: ${{ steps.filter.outputs.lumio }}
+          REGISTRY: ${{ steps.filter.outputs.registry }}
+          MANIFEST: ${{ steps.filter.outputs.manifest }}
+          BUILD: ${{ steps.filter.outputs.build }}
+          CI_CHANGED: ${{ steps.filter.outputs.ci }}
+        run: scripts/ci/plan-partitions.sh
+
+  # One matrix entry per partition from plan-partitions.sh. A partition is one Gradle invocation or one script. The `ci`
+  # entry runs no Gradle, so it skips the setup steps.
   test:
     needs: changes
     if: needs.changes.result == 'success' && needs.changes.outputs.partitions != '[]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5 # guideline 2.1 amendment (2026-11-12)
+    timeout-minutes: 3
     strategy:
       fail-fast: false
       matrix:
@@ -292,24 +105,34 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0
 
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - if: matrix.partition != 'ci'
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '21.0.13+9'
 
-      # The cache this restores is warmed on master and phase-1-5 by cache-warm.yml. That workflow's
-      # job is also named `test`: setup-gradle matches entries by job id, so the names must stay equal.
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      # Read-only on every event. cache-warm.yml is the only writer of the `test` entry (setup-gradle keys entries by job
+      # id), so 13 partitions never write 13 partial copies of it.
+      - if: matrix.partition != 'ci'
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: true
 
-      # run-partition.sh maps the name to its 2.2 selector; `manifest` runs check-manifest.sh and
-      # `ci` runs only shell checks.
+      # The configuration cache lives under .gradle/, which setup-gradle does not save. Restoring it skips the ~70 s of
+      # configuration per partition. Each partition's entry is saved by master pushes only (the step below).
+      - if: matrix.partition != 'ci'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .gradle/configuration-cache
+          key: configuration-${{ matrix.partition }}-${{ github.run_id }}
+          restore-keys: configuration-${{ matrix.partition }}-
+
       - name: Run ${{ matrix.partition }}
-        run: ./scripts/ci/run-partition.sh "${{ matrix.partition }}"
+        run: scripts/ci/run-partition.sh "${{ matrix.partition }}"
 
-      # Lensly (:app) is offline in release too. check-manifest.sh reads only the debug merge, so the release merge is read here, in
-      # the manifest partition. Lumio (the companion) may request INTERNET, so only :app is checked.
+      # Lensly (:app) is offline in release too. check-manifest.sh reads only the debug merge, so the release merge is read
+      # here, in the manifest partition. Lumio (the companion) may request INTERNET, so only :app is checked.
       - name: Refuse INTERNET in the release manifest of :app
         if: matrix.partition == 'manifest'
         run: |
@@ -337,15 +160,21 @@ jobs:
           fi
           echo "ok: no OkHttp on the release runtime classpath of :app"
 
-  # Lumio's lint runs in its own job, not in the test job: lintDebug on top of the lumio partition took the test job past its 5-minute cap (PR 181
-  # ran 5m17s). The lumio-a filter is the same as the lumio-b partition's, and pr-ok counts a skip as a pass.
-  # The cap is 8 minutes: a cold lint job ran 4m52s (Gradle: 4m34s), and one run was cancelled at the old 5-minute cap
-  # (315 s). A warm run took 2m33s. cache-warm.yml's `lint` job writes the cache this job restores, so cold runs get rare.
+      - name: Save the configuration cache
+        if: always() && github.event_name == 'push' && matrix.partition != 'ci'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .gradle/configuration-cache
+          key: configuration-${{ matrix.partition }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  # Lumio's lint is its own job, not a matrix entry, because setup-gradle keys its cache entry by job id: lint keeps the `lint`
+  # entry that a master push writes. Lint runs for shared and lumio changes (lumio depends on shared). It takes about 2 minutes
+  # warm; lumio/build.gradle.kts turns off the test-source and dependency checks that made it 3.5 minutes.
   lint:
     needs: changes
-    if: needs.changes.result == 'success' && contains(fromJSON(needs.changes.outputs.partitions), 'lumio-a')
+    if: needs.changes.result == 'success' && needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -356,10 +185,26 @@ jobs:
           distribution: temurin
           java-version: '21.0.13+9'
 
+      # Written on master pushes only (guideline 2.3); the save takes about 7 s there.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .gradle/configuration-cache
+          key: configuration-lint-${{ github.run_id }}
+          restore-keys: configuration-lint-
 
       - name: Lint lumio
-        run: ./gradlew :lumio:lintDebug
+        run: scripts/ci/run-partition.sh lint
+
+      - name: Save the configuration cache
+        if: always() && github.event_name == 'push'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .gradle/configuration-cache
+          key: configuration-lint-${{ github.run_id }}-${{ github.run_attempt }}
 
   secrets:
     runs-on: ubuntu-24.04
@@ -376,14 +221,14 @@ jobs:
       # gitleaks CLI v8.30.0 instead of gitleaks-action: the action v3 requires a license key for
       # organization repositories (GITLEAKS_LICENSE), and this repository has none. The tarball is
       # checked against the SHA-256 published with the release before it runs.
-      # The range is the PR's commit range, so only changed content is checked.
+      # The range is the PR's commit range, or the pushed commits on master, so only changed content is checked.
       # .gitleaks.toml keeps the default rules and allowlists shared/src/test/resources/vectors.
-      - name: Scan PR commits for secrets
+      - name: Scan commits for secrets
         env:
           GITLEAKS_VERSION: 8.30.0
           GITLEAKS_SHA256: 79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
@@ -391,8 +236,14 @@ jobs:
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive"
           echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          # A push that creates a branch has no earlier commit (before is all zeros): scan the pushed commit only.
+          if [ "$BASE_SHA" = 0000000000000000000000000000000000000000 ]; then
+            log_opts=-1
+          else
+            log_opts="${BASE_SHA}..${HEAD_SHA}"
+          fi
           "$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact \
-            --log-opts="${BASE_SHA}..${HEAD_SHA}" --exit-code 1 .
+            --log-opts="$log_opts" --exit-code 1 .
 
   dependency_review:
     # Snapshot comes from dependency-graph.yml, which submits on pushes to master and phase-1-5.
@@ -407,9 +258,9 @@ jobs:
     # action, so the unsupported-repository error cannot appear. continue-on-error would instead
     # report a genuine high-severity finding as success once the graph is on, which disarms 1.8.
     needs: changes
-    if: needs.changes.outputs.dependencies == 'true' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.dependencies == 'true' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 3
     permissions:
       contents: read
     steps:
@@ -438,6 +289,7 @@ jobs:
     if: always()
     needs: [changes, test, lint, secrets, dependency_review, test_network]
     runs-on: ubuntu-24.04
+    timeout-minutes: 3
     steps:
       - name: Aggregate results
         env:
@@ -450,9 +302,8 @@ jobs:
         run: |
           printf 'changes=%s test=%s lint=%s secrets=%s dependency_review=%s test_network=%s\n' \
             "$CHANGES" "$TEST" "$LINT" "$SECRETS" "$DEPENDENCY_REVIEW" "$TEST_NETWORK"
-          # test and lint are skipped when no partition changed, and dependency review is skipped when
-          # no dependency file changed or DEPENDENCY_GRAPH_ENABLED is not 'true'; both count as
-          # a pass. Once the variable is set, a failing dependency review fails this check.
+          # test, lint and dependency review are skipped when nothing in their area changed, and dependency review
+          # is skipped on master pushes and whenever DEPENDENCY_GRAPH_ENABLED is not 'true'. A skip counts as a pass.
           case "$TEST" in
             success | skipped) ;;
             *) echo "test partition failed or was cancelled"; exit 1 ;;

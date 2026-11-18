@@ -54,6 +54,13 @@ android {
         buildConfig = true
     }
 
+    // The PR lint job runs lintDebug on this module (guideline 2.2). Test sources are not shipped, and their analysis (the unit
+    // test and androidTest lint tasks) was about 70 s of that job. Library code is linted by its own module, nightly.
+    lint {
+        checkTestSources = false
+        checkDependencies = false
+    }
+
     packaging {
         resources {
             // :shared brings the same jars as :app, so the same META-INF files collide and are excluded the same way.
