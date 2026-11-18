@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalReducedMotion
@@ -57,5 +58,7 @@ private fun Modifier.breathe(enabled: Boolean): Modifier {
     return graphicsLayer {
         scaleX = scale
         scaleY = scale
+        // The glow and the orb in it are rasterised once into an offscreen layer. Each frame then moves that layer, not the gradient.
+        compositingStrategy = CompositingStrategy.Offscreen
     }
 }
