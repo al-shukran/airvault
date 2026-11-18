@@ -75,7 +75,7 @@ import java.util.Locale
 private const val EMPTY_BODY =
     "Each request you review on this wallet is listed here, with what you decided. The list stays on this device."
 private const val REQUEST_LABEL = "Request"
-private const val BITCOIN_LABEL = "Bitcoin transaction"
+private const val BITCOIN_LABEL = "Bitcoin Transaction"
 
 /**
  * The Review Records of one wallet, newest first, under the day each was made. A row shows the outcome, the network, what the
@@ -107,7 +107,7 @@ fun WalletHistoryScreen(
         DotText(text = walletName.uppercase(), fontSize = 40.sp)
         Spacer(Modifier.height(LenslySpacing.sm))
         if (records.isEmpty()) {
-            EmptyState(icon = LenslyIcons.History, title = "No reviews yet", body = EMPTY_BODY)
+            EmptyState(icon = LenslyIcons.History, title = "No Reviews Yet", body = EMPTY_BODY)
         } else {
             LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 records.groupBy { dayOf(it.atMs) }.forEach { (day, dayRecords) ->
@@ -260,13 +260,13 @@ internal fun HistoryDetailSheet(
         record.to?.let { to -> AddressFact(label = "To", value = to, chain = chain, book = addressBook, accounts = accounts, open = open) }
         record.amount?.let { amount -> FactRow("Amount") { MonoText(amount) } }
         record.tokenContract?.let { contract ->
-            AddressFact(label = "Token contract", value = contract, chain = chain, book = addressBook, accounts = accounts, open = open)
+            AddressFact(label = "Token Contract", value = contract, chain = chain, book = addressBook, accounts = accounts, open = open)
         }
         if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, accounts, open) }
         if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, accounts, open) }
         record.origin?.let { origin -> FactRow("Origin") { FactText(origin) } }
-        record.refusal?.let { reason -> FactRow("Refusal reason") { FactText(reason) } }
-        FactRow("Data hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
+        record.refusal?.let { reason -> FactRow("Refusal Reason") { FactText(reason) } }
+        FactRow("Data Hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
     }
 }
 
@@ -361,7 +361,7 @@ private fun BitcoinFacts(
     FactRow("Fee") {
         MonoText(facts.feeSats?.let { "$it sat (${btcText(it)})" } ?: "Unknown")
     }
-    FactRow("Fee rate") {
+    FactRow("Fee Rate") {
         MonoText(facts.feeRateSatPerVb?.let { String.format(Locale.ROOT, "%.1f sat/vB", it) } ?: "Unknown")
     }
     facts.notices.forEach { notice ->

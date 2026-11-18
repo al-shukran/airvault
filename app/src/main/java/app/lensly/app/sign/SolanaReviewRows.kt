@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets
 private const val SIGNER = "Signer"
 
 /** The label of the fee payer's row. */
-private const val FEE_PAYER = "Fee payer"
+private const val FEE_PAYER = "Fee Payer"
 
 /** The label of the row that names an instruction's program by its ID. */
 private const val PROGRAM = "Program"
@@ -30,28 +30,28 @@ private const val PROGRAM = "Program"
 private const val NETWORK = "Network"
 
 /** The label of the application domain, in the rows of an off-chain message. */
-private const val APPLICATION_DOMAIN = "Application domain"
+private const val APPLICATION_DOMAIN = "Application Domain"
 
 /** The label of the message text, in the rows of an off-chain message. */
 private const val MESSAGE = "Message"
 
 /** The label of the priority fee, in the facts under the sentence. */
-private const val PRIORITY_FEE = "Priority fee"
+private const val PRIORITY_FEE = "Priority Fee"
 
 /** The label of the base fee, in the facts under the sentence. */
-private const val BASE_FEE = "Base fee"
+private const val BASE_FEE = "Base Fee"
 
 /** The label of the most the transaction can cost in fees, in the facts under the sentence. */
-private const val MAX_FEE = "Max fee"
+private const val MAX_FEE = "Max Fee"
 
 /** The label of the recent blockhash, which a durable nonce stores in its place. */
-private const val RECENT_BLOCKHASH = "Recent blockhash"
+private const val RECENT_BLOCKHASH = "Recent Blockhash"
 
 /** The label of a required signer that is neither this account nor the fee payer. */
-private const val OTHER_SIGNER = "Other required signer"
+private const val OTHER_SIGNER = "Other Required Signer"
 
 /** The label of a program Lensly does not know at all. */
-private const val UNKNOWN_PROGRAM = "Unknown program"
+private const val UNKNOWN_PROGRAM = "Unknown Program"
 
 /** The label of a program Lensly reads in other instructions, for an instruction it does not read. */
 private const val NOT_DECODED = "Program not decoded: instruction is not read"
@@ -131,25 +131,25 @@ private fun instructionRows(instruction: SolanaInstruction, review: SolanaReques
 
 private fun detailRows(instruction: SolanaInstruction, review: SolanaRequestReview): List<Pair<String, String>> = when (instruction) {
     is SolanaInstruction.SystemTransfer -> listOf(
-        "SOL transfer" to "${lamportsText(instruction.lamports)} SOL",
+        "SOL Transfer" to "${lamportsText(instruction.lamports)} SOL",
         "From" to solanaAccountText(instruction.from),
         "To" to solanaAccountText(instruction.to),
     )
     // A plain Transfer names no mint, so its amount is in base units and its decimals are not known.
     is SolanaInstruction.TokenTransfer -> listOf(
-        "Token transfer" to "${instruction.amount} base units, decimals unknown",
-        "From token account" to solanaAccountText(instruction.source),
-        "To token account" to solanaAccountText(instruction.destination),
+        "Token Transfer" to "${instruction.amount} base units, decimals unknown",
+        "From Token Account" to solanaAccountText(instruction.source),
+        "To Token Account" to solanaAccountText(instruction.destination),
         "Authority" to solanaAccountText(instruction.authority),
     )
     is SolanaInstruction.TokenTransferChecked -> {
         val token = review.tokenOf(instruction.mint)
         listOf(
-            "Token transfer" to tokenAmountText(instruction.amount, instruction.decimals, token),
+            "Token Transfer" to tokenAmountText(instruction.amount, instruction.decimals, token),
             "Token" to tokenNameText(token),
             "Mint" to solanaAccountText(instruction.mint),
-            "From token account" to solanaAccountText(instruction.source),
-            "To token account" to solanaAccountText(instruction.destination),
+            "From Token Account" to solanaAccountText(instruction.source),
+            "To Token Account" to solanaAccountText(instruction.destination),
             "Authority" to solanaAccountText(instruction.authority),
         )
     }
@@ -157,22 +157,22 @@ private fun detailRows(instruction: SolanaInstruction, review: SolanaRequestRevi
     is SolanaInstruction.AssociatedTokenCreate -> {
         val token = review.tokenOf(instruction.mint)
         listOf(
-            "Create token account" to if (instruction.idempotent) "only if missing" else "fails if it exists",
+            "Create Token Account" to if (instruction.idempotent) "only if missing" else "fails if it exists",
             "Owner" to solanaAccountText(instruction.owner),
             "Token" to tokenNameText(token),
             "Mint" to solanaAccountText(instruction.mint),
-            "Token account" to solanaAccountText(instruction.account),
+            "Token Account" to solanaAccountText(instruction.account),
             "Paid by" to solanaAccountText(instruction.payer),
         )
     }
     is SolanaInstruction.AdvanceNonce -> listOf(
-        "Uses durable nonce account" to solanaAccountText(instruction.nonceAccount),
-        "Nonce authority" to solanaAccountText(instruction.authority),
+        "Uses Durable Nonce Account" to solanaAccountText(instruction.nonceAccount),
+        "Nonce Authority" to solanaAccountText(instruction.authority),
     )
     is SolanaInstruction.CreateNonceAccount -> nonceSetupRows(instruction)
-    is SolanaInstruction.SetComputeUnitLimit -> listOf("Compute limit" to "${instruction.units} units")
+    is SolanaInstruction.SetComputeUnitLimit -> listOf("Compute Limit" to "${instruction.units} units")
     is SolanaInstruction.SetComputeUnitPrice ->
-        listOf("Compute price" to "${instruction.microLamports} micro-lamports per unit")
+        listOf("Compute Price" to "${instruction.microLamports} micro-lamports per unit")
     is SolanaInstruction.Raw -> rawRows(instruction, review)
 }
 
@@ -182,7 +182,7 @@ private fun detailRows(instruction: SolanaInstruction, review: SolanaRequestRevi
  */
 private fun rawRows(raw: SolanaInstruction.Raw, review: SolanaRequestReview): List<Pair<String, String>> = buildList {
     add((if (raw.knownProgram) NOT_DECODED else UNKNOWN_PROGRAM) to solanaAccountText(raw.programId))
-    add("Instruction data" to "0x" + raw.dataHex)
+    add("Instruction Data" to "0x" + raw.dataHex)
     if (raw.accounts.isEmpty()) add("Accounts" to "none")
     raw.accounts.zip(raw.accountIndices).forEach { (account, index) ->
         val roles = review.message?.roles(index)
@@ -195,13 +195,13 @@ private fun rawRows(raw: SolanaInstruction.Raw, review: SolanaRequestReview): Li
  * its authority, and who pays for it.
  */
 private fun nonceSetupRows(instruction: SolanaInstruction.CreateNonceAccount): List<Pair<String, String>> = buildList {
-    add("Create a nonce account" to solanaAccountText(instruction.account))
+    add("Create a Nonce Account" to solanaAccountText(instruction.account))
     instruction.seed?.let {
-        add("Base account" to solanaAccountText(it.base))
+        add("Base Account" to solanaAccountText(it.base))
         add("Seed" to it.text)
     }
     add("Rent" to "${lamportsText(instruction.lamports)} SOL")
-    add("Nonce authority" to solanaAccountText(instruction.authority))
+    add("Nonce Authority" to solanaAccountText(instruction.authority))
     add("Paid by" to solanaAccountText(instruction.funder))
 }
 

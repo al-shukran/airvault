@@ -33,8 +33,8 @@ import org.junit.Test
 class WalletAccountsTest {
     private val mainnetEthereum = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
     private val monad = EvmChain(10143L, "Monad testnet", "MON", 18, testnet = true, explorerUrl = null)
-    private val solanaDevnet = NativeCoin(SOLANA_DEVNET, symbol = "SOL", name = "Solana devnet", decimals = 9)
-    private val algorandTestnet = NativeCoin(ALGORAND_TESTNET, symbol = "ALGO", name = "Algorand testnet", decimals = 6)
+    private val solanaDevnet = NativeCoin(SOLANA_DEVNET, symbol = "SOL", name = "Solana Devnet", decimals = 9)
+    private val algorandTestnet = NativeCoin(ALGORAND_TESTNET, symbol = "ALGO", name = "Algorand Testnet", decimals = 6)
     private val solanaKey = ByteArray(32) { 1 }
     private val algorandKey = ByteArray(32) { 2 }
     private val testnetBitcoin = PairFixtures.account(PairFixtures.seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
@@ -98,9 +98,9 @@ class WalletAccountsTest {
         assertEquals(0, BigDecimal("3").compareTo(ethereum.balance!!.balance))
         assertEquals(NetworkId(Family.EVM, "10143", testnet = true), ethereum.balance!!.network)
         assertEquals(0, BigDecimal("2.5").compareTo(solana.balance!!.balance))
-        assertEquals("Solana devnet", solana.networkName)
+        assertEquals("Solana Devnet", solana.networkName)
         assertEquals(0, BigDecimal("1").compareTo(algorand.balance!!.balance))
-        assertEquals("Algorand testnet", algorand.networkName)
+        assertEquals("Algorand Testnet", algorand.networkName)
     }
 
     @Test

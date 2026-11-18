@@ -32,7 +32,7 @@ fun MnemonicConfirmScreen(
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(
-        title = "Check words",
+        title = "Check Words",
         modifier = modifier,
         onBack = onBack,
     ) {

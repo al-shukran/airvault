@@ -133,7 +133,7 @@ fun WalletDetailScreen(
                         },
                 ) {
                     Spacer(Modifier.height(LenslySpacing.lg))
-                    WalletEyebrow(if (wallet.deviceGenerated) "Device-generated wallet" else "Wallet")
+                    WalletEyebrow(if (wallet.deviceGenerated) "Device-Generated Wallet" else "Wallet")
                     Spacer(Modifier.height(LenslySpacing.xs))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -145,7 +145,7 @@ fun WalletDetailScreen(
                     }
                     Spacer(Modifier.height(LenslySpacing.sm))
                     if (wallet.kind == WalletKind.SINGLE_KEY) {
-                        PillChip(text = "Single key")
+                        PillChip(text = "Single Key")
                     } else {
                         PillChip(text = "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}")
                     }
@@ -276,7 +276,7 @@ private fun WalletOptionsSheet(
     onShowSecret: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val secretLabel = if (singleKey) "Show private key" else "Show secret phrase"
+    val secretLabel = if (singleKey) "Show Private Key" else "Show Secret Phrase"
     var confirmingSecret by remember { mutableStateOf(false) }
     OptionsSheet(onDismiss = onDismiss) {
         SheetHeader(name = name, identity = identity, address = null)
@@ -287,7 +287,7 @@ private fun WalletOptionsSheet(
                 onReveal = onShowSecret,
             )
         } else {
-            SheetOption(icon = Icons.Filled.Edit, label = "Edit wallet profile", onClick = onEdit)
+            SheetOption(icon = Icons.Filled.Edit, label = "Edit Wallet Profile", onClick = onEdit)
             SheetOption(icon = LenslyIcons.History, label = "History", onClick = onHistory)
             SheetOption(
                 icon = Icons.Filled.Warning,
@@ -295,7 +295,7 @@ private fun WalletOptionsSheet(
                 onClick = { confirmingSecret = true },
                 destructive = true,
             )
-            SheetOption(icon = Icons.Filled.Delete, label = "Delete wallet", onClick = onDelete, destructive = true)
+            SheetOption(icon = Icons.Filled.Delete, label = "Delete Wallet", onClick = onDelete, destructive = true)
         }
     }
 }
@@ -305,7 +305,7 @@ private fun WalletOptionsSheet(
 private fun SecretWarning(title: String, onCancel: () -> Unit, onReveal: () -> Unit) {
     Text(text = title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
     Spacer(Modifier.height(LenslySpacing.sm))
-    InlineBanner(title = "Keep it private", message = SECRET_WARNING, tone = BannerTone.Warning)
+    InlineBanner(title = "Keep It Private", message = SECRET_WARNING, tone = BannerTone.Warning)
     Spacer(Modifier.height(LenslySpacing.md))
     Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
         WalletPill(

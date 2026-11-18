@@ -114,9 +114,9 @@ fun GalleryScreen(
             ) {
                 EmptyState(
                     icon = CameraIcons.Photos,
-                    title = "No photos or videos yet",
+                    title = "No Photos or Videos Yet",
                     body = "Photos and videos you take appear here. They stay on this phone.",
-                    actionLabel = "Back to camera",
+                    actionLabel = "Back to Camera",
                     onAction = onBack,
                 )
             }

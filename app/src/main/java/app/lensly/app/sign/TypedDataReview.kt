@@ -74,7 +74,7 @@ private fun domainRows(typed: TypedData, networkName: String): List<Pair<String,
             "name" -> "Name" to text
             "version" -> "Version" to text
             "chainId" -> "Chain ID" to "$text ($networkName)"
-            "verifyingContract" -> "Verifying contract" to text
+            "verifyingContract" -> "Verifying Contract" to text
             "salt" -> "Salt" to text
             else -> member.name to text
         }
@@ -232,7 +232,7 @@ private fun permitSummary(typed: TypedData, registry: Registry, chainId: Long): 
             val token = summary.token("Token", bytesOf(details, "token"))
             summary.amount("Amount", uintOf(details, "amount"), bits = 160, token = token)
             summary.date("Expires", uintOf(details, "expiration"))
-            summary.date("Signature deadline", uintOf(message, "sigDeadline"))
+            summary.date("Signature Deadline", uintOf(message, "sigDeadline"))
         }
         "PermitBatch" -> {
             summary.row("Spender", checksumOf(bytesOf(message, "spender")))
@@ -244,7 +244,7 @@ private fun permitSummary(typed: TypedData, registry: Registry, chainId: Long): 
                 summary.amount("Amount$suffix", uintOf(fields, "amount"), bits = 160, token = token)
                 summary.date("Expires$suffix", uintOf(fields, "expiration"))
             }
-            summary.date("Signature deadline", uintOf(message, "sigDeadline"))
+            summary.date("Signature Deadline", uintOf(message, "sigDeadline"))
         }
         "PermitTransferFrom" -> {
             summary.row("Spender", ANY_SUBMITTER)

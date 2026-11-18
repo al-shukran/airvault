@@ -66,7 +66,7 @@ fun KeyEntryScreen(
     var focused by rememberSaveable { mutableStateOf(true) }
     KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
         LenslyScreen(
-            title = "Import key",
+            title = "Import Key",
             modifier = modifier,
             scrollable = false,
         ) {
@@ -81,7 +81,7 @@ fun KeyEntryScreen(
             }
             Spacer(Modifier.height(LenslySpacing.sm))
             // 48sp keeps "PRIVATE KEY" on one line on a 720dp-wide phone, as PassphraseScreen does for its headline.
-            DotText(text = "Private key", fontSize = 48.sp)
+            DotText(text = "Private Key", fontSize = 48.sp)
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(
                 message = "A lost key is lost funds. Lensly cannot make this key again.",
@@ -131,12 +131,12 @@ fun KeyAddressScreen(
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(
-        title = "Check address",
+        title = "Check Address",
         modifier = modifier,
         onBack = onBack,
         bottomAction = {
             PillButton(
-                text = "Confirm address",
+                text = "Confirm Address",
                 onClick = onConfirm,
                 accent = true,
                 modifier = Modifier.fillMaxWidth(),

@@ -119,7 +119,7 @@ class SettingsPagesTest {
         }
 
         compose.onAllNodesWithText("Save", ignoreCase = true).assertCountEquals(0)
-        compose.onNodeWithText("Hidden entry gesture").performClick()
+        compose.onNodeWithText("Hidden Entry Gesture").performClick()
         assertEquals(true, opened)
     }
 
@@ -140,7 +140,7 @@ class SettingsPagesTest {
             }
         }
 
-        compose.onNodeWithText("Change password").performScrollTo().performClick()
+        compose.onNodeWithText("Change Password").performScrollTo().performClick()
         assertEquals(true, opened)
     }
 
@@ -164,7 +164,7 @@ class SettingsPagesTest {
         // The page scrolls: the lock section sits below the fold of the test's small window, so each control is scrolled to first.
         compose.onNodeWithText("30 minutes").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Default").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Lock when switching apps").performScrollTo().performClick()
+        compose.onNodeWithText("Lock When Switching Apps").performScrollTo().performClick()
         assertEquals(true, switching)
     }
 

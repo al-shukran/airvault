@@ -23,13 +23,13 @@ fun DisplaySettingsSection(
         Spacer(Modifier.height(LenslySpacing.sm))
     }
     SettingsSwitchRow(
-        title = "Show total balance",
+        title = "Show Total Balance",
         description = "Shows the combined balance of your assets.",
         checked = settings.showTotal,
         onCheckedChange = onShowTotal,
     )
     SettingsSwitchRow(
-        title = "Show individual asset balances",
+        title = "Show Individual Asset Balances",
         description = "Shows each asset's balance.",
         checked = settings.showAssets,
         onCheckedChange = onShowAssets,

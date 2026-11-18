@@ -24,21 +24,21 @@ fun SkipWarningScreen(
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(
-        title = "Seed ceremony",
+        title = "Seed Ceremony",
         modifier = modifier,
         onBack = onBack,
         bottomAction = {
             WalletPill(
-                text = "Skip anyway",
+                text = "Skip Anyway",
                 onClick = onConfirm,
                 modifier = Modifier.fillMaxWidth(),
                 style = WalletPillStyle.Accent,
             )
         },
     ) {
-        WalletEyebrow("Skip the ceremony")
+        WalletEyebrow("Skip the Ceremony")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotHeadline(text = "No mixing")
+        DotHeadline(text = "No Mixing")
         Spacer(Modifier.height(LenslySpacing.lg))
         Text(
             text = "This wallet will trust only the device's random generator.",

@@ -78,10 +78,10 @@ fun FirstSyncScreen(
         }
     }
     LenslyScreen(
-        title = "Setting up $walletName",
+        title = "Setting Up $walletName",
         onBack = onOpenWallet,
         bottomAction = {
-            LumioTextAction(text = "Open wallet now", onClick = onOpenWallet, modifier = Modifier.align(Alignment.CenterHorizontally))
+            LumioTextAction(text = "Open Wallet Now", onClick = onOpenWallet, modifier = Modifier.align(Alignment.CenterHorizontally))
         },
     ) {
         GlowBackdrop(modifier = Modifier.fillMaxWidth().height(GLOW_HEIGHT), breathing = !settled) {
@@ -99,7 +99,7 @@ fun FirstSyncScreen(
 /** The name of a row, as the sync reads it. */
 private fun SyncRow.title(): String = when (this) {
     SyncRow.BITCOIN -> "Bitcoin"
-    SyncRow.EVM -> "EVM networks"
+    SyncRow.EVM -> "EVM Networks"
     SyncRow.SOLANA -> "Solana"
     SyncRow.ALGORAND -> "Algorand"
     SyncRow.PRICES -> "Prices"

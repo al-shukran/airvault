@@ -16,7 +16,7 @@ fun SoonScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LenslyScreen(title = "Pair and sign", modifier = modifier, onBack = onBack, scrollable = false) {
+    LenslyScreen(title = "Pair and Sign", modifier = modifier, onBack = onBack, scrollable = false) {
         Spacer(Modifier.height(LenslySpacing.lg))
         Text(
             text = "Not built yet",

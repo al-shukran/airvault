@@ -34,7 +34,7 @@ class ReceiveScreenshotTest {
     fun receiveSolanaSplNote() = compose.lumioSnapshot("receive_solana_spl_note") {
         ReceiveScreen(
             walletName = "Demo",
-            detail = "Solana devnet",
+            detail = "Solana Devnet",
             address = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
             onlySend = "Only send Solana devnet assets here.",
             onBack = {},

@@ -65,7 +65,7 @@ private fun RenameAccountsRoute(navController: NavHostController, holder: VaultH
 
     WalletNameScreen(
         name = name,
-        title = "Account names",
+        title = "Account Names",
         placeholder = "Base name",
         emptyHelp = "Leave empty to keep their names",
         maxLength = limit,

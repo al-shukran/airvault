@@ -65,7 +65,7 @@ class LumioKitScreenshotTest {
 
     @Test
     fun textAction() = compose.lumioSnapshot("kit_text_action") {
-        KitColumn { LumioTextAction(text = "Pair a wallet", onClick = {}) }
+        KitColumn { LumioTextAction(text = "Pair a Wallet", onClick = {}) }
     }
 
     @Test

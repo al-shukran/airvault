@@ -36,7 +36,7 @@ fun recordAddressesOf(record: ReviewRecord): List<RecordAddress> {
     val fields = listOfNotNull(
         record.address?.let { "Account" to it },
         record.to?.let { "To" to it },
-        record.tokenContract?.let { "Token contract" to it },
+        record.tokenContract?.let { "Token Contract" to it },
     )
     val rows = (fields + record.fee + record.params).mapNotNull { (label, value) ->
         value.takeIf { canonicalAddressOn(it, chain) != null }?.let { RecordAddress(label, it, chain) }

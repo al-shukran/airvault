@@ -88,7 +88,7 @@ fun TransactionDetailScreen(
                 PartyRow(label = counterpartyLabel(tx.direction), value = value, accounts = accounts, book = book, onEdit = onEditAddress)
             }
             tx.asset.contract?.let { value ->
-                PartyRow(label = "Token contract", value = value, accounts = accounts, book = book, onEdit = onEditAddress)
+                PartyRow(label = "Token Contract", value = value, accounts = accounts, book = book, onEdit = onEditAddress)
             }
         }
         Spacer(Modifier.height(LenslySpacing.lg))
@@ -107,7 +107,7 @@ fun TransactionDetailScreen(
         detail.explorerUrl?.let {
             Spacer(Modifier.height(LenslySpacing.sm))
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                LumioTextAction(text = "Open in explorer", onClick = onExplorer, modifier = Modifier.testTag(TX_EXPLORER_TAG))
+                LumioTextAction(text = "Open in Explorer", onClick = onExplorer, modifier = Modifier.testTag(TX_EXPLORER_TAG))
             }
         }
         if (detail.flags.isNotEmpty()) {
@@ -193,9 +193,9 @@ private fun PartyRow(
 /** The hash of the transaction in mono. A tap copies it, and the hash then reads "Copied" for 1.5 s. */
 @Composable
 private fun HashRow(hash: String) {
-    val copy = rememberCopyAction(value = hash, label = "Transaction hash")
+    val copy = rememberCopyAction(value = hash, label = "Transaction Hash")
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm)) {
-        Text(text = "Transaction hash", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = "Transaction Hash", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             text = if (copy.copied) "Copied" else hash,
             style = LumenMono,
@@ -221,7 +221,7 @@ private fun CommentEditor(saved: String?, onSave: (String) -> Unit) {
     )
     Spacer(Modifier.height(LenslySpacing.sm))
     LumioPrimaryButton(
-        text = "Save comment",
+        text = "Save Comment",
         onClick = { onSave(draft.trim()) },
         enabled = draft.trim() != saved.orEmpty().trim(),
     )

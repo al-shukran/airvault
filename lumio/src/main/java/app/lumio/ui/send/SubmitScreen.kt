@@ -89,9 +89,9 @@ fun SubmitScreen(
                 SubmitState.Idle -> LumioPrimaryButton(text = "Submit", onClick = onSubmit)
                 SubmitState.Submitting -> LumioPrimaryButton(text = "Submitting", onClick = {}, enabled = false)
                 is SubmitState.Failed -> if (current.retryable) {
-                    LumioPrimaryButton(text = "Try again", onClick = onSubmit)
+                    LumioPrimaryButton(text = "Try Again", onClick = onSubmit)
                 } else {
-                    LumioPrimaryButton(text = "Start a new send", onClick = onStartOver)
+                    LumioPrimaryButton(text = "Start a New Send", onClick = onStartOver)
                 }
                 is SubmitState.Sent -> LumioPrimaryButton(text = "Done", onClick = onDone)
             }
@@ -142,7 +142,7 @@ fun SubmitScreen(
                 }
                 if (explorerUrl(id) != null) {
                     LumioTextAction(
-                        text = "View on explorer",
+                        text = "View on Explorer",
                         onClick = { onOpenExplorer(id) },
                         modifier = Modifier.padding(top = LenslySpacing.sm),
                     )
@@ -201,13 +201,13 @@ fun evmSummary(send: PreparedSend): List<SummaryRow> {
         SummaryRow("From", send.from),
         SummaryRow("To", send.to),
         SummaryRow("Amount", amount),
-        SummaryRow("Fee, at most", EvmFormat.amount(send.maxFeeWei, chain.decimals, chain.symbol)),
+        SummaryRow("Fee, at Most", EvmFormat.amount(send.maxFeeWei, chain.decimals, chain.symbol)),
     )
 }
 
 /** The rows of a Bitcoin send: the account, the recipient, the amount and the fee. */
 fun btcSummary(plan: BtcSendPlan): List<SummaryRow> = listOf(
-    SummaryRow("Network", if (plan.network == BtcNetwork.TESTNET4) "Bitcoin testnet4" else "Bitcoin mainnet"),
+    SummaryRow("Network", if (plan.network == BtcNetwork.TESTNET4) "Bitcoin Testnet4" else "Bitcoin Mainnet"),
     SummaryRow("From", "${PairLabels.scriptType(plan.account.scriptType)}, ${plan.account.path.asString('\'')}"),
     SummaryRow("To", plan.recipient),
     SummaryRow("Amount", btcText(plan.amountSats)),
@@ -225,7 +225,7 @@ fun solanaSummary(plan: SolanaSendPlan, tokenSymbol: String = "SOL"): List<Summa
         "${SolanaAssets.text(token.amount, token.decimals)} $tokenSymbol"
     }
     return listOf(
-        SummaryRow("Network", if (plan.network.testnet) "Solana devnet" else "Solana mainnet-beta"),
+        SummaryRow("Network", if (plan.network.testnet) "Solana Devnet" else "Solana Mainnet-Beta"),
         SummaryRow("From", plan.senderAddress),
         SummaryRow("To", plan.recipientAddress),
         SummaryRow("Amount", amount),
@@ -238,7 +238,7 @@ fun solanaSummary(plan: SolanaSendPlan, tokenSymbol: String = "SOL"): List<Summa
  * An opt-in names the asset instead of a recipient, since it sends nothing.
  */
 fun algorandSummary(plan: AlgorandSendPlan, symbol: String = "ALGO", decimals: Int = 6): List<SummaryRow> {
-    val network = SummaryRow("Network", if (plan.network.testnet) "Algorand testnet" else "Algorand mainnet")
+    val network = SummaryRow("Network", if (plan.network.testnet) "Algorand Testnet" else "Algorand Mainnet")
     val from = SummaryRow("From", plan.fromAddress)
     val fee = SummaryRow("Fee", AlgorandFormat.amount(plan.fee))
     if (plan is AsaSendPlan && plan.isOptIn) {

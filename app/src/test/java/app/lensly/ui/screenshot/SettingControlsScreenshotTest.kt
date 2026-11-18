@@ -35,7 +35,7 @@ class SettingControlsScreenshotTest {
                 onSelect = {},
             )
             RadioRow(
-                title = "Segwit unverified",
+                title = "Segwit Unverified",
                 description = "Segwit amounts: you confirm them.",
                 selected = false,
                 onSelect = {},
@@ -47,7 +47,7 @@ class SettingControlsScreenshotTest {
     fun slider() = compose.snapshot("setting_controls_slider") {
         Column(modifier = Modifier.fillMaxWidth().padding(LenslySpacing.md)) {
             SliderSetting(
-                title = "Longest wait",
+                title = "Longest Wait",
                 options = listOf("1 s", "5 s", "10 s", "30 s", "1 min", "5 min", "15 min", "1 h"),
                 selected = "10 s",
                 label = { it },
@@ -61,7 +61,7 @@ class SettingControlsScreenshotTest {
     fun numberField() = compose.snapshot("setting_controls_number") {
         Column(modifier = Modifier.fillMaxWidth().padding(LenslySpacing.md)) {
             NumberFieldSetting(
-                title = "Fee rate above",
+                title = "Fee Rate Above",
                 value = 200,
                 range = 1..10_000,
                 suffix = "sat/vB",
@@ -74,7 +74,7 @@ class SettingControlsScreenshotTest {
     fun choiceRow() = compose.snapshot("setting_controls_choice") {
         Column(modifier = Modifier.fillMaxWidth().padding(LenslySpacing.md)) {
             ChoiceDialogRow(
-                label = "Bulk cap",
+                label = "Bulk Cap",
                 value = "100",
                 options = listOf("20", "50", "100"),
                 selected = "100",

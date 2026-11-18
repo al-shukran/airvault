@@ -39,7 +39,7 @@ fun MnemonicDisplayScreen(
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(
-        title = "Recovery phrase",
+        title = "Recovery Phrase",
         modifier = modifier,
         bottomAction = {
             WalletPill(
@@ -53,10 +53,10 @@ fun MnemonicDisplayScreen(
         WalletEyebrow("${words.size} words, in order")
         Spacer(Modifier.height(LenslySpacing.xs))
         // One line at 48sp, so the grid of 24 words fits above the button on a 720x1600 screen.
-        DotText(text = "Write down", fontSize = 48.sp)
+        DotText(text = "Write Down", fontSize = 48.sp)
         Spacer(Modifier.height(LenslySpacing.lg))
         InlineBanner(
-            title = "Never photograph",
+            title = "Never Photograph",
             message = "Anyone with these words can spend from this wallet. Write them down by hand.",
             tone = BannerTone.Warning,
         )

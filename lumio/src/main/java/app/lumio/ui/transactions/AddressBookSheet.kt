@@ -47,7 +47,7 @@ fun AddressBookSheet(
     var name by rememberSaveable(address) { mutableStateOf(entry?.name.orEmpty()) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = LenslySpacing.md).padding(bottom = LenslySpacing.lg)) {
-            Text(text = "Address book", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(text = "Address Book", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
             Text(text = groupAddress(address), style = LumenMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(LenslySpacing.sm))
             OutlinedTextField(

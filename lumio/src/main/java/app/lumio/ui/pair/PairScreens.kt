@@ -32,7 +32,7 @@ import app.lumio.ui.send.ReviewAddress
 @Composable
 fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit, complete: Boolean = false) {
     LumioScanScreen(
-        title = "Scan pairing code",
+        title = "Scan Pairing Code",
         progress = progress,
         statusText = status,
         onText = onText,
@@ -58,7 +58,7 @@ fun PairReviewScreen(
     val bitcoin = PairImport.bitcoinAccountsOf(pairing)
     val bitcoinNames = pairing.apps.firstOrNull { it.app == PairImport.BITCOIN }?.accounts.orEmpty().associateBy { it.key }
     LenslyScreen(
-        title = "Review pairing",
+        title = "Review Pairing",
         onBack = onCancel,
         bottomAction = { LumioPrimaryButton(text = if (alreadyPaired) "Update" else "Save", onClick = onSave) },
     ) {
@@ -87,7 +87,7 @@ fun PairReviewScreen(
 private fun EthereumReview(addresses: List<String>, accounts: List<PairingAccount>) {
     Spacer(Modifier.height(LenslySpacing.md))
     LumioTag(text = PairLabels.family(PairFamily.EVM))
-    ReviewField("Network", "All EVM networks")
+    ReviewField("Network", "All EVM Networks")
     ReviewField("Accounts", "${accounts.size}")
     accounts.sortedBy { it.key }.forEach { account -> EthereumAccountReview(address = addresses[account.key], account = account) }
 }
@@ -109,7 +109,7 @@ private fun EthereumAccountReview(address: String, account: PairingAccount) {
                 account.group?.let { LumioTag(text = it) }
             }
         }
-        ReviewAddress("First address", address)
+        ReviewAddress("First Address", address)
     }
 }
 
@@ -175,7 +175,7 @@ private fun BitcoinAccountReview(account: BtcWatchOnlyAccount, named: PairingAcc
             }
         }
         ReviewField("Path", account.path.asString('\''))
-        ReviewAddress("First address", address)
+        ReviewAddress("First Address", address)
     }
 }
 
@@ -183,7 +183,7 @@ private fun BitcoinAccountReview(account: BtcWatchOnlyAccount, named: PairingAcc
 private fun ReviewHeader(title: String, fingerprint: Long) {
     Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
     Spacer(Modifier.height(LenslySpacing.xs))
-    ReviewField("Master fingerprint", PairLabels.fingerprint(fingerprint))
+    ReviewField("Master Fingerprint", PairLabels.fingerprint(fingerprint))
 }
 
 @Composable

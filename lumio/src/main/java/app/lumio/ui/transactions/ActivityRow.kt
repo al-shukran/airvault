@@ -96,7 +96,7 @@ internal fun directionIcon(direction: TxDirection): ImageVector = when (directio
 fun directionTitle(direction: TxDirection): String = when (direction) {
     TxDirection.IN -> "Received"
     TxDirection.OUT -> "Sent"
-    TxDirection.SELF -> "Self transfer"
+    TxDirection.SELF -> "Self Transfer"
 }
 
 /** The other party of [tx], such as "From 0xab12...cd34", or "To yourself" for a transfer to the account itself. */

@@ -60,7 +60,7 @@ fun BtcAdvancedFields(suggestedRate: Double, rate: Double, onSave: (Double) -> U
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
-            label = { Text("Fee rate in sat/vB") },
+            label = { Text("Fee Rate in sat/vB") },
             singleLine = true,
             isError = error != null,
             supportingText = supporting,

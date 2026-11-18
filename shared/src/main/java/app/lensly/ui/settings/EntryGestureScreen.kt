@@ -57,7 +57,7 @@ fun EntryGestureScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LenslyScreen(title = "Hidden entry gesture", modifier = modifier, onBack = onBack) {
+    LenslyScreen(title = "Hidden Entry Gesture", modifier = modifier, onBack = onBack) {
         Text(
             text = "The gesture opens the hidden area from the camera. To change it, enter your Application Password, then perform " +
                 "the new gesture once. It is saved only after it works.",
@@ -65,7 +65,7 @@ fun EntryGestureScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = LenslySpacing.md),
         )
-        SettingsSection("Choose one") {
+        SettingsSection("Choose One") {
             Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
                 for (gesture in EntryGesture.entries) {
                     GestureOption(
@@ -157,7 +157,7 @@ fun EntryGesturePracticeStep(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LenslyScreen(title = "Hidden entry gesture", modifier = modifier, onBack = onBack, scrollable = false) {
+    LenslyScreen(title = "Hidden Entry Gesture", modifier = modifier, onBack = onBack, scrollable = false) {
         StepHeader(step = 2, count = CHANGE_STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
         DotHeadline(text = "Practice")

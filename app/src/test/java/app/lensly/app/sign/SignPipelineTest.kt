@@ -268,7 +268,7 @@ class SignPipelineTest {
         val review = ready.review
 
         assertEquals("0.01 MON", "${review.amount} ${review.symbol}")
-        assertEquals("Native transfer", review.function)
+        assertEquals("Native Transfer", review.function)
         assertEquals(ART_ADDRESS, review.fromAddress)
         assertEquals("Seed Wallet 0", review.fromAccountLabel)
         assertEquals(RECIPIENT, review.toAddress)
@@ -291,10 +291,10 @@ class SignPipelineTest {
 
         assertEquals(
             listOf(
-                "Gas limit" to "21000",
-                "Max fee per gas" to "30 gwei",
-                "Max priority fee" to "1.5 gwei",
-                "Max fee" to "0.00063 MON",
+                "Gas Limit" to "21000",
+                "Max Fee per Gas" to "30 gwei",
+                "Max Priority Fee" to "1.5 gwei",
+                "Max Fee" to "0.00063 MON",
             ),
             review.fee,
         )
@@ -314,7 +314,7 @@ class SignPipelineTest {
 
         assertEquals("Legacy", review.txType)
         assertEquals(
-            listOf("Gas limit" to "60000", "Gas price" to "20 gwei", "Max fee" to "0.0012 MON"),
+            listOf("Gas Limit" to "60000", "Gas Price" to "20 gwei", "Max Fee" to "0.0012 MON"),
             review.fee,
         )
     }
@@ -465,7 +465,7 @@ class SignPipelineTest {
 
         val refused = assertIs<Prepared.Refused>(prepared(requestCbor(tx, chainId = ETHEREUM)))
 
-        assertEquals("Unknown contract call", refused.reason)
+        assertEquals("Unknown Contract Call", refused.reason)
         val call = assertNotNull(refused.call)
         assertEquals(USDC_ETHEREUM, call.target)
         assertEquals("Ethereum", call.networkName)
@@ -571,7 +571,7 @@ class SignPipelineTest {
         val data = erc20Call(SELECTOR_BALANCE_OF, RECIPIENT, BigInteger.ZERO) + "ab"
         val cbor = requestCbor(eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data), chainId = ETHEREUM)
 
-        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(underPolicy(UnknownCallPolicy.REFUSE, cbor)).reason)
+        assertEquals("Unknown Contract Call", assertIs<Prepared.Refused>(underPolicy(UnknownCallPolicy.REFUSE, cbor)).reason)
 
         val review = assertIs<Prepared.Ready>(underPolicy(UnknownCallPolicy.WARN, cbor)).review
         assertTrue(review.warnings.single().startsWith("Unknown contract call."))
@@ -604,8 +604,8 @@ class SignPipelineTest {
         val onOtherContract = requestCbor(swapTx(ETHEREUM, UNREGISTERED), chainId = ETHEREUM)
         val onOtherChain = requestCbor(swapTx(BASE, WHITELISTED), chainId = BASE)
 
-        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(guarded(onOtherContract)).reason)
-        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(guarded(onOtherChain)).reason)
+        assertEquals("Unknown Contract Call", assertIs<Prepared.Refused>(guarded(onOtherContract)).reason)
+        assertEquals("Unknown Contract Call", assertIs<Prepared.Refused>(guarded(onOtherChain)).reason)
     }
 
     @Test
@@ -613,7 +613,7 @@ class SignPipelineTest {
         val data = callOf(SELECTOR_BALANCE_OF, addressWord(RECIPIENT))
         val tx = eip1559Tx(chainId = ETHEREUM, to = WHITELISTED, value = BigInteger.ZERO, data = data)
 
-        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(guarded(requestCbor(tx, chainId = ETHEREUM))).reason)
+        assertEquals("Unknown Contract Call", assertIs<Prepared.Refused>(guarded(requestCbor(tx, chainId = ETHEREUM))).reason)
     }
 
     @Test
@@ -703,12 +703,12 @@ class SignPipelineTest {
     @Test
     fun personalMessageIsReviewedAsTextWhenPrintableAndHexOtherwise() {
         val text = ready(requestCbor("Sign in to Lensly".toByteArray(Charsets.UTF_8), dataType = 3)).review
-        assertEquals("Sign message", text.function)
+        assertEquals("Sign Message", text.function)
         assertEquals(
             listOf("message" to "Sign in to Lensly", "size" to "17 characters, 17 bytes"),
             text.params,
         )
-        assertEquals("Personal message", text.txType)
+        assertEquals("Personal Message", text.txType)
         assertTrue(text.fee.isEmpty())
 
         val binary = byteArrayOf(0x00, 0x01, 0xff.toByte())
@@ -901,7 +901,7 @@ class SignPipelineTest {
         assertNull(review.network)
         assertEquals("1000000000000000000 base units", "${review.amount} ${review.symbol}")
         assertEquals("≈ 1.0 if 18 decimals (assumption, not verified)", review.amountNote)
-        assertEquals("Native transfer", review.function)
+        assertEquals("Native Transfer", review.function)
         assertEquals(RECIPIENT, review.toAddress)
         assertNull(review.tokenContract)
         assertNull(review.token)
@@ -909,10 +909,10 @@ class SignPipelineTest {
         assertTrue(review.needsRegistryConfirmation)
         assertEquals(
             listOf(
-                "Gas limit" to "21000",
-                "Max fee per gas" to "30 gwei",
-                "Max priority fee" to "1.5 gwei",
-                "Max fee" to "630000000000000 base units",
+                "Gas Limit" to "21000",
+                "Max Fee per Gas" to "30 gwei",
+                "Max Priority Fee" to "1.5 gwei",
+                "Max Fee" to "630000000000000 base units",
             ),
             review.fee,
         )
@@ -929,7 +929,7 @@ class SignPipelineTest {
 
         assertEquals("Legacy", review.txType)
         assertEquals(
-            listOf("Gas limit" to "60000", "Gas price" to "20 gwei", "Max fee" to "1200000000000000 base units"),
+            listOf("Gas Limit" to "60000", "Gas Price" to "20 gwei", "Max Fee" to "1200000000000000 base units"),
             review.fee,
         )
         assertTrue(review.needsRegistryConfirmation)
@@ -944,7 +944,7 @@ class SignPipelineTest {
         assertEquals("Unknown network (chain id $UNKNOWN_CHAIN)", review.networkName)
         assertEquals(UNKNOWN_CHAIN, review.chainId)
         assertNull(review.network)
-        assertEquals("Sign message", review.function)
+        assertEquals("Sign Message", review.function)
         assertEquals(listOf("message" to "Sign in to Lensly", "size" to "17 characters, 17 bytes"), review.params)
         assertTrue(review.needsRegistryConfirmation)
     }
@@ -1082,8 +1082,8 @@ class SignPipelineTest {
         val onUnknownToken = eip1559Tx(chainId = ETHEREUM, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
         val onUnknownChain = eip1559Tx(chainId = UNKNOWN_CHAIN, to = UNREGISTERED, value = BigInteger.ZERO, data = data)
 
-        assertEquals("Unknown contract call", refusal(requestCbor(onUnknownToken, chainId = ETHEREUM)))
-        assertEquals("Unknown contract call", refusal(requestCbor(onUnknownChain, chainId = UNKNOWN_CHAIN)))
+        assertEquals("Unknown Contract Call", refusal(requestCbor(onUnknownToken, chainId = ETHEREUM)))
+        assertEquals("Unknown Contract Call", refusal(requestCbor(onUnknownChain, chainId = UNKNOWN_CHAIN)))
     }
 
     @Test
@@ -1110,7 +1110,7 @@ class SignPipelineTest {
         val data = erc20Call(SELECTOR_BALANCE_OF, RECIPIENT, BigInteger.ZERO)
         val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
 
-        assertEquals("Unknown contract call", refusal(requestCbor(tx, chainId = ETHEREUM)))
+        assertEquals("Unknown Contract Call", refusal(requestCbor(tx, chainId = ETHEREUM)))
     }
 
     @Test
@@ -1377,7 +1377,7 @@ class SignPipelineTest {
         val cbor = requestCbor(eip1559Tx(to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data))
         val hidden = parsedWith(cbor) { it.copy(call = null) }
 
-        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(pipeline.prepare(hidden, VIEW)).reason)
+        assertEquals("Unknown Contract Call", assertIs<Prepared.Refused>(pipeline.prepare(hidden, VIEW)).reason)
     }
 
     @Test
@@ -1553,7 +1553,7 @@ class SignPipelineTest {
         assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(relabelled, VIEW))
         assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(flipped, VIEW))
         assertEquals(
-            "Unknown contract call",
+            "Unknown Contract Call",
             assertIs<Prepared.Refused>(pipeline.prepare(parsedWith(cbor) { it.copy(multicall = null) }, VIEW)).reason,
         )
     }
@@ -1578,7 +1578,7 @@ class SignPipelineTest {
 
         val refused = assertIs<Prepared.Refused>(batch(batchData(listOf(unknown))))
 
-        assertEquals("Unknown contract call", refused.reason)
+        assertEquals("Unknown Contract Call", refused.reason)
         assertEquals(ROUTER_CHECKSUM, refused.call?.target)
         assertEquals("70a08231", refused.call?.selector)
     }
@@ -1666,7 +1666,7 @@ class SignPipelineTest {
     fun aMalformedBatchIsAnUndecodableCall() {
         val malformed = "0x" + SELECTOR_MULTICALL + uintWord(BigInteger.valueOf(4096)) + uintWord(BigInteger.ZERO)
 
-        assertEquals("Unknown contract call", assertIs<Prepared.Refused>(batch(malformed)).reason)
+        assertEquals("Unknown Contract Call", assertIs<Prepared.Refused>(batch(malformed)).reason)
     }
 
     @Test

@@ -97,8 +97,8 @@ internal fun RecentActivitySection(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = WALLET_GUTTER)) {
-        SectionHeader(title = "Recent activity") {
-            SectionLink(text = "See all", onClick = onSeeAll)
+        SectionHeader(title = "Recent Activity") {
+            SectionLink(text = "See All", onClick = onSeeAll)
         }
         Spacer(Modifier.height(LenslySpacing.xs))
         if (records != null) {
@@ -130,7 +130,7 @@ internal fun WalletCarouselSection(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         SectionHeader(title = "Wallets", modifier = Modifier.padding(horizontal = WALLET_GUTTER)) {
-            SectionLink(text = "All wallets", onClick = onAllWallets)
+            SectionLink(text = "All Wallets", onClick = onAllWallets)
         }
         Spacer(Modifier.height(LenslySpacing.xs))
         LazyRow(

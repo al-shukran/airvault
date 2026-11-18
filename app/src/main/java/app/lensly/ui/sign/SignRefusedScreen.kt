@@ -49,11 +49,11 @@ fun SignRefusedScreen(
     call: UndecodedCall? = null,
 ) {
     LenslyScreen(
-        title = "Sign request",
+        title = "Sign Request",
         modifier = modifier,
         bottomAction = {
             PillButton(
-                text = "Back to wallet",
+                text = "Back to Wallet",
                 onClick = onDone,
                 modifier = Modifier.fillMaxWidth(),
             )

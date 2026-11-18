@@ -40,7 +40,7 @@ private const val SINGLE_KEY_NO_ALGORAND = "A Single Key wallet has no seed, so 
  * the address of each account in account order, so account N is the row at position N. The accounts are derived from the stored public keys,
  * so the seed is not read to show them.
  *
- * The overflow icon opens the App's options, the same as the Solana App's. "Add account" is the last row, and it makes one account. A Single
+ * The overflow icon opens the App's options, the same as the Solana App's. "Add Account" is the last row, and it makes one account. A Single
  * Key wallet shows a note in its place.
  */
 @Composable
@@ -62,7 +62,7 @@ fun AlgorandAccountsScreen(
         scrollable = false,
         topBar = {
             DetailTopBar(
-                title = "Algorand accounts",
+                title = "Algorand Accounts",
                 onBack = onBack,
                 onOptions = { optionsOpen = true },
                 optionsLabel = "App options",
@@ -90,7 +90,7 @@ fun AlgorandAccountsScreen(
                 if (singleKey) {
                     InlineBanner(message = SINGLE_KEY_NO_ALGORAND, tone = BannerTone.Info)
                 } else {
-                    AddAccountRow(label = "Add account", onClick = onAddAccount)
+                    AddAccountRow(label = "Add Account", onClick = onAddAccount)
                 }
             }
         }

@@ -3,7 +3,7 @@ package app.lumio.data.config
 import app.lensly.core.vault.VaultSession
 
 /**
- * The owner's "Prefer RPC over explorers" choice, kept as a vault record. It is off when nothing is stored, so balance reads ask the explorers
+ * The owner's "Prefer RPC over Explorers" choice, kept as a vault record. It is off when nothing is stored, so balance reads ask the explorers
  * first, as they always have.
  */
 object PreferRpcStore {

@@ -76,16 +76,16 @@ class AccountExportTest {
         val fields = view.fields.toMap()
 
         assertEquals(
-            listOf("Derivation path", "Depth", "Public key", "Chain code", "Parent fingerprint", "Master fingerprint"),
+            listOf("Derivation Path", "Depth", "Public Key", "Chain Code", "Parent Fingerprint", "Master Fingerprint"),
             view.fields.map { it.first },
         )
-        assertEquals("m/44'/60'/3'/0/0", fields.getValue("Derivation path"))
+        assertEquals("m/44'/60'/3'/0/0", fields.getValue("Derivation Path"))
         assertEquals("5", fields.getValue("Depth"))
         // 33 bytes and 32 bytes in hex, and 4 bytes of fingerprint: nothing is cut short.
-        assertEquals(66, fields.getValue("Public key").length)
-        assertEquals(64, fields.getValue("Chain code").length)
-        assertEquals(8, fields.getValue("Parent fingerprint").length)
-        assertEquals(artWallet.masterFingerprintHex, fields.getValue("Master fingerprint"))
+        assertEquals(66, fields.getValue("Public Key").length)
+        assertEquals(64, fields.getValue("Chain Code").length)
+        assertEquals(8, fields.getValue("Parent Fingerprint").length)
+        assertEquals(artWallet.masterFingerprintHex, fields.getValue("Master Fingerprint"))
     }
 
     @Test

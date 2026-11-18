@@ -36,7 +36,7 @@ const val ADDRESS_BOOK_ADDRESS_MAX_LENGTH = 64
 
 /** The network [address] is on, as the form names it, or null when it is not a valid address of Ethereum, Bitcoin, Solana or Algorand. */
 internal fun addressNetworkName(address: String): String? = when (chainOfAddress(address)) {
-    AddressChain.EVM -> "Ethereum and EVM networks"
+    AddressChain.EVM -> "Ethereum and EVM Networks"
     AddressChain.BITCOIN -> btcNetworkOf(address)?.let(::bitcoinNetworkName)
     AddressChain.SOLANA -> "Solana"
     AddressChain.ALGORAND -> "Algorand"
@@ -103,7 +103,7 @@ fun AddressBookFormScreen(
             ReadOnlyRow(label = "Network", value = addressNetworkName(address) ?: "Set by the address", mono = false)
             Spacer(Modifier.height(LenslySpacing.md))
             ProfileFieldRow(
-                label = "Address name",
+                label = "Address Name",
                 value = name,
                 placeholder = "Name this address",
                 focused = focused == AddressBookField.NAME,
@@ -112,7 +112,7 @@ fun AddressBookFormScreen(
             )
             Spacer(Modifier.height(LenslySpacing.md))
             ProfileFieldRow(
-                label = "Address label",
+                label = "Address Label",
                 value = label,
                 placeholder = "No label",
                 focused = focused == AddressBookField.LABEL,
@@ -121,7 +121,7 @@ fun AddressBookFormScreen(
             )
             Spacer(Modifier.height(LenslySpacing.md))
             ProfileFieldRow(
-                label = "Address notes",
+                label = "Address Notes",
                 value = notes,
                 placeholder = "No notes",
                 focused = focused == AddressBookField.NOTES,
@@ -130,7 +130,7 @@ fun AddressBookFormScreen(
             )
             if (onDelete != null) {
                 Spacer(Modifier.height(LenslySpacing.xl))
-                TextAction(text = "Delete address", onClick = onDelete, destructive = true)
+                TextAction(text = "Delete Address", onClick = onDelete, destructive = true)
             }
         }
     }

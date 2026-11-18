@@ -38,7 +38,7 @@ private fun reviewOf(atMs: Long, outcome: ReviewOutcome = ReviewOutcome.SIGNED) 
     to = RECIPIENT,
     amount = "1.5 USDC",
     tokenContract = CONTRACT_ADDR,
-    fee = listOf("Gas limit" to "21000", "Max fee" to "0.0021 MON"),
+    fee = listOf("Gas Limit" to "21000", "Max Fee" to "0.0021 MON"),
     params = listOf("to" to RECIPIENT, "value" to "1500000 (1.5 USDC)"),
     origin = "https://app.example",
     refusal = null,
@@ -278,7 +278,7 @@ class ReviewHistoryTest {
         outcome = ReviewOutcome.SIGNED,
         kind = ReviewKind.BITCOIN_TRANSACTION,
         chainId = null,
-        networkName = "Bitcoin testnet4",
+        networkName = "Bitcoin Testnet4",
         accountIndex = 0,
         address = null,
         function = null,
@@ -291,7 +291,7 @@ class ReviewHistoryTest {
         refusal = null,
         dataHash = "cd".repeat(32),
         bitcoin = BitcoinRecordFacts(
-            scriptType = "Native segwit P2WPKH",
+            scriptType = "Native Segwit P2WPKH",
             outputs = listOf(
                 BitcoinRecordOutput(address = "tb1qpaid", amountSats = 30_000L, isOwnChange = false),
                 BitcoinRecordOutput(address = null, amountSats = 0L, isOwnChange = false),

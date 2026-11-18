@@ -71,7 +71,7 @@ fun AccountProfileScreen(
     val unfocus = { onFocus(null) }
     KeyboardHost(focused = focused, onUnfocus = unfocus) {
         LenslyScreen(
-            title = "Account profile",
+            title = "Account Profile",
             modifier = modifier,
             bottomAction = {
                 ProfileBottom(focused = focused, onKey = onKey, onBackspace = onBackspace, onUnfocus = unfocus, onSave = onSave)
@@ -133,9 +133,9 @@ fun AccountProfileScreen(
             Spacer(Modifier.height(LenslySpacing.lg))
             ChipLine {
                 if (draft.name.isNotEmpty()) {
-                    WalletPill(text = "Reset name", onClick = onResetName, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+                    WalletPill(text = "Reset Name", onClick = onResetName, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
                 }
-                WalletPill(text = "Reset style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+                WalletPill(text = "Reset Style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
             }
         }
     }
@@ -164,7 +164,7 @@ fun WalletProfileScreen(
     val unfocus = { onFocus(null) }
     KeyboardHost(focused = focused, onUnfocus = unfocus) {
         LenslyScreen(
-            title = "Wallet profile",
+            title = "Wallet Profile",
             modifier = modifier,
             bottomAction = {
                 ProfileBottom(focused = focused, onKey = onKey, onBackspace = onBackspace, onUnfocus = unfocus, onSave = onSave)
@@ -193,7 +193,7 @@ fun WalletProfileScreen(
             ProfileFieldRow(
                 label = "Group",
                 value = draft.pendingGroup,
-                placeholder = if (full) "Eight groups at most" else "Add a group",
+                placeholder = if (full) "Eight groups at most" else "Add a Group",
                 focused = draft.focus == ProfileField.GROUP,
                 maxLength = PROFILE_TEXT_MAX_LENGTH,
                 onFocus = { onFocus(ProfileField.GROUP) },
@@ -222,7 +222,7 @@ fun WalletProfileScreen(
             ProfileIconRow(selected = draft.icon, onPick = onPickIcon)
             Spacer(Modifier.height(LenslySpacing.lg))
             ChipLine {
-                WalletPill(text = "Reset style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+                WalletPill(text = "Reset Style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
             }
         }
     }
@@ -252,7 +252,7 @@ fun StyleAccountsScreen(
     val unfocus = { onFocus(null) }
     KeyboardHost(focused = focused, onUnfocus = unfocus) {
         LenslyScreen(
-            title = "Account style",
+            title = "Account Style",
             modifier = modifier,
             bottomAction = {
                 ProfileBottom(focused = focused, onKey = onKey, onBackspace = onBackspace, onUnfocus = unfocus, onSave = onSave)
@@ -289,7 +289,7 @@ fun StyleAccountsScreen(
             Spacer(Modifier.height(LenslySpacing.xs))
             ChipLine {
                 WalletPill(
-                    text = "Clear label",
+                    text = "Clear Label",
                     onClick = { onClear(StyleField.LABEL) },
                     style = WalletPillStyle.Outline,
                     size = WalletPillSize.Compact,
@@ -307,12 +307,12 @@ fun StyleAccountsScreen(
             Spacer(Modifier.height(LenslySpacing.xs))
             ChipLine {
                 WalletPill(
-                    text = "Clear group",
+                    text = "Clear Group",
                     onClick = { onClear(StyleField.GROUP) },
                     style = WalletPillStyle.Outline,
                     size = WalletPillSize.Compact,
                 )
-                WalletPill(text = "Reset style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
+                WalletPill(text = "Reset Style", onClick = onResetStyle, style = WalletPillStyle.Outline, size = WalletPillSize.Compact)
             }
         }
     }

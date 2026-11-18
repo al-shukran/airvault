@@ -348,7 +348,7 @@ fun ScanPermissionPrompt(
         )
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
-            text = if (refused) "Camera is off" else "Camera access",
+            text = if (refused) "Camera Is Off" else "Camera Access",
             modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.headlineSmall,
             color = colors.onSurface,
@@ -368,16 +368,16 @@ fun ScanPermissionPrompt(
         Spacer(Modifier.height(LenslySpacing.xl))
         if (refused) {
             PillButton(
-                text = "Open settings",
+                text = "Open Settings",
                 onClick = onOpenSettings,
                 accent = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(LenslySpacing.sm))
-            PillButton(text = "Allow camera", onClick = onAllow, modifier = Modifier.fillMaxWidth())
+            PillButton(text = "Allow Camera", onClick = onAllow, modifier = Modifier.fillMaxWidth())
         } else {
             PillButton(
-                text = "Allow camera",
+                text = "Allow Camera",
                 onClick = onAllow,
                 accent = true,
                 modifier = Modifier.fillMaxWidth(),

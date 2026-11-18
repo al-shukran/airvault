@@ -56,18 +56,18 @@ class SolanaSplRowsTest {
         assertEquals(
             listOf(
                 "Signer" to payer,
-                "Fee payer" to payer,
-                "Recent blockhash" to BLOCKHASH,
+                "Fee Payer" to payer,
+                "Recent Blockhash" to BLOCKHASH,
                 "Program" to computeBudget,
-                "Compute limit" to "300000 units",
+                "Compute Limit" to "300000 units",
                 "Program" to computeBudget,
-                "Compute price" to "25000 micro-lamports per unit",
+                "Compute Price" to "25000 micro-lamports per unit",
                 "Program" to token,
-                "Token transfer" to "2 USDC",
+                "Token Transfer" to "2 USDC",
                 "Token" to "USD Coin (USDC)",
                 "Mint" to SolanaSplFixtures.USDC,
-                "From token account" to SolanaSplFixtures.SOURCE,
-                "To token account" to SolanaSplFixtures.DESTINATION,
+                "From Token Account" to SolanaSplFixtures.SOURCE,
+                "To Token Account" to SolanaSplFixtures.DESTINATION,
                 "Authority" to payer,
             ),
             solanaRows(review("spl-compute-transfer-checked", usdcTokens)),
@@ -78,7 +78,7 @@ class SolanaSplRowsTest {
     fun anUnlistedMintShowsItsAmountInUnitsOfAnUnknownTokenAndNoName() {
         val rows = solanaRows(review("spl-compute-transfer-checked"))
 
-        assertEquals("Token transfer" to "2 of an unknown token", rows.first { it.first == "Token transfer" })
+        assertEquals("Token Transfer" to "2 of an unknown token", rows.first { it.first == "Token Transfer" })
         assertEquals("Token" to "Unknown token", rows.first { it.first == "Token" })
         assertEquals("Mint" to SolanaSplFixtures.USDC, rows.first { it.first == "Mint" })
     }
@@ -90,11 +90,11 @@ class SolanaSplRowsTest {
         assertEquals(
             listOf(
                 "Program" to ata,
-                "Create token account" to "only if missing",
+                "Create Token Account" to "only if missing",
                 "Owner" to SolanaSplFixtures.OWNER,
                 "Token" to "USD Coin (USDC)",
                 "Mint" to SolanaSplFixtures.USDC,
-                "Token account" to SolanaSplFixtures.USDC_ATA,
+                "Token Account" to SolanaSplFixtures.USDC_ATA,
                 "Paid by" to payer,
             ),
             rows.subList(rows.indexOf("Program" to ata), rows.indexOf("Program" to ata) + 7),
@@ -109,10 +109,10 @@ class SolanaSplRowsTest {
         assertEquals(
             listOf(
                 "Instructions" to "4",
-                "Fee payer" to "AWxggjuZRm...2QbW7U",
-                "Base fee" to "5000 lamports",
-                "Priority fee" to "200 lamports",
-                "Max fee" to "5200 lamports",
+                "Fee Payer" to "AWxggjuZRm...2QbW7U",
+                "Base Fee" to "5000 lamports",
+                "Priority Fee" to "200 lamports",
+                "Max Fee" to "5200 lamports",
                 "Mint" to "EPjFWdd5Au...yTDt1v",
             ),
             solanaFacts(review),
@@ -127,12 +127,12 @@ class SolanaSplRowsTest {
         assertEquals(
             listOf(
                 "Signer" to payer,
-                "Fee payer" to payer,
-                "Recent blockhash" to BLOCKHASH,
+                "Fee Payer" to payer,
+                "Recent Blockhash" to BLOCKHASH,
                 "Program" to token,
-                "Token transfer" to "7 base units, decimals unknown",
-                "From token account" to SolanaSplFixtures.PLAIN_SOURCE,
-                "To token account" to SolanaSplFixtures.DESTINATION,
+                "Token Transfer" to "7 base units, decimals unknown",
+                "From Token Account" to SolanaSplFixtures.PLAIN_SOURCE,
+                "To Token Account" to SolanaSplFixtures.DESTINATION,
                 "Authority" to payer,
             ),
             solanaRows(review),
@@ -141,10 +141,10 @@ class SolanaSplRowsTest {
         assertEquals(
             listOf(
                 "Instructions" to "1",
-                "Fee payer" to "AWxggjuZRm...2QbW7U",
-                "Base fee" to "5000 lamports",
-                "Priority fee" to "0 lamports",
-                "Max fee" to "5000 lamports",
+                "Fee Payer" to "AWxggjuZRm...2QbW7U",
+                "Base Fee" to "5000 lamports",
+                "Priority Fee" to "0 lamports",
+                "Max Fee" to "5000 lamports",
             ),
             solanaFacts(review),
         )
@@ -156,8 +156,8 @@ class SolanaSplRowsTest {
 
         assertEquals(
             listOf(
-                "Unknown program" to unknownProgram,
-                "Instruction data" to "0xdeadbeef",
+                "Unknown Program" to unknownProgram,
+                "Instruction Data" to "0xdeadbeef",
                 "Account (signer, writable)" to payer,
             ),
             rows.subList(rows.size - 3, rows.size),
