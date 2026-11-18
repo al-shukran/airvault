@@ -11,6 +11,10 @@ import app.lumio.data.provider.AlgorandParams
 import app.lumio.data.provider.AlgorandPendingInfo
 import app.lumio.data.provider.AlgorandPendingTx
 import app.lumio.data.provider.AlgorandSuggestedParams
+import app.lumio.data.provider.AsaAssetInfo
+import app.lumio.data.provider.AsaHolding
+import app.lumio.data.provider.AsaHoldings
+import app.lumio.data.provider.AsaInfo
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
@@ -30,6 +34,9 @@ import app.lumio.data.provider.whole
 import app.lumio.data.rpc.PUBLIC_LIMITS
 import java.math.BigInteger
 import java.util.Base64
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -71,6 +78,8 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
             is AlgorandParams -> params(req, http) as T
             is AlgorandPendingTx -> pending(req, http) as T
             is Broadcast -> broadcast(req, http) as T
+            is AsaHoldings -> holdings(req, http) as T
+            is AsaAssetInfo -> assetInfo(req, http) as T
             else -> throw ProviderError.Unsupported()
         }
     }
@@ -80,6 +89,36 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
         if (!ADDRESS.matches(req.address)) throw ProviderError.NotFound()
         val url = urlOf(req.net, "v2", "accounts", req.address)
         return answerObject(send(http, get(url)))["amount"].amount()
+    }
+
+    /**
+     * The assets the account holds, from the `assets` list of `GET /v2/accounts/{address}`. Each entry gives its `asset-id`, its `amount` in asset units
+     * and whether it is `is-frozen`. An account that holds no assets has no list, which is no holdings.
+     */
+    private suspend fun holdings(req: AsaHoldings, http: Http): List<AsaHolding> {
+        val answer = answerObject(send(http, get(urlOf(req.net, "v2", "accounts", req.address))))
+        return (answer["assets"] as? JsonArray).orEmpty().map { entry ->
+            val asset = entry as? JsonObject ?: throw ProviderError.Fatal(SHAPE)
+            AsaHolding(
+                assetId = asset["asset-id"].whole(1L, Long.MAX_VALUE).toULong(),
+                amount = asset["amount"].amount(),
+                frozen = (asset["is-frozen"] as? JsonPrimitive)?.booleanOrNull == true,
+            )
+        }
+    }
+
+    /**
+     * The parameters of an asset, from the `params` of `GET /v2/assets/{id}`. The decimals are a whole number from 0 to 19. The unit name and the name
+     * may be empty, since the creator leaves them so. A missing `params` object is a malformed answer.
+     */
+    private suspend fun assetInfo(req: AsaAssetInfo, http: Http): AsaInfo {
+        val answer = answerObject(send(http, get(urlOf(req.net, "v2", "assets", req.assetId.toString()))))
+        val params = answer["params"] as? JsonObject ?: throw ProviderError.Fatal(SHAPE)
+        return AsaInfo(
+            decimals = params["decimals"].whole(0L, MAX_ASSET_DECIMALS).toInt(),
+            unitName = (params["unit-name"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+            name = (params["name"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+        )
     }
 
     /**
@@ -178,12 +217,20 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
             "mainnet" to "https://mainnet-api.algonode.cloud",
         )
 
-        /** The operations this provider serves on an Algorand network: balances, suggested parameters, pending transactions and broadcasts. */
-        private val OPS = setOf(Op.NATIVE_BALANCE, Op.SUGGESTED_PARAMS, Op.PENDING_TX, Op.BROADCAST)
+        /**
+         * The operations this provider serves on an Algorand network: balances, asset holdings, asset parameters, suggested parameters, pending
+         * transactions and broadcasts.
+         */
+        private val OPS = setOf(
+            Op.NATIVE_BALANCE, Op.TOKEN_BALANCES, Op.ASSET_INFO, Op.SUGGESTED_PARAMS, Op.PENDING_TX, Op.BROADCAST,
+        )
 
         private const val SHAPE = "The answer does not have the documented shape."
         private const val GENESIS_HASH_BYTES = 32
         private const val MAX_GENESIS_ID_BYTES = 128
+
+        /** The most decimals an Algorand asset can have. */
+        private const val MAX_ASSET_DECIMALS = 19L
 
         /** A fee is a count of microAlgos. No node suggests more than this, so a larger number is a malformed answer. */
         private const val MAX_FEE = 1_000_000_000_000L

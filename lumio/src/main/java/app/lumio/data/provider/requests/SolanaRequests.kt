@@ -52,15 +52,18 @@ class SolanaAddressHistory(net: NetworkId, val address: String, val limit: Int) 
 /** One transaction of a Solana history: [blockTimeS] in epoch seconds, [lamportDelta] the address's balance change in lamports. */
 data class SolanaTx(val signature: String, val slot: Long, val blockTimeS: Long?, val failed: Boolean, val lamportDelta: Long?)
 
-/** The SPL token balances of [owner] under the classic token program. Each [SplBalance] is one token account. */
+/** The SPL token balances of [owner], under the classic token program and Token-2022. Each [SplBalance] is one token account. */
 class SplTokenBalances(net: NetworkId, val owner: String) : Request<List<SplBalance>>(net, Op.TOKEN_BALANCES) {
     init {
         require(SOLANA_ADDRESS.matches(owner)) { "Not a Solana address." }
     }
 }
 
-/** One SPL token account: the [mint] of its token, its [amount] in base units, and the token's [decimals]. */
-data class SplBalance(val mint: String, val amount: BigInteger, val decimals: Int)
+/**
+ * One SPL token account: its own [account] address, the [mint] of its token, the token [program] that holds it, its [amount] in base units, and the
+ * token's [decimals].
+ */
+data class SplBalance(val account: String, val mint: String, val program: String, val amount: BigInteger, val decimals: Int)
 
 /** A transaction signature: 64 bytes in base58, so 86 to 88 characters. */
 internal val SOLANA_SIGNATURE = Regex("[1-9A-HJ-NP-Za-km-z]{86,88}")
