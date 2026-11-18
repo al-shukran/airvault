@@ -30,6 +30,33 @@ class SettingsStoreTest {
     // A session zeroes the key array it is given when it closes, so each session gets its own copy.
     private fun open(): VaultSession = VaultSession(VaultLayout(tmp.root), keys, vaultKey.copyOf())
 
+    /** The settings record the store writes now, with the fields given and the others at their defaults. */
+    private fun currentRecord(
+        accounts: Int = BulkCap.DEFAULT.accounts,
+        policyCode: Int = ProxyPolicy.DEFAULT.code,
+        shortestMs: Int = HideDelay.DEFAULT.minMs.toInt(),
+        longestMs: Int = HideDelay.DEFAULT.maxMs.toInt(),
+        rate: Int = BtcFeeThresholds.DEFAULT.highFeeRateSatPerVb,
+        share: Int = BtcFeeThresholds.DEFAULT.feeSharePercent,
+        inputCode: Int = InputVerificationPolicy.STRICT.wire,
+        sourceCode: Int = SigningSourcePolicy.ANY.wire,
+    ): ByteArray {
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(6) // The version the store writes; the companion's constant is private.
+            out.writeInt(accounts)
+            out.writeByte(policyCode)
+            out.writeInt(shortestMs)
+            out.writeInt(longestMs)
+            out.writeByte(inputCode)
+            out.writeByte(sourceCode)
+            out.writeInt(rate)
+            out.writeInt(share)
+            out.writeByte(UnknownCallPolicy.DEFAULT.code)
+        }
+        return buffer.toByteArray()
+    }
+
     /** The settings record as the store writes it, with a chosen version and account count. */
     private fun record(version: Int, accounts: Int): ByteArray {
         val buffer = ByteArrayOutputStream()
@@ -69,31 +96,6 @@ class SettingsStoreTest {
         reopened.close()
     }
 
-    /** A version 5 record has no unknown-call byte, so it reads as Warn and keeps every other saved setting. */
-    @Test
-    fun aVersionFiveRecordReadsAsWarnAndKeepsItsOtherSettings() {
-        val session = open()
-        val buffer = ByteArrayOutputStream()
-        DataOutputStream(buffer).use { out ->
-            out.writeByte(5)
-            out.writeInt(BulkCap.HUNDRED.accounts)
-            out.writeByte(ProxyPolicy.REFUSE_ALL_PROXIES.code)
-            out.writeInt(HideDelay.DEFAULT.minMs.toInt())
-            out.writeInt(HideDelay.DEFAULT.maxMs.toInt())
-            out.writeByte(InputVerificationPolicy.STRICT.wire)
-            out.writeByte(SigningSourcePolicy.ANY.wire)
-            out.writeInt(BtcFeeThresholds.DEFAULT.highFeeRateSatPerVb)
-            out.writeInt(BtcFeeThresholds.DEFAULT.feeSharePercent)
-        }
-        session.putVaultRecord("settings", buffer.toByteArray())
-
-        val loaded = SettingsStore(session).load()
-        assertEquals(UnknownCallPolicy.WARN, loaded.unknownCallPolicy)
-        assertEquals(BulkCap.HUNDRED, loaded.bulkCap)
-        assertEquals(ProxyPolicy.REFUSE_ALL_PROXIES, loaded.proxyPolicy)
-        session.close()
-    }
-
     @Test
     fun aSavedBulkCapIsReadBackAfterTheVaultReopens() {
         val first = open()
@@ -117,16 +119,6 @@ class SettingsStoreTest {
     }
 
     @Test
-    fun aLegacyThousandCapReadsAsOneHundred() {
-        // Before this change the largest cap was 1,000. A vault that saved it reads the largest cap offered now.
-        val session = open()
-        session.putVaultRecord("settings", record(version = 1, accounts = 1_000))
-
-        assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
-        session.close()
-    }
-
-    @Test
     fun everyOfferedBulkCapRoundTrips() {
         for (cap in BulkCap.entries) {
             val session = open()
@@ -140,34 +132,10 @@ class SettingsStoreTest {
     fun anUnofferedCapCountReadsAsOneHundred() {
         // A count the app does not offer, such as 500, reads as the largest cap offered, not as the default.
         val session = open()
-        session.putVaultRecord("settings", record(version = 1, accounts = 500))
+        session.putVaultRecord("settings", currentRecord(accounts = 500))
 
         assertEquals(BulkCap.HUNDRED, SettingsStore(session).load().bulkCap)
         session.close()
-    }
-
-    /** The settings record as version 2 writes it: the account count, then the Proxy Policy code. */
-    private fun recordV2(accounts: Int, policyCode: Int): ByteArray {
-        val buffer = ByteArrayOutputStream()
-        DataOutputStream(buffer).use { out ->
-            out.writeByte(2)
-            out.writeInt(accounts)
-            out.writeByte(policyCode)
-        }
-        return buffer.toByteArray()
-    }
-
-    /** The settings record as version 3 writes it, with the shortest and the longest hide delay in milliseconds. */
-    private fun recordV3(accounts: Int, policyCode: Int, shortestMs: Int, longestMs: Int): ByteArray {
-        val buffer = ByteArrayOutputStream()
-        DataOutputStream(buffer).use { out ->
-            out.writeByte(3)
-            out.writeInt(accounts)
-            out.writeByte(policyCode)
-            out.writeInt(shortestMs)
-            out.writeInt(longestMs)
-        }
-        return buffer.toByteArray()
     }
 
     @Test
@@ -212,23 +180,12 @@ class SettingsStoreTest {
     }
 
     @Test
-    fun aVersionTwoRecordReadsWithTheDefaultHideDelay() {
-        val session = open()
-        session.putVaultRecord("settings", recordV2(accounts = BulkCap.TWENTY.accounts, policyCode = ProxyPolicy.DEFAULT.code))
-
-        val loaded = SettingsStore(session).load()
-        assertEquals(BulkCap.TWENTY, loaded.bulkCap)
-        assertEquals(HideDelay.DEFAULT, loaded.hideDelay)
-        session.close()
-    }
-
-    @Test
     fun aHideDelayOutsideTheAcceptedRangeReadsAsTheDefaultAndKeepsTheRest() {
         for ((shortest, longest) in listOf(900 to 200, -1 to 500, 100 to 5_001)) {
             val session = open()
             session.putVaultRecord(
                 "settings",
-                recordV3(accounts = BulkCap.TWENTY.accounts, policyCode = ProxyPolicy.WARN_AND_CONFIRM.code, shortestMs = shortest, longestMs = longest),
+                currentRecord(accounts = BulkCap.TWENTY.accounts, policyCode = ProxyPolicy.WARN_AND_CONFIRM.code, shortestMs = shortest, longestMs = longest),
             )
 
             val loaded = SettingsStore(session).load()
@@ -242,7 +199,7 @@ class SettingsStoreTest {
     @Test
     fun anUnknownSettingsVersionReadsAsTheDefault() {
         val session = open()
-        session.putVaultRecord("settings", record(version = 5, accounts = 1_000))
+        session.putVaultRecord("settings", record(version = 7, accounts = 1_000))
 
         assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
         session.close()
@@ -271,20 +228,9 @@ class SettingsStoreTest {
     }
 
     @Test
-    fun aVersionOneRecordReadsWithTheDefaultProxyPolicy() {
-        val session = open()
-        session.putVaultRecord("settings", record(version = 1, accounts = BulkCap.TWENTY.accounts))
-
-        val loaded = SettingsStore(session).load()
-        assertEquals(BulkCap.TWENTY, loaded.bulkCap)
-        assertEquals(ProxyPolicy.DEFAULT, loaded.proxyPolicy)
-        session.close()
-    }
-
-    @Test
     fun anUnknownProxyPolicyCodeReadsAsTheDefault() {
         val session = open()
-        session.putVaultRecord("settings", recordV2(accounts = BulkCap.TWENTY.accounts, policyCode = 9))
+        session.putVaultRecord("settings", currentRecord(accounts = BulkCap.TWENTY.accounts, policyCode = 9))
 
         val loaded = SettingsStore(session).load()
         assertEquals(BulkCap.TWENTY, loaded.bulkCap)
@@ -295,8 +241,8 @@ class SettingsStoreTest {
     @Test
     fun aTruncatedSettingsRecordReadsAsTheDefault() {
         val session = open()
-        // Version 1, then no account count.
-        session.putVaultRecord("settings", byteArrayOf(1, 0))
+        // The current version, then one byte of the account count.
+        session.putVaultRecord("settings", byteArrayOf(6, 0))
 
         assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
         session.close()
@@ -376,31 +322,12 @@ class SettingsStoreTest {
     }
 
     @Test
-    fun aVersionThreeRecordReadsWithTheCoreBitcoinDefaults() {
-        val session = open()
-        session.putVaultRecord("settings", recordV3(accounts = 5, policyCode = 0, shortestMs = 250, longestMs = 4_000))
-
-        val loaded = SettingsStore(session).load()
-        assertEquals(HideDelay(250, 4_000), loaded.hideDelay)
-        assertEquals(InputVerificationPolicy.STRICT, loaded.bitcoinInputPolicy)
-        assertEquals(SigningSourcePolicy.ANY, loaded.bitcoinSigningSource)
-        session.close()
-    }
-
-    @Test
     fun anUnknownBitcoinPolicyCodeReadsAsItsCoreDefaultAndTheRestIsKept() {
         val session = open()
-        val buffer = ByteArrayOutputStream()
-        DataOutputStream(buffer).use { out ->
-            out.writeByte(4)
-            out.writeInt(5)
-            out.writeByte(0)
-            out.writeInt(250)
-            out.writeInt(4_000)
-            out.writeByte(9)
-            out.writeByte(SigningSourcePolicy.COMPANION_ONLY.wire)
-        }
-        session.putVaultRecord("settings", buffer.toByteArray())
+        session.putVaultRecord(
+            "settings",
+            currentRecord(accounts = 5, policyCode = 0, shortestMs = 250, longestMs = 4_000, inputCode = 9, sourceCode = SigningSourcePolicy.COMPANION_ONLY.wire),
+        )
 
         val loaded = SettingsStore(session).load()
         assertEquals(InputVerificationPolicy.STRICT, loaded.bitcoinInputPolicy)
@@ -417,38 +344,6 @@ class SettingsStoreTest {
         } finally {
             session.close()
         }
-    }
-
-    /** The settings record as version 4 writes it: every field of version 3, then the Bitcoin policies, and no fee limits. */
-    private fun recordV4(accounts: Int, policyCode: Int, shortestMs: Int, longestMs: Int, inputCode: Int, sourceCode: Int): ByteArray {
-        val buffer = ByteArrayOutputStream()
-        DataOutputStream(buffer).use { out ->
-            out.writeByte(4)
-            out.writeInt(accounts)
-            out.writeByte(policyCode)
-            out.writeInt(shortestMs)
-            out.writeInt(longestMs)
-            out.writeByte(inputCode)
-            out.writeByte(sourceCode)
-        }
-        return buffer.toByteArray()
-    }
-
-    /** The settings record as version 5 writes it, with the fee rate and fee share limits after the Bitcoin policies. */
-    private fun recordV5(rate: Int, share: Int): ByteArray {
-        val buffer = ByteArrayOutputStream()
-        DataOutputStream(buffer).use { out ->
-            out.writeByte(5)
-            out.writeInt(BulkCap.TWENTY.accounts)
-            out.writeByte(ProxyPolicy.WARN_AND_CONFIRM.code)
-            out.writeInt(HideDelay.DEFAULT.minMs.toInt())
-            out.writeInt(HideDelay.DEFAULT.maxMs.toInt())
-            out.writeByte(InputVerificationPolicy.STRICT.wire)
-            out.writeByte(SigningSourcePolicy.ANY.wire)
-            out.writeInt(rate)
-            out.writeInt(share)
-        }
-        return buffer.toByteArray()
     }
 
     @Test
@@ -492,31 +387,10 @@ class SettingsStoreTest {
     }
 
     @Test
-    fun aVersionFourRecordReadsWithTheDefaultFeeLimitsAndKeepsItsPolicies() {
-        withVault { session ->
-            session.putVaultRecord(
-                "settings",
-                recordV4(
-                    accounts = BulkCap.TWENTY.accounts,
-                    policyCode = ProxyPolicy.WARN_AND_CONFIRM.code,
-                    shortestMs = 100,
-                    longestMs = 500,
-                    inputCode = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED.wire,
-                    sourceCode = SigningSourcePolicy.COMPANION_ONLY.wire,
-                ),
-            )
-            val loaded = SettingsStore(session).load()
-            assertEquals(BtcFeeThresholds.DEFAULT, loaded.bitcoinFeeThresholds)
-            assertEquals(InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED, loaded.bitcoinInputPolicy)
-            assertEquals(SigningSourcePolicy.COMPANION_ONLY, loaded.bitcoinSigningSource)
-        }
-    }
-
-    @Test
     fun feeLimitsOutsideTheirRangesReadAsTheDefaultsAndKeepTheRest() {
         for ((rate, share) in listOf(0 to 10, 10_001 to 10, 200 to 0, 200 to 101)) {
             withVault { session ->
-                session.putVaultRecord("settings", recordV5(rate, share))
+                session.putVaultRecord("settings", currentRecord(rate = rate, share = share))
                 val loaded = SettingsStore(session).load()
                 assertEquals(BtcFeeThresholds.DEFAULT, loaded.bitcoinFeeThresholds, "limits $rate and $share")
                 assertEquals(InputVerificationPolicy.STRICT, loaded.bitcoinInputPolicy)
