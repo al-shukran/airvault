@@ -12,6 +12,7 @@ private var daySurfacesOnShow = 0
 /**
  * Sets the icons of the status and navigation bars for the theme in composition. The bars show the backdrop's colour, drawn edge to edge
  * behind them: the Day palette takes dark icons, and the Night palette and the camera and gate, which are always dark, take light icons.
+ * A screen under a Day palette must paint its backdrop behind the bars (HiddenBackdrop), or the cover's black shows there and dark icons vanish.
  */
 @Composable
 internal fun SystemBarIcons(lightBackground: Boolean) {

@@ -4,8 +4,8 @@
     <style name="Theme.Lensly" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/lensly_black</item>
         <item name="android:colorBackground">@color/lensly_black</item>
-        <item name="android:statusBarColor">@color/lensly_black</item>
-        <item name="android:navigationBarColor">@color/lensly_black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>

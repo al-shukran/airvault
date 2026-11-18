@@ -24,11 +24,11 @@ class SystemBarIconsTest {
     fun dayScreenTakesDarkIconsAndLeavingRestoresLightIcons() {
         var showing by mutableStateOf(true)
         compose.setContent { if (showing) SystemBarIcons(lightBackground = true) }
-        assertEquals(true, statusBarDarkIcons())
+        assertDarkIcons(true)
 
         compose.runOnIdle { showing = false }
         compose.waitForIdle()
-        assertEquals(false, statusBarDarkIcons())
+        assertDarkIcons(false)
     }
 
     @Test
@@ -42,29 +42,45 @@ class SystemBarIconsTest {
 
         compose.runOnIdle { first = false }
         compose.waitForIdle()
-        assertEquals(true, statusBarDarkIcons())
+        assertDarkIcons(true)
 
         compose.runOnIdle { second = false }
         compose.waitForIdle()
-        assertEquals(false, statusBarDarkIcons())
+        assertDarkIcons(false)
     }
 
     @Test
     @Config(qualifiers = "notnight")
     fun lumenOnADayDeviceTakesDarkIcons() {
         compose.setContent { LumenTheme { } }
-        assertEquals(true, statusBarDarkIcons())
+        assertDarkIcons(true)
     }
 
     @Test
     @Config(qualifiers = "night")
     fun lumenOnANightDeviceTakesLightIcons() {
         compose.setContent { LumenTheme { } }
-        assertEquals(false, statusBarDarkIcons())
+        assertDarkIcons(false)
     }
 
-    private fun statusBarDarkIcons(): Boolean {
+    /** The cover is always dark, so the dark icons of a Day screen go when the cover takes over from it. */
+    @Test
+    @Config(qualifiers = "notnight")
+    fun coverAfterADayScreenTakesLightIcons() {
+        var day by mutableStateOf(true)
+        compose.setContent { if (day) LumenTheme { } else CoverTheme { } }
+        assertDarkIcons(true)
+
+        compose.runOnIdle { day = false }
+        compose.waitForIdle()
+        assertDarkIcons(false)
+    }
+
+    /** The status bar and the navigation bar take the same icons. */
+    private fun assertDarkIcons(dark: Boolean) {
         val window = compose.activity.window
-        return WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        assertEquals("status bar", dark, controller.isAppearanceLightStatusBars)
+        assertEquals("navigation bar", dark, controller.isAppearanceLightNavigationBars)
     }
 }
