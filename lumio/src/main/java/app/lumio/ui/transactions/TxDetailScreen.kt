@@ -41,9 +41,9 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LumenMono
 import app.lumio.home.HomeFormat
 import app.lumio.transactions.TxDetail
-import app.lumio.ui.kit.LumioIsland
+import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus

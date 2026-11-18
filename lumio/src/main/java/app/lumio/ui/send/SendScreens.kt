@@ -49,10 +49,10 @@ import app.lumio.evm.EvmFormat
 import app.lumio.evm.PreparedSend
 import app.lumio.evm.SendAsset
 import app.lumio.evm.SendInput
-import app.lumio.ui.kit.LumioIsland
+import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTag
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioTextAction
 
 private const val TESTNET_LABEL = "Testnet"
 
