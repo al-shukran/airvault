@@ -33,13 +33,13 @@ val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
 val LocalNavScope = staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
 
 /**
- * The class of the route pattern [route] (section 2): Settings is the Fade, the send and pairing sheets are the Rises, and every other Lumio screen is a
+ * The class of the route pattern [route] (section 2): Settings is the Cover, the send and pairing sheets are the Rises, and every other Lumio screen is a
  * Push. The wallet pages drill in instead (see [isDrill]). The Wallets root has no class of its own (ROOT). Null when there is no route.
  */
 internal fun navMotionOf(route: String?): NavMotion? = when (route) {
     null -> null
     LumioRoute.WALLETS -> NavMotion.ROOT
-    LumioRoute.SETTINGS -> NavMotion.FADE
+    LumioRoute.SETTINGS -> NavMotion.COVER
     LumioRoute.RECEIVE, LumioRoute.SEND, LumioRoute.SOLANA_SEND, LumioRoute.ALGORAND_SEND, LumioRoute.BTC_SEND,
     LumioRoute.PAIR_SCAN, LumioRoute.PAIR_REVIEW -> NavMotion.RISE
     else -> NavMotion.PUSH

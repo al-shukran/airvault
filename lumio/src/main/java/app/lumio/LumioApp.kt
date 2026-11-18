@@ -263,6 +263,8 @@ class LumioApp : Application(), CoverApplication {
         if (session.isDecoy) return null
         val vault = LumioVault(session, database())
         vault.wallets = WalletsBoard(this, session)
+        // Read now, so Settings is whole on its first frame.
+        scope.launch { vault.settingsFacts.refresh() }
         scope.launch {
             vault.cache.purgeUnreadable()
             scanQueue.purgeUnreadable()

@@ -82,9 +82,10 @@ class LumioNavigationTest {
         compose.onNodeWithText("Settings screen").assertExists()
     }
 
-    /** The control for the cut above: with motion on, the leaving screen is still on show at 50 ms, and the Settings screen has arrived by 400 ms. */
+    /** The control for the cut above: with motion on, the leaving screen is still on show at 50 ms, and the Settings screen has arrived by 650 ms (the
+     * cover spring is within a pixel by then). */
     @Test
-    fun motionKeepsTheLeavingScreenOnShowDuringTheFade() {
+    fun motionKeepsTheLeavingScreenOnShowDuringTheCover() {
         setAnimatorScale(1f)
         showScreens()
 
@@ -92,7 +93,7 @@ class LumioNavigationTest {
         compose.mainClock.advanceTimeBy(50)
         compose.onNodeWithText("Wallets screen").assertExists()
 
-        compose.mainClock.advanceTimeBy(350)
+        compose.mainClock.advanceTimeBy(600)
         compose.onNodeWithText("Wallets screen").assertDoesNotExist()
         compose.onNodeWithText("Settings screen").assertExists()
     }
