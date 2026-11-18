@@ -23,6 +23,8 @@ result is checked against the transaction tail.
 | Name | Shape |
 |---|---|
 | `legacy-sol-transfer` | Legacy. System transfer of 1.5 SOL, payer to recipient. |
+| `spl-send-nonce-create-ata` | Legacy. A Lumio USDC send from a nonce account (`SolanaSplTransfer`): AdvanceNonceAccount, ATA CreateIdempotent for the recipient, TransferChecked of 1,234,567 units (6 decimals). The nonce value is `SHA-256("lensly spl send nonce value")`. |
+| `spl-send-nonce-existing-ata` | Legacy. The same send when the recipient already holds a token account: AdvanceNonceAccount, then TransferChecked. |
 | `v0-sol-transfer-alt` | v0. System transfer of 2.5M lamports. The recipient is loaded from one lookup table, at writable index 1. |
 | `v0-alt-readonly-raw` | v0. A transfer to an ALT writable account, plus an unknown program that reads an ALT readonly account. |
 | `legacy-spl-checked-ata-compute` | Legacy. Compute limit and price, ATA CreateIdempotent, classic Token TransferChecked (1,234,567 units, 6 decimals). |
