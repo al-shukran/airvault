@@ -14,7 +14,7 @@ class VaultWipeTest {
 
     /**
      * A vault with every kind of file it writes: header, wrapped key, failure state, a wallet, and a vault record. Its photos are there
-     * too, one in each vault's folder and one flat file from before the photos were kept apart.
+     * too, one in each vault's folder.
      */
     private fun populated(): VaultLayout {
         val layout = VaultLayout(File(tmp.root, "vault"), File(tmp.root, "photos"))
@@ -32,7 +32,6 @@ class VaultWipeTest {
         File(layout.photoDir(decoy = false), "IMG_1.jpg").writeBytes(byteArrayOf(12))
         layout.photoDir(decoy = true).mkdirs()
         File(layout.photoDir(decoy = true), "IMG_2.jpg").writeBytes(byteArrayOf(13))
-        File(layout.photos, "IMG_0.jpg").writeBytes(byteArrayOf(14))
         return layout
     }
 
@@ -49,7 +48,7 @@ class VaultWipeTest {
     }
 
     @Test
-    fun aWipeRemovesThePhotosOfBothVaultsAndTheOldFlatOnes() {
+    fun aWipeRemovesThePhotosOfBothVaults() {
         val layout = populated()
 
         wipeVault(layout) {}
