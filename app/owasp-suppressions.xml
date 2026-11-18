@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+  <!--
+    CVE-2012-2055 is a mass-assignment flaw in GitHub Enterprise (before 20120304): a remote user could set a public key's
+    user ID through the public-key update form. It has no connection to ZXing or to the io.github.zxing-cpp:android
+    barcode library. OWASP matched it through the generic CPE cpe:2.3:a:github:github, which the library's AAR carries
+    because of its GitHub-hosted coordinates. This suppression covers that one CVE on that one package at its one version,
+    so a later release of the library is scanned again.
+  -->
+  <suppress>
+    <notes>CPE false positive: CVE-2012-2055 is a GitHub Enterprise issue, not a ZXing or zxing-cpp issue. Matched through the generic github:github CPE.</notes>
+    <packageUrl regex="true">^pkg:maven/io\.github\.zxing\-cpp/android@3\.1\.1$</packageUrl>
+    <cve>CVE-2012-2055</cve>
+  </suppress>
+</suppressions>
