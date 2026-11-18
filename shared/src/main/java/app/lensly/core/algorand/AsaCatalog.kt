@@ -1,5 +1,6 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.AlgorandNetwork
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int

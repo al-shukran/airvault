@@ -1,5 +1,6 @@
 package app.lensly.ui.flow
 
+import app.airvault.chains.algorand.AlgoSignRequest
 import app.lensly.app.export.PairingExport
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
@@ -23,7 +24,6 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
-import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf

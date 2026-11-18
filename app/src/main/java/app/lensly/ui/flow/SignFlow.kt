@@ -1,5 +1,6 @@
 package app.lensly.ui.flow
 
+import app.airvault.chains.algorand.AlgoSignRequest
 import app.lensly.app.AddressNotes
 import app.lensly.app.BitcoinReviewed
 import app.lensly.app.SigningAccount
@@ -21,7 +22,6 @@ import app.lensly.core.parse.NOT_A_PSBT
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.solana.SolanaRequestReview
-import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.wallet.AccountAddresses

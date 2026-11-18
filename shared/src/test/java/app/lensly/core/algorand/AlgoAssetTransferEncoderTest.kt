@@ -1,7 +1,10 @@
 package app.lensly.core.algorand
 
-import app.lensly.core.ur.AlgoSignRequest
-import app.lensly.core.ur.AlgoSignType
+import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.AlgoSignType
+import app.airvault.chains.algorand.AssetTransfer
+import app.airvault.chains.algorand.signer.AlgoTxnDecoder
+import app.airvault.chains.algorand.signer.AlgoTxnException
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertContentEquals
 import kotlin.test.assertIs

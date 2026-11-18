@@ -1,5 +1,6 @@
 package app.lensly.ui.flow
 
+import app.airvault.chains.algorand.AlgoSignRequest
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
@@ -15,7 +16,6 @@ import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaInstruction
 import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.ur.AlgoSignRequest
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignatureEncoder

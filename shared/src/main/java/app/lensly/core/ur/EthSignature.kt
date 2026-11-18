@@ -57,7 +57,7 @@ class EthSignature(
         /** The request ID, with or without its tag 37, which must hold 16 bytes. */
         private fun requestIdOf(item: Cbor): ByteArray {
             val inner = if (item is Cbor.Tagged) {
-                if (item.tag != EthSignRequest.UUID_TAG) malformed("requestId must use tag 37")
+                if (item.tag != UUID_TAG) malformed("requestId must use tag 37")
                 item.value
             } else {
                 item

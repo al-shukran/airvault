@@ -1,5 +1,11 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.AlgoSignType
+import app.airvault.chains.algorand.AlgorandNetwork
+import app.airvault.chains.algorand.AssetTransfer
+import app.airvault.chains.algorand.Payment
+import app.airvault.chains.algorand.bytesToSign
 import app.lensly.core.algorand.AlgorandRequestCheck.CLAWBACK_REFUSED
 import app.lensly.core.algorand.AlgorandRequestCheck.DIFFERENT_ADDRESS
 import app.lensly.core.algorand.AlgorandRequestCheck.GENESIS_HASH_MISMATCH
@@ -9,8 +15,6 @@ import app.lensly.core.algorand.AlgorandRequestCheck.PATH_REFUSED
 import app.lensly.core.algorand.AlgorandRequestCheck.REKEY_REFUSED
 import app.lensly.core.algorand.AlgorandRequestCheck.UNKNOWN_ACCOUNT
 import app.lensly.core.algorand.AlgorandRequestCheck.UNKNOWN_NETWORK
-import app.lensly.core.ur.AlgoSignRequest
-import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
