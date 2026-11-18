@@ -12,7 +12,7 @@ import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.settings.AddressBookScreen
 
-/** The Address Book of the paired wallet [walletId], read only. The wallet's book is replaced by its next pairing from Lensly. */
+/** The Address Book of the paired wallet [walletId]. The wallet's book is replaced by its next pairing from Lensly. */
 @Composable
 internal fun AddressBookRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
     val session = holder.openSession()

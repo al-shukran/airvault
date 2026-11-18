@@ -2,7 +2,7 @@ package app.lumio.wallets
 
 import app.lensly.core.vault.VaultSession
 import app.lumio.LumioApp
-import app.lumio.bitcoinRefs
+import app.lumio.btc.BtcAccountRef
 import app.lumio.chains.NativeBalanceCache
 import app.lumio.chains.NativeBalances
 import app.lumio.data.asset.AssetId
@@ -48,7 +48,8 @@ internal object WalletsLoader {
      * accounts show at once. It reads no balance from the network.
      */
     suspend fun read(app: LumioApp, session: VaultSession, mode: NetworkMode): WalletsView {
-        val (wallets, accounts) = accountsOn(app, session, mode)
+        val wallets = withContext(Dispatchers.IO) { PairedWallets.list(session) }
+        val accounts = accountsOn(app, session, mode, wallets)
         val prices = HomeLoader.prices(app, accounts.values.flatten().mapNotNull { it.balance })
         return WalletsView(wallets, accounts, prices)
     }
@@ -66,7 +67,7 @@ internal object WalletsLoader {
 
     /**
      * The account [index] of [chain] in the wallet [walletId] on [mode]'s side, with the wallet's name, or null when the vault has no such account. It
-     * reads no price, so a receive opens without a network read.
+     * reads only that wallet and no price, so a receive opens without reading the other wallets or the network.
      */
     suspend fun account(
         app: LumioApp,
@@ -76,28 +77,28 @@ internal object WalletsLoader {
         chain: AccountChain,
         index: Int,
     ): Pair<String, WalletAccount>? {
-        val (wallets, accounts) = accountsOn(app, session, mode)
-        val account = accounts[walletId].orEmpty().firstOrNull { it.chain == chain && it.index == index } ?: return null
-        return wallets.firstOrNull { it.id == walletId }?.name.orEmpty() to account
+        val wallet = withContext(Dispatchers.IO) { PairedWallets.get(session, walletId) } ?: return null
+        val account = accountsOn(app, session, mode, listOf(wallet))[walletId].orEmpty()
+            .firstOrNull { it.chain == chain && it.index == index } ?: return null
+        return wallet.name to account
     }
 
-    /** The wallets and their accounts on [mode]'s side, from the open vault. Runs off the main thread. */
+    /** The accounts of [wallets] on [mode]'s side, from the open vault. Runs off the main thread. */
     private suspend fun accountsOn(
         app: LumioApp,
         session: VaultSession,
         mode: NetworkMode,
-    ): Pair<List<PairedWallet>, Map<String, List<WalletAccount>>> = withContext(Dispatchers.IO) {
+        wallets: List<PairedWallet>,
+    ): Map<String, List<WalletAccount>> = withContext(Dispatchers.IO) {
         val settings = EvmSettingsStore.read(session)
         val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
         val evmCache = BalanceCache.read(session)
         val nativeCache = NativeBalanceCache.read(session)
         val coins = NativeBalances.coinsOf(mode)
-        val bitcoin = rowsOf(app.lumioVault(), bitcoinRefs(session))
-        val wallets = PairedWallets.list(session)
-        val accounts = wallets.associate { wallet ->
+        val bitcoin = rowsOf(app.lumioVault(), wallets.flatMap { wallet -> wallet.bitcoin.map { BtcAccountRef(wallet.id, it) } })
+        wallets.associate { wallet ->
             wallet.id to WalletAccounts.of(wallet, mode, chains, evmCache, settings.addressCount, bitcoin, coins, nativeCache)
         }
-        wallets to accounts
     }
 }
 

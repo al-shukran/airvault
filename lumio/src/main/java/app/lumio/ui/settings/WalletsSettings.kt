@@ -88,7 +88,7 @@ fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onDelete: (
 }
 
 /**
- * The Address book rows: each paired wallet, with how many addresses its book holds. A tap on a wallet opens its book, which is read only.
+ * The Address book rows: each paired wallet, with how many addresses its book holds. A tap on a wallet opens its book.
  */
 @Composable
 fun AddressBookRows(wallets: List<PairedWallet>, onAddressBook: (PairedWallet) -> Unit) {
