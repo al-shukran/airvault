@@ -13,21 +13,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.awaitCancellation
 
 private const val KEYBOARD_MOTION_MS = 220
 
+/** Hides the keyboard of the enclosing [KeyboardHost]. The keyboard's down-arrow key calls it. Outside a host it does nothing. */
+val LocalKeyboardDismiss = staticCompositionLocalOf<() -> Unit> { {} }
+
 /**
  * Binds the in-app keyboard to field focus. [focused] is true while a field takes the keys. Then a tap on the screen that no control
- * takes, and the system Back, call [onUnfocus], which hides the keyboard. Back is taken here only while the keyboard is up, so the next
- * Back leaves the screen as it did before.
+ * takes, the keyboard's down-arrow key, and the system Back, call [onUnfocus], which hides the keyboard. Back is taken here only while
+ * the keyboard is up, so the next Back leaves the screen as it did before.
  *
  * The Back handler is added once the composition has settled, not in the same pass as the route's own handlers. Those can otherwise be
  * tried ahead of it, and the screen's Back would then leave the screen without hiding the keyboard first.
@@ -48,6 +53,7 @@ fun KeyboardHost(
             }
         }
     }
+    val dismiss: () -> Unit = remember { { unfocus() } }
     SideEffect { back.isEnabled = focused }
     LaunchedEffect(dispatcher) {
         dispatcher.addCallback(back)
@@ -64,7 +70,9 @@ fun KeyboardHost(
                 if (focused) detectTapGestures { unfocus() }
             },
     ) {
-        content()
+        CompositionLocalProvider(LocalKeyboardDismiss provides dismiss) {
+            content()
+        }
     }
 }
 
