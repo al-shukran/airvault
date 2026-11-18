@@ -62,7 +62,7 @@ class ProxyPolicyScreenTest {
     fun continueIsOffUntilThePickDiffersFromTheSavedPolicy() {
         show(saved = ProxyPolicy.DEFAULT, selected = null)
 
-        compose.onNodeWithText("CONTINUE").assertIsNotEnabled()
+        compose.onNodeWithText("Continue").assertIsNotEnabled()
     }
 
     @Test
@@ -87,7 +87,7 @@ class ProxyPolicyScreenTest {
         }
 
         compose.onNodeWithText("Warn and confirm").performClick()
-        compose.onNodeWithText("CONTINUE").assertIsEnabled().performClick()
+        compose.onNodeWithText("Continue").assertIsEnabled().performClick()
 
         assertTrue(continued)
     }

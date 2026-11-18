@@ -33,7 +33,7 @@ private val CoverWarning = Color(0xFFFFB020)
 private val CoverSuccess = Color(0xFF3DDC84)
 private val CoverError = Color(0xFFFF6B6B)
 
-private val CoverScheme = darkColorScheme(
+internal val CoverScheme = darkColorScheme(
     primary = CoverAccent,
     onPrimary = CoverOnSurface,
     secondary = CoverMuted,
@@ -61,7 +61,7 @@ private val CoverScheme = darkColorScheme(
 )
 
 /** The cover's extended roles: Lensly's own accent, success and warning. The cover shows no testnet strip and no glow. */
-private val CoverPalette = LumenPalette(
+internal val CoverPalette = LumenPalette(
     accentInk = CoverAccent,
     testnet = CoverMuted,
     positive = CoverSuccess,

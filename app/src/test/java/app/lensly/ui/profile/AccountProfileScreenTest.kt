@@ -53,7 +53,7 @@ class AccountProfileScreenTest {
         compose.onNodeWithText("No label").performClick()
         compose.onNodeWithContentDescription("Done").assertExists()
 
-        compose.onNodeWithText("ACCOUNT PROFILE").performClick()
+        compose.onNodeWithText("Account profile").performClick()
         compose.waitUntilKeyboardHidden()
         compose.onNodeWithText("SAVE").assertExists()
     }

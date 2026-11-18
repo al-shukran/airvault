@@ -52,7 +52,7 @@ class WalletHistoryScreenTest {
     fun anEmptyHistorySaysWhatWillBeListedHere() {
         show(emptyList())
 
-        compose.onNodeWithText("NO REVIEWS YET").assertIsDisplayed()
+        compose.onNodeWithText("No reviews yet").assertIsDisplayed()
     }
 
     @Test

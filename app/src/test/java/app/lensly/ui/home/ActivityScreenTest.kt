@@ -62,7 +62,7 @@ class ActivityScreenTest {
     fun withNoRecordTheScreenSaysWhatWillBeListedHere() {
         showActivity(emptyList())
 
-        compose.onNodeWithText("NO ACTIVITY YET").assertIsDisplayed()
+        compose.onNodeWithText("No activity yet").assertIsDisplayed()
     }
 
     @Test

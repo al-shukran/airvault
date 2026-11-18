@@ -251,16 +251,16 @@ class DiceEntryScreenTest {
     @Test
     fun doneAndUndoAreDisabledWhileHidden() {
         showEntry(EntropyMode.Dice, initial = "1".repeat(EntropyTargets.DICE_MINIMUM))
-        compose.onNodeWithText("DONE").assertIsEnabled()
+        compose.onNodeWithText("Done").assertIsEnabled()
         compose.onNodeWithTag(UNDO_TAG).assertIsEnabled()
 
         tapTile("Roll 1")
 
-        compose.onNodeWithText("DONE").assertIsNotEnabled()
+        compose.onNodeWithText("Done").assertIsNotEnabled()
         compose.onNodeWithTag(UNDO_TAG).assertIsNotEnabled()
 
         reveal()
-        compose.onNodeWithText("DONE").assertIsEnabled()
+        compose.onNodeWithText("Done").assertIsEnabled()
         compose.onNodeWithTag(UNDO_TAG).assertIsEnabled()
     }
 
@@ -318,7 +318,7 @@ class DiceEntryScreenTest {
 
         compose.onNodeWithText("AT LEAST 50 ROLLS").assertIsDisplayed()
         compose.onNodeWithTag(UNDO_TAG).assertIsDisplayed()
-        compose.onNodeWithText("DONE").assertIsDisplayed()
+        compose.onNodeWithText("Done").assertIsDisplayed()
         assertTrue(compose.onNodeWithTag(UNDO_TAG).getBoundsInRoot().bottom <= PHONE_HEIGHT)
     }
 

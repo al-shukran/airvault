@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
@@ -165,6 +164,7 @@ internal fun WalletCard(
 @Composable
 internal fun AddWalletTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
+    val corner = MaterialTheme.shapes.extraLarge.topStart
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
     Row(
@@ -176,7 +176,7 @@ internal fun AddWalletTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .drawBehind {
                 drawRoundRect(
                     color = colors.outline,
-                    cornerRadius = CornerRadius((MaterialTheme.shapes.extraLarge as RoundedCornerShape).topStart.toPx(size, this)),
+                    cornerRadius = CornerRadius(corner.toPx(size, this)),
                     style = Stroke(
                         width = 1.5.dp.toPx(),
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 8.dp.toPx())),

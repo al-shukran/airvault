@@ -11,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /** The bars take dark icons on the Day palette and light icons otherwise, and the light icons come back when no Day screen is on show. */
 @RunWith(RobolectricTestRunner::class)
@@ -45,6 +46,20 @@ class SystemBarIconsTest {
 
         compose.runOnIdle { second = false }
         compose.waitForIdle()
+        assertEquals(false, statusBarDarkIcons())
+    }
+
+    @Test
+    @Config(qualifiers = "notnight")
+    fun lumenOnADayDeviceTakesDarkIcons() {
+        compose.setContent { LumenTheme { } }
+        assertEquals(true, statusBarDarkIcons())
+    }
+
+    @Test
+    @Config(qualifiers = "night")
+    fun lumenOnANightDeviceTakesLightIcons() {
+        compose.setContent { LumenTheme { } }
         assertEquals(false, statusBarDarkIcons())
     }
 

@@ -71,8 +71,8 @@ class WalletHomeScreenTest {
         settle()
 
         compose.onNodeWithText("your first wallet", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("CREATE").assertIsDisplayed()
-        compose.onNodeWithText("RESTORE").assertIsDisplayed()
+        compose.onNodeWithText("Create").assertIsDisplayed()
+        compose.onNodeWithText("Restore").assertIsDisplayed()
         compose.onNodeWithTag(HOME_CAROUSEL_TAG).assertDoesNotExist()
         compose.onAllNodesWithTag(WALLET_CARD_TAG).assertCountEquals(0)
         // Scanning needs a wallet, so the empty state has no Scan to sign button.
@@ -103,7 +103,7 @@ class WalletHomeScreenTest {
         }
         settle()
 
-        compose.onNodeWithText("CREATE").performClick()
+        compose.onNodeWithText("Create").performClick()
         settle()
 
         assertEquals(HiddenRoute.CEREMONY_CHOICE, nav.currentBackStackEntry?.destination?.route)
@@ -130,7 +130,7 @@ class WalletHomeScreenTest {
         }
         settle()
 
-        compose.onNodeWithText("RESTORE").performClick()
+        compose.onNodeWithText("Restore").performClick()
         settle()
 
         assertEquals(HiddenRoute.RESTORE, nav.currentBackStackEntry?.destination?.route)

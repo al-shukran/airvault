@@ -64,7 +64,7 @@ class FailureCapScreenTest {
     fun theScreenIsTitledWrongPasswordLockout() {
         show(saved = FailureCapChoice.TEN_SECONDS, selected = null)
 
-        compose.onNodeWithText("WRONG PASSWORD LOCKOUT").assertIsDisplayed()
+        compose.onNodeWithText("Wrong password lockout").assertIsDisplayed()
     }
 
     @Test
@@ -133,14 +133,14 @@ class FailureCapScreenTest {
     fun continueIsOffUntilThePickDiffersFromTheSavedCap() {
         show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.DEFAULT)
 
-        compose.onNodeWithText("CONTINUE").assertIsNotEnabled()
+        compose.onNodeWithText("Continue").assertIsNotEnabled()
     }
 
     @Test
     fun continueIsOnOnceAnotherCapIsPicked() {
         show(saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.ONE_HOUR)
 
-        compose.onNodeWithText("CONTINUE").assertIsEnabled()
+        compose.onNodeWithText("Continue").assertIsEnabled()
     }
 
     @Test

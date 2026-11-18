@@ -97,8 +97,8 @@ class BitcoinAccountsScreenTest {
         compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertDoesNotExist()
         compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertDoesNotExist()
         // Each row names its network: one account on mainnet and one on testnet4, which shows as Testnet.
-        compose.onNodeWithText("MAINNET").assertIsDisplayed()
-        compose.onNodeWithText("TESTNET").assertIsDisplayed()
+        compose.onNodeWithText("Mainnet").assertIsDisplayed()
+        compose.onNodeWithText("Testnet").assertIsDisplayed()
 
         compose.onNodeWithText("TAPROOT BIP86").performClick()
         compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertIsDisplayed()
@@ -184,8 +184,8 @@ class BitcoinAccountsScreenTest {
         }
 
         compose.onNodeWithText("COLD").assertIsDisplayed()
-        // The label chip is set in capitals, as every chip of the app is.
-        compose.onNodeWithText("VAULT").assertIsDisplayed()
+        // The label chip shows the label as it was typed.
+        compose.onNodeWithText("vault").assertIsDisplayed()
         // The taproot account has no name, so it shows the Auto-Name its wallet gives its index, as an Ethereum account does.
         compose.onNodeWithText("SEED WALLET 0").assertIsDisplayed()
     }

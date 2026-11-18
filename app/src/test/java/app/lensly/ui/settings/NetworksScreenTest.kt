@@ -83,7 +83,7 @@ class NetworksScreenTest {
     fun aTestnetCardIsMarkedTestnet() {
         show(networks)
 
-        compose.onAllNodesWithText("TESTNET").assertCountEquals(2)
+        compose.onAllNodesWithText("Testnet").assertCountEquals(2)
     }
 
     @Test
