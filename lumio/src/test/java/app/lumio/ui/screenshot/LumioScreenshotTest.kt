@@ -182,6 +182,7 @@ class LumioScreenshotTest {
             onOpen = {},
             network = NetworkMode.MAINNET,
             onNetwork = {},
+            onBack = {},
         )
     }
 

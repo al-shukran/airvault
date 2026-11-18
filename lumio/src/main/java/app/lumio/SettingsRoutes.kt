@@ -3,13 +3,12 @@ package app.lumio
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
+import app.lumio.ui.kit.lumioComposable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
@@ -18,7 +17,6 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.evm.EvmSettingsStore
-import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddressBookRows
@@ -56,15 +54,12 @@ internal fun SettingsRoute(navController: NavHostController, holder: VaultHolder
     }
     val gesture = LocalContext.current.entryGestureHolder().current
     val current = facts ?: return
-    val scope = rememberCoroutineScope()
     LumioSettingsScreen(
         rows = settingsRows(current, gesture, BuildConfig.VERSION_NAME),
         onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
         network = selection.mode,
-        onNetwork = { next ->
-            selection.mode = next
-            if (session != null) scope.launch { onVault(Unit) { NetworkModeStore.write(session, next) } }
-        },
+        onNetwork = selection::choose,
+        onBack = { navController.popBackStack() },
     )
 }
 
@@ -93,16 +88,16 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     onChanged: () -> Unit,
     lockChoices: LockSettingsState,
 ) {
-    composable(LumioRoute.SETTINGS_DISPLAY) {
+    lumioComposable(LumioRoute.SETTINGS_DISPLAY) {
         LumioBackdrop(selection) { DisplaySettingsRoute(navController = navController, holder = holder) }
     }
-    composable(LumioRoute.SETTINGS_TRANSACTIONS) {
+    lumioComposable(LumioRoute.SETTINGS_TRANSACTIONS) {
         LumioBackdrop(selection) { TransactionsSettingsRoute(navController = navController, holder = holder) }
     }
-    composable(LumioRoute.SETTINGS_NETWORKS) {
+    lumioComposable(LumioRoute.SETTINGS_NETWORKS) {
         LumioBackdrop(selection) { NetworksSettingsRoute(navController = navController, holder = holder) }
     }
-    composable(LumioRoute.SETTINGS_WALLETS) {
+    lumioComposable(LumioRoute.SETTINGS_WALLETS) {
         LumioBackdrop(selection) {
             WalletsSettingsPage(
                 onBack = { navController.popBackStack() },
@@ -110,15 +105,15 @@ internal fun NavGraphBuilder.settingsPageRoutes(
             )
         }
     }
-    composable(LumioRoute.SETTINGS_ADDRESSES) {
+    lumioComposable(LumioRoute.SETTINGS_ADDRESSES) {
         LumioBackdrop(selection) {
             AddressBookSettingsRoute(navController = navController, holder = holder, listVersion = listVersion)
         }
     }
-    composable(LumioRoute.SETTINGS_SECURITY) {
+    lumioComposable(LumioRoute.SETTINGS_SECURITY) {
         LumioBackdrop(selection) { SecuritySettingsRoute(navController = navController, lockChoices = lockChoices) }
     }
-    composable(LumioRoute.SETTINGS_ABOUT) {
+    lumioComposable(LumioRoute.SETTINGS_ABOUT) {
         LumioBackdrop(selection) { AboutSettingsRoute(navController = navController) }
     }
 }

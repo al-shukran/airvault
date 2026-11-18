@@ -131,7 +131,6 @@ internal fun WalletsRoute(
     holder: VaultHolder,
     selection: NetworkSelection,
     listVersion: Int,
-    onLock: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
@@ -152,7 +151,7 @@ internal fun WalletsRoute(
         onWallet = { id -> navController.navigate(LumioRoute.wallet(id)) },
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         onRefresh = state.refresh,
-        onLock = onLock,
+        onSettings = { navController.navigate(LumioRoute.SETTINGS) { launchSingleTop = true } },
     )
 }
 

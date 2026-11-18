@@ -2,11 +2,16 @@ package app.lumio.ui.wallets
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -16,20 +21,20 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.HomeTopBar
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WALLET_GUTTER
-import app.lumio.ui.home.LumioMark
 import app.lensly.ui.theme.LocalLumenPalette
 
 /** One row of the Wallets list: the wallet's [id], its [name], and the [detail] under it, a total in dollars or the count of its accounts per chain. */
 data class WalletRow(val id: String, val name: String, val detail: String)
 
 /**
- * The start screen: one row per paired wallet, each opening the wallet. Under the rows, "Pair a wallet" is the one text action. [notice] names a read
- * that did not answer, and pull to refresh reads the balances again. The top bar holds the lock, as on every Lumio screen.
+ * The start screen (section 2): one row per paired wallet, each opening the wallet, and "Pair a wallet" as the one text action under them. The top bar
+ * is the screen's title with the gear, which opens Settings, and the lock. [notice] names a read that did not answer, and pull to refresh reads the
+ * balances again.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,11 +45,11 @@ fun WalletsScreen(
     onWallet: (String) -> Unit,
     onPair: () -> Unit,
     onRefresh: () -> Unit,
-    onLock: () -> Unit,
+    onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
-        HomeTopBar(wordmark = "LUMIO", onLock = onLock, mark = { LumioMark() })
+    Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
+        DetailTopBar(title = "Wallets", onBack = null, onOptions = onSettings, optionsIcon = Icons.Filled.Settings, optionsLabel = "Settings")
         PullToRefreshBox(
             isRefreshing = refreshing,
             onRefresh = onRefresh,
