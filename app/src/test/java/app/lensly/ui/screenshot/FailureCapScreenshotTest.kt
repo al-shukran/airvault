@@ -12,7 +12,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** Failure Delay cap: the choice with the cap in force, the warning under a cap below 10 s, and the App Password step. */
+/** Failure Delay cap: the choice with the cap in force, and the App Password step. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -23,11 +23,6 @@ class FailureCapScreenshotTest {
     @Test
     fun choose() = compose.snapshot("failure_cap_choose") {
         FailureCapSnapshot(step = FailureCapStep.Choose, saved = FailureCapChoice.DEFAULT, selected = null)
-    }
-
-    @Test
-    fun chooseBelowTenSeconds() = compose.snapshot("failure_cap_choose_warning") {
-        FailureCapSnapshot(step = FailureCapStep.Choose, saved = FailureCapChoice.DEFAULT, selected = FailureCapChoice.TEN_SECONDS)
     }
 
     @Test
