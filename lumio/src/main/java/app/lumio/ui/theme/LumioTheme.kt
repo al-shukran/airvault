@@ -16,6 +16,7 @@ import app.lensly.ui.theme.LocalWarningColor
 fun LumioTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val palette = if (dark) NightPalette else DayPalette
+    SystemBarIcons(lightBackground = !dark)
     CompositionLocalProvider(
         LocalLumioPalette provides palette,
         LocalReducedMotion provides rememberReducedMotion(),
