@@ -27,7 +27,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** The wrong password lockout: its wording, the slider of caps, the waits each cap sets, and the warning under 10 s. */
+/** The wrong password lockout: its wording, the slider of caps, and the waits each cap sets. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 class FailureCapScreenTest {
