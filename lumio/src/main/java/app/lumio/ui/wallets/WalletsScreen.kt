@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -25,8 +24,9 @@ import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lensly.ui.theme.LocalLumenPalette
+import app.lensly.ui.wallet.WALLET_GUTTER
+import app.lumio.ui.pair.PairIntro
 
 /** One row of the Wallets list: the wallet's [id], its [name], and the [detail] under it, a total in dollars or the count of its accounts per chain. */
 data class WalletRow(val id: String, val name: String, val detail: String)
@@ -65,20 +65,17 @@ fun WalletsScreen(
                     }
                 }
                 if (rows.isEmpty()) {
-                    item(key = "empty") {
-                        Text(
-                            text = "No wallets paired yet. Pair a wallet from Lensly to see its accounts here.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = LenslySpacing.md),
-                        )
+                    item(key = "intro") {
+                        PairIntro(onScan = onPair, modifier = Modifier.fillParentMaxHeight())
                     }
                 }
                 items(rows, key = { it.id }) { row ->
                     SettingsRow(title = row.name, description = row.detail, onClick = { onWallet(row.id) })
                 }
-                item(key = "pair") {
-                    TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumenPalette.current.accentInk)) { Text("Pair a Wallet") }
+                if (rows.isNotEmpty()) {
+                    item(key = "pair") {
+                        TextButton(onClick = onPair, colors = ButtonDefaults.textButtonColors(contentColor = LocalLumenPalette.current.accentInk)) { Text("Pair a Wallet") }
+                    }
                 }
             }
         }

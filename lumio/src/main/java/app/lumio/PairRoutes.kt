@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -36,6 +37,17 @@ import kotlinx.coroutines.withContext
 
 private const val SCAN_HINT = "Point the camera at the pairing code that Lensly shows."
 private const val SCAN_READING = "Reading the code. Keep the camera on it."
+private const val SCAN_STALLED = "Move a little closer, or tilt to cut glare."
+
+/** How long a scan waits for a new part before it asks the owner to move closer (section 2.1). */
+private const val STALL_AFTER_MS = 6_000L
+
+/** The pause after the last part, while the ring closes and the check shows, before the review opens (section 2.1). */
+private const val COMPLETE_MS = 350L
+
+/** The line under the viewfinder while an animated code is read: how many of its parts are in, against the number that it declares. */
+private fun readingStatus(received: Int, expected: Int): String =
+    if (expected <= 0) SCAN_READING else "${minOf(received, expected)} of about $expected parts · hold steady"
 private const val SAVE_FAILED = "The pairing could not be saved. Try again."
 
 /** The pause between the frames of the debug fixture, long enough for the progress to show. */
@@ -52,19 +64,29 @@ internal fun PairScanRoute(navController: NavHostController, draft: PairDraft) {
     var progress by remember { mutableStateOf<Float?>(null) }
     var status by remember { mutableStateOf(SCAN_HINT) }
     var finished by remember { mutableStateOf(false) }
+    var complete by remember { mutableStateOf(false) }
+    var parts by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
 
     fun onText(text: String) {
         if (finished) return
         when (val step = scan.onText(text)) {
             is ScanStep.Reading -> {
                 progress = step.fraction
-                status = SCAN_READING
+                status = readingStatus(step.received, step.expected)
+                parts++
             }
             is ScanStep.Complete -> {
                 finished = true
                 draft.pairing = step.pairing
-                navController.navigate(LumioRoute.PAIR_REVIEW) {
-                    popUpTo(LumioRoute.PAIR_SCAN) { inclusive = true }
+                progress = 1f
+                complete = true
+                // The ring closes and the check shows for a moment before the review opens (section 2.1).
+                scope.launch {
+                    delay(COMPLETE_MS)
+                    navController.navigate(LumioRoute.PAIR_REVIEW) {
+                        popUpTo(LumioRoute.PAIR_SCAN) { inclusive = true }
+                    }
                 }
             }
             is ScanStep.Refused -> {
@@ -83,10 +105,16 @@ internal fun PairScanRoute(navController: NavHostController, draft: PairDraft) {
             onText(part)
         }
     }
+    // Each new part restarts the wait: when none comes for a while, the code is probably out of focus or in glare.
+    LaunchedEffect(parts) {
+        delay(STALL_AFTER_MS)
+        if (!finished) status = SCAN_STALLED
+    }
     BackHandler { navController.popBackStack() }
     PairScanScreen(
         progress = progress,
         status = status,
+        complete = complete,
         onText = ::onText,
         onCancel = { navController.popBackStack() },
     )
