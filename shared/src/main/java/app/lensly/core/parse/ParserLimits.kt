@@ -78,7 +78,7 @@ class DecodeBudget(
     private val name: String,
     private val maxItems: Int,
     private val maxNanos: Long = ParserLimits.DECODE_BUDGET_NANOS,
-    private val nanoTime: () -> Long = System::nanoTime,
+    private val nanoTime: () -> Long = DecodeClock.nanoTime,
 ) {
     private val started = nanoTime()
     private var items = 0
@@ -90,4 +90,13 @@ class DecodeBudget(
         if (nanoTime() - started > maxNanos) return "$name decoding ran past its time budget"
         return null
     }
+}
+
+/**
+ * The clock that a [DecodeBudget] reads when its caller gives none. The budget is wall-clock time, so a loaded runner can spend it
+ * on a decode that is fine. A test whose subject is not the budget stops this clock for its run, and gives it back afterwards.
+ */
+object DecodeClock {
+    @Volatile
+    var nanoTime: () -> Long = System::nanoTime
 }

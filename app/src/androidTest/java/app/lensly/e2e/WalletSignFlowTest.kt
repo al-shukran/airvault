@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -86,7 +87,8 @@ class WalletSignFlowTest : SignFlowE2eBase() {
 
         scrollReviewToTheEnd()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
-        compose.onNodeWithText("I checked the chain ID and contract").performClick()
+        // The check is a row of the risk banner, above the end of the review, so it is scrolled into view before it is ticked.
+        compose.onNodeWithText("I checked the chain ID and contract").performScrollTo().performClick()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
 
         val parts = driver.approveAndSign { it is SignStep.Confirming }
