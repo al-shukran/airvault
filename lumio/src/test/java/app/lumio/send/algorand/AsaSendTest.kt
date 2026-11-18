@@ -120,6 +120,6 @@ class AsaSendTest {
     fun aPlanGivesLenslyARequestToSign() {
         val plan = transfer()
 
-        assertTrue(AsaSend.requestParts(plan, ByteArray(16) { 7 }).isNotEmpty())
+        assertTrue(AlgorandSend.requestParts(plan, ByteArray(16) { 7 }).isNotEmpty())
     }
 }

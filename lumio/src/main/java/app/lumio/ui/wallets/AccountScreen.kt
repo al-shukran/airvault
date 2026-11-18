@@ -59,6 +59,7 @@ internal fun AccountScreen(
     assets: List<AssetRowModel> = emptyList(),
     activity: List<TxFeedItem> = emptyList(),
     onAsset: (AssetRowModel) -> Unit = {},
+    onAddAsset: (() -> Unit)? = null,
     onOpenTransaction: (TxFeedItem) -> Unit = {},
     refreshing: Boolean = false,
     notice: String? = null,
@@ -125,6 +126,10 @@ internal fun AccountScreen(
                     if (index > 0) Divider()
                     AssetRow(asset = asset, shown = showBalance, onClick = { onAsset(asset) })
                 }
+            }
+            onAddAsset?.let { addAsset ->
+                if (assets.isNotEmpty()) Divider()
+                LumioRow(title = "Add asset", onClick = addAsset)
             }
         }
         Spacer(Modifier.height(LenslySpacing.lg))

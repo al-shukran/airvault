@@ -82,5 +82,5 @@ object ChainHoldings {
         return scheduler.run(AsaAssetInfo(network, assetId), Priority.FOREGROUND).also { paramsCache[key] = it }
     }
 
-    private fun shortened(mint: String): String = if (mint.length <= SHORT_MINT) mint else mint.take(4) + "..." + mint.takeLast(4)
+    internal fun shortened(mint: String): String = if (mint.length <= SHORT_MINT) mint else mint.take(4) + "..." + mint.takeLast(4)
 }

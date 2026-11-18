@@ -39,7 +39,10 @@ import app.lumio.evm.EvmFormat
 import app.lumio.evm.PreparedSend
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.send.algorand.AlgorandAssets
 import app.lumio.send.algorand.AlgorandSendPlan
+import app.lumio.send.algorand.AsaSendPlan
+import app.lumio.send.solana.SolanaAssets
 import app.lumio.send.solana.SolanaSendInput
 import app.lumio.send.solana.SolanaSendPlan
 import app.lumio.ui.kit.LumioIsland
@@ -211,20 +214,35 @@ fun btcSummary(plan: BtcSendPlan): List<SummaryRow> = listOf(
     SummaryRow("Fee", btcText(plan.feeSats)),
 )
 
-/** The rows of a Solana send: the sender, the recipient, the amount and the fee, in SOL. */
-fun solanaSummary(plan: SolanaSendPlan): List<SummaryRow> = listOf(
-    SummaryRow("Network", if (plan.network.testnet) "Solana devnet" else "Solana mainnet-beta"),
-    SummaryRow("From", plan.senderAddress),
-    SummaryRow("To", plan.recipientAddress),
-    SummaryRow("Amount", "${SolanaSendInput.format(BigInteger.valueOf(plan.lamports))} SOL"),
-    SummaryRow("Fee", "${SolanaSendInput.format(BigInteger.valueOf(plan.feeLamports))} SOL"),
-)
+/**
+ * The rows of a Solana send: the sender, the recipient, the amount and the fee. A token send names its amount in [tokenSymbol]; its fee is in SOL.
+ */
+fun solanaSummary(plan: SolanaSendPlan, tokenSymbol: String = "SOL"): List<SummaryRow> {
+    val token = plan.token
+    val amount = if (token == null) {
+        "${SolanaSendInput.format(BigInteger.valueOf(plan.lamports))} SOL"
+    } else {
+        "${SolanaAssets.text(token.amount, token.decimals)} $tokenSymbol"
+    }
+    return listOf(
+        SummaryRow("Network", if (plan.network.testnet) "Solana devnet" else "Solana mainnet-beta"),
+        SummaryRow("From", plan.senderAddress),
+        SummaryRow("To", plan.recipientAddress),
+        SummaryRow("Amount", amount),
+        SummaryRow("Fee", "${SolanaSendInput.format(BigInteger.valueOf(plan.feeLamports))} SOL"),
+    )
+}
 
-/** The rows of an Algorand send: the sender, the recipient, the amount and the fee, in ALGO. */
-fun algorandSummary(plan: AlgorandSendPlan): List<SummaryRow> = listOf(
-    SummaryRow("Network", if (plan.network.testnet) "Algorand testnet" else "Algorand mainnet"),
-    SummaryRow("From", plan.fromAddress),
-    SummaryRow("To", plan.toAddress),
-    SummaryRow("Amount", AlgorandFormat.amount(plan.amount)),
-    SummaryRow("Fee", AlgorandFormat.amount(plan.fee)),
-)
+/**
+ * The rows of an Algorand send: the sender, the recipient, the amount and the fee, in ALGO. An asset send names its amount in [symbol] and [decimals].
+ * An opt-in names the asset instead of a recipient, since it sends nothing.
+ */
+fun algorandSummary(plan: AlgorandSendPlan, symbol: String = "ALGO", decimals: Int = 6): List<SummaryRow> {
+    val network = SummaryRow("Network", if (plan.network.testnet) "Algorand testnet" else "Algorand mainnet")
+    val from = SummaryRow("From", plan.fromAddress)
+    val fee = SummaryRow("Fee", AlgorandFormat.amount(plan.fee))
+    if (plan is AsaSendPlan && plan.isOptIn) {
+        return listOf(network, from, SummaryRow("Asset", symbol), SummaryRow("Action", "Opt in"), fee)
+    }
+    return listOf(network, from, SummaryRow("To", plan.toAddress), SummaryRow("Amount", AlgorandAssets.amountText(plan, symbol, decimals)), fee)
+}

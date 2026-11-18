@@ -362,6 +362,18 @@ object SolanaSendInput {
         return lamports.toLong()
     }
 
+    /** The base units of [text] in a token with [decimals] places: a plain amount with at most that many decimal places, above zero. */
+    fun tokenUnits(text: String, decimals: Int): BigInteger {
+        val amount = text.trim()
+        require(amount.length <= MAX_AMOUNT_CHARS && DECIMAL.matches(amount)) { "Enter an amount, such as 1.5." }
+        val value = BigDecimal(amount)
+        require(value.stripTrailingZeros().scale() <= decimals) { "Use at most $decimals decimal places for this token." }
+        val units = value.movePointRight(decimals).toBigIntegerExact()
+        require(units.signum() > 0) { "The amount must be more than 0." }
+        require(units.bitLength() < Long.SIZE_BITS) { "The amount is more than all of this token there is." }
+        return units
+    }
+
     /** [lamports] in SOL, as the form shows it: plain digits with no trailing zeros. */
     fun format(lamports: BigInteger): String = BigDecimal(lamports, SOL_DECIMALS).stripTrailingZeros().toPlainString()
 }

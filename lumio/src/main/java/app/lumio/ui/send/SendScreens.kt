@@ -13,7 +13,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import app.lensly.app.AddressBookEntry
@@ -322,7 +320,7 @@ private fun ChainLine(chain: EvmChain) {
  * amount.
  */
 @Composable
-private fun AmountField(value: String, onValueChange: (String) -> Unit, enabled: Boolean) {
+internal fun AmountField(value: String, onValueChange: (String) -> Unit, enabled: Boolean) {
     val figure = MaterialTheme.typography.displaySmall
     BasicTextField(
         value = value,
@@ -349,24 +347,7 @@ private fun AmountField(value: String, onValueChange: (String) -> Unit, enabled:
 /** One coin of the asset picker: its symbol, and what the sending address holds of it. */
 @Composable
 private fun AssetRow(asset: SendAsset, selected: Boolean, onSelect: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
-            .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Spacer(Modifier.width(LenslySpacing.xs))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(asset.symbol, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-            Text(
-                assetDetail(asset),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    SendAssetRow(symbol = asset.symbol, detail = assetDetail(asset), selected = selected, onSelect = onSelect)
 }
 
 /** What the picker says under a coin: the native coin, the token's balance on this address, or that none is held. */
