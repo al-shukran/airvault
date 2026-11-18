@@ -272,6 +272,25 @@ class WalletScreensScreenshotTest {
         )
     }
 
+    /** The Wallets home before its balances are read: skeleton rows hold the places of the wallets, and the pair intro does not show. */
+    @Test
+    fun walletsLoading() = compose.lumioSnapshot("wallets_loading") {
+        WalletsScreen(
+            rows = emptyList(),
+            totalUsd = null,
+            showTotal = true,
+            refreshing = false,
+            updatedAtMs = null,
+            notice = null,
+            onWallet = {},
+            onPair = {},
+            onRefresh = {},
+            onSettings = {},
+            loading = true,
+            clock = fixedClock,
+        )
+    }
+
     /** A wallet name and an account network that run past the width of the screen: each truncates on one line. */
     @Test
     fun walletLongName() = compose.lumioSnapshot("wallet_long_name") {
@@ -331,6 +350,23 @@ class WalletScreensScreenshotTest {
             account = zeroEthereum,
             showBalance = true,
             assets = rowsOf(zeroEthereum),
+            onSend = {},
+            onReceive = {},
+            onBack = {},
+        )
+    }
+
+    /** An account whose tokens and activity are still being read: its native row shows, and the rows that follow hold their places as skeleton bars. */
+    @Test
+    fun accountLoadingReads() = compose.lumioSnapshot("account_loading") {
+        AccountScreen(
+            walletName = "Demo",
+            account = ethereum,
+            showBalance = true,
+            assets = rowsOf(ethereum),
+            loadingAssets = true,
+            activity = emptyList(),
+            loadingActivity = true,
             onSend = {},
             onReceive = {},
             onBack = {},

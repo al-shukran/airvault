@@ -51,6 +51,7 @@ import app.lumio.network.NetworkModeStore
 import app.lumio.tokens.CustomTokenStore
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenCatalog
+import app.lumio.wallets.WalletsBoard
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
@@ -261,6 +262,7 @@ class LumioApp : Application(), CoverApplication {
     private fun openVault(session: VaultSession): SessionAttachment? {
         if (session.isDecoy) return null
         val vault = LumioVault(session, database())
+        vault.wallets = WalletsBoard(this, session)
         // Read now, so Settings is whole on its first frame.
         scope.launch { vault.settingsFacts.refresh() }
         scope.launch {
