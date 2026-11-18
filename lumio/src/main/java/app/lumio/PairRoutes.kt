@@ -101,7 +101,8 @@ internal fun PairReviewRoute(
     onChanged: () -> Unit,
 ) {
     val session = holder.openSession()
-    val pairing = draft.pairing
+    // The review keeps the pairing it opened with. Save clears the draft, and that must not send the review back to Wallets as it leaves for First sync.
+    val pairing = remember { draft.pairing }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val alreadyPaired by produceState(initialValue = false, session, pairing) {
