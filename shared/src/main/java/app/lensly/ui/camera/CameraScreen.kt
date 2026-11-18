@@ -68,6 +68,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ErrorState
 import app.lensly.ui.components.InlineBanner
@@ -140,7 +141,7 @@ fun CameraScreen(
 
     if (granted) {
         // The cover has no open session, so every photo it takes goes to the real vault's folder.
-        val store = remember(context) { PhotoStore.of(context.filesDir, decoy = false) }
+        val store = remember(context) { PhotoStore.of(VaultLayout.of(context), decoy = false) }
         CameraViewfinder(
             store = store,
             onOpenGallery = onOpenGallery,

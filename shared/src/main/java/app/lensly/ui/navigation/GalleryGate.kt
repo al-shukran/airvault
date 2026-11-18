@@ -12,11 +12,11 @@ import androidx.compose.ui.platform.LocalContext
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultException
+import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.camera.GalleryScreen
 import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.UnlockScreen
-import java.io.File
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -28,14 +28,14 @@ import kotlinx.coroutines.withContext
  * that opened is always closed. [password] is zeroed by the vault. A wrong try that is the owner's last allowed one erases the vault, and
  * [onErased] runs instead of a folder.
  */
-suspend fun galleryStoreFor(vault: Vault, filesDir: File, password: CharArray, onErased: () -> Unit = {}): PhotoStore? =
+suspend fun galleryStoreFor(vault: Vault, layout: VaultLayout, password: CharArray, onErased: () -> Unit = {}): PhotoStore? =
     withContext(NonCancellable) {
         try {
             when (val result = vault.unlock(password)) {
                 is UnlockResult.Unlocked -> {
                     val decoy = result.session.isDecoy
                     result.session.close()
-                    PhotoStore.of(filesDir, decoy = decoy)
+                    PhotoStore.of(layout, decoy = decoy)
                 }
                 UnlockResult.Rejected -> null
                 UnlockResult.Erased -> {
@@ -55,7 +55,7 @@ suspend fun galleryStoreFor(vault: Vault, filesDir: File, password: CharArray, o
  */
 @Composable
 fun GalleryGate(vault: Vault, onBack: () -> Unit, onErased: () -> Unit) {
-    val filesDir = LocalContext.current.filesDir
+    val layout = VaultLayout.of(LocalContext.current)
     val scope = rememberCoroutineScope()
     val buffer = remember { PasswordBuffer() }
     var length by remember { mutableIntStateOf(0) }
@@ -90,7 +90,7 @@ fun GalleryGate(vault: Vault, onBack: () -> Unit, onErased: () -> Unit) {
                     length = 0
                     busy = true
                     scope.launch {
-                        store = galleryStoreFor(vault, filesDir, password, onErased)
+                        store = galleryStoreFor(vault, layout, password, onErased)
                         busy = false
                     }
                 },

@@ -163,7 +163,7 @@ class Vault constructor(
     constructor(context: Context, clock: Clock = RealClock) : this(context, clock, null)
 
     constructor(context: Context, clock: Clock, kdfOverride: KdfParams?) : this(
-        layout = VaultLayout(File(context.applicationContext.noBackupFilesDir, "vault")),
+        layout = VaultLayout.of(context),
         keys = AndroidKeystoreBackend(context.applicationContext),
         clock = clock,
         kdfOverride = kdfOverride,
@@ -842,6 +842,7 @@ class Vault constructor(
             }
             // Only the files this key owns go. The real vault's wallets and records are not owned by this key.
             withPadOf(decoyKey, DECOY_SECTION) { discard(decoyKey, it, keepListing = true) }
+            shredFolder(layout.photoDir(decoy = true))
         } finally {
             Arrays.fill(decoyKey, 0)
         }
@@ -1023,6 +1024,8 @@ class Vault constructor(
             if (file.name.endsWith(".bin") && file.name !in kept) file.delete()
         }
         ReviewPool.shredExcept(layout.reviewPool, keep.flatMap { ReviewPool(layout.reviewPool, it).ownedNames() }.toSet())
+        // The Decoy Vault's photos are cleared too. A dropped decoy takes them with it, and a new decoy starts with none.
+        shredFolder(layout.photoDir(decoy = true))
     }
 
     /** The real vault's pad for the duration of [block]. Its key is zeroed afterwards. */
@@ -1120,22 +1123,35 @@ internal fun deviceIsEmulator(): Boolean {
 }
 
 /**
- * Deletes a vault: its Keystore keys first (through [deleteKeys]), then every file under its root, each overwritten and synced before it
- * is deleted. Without the keys the wrapped vault key and every wallet key are unrecoverable even if some file survives.
+ * Deletes a vault: its Keystore keys first (through [deleteKeys]), then every file under its root and its photos folder, each overwritten
+ * and synced before it is deleted. Without the keys the wrapped vault key and every wallet key are unrecoverable even if some file survives.
  *
  * @throws VaultException if some file could not be removed. The keys are already gone by then.
  */
 fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
     deleteKeys()
-    // Each file is overwritten before it is deleted, so no record, key file or pool slot survives in the storage. A file that cannot be
-    // overwritten is still deleted below.
-    layout.root.walkTopDown().filter { it.isFile }.forEach { file ->
+    // Each file is overwritten before it is deleted, so no record, key file, pool slot or photo survives in the storage.
+    overwriteFiles(layout.root)
+    overwriteFiles(layout.photos)
+    FailureStore.forget(layout.root)
+    val rootGone = layout.root.deleteRecursively()
+    val photosGone = layout.photos.deleteRecursively()
+    if (!rootGone || !photosGone) throw VaultException("Some vault files could not be deleted.")
+}
+
+/** Overwrites every file under [dir] in place. A file that cannot be overwritten is still deleted by the caller. */
+private fun overwriteFiles(dir: File) {
+    dir.walkTopDown().filter { it.isFile }.forEach { file ->
         try {
             overwriteInPlace(file)
         } catch (e: IOException) {
-            // Deleted below all the same.
+            // Deleted by the caller all the same.
         }
     }
-    FailureStore.forget(layout.root)
-    if (!layout.root.deleteRecursively()) throw VaultException("Some vault files could not be deleted.")
+}
+
+/** Overwrites the files in [dir], then deletes the folder. A Decoy Vault's photos go this way when the decoy goes. */
+private fun shredFolder(dir: File) {
+    overwriteFiles(dir)
+    dir.deleteRecursively()
 }

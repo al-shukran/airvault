@@ -1,5 +1,6 @@
 package app.lensly.core.vault
 
+import android.content.Context
 import java.io.File
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -14,8 +15,11 @@ import javax.crypto.spec.SecretKeySpec
  *
  * The real vault and the decoy vault share these folders. Every file is sealed under the key of the vault that owns it,
  * so a session lists and opens only its own files (see [ownsWallet] and [VaultRecordNames]).
+ *
+ * The photos and videos are plain files under [photos] (`filesDir/photos` in the app), in `real/` and `decoy/` (see [photoDir]).
+ * That folder also holds the flat files of builds from before the photos were kept per vault. [wipeVault] removes the whole folder.
  */
-class VaultLayout(val root: File) {
+class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
     val header = File(root, "header.bin")
     val vaultKey = File(root, "vault.key")
     val wallets = File(root, "wallets")
@@ -32,6 +36,17 @@ class VaultLayout(val root: File) {
     fun isPartial(): Boolean = !exists() && (header.exists() || vaultKey.exists() || wallets.exists())
 
     fun walletDir(walletId: String): File = File(wallets, walletId)
+
+    /** The media folder of the real vault, or of the Decoy Vault when [decoy] is true. The two are kept apart. */
+    fun photoDir(decoy: Boolean): File = File(photos, if (decoy) "decoy" else "real")
+
+    companion object {
+        /** The app's layout: the vault under its no-backup files folder, and its photos under its files folder. */
+        fun of(context: Context): VaultLayout {
+            val app = context.applicationContext
+            return VaultLayout(File(app.noBackupFilesDir, "vault"), File(app.filesDir, "photos"))
+        }
+    }
 }
 
 /** Which vault a slot holds. The role is stored inside the sealed slot, so the file does not show it. */

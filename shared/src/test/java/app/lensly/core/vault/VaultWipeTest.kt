@@ -12,9 +12,12 @@ class VaultWipeTest {
     @get:Rule
     val tmp = TemporaryFolder()
 
-    /** A vault with every kind of file it writes: header, wrapped key, failure state, a wallet, and a vault record. */
+    /**
+     * A vault with every kind of file it writes: header, wrapped key, failure state, a wallet, and a vault record. Its photos are there
+     * too, one in each vault's folder and one flat file from before the photos were kept apart.
+     */
     private fun populated(): VaultLayout {
-        val layout = VaultLayout(File(tmp.root, "vault"))
+        val layout = VaultLayout(File(tmp.root, "vault"), File(tmp.root, "photos"))
         layout.root.mkdirs()
         layout.header.writeBytes(byteArrayOf(1, 2, 3))
         layout.vaultKey.writeBytes(byteArrayOf(4, 5, 6))
@@ -25,6 +28,11 @@ class VaultWipeTest {
         session.putRecord(wallet, "secret", byteArrayOf(10))
         session.putVaultRecord("settings", byteArrayOf(11))
         session.close()
+        layout.photoDir(decoy = false).mkdirs()
+        File(layout.photoDir(decoy = false), "IMG_1.jpg").writeBytes(byteArrayOf(12))
+        layout.photoDir(decoy = true).mkdirs()
+        File(layout.photoDir(decoy = true), "IMG_2.jpg").writeBytes(byteArrayOf(13))
+        File(layout.photos, "IMG_0.jpg").writeBytes(byteArrayOf(14))
         return layout
     }
 
@@ -38,6 +46,17 @@ class VaultWipeTest {
         assertFalse(layout.exists())
         assertFalse(layout.root.exists())
         assertTrue(tmp.root.listFiles().isNullOrEmpty())
+    }
+
+    @Test
+    fun aWipeRemovesThePhotosOfBothVaultsAndTheOldFlatOnes() {
+        val layout = populated()
+
+        wipeVault(layout) {}
+
+        assertFalse(layout.photoDir(decoy = false).exists())
+        assertFalse(layout.photoDir(decoy = true).exists())
+        assertFalse(layout.photos.exists())
     }
 
     @Test

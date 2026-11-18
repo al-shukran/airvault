@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.camera.CameraPermissionRationale
 import app.lensly.ui.camera.CameraUnavailable
 import app.lensly.ui.camera.GalleryScreen
@@ -81,7 +82,7 @@ class CameraScreenshotTest {
     fun galleryEmpty() = compose.snapshot("gallery_empty") {
         // The gallery opens from the camera while the vault is locked, so it shows no lock icon.
         CompositionLocalProvider(LocalVaultLock provides null) {
-            GalleryScreen(store = PhotoStore.of(RuntimeEnvironment.getApplication().filesDir, decoy = false), onBack = {})
+            GalleryScreen(store = PhotoStore.of(VaultLayout.of(RuntimeEnvironment.getApplication()), decoy = false), onBack = {})
         }
     }
 }
