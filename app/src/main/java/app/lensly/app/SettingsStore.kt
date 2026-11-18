@@ -34,13 +34,10 @@ data class AppSettings(
  * version byte (6), the Bulk Cap as its account count (int), the Proxy Policy code (byte), the shortest and the longest
  * hide delay in milliseconds (two ints), then the Bitcoin input verification code and the Bitcoin signing source code
  * (two bytes), then the Bitcoin fee rate limit in sat/vB and the fee share limit in per cent (two ints), then the unknown-call
- * policy code (a byte), in the same
- * DataOutputStream style as the wallet records. Version 1 had only the Bulk Cap, so it reads with the default policy; version
- * 2 has no hide delay, so it reads with the default; version 3 has no Bitcoin policy, so it reads with the core defaults;
- * version 4 has no fee limits, so it reads with the core defaults; version 5 has no unknown-call policy, so it reads with Warn.
+ * policy code (a byte), in the same DataOutputStream style as the wallet records.
  *
  * A missing record, a damaged one, or an unknown version reads as the default, so a bad setting never blocks the vault.
- * A cap the app no longer offers, such as the retired 1,000, reads as 100, the largest cap offered. A hide delay outside
+ * A cap the app does not offer reads as 100, the largest cap offered. A hide delay outside
  * [HideDelay] reads as the default delay. A Bitcoin policy code this version does not know reads as its core default. Fee
  * limits outside the range [BtcFeeThresholds.of] accepts read as the core defaults.
  * A closed session still throws.
@@ -61,11 +58,6 @@ class SettingsStore(private val session: VaultSession) {
 
     private companion object {
         const val NAME = "settings"
-        const val VERSION_1 = 1
-        const val VERSION_2 = 2
-        const val VERSION_3 = 3
-        const val VERSION_4 = 4
-        const val VERSION_5 = 5
         const val VERSION = 6
 
         fun encode(settings: AppSettings): ByteArray {
@@ -87,45 +79,20 @@ class SettingsStore(private val session: VaultSession) {
 
         fun decode(bytes: ByteArray): AppSettings = try {
             DataInputStream(ByteArrayInputStream(bytes)).use { input ->
-                val version = input.readUnsignedByte()
-                if (version !in VERSION_1..VERSION) return@use AppSettings()
+                if (input.readUnsignedByte() != VERSION) return@use AppSettings()
                 // A count the app does not offer, such as the retired 1,000, reads as the largest cap now offered.
                 val bulkCap = BulkCap.fromAccounts(input.readInt()) ?: BulkCap.HUNDRED
-                // An unknown policy code reads as the default, as does every version 1 record.
-                val proxyPolicy = if (version >= VERSION_2) {
-                    ProxyPolicy.ofCode(input.readUnsignedByte()) ?: ProxyPolicy.DEFAULT
-                } else {
-                    ProxyPolicy.DEFAULT
-                }
-                // A range the app does not accept reads as the default delay. Version 1 and 2 records have none.
-                val hideDelay = if (version >= VERSION_3) {
-                    HideDelay.of(input.readInt().toLong(), input.readInt().toLong()) ?: HideDelay.DEFAULT
-                } else {
-                    HideDelay.DEFAULT
-                }
-                // Version 4 adds the Bitcoin policies. A code this version does not know reads as its core default.
-                val bitcoinInputPolicy = if (version >= VERSION_4) {
-                    InputVerificationPolicy.ofWire(input.readUnsignedByte()) ?: InputVerificationPolicy.STRICT
-                } else {
-                    InputVerificationPolicy.STRICT
-                }
-                val bitcoinSigningSource = if (version >= VERSION_4) {
-                    SigningSourcePolicy.ofWire(input.readUnsignedByte()) ?: SigningSourcePolicy.ANY
-                } else {
-                    SigningSourcePolicy.ANY
-                }
-                // Version 5 adds the fee limits. Values outside their range read as the core defaults.
-                val bitcoinFeeThresholds = if (version >= VERSION_5) {
-                    BtcFeeThresholds.of(input.readInt(), input.readInt()) ?: BtcFeeThresholds.DEFAULT
-                } else {
-                    BtcFeeThresholds.DEFAULT
-                }
-                // Version 6 adds the unknown-call policy. A code this version does not know reads as the default, Warn.
-                val unknownCallPolicy = if (version >= VERSION) {
-                    UnknownCallPolicy.ofCode(input.readUnsignedByte()) ?: UnknownCallPolicy.DEFAULT
-                } else {
-                    UnknownCallPolicy.DEFAULT
-                }
+                // An unknown policy code reads as the default.
+                val proxyPolicy = ProxyPolicy.ofCode(input.readUnsignedByte()) ?: ProxyPolicy.DEFAULT
+                // A range the app does not accept reads as the default delay.
+                val hideDelay = HideDelay.of(input.readInt().toLong(), input.readInt().toLong()) ?: HideDelay.DEFAULT
+                // A code this build does not know reads as its core default.
+                val bitcoinInputPolicy = InputVerificationPolicy.ofWire(input.readUnsignedByte()) ?: InputVerificationPolicy.STRICT
+                val bitcoinSigningSource = SigningSourcePolicy.ofWire(input.readUnsignedByte()) ?: SigningSourcePolicy.ANY
+                // Values outside their range read as the core defaults.
+                val bitcoinFeeThresholds = BtcFeeThresholds.of(input.readInt(), input.readInt()) ?: BtcFeeThresholds.DEFAULT
+                // A code this build does not know reads as the default, Warn.
+                val unknownCallPolicy = UnknownCallPolicy.ofCode(input.readUnsignedByte()) ?: UnknownCallPolicy.DEFAULT
                 AppSettings(
                     bulkCap = bulkCap,
                     proxyPolicy = proxyPolicy,
