@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.airvault.chains.algorand.bytesToSign
 import app.lensly.app.export.BrotliCompressor
 import app.lensly.app.export.BrotliEncoder
 import app.lensly.app.export.PairingCodec
@@ -13,7 +14,6 @@ import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.LedgerEd25519
-import app.lensly.core.algorand.bytesToSign
 import app.lensly.core.btc.BtcRefusal
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.btc.BtcSigner

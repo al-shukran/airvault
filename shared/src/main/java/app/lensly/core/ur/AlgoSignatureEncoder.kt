@@ -26,7 +26,7 @@ object AlgoSignatureEncoder {
         require(signature.size == SIGNATURE_BYTES) { "signature must be 64 bytes" }
         require(publicKey == null || publicKey.size == PUBLIC_KEY_BYTES) { "publicKey must be 32 bytes" }
         val fields = ArrayList<Pair<Cbor, Cbor>>()
-        fields += Cbor.Uint(1L) to Cbor.Tagged(EthSignRequest.UUID_TAG, Cbor.Bytes(requestId))
+        fields += Cbor.Uint(1L) to Cbor.Tagged(UUID_TAG, Cbor.Bytes(requestId))
         fields += Cbor.Uint(2L) to Cbor.Bytes(signature)
         if (publicKey != null) fields += Cbor.Uint(3L) to Cbor.Bytes(publicKey)
         return framesOf(UR(UR_TYPE, Cbor.encode(Cbor.Dict(fields))), maxFragment)

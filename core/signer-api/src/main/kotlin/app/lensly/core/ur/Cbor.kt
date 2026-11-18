@@ -13,6 +13,9 @@ class MalformedPayloadException(message: String) : Exception(message)
 
 fun malformed(reason: String): Nothing = throw MalformedPayloadException(reason)
 
+/** The CBOR tag of a UUID. Every request carries its requestId under this tag. */
+const val UUID_TAG = 37L
+
 /**
  * The CBOR subset that Lensly's UR types use.
  *

@@ -1,12 +1,12 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.algorand.AssetTransfer
+import app.airvault.chains.algorand.Payment
 import app.lensly.app.addressesIn
 import app.lensly.core.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.AlgorandWarning
 import app.lensly.core.algorand.Asa
-import app.lensly.core.algorand.AssetTransfer
-import app.lensly.core.algorand.Payment
 import app.lensly.core.wallet.toHex
 import java.math.BigDecimal
 

@@ -1,7 +1,7 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.algorand.AlgorandNetwork
 import app.lensly.app.AddressChain
-import app.lensly.core.algorand.AlgorandNetwork
 import kotlin.test.assertEquals
 import org.junit.Test
 

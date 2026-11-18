@@ -1,11 +1,11 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.AlgoSignType
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.ur.AlgoSignRequest
-import app.lensly.core.ur.AlgoSignType
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
