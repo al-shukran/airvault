@@ -45,6 +45,7 @@ partitions:
   lumio-c        :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
   lumio-d        :lumio:testDebugUnitTest --tests 'app.lumio.data.*'
   registry-pack  :tools:registry-pack:test
+  chain-api      :core:model:test :chains:algorand:common:test, then compiles the API and Algorand modules
   manifest       scripts/ci/check-manifest.sh
   ci             bash -n on every script, scripts/ci/check-partitions.sh, then
                  scripts/ci/check-test-network.sh (no Gradle)
@@ -176,6 +177,12 @@ case "$partition" in
         ;;
     registry-pack)
         ./gradlew :tools:registry-pack:test
+        ;;
+    chain-api)
+        # The chain-app contract, the registry and the Algorand manifest. No --tests filter: each module's whole test set runs.
+        ./gradlew :core:model:test :chains:algorand:common:test \
+            :core:signer-api:classes :core:wallet-api:classes \
+            :chains:algorand:signer:classes :chains:algorand:wallet:classes
         ;;
     manifest)
         exec "$ROOT/scripts/ci/check-manifest.sh"

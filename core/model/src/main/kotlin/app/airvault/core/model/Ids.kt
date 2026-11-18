@@ -1,0 +1,40 @@
+package app.airvault.core.model
+
+private val APP_ID_FORMAT = Regex("[a-z0-9-]+")
+private val CAIP2_FORMAT = Regex("[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}")
+private val CAIP19_FORMAT = Regex("[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}/[-a-z0-9]{3,8}:[-.%a-zA-Z0-9]{1,128}")
+
+/** Stable id of a chain app: lowercase letters, digits and hyphens (spec 2.1). */
+@JvmInline
+value class AppId(val value: String) {
+    init {
+        require(APP_ID_FORMAT.matches(value)) { "app id must match [a-z0-9-]+: $value" }
+    }
+
+    override fun toString(): String = value
+}
+
+/** A CAIP-2 chain id, `namespace:reference`, for example `algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k` (spec 4). */
+@JvmInline
+value class ChainId(val caip2: String) {
+    init {
+        require(CAIP2_FORMAT.matches(caip2)) { "CAIP-2 id must be namespace:reference: $caip2" }
+    }
+
+    val namespace: String get() = caip2.substringBefore(':')
+
+    override fun toString(): String = caip2
+}
+
+/**
+ * A CAIP-19 asset id, `chain/namespace:reference` (spec 4). CAIP-19 is in Review status; this pins the syntax of
+ * that draft. Native coins use the `slip44` namespace, for example `algorand:.../slip44:283`.
+ */
+@JvmInline
+value class AssetId(val caip19: String) {
+    init {
+        require(CAIP19_FORMAT.matches(caip19)) { "CAIP-19 asset id is malformed: $caip19" }
+    }
+
+    override fun toString(): String = caip19
+}
