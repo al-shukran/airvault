@@ -16,8 +16,7 @@ import org.junit.rules.TemporaryFolder
 import kotlin.test.assertFailsWith
 
 /**
- * The seed backed-up flag: what a create, a restore and an import store, how a record from before the flag reads, and how the draft
- * tracks the flag through the create ceremony.
+ * The seed backed-up flag: what a create, a restore and an import store, and how the draft tracks the flag through the create ceremony.
  */
 class WalletBackupFlagTest {
     private val keys = MemoryKeystore()

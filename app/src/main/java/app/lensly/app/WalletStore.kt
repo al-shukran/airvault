@@ -80,17 +80,15 @@ data class WalletMeta(
      * enough to derive every address without the secret. Empty for a Single Key.
      */
     val accountKeys: List<AccountXpub>,
-    /** The kind of secret the wallet holds. A record written before kinds existed is a Mnemonic wallet. */
+    /** The kind of secret the wallet holds. */
     val kind: WalletKind = WalletKind.MNEMONIC,
     /**
-     * The wallet's name at creation, which its accounts' Auto-Names are built from. [WalletStore.meta] reads it from its own
-     * record. A wallet that has none, because it was written before this existed, uses its current name.
+     * The wallet's name at creation, which its accounts' Auto-Names are built from. [WalletStore.meta] reads it from its own record.
      */
     val autoNameBase: String = name,
     /**
      * True when the owner has backed up the seed phrase. The create ceremony sets it once its quiz passes, a restore sets it, and so does a
-     * Single Key import. A wallet with it false is asked for a backup on Home. A record written before the flag reads as true, so no
-     * wallet made before it is asked.
+     * Single Key import. A wallet with it false is asked for a backup on Home.
      */
     val seedBackedUp: Boolean = true,
 )
@@ -154,7 +152,7 @@ class WalletStore(private val session: VaultSession) {
         val bytes = session.getRecord(id, WalletRecords.META) ?: return null
         return try {
             val meta = WalletRecords.decodeMeta(id, bytes)
-            meta.copy(autoNameBase = storedBaseName(id) ?: meta.name)
+            meta.copy(autoNameBase = storedBaseName(id) ?: return null)
         } catch (e: IOException) {
             null
         } catch (e: IllegalArgumentException) {
@@ -756,7 +754,7 @@ class WalletStore(private val session: VaultSession) {
         } catch (e: IllegalArgumentException) {
             return null
         }
-        val wallet = meta.copy(autoNameBase = decodedBaseName(head[WalletRecords.BASE_NAME]) ?: meta.name)
+        val wallet = meta.copy(autoNameBase = decodedBaseName(head[WalletRecords.BASE_NAME]) ?: return null)
         val count = wallet.accountCount
         val profileBytes = session.getRecords(id, (0 until count).map { index -> WalletRecords.accountRecord(index) })
         val profiles = (0 until count).mapNotNull { index ->
@@ -780,10 +778,6 @@ class WalletStore(private val session: VaultSession) {
         val clean = displayNameOf(name)
         return synchronized(session) {
             val current = requireNotNull(meta(id)) { "No wallet $id." }
-            // A wallet with no base name takes its current name as the base before the rename, so its Auto-Names stay put.
-            if (session.getRecord(id, WalletRecords.BASE_NAME) == null) {
-                session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(current.autoNameBase))
-            }
             val updated = current.copy(name = clean)
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
             updated
