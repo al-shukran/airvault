@@ -157,6 +157,7 @@ case "$partition" in
     lumio-b)
         ./gradlew :lumio:testDebugUnitTest \
             --tests 'app.lumio.LumioBackdropTest' \
+            --tests 'app.lumio.LumioBarIconsTest' \
             --tests 'app.lumio.EntryGestureSettingTest' \
             --tests 'app.lumio.CoverLockTest' \
             --tests 'app.lumio.SendRouteTest' \
