@@ -1,9 +1,12 @@
 package app.lensly.ui.home
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -15,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -51,6 +54,7 @@ import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
+import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.sign.FactRow
@@ -234,39 +238,65 @@ internal fun HistoryDetailSheet(
     val chain = recordChainOf(record)
     val open = tapOf(chain, onOpenAddress, onDismiss)
     OptionsSheet(onDismiss = onDismiss, scrollable = true) {
+        OutcomeHero(record)
+        Spacer(Modifier.height(LenslySpacing.lg))
+        LumioIsland {
+            Column(modifier = Modifier.padding(horizontal = LenslySpacing.md)) {
+                FactRow("Network") { FactText(networkLine(record)) }
+                record.address?.let { address ->
+                    AddressFact(
+                        label = if (record.accountIndex == null) "Account" else "Account ${record.accountIndex}",
+                        value = address,
+                        chain = chain,
+                        book = addressBook,
+                        accounts = accounts,
+                        open = open,
+                    )
+                }
+                FactRow("Kind") { FactText(kindLabel(record.kind)) }
+                record.bitcoin?.let { facts -> BitcoinFacts(record, facts, addressBook, accounts, open) }
+                record.function?.let { function -> FactRow("Function") { FactText(function) } }
+                record.to?.let { to -> AddressFact(label = "To", value = to, chain = chain, book = addressBook, accounts = accounts, open = open) }
+                record.amount?.let { amount -> FactRow("Amount") { MonoText(amount) } }
+                record.tokenContract?.let { contract ->
+                    AddressFact(label = "Token Contract", value = contract, chain = chain, book = addressBook, accounts = accounts, open = open)
+                }
+                if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, accounts, open) }
+                if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, accounts, open) }
+                record.origin?.let { origin -> FactRow("Origin") { FactText(origin) } }
+                record.refusal?.let { reason -> FactRow("Refusal Reason") { FactText(reason) } }
+                FactRow("Data Hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
+            }
+        }
+    }
+}
+
+/** The outcome of a record as the sheet hero: its icon in a 56 dp disc, its label, and when it was made. */
+@Composable
+private fun OutcomeHero(record: ReviewRecord) {
+    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = outcomeIcon(record.outcome),
+                contentDescription = null,
+                tint = outcomeTint(record.outcome),
+                modifier = Modifier.size(28.dp),
+            )
+        }
+        Spacer(Modifier.height(LenslySpacing.sm))
         Text(
             text = outcomeLabel(record.outcome),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             color = outcomeTint(record.outcome),
         )
         Spacer(Modifier.height(LenslySpacing.xxs))
         MutedText(dateTimeOf(record.atMs))
-        Spacer(Modifier.height(LenslySpacing.sm))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        FactRow("Network") { FactText(networkLine(record)) }
-        record.address?.let { address ->
-            AddressFact(
-                label = if (record.accountIndex == null) "Account" else "Account ${record.accountIndex}",
-                value = address,
-                chain = chain,
-                book = addressBook,
-                accounts = accounts,
-                open = open,
-            )
-        }
-        FactRow("Kind") { FactText(kindLabel(record.kind)) }
-        record.bitcoin?.let { facts -> BitcoinFacts(record, facts, addressBook, accounts, open) }
-        record.function?.let { function -> FactRow("Function") { FactText(function) } }
-        record.to?.let { to -> AddressFact(label = "To", value = to, chain = chain, book = addressBook, accounts = accounts, open = open) }
-        record.amount?.let { amount -> FactRow("Amount") { MonoText(amount) } }
-        record.tokenContract?.let { contract ->
-            AddressFact(label = "Token Contract", value = contract, chain = chain, book = addressBook, accounts = accounts, open = open)
-        }
-        if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, accounts, open) }
-        if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, accounts, open) }
-        record.origin?.let { origin -> FactRow("Origin") { FactText(origin) } }
-        record.refusal?.let { reason -> FactRow("Refusal Reason") { FactText(reason) } }
-        FactRow("Data Hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
     }
 }
 
