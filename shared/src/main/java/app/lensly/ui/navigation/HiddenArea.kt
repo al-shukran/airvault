@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -119,13 +120,16 @@ fun NavGraphBuilder.hiddenArea(
     }
 }
 
+/** The tag of the backdrop that [HiddenBackdrop] paints, so a test can find the screen's backdrop. */
+internal const val HIDDEN_BACKDROP_TAG = "hidden-backdrop"
+
 /**
  * Paints an opaque black backdrop behind a hidden screen. The camera stays composed underneath the hidden graph,
  * so without this its viewfinder or permission prompt would show through.
  */
 @Composable
 fun HiddenBackdrop(content: @Composable () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().testTag(HIDDEN_BACKDROP_TAG).background(MaterialTheme.colorScheme.background)) {
         content()
     }
 }
