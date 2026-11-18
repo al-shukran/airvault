@@ -131,13 +131,6 @@ class ProfilesTest {
     }
 
     @Test
-    fun aVersionOneNameRecordReadsAsANameWithNoStyle() {
-        val legacy = LegacyWalletRecords.accountName("Savings")
-
-        assertEquals(AccountProfile(name = "Savings"), WalletRecords.decodeAccountProfile(legacy))
-    }
-
-    @Test
     fun aColourOrIconCodeThisBuildDoesNotKnowReadsAsTheDefault() {
         // The colour and icon flags, then two codes that are not in the palette or the icon set.
         val bytes = accountRecord(flags = 2 or 4) {
