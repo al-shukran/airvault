@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
 import kotlin.test.assertNotNull
@@ -44,7 +45,7 @@ class GalleryVideoErrorTest {
 
     @Test
     fun aCorruptVideoShowsTheAppsErrorStateAndNotTheSystemDialog() {
-        val store = PhotoStore.of(RuntimeEnvironment.getApplication().filesDir, decoy = false)
+        val store = PhotoStore.of(VaultLayout.of(RuntimeEnvironment.getApplication()), decoy = false)
         // Not an MP4: the player cannot read this container.
         store.newVideoFile(nowMs = 1_000L).apply { writeBytes(ByteArray(32)) }
 

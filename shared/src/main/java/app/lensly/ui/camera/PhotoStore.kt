@@ -1,5 +1,6 @@
 package app.lensly.ui.camera
 
+import app.lensly.core.vault.VaultLayout
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -31,11 +32,10 @@ class PhotoStore(val directory: File) {
         private val MEDIA_EXTENSIONS = setOf("jpg", "mp4")
 
         /**
-         * The real vault's media folder under [filesDir], or the Decoy Vault's when [decoy] is true. The two folders are kept apart, so
-         * a decoy lists none of the real vault's photos.
+         * The real vault's media folder, or the Decoy Vault's when [decoy] is true. The two folders are kept apart, so a decoy lists
+         * none of the real vault's photos. A wipe of the vault removes them (see [VaultLayout.photoDir]).
          */
-        fun of(filesDir: File, decoy: Boolean): PhotoStore =
-            PhotoStore(File(filesDir, if (decoy) "photos/decoy" else "photos/real"))
+        fun of(layout: VaultLayout, decoy: Boolean): PhotoStore = PhotoStore(layout.photoDir(decoy))
     }
 }
 

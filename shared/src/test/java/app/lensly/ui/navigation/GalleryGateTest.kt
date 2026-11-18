@@ -31,11 +31,13 @@ class GalleryGateTest {
     val tmp = TemporaryFolder()
 
     private val clock = FakeClock()
+    private lateinit var layout: VaultLayout
     private lateinit var vault: Vault
 
     @Before
     fun setUp() {
-        vault = Vault(VaultLayout(File(tmp.root, "vault")), MemoryKeystore(), clock, KDF)
+        layout = VaultLayout(File(tmp.root, "vault"), File(tmp.root, "photos"))
+        vault = Vault(layout, MemoryKeystore(), clock, KDF)
         createVaultWithDuress()
     }
 
@@ -43,8 +45,8 @@ class GalleryGateTest {
     fun aPhotoSavedForTheRealVaultIsNotListedInTheDecoy() {
         val photo = saveRealPhoto()
 
-        assertEquals(listOf(photo), PhotoStore.of(tmp.root, decoy = false).list())
-        assertTrue(PhotoStore.of(tmp.root, decoy = true).list().isEmpty())
+        assertEquals(listOf(photo), PhotoStore.of(layout, decoy = false).list())
+        assertTrue(PhotoStore.of(layout, decoy = true).list().isEmpty())
     }
 
     @Test
@@ -60,7 +62,7 @@ class GalleryGateTest {
 
         val decoy = assertNotNull(galleryAfterDelay(DURESS))
 
-        assertEquals(PhotoStore.of(tmp.root, decoy = true).directory, decoy.directory)
+        assertEquals(PhotoStore.of(layout, decoy = true).directory, decoy.directory)
         assertTrue(decoy.list().isEmpty())
     }
 
@@ -79,7 +81,7 @@ class GalleryGateTest {
     }
 
     private fun gallery(password: String): PhotoStore? =
-        runBlocking { galleryStoreFor(vault, tmp.root, password.toCharArray()) }
+        runBlocking { galleryStoreFor(vault, layout, password.toCharArray()) }
 
     /** Moves the clock past any failure delay, then asks the gate. */
     private fun galleryAfterDelay(password: String): PhotoStore? {
@@ -88,7 +90,7 @@ class GalleryGateTest {
     }
 
     private fun saveRealPhoto(): File =
-        PhotoStore.of(tmp.root, decoy = false).newFile(nowMs = 1_000L).apply { writeBytes(ByteArray(1)) }
+        PhotoStore.of(layout, decoy = false).newFile(nowMs = 1_000L).apply { writeBytes(ByteArray(1)) }
 
     private fun createVaultWithDuress() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })

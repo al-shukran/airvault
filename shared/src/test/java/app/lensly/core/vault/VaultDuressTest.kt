@@ -529,6 +529,42 @@ class VaultDuressTest {
         assertRejected(attempt(APP))
     }
 
+    @Test
+    fun aDecoyWipeRemovesOnlyTheDecoysPhotos() {
+        createVault()
+        val real = unlocked(attempt(APP))
+        assertEquals(DuressResult.Enabled, setDuress(real))
+        real.close()
+        val realPhoto = savePhoto(decoy = false)
+        val decoyPhoto = savePhoto(decoy = true)
+
+        val decoy = unlocked(unlockAfterDelay(DURESS))
+        vault.wipeDecoy(decoy)
+        decoy.close()
+
+        assertTrue(realPhoto.exists())
+        assertFalse(decoyPhoto.exists())
+    }
+
+    @Test
+    fun removingTheDuressPasswordRemovesTheDecoysPhotos() {
+        createVault()
+        val real = unlocked(attempt(APP))
+        assertEquals(DuressResult.Enabled, setDuress(real))
+        val realPhoto = savePhoto(decoy = false)
+        val decoyPhoto = savePhoto(decoy = true)
+
+        runBlocking { vault.removeDuress(real) }
+        real.close()
+
+        assertTrue(realPhoto.exists())
+        assertFalse(decoyPhoto.exists())
+    }
+
+    /** A photo in the real vault's or the Decoy Vault's folder, as the camera or the gallery would keep it. */
+    private fun savePhoto(decoy: Boolean): File =
+        File(layout.photoDir(decoy).apply { mkdirs() }, "IMG_1.jpg").apply { writeBytes(ByteArray(1)) }
+
     private fun createVault() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
     }
