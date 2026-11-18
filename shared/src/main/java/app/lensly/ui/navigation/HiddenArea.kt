@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
@@ -41,7 +42,6 @@ import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.gate.UnavailableScreen
 import app.lensly.ui.gate.UnlockScreen
 import app.lensly.ui.gate.eraseWarning
-import app.lensly.ui.theme.LenslyBlack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -125,7 +125,7 @@ fun NavGraphBuilder.hiddenArea(
  */
 @Composable
 fun HiddenBackdrop(content: @Composable () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().background(LenslyBlack)) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         content()
     }
 }

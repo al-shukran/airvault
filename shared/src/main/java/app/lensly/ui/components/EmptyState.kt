@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalUppercaseLabels
 
 /**
  * Centred empty state for a screen or list with nothing to show yet: an [icon], a [title], an optional [body], and an
@@ -68,7 +69,7 @@ internal fun StateBlock(
             modifier = Modifier.size(48.dp),
         )
         Text(
-            text = title.uppercase(),
+            text = if (LocalUppercaseLabels.current) title.uppercase() else title,
             modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,

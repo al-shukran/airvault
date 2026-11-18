@@ -1,8 +1,6 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.screenshot.snapshot
 import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.tx.LumioTx
@@ -26,7 +24,7 @@ import org.robolectric.annotation.GraphicsMode
  * goldens read the same on every host.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = SCREENSHOT_QUALIFIERS)
+@Config(qualifiers = LUMIO_DARK_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TransactionDetailScreenshotTest {
 
@@ -72,7 +70,7 @@ class TransactionDetailScreenshotTest {
     private fun eth(whole: String): BigInteger = BigDecimal(whole).movePointRight(18).toBigIntegerExact()
 
     @Test
-    fun transactionDetail() = compose.snapshot("transaction_detail") {
+    fun transactionDetail() = compose.lumioSnapshot("transaction_detail") {
         TransactionDetailScreen(
             detail = TxDetail(
                 tx = tx(1, ethereum, ether, eth("1.5"), TxDirection.IN, friend, nov),
@@ -91,7 +89,7 @@ class TransactionDetailScreenshotTest {
     }
 
     @Test
-    fun transactionDetailFlaggedAsSpam() = compose.snapshot("transaction_detail_flagged") {
+    fun transactionDetailFlaggedAsSpam() = compose.lumioSnapshot("transaction_detail_flagged") {
         val dust = tx(7, ethereum, TxAsset("0x" + "ab".repeat(20), "FREE", "Free claim token", 18), BigInteger.ONE, TxDirection.IN, spammer, nov)
         TransactionDetailScreen(
             detail = TxDetail(

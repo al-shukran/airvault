@@ -14,10 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import app.lensly.ui.components.LenslySegmentedControl
-import app.lensly.ui.theme.LenslyBlack
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslyWarning
 import app.lumio.network.NetworkMode
+import app.lumio.ui.theme.LocalLumioPalette
 
 /** The test tag of the testnet banner. */
 const val TESTNET_BANNER_TAG = "testnet-banner"
@@ -37,13 +36,13 @@ fun TestnetBanner(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(LenslyWarning)
+            .background(LocalLumioPalette.current.warning)
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs)
             .testTag(TESTNET_BANNER_TAG),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = "TESTNET", style = MaterialTheme.typography.labelLarge, color = LenslyBlack)
+        Text(text = "Testnet", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.background)
     }
 }
 

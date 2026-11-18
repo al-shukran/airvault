@@ -5,7 +5,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
 import app.lumio.wallets.AccountChain
@@ -37,7 +36,7 @@ internal fun BalanceValue(account: WalletAccount, shown: Boolean, large: Boolean
         Text(
             text = Masking.amount(amount, hidden = !shown),
             style = if (large) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyMedium,
-            color = LenslyOnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = account.networkName,

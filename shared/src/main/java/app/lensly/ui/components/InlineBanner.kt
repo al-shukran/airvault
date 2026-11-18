@@ -20,17 +20,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.LenslyError
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslyRadius
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LenslyWarning
+import app.lensly.ui.theme.LocalUppercaseLabels
+import app.lensly.ui.theme.LocalWarningColor
 
 /** Severity of an [InlineBanner]. Each tone has its own icon and colour. */
 enum class BannerTone { Info, Warning, Error }
@@ -46,7 +44,12 @@ fun InlineBanner(
     modifier: Modifier = Modifier,
     title: String? = null,
 ) {
-    val color = tone.color()
+    val colors = MaterialTheme.colorScheme
+    val color = when (tone) {
+        BannerTone.Info -> colors.onSurface
+        BannerTone.Warning -> LocalWarningColor.current
+        BannerTone.Error -> colors.error
+    }
     val shape = RoundedCornerShape(LenslyRadius.md)
     Row(
         modifier = modifier
@@ -70,7 +73,7 @@ fun InlineBanner(
         ) {
             if (title != null) {
                 Text(
-                    text = title.uppercase(),
+                    text = if (LocalUppercaseLabels.current) title.uppercase() else title,
                     style = MaterialTheme.typography.labelMedium,
                     color = color,
                 )
@@ -78,16 +81,10 @@ fun InlineBanner(
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
     }
-}
-
-private fun BannerTone.color(): Color = when (this) {
-    BannerTone.Info -> LenslyOnSurface
-    BannerTone.Warning -> LenslyWarning
-    BannerTone.Error -> LenslyError
 }
 
 private fun BannerTone.icon(): ImageVector = when (this) {

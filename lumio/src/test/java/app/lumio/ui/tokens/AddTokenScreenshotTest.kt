@@ -1,9 +1,9 @@
 package app.lumio.ui.tokens
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.screenshot.snapshot
 import app.lumio.tokens.Token
+import app.lumio.ui.screenshot.LUMIO_DARK_QUALIFIERS
+import app.lumio.ui.screenshot.lumioSnapshot
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,7 +16,7 @@ import org.robolectric.annotation.GraphicsMode
  * tokens are listed. It is recorded with `:lumio:recordRoborazziDebug` and checked with `:lumio:verifyRoborazziDebug`.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = SCREENSHOT_QUALIFIERS)
+@Config(qualifiers = LUMIO_DARK_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AddTokenScreenshotTest {
 
@@ -24,7 +24,7 @@ class AddTokenScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun addToken() = compose.snapshot("add_token") {
+    fun addToken() = compose.lumioSnapshot("add_token") {
         AddTokenScreen(
             chainName = "Ethereum",
             defaults = listOf(

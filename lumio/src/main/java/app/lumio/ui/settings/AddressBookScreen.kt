@@ -25,7 +25,7 @@ private fun chainOf(address: String): String = if (address.startsWith("0x")) "Et
  */
 @Composable
 fun AddressBookScreen(walletName: String, entries: List<AddressBookEntry>, onBack: () -> Unit) {
-    LenslyScreen(title = "ADDRESS BOOK", onBack = onBack) {
+    LenslyScreen(title = "Address book", onBack = onBack) {
         Text(walletName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Text(
             text = "Read only. Lensly keeps the Address Book. Pair this wallet again from Lensly to update it.",

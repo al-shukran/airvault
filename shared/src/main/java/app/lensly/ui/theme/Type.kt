@@ -1,6 +1,7 @@
 package app.lensly.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -35,6 +36,11 @@ val SpaceMonoFamily = FontFamily(
 // (Roboto on Android). Data that must be compared by eye, such as addresses, hashes and amounts, copies
 // SpaceMonoFamily instead.
 val LenslySansFamily: FontFamily = FontFamily.SansSerif
+
+/**
+ * The face of data that is compared by eye, such as addresses. Lensly's is Space Mono. Lumio's theme provides JetBrains Mono.
+ */
+val LocalMonoFamily = staticCompositionLocalOf { SpaceMonoFamily }
 
 private const val LABEL_TRACKING = 1.5
 

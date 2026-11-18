@@ -32,7 +32,7 @@ class LumioBackdropTest {
         setScreen(NetworkSelection().apply { mode = NetworkMode.TESTNET })
 
         compose.onNodeWithTag(TESTNET_BANNER_TAG).assertExists()
-        compose.onNodeWithText("TESTNET").assertExists()
+        compose.onNodeWithText("Testnet").assertExists()
         compose.onNodeWithText("Screen body").assertExists()
     }
 

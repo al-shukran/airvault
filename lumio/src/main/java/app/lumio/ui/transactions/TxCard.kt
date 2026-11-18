@@ -25,8 +25,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.Amounts
 import app.lensly.ui.components.ListRow
-import app.lensly.ui.theme.LenslyMuted
-import app.lensly.ui.theme.LenslyOnSurface
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxDirection
@@ -52,12 +50,12 @@ fun TxCard(item: TxFeedItem, zone: ZoneId, onClick: () -> Unit, modifier: Modifi
         DirectionBadge(tx.direction)
         Spacer(Modifier.width(LenslySpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = directionTitle(tx.direction), style = MaterialTheme.typography.titleMedium, color = LenslyOnSurface)
+            Text(text = directionTitle(tx.direction), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = counterpartyLine(tx),
                     style = MaterialTheme.typography.bodySmall,
-                    color = LenslyMuted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
@@ -68,14 +66,14 @@ fun TxCard(item: TxFeedItem, zone: ZoneId, onClick: () -> Unit, modifier: Modifi
             Text(
                 text = timeText(tx.timestampMs, zone) + statusNote(tx.status),
                 style = MaterialTheme.typography.bodySmall,
-                color = LenslyMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
             )
             item.comment?.let { comment ->
                 Text(
                     text = comment,
                     style = MaterialTheme.typography.bodySmall,
-                    color = LenslyOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontStyle = FontStyle.Italic,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -87,11 +85,11 @@ fun TxCard(item: TxFeedItem, zone: ZoneId, onClick: () -> Unit, modifier: Modifi
             Text(
                 text = signedAmount(tx),
                 style = MaterialTheme.typography.titleSmall,
-                color = LenslyOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.End,
             )
             item.usd?.let {
-                Text(text = HomeFormat.usd(it), style = MaterialTheme.typography.bodySmall, color = LenslyMuted, textAlign = TextAlign.End)
+                Text(text = HomeFormat.usd(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
             }
         }
     }
@@ -104,13 +102,13 @@ private fun DirectionBadge(direction: TxDirection) {
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(LenslyOnSurface.copy(alpha = 0.08f)),
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = directionIcon(direction),
             contentDescription = directionTitle(direction),
-            tint = LenslyOnSurface,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(18.dp),
         )
     }
@@ -122,12 +120,12 @@ private fun ChainBadge(name: String) {
     Text(
         text = name,
         style = MaterialTheme.typography.labelSmall,
-        color = LenslyOnSurface,
+        color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .clip(RoundedCornerShape(percent = 50))
-            .background(LenslyOnSurface.copy(alpha = 0.08f))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
             .padding(horizontal = LenslySpacing.xs, vertical = 2.dp),
     )
 }
