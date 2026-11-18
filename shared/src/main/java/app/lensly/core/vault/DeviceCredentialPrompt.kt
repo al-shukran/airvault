@@ -1,5 +1,6 @@
 package app.lensly.core.vault
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
@@ -12,6 +13,8 @@ import kotlinx.coroutines.withContext
  * Asks the owner for the screen lock or a strong biometric, and reports whether they passed. The vault calls it when the hardware key
  * needs a fresh authentication. A cancel, a dismissed prompt, or any error that ends the prompt reports false.
  */
+// USE_BIOMETRIC is declared by the hosting apps (app and lumio manifests). This library's manifest cannot show lint that.
+@SuppressLint("MissingPermission")
 internal suspend fun confirmDeviceCredential(context: Context): Boolean = withContext(Dispatchers.Main) {
     suspendCancellableCoroutine { continuation ->
         val signal = CancellationSignal()
