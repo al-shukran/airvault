@@ -2,7 +2,6 @@ package app.lumio.ui.theme
 
 import android.provider.Settings
 import androidx.compose.material3.Text
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule

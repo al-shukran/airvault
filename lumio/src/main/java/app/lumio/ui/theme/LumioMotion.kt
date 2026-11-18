@@ -1,7 +1,8 @@
 package app.lumio.ui.theme
 
-import androidx.compose.animation.core.BoundsTransform
+import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.ui.geometry.Rect
 

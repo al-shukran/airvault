@@ -24,7 +24,6 @@ class LumioColorsTest {
             "positive" to palette.positive,
             "negative" to scheme.error,
             "warning" to palette.warning,
-            "onPrimary" to scheme.onPrimary,
         )
         val surfaces = mapOf(
             "background" to scheme.background,
