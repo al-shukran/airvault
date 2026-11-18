@@ -1,5 +1,8 @@
 package app.lumio.ui.kit
 
+import app.lensly.ui.navigation.MirrorNavMotion
+import app.lensly.ui.navigation.NavReducedMotion
+import app.lensly.ui.navigation.cutWhenReduced
 import android.provider.Settings
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.junit4.v2.createComposeRule

@@ -32,8 +32,8 @@ import app.lumio.network.NetworkMode
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
-import app.lumio.ui.kit.LumioIsland
-import app.lumio.ui.kit.LumioRow
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioRow
 import app.lumio.ui.kit.LumioTag
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

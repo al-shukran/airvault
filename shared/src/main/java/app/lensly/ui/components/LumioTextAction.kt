@@ -1,4 +1,4 @@
-package app.lumio.ui.kit
+package app.lensly.ui.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize

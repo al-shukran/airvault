@@ -3,7 +3,6 @@ package app.lensly.ui.home
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -15,11 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Warning
@@ -45,7 +42,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.lensly.app.VisualIdentity
 import app.lensly.app.WalletApp
 import app.lensly.app.WalletKind
@@ -57,14 +53,14 @@ import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.IslandDivider
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.wallet.DotText
 import app.lensly.ui.wallet.WALLET_GUTTER
-import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.wallet.WalletScaffold
@@ -133,55 +129,75 @@ fun WalletDetailScreen(
                         },
                 ) {
                     Spacer(Modifier.height(LenslySpacing.lg))
-                    WalletEyebrow(if (wallet.deviceGenerated) "Device-Generated Wallet" else "Wallet")
+                    Text(
+                        text = if (wallet.deviceGenerated) "Device-Generated Wallet" else "Wallet",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Spacer(Modifier.height(LenslySpacing.xs))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        ProfileAvatar(identity = identity, size = 40.dp)
-                        Spacer(Modifier.width(LenslySpacing.sm))
-                        DotText(text = wallet.name.uppercase(), modifier = Modifier.weight(1f), fontSize = 40.sp)
+                        ProfileAvatar(identity = identity, size = 56.dp)
+                        Spacer(Modifier.width(LenslySpacing.md))
+                        Text(
+                            text = wallet.name,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     Spacer(Modifier.height(LenslySpacing.sm))
-                    if (wallet.kind == WalletKind.SINGLE_KEY) {
-                        PillChip(text = "Single Key")
-                    } else {
-                        PillChip(text = "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}")
-                    }
-                    if (walletProfile.label != null || walletProfile.groups.isNotEmpty()) {
-                        Spacer(Modifier.height(LenslySpacing.xs))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            walletProfile.label?.let { PillChip(text = it) }
-                            walletProfile.groups.forEach { group -> PillChip(text = group) }
-                        }
+                    Text(
+                        text = if (wallet.kind == WalletKind.SINGLE_KEY) {
+                            "Single Key"
+                        } else {
+                            "Master ${wallet.masterFingerprintHex.orEmpty().uppercase()}"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val tags = listOfNotNull(walletProfile.label) + walletProfile.groups
+                    if (tags.isNotEmpty()) {
+                        Spacer(Modifier.height(LenslySpacing.xxs))
+                        Text(
+                            text = tags.joinToString(" · "),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
             item(key = "apps-header") {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Spacer(Modifier.height(LenslySpacing.lg))
-                    WalletEyebrow("Apps")
-                    Spacer(Modifier.height(LenslySpacing.xxs))
+                    Text(
+                        text = "Apps",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(LenslySpacing.xs))
                 }
             }
-            items(WalletApp.entries, key = { app -> app.routeId }) { app ->
-                AppRow(
-                    app = app,
-                    count = when (app) {
-                        WalletApp.BITCOIN -> bitcoinAccounts
-                        WalletApp.ETHEREUM -> wallet.accountCount
-                        WalletApp.SOLANA -> solanaAccounts
-                        WalletApp.ALGORAND -> algorandAccounts
-                    },
-                    onClick = { onOpenApp(app) },
-                )
+            item(key = "apps") {
+                LumioIsland {
+                    WalletApp.entries.forEachIndexed { index, app ->
+                        if (index > 0) IslandDivider()
+                        AppRow(
+                            app = app,
+                            count = when (app) {
+                                WalletApp.BITCOIN -> bitcoinAccounts
+                                WalletApp.ETHEREUM -> wallet.accountCount
+                                WalletApp.SOLANA -> solanaAccounts
+                                WalletApp.ALGORAND -> algorandAccounts
+                            },
+                            onClick = { onOpenApp(app) },
+                        )
+                    }
+                }
             }
             item(key = "tip") {
                 Text(
@@ -224,41 +240,13 @@ fun WalletDetailScreen(
 @Composable
 private fun AppRow(app: WalletApp, count: Int, onClick: () -> Unit) {
     val haptics = rememberKeyHaptics()
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .tapHaptic(haptics)
-                .clickable(role = Role.Button, onClick = onClick)
-                .padding(vertical = LenslySpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AppIcon(app = app, size = 32.dp)
-            Spacer(Modifier.width(LenslySpacing.sm))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = app.label,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(LenslySpacing.xxs))
-                Text(
-                    text = accountCountLabel(count),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
+    LumioRow(
+        title = app.label,
+        description = accountCountLabel(count),
+        leading = { AppIcon(app = app, size = 32.dp) },
+        onClick = onClick,
+        modifier = Modifier.tapHaptic(haptics),
+    )
 }
 
 /**

@@ -1,4 +1,4 @@
-package app.lumio.ui.kit
+package app.lensly.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.LocalIndication
@@ -18,19 +18,22 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lensly.ui.theme.LumenMotion
 
 /**
- * The press and the tap of every tappable Lumio surface (section 3.4). The surface shrinks to [scale] and the ripple starts on the frame of the
- * touch-down, and both let go on the release, or when a scroll takes the touch. Compose's clickable waits about 40 ms inside a scrollable before it
- * shows a press, so this modifier reads the touch itself and feeds the press to the ripple at once. [shape] clips the ripple to the surface.
+ * The press and the tap of every tappable Lensly and Lumio surface (section 3.4). The surface shrinks to [scale] and the ripple starts on the frame of
+ * the touch-down, and both let go on the release, or when a scroll takes the touch. A long press calls [onLongClick] when it is set. Compose's
+ * clickable waits about 40 ms inside a scrollable before it shows a press, so this modifier reads the touch itself and feeds the press to the ripple at
+ * once. [shape] clips the ripple to the surface. It is the only press feedback of a tappable surface, and it gives the button role.
  */
 fun Modifier.lumioPress(
     scale: Float,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true,
     shape: Shape? = null,
 ): Modifier = composed {
@@ -38,6 +41,8 @@ fun Modifier.lumioPress(
     val press = remember { Animatable(1f) }
     val reduced = LocalReducedMotion.current
     val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnLongClick by rememberUpdatedState(onLongClick)
+    val hasLongClick = onLongClick != null
     this
         .graphicsLayer {
             scaleX = press.value
@@ -45,7 +50,7 @@ fun Modifier.lumioPress(
         }
         .then(if (shape != null) Modifier.clip(shape) else Modifier)
         .indication(interaction, LocalIndication.current)
-        .pointerInput(enabled, scale, reduced) {
+        .pointerInput(enabled, scale, reduced, hasLongClick) {
             if (enabled) {
                 detectTapGestures(
                     onPress = { position ->
@@ -56,12 +61,22 @@ fun Modifier.lumioPress(
                         interaction.emit(if (released) PressInteraction.Release(pressed) else PressInteraction.Cancel(pressed))
                         if (reduced) press.snapTo(1f) else press.animateTo(1f, LumenMotion.spatialFast)
                     },
+                    onLongPress = if (hasLongClick) {
+                        { _ -> currentOnLongClick?.invoke() }
+                    } else {
+                        null
+                    },
                     onTap = { currentOnClick() },
                 )
             }
         }
         .semantics {
             role = Role.Button
-            if (enabled) onClick(label = null, action = { currentOnClick(); true }) else disabled()
+            if (enabled) {
+                this.onClick(label = null, action = { currentOnClick(); true })
+                if (hasLongClick) this.onLongClick(label = null, action = { currentOnLongClick?.invoke(); true })
+            } else {
+                disabled()
+            }
         }
 }

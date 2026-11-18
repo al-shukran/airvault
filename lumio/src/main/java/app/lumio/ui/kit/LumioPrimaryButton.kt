@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.LenslyPillShape
 
 /** The height of the primary button (section 1.3). */

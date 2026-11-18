@@ -35,9 +35,9 @@ import app.lumio.pair.SyncRow
 import app.lumio.pair.SyncState
 import app.lumio.ui.kit.GlowBackdrop
 import app.lumio.ui.kit.LumenRing
-import app.lumio.ui.kit.LumioIsland
-import app.lumio.ui.kit.LumioRow
-import app.lumio.ui.kit.LumioTextAction
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioRow
+import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.WalletOrb
 import app.lumio.ui.kit.rememberLumioHaptics
 import app.lensly.ui.theme.LocalLumenPalette

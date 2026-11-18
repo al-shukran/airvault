@@ -1,4 +1,4 @@
-package app.lumio.ui.kit
+package app.lensly.ui.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,8 +27,9 @@ private const val PRESSED_ROW_SCALE = 0.98f
 
 /**
  * A row of an island: an optional [leading] mark, a [title] with a [description] under it when given, the [trailing] content (an amount or a tag), and a
- * chevron when the row opens something ([onClick]). The row scales to 0.98 while it is pressed, and it has the default ripple. [titleModifier] is laid on
- * the title, so a screen can move the title to the next screen.
+ * chevron when the row opens something ([onClick]). A long press calls [onLongClick] when it is set. The row scales to 0.98 while it is pressed,
+ * and it has the default ripple. It is a button for accessibility when it is tappable. [titleModifier] is laid on the title, so a screen can move the
+ * title to the next screen.
  */
 @Composable
 fun LumioRow(
@@ -39,12 +40,19 @@ fun LumioRow(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = ROW_HEIGHT)
-            .then(if (onClick != null) Modifier.lumioPress(scale = PRESSED_ROW_SCALE, onClick = onClick) else Modifier)
+            .then(
+                if (onClick != null) {
+                    Modifier.lumioPress(scale = PRESSED_ROW_SCALE, onClick = onClick, onLongClick = onLongClick)
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {

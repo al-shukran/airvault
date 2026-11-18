@@ -106,7 +106,7 @@ private const val MAX_WORD_LETTERS = 8
  * passphrase and name screens, a wallet's detail, and the pair and sign flows. The create flow is in [createRoutes].
  */
 internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, holder: VaultHolder) {
-    vaultComposable(HiddenRoute.HOME) { entry ->
+    vaultComposable(HiddenRoute.HOME, motion = NavMotion.ROOT) { entry ->
         HiddenBackdrop { HomeRoute(navController, holder, entry) }
     }
     vaultComposable(HiddenRoute.WALLET_START) { entry ->

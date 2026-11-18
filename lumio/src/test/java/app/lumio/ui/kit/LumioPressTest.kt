@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
