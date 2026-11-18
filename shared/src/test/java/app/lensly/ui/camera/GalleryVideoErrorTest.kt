@@ -1,53 +1,37 @@
 package app.lensly.ui.camera
 
-import android.view.View
-import android.view.ViewGroup
-import android.widget.VideoView
-import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LenslyTheme
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
+import java.io.File
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 
-/**
- * A video the player cannot decode shows the app's own error state. The player's error listener consumes the failure, so
- * the system's "can't play" dialog never appears.
- */
+/** A video the store cannot open shows the app's own error state in the viewer, and no player starts. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 class GalleryVideoErrorTest {
 
     @get:Rule
-    val compose = createAndroidComposeRule<ComponentActivity>()
+    val compose = createComposeRule()
 
-    private fun View.findVideoView(): VideoView? {
-        if (this is VideoView) return this
-        if (this is ViewGroup) {
-            for (index in 0 until childCount) {
-                getChildAt(index).findVideoView()?.let { return it }
-            }
-        }
-        return null
-    }
+    @get:Rule
+    val folder = TemporaryFolder()
 
     @Test
-    fun aCorruptVideoShowsTheAppsErrorStateAndNotTheSystemDialog() {
-        val store = PhotoStore.of(VaultLayout.of(RuntimeEnvironment.getApplication()), decoy = false)
-        // Not an MP4: the player cannot read this container.
-        store.newVideoFile(nowMs = 1_000L).apply { writeBytes(ByteArray(32)) }
+    fun aDamagedVideoShowsTheAppsErrorState() {
+        val store = keyedStore(folder.root)
+        // Not a sealed video: the store refuses its header, so the viewer has nothing to play.
+        store.directory.mkdirs()
+        File(store.directory, "VID_1000.sealed").writeBytes(ByteArray(32))
 
         compose.setContent {
             LenslyTheme {
@@ -57,13 +41,6 @@ class GalleryVideoErrorTest {
 
         compose.onNodeWithContentDescription("Video").performClick()
         compose.waitForIdle()
-
-        val player = compose.activity.window.decorView.findVideoView()
-        assertNotNull(player, "the viewer opened no video player")
-        val listener = assertNotNull(Shadows.shadowOf(player).onErrorListener, "the player has no error listener")
-
-        // The error a corrupt file causes when the player opens it. Handled means the system dialog stays away.
-        assertTrue(listener.onError(null, 1, 0))
 
         compose.onNodeWithText("VIDEO CAN'T BE PLAYED").assertIsDisplayed()
     }

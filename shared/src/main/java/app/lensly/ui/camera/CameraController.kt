@@ -21,7 +21,9 @@ import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.Arrays
 import java.util.concurrent.Executor
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -109,21 +111,22 @@ class CameraController {
     }
 
     /**
-     * Saves one JPEG to [file]. [onSaved] runs on [executor] once the file is written. [onFailure] runs on [executor]
-     * when the capture fails, and the partial file is removed first.
+     * Captures one JPEG into memory and hands its bytes to [onCaptured] on [executor], which then owns them and must zero them. Nothing is
+     * written to storage here. [onFailure] runs on [executor] when the capture fails.
      */
-    fun takePhoto(file: File, executor: Executor, onSaved: () -> Unit, onFailure: () -> Unit = {}) {
+    fun takePhoto(executor: Executor, onCaptured: (ByteArray) -> Unit, onFailure: () -> Unit = {}) {
         val capture = imageCapture ?: return
+        val buffer = WipingBuffer()
         capture.takePicture(
-            ImageCapture.OutputFileOptions.Builder(file).build(),
+            ImageCapture.OutputFileOptions.Builder(buffer).build(),
             executor,
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    onSaved()
+                    onCaptured(buffer.takeBytes())
                 }
 
                 override fun onError(exception: ImageCaptureException) {
-                    file.delete()
+                    buffer.wipe()
                     onFailure()
                 }
             },
@@ -192,6 +195,17 @@ internal fun recordingFileSaved(hasError: Boolean, error: Int, file: File): Bool
     val keptShortRecording = error == VideoRecordEvent.Finalize.ERROR_SOURCE_INACTIVE &&
         file.isFile && file.length() > 0
     val saved = !hasError || keptShortRecording
-    if (!saved) file.delete()
+    if (!saved) shredFile(file)
     return saved
+}
+
+/** A JPEG held in memory while it is captured. [wipe] zeroes the bytes it held, so no copy of the photo is left in the heap. */
+private class WipingBuffer : ByteArrayOutputStream() {
+    /** A copy of the bytes written so far. The buffer itself is then wiped. */
+    fun takeBytes(): ByteArray = toByteArray().also { wipe() }
+
+    fun wipe() {
+        Arrays.fill(buf, 0, count, 0.toByte())
+        reset()
+    }
 }

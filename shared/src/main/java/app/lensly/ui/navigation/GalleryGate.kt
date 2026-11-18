@@ -13,29 +13,34 @@ import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultLayout
+import app.lensly.core.vault.VaultRecordNames
 import app.lensly.ui.camera.GalleryScreen
 import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.UnlockScreen
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The media folder that [password] opens: the real vault's for the App Password, the Decoy Vault's for the Duress Password. Null when it
- * opens neither, or the vault cannot be read. The check unlocks the vault only to prove the password, and the session is closed at once,
- * so the vault stays locked. It goes through [Vault.unlock], so the Failure Delay counts gallery guesses too. NonCancellable, so a session
- * that opened is always closed. [password] is zeroed by the vault. A wrong try that is the owner's last allowed one erases the vault, and
- * [onErased] runs instead of a folder.
+ * The media folder that [password] opens, with the photo key of that vault: the real vault's for the App Password, the Decoy Vault's for the
+ * Duress Password. Null when it opens neither, or the vault cannot be read. The check unlocks the vault to prove the password and to read
+ * its photo key. The session is closed at once, so the vault stays locked. It goes through [Vault.unlock], so the Failure Delay counts
+ * gallery guesses too. NonCancellable, so a session that opened is always closed. [password] is zeroed by the vault. A wrong try that is
+ * the owner's last allowed one erases the vault, and [onErased] runs instead of a folder.
  */
 suspend fun galleryStoreFor(vault: Vault, layout: VaultLayout, password: CharArray, onErased: () -> Unit = {}): PhotoStore? =
     withContext(NonCancellable) {
         try {
             when (val result = vault.unlock(password)) {
                 is UnlockResult.Unlocked -> {
-                    val decoy = result.session.isDecoy
-                    result.session.close()
-                    PhotoStore.of(layout, decoy = decoy)
+                    val session = result.session
+                    try {
+                        PhotoStore.of(layout, decoy = session.isDecoy, privateKey = session.getVaultRecord(VaultRecordNames.PHOTO_KEY))
+                    } finally {
+                        session.close()
+                    }
                 }
                 UnlockResult.Rejected -> null
                 UnlockResult.Erased -> {
@@ -62,8 +67,12 @@ fun GalleryGate(vault: Vault, onBack: () -> Unit, onErased: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var store by remember { mutableStateOf<PhotoStore?>(null) }
 
+    // Leaving the gallery zeroes its photo key, so no key outlives the screen that held it.
     DisposableEffect(Unit) {
-        onDispose { buffer.clear() }
+        onDispose {
+            buffer.clear()
+            store?.close()
+        }
     }
 
     val opened = store
@@ -90,7 +99,9 @@ fun GalleryGate(vault: Vault, onBack: () -> Unit, onErased: () -> Unit) {
                     length = 0
                     busy = true
                     scope.launch {
-                        store = galleryStoreFor(vault, layout, password, onErased)
+                        val loaded = galleryStoreFor(vault, layout, password, onErased)
+                        // The screen may have been left while the password was checked. Then no screen holds the key, so it is zeroed here.
+                        if (isActive) store = loaded else loaded?.close()
                         busy = false
                     }
                 },

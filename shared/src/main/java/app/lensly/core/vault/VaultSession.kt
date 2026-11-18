@@ -59,7 +59,10 @@ internal object VaultRecordNames {
      * The record names the app writes. Removing a Decoy Vault keeps the files of these names under the real key and deletes
      * the other files. A new vault record name must be added here.
      */
-    val KNOWN: List<String> = listOf("settings", "btc-scan", "btc-servers", "lumio-evm-settings", "lumio-balance-cache", "lumio-providers", "address-book", "lumio-address-books")
+    val KNOWN: List<String> = listOf("settings", "btc-scan", "btc-servers", "lumio-evm-settings", "lumio-balance-cache", "lumio-providers", "address-book", "lumio-address-books", PHOTO_KEY)
+
+    /** The private half of a vault's photo key pair. See [VaultSession.ensurePhotoKey]. */
+    const val PHOTO_KEY = "photo-key"
 
     /** A record name the app can write. */
     val NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
@@ -609,6 +612,37 @@ class VaultSession constructor(
             } finally {
                 Arrays.fill(walletKey, 0)
             }
+        }
+    }
+
+    /**
+     * Makes this vault's photo key pair if it has none, and writes the public half to [VaultLayout.photoKeyFile] when that file differs.
+     * The private half is a vault record, so only this vault's password opens it. The real vault also makes sure the Decoy Vault's file
+     * exists, with a placeholder until a Decoy Vault has its own key. The plain photos of an earlier build are shredded too. Called on
+     * unlock, and when a vault is created.
+     */
+    internal fun ensurePhotoKey(): Unit = synchronized(this) {
+        layout.photos.mkdirs()
+        shredPlainPhotos(layout.photoDir(isDecoy))
+        val privateKey = getVaultRecord(VaultRecordNames.PHOTO_KEY)
+            ?: MediaEnvelope.newPrivateKey().also { putVaultRecord(VaultRecordNames.PHOTO_KEY, it) }
+        val publicKey = MediaEnvelope.publicKeyOf(privateKey)
+        privateKey.fill(0)
+        val file = layout.photoKeyFile(isDecoy)
+        if (!file.isFile || !file.readBytes().contentEquals(publicKey)) writeAtomically(file, publicKey)
+        val decoyFile = layout.photoKeyFile(decoy = true)
+        if (!isDecoy && !decoyFile.isFile) writeAtomically(decoyFile, placeholderPhotoKey())
+    }
+
+    /** Shreds the plain JPEG and MP4 files that a build from before photos were sealed left in [dir]. They are deleted, not migrated. */
+    private fun shredPlainPhotos(dir: File) {
+        dir.listFiles { file -> file.isFile && file.extension in setOf("jpg", "mp4") }?.forEach { file ->
+            try {
+                overwriteInPlace(file)
+            } catch (e: IOException) {
+                // Deleted below all the same.
+            }
+            file.delete()
         }
     }
 
