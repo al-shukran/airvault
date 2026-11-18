@@ -529,7 +529,7 @@ Rules:
 - CAIP-10 does not require canonical addresses. AirVault does: every address passes through `AddressCodec.parse` before it becomes part of an `AccountId`. Two ids for the same account must compare equal.
 - CAIP-19 is in Review status. Pin the version we follow in `:core:model` and note it in the code.
 - CAIP-10 limits addresses to 1-128 chars of `[A-Za-z0-9-.%]` and requires URL-encoding of anything else. Address formats in use today fit.
-- Namespace and reference strings must be copied from the ChainAgnostic namespaces registry, not invented. Confirmed: `bip122` (<https://github.com/ChainAgnostic/namespaces/blob/master/bip122/caip2.md>), `solana` (<https://github.com/ChainAgnostic/namespaces/blob/master/solana/caip2.md>), `algorand` (<https://github.com/ChainAgnostic/namespaces/blob/master/algorand/caip2.md>), and `tron` (Draft, <https://github.com/ChainAgnostic/namespaces/blob/master/tron/caip2.md>). Asset namespaces other than `erc20`/`erc721` **[UNVERIFIED]**: not checked.
+- Namespace and reference strings must be copied from the ChainAgnostic namespaces registry, not invented. Confirmed: `bip122` (<https://github.com/ChainAgnostic/namespaces/blob/master/bip122/caip2.md>), `solana` (<https://github.com/ChainAgnostic/namespaces/blob/master/solana/caip2.md>), `algorand` (<https://github.com/ChainAgnostic/namespaces/blob/master/algorand/caip2.md>), and `tron` (Draft, <https://github.com/ChainAgnostic/namespaces/blob/master/tron/caip2.md>). CAIP-19 profiles exist for other asset namespaces (for example `solana`, status Draft, <https://github.com/ChainAgnostic/namespaces/blob/master/solana/caip19.md>).
 - `ChainId` replaces `BtcNetwork`, `AlgorandNetwork`, the EVM `chainId: Long`, Lumio's `NetworkId`, and `NetworkMode`'s special cases. "Testnet or mainnet" is a property of `NetworkSpec`, not a separate enum.
 
 ---
@@ -580,7 +580,7 @@ Notes the app must handle:
 - ERC-20 says callers must not expect `name`, `symbol` or `decimals` to exist (EIP-20). Missing values stay `null`.
 - ERC-1155 `uri(id)` replaces `{id}` with the id as 64-char lowercase zero-padded hex (EIP-1155).
 - Token-2022 keeps Token's byte layout for instructions 0-24 and adds new ones from 25. Mint extensions (transfer fee, transfer hook, permanent delegate, non-transferable, confidential transfer, ...) must become `AssetFlag`s and review warnings.
-- Metaplex pNFTs are always frozen and move through Token Metadata, not a plain SPL transfer. The review must say so.
+- Metaplex pNFTs are always frozen and move through Token Metadata, not a plain SPL transfer. Token Metadata thaws the source account, transfers, and re-freezes the destination; a token record is required (<https://github.com/metaplex-foundation/mpl-token-metadata/blob/main/programs/token-metadata/program/src/utils/programmable_asset.rs>). The review must say so.
 - ARC-89 `supersedes` ARC-19 and ARC-69 (<https://github.com/algorandfoundation/ARCs/blob/main/ARCs/arc-0089.md>). ARC-89 is at Last Call, not Final. Support ARC-19 and ARC-69 read-only; add ARC-89 read-only once it is Final (section 12.1, item 1).
 - TRC-10 transfers are protocol-level, not contract calls. TRC-10 is not recommended for new tokens (Tron docs).
 
@@ -619,7 +619,7 @@ sealed interface Precondition {
 }
 ```
 
-Lumio shows a missing precondition as its own step with its own QR request. It never folds it silently into a send. A missing opt-in on the recipient side blocks the send with a clear reason. Sources: <https://dev.algorand.co/concepts/assets/asset-operations/>. Stellar and XRPL trust-line details are **[UNVERIFIED]** (pages returned 404 during research).
+Lumio shows a missing precondition as its own step with its own QR request. It never folds it silently into a send. A missing opt-in on the recipient side blocks the send with a clear reason. Sources: <https://dev.algorand.co/concepts/assets/asset-operations/>. An SPL associated token account is the PDA with seeds `[wallet, token_program_id, mint]` under the associated-token program ID (<https://github.com/solana-program/associated-token-account/blob/main/interface/src/address.rs>). Stellar and XRPL trust-line details are **[UNVERIFIED]** (pages returned 404 during research).
 
 ### 5.5 Out of scope for now
 
@@ -665,7 +665,7 @@ Examples from the research (sources inline):
 | Algorand | `algorand.rekeyTo` | AddressField, DANGER | hands signing authority to another address; same page |
 | Algorand | `algorand.lease` | MemoBytes(fixedLength 32), CAUTION | blocks duplicate txns until `lastValid`; same page |
 | Solana | `solana.memo` | MemoText(UTF-8) | invalid UTF-8 fails; length bounded by compute (566 single-byte chars as of v1.5.1) <https://www.solana-program.com/docs/memo> |
-| Solana | `fee.cuPrice`, `fee.cuLimit` | FeeParam | ComputeBudget instructions; fee and expiry details **[UNVERIFIED]** |
+| Solana | `fee.cuPrice`, `fee.cuLimit` | FeeParam ComputeBudget instructions `setComputeUnitPrice` and `setComputeUnitLimit` (<https://github.com/solana-program/compute-budget/blob/main/idl.json>). A blockhash is accepted for processing only within 150 slots (`MAX_PROCESSING_AGE`, <https://github.com/anza-xyz/solana-sdk/blob/master/clock/src/lib.rs>) |
 | EVM | `fee.maxFeePerGas`, `fee.maxPriorityFeePerGas`, `fee.gasLimit` | FeeParam | EIP-1559 <https://eips.ethereum.org/EIPS/eip-1559> |
 | EVM | `evm.nonce` | Sequence(64) | |
 | Bitcoin | `fee.satPerVb` | FeeParam | |
@@ -691,7 +691,7 @@ Lumio runs it while the user types. Lensly runs it again on the decoded request.
 
 ### 6.3 "Required by recipient"
 
-Whether a memo or tag is required depends on the recipient, not the chain. An exchange deposit address needs one; a personal wallet does not. Source: XRPL tags page (<https://xrpl.org/source-and-destination-tags.html>); exchange practice for Stellar, Solana and Algorand is **[UNVERIFIED]**.
+Whether a memo or tag is required depends on the recipient, not the chain. An exchange deposit address needs one; a personal wallet does not. Source: XRPL tags page (<https://xrpl.org/source-and-destination-tags.html>); exchange practice for Stellar, Solana and Algorand is **[UNVERIFIED]**. XRPL returns `tecDST_TAG_NEEDED` (TER code 143) when the destination requires a tag and none is given (<https://github.com/XRPLF/rippled>, `src/libxrpl/tx/transactors/payment/Payment.cpp` and `include/xrpl/protocol/TER.h`).
 
 So the requirement lives on the address book entry:
 
@@ -748,7 +748,7 @@ Today's types and owners:
 | `crypto-multi-accounts` | pairing | core | Keystone-style; not in BCR-2020-006 |
 | `crypto-psbt` | request and response | `bitcoin` app | BCR-2020-006 registry: the current name is `psbt` (tag 40310); `crypto-psbt` is the retired name. Kept for Bitcoin wire compatibility with existing pairing (section 12.1, item 6). The Kotlin code in Lensly and Lumio uses only `crypto-psbt` (`BtcPsbt.UR_TYPE`); no `psbt` UR string exists. <https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-006-urtypes.md> |
 | `eth-sign-request`, `eth-signature` | request, response | `evm` app | not in BCR-2020-006; Keystone-style |
-| `sol-sign-request`, `sol-signature` | request, response | `solana` app | described by OneKey <https://developer.onekey.so/en/air-gap/solana/> **[UNVERIFIED]** |
+| `sol-sign-request`, `sol-signature` | request, response | `solana` app | Keystone ur-registry types `SOL_SIGN_REQUEST` (sign type 1 or 2) and `SOL_SIGNATURE` <https://github.com/KeystoneHQ/keystone-sdk-rust/blob/master/libs/ur-registry/src/solana/sol_sign_request.rs> |
 | `algo-sign-request`, `algo-signature` | request, response | `algorand` app | AirVault |
 
 ### 7.3 Generic envelope for new chains
@@ -891,7 +891,7 @@ Fixtures live in `chains/<id>/common/src/testFixtures/`: request payloads (CBOR 
 
 Litecoin is close to Bitcoin: UTXOs, PSBT, secp256k1. The point of this walkthrough is that the work stays inside `chains/litecoin/`, plus one line per phone app.
 
-Facts checked: SLIP-44 coin type 2 (<https://github.com/satoshilabs/slips/blob/master/slip-0044.md>); CAIP-2 `bip122:12a765e31ffd4059bada1e25190f6e98` (<https://github.com/ChainAgnostic/namespaces/blob/master/bip122/caip2.md>); bech32 HRP `ltc` and P2PKH version 48 (<https://github.com/litecoin-project/litecoin/blob/master/src/chainparams.cpp>). Still **[UNVERIFIED]** before coding: P2SH version bytes, whether bitcoin-kmp supports Litecoin network parameters, and whether MWEB outputs can appear in a PSBT (section 12.1, item 3).
+Facts checked: SLIP-44 coin type 2 (<https://github.com/satoshilabs/slips/blob/master/slip-0044.md>); CAIP-2 `bip122:12a765e31ffd4059bada1e25190f6e98` (<https://github.com/ChainAgnostic/namespaces/blob/master/bip122/caip2.md>); bech32 HRP `ltc` and P2PKH version 48 (<https://github.com/litecoin-project/litecoin/blob/master/src/chainparams.cpp>). P2SH version bytes are 5 (legacy) and 50 (`SCRIPT_ADDRESS2`, leading `M`) (same source). Still **[UNVERIFIED]** before coding: whether bitcoin-kmp supports Litecoin network parameters, and whether MWEB outputs can appear in a PSBT (section 12.1, item 3).
 
 **Step 1. Create the modules.** Copy `chains/_template/` to `chains/litecoin/`. Add the three modules to `settings.gradle.kts`.
 
@@ -940,7 +940,7 @@ Core files touched: `settings.gradle.kts`, `InstalledSigners.kt`, `InstalledWall
 
 Tron differs more: secp256k1 keys with Ethereum-style signing, base58check addresses, protobuf transactions, a resource model (bandwidth and energy), and two token standards.
 
-Facts checked: SLIP-44 coin type 195 (<https://github.com/satoshilabs/slips/blob/master/slip-0044.md>); `fee_limit` in sun (<https://developers.tron.network/docs/paying-for-resources>); the `tron` CAIP-2 namespace (Draft, <https://github.com/ChainAgnostic/namespaces/blob/master/tron/caip2.md>). Still **[UNVERIFIED]** before coding: the address format (base58check with `0x41` prefix). Tron docs: <https://developers.tron.network/docs/token-standards-overview>, <https://developers.tron.network/docs/paying-for-resources>.
+Facts checked: SLIP-44 coin type 195 (<https://github.com/satoshilabs/slips/blob/master/slip-0044.md>); `fee_limit` in sun (<https://developers.tron.network/docs/paying-for-resources>); the `tron` CAIP-2 namespace (Draft, <https://github.com/ChainAgnostic/namespaces/blob/master/tron/caip2.md>). A TRON address is a 21-byte value with a leading `0x41` prefix byte, shown in Base58Check as 34 characters starting with `T` (<https://developers.tron.network/docs/account>). Tron docs: <https://developers.tron.network/docs/token-standards-overview>, <https://developers.tron.network/docs/paying-for-resources>.
 
 Manifest highlights:
 
@@ -1055,21 +1055,19 @@ These decisions close the open questions raised by the fact check of this docume
 
 BEP-20 (<https://github.com/bnb-chain/BEPs/blob/master/BEPs/BEP20.md>) does not define `getOwner`. A `getOwner` function is not a BEP-20 requirement.
 
+MetaMask Snaps has no coin-type-60 restriction. The `permittedCoinTypes` caveat accepts any non-negative coin type except a forbidden list, whose contents were not checked (<https://github.com/MetaMask/snaps/blob/main/packages/snaps-rpc-methods/src/restricted/caveats/permittedCoinTypes.ts>). MetaMask SIP-14 "Dynamic Permissions" has status Draft (<https://github.com/MetaMask/SIPs/blob/main/SIPS/sip-14.md>).
+
 Carried-over **[UNVERIFIED]** items from research (do not rely on them until checked against a primary source):
 
-- CAIP-19 namespaces other than `erc20`/`erc721`.
 - Ledger's BIP32 enforcement blog.
 - Ledger Live coin-module structure (CurrencyBridge, AccountBridge, `coin-framework` types).
 - Keystone firmware per-chain layout (`rust/apps/<chain>`); `eth-sign-request` definition (not in BCR-2020-006).
-- `sol-sign-request` / `sol-signature` definition (OneKey guide only).
-- MetaMask Snaps coin type 60 restriction; SIP-14 status.
-- ATA derivation; Solana priority fee and blockhash expiry.
 - Address formats: base58check (Bitcoin legacy), Litecoin, CashAddr (Bitcoin Cash), Tron, Solana on-curve check, Stellar strkey, SS58, Cosmos bech32, TON, Cardano.
-- XRPL issued currencies, trust lines, `RequireAuth`, `RequireDest` error code; XRPL and Stellar fee and sequence fields.
+- XRPL issued currencies, trust lines, `RequireAuth`; XRPL and Stellar fee and sequence fields.
 - Stellar trustlines; which exchanges require memos on Stellar, Solana, Algorand.
 - Tron TRC-20 energy cost, TRC-721 receiver-hook value, memo size.
 - Cosmos tx memo; ibc-go denom hashing; Hedera, EOS, TON memo formats.
-- Litecoin MWEB outputs; Litecoin P2SH version bytes.
+- Litecoin MWEB outputs.
 - Ordinals inscription primary spec.
 
 Codebase items not verified by the research: Lumio SPL transfer support, Lumio `BtcSend` PSBT-building internals, `SigningSourcePolicy` scope beyond Bitcoin, the full count of chain switches in tests.
