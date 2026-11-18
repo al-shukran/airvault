@@ -42,7 +42,7 @@ fun CeremonyResultScreen(
         },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "COMPARE")
+        DotHeadline(text = "Compare")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "The first hash was fixed before your rolls. The second proves the mix used them.",

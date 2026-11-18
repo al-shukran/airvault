@@ -102,3 +102,7 @@ fun CoverTheme(content: @Composable () -> Unit) {
  * Whether the shared components set their labels in capitals. The cover's do. The hidden area's are sentence case, so [LumenTheme] turns this off.
  */
 val LocalUppercaseLabels = staticCompositionLocalOf { true }
+
+/** [text] as the current theme sets its labels: in capitals under [CoverTheme], as written under [LumenTheme]. */
+@Composable
+fun labelCase(text: String): String = if (LocalUppercaseLabels.current) text.uppercase() else text

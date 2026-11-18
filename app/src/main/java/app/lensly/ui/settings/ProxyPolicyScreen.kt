@@ -124,7 +124,7 @@ private fun ChooseContent(
     ) {
         StepHeader(step = 1, count = STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "PROXIES")
+        DotHeadline(text = "Proxies")
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
             text = "A proxy is a contract whose code can be replaced. Its approved meaning can change when that happens, so " +

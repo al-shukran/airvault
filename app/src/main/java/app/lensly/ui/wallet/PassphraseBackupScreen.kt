@@ -54,7 +54,7 @@ fun PassphraseBackupScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Part of the backup")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotHeadline(text = "WRITE DOWN")
+        DotHeadline(text = "Write down")
         Spacer(Modifier.height(LenslySpacing.sm))
         InlineBanner(message = "Write it down separately from the 24 words.", tone = BannerTone.Warning)
         Spacer(Modifier.height(LenslySpacing.md))

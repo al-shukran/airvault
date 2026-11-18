@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.labelCase
 
 fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -71,7 +72,7 @@ fun CameraPermissionRationale(
         )
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
-            text = if (canOpenSettings) "CAMERA IS OFF" else "CAMERA ACCESS",
+            text = labelCase(if (canOpenSettings) "Camera is off" else "Camera access"),
             modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.headlineSmall,
             color = colors.onSurface,

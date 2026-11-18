@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.labelCase
 
 /**
  * Centred loading state: the dot-matrix progress row, with an optional [label] under it. Use it while a screen waits for
@@ -30,7 +31,7 @@ fun LoadingState(
         DotProgress(description = "Loading")
         if (label != null) {
             Text(
-                text = label.uppercase(),
+                text = labelCase(label),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

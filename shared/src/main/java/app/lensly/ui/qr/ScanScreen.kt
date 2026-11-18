@@ -110,7 +110,7 @@ private fun ScanProgress(progress: Float) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = "SCANNING",
+                text = "Scanning",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

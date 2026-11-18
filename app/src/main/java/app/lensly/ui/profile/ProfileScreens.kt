@@ -345,7 +345,7 @@ private fun ProfileHeader(identity: VisualIdentity, title: String) {
         ProfileAvatar(identity = identity, size = 48.dp)
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
-            text = title.uppercase(),
+            text = title,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,

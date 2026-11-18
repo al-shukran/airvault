@@ -188,7 +188,7 @@ fun BitcoinAccountsScreen(
             if (!singleKey) {
                 item(key = "generate") {
                     Spacer(Modifier.height(LenslySpacing.md))
-                    AddAccountRow(label = "GENERATE ACCOUNTS", onClick = onGenerate)
+                    AddAccountRow(label = "Generate accounts", onClick = onGenerate)
                 }
                 item(key = "tip") {
                     Text(
@@ -281,7 +281,7 @@ private fun BitcoinAccountRow(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = name.uppercase(),
+                        text = name,
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface,

@@ -272,7 +272,7 @@ private fun ChartCard(
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
-                    text = "TODAY",
+                    text = "Today",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -424,7 +424,7 @@ private fun <T> SegmentedToggle(options: List<T>, selected: T, label: (T) -> Str
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = label(option).uppercase(),
+                    text = label(option),
                     style = MaterialTheme.typography.labelMedium,
                     color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -446,4 +446,4 @@ private fun chartSummary(chart: ActivityChart, window: ChartWindow, breakdown: C
 
 /** The date label under the first bar, such as "OCT 14", in the device's language. */
 private fun dayLabel(date: LocalDate): String =
-    date.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())).uppercase()
+    date.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))

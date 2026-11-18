@@ -92,8 +92,8 @@ internal fun WalletCard(
     val interaction = remember { MutableInteractionSource() }
     val identity = visualIdentity(profile.colour, profile.icon, position)
     val accounts = if (wallet.accountCount == 1) "1 account" else "${wallet.accountCount} accounts"
-    val fingerprint = if (showFingerprint) wallet.masterFingerprintHex?.let { "master $it" } else null
-    val details = listOfNotNull(accounts, fingerprint).joinToString(" · ").uppercase()
+    val fingerprint = if (showFingerprint) wallet.masterFingerprintHex?.let { "master ${it.uppercase()}" } else null
+    val details = listOfNotNull(accounts, fingerprint).joinToString(" · ")
     val longClick: (() -> Unit)? = onLongPress?.let { open ->
         {
             feedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -134,7 +134,7 @@ internal fun WalletCard(
             }
             Spacer(Modifier.weight(1f))
             Text(
-                text = wallet.name.uppercase(),
+                text = wallet.name,
                 style = when {
                     !compact -> MaterialTheme.typography.headlineSmall
                     // Twelve sp in mono, so two lines hold the whole name of a carousel card.
@@ -229,7 +229,7 @@ internal fun WalletContextSheet(
                 .padding(start = LenslySpacing.md, end = LenslySpacing.md, bottom = LenslySpacing.lg),
         ) {
             Text(
-                text = wallet.name.uppercase(),
+                text = wallet.name,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,

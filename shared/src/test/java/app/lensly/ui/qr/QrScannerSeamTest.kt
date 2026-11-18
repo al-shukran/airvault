@@ -29,7 +29,7 @@ class QrScannerSeamTest {
             }
         }
 
-        compose.onNodeWithText("CAMERA ACCESS").assertExists()
+        compose.onNodeWithText("Camera access").assertExists()
         compose.onNodeWithText("Lensly reads QR codes with the camera. Images never leave the phone.").assertExists()
     }
 }

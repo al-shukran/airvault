@@ -248,7 +248,7 @@ private fun SectionLink(text: String, onClick: () -> Unit) {
             .clickable(role = Role.Button, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = text.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.width(LenslySpacing.xxs))
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -281,7 +281,7 @@ private fun ActivityRow(item: WalletReviewRecord, walletName: String?, nowMs: Lo
             Row {
                 // The name gives way first, so the time is always whole.
                 Text(
-                    text = (walletName ?: "Wallet").uppercase(),
+                    text = walletName ?: "Wallet",
                     modifier = Modifier.weight(1f, fill = false),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -289,7 +289,7 @@ private fun ActivityRow(item: WalletReviewRecord, walletName: String?, nowMs: Lo
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = " · ${relativeAge(record.atMs, nowMs)}".uppercase(),
+                    text = " · ${relativeAge(record.atMs, nowMs)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -356,7 +356,7 @@ private fun ReadinessTile(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = label.uppercase(),
+                text = label,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

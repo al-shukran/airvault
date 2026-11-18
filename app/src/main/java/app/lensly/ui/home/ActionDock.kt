@@ -127,7 +127,7 @@ private fun DockItem(icon: ImageVector, label: String, tag: String, onClick: () 
         Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(
-            text = label.uppercase(),
+            text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

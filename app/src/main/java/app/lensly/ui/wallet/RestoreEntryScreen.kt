@@ -200,7 +200,7 @@ private fun PrefixField(prefix: String, placeholder: String, invalid: Boolean, f
     ) {
         if (prefix.isEmpty()) {
             Text(
-                text = placeholder.uppercase(),
+                text = placeholder,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

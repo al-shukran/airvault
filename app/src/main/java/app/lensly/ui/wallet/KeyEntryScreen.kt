@@ -81,7 +81,7 @@ fun KeyEntryScreen(
             }
             Spacer(Modifier.height(LenslySpacing.sm))
             // 48sp keeps "PRIVATE KEY" on one line on a 720dp-wide phone, as PassphraseScreen does for its headline.
-            DotText(text = "PRIVATE KEY", fontSize = 48.sp)
+            DotText(text = "Private key", fontSize = 48.sp)
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(
                 message = "A lost key is lost funds. Lensly cannot make this key again.",
@@ -150,7 +150,7 @@ fun KeyAddressScreen(
             PillChip(text = "EVM")
         }
         Spacer(Modifier.height(LenslySpacing.sm))
-        DotHeadline(text = "ADDRESS")
+        DotHeadline(text = "Address")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "This key controls the address below. Check it is the one you expect before you continue.",

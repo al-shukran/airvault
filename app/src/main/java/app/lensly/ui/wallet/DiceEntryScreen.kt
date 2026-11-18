@@ -242,7 +242,7 @@ private fun FullStrengthChip() {
             .padding(horizontal = LenslySpacing.sm, vertical = LenslySpacing.xxs + 2.dp),
     ) {
         Text(
-            text = "FULL $FULL_STRENGTH_BITS-BIT",
+            text = "Full $FULL_STRENGTH_BITS-bit",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -375,7 +375,7 @@ private fun CoinPad(faces: List<Char>, hidden: Boolean, onTile: (Int) -> Unit) {
                 ) {
                     CoinMark(side = side, markSize = COIN_ICON_SIZE)
                     Text(
-                        text = label.uppercase(),
+                        text = label,
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -497,7 +497,7 @@ private fun UndoControl(enabled: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "UNDO",
+            text = "Undo",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )

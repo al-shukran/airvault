@@ -105,7 +105,7 @@ class EthereumAccountsScreenTest {
         val before = compose.runOnIdle { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
         assertTrue("the list starts scrolled, so the test can see it move", before.first > 0)
 
-        compose.onNodeWithText("ADD ACCOUNT").performClick()
+        compose.onNodeWithText("Add account").performClick()
         compose.waitForIdle()
         // The new account is counted, and its row waits for its address. The rows already shown stay as they were.
         compose.onAllNodesWithText("DERIVING ADDRESS").assertCountEquals(1)
@@ -144,7 +144,7 @@ class EthereumAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("MAIN").performTouchInput { longClick() }
+        compose.onNodeWithText("Main").performTouchInput { longClick() }
         compose.onNodeWithText("Export address").assertIsDisplayed()
         compose.onNodeWithText("Edit profile").assertIsDisplayed()
 
@@ -168,7 +168,7 @@ class EthereumAccountsScreenTest {
         compose.onNodeWithText(groupedAddress(addressAt(3))).performClick()
         compose.onNodeWithText("3 SELECTED").assertIsDisplayed()
 
-        compose.onNodeWithText("EXPORT").performClick()
+        compose.onNodeWithText("Export").performClick()
         assertEquals(listOf(1, 3, 4), route.exported)
     }
 
@@ -203,7 +203,7 @@ class EthereumAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("ADD ACCOUNT").assertDoesNotExist()
+        compose.onNodeWithText("Add account").assertDoesNotExist()
         compose.onNodeWithContentDescription("App options").performClick()
         compose.onNodeWithText("Generate accounts").assertDoesNotExist()
         compose.onNodeWithText("Select accounts").assertDoesNotExist()

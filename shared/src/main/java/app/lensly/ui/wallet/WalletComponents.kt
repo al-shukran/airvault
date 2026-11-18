@@ -39,6 +39,7 @@ import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalMonoFamily
+import app.lensly.ui.theme.labelCase
 
 private const val DISABLED_ALPHA = 0.4f
 private val ERROR_HEIGHT = 24.dp
@@ -112,7 +113,7 @@ fun WalletPill(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = text.uppercase(),
+            text = labelCase(text),
             style = textStyle,
             color = labelColor,
             maxLines = 1,
@@ -192,7 +193,7 @@ fun WalletWarningChip(text: String, modifier: Modifier = Modifier) {
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(
-            text = text.uppercase(),
+            text = labelCase(text),
             style = MaterialTheme.typography.labelSmall,
             color = LocalLumenPalette.current.warning,
         )
@@ -213,7 +214,7 @@ fun WalletError(message: String?, modifier: Modifier = Modifier) {
     ) {
         if (message != null) {
             Text(
-                text = message.uppercase(),
+                text = labelCase(message),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
@@ -222,7 +223,7 @@ fun WalletError(message: String?, modifier: Modifier = Modifier) {
     }
 }
 
-/** Dot-matrix text for counters, check words and recent entries. */
+/** Dot-matrix text for counters, check words and recent entries. Like [DotHeadline], it is shown in uppercase. */
 @Composable
 fun DotText(
     text: String,
@@ -230,7 +231,7 @@ fun DotText(
     fontSize: TextUnit = 28.sp,
 ) {
     Text(
-        text = text,
+        text = text.uppercase(),
         modifier = modifier,
         style = TextStyle(fontFamily = MaterialTheme.typography.displaySmall.fontFamily, fontSize = fontSize, letterSpacing = 2.sp),
         color = MaterialTheme.colorScheme.onSurface,
