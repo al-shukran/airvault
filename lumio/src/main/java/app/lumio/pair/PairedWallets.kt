@@ -6,6 +6,7 @@ import app.lensly.app.addressKeyOf
 import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcWatchOnlyAccount
+import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 
@@ -75,13 +76,18 @@ data class PairSaved(val id: String, val created: Boolean)
 object PairedWallets {
 
     /**
-     * The paired wallets, oldest first, each with its Address Book. A folder with no META record is left out. A record or a book that
-     * cannot be read throws, so a stored pairing is never listed as missing.
+     * The paired wallets, oldest first, each with its Address Book. A folder with no META record is left out. A pairing record or a book of
+     * another layout version is wiped, with its wallet, and reads as unpaired. No reader takes an old version.
      */
     fun list(session: VaultSession): List<PairedWallet> {
-        val books = PairAddressBooks.load(session)
+        val books = try {
+            PairAddressBooks.load(session)
+        } catch (e: VaultException) {
+            PairAddressBooks.clear(session)
+            emptyMap()
+        }
         return session.listWallets()
-            .mapNotNull { id -> read(session, id)?.copy(addressBook = books[id].orEmpty()) }
+            .mapNotNull { id -> readOrWipe(session, id)?.copy(addressBook = books[id].orEmpty()) }
             .sortedBy { it.createdAtMs }
     }
 
@@ -146,10 +152,15 @@ object PairedWallets {
         return accounts + bitcoin + solana + algorand
     }
 
-    /**
-     * The paired wallet in folder [id], or null when the folder has no META record. A record that does not read in full, such as one of
-     * another layout version, throws.
-     */
+    /** The paired wallet in folder [id]. A folder whose record does not read in full is wiped, and reads as null. */
+    private fun readOrWipe(session: VaultSession, id: String): PairedWallet? = try {
+        read(session, id)
+    } catch (e: IllegalArgumentException) {
+        delete(session, id)
+        null
+    }
+
+    /** The paired wallet in folder [id], or null when the folder has no META record. A record that does not read in full throws. */
     private fun read(session: VaultSession, id: String): PairedWallet? {
         val meta = session.getRecord(id, WalletRecordNames.META)?.let { PairRecords.decodeMeta(it) } ?: return null
         val accounts = meta.addresses.mapIndexed { index, address ->
