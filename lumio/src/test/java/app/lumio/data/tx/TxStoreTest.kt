@@ -6,8 +6,8 @@ import app.lensly.core.vault.VaultSession
 import app.lumio.data.ETH
 import app.lumio.data.containsBytes
 import app.lumio.data.db.LumioDatabase
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import java.io.File
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -45,7 +45,7 @@ class TxStoreTest {
     private val usdc = "0x" + "ee".repeat(20)
     private val native = TxAsset(null, "ETH", "Ether", 18)
     private val usdcAsset = TxAsset(usdc, "USDC", "USD Coin", 6)
-    private val btc = NetworkId(Family.BTC, "mainnet", testnet = false)
+    private val btc = NetworkId(Networks.BTC_MAINNET, testnet = false)
     private val btcAccount = "bc1qmine"
     private val oneEth: BigInteger = BigInteger.TEN.pow(18)
     private val fee: BigInteger = BigInteger.valueOf(21_000L) * BigInteger.valueOf(20_000_000_000L)

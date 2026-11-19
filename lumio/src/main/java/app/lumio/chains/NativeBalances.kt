@@ -5,7 +5,6 @@ import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.ProviderConfigStore
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
@@ -61,9 +60,9 @@ object NativeBalances {
      * The addresses of [wallet] on [network], in account order: the Algorand address of each Algorand key, or the base58 address of each Solana key.
      * A wallet with no account of the family of [network] has none.
      */
-    fun addresses(wallet: PairedWallet, network: NetworkId): List<String> = when (network.family) {
-        Family.ALGO -> wallet.algorand.map { AlgorandAccount.addressOf(it) }
-        Family.SOL -> wallet.solana.map { SolanaAccount.addressOf(it) }
+    fun addresses(wallet: PairedWallet, network: NetworkId): List<String> = when {
+        network.isAlgo -> wallet.algorand.map { AlgorandAccount.addressOf(it) }
+        network.isSol -> wallet.solana.map { SolanaAccount.addressOf(it) }
         else -> emptyList()
     }
 

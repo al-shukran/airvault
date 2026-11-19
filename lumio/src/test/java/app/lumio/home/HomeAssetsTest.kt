@@ -1,8 +1,8 @@
 package app.lumio.home
 
 import app.lumio.data.asset.AssetId
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
 import java.math.BigDecimal
 import org.junit.Assert.assertEquals
@@ -12,9 +12,9 @@ import org.junit.Test
 
 /** The rules of Home's asset list: the minimum, the order, the total, the prices and the masks. */
 class HomeAssetsTest {
-    private val ethereum = NetworkId(Family.EVM, "1", testnet = false)
-    private val sepolia = NetworkId(Family.EVM, "11155111", testnet = true)
-    private val bitcoin = NetworkId(Family.BTC, "mainnet", testnet = false)
+    private val ethereum = NetworkId(Networks.evm(1), testnet = false)
+    private val sepolia = NetworkId(Networks.evm(11155111), testnet = true)
+    private val bitcoin = NetworkId(Networks.BTC_MAINNET, testnet = false)
     private val usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
     private val dai = "0x6b175474e89094c44da98b954eedeac495271d0f"
     private val unlisted = "0x1111111111111111111111111111111111111111"

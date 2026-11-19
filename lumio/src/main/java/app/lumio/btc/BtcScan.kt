@@ -6,8 +6,8 @@ import app.lumio.data.cache.CachePolicy
 import app.lumio.data.cache.CacheUse
 import app.lumio.data.cache.DEFAULT_SHORT_TTL_MS
 import app.lumio.data.cache.jsonCodec
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressStats
 import app.lumio.data.provider.AddressTxs
 import app.lumio.data.provider.AddressUtxos
@@ -24,7 +24,7 @@ import kotlinx.coroutines.ensureActive
 
 /** The network id of a Bitcoin network: "mainnet", or "testnet4" for the test network. */
 fun BtcNetwork.networkId(): NetworkId =
-    NetworkId(Family.BTC, if (this == BtcNetwork.MAINNET) "mainnet" else "testnet4", testnet = this == BtcNetwork.TESTNET4)
+    NetworkId(if (this == BtcNetwork.MAINNET) Networks.BTC_MAINNET else Networks.BTC_TESTNET4, testnet = this == BtcNetwork.TESTNET4)
 
 /** How many recent transactions an account keeps. */
 const val RECENT_TX_COUNT = 20
@@ -42,7 +42,7 @@ internal class ChainScan(val used: List<UsedAddress>)
 class AddressStatsCache {
     private val byChain = ConcurrentHashMap<String, ConcurrentMap<String, MemoStats>>()
 
-    internal fun forNetwork(net: NetworkId): ConcurrentMap<String, MemoStats> = byChain.getOrPut(net.chain) { ConcurrentHashMap() }
+    internal fun forNetwork(net: NetworkId): ConcurrentMap<String, MemoStats> = byChain.getOrPut(net.name) { ConcurrentHashMap() }
 }
 
 /** An address's statistics as a walk read them, and the wall-clock time of that read. An unused address is trusted only for [DEFAULT_SHORT_TTL_MS]. */

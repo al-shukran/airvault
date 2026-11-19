@@ -13,8 +13,8 @@ import app.lumio.LumioApp
 import app.lumio.LumioVault
 import app.lumio.data.asset.AssetId
 import app.lumio.data.db.LumioDatabase
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
@@ -93,7 +93,7 @@ class WalletsBoardTest {
 
     private fun transfer(address: String) = LumioTx(
         id = TX_ID,
-        network = NetworkId(Family.EVM, "10143", testnet = true),
+        network = NetworkId(Networks.evm(10143), testnet = true),
         account = address,
         hash = "0x01",
         timestampMs = 1_000L,

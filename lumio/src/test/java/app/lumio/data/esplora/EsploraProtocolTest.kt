@@ -3,8 +3,8 @@ package app.lumio.data.esplora
 import app.lumio.btc.addressJson
 import app.lumio.btc.side
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressStats
 import app.lumio.data.provider.AddressTxs
 import app.lumio.data.provider.Block
@@ -35,7 +35,7 @@ import org.junit.Test
 class EsploraProtocolTest {
     private val server = MockWebServer()
     private val http = Http(OkHttpClient())
-    private val testnet4 = NetworkId(Family.BTC, "testnet4", testnet = true)
+    private val testnet4 = NetworkId(Networks.BTC_TESTNET4, testnet = true)
     private val address = "tb1qexampleaddressforatestonly0123456789"
     private val txid = "c".repeat(64)
     private val blockHash = "d".repeat(64)
@@ -208,8 +208,8 @@ class EsploraProtocolTest {
 
     @Test
     fun aPublicProviderServesBitcoinOnlyAndAnOwnServerOnlyItsChainWithAUrl() {
-        val evm = NetworkId(Family.EVM, "1", testnet = false)
-        val mainnet = NetworkId(Family.BTC, "mainnet", testnet = false)
+        val evm = NetworkId(Networks.evm(1), testnet = false)
+        val mainnet = NetworkId(Networks.BTC_MAINNET, testnet = false)
 
         assertTrue(MempoolProvider().supports(testnet4, Op.ADDRESS_STATS, ProviderConfig()))
         assertTrue(BlockstreamProvider().supports(testnet4, Op.TX, ProviderConfig()))

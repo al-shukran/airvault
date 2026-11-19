@@ -2,7 +2,6 @@ package app.lumio.data.provider.blockchair
 
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.AddressUtxos
 import app.lumio.data.provider.Http
@@ -71,8 +70,8 @@ class BlockchairProvider(fallbackOnly: Boolean = false) : Provider {
 
     /** The Blockchair chain name for [op] on [net], or null when this provider does not serve it. */
     private fun chainOf(net: NetworkId, op: Op): String? = when {
-        op == Op.ADDRESS_UTXOS && net.family == Family.BTC && net.chain == "mainnet" && !net.testnet -> "bitcoin"
-        op == Op.NATIVE_BALANCE && net.family == Family.EVM && net.chain == "1" && !net.testnet -> "ethereum"
+        op == Op.ADDRESS_UTXOS && net.isBtc && net.name == "mainnet" && !net.testnet -> "bitcoin"
+        op == Op.NATIVE_BALANCE && net.isEvm && net.name == "1" && !net.testnet -> "ethereum"
         else -> null
     }
 

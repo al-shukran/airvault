@@ -2,8 +2,8 @@ package app.lumio.data.provider.algorand
 
 import app.lensly.core.algorand.AlgorandAccount
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.AsaAssetInfo
 import app.lumio.data.provider.AsaHolding
 import app.lumio.data.provider.AsaHoldings
@@ -175,7 +175,7 @@ class AlgorandAlgodTest {
 
     @Test
     fun otherNetworksAndOperationsAreUnsupported() {
-        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Family.EVM, "1", testnet = false), address)) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Networks.evm(1), testnet = false), address)) }
         assertFailsWith<ProviderError.Unsupported> { call(TipHeight(ALGORAND_TESTNET)) }
         assertEquals(0, server.requestCount)
     }

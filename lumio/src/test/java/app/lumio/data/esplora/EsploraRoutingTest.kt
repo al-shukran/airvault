@@ -2,8 +2,8 @@ package app.lumio.data.esplora
 
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.TipHeight
 import app.lumio.data.sched.Priority
@@ -30,7 +30,7 @@ import org.junit.Test
 class EsploraRoutingTest {
     private val mempool = MockWebServer()
     private val blockstream = MockWebServer()
-    private val testnet4 = NetworkId(Family.BTC, "testnet4", testnet = true)
+    private val testnet4 = NetworkId(Networks.BTC_TESTNET4, testnet = true)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** A short read timeout, so a server that stalls times out within the test. */

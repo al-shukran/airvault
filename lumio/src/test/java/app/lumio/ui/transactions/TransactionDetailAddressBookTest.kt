@@ -6,8 +6,8 @@ import androidx.compose.ui.test.performClick
 import app.lensly.app.AddressBookEntry
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LumenTheme
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
@@ -38,7 +38,7 @@ class TransactionDetailAddressBookTest {
     private val evmCounterparty = "0x" + "5c".repeat(20)
 
     private fun tx(network: NetworkId, account: String, counterparty: String) = LumioTx(
-        id = "${network.family.name}:${network.chain}:$account",
+        id = "${network.chain}:$account",
         network = network,
         account = account,
         hash = "01".repeat(32),
@@ -57,7 +57,7 @@ class TransactionDetailAddressBookTest {
     @Test
     fun everyBitcoinAddressOpensTheAddressBookSheetOfItself() {
         val tapped = mutableListOf<String>()
-        setDetail(tx(NetworkId(Family.BTC, "mainnet", testnet = false), btcAccount, btcCounterparty), emptyList()) { tapped += it }
+        setDetail(tx(NetworkId(Networks.BTC_MAINNET, testnet = false), btcAccount, btcCounterparty), emptyList()) { tapped += it }
 
         compose.onNodeWithText(groupAddress(btcAccount)).performClick()
         compose.onNodeWithText(groupAddress(btcCounterparty)).performClick()
@@ -68,7 +68,7 @@ class TransactionDetailAddressBookTest {
     @Test
     fun anEthereumAddressStillOpensTheAddressBookSheet() {
         val tapped = mutableListOf<String>()
-        setDetail(tx(NetworkId(Family.EVM, "1", testnet = false), evmAccount, evmCounterparty), emptyList()) { tapped += it }
+        setDetail(tx(NetworkId(Networks.evm(1), testnet = false), evmAccount, evmCounterparty), emptyList()) { tapped += it }
 
         compose.onNodeWithText(groupAddress(evmCounterparty)).performClick()
 
@@ -79,7 +79,7 @@ class TransactionDetailAddressBookTest {
     fun aBitcoinAddressShowsTheNameOfItsEntry() {
         val book = listOf(AddressBookEntry(id = "n1", address = btcCounterparty, name = "Landlord", label = null))
 
-        setDetail(tx(NetworkId(Family.BTC, "mainnet", testnet = false), btcAccount, btcCounterparty), book) {}
+        setDetail(tx(NetworkId(Networks.BTC_MAINNET, testnet = false), btcAccount, btcCounterparty), book) {}
 
         compose.onNodeWithText("Landlord").assertExists()
     }

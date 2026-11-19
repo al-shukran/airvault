@@ -63,7 +63,7 @@ object CustomTokenStore {
 
     /** True when [tokens] lists [contract] on the chain of [network]. The contract is compared without case. */
     fun holds(tokens: List<Token>, network: NetworkId, contract: String): Boolean =
-        tokens.any { it.chainId.toString() == network.chain && it.contract.equals(contract, ignoreCase = true) }
+        tokens.any { it.chainId.toString() == network.name && it.contract.equals(contract, ignoreCase = true) }
 
     /** Removes the token at [contract] on [chainId] from [session]. A token that is not there is left as it is. */
     fun remove(session: VaultSession, chainId: Long, contract: String) {

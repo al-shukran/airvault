@@ -5,7 +5,6 @@ import app.lensly.core.btc.ScriptType
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcRow
 import app.lumio.btc.BtcSnapshot
-import app.lumio.data.net.Family
 import app.lumio.evm.EvmChain
 import app.lumio.evm.Holding
 import app.lumio.pair.PairFixtures
@@ -36,7 +35,7 @@ class HomeBalancesTest {
         assertEquals(0, BigDecimal("2").compareTo(assets[0].balance))
         assertEquals("ETH", assets[0].symbol)
         assertEquals("Ethereum", assets[0].name)
-        assertEquals(Family.EVM, assets[0].network.family)
+        assertTrue(assets[0].network.isEvm)
     }
 
     @Test

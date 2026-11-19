@@ -2,15 +2,15 @@ package app.lumio.ui.pair
 
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
-import app.lumio.pair.PairFamily
+import app.lumio.pair.PairChain
 
 /** The words the pairing screens show for a family, a network, a Script Type and a fingerprint. */
 internal object PairLabels {
-    fun family(family: PairFamily): String = when (family) {
-        PairFamily.EVM -> "EVM"
-        PairFamily.BITCOIN -> "Bitcoin"
-        PairFamily.SOLANA -> "Solana"
-        PairFamily.ALGORAND -> "Algorand"
+    fun chainName(chain: PairChain): String = when (chain) {
+        PairChain.EVM -> "EVM"
+        PairChain.BITCOIN -> "Bitcoin"
+        PairChain.SOLANA -> "Solana"
+        PairChain.ALGORAND -> "Algorand"
     }
 
     fun network(network: BtcNetwork): String = when (network) {

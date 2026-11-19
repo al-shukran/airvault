@@ -3,8 +3,8 @@ package app.lumio.data.provider.coingecko
 import app.lumio.data.BTC
 import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.Op
@@ -105,7 +105,7 @@ class CoinGeckoProviderTest {
 
     @Test
     fun aTestnetIsUnsupportedAndNeverCalled() {
-        assertFailsWith<ProviderError.Unsupported> { call(NativePrice(NetworkId(Family.EVM, "1", testnet = true))) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativePrice(NetworkId(Networks.evm(1), testnet = true))) }
         assertEquals(0, server.requestCount)
     }
 

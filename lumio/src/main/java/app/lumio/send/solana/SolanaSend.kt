@@ -259,8 +259,8 @@ object SolanaSend {
             address = plan.account.key,
             origin = ORIGIN,
             signType = SolSignType.TRANSACTION,
-            cluster = requireNotNull(SolCluster.fromWire(plan.network.chain)) {
-                "Lumio has no Solana cluster named ${plan.network.chain}."
+            cluster = requireNotNull(SolCluster.fromWire(plan.network.name)) {
+                "Lumio has no Solana cluster named ${plan.network.name}."
             },
         )
         return partsOf(SolSignRequestEncoder.encode(request))

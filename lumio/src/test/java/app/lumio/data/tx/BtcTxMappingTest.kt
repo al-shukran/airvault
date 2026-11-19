@@ -4,8 +4,8 @@ import app.lumio.btc.EsploraInput
 import app.lumio.btc.EsploraOutput
 import app.lumio.btc.EsploraPrevout
 import app.lumio.btc.EsploraTx
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import java.math.BigInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -13,7 +13,7 @@ import org.junit.Test
 
 /** The Esplora transactions of the account, mapped to [LumioTx]: direction, fee, counterparty, confirmations and the pending time. */
 class BtcTxMappingTest {
-    private val net = NetworkId(Family.BTC, "mainnet", testnet = false)
+    private val net = NetworkId(Networks.BTC_MAINNET, testnet = false)
     private val me = "bc1qmine"
     private val other = "bc1qother"
     private val tip = 800_000L
