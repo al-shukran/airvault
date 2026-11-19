@@ -1,4 +1,4 @@
-package app.lensly.core.algorand
+package app.airvault.chains.algorand.signer
 
 import app.airvault.chains.algorand.AlgorandNetwork
 import kotlin.test.assertEquals

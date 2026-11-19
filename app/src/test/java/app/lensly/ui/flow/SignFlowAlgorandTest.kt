@@ -13,7 +13,7 @@ import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.algorand.AlgorandRequestCheck
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.lensly.core.algorand.LedgerEd25519
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
