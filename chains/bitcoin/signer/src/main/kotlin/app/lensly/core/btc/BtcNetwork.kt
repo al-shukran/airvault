@@ -12,8 +12,8 @@ enum class BtcNetwork(
     val chain: Chain,
     /** The BIP44 coin type, the second level of every account path. */
     val coinType: Int,
-    /** The version bytes of an account's extended public key: `xpub` on mainnet, `tpub` on testnet4. */
-    internal val xpubVersion: Int,
+    /** The version bytes of an account's extended public key: `xpub` on mainnet, `tpub` on testnet4. The watch-only copy reads them. */
+    val xpubVersion: Int,
 ) {
     MAINNET(Chain.Mainnet, coinType = 0, xpubVersion = DeterministicWallet.xpub),
     TESTNET4(Chain.Testnet4, coinType = 1, xpubVersion = DeterministicWallet.tpub),

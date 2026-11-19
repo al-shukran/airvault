@@ -1,7 +1,10 @@
 package app.lensly.core.btc
 
+import fr.acinq.bitcoin.Crypto
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
+import fr.acinq.bitcoin.PublicKey
+import fr.acinq.bitcoin.Script
 
 /**
  * The address kind a Bitcoin Account commits to. Each kind has one mainstream BIP43 purpose, and the account path starts
@@ -34,4 +37,18 @@ enum class ScriptType(
             ),
         )
     }
+}
+
+/**
+ * The scriptPubKey of the address that [key] gives for [scriptType]. The Account and the signer both derive it this way, so a key the
+ * signer gets from KeyAccess gives the same script the Account does.
+ */
+fun scriptPubKeyOf(scriptType: ScriptType, key: PublicKey): ByteArray {
+    val script = when (scriptType) {
+        ScriptType.LEGACY -> Script.pay2pkh(key)
+        ScriptType.NESTED_SEGWIT -> Script.pay2sh(Script.pay2wpkh(key))
+        ScriptType.NATIVE_SEGWIT -> Script.pay2wpkh(key)
+        ScriptType.TAPROOT -> Script.pay2tr(key.xOnly(), Crypto.TaprootTweak.KeyPathTweak)
+    }
+    return Script.write(script)
 }

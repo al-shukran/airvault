@@ -1,12 +1,10 @@
 package app.lensly.core.btc
 
 import fr.acinq.bitcoin.Bitcoin
-import fr.acinq.bitcoin.Crypto
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
 import fr.acinq.bitcoin.PrivateKey
 import fr.acinq.bitcoin.PublicKey
-import fr.acinq.bitcoin.Script
 import fr.acinq.bitcoin.byteVector32
 import org.web3j.crypto.Bip32ECKeyPair
 import org.web3j.utils.Numeric
@@ -62,13 +60,13 @@ class BtcAccount private constructor(
 
     companion object {
         /** The standard gap limit: the run of empty addresses a restore scan accepts before it stops. */
-        const val GAP_LIMIT = 20
+        const val GAP_LIMIT = BtcAccountLayout.GAP_LIMIT
 
         /** Branch 0: receive addresses. */
-        internal const val RECEIVE = 0
+        internal const val RECEIVE = BtcAccountLayout.RECEIVE
 
         /** Branch 1: change addresses. */
-        internal const val CHANGE = 1
+        internal const val CHANGE = BtcAccountLayout.CHANGE
 
         /** The Account at [accountIndex] of [scriptType] on [network], derived from a BIP39 [seed] of 16 to 64 bytes. */
         fun fromSeed(seed: ByteArray, network: BtcNetwork, scriptType: ScriptType, accountIndex: Int = 0): BtcAccount {
@@ -82,20 +80,6 @@ class BtcAccount private constructor(
 private const val MIN_SEED_BYTES = 16
 private const val MAX_SEED_BYTES = 64
 private const val PRIVATE_KEY_BYTES = 32
-
-/**
- * The scriptPubKey of the address that [key] gives for [scriptType]. The Account and [BtcSigner] both derive it this way, so a key the
- * signer gets from KeyAccess gives the same script the Account does.
- */
-internal fun scriptPubKeyOf(scriptType: ScriptType, key: PublicKey): ByteArray {
-    val script = when (scriptType) {
-        ScriptType.LEGACY -> Script.pay2pkh(key)
-        ScriptType.NESTED_SEGWIT -> Script.pay2sh(Script.pay2wpkh(key))
-        ScriptType.NATIVE_SEGWIT -> Script.pay2wpkh(key)
-        ScriptType.TAPROOT -> Script.pay2tr(key.xOnly(), Crypto.TaprootTweak.KeyPathTweak)
-    }
-    return Script.write(script)
-}
 
 /**
  * The address of [key] for [scriptType] on [network]. An Account's keys and a watch-only copy's keys take the same encoding, so both
