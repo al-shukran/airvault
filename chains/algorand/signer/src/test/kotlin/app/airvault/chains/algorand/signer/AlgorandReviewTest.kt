@@ -4,6 +4,8 @@ import app.airvault.chains.algorand.AlgoTxn
 import app.airvault.chains.algorand.AlgorandNetwork
 import app.airvault.chains.algorand.AssetTransfer
 import app.airvault.chains.algorand.Payment
+import app.airvault.chains.algorand.algorandMainnet
+import app.airvault.chains.algorand.algorandTestnet
 import app.airvault.core.model.Danger
 import app.airvault.core.model.Review
 import app.airvault.core.model.text
@@ -11,6 +13,7 @@ import app.airvault.core.model.unaccounted
 import app.airvault.chains.algorand.AlgoAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class AlgorandReviewTest {
@@ -18,7 +21,7 @@ class AlgorandReviewTest {
     private val receiver = ByteArray(32) { 9 }
     private val network = AlgorandNetwork.TESTNET
 
-    private fun payment(lease: ByteArray? = null, group: ByteArray? = null) = Payment(
+    private fun payment(lease: ByteArray? = null, group: ByteArray? = null, closeTo: ByteArray? = null) = Payment(
         sender = sender,
         fee = 1_000UL,
         firstValid = 100UL,
@@ -31,7 +34,7 @@ class AlgorandReviewTest {
         rekeyTo = null,
         receiver = receiver,
         amount = 1_500_000UL,
-        closeTo = null,
+        closeTo = closeTo,
     )
 
     private fun optIn() = AssetTransfer(
@@ -87,5 +90,23 @@ class AlgorandReviewTest {
         assertEquals("Opt In to Asset", review.title)
         assertTrue(review.warnings.none { it.level == Danger.BLOCK })
         assertTrue("Receiver" !in review.labels())
+    }
+
+    /** A close-to payment empties the account, so its DANGER names a check the owner ticks before the review can be signed. */
+    @Test
+    fun aCloseToPaymentIsADangerThatNeedsItsTick() {
+        val warning = reviewOf(payment(closeTo = ByteArray(32) { 5 })).warnings.single { it.code == "algorand.close-to" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertNotNull(warning.acknowledge)
+    }
+
+    /** The chain ID is the first 32 characters of the URL-safe base64 genesis hash: `+` and `/` in standard base64 become `-` and `_`. */
+    @Test
+    fun theChainIdIsTheUrlSafeBase64OfTheGenesisHash() {
+        assertEquals(algorandMainnet, algorandChainId(AlgorandNetwork.MAINNET.genesisHash))
+        assertEquals(algorandTestnet, algorandChainId(AlgorandNetwork.TESTNET.genesisHash))
+        val chain = algorandChainId(ByteArray(32) { 0xFB.toByte() })
+        assertTrue(chain.caip2.startsWith("algorand:-_v7"), chain.caip2)
+        assertTrue(Regex("algorand:[-_a-zA-Z0-9]{1,32}").matches(chain.caip2), chain.caip2)
     }
 }
