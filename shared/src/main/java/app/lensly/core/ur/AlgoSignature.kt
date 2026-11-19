@@ -43,6 +43,7 @@ class AlgoSignature(
             val fields = HashMap<Long, Cbor>()
             for ((key, value) in dict.entries) {
                 val number = (key as? Cbor.Uint ?: malformed("map key must be an unsigned integer")).value
+                if (number !in 1L..3L) malformed("unknown map key $number")
                 if (fields.put(number, value) != null) malformed("duplicate map key $number")
             }
 

@@ -242,7 +242,8 @@ private fun token(
 
 /**
  * Create takes empty data (or tag 0), and CreateIdempotent takes tag 1. Accounts are [payer, account, owner, mint, system program,
- * token program].
+ * token program]. The last two are the programs the create calls, so they must be the System Program and a token program, or the
+ * instruction is not decoded and the review flags it as an unknown program.
  */
 private fun associatedTokenCreate(
     program: SolanaMessageAccount,
@@ -250,6 +251,9 @@ private fun associatedTokenCreate(
     data: ByteArray,
 ): SolanaInstruction? {
     if (accounts.size != 6) return null
+    val systemProgram = (accounts[4] as? SolanaMessageAccount.Static)?.address
+    val tokenProgram = (accounts[5] as? SolanaMessageAccount.Static)?.address
+    if (systemProgram != SYSTEM_PROGRAM || (tokenProgram != TOKEN_PROGRAM && tokenProgram != TOKEN_2022_PROGRAM)) return null
     val idempotent = when {
         data.isEmpty() || data.contentEquals(byteArrayOf(0)) -> false
         data.contentEquals(byteArrayOf(1)) -> true

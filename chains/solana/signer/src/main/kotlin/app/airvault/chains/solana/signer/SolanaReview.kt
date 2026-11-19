@@ -31,9 +31,13 @@ private const val SHORT_ADDRESS_LIMIT = 16
 /** The decimal places of a lamport: one SOL is 10^9 lamports. */
 private const val LAMPORT_DECIMALS = 9
 
+/** The note under the origin the wallet names. The origin is the wallet's word, so the review says Lensly cannot check it. */
+private const val ORIGIN_NOTE = "Named by the wallet. Lensly cannot verify it."
+
 /** The decoded fields of a Solana request, as the review names them. */
 private object Fields {
     val signer = FieldPath("solana.signer")
+    val origin = FieldPath("solana.origin")
     val cluster = FieldPath("solana.cluster")
     val applicationDomain = FieldPath("solana.applicationDomain")
     val text = FieldPath("solana.text")
@@ -165,10 +169,11 @@ private fun SolanaRequestReview.facts(): List<ReviewRow> {
 /** How many instructions the message holds. A nonce setup is two of them and one decoded instruction, so this counts the message. */
 private fun SolanaRequestReview.messageInstructionCount(): Int = message?.instructions?.size ?: instructions.size
 
-/** The rows of the one section: the signer, then for a message its other signers, application domain, format and text, and for a transaction its
- * fee payer, other required signers, recent blockhash and each instruction with its accounts. */
+/** The rows of the one section: the signer, the origin the wallet names, then for a message its other signers, application domain, format and
+ * text, and for a transaction its fee payer, other required signers, recent blockhash and each instruction with its accounts. */
 private fun SolanaRequestReview.rows(chain: ChainId): List<ReviewRow> = buildList {
     add(ReviewRow("Signer", DisplayValue.Address(chain, signerAddress), Fields.signer))
+    origin?.let { add(ReviewRow("Origin", DisplayValue.Text(it), Fields.origin, notes = listOf(ORIGIN_NOTE))) }
     val offchain = offchainMessage
     val tx = message
     if (offchain != null) {
@@ -345,6 +350,7 @@ private fun formatText(format: SolanaOffchainMessage.Format): String = when (for
 /** The fields the parser read from this request. A row that shows a field accounts for it. */
 private fun SolanaRequestReview.decodedFields(): Set<FieldPath> = buildSet {
     add(Fields.signer)
+    origin?.let { add(Fields.origin) }
     add(Fields.cluster)
     offchainMessage?.let { offchain ->
         add(Fields.applicationDomain)
