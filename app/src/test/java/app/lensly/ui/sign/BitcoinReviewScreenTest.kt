@@ -3,10 +3,6 @@ package app.lensly.ui.sign
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -19,11 +15,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
+import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcReview
-import app.lensly.core.btc.BtcReviewInput
-import app.lensly.core.btc.BtcReviewOutput
-import app.lensly.core.btc.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.BtcReview
+import app.airvault.chains.bitcoin.signer.BtcReviewInput
+import app.airvault.chains.bitcoin.signer.BtcReviewOutput
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.sign.SAMPLE_SIGNER
@@ -50,21 +47,18 @@ class BitcoinReviewScreenTest {
     val compose = createComposeRule()
 
     /**
-     * Shows [review]. The check is held by the screen the way the wallet's route holds it, so a tick changes the gate. A [small] window
-     * is short enough that opened details run past its bottom, so the review must be scrolled to its end.
+     * Shows [review]. The screen holds the unverified-amounts tick, so a tick changes the gate. A [small] window is short enough that
+     * opened details run past its bottom, so the review must be scrolled to its end.
      */
     private fun show(review: BtcReview, small: Boolean = false) {
         compose.setContent {
             LumenTheme {
-                var confirmed by remember { mutableStateOf(false) }
                 Box(modifier = if (small) Modifier.size(width = 360.dp, height = 640.dp) else Modifier.fillMaxSize()) {
-                    BitcoinReviewScreen(
-                        review = review,
-                        network = BtcNetwork.TESTNET4,
-                        scriptType = ScriptType.NATIVE_SEGWIT,
+                    ReviewScreen(
+                        review = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT),
                         signer = SAMPLE_SIGNER,
-                        confirmed = confirmed,
-                        onConfirmedChange = { confirmed = it },
+                        addressNotes = emptyMap(),
+                        addressChain = BITCOIN_FAMILY,
                         onApprove = {},
                         onReject = {},
                     )
@@ -171,7 +165,7 @@ class BitcoinReviewScreenTest {
 
         compose.onNodeWithText("Block 850000").assertExists()
         compose.onNodeWithText("The transaction cannot confirm before block 850000.").assertExists()
-        compose.onNodeWithText("Sequence 0xFFFFFFFD, replace-by-fee on").assertExists()
+        compose.onNodeWithText("0xFFFFFFFD, replace-by-fee on").assertExists()
     }
 
     @Test

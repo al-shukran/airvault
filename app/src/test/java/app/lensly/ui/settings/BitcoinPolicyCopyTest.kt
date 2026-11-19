@@ -1,6 +1,6 @@
 package app.lensly.ui.settings
 
-import app.lensly.core.btc.SigningSourcePolicy
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import kotlin.test.assertEquals
 import org.junit.Test
 

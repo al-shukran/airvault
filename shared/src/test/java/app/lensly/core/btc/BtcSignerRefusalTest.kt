@@ -13,6 +13,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
+import app.airvault.chains.bitcoin.signer.BtcRefusal
+import app.airvault.chains.bitcoin.signer.BtcRefusedException
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 
 class BtcSignerRefusalTest {
     private val seed = BitcoinVectors.seed()

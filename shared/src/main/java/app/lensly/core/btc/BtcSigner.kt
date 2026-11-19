@@ -12,6 +12,15 @@ import fr.acinq.bitcoin.psbt.Input
 import fr.acinq.bitcoin.psbt.Output
 import fr.acinq.bitcoin.psbt.Psbt
 import fr.acinq.bitcoin.utils.Either
+import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
+import app.airvault.chains.bitcoin.signer.BtcRefusal
+import app.airvault.chains.bitcoin.signer.BtcRefusedException
+import app.airvault.chains.bitcoin.signer.BtcReview
+import app.airvault.chains.bitcoin.signer.BtcReviewInput
+import app.airvault.chains.bitcoin.signer.BtcReviewOutput
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
+import app.airvault.chains.bitcoin.signer.warnings
 
 /** Positions of the branch and the address index inside an account path m/purpose'/coin'/account'/branch/index. */
 private const val BRANCH_LEVEL = 3

@@ -16,10 +16,10 @@ import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.airvault.chains.bitcoin.signer.BtcPsbt
-import app.lensly.core.btc.BtcRefusal
-import app.lensly.core.btc.BtcRefusedException
+import app.airvault.chains.bitcoin.signer.BtcRefusal
+import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.lensly.core.btc.BtcSigner
-import app.lensly.core.btc.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser

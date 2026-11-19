@@ -1,4 +1,4 @@
-package app.lensly.core.btc
+package app.airvault.chains.bitcoin.signer
 
 /** The owner's rule for Bitcoin input amounts. It applies to every online side alike. */
 enum class InputVerificationPolicy(

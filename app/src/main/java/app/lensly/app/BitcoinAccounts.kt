@@ -2,7 +2,7 @@ package app.lensly.app
 
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcReview
+import app.airvault.chains.bitcoin.signer.BtcReview
 import app.lensly.core.btc.ScriptType
 
 /**

@@ -1,4 +1,4 @@
-package app.lensly.core.btc
+package app.airvault.chains.bitcoin.signer
 
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

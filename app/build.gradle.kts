@@ -184,6 +184,7 @@ dependencies {
 
     // Chain apps compiled into Lensly; see app/src/main/java/app/lensly/chains/InstalledSigners.kt.
     implementation(project(":chains:algorand:signer"))
+    implementation(project(":chains:bitcoin:signer"))
 
     // Lensly-only screens, navigation and view models.
     implementation(libs.androidx.navigation.compose)
