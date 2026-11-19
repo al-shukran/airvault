@@ -15,6 +15,8 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class BrotliEncoderTest {
+    // Throwaway negative proof: this line does not compile, so the android lane must fail.
+    private val notCompiling: Int = "not an int"
     private fun decoded(stream: ByteArray): ByteArray = BrotliInputStream(ByteArrayInputStream(stream)).use { it.readBytes() }
 
     @Test
