@@ -54,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
-import app.lensly.BuildConfig
 import app.lensly.R
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
@@ -104,8 +103,8 @@ internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
 /**
  * The online wallets that pair with Lensly, the first one recommended. Each one is paired with one code for the whole wallet, so an App
  * is never paired on its own. [LUMIO] is the AirVault companion app: it reads the AirVault pairing, which holds the keys and names of every
- * App of the wallet. [RABBY] and [METAMASK] read only the
- * Ethereum account keys, as a ur:crypto-multi-accounts too, because they hold no Bitcoin account.
+ * App of the wallet. [RABBY] and [METAMASK] read only the Ethereum account key, as one ur:crypto-hdkey, because they hold no Bitcoin
+ * account.
  */
 internal enum class PairFormat(
     @StringRes val labelRes: Int,
@@ -133,16 +132,14 @@ internal enum class PairFormat(
 }
 
 /**
- * The pairing frames for [wallet]: the Ethereum account key of each of its accounts, m/44'/60'/N' for account N, with the fingerprints,
- * named after the wallet, or "Lensly" when it has no name. Public data only. The fingerprint is stored as hex, so it is read as an
- * unsigned value.
+ * The pairing code for [wallet]: the account key m/44'/60'/0' of account 0, with the fingerprints, named after the wallet, or "Lensly" when it
+ * has no name. Public data only. The fingerprint is stored as hex, so it is read as an unsigned value.
  */
 internal fun pairingParts(wallet: WalletMeta): List<String> = PairingExport.urParts(
     accountKeys = requireNotNull(wallet.accountKeys.takeIf { it.isNotEmpty() }) { "Only a Mnemonic wallet has an account public key." },
     masterFingerprint = requireNotNull(wallet.masterFingerprintHex) { "Only a Mnemonic wallet has a fingerprint." }
         .toLong(16)
         .toInt(),
-    version = BuildConfig.VERSION_NAME,
     name = wallet.name.ifBlank { DEFAULT_PAIR_NAME },
 )
 

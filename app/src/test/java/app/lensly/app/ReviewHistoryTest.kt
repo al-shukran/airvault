@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.airvault.core.model.Danger
 import app.lensly.app.sign.BitcoinRecordFacts
 import app.lensly.app.sign.BitcoinRecordNotice
 import app.lensly.app.sign.BitcoinRecordOutput
@@ -90,6 +91,19 @@ class ReviewHistoryTest {
         history.append(wallet, reviewOf(atMs = 1_000L))
 
         assertEquals(listOf(reviewOf(atMs = 1_000L)), history.list(wallet))
+    }
+
+    @Test
+    fun aRecordKeepsTheChecksTickedAndTheWarningsShown() {
+        val wallet = newWallet("MAIN")
+        val record = reviewOf(atMs = 1_000L).copy(
+            acknowledged = listOf("I checked the contract"),
+            warnings = listOf(Danger.CAUTION to "Unknown contract"),
+        )
+
+        history.append(wallet, record)
+
+        assertEquals(listOf(record), history.list(wallet))
     }
 
     @Test

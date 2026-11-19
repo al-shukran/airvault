@@ -32,6 +32,7 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.offChainLabelOf
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import java.nio.ByteBuffer
@@ -85,9 +86,9 @@ class EvmReviewBuilder(
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) throw Refusal(SIGN_DATA_TOO_LARGE)
         val origin = request.origin
         if (origin != null && !origin.all(::isPrintable)) throw Refusal(UNREADABLE_ORIGIN)
-        // A personal message names no chain, so it is read on the chain the parser gives it. Any other request must name its network.
-        val chainId = request.chainId
-            ?: if (request.dataType == DataType.PERSONAL_MESSAGE) DEFAULT_CHAIN_ID else throw Refusal(NO_NETWORK)
+        // The chain is the one the request names, or the one the parser reads it on: a personal message, or typed data its domain names.
+        // Any other request must name its network.
+        val chainId = readChainId(parsed) ?: throw Refusal(NO_NETWORK)
         EvmReviewResult.Ok(Build(parsed, sender, chainId).build().checked())
     } catch (refusal: Refusal) {
         EvmReviewResult.Refused(refusal.reason, refusal.call)
@@ -132,32 +133,85 @@ class EvmReviewBuilder(
         }
 
         private fun typed(): Review {
-            val typedData = when (val result = parsed.typed) {
-                is TypedDataParser.Result.Ok -> result.data
+            val typed = when (val result = parsed.typed) {
+                is TypedDataParser.Result.Ok -> result
                 is TypedDataParser.Result.Rejected -> throw Refusal(result.reason)
                 null -> throw Refusal(CANNOT_BE_READ)
             }
-            val domainChain = typedData.domainChainId ?: throw Refusal(NO_DOMAIN_CHAIN)
-            if (domainChain != BigInteger.valueOf(chainId)) {
-                throw Refusal("The typed data is for chain $domainChain, but the request names chain $chainId")
-            }
-            if (network == null) throw Refusal(unknownTypedChain(chainId))
+            val typedData = typed.data
+            // A domain may name another chain than the request's, or none. The signature is then shown under the chain it names, and it is never
+            // refused for that. Only a denylist match refuses.
+            val domainChain = typedData.domainChainId
+            val offChain = offChainLabelOf(typedData.domain, typedData.primaryType)
             val verifyingContract = (typedData.domain.fields["verifyingContract"] as? TypedValue.BytesValue)
                 ?.let { checksum(it.bytes.toHex()) }
-            val denied = registry.typedDenylistMatches(chainId, verifyingContract, typedData.primaryType)
+            val denyChains = listOfNotNull(request.chainId, domainChain?.toLong()).distinct().ifEmpty { listOf(chainId) }
+            val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType) }
             denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
             denied.forEach { warnings += denylistWarning(it, field = null) }
             header += ReviewRow("Type", DisplayValue.Text(TYPED_DATA_TYPE), null)
-            val part = typedPart(typedData, registry, chainId, chain, networkName)
+            chainRow(domainChain, request.chainId)?.let { header += it }
+            chainCaution(domainChain, request.chainId)?.let { warnings += it }
+            if (offChain != null) {
+                header += ReviewRow(offChain.title, DisplayValue.Text(offChainNote(offChain.label)), null)
+                warnings += Warning(Danger.CAUTION, CODE_OFF_CHAIN, offChainCautionText(offChain.label), acknowledge = offChainAck(offChain.label))
+                if (offChain.hashesAction) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
+            }
+            actionWarning(typedData.primaryType)?.let { warnings += it }
+            val domainNetworkName = domainChain?.let { networkNameOf(it) } ?: networkName
+            val part = typedPart(typedData, registry, chainId, chain, networkName, domainNetworkName = domainNetworkName)
             decoded += part.decoded
             warnings += part.warnings
             if (part.unknownToken) warnings += registryWarning(TOKEN_UNREGISTERED, field = null)
             sections += ReviewSection("Domain", part.domain)
             if (part.summary.isNotEmpty()) sections += ReviewSection("Summary", part.summary)
             sections += ReviewSection("Message", part.fields)
+            // The members the message adds beside its typed fields. The signature does not cover them. Their text is shown as the review shows
+            // any text, so a character that cannot be read is shown in hex.
+            if (typed.unsigned.isNotEmpty()) {
+                sections += ReviewSection(
+                    "Not Signed",
+                    typed.unsigned.map { (name, text) ->
+                        ReviewRow(printableOrHex(name), DisplayValue.Text(printableOrHex(text)), null, notes = listOf(NOT_SIGNED_NOTE))
+                    },
+                )
+            }
             val summary = listOf(SummaryPart.Text("Signs typed data of type ${typedData.primaryType}."))
             return assemble(typedData.primaryType, summary, heading = "Request")
         }
+
+        /**
+         * The row that names the chain a typed-data signature is for, or null when the request names that same chain. A domain that names no
+         * chain says so, since its signature is then valid on any chain.
+         */
+        private fun chainRow(domainChain: BigInteger?, requestChain: Long?): ReviewRow? {
+            if (domainChain == null) return ReviewRow(ANY_CHAIN_LABEL, DisplayValue.Text(ANY_CHAIN_NOTE), null)
+            if (domainChain == requestChain?.let { BigInteger.valueOf(it) }) return null
+            return ReviewRow(
+                "Signature for Chain $domainChain (${networkNameOf(domainChain)})",
+                DisplayValue.Text("The domain names chain ID $domainChain, and the request names ${requestedChain(requestChain)}."),
+                null,
+            )
+        }
+
+        /**
+         * The CAUTION of a typed-data signature for a chain other than the request's, or for no chain: it is valid on the chain the domain names,
+         * and the owner must check that chain before signing. Null when the request names the same chain as the domain.
+         */
+        private fun chainCaution(domainChain: BigInteger?, requestChain: Long?): Warning? {
+            if (domainChain != null && domainChain == requestChain?.let { BigInteger.valueOf(it) }) return null
+            val text = if (domainChain == null) {
+                ANY_CHAIN_NOTE
+            } else {
+                "The signature is valid on chain ID $domainChain (${networkNameOf(domainChain)}), and the request names " +
+                    "${requestedChain(requestChain)}. Check that chain before you sign."
+            }
+            return Warning(Danger.CAUTION, CODE_TYPED_CHAIN, text, acknowledge = ACK_TYPED_CHAIN)
+        }
+
+        private fun networkNameOf(chain: BigInteger): String = registry.network(chain.toLong())?.name ?: UNKNOWN_NETWORK
+
+        private fun requestedChain(requestChain: Long?): String = requestChain?.let { "chain ID $it" } ?: "no chain ID"
 
         private fun transaction(): Review {
             val tx = when (val result = parsed.tx) {
@@ -767,8 +821,22 @@ private fun registryWarning(message: String, field: FieldPath?): Warning =
 private fun denylistWarning(entry: DenylistEntry, field: FieldPath?): Warning =
     Warning(Danger.DANGER, CODE_DENYLIST, entry.reason, field, ACK_DENYLIST)
 
-private fun unknownTypedChain(chainId: Long): String =
-    "The typed data is for chain $chainId, which is not in Lensly's network registry, so it is refused."
+/** The note under the header row of an off-chain signature: where the signature is sent instead of a chain. */
+private fun offChainNote(label: String): String = "This signature is sent to $label, not submitted to a chain."
+
+/** The CAUTION of an off-chain signature: it is for the product, not a chain, and it can act for the account there. */
+private fun offChainCautionText(label: String): String =
+    "This signature is for $label, not for a chain. It can authorize actions in your $label account. Check the message before you sign."
+
+/** The tick of an off-chain signature for [label]. */
+private fun offChainAck(label: String): String = "I understand this signature goes to $label, not to a chain."
+
+/** The DANGER of a message that lets a key act for the account or moves its funds, or null for any other primary type. */
+private fun actionWarning(primaryType: String): Warning? = when (primaryType.substringAfterLast(':')) {
+    "ApproveAgent" -> Warning(Danger.DANGER, CODE_TYPED_ACTION, APPROVE_AGENT_TEXT, acknowledge = ACK_APPROVE_AGENT)
+    "Withdraw", "withdraw3" -> Warning(Danger.DANGER, CODE_TYPED_ACTION, WITHDRAW_TEXT, acknowledge = ACK_WITHDRAW)
+    else -> null
+}
 
 private fun amountText(raw: BigInteger, token: TokenEntry?): String =
     if (token == null) "$raw $UNKNOWN_UNIT (unknown token, decimals unknown)" else "$raw (${Amounts.format(raw, token.decimals)} ${token.symbol})"
@@ -896,7 +964,6 @@ internal const val CODE_MESSAGE = "evm.personal-message"
 private const val SIGN_DATA_TOO_LARGE = "The data to sign is larger than 64 KiB"
 private const val NO_NETWORK = "The request does not name a network"
 private const val UNREADABLE_ORIGIN = "The request names an origin with a character Lensly cannot show."
-private const val NO_DOMAIN_CHAIN = "The typed data names no chain ID in its domain"
 private const val UNKNOWN_CALL_REFUSAL = "Unknown Contract Call"
 private const val BOUND_PROXY_REFUSAL = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is still the " +
     "approved version, so your Proxy Policy refuses it."
@@ -909,6 +976,30 @@ private const val PERSONAL_MESSAGE_WARNING = "The signature proves you hold this
     "act for you. Sign only a message from a site you trust."
 private const val PERSONAL_MESSAGE_TYPE = "Personal Message"
 private const val TYPED_DATA_TYPE = "Typed data (EIP-712)"
+
+/** The name a typed-data domain's chain has when it is not in Lensly's network registry. */
+private const val UNKNOWN_NETWORK = "Unknown Network"
+
+/** The title and note of a typed-data signature whose domain names no chain. */
+private const val ANY_CHAIN_LABEL = "Signature for Any Chain"
+private const val ANY_CHAIN_NOTE = "The domain names no chain ID, so this signature is valid on any chain."
+
+/** The note under a member that a message adds beside its typed fields. The signature does not cover it. */
+private const val NOT_SIGNED_NOTE = "Not signed. The signature covers only the typed fields above."
+
+/** The codes and ticks of a typed-data CAUTION or DANGER: its chain, its off-chain product and its action. */
+private const val CODE_TYPED_CHAIN = "evm.typed.chain"
+private const val CODE_OFF_CHAIN = "evm.typed.off-chain"
+private const val CODE_TYPED_ACTION = "evm.typed.action"
+private const val ACK_TYPED_CHAIN = "I understand this signature may be valid on another chain."
+private const val ACK_APPROVE_AGENT = "I understand this lets another key act for this account."
+private const val ACK_WITHDRAW = "I understand this withdraws funds from this account."
+private const val APPROVE_AGENT_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
+private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
+
+/** The row that says a message carries a hash of its action, which Lensly cannot read. */
+private const val HASHED_ACTION_LABEL = "Order Details Are Hashed by Hyperliquid and Cannot Be Shown"
+private const val HASHED_ACTION_NOTE = "The connection ID is a hash of the action. Lensly cannot read the action, so it cannot show what the action does."
 private const val L2_FEE_NOTE = "L1 data fee is not computable offline; total may be higher"
 private const val DEADLINE_LABEL = "deadline (uint256)"
 

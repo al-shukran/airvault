@@ -157,13 +157,11 @@ class EvmTypedReviewTest {
     }
 
     @Test
-    fun aTypedDomainOnAnotherChainThanTheRequestIsRefused() {
+    fun aTypedDomainOnAnotherChainThanTheRequestIsSignableAndItsChainIsNamed() {
         val result = EvmReviewBuilder(TYPED_REGISTRY, { calldata, params -> AbiDecoder.decode(calldata, params) })
             .review(typedRequest(permitJson(chainId = 1), chainId = 10143), sender = OWNER)
 
-        assertEquals(
-            "The typed data is for chain 1, but the request names chain 10143",
-            assertIs<EvmReviewResult.Refused>(result).reason,
-        )
+        val review = assertIs<EvmReviewResult.Ok>(result).review
+        assertTrue((review.facts + review.sections.flatMap { it.rows }).any { it.label.startsWith("Signature for Chain 1 (") })
     }
 }

@@ -19,7 +19,7 @@ import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.WalletView
-import app.lensly.app.sign.solanaCounterparties
+import app.lensly.app.sign.counterpartiesOf
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
@@ -225,7 +225,7 @@ class SignFlowSolanaTest {
                         accountIndex = checked.review.accountIndex,
                         signer = SAMPLE_SIGNER,
                         addressChain = SOLANA_FAMILY,
-                        counterparties = solanaCounterparties(checked.review),
+                        counterparties = counterpartiesOf(checked.review.toReview()),
                         addressNotes = emptyMap(),
                     )
                 }

@@ -57,9 +57,10 @@ class TypedData(
         get() = (domain.fields["chainId"] as? TypedValue.IntValue)?.value
 
     /** The digest that is signed: keccak256(0x1901 ‖ domainSeparator ‖ hashStruct(message)). */
-    fun digest(): ByteArray = Hash.sha3(
-        byteArrayOf(0x19, 0x01) + hashStruct(EIP712_DOMAIN, domain) + hashStruct(primaryType, message),
-    )
+    fun digest(): ByteArray = Hash.sha3(byteArrayOf(0x19, 0x01) + domainSeparator() + hashStruct(primaryType, message))
+
+    /** The domain separator: the hash of the domain, which covers every member the domain declares. */
+    fun domainSeparator(): ByteArray = hashStruct(EIP712_DOMAIN, domain)
 
     /** The EIP-712 encodeType of [type]: its own signature, then the struct types it uses, sorted by name. */
     fun encodeType(type: String): String {
@@ -117,6 +118,9 @@ class TypedData(
         const val MAX_FIXED_ARRAY = 1024
 
         private val IDENTIFIER = Regex("[A-Za-z_][A-Za-z0-9_]{0,63}")
+
+        /** A struct type name: an identifier, or two identifiers joined by one colon, as Hyperliquid names its actions (HyperliquidTransaction:UsdSend). */
+        private val TYPE_NAME = Regex("[A-Za-z_][A-Za-z0-9_]{0,63}(:[A-Za-z_][A-Za-z0-9_]{0,63})?")
         private val ARRAY_SUFFIXES = Regex("(?:\\[\\]|\\[[1-9][0-9]{0,3}\\])*")
         private val ATOMIC_TYPES: Set<String> = setOf("address", "bool", "string", "bytes") +
             (1..32).map { "bytes$it" } + (8..256 step 8).flatMap { listOf("uint$it", "int$it") }
@@ -130,7 +134,7 @@ class TypedData(
         fun checkSchema(types: Map<String, List<TypedField>>) {
             require(types.isNotEmpty()) { "the types declare nothing" }
             for ((name, fields) in types) {
-                require(IDENTIFIER.matches(name)) { "type name $name is not an identifier" }
+                require(TYPE_NAME.matches(name)) { "type name $name is not an identifier" }
                 require(name !in ATOMIC_TYPES) { "type name $name is an atomic type" }
                 require(fields.map { it.name }.toSet().size == fields.size) { "type $name repeats a member" }
                 for (field in fields) {
