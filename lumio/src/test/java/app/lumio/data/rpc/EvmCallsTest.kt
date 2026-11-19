@@ -93,6 +93,17 @@ class EvmCallsTest {
     }
 
     @Test
+    fun aBaseFeeOrTipThatDoesNotFitA63BitWordIsFatal() {
+        answers["eth_feeHistory"] = "{\"baseFeePerGas\":[\"0x8000000000000000\"]}"
+        answers["eth_maxPriorityFeePerGas"] = "\"0x1\""
+        assertTrue(assertThrows(ProviderError::class.java) { run(GasFees(ETH)) } is ProviderError.Fatal)
+
+        answers["eth_feeHistory"] = "{\"baseFeePerGas\":[\"0x1\"]}"
+        answers["eth_maxPriorityFeePerGas"] = "\"0x8000000000000000\""
+        assertTrue(assertThrows(ProviderError::class.java) { run(GasFees(ETH)) } is ProviderError.Fatal)
+    }
+
+    @Test
     fun aFeeHistoryWithoutABaseFeeIsFatal() {
         answers["eth_feeHistory"] = "{}"
 
