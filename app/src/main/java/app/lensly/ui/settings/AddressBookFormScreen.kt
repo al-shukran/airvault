@@ -9,7 +9,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.app.ADDRESS_NOTES_MAX_LENGTH
-import app.lensly.app.AddressChain
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.PROFILE_TEXT_MAX_LENGTH
 import app.lensly.app.btcNetworkOf
@@ -35,12 +34,12 @@ enum class AddressBookField { ADDRESS, NAME, LABEL, NOTES }
 const val ADDRESS_BOOK_ADDRESS_MAX_LENGTH = 64
 
 /** The network [address] is on, as the form names it, or null when it is not a valid address of Ethereum, Bitcoin, Solana or Algorand. */
-internal fun addressNetworkName(address: String): String? = when (chainOfAddress(address)) {
-    AddressChain.EVM -> "Ethereum and EVM Networks"
-    AddressChain.BITCOIN -> btcNetworkOf(address)?.let(::bitcoinNetworkName)
-    AddressChain.SOLANA -> "Solana"
-    AddressChain.ALGORAND -> "Algorand"
-    null -> null
+internal fun addressNetworkName(address: String): String? = when (chainOfAddress(address)?.namespace) {
+    "eip155" -> "Ethereum and EVM Networks"
+    "bip122" -> btcNetworkOf(address)?.let(::bitcoinNetworkName)
+    "solana" -> "Solana"
+    "algorand" -> "Algorand"
+    else -> null
 }
 
 /**

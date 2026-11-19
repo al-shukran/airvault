@@ -18,10 +18,10 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import app.airvault.core.model.ChainId
 import app.lensly.app.ADDRESS_NOTES_MAX_LENGTH
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressBookStore
-import app.lensly.app.AddressChain
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.InternalAccount
 import app.lensly.app.PROFILE_TEXT_MAX_LENGTH
@@ -64,7 +64,7 @@ internal fun NavGraphBuilder.addressBookRoutes(navController: NavHostController,
  * Opens the Address Book for [address] on [chain], from a record's sheet: its entry to edit when [book] has one, or a new entry started with
  * the address. The owner types a name, a label and notes, and never the address.
  */
-internal fun NavHostController.openAddressBookFor(book: List<AddressBookEntry>, address: String, chain: AddressChain) {
+internal fun NavHostController.openAddressBookFor(book: List<AddressBookEntry>, address: String, chain: ChainId) {
     val entry = addressBookEntryFor(address, chain, book)
     navigate(if (entry != null) HiddenRoute.addressBookEdit(entry.id) else HiddenRoute.addressBookAdd(address))
 }

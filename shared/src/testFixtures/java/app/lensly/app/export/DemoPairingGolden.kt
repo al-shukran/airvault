@@ -1,7 +1,7 @@
 package app.lensly.app.export
 
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.evmAddressOf
+import app.airvault.chains.evm.evmAddressOf
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType

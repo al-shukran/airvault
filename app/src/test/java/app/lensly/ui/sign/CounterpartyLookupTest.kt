@@ -1,7 +1,10 @@
 package app.lensly.ui.sign
 
+import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.AddressChain
+import app.lensly.app.BITCOIN_FAMILY
+import app.lensly.app.EVM_FAMILY
+import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.addressNotesOf
 import app.lensly.app.addressesIn
 import app.lensly.app.isAddressValue
@@ -50,13 +53,13 @@ class CounterpartyLookupTest {
 
     @Test
     fun evmSavedRecipientIsAHitWhateverItsLetterCase() {
-        val notes = addressNotesOf(evmReview().counterparties, AddressChain.EVM, emptyMap(), listOf(entry(recipient.lowercase(), "Alice")))
+        val notes = addressNotesOf(evmReview().counterparties, EVM_FAMILY, emptyMap(), listOf(entry(recipient.lowercase(), "Alice")))
         assertEquals("Alice", notes.notesOf(recipient)?.entry?.name)
     }
 
     @Test
     fun evmUnsavedSpenderIsAMiss() {
-        val notes = addressNotesOf(evmReview().counterparties, AddressChain.EVM, emptyMap(), listOf(entry(recipient, "Alice")))
+        val notes = addressNotesOf(evmReview().counterparties, EVM_FAMILY, emptyMap(), listOf(entry(recipient, "Alice")))
         assertNull(notes.notesOf(spender)?.entry)
         assertNull(notes.notesOf(spender))
     }
@@ -64,7 +67,7 @@ class CounterpartyLookupTest {
     @Test
     fun bitcoinSavedOutputIsAHit() {
         val output = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
-        val notes = addressNotesOf(listOf(output), AddressChain.BITCOIN, emptyMap(), listOf(entry(output, "Exchange")))
+        val notes = addressNotesOf(listOf(output), BITCOIN_FAMILY, emptyMap(), listOf(entry(output, "Exchange")))
         assertEquals("Exchange", notes.notesOf(output)?.entry?.name)
     }
 
@@ -72,7 +75,7 @@ class CounterpartyLookupTest {
     fun bitcoinUnsavedOutputIsAMiss() {
         val saved = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
         val other = "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7"
-        val notes = addressNotesOf(listOf(other), AddressChain.BITCOIN, emptyMap(), listOf(entry(saved, "Exchange")))
+        val notes = addressNotesOf(listOf(other), BITCOIN_FAMILY, emptyMap(), listOf(entry(saved, "Exchange")))
         assertNull(notes.notesOf(other))
     }
 
@@ -81,7 +84,7 @@ class CounterpartyLookupTest {
         val system = "11111111111111111111111111111111"
         val token = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         val counterparties = addressesIn(listOf(system, "1000000", token))
-        val notes = addressNotesOf(counterparties, AddressChain.SOLANA, emptyMap(), listOf(entry(system, "System program")))
+        val notes = addressNotesOf(counterparties, SOLANA_FAMILY, emptyMap(), listOf(entry(system, "System program")))
         assertEquals("System program", notes.notesOf(system)?.entry?.name)
         assertNull(notes.notesOf(token)?.entry)
     }
@@ -92,7 +95,7 @@ class CounterpartyLookupTest {
         val unsaved = "YEO767URJECB5BKVVIH4ZOBCN5EHGHLU5RCQPRBSCPQ3OBPVMFOYGSM47U"
         val counterparties = addressesIn(listOf(saved, "42", unsaved))
         assertEquals(listOf(saved, unsaved), counterparties)
-        val notes = addressNotesOf(counterparties, AddressChain.ALGORAND, emptyMap(), listOf(entry(saved, "Payroll")))
+        val notes = addressNotesOf(counterparties, ALGORAND_FAMILY, emptyMap(), listOf(entry(saved, "Payroll")))
         assertEquals("Payroll", notes.notesOf(saved)?.entry?.name)
         assertNull(notes.notesOf(unsaved)?.entry)
     }
