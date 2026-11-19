@@ -29,6 +29,19 @@ class EvmCatalogTest {
         assertTrue(monad.testnet)
     }
 
+    /** The release catalog alone: the shipped networks, without the debug overlay. */
+    private val releaseRegistry: Registry = RegistryLoader.load { path ->
+        File("../shared/src/main/assets", path).takeIf(File::isFile)?.readText()
+    }
+
+    @Test
+    fun aReleaseBuildListsThePrimaryTestnetSoAnEthereumAccountShowsItsNativeCoin() {
+        val primary = EvmCatalog.primaryChainId(testnet = true)
+
+        assertEquals(10143L, primary)
+        assertTrue(EvmCatalog.chains(releaseRegistry, EvmSettings()).any { it.testnet && it.chainId == primary })
+    }
+
     @Test
     fun monadMainnetIsListedAsAMainnetChain() {
         val chains = EvmCatalog.chains(registry, EvmSettings())
