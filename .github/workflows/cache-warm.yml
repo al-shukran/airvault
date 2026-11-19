@@ -66,12 +66,29 @@ jobs:
       # deletes them while the metadata descriptor survives. The PR lane then downloads the POM from Central
       # with about 22 partitions at once, and the failed download is reported as "plugin not found"
       # (2026-11-19, runs 44474000225 and 44475202113). Configuring every time keeps the markers in use.
+      - name: DIAG before resolve
+        run: |
+          echo "== KSP files in gradle home (size path)"
+          find ~/.gradle -path '*devtools.ksp*' -type f -printf '%s %p\n' | sort -k2
+          echo "== ksp strings in modules-2 bin files"
+          find ~/.gradle/caches/modules-2 -maxdepth 2 -name '*.bin' -print0 | while IFS= read -r -d '' f; do echo "# $f"; LC_ALL=C grep -a -o '[[:print:]]*ksp[[:print:]]*' "$f" | head -8; done
+          echo "== descriptor strings"
+          find ~/.gradle/caches/modules-2 -path '*devtools.ksp.gradle.plugin*' -type f -print0 | while IFS= read -r -d '' f; do echo "# $f"; LC_ALL=C grep -a -o '[[:print:]]*' "$f" | head -c 1500; echo; done
+
       - name: Resolve unit-test runtime classpaths
         run: >
-          ./gradlew --no-configuration-cache
+          ./gradlew --no-configuration-cache --info --stacktrace
           :shared:testDebugUnitTest --tests 'app.lensly.core.btc.*'
           :app:testDebugUnitTest --tests 'app.lensly.SmokeTest'
           :lumio:testDebugUnitTest --tests 'app.lumio.data.cache.*'
+
+      - name: DIAG after resolve
+        if: always()
+        run: |
+          echo "== KSP files in gradle home (size path)"
+          find ~/.gradle -path '*devtools.ksp*' -type f -printf '%s %p\n' | sort -k2
+          echo "== ksp strings in modules-2 bin files"
+          find ~/.gradle/caches/modules-2 -maxdepth 2 -name '*.bin' -print0 | while IFS= read -r -d '' f; do echo "# $f"; LC_ALL=C grep -a -o '[[:print:]]*ksp[[:print:]]*' "$f" | head -8; done
 
       # Compile every variant the PR lane compiles, and nothing else. Each task was confirmed
       # present with `./gradlew <tasks> --dry-run`. Keep this list in step with the build types
