@@ -54,6 +54,11 @@ jobs:
           # The default is read-only on any branch that is not the repository default, which
           # would leave phase-1-5 without a cache of its own.
           cache-read-only: false
+          # Cleanup deletes the Kotlin/KSP plugin marker POMs from the saved entry (the build reads the
+          # descriptor from the metadata cache and never opens the POM), while the descriptor survives. A later
+          # restore then has descriptor and no file, and the PR and master test jobs fail with "plugin not found"
+          # (runs 44495699055, 44489012891). Keep the entry as the build left it.
+          cache-cleanup: never
 
       # Compile resolves only the compile classpaths. The test runtime classpaths (JUnit, Robolectric,
       # Roborazzi, ...) were never saved, so every PR test partition downloaded them from Maven Central at
@@ -113,6 +118,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: false
+          cache-cleanup: never # see the test job: cleanup purges the KSP marker POM from the saved entry
 
       - name: Lint lumio
         # --no-configuration-cache: a config-cache hit never reads the plugin marker POMs, so on-success cache cleanup
