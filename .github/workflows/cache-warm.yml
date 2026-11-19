@@ -115,4 +115,6 @@ jobs:
           cache-read-only: false
 
       - name: Lint lumio
-        run: ./gradlew :lumio:lintDebug
+        # --no-configuration-cache: a config-cache hit never reads the plugin marker POMs, so on-success cache cleanup
+        # purges them and the next restore fails with "Plugin com.google.devtools.ksp was not found" (master run 44489012891).
+        run: ./gradlew --no-configuration-cache :lumio:lintDebug
