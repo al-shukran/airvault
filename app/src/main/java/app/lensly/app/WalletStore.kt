@@ -615,7 +615,7 @@ class WalletStore(private val session: VaultSession) {
         val seed = seedOf(id)
         val signed = try {
             val key = BtcAccount.fromSeed(seed, account.network, account.scriptType, account.index)
-            BtcSigner(key, inputPolicy, sourcePolicy).sign(psbt, unverifiedConfirmed)
+            BtcSigner(key, inputPolicy, sourcePolicy, SettingsStore(session).load().bitcoinFeeThresholds).sign(psbt, unverifiedConfirmed)
         } finally {
             seed.fill(0)
         }
