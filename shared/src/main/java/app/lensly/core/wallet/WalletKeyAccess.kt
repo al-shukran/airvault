@@ -9,6 +9,7 @@ import app.lensly.core.algorand.LedgerEd25519
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.btc.rootFromSeed
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.ur.PathStep
 import fr.acinq.bitcoin.Crypto
 import fr.acinq.bitcoin.DeterministicWallet
@@ -22,8 +23,9 @@ import fr.acinq.bitcoin.byteVector64
  * except for the Bitcoin keys, whose bitcoin-kmp objects cannot be wiped, as with [app.lensly.core.btc.BtcAccount]. The caller owns [seed]
  * and zeroes it.
  *
- * Two kinds of key are held, and nothing else:
+ * Three kinds of key are held, and nothing else:
  * - the Algorand account key at `m/44'/283'/account'/0/0` on ED25519_BIP32, which [LedgerEd25519] derives;
+ * - the Solana account key at `m/44'/501'/account'` on ED25519_SLIP10, the SLIP-0010 key of [SolanaAccount];
  * - the Bitcoin account keys at `m/purpose'/coin'/account'/branch/index` on SECP256K1, for the purposes and coin types of [ScriptType] and
  *   [BtcNetwork], with branch 0 or 1 and a non-hardened index. These are the keys [app.lensly.core.btc.BtcAccount] derives.
  *
@@ -32,6 +34,7 @@ import fr.acinq.bitcoin.byteVector64
 class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
     override fun publicKey(curve: Curve, path: Path): PublicKey = when (curve) {
         Curve.SECP256K1 -> PublicKey(curve, withBtcKey(path) { key -> key.publicKey().value.toByteArray() })
+        Curve.ED25519_SLIP10 -> PublicKey(curve, SolanaAccount.publicKey(seed, solanaAccountOf(path)))
         else -> withAccount(curve, path) { key -> PublicKey(curve, key.publicKey.copyOf()) }
     }
 
@@ -63,8 +66,10 @@ class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
         return withBtcKey(path) { key -> Crypto.signSchnorr(digest32.byteVector32(), key, taprootTweak, null).toByteArray() }
     }
 
-    override fun signEd25519(curve: Curve, path: Path, message: ByteArray): ByteArray =
-        withAccount(curve, path) { key -> Ed25519Signer.sign(key.kL, message) }
+    override fun signEd25519(curve: Curve, path: Path, message: ByteArray): ByteArray = when (curve) {
+        Curve.ED25519_SLIP10 -> signSolana(path, message)
+        else -> withAccount(curve, path) { key -> Ed25519Signer.sign(key.kL, message) }
+    }
 
     override fun <T> withPrivateKey(curve: Curve, path: Path, block: (ByteArray) -> T): T =
         throw UnsupportedOperationException("This wallet's key access does not hand out raw private keys.")
@@ -83,6 +88,17 @@ class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
         val key = rootFromSeed(seed).derivePrivateKey(btcKeyPathOf(path)).privateKey
         return use(key)
     }
+
+    /** Signs [message] with the SLIP-0010 key of the Solana account at [path], and zeroes the key before it returns. */
+    private fun signSolana(path: Path, message: ByteArray): ByteArray =
+        SolanaAccount.node(seed, solanaAccountOf(path)).use { node ->
+            val key = node.privateKey()
+            try {
+                Ed25519Signer.sign(key, message)
+            } finally {
+                key.fill(0)
+            }
+        }
 
     companion object {
         /** The derivation path of Algorand account [account]: `m/44'/283'/account'/0/0`, the path the Ledger Algorand app derives. */
@@ -120,6 +136,17 @@ private fun btcKeyPathOf(path: Path): KeyPath {
         !steps[4].hardened && steps[4].index >= 0
     require(isBitcoinAccountKey) { "$path is not a Bitcoin account key path." }
     return KeyPath(steps.map { step -> if (step.hardened) DeterministicWallet.hardened(step.index.toLong()) else step.index.toLong() })
+}
+
+/** The account index of a Solana path on ED25519_SLIP10, m/44'/501'/account'. Any other path is refused. */
+private fun solanaAccountOf(path: Path): Int {
+    val steps = path.steps
+    val isSolana = steps.size == 3 &&
+        steps[0] == PathStep(44, hardened = true) &&
+        steps[1] == PathStep(501, hardened = true) &&
+        steps[2].hardened
+    require(isSolana) { "$path is not a Solana account path." }
+    return steps[2].index
 }
 
 /** The account index of an Algorand path on ED25519_BIP32. Any other curve or path is refused. */

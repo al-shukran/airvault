@@ -1,15 +1,15 @@
 package app.lensly.core.ur
 
+import app.airvault.chains.solana.signer.SolSignResponse
 import com.sparrowwallet.hummingbird.UR
 
 /**
- * ur:sol-signature, the writing side of the Keystone sol-signature type. Key 1 is the request UUID (tag 37) and key 2 is the
- * 64-byte Ed25519 signature. Like Keystone's, it carries no origin.
+ * ur:sol-signature, the writing side of the Keystone sol-signature type. The payload is built by [SolSignResponse] in the Solana chain
+ * module; this object only frames it. Like Keystone's, it carries no origin.
  */
 object SolSignatureEncoder {
-    internal const val UR_TYPE = "sol-signature"
-    private const val UUID_TAG = 37L
-    internal const val SIGNATURE_BYTES = 64
+    internal const val UR_TYPE = SolSignResponse.UR_TYPE
+    internal const val SIGNATURE_BYTES = SolSignResponse.SIGNATURE_BYTES
 
     /**
      * Uppercase frames for the response. [signature] is the 64-byte Ed25519 signature over the message bytes that the
@@ -20,14 +20,6 @@ object SolSignatureEncoder {
         signature: ByteArray,
         maxFragment: Int = DEFAULT_MAX_FRAGMENT,
     ): Sequence<String> {
-        require(requestId.size == 16) { "requestId must be 16 bytes" }
-        require(signature.size == SIGNATURE_BYTES) { "signature must be 64 bytes" }
-        val payload = Cbor.Dict(
-            listOf(
-                Cbor.Uint(1L) to Cbor.Tagged(UUID_TAG, Cbor.Bytes(requestId)),
-                Cbor.Uint(2L) to Cbor.Bytes(signature),
-            ),
-        )
-        return framesOf(UR(UR_TYPE, Cbor.encode(payload)), maxFragment)
+        return framesOf(UR(UR_TYPE, SolSignResponse.cbor(requestId, signature)), maxFragment)
     }
 }

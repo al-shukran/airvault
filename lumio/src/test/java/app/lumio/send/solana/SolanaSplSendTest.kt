@@ -4,6 +4,7 @@ import app.airvault.chains.solana.signer.SolanaMessage
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaSplTransfer
 import app.lensly.core.solana.SolanaTokenAccounts
+import app.lumio.data.provider.SolanaAccountState
 import app.lumio.data.provider.SplBalance
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import fr.acinq.bitcoin.Base58
@@ -131,6 +132,17 @@ class SolanaSplSendTest {
         }
 
         assertEquals(SPL_2022_REFUSAL, refused.message)
+    }
+
+    @Test
+    fun aRecipientAddressHeldByAnotherProgramIsRefusedBeforeSigning() {
+        val owned = SolanaAccountState(owner = SolanaTokenAccounts.TOKEN_PROGRAM, data = ByteArray(165))
+        val foreign = SolanaAccountState(owner = SYSTEM_PROGRAM, data = ByteArray(0))
+
+        assertEquals(false, SolanaSplSend.recipientAccountExists(null))
+        assertEquals(true, SolanaSplSend.recipientAccountExists(owned))
+        val refused = assertFailsWith<IllegalArgumentException> { SolanaSplSend.recipientAccountExists(foreign) }
+        assertEquals(RECIPIENT_NOT_TOKEN_ACCOUNT, refused.message)
     }
 
     @Test

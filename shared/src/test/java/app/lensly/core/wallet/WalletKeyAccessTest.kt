@@ -1,6 +1,7 @@
 package app.lensly.core.wallet
 
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.Curve
 import app.airvault.core.signer.KeyScopeViolation
 import app.airvault.core.signer.Path
@@ -9,15 +10,18 @@ import app.lensly.core.algorand.LedgerEd25519
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.ur.PathStep
 import fr.acinq.bitcoin.Crypto
 import fr.acinq.bitcoin.byteVector32
 import fr.acinq.bitcoin.byteVector64
 import org.junit.Test
+import org.web3j.crypto.MnemonicUtils
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class WalletKeyAccessTest {
     private val seed = Mnemonic.toSeed(MNEMONIC_A)
@@ -159,6 +163,52 @@ class WalletKeyAccessTest {
     private fun btcPath(type: ScriptType, account: Int, branch: Int, index: Int): Path =
         path("m/${type.purpose}'/1'/$account'/$branch/$index")
 
+    /** The addresses of the Solana account vectors: the 12-word phrase of SolanaAccountTest, with no passphrase, at accounts 0 and 1. */
+    @Test
+    fun theSolanaAccountKeysAreTheAddressesOfTheVectors() {
+        val keys = WalletKeyAccess(MnemonicUtils.generateSeed(MNEMONIC_12, ""))
+
+        assertEquals(SOLANA_ACCOUNT_0, SolanaAccount.addressOf(keys.publicKey(Curve.ED25519_SLIP10, solanaPath(0)).bytes))
+        assertEquals(SOLANA_ACCOUNT_1, SolanaAccount.addressOf(keys.publicKey(Curve.ED25519_SLIP10, solanaPath(1)).bytes))
+    }
+
+    @Test
+    fun theSolanaSignatureIsTheSignatureOfTheAccountsSlip10Key() {
+        val seed = MnemonicUtils.generateSeed(MNEMONIC_12, "")
+        val message = byteArrayOf(1, 2, 3)
+        val expected = SolanaAccount.node(seed, 1).use { node ->
+            val key = node.privateKey()
+            try {
+                Ed25519Signer.sign(key, message)
+            } finally {
+                key.fill(0)
+            }
+        }
+
+        val signed = WalletKeyAccess(seed).signEd25519(Curve.ED25519_SLIP10, solanaPath(1), message)
+
+        assertContentEquals(expected, signed)
+        assertTrue(Ed25519Signer.verify(SolanaAccount.publicKey(seed, 1), message, signed))
+    }
+
+    @Test
+    fun aPathThatIsNotASolanaAccountIsRefusedOnTheSlip10Curve() {
+        val keys = WalletKeyAccess(MnemonicUtils.generateSeed(MNEMONIC_12, ""))
+
+        assertFailsWith<IllegalArgumentException> { keys.publicKey(Curve.ED25519_SLIP10, path("m/44'/283'/0'")) }
+        assertFailsWith<IllegalArgumentException> { keys.publicKey(Curve.ED25519_SLIP10, path("m/44'/501'/0")) }
+        assertFailsWith<IllegalArgumentException> { keys.signEd25519(Curve.ED25519_SLIP10, path("m/44'/501'/0'/0'"), ByteArray(0)) }
+    }
+
+    @Test
+    fun aSolanaPathOutsideTheSolanaScopeIsRefusedBeforeAnyKeyIsDerived() {
+        val scoped = ScopedKeyAccess(solanaManifest.keys, WalletKeyAccess(MnemonicUtils.generateSeed(MNEMONIC_12, "")))
+
+        assertFailsWith<KeyScopeViolation> { scoped.publicKey(Curve.ED25519_SLIP10, path("m/44'/283'/0'")) }
+    }
+
+    private fun solanaPath(index: Int): Path = path("m/44'/501'/$index'")
+
     private fun path(text: String): Path = Path(
         text.removePrefix("m/").split('/').map { level ->
             PathStep(index = level.removeSuffix("'").toInt(), hardened = level.endsWith("'"))
@@ -171,5 +221,11 @@ class WalletKeyAccessTest {
 
         /** The public key of Mnemonic A account 0, as LedgerEd25519Test asserts it. */
         const val ACCOUNT_0_PUBLIC_KEY = "7491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538"
+
+        /** The 12-word phrase of SolanaAccountTest, whose addresses are the Solana vectors this test checks. */
+        const val MNEMONIC_12 = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+
+        const val SOLANA_ACCOUNT_0 = "GjJyeC1r2RgkuoCWMyPYkCWSGSGLcz266EaAkLA27AhL"
+        const val SOLANA_ACCOUNT_1 = "ANf3TEKFL6jPWjzkndo4CbnNdUNkBk4KHPggJs2nu8Xi"
     }
 }

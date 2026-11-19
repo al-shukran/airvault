@@ -12,14 +12,20 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 
 class AlgorandRequestParserTest {
 
-    /** A message carries no genesis hash, so it names the Algorand mainnet. It keeps the signer and the request id it names. */
+    /**
+     * Lensly signs transactions only, so a message is refused at parse. The refusal carries the request it names, with the signer and the
+     * request id, so the sign flow can record it under the wallet.
+     */
     @Test
-    fun aMessageNamesTheMainnetAndItsSigner() {
+    fun aMessageIsRefusedAtParseWithTheRequestItNames() {
         val payload = requestCbor(signData = byteArrayOf(1, 2, 3), signType = 2L)
-        val request = assertIs<ParseOutcome.Parsed>(parse(payload)).request
+        val refused = assertIs<ParseOutcome.Refused>(parse(payload))
+        assertEquals(AlgorandRequestCheck.NOT_A_TRANSACTION, refused.reason)
+        val request = assertNotNull(refused.request)
         assertEquals(algorandManifest.id, request.header.app)
         assertEquals(MAINNET, request.header.chain)
         assertEquals(RequestKind.MESSAGE, request.header.kind)
