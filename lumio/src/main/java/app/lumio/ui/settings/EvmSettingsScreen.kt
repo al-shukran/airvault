@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
@@ -40,6 +40,7 @@ import app.lensly.ui.wallet.WalletEyebrow
 import app.lumio.evm.CustomChainInput
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
+
 
 /**
  * The Ethereum section of the settings: how many addresses each wallet shows, which chains are read, the RPC address of each chain, and the

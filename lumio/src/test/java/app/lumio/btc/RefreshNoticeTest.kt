@@ -1,8 +1,8 @@
 package app.lumio.btc
 
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import org.junit.Test
 
 /** What a Bitcoin refresh says when some accounts could not be reached: the read ones show, and the missed ones are named. */
 class RefreshNoticeTest {

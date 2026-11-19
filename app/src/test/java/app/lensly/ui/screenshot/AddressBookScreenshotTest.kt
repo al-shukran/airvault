@@ -12,9 +12,9 @@ import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
 import app.lensly.app.InternalAccount
 import app.lensly.app.addressKeyOf
+import app.lensly.ui.settings.AddressBookField
 import app.lensly.ui.settings.AddressBookFormScreen
 import app.lensly.ui.settings.AddressBookScreen
-import app.lensly.ui.settings.AddressBookField
 import app.lensly.ui.sign.TxReviewScreen
 import org.junit.Rule
 import org.junit.Test

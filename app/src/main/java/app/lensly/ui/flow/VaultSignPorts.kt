@@ -3,6 +3,7 @@ package app.lensly.ui.flow
 import android.content.Context
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
+import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.core.model.ChainId
 import app.lensly.app.ALGORAND_FAMILY
@@ -44,7 +45,6 @@ import app.lensly.app.visualIdentity
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.registry.UnknownCallPolicy

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,12 +23,12 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.airvault.chains.evm.signer.AccessListEntry
 import app.airvault.core.model.ChainId
 import app.lensly.app.AddressNotes
 import app.lensly.app.EVM_FAMILY
 import app.lensly.app.notesOf
 import app.lensly.app.sign.WhitelistedCall
-import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ChainIcon
@@ -38,6 +37,7 @@ import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.settings.protocolOfMeaning
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalMonoFamily
+
 
 /** The warning that the request is not in Lensly's registry, and what the owner checks. */
 private const val REGISTRY_TEXT =

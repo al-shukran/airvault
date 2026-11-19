@@ -16,9 +16,9 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
-import org.junit.Assert.assertThrows
 import org.web3j.crypto.Hash
 import org.web3j.crypto.Keys
 

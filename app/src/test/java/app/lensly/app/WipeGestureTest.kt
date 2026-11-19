@@ -15,10 +15,10 @@ import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.flow.ShredOutcome
 import app.lensly.ui.flow.WipeVaultPorts
 import java.io.File
-import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test

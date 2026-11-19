@@ -11,9 +11,9 @@ import app.lensly.ui.flow.ShredPorts
 import app.lensly.ui.flow.ShredStep
 import java.io.File
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 import org.junit.After

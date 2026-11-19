@@ -30,9 +30,9 @@ import app.lensly.core.registry.WhitelistEntry
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.ChainIcon
-import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.IslandDivider
+import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
@@ -42,6 +42,7 @@ import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
 import app.lensly.ui.sign.ProxyFacts
 import app.lensly.ui.theme.LenslySpacing
+
 
 /**
  * The approved contracts: every whitelist entry of the installed catalog, grouped by network. A search field narrows the list by

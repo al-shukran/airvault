@@ -1,7 +1,7 @@
 package app.lensly.fuzz
 
-import app.lensly.core.evm.UnsignedTx
-import app.lensly.core.ur.DataType
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.UnsignedTx
 import com.code_intelligence.jazzer.junit.FuzzTest
 import org.junit.jupiter.params.provider.MethodSource
 

@@ -1,14 +1,15 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.EvmRequestParser
+import app.airvault.chains.evm.signer.ParsedRequest
 import app.lensly.core.evm.EvmFixtures
 import app.lensly.core.parse.InProcessParser
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.wallet.HdWallet
@@ -17,12 +18,12 @@ import app.lensly.ui.shippedRegistry
 import app.lensly.ui.sign.ReviewCheck
 import app.lensly.ui.sign.TypedRow
 import app.lensly.ui.sign.unlimitedApprovalWarning
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.junit.Test
 
 private const val WALLET_ID = "typed-wallet"
 private val WALLET = HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art"))
@@ -92,7 +93,7 @@ private fun accountPath(index: Int) = listOf(
 )
 
 /** The request of [json] as a wallet sends it, parsed the way the Parser Sandbox parses it. */
-private fun parsedOf(json: String, chainId: Long? = 1): ParsedRequest = InProcessParser.parsedOf(
+private fun parsedOf(json: String, chainId: Long? = 1): ParsedRequest = EvmRequestParser.parsedOf(
     EthSignRequest(
         requestId = REQUEST_ID,
         signData = json.toByteArray(Charsets.UTF_8),

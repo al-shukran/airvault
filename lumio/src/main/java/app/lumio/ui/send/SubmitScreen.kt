@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,13 +24,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lensly.ui.theme.LumenMotion
-import app.lensly.core.btc.BtcNetwork
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.btcText
 import app.lumio.data.provider.algorand.AlgorandFormat
@@ -45,12 +46,11 @@ import app.lumio.send.algorand.AsaSendPlan
 import app.lumio.send.solana.SolanaAssets
 import app.lumio.send.solana.SolanaSendInput
 import app.lumio.send.solana.SolanaSendPlan
-import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
-import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.rememberLumioHaptics
 import app.lumio.ui.pair.PairLabels
 import java.math.BigInteger
+
 
 /** One line of what a signed transaction does, as the owner reads it. */
 class SummaryRow(val label: String, val value: String)

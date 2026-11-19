@@ -7,16 +7,16 @@ import app.airvault.chains.algorand.bytesToSign
 import app.airvault.chains.algorand.signer.AlgoTxnDecoder
 import app.airvault.chains.algorand.signer.AlgoTxnException
 import app.lensly.core.wallet.toHex
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import org.junit.Test
 
 /**
  * Tests for [AlgoTxnDecoder] and [bytesToSign].

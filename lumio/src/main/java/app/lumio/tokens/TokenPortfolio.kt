@@ -4,7 +4,6 @@ import app.lensly.core.vault.VaultSession
 import app.lumio.evm.ContractReads
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
-import app.lumio.evm.Portfolio
 import app.lumio.evm.RpcFailure
 import app.lumio.pair.PairedWallet
 import java.math.BigInteger
@@ -15,8 +14,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**

@@ -1,20 +1,20 @@
-package app.lensly.core.evm
+package app.airvault.chains.evm.signer
 
 import app.lensly.core.parse.DecodeBudget
 import app.lensly.core.parse.ParserLimits
 import java.nio.ByteBuffer
 
 /** Raised for transaction bytes that are malformed, non-canonical, or outside the supported schema. */
-internal class MalformedTxException(message: String) : Exception(message)
+class MalformedTxException(message: String) : Exception(message)
 
-internal fun malformedTx(reason: String): Nothing = throw MalformedTxException(reason)
+fun malformedTx(reason: String): Nothing = throw MalformedTxException(reason)
 
 /**
  * Strict RLP. Single bytes must not be wrapped, lengths must be minimal, and the input must be exactly one item.
  * Input larger than [ParserLimits.MAX_SIGN_DATA_BYTES], nesting deeper than [ParserLimits.MAX_RLP_DEPTH], more than
  * [ParserLimits.MAX_RLP_ITEMS] items, or a decode that runs past its time budget are all rejected.
  */
-internal sealed class Rlp {
+sealed class Rlp {
     class Str(val bytes: ByteArray) : Rlp()
 
     class Lst(val items: List<Rlp>) : Rlp()

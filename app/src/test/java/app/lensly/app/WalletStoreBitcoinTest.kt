@@ -21,6 +21,7 @@ import app.lensly.core.ur.UrScanner
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
@@ -41,7 +42,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import app.lensly.core.wallet.AccountAddresses
 
 /**
  * The Bitcoin accounts of a wallet: the first receive address against the published vectors, one account per Script Type, network

@@ -1,12 +1,12 @@
 package app.lensly.ui.sign
 
+import app.airvault.chains.evm.signer.AccessListEntry
+import app.airvault.chains.evm.signer.ContractCall
 import app.lensly.app.AddressNotes
 import app.lensly.app.VisualIdentity
 import app.lensly.app.addressesIn
 import app.lensly.app.generatedIdentity
 import app.lensly.app.sign.WhitelistedCall
-import app.lensly.core.evm.AccessListEntry
-import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry

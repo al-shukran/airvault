@@ -1,8 +1,5 @@
 package app.lumio.ui.kit
 
-import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.components.LumioRow
-import app.lensly.ui.components.LumioTextAction
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,11 +24,14 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioRow
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lumio.ui.screenshot.LUMIO_DARK_QUALIFIERS
 import app.lumio.ui.screenshot.LUMIO_LIGHT_QUALIFIERS
 import app.lumio.ui.screenshot.lumioSnapshot
-import app.lensly.ui.theme.LocalLumenPalette
 import app.lumio.ui.theme.LumioGutter
 import org.junit.Rule
 import org.junit.Test

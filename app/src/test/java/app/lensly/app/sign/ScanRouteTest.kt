@@ -1,6 +1,8 @@
 package app.lensly.app.sign
 
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.solana.SOLANA_MAINNET
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.signer.RequestHeader
@@ -10,13 +12,11 @@ import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.Mnemonic
 import fr.acinq.bitcoin.KeyPath
-import org.junit.Test
 import kotlin.test.assertEquals
+import org.junit.Test
 
 private const val FINGERPRINT = 0x1a2b3c4d
 private const val ADDRESS = "0x0000000000000000000000000000000000000000"

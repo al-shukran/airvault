@@ -1,6 +1,7 @@
 package app.lensly.ui.flow
 
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
@@ -20,7 +21,6 @@ import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.lensly.core.btc.BtcSigner
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.wallet.Mnemonic

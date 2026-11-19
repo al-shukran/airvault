@@ -3,6 +3,7 @@ package app.lensly.ui.flow
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.bytesToSign
+import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AlgorandReviewEntry
@@ -15,7 +16,6 @@ import app.lensly.app.sign.WalletView
 import app.lensly.core.algorand.AlgorandAccount
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.lensly.core.algorand.LedgerEd25519
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser

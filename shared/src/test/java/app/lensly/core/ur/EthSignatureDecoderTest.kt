@@ -1,5 +1,6 @@
 package app.lensly.core.ur
 
+import app.airvault.chains.evm.signer.EthSignRequest
 import app.lensly.app.export.partsOf
 import com.sparrowwallet.hummingbird.UR
 import java.util.Random

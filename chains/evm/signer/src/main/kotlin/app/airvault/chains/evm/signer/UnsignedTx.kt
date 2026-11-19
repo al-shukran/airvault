@@ -1,7 +1,6 @@
-package app.lensly.core.evm
+package app.airvault.chains.evm.signer
 
 import app.lensly.core.parse.ParserLimits
-import app.lensly.core.ur.DataType
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import org.web3j.crypto.Keys

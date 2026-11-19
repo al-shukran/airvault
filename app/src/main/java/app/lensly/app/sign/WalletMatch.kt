@@ -1,8 +1,8 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.core.signer.RequestHeader
 import app.lensly.core.btc.claimsAccount
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.wallet.toHex
 import fr.acinq.bitcoin.psbt.Psbt
 

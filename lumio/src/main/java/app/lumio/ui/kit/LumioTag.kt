@@ -8,8 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LenslyPillShape
+import app.lensly.ui.theme.LenslySpacing
 
 /** A small capsule label, such as a count of tokens or a network. Its text is sentence case, in the label face. */
 @Composable

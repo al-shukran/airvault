@@ -1,13 +1,12 @@
 package app.lensly.core.vault
 
-import java.io.File
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Rule
+import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /** The erase count: when it erases, when it warns, what it accepts, and that the count and the count's limit survive a restart. */

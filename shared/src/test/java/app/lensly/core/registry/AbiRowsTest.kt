@@ -1,5 +1,8 @@
 package app.lensly.core.registry
 
+import app.airvault.abi.AbiValue
+import app.airvault.abi.DecodedParam
+import app.airvault.abi.WhitelistParam
 import kotlin.test.assertEquals
 import org.junit.Test
 import org.web3j.crypto.Keys

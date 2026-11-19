@@ -10,8 +10,8 @@ import app.lumio.data.provider.Http
 import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderCatalog
-import app.lumio.data.provider.Request
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.Request
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import kotlin.random.Random

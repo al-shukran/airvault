@@ -8,13 +8,13 @@ import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
+import java.util.UUID
+import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
-import java.util.UUID
-import kotlin.random.Random
 
 /** The version-6 pairing: the layout round-trips, a code of another version is refused by its version, and an encoder never writes a code a reader refuses. */
 class PairingCodecTest {

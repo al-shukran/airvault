@@ -1,8 +1,8 @@
 package app.lensly.ui.wallet
 
-import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.Test
 
 class PassphraseGateTest {
 

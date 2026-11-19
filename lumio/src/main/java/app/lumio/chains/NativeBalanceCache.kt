@@ -2,8 +2,8 @@ package app.lumio.chains
 
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.net.NetworkId
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**

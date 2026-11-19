@@ -1,9 +1,9 @@
 package app.lumio.data.price
 
-import app.lumio.data.cache.Cache
-import app.lumio.data.cache.Codec
-import app.lumio.data.cache.CachePolicy
 import app.lumio.data.asset.AssetId
+import app.lumio.data.cache.Cache
+import app.lumio.data.cache.CachePolicy
+import app.lumio.data.cache.Codec
 import app.lumio.data.cache.jsonCodec
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.NativePrice
@@ -14,9 +14,9 @@ import app.lumio.data.provider.Request
 import app.lumio.data.provider.TokenPrice
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.coroutineScope
 
 /** How long a fresh price is reused from memory before the next call. */

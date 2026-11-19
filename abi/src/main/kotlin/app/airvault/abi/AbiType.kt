@@ -1,4 +1,4 @@
-package app.lensly.core.registry
+package app.airvault.abi
 
 import app.lensly.core.parse.ParserLimits
 
@@ -9,7 +9,7 @@ import app.lensly.core.parse.ParserLimits
  * An [AtomicType] is one 32-byte word. A [DynamicBytes] is `bytes` or `string`. An [ArrayType] is `T[]` or `T[k]`, and a [TupleType] is
  * `(T1,...,Tn)`. A [dynamic] type is encoded behind an offset, as the Solidity ABI spec lays it out; every other type sits in place.
  */
-internal sealed interface AbiType {
+sealed interface AbiType {
     val canonical: String
 
     /** True when the value is encoded behind an offset: bytes, string, a dynamic array, or a tuple or array that holds one. */
@@ -23,21 +23,21 @@ internal sealed interface AbiType {
 }
 
 /** address, bool, uintN, intN or bytesN: one word. */
-internal class AtomicType(override val canonical: String) : AbiType {
+class AtomicType(override val canonical: String) : AbiType {
     override val dynamic: Boolean get() = false
     override val headBytes: Long get() = WORD
     override val depth: Int get() = 0
 }
 
 /** bytes or string: a length word, then the data padded to whole words. */
-internal class DynamicBytes(override val canonical: String) : AbiType {
+class DynamicBytes(override val canonical: String) : AbiType {
     override val dynamic: Boolean get() = true
     override val headBytes: Long get() = WORD
     override val depth: Int get() = 0
 }
 
 /** `T[k]` when [length] is set, and `T[]` when it is null. */
-internal class ArrayType(val element: AbiType, val length: Int?) : AbiType {
+class ArrayType(val element: AbiType, val length: Int?) : AbiType {
     override val canonical: String = element.canonical + "[" + (length?.toString() ?: "") + "]"
     override val dynamic: Boolean = length == null || element.dynamic
     override val headBytes: Long = if (length == null || element.dynamic) WORD else saturate(length.toLong() * element.headBytes)
@@ -45,7 +45,7 @@ internal class ArrayType(val element: AbiType, val length: Int?) : AbiType {
 }
 
 /** `(T1,...,Tn)`, a struct of the fields in order. */
-internal class TupleType(val components: List<AbiType>) : AbiType {
+class TupleType(val components: List<AbiType>) : AbiType {
     override val canonical: String = components.joinToString(",", "(", ")") { it.canonical }
     override val dynamic: Boolean = components.any { it.dynamic }
     override val headBytes: Long =
@@ -64,7 +64,7 @@ private fun saturate(size: Long): Long = minOf(size, SIZE_CAP)
  * Strict parsing of ABI types and signatures. Only the canonical spelling parses, a type nests at most [ParserLimits.MAX_ABI_DEPTH]
  * levels deep, and a fixed array holds at most [ParserLimits.MAX_ABI_ARRAY_LENGTH] items. Anything else is null.
  */
-internal object AbiTypes {
+object AbiTypes {
 
     /** The type [text] spells in canonical form, or null when it is not one. */
     fun parse(text: String): AbiType? {

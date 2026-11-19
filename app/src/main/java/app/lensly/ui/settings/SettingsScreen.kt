@@ -1,5 +1,6 @@
 package app.lensly.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -7,7 +8,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,8 +22,8 @@ import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyPolicy
-import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.WalletEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.vault.FailureDelay
@@ -31,10 +31,10 @@ import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.ChoiceDialogRow
-import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.IslandDivider
-import app.lensly.ui.components.SettingsIsland
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.SettingsIsland
+import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.theme.LenslySpacing
 

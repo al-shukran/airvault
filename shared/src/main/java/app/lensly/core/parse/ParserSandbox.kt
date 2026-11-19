@@ -1,28 +1,19 @@
 package app.lensly.core.parse
 
+import app.airvault.abi.AbiDecoder
+import app.airvault.abi.CallDecode
+import app.airvault.abi.WhitelistParam
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.ParseOutcome
 import app.airvault.core.signer.SignerApp
 import app.lensly.chains.signerRegistry
-import app.lensly.core.evm.TypedDataParser
-import app.lensly.core.evm.UnsignedTx
-import app.lensly.core.registry.AbiDecoder
-import app.lensly.core.registry.CallDecode
-import app.lensly.core.registry.ContractCall
-import app.lensly.core.registry.WhitelistParam
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
-import org.web3j.utils.Numeric
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
-
-/** The refusal of a request that the Parser Sandbox could not parse in time, or that did not answer, or answered wrongly. */
-const val CANNOT_BE_READ = "This code could not be read safely."
 
 /** The refusal of a code that is a UR of a type other than eth-sign-request. */
 const val UNSUPPORTED_CODE = "Unsupported code"
@@ -35,9 +26,6 @@ sealed interface ScanReply {
     /** The new text belongs to the request, which is not complete yet. [progress] runs from 0 to 1. */
     data class Incomplete(val progress: Double) : ScanReply
 
-    /** The new text completes the request. [parsed] holds the request and what its data decodes to. */
-    data class Complete(val parsed: ParsedRequest) : ScanReply
-
     /**
      * The new text completes a request that an installed chain app parses. [request] holds its header, which the core reads, and its
      * body, which the app reads. The app parsed it, so a request that does not parse never gets here.
@@ -47,20 +35,6 @@ sealed interface ScanReply {
     /** The request cannot be read. [reason] says why, in plain words. */
     data class Refused(val reason: String) : ScanReply
 }
-
-/**
- * An eth-sign-request and what its data decodes to. A transaction dataType carries its decoded transaction, or the reason it
- * is refused. Typed data carries its parse result, the typed message or the reason it is refused. Other dataTypes carry neither.
- * [call] is set when a decoded transaction's calldata is a call [ContractCall] knows.
- * [multicall] is set when that calldata is a multicall whose calls the sandbox read, level by level.
- */
-data class ParsedRequest(
-    val request: EthSignRequest,
-    val tx: UnsignedTx.Result?,
-    val call: ContractCall?,
-    val multicall: Multicall? = null,
-    val typed: TypedDataParser.Result? = null,
-)
 
 /**
  * The parsers of untrusted request input. The app runs them in the Parser Sandbox ([SandboxedParser]), and it checks every
@@ -87,11 +61,7 @@ object InProcessParser : RequestParser {
     /** The reply for a complete [ur]: the request it carries, parsed, or the reason it is refused. */
     internal fun replyOf(ur: UR): ScanReply {
         signerRegistry.byRequestType(ur.type)?.let { return appReply(it, ur) }
-        if (ur.type != EthSignRequest.UR_TYPE) return ScanReply.Refused(UNSUPPORTED_CODE)
-        return when (val decoded = EthSignRequest.decode(ur.cborBytes)) {
-            is EthSignRequest.Result.Ok -> ScanReply.Complete(parsedOf(decoded.request))
-            is EthSignRequest.Result.Rejected -> ScanReply.Refused(decoded.reason)
-        }
+        return ScanReply.Refused(UNSUPPORTED_CODE)
     }
 
     /**
@@ -107,23 +77,6 @@ object InProcessParser : RequestParser {
         ScanReply.Refused(CANNOT_BE_READ)
     }
 
-    /**
-     * The transaction [request]'s data decodes to, and the call its calldata is. Typed data is parsed as EIP-712. A personal
-     * message has neither.
-     */
-    fun parsedOf(request: EthSignRequest): ParsedRequest {
-        if (request.dataType == DataType.TYPED_DATA) {
-            return ParsedRequest(request, tx = null, call = null, typed = TypedDataParser.parse(request.signData))
-        }
-        if (request.dataType != DataType.TRANSACTION && request.dataType != DataType.TYPED_TRANSACTION) {
-            return ParsedRequest(request, tx = null, call = null)
-        }
-        val tx = UnsignedTx.decode(request.signData, request.dataType)
-        val calldata = (tx as? UnsignedTx.Result.Ok)?.tx?.data?.let { Numeric.hexStringToByteArray(it) }
-        val call = calldata?.takeIf { it.isNotEmpty() }?.let { ContractCall.decode(it) }
-        val multicall = calldata?.let { multicallOf(it) }
-        return ParsedRequest(request, tx, call, multicall)
-    }
 }
 
 /**

@@ -1,7 +1,6 @@
 package app.lensly.core.btc
 
 import fr.acinq.bitcoin.KeyPath
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -14,6 +13,7 @@ import app.airvault.chains.bitcoin.signer.BtcWarning
 import app.airvault.chains.bitcoin.signer.FINAL_SEQUENCE
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.airvault.chains.bitcoin.signer.warnings
+import org.junit.Test
 
 class BtcReviewWarningsTest {
     private val seed = BitcoinVectors.seed()

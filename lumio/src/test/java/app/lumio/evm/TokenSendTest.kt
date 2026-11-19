@@ -1,8 +1,8 @@
 package app.lumio.evm
 
-import app.lensly.core.evm.UnsignedTx
-import app.lensly.core.registry.ContractCall
-import app.lensly.core.ur.DataType
+import app.airvault.chains.evm.signer.ContractCall
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.UnsignedTx
 import app.lensly.core.evm.EvmFixtures
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
