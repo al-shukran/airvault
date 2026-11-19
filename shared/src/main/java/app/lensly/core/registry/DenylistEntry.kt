@@ -1,5 +1,6 @@
 package app.lensly.core.registry
 
+import app.airvault.chains.evm.signer.ContractCall
 import app.lensly.core.wallet.toHex
 import kotlinx.serialization.Serializable
 

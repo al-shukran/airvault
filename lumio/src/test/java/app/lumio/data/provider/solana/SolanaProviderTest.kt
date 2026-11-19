@@ -6,8 +6,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.MAX_SOLANA_HISTORY
+import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Op
 import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError

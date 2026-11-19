@@ -7,12 +7,12 @@ import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UREncoder
 import com.sparrowwallet.hummingbird.registry.CryptoPSBT
 import fr.acinq.bitcoin.psbt.Psbt
-import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.junit.Test
 
 class BtcPsbtUrTest {
     private val seed = BitcoinVectors.seed()

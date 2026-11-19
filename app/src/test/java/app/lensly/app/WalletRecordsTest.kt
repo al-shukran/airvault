@@ -6,8 +6,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
-import org.junit.Test
 import kotlin.test.assertTrue
+import org.junit.Test
 
 class WalletRecordsTest {
     private val id = "11111111-2222-3333-4444-555555555555"

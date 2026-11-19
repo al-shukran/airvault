@@ -1,7 +1,7 @@
 package app.lumio.evm
 
+import app.airvault.chains.evm.signer.EthSignRequest
 import app.lensly.app.export.partsOf
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.EthSignRequestEncoder
 import app.lensly.core.ur.UrScanner
 import java.math.BigDecimal

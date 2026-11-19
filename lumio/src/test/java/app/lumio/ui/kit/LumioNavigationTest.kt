@@ -1,8 +1,5 @@
 package app.lumio.ui.kit
 
-import app.lensly.ui.navigation.MirrorNavMotion
-import app.lensly.ui.navigation.NavReducedMotion
-import app.lensly.ui.navigation.cutWhenReduced
 import android.provider.Settings
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -10,8 +7,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
-import app.lumio.LumioRoute
+import app.lensly.ui.navigation.MirrorNavMotion
+import app.lensly.ui.navigation.NavReducedMotion
+import app.lensly.ui.navigation.cutWhenReduced
 import app.lensly.ui.theme.LumenTheme
+import app.lumio.LumioRoute
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

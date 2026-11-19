@@ -7,13 +7,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.theme.LumenTheme
+import app.lumio.network.NetworkMode
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import app.lumio.network.NetworkMode
 
 /** The top-level list of Lumio's settings: one chevron row per page, each with its state under the title, a back arrow, and no Save. */
 @RunWith(RobolectricTestRunner::class)
@@ -70,5 +69,4 @@ class LumioSettingsScreenTest {
 
         assertEquals(SettingsPage.WALLETS, opened)
     }
-
 }

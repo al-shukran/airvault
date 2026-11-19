@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import app.lumio.ui.kit.lumioComposable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
@@ -29,6 +28,7 @@ import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
+import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+
 
 /**
  * The Settings route: the list over the screen it was opened from. It slides in on the push spring while that screen stays still and dims under

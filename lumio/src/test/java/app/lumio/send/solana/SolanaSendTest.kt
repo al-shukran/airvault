@@ -4,7 +4,6 @@ import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaMessage
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaTransaction
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.SolCluster
@@ -12,6 +11,7 @@ import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.ur.UrScanner
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.wallet.Mnemonic
 import app.lumio.data.Clock
 import app.lumio.data.MonotonicClock

@@ -12,18 +12,17 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import app.lensly.app.export.PairingPayload
@@ -31,23 +30,24 @@ import app.lensly.app.vaultHolder
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.navigation.CoverNavHost
 import app.lensly.ui.navigation.HiddenBackdrop
+import app.lensly.ui.navigation.MirrorNavMotion
 import app.lensly.ui.navigation.hiddenArea
 import app.lensly.ui.navigation.leaveHidden
+import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
 import app.lumio.network.NetworkMode
+import app.lumio.network.NetworkModeStore
 import app.lumio.send.algorand.AlgorandAddAssetRoute
 import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
-import app.lumio.network.NetworkModeStore
-import app.lensly.ui.navigation.MirrorNavMotion
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.network.NetworkSideSheet
 import app.lumio.ui.network.TestnetStrip
 import app.lumio.ui.settings.SettingsPage
-import kotlinx.coroutines.launch
-import app.lensly.ui.theme.LumenTheme
 import app.lumio.wallets.AccountChain
+import kotlinx.coroutines.launch
+
 
 /** Lumio's own routes inside its Hidden Area. The gate's routes are shared, see `app.lensly.ui.navigation.GateRoutes`. */
 internal object LumioRoute {

@@ -29,21 +29,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioRow
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalLumenPalette
+import app.lensly.ui.theme.LocalReducedMotion
+import app.lensly.ui.theme.LumenMotion
 import app.lumio.pair.FirstSync
 import app.lumio.pair.SyncRow
 import app.lumio.pair.SyncState
 import app.lumio.ui.kit.GlowBackdrop
 import app.lumio.ui.kit.LumenRing
-import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.components.LumioRow
-import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.WalletOrb
 import app.lumio.ui.kit.rememberLumioHaptics
-import app.lensly.ui.theme.LocalLumenPalette
-import app.lensly.ui.theme.LocalReducedMotion
-import app.lensly.ui.theme.LumenMotion
 import kotlinx.coroutines.delay
+
 
 /** The pause after the last row settles, before the wallet opens (section 2.1). */
 private const val SETTLED_PAUSE_MS = 600L

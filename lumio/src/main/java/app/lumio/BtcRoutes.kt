@@ -2,10 +2,10 @@ package app.lumio
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+
 
 /** The Bitcoin account [index] of the wallet [walletId], when it is on [mode]'s side. Null when the vault has no such account there. */
 internal fun bitcoinAccountRef(session: VaultSession, walletId: String, index: Int, mode: NetworkMode): BtcAccountRef? =

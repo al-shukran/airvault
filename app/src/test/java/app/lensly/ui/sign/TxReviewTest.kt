@@ -10,11 +10,11 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.theme.SpaceMonoFamily
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.Test
 
 class TxReviewTest {
 

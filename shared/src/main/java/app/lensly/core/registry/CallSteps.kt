@@ -1,5 +1,6 @@
 package app.lensly.core.registry
 
+import app.airvault.abi.DecodedParam
 import java.math.BigInteger
 
 /** The line a call shows when Lensly recognises it but cannot read its arguments, so the raw arguments stay the only account of it. */

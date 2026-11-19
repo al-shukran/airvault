@@ -1,11 +1,13 @@
 package app.lensly.core.evm
 
-import app.lensly.core.ur.DataType
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.TypedData
+import app.airvault.chains.evm.signer.TypedDataParser
 import app.lensly.core.wallet.AccountAddresses
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.junit.Test
 import org.web3j.utils.Numeric
 
 /** A key that has never held funds. It exists only in tests. */

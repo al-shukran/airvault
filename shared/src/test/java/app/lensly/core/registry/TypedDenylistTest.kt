@@ -1,10 +1,10 @@
 package app.lensly.core.registry
 
 import app.lensly.ui.shippedRegistry
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import org.junit.Test
 
 private const val USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 private const val PERMIT_REASON =

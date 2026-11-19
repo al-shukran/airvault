@@ -36,21 +36,22 @@ import app.lensly.app.chainOfAddress
 import app.lensly.app.headline
 import app.lensly.core.registry.Amounts
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LumenMono
-import app.lumio.home.HomeFormat
-import app.lumio.transactions.TxDetail
-import app.lensly.ui.components.LumioIsland
-import app.lumio.ui.kit.LumioPrimaryButton
-import app.lensly.ui.components.LumioTextAction
-import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
+import app.lumio.home.HomeFormat
+import app.lumio.transactions.TxDetail
+import app.lumio.ui.kit.LumioPrimaryButton
+import app.lumio.ui.kit.rememberCopyAction
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
 
 /** The test tag of the comment field. */
 const val TX_COMMENT_TAG = "tx-comment"

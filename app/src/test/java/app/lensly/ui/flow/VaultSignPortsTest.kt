@@ -1,12 +1,12 @@
 package app.lensly.ui.flow
 
 import android.content.Context
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
 import app.lensly.core.vault.FakeClock

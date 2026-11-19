@@ -3,7 +3,6 @@ package app.lumio
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import app.lumio.ui.kit.lumioComposable
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.leaveHidden
@@ -11,6 +10,7 @@ import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.settings.ChangeCopy
 import app.lensly.ui.settings.ChangePasswordFlow
 import app.lensly.ui.settings.changeAppPassword
+import app.lumio.ui.kit.lumioComposable
 
 /**
  * The App Password change in Settings → Security. The steps and the screen are Lensly's, shared through :shared, and the change re-wraps the

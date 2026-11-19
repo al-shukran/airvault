@@ -8,9 +8,9 @@ import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcSigner
 import app.lensly.core.btc.ScriptType
 import app.lumio.pair.PairFixtures
+import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.URDecoder
 import com.sparrowwallet.hummingbird.UREncoder
-import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Satoshi
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

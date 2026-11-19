@@ -1,11 +1,11 @@
 package app.lensly.ui.wallet
 
+import app.lensly.app.HideDelay
 import java.security.SecureRandom
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import app.lensly.app.HideDelay
 import org.junit.Test
 
 /** A SecureRandom that records every bound it is asked for and answers each draw with [draw]. */

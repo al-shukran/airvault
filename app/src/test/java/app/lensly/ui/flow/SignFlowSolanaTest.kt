@@ -1,6 +1,7 @@
 package app.lensly.ui.flow
 
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.evm.signer.ParsedRequest
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
@@ -9,7 +10,6 @@ import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser

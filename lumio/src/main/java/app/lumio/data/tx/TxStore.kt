@@ -1,16 +1,16 @@
 package app.lumio.data.tx
 
+import androidx.sqlite.db.SimpleSQLiteQuery
 import app.lensly.core.vault.Aead
 import app.lumio.data.db.TxComment
 import app.lumio.data.db.TxDao
 import app.lumio.data.db.TxRow
 import app.lumio.data.db.TxTermRow
 import app.lumio.data.net.NetworkId
-import androidx.sqlite.db.SimpleSQLiteQuery
 import java.math.BigInteger
 import java.security.GeneralSecurityException
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /** A comment as the store reads it: the transaction it is on, its text, and the time it was written in epoch milliseconds. */

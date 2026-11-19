@@ -25,10 +25,10 @@ import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import app.lumio.pair.PairFixtures
 import com.sparrowwallet.hummingbird.URDecoder
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 import fr.acinq.bitcoin.Transaction
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

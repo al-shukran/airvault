@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +27,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.ui.components.LumioRow
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lensly.ui.theme.LumenMotion
@@ -41,12 +41,12 @@ import app.lumio.ui.home.letterOf
 import app.lumio.ui.kit.AnimatedAmount
 import app.lumio.ui.kit.LumenRing
 import app.lumio.ui.kit.LumioAssetIcon
-import app.lensly.ui.components.LumioRow
 import app.lumio.ui.kit.rememberLumioHaptics
 import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
 
 /** The text of an account with no balance read. */
 private const val NOT_READ = "Not read yet"

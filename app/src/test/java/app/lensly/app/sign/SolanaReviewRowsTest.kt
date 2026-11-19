@@ -1,6 +1,5 @@
 package app.lensly.app.sign
 
-import fr.acinq.bitcoin.Base58
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaRequestCheck
 import app.lensly.core.solana.SolanaRequestReview
@@ -13,6 +12,7 @@ import app.lensly.core.wallet.toHex
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.sign.ReviewFact
 import app.lensly.ui.sign.solanaWarningTone
+import fr.acinq.bitcoin.Base58
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder

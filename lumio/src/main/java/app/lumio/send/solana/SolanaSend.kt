@@ -1,7 +1,6 @@
 package app.lumio.send.solana
 
 import app.lensly.app.export.partsOf
-import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTransaction
 import app.lensly.core.ur.PathStep
@@ -10,6 +9,7 @@ import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignRequestEncoder
 import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.SolSignature
+import app.lensly.core.wallet.Ed25519Signer
 import app.lumio.data.Clock
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Broadcast

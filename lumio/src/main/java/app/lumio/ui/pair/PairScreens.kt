@@ -15,8 +15,8 @@ import androidx.compose.ui.Modifier
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.btc.BtcWatchOnlyAccount
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen

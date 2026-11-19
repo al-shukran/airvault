@@ -35,15 +35,15 @@ import app.lumio.data.rpc.PUBLIC_LIMITS
 import java.math.BigInteger
 import java.util.Base64
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Request as HttpRequest
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /** The Algorand testnet, the network Lumio reads by default. Its chain name is "testnet", as Algonode names it. */
 val ALGORAND_TESTNET = NetworkId(Networks.ALGO_TESTNET, testnet = true)

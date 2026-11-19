@@ -32,11 +32,12 @@ import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.navigation.rememberAddressBook
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
-import app.lensly.ui.sign.BitcoinReviewScreen
 import app.lensly.ui.sign.AlgorandReviewScreen
-import app.lensly.ui.sign.SolanaReviewScreen
+import app.lensly.ui.sign.BitcoinReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
+import app.lensly.ui.sign.SolanaReviewScreen
 import app.lensly.ui.sign.TxReviewScreen
+
 
 /** The view model key of a scan that is not for one wallet, so it never shares a flow with a wallet's scan. */
 private const val ANY_WALLET_KEY = "sign-any-wallet"

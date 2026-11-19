@@ -5,9 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import app.lensly.core.btc.BtcNetwork
 import app.lumio.btc.networkId
-import app.lumio.data.Clock
 import app.lumio.chains.ChainHolding
+import app.lumio.data.Clock
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
@@ -31,14 +32,13 @@ import app.lumio.ui.wallets.AssetRowModel
 import app.lumio.ui.wallets.AssetRows
 import app.lumio.ui.wallets.AssetScreen
 import app.lumio.ui.wallets.WalletRow
+import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletSheet
 import app.lumio.ui.wallets.WalletSheetHost
 import app.lumio.ui.wallets.WalletSheets
-import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletsScreen
 import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
-import app.lensly.core.btc.BtcNetwork
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlinx.coroutines.CoroutineScope

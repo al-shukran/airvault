@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -39,20 +38,21 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.wallet.WalletEyebrow
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.qr.AnimatedQr
-import app.lumio.ui.scan.LumioScanScreen
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.wallet.WalletEyebrow
 import app.lumio.evm.EvmAdvanced
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmFormat
 import app.lumio.evm.PreparedSend
 import app.lumio.evm.SendAsset
 import app.lumio.evm.SendInput
-import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTag
-import app.lensly.ui.components.LumioTextAction
+import app.lumio.ui.scan.LumioScanScreen
+
 
 private const val TESTNET_LABEL = "Testnet"
 

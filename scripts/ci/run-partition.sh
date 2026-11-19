@@ -210,8 +210,9 @@ case "$partition" in
     chain-api)
         # The chain-app contract, the parsers, the registry, the key-scope enforcer, the conformance kit (which runs on the
         # Algorand signer and checks the signer side for network libraries) and the Algorand manifest. No --tests filter:
-        # each module's whole test set runs.
+        # each module's whole test set runs. The EVM signer's request codec and the ABI library are in it too.
         ./gradlew :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test \
+            :chains:evm:signer:test :abi:test \
             :core:conformance:test :core:wallet-api:classes :chains:algorand:wallet:classes
         ;;
     manifest)

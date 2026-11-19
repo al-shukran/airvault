@@ -1,8 +1,8 @@
 package app.lensly.core.parse
 
-import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertIs
+import org.junit.Test
 
 class BitcoinScanWireTest {
     @Test

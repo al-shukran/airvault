@@ -7,11 +7,11 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import app.airvault.abi.WhitelistParam
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.WhitelistEntry
-import app.lensly.core.registry.WhitelistParam
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme

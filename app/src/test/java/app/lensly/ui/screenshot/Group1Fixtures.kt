@@ -17,10 +17,10 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
-import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.sign.UNKNOWN_UNIT
 import app.lensly.ui.sign.assumedAmountNote
 import app.lensly.ui.sign.unknownFeeNote
+import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import java.math.BigInteger

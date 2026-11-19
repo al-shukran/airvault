@@ -2,6 +2,7 @@ package app.lensly.ui.flow
 
 import android.content.Context
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.evm.signer.ParsedRequest
 import app.lensly.app.AddressBookStore
 import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
@@ -40,7 +41,6 @@ import app.lensly.core.algorand.AlgorandRequestCheck
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.parse.NOT_A_PSBT
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.registry.UnknownCallPolicy
