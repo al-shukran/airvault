@@ -5,18 +5,12 @@ import app.airvault.chains.evm.signer.EthSignRequest
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
-import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
-import app.lensly.ui.sign.TxReview
-import java.security.MessageDigest
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
 
 private const val MONAD = 10143L
-private const val SENDER = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
-private const val RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
-private const val CONTRACT_ADDR = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
 private val REGISTRY = Registry(
     networks = listOf(
@@ -46,24 +40,6 @@ private fun request(
     sourceFingerprint = null,
     address = null,
     origin = "https://app.example",
-)
-
-private fun transferReview() = TxReview(
-    networkName = "Monad Testnet",
-    chainId = MONAD,
-    fromAccountLabel = "SEED WALLET 3",
-    fromAddress = SENDER,
-    toAddress = RECIPIENT,
-    amount = "1.5",
-    symbol = "USDC",
-    tokenContract = CONTRACT_ADDR,
-    function = "transfer",
-    params = listOf("to" to RECIPIENT, "value" to "1500000 (1.5 USDC)"),
-    fee = listOf("Gas Limit" to "21000", "Max Fee" to "0.0021 MON"),
-    feeNote = "L1 data fee is not computable offline; total may be higher",
-    warnings = emptyList(),
-    nonce = 4L,
-    txType = "EIP-1559",
 )
 
 class ReviewRecordTest {
@@ -125,7 +101,4 @@ class ReviewRecordTest {
 
         assertEquals(ReviewKind.MESSAGE, record.kind)
     }
-
-    private fun sha256Hex(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }

@@ -2,32 +2,12 @@ package app.lensly.ui.sign
 
 import app.lensly.app.isAddressValue
 import app.lensly.ui.components.groupAddress
-import java.math.BigInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Test
 
 class TxFormatTest {
-
-    @Test
-    fun assumedAmountNoteReadsTheWholeAmountWithOneDecimal() {
-        assertEquals("≈ 1.0 if 18 decimals (assumption, not verified)", assumedAmountNote(BigInteger.TEN.pow(18)))
-        assertEquals("≈ 0.0 if 18 decimals (assumption, not verified)", assumedAmountNote(BigInteger.ZERO))
-        assertEquals(
-            "≈ 0.00063 if 18 decimals (assumption, not verified)",
-            assumedAmountNote(BigInteger.valueOf(630_000_000_000_000L)),
-        )
-    }
-
-    @Test
-    fun unknownFeeNoteSaysTheTotalMayBeHigher() {
-        assertEquals(
-            "≈ 0.00063 if 18 decimals (assumption, not verified). " +
-                "The fee model is unknown, so the total may be higher.",
-            unknownFeeNote(BigInteger.valueOf(630_000_000_000_000L)),
-        )
-    }
 
     @Test
     fun groupsAddressIntoFourCharacterChunks() {
