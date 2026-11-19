@@ -18,7 +18,7 @@ private val BITCOIN_PURPOSES = listOf(44, 49, 84, 86)
 
 /** The coin types of the Bitcoin networks (SLIP-44): 0 for mainnet, and 1 for every test network. */
 private const val MAINNET_COIN_TYPE = 0
-private const val TESTNET_COIN_TYPE = 1
+internal const val TESTNET_COIN_TYPE = 1
 
 /**
  * The Bitcoin chain app's manifest (spec 2.1, 11.1). A PSBT is `crypto-psbt`, which the registry names for this app. The response is

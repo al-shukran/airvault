@@ -2,11 +2,14 @@ package app.lensly.core.btc
 
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import fr.acinq.bitcoin.ByteVector
+import fr.acinq.bitcoin.OutPoint
 import fr.acinq.bitcoin.Satoshi
 import fr.acinq.bitcoin.SigHash
 import fr.acinq.bitcoin.Transaction
+import fr.acinq.bitcoin.TxIn
 import fr.acinq.bitcoin.TxOut
 import fr.acinq.bitcoin.psbt.Input
+import fr.acinq.bitcoin.psbt.Psbt
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -127,6 +130,37 @@ class BtcSignerRefusalTest {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 200_000L))
         assertRefusal(BtcRefusal.OutputsExceedInputs) { BtcSigner(native).review(psbt) }
+    }
+
+    @Test
+    fun anOutpointSpentByTwoInputsIsRefusedBeforeItsAmountIsCountedTwice() {
+        val funding = BtcFixtures.funding(native, 0, 0, 100_000L)
+        val input = TxIn(OutPoint(funding.hash, 0L), ByteVector.empty, 0xFFFFFFFDL)
+        val tx = Transaction(version = 2, txIn = listOf(input, input), txOut = outputs(native, 90_000L), lockTime = 0L)
+        assertRefusal(BtcRefusal.DuplicateInput(1)) { BtcSigner(native).review(Psbt(tx)) }
+    }
+
+    @Test
+    fun anAmountBeyondTheSupplyIsRefused() {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0)
+        val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 1L shl 62))
+        assertRefusal(BtcRefusal.AmountOutOfRange) { BtcSigner(native).review(psbt) }
+    }
+
+    @Test
+    fun outputsThatAddUpPastTheSupplyAreRefusedWithoutWrapping() {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0)
+        // Each output is within the supply, and their sum is not.
+        val half = 1_500_000_000_000_000L
+        val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, half) + outputs(native, half))
+        assertRefusal(BtcRefusal.AmountOutOfRange) { BtcSigner(native).review(psbt) }
+    }
+
+    @Test
+    fun anInputBeyondTheSupplyIsRefused() {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, Long.MAX_VALUE), native, 0, 0)
+        val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L))
+        assertRefusal(BtcRefusal.AmountOutOfRange) { BtcSigner(native).review(psbt) }
     }
 
     @Test
