@@ -32,6 +32,7 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.offChainDomainOf
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import java.nio.ByteBuffer
@@ -138,7 +139,9 @@ class EvmReviewBuilder(
                 null -> throw Refusal(CANNOT_BE_READ)
             }
             val domainChain = typedData.domainChainId ?: throw Refusal(NO_DOMAIN_CHAIN)
-            if (domainChain != BigInteger.valueOf(chainId)) {
+            // A declared off-chain domain may name another chain. Any other domain must name the request's chain.
+            val offChain = offChainDomainOf(typedData.domain)
+            if (domainChain != BigInteger.valueOf(chainId) && offChain == null) {
                 throw Refusal("The typed data is for chain $domainChain, but the request names chain $chainId")
             }
             if (network == null) throw Refusal(unknownTypedChain(chainId))
@@ -148,13 +151,23 @@ class EvmReviewBuilder(
             denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
             denied.forEach { warnings += denylistWarning(it, field = null) }
             header += ReviewRow("Type", DisplayValue.Text(TYPED_DATA_TYPE), null)
-            val part = typedPart(typedData, registry, chainId, chain, networkName)
+            if (offChain != null) header += ReviewRow(offChain.title, DisplayValue.Text(offChainNote(offChain.label, domainChain)), null)
+            val onChain = domainChain == BigInteger.valueOf(chainId)
+            val part = typedPart(typedData, registry, chainId, chain, networkName, domainNetworkName = if (onChain) networkName else OFF_CHAIN_DOMAIN_NAME)
             decoded += part.decoded
             warnings += part.warnings
             if (part.unknownToken) warnings += registryWarning(TOKEN_UNREGISTERED, field = null)
             sections += ReviewSection("Domain", part.domain)
             if (part.summary.isNotEmpty()) sections += ReviewSection("Summary", part.summary)
             sections += ReviewSection("Message", part.fields)
+            // The members the message adds beside its typed fields, which only an off-chain domain allows. The signature does not cover them.
+            val unsigned = TypedDataParser.unsignedMembers(request.signData)
+            if (unsigned.isNotEmpty()) {
+                sections += ReviewSection(
+                    "Not Signed",
+                    unsigned.map { (name, text) -> ReviewRow(name, DisplayValue.Text(text), null, notes = listOf(NOT_SIGNED_NOTE)) },
+                )
+            }
             val summary = listOf(SummaryPart.Text("Signs typed data of type ${typedData.primaryType}."))
             return assemble(typedData.primaryType, summary, heading = "Request")
         }
@@ -770,6 +783,10 @@ private fun denylistWarning(entry: DenylistEntry, field: FieldPath?): Warning =
 private fun unknownTypedChain(chainId: Long): String =
     "The typed data is for chain $chainId, which is not in Lensly's network registry, so it is refused."
 
+/** The note under the header row of an off-chain signature: the chain its domain names, and where the signature is sent instead. */
+private fun offChainNote(label: String, domainChain: BigInteger): String =
+    "The domain names chain ID $domainChain. This signature is sent to $label, not submitted to a chain."
+
 private fun amountText(raw: BigInteger, token: TokenEntry?): String =
     if (token == null) "$raw $UNKNOWN_UNIT (unknown token, decimals unknown)" else "$raw (${Amounts.format(raw, token.decimals)} ${token.symbol})"
 
@@ -909,6 +926,12 @@ private const val PERSONAL_MESSAGE_WARNING = "The signature proves you hold this
     "act for you. Sign only a message from a site you trust."
 private const val PERSONAL_MESSAGE_TYPE = "Personal Message"
 private const val TYPED_DATA_TYPE = "Typed data (EIP-712)"
+
+/** The network a domain row names for an off-chain domain that names another chain than the request's: the domain is not a network. */
+private const val OFF_CHAIN_DOMAIN_NAME = "off-chain domain, not a network"
+
+/** The note under a member that an off-chain message adds beside its typed fields. The signature does not cover it. */
+private const val NOT_SIGNED_NOTE = "Not signed. The signature covers only the typed fields above."
 private const val L2_FEE_NOTE = "L1 data fee is not computable offline; total may be higher"
 private const val DEADLINE_LABEL = "deadline (uint256)"
 

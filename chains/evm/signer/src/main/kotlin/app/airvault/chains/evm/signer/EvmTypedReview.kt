@@ -33,7 +33,15 @@ internal class TypedPart(
 )
 
 /** Reads [typed] for the review on [chain] (chain ID [chainId]), whose network is named [networkName]. */
-internal fun typedPart(typed: TypedData, registry: Registry, chainId: Long, chain: ChainId, networkName: String): TypedPart {
+internal fun typedPart(
+    typed: TypedData,
+    registry: Registry,
+    chainId: Long,
+    chain: ChainId,
+    networkName: String,
+    /** The name the domain's chain ID row gives it: the request's network, or the off-chain domain that names another chain. */
+    domainNetworkName: String = networkName,
+): TypedPart {
     val decoded = HashSet<FieldPath>()
     val domain = typed.types.getValue(EIP712_DOMAIN).map { member ->
         val field = FieldPath("eip712.domain.${member.name}")
@@ -42,7 +50,7 @@ internal fun typedPart(typed: TypedData, registry: Registry, chainId: Long, chai
         when (member.name) {
             "name" -> ReviewRow("Name", DisplayValue.Text(text), field)
             "version" -> ReviewRow("Version", DisplayValue.Text(text), field)
-            "chainId" -> ReviewRow("Chain ID", DisplayValue.Text("$text ($networkName)"), field)
+            "chainId" -> ReviewRow("Chain ID", DisplayValue.Text("$text ($domainNetworkName)"), field)
             "verifyingContract" -> ReviewRow("Verifying Contract", DisplayValue.Address(chain, text), field)
             "salt" -> ReviewRow("Salt", DisplayValue.Text(text), field)
             else -> ReviewRow(member.name, DisplayValue.Text(text), field)

@@ -2,6 +2,7 @@ package app.airvault.chains.evm.signer
 
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
+import app.lensly.core.registry.offChainDomainOf
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -32,6 +33,16 @@ object TypedDataParser {
         Result.Rejected(e.message ?: CANNOT_BE_READ)
     } catch (e: RuntimeException) {
         Result.Rejected(CANNOT_BE_READ)
+    }
+
+    /**
+     * The members that [document] adds beside its typed fields, as text, when its off-chain domain allows them. The signature does not cover
+     * them. A document that names none, or that is refused, has none.
+     */
+    fun unsignedMembers(document: ByteArray): Map<String, String> = try {
+        Document(decodeUtf8(document)).apply { build() }.unsigned
+    } catch (e: RuntimeException) {
+        emptyMap()
     }
 }
 
@@ -257,6 +268,10 @@ private class JsonReader(private val text: String) {
 private class Document(text: String) {
     private val root: Json.Obj = JsonReader(text).document() as? Json.Obj ?: fail("the document is not a JSON object")
 
+    /** The members the message adds beside its typed fields, as text, when its off-chain domain allows them. Set by [build]. */
+    var unsigned: Map<String, String> = emptyMap()
+        private set
+
     fun build(): TypedData {
         onlyMembers(root.members, ROOT_MEMBERS, "the document")
         val declared = typesOf(required(root.members, "types", "the document"))
@@ -268,7 +283,10 @@ private class Document(text: String) {
         require(primaryType in types) { "primaryType ${primaryType.take(MAX_NAME_SHOWN)} is not one of the types" }
         val domain = structOf(EIP712_DOMAIN, domainJson, types, "domain")
         checkDomainChainId(types, domain)
-        val message = structOf(primaryType, objectOf(required(root.members, "message", "the document"), "message"), types, "message")
+        val allowed = offChainDomainOf(domain)?.unsignedMembers.orEmpty()
+        val messageJson = objectOf(required(root.members, "message", "the document"), "message")
+        val message = structOf(primaryType, messageJson, types, "message", allowed)
+        unsigned = unsignedIn(messageJson, types.getValue(primaryType), allowed)
         return TypedData(types, primaryType, domain, message)
     }
 
@@ -324,9 +342,10 @@ private class Document(text: String) {
         json: Json.Obj,
         types: Map<String, List<TypedField>>,
         path: String,
+        unsignedAllowed: Set<String> = emptySet(),
     ): TypedValue.StructValue {
         val declared = types.getValue(type)
-        onlyMembers(json.members, declared.map { it.name }.toSet(), path)
+        onlyMembers(json.members, declared.map { it.name }.toSet() + unsignedAllowed, path)
         val fields = LinkedHashMap<String, TypedValue>()
         for (field in declared) {
             val memberPath = "$path.${field.name}"
@@ -364,6 +383,20 @@ private class Document(text: String) {
         for (name in members.keys) {
             require(name in allowed) { "$path has an unknown member ${name.take(MAX_NAME_SHOWN)}" }
         }
+    }
+
+    /** The members of [json] that [declared] does not name and [allowed] allows, as text, in the order the document gives them. */
+    private fun unsignedIn(json: Json.Obj, declared: List<TypedField>, allowed: Set<String>): Map<String, String> {
+        val names = declared.map { it.name }.toSet()
+        return json.members.filterKeys { it !in names && it in allowed }
+            .mapValues { (name, value) -> unsignedTextOf(value, "message.$name") }
+    }
+
+    private fun unsignedTextOf(json: Json, path: String): String = when (json) {
+        is Json.Str -> json.value
+        is Json.Num -> json.text
+        is Json.Bool -> json.value.toString()
+        else -> fail("$path must be text, a number, or true or false")
     }
 
     private fun required(members: Map<String, Json>, name: String, path: String): Json =
