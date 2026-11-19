@@ -18,4 +18,6 @@ kotlin {
 
 dependencies {
     api(project(":core:model"))
+    // The pairing import hands each exported key to the app, as a signer reference and a public key (spec 3.3, 7.5).
+    api(project(":core:signer-api"))
 }

@@ -19,7 +19,7 @@ import app.airvault.core.model.PathTemplate
 import app.airvault.core.model.UrTypeSpec
 
 /** Algorand's SLIP-44 coin type (spec 11.1). Both networks and every key path use it. */
-private const val ALGORAND_COIN_TYPE = 283
+const val ALGORAND_COIN_TYPE = 283
 
 /** Algorand mainnet: the first 32 characters of its genesis hash, in base64 (CAIP-2 algorand, spec 4). */
 val algorandMainnet = ChainId("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k")

@@ -1,5 +1,6 @@
 package app.lumio.wallets
 
+import app.airvault.core.model.AccountId
 import app.lensly.core.vault.VaultSession
 import app.lumio.LumioApp
 import app.lumio.btc.BtcAccountRef
@@ -66,20 +67,19 @@ internal object WalletsLoader {
     }
 
     /**
-     * The account [index] of [chain] in the wallet [walletId] on [mode]'s side, with the wallet's name, or null when the vault has no such account. It
-     * reads only that wallet and no price, so a receive opens without reading the other wallets or the network.
+     * The account [id] of the wallet [walletId] on [mode]'s side, with the wallet's name, or null when the vault has no such account. It reads only that
+     * wallet and no price, so a receive opens without reading the other wallets or the network.
      */
     suspend fun account(
         app: LumioApp,
         session: VaultSession,
         mode: NetworkMode,
         walletId: String,
-        chain: AccountChain,
-        index: Int,
+        id: AccountId,
     ): Pair<String, WalletAccount>? {
         val wallet = withContext(Dispatchers.IO) { PairedWallets.get(session, walletId) } ?: return null
         val account = accountsOn(app, session, mode, listOf(wallet))[walletId].orEmpty()
-            .firstOrNull { it.chain == chain && it.index == index } ?: return null
+            .firstOrNull { it.id == id } ?: return null
         return wallet.name to account
     }
 

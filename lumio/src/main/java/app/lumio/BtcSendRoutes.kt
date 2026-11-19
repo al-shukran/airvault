@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import app.lensly.DebugBtcFixture
+import app.airvault.core.model.AccountId
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
@@ -48,6 +49,7 @@ import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SubmitScreen
 import app.lumio.ui.send.btcSummary
+import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,12 +91,12 @@ private sealed interface BtcSendLoad {
 }
 
 /**
- * A Bitcoin send from the paired account [accountIndex] of the wallet [walletId], which is fixed: the form, the review, the request that Lensly
+ * A Bitcoin send from the paired [account] of the wallet [walletId], which is fixed: the form, the review, the request that Lensly
  * signs, the scan of its signed answer, and the transaction that is sent. Lumio holds no key. It builds the unsigned transaction from public reads,
  * and it broadcasts only a signed answer that carries the same transaction, with every input signed.
  */
 @Composable
-internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder, walletId: String, accountIndex: Int, mode: NetworkMode) {
+internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder, walletId: String, account: AccountId, mode: NetworkMode) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
     val session = holder.openSession()
@@ -103,10 +105,11 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
     }
     if (session == null) return
     val scope = rememberCoroutineScope()
-    // The account at [accountIndex] of the wallet, on the side the owner chose: a mainnet send never opens a testnet account, and a testnet send never a mainnet one.
-    val load by produceState<BtcSendLoad?>(initialValue = null, session, walletId, accountIndex, mode) {
+    // The account [account] of the wallet, on the side the owner chose: a mainnet send never opens a testnet account, and a testnet send never a mainnet one.
+    val load by produceState<BtcSendLoad?>(initialValue = null, session, walletId, account, mode) {
         value = withContext(Dispatchers.IO) {
-            bitcoinAccountRef(session, walletId, accountIndex, mode)?.let { BtcSendLoad.Ready(it) } ?: BtcSendLoad.Missing
+            val index = PairedWallets.get(session, walletId)?.let { WalletAccounts.indexOf(it, account) }
+            index?.let { bitcoinAccountRef(session, walletId, it, mode) }?.let { BtcSendLoad.Ready(it) } ?: BtcSendLoad.Missing
         }
     }
     // The paired wallets, for the names of the review: the Address Book of the wallet that holds the plan's account.

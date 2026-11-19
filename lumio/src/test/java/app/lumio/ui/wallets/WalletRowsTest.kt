@@ -1,11 +1,12 @@
 package app.lumio.ui.wallets
 
+import app.airvault.core.model.AccountId
+import app.airvault.core.model.ChainId
 import app.lensly.core.btc.BtcNetwork
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.home.NativeAsset
 import app.lumio.ui.home.AssetIconSpec
-import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
 import java.math.BigDecimal
 import kotlin.test.assertEquals
@@ -15,11 +16,10 @@ import org.junit.Test
 class WalletRowsTest {
     private val fingerprint = 0x1a2b3c4dL
 
-    private fun account(chain: AccountChain, index: Int = 0, balance: NativeAsset? = null) = WalletAccount(
+    private fun account(chain: ChainId, index: Int = 0, balance: NativeAsset? = null) = WalletAccount(
         walletId = "wallet-demo",
-        chain = chain,
+        id = AccountId.of(chain, "0x" + "a1b2c3d4".repeat(5)),
         index = index,
-        address = "0x" + "a1b2c3d4".repeat(5),
         networkName = "network",
         balance = balance,
     )
@@ -27,13 +27,13 @@ class WalletRowsTest {
     @Test
     fun summaryCountsChainsAndAccounts() {
         assertEquals("No accounts", summaryLine(emptyList()))
-        assertEquals("1 chain · 1 account", summaryLine(listOf(account(AccountChain.ETHEREUM))))
-        assertEquals("1 chain · 2 accounts", summaryLine(listOf(account(AccountChain.ETHEREUM), account(AccountChain.ETHEREUM, index = 1))))
+        assertEquals("1 chain · 1 account", summaryLine(listOf(account(Networks.evm(1L)))))
+        assertEquals("1 chain · 2 accounts", summaryLine(listOf(account(Networks.evm(1L)), account(Networks.evm(1L), index = 1))))
         val fourChains = listOf(
-            account(AccountChain.BITCOIN),
-            account(AccountChain.ETHEREUM),
-            account(AccountChain.SOLANA),
-            account(AccountChain.ALGORAND),
+            account(Networks.BTC_MAINNET),
+            account(Networks.evm(1L)),
+            account(Networks.SOL_MAINNET),
+            account(Networks.ALGO_MAINNET),
         )
         assertEquals("4 chains · 4 accounts", summaryLine(fourChains))
     }
@@ -77,14 +77,14 @@ class WalletRowsTest {
     @Test
     fun accountsGroupByChainInChainOrderAndSkipEmptyChains() {
         val accounts = listOf(
-            account(AccountChain.BITCOIN),
-            account(AccountChain.ETHEREUM),
-            account(AccountChain.ETHEREUM, index = 1),
-            account(AccountChain.ALGORAND),
+            account(Networks.BTC_MAINNET),
+            account(Networks.evm(1L)),
+            account(Networks.evm(1L), index = 1),
+            account(Networks.ALGO_MAINNET),
         )
         val groups = accountsByChain(accounts)
-        assertEquals(listOf(AccountChain.BITCOIN, AccountChain.ETHEREUM, AccountChain.ALGORAND), groups.map { it.first })
-        assertEquals(2, groups.single { it.first == AccountChain.ETHEREUM }.second.size)
+        assertEquals(listOf(Networks.BIP122, Networks.EIP155, Networks.ALGORAND), groups.map { it.first })
+        assertEquals(2, groups.single { it.first == Networks.EIP155 }.second.size)
     }
 
     @Test
@@ -97,10 +97,10 @@ class WalletRowsTest {
     @Test
     fun accountIconsFollowTheChain() {
         val monad = NetworkId(Networks.evm(10143), testnet = true)
-        assertEquals(AssetIconSpec.Bitcoin, accountIconSpec(account(AccountChain.BITCOIN), evmChainId = 10143L) { null })
-        assertEquals(AssetIconSpec.Chain(null), accountIconSpec(account(AccountChain.ETHEREUM), evmChainId = 10143L) { null })
+        assertEquals(AssetIconSpec.Bitcoin, accountIconSpec(account(Networks.BTC_MAINNET), evmChainId = 10143L) { null })
+        assertEquals(AssetIconSpec.Chain(null), accountIconSpec(account(Networks.evm(1L)), evmChainId = 10143L) { null })
         val solanaBalance = NativeAsset("SOL-devnet", "SOL", "Solana devnet", monad, BigDecimal("0.4"))
-        assertEquals(AssetIconSpec.Letter("S"), accountIconSpec(account(AccountChain.SOLANA, balance = solanaBalance), evmChainId = 10143L) { null })
-        assertEquals(AssetIconSpec.Letter("A"), accountIconSpec(account(AccountChain.ALGORAND), evmChainId = 10143L) { null })
+        assertEquals(AssetIconSpec.Letter("S"), accountIconSpec(account(Networks.SOL_MAINNET, balance = solanaBalance), evmChainId = 10143L) { null })
+        assertEquals(AssetIconSpec.Letter("A"), accountIconSpec(account(Networks.ALGO_MAINNET), evmChainId = 10143L) { null })
     }
 }

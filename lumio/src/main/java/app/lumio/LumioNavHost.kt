@@ -23,8 +23,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import app.airvault.core.model.AccountId
 import app.lensly.app.export.PairingPayload
 import app.lensly.app.vaultHolder
 import app.lensly.ui.camera.EntryGesture
@@ -45,7 +47,6 @@ import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.network.NetworkSideSheet
 import app.lumio.ui.network.TestnetStrip
 import app.lumio.ui.settings.SettingsPage
-import app.lumio.wallets.AccountChain
 import kotlinx.coroutines.launch
 
 
@@ -111,76 +112,70 @@ internal object LumioRoute {
     /** The route of the first sync of [walletId]. */
     fun firstSync(walletId: String): String = "first-sync/$walletId"
 
-    /** The argument of an account's route: the name of its chain, as [AccountChain.route]. */
-    const val ACCOUNT_CHAIN_ARG = "chain"
-
-    /** The argument of an account's route: the account's place among the accounts of its chain in the wallet. */
-    const val ACCOUNT_INDEX_ARG = "index"
+    /** The argument of an account's route: the account's CAIP-10 id, as [AccountId.caip10]. */
+    const val ACCOUNT_ARG = "account"
 
     /** The argument of an asset's route: the asset's key among the account's assets, as [AssetRows] keys them. */
     const val ASSET_KEY_ARG = "assetKey"
 
-    /** One asset of an account, with the account's wallet, chain and place, and the asset's key, as its arguments. */
-    const val ASSET = "asset/{$WALLET_ARG}/{$ACCOUNT_CHAIN_ARG}/{$ACCOUNT_INDEX_ARG}/{$ASSET_KEY_ARG}"
+    /** One asset of an account, with the account's wallet and id, and the asset's key, as its arguments. */
+    const val ASSET = "asset/{$WALLET_ARG}/{$ACCOUNT_ARG}/{$ASSET_KEY_ARG}"
 
-    /** The route of the asset [assetKey] of account [index] of [chain] in [walletId]. */
-    fun asset(walletId: String, chain: AccountChain, index: Int, assetKey: String): String = "asset/$walletId/${chain.route}/$index/$assetKey"
+    /** The route of the asset [assetKey] of [account] in [walletId]. */
+    fun asset(walletId: String, account: AccountId, assetKey: String): String = "asset/$walletId/${account.caip10}/$assetKey"
 
     /** The route of the read-only Address Book of [walletId], opened from the wallet's row in Settings. */
     const val ADDRESS_BOOK = "settings/address-book/{$WALLET_ARG}"
 
     fun addressBook(walletId: String): String = "settings/address-book/$walletId"
 
-    /** The argument of the send's route: the index of the address that sends. */
-    const val SEND_INDEX_ARG = "index"
-
     /** The argument of the send's route: the chain ID of the network the send is on. */
     const val SEND_CHAIN_ARG = "chain"
 
-    /** The Ethereum send from one address of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG]. */
-    const val SEND = "send/{$WALLET_ARG}/{$SEND_INDEX_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}"
+    /** The Ethereum send from one account of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG]. */
+    const val SEND = "send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}"
 
-    /** The Solana send from the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
-    const val SOLANA_SEND = "solana-send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+    /** The Solana send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
+    const val SOLANA_SEND = "solana-send/{$WALLET_ARG}/{$ACCOUNT_ARG}"
 
-    /** The route of the Solana send from account [index] of [walletId]. */
-    fun solanaSend(walletId: String, index: Int): String = "solana-send/$walletId/$index"
+    /** The route of the Solana send from [account] of [walletId]. */
+    fun solanaSend(walletId: String, account: AccountId): String = "solana-send/$walletId/${account.caip10}"
 
-    /** The Algorand send from the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
-    const val ALGORAND_SEND = "algorand-send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+    /** The Algorand send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
+    const val ALGORAND_SEND = "algorand-send/{$WALLET_ARG}/{$ACCOUNT_ARG}"
 
-    /** The route of the Algorand send from account [index] of [walletId]. */
-    fun algorandSend(walletId: String, index: Int): String = "algorand-send/$walletId/$index"
+    /** The route of the Algorand send from [account] of [walletId]. */
+    fun algorandSend(walletId: String, account: AccountId): String = "algorand-send/$walletId/${account.caip10}"
 
-    /** The Add asset screen of the Algorand account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. */
-    const val ALGORAND_ADD_ASSET = "algorand-add-asset/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+    /** The Add asset screen of the Algorand account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. */
+    const val ALGORAND_ADD_ASSET = "algorand-add-asset/{$WALLET_ARG}/{$ACCOUNT_ARG}"
 
-    /** The route of the Add asset screen of the Algorand account [index] of [walletId]. */
-    fun algorandAddAsset(walletId: String, index: Int): String = "algorand-add-asset/$walletId/$index"
+    /** The route of the Add asset screen of the Algorand [account] of [walletId]. */
+    fun algorandAddAsset(walletId: String, account: AccountId): String = "algorand-add-asset/$walletId/${account.caip10}"
 
     /** The argument of an asset: the ID of the Algorand asset that an opt-in adds to the account. */
     const val ASSET_ARG = "asset"
 
-    /** The opt-in of the Algorand asset in [ASSET_ARG] to the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. */
-    const val ALGORAND_OPT_IN = "algorand-opt-in/{$WALLET_ARG}/{$SEND_INDEX_ARG}/{$ASSET_ARG}"
+    /** The opt-in of the Algorand asset in [ASSET_ARG] to the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. */
+    const val ALGORAND_OPT_IN = "algorand-opt-in/{$WALLET_ARG}/{$ACCOUNT_ARG}/{$ASSET_ARG}"
 
-    /** The route of the opt-in of asset [assetId] to the Algorand account [index] of [walletId]. */
-    fun algorandOptIn(walletId: String, index: Int, assetId: ULong): String = "algorand-opt-in/$walletId/$index/$assetId"
+    /** The route of the opt-in of asset [assetId] to the Algorand [account] of [walletId]. */
+    fun algorandOptIn(walletId: String, account: AccountId, assetId: ULong): String = "algorand-opt-in/$walletId/${account.caip10}/$assetId"
 
-    /** The Bitcoin send from the account at [SEND_INDEX_ARG] of the wallet in [WALLET_ARG]. Its side (testnet4 or mainnet) is the selected side. */
-    const val BTC_SEND = "bitcoin-send/{$WALLET_ARG}/{$SEND_INDEX_ARG}"
+    /** The Bitcoin send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. Its side (testnet4 or mainnet) is the selected side. */
+    const val BTC_SEND = "bitcoin-send/{$WALLET_ARG}/{$ACCOUNT_ARG}"
 
-    /** The route of the Bitcoin send from account [index] of [walletId]. */
-    fun btcSend(walletId: String, index: Int): String = "bitcoin-send/$walletId/$index"
+    /** The route of the Bitcoin send from [account] of [walletId]. */
+    fun btcSend(walletId: String, account: AccountId): String = "bitcoin-send/$walletId/${account.caip10}"
 
-    /** The route of a send from address [index] of [walletId] on the network [chainId]. */
-    fun send(walletId: String, index: Int, chainId: Long): String = "send/$walletId/$index?$SEND_CHAIN_ARG=$chainId"
+    /** The route of a send from [account] of [walletId] on the network [chainId]. */
+    fun send(walletId: String, account: AccountId, chainId: Long): String = "send/$walletId/${account.caip10}?$SEND_CHAIN_ARG=$chainId"
 
-    /** The receive page of one account, with the wallet's ID, the chain and the place as its arguments. */
-    const val RECEIVE = "receive/{$WALLET_ARG}/{$ACCOUNT_CHAIN_ARG}/{$ACCOUNT_INDEX_ARG}"
+    /** The receive page of one account, with the wallet's ID and the account's CAIP-10 id as its arguments. */
+    const val RECEIVE = "receive/{$WALLET_ARG}/{$ACCOUNT_ARG}"
 
-    /** The route of the receive page of account [index] of [chain] in [walletId]. */
-    fun receive(walletId: String, chain: AccountChain, index: Int): String = "receive/$walletId/${chain.route}/$index"
+    /** The route of the receive page of [account] in [walletId]. */
+    fun receive(walletId: String, account: AccountId): String = "receive/$walletId/${account.caip10}"
 
     /** The arguments of a transaction's page: the account that the row is for, and the transaction's id. */
     const val TX_ACCOUNT_ARG = "account"
@@ -192,6 +187,9 @@ internal object LumioRoute {
     /** The route of the page of transaction [txId] for [account], an account of the wallet [walletId]. */
     fun transaction(walletId: String, account: String, txId: String): String = "transaction/$walletId/$account/$txId"
 }
+
+/** The account that a route names by its CAIP-10 id, as [LumioRoute.ACCOUNT_ARG]. Our routes always carry one. */
+private fun NavBackStackEntry.accountId(): AccountId = AccountId(arguments?.getString(LumioRoute.ACCOUNT_ARG).orEmpty())
 
 /** The chain argument of a send that names no chain. Chain IDs are never zero. */
 private const val NO_CHAIN = 0L
@@ -367,64 +365,64 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 route = LumioRoute.BTC_SEND,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    BtcSendRoute(navController = navController, holder = holder, walletId = walletId, accountIndex = index, mode = selection.mode)
+                    BtcSendRoute(navController = navController, holder = holder, walletId = walletId, account = account, mode = selection.mode)
                 }
             }
             lumioComposable(
                 route = LumioRoute.SOLANA_SEND,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    SolanaSendRoute(navController = navController, holder = holder, walletId = walletId, accountIndex = index, mode = selection.mode)
+                    SolanaSendRoute(navController = navController, holder = holder, walletId = walletId, accountId = account, mode = selection.mode)
                 }
             }
             lumioComposable(
                 route = LumioRoute.ALGORAND_SEND,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    AlgorandSendRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, accountIndex = index)
+                    AlgorandSendRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, account = account)
                 }
             }
             lumioComposable(
                 route = LumioRoute.ALGORAND_ADD_ASSET,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    AlgorandAddAssetRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, accountIndex = index)
+                    AlgorandAddAssetRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, account = account)
                 }
             }
             lumioComposable(
                 route = LumioRoute.ALGORAND_OPT_IN,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.ASSET_ARG) { type = NavType.StringType },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                val account = entry.accountId()
                 val assetId = entry.arguments?.getString(LumioRoute.ASSET_ARG)?.toULongOrNull()
                 LumioBackdrop(selection) {
                     AlgorandSendRoute(
@@ -432,7 +430,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         holder = holder,
                         mode = selection.mode,
                         walletId = walletId,
-                        accountIndex = index,
+                        account = account,
                         optInAssetId = assetId,
                     )
                 }
@@ -472,47 +470,42 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 route = LumioRoute.ASSET,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.ACCOUNT_CHAIN_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.ACCOUNT_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.ASSET_KEY_ARG) { type = NavType.StringType },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val chain = AccountChain.ofRoute(entry.arguments?.getString(LumioRoute.ACCOUNT_CHAIN_ARG).orEmpty())
-                val index = entry.arguments?.getInt(LumioRoute.ACCOUNT_INDEX_ARG) ?: 0
+                val account = entry.accountId()
                 val assetKey = entry.arguments?.getString(LumioRoute.ASSET_KEY_ARG).orEmpty()
                 LumioBackdrop(selection) {
-                    if (chain != null) {
-                        AssetRoute(
-                            navController = navController,
-                            holder = holder,
-                            walletId = walletId,
-                            chain = chain,
-                            index = index,
-                            assetKey = assetKey,
-                            mode = selection.mode,
-                            listVersion = listVersion,
-                        )
-                    }
+                    AssetRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        accountId = account,
+                        assetKey = assetKey,
+                        mode = selection.mode,
+                        listVersion = listVersion,
+                    )
                 }
             }
             lumioComposable(
                 route = LumioRoute.SEND,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.SEND_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.SEND_CHAIN_ARG) { type = NavType.LongType; defaultValue = NO_CHAIN },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val index = entry.arguments?.getInt(LumioRoute.SEND_INDEX_ARG) ?: 0
+                val account = entry.accountId()
                 val chain = entry.arguments?.getLong(LumioRoute.SEND_CHAIN_ARG) ?: NO_CHAIN
                 LumioBackdrop(selection) {
                     SendRoute(
                         navController = navController,
                         holder = holder,
                         walletId = walletId,
-                        index = index,
+                        account = account,
                         mode = selection.mode,
                         chainId = chain,
                     )
@@ -522,24 +515,19 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 route = LumioRoute.RECEIVE,
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.ACCOUNT_CHAIN_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.ACCOUNT_INDEX_ARG) { type = NavType.IntType },
+                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val chain = AccountChain.ofRoute(entry.arguments?.getString(LumioRoute.ACCOUNT_CHAIN_ARG).orEmpty())
-                val index = entry.arguments?.getInt(LumioRoute.ACCOUNT_INDEX_ARG) ?: 0
+                val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    if (chain != null) {
-                        ReceiveRoute(
-                            navController = navController,
-                            holder = holder,
-                            walletId = walletId,
-                            chain = chain,
-                            index = index,
-                            mode = selection.mode,
-                        )
-                    }
+                    ReceiveRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        accountId = account,
+                        mode = selection.mode,
+                    )
                 }
             }
             lumioComposable(LumioRoute.PAIR_REVIEW) {
