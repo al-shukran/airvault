@@ -43,8 +43,8 @@ object ParserWire {
     private const val VALUE_DYNAMIC = 1
     private const val VALUE_ITEMS = 2
 
-    /** The most a scanned app request may hold, as its CBOR: the core's limit for a request payload. */
-    private const val MAX_APP_PAYLOAD_BYTES = ParserLimits.MAX_APP_PAYLOAD_BYTES
+    /** The most bytes of an app request's body, which the wire carries as a blob. */
+    private const val MAX_APP_BODY_BYTES = ParserLimits.MAX_APP_BODY_BYTES
 
     /** The most keys one app request may ask for. */
     private const val MAX_SIGNERS = 16
@@ -187,7 +187,7 @@ object ParserWire {
             }
         }
         optional(header.requestId) { blob(it, REQUEST_ID_BYTES) }
-        blob(request.body, MAX_APP_PAYLOAD_BYTES)
+        blob(request.body, MAX_APP_BODY_BYTES)
     }
 
     /** Reads an app request. An id the types refuse is a wire error, so the app refuses the reply that carried it. */
@@ -213,7 +213,7 @@ object ParserWire {
             SignerRef(fingerprint, path)
         }
         val requestId = optional { exact(REQUEST_ID_BYTES) }
-        val body = blob(MAX_APP_PAYLOAD_BYTES)
+        val body = blob(MAX_APP_BODY_BYTES)
         return AppRequest(RequestHeader(app, chain, kind, signers, requestId), body)
     }
 
