@@ -78,6 +78,7 @@ jobs:
               - 'shared/src/main/java/app/lensly/core/parse/**'
               - 'shared/src/main/aidl/app/lensly/core/parse/**'
               - 'shared/src/test/java/app/lensly/core/parse/**'
+              - 'shared/src/main/java/app/lensly/chains/**'
               - 'core/signer-api/**'
               - 'shared/src/main/java/app/lensly/core/qr/**'
               - 'shared/src/main/aidl/app/lensly/core/qr/**'
