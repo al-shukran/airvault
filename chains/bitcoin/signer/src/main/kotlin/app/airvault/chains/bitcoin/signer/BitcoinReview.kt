@@ -171,8 +171,9 @@ private fun BtcReview.decodedFields(): Set<FieldPath> = buildSet {
 }
 
 private fun warningOf(warning: BtcWarning, confirmation: Boolean): Warning = when (warning) {
+    // Under the relaxed policy the owner ticks nothing, so the warning is a CAUTION: a DANGER with no check would stop the review.
     is BtcWarning.UnverifiedAmounts -> Warning(
-        Danger.DANGER,
+        if (confirmation) Danger.DANGER else Danger.CAUTION,
         UNVERIFIED_AMOUNTS_CODE,
         warningText(warning),
         acknowledge = UNVERIFIED_CHECK.takeIf { confirmation },

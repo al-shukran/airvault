@@ -78,6 +78,19 @@ class ReviewCoverageTest {
     }
 
     @Test
+    fun aDangerWithNoCheckIsCheckedAsABlockKeepingItsMessage() {
+        val unnamed = Warning(Danger.DANGER, "evm.unnamed", "This cannot be acknowledged.")
+        val named = Warning(Danger.DANGER, "evm.named", "This has a check.", acknowledge = "I understand.")
+        val checked = review(listOf(amountRow), Coverage(setOf(amount), emptyMap()))
+            .copy(warnings = listOf(unnamed, named))
+            .checked()
+
+        assertEquals(listOf(Danger.BLOCK, Danger.DANGER), checked.warnings.map { it.level })
+        assertEquals("This cannot be acknowledged.", checked.warnings[0].message)
+        assertEquals(listOf("I understand."), checked.checkLabels())
+    }
+
+    @Test
     fun aSummaryReadsAsItsPartsWithEachCounterpartyAsItsAddress() {
         val parts = listOf(
             SummaryPart.Text("Approve "),
