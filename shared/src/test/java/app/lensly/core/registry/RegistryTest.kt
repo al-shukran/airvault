@@ -28,22 +28,22 @@ private fun fakeReader(vararg files: Pair<String, String>): (String) -> String? 
 
 class RegistryTest {
     @Test
-    fun releaseCatalogLoadsMainnetsOnly() {
+    fun releaseCatalogLoadsMainnetsAndTheMonadTestnetOnly() {
         val registry = RegistryLoader.load(fileReader(MAIN))
 
         assertEquals(
             listOf(
                 1L, 10L, 25L, 30L, 40L, 56L, 61L, 100L, 122L, 130L, 137L, 143L, 146L, 169L, 196L, 232L, 250L,
                 252L, 324L, 369L, 388L, 480L, 999L, 1088L, 1101L, 1284L, 1285L, 1329L, 1868L, 2020L, 2222L,
-                2741L, 3338L, 4326L, 5000L, 8217L, 8453L, 9745L, 13371L, 33139L, 42161L, 42170L, 42220L, 43114L,
+                2741L, 3338L, 4326L, 5000L, 8217L, 8453L, 9745L, 10143L, 13371L, 33139L, 42161L, 42170L, 42220L, 43114L,
                 48900L, 57073L, 59144L, 60808L, 80094L, 167000L, 534352L, 747474L, 7777777L, 1313161554L,
                 1666600000L,
             ),
             registry.networks().map { it.chainId },
         )
-        assertTrue(registry.networks().none { it.testnet })
+        assertEquals(listOf(10143L), registry.networks().filter { it.testnet }.map { it.chainId })
         assertEquals(249, registry.tokens().size)
-        assertNull(registry.network(10143L))
+        assertTrue(registry.network(10143L)?.testnet == true)
         assertNull(registry.network(11155111L))
         assertNull(registry.token(11155111L, SEPOLIA_USDC))
     }

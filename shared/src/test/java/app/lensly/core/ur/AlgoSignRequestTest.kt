@@ -181,6 +181,16 @@ class AlgoSignRequestTest {
     }
 
     @Test
+    fun anOriginOfTheCapDecodesAndOneByteMoreIsRefused() {
+        assertEquals("a".repeat(512), okOf(AlgoSignRequest.decode(payload(5L to Cbor.Text("a".repeat(512))))).origin)
+        assertEquals("origin exceeds 512 bytes", rejectedReason(payload(5L to Cbor.Text("a".repeat(513)))))
+        // 256 two-byte characters are 512 bytes, which is at the cap. One more ASCII byte makes 513.
+        val atCap = "\u00e9".repeat(256)
+        assertEquals(atCap, okOf(AlgoSignRequest.decode(payload(5L to Cbor.Text(atCap)))).origin)
+        assertEquals("origin exceeds 512 bytes", rejectedReason(payload(5L to Cbor.Text(atCap + "a"))))
+    }
+
+    @Test
     fun aPayloadPastTheLimitIsRefusedBeforeItIsParsed() {
         val tooBig = ByteArray(AlgoSignRequest.MAX_PAYLOAD_BYTES + 1)
         assertTrue(rejectedReason(tooBig).contains("exceeds"))
