@@ -2,6 +2,7 @@ package app.airvault.chains.evm.signer
 
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
+import app.lensly.core.registry.offChainDomainOf
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -12,8 +13,8 @@ import org.web3j.crypto.Keys
 /**
  * Reads an EIP-712 typed data document, the JSON of eth_signTypedData, strictly. It accepts the four members of the format and
  * nothing else, and it reads each value as the type its declaration names: an integer in range, an address with a valid checksum
- * when it is mixed case, bytes of the declared length. A document outside that is refused with the reason. A domain must name a
- * chain ID, so every accepted message names the chain it is for.
+ * when it is mixed case, bytes of the declared length. A document outside that is refused with the reason. A domain may name no
+ * chain ID; the review then says that the signature is valid on any chain.
  *
  * The parser runs in the Parser Sandbox. It never throws: every failure comes back as [Result.Rejected].
  */
@@ -282,6 +283,10 @@ private class Document(text: String) {
         require(primaryType in types) { "primaryType ${primaryType.take(MAX_NAME_SHOWN)} is not one of the types" }
         val domain = structOf(EIP712_DOMAIN, domainJson, types, "domain")
         checkDomainChainId(types, domain)
+        // A colon in a type name, as Hyperliquid names its actions, is read only in a domain that has a product label.
+        require(offChainDomainOf(domain) != null || types.keys.none { ':' in it }) {
+            "a type name with a colon is read only in a labelled off-chain domain"
+        }
         val messageJson = objectOf(required(root.members, "message", "the document"), "message")
         val message = structOf(primaryType, messageJson, types, "message", unsignedScalars = true)
         unsigned = unsignedIn(messageJson, types.getValue(primaryType))

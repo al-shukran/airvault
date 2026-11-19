@@ -291,6 +291,14 @@ class OffChainSignatureReviewTest {
     }
 
     @Test
+    fun aTypeNameWithAColonIsRefusedOnADomainThatHasNoLabel() {
+        // The usdSend action on a domain no label names. Only a labelled off-chain domain may name its types with a colon.
+        val unlabelled = USD_SEND.replace("HyperliquidSignTransaction", "Other Signer")
+
+        assertEquals("a type name with a colon is read only in a labelled off-chain domain", refusedReason(unlabelled, ARBITRUM))
+    }
+
+    @Test
     fun aNestedMessageShowsEveryFieldWholeAndInItsOrder() {
         val review = reviewed(NESTED_BATCH, ARBITRUM)
 
