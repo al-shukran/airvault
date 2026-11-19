@@ -41,6 +41,7 @@ import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.algorandCounterparties
+import app.lensly.app.sign.appRequestFactsOf
 import app.lensly.app.sign.appReviewRecordOf
 import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.evmCounterparties
@@ -67,14 +68,12 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
-import app.lensly.core.wallet.toHex
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import app.airvault.chains.algorand.signer.toReview
 import com.sparrowwallet.hummingbird.UR
-import java.security.MessageDigest
 
 /** The refusal of a Bitcoin request that could not be reviewed for a reason other than its rules. Nothing is signed for it. */
 private const val BITCOIN_UNREADABLE = "This Bitcoin request could not be reviewed. Nothing was signed."
@@ -409,7 +408,7 @@ internal class VaultSignPorts(
     override suspend fun recordApp(entry: AppReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
         val session = holder.openSession() ?: throw ReviewNotSaved()
         try {
-            val (origin, dataHash) = requestFactsOf(entry.request)
+            val (origin, dataHash) = appRequestFactsOf(entry.request)
             val displayName = signerRegistry.byChain(entry.request.header.chain)?.manifest?.displayName.orEmpty()
             writeRecord(session, entry.walletId, appReviewRecordOf(entry, System.currentTimeMillis(), origin, dataHash, displayName))
         } catch (e: CancellationException) {
@@ -418,17 +417,6 @@ internal class VaultSignPorts(
             throw ReviewNotSaved()
         }
     }
-
-    /** The origin a request names, and the SHA-256 of the data it asks to sign, as its chain app reads them (spec 8.6). */
-    private fun requestFactsOf(request: AppRequest): Pair<String?, String> = when (request.header.app) {
-        algorandManifest.id -> when (val decoded = AlgoSignRequest.decode(request.body)) {
-            is AlgoSignRequest.Result.Ok -> decoded.request.origin to sha256Hex(decoded.request.signData)
-            is AlgoSignRequest.Result.Rejected -> null to sha256Hex(request.body)
-        }
-        else -> null to sha256Hex(request.body)
-    }
-
-    private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
 
     /** Writes the Bitcoin [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
     override suspend fun recordBitcoin(entry: BitcoinReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
