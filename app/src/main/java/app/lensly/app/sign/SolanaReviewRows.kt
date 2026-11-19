@@ -1,9 +1,10 @@
 package app.lensly.app.sign
+
+import app.airvault.chains.solana.signer.SolanaMessageAccount
 import app.airvault.core.model.printableText
 import app.lensly.app.addressesIn
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaInstruction
-import app.lensly.core.solana.SolanaMessageAccount
 import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.solana.SolanaToken
 import app.lensly.core.solana.SolanaWarning

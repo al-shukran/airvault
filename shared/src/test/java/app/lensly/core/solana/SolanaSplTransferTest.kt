@@ -1,9 +1,10 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import fr.acinq.bitcoin.Base58
+import org.junit.Test
 import java.security.MessageDigest
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -11,7 +12,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import org.junit.Test
 
 /**
  * Tests for [SolanaSplTransfer] and [SolanaTokenAccounts]. The messages are the `spl-send-nonce-*` rows of vectors.txt, which solders 0.29.0

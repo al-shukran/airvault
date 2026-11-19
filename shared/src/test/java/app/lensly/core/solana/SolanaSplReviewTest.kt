@@ -1,13 +1,15 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaMessage
+import app.airvault.chains.solana.signer.SolanaMessageAccount
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import fr.acinq.bitcoin.Base58
+import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
-import org.junit.Test
 
 /**
  * The SPL token, Token-2022, associated token account and ComputeBudget shapes, read from the vectors in vectors/solana. The check

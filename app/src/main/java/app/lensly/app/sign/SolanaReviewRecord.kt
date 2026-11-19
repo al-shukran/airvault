@@ -1,8 +1,8 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.core.solana.SolanaRequestReview
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
 

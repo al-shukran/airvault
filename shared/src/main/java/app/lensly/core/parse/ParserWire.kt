@@ -23,7 +23,6 @@ import app.lensly.core.registry.hexBytesOrNull
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.wallet.toHex
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
@@ -57,7 +56,6 @@ object ParserWire {
     private const val NOT_PART = 1
     private const val INCOMPLETE = 2
     private const val COMPLETE = 3
-    private const val SOLANA_REQUEST = 5
     private const val APP_REQUEST = 6
     private const val CALL_OK = 1
 
@@ -65,9 +63,6 @@ object ParserWire {
     private const val VALUE_WORD = 0
     private const val VALUE_DYNAMIC = 1
     private const val VALUE_ITEMS = 2
-
-    /** The most a scanned Solana request may hold, as its CBOR. It is the codec's own limit for one sol-sign-request. */
-    private const val MAX_SOLANA_PAYLOAD_BYTES = SolSignRequest.MAX_PAYLOAD_BYTES
 
     /** The most a scanned app request may hold, as its CBOR: the core's limit for a request payload. */
     private const val MAX_APP_PAYLOAD_BYTES = ParserLimits.MAX_APP_PAYLOAD_BYTES
@@ -152,10 +147,6 @@ object ParserWire {
                 int(COMPLETE)
                 parsed(reply.parsed)
             }
-            is ScanReply.Solana -> {
-                int(SOLANA_REQUEST)
-                blob(reply.payload, MAX_SOLANA_PAYLOAD_BYTES)
-            }
             is ScanReply.App -> {
                 int(APP_REQUEST)
                 appRequest(reply.request)
@@ -171,7 +162,6 @@ object ParserWire {
             NOT_PART -> ScanReply.NotPart
             INCOMPLETE -> ScanReply.Incomplete(double().also { if (!(it in 0.0..1.0)) throw WireException("progress is outside 0 to 1") })
             COMPLETE -> ScanReply.Complete(parsedOf())
-            SOLANA_REQUEST -> ScanReply.Solana(blob(MAX_SOLANA_PAYLOAD_BYTES))
             APP_REQUEST -> ScanReply.App(appRequestOf())
             else -> throw WireException("unknown scan reply")
         }

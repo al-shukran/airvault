@@ -1,10 +1,13 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolCluster
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaMessage
+import app.airvault.chains.solana.signer.SolanaMessageAccount
+import app.airvault.chains.solana.signer.SolanaOffchainMessage
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolCluster
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
 

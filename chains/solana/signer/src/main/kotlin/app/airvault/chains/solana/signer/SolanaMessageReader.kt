@@ -1,7 +1,7 @@
-package app.lensly.core.solana
+package app.airvault.chains.solana.signer
 
 /** A message that does not parse or fails a bounds check. [SolanaMessage.decode] turns it into a rejection. */
-internal class MalformedSolanaMessageException(message: String) : Exception(message)
+class MalformedSolanaMessageException(message: String) : Exception(message)
 
 internal fun malformedSolanaMessage(reason: String): Nothing = throw MalformedSolanaMessageException(reason)
 
@@ -9,7 +9,7 @@ internal fun malformedSolanaMessage(reason: String): Nothing = throw MalformedSo
  * Reads a serialized message front to back. Every read checks the bytes that remain, so short input is a rejection and never an
  * index error.
  */
-internal class SolanaMessageReader(private val input: ByteArray) {
+class SolanaMessageReader(private val input: ByteArray) {
     private var position = 0
 
     val remaining: Int get() = input.size - position
