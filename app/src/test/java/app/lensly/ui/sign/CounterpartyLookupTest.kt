@@ -7,6 +7,7 @@ import app.lensly.app.EVM_FAMILY
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.addressNotesOf
 import app.lensly.app.addressesIn
+import app.lensly.app.chainOfAddress
 import app.lensly.app.isAddressValue
 import app.lensly.app.notesOf
 import app.lensly.core.registry.FeeModel
@@ -98,6 +99,18 @@ class CounterpartyLookupTest {
         val notes = addressNotesOf(counterparties, ALGORAND_FAMILY, emptyMap(), listOf(entry(saved, "Payroll")))
         assertEquals("Payroll", notes.notesOf(saved)?.entry?.name)
         assertNull(notes.notesOf(unsaved)?.entry)
+    }
+
+    @Test
+    fun aBitcoinAddressIsAnAddressOfBitcoinAndNotSolana() {
+        val bitcoin = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+        assertTrue(isAddressValue(bitcoin))
+        assertEquals(BITCOIN_FAMILY, chainOfAddress(bitcoin))
+    }
+
+    @Test
+    fun aLowercaseEvmAddressIsStillAnAddress() {
+        assertTrue(isAddressValue(recipient.lowercase()))
     }
 
     @Test

@@ -91,6 +91,21 @@ class ChainRegistryTest {
     }
 
     @Test
+    fun rejectsTwoPrimaryNetworksOnOneSide() {
+        val testnets = listOf(network("testns:1").copy(primary = true), network("testns:2").copy(primary = true))
+        assertRejected("more than one primary testnet", baseline().copy(networks = testnets))
+        assertRejected("more than one primary mainnet", baseline().copy(networks = testnets.map { it.copy(testnet = false) }))
+    }
+
+    @Test
+    fun rejectsANativeAssetOnAnotherChainOrOutOfRangeDecimals() {
+        val onOtherChain = AssetSpec.Native(AssetId("testns:1/slip44:283"), ChainId("testns:2"), symbol = "TST", decimals = 6)
+        assertRejected("native asset", baseline().copy(networks = listOf(network("testns:1").copy(nativeAsset = onOtherChain))))
+        val tooManyDecimals = AssetSpec.Native(AssetId("testns:1/slip44:283"), ChainId("testns:1"), symbol = "TST", decimals = 40)
+        assertRejected("decimals", baseline().copy(networks = listOf(network("testns:1").copy(nativeAsset = tooManyDecimals))))
+    }
+
+    @Test
     fun rejectsBadFieldSpecs() {
         val note = field("algorand.note")
         assertRejected("duplicate field key", baseline().copy(fields = listOf(note, note)))

@@ -41,9 +41,18 @@ class ChainRegistry<A : ChainApp>(private val apps: List<A>) {
         require(m.apiVersion == AIRVAULT_API_VERSION) {
             "${m.id}: apiVersion ${m.apiVersion} is not supported; the core supports $AIRVAULT_API_VERSION"
         }
+        require(m.networks.count { it.primary && it.testnet } <= 1) { "${m.id}: more than one primary testnet" }
+        require(m.networks.count { it.primary && !it.testnet } <= 1) { "${m.id}: more than one primary mainnet" }
         for (network in m.networks) {
             require(network.chainId.namespace in m.namespaces) {
                 "${m.id}: network ${network.chainId} uses a namespace the app does not declare"
+            }
+            val asset = network.nativeAsset
+            require(asset.chain == network.chainId) {
+                "${m.id}: network ${network.chainId} has its native asset on ${asset.chain}"
+            }
+            if (asset is AssetSpec.Native) {
+                require(asset.decimals in 0..36) { "${m.id}: native asset ${asset.symbol} has ${asset.decimals} decimals" }
             }
         }
         for (type in m.requestTypes + m.responseTypes) {

@@ -11,6 +11,7 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.Cbor
 import app.lensly.core.wallet.HdWallet
 import com.sparrowwallet.hummingbird.UR
+import com.sparrowwallet.hummingbird.UREncoder
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import org.junit.Assert.assertTrue
@@ -28,6 +29,25 @@ class PairRefusalTest {
     fun anUnknownUrTypeIsRefused() {
         val reason = refusalOf(UR("eth-sign-request", byteArrayOf(0x01)))
         assertTrue(reason, reason.contains("not supported"))
+    }
+
+    @Test
+    fun theOldPairingNameIsRefusedEvenWhenItsCodeIsWhole() {
+        val code = PairingCodec.encode(pairing(ethereumApp()), brotli = null)
+
+        assertEquals(
+            "This is not a pairing code from Lensly. ur:x-lensly-pairing is not supported.",
+            refusalOf(UR("x-lensly-pairing", code)),
+        )
+    }
+
+    @Test
+    fun aScannedOldPairingNameEndsTheScanAsRefused() {
+        val code = PairingCodec.encode(pairing(ethereumApp()), brotli = null)
+
+        val step = scanToEnd(listOf(UREncoder.encode(UR("x-lensly-pairing", code))))
+
+        assertEquals(ScanStep.Refused("This is not a pairing code from Lensly. ur:x-lensly-pairing is not supported."), step)
     }
 
     @Test
