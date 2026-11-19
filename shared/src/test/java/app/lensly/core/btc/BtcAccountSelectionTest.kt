@@ -3,6 +3,8 @@ package app.lensly.core.btc
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import app.airvault.chains.bitcoin.signer.BtcRefusal
+import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import org.junit.Test
 
 class BtcAccountSelectionTest {

@@ -28,7 +28,7 @@ import app.airvault.chains.algorand.signer.AlgorandRequestReview
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.airvault.chains.bitcoin.signer.bitcoinManifest
-import app.lensly.core.btc.BtcRefusedException
+import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.UNSUPPORTED_CODE

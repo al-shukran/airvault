@@ -67,9 +67,16 @@ enum class SectionStyle { Rows, Steps }
 /**
  * One label and the value it shows. [value] is null for a row that shows only its label: a heading over the rows under it, or a step. [field]
  * is the decoded field the row shows, which the coverage check reads. It is null for a row that shows no decoded field, so a heading or a step
- * never accounts for one. [depth] indents the row under the rows above it; 0 is the section's own level.
+ * never accounts for one. [depth] indents the row under the rows above it; 0 is the section's own level. [notes] are short sentences under
+ * the value, for what the owner should know about it, such as whether Lensly signs an input.
  */
-data class ReviewRow(val label: String, val value: DisplayValue?, val field: FieldPath?, val depth: Int = 0)
+data class ReviewRow(
+    val label: String,
+    val value: DisplayValue?,
+    val field: FieldPath?,
+    val depth: Int = 0,
+    val notes: List<String> = emptyList(),
+)
 
 /** A value a review shows. [text] is the one way it becomes text, so every screen and every record shows it alike. */
 sealed interface DisplayValue {

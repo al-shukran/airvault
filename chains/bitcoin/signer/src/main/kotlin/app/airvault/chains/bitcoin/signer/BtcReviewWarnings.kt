@@ -1,4 +1,4 @@
-package app.lensly.core.btc
+package app.airvault.chains.bitcoin.signer
 
 /**
  * A condition of a Bitcoin request that the owner reads on the review before signing. A warning is shown in the review, and it

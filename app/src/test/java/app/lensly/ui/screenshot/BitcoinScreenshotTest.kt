@@ -2,18 +2,20 @@ package app.lensly.ui.screenshot
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import app.airvault.chains.bitcoin.signer.BtcReview
+import app.airvault.chains.bitcoin.signer.BtcReviewInput
+import app.airvault.chains.bitcoin.signer.BtcReviewOutput
+import app.airvault.chains.bitcoin.signer.BtcWarning
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
+import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcReview
-import app.lensly.core.btc.BtcReviewInput
-import app.lensly.core.btc.BtcReviewOutput
-import app.lensly.core.btc.BtcWarning
-import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.btc.SigningSourcePolicy
 import app.lensly.ui.settings.BitcoinPolicyScreen
 import app.lensly.ui.settings.FeeWarningScreen
-import app.lensly.ui.sign.BitcoinReviewScreen
+import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SAMPLE_SIGNER
+import app.lensly.ui.sign.bitcoinReviewOf
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
 import org.junit.Rule
@@ -33,60 +35,26 @@ class BitcoinScreenshotTest {
 
     @Test
     fun bitcoinReviewOnTestnet() = compose.snapshot("bitcoin_review_testnet") {
-        BitcoinReviewScreen(
-            review = cleanReview(),
-            network = BtcNetwork.TESTNET4,
-            scriptType = ScriptType.NATIVE_SEGWIT,
-            signer = SAMPLE_SIGNER,
-            confirmed = false,
-            onConfirmedChange = {},
-            onApprove = {},
-            onReject = {},
-        )
+        BitcoinReviewAt(review = cleanReview())
     }
 
     @Test
     fun bitcoinReviewWithWarnings() = compose.snapshot("bitcoin_review_warnings") {
-        BitcoinReviewScreen(
-            review = warnedReview(),
-            network = BtcNetwork.TESTNET4,
-            scriptType = ScriptType.NATIVE_SEGWIT,
-            signer = SAMPLE_SIGNER,
-            confirmed = false,
-            onConfirmedChange = {},
-            onApprove = {},
-            onReject = {},
-        )
+        BitcoinReviewAt(review = warnedReview())
     }
 
     @Test
     fun bitcoinReviewBlockedWhileItsDetailsAreFolded() = compose.snapshot("bitcoin_review_blocked") {
         // The request fits on screen, yet Hold to sign is off and says to open the details, where its one warning is read.
-        BitcoinReviewScreen(
-            review = externalInputReview(),
-            network = BtcNetwork.TESTNET4,
-            scriptType = ScriptType.NATIVE_SEGWIT,
-            signer = SAMPLE_SIGNER,
-            confirmed = false,
-            onConfirmedChange = {},
-            onApprove = {},
-            onReject = {},
-        )
+        BitcoinReviewAt(review = externalInputReview())
     }
 
     @Test
     fun bitcoinReviewWithFeeWarnings() = compose.snapshot("bitcoin_review_fee_warnings") {
-        BitcoinReviewScreen(
+        BitcoinReviewAt(
             review = warnedReview().copy(
                 feeWarnings = listOf(BtcWarning.HighFeeRate(285.7, 200), BtcWarning.HighFeeShare(41.7, 10)),
             ),
-            network = BtcNetwork.TESTNET4,
-            scriptType = ScriptType.NATIVE_SEGWIT,
-            signer = SAMPLE_SIGNER,
-            confirmed = false,
-            onConfirmedChange = {},
-            onApprove = {},
-            onReject = {},
         )
     }
 
@@ -103,6 +71,19 @@ class BitcoinScreenshotTest {
     @Test
     @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
     fun bitcoinPolicyAtItsDefaultsNight() = compose.snapshot("bitcoin_policy_defaults_night") { BitcoinPolicyAtDefaults() }
+
+    /** The Bitcoin review as the sign flow shows it on testnet4 from a Native Segwit account. */
+    @Composable
+    private fun BitcoinReviewAt(review: BtcReview) {
+        ReviewScreen(
+            review = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT),
+            signer = SAMPLE_SIGNER,
+            addressNotes = emptyMap(),
+            addressChain = BITCOIN_FAMILY,
+            onApprove = {},
+            onReject = {},
+        )
+    }
 
     @Composable
     private fun FeeWarningsAtDefaults() {

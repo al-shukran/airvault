@@ -126,7 +126,15 @@ private fun ReviewRowView(row: ReviewRow, step: Int?, notes: Map<String, Address
         value is DisplayValue.Message -> MessageBlock(label = row.label, text = value.text, modifier = indent)
         else -> {
             val text = value.text()
-            ReviewField(label = row.label, value = text, notes = notes.notesOf(text), modifier = indent, onOpen = open)
+            ReviewField(
+                label = row.label,
+                value = text,
+                notes = notes.notesOf(text),
+                modifier = indent,
+                onOpen = open,
+                isAddress = value is DisplayValue.Address,
+                lines = row.notes,
+            )
         }
     }
 }
