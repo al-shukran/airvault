@@ -23,6 +23,9 @@ permissions:
 # the next run can restore what this run built.
 env:
   BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || 'master' }}
+  # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
+  # no lane can read an entry another lane saved. The repository secret must exist for this to take effect (see the PR body).
+  GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
 # A pull request supersedes its own earlier run. A master push or a queue entry always finishes: each commit that lands is
 # verified.

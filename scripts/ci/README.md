@@ -48,6 +48,10 @@ listed but no longer exists.
   a pull request and `master` on a push or a queue entry. A run restores its own scope first (`bc-<lane>-<scope>-`), then master's
   (`bc-<lane>-master-`). Every lane saves its entry, even when it fails or is cancelled. GitHub keeps a pull request's entries out
   of master and out of other pull requests, so a pull request cannot change what master restores.
+- The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
+  own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
+  Empty means no key, which is how a fork's pull request runs.
+- `lintAnalyze*` tasks are cacheable (root `build.gradle.kts`). AGP leaves them uncacheable by default.
 - `setup-gradle` runs with `cache-disabled: true`: its own cache cleanup purged plugin marker POMs, which made later runs fail with
   "plugin not found".
 

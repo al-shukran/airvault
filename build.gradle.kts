@@ -102,6 +102,16 @@ listOf("app", "lumio", "shared").forEach { module ->
     }
 }
 
+// Lint analysis is cacheable. AGP leaves lintAnalyze tasks uncacheable, so every lint lane re-analyzed the Android modules
+// (about four minutes) with no source change. The analysis reads only the module's inputs, and the lint report task still
+// fails the build on an error, so this only skips re-analysis. The outputs keep absolute paths, so an entry is valid on the
+// same checkout path, which CI always uses.
+subprojects {
+    tasks.matching { it.name.startsWith("lintAnalyze") }.configureEach {
+        outputs.cacheIf("lint analysis depends only on its inputs") { true }
+    }
+}
+
 // resolveAll resolves every resolvable configuration of every project and every buildscript classpath. That covers the
 // robolectricSdk configuration above, which holds the Robolectric android-all jar the tests read. CI's deps job runs it
 // online to fill the Gradle module cache; every other CI job runs with --offline against that cache, so a missing artifact
