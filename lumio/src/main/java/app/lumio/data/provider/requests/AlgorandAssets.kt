@@ -7,7 +7,7 @@ import java.math.BigInteger
 private val ALGORAND_ADDRESS = Regex("[A-Z2-7]{58}")
 
 /** The assets that [address] holds on [net]: one [AsaHolding] for each asset the account has opted in to. */
-class AsaHoldings(net: NetworkId, val address: String) : Request<List<AsaHolding>>(net, Op.TOKEN_BALANCES) {
+class AsaHoldings(net: NetworkId, val address: String) : Request<List<AsaHolding>>(net, Ops.ALGO_TOKEN_BALANCES) {
     init {
         require(ALGORAND_ADDRESS.matches(address)) { "Not an Algorand address." }
     }
@@ -17,7 +17,7 @@ class AsaHoldings(net: NetworkId, val address: String) : Request<List<AsaHolding
 data class AsaHolding(val assetId: ULong, val amount: BigInteger, val frozen: Boolean)
 
 /** The parameters of the asset [assetId] on [net], as the network holds them now. */
-class AsaAssetInfo(net: NetworkId, val assetId: ULong) : Request<AsaInfo>(net, Op.ASSET_INFO) {
+class AsaAssetInfo(net: NetworkId, val assetId: ULong) : Request<AsaInfo>(net, Ops.ALGO_ASSET_INFO) {
     init {
         require(assetId > 0UL) { "An asset ID is more than 0." }
     }

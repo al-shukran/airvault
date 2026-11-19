@@ -13,16 +13,16 @@ const val MAX_SOLANA_HISTORY = 10
  * The latest blockhash of [net], as the chain confirms it. A Solana transaction names one, so that it expires once the chain's block height passes
  * the blockhash's last valid height.
  */
-class RecentBlockhash(net: NetworkId) : Request<SolanaBlockhash>(net, Op.BLOCKHASH)
+class RecentBlockhash(net: NetworkId) : Request<SolanaBlockhash>(net, Ops.SOL_BLOCKHASH)
 
 /** A blockhash, base58, and the block height after which a transaction that names it is no longer accepted. */
 data class SolanaBlockhash(val blockhash: String, val lastValidBlockHeight: Long)
 
 /** The block height of [net] as the chain confirms it. A blockhash is no longer valid once this passes its last valid height. */
-class SolanaBlockHeight(net: NetworkId) : Request<Long>(net, Op.BLOCK_HEIGHT)
+class SolanaBlockHeight(net: NetworkId) : Request<Long>(net, Ops.SOL_BLOCK_HEIGHT)
 
 /** The account at [address] as the latest answer shows it: its [SolanaAccountState], or null when the account does not exist. */
-class SolanaAccountRead(net: NetworkId, val address: String) : Request<SolanaAccountState?>(net, Op.ACCOUNT_INFO) {
+class SolanaAccountRead(net: NetworkId, val address: String) : Request<SolanaAccountState?>(net, Ops.SOL_ACCOUNT_INFO) {
     init {
         require(SOLANA_ADDRESS.matches(address)) { "Not a Solana address." }
     }
@@ -32,7 +32,7 @@ class SolanaAccountRead(net: NetworkId, val address: String) : Request<SolanaAcc
 class SolanaAccountState(val owner: String, val data: ByteArray)
 
 /** The lamports that an account of [size] bytes must hold to be rent-exempt, as the network asks for them now. */
-class RentExemptMinimum(net: NetworkId, val size: Long) : Request<Long>(net, Op.RENT_EXEMPT) {
+class RentExemptMinimum(net: NetworkId, val size: Long) : Request<Long>(net, Ops.SOL_RENT_EXEMPT) {
     init {
         require(size >= 0) { "An account size is not negative." }
     }
@@ -42,7 +42,7 @@ class RentExemptMinimum(net: NetworkId, val size: Long) : Request<Long>(net, Op.
  * The most recent transactions that involve a Solana [address], newest first, up to [limit] of them. Each row carries the change in the address's
  * balance, and that change is null when the answer does not show the balance.
  */
-class SolanaAddressHistory(net: NetworkId, val address: String, val limit: Int) : Request<List<SolanaTx>>(net, Op.TX_HISTORY) {
+class SolanaAddressHistory(net: NetworkId, val address: String, val limit: Int) : Request<List<SolanaTx>>(net, Ops.SOL_TX_HISTORY) {
     init {
         require(SOLANA_ADDRESS.matches(address)) { "Not a Solana address." }
         require(limit in 1..MAX_SOLANA_HISTORY) { "A history holds 1 to $MAX_SOLANA_HISTORY transactions." }
@@ -53,7 +53,7 @@ class SolanaAddressHistory(net: NetworkId, val address: String, val limit: Int) 
 data class SolanaTx(val signature: String, val slot: Long, val blockTimeS: Long?, val failed: Boolean, val lamportDelta: Long?)
 
 /** The SPL token balances of [owner], under the classic token program and Token-2022. Each [SplBalance] is one token account. */
-class SplTokenBalances(net: NetworkId, val owner: String) : Request<List<SplBalance>>(net, Op.TOKEN_BALANCES) {
+class SplTokenBalances(net: NetworkId, val owner: String) : Request<List<SplBalance>>(net, Ops.SOL_TOKEN_BALANCES) {
     init {
         require(SOLANA_ADDRESS.matches(owner)) { "Not a Solana address." }
     }
@@ -72,7 +72,7 @@ internal val SOLANA_SIGNATURE = Regex("[1-9A-HJ-NP-Za-km-z]{86,88}")
  * The status of the transaction with [signature], as `getSignatureStatuses` reports it with the history searched, so an older signature is found too.
  * The answer is null while the network does not know the signature.
  */
-class SolanaSignatureStatus(net: NetworkId, val signature: String) : Request<SolanaStatus?>(net, Op.TX) {
+class SolanaSignatureStatus(net: NetworkId, val signature: String) : Request<SolanaStatus?>(net, Ops.SOL_TX) {
     init {
         require(SOLANA_SIGNATURE.matches(signature)) { "Not a Solana transaction signature." }
     }
