@@ -3,8 +3,8 @@ package app.lumio.data.provider.defillama
 import app.lumio.data.ETH
 import app.lumio.data.asset.AssetId
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartRange
 import app.lumio.data.price.PricePoint
 import app.lumio.data.price.PriceSeries
@@ -122,7 +122,7 @@ class DefiLlamaChartTest {
 
     @Test
     fun aTestnetCoinIsUnsupportedAndNeverCalled() {
-        val testnet = NetworkId(Family.EVM, "1", testnet = true)
+        val testnet = NetworkId(Networks.evm(1), testnet = true)
 
         assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(testnet), ChartRange.H24) }
         assertEquals(0, server.requestCount)
@@ -132,6 +132,6 @@ class DefiLlamaChartTest {
     fun theProviderSupportsTheChartOnlyWhereItPricesTheNetwork() {
         val provider = DefiLlamaProvider()
         assertTrue(provider.supports(ETH, Op.PRICE_CHART, cfg()))
-        assertFalse(provider.supports(NetworkId(Family.EVM, "250", testnet = false), Op.PRICE_CHART, cfg()))
+        assertFalse(provider.supports(NetworkId(Networks.evm(250), testnet = false), Op.PRICE_CHART, cfg()))
     }
 }

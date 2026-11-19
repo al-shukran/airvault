@@ -1,8 +1,8 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
@@ -31,7 +31,7 @@ class TransactionDetailScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val ethereum = NetworkId(Family.EVM, "1", testnet = false)
+    private val ethereum = NetworkId(Networks.evm(1), testnet = false)
     private val me = "0x" + "a1".repeat(20)
     private val friend = "0x" + "5c".repeat(20)
     private val spammer = "0x" + "77".repeat(20)

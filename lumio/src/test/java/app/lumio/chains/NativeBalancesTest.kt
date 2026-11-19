@@ -8,7 +8,6 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lumio.data.FakeProvider
 import app.lumio.data.MonotonicClock
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Op
 import app.lumio.data.provider.ProviderError
@@ -139,9 +138,9 @@ class NativeBalancesTest {
     }
 
     /** The public endpoint that serves [network], from the provider tables. */
-    private fun endpointOf(network: NetworkId): String = when (network.family) {
-        Family.ALGO -> AlgorandAlgod.ENDPOINTS.getValue(network.chain)
-        Family.SOL -> SolanaRpc.ENDPOINTS.getValue(network.chain)
+    private fun endpointOf(network: NetworkId): String = when {
+        network.isAlgo -> AlgorandAlgod.ENDPOINTS.getValue(network.name)
+        network.isSol -> SolanaRpc.ENDPOINTS.getValue(network.name)
         else -> error("not a native family: $network")
     }
 

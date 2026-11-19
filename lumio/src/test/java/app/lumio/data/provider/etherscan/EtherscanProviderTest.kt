@@ -2,8 +2,8 @@ package app.lumio.data.provider.etherscan
 
 import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Op
@@ -74,14 +74,14 @@ class EtherscanProviderTest {
     fun theChainIdFollowsTheNetwork() {
         server.enqueue(MockResponse().setBody("""{"status":"1","message":"OK","result":"0"}"""))
 
-        call(NativeBalance(NetworkId(Family.EVM, "137", testnet = false), ethAddress))
+        call(NativeBalance(NetworkId(Networks.evm(137), testnet = false), ethAddress))
 
         assertEquals("137", server.takeRequest().requestUrl!!.queryParameter("chainid"))
     }
 
     @Test
     fun aPaidOnlyChainIsNotServedEvenWithAKey() {
-        val base = NetworkId(Family.EVM, "8453", testnet = false)
+        val base = NetworkId(Networks.evm(8453), testnet = false)
 
         assertFalse(provider.supports(base, Op.NATIVE_BALANCE, cfg()))
         assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(base, ethAddress)) }
@@ -159,8 +159,8 @@ class EtherscanProviderTest {
         assertTrue(provider.supports(ETH, Op.NATIVE_BALANCE, cfg()))
         assertFalse(provider.supports(ETH, Op.NATIVE_BALANCE, cfg(key = null)))
         assertFalse(provider.supports(ETH, Op.NONCE, cfg()))
-        assertFalse(provider.supports(NetworkId(Family.EVM, "1", testnet = true), Op.NATIVE_BALANCE, cfg()))
-        assertFalse(provider.supports(NetworkId(Family.BTC, "mainnet", testnet = false), Op.NATIVE_BALANCE, cfg()))
+        assertFalse(provider.supports(NetworkId(Networks.evm(1), testnet = true), Op.NATIVE_BALANCE, cfg()))
+        assertFalse(provider.supports(NetworkId(Networks.BTC_MAINNET, testnet = false), Op.NATIVE_BALANCE, cfg()))
     }
 
     @Test

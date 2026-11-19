@@ -103,7 +103,7 @@ internal fun BitcoinSettingsRoute(navController: NavHostController, holder: Vaul
 /** The owner's own servers that are set, by network. A network without one reads the public servers. */
 internal fun serverOverrides(configs: Map<String, ProviderConfig>): Map<BtcNetwork, String> = buildMap {
     for (network in BtcNetwork.entries) {
-        configs[CustomEsploraProvider.idFor(network.networkId().chain)]?.baseUrl?.let { put(network, it) }
+        configs[CustomEsploraProvider.idFor(network.networkId().name)]?.baseUrl?.let { put(network, it) }
     }
 }
 
@@ -111,7 +111,7 @@ internal fun serverOverrides(configs: Map<String, ProviderConfig>): Map<BtcNetwo
 internal fun withOverrides(configs: Map<String, ProviderConfig>, overrides: Map<BtcNetwork, String>): Map<String, ProviderConfig> =
     configs.filterKeys { !it.startsWith(CustomEsploraProvider.ID_PREFIX) } +
         overrides.entries.associate { (network, url) ->
-            CustomEsploraProvider.idFor(network.networkId().chain) to ProviderConfig(baseUrl = url)
+            CustomEsploraProvider.idFor(network.networkId().name) to ProviderConfig(baseUrl = url)
         }
 
 /** The rows of [refs], each with its last known balance from the open vault. A locked or decoy vault has none, so its rows show no balance. */

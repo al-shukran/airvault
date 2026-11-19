@@ -2,7 +2,6 @@ package app.lumio.data.provider.blockscout
 
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Http
@@ -108,7 +107,7 @@ class BlockscoutProvider(private val bases: Map<String, String> = BASES) : Provi
 
     /** The instance that serves [net], or null when Blockscout hosts none for it, or the address it has is not accepted. */
     private fun instanceOf(net: NetworkId): HttpUrl? =
-        if (net.family == Family.EVM && !net.testnet) providerBase(bases[net.chain], "") else null
+        if (net.isEvm && !net.testnet) providerBase(bases[net.name], "") else null
 
     companion object {
         /** The hosted instance of each EVM mainnet, by chain ID. Only Ethereum was read on 2026-11-15, see the KDoc. */

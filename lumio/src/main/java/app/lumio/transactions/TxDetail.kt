@@ -5,7 +5,6 @@ import app.lensly.core.registry.Amounts
 import app.lumio.LumioApp
 import app.lumio.LumioVault
 import app.lumio.btc.BtcPortfolio
-import app.lumio.data.net.Family
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.SpamReason
 import app.lumio.data.tx.TxSpam
@@ -56,13 +55,13 @@ internal suspend fun txDetailOf(app: LumioApp, vault: LumioVault, account: Strin
 /** The fee of [tx] with its symbol, such as "0.00021 ETH", or null when the account paid no fee. */
 internal fun feeText(tx: LumioTx, chain: EvmChain?): String? {
     val fee = tx.fee ?: return null
-    val symbol = if (tx.network.family == Family.BTC) "BTC" else chain?.symbol.orEmpty()
+    val symbol = if (tx.network.isBtc) "BTC" else chain?.symbol.orEmpty()
     return "${Amounts.format(fee, TxStore.feeDecimals(tx.network))} $symbol".trim()
 }
 
 /** The explorer page of [tx], or null when no explorer is on file for its chain. */
 internal fun explorerUrl(tx: LumioTx, chain: EvmChain?): String? =
-    if (tx.network.family == Family.BTC) {
+    if (tx.network.isBtc) {
         BtcPortfolio.explorerTxUrl(if (tx.network.testnet) BtcNetwork.TESTNET4 else BtcNetwork.MAINNET, tx.hash)
     } else {
         chain?.let { EvmSend.explorerLink(it, tx.hash) }

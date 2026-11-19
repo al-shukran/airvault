@@ -2,7 +2,6 @@ package app.lumio.data.tx
 
 import app.lumio.btc.EsploraTx
 import app.lumio.data.Clock
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.AddressTxs
@@ -35,18 +34,18 @@ class TxHistory(
      */
     suspend fun refresh(net: NetworkId, address: String, priority: Priority = Priority.VISIBLE, page: Int = 1): Int {
         require(page >= 1) { "A page counts from 1." }
-        if (net.family == Family.BTC) {
+        if (net.isBtc) {
             require(page == 1) { "A Bitcoin history has one page." }
             val tip = scheduler.run(TipHeight(net), priority)
             return storeBitcoin(net, address, scheduler.run(AddressTxs(net, address), priority), tip)
         }
-        val fetched: List<LumioTx> = when (net.family) {
-            Family.EVM -> {
+        val fetched: List<LumioTx> = when {
+            net.isEvm -> {
                 if (preferRpc()) throw ProviderError.Unsupported()
                 val native = nativeAsset(net) ?: throw ProviderError.Unsupported()
                 scheduler.run(AddressTxHistory(net, address, page, MAX_TX_PAGE), priority).toLumioTxs(address, net, native)
             }
-            Family.BTC, Family.SOL, Family.ALGO -> throw ProviderError.Unsupported()
+            else -> throw ProviderError.Unsupported()
         }
         return write(address, fetched)
     }

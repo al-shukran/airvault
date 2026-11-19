@@ -19,8 +19,8 @@ import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
 import app.lumio.btc.BtcAccountRef
 import app.lumio.data.config.LockSettings
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.evm.EvmChain
 import app.lumio.data.config.DisplaySettings
 import app.lumio.evm.EvmSettings
@@ -381,7 +381,7 @@ class LumioScreenshotTest {
         asset: TxAsset = TxAsset(null, "ETH", "Ether", 18),
     ) = LumioTx(
         id = "tx-$id",
-        network = NetworkId(Family.EVM, "1", testnet = false),
+        network = NetworkId(Networks.evm(1), testnet = false),
         account = address,
         hash = "0x" + "%064x".format(id),
         timestampMs = timestampMs,
@@ -409,7 +409,7 @@ class LumioScreenshotTest {
 
     /** The registry's token entries by asset ID, as Home keeps them. */
     private val homeTokenEntries: Map<String, TokenEntry> = homeRegistry.tokens().associateBy {
-        TokenAsset.idOf(NetworkId(Family.EVM, it.chainId.toString(), testnet = false), it.contract)
+        TokenAsset.idOf(NetworkId(Networks.evm(it.chainId), testnet = false), it.contract)
     }
 
     /** The Bitcoin accounts of [network]: the four script types of the seed. */

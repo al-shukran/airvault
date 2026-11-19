@@ -2,8 +2,8 @@ package app.lumio.data.provider
 
 import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.route.ProviderState
 import app.lumio.data.route.Router
 import app.lumio.data.rpc.RpcPlugins
@@ -48,7 +48,7 @@ class DataPluginsRoutingTest {
 
     @Test
     fun aChainNoDataProviderServesIsReadFromTheRpcPoolOnly() {
-        val base = NetworkId(Family.EVM, "8453", testnet = false)
+        val base = NetworkId(Networks.evm(8453), testnet = false)
         val configs = mapOf("etherscan" to ProviderConfig(apiKey = "fake-key"))
 
         val order = offered(base, configs)

@@ -7,8 +7,8 @@ import app.lumio.data.MonotonicClock
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
 import app.lumio.data.cache.CachePolicy
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Op
 import app.lumio.data.sched.Scheduler
@@ -23,7 +23,7 @@ import org.junit.Test
 
 /** A block is cached for good, and a transaction only once it has six confirmations. An unconfirmed one is read again. */
 class BtcJobsTest {
-    private val net = NetworkId(Family.BTC, "testnet4", testnet = true)
+    private val net = NetworkId(Networks.BTC_TESTNET4, testnet = true)
     private val txid = "e".repeat(64)
     private val hash = "f".repeat(64)
 

@@ -1,8 +1,8 @@
 package app.lumio.data.rpc
 
 import app.lumio.data.MonotonicClock
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.sched.Priority
@@ -23,7 +23,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
  * other providers answer. The read must fall through to a provider that serves the chain, and must not end in an error.
  */
 class SepoliaRoutingTest {
-    private val sepolia = NetworkId(Family.EVM, "11155111", testnet = true)
+    private val sepolia = NetworkId(Networks.evm(11155111), testnet = true)
     private val holder = "0x" + "1".repeat(40)
 
     /** Answers every host without a network: 1RPC refuses Sepolia, and every other host answers a balance of 42. */

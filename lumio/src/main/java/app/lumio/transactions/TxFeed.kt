@@ -3,8 +3,8 @@ package app.lumio.transactions
 import app.lumio.LumioApp
 import app.lumio.LumioVault
 import app.lumio.data.asset.AssetId
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxQuery
 import app.lumio.evm.EvmCatalog
@@ -22,16 +22,16 @@ data class TxPage(val items: List<TxFeedItem>, val count: Int) {
 }
 
 /** The EVM network of [chain], as the store names it. */
-fun evmNetwork(chain: EvmChain): NetworkId = NetworkId(Family.EVM, chain.chainId.toString(), chain.testnet)
+fun evmNetwork(chain: EvmChain): NetworkId = NetworkId(Networks.evm(chain.chainId), chain.testnet)
 
 /** The price key of the asset that [tx] moved: its token, or the native coin of its network. */
 fun assetIdOf(tx: LumioTx): AssetId = tx.asset.contract?.let { AssetId.Erc20(tx.network, it) } ?: AssetId.Native(tx.network)
 
 /** The name of the chain that [network] is, as the feed shows it. */
-internal fun chainLabel(network: NetworkId, evm: Map<NetworkId, EvmChain>): String = when (network.family) {
-    Family.BTC -> if (network.testnet) "Bitcoin Testnet4" else "Bitcoin"
-    Family.EVM -> evm[network]?.name ?: "Chain ${network.chain}"
-    Family.SOL, Family.ALGO -> network.chain
+internal fun chainLabel(network: NetworkId, evm: Map<NetworkId, EvmChain>): String = when {
+    network.isBtc -> if (network.testnet) "Bitcoin Testnet4" else "Bitcoin"
+    network.isEvm -> evm[network]?.name ?: "Chain ${network.name}"
+    else -> network.name
 }
 
 /** The chains of [chains] keyed by their network, so that a row finds the name of its chain. */

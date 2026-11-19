@@ -1,6 +1,11 @@
 package app.lensly.core.parse
 
-import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.core.model.AppId
+import app.airvault.core.model.ChainId
+import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.RequestHeader
+import app.airvault.core.signer.RequestKind
+import app.airvault.core.signer.SignerRef
 import app.lensly.core.evm.AccessListEntry
 import app.lensly.core.evm.EIP712_DOMAIN
 import app.lensly.core.evm.TxType
@@ -54,7 +59,7 @@ object ParserWire {
     private const val COMPLETE = 3
     private const val BITCOIN_PSBT = 4
     private const val SOLANA_REQUEST = 5
-    private const val ALGORAND_REQUEST = 6
+    private const val APP_REQUEST = 6
     private const val CALL_OK = 1
 
     /** The tags of one decoded value on the wire: a static word, the bytes of a bytes or string, and the items of an array or tuple. */
@@ -68,8 +73,11 @@ object ParserWire {
     /** The most a scanned Solana request may hold, as its CBOR. It is the codec's own limit for one sol-sign-request. */
     private const val MAX_SOLANA_PAYLOAD_BYTES = SolSignRequest.MAX_PAYLOAD_BYTES
 
-    /** The most a scanned Algorand request may hold, as its CBOR. It is the codec's own limit for one algo-sign-request. */
-    private const val MAX_ALGORAND_PAYLOAD_BYTES = AlgoSignRequest.MAX_PAYLOAD_BYTES
+    /** The most a scanned app request may hold, as its CBOR: the core's limit for a request payload. */
+    private const val MAX_APP_PAYLOAD_BYTES = ParserLimits.MAX_APP_PAYLOAD_BYTES
+
+    /** The most keys one app request may ask for. */
+    private const val MAX_SIGNERS = 16
 
     private const val NO_TRANSACTION = 0
     private const val TRANSACTION_OK = 1
@@ -156,9 +164,9 @@ object ParserWire {
                 int(SOLANA_REQUEST)
                 blob(reply.payload, MAX_SOLANA_PAYLOAD_BYTES)
             }
-            is ScanReply.Algorand -> {
-                int(ALGORAND_REQUEST)
-                blob(reply.payload, MAX_ALGORAND_PAYLOAD_BYTES)
+            is ScanReply.App -> {
+                int(APP_REQUEST)
+                appRequest(reply.request)
             }
         }
     }.bytes()
@@ -173,7 +181,7 @@ object ParserWire {
             COMPLETE -> ScanReply.Complete(parsedOf())
             BITCOIN_PSBT -> ScanReply.Bitcoin(blob(MAX_PSBT_BYTES))
             SOLANA_REQUEST -> ScanReply.Solana(blob(MAX_SOLANA_PAYLOAD_BYTES))
-            ALGORAND_REQUEST -> ScanReply.Algorand(blob(MAX_ALGORAND_PAYLOAD_BYTES))
+            APP_REQUEST -> ScanReply.App(appRequestOf())
             else -> throw WireException("unknown scan reply")
         }
         done()
@@ -257,6 +265,52 @@ object ParserWire {
         val address = optional { exact(ADDRESS_BYTES) }
         val origin = optional { text(EthSignRequest.MAX_PAYLOAD_BYTES) }
         return EthSignRequest(requestId, signData, dataType, chainId, path, fingerprint, address, origin)
+    }
+
+    /** Writes an app request: its header, which the core reads, then its body, which only the app reads. */
+    private fun Out.appRequest(request: AppRequest) {
+        val header = request.header
+        text(header.app.value)
+        text(header.chain.caip2)
+        int(header.kind.wire)
+        count(header.signers.size, MAX_SIGNERS)
+        header.signers.forEach { signer ->
+            optional(signer.fingerprint) { int(it) }
+            count(signer.path.size, MAX_PATH_STEPS)
+            signer.path.forEach {
+                int(it.index)
+                flag(it.hardened)
+            }
+        }
+        optional(header.requestId) { blob(it, REQUEST_ID_BYTES) }
+        blob(request.body, MAX_APP_PAYLOAD_BYTES)
+    }
+
+    /** Reads an app request. An id the types refuse is a wire error, so the app refuses the reply that carried it. */
+    private fun In.appRequestOf(): AppRequest {
+        val app = try {
+            AppId(text())
+        } catch (e: IllegalArgumentException) {
+            throw WireException("app id is malformed")
+        }
+        val chain = try {
+            ChainId(text())
+        } catch (e: IllegalArgumentException) {
+            throw WireException("chain id is malformed")
+        }
+        val kind = RequestKind.fromWire(int()) ?: throw WireException("unknown request kind")
+        val signers = List(count(MAX_SIGNERS)) {
+            val fingerprint = optional { int() }
+            val path = List(count(MAX_PATH_STEPS)) {
+                val index = int()
+                if (index < 0) throw WireException("negative path index")
+                PathStep(index, flag())
+            }
+            SignerRef(fingerprint, path)
+        }
+        val requestId = optional { exact(REQUEST_ID_BYTES) }
+        val body = blob(MAX_APP_PAYLOAD_BYTES)
+        return AppRequest(RequestHeader(app, chain, kind, signers, requestId), body)
     }
 
     private fun Out.parsed(parsed: ParsedRequest) {

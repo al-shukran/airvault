@@ -1,8 +1,9 @@
 package app.lumio.data.provider.solana
 
+import app.airvault.core.model.ChainId
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
@@ -332,8 +333,8 @@ class SolanaProviderTest {
         assertTrue(publicRpc.supports(devnet, Op.NATIVE_BALANCE, ProviderConfig()))
         assertTrue(publicRpc.supports(devnet, Op.BROADCAST, ProviderConfig()))
         assertFalse(publicRpc.supports(devnet, Op.NONCE, ProviderConfig()))
-        assertFalse(publicRpc.supports(NetworkId(Family.EVM, "1", testnet = false), Op.NATIVE_BALANCE, ProviderConfig()))
-        assertFalse(publicRpc.supports(NetworkId(Family.SOL, "testnet", testnet = true), Op.NATIVE_BALANCE, ProviderConfig()))
+        assertFalse(publicRpc.supports(NetworkId(Networks.evm(1), testnet = false), Op.NATIVE_BALANCE, ProviderConfig()))
+        assertFalse(publicRpc.supports(NetworkId(ChainId("solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z"), testnet = true), Op.NATIVE_BALANCE, ProviderConfig()))
         assertEquals(setOf(Trait.KEYLESS), publicRpc.traits)
     }
 
@@ -343,13 +344,13 @@ class SolanaProviderTest {
 
         assertEquals("https://api.mainnet-beta.solana.com", publicRpc.endpoint(SOLANA_MAINNET, ProviderConfig()))
         assertTrue(publicRpc.supports(SOLANA_MAINNET, Op.NATIVE_BALANCE, ProviderConfig()))
-        assertEquals(SOLANA_MAINNET, NetworkId(Family.SOL, "mainnet-beta", testnet = false))
+        assertEquals(SOLANA_MAINNET, NetworkId(Networks.SOL_MAINNET, testnet = false))
     }
 
     @Test
     fun theOwnerEndpointIsServedOnlyOverHttpsOutsideADebugBuildAndOnlyForItsChain() {
         val https = ProviderConfig(baseUrl = "https://solana.example.org/rpc")
-        val mainnet = NetworkId(Family.SOL, "mainnet-beta", testnet = false)
+        val mainnet = NetworkId(Networks.SOL_MAINNET, testnet = false)
 
         assertEquals("https://solana.example.org/rpc", CustomSolanaRpc("devnet", allowLocalHttp = false).endpoint(devnet, https))
         assertNull(CustomSolanaRpc("devnet", allowLocalHttp = false).endpoint(devnet, ProviderConfig(baseUrl = "http://localhost:8899")))
@@ -418,6 +419,6 @@ class SolanaProviderTest {
     @Test
     fun theCatalogListsTheSolanaProvidersByTheirIdsAndTheDevnetIsTheSolanaFamily() {
         assertEquals(listOf("solana", "custom-sol-devnet"), ProviderCatalog.solanaProviders(allowLocalHttp = false).map { it.id })
-        assertEquals(NetworkId(Family.SOL, "devnet", testnet = true), SOLANA_DEVNET)
+        assertEquals(NetworkId(Networks.SOL_DEVNET, testnet = true), SOLANA_DEVNET)
     }
 }

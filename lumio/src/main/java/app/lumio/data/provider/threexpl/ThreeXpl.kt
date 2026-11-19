@@ -2,7 +2,6 @@ package app.lumio.data.provider.threexpl
 
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
@@ -49,7 +48,7 @@ class ThreeXplProvider : Provider {
     override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        op == Op.NATIVE_BALANCE && net.family == Family.EVM && net.chain == "1" && !net.testnet && endpointOf(cfg) != null
+        op == Op.NATIVE_BALANCE && net.isEvm && net.name == "1" && !net.testnet && endpointOf(cfg) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = if (keyOf(cfg) == null) SANDBOX_LIMITS else KEYED_LIMITS
 

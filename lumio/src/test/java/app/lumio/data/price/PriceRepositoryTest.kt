@@ -9,8 +9,8 @@ import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Op
 import app.lumio.data.provider.PriceQuote
@@ -181,8 +181,8 @@ class PriceRepositoryTest {
 
     @Test
     fun aTestnetHasNoPriceAndNoSourceIsAsked() = runBlocking {
-        val testnet = NetworkId(Family.EVM, "1", testnet = true)
-        val monadTestnet = NetworkId(Family.EVM, "10143", testnet = true)
+        val testnet = NetworkId(Networks.evm(1), testnet = true)
+        val monadTestnet = NetworkId(Networks.evm(10143), testnet = true)
 
         assertEquals(emptyMap<NetworkId, Price>(), repository(live()).prices(listOf(testnet, monadTestnet)))
         assertEquals(0, routes.total())
@@ -192,8 +192,8 @@ class PriceRepositoryTest {
     fun aMixedRequestPricesEachNetworkThatHasAPriceAndOmitsTheRest() = runBlocking {
         routes.on("prices", priceOf("1831.25", 1_794_774_850L))
         routes.on("percentage", changeOf("0.5"))
-        val unpriced = NetworkId(Family.EVM, "250", testnet = false)
-        val testnet = NetworkId(Family.EVM, "1", testnet = true)
+        val unpriced = NetworkId(Networks.evm(250), testnet = false)
+        val testnet = NetworkId(Networks.evm(1), testnet = true)
 
         val prices = repository(live()).prices(listOf(ETH, unpriced, testnet))
 

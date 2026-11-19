@@ -1,6 +1,5 @@
 package app.lumio.data.price
 
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 
 /**
@@ -16,8 +15,8 @@ object NativeCoins {
     /** The CoinGecko id of the native coin of [net], or null when [net] has no mainnet price. */
     fun coinOf(net: NetworkId): String? = when {
         net.testnet -> null
-        net.family == Family.BTC -> if (net.chain == "mainnet") "bitcoin" else null
-        net.family == Family.EVM -> EVM[net.chain]
+        net.isBtc -> if (net.name == "mainnet") "bitcoin" else null
+        net.isEvm -> EVM[net.name]
         else -> null
     }
 

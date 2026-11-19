@@ -10,7 +10,6 @@ import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LetterMonogram
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.components.tokenIconDrawables
-import app.lumio.data.net.Family
 import app.lumio.home.HomeAsset
 import app.lumio.home.TokenAsset
 
@@ -35,7 +34,7 @@ internal sealed interface AssetIconSpec {
  * or one with no logo, gets a letter, so no token row ever shows a chain logo.
  */
 internal fun assetIconSpec(asset: HomeAsset, network: NetworkEntry?, token: TokenEntry?): AssetIconSpec = when {
-    asset.network.family == Family.BTC -> AssetIconSpec.Bitcoin
+    asset.network.isBtc -> AssetIconSpec.Bitcoin
     asset !is TokenAsset -> AssetIconSpec.Chain(network)
     token != null && hasLogo(token) -> AssetIconSpec.Token(token, network)
     else -> AssetIconSpec.Letter(letterOf(asset.symbol))

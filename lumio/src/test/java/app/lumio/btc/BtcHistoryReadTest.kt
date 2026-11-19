@@ -5,7 +5,6 @@ import app.lensly.core.btc.ScriptType
 import app.lumio.data.Clock
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.AddressStats
 import app.lumio.data.provider.AddressUtxos
@@ -46,7 +45,7 @@ private class TimedServer(
     private val inFlight = AtomicInteger(0)
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        net.family == Family.BTC && (op == Op.ADDRESS_STATS || op == Op.ADDRESS_UTXOS)
+        net.isBtc && (op == Op.ADDRESS_STATS || op == Op.ADDRESS_UTXOS)
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = Limits(rps = 1_000.0, burst = 1_000, maxConcurrent = 8)
 

@@ -4,15 +4,15 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.CustomEsploraProvider
 import app.lumio.data.esplora.MempoolProvider
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Op
 import kotlin.test.assertEquals
 import org.junit.Test
 
 /** The owner's own server takes its network for itself, so no address reaches a public server while it is enabled. */
 class OwnServerRouteTest {
-    private val net = NetworkId(Family.BTC, "testnet4", testnet = true)
+    private val net = NetworkId(Networks.BTC_TESTNET4, testnet = true)
     private val router = Router(
         listOf(
             MempoolProvider(bases = mapOf("testnet4" to "https://mempool.example.org/api")),

@@ -64,7 +64,7 @@ fun List<ExplorerTx>.toLumioTxs(account: String, net: NetworkId, native: TxAsset
  * no log index and one transaction may carry several transfers.
  */
 internal fun txIdOf(net: NetworkId, hash: String, transfer: ExplorerTx.Token? = null): String {
-    val base = "${net.family.name}:${net.chain}:$hash"
+    val base = "${net.idPrefix}:${net.name}:$hash"
     return if (transfer == null) {
         base
     } else {

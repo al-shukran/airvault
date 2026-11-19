@@ -2,8 +2,8 @@ package app.lumio.data.provider.routescan
 
 import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Op
@@ -101,8 +101,8 @@ class RoutescanProviderTest {
 
     @Test
     fun aChainOutsideTheProbedListAndATestnetAreUnsupportedAndNeverCalled() {
-        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Family.EVM, "8453", testnet = false), ethAddress)) }
-        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Family.EVM, "1", testnet = true), ethAddress)) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Networks.evm(8453), testnet = false), ethAddress)) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Networks.evm(1), testnet = true), ethAddress)) }
         assertEquals(0, server.requestCount)
     }
 
@@ -142,10 +142,10 @@ class RoutescanProviderTest {
     fun theSupportTableHoldsTheProbedMainnetsAndTheNativeBalanceOnly() {
         val c = cfg()
         assertTrue(provider.supports(ETH, Op.NATIVE_BALANCE, c))
-        assertTrue(provider.supports(NetworkId(Family.EVM, "5000", testnet = false), Op.NATIVE_BALANCE, c))
-        assertFalse(provider.supports(NetworkId(Family.EVM, "8453", testnet = false), Op.NATIVE_BALANCE, c))
+        assertTrue(provider.supports(NetworkId(Networks.evm(5000), testnet = false), Op.NATIVE_BALANCE, c))
+        assertFalse(provider.supports(NetworkId(Networks.evm(8453), testnet = false), Op.NATIVE_BALANCE, c))
         assertFalse(provider.supports(ETH, Op.NONCE, c))
-        assertFalse(provider.supports(NetworkId(Family.BTC, "mainnet", testnet = false), Op.NATIVE_BALANCE, c))
+        assertFalse(provider.supports(NetworkId(Networks.BTC_MAINNET, testnet = false), Op.NATIVE_BALANCE, c))
     }
 
     @Test

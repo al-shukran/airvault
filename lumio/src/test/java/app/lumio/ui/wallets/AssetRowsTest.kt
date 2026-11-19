@@ -2,8 +2,8 @@ package app.lumio.ui.wallets
 
 import app.lumio.chains.ChainHolding
 import app.lumio.data.asset.AssetId
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
@@ -24,7 +24,7 @@ import org.junit.Test
 
 /** The asset rows of an account: how its coin, its tokens and its SPL or Algorand holdings are keyed, named and priced. */
 class AssetRowsTest {
-    private val native = NetworkId(Family.EVM, "10143", testnet = true)
+    private val native = NetworkId(Networks.evm(10143), testnet = true)
     private val monad = EvmChain(10143L, "Monad testnet", "MON", 18, true, "https://testnet.monadexplorer.com")
     private val usdcHolding = TokenHolding(monad, Token(10143L, MIXED_CASE_USDC, "USDC", "USD Coin", 6), BigInteger.valueOf(1_250_500_000L), atMs = 0L)
     private val account = WalletAccount(

@@ -11,7 +11,7 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 
 /** The chain families a paired wallet can hold. */
-enum class PairFamily { EVM, BITCOIN, SOLANA, ALGORAND }
+enum class PairChain { EVM, BITCOIN, SOLANA, ALGORAND }
 
 /**
  * One Ethereum account of a paired wallet, as Lensly names it: its number N, its [address] (EIP-55, the address of m/44'/60'/N'/0/0), and its
@@ -41,12 +41,12 @@ data class PairedWallet(
     val evmAddresses: List<String>
         get() = evmAccounts.map { it.address }
 
-    val families: Set<PairFamily>
+    val families: Set<PairChain>
         get() = buildSet {
-            if (evmAccounts.isNotEmpty()) add(PairFamily.EVM)
-            if (bitcoin.isNotEmpty()) add(PairFamily.BITCOIN)
-            if (solana.isNotEmpty()) add(PairFamily.SOLANA)
-            if (algorand.isNotEmpty()) add(PairFamily.ALGORAND)
+            if (evmAccounts.isNotEmpty()) add(PairChain.EVM)
+            if (bitcoin.isNotEmpty()) add(PairChain.BITCOIN)
+            if (solana.isNotEmpty()) add(PairChain.SOLANA)
+            if (algorand.isNotEmpty()) add(PairChain.ALGORAND)
         }
 }
 

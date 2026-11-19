@@ -1,7 +1,6 @@
 package app.lumio.data.route
 
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.Op
@@ -58,7 +57,7 @@ class Router(private val providers: List<Provider>) {
         // so the owner's addresses never reach a third party. When it is cooling, the call waits for it rather than going elsewhere.
         val found = providers.filter { p -> p.id !in excluded && isEligible(p, net, op, configs) }
         val eligible = found.filter { Trait.OWN_SERVER in it.traits }.ifEmpty { found }.filter { p -> state.available(p.id, nowMs) }
-        val protectedOnly = op == Op.BROADCAST && net.family == Family.EVM && eligible.any { Trait.MEV_PROTECTED in it.traits }
+        val protectedOnly = op == Op.BROADCAST && net.isEvm && eligible.any { Trait.MEV_PROTECTED in it.traits }
         val offered = if (protectedOnly) eligible.filter { Trait.MEV_PROTECTED in it.traits } else eligible
         val others = offered.filter { Trait.FALLBACK_ONLY !in it.traits }
         val candidates = others.ifEmpty { offered }

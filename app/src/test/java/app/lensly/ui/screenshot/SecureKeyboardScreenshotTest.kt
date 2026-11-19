@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import app.lensly.ui.components.SecureHexKeyboard
 import app.lensly.ui.components.SecureKeyboard
 import org.junit.Rule
@@ -37,7 +38,10 @@ class SecureKeyboardScreenshotTest {
     @Test
     fun shiftArmed() = compose.snapshot(
         "secure_keyboard_shift_armed",
-        beforeCapture = { onNodeWithContentDescription("Shift").performClick() },
+        beforeCapture = {
+            onNodeWithContentDescription("Shift").performClick()
+            mainClock.advanceTimeBy(16)
+        },
     ) {
         AtFoot { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
     }
@@ -47,7 +51,9 @@ class SecureKeyboardScreenshotTest {
         "secure_keyboard_caps_lock",
         beforeCapture = {
             onNodeWithContentDescription("Shift").performClick()
+            mainClock.advanceTimeBy(16)
             onNodeWithContentDescription("Shift").performClick()
+            mainClock.advanceTimeBy(16)
         },
     ) {
         AtFoot { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
@@ -56,7 +62,36 @@ class SecureKeyboardScreenshotTest {
     @Test
     fun symbols() = compose.snapshot(
         "secure_keyboard_symbols",
-        beforeCapture = { onNodeWithContentDescription("Symbols").performClick() },
+        beforeCapture = {
+            onNodeWithContentDescription("Symbols").performClick()
+            mainClock.advanceTimeBy(16)
+        },
+    ) {
+        AtFoot { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
+    }
+
+    @Test
+    fun moreSymbols() = compose.snapshot(
+        "secure_keyboard_more_symbols",
+        beforeCapture = {
+            onNodeWithContentDescription("Symbols").performClick()
+            mainClock.advanceTimeBy(16)
+            onNodeWithContentDescription("More symbols").performClick()
+            mainClock.advanceTimeBy(16)
+        },
+    ) {
+        AtFoot { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
+    }
+
+    @Test
+    fun alternatesOpen() = compose.snapshot(
+        "secure_keyboard_alternates",
+        beforeCapture = {
+            // Held past the 400 ms long press, so the alternates of e are open at capture.
+            onNodeWithContentDescription("e").performTouchInput { down(center) }
+            mainClock.advanceTimeBy(500)
+            waitForIdle()
+        },
     ) {
         AtFoot { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
     }

@@ -7,7 +7,6 @@ import app.lensly.core.solana.SolanaAccount
 import app.lumio.btc.BtcRow
 import app.lumio.chains.CachedNativeBalance
 import app.lumio.chains.NativeCoin
-import app.lumio.data.net.Family
 import app.lumio.evm.CachedBalance
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
@@ -76,8 +75,8 @@ object WalletAccounts {
         nativeCache: List<CachedNativeBalance>,
     ): List<WalletAccount> = bitcoinAccounts(wallet, mode, bitcoin.filter { it.ref.walletId == wallet.id }) +
         ethereumAccounts(wallet, mode, evmChains, evmCache, addressCount) +
-        nativeAccounts(wallet, AccountChain.SOLANA, Family.SOL, wallet.solana, coins, nativeCache) { SolanaAccount.addressOf(it) } +
-        nativeAccounts(wallet, AccountChain.ALGORAND, Family.ALGO, wallet.algorand, coins, nativeCache) { AlgorandAccount.addressOf(it) }
+        nativeAccounts(wallet, AccountChain.SOLANA, wallet.solana, coins, nativeCache) { SolanaAccount.addressOf(it) } +
+        nativeAccounts(wallet, AccountChain.ALGORAND, wallet.algorand, coins, nativeCache) { AlgorandAccount.addressOf(it) }
 
     /** The name of a Bitcoin script type as the screens show it, such as "Native SegWit". */
     fun scriptLabel(type: ScriptType): String = when (type) {
@@ -142,16 +141,16 @@ object WalletAccounts {
     private fun nativeAccounts(
         wallet: PairedWallet,
         chain: AccountChain,
-        family: Family,
         keys: List<ByteArray>,
         coins: List<NativeCoin>,
         cache: List<CachedNativeBalance>,
         addressOf: (ByteArray) -> String,
     ): List<WalletAccount> {
-        val coin = coins.firstOrNull { it.network.family == family }
+        val isSolana = chain == AccountChain.SOLANA
+        val coin = coins.firstOrNull { if (isSolana) it.network.isSol else it.network.isAlgo }
         return keys.mapIndexed { index, key ->
             // The coin reads the one account of its family, so the wallet holding only this key gives this account's balance.
-            val alone = if (family == Family.SOL) {
+            val alone = if (isSolana) {
                 wallet.copy(solana = listOf(key), algorand = emptyList())
             } else {
                 wallet.copy(solana = emptyList(), algorand = listOf(key))

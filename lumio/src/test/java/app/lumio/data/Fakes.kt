@@ -2,8 +2,8 @@ package app.lumio.data
 
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
@@ -20,10 +20,10 @@ import java.math.BigInteger
 import kotlinx.coroutines.delay
 
 /** Ethereum mainnet, as the EVM family names it. */
-val ETH = NetworkId(Family.EVM, "1", testnet = false)
+val ETH = NetworkId(Networks.evm(1), testnet = false)
 
 /** Bitcoin mainnet. */
-val BTC = NetworkId(Family.BTC, "mainnet", testnet = false)
+val BTC = NetworkId(Networks.BTC_MAINNET, testnet = false)
 
 /** A clock that the test moves by hand. */
 class FakeClock(var now: Long = 0L) : Clock {

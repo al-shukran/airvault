@@ -39,7 +39,7 @@ data class NativeAsset(
 
     companion object {
         /** The id of the native coin of [network]: its family and chain, such as "EVM-1" for Ethereum or "BTC-mainnet" for Bitcoin. */
-        fun idOf(network: NetworkId): String = "${network.family.name}-${network.chain}"
+        fun idOf(network: NetworkId): String = "${network.idPrefix}-${network.name}"
     }
 }
 
@@ -65,7 +65,7 @@ data class TokenAsset(
 
     companion object {
         /** The id of [contract] on [network], such as "EVM-1-0xa0b8...". */
-        fun idOf(network: NetworkId, contract: String): String = "${network.family.name}-${network.chain}-$contract"
+        fun idOf(network: NetworkId, contract: String): String = "${network.idPrefix}-${network.name}-$contract"
     }
 }
 
