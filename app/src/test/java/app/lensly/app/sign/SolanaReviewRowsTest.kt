@@ -9,6 +9,7 @@ import app.airvault.chains.solana.signer.SolanaWarning
 import app.airvault.chains.solana.signer.solanaWarningText
 import app.airvault.chains.solana.signer.toReview
 import app.airvault.core.model.Danger
+import app.airvault.core.model.unaccounted
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
@@ -23,6 +24,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -139,12 +141,63 @@ class SolanaReviewRowsTest {
         assertEquals("up to 8000 lamports", facts["Max Fee"])
     }
 
-    /** An off-chain message shows its signer, its application domain and its text, as the owner reads it. */
+    /** A priority fee at the largest u64 gives a maximum fee at that largest u64 too, never a wrapped sum below the priority fee. */
+    @Test
+    fun aMaximumFeeAtTheLargestPriorityFeeIsCappedNotWrapped() {
+        val signData = legacy(
+            keys = listOf(key(1), key(9), SYSTEM, COMPUTE_BUDGET),
+            instructions = listOf(
+                // SetComputeUnitLimit: tag 2, then a u32 of 1,400,000 units. SetComputeUnitPrice: tag 3, then the largest u64.
+                Instruction(program = 3, accounts = emptyList(), data = byteArrayOf(2) + le32(1_400_000)),
+                Instruction(program = 3, accounts = emptyList(), data = byteArrayOf(3) + le64(-1L)),
+                transfer(from = 0, to = 1, lamports = 5L),
+            ),
+            readonly = 2,
+        )
+        val review = transaction(signData)
+        assertEquals(ULong.MAX_VALUE, review.maxFeeLamports)
+        assertEquals("${ULong.MAX_VALUE} lamports", solanaFacts(review).toMap()["Max Fee"])
+    }
+
+    /** The network row's testnet mark follows the manifest: devnet and testnet are test networks, mainnet-beta and no cluster are not. */
+    @Test
+    fun theTestnetMarkFollowsTheClusterInTheManifest() {
+        fun testnetOf(cluster: SolCluster?): Boolean =
+            review(request(offchain("hello"), signType = SolSignType.MESSAGE, cluster = cluster)).toReview().network.testnet
+        assertTrue(testnetOf(SolCluster.DEVNET))
+        assertTrue(testnetOf(SolCluster.TESTNET))
+        assertFalse(testnetOf(SolCluster.MAINNET_BETA))
+        assertFalse(testnetOf(null))
+    }
+
+    /** An off-chain message shows its signer, its application domain, its format and its text, as the owner reads it. */
     @Test
     fun aMessageToSignShowsTheSignerTheApplicationDomainAndTheText() {
         val review = review(request(offchain("hello", domain = key(5)), signType = SolSignType.MESSAGE))
-        assertEquals(listOf("Signer" to address(1), "Application Domain" to address(5), "Message" to "hello"), solanaRows(review))
+        assertEquals(
+            listOf("Signer" to address(1), "Application Domain" to address(5), "Format" to "Restricted ASCII", "Message" to "hello"),
+            solanaRows(review),
+        )
         assertEquals("Signs a message as text.", solanaSentence(review))
+    }
+
+    /** Every signer a message names is shown, and the review accounts for each field the parser read. */
+    @Test
+    fun aMessageWithTwoSignersShowsBothAndAccountsForEveryField() {
+        val review = review(request(offchain("hello", format = 1, signers = listOf(key(1), key(2))), signType = SolSignType.MESSAGE))
+        assertEquals(
+            listOf(
+                "Signer" to address(1),
+                "Other Signer" to address(2),
+                "Application Domain" to address(5),
+                "Format" to "Limited UTF-8",
+                "Message" to "hello",
+            ),
+            solanaRows(review),
+        )
+        val checked = review.toReview()
+        assertTrue(checked.unaccounted().isEmpty(), checked.unaccounted().toString())
+        assertTrue(checked.warnings.none { it.level == Danger.BLOCK })
     }
 
     /** A text with line breaks shows every line, so the owner reads all of what is signed. */
@@ -313,6 +366,16 @@ class SolanaReviewRowsTest {
         assertEquals(listOf(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), transaction(nonceSetup(authority = key(9))).warnings)
         assertEquals(Danger.DANGER, transaction(nonceSetup(authority = key(9))).toReview().warnings.single().level)
         assertContains(solanaWarningText(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), "Nonce authority is not this account")
+    }
+
+    /** The nonce authority warning is a DANGER the owner ticks before the review can be signed, as the unknown-program warning is. */
+    @Test
+    fun aNonceAuthorityThatIsNotTheSignerNeedsItsTick() {
+        for (review in listOf(transaction(nonceTransfer(authority = 1)), transaction(nonceSetup(authority = key(9))))) {
+            val warning = review.toReview().warnings.single { it.code == "solana.nonce-authority" }
+            assertEquals(Danger.DANGER, warning.level)
+            assertNotNull(warning.acknowledge)
+        }
     }
 
     /** Key 0 signs and pays, key 1 is the recipient and key 2 the nonce account. The advance is first, then 1.5 SOL from 0 to 1. */
