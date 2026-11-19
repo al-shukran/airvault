@@ -192,7 +192,7 @@ object PairingCodec {
      * @throws IllegalArgumentException with a message the owner can read, when [ur] is not a pairing, holds an unknown version, or breaks the layout.
      */
     fun fromUr(ur: UR, brotli: BrotliDecompressor?): PairingPayload {
-        require(ur.type.equals(UR_TYPE, ignoreCase = true)) { NOT_A_PAIRING }
+        require(ur.type == UR_TYPE) { NOT_A_PAIRING }
         return decode(ur.cborBytes, brotli)
     }
 
