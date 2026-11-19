@@ -303,6 +303,18 @@ jobs:
       # job is also named `test`: setup-gradle matches entries by job id, so the names must stay equal.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
+      # TEMPORARY diagnostic for the KSP marker failure (not for merge; reverted by the next commit).
+      - name: Diagnose KSP marker resolution
+        if: matrix.partition != 'ci'
+        run: |
+          echo "--- restored metadata entries for the KSP marker"
+          find "$HOME/.gradle/caches/modules-2" -path '*devtools*ksp*' -type f -printf '%s %p\n' 2>/dev/null | head -40 || true
+          echo "--- URLs recorded in resource-at-url for the KSP marker"
+          grep -a -o 'https://[^ ]*devtools/ksp/com[^ ]*gradle.plugin[^ ]*' "$HOME"/.gradle/caches/modules-2/metadata-*/resource-at-url.bin 2>/dev/null | sort -u | head -10 || true
+          echo "--- gradle --info lookup of the plugin markers"
+          ./gradlew --info --no-daemon help > plugin-info.log 2>&1 || true
+          grep -n -i -E "devtools.ksp|HTTP (GET|HEAD)|Resource (missing|cached)|Searched|plugin repositor|was not found" plugin-info.log | head -60 || true
+
       # run-partition.sh maps the name to its 2.2 selector; `manifest` runs check-manifest.sh and
       # `ci` runs only shell checks.
       - name: Run ${{ matrix.partition }}
