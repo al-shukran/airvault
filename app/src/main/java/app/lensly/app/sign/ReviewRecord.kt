@@ -82,10 +82,11 @@ data class BitcoinRecordFacts(
 
 /**
  * The device's own record of one review: what the owner was shown, what was decided, and when. It holds no key material. The
- * reviewed data is kept only as [dataHash], never in full.
+ * record is sealed under the wallet's Per-Wallet Key, and [dataHash] is the SHA-256 of the reviewed data.
  *
  * The facts are the ones the owner saw. A refusal before any review keeps what the request named: its chain, its origin and the
- * reason. Every address is kept in full. [fee] and [params] are label and value rows, in the order they were shown.
+ * reason. Every address is kept in full, and so is the text of a message or the decoded arguments of a call, in [params]. [fee]
+ * and [params] are label and value rows, in the order they were shown.
  */
 data class ReviewRecord(
     val atMs: Long,

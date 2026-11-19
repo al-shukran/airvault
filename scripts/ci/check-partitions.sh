@@ -6,6 +6,7 @@
 # module that holds the class. A package can have classes in two modules (app.lensly.ui.navigation has one in :app and
 # one in :shared), and a selector runs only in its own module, so matching on the package name alone is not enough.
 # tools/registry-pack is not checked: its partition runs the whole module without a filter.
+# Every Gradle module with a src/test set under core/, chains/ or abi/ must have its :module:test task in the chain-api arm.
 #
 # Usage: scripts/ci/check-partitions.sh
 
@@ -89,6 +90,25 @@ if [ -n "$doubled" ]; then
   printf '%s' "$doubled" >&2
 fi
 if [ -n "$missing$doubled" ]; then
+  exit 1
+fi
+
+# Those modules have no --tests selectors, so the class check above cannot see them. Each one's test task must be listed here.
+chain_api=$(awk '
+  /^    chain-api\)$/ { inarm = 1; next }
+  inarm && /;;/ { inarm = 0 }
+  inarm && $1 !~ /^#/ { print }
+' "$partition_script" | tr -d '\\' | tr -s '[:space:]' '\n')
+unlisted=""
+while IFS= read -r dir; do
+  mod=$(printf ':%s' "${dir%/src/test}" | tr / :)
+  grep -qxF "$mod:test" <<<"$chain_api" || unlisted="$unlisted  $mod:test
+"
+done < <(find core chains abi -type d -path '*/src/test' 2>/dev/null | sort)
+if [ -n "$unlisted" ]; then
+  echo "check-partitions: test modules missing from the chain-api arm of $partition_script." >&2
+  echo "Add each module's :module:test task to that arm:" >&2
+  printf '%s' "$unlisted" >&2
   exit 1
 fi
 

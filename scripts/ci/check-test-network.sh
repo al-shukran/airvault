@@ -40,6 +40,7 @@ done < <(
     --include='*.kt' --include='*.java' \
     "$pattern" \
     app/src/test app/src/androidTest shared/src/test shared/src/testFixtures tools/*/src/test tools/*/src/androidTest \
+    core/*/src/test chains/*/*/src/test abi/src/test \
     2>/dev/null || true
 )
 
