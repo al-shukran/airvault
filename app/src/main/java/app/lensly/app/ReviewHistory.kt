@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.airvault.core.model.Danger
 import app.lensly.app.sign.BitcoinRecordFacts
 import app.lensly.app.sign.BitcoinRecordNotice
 import app.lensly.app.sign.BitcoinRecordOutput
@@ -65,15 +66,17 @@ class ReviewHistory(private val session: VaultSession) {
 /**
  * The binary layout of a Review Record, written the way [WalletRecords] writes its records: a version byte, then each field in
  * order. Text is a length and its UTF-8 bytes, so a long message fits, which DataOutputStream.writeUTF refuses past 64 KiB. Each
- * optional field is a flag, then its value when the flag is set. The Bitcoin facts come after the data hash, then the checks ticked.
+ * optional field is a flag, then its value when the flag is set. The Bitcoin facts come after the data hash, then the checks ticked and the
+ * warnings shown.
  */
 internal object ReviewRecordCodec {
-    private const val VERSION = 3
+    private const val VERSION = 4
     private const val MAX_TEXT_BYTES = 1 shl 20
     private const val MAX_ROWS = 256
     private const val MAX_OUTPUTS = 4096
     private const val MAX_NOTICES = 256
     private const val MAX_CHECKS = 256
+    private const val MAX_WARNINGS = 256
 
     fun encode(record: ReviewRecord): ByteArray = WalletRecords.writeBytes { out ->
         out.writeByte(VERSION)
@@ -95,6 +98,7 @@ internal object ReviewRecordCodec {
         out.writeText(record.dataHash)
         out.writeOptional(record.bitcoin) { writeBitcoin(it) }
         out.writeTexts(record.acknowledged)
+        out.writeWarnings(record.warnings)
     }
 
     fun decode(bytes: ByteArray): ReviewRecord = WalletRecords.readBytes(bytes) { input ->
@@ -118,6 +122,7 @@ internal object ReviewRecordCodec {
         val dataHash = input.readText()
         val bitcoin = input.readOptional { readBitcoin() }
         val acknowledged = input.readTexts()
+        val warnings = input.readWarnings()
         ReviewRecord(
             atMs = atMs,
             outcome = outcome,
@@ -137,6 +142,7 @@ internal object ReviewRecordCodec {
             dataHash = dataHash,
             bitcoin = bitcoin,
             acknowledged = acknowledged,
+            warnings = warnings,
         )
     }
 
@@ -217,5 +223,20 @@ internal object ReviewRecordCodec {
         val count = readInt()
         require(count in 0..MAX_CHECKS) { "Too many checks." }
         return List(count) { readText() }
+    }
+
+    private fun DataOutputStream.writeWarnings(warnings: List<Pair<Danger, String>>) {
+        writeInt(warnings.size)
+        warnings.forEach { (level, message) ->
+            writeText(level.name)
+            writeText(message)
+        }
+    }
+
+    private fun DataInputStream.readWarnings(): List<Pair<Danger, String>> {
+        val count = readInt()
+        require(count in 0..MAX_WARNINGS) { "Too many warnings." }
+        // An unknown level name fails here, and the record is left out of the history like any other unreadable record.
+        return List(count) { Danger.valueOf(readText()) to readText() }
     }
 }

@@ -88,6 +88,7 @@ fun appReviewRecordOf(entry: AppReviewEntry, atMs: Long, origin: String?, dataHa
         refusal = entry.refusal,
         dataHash = dataHash,
         acknowledged = entry.acknowledged,
+        warnings = facts?.warnings.orEmpty(),
     )
 }
 
