@@ -97,6 +97,8 @@ data class NetworkSpec(
     val testnet: Boolean,
     val nativeAsset: AssetSpec,            // symbol, decimals
     val slip44: Int,                       // coin type used for this network's keys
+    val primary: Boolean = false,          // an account's native coin is read here; its side lists it first (EVM: Ethereum, Monad testnet)
+    val enabledByDefault: Boolean = false, // a new vault reads and shows it at once (Lumio)
 )
 
 data class KeyScope(

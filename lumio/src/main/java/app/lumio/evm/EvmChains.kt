@@ -1,6 +1,8 @@
 package app.lumio.evm
 
+import app.airvault.chains.evm.wallet.EvmWallet
 import app.lensly.core.registry.Registry
+import app.lumio.data.net.Networks
 
 /**
  * One chain Lumio lists: a registry network, or a custom chain the owner added. [explorerUrl] is null when no explorer is on file. The RPC
@@ -20,11 +22,11 @@ object EvmCatalog {
     /** Custom chains use the EVM default of 18 decimals, because the form does not ask for another value. */
     private const val CUSTOM_DECIMALS = 18
 
-    /** Monad testnet is the app's primary testnet, so the Testnet side lists it first. Every other chain keeps its place. */
-    const val PRIMARY_TESTNET_ID = 10143L
-
-    /** Ethereum is the primary network of the Mainnet side: an Ethereum account shows its balance on it. */
-    const val PRIMARY_MAINNET_ID = 1L
+    /**
+     * The primary network of the Testnet side, Monad testnet, or of the Mainnet side, Ethereum: an Ethereum account shows its native coin on it.
+     * The EVM manifest marks it primary (see [EvmWallet.primaryNetwork]).
+     */
+    fun primaryChainId(testnet: Boolean): Long = Networks.evmIdOf(EvmWallet.primaryNetwork(testnet))
 
     fun chains(registry: Registry, settings: EvmSettings): List<EvmChain> {
         val builtIn = registry.networks().map { network ->
@@ -46,6 +48,8 @@ object EvmCatalog {
     }
 
     /** A stable sort: the primary testnet moves to the front of the testnet side, and every other chain keeps its place. */
-    internal fun primaryTestnetFirst(chains: List<EvmChain>): List<EvmChain> =
-        chains.sortedBy { if (it.testnet && it.chainId == PRIMARY_TESTNET_ID) 0 else 1 }
+    internal fun primaryTestnetFirst(chains: List<EvmChain>): List<EvmChain> {
+        val primary = primaryChainId(testnet = true)
+        return chains.sortedBy { if (it.testnet && it.chainId == primary) 0 else 1 }
+    }
 }
