@@ -231,7 +231,7 @@ class EvmReviewBuilder(
                 is Gap.Approved -> {
                     functionRow(gap.signature)
                     valueRow(tx.value, always = false)
-                    sections += ReviewSection("Arguments", rowsOf(approvedDetails(gap), "evm.data", 0))
+                    sections += ReviewSection("Arguments", rowsOf(approvedDetails(gap, calldata), "evm.data", 0))
                     gap.steps?.lines?.takeIf { it.isNotEmpty() }?.let { lines ->
                         sections += ReviewSection("Steps", lines.map { ReviewRow(it, null, null) }, SectionStyle.Steps)
                     }
@@ -321,7 +321,16 @@ class EvmReviewBuilder(
                     }
                     else -> when (val gap = whitelisted(contract, inner.calldata, inner.value ?: tx.value)) {
                         is Gap.Approved -> {
-                            callRows(rows, prefix, index, level, gap.function, target, flags + approvedDetails(gap), note = null)
+                            callRows(
+                                rows,
+                                prefix,
+                                index,
+                                level,
+                                gap.function,
+                                target,
+                                flags + approvedDetails(gap, inner.calldata),
+                                note = null,
+                            )
                             gap.steps?.lines?.forEach { rows += ReviewRow(it, null, null, level) }
                             warnings += approvedWarnings(gap, FieldPath("$prefix.function"))
                         }
@@ -388,10 +397,14 @@ class EvmReviewBuilder(
             )
         }
 
-        /** The rows of one call's arguments, with the approved meaning first and the proxy binding last. */
-        private fun approvedDetails(gap: Gap.Approved): List<ParamRow> = buildList {
+        /**
+         * The rows of one call's arguments: the approved meaning first, then the arguments, then the signed calldata in full, and the proxy
+         * binding last. The arguments preview a bytes value, so the calldata row is what shows every byte of it.
+         */
+        private fun approvedDetails(gap: Gap.Approved, calldata: ByteArray): List<ParamRow> = buildList {
             add(ParamRow("Approved Meaning", DisplayValue.Text(gap.meaning), null))
             addAll(gap.params)
+            add(calldataRow(calldata))
             gap.proxy?.implementationAddress?.let { add(ParamRow("Implementation", DisplayValue.Address(chain, it), null)) }
             gap.proxy?.implementationCodeHash?.let { add(ParamRow("Implementation Code Hash", DisplayValue.Text(it), null)) }
         }
@@ -730,8 +743,11 @@ private sealed interface Gap {
 
 private fun unknownParams(calldata: ByteArray, selector: String): List<ParamRow> = listOf(
     ParamRow("Selector", DisplayValue.Text("0x$selector"), "selector"),
-    ParamRow("Calldata", DisplayValue.Bytes(calldata), "calldata"),
+    calldataRow(calldata),
 )
+
+/** The signed calldata in full, as its own row. A call whose arguments are shown carries this row, so no byte is only a preview. */
+private fun calldataRow(calldata: ByteArray): ParamRow = ParamRow("Calldata", DisplayValue.Bytes(calldata), "calldata")
 
 private fun noteRows(note: String?): List<ReviewRow> = note?.let { listOf(ReviewRow("Amount Note", DisplayValue.Text(it), null)) }.orEmpty()
 
