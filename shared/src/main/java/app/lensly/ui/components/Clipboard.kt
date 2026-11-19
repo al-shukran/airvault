@@ -23,7 +23,7 @@ private var copies = 0
  * only while it has focus (or is the default input method), so a clear that falls due while Lensly is in the background finds no text
  * to match and does nothing. [clearStaleCopy] clears such a copy when Lensly gains focus again.
  */
-internal fun copyToClipboard(context: Context, label: String, text: String) {
+fun copyToClipboard(context: Context, label: String, text: String) {
     val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
     val clip = ClipData.newPlainText(label, text)
     clip.description.extras = PersistableBundle().apply { putBoolean(IS_SENSITIVE_EXTRA, true) }

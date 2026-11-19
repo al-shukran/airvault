@@ -1,7 +1,5 @@
 package app.lumio.ui.kit
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -10,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import app.lensly.ui.components.copyToClipboard
 import kotlinx.coroutines.delay
 
 /** How long a copy control reads "Copied" after a copy (section 2.1). */
@@ -38,7 +37,7 @@ fun rememberCopyAction(value: String, label: String): CopyAction {
     return CopyAction(
         copied = copied,
         copy = {
-            context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(label, value))
+            copyToClipboard(context, label, value)
             haptics.copy()
             copies++
         },

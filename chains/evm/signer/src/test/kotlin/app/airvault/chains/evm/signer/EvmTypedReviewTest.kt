@@ -23,6 +23,7 @@ private const val OWNER = "0x0bf93ea5a1fa4ce3dd22c7ffd314462d3869777f"
 private const val TYPED_SPENDER = "0x1111111111111111111111111111111111111111"
 private const val TYPED_USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 private const val TYPED_USDC_CHECKSUM = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+private const val TYPED_UNKNOWN_TOKEN = "0x2222222222222222222222222222222222222222"
 private const val TYPED_MAX_UINT256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935"
 private const val PERMIT_WARNING = "A signed permit lets a spender move your tokens without a transaction. Scam sites use it to drain wallets."
 
@@ -34,14 +35,20 @@ private val TYPED_REGISTRY = Registry(
 
 private val TYPED_PATH = listOf(PathStep(44, true), PathStep(60, true), PathStep(0, true), PathStep(0, false), PathStep(0, false))
 
-/** An ERC-2612 Permit for [OWNER] on [chainId] for [value] of USDC. */
-private fun permitJson(chainId: Long = 1, value: String = "1000000"): String =
+/** An ERC-2612 Permit for [OWNER] on [chainId] for [value] of [token], which is USDC unless the test names another contract. */
+private fun permitJson(chainId: Long = 1, value: String = "1000000", token: String = TYPED_USDC): String =
     """{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},""" +
         """{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],""" +
         """"Permit":[{"name":"owner","type":"address"},{"name":"spender","type":"address"},{"name":"value","type":"uint256"},""" +
         """{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}]},"primaryType":"Permit",""" +
-        """"domain":{"name":"USD Coin","version":"2","chainId":$chainId,"verifyingContract":"$TYPED_USDC"},""" +
+        """"domain":{"name":"USD Coin","version":"2","chainId":$chainId,"verifyingContract":"$token"},""" +
         """"message":{"owner":"$OWNER","spender":"$TYPED_SPENDER","value":"$value","nonce":"0","deadline":"1900000000"}}"""
+
+/** A typed message that is not a permit: a Mail struct under a domain with no verifying contract. */
+private fun mailJson(): String =
+    """{"types":{"Mail":[{"name":"from","type":"address"},{"name":"contents","type":"string"},{"name":"amount","type":"uint256"}]},""" +
+        """"primaryType":"Mail","domain":{"name":"Mailer","chainId":1},""" +
+        """"message":{"from":"$OWNER","contents":"Hello","amount":"42"}}"""
 
 private fun typedRequest(json: String, chainId: Long = 1): ParsedRequest = EvmRequestParser.parsedOf(
     EthSignRequest(
@@ -109,6 +116,32 @@ class EvmTypedReviewTest {
         assertEquals(PERMIT_WARNING, denylist.message)
         assertEquals(Danger.DANGER, denylist.level)
         assertEquals("I understand this request matches a known-dangerous request.", denylist.acknowledge)
+    }
+
+    @Test
+    fun aTypedMessageThatIsNotAPermitIsShownFieldByFieldWithNoSummaryOrWarning() {
+        val review = typedReview(mailJson())
+
+        assertEquals("Mail", review.title)
+        assertEquals("Mailer", rowOf(review, "Domain", "Name").value.text())
+        assertEquals("1 (Ethereum)", rowOf(review, "Domain", "Chain ID").value.text())
+        assertEquals(OWNER, rowOf(review, "Message", "from (address)").value.text().lowercase())
+        assertEquals("Hello", rowOf(review, "Message", "contents (string)").value.text())
+        assertEquals("42", rowOf(review, "Message", "amount (uint256)").value.text())
+        assertTrue(review.sections.none { it.heading == "Summary" }, "no summary is guessed for a message that is not a permit")
+        assertTrue(review.warnings.isEmpty())
+    }
+
+    @Test
+    fun aPermitOnAContractTheRegistryLacksShowsTheRawAmountAndWarns() {
+        val review = typedReview(permitJson(token = TYPED_UNKNOWN_TOKEN))
+
+        assertEquals("Unknown token $TYPED_UNKNOWN_TOKEN", rowOf(review, "Summary", "Token").value.text())
+        assertEquals("1000000 (decimals unknown)", rowOf(review, "Summary", "Amount").value.text())
+        val warning = review.warnings.single()
+        assertEquals(Danger.CAUTION, warning.level)
+        assertEquals("This contract is not in Lensly's token registry, so Lensly cannot check its name or decimals.", warning.message)
+        assertEquals("I have checked the chain ID and the contract.", warning.acknowledge)
     }
 
     @Test
