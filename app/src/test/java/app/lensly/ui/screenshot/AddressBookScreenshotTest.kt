@@ -5,8 +5,6 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
@@ -15,7 +13,6 @@ import app.lensly.app.addressKeyOf
 import app.lensly.ui.settings.AddressBookField
 import app.lensly.ui.settings.AddressBookFormScreen
 import app.lensly.ui.settings.AddressBookScreen
-import app.lensly.ui.sign.TxReviewScreen
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,28 +29,24 @@ private val listEntries = listOf(
 )
 
 /** The Address Book entry of the review's recipient, for the To row's Address Name and Address Label. */
-private val recipientEntry = AddressBookEntry("entry-recipient", sampleNativeReview.toAddress, "Exchange deposit", "Coinbase")
+private val recipientEntry = AddressBookEntry("entry-recipient", SAMPLE_TO, "Exchange deposit", "Coinbase")
 
 /** The device account of the review's recipient, for the To row's Internal Account cue. */
 private val recipientAccount = InternalAccount(displayName = "Savings", autoName = "Main wallet 1", label = "Cold storage")
 
-/** The sample native transfer, with the notes of its recipient. Each To row case is one of these. */
-private fun reviewWith(notes: AddressNotes?) = sampleNativeReview.copy(
-    addressNotes = if (notes == null) emptyMap() else mapOf(addressKeyOf(sampleNativeReview.toAddress) to notes),
-)
+/** The notes of the sample review's recipient, keyed by its address, or none when [notes] is null. Each To row case is one of these. */
+private fun notesOfRecipient(notes: AddressNotes?): Map<String, AddressNotes> =
+    if (notes == null) emptyMap() else mapOf(addressKeyOf(SAMPLE_TO) to notes)
 
 /** The frames a scroll gets to settle before the capture, as the sign review screenshots give it. */
 private const val SETTLE_FRAMES = 6
 
 /**
- * Opens the Transaction details, where the To row and its notes are, then scrolls the review until the first row named [label] is on
- * screen. The clock runs while the scroll does, as the sign review screenshots do, then it stops and the frames settle. Without the
- * running clock the scroll never completes.
+ * Scrolls the review until the first row named [label] is on screen. The clock runs while the scroll does, as the sign review
+ * screenshots do, then it stops and the frames settle. Without the running clock the scroll never completes.
  */
 private fun scrollReviewTo(label: String): ComposeContentTestRule.() -> Unit = {
     mainClock.autoAdvance = true
-    onNodeWithText("Transaction").performScrollTo().performClick()
-    waitForIdle()
     onAllNodesWithText(label, ignoreCase = true).onFirst().performScrollTo()
     waitForIdle()
     mainClock.autoAdvance = false
@@ -134,13 +127,13 @@ class AddressBookScreenshotTest {
 
     @Test
     fun reviewToNoNotes() = compose.snapshot("tx_review_to_none") {
-        TxReviewScreen(review = reviewWith(null), onApprove = {}, onReject = {})
+        EvmReviewScreen(review = sampleNativeReview)
     }
 
-    // The notes sit in the Transaction details, so each capture opens them and scrolls to the last row of its To block first.
+    // The notes sit under the To row, so each capture scrolls to the last row of its To block first.
     @Test
     fun reviewToAddressBookEntry() = compose.snapshot("tx_review_to_book", beforeCapture = scrollReviewTo(recipientEntry.label.orEmpty())) {
-        TxReviewScreen(review = reviewWith(AddressNotes(internal = null, entry = recipientEntry)), onApprove = {}, onReject = {})
+        EvmReviewScreen(review = sampleNativeReview, notes = notesOfRecipient(AddressNotes(internal = null, entry = recipientEntry)))
     }
 
     @Test
@@ -148,15 +141,14 @@ class AddressBookScreenshotTest {
         "tx_review_to_internal",
         beforeCapture = scrollReviewTo("Your account · Savings · ${recipientAccount.label}"),
     ) {
-        TxReviewScreen(review = reviewWith(AddressNotes(internal = recipientAccount, entry = null)), onApprove = {}, onReject = {})
+        EvmReviewScreen(review = sampleNativeReview, notes = notesOfRecipient(AddressNotes(internal = recipientAccount, entry = null)))
     }
 
     @Test
     fun reviewToInternalAccountAndEntry() = compose.snapshot("tx_review_to_both", beforeCapture = scrollReviewTo(recipientEntry.label.orEmpty())) {
-        TxReviewScreen(
-            review = reviewWith(AddressNotes(internal = recipientAccount, entry = recipientEntry)),
-            onApprove = {},
-            onReject = {},
+        EvmReviewScreen(
+            review = sampleNativeReview,
+            notes = notesOfRecipient(AddressNotes(internal = recipientAccount, entry = recipientEntry)),
         )
     }
 }

@@ -13,13 +13,20 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import app.lensly.core.registry.FeeModel
-import app.lensly.core.registry.NetworkEntry
-import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
-import app.lensly.ui.sign.TxReview
-import app.lensly.ui.sign.UNKNOWN_UNIT
-import app.lensly.ui.sign.assumedAmountNote
-import app.lensly.ui.sign.unknownFeeNote
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.Coverage
+import app.airvault.core.model.Danger
+import app.airvault.core.model.DisplayValue
+import app.airvault.core.model.NetworkLabel
+import app.airvault.core.model.Review
+import app.airvault.core.model.ReviewRow
+import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.SummaryPart
+import app.airvault.core.model.Warning
+import app.lensly.app.AddressNotes
+import app.lensly.app.EVM_FAMILY
+import app.lensly.app.SigningAccount
+import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -38,103 +45,149 @@ internal fun sampleUrParts(count: Int): List<String> {
     }
 }
 
-private const val SAMPLE_FROM = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
-private const val SAMPLE_TO = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
+internal const val SAMPLE_FROM = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
+internal const val SAMPLE_TO = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
 
-private val monadTestnet = NetworkEntry(
-    chainId = 10143L,
-    name = "Monad Testnet",
-    nativeSymbol = "MON",
-    feeModel = FeeModel.L1,
-    explorerName = "MonadVision",
-    testnet = true,
-    icon = "chain_monad",
-)
+private val MONAD_CHAIN = ChainId("eip155:10143")
+private val BASE_CHAIN = ChainId("eip155:8453")
+private val UNKNOWN_CHAIN = ChainId("eip155:999999")
+
+/** The account that signs the sample EVM reviews, with the wallet it belongs to. */
+internal val SAMPLE_EVM_SIGNER = SigningAccount(name = "Main account", walletName = "Main wallet", address = SAMPLE_FROM)
+
+private fun sampleCoverage() = Coverage(decoded = emptySet(), excluded = emptyMap())
 
 /** A native transfer on a registry chain, with one warning. The review opens at the top, so APPROVE is still off. */
-internal val sampleNativeReview = TxReview(
-    networkName = "Monad Testnet",
-    chainId = 10143L,
-    fromAccountLabel = "Main account",
-    walletName = "Main wallet",
-    origin = "metamask",
-    fromAddress = SAMPLE_FROM,
-    toAddress = SAMPLE_TO,
-    amount = "0.0100",
-    symbol = "MON",
-    tokenContract = null,
-    function = "Native Transfer",
-    params = emptyList(),
-    fee = listOf(
-        "Gas Limit" to "21000",
-        "Max Fee" to "52.5 gwei",
-        "Priority Fee" to "2 gwei",
-        "Max total" to "0.0011 MON",
+internal val sampleNativeReview = Review(
+    title = "Native Transfer",
+    chain = MONAD_CHAIN,
+    network = NetworkLabel(name = "Monad Testnet", testnet = true, detail = "Chain ID 10143"),
+    summary = listOf(
+        SummaryPart.Text("Sends "),
+        SummaryPart.Mono("0.0100 MON"),
+        SummaryPart.Text(" to "),
+        SummaryPart.Counterparty(SAMPLE_TO),
+        SummaryPart.Text("."),
     ),
-    feeNote = "Fee is paid in MON from the sender's balance.",
-    warnings = listOf("This address has never received a transaction on this network."),
-    nonce = 42L,
-    txType = "EIP-1559 (type 2)",
-    network = monadTestnet,
+    facts = listOf(
+        ReviewRow("Gas Limit", DisplayValue.Number(BigInteger.valueOf(21_000)), null),
+        ReviewRow("Max Fee per Gas", DisplayValue.Text("52.5 gwei"), null),
+        ReviewRow("Max Priority Fee", DisplayValue.Text("2 gwei"), null),
+        ReviewRow("Max Fee", DisplayValue.Text("0.0011 MON"), null),
+    ),
+    sections = listOf(
+        ReviewSection(
+            "Transaction",
+            listOf(
+                ReviewRow("From", DisplayValue.Address(MONAD_CHAIN, SAMPLE_FROM), null),
+                ReviewRow("To", DisplayValue.Address(MONAD_CHAIN, SAMPLE_TO), null),
+                ReviewRow("Amount", DisplayValue.Text("0.0100 MON"), null),
+                ReviewRow("Transaction Type", DisplayValue.Text("EIP-1559"), null),
+                ReviewRow("Nonce", DisplayValue.Number(BigInteger.valueOf(42)), null),
+            ),
+        ),
+    ),
+    warnings = listOf(
+        Warning(Danger.CAUTION, "evm.first-receipt", "This address has never received a transaction on this network."),
+    ),
+    coverage = sampleCoverage(),
 )
 
 /** A native transfer on a chain outside the registry. The registry block and the unchecked check both show. */
-internal val sampleUnknownChainReview = TxReview(
-    networkName = unknownNetworkName(999_999L),
-    chainId = 999_999L,
-    fromAccountLabel = "ACCOUNT 1",
-    walletName = "Main wallet",
-    origin = "metamask",
-    fromAddress = SAMPLE_FROM,
-    toAddress = SAMPLE_TO,
-    amount = "1000000000000000000",
-    symbol = UNKNOWN_UNIT,
-    tokenContract = null,
-    function = "Native Transfer",
-    params = emptyList(),
-    fee = listOf(
-        "Gas Limit" to "21000",
-        "Max Fee per Gas" to "30 gwei",
-        "Max Priority Fee" to "1.5 gwei",
-        "Max Fee" to "630000000000000 base units",
+internal val sampleUnknownChainReview = Review(
+    title = "Native Transfer",
+    chain = UNKNOWN_CHAIN,
+    network = NetworkLabel(name = unknownNetworkName(999_999L), testnet = false, detail = null),
+    summary = listOf(
+        SummaryPart.Text("Sends "),
+        SummaryPart.Mono("1000000000000000000 base units"),
+        SummaryPart.Text(" to "),
+        SummaryPart.Counterparty(SAMPLE_TO),
+        SummaryPart.Text("."),
     ),
-    feeNote = unknownFeeNote(BigInteger.valueOf(630_000_000_000_000L)),
-    warnings = emptyList(),
-    nonce = 42L,
-    txType = "EIP-1559",
-    network = null,
-    amountNote = assumedAmountNote(BigInteger.TEN.pow(18)),
+    facts = listOf(
+        ReviewRow("Gas Limit", DisplayValue.Number(BigInteger.valueOf(21_000)), null),
+        ReviewRow("Max Fee per Gas", DisplayValue.Text("30 gwei"), null),
+        ReviewRow("Max Priority Fee", DisplayValue.Text("1.5 gwei"), null),
+        ReviewRow("Max Fee", DisplayValue.Text("630000000000000 base units"), null),
+        ReviewRow(
+            "Fee Note",
+            DisplayValue.Text(
+                "≈ 0.00063 if 18 decimals (assumption, not verified). The fee model is unknown, so the total may be higher.",
+            ),
+            null,
+        ),
+    ),
+    sections = listOf(
+        ReviewSection(
+            "Transaction",
+            listOf(
+                ReviewRow("From", DisplayValue.Address(UNKNOWN_CHAIN, SAMPLE_FROM), null),
+                ReviewRow("To", DisplayValue.Address(UNKNOWN_CHAIN, SAMPLE_TO), null),
+                ReviewRow("Amount", DisplayValue.Text("1000000000000000000 base units"), null),
+                ReviewRow("Amount Note", DisplayValue.Text("≈ 1.0 if 18 decimals (assumption, not verified)"), null),
+                ReviewRow("Transaction Type", DisplayValue.Text("EIP-1559"), null),
+                ReviewRow("Nonce", DisplayValue.Number(BigInteger.valueOf(42)), null),
+            ),
+        ),
+    ),
+    warnings = listOf(
+        Warning(
+            Danger.CAUTION,
+            "evm.registry",
+            "This network is not in Lensly's registry, so Lensly cannot check its coin or decimals.",
+            acknowledge = "I have checked the chain ID and the contract.",
+        ),
+    ),
+    coverage = sampleCoverage(),
 )
 
 /** A personal message. It has no recipient, amount, nonce or fee, so the review shows the message text. */
-internal val sampleMessageReview = TxReview(
-    networkName = "Base",
-    chainId = 8453L,
-    fromAccountLabel = "Main account",
-    walletName = "Main wallet",
-    origin = "metamask",
-    fromAddress = SAMPLE_FROM,
-    toAddress = SAMPLE_FROM,
-    amount = "",
-    symbol = "",
-    tokenContract = null,
-    function = SIGN_MESSAGE_FUNCTION,
-    params = listOf("message" to "Sign in to Lensly on 11 Nov 2026"),
-    fee = emptyList(),
-    feeNote = null,
-    warnings = emptyList(),
-    nonce = 0L,
-    txType = "Personal Message",
-    network = NetworkEntry(
-        chainId = 8453L,
-        name = "Base",
-        nativeSymbol = "ETH",
-        feeModel = FeeModel.L2_ROLLUP,
-        explorerName = "Basescan",
-        testnet = false,
-        icon = "chain_base",
+internal val sampleMessageReview = Review(
+    title = "Sign Message",
+    chain = BASE_CHAIN,
+    network = NetworkLabel(name = "Base", testnet = false, detail = "Chain ID 8453"),
+    summary = listOf(SummaryPart.Text("Signs a message with this account.")),
+    facts = emptyList(),
+    sections = listOf(
+        ReviewSection(
+            "Request",
+            listOf(
+                ReviewRow("From", DisplayValue.Address(BASE_CHAIN, SAMPLE_FROM), null),
+                ReviewRow("Type", DisplayValue.Text("Personal Message"), null),
+            ),
+        ),
+        ReviewSection(
+            "Message",
+            listOf(
+                ReviewRow("Message", DisplayValue.Message("Sign in to Lensly on 11 Nov 2026"), null),
+                ReviewRow("Size", DisplayValue.Text("32 characters, 32 bytes"), null),
+            ),
+        ),
     ),
+    warnings = listOf(
+        Warning(
+            Danger.CAUTION,
+            "evm.personal-message",
+            "The signature proves you hold this account to whoever checks it, and a site can use it to act for you. " +
+                "Sign only a message from a site you trust.",
+        ),
+    ),
+    coverage = sampleCoverage(),
 )
+
+/** The EVM review of [review] as the sign route draws it: the sample signer, and the Address Book names in [notes]. */
+@Composable
+internal fun EvmReviewScreen(review: Review, notes: Map<String, AddressNotes> = emptyMap()) {
+    ReviewScreen(
+        review = review,
+        signer = SAMPLE_EVM_SIGNER,
+        addressNotes = notes,
+        addressChain = EVM_FAMILY,
+        onApprove = {},
+        onReject = {},
+    )
+}
 
 private const val SETTLED_TAG = "lensly-settled-screen"
 private const val SETTLED_DENSITY = 1.75f

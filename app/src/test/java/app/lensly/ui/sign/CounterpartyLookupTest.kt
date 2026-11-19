@@ -1,5 +1,13 @@
 package app.lensly.ui.sign
 
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.Coverage
+import app.airvault.core.model.DisplayValue
+import app.airvault.core.model.NetworkLabel
+import app.airvault.core.model.Review
+import app.airvault.core.model.ReviewRow
+import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.SummaryPart
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.BITCOIN_FAMILY
@@ -9,7 +17,7 @@ import app.lensly.app.addressNotesOf
 import app.lensly.app.addressesIn
 import app.lensly.app.isAddressValue
 import app.lensly.app.notesOf
-import app.lensly.core.registry.FeeModel
+import app.lensly.app.sign.evmCounterparties
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -27,39 +35,51 @@ class CounterpartyLookupTest {
 
     private fun entry(address: String, name: String) = AddressBookEntry(id = name, address = address, name = name, label = null)
 
-    private fun evmReview(): TxReview = TxReview(
-        networkName = "Monad testnet",
-        chainId = 10143L,
-        fromAccountLabel = "OfPixelBlaze",
-        fromAddress = fromAddress,
-        toAddress = recipient,
-        amount = "0.01",
-        symbol = "MON",
-        tokenContract = null,
-        function = "transfer",
-        params = listOf("spender" to spender),
-        fee = emptyList(),
-        feeNote = null,
-        warnings = emptyList(),
-        nonce = 0L,
-        txType = "EIP-1559",
-    )
+    /** A transfer of 0.01 MON to [recipient], whose arguments name [spender], as the review builder lays it out. */
+    private fun evmReview(): Review {
+        val chain = ChainId("eip155:10143")
+        return Review(
+            title = "transfer",
+            chain = chain,
+            network = NetworkLabel("Monad testnet", testnet = true, detail = "Chain ID 10143"),
+            summary = listOf(
+                SummaryPart.Text("Sends "),
+                SummaryPart.Mono("0.01 MON"),
+                SummaryPart.Text(" to "),
+                SummaryPart.Counterparty(recipient),
+                SummaryPart.Text("."),
+            ),
+            facts = emptyList(),
+            sections = listOf(
+                ReviewSection(
+                    "Transaction",
+                    listOf(
+                        ReviewRow("From", DisplayValue.Address(chain, fromAddress), null),
+                        ReviewRow("To", DisplayValue.Address(chain, recipient), null),
+                    ),
+                ),
+                ReviewSection("Arguments", listOf(ReviewRow("spender", DisplayValue.Address(chain, spender), null))),
+            ),
+            warnings = emptyList(),
+            coverage = Coverage(decoded = emptySet(), excluded = emptyMap()),
+        )
+    }
 
     @Test
     fun evmCounterpartiesHoldEveryAddressTheReviewNames() {
-        val counterparties = evmReview().counterparties
+        val counterparties = evmCounterparties(evmReview())
         assertTrue(counterparties.containsAll(listOf(fromAddress, recipient, spender)))
     }
 
     @Test
     fun evmSavedRecipientIsAHitWhateverItsLetterCase() {
-        val notes = addressNotesOf(evmReview().counterparties, EVM_FAMILY, emptyMap(), listOf(entry(recipient.lowercase(), "Alice")))
+        val notes = addressNotesOf(evmCounterparties(evmReview()), EVM_FAMILY, emptyMap(), listOf(entry(recipient.lowercase(), "Alice")))
         assertEquals("Alice", notes.notesOf(recipient)?.entry?.name)
     }
 
     @Test
     fun evmUnsavedSpenderIsAMiss() {
-        val notes = addressNotesOf(evmReview().counterparties, EVM_FAMILY, emptyMap(), listOf(entry(recipient, "Alice")))
+        val notes = addressNotesOf(evmCounterparties(evmReview()), EVM_FAMILY, emptyMap(), listOf(entry(recipient, "Alice")))
         assertNull(notes.notesOf(spender)?.entry)
         assertNull(notes.notesOf(spender))
     }

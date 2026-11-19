@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -18,30 +19,31 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.airvault.chains.evm.signer.AccessListEntry
+import app.airvault.chains.evm.signer.UndecodedCall
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.Coverage
+import app.airvault.core.model.Danger
+import app.airvault.core.model.DisplayValue
+import app.airvault.core.model.NetworkLabel
+import app.airvault.core.model.Review
+import app.airvault.core.model.ReviewRow
+import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.SummaryPart
+import app.airvault.core.model.Warning
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
+import app.lensly.app.EVM_FAMILY
 import app.lensly.app.InternalAccount
-import app.lensly.app.ProfileColour
-import app.lensly.app.ProfileIcon
-import app.lensly.app.VisualIdentity
+import app.lensly.app.SigningAccount
 import app.lensly.app.addressKeyOf
-import app.airvault.chains.evm.signer.UndecodedCall
-import app.lensly.app.sign.WhitelistedCall
-import app.lensly.core.registry.DenylistCondition
-import app.lensly.core.registry.DenylistEntry
-import app.lensly.core.registry.DenylistSeverity
-import app.lensly.core.registry.FeeModel
-import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme
+import java.math.BigInteger
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -55,226 +57,334 @@ import org.robolectric.annotation.GraphicsMode
 private const val FROM = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
 private const val TO = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
 private const val LONG_WALLET = "A wallet with a deliberately long name that must not be cut short"
+private const val LONG_ACCOUNT = "ACCOUNT WITH A LONG DISPLAY NAME 12"
 private const val LONG_ORIGIN = "dapp.example.invalid/a/very/long/origin/path/that/keeps/going/and/going/on"
-private const val UNLIMITED = "Unlimited approval: this contract can spend all your USDC"
 private const val BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 private const val MAX_UINT256_DECIMAL = "115792089237316195423570985008687907853269984665640564039457584007913129639935"
 private const val IMPLEMENTATION = "0x7777777777777777777777777777777777777777"
 private const val APPROVED_MEANING = "Swap an exact amount along the route in the call"
-private const val UPGRADE_WARNING = "The implementation could have been upgraded since it was approved, and Lensly cannot check " +
-    "it offline. The implementation it was approved with is in the details."
+private const val SWAP_ARGUMENT_TO = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
 
-/** Three calldata words of a whitelisted swap: two uint words, and the recipient word. */
-private val SWAP_WORDS = listOf(
-    "0".repeat(63) + "1",
-    "0".repeat(63) + "a",
-    "0".repeat(24) + "f278cf59f82edcf871d630f28ecc8056f25c1cdb",
+/** The warning the builder gives a whitelisted proxy under Warn and confirm. */
+private const val UPGRADE_WARNING = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is still the " +
+    "version the signed list approves."
+private const val UNLIMITED_TEXT = "Unlimited approval: this contract can spend all your USDC"
+private const val UNKNOWN_CALL_TEXT = "Unknown contract call. Lensly does not read this call, so it cannot say what it does. " +
+    "Check the contract and the calldata before you sign."
+private const val DENYLIST_REASON = "Unlimited approval: the spender can take every token."
+private const val NEW_RECIPIENT = "This address has never received a transaction on this network."
+private const val UNKNOWN_DECIMALS_NOTE = "Decimals unknown: raw integer amount, not verified"
+private const val TOKEN_REGISTRY_TEXT = "This contract is not in Lensly's token registry, so Lensly cannot check its name or decimals."
+private const val PERSONAL_MESSAGE_TEXT = "The signature proves you hold this account to whoever checks it, and a site can use it " +
+    "to act for you. Sign only a message from a site you trust."
+
+/** The checks the builder asks the owner to tick, by the label each one shows. */
+private const val CHECK_REGISTRY = "I have checked the chain ID and the contract."
+private const val CHECK_UNLIMITED = "I understand this approval is unlimited."
+private const val CHECK_UNKNOWN_CALL = "I understand Lensly cannot say what this call does."
+private const val CHECK_WHITELIST = "I have read what this call is approved to do."
+private const val CHECK_UPGRADE = "I accept that this proxy's code cannot be checked offline."
+private const val CHECK_DENYLIST = "I understand this request matches a known-dangerous request."
+
+private val BASE_CHAIN = ChainId("eip155:8453")
+private val BASE_NETWORK = NetworkLabel(name = "Base", testnet = false, detail = "Chain ID 8453")
+private val PLAIN_SIGNER = SigningAccount(name = "MAIN ACCOUNT", walletName = "Main wallet", address = FROM)
+private val LONG_SIGNER = SigningAccount(name = LONG_ACCOUNT, walletName = LONG_WALLET, address = FROM)
+
+/** A message that is long, wraps over several lines, and has a size. */
+private val LONG_MESSAGE = "Sign in to Lensly. " + "This message is long and keeps going so that it wraps over many lines. ".repeat(12)
+
+private val unlimitedWarning = Warning(Danger.DANGER, "evm.unlimited-approval", UNLIMITED_TEXT, acknowledge = CHECK_UNLIMITED)
+private val unknownCallWarning = Warning(Danger.DANGER, "evm.unknown-call", UNKNOWN_CALL_TEXT, acknowledge = CHECK_UNKNOWN_CALL)
+private val newRecipientWarning = Warning(Danger.CAUTION, "evm.first-receipt", NEW_RECIPIENT)
+
+private fun coverage() = Coverage(decoded = emptySet(), excluded = emptyMap())
+
+/** The Gas Limit and the Max Fee of a Base transaction, which every sample below shows under its sentence. */
+private fun baseFacts() = listOf(
+    ReviewRow("Gas Limit", DisplayValue.Number(BigInteger.valueOf(46_000)), null),
+    ReviewRow("Max Fee", DisplayValue.Text("0.0001 ETH"), null),
 )
 
-/** A call Lensly cannot decode that the whitelist approves: the approved meaning, the whole call, and the proxy if it has one. */
-private fun whitelistedReview(proxy: ProxyBinding? = null) = approvalReview(origin = null).copy(
-    function = "swapExactTokensForTokens",
-    toAddress = BASE_USDC,
-    amount = "",
-    symbol = "",
-    tokenContract = null,
-    token = null,
-    params = listOf(
-        "amountIn (uint256)" to "1",
-        "amountOutMin (uint256)" to "10",
-        "to (address)" to "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+/** A native transfer of a known coin on Base, with the warnings given. It is short, so it fits on screen unless a warning is long. */
+private fun plainTransfer(warnings: List<Warning> = emptyList()) = Review(
+    title = "Native Transfer",
+    chain = BASE_CHAIN,
+    network = BASE_NETWORK,
+    summary = listOf(
+        SummaryPart.Text("Sends "),
+        SummaryPart.Mono("0.01 ETH"),
+        SummaryPart.Text(" to "),
+        SummaryPart.Counterparty(TO),
+        SummaryPart.Text("."),
     ),
-    signature = null,
-    warnings = emptyList(),
-    whitelisted = WhitelistedCall(
-        signature = "swapExactTokensForTokens(uint256,uint256,address)",
-        meaning = APPROVED_MEANING,
-        call = UndecodedCall(
-            target = BASE_USDC,
-            networkName = BASE.name,
-            chainId = BASE.chainId,
-            value = "0 ETH",
-            selector = "6e17e9f6",
-            words = SWAP_WORDS,
-            proxy = proxy,
+    facts = listOf(
+        ReviewRow("Gas Limit", DisplayValue.Number(BigInteger.valueOf(21_000)), null),
+        ReviewRow("Max Fee", DisplayValue.Text("0.00063 ETH"), null),
+    ),
+    sections = listOf(
+        ReviewSection(
+            "Transaction",
+            listOf(
+                ReviewRow("From", DisplayValue.Address(BASE_CHAIN, FROM), null),
+                ReviewRow("To", DisplayValue.Address(BASE_CHAIN, TO), null),
+                ReviewRow("Amount", DisplayValue.Text("0.01 ETH"), null),
+                ReviewRow("Transaction Type", DisplayValue.Text("EIP-1559"), null),
+                ReviewRow("Nonce", DisplayValue.Number(BigInteger.valueOf(42)), null),
+            ),
         ),
     ),
+    warnings = warnings,
+    coverage = coverage(),
 )
-
-private const val DENYLIST_REASON = "Unlimited approval: the spender can take every token."
 
 /**
- * A multicall with its calls listed level by level: an approval, and a Multicall3 batch whose whitelisted sweep sits one level down
- * and names its contract.
+ * An unlimited approval of a token outside the registry, with the origin given, so the header and the rows carry as long a value
+ * as a request can.
  */
-private fun multicallReview() = approvalReview(origin = null).copy(
-    function = "multicall",
-    signature = "multicall(uint256,bytes[])",
-    toAddress = TO,
-    amount = "",
-    symbol = "",
-    tokenContract = null,
-    token = null,
-    params = listOf("deadline (uint256)" to "1700000000"),
-    warnings = emptyList(),
-    nested = listOf(
-        NestedCall(
-            depth = 1,
-            target = null,
-            function = "approve",
-            params = listOf("spender" to TO, "value" to "10"),
-            warnings = listOf(UNLIMITED),
-            note = UNKNOWN_DECIMALS_NOTE,
-            unregistered = true,
-            denylisted = listOf(
-                DenylistEntry(
-                    chainId = BASE.chainId,
-                    selector = "0x095ea7b3",
-                    condition = DenylistCondition.UNLIMITED,
-                    severity = DenylistSeverity.WARN,
-                    reason = DENYLIST_REASON,
-                ),
-            ),
+private fun approvalReview(origin: String? = LONG_ORIGIN) = Review(
+    title = "approve",
+    chain = BASE_CHAIN,
+    network = BASE_NETWORK,
+    summary = listOf(
+        SummaryPart.Text("Approves "),
+        SummaryPart.Counterparty(TO),
+        SummaryPart.Text(" to spend "),
+        SummaryPart.Text("an unlimited amount"),
+        SummaryPart.Text("."),
+    ),
+    facts = baseFacts(),
+    sections = listOf(
+        ReviewSection(
+            "Transaction",
+            buildList {
+                add(ReviewRow("From", DisplayValue.Address(BASE_CHAIN, FROM), null))
+                origin?.let { add(ReviewRow("Origin", DisplayValue.Text(it), null)) }
+                add(ReviewRow("Contract", DisplayValue.Address(BASE_CHAIN, BASE_USDC), null))
+                add(ReviewRow("Function", DisplayValue.Text("approve(address,uint256)"), null))
+                add(ReviewRow("Transaction Type", DisplayValue.Text("EIP-1559"), null))
+                add(ReviewRow("Nonce", DisplayValue.Number(BigInteger.valueOf(42)), null))
+            },
         ),
-        NestedCall(depth = 1, target = null, function = "aggregate3", params = listOf("allowFailure (bool)" to "false")),
-        NestedCall(
-            depth = 2,
-            target = BASE_USDC,
-            function = "sweepToken",
-            params = listOf("token (address)" to BASE_USDC, "amountMinimum (uint256)" to "10"),
-            whitelisted = WhitelistedCall(
-                signature = "sweepToken(address,uint256,address)",
-                meaning = APPROVED_MEANING,
-                call = UndecodedCall(
-                    target = BASE_USDC,
-                    networkName = BASE.name,
-                    chainId = BASE.chainId,
-                    value = "0 ETH",
-                    selector = "df2ab5bb",
-                    words = SWAP_WORDS,
-                    proxy = null,
-                ),
+        ReviewSection(
+            "Arguments",
+            listOf(
+                ReviewRow("spender", DisplayValue.Address(BASE_CHAIN, TO), null),
+                ReviewRow("value", DisplayValue.Text("$MAX_UINT256_DECIMAL base units (unknown token, decimals unknown)"), null),
             ),
         ),
     ),
+    warnings = listOf(
+        unlimitedWarning,
+        Warning(Danger.CAUTION, "evm.registry", TOKEN_REGISTRY_TEXT, acknowledge = CHECK_REGISTRY),
+    ),
+    coverage = coverage(),
 )
 
-private val BASE = NetworkEntry(
-    chainId = 8453L,
-    name = "Base",
-    nativeSymbol = "ETH",
-    feeModel = FeeModel.L2_ROLLUP,
-    explorerName = "Basescan",
-    testnet = false,
-    icon = "chain_base",
-)
-
-/** An unlimited approval of a known token, with a long wallet name and origin, so every header value is long. */
-private fun approvalReview(origin: String? = LONG_ORIGIN) = TxReview(
-    networkName = BASE.name,
-    chainId = BASE.chainId,
-    fromAccountLabel = "ACCOUNT WITH A LONG DISPLAY NAME 12",
-    fromAddress = FROM,
-    toAddress = TO,
-    amount = "115792089237316195423570985008687907853269984665640564039457.584007913129639935",
-    symbol = "USDC",
-    tokenContract = BASE_USDC,
-    function = "approve",
-    params = listOf("spender" to TO, "value" to MAX_UINT256_DECIMAL),
-    fee = listOf("Gas Limit" to "46000", "Max Fee" to "0.0001 ETH"),
-    feeNote = null,
-    warnings = listOf(UNLIMITED),
-    nonce = 42L,
-    txType = "EIP-1559",
-    network = BASE,
-    signature = "approve(address,uint256)",
-    walletName = LONG_WALLET,
-    walletIdentity = VisualIdentity(ProfileColour.TEAL, ProfileIcon.STAR),
-    accountIdentity = VisualIdentity(ProfileColour.PINK, ProfileIcon.HEART),
-    origin = origin,
-)
-
-/** A Permit of the Base USDC token from [FROM] to [TO], with the notes the Address Book and the device's accounts give its addresses. */
-private fun permitReview(notes: Map<String, AddressNotes>) = TxReview(
-    networkName = BASE.name,
-    chainId = BASE.chainId,
-    fromAccountLabel = "MAIN ACCOUNT",
-    fromAddress = FROM,
-    toAddress = "",
-    amount = "",
-    symbol = "",
-    tokenContract = null,
-    function = "Permit",
-    params = emptyList(),
-    fee = emptyList(),
-    feeNote = null,
-    warnings = emptyList(),
-    nonce = 0L,
-    txType = "Typed data (EIP-712)",
-    network = BASE,
-    walletName = "Main wallet",
-    typed = TypedReview(
-        domain = listOf(
-            "Name" to "USD Coin",
-            "Version" to "2",
-            "Chain ID" to "${BASE.chainId} (Base)",
-            "Verifying Contract" to BASE_USDC,
+/** A call Lensly cannot decode that the whitelist approves: its approved meaning, its arguments, and the proxy when it has one. */
+private fun whitelistedReview(proxy: ProxyBinding? = null) = Review(
+    title = "swapExactTokensForTokens",
+    chain = BASE_CHAIN,
+    network = BASE_NETWORK,
+    summary = listOf(
+        SummaryPart.Text("Calls swapExactTokensForTokens on "),
+        SummaryPart.Counterparty(BASE_USDC),
+        SummaryPart.Text(", which the signed list approves."),
+    ),
+    facts = baseFacts(),
+    sections = listOf(
+        ReviewSection(
+            "Transaction",
+            listOf(
+                ReviewRow("From", DisplayValue.Address(BASE_CHAIN, FROM), null),
+                ReviewRow("Contract", DisplayValue.Address(BASE_CHAIN, BASE_USDC), null),
+                ReviewRow("Function", DisplayValue.Text("swapExactTokensForTokens(uint256,uint256,address)"), null),
+                ReviewRow("Transaction Type", DisplayValue.Text("EIP-1559"), null),
+                ReviewRow("Nonce", DisplayValue.Number(BigInteger.valueOf(42)), null),
+            ),
         ),
-        summary = listOf("Owner" to FROM, "Spender" to TO, "Amount" to "100 USDC", "Deadline" to "1 Jan 2030, 00:00 UTC"),
-        fields = listOf(
-            TypedRow(0, "owner", "address", FROM),
-            TypedRow(0, "spender", "address", TO),
-            TypedRow(0, "value", "uint256", "100000000"),
-            TypedRow(0, "nonce", "uint256", "0"),
-            TypedRow(0, "deadline", "uint256", "1893456000"),
+        ReviewSection(
+            "Arguments",
+            buildList {
+                add(ReviewRow("Approved Meaning", DisplayValue.Text(APPROVED_MEANING), null))
+                add(ReviewRow("amountIn (uint256)", DisplayValue.Text("1"), null))
+                add(ReviewRow("amountOutMin (uint256)", DisplayValue.Text("10"), null))
+                add(ReviewRow("to (address)", DisplayValue.Address(BASE_CHAIN, SWAP_ARGUMENT_TO), null))
+                proxy?.implementationAddress?.let { add(ReviewRow("Implementation", DisplayValue.Address(BASE_CHAIN, it), null)) }
+            },
         ),
     ),
-    addressNotes = notes,
+    warnings = buildList {
+        add(
+            Warning(
+                Danger.CAUTION,
+                "evm.whitelisted-call",
+                "Lensly cannot read this call. The signed list approves it: $APPROVED_MEANING",
+                acknowledge = CHECK_WHITELIST,
+            ),
+        )
+        if (proxy != null) {
+            add(Warning(Danger.DANGER, "evm.proxy", UPGRADE_WARNING, acknowledge = CHECK_UPGRADE))
+        }
+    },
+    coverage = coverage(),
 )
 
-/** The warning on a recipient that has never received on its network. It is a plain warning, with no check to tick. */
-private const val NEW_RECIPIENT = "This address has never received a transaction on this network."
-
-/** A native transfer of a known coin with no warning and no check. It is short, so it fits on screen. */
-private fun plainTransfer() = approvalReview(origin = null).copy(
-    fromAccountLabel = "MAIN ACCOUNT",
-    walletName = "Main wallet",
-    amount = "0.01",
-    symbol = "ETH",
-    tokenContract = null,
-    token = null,
-    function = "Native Transfer",
-    params = emptyList(),
-    signature = null,
-    warnings = emptyList(),
-)
-
-/** A personal message that is long, wraps over several lines, and has a size. */
-private val LONG_MESSAGE =
-    "Sign in to Lensly. " + "This message is long and keeps going so that it wraps over many lines. ".repeat(12)
-
-private fun messageReview() = TxReview(
-    networkName = BASE.name,
-    chainId = BASE.chainId,
-    fromAccountLabel = "MAIN ACCOUNT",
-    fromAddress = FROM,
-    toAddress = "",
-    amount = "",
-    symbol = "",
-    tokenContract = null,
-    function = SIGN_MESSAGE_FUNCTION,
-    params = listOf(
-        "message" to LONG_MESSAGE,
-        "size" to "${LONG_MESSAGE.length} characters, ${LONG_MESSAGE.length} bytes",
+/** A multicall: an unlimited approval that matches the denylist, a whitelisted sweep one level down, and the calls between them. */
+private fun multicallReview() = Review(
+    title = "multicall",
+    chain = BASE_CHAIN,
+    network = BASE_NETWORK,
+    summary = listOf(SummaryPart.Text("Runs 3 calls in one transaction.")),
+    facts = baseFacts(),
+    sections = listOf(
+        ReviewSection(
+            "Transaction",
+            listOf(
+                ReviewRow("From", DisplayValue.Address(BASE_CHAIN, FROM), null),
+                ReviewRow("Contract", DisplayValue.Address(BASE_CHAIN, TO), null),
+                ReviewRow("Function", DisplayValue.Text("multicall(uint256,bytes[])"), null),
+                ReviewRow("deadline (uint256)", DisplayValue.Number(BigInteger.valueOf(1_700_000_000L)), null),
+                ReviewRow("Transaction Type", DisplayValue.Text("EIP-1559"), null),
+                ReviewRow("Nonce", DisplayValue.Number(BigInteger.valueOf(42)), null),
+            ),
+        ),
+        ReviewSection(
+            "Calls",
+            listOf(
+                ReviewRow("Call 1", DisplayValue.Text("approve"), null),
+                ReviewRow("spender", DisplayValue.Address(BASE_CHAIN, TO), null, depth = 1),
+                ReviewRow("value", DisplayValue.Text("10"), null, depth = 1),
+                ReviewRow("Amount Note", DisplayValue.Text(UNKNOWN_DECIMALS_NOTE), null, depth = 1),
+                ReviewRow("Call 2", DisplayValue.Text("aggregate3"), null),
+                ReviewRow("allowFailure (bool)", DisplayValue.Text("false"), null, depth = 1),
+                ReviewRow("Call 1", DisplayValue.Text("sweepToken"), null, depth = 1),
+                ReviewRow("Contract", DisplayValue.Address(BASE_CHAIN, BASE_USDC), null, depth = 2),
+                ReviewRow("token (address)", DisplayValue.Address(BASE_CHAIN, BASE_USDC), null, depth = 2),
+                ReviewRow("amountMinimum (uint256)", DisplayValue.Text("10"), null, depth = 2),
+                ReviewRow("Approved Meaning", DisplayValue.Text(APPROVED_MEANING), null, depth = 2),
+            ),
+        ),
     ),
-    fee = emptyList(),
-    feeNote = null,
-    warnings = emptyList(),
-    nonce = 0L,
-    txType = "Personal Message",
-    network = BASE,
-    walletName = "Main wallet",
+    warnings = listOf(
+        unlimitedWarning,
+        Warning(Danger.DANGER, "evm.denylist", DENYLIST_REASON, acknowledge = CHECK_DENYLIST),
+        Warning(Danger.CAUTION, "evm.registry", TOKEN_REGISTRY_TEXT, acknowledge = CHECK_REGISTRY),
+        Warning(
+            Danger.CAUTION,
+            "evm.whitelisted-call",
+            "Lensly cannot read this call. The signed list approves it: $APPROVED_MEANING",
+            acknowledge = CHECK_WHITELIST,
+        ),
+    ),
+    coverage = coverage(),
 )
+
+/** A Permit of the Base USDC token from [FROM] to [TO], as the typed-data review shows it. */
+private fun permitReview() = Review(
+    title = "Permit",
+    chain = BASE_CHAIN,
+    network = BASE_NETWORK,
+    summary = listOf(SummaryPart.Text("Signs typed data of type Permit.")),
+    facts = emptyList(),
+    sections = listOf(
+        ReviewSection(
+            "Request",
+            listOf(
+                ReviewRow("From", DisplayValue.Address(BASE_CHAIN, FROM), null),
+                ReviewRow("Type", DisplayValue.Text("Typed data (EIP-712)"), null),
+            ),
+        ),
+        ReviewSection(
+            "Domain",
+            listOf(
+                ReviewRow("Name", DisplayValue.Text("USD Coin"), null),
+                ReviewRow("Version", DisplayValue.Text("2"), null),
+                ReviewRow("Chain ID", DisplayValue.Text("8453 (Base)"), null),
+                ReviewRow("Verifying Contract", DisplayValue.Address(BASE_CHAIN, BASE_USDC), null),
+            ),
+        ),
+        ReviewSection(
+            "Summary",
+            listOf(
+                ReviewRow("Owner", DisplayValue.Address(BASE_CHAIN, FROM), null),
+                ReviewRow("Spender", DisplayValue.Address(BASE_CHAIN, TO), null),
+                ReviewRow("Amount", DisplayValue.Text("100 USDC"), null),
+                ReviewRow("Deadline", DisplayValue.Text("1 Jan 2030, 00:00 UTC"), null),
+            ),
+        ),
+        ReviewSection(
+            "Message",
+            listOf(
+                ReviewRow("owner (address)", DisplayValue.Address(BASE_CHAIN, FROM), null),
+                ReviewRow("spender (address)", DisplayValue.Address(BASE_CHAIN, TO), null),
+                ReviewRow("value (uint256)", DisplayValue.Text("100000000"), null),
+                ReviewRow("nonce (uint256)", DisplayValue.Text("0"), null),
+                ReviewRow("deadline (uint256)", DisplayValue.Text("1893456000"), null),
+            ),
+        ),
+    ),
+    warnings = emptyList(),
+    coverage = coverage(),
+)
+
+/** A personal message, shown whole with its size. */
+private fun messageReview(message: String = LONG_MESSAGE) = Review(
+    title = "Sign Message",
+    chain = BASE_CHAIN,
+    network = BASE_NETWORK,
+    summary = listOf(SummaryPart.Text("Signs a message with this account.")),
+    facts = emptyList(),
+    sections = listOf(
+        ReviewSection(
+            "Request",
+            listOf(
+                ReviewRow("From", DisplayValue.Address(BASE_CHAIN, FROM), null),
+                ReviewRow("Type", DisplayValue.Text("Personal Message"), null),
+            ),
+        ),
+        ReviewSection(
+            "Message",
+            listOf(
+                ReviewRow("Message", DisplayValue.Message(message), null),
+                ReviewRow("Size", DisplayValue.Text("${message.length} characters, ${message.length} bytes"), null),
+            ),
+        ),
+    ),
+    warnings = listOf(Warning(Danger.CAUTION, "evm.personal-message", PERSONAL_MESSAGE_TEXT)),
+    coverage = coverage(),
+)
+
+/**
+ * Shows [review] as the sign route does: the signer, the Address Book names in [notes], and no icons. A [shortWindow] is too short for
+ * the review, so its details run past the bottom.
+ */
+private fun ComposeContentTestRule.setEvm(
+    review: Review,
+    signer: SigningAccount = PLAIN_SIGNER,
+    notes: Map<String, AddressNotes> = emptyMap(),
+    shortWindow: Boolean = false,
+) {
+    setContent {
+        LumenTheme {
+            val screen: @Composable () -> Unit = {
+                ReviewScreen(
+                    review = review,
+                    signer = signer,
+                    addressNotes = notes,
+                    addressChain = EVM_FAMILY,
+                    onApprove = {},
+                    onReject = {},
+                )
+            }
+            if (shortWindow) {
+                Box(Modifier.size(width = 360.dp, height = 640.dp)) { screen() }
+            } else {
+                screen()
+            }
+        }
+    }
+}
 
 /**
  * Fails when any text on the screen is drawn cut short, by an ellipsis or by a line limit. A line limit drops lines, so the
@@ -301,49 +411,33 @@ private fun ComposeContentTestRule.assertNoTextIsCutShort() {
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 // Native graphics, so text is measured with real font metrics. The legacy mode measures words at a few pixels.
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-class TxReviewScreenTest {
+class EvmReviewScreenTest {
 
     @get:Rule
     val compose = createComposeRule()
 
     @Test
     fun theRequestNamesTheAccountOriginAndNetworkInTheHeaderAndTheWalletInItsDetails() {
-        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setEvm(approvalReview(), signer = LONG_SIGNER)
 
-        compose.onNodeWithText("ACCOUNT WITH A LONG DISPLAY NAME 12").assertExists()
+        compose.onNodeWithText(LONG_ACCOUNT).assertExists()
         compose.onNodeWithText("Base").assertExists()
-        compose.onNodeWithText("Claimed by request (not verified)").assertExists()
+        compose.onNodeWithText("Origin").assertExists()
         compose.onNodeWithText(LONG_ORIGIN).assertExists()
         compose.onNodeWithText(LONG_WALLET).assertExists()
         // The header and the From row both show the signing address, so it is found among the matches.
         assertTrue(compose.onAllNodesWithText(groupAddress(FROM)).fetchSemanticsNodes().isNotEmpty())
     }
 
-    @Test
-    fun aRequestThatNamesNoOriginSaysSoInsteadOfShowingNothing() {
-        compose.setContent {
-            LumenTheme { TxReviewScreen(review = approvalReview(origin = null), onApprove = {}, onReject = {}) }
-        }
-
-        compose.onNodeWithText("Not stated").assertExists()
-    }
-
     /** An unknown call is read, and still waits for its tick: the sign control opens only once both are done. */
     @Test
     fun anUnknownCallSignsOnlyAfterItsTickAndItsRead() {
-        val unknown = plainTransfer().copy(warnings = listOf(UNKNOWN_CALL_WARNING))
-        compose.setContent {
-            LumenTheme {
-                Box(Modifier.size(width = 360.dp, height = 640.dp)) {
-                    TxReviewScreen(review = unknown, onApprove = {}, onReject = {})
-                }
-            }
-        }
+        compose.setEvm(plainTransfer(listOf(unknownCallWarning)), shortWindow = true)
 
         compose.onNodeWithText("Scroll to the end to review everything").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
         // The row is toggled through its click action, so the tick does not depend on the banner being above the bottom action in this window.
-        compose.onNodeWithText("I understand Lensly cannot say what this does.").fetchSemanticsNode()
+        compose.onNodeWithText(CHECK_UNKNOWN_CALL).fetchSemanticsNode()
             .config[SemanticsActions.OnClick].action?.invoke()
         compose.waitForIdle()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
@@ -354,14 +448,7 @@ class TxReviewScreenTest {
 
     @Test
     fun anUnknownCallWithoutItsTickStaysUnsignableOnceReadToTheEnd() {
-        val unknown = plainTransfer().copy(warnings = listOf(UNKNOWN_CALL_WARNING))
-        compose.setContent {
-            LumenTheme {
-                Box(Modifier.size(width = 360.dp, height = 640.dp)) {
-                    TxReviewScreen(review = unknown, onApprove = {}, onReject = {})
-                }
-            }
-        }
+        compose.setEvm(plainTransfer(listOf(unknownCallWarning)), shortWindow = true)
 
         compose.scrollReviewToEnd()
         compose.onNodeWithText("Tick the checkbox above to sign").assertExists()
@@ -369,32 +456,33 @@ class TxReviewScreenTest {
     }
 
     @Test
-    fun theAccessListIsCountedAndEachEntryIsShownInTheDetails() {
-        val warmed = plainTransfer().copy(accessList = listOf(AccessListEntry(TO, listOf("0x" + "22".repeat(32)))))
-        compose.setContent { LumenTheme { TxReviewScreen(review = warmed, onApprove = {}, onReject = {}) } }
+    fun theAccessListIsItsOwnSectionWithEachAddressAndStorageKey() {
+        val warmed = plainTransfer().copy(
+            sections = plainTransfer().sections + ReviewSection(
+                "Access List",
+                listOf(
+                    ReviewRow("Address", DisplayValue.Address(BASE_CHAIN, TO), null),
+                    ReviewRow("Storage Key", DisplayValue.Text("0x" + "22".repeat(32), mono = true), null, depth = 1),
+                ),
+            ),
+        )
+        compose.setEvm(warmed)
 
         compose.onNodeWithText("Access List").assertExists()
-        compose.onNodeWithText("1 address, 1 storage key").assertExists()
-        compose.onNodeWithText("Address 1").assertExists()
-        compose.onNodeWithText("Storage key 1").assertExists()
+        // The label "Address" is shown by more than one row of the review, so the test looks for any of them.
+        assertTrue(compose.onAllNodesWithText("Address").fetchSemanticsNodes().isNotEmpty())
+        compose.onNodeWithText("Storage Key").assertExists()
     }
 
     /** An unlimited approval is read, and still waits for its tick: the sign control opens only once both are done. */
     @Test
     fun anUnlimitedApprovalSignsOnlyAfterItsTickAndItsRead() {
-        val unlimited = plainTransfer().copy(warnings = listOf(unlimitedApprovalWarning("USDC")))
-        compose.setContent {
-            LumenTheme {
-                Box(Modifier.size(width = 360.dp, height = 640.dp)) {
-                    TxReviewScreen(review = unlimited, onApprove = {}, onReject = {})
-                }
-            }
-        }
+        compose.setEvm(plainTransfer(listOf(unlimitedWarning)), shortWindow = true)
 
         compose.onNodeWithText("Scroll to the end to review everything").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
         // The row is toggled through its click action, as the unknown-call test does, so the banner's position does not matter.
-        compose.onNodeWithText("I understand this lets the spender take all of this token.").fetchSemanticsNode()
+        compose.onNodeWithText(CHECK_UNLIMITED).fetchSemanticsNode()
             .config[SemanticsActions.OnClick].action?.invoke()
         compose.waitForIdle()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
@@ -405,8 +493,7 @@ class TxReviewScreenTest {
 
     @Test
     fun anUnlimitedApprovalWithoutItsTickStaysUnsignableOnceReadToTheEnd() {
-        val unlimited = plainTransfer().copy(warnings = listOf(unlimitedApprovalWarning("USDC")))
-        compose.setContent { LumenTheme { TxReviewScreen(review = unlimited, onApprove = {}, onReject = {}) } }
+        compose.setEvm(plainTransfer(listOf(unlimitedWarning)))
 
         compose.scrollReviewToEnd()
         compose.onNodeWithText("Tick the checkbox above to sign").assertExists()
@@ -416,8 +503,7 @@ class TxReviewScreenTest {
     @Test
     fun theHoldControlIsDisabledAndSaysWhyUntilTheReviewIsReadToTheEnd() {
         // A message this long is taller than the screen, so the review has to be scrolled to its end before it can be signed.
-        val tall = messageReview().copy(params = listOf("message" to "Sign in to Lensly. ".repeat(400), "size" to "7600 characters"))
-        compose.setContent { LumenTheme { TxReviewScreen(review = tall, onApprove = {}, onReject = {}) } }
+        compose.setEvm(messageReview("Sign in to Lensly. ".repeat(400)))
 
         compose.onNodeWithText("Scroll to the end to review everything").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
@@ -426,7 +512,7 @@ class TxReviewScreenTest {
     @Test
     fun aShortReviewWithNoWarningCanBeSignedAtOnce() {
         // The review fits on screen, so the fit counts as read and nothing else is owed.
-        compose.setContent { LumenTheme { TxReviewScreen(review = plainTransfer(), onApprove = {}, onReject = {}) } }
+        compose.setEvm(plainTransfer())
 
         compose.onNodeWithText("Scroll to the end to review everything").assertDoesNotExist()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
@@ -434,29 +520,27 @@ class TxReviewScreenTest {
 
     @Test
     fun everyDetailIsShownOnFirstRenderWithoutOpeningAnySection() {
-        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setEvm(approvalReview())
 
         compose.onNodeWithText("Transaction").assertExists()
-        compose.onNodeWithText("Chain ID").assertExists()
         compose.onNodeWithText("Nonce").assertExists()
+        compose.onNodeWithText("Chain ID 8453").assertExists()
     }
 
     @Test
     fun theHeaderNamesTheNetworkAndTheSigningAccountWithItsWallet() {
-        val review = plainTransfer()
-        compose.setContent { LumenTheme { TxReviewScreen(review = review, onApprove = {}, onReject = {}) } }
+        compose.setEvm(plainTransfer())
 
-        assertTrue(compose.onAllNodesWithText(review.networkName).fetchSemanticsNodes().isNotEmpty())
-        compose.onNodeWithText(review.fromAccountLabel).assertExists()
+        assertTrue(compose.onAllNodesWithText("Base").fetchSemanticsNodes().isNotEmpty())
+        compose.onNodeWithText("MAIN ACCOUNT").assertExists()
         compose.onNodeWithText("Main wallet").assertExists()
     }
 
     @Test
     fun aCounterpartyInTheAddressBookShowsItsEntryAndOneNotInItSaysSo() {
-        val saved = plainTransfer().copy(
-            addressNotes = mapOf(addressKeyOf(TO) to AddressNotes(internal = null, entry = AddressBookEntry("1", TO, "Alice", "Exchange"))),
-        )
-        compose.setContent { LumenTheme { TxReviewScreen(review = saved, onApprove = {}, onReject = {}) } }
+        val notes = mapOf(addressKeyOf(TO) to AddressNotes(internal = null, entry = AddressBookEntry("1", TO, "Alice", "Exchange")))
+        compose.setEvm(plainTransfer(), notes = notes)
+
         compose.onNodeWithText("Alice").assertExists()
         compose.onNodeWithText("Address Label").assertExists()
         // The sender is not saved, so its row says so, while the saved recipient shows no such line.
@@ -465,18 +549,15 @@ class TxReviewScreenTest {
 
     @Test
     fun aCounterpartyNotInTheAddressBookIsSaidSoAsPlainText() {
-        compose.setContent { LumenTheme { TxReviewScreen(review = plainTransfer(), onApprove = {}, onReject = {}) } }
-        compose.onAllNodesWithText("Not in address book").fetchSemanticsNodes().let { assertTrue(it.isNotEmpty()) }
+        compose.setEvm(plainTransfer())
+
+        assertTrue(compose.onAllNodesWithText("Not in address book").fetchSemanticsNodes().isNotEmpty())
     }
 
     @Test
     fun aShortReviewWithAWarningShowsItsDetailsAndCanBeSignedOnceItFits() {
         // The review fits on screen. The warning has no check to tick, so the fit is the whole read.
-        compose.setContent {
-            LumenTheme {
-                TxReviewScreen(review = plainTransfer().copy(warnings = listOf(NEW_RECIPIENT)), onApprove = {}, onReject = {})
-            }
-        }
+        compose.setEvm(plainTransfer(listOf(newRecipientWarning)))
 
         compose.onNodeWithText(NEW_RECIPIENT).assertExists()
         compose.onNodeWithText("Transaction").assertExists()
@@ -486,13 +567,7 @@ class TxReviewScreenTest {
     @Test
     fun aReviewWithAWarningSignsOnceItsListIsScrolledToTheEnd() {
         // In a window this short the details run past the bottom, so the review must be scrolled to its end.
-        compose.setContent {
-            LumenTheme {
-                Box(Modifier.size(width = 360.dp, height = 640.dp)) {
-                    TxReviewScreen(review = plainTransfer().copy(warnings = listOf(NEW_RECIPIENT)), onApprove = {}, onReject = {})
-                }
-            }
-        }
+        compose.setEvm(plainTransfer(listOf(newRecipientWarning)), shortWindow = true)
 
         compose.onNodeWithText("Scroll to the end to review everything").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
@@ -506,7 +581,7 @@ class TxReviewScreenTest {
     fun aWarningReviewStillOwesItsChecksOnceRead() {
         // An approval of an unregistered token owes two checks, the registry and the unlimited tick. Reading the review to its end
         // does not tick either, so both stay owed.
-        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setEvm(approvalReview())
 
         compose.scrollReviewToEnd()
         compose.onNodeWithText("Tick the checkboxes above to sign").assertExists()
@@ -514,60 +589,34 @@ class TxReviewScreenTest {
     }
 
     @Test
-    fun aWhitelistedCallOpensWithItsApprovedMeaningAndShowsEveryFactAndWord() {
-        compose.setContent { LumenTheme { TxReviewScreen(review = whitelistedReview(), onApprove = {}, onReject = {}) } }
+    fun aWhitelistedCallOpensWithItsApprovedMeaningItsArgumentsAndItsCheck() {
+        compose.setEvm(whitelistedReview())
 
         compose.onNodeWithText(APPROVED_MEANING).assertExists()
-        compose.onNodeWithText(
-            "Lensly cannot decode this call itself. It is on your signed whitelist with the meaning above. " +
-                "Sign only if this is what you intend.",
-        ).assertExists()
-        compose.onNodeWithText("Transaction").performScrollTo().performClick()
+        compose.onNodeWithText("Lensly cannot read this call. The signed list approves it: $APPROVED_MEANING").assertExists()
         compose.onNodeWithText("swapExactTokensForTokens(uint256,uint256,address)").assertExists()
         compose.onNodeWithText(groupAddress(BASE_USDC)).assertExists()
-        compose.onNodeWithText("Parameters").performScrollTo().performClick()
         compose.onNodeWithText("amountIn (uint256)").assertExists()
         compose.onNodeWithText("10").assertExists()
-        // The raw words live in the folded section, so they are shown only when it opens.
-        compose.onNodeWithText("Raw Data").performScrollTo().performClick()
-        compose.onNodeWithText("0x6e17e9f6").assertExists()
-        compose.onNodeWithText("0 ETH").assertExists()
-        SWAP_WORDS.forEachIndexed { index, word ->
-            compose.onNodeWithText("Word ${index + 1}").assertExists()
-            compose.onNodeWithText("0x" + groupHex(word)).assertExists()
-        }
-        compose.onNodeWithText("I checked this is what I intend").assertExists()
+        compose.onNodeWithText(CHECK_WHITELIST).assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
     }
 
     @Test
-    fun aWhitelistedCallShowsAToRowNamedFromTheAddressBookAndItsKnownContract() {
-        val base = whitelistedReview()
-        val review = base.copy(
-            whitelisted = base.whitelisted?.copy(meaning = "Aave V3: deposit an asset"),
-            addressNotes = mapOf(
-                addressKeyOf(BASE_USDC) to AddressNotes(internal = null, entry = AddressBookEntry("2", BASE_USDC, "Base lending pool", null)),
-            ),
-        )
-        compose.setContent { LumenTheme { TxReviewScreen(review = review, onApprove = {}, onReject = {}) } }
+    fun aWhitelistedCallShowsItsContractByTheNameFromTheAddressBook() {
+        val notes = mapOf(addressKeyOf(BASE_USDC) to AddressNotes(internal = null, entry = AddressBookEntry("2", BASE_USDC, "Base lending pool", null)))
+        compose.setEvm(whitelistedReview(), notes = notes)
 
-        compose.onNodeWithText("Transaction").performScrollTo().performClick()
-        compose.onNodeWithText("To").assertExists()
         compose.onNodeWithText("Base lending pool").assertExists()
-        compose.onNodeWithText("Known Contract").assertExists()
-        compose.onNodeWithText("Aave V3").assertExists()
-        // The To row names the contract, so the approved-call block does not repeat it under a Contract label.
-        compose.onAllNodesWithText("Contract").assertCountEquals(0)
+        compose.onNodeWithText("Contract").assertExists()
     }
 
     @Test
     fun aPermitSummaryNamesItsSpenderFromTheAddressBook() {
         val spender = AddressNotes(internal = null, entry = AddressBookEntry("1", TO, "Uniswap Router", null))
-        compose.setContent {
-            LumenTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
-        }
+        compose.setEvm(permitReview(), notes = mapOf(addressKeyOf(TO) to spender))
 
-        // The summary names the spender, and the Fields section names it again above its address.
+        // The Summary and the Message sections each name the spender.
         compose.onAllNodesWithText("Uniswap Router").assertCountEquals(2)
     }
 
@@ -577,14 +626,11 @@ class TxReviewScreenTest {
             internal = InternalAccount(displayName = null, autoName = "Savings 0", label = null, walletName = "Savings"),
             entry = null,
         )
-        compose.setContent {
-            LumenTheme { TxReviewScreen(review = permitReview(mapOf(addressKeyOf(TO) to spender)), onApprove = {}, onReject = {}) }
-        }
+        compose.setEvm(permitReview(), notes = mapOf(addressKeyOf(TO) to spender))
 
-        // The summary names the account, and the Fields section shows it as the bold line of its address, with its wallet under it.
-        compose.onAllNodesWithText("Savings 0").assertCountEquals(1)
-        compose.onAllNodesWithText("Your account · Savings 0").assertCountEquals(1)
-        compose.onAllNodesWithText("Savings").assertCountEquals(1)
+        // The Summary and the Message sections each show the account as the bold line of its address, with its wallet under it.
+        compose.onAllNodesWithText("Your account · Savings 0").assertCountEquals(2)
+        compose.onAllNodesWithText("Savings").assertCountEquals(2)
     }
 
     @Test
@@ -599,59 +645,48 @@ class TxReviewScreenTest {
 
     @Test
     fun aMulticallListsEachCallLevelByLevelWithItsTargetFunctionAndArguments() {
-        compose.setContent { LumenTheme { TxReviewScreen(review = multicallReview(), onApprove = {}, onReject = {}) } }
+        compose.setEvm(multicallReview())
 
         // A call outside the registry earns the same warnings a lone call does, and each sits in the banner with its check.
-        compose.onNodeWithText("approve: $UNLIMITED").assertExists()
-        compose.onNodeWithText("approve: outside Lensly's registry. Check its chain ID and contract.").assertExists()
-        // A call that matches the denylist shows its reason and needs the risky-request check.
-        compose.onNodeWithText("approve: known risky request. $DENYLIST_REASON").assertExists()
-        compose.onNodeWithText("I understand this is a risky request").assertExists()
-        compose.onNodeWithText("Calls").performScrollTo().performClick()
+        compose.onNodeWithText(UNLIMITED_TEXT).assertExists()
+        compose.onNodeWithText(DENYLIST_REASON).assertExists()
+        compose.onNodeWithText(CHECK_DENYLIST).assertExists()
+        compose.onNodeWithText(CHECK_REGISTRY).assertExists()
         compose.onNodeWithText("approve").assertExists()
         compose.onNodeWithText(UNKNOWN_DECIMALS_NOTE).assertExists()
         compose.onNodeWithText("aggregate3").assertExists()
         compose.onNodeWithText("allowFailure (bool)").assertExists()
         compose.onNodeWithText("sweepToken").assertExists()
-        compose.onNodeWithText("Target").assertExists()
         // The sweep's target and its token argument are the same contract, so it shows under each.
         compose.onAllNodesWithText(groupAddress(BASE_USDC)).assertCountEquals(2)
         compose.onNodeWithText("token (address)").assertExists()
         compose.onNodeWithText("amountMinimum (uint256)").assertExists()
         // The whitelisted call inside the batch carries its warning in the banner, and the owner must tick its check.
-        compose.onNodeWithText(
-            "sweepToken: Lensly cannot decode this call itself. It is on your signed whitelist with the meaning above. " +
-                "Sign only if this is what you intend.",
-        ).assertExists()
-        compose.onAllNodesWithText("I checked this is what I intend").assertCountEquals(1)
+        compose.onAllNodesWithText(CHECK_WHITELIST).assertCountEquals(1)
         compose.assertNoTextIsCutShort()
     }
 
     @Test
     fun aProxyUnderWarnAndConfirmShowsItsRedWarningAndASecondCheck() {
-        val proxy = ProxyBinding(implementationAddress = IMPLEMENTATION)
-        compose.setContent {
-            LumenTheme { TxReviewScreen(review = whitelistedReview(proxy), onApprove = {}, onReject = {}) }
-        }
+        compose.setEvm(whitelistedReview(ProxyBinding(implementationAddress = IMPLEMENTATION)))
 
         compose.onNodeWithText(UPGRADE_WARNING).assertExists()
-        compose.onNodeWithText("Transaction").performScrollTo().performClick()
-        compose.onNodeWithText("Approved Implementation").assertExists()
+        compose.onNodeWithText("Implementation").assertExists()
         compose.onNodeWithText(groupAddress(IMPLEMENTATION)).assertExists()
-        compose.onNodeWithText("I checked this is what I intend").assertExists()
-        compose.onNodeWithText("I accept the implementation cannot be checked").assertExists()
+        compose.onNodeWithText(CHECK_WHITELIST).assertExists()
+        compose.onNodeWithText(CHECK_UPGRADE).assertExists()
     }
 
     @Test
     fun anUnlimitedApprovalWarningIsShownInFull() {
-        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setEvm(approvalReview())
 
-        compose.onNodeWithText(UNLIMITED).assertExists()
+        compose.onNodeWithText(UNLIMITED_TEXT).assertExists()
     }
 
     @Test
     fun aLongMessageIsShownWholeWithItsSize() {
-        compose.setContent { LumenTheme { TxReviewScreen(review = messageReview(), onApprove = {}, onReject = {}) } }
+        compose.setEvm(messageReview())
 
         compose.onNodeWithText(LONG_MESSAGE).assertExists()
         compose.onNodeWithText("${LONG_MESSAGE.length} characters, ${LONG_MESSAGE.length} bytes").assertExists()
@@ -659,14 +694,14 @@ class TxReviewScreenTest {
 
     @Test
     fun noTextOnAnApprovalReviewIsCutShort() {
-        compose.setContent { LumenTheme { TxReviewScreen(review = approvalReview(), onApprove = {}, onReject = {}) } }
+        compose.setEvm(approvalReview())
 
         compose.assertNoTextIsCutShort()
     }
 
     @Test
     fun noTextOnAMessageReviewIsCutShort() {
-        compose.setContent { LumenTheme { TxReviewScreen(review = messageReview(), onApprove = {}, onReject = {}) } }
+        compose.setEvm(messageReview())
 
         compose.assertNoTextIsCutShort()
     }

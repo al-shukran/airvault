@@ -3,30 +3,18 @@ package app.lensly.ui.sign
 import app.airvault.chains.algorand.AlgorandNetwork
 import app.lensly.app.sign.SOLANA_NETWORK
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.registry.FeeModel
-import app.lensly.core.registry.NetworkEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** The network a review names, from the chain ID of an EVM request, the network of a Bitcoin request, and the genesis ID of an Algorand one. */
+/**
+ * The network a review names when the registry does not hold an EVM chain ID, the network of a Bitcoin request, and the genesis ID of an
+ * Algorand one. A registered EVM chain is named by the review builder, which EvmReviewTest checks.
+ */
 class ReviewNetworkNameTest {
-    private fun entry(chainId: Long, name: String, testnet: Boolean) =
-        NetworkEntry(chainId = chainId, name = name, nativeSymbol = "X", feeModel = FeeModel.L1, explorerName = null, testnet = testnet)
-
-    @Test
-    fun aRegisteredTestnetChainIdIsNamedByItsRegistryEntry() {
-        assertEquals("Monad testnet", evmNetworkName(entry(10143, "Monad testnet", testnet = true), 10143))
-    }
-
-    @Test
-    fun aRegisteredMainnetChainIdIsNamedByItsRegistryEntry() {
-        assertEquals("Ethereum", evmNetworkName(entry(1, "Ethereum", testnet = false), 1))
-    }
 
     @Test
     fun anUnregisteredChainIdIsNamedUnknownWithTheId() {
-        assertEquals("Unknown network (chain id 999999)", evmNetworkName(null, 999_999L))
         assertEquals("Unknown network (chain id 999999)", unknownNetworkName(999_999L))
     }
 

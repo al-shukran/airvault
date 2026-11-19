@@ -16,11 +16,7 @@ import app.lensly.core.ur.UrScanner
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.shippedRegistry
-import app.lensly.ui.sign.ReviewCheck
-import app.lensly.ui.sign.TypedRow
-import app.lensly.ui.sign.unlimitedApprovalWarning
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
