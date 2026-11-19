@@ -3,6 +3,12 @@ package app.lensly.core.wallet
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.core.solana.SolanaAccount
 import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestParser
+import app.airvault.chains.solana.signer.SolanaSigner
+import app.airvault.chains.solana.signer.toReview
+import app.airvault.core.model.Approval
+import app.airvault.core.signer.ParseOutcome
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.solana.SolanaVectors
 import app.lensly.core.ur.Cbor
 import org.junit.Test
@@ -82,6 +88,43 @@ class Ed25519SignerTest {
             assertEquals(Ed25519Signer.SIGNATURE_BYTES, signature.size)
             assertTrue(Ed25519Signer.verify(payer, request.signData, signature))
         }
+    }
+
+    /**
+     * The sol-signature [SolanaSigner] answers with, over the wallet's own key access, carries the signature that WalletStore.solanaSign makes
+     * for the same request: the SLIP-0010 key of account 0 signs the sign data as it is. Checked for both phrases.
+     */
+    @Test
+    fun theSolanaSignerOverTheWalletKeysAnswersWithTheSignatureTheWalletStoreMakes() {
+        for (phrase in listOf(MNEMONIC_A, MNEMONIC_24)) {
+            val seed = MnemonicUtils.generateSeed(phrase, "")
+            val payer = SolanaAccount.publicKey(seed, 0)
+            val signData = legacyTransfer(listOf(payer, ByteArray(32) { 9 }, systemProgram()), lamports = 1_500_000_000L)
+            val cbor = requestCbor(signData)
+            val request = assertIs<ParseOutcome.Parsed>(SolanaRequestParser.parse(SolSignRequest.UR_TYPE, cbor, ParserLimits())).request
+            val sol = assertIs<SolSignRequest.Result.Ok>(SolSignRequest.decode(cbor)).request
+            val review = assertIs<SolanaRequestCheck.Result.Ok>(SolanaRequestCheck.check(sol, listOf(payer))).review
+            val approval = requireNotNull(Approval.of(review.toReview(), emptySet()))
+
+            val response = SolanaSigner.sign(request, approval, WalletKeyAccess(seed))
+
+            val walletSignature = SolanaAccount.node(seed, 0).use { node ->
+                val key = node.privateKey()
+                try {
+                    Ed25519Signer.sign(key, signData)
+                } finally {
+                    key.fill(0)
+                }
+            }
+            assertContentEquals(walletSignature, signatureOf(response.cbor))
+            assertTrue(Ed25519Signer.verify(payer, signData, walletSignature))
+        }
+    }
+
+    /** The signature in a sol-signature payload: the byte string under key 2. */
+    private fun signatureOf(cbor: ByteArray): ByteArray {
+        val entries = assertIs<Cbor.Dict>(Cbor.decode(cbor)).entries
+        return assertIs<Cbor.Bytes>(entries.single { (key, _) -> (key as? Cbor.Uint)?.value == 2L }.second).value
     }
 
     private fun hex(text: String): ByteArray = ByteArray(text.length / 2) { text.substring(2 * it, 2 * it + 2).toInt(16).toByte() }

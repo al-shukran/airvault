@@ -24,8 +24,8 @@ private const val UNKNOWN_NETWORK =
 
 /**
  * The parser of algo-sign-request (spec 3.2). It reads the request, and for a transaction the transaction too. A transaction names its
- * chain by the genesis hash it carries. A message carries no genesis hash, and the request carries no network, so a message names the
- * Algorand mainnet.
+ * chain by the genesis hash it carries. Lensly signs transactions only, so a message is refused here. The refusal carries the request it
+ * names, so the sign flow records it under the wallet. A message carries no genesis hash, so its header names the Algorand mainnet.
  */
 object AlgorandRequestParser : RequestParser {
     override fun parse(urType: String, cbor: ByteArray, limits: ParserLimits): ParseOutcome {
@@ -63,6 +63,8 @@ object AlgorandRequestParser : RequestParser {
             signers = listOf(SignerRef(request.sourceFingerprint, request.derivationPath)),
             requestId = request.requestId,
         )
-        return ParseOutcome.Parsed(AppRequest(header, cbor))
+        val parsed = AppRequest(header, cbor)
+        if (kind == RequestKind.MESSAGE) return ParseOutcome.Refused(AlgorandRequestCheck.NOT_A_TRANSACTION, parsed)
+        return ParseOutcome.Parsed(parsed)
     }
 }

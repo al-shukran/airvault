@@ -4,12 +4,12 @@ import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignRequestEncoder
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.Payment
+import app.airvault.chains.algorand.wallet.AlgorandWallet
 import app.lensly.app.export.partsOf
 import app.airvault.chains.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgoSignedTxn
 import app.lensly.core.algorand.AlgoTxnEncoder
 import app.lensly.core.ur.AlgoSignature
-import app.lensly.core.ur.PathStep
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.AlgorandParams
 import app.lumio.data.provider.AlgorandPendingInfo
@@ -115,15 +115,6 @@ object AlgorandSend {
     fun maxMicro(funds: AlgorandFunds, fee: BigInteger): BigInteger =
         (funds.balance - funds.minimum - fee).max(BigInteger.ZERO)
 
-    /** The derivation path of account [index]: m/44'/283'/N'/0/0, the Ledger Algorand path that Lensly signs with. */
-    fun derivationPath(index: Int): List<PathStep> = listOf(
-        PathStep(44, true),
-        PathStep(283, true),
-        PathStep(index, true),
-        PathStep(0, false),
-        PathStep(0, false),
-    )
-
     /** The network's balance of [address], the parameters of the next transaction and the assets it has opted in to, read through [scheduler]. */
     suspend fun funds(scheduler: Scheduler, network: NetworkId, address: String): AlgorandFunds {
         val balance = scheduler.run(NativeBalance(network, address), Priority.FOREGROUND)
@@ -176,7 +167,7 @@ object AlgorandSend {
             AlgoSignRequest(
                 requestId = requestId,
                 signData = plan.txnBytes,
-                derivationPath = derivationPath(plan.accountIndex),
+                derivationPath = AlgorandWallet.pathOf(plan.accountIndex),
                 sourceFingerprint = plan.fingerprint.toInt(),
                 address = plan.fromAddress,
                 origin = ORIGIN,

@@ -126,6 +126,9 @@ class SignFlowAlgorandTest {
 
         assertEquals(SignStep.Refused(AlgorandRequestCheck.NOT_A_TRANSACTION), flow.state.value)
         assertEquals(listOf(ReviewOutcome.REFUSED), ports.records.map { it.outcome })
+        assertEquals(AlgorandRequestCheck.NOT_A_TRANSACTION, ports.records.single().refusal)
+        assertEquals(WALLET, ports.records.single().walletId)
+        assertEquals(0, ports.prepareCalls)
         assertEquals(0, ports.signCalls)
     }
 
