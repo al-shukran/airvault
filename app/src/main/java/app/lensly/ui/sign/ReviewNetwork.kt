@@ -1,8 +1,8 @@
 package app.lensly.ui.sign
 
+import app.airvault.chains.solana.signer.SolCluster
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.registry.NetworkEntry
-import app.lensly.core.ur.SolCluster
 
 /**
  * The human-readable name of an EVM network, from the registry entry of its chain ID. A chain ID the registry does not hold is named as

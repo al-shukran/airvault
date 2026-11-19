@@ -1,5 +1,7 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolanaMessageAccount
+
 /**
  * An instruction of a [SolanaMessage], decoded for review. The decoder in [decodeInstructions] reads only the known shapes. Anything
  * else is [Raw]: the review shows it as bytes, with a warning. Amounts are in base units: lamports, or token units.

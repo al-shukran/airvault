@@ -1,16 +1,19 @@
 package app.lensly.core.ur
 
+import app.airvault.chains.solana.signer.SolCluster
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.core.wallet.toHex
 import com.sparrowwallet.hummingbird.UR
+import org.junit.Test
+import org.web3j.utils.Numeric
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import org.junit.Test
-import org.web3j.utils.Numeric
 
 class SolSignRequestEncoderTest {
 

@@ -11,7 +11,7 @@ import app.airvault.chains.evm.EvmAddressCodec
 import app.airvault.chains.evm.ethereumMainnet
 import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.solana.SolanaAddressCodec
-import app.airvault.chains.solana.solanaMainnet
+import app.airvault.chains.solana.SOLANA_MAINNET
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.AddressCodec
 import app.airvault.core.model.AddressResult
@@ -44,7 +44,7 @@ private val addressRules: ChainRegistry<ChainApp> = ChainRegistry(
  */
 val EVM_FAMILY: ChainId = ethereumMainnet
 val BITCOIN_FAMILY: ChainId = bitcoinMainnet
-val SOLANA_FAMILY: ChainId = solanaMainnet
+val SOLANA_FAMILY: ChainId = SOLANA_MAINNET
 val ALGORAND_FAMILY: ChainId = algorandMainnet
 
 /** The canonical form of [text] when the rules of [chain] take it as an address on [chain], or null. */

@@ -1,12 +1,13 @@
 package app.lumio.send.solana
 
-import app.lensly.core.solana.SolanaMessage
+import app.airvault.chains.solana.signer.SolanaMessage
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaSplTransfer
 import app.lensly.core.solana.SolanaTokenAccounts
 import app.lumio.data.provider.SplBalance
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import fr.acinq.bitcoin.Base58
+import org.junit.Test
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -14,7 +15,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.junit.Test
 
 /** The plan of an SPL token send: its rules, and the message it asks Lensly to sign. The message itself is checked byte for byte in `:shared`. */
 class SolanaSplSendTest {
