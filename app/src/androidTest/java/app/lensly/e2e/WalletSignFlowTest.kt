@@ -108,7 +108,7 @@ class WalletSignFlowTest : SignFlowE2eBase() {
      * account public key and chain code the wallet was made with.
      */
     private fun checkPairingExport(xpub: AccountXpub, fingerprint: Int) {
-        val exportParts = PairingExport.urParts(listOf(xpub), fingerprint, "0.1.0", E2E_WALLET_NAME)
+        val exportParts = PairingExport.urParts(listOf(xpub), fingerprint, E2E_WALLET_NAME)
         val exportScanner = UrScanner()
         exportParts.forEach { part -> assertTrue("the pairing part must scan back: $part", exportScanner.receive(part)) }
         val exportUr = requireNotNull(exportScanner.result()) { "the pairing export must form one UR" }

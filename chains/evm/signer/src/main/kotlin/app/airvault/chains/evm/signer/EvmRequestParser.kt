@@ -21,7 +21,20 @@ private val EVM_LIMITS = ParserLimits(
 /** The chain a request names none for: Ethereum mainnet. A personal message carries no chain id. */
 internal const val DEFAULT_CHAIN_ID = 1L
 
-private val DEFAULT_CHAIN = ChainId("eip155:$DEFAULT_CHAIN_ID")
+/**
+ * The chain a request is read on: the chain it names. A personal message names none and is read on [DEFAULT_CHAIN_ID]. Typed data that
+ * names none is read on the chain its domain names, or on [DEFAULT_CHAIN_ID] when the domain names none. Any other request that names none
+ * has no chain, and the review refuses it.
+ */
+internal fun readChainId(parsed: ParsedRequest): Long? {
+    val request = parsed.request
+    request.chainId?.let { return it }
+    return when (request.dataType) {
+        DataType.PERSONAL_MESSAGE -> DEFAULT_CHAIN_ID
+        DataType.TYPED_DATA -> (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId?.toLong() ?: DEFAULT_CHAIN_ID
+        DataType.TRANSACTION, DataType.TYPED_TRANSACTION -> null
+    }
+}
 
 /**
  * The parser of eth-sign-request (spec 3.2). It reads the request and parses its data: a transaction as RLP, typed data as EIP-712 and a
@@ -40,14 +53,20 @@ object EvmRequestParser : RequestParser {
         if (request.signData.size > effective.maxSignDataBytes) {
             return ParseOutcome.Refused("signData exceeds ${effective.maxSignDataBytes} bytes")
         }
-        val chain = request.chainId?.let { id ->
+        request.chainId?.let { id ->
             runCatching { ChainId("eip155:$id") }.getOrNull() ?: return ParseOutcome.Refused("chain id $id is not valid")
-        } ?: DEFAULT_CHAIN
+        }
         val kind = when (request.dataType) {
             DataType.TRANSACTION, DataType.TYPED_TRANSACTION -> RequestKind.TRANSACTION
             DataType.TYPED_DATA -> RequestKind.TYPED_DATA
             DataType.PERSONAL_MESSAGE -> RequestKind.MESSAGE
         }
+        val parsed = try {
+            parsedOf(request)
+        } catch (e: WireException) {
+            return ParseOutcome.Refused(e.message ?: "The request is too large to read.")
+        }
+        val chain = ChainId("eip155:${readChainId(parsed) ?: DEFAULT_CHAIN_ID}")
         val header = RequestHeader(
             app = evmManifest.id,
             chain = chain,
@@ -56,7 +75,7 @@ object EvmRequestParser : RequestParser {
             requestId = request.requestId,
         )
         val body = try {
-            EvmRequestBody.encode(parsedOf(request))
+            EvmRequestBody.encode(parsed)
         } catch (e: WireException) {
             return ParseOutcome.Refused(e.message ?: "The request is too large to read.")
         }

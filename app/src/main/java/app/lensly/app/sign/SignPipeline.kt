@@ -145,8 +145,7 @@ class SignPipeline(
                     }
                 DataType.TYPED_DATA -> {
                     val typed = requireNotNull(ready.typed) { CANNOT_BE_READ }
-                    val chainId = requireNotNull(request.chainId) { "The request does not name a network" }
-                    when (val result = TypedDataSigner.sign(request.dataType, typed, chainId, privateKey)) {
+                    when (val result = TypedDataSigner.sign(request.dataType, typed, privateKey)) {
                         is TypedDataSigner.Result.Signed -> result.signature
                         is TypedDataSigner.Result.Refused -> throw IllegalArgumentException(result.reason)
                     }

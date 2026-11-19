@@ -123,7 +123,7 @@ private fun assertNoStoppingWarning(review: Review) {
 }
 
 private fun noteOf(review: Review, label: String): ReviewRow =
-    assertNotNull(review.sections.first().rows.singleOrNull { it.label == label }, "no note row named $label")
+    assertNotNull(rowsOf(review).singleOrNull { it.label == label }, "no note row named $label")
 
 class OffChainSignatureReviewTest {
 
@@ -134,7 +134,7 @@ class OffChainSignatureReviewTest {
         assertEquals("Agent", review.title)
         assertEquals(HYPERLIQUID_L1_LABEL, noteOf(review, HYPERLIQUID_L1_LABEL).label)
         assertShownWhole(review, DUMMY_CONNECTION_ID)
-        assertTrue(rowsOf(review).any { it.value.text() == "1337 (off-chain domain, not a network)" })
+        assertTrue(rowsOf(review).any { it.value.text() == "1337 (Unknown Network)" })
         assertNoStoppingWarning(review)
     }
 
@@ -151,9 +151,9 @@ class OffChainSignatureReviewTest {
         assertEquals("HyperliquidTransaction:UsdSend", review.title)
         noteOf(review, HYPERLIQUID_L1_LABEL)
         val message = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
-        assertEquals(AGENT, message["destination"])
-        assertEquals("1", message["amount"])
-        assertEquals("1687816341423", message["time"])
+        assertEquals(AGENT, message["destination (string)"])
+        assertEquals("1", message["amount (string)"])
+        assertEquals("1687816341423", message["time (uint64)"])
         assertEquals(
             listOf("type" to "usdSend", "signatureChainId" to "0x66eee"),
             review.sections.single { it.heading == "Not Signed" }.rows.map { it.label to it.value.text() },
@@ -180,8 +180,10 @@ class OffChainSignatureReviewTest {
         val review = reviewed(approve, ARBITRUM)
 
         assertEquals("HyperliquidTransaction:ApproveAgent", review.title)
-        assertEquals(AGENT, review.sections.single { it.heading == "Message" }.rows.single { it.label == "agentAddress" }.value.text())
-        assertEquals("example", review.sections.single { it.heading == "Message" }.rows.single { it.label == "agentName" }.value.text())
+        // An address field is shown in its checksum case, and each field's label names its type.
+        val message = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
+        assertTrue(message.getValue("agentAddress (address)").equals(AGENT, ignoreCase = true))
+        assertEquals("example", message["agentName (string)"])
     }
 
     @Test
@@ -199,7 +201,7 @@ class OffChainSignatureReviewTest {
         val review = reviewed(asterMessage(1666, ASTER_MASTER_MESSAGE), BNB)
 
         assertShownWhole(review, ASTER_MASTER_MESSAGE)
-        assertTrue(rowsOf(review).any { it.value.text() == "1666 (off-chain domain, not a network)" })
+        assertTrue(rowsOf(review).any { it.value.text() == "1666 (Unknown Network)" })
         assertNoStoppingWarning(review)
     }
 
@@ -213,29 +215,54 @@ class OffChainSignatureReviewTest {
     }
 
     @Test
-    fun aDomainOnAnotherChainThatIsNotDeclaredIsStillRefused() {
-        val reason = "The typed data is for chain 1337, but the request names chain 42161"
-
-        // The same name, version and chain, with another verifying contract.
+    fun aDomainOnAnotherChainIsSignableAndItsRowNamesThatChain() {
+        // A Hyperliquid domain on chain 1337 under a request for Arbitrum, with another verifying contract so no label applies.
         val otherContract = l1Agent("a", DUMMY_CONNECTION_ID).replace(ZERO, "0x1111111111111111111111111111111111111111")
-        assertEquals(reason, refusedReason(otherContract, ARBITRUM))
-        // The same chain and contract, with another name.
-        val otherName = l1Agent("a", DUMMY_CONNECTION_ID).replace("\"Exchange\"", "\"Exchange2\"")
-        assertEquals(reason, refusedReason(otherName, ARBITRUM))
-        // A declared domain with another version.
-        val otherVersion = userSigned("HyperliquidTransaction:UsdSend", TRANSFER_FIELDS, "\"destination\":\"$AGENT\"", version = "2")
-        assertEquals("The typed data is for chain 421614, but the request names chain 42161", refusedReason(otherVersion, ARBITRUM))
+        val unlabelled = reviewed(otherContract, ARBITRUM)
+        assertTrue(rowsOf(unlabelled).any { it.label == "Signature for Chain 1337 (Unknown Network)" })
+        assertNoStoppingWarning(unlabelled)
+
         // An ordinary Permit on Ethereum, asked for on Arbitrum.
         val permit = asterMessage(1, ASTER_APPROVE_MESSAGE).replace("AsterSignTransaction", "USD Coin")
-        assertEquals("The typed data is for chain 1, but the request names chain 42161", refusedReason(permit, ARBITRUM))
+        assertTrue(rowsOf(reviewed(permit, ARBITRUM)).any { it.label == "Signature for Chain 1 (Ethereum)" })
     }
 
     @Test
-    fun aMemberThatTheAllowlistDoesNotNameIsStillRefused() {
-        // Only the user-signed domain allows type and signatureChainId. The L1 domain allows no extra member.
+    fun typedDataWithNoRequestChainIsReadOnTheChainItsDomainNames() {
+        // Rabby names no chain in a typed-data request, so the domain's chain is the chain the review reads.
+        val review = reviewed(l1Agent("a", DUMMY_CONNECTION_ID), null)
+
+        assertEquals(HYPERLIQUID_L1_LABEL, noteOf(review, HYPERLIQUID_L1_LABEL).label)
+        assertTrue(rowsOf(review).any { it.label == "Signature for Chain 1337 (Unknown Network)" })
+        assertShownWhole(review, DUMMY_CONNECTION_ID)
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun aDomainThatNamesNoChainIsSignableUnderAnyRequestAndSaysSo() {
+        val json = """{"types":{"Note":[{"name":"text","type":"string"}],"EIP712Domain":[{"name":"name","type":"string"}]},""" +
+            """"primaryType":"Note","domain":{"name":"Lensly"},"message":{"text":"hi"}}"""
+
+        for (chain in listOf(ARBITRUM, null)) {
+            val review = reviewed(json, chain)
+            assertTrue(rowsOf(review).any { it.label == "Signature for Any Chain" })
+            assertNoStoppingWarning(review)
+        }
+    }
+
+    @Test
+    fun anUndeclaredScalarMemberIsShownAsNotSignedOnAnyDomainButANestedOneIsStillRefused() {
+        // The L1 domain names no member beyond its type. A scalar the message adds is shown under Not Signed, as on any domain.
         val extraOnL1 = l1Agent("a", DUMMY_CONNECTION_ID, extra = ""","type":"dummy"""")
-        assertEquals("message has an unknown member type", refusedReason(extraOnL1, ARBITRUM))
-        val unknownExtra = USD_SEND.replace("\"hyperliquidChain\":\"Testnet\"", "\"hyperliquidChain\":\"Testnet\",\"memo\":\"hi\"")
-        assertEquals("message has an unknown member memo", refusedReason(unknownExtra, ARBITRUM))
+        val notSignedOnL1 = reviewed(extraOnL1, ARBITRUM).sections.single { it.heading == "Not Signed" }.rows
+        assertEquals(listOf("type" to "dummy"), notSignedOnL1.map { it.label to it.value.text() })
+        // The same on a domain the registry does not label.
+        val unlabelled = asterMessage(1, ASTER_APPROVE_MESSAGE).replace("AsterSignTransaction", "USD Coin")
+            .replace("\"message\":{\"msg\"", "\"message\":{\"memo\":\"hi\",\"msg\"")
+        val notSignedOnPermit = reviewed(unlabelled, ARBITRUM).sections.single { it.heading == "Not Signed" }.rows
+        assertEquals(listOf("memo" to "hi"), notSignedOnPermit.map { it.label to it.value.text() })
+        // A nested object the message adds is still refused.
+        val nested = USD_SEND.replace("\"hyperliquidChain\":\"Testnet\"", "\"hyperliquidChain\":\"Testnet\",\"memo\":{\"a\":\"b\"}")
+        assertEquals("message has an unknown member memo", refusedReason(nested, ARBITRUM))
     }
 }
