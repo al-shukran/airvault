@@ -6,7 +6,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -26,7 +27,7 @@ val SOLANA_MAINNET = NetworkId(Networks.SOL_MAINNET, testnet = false)
  * account reads and the rent-exempt minimum.
  */
 private val SOLANA_OPS = setOf(
-    Op.NATIVE_BALANCE, Op.BLOCKHASH, Op.BLOCK_HEIGHT, Op.TX_HISTORY, Op.TOKEN_BALANCES, Op.BROADCAST, Op.TX, Op.ACCOUNT_INFO, Op.RENT_EXEMPT,
+    Ops.SOL_NATIVE_BALANCE, Ops.SOL_BLOCKHASH, Ops.SOL_BLOCK_HEIGHT, Ops.SOL_TX_HISTORY, Ops.SOL_TOKEN_BALANCES, Ops.SOL_BROADCAST, Ops.SOL_TX, Ops.SOL_ACCOUNT_INFO, Ops.SOL_RENT_EXEMPT,
 )
 
 /**
@@ -47,7 +48,7 @@ abstract class SolanaRpcProvider(
     /** The address that serves [net] under [cfg], or null when this provider does not serve it. */
     abstract fun endpoint(net: NetworkId, cfg: ProviderConfig): String?
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean =
         net.isSol && op in SOLANA_OPS && endpoint(net, cfg) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = PUBLIC_LIMITS

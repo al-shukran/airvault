@@ -14,7 +14,7 @@ import app.lumio.data.db.LumioDatabase
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.explorer.ExplorerTx
 import app.lumio.data.provider.Trait
@@ -92,7 +92,7 @@ class TxHistoryTest {
         clock = clock,
     )
 
-    private fun explorer() = FakeProvider("explorer", traits = setOf(Trait.KEYLESS), networks = setOf(ETH), ops = setOf(Op.TX_HISTORY))
+    private fun explorer() = FakeProvider("explorer", traits = setOf(Trait.KEYLESS), networks = setOf(ETH), ops = setOf(Ops.EVM_TX_HISTORY))
 
     private fun normal(hash: String, from: String, to: String) = ExplorerTx.Normal(
         hash = hash,
@@ -146,7 +146,7 @@ class TxHistoryTest {
 
     @Test
     fun aBitcoinRefreshDropsThePendingRowsTheListNoLongerHas() = runBlocking {
-        val esplora = FakeProvider("esplora", traits = setOf(Trait.KEYLESS), networks = setOf(btc), ops = setOf(Op.ADDRESS_TXS, Op.TIP_HEIGHT))
+        val esplora = FakeProvider("esplora", traits = setOf(Trait.KEYLESS), networks = setOf(btc), ops = setOf(Ops.BTC_ADDRESS_TXS, Ops.BTC_TIP_HEIGHT))
         val pending = esploraTx("aa", blockHeight = null, blockTimeSec = null)
         val confirmed = esploraTx("cc", blockHeight = 799_990L, blockTimeSec = 1_699_999_000L)
         esplora.outcomes.add(800_000L)

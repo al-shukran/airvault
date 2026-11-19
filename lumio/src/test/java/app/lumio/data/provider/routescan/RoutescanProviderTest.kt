@@ -6,7 +6,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
 import java.math.BigInteger
@@ -141,16 +142,16 @@ class RoutescanProviderTest {
     @Test
     fun theSupportTableHoldsTheProbedMainnetsAndTheNativeBalanceOnly() {
         val c = cfg()
-        assertTrue(provider.supports(ETH, Op.NATIVE_BALANCE, c))
-        assertTrue(provider.supports(NetworkId(Networks.evm(5000), testnet = false), Op.NATIVE_BALANCE, c))
-        assertFalse(provider.supports(NetworkId(Networks.evm(8453), testnet = false), Op.NATIVE_BALANCE, c))
-        assertFalse(provider.supports(ETH, Op.NONCE, c))
-        assertFalse(provider.supports(NetworkId(Networks.BTC_MAINNET, testnet = false), Op.NATIVE_BALANCE, c))
+        assertTrue(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), c))
+        assertTrue(provider.supports(NetworkId(Networks.evm(5000), testnet = false), OpKey.on(NetworkId(Networks.evm(5000), testnet = false), "nativeBalance"), c))
+        assertFalse(provider.supports(NetworkId(Networks.evm(8453), testnet = false), OpKey.on(NetworkId(Networks.evm(8453), testnet = false), "nativeBalance"), c))
+        assertFalse(provider.supports(ETH, Ops.EVM_NONCE, c))
+        assertFalse(provider.supports(NetworkId(Networks.BTC_MAINNET, testnet = false), OpKey.on(NetworkId(Networks.BTC_MAINNET, testnet = false), "nativeBalance"), c))
     }
 
     @Test
     fun aPlainHttpBaseToAnotherHostIsNotSupported() {
-        assertFalse(provider.supports(ETH, Op.NATIVE_BALANCE, ProviderConfig(baseUrl = "http://example.org/")))
+        assertFalse(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), ProviderConfig(baseUrl = "http://example.org/")))
     }
 
     @Test
