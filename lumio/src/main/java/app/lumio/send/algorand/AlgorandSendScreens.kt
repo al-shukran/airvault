@@ -40,8 +40,8 @@ import app.lumio.ui.send.StepLabel
 
 /**
  * The Details step of an Algorand send, on the Lumen kit: the network, the coin that the send moves, then the recipient and the amount in that coin.
- * [assets] are the coins the account can choose, and [selected] is the one the send moves. [balanceText] is the balance of the coin, [feeText] the
- * network fee, and [amountError] why the amount cannot be sent. [busy] holds the form until the network has answered.
+ * [assets] are the coins the account can choose, and [selected] is the one the send moves. [balanceText] is the balance of the coin, [keepText] the ALGO
+ * the account keeps, [feeText] the network fee, and [amountError] why the amount cannot be sent. [busy] holds the form until the network has answered.
  */
 @Composable
 internal fun AlgorandSendFormScreen(
@@ -51,6 +51,7 @@ internal fun AlgorandSendFormScreen(
     selected: AlgorandAsset,
     onSelect: (AlgorandAsset) -> Unit,
     balanceText: String?,
+    keepText: String?,
     recipient: String,
     onRecipient: (String) -> Unit,
     onScan: () -> Unit,
@@ -112,9 +113,9 @@ internal fun AlgorandSendFormScreen(
             )
             LumioTextAction(text = "Use Max", onClick = onMax, enabled = maxEnabled)
         }
-        if (selected.assetId == null) {
+        if (selected.assetId == null && keepText != null) {
             Text(
-                "The account keeps 0.1 ALGO. That part is never sent.",
+                "The account keeps $keepText ALGO. That part is never sent.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
