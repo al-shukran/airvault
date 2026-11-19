@@ -1,10 +1,12 @@
 package app.lensly.ui.flow
 
-import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.core.model.Approval
+import app.airvault.core.signer.AppRequest
 import app.lensly.app.export.partsOf
-import app.lensly.app.sign.AlgorandReviewEntry
+import app.lensly.app.sign.AppPrepared
+import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
@@ -224,13 +226,13 @@ class SignFlowSolanaTest {
             records += entry
         }
 
-        override suspend fun algorandPrepare(walletId: String, request: AlgoSignRequest): AlgorandPrepared =
+        override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared =
             error("an Algorand request is not expected in the Solana tests")
 
-        override suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String> =
+        override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> =
             error("an Algorand request is not expected in the Solana tests")
 
-        override suspend fun recordAlgorand(entry: AlgorandReviewEntry): Unit =
+        override suspend fun recordApp(entry: AppReviewEntry): Unit =
             error("an Algorand request is not expected in the Solana tests")
     }
 

@@ -86,7 +86,7 @@ shard-1 :shared app.lensly.ui.components.AddressFieldTest
 shard-1 :shared app.lensly.ui.components.ShiftTest
 shard-1 :shared app.lensly.ui.qr.ConsecutiveDeduperTest
 shard-2 :app app.lensly.app.AddressNotesResolverTest
-shard-2 :app app.lensly.app.sign.AlgorandReviewRecordTest
+shard-2 :app app.lensly.app.sign.AppReviewRecordTest
 shard-2 :app app.lensly.app.sign.TypedDataPipelineTest
 shard-2 :app app.lensly.app.WalletDraftMixedHashTest
 shard-2 :app app.lensly.app.WalletDraftSaveTest
@@ -536,3 +536,4 @@ verify :lumio app.lumio.ui.screenshot.SolanaSendScreenshotTest
 verify :lumio app.lumio.ui.screenshot.TransactionDetailScreenshotTest
 verify :lumio app.lumio.ui.screenshot.WalletScreensScreenshotTest
 verify :lumio app.lumio.ui.tokens.AddTokenScreenshotTest
+shard-1 :lumio app.lumio.ui.kit.CopyActionTest

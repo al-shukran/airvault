@@ -45,15 +45,14 @@ for module in app shared lumio; do
   test_classes ":$module" "$module/src/test/java" >> "$known"
 done
 
-# Pure JVM modules: each module whose test sources hold a test annotation is one whole-module unit.
+# Pure JVM modules: every module with a src/test set is one whole-module unit. Its :module:test task runs whole, so each one
+# must be listed, or a module added later would run nowhere.
 pure_count=0
 while IFS= read -r test_dir; do
   module_path=${test_dir%/src/test}
   module=":$(printf '%s' "$module_path" | tr '/' ':')"
-  if [ -n "$(test_classes "$module" "$test_dir" | head -n 1)" ]; then
-    printf '%s *\n' "$module" >> "$known"
-    pure_count=$((pure_count + 1))
-  fi
+  printf '%s *\n' "$module" >> "$known"
+  pure_count=$((pure_count + 1))
 done < <(find core chains abi tools -type d -path '*/src/test' -not -path '*/build/*' | sort)
 
 # Lanes: "<lane> <module> <class>". A lane is one of the shard lanes, verify or fuzz.

@@ -150,6 +150,15 @@ class BtcSendPlanTest {
     }
 
     @Test
+    fun anEstimateAboveTheMaximumStartsAtTheMaximumTheFieldAccepts() {
+        val suggestion = BtcSend.feeSuggestion(mapOf(3 to 1500.2))
+
+        assertEquals(1000.0, suggestion.satPerVb)
+        assertTrue(suggestion.fromEstimate)
+        assertEquals(suggestion.satPerVb, BtcSendInput.feeRate(BtcSend.formatFeeRate(suggestion.satPerVb)), "the fee field takes its own start")
+    }
+
+    @Test
     fun anOwnerRateIsNeverReplacedBySuggestion() {
         assertEquals("7", BtcSend.fieldAfterSuggestion(current = "7", edited = true, suggestion = 3.0))
         assertEquals("", BtcSend.fieldAfterSuggestion(current = "", edited = true, suggestion = 3.0))
