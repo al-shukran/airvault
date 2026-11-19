@@ -1,0 +1,80 @@
+name: master-red
+
+# Opens or comments on the one open `ci-red` issue when a run of a workflow that builds master fails, and closes it once no
+# tracked workflow's latest run on master is failing. It reads run data and writes issues; it gates nothing. As with every
+# workflow_run workflow, GitHub runs only the copy of this file on the default branch.
+on:
+  workflow_run:
+    # pr-fast runs on pull requests only, so its master filter below never matches. It stays listed so a master run added later is covered.
+    workflows: [pr-fast, cache-warm, nightly]
+    types: [completed]
+
+permissions:
+  contents: read
+
+# One alarm at a time, so two failures that finish together cannot open two issues.
+concurrency:
+  group: master-red
+  cancel-in-progress: false
+
+jobs:
+  alarm:
+    # Only master counts. A cancelled run is a superseded push (cache-warm cancels its own), not a failure.
+    if: github.event.workflow_run.head_branch == 'master' && github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read # the failed job names, and the latest master runs of the other tracked workflows
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      WORKFLOW: ${{ github.event.workflow_run.name }}
+      CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      RUN_URL: ${{ github.event.workflow_run.html_url }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Open, comment on, or close the ci-red issue
+        run: |
+          set -euo pipefail
+          label=ci-red
+          gh label create "$label" --repo "$REPO" --color B60205 --description "master is red (master-red.yml)" --force
+
+          open_issue() {
+            gh issue list --repo "$REPO" --label "$label" --state open --json number --jq '.[0].number // empty'
+          }
+
+          case "$CONCLUSION" in
+            failure)
+              failed=$(gh run view "$RUN_ID" --repo "$REPO" --json jobs \
+                --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")')
+              [ -n "$failed" ] || failed="none listed; see the run"
+              body=$(printf '%s failed on master.\n\n- Run: %s\n- Commit: %s\n- Failed jobs: %s\n' \
+                "$WORKFLOW" "$RUN_URL" "$SHA" "$failed")
+              n=$(open_issue)
+              if [ -n "$n" ]; then
+                gh issue comment "$n" --repo "$REPO" --body "$body"
+              else
+                gh issue create --repo "$REPO" --label "$label" --title "master is red" --body "$body"
+              fi
+              ;;
+            success)
+              n=$(open_issue)
+              [ -n "$n" ] || exit 0
+              still=""
+              for wf in pr-fast cache-warm nightly; do
+                # The latest finished, non-cancelled run on master decides whether that workflow is red.
+                latest=$(gh run list --repo "$REPO" --workflow "$wf.yml" --branch master --limit 10 --json conclusion,status \
+                  --jq '[.[] | select(.status == "completed" and .conclusion != "cancelled" and .conclusion != "skipped")][0].conclusion // empty')
+                if [ "$latest" = failure ]; then still="$still $wf"; fi
+              done
+              if [ -n "$still" ]; then
+                gh issue comment "$n" --repo "$REPO" --body "$WORKFLOW is green on master ($RUN_URL). Still red:$still."
+              else
+                gh issue comment "$n" --repo "$REPO" --body "Every tracked workflow is green on master again ($RUN_URL). Closing."
+                gh issue close "$n" --repo "$REPO" --reason completed
+              fi
+              ;;
+            *) echo "conclusion '$CONCLUSION': nothing to record" ;;
+          esac
