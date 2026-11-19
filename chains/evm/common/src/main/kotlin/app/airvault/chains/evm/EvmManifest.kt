@@ -15,12 +15,12 @@ import app.airvault.core.model.PathTemplate
 import app.airvault.core.model.UrTypeSpec
 
 /** Ethereum's SLIP-44 coin type (spec 11.1). Every key path uses it. */
-private const val EVM_COIN_TYPE = 60
+const val EVM_COIN_TYPE = 60
 
 /** Ethereum mainnet. One EVM address names the same account on every EVM network, so this stands for the family (spec 4). */
 val ethereumMainnet = ChainId("eip155:1")
 
-/** The EVM chain app's manifest (spec 2.1, 11.1), declared once and shared by its signer side. */
+/** The EVM chain app's manifest (spec 2.1, 11.1), declared once and shared by its signer and wallet sides. */
 val evmManifest: ChainManifest = ChainManifest(
     id = AppId("evm"),
     displayName = "Ethereum and EVM networks",
@@ -28,8 +28,16 @@ val evmManifest: ChainManifest = ChainManifest(
     appVersion = "1.0.0",
     namespaces = setOf("eip155"),
     networks = listOf(
-        evmNetwork(chain = ethereumMainnet, name = "Ethereum", symbol = "ETH", testnet = false),
-        evmNetwork(chain = ChainId("eip155:10143"), name = "Monad Testnet", symbol = "MON", testnet = true),
+        evmNetwork(chain = ethereumMainnet, name = "Ethereum", symbol = "ETH", testnet = false, primary = true, enabledByDefault = true),
+        evmNetwork(
+            chain = ChainId("eip155:10143"),
+            name = "Monad Testnet",
+            symbol = "MON",
+            testnet = true,
+            primary = true,
+            enabledByDefault = true,
+        ),
+        evmNetwork(chain = ChainId("eip155:11155111"), name = "Ethereum Sepolia", symbol = "ETH", testnet = true, enabledByDefault = true),
     ),
     keys = listOf(
         KeyScope(
@@ -44,7 +52,14 @@ val evmManifest: ChainManifest = ChainManifest(
     fields = emptyList(),
 )
 
-private fun evmNetwork(chain: ChainId, name: String, symbol: String, testnet: Boolean) = NetworkSpec(
+private fun evmNetwork(
+    chain: ChainId,
+    name: String,
+    symbol: String,
+    testnet: Boolean,
+    primary: Boolean = false,
+    enabledByDefault: Boolean = false,
+) = NetworkSpec(
     chainId = chain,
     name = name,
     testnet = testnet,
@@ -55,4 +70,6 @@ private fun evmNetwork(chain: ChainId, name: String, symbol: String, testnet: Bo
         decimals = 18,
     ),
     slip44 = EVM_COIN_TYPE,
+    primary = primary,
+    enabledByDefault = enabledByDefault,
 )

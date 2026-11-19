@@ -65,8 +65,7 @@ object WalletAccounts {
     }
 
     /** The network whose native coin an Ethereum account shows on [mode]: Ethereum on mainnet, and Monad testnet on testnet. */
-    fun primaryEvmChainId(mode: NetworkMode): Long =
-        if (mode == NetworkMode.TESTNET) EvmCatalog.PRIMARY_TESTNET_ID else EvmCatalog.PRIMARY_MAINNET_ID
+    fun primaryEvmChainId(mode: NetworkMode): Long = EvmCatalog.primaryChainId(testnet = mode == NetworkMode.TESTNET)
 
     /**
      * The accounts of [wallet] on [mode]'s side, in family order: Bitcoin, Ethereum, Solana, Algorand. [evmChains] are the Ethereum networks of the side
