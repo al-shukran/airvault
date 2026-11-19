@@ -12,29 +12,44 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import app.lensly.app.export.AccountExportView
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.groupedAddress
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalMonoFamily
+import app.lensly.ui.wallet.PasswordStep
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillSize
 import app.lensly.ui.wallet.WalletPillStyle
+import kotlinx.coroutines.launch
 
 private const val PUBLIC_LABEL = "Public — safe to share"
+private const val EXPORT_PASSWORD_PROMPT = "Enter your Application Password to show the export."
+
+/** The title of an export of [count] accounts: one account, or several. */
+private fun exportTitle(count: Int): String = if (count == 1) "Export Account" else "Export $count Accounts"
 
 /**
  * EXPORT of one account, or of a selection of accounts as one sequence. Each account is one step: its code, animated when its key
@@ -54,7 +69,7 @@ internal fun AccountExportScreen(
     val last = accounts.lastIndex
     val current = accounts[step.coerceIn(0, last)]
     LenslyScreen(
-        title = if (accounts.size == 1) "Export Account" else "Export ${accounts.size} Accounts",
+        title = exportTitle(accounts.size),
         modifier = modifier,
         onBack = onBack,
         scrollable = false,
@@ -106,6 +121,89 @@ internal fun AccountExportScreen(
             AccountAddressDetails(address = current.address, derivationPath = current.derivationPath)
             Spacer(Modifier.weight(1f))
         }
+    }
+}
+
+/**
+ * The export of [count] accounts, behind the App Password, as the pairing code is. Nothing of it is loaded or composed until
+ * [checkPassword] accepts the password: [load] runs then. The export locks again when the owner leaves it or the app leaves the
+ * foreground. An unavailable vault leaves through [onUnavailable].
+ */
+@Composable
+internal fun AccountExportGate(
+    count: Int,
+    checkPassword: suspend (CharArray) -> PasswordCheck,
+    load: suspend () -> List<AccountExportView>,
+    onUnavailable: () -> Unit,
+    onDone: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var unlocked by remember { mutableStateOf(false) }
+    val accounts by produceState<List<AccountExportView>?>(initialValue = null, unlocked) {
+        value = if (unlocked) load() else null
+    }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val password = remember { PasswordBuffer() }
+    var passwordLength by remember { mutableIntStateOf(0) }
+    var checking by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                password.clear()
+                passwordLength = 0
+                unlocked = false
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            password.clear()
+        }
+    }
+    fun submitPassword() {
+        if (checking || password.isEmpty()) return
+        val entered = password.toCharArray()
+        password.clear()
+        passwordLength = 0
+        checking = true
+        scope.launch {
+            val check = try {
+                checkPassword(entered)
+            } finally {
+                entered.fill('\u0000')
+            }
+            checking = false
+            when (check) {
+                // A check that ends after the app left the foreground does not unlock the export, as the lock on leaving has already run.
+                PasswordCheck.Accepted -> if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) unlocked = true
+                PasswordCheck.Rejected -> Unit
+                PasswordCheck.Unavailable -> onUnavailable()
+            }
+        }
+    }
+    if (unlocked) {
+        accounts?.let { AccountExportScreen(accounts = it, onDone = onDone, onBack = onBack, modifier = modifier) }
+    } else {
+        PasswordStep(
+            busy = checking,
+            length = passwordLength,
+            onKey = { c -> if (!checking && password.append(c)) passwordLength = password.length },
+            onBackspace = {
+                if (!checking) {
+                    password.backspace()
+                    passwordLength = password.length
+                }
+            },
+            onSubmit = { submitPassword() },
+            onBack = { if (!checking) onBack() },
+            modifier = modifier,
+            title = exportTitle(count),
+            prompt = EXPORT_PASSWORD_PROMPT,
+            stepCount = 2,
+            step = 1,
+        )
     }
 }
 

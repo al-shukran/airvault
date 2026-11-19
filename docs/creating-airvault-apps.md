@@ -744,7 +744,6 @@ Today's types and owners:
 | Type | Direction | Owner after 2.9 | Defined by |
 |---|---|---|---|
 | `x-airvault-pairing` | pairing | core | AirVault (`PairingCodec.kt`) |
-| `crypto-multi-accounts` | pairing | core | Keystone-style; not in BCR-2020-006 |
 | `crypto-psbt` | request and response | `bitcoin` app | BCR-2020-006 registry: the current name is `psbt` (tag 40310); `crypto-psbt` is the retired name. Kept for Bitcoin wire compatibility with existing pairing (section 12.1, item 6). The Kotlin code in Lensly and Lumio uses only `crypto-psbt` (`BtcPsbt.UR_TYPE`); no `psbt` UR string exists. <https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-006-urtypes.md> |
 | `eth-sign-request`, `eth-signature` | request, response | `evm` app | not in BCR-2020-006; Keystone-style |
 | `sol-sign-request`, `sol-signature` | request, response | `solana` app | Keystone ur-registry types `SOL_SIGN_REQUEST` (sign type 1 or 2) and `SOL_SIGNATURE` <https://github.com/KeystoneHQ/keystone-sdk-rust/blob/master/libs/ur-registry/src/solana/sol_sign_request.rs> |

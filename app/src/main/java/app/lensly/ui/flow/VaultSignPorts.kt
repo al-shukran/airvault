@@ -48,9 +48,9 @@ import app.lensly.app.sign.algorandCounterparties
 import app.lensly.app.sign.appRequestFactsOf
 import app.lensly.app.sign.appReviewRecordOf
 import app.lensly.app.sign.bitcoinReviewRecordOf
+import app.lensly.app.sign.counterpartiesOf
 import app.lensly.app.sign.evmCounterparties
 import app.lensly.app.sign.reviewRecordOf
-import app.lensly.app.sign.solanaCounterparties
 import app.lensly.app.visualIdentity
 import app.lensly.chains.signerRegistry
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
@@ -381,7 +381,7 @@ internal class VaultSignPorts(
         when (checked) {
             is SolanaRequestCheck.Result.Ok -> {
                 val review = checked.review
-                val counterparties = solanaCounterparties(review)
+                val counterparties = counterpartiesOf(review.toReview())
                 AppPrepared.Ready(
                     walletId = walletId,
                     request = appRequest,

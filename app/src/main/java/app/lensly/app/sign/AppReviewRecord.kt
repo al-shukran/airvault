@@ -6,11 +6,13 @@ import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.recordFacts
+import app.airvault.core.model.text
 import app.airvault.core.model.Review as CoreReview
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestKind
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
+import app.lensly.app.addressesIn
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
 
@@ -37,6 +39,9 @@ sealed interface AppPrepared {
     /** The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. */
     data class Refused(val reason: String) : AppPrepared
 }
+
+/** The addresses the rows of [review] show, each one looked up in the Address Book. */
+fun counterpartiesOf(review: CoreReview): List<String> = addressesIn(review.sections.flatMap { it.rows }.map { it.value.text() })
 
 /**
  * What the one sign flow showed and decided for one request of an installed chain app, of wallet [walletId]. [reviewed] is the review the owner

@@ -8,10 +8,20 @@ import app.airvault.chains.solana.signer.SolanaRequestReview
 import app.airvault.chains.solana.signer.SolanaWarning
 import app.airvault.chains.solana.signer.solanaWarningText
 import app.airvault.chains.solana.signer.toReview
+import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.Danger
 import app.airvault.core.model.unaccounted
+import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.RequestHeader
+import app.airvault.core.signer.RequestKind
+import app.airvault.core.signer.SignerRef
+import app.lensly.app.SOLANA_FAMILY
+import app.lensly.app.SigningAccount
+import app.lensly.app.export.partsOf
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.SolSignRequestEncoder
+import app.lensly.core.ur.UrScanner
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.ReviewFact
 import fr.acinq.bitcoin.Base58
@@ -211,12 +221,9 @@ class SolanaReviewRowsTest {
     @Test
     fun theRecordOfASignedMessageHoldsItsTextAndTheHashOfTheEnvelope() {
         val signData = offchain("hello")
-        val review = review(request(signData, signType = SolSignType.MESSAGE))
+        val sol = request(signData, signType = SolSignType.MESSAGE)
 
-        val record = solanaReviewRecordOf(
-            SolanaReviewEntry(WALLET, ReviewOutcome.SIGNED, request(signData, signType = SolSignType.MESSAGE), review, null),
-            atMs = 1L,
-        )
+        val record = recordOf(appRequest(sol), review(sol))
 
         assertEquals(ReviewKind.MESSAGE, record.kind)
         assertContains(record.params, "Message" to "hello")
@@ -240,16 +247,30 @@ class SolanaReviewRowsTest {
     @Test
     fun theRecordOfASignedTransactionNamesSolanaTheSignerAndTheHashOfTheBytes() {
         val signData = legacy(keys = listOf(key(1), key(9), SYSTEM), instructions = listOf(transfer(from = 0, to = 1, lamports = 5L)))
-        val review = transaction(signData)
+        val sol = request(signData, origin = "lumio")
+        val review = review(sol)
 
-        val record = solanaReviewRecordOf(SolanaReviewEntry(WALLET, ReviewOutcome.SIGNED, request(signData), review, null), atMs = 1L)
+        val record = recordOf(appRequest(sol), review)
 
         assertEquals(ReviewKind.TRANSACTION, record.kind)
-        assertEquals(SOLANA_NETWORK, record.networkName)
+        assertEquals("Solana", record.networkName)
+        assertEquals("lumio", record.origin)
         assertEquals(address(1), record.address)
         assertEquals(0, record.accountIndex)
         assertEquals(solanaRows(review), record.params)
         assertEquals(MessageDigest.getInstance("SHA-256").digest(signData).toHex(), record.dataHash)
+    }
+
+    /** The Activity detail lists a Solana record's account and the addresses of its rows as Solana addresses. */
+    @Test
+    fun aSolanaRecordListsItsAccountAndRowAddressesOnSolana() {
+        val signData = legacy(keys = listOf(key(1), key(9), SYSTEM), instructions = listOf(transfer(from = 0, to = 1, lamports = 5L)))
+
+        val record = recordOf(appRequest(request(signData)), transaction(signData))
+
+        assertEquals(SOLANA_FAMILY, recordChainOf(record))
+        assertContains(recordAddressesOf(record), RecordAddress("Account", address(1), SOLANA_FAMILY))
+        assertContains(recordAddressesOf(record), RecordAddress("To", address(9), SOLANA_FAMILY))
     }
 
     /** A review longer than the history's row limit keeps its first rows, and its record says how many it left out. */
@@ -259,7 +280,7 @@ class SolanaReviewRowsTest {
         val review = transaction(signData)
         assertTrue(solanaRows(review).size > 200)
 
-        val record = solanaReviewRecordOf(SolanaReviewEntry(WALLET, ReviewOutcome.SIGNED, request(signData), review, null), atMs = 1L)
+        val record = recordOf(appRequest(request(signData)), review)
 
         assertEquals(200, record.params.size)
         assertEquals("More", record.params.last().first)
@@ -268,10 +289,9 @@ class SolanaReviewRowsTest {
 
     @Test
     fun aRefusedRequestRecordsItsReasonAndNoReview() {
-        val record = solanaReviewRecordOf(
-            SolanaReviewEntry(WALLET, ReviewOutcome.REFUSED, request(ByteArray(4) { 1 }), reviewed = null, refusal = "Unknown account"),
-            atMs = 1L,
-        )
+        val record = recordOf(appRequest(request(ByteArray(4) { 1 })), review = null, outcome = ReviewOutcome.REFUSED, refusal = "Unknown account")
+
+        assertEquals("Solana", record.networkName)
         assertEquals("Unknown account", record.refusal)
         assertNull(record.address)
         assertEquals(emptyList(), record.params)
@@ -444,16 +464,60 @@ class SolanaReviewRowsTest {
         signData: ByteArray,
         signType: SolSignType = SolSignType.TRANSACTION,
         cluster: SolCluster? = null,
+        origin: String? = null,
     ) = SolSignRequest(
         requestId = ByteArray(16) { 0x22 },
         signData = signData,
         derivationPath = listOf(PathStep(44, true), PathStep(501, true), PathStep(0, true)),
         sourceFingerprint = 1,
         address = null,
-        origin = null,
+        origin = origin,
         signType = signType,
         cluster = cluster,
     )
+
+    /** The app request of [sol], as the sign flow holds it: the sol-sign-request that carries it, under the Solana app's header. */
+    private fun appRequest(sol: SolSignRequest): AppRequest {
+        val scanner = UrScanner()
+        partsOf(SolSignRequestEncoder.encode(sol)).forEach { assertTrue(scanner.receive(it)) }
+        val header = RequestHeader(
+            app = solanaManifest.id,
+            chain = solanaManifest.networks.first { !it.testnet }.chainId,
+            kind = if (sol.signType == SolSignType.MESSAGE) RequestKind.MESSAGE else RequestKind.TRANSACTION,
+            signers = listOf(SignerRef(sol.sourceFingerprint, sol.derivationPath)),
+            requestId = sol.requestId,
+        )
+        return AppRequest(header, checkNotNull(scanner.result()).cborBytes)
+    }
+
+    /** The Review Record the sign flow writes for [request] with [review], the review the owner saw, or none for a refusal before one. */
+    private fun recordOf(
+        request: AppRequest,
+        review: SolanaRequestReview?,
+        outcome: ReviewOutcome = ReviewOutcome.SIGNED,
+        refusal: String? = null,
+    ): ReviewRecord {
+        val reviewed = review?.let {
+            AppPrepared.Ready(
+                walletId = WALLET,
+                request = request,
+                review = it.toReview(),
+                accountIndex = it.accountIndex,
+                signer = SigningAccount(name = "Test 1", walletName = "Test", address = it.signerAddress),
+                addressChain = SOLANA_FAMILY,
+                counterparties = counterpartiesOf(it.toReview()),
+                addressNotes = emptyMap(),
+            )
+        }
+        val (origin, dataHash) = appRequestFactsOf(request)
+        return appReviewRecordOf(
+            AppReviewEntry(WALLET, outcome, request, reviewed, acknowledged = emptyList(), refusal = refusal),
+            atMs = 1L,
+            origin = origin,
+            dataHash = dataHash,
+            displayName = solanaManifest.displayName,
+        )
+    }
 
     /** An off-chain message at header version 0 for [text] in [format], naming [signers]: the layout the Solana proposal gives. */
     private fun offchain(

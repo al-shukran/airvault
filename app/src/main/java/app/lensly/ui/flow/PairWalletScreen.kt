@@ -54,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
-import app.lensly.BuildConfig
 import app.lensly.R
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
@@ -104,8 +103,8 @@ internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
 /**
  * The online wallets that pair with Lensly, the first one recommended. Each one is paired with one code for the whole wallet, so an App
  * is never paired on its own. [LUMIO] is the AirVault companion app: it reads the AirVault pairing, which holds the keys and names of every
- * App of the wallet. [RABBY] and [METAMASK] read only the
- * Ethereum account keys, as a ur:crypto-multi-accounts too, because they hold no Bitcoin account.
+ * App of the wallet. [RABBY] and [METAMASK] read only the Ethereum account key, as one ur:crypto-hdkey, because they hold no Bitcoin
+ * account.
  */
 internal enum class PairFormat(
     @StringRes val labelRes: Int,
@@ -133,16 +132,14 @@ internal enum class PairFormat(
 }
 
 /**
- * The pairing frames for [wallet]: the Ethereum account key of each of its accounts, m/44'/60'/N' for account N, with the fingerprints,
- * named after the wallet, or "Lensly" when it has no name. Public data only. The fingerprint is stored as hex, so it is read as an
- * unsigned value.
+ * The pairing code for [wallet]: the account key m/44'/60'/0' of account 0, with the fingerprints, named after the wallet, or "Lensly" when it
+ * has no name. Public data only. The fingerprint is stored as hex, so it is read as an unsigned value.
  */
 internal fun pairingParts(wallet: WalletMeta): List<String> = PairingExport.urParts(
     accountKeys = requireNotNull(wallet.accountKeys.takeIf { it.isNotEmpty() }) { "Only a Mnemonic wallet has an account public key." },
     masterFingerprint = requireNotNull(wallet.masterFingerprintHex) { "Only a Mnemonic wallet has a fingerprint." }
         .toLong(16)
         .toInt(),
-    version = BuildConfig.VERSION_NAME,
     name = wallet.name.ifBlank { DEFAULT_PAIR_NAME },
 )
 
@@ -212,8 +209,10 @@ internal fun PairWizard(
     walletEntries: List<WalletEntry> = emptyList(),
     /** The AirVault pairing of a wallet: the keys and names of every App it holds, in one code, read off the main thread. */
     lumioParts: suspend (WalletMeta) -> List<String> = { emptyList() },
+    /** The code of Rabby or MetaMask: the Ethereum account key of each account of the wallet, read off the main thread. */
+    ethereumParts: (WalletMeta) -> List<String> = ::pairingParts,
     /**
-     * Checks the App Password before the AirVault code is built. The wizard owns the password and zeroes it. The default refuses every
+     * Checks the App Password before a pairing code is built. The wizard owns the password and zeroes it. The default refuses every
      * password, so a caller that does not check one never shows the code.
      */
     checkPassword: suspend (CharArray) -> PasswordCheck = { PasswordCheck.Rejected },
@@ -225,22 +224,22 @@ internal fun PairWizard(
     var wallet by remember { mutableStateOf(preselected ?: wallets.singleOrNull()) }
     var format by remember { mutableStateOf<PairFormat?>(null) }
     var step by remember { mutableStateOf(if (skipsWalletStep) PairStep.APP else PairStep.WALLET) }
-    // The AirVault code holds every account and Address Book entry, so it is built only once the App Password is right. It is locked
-    // again when the owner leaves the code, and when the app leaves the foreground.
+    // Every pairing code holds the wallet's account keys, so it is built only once the App Password is right. It is locked again when
+    // the owner leaves the code, and when the app leaves the foreground.
     var codeUnlocked by remember { mutableStateOf(false) }
     val chosen = wallet
     val inCode = step == PairStep.CODE
     // The AirVault code needs the seed's account keys, so only a Mnemonic wallet, the one with an account public key, has a code.
     val hasAccountKeys = chosen?.accountKeys?.isNotEmpty() == true
-    // The code is built only when the owner reaches it, from public wallet data, and for AirVault only once it is unlocked.
+    // The code is built only when the owner reaches it and the App Password is right, from public wallet data.
     val frames by produceState<List<String>?>(initialValue = null, chosen, inCode, format, hasAccountKeys, codeUnlocked) {
         value = when {
-            !inCode || chosen == null -> null
-            format == PairFormat.LUMIO -> if (hasAccountKeys && codeUnlocked) lumioParts(chosen) else null
-            else -> withContext(Dispatchers.Default) { pairingParts(chosen) }
+            !inCode || !codeUnlocked || chosen == null -> null
+            format == PairFormat.LUMIO -> if (hasAccountKeys) lumioParts(chosen) else null
+            else -> withContext(Dispatchers.Default) { ethereumParts(chosen) }
         }
     }
-    val passwordAsked = inCode && format == PairFormat.LUMIO && !codeUnlocked
+    val passwordAsked = inCode && !codeUnlocked
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val password = remember { PasswordBuffer() }
     var passwordLength by remember { mutableIntStateOf(0) }

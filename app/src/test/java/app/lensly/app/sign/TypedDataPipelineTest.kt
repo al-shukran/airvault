@@ -39,8 +39,6 @@ private const val USDC_CHECKSUM = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 private const val MAX_UINT256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935"
 private const val PERMIT_REASON =
     "A signed permit lets a spender move your tokens without a transaction. Scam sites use it to drain wallets."
-private const val UNKNOWN_CHAIN_REFUSAL =
-    "The typed data is for chain 999999, which is not in Lensly's network registry, so it is refused."
 
 /** The shipped registry, so Ethereum and USDC are known. Its Permit entry refuses a Permit. */
 private val SHIPPED: Registry = shippedRegistry()
@@ -123,28 +121,22 @@ class TypedDataPipelineTest {
     }
 
     @Test
-    fun aTypedDataDomainOnAnotherChainThanTheRequestIsRefused() {
-        val refused = assertIs<Prepared.Refused>(prepared(OPEN_PIPELINE, permitDoc(chainId = 1), chainId = 10143))
+    fun aTypedDataDomainOnAnotherChainThanTheRequestIsSignableAndItsChainIsNamed() {
+        val ready = ready(permitDoc(chainId = 1), chainId = 10143)
 
-        assertEquals("The typed data is for chain 1, but the request names chain 10143", refused.reason)
+        assertTrue((ready.review.facts + ready.review.sections.flatMap { it.rows }).any { it.label.startsWith("Signature for Chain 1 (") })
     }
 
     @Test
-    fun aTypedMessageOfAChainOutsideTheRegistryIsRefusedBeforeItsReview() {
-        val refused = assertIs<Prepared.Refused>(
-            prepared(SHIPPED_PIPELINE, permitSingleDoc(chainId = 999_999), chainId = 999_999),
-        )
-
-        assertEquals(UNKNOWN_CHAIN_REFUSAL, refused.reason)
+    fun aTypedMessageOfAChainOutsideTheRegistryIsSignableUnderAnUnknownNetwork() {
+        assertIs<Prepared.Ready>(prepared(SHIPPED_PIPELINE, permitSingleDoc(chainId = 999_999), chainId = 999_999))
     }
 
     @Test
-    fun aMessageOfAnotherTypeOnAChainOutsideTheRegistryIsRefusedToo() {
+    fun aMessageOfAnotherTypeOnAChainOutsideTheRegistryIsSignableToo() {
         val mailOnUnknownChain = MAIL.replace("\"chainId\":1}", "\"chainId\":999999}")
 
-        val refused = assertIs<Prepared.Refused>(prepared(SHIPPED_PIPELINE, mailOnUnknownChain, chainId = 999_999))
-
-        assertEquals(UNKNOWN_CHAIN_REFUSAL, refused.reason)
+        assertIs<Prepared.Ready>(prepared(SHIPPED_PIPELINE, mailOnUnknownChain, chainId = 999_999))
     }
 
     @Test
