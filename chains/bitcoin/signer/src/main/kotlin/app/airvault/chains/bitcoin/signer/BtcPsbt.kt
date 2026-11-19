@@ -89,6 +89,9 @@ object BtcPsbt {
     /** The `ur:crypto-psbt` form of [psbt]. */
     fun encodeUr(psbt: Psbt): String = UREncoder.encode(ur(psbt))
 
+    /** The CBOR payload of the `crypto-psbt` that carries [psbt]. A sign response frames it as a UR of [UR_TYPE]. */
+    fun cborOf(psbt: Psbt): ByteArray = ur(psbt).cborBytes
+
     /**
      * The frames of the `ur:crypto-psbt` that carries [psbt]. A PSBT that fits one QR code is one frame. A larger one gives the
      * uncoded parts of an animated code, so a caller that cycles this list sends the whole PSBT in every pass.

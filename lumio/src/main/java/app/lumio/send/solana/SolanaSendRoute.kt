@@ -213,8 +213,9 @@ internal fun SolanaSendRoute(
                         }
                         is SolanaNoncePath.Durable -> {
                             val mint = asset.token?.let { Base58.decode(it.mint) }
-                            val exists = mint == null ||
-                                scheduler.run(SolanaAccountRead(network, Base58.encode(SolanaTokenAccounts.associatedAddress(to, mint))), Priority.FOREGROUND) != null
+                            val exists = mint == null || SolanaSplSend.recipientAccountExists(
+                                scheduler.run(SolanaAccountRead(network, Base58.encode(SolanaTokenAccounts.associatedAddress(to, mint))), Priority.FOREGROUND),
+                            )
                             val rent = if (exists) 0L else scheduler.run(RentExemptMinimum(network, SolanaAssets.TOKEN_ACCOUNT_BYTES), Priority.FOREGROUND)
                             SolanaSendStep.Review(
                                 SolanaAssets.plan(network, asset, from, to, units, available, path.nonceValue, SolanaSend.newRequestId(), exists, rent),

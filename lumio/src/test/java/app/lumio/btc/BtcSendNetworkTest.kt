@@ -4,7 +4,6 @@ import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcCoin
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcSigner
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.toHex
 import app.lumio.data.Clock
@@ -144,7 +143,7 @@ class BtcSendNetworkTest {
         val coin = BtcCoin(spend.funding, 0, 0, 0)
         val recipient = BtcAccount.fromSeed(PairFixtures.seed, testnet4, ScriptType.NATIVE_SEGWIT, accountIndex = 1).receiveAddress(5)
         val plan = BtcSend.plan(watch, BtcSpendable(listOf(coin), nextChangeIndex = 0), recipient, 30_000L, 2.0)
-        val tx = BtcSend.signed(plan, URDecoder.decode(BtcSigner(account).sign(plan.psbt).ur))
+        val tx = BtcSend.signed(plan, URDecoder.decode(BtcFixtures.signerOf(account, PairFixtures.seed).sign(plan.psbt).ur))
         return plan to tx
     }
 

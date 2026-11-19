@@ -1,7 +1,6 @@
 package app.lensly.ui.flow
 
 import app.airvault.chains.evm.signer.ParsedRequest
-import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.core.model.Approval
 import app.airvault.core.signer.AppRequest
 import app.lensly.app.BitcoinAccountRecord
@@ -12,7 +11,6 @@ import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
-import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
@@ -21,7 +19,6 @@ import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
-import app.lensly.core.btc.BtcSigner
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.parse.ScanReply
@@ -53,7 +50,8 @@ private fun bitcoinRequest(withPreviousTransaction: Boolean = true): Psbt {
 /** The review the app's wallet store would hand the flow for [psbt], under the given input policy. */
 private fun readyOf(psbt: Psbt, policy: InputVerificationPolicy = InputVerificationPolicy.STRICT): BitcoinPrepared.Ready {
     val record = BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, BTC_ACCOUNT.receiveAddress(0))
-    return BitcoinPrepared.Ready(BTC_WALLET_ID, psbt, BitcoinReviewed(record, BtcSigner(BTC_ACCOUNT, policy).review(psbt), SAMPLE_SIGNER))
+    val review = BtcFixtures.signerOf(BTC_ACCOUNT, BTC_SEED, policy).review(psbt)
+    return BitcoinPrepared.Ready(BTC_WALLET_ID, psbt, BitcoinReviewed(record, review, SAMPLE_SIGNER))
 }
 
 /** Feeds the frames of one scanned code to [flow], stopping once the flow has left the scanning step. */
@@ -309,14 +307,6 @@ private class BitcoinPorts(
         signCalls++
         return signed(ready, unverifiedConfirmed)
     }
-
-    override suspend fun solanaPrepare(walletId: String, request: SolSignRequest): SolanaPrepared =
-        error("a Solana request is not expected in the Bitcoin tests")
-
-    override suspend fun solanaSign(ready: SolanaPrepared.Ready): List<String> =
-        error("a Solana request is not expected in the Bitcoin tests")
-
-    override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = error("a Solana request is not expected in the Bitcoin tests")
 
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared =
         error("an Algorand request is not expected in the Bitcoin tests")
