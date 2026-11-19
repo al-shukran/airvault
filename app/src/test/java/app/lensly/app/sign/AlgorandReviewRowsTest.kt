@@ -46,7 +46,7 @@ class AlgorandReviewRowsTest {
             algorandRows(review),
         )
         assertEquals("Sends 1.500000 ALGO to $RECEIVER_ADDRESS.", algorandSentence(review))
-        assertEquals(listOf("Fee" to "0.001000 ALGO"), algorandFacts(review))
+        assertEquals(emptyList(), algorandFacts(review))
         assertEquals(emptyList(), review.warnings)
     }
 
