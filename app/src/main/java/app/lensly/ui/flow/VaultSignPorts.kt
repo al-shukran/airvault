@@ -3,7 +3,12 @@ package app.lensly.ui.flow
 import android.content.Context
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.bitcoin.signer.BitcoinSigner
+import app.airvault.chains.bitcoin.signer.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcRefusal
+import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
+import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.toReview
@@ -15,9 +20,11 @@ import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.KeyAccess
 import app.airvault.core.signer.Path
 import app.airvault.core.signer.ScopedKeyAccess
+import app.airvault.core.signer.SignerApp
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookStore
 import app.lensly.app.AddressNotes
+import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.EVM_FAMILY
 import app.lensly.app.RegistryHolder
 import app.lensly.app.ReviewHistory
@@ -34,11 +41,11 @@ import app.lensly.app.addressNotesOf
 import app.lensly.app.autoAccountName
 import app.lensly.app.export.partsOf
 import app.lensly.app.internalAccountsOf
+import app.lensly.app.notesOf
 import app.lensly.app.requestParser
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.AsaCatalogHolder
-import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewRecord
@@ -47,15 +54,16 @@ import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.algorandCounterparties
 import app.lensly.app.sign.appRequestFactsOf
 import app.lensly.app.sign.appReviewRecordOf
+import app.lensly.app.sign.bitcoinRecordFactsOf
 import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.counterpartiesOf
 import app.lensly.app.sign.evmCounterparties
 import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.visualIdentity
 import app.lensly.chains.signerRegistry
+import app.lensly.ui.sign.bitcoinReviewOf
+import app.lensly.ui.sign.shownName
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
-import app.airvault.chains.bitcoin.signer.BtcPsbt
-import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.ScanReply
@@ -227,65 +235,6 @@ internal class VaultSignPorts(
         }
 
     /**
-     * Reviews the Bitcoin request in [psbt] against wallet [walletId], with the owner's Bitcoin policies. The bytes were parsed by the
-     * Parser Sandbox, and they are parsed again here only to read them. A request the rules refuse is [BitcoinPrepared.Refused].
-     */
-    override suspend fun bitcoinPrepare(walletId: String, psbt: ByteArray): BitcoinPrepared = withContext(Dispatchers.IO) {
-        val parsed = try {
-            BtcPsbt.parse(psbt)
-        } catch (e: RuntimeException) {
-            return@withContext BitcoinPrepared.Refused(NOT_A_PSBT)
-        }
-        val session = holder.openSession() ?: throw WalletUnavailable()
-        try {
-            val settings = SettingsStore(session).load()
-            val book = try {
-                AddressBookStore(session).load()
-            } catch (e: VaultException) {
-                emptyList()
-            }
-            val reviewed = WalletStore(session).bitcoinReview(
-                walletId,
-                parsed,
-                settings.bitcoinInputPolicy,
-                settings.bitcoinSigningSource,
-                settings.bitcoinFeeThresholds,
-                book,
-            )
-            BitcoinPrepared.Ready(walletId, parsed, reviewed)
-        } catch (e: BtcRefusedException) {
-            BitcoinPrepared.Refused(e.refusal.reason)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: IllegalStateException) {
-            throw WalletUnavailable()
-        } catch (e: RuntimeException) {
-            BitcoinPrepared.Refused(BITCOIN_UNREADABLE)
-        }
-    }
-
-    /** Signs the reviewed Bitcoin request with the account it was reviewed under. The seed is zeroed inside [WalletStore]. */
-    override suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String> =
-        withContext(Dispatchers.Default) {
-            val session = holder.openSession() ?: throw WalletUnavailable()
-            try {
-                val settings = SettingsStore(session).load()
-                WalletStore(session).bitcoinSign(
-                    id = ready.walletId,
-                    account = ready.reviewed.account,
-                    psbt = ready.psbt,
-                    inputPolicy = settings.bitcoinInputPolicy,
-                    sourcePolicy = settings.bitcoinSigningSource,
-                    unverifiedConfirmed = unverifiedConfirmed,
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IllegalStateException) {
-                throw WalletUnavailable()
-            }
-        }
-
-    /**
      * Writes [entry] as a Review Record of its wallet, through the open session. NonCancellable, so a record that has started is
      * written even when the screen that asked for it is left.
      */
@@ -303,12 +252,13 @@ internal class VaultSignPorts(
     }
 
     /**
-     * Reviews the request [request] of an installed chain app against wallet [walletId]. The Algorand and Solana apps have a review on the one
-     * sign flow so far, and any other app is refused.
+     * Reviews the request [request] of an installed chain app against wallet [walletId]. The Algorand, Solana and Bitcoin apps have a review on
+     * the one sign flow so far, and any other app is refused.
      */
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared = when (request.header.app) {
         algorandManifest.id -> algorandPrepare(walletId, request)
         solanaManifest.id -> solanaPrepare(walletId, request)
+        bitcoinManifest.id -> bitcoinPrepare(walletId, request)
         else -> AppPrepared.Refused(UNSUPPORTED_CODE)
     }
 
@@ -398,13 +348,80 @@ internal class VaultSignPorts(
     }
 
     /**
+     * Reviews the Bitcoin [appRequest] against wallet [walletId], under the owner's Bitcoin policies. The request keeps the signer references of
+     * wallet [walletId] alone, so its signature names the one account it was reviewed under. A request whose claimed inputs belong to two vault
+     * wallets is refused as [BtcRefusal.SeveralAccounts], since one signature cannot cover both. A request the rules refuse is [AppPrepared.Refused].
+     */
+    private suspend fun bitcoinPrepare(walletId: String, appRequest: AppRequest): AppPrepared = withContext(Dispatchers.IO) {
+        val parsed = try {
+            BtcPsbt.parse(appRequest.body)
+        } catch (e: RuntimeException) {
+            return@withContext AppPrepared.Refused(NOT_A_PSBT)
+        }
+        val wallet = readWallet { session ->
+            val listed = WalletStore(session).list()
+            val position = listed.indexOfFirst { it.id == walletId }
+            if (position < 0) null else viewOf(session, listed[position], position)
+        }
+        val masterFingerprint = wallet.masterFingerprint ?: return@withContext AppPrepared.Refused(BtcRefusal.NoStoredAccount.reason)
+        val vaultFingerprints = readWallet { session ->
+            WalletStore(session).list().mapNotNull { meta -> meta.masterFingerprintHex?.toLongOrNull(16)?.toInt() }.toSet()
+        }
+        val claimed = appRequest.header.signers.mapNotNull { it.fingerprint }.filter { it in vaultFingerprints }.distinct()
+        if (claimed.size > 1) return@withContext AppPrepared.Refused(BtcRefusal.SeveralAccounts.reason)
+        val request = appRequest.copy(
+            header = appRequest.header.copy(signers = appRequest.header.signers.filter { it.fingerprint == masterFingerprint }),
+        )
+        val session = holder.openSession() ?: throw WalletUnavailable()
+        try {
+            val settings = SettingsStore(session).load()
+            val book = try {
+                AddressBookStore(session).load()
+            } catch (e: VaultException) {
+                emptyList()
+            }
+            val reviewed = WalletStore(session).bitcoinReview(
+                walletId,
+                parsed,
+                settings.bitcoinInputPolicy,
+                settings.bitcoinSigningSource,
+                settings.bitcoinFeeThresholds,
+                book,
+            )
+            val review = bitcoinReviewOf(reviewed.review, reviewed.account.network, reviewed.account.scriptType) { address ->
+                reviewed.addressNotes.notesOf(address)?.shownName()
+            }
+            AppPrepared.Ready(
+                walletId = walletId,
+                request = request,
+                review = review,
+                accountIndex = reviewed.account.index,
+                signer = reviewed.signer,
+                addressChain = BITCOIN_FAMILY,
+                counterparties = reviewed.review.outputs.mapNotNull { it.address },
+                addressNotes = reviewed.addressNotes,
+                bitcoin = bitcoinRecordFactsOf(reviewed, review),
+            )
+        } catch (e: BtcRefusedException) {
+            AppPrepared.Refused(e.refusal.reason)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            throw WalletUnavailable()
+        } catch (e: RuntimeException) {
+            AppPrepared.Refused(BITCOIN_UNREADABLE)
+        }
+    }
+
+    /**
      * Signs the approved request through its app's `SignerApp.sign`, with the wallet's key access scoped to the app's key scopes, so a path outside
-     * them throws [KeyScopeViolation] before any key is derived. The seed is zeroed inside [WalletStore.withKeys].
+     * them throws [KeyScopeViolation] before any key is derived. The seed is zeroed inside [WalletStore.withKeys]. A Bitcoin refusal reads as the
+     * refusal of any other app: its reason is the message.
      */
     override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> = withContext(Dispatchers.Default) {
         val session = holder.openSession() ?: throw WalletUnavailable()
         try {
-            val signer = signerRegistry.byChain(ready.request.header.chain) ?: throw IllegalArgumentException(UNSUPPORTED_CODE)
+            val signer = signerForChain(session, ready.request.header.chain) ?: throw IllegalArgumentException(UNSUPPORTED_CODE)
             val response = WalletStore(session).withKeys(ready.walletId) { keys ->
                 signer.sign(ready.request, approval, reviewedKeys(session, ready, ScopedKeyAccess(signer.manifest.keys, keys)))
             }
@@ -413,7 +430,20 @@ internal class VaultSignPorts(
             throw e
         } catch (e: IllegalStateException) {
             throw WalletUnavailable()
+        } catch (e: BtcRefusedException) {
+            throw IllegalArgumentException(e.refusal.reason)
         }
+    }
+
+    /**
+     * The installed signer of [chain]. The Bitcoin signer is built with the owner's Bitcoin policies, so a signature is made under the policies its
+     * review was made under. The installed instance holds the core defaults, and it is never used to sign a Bitcoin request.
+     */
+    private fun signerForChain(session: VaultSession, chain: ChainId): SignerApp? {
+        val installed = signerRegistry.byChain(chain) ?: return null
+        if (installed !is BitcoinSigner) return installed
+        val settings = SettingsStore(session).load()
+        return BitcoinSigner(settings.bitcoinInputPolicy, settings.bitcoinSigningSource, settings.bitcoinFeeThresholds)
     }
 
     /**
@@ -427,25 +457,22 @@ internal class VaultSignPorts(
         return StoredKeyAccess(keys, stored)
     }
 
-    /** Writes the Algorand [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
+    /**
+     * Writes the [entry] of a chain app as a Review Record of its wallet, through the open session. A Bitcoin request keeps its own record shape,
+     * and every other app keeps the generic one. NonCancellable, as [record] is.
+     */
     override suspend fun recordApp(entry: AppReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
         val session = holder.openSession() ?: throw ReviewNotSaved()
         try {
-            val (origin, dataHash) = appRequestFactsOf(entry.request)
-            val displayName = signerRegistry.byChain(entry.request.header.chain)?.manifest?.displayName.orEmpty()
-            writeRecord(session, entry.walletId, appReviewRecordOf(entry, System.currentTimeMillis(), origin, dataHash, displayName))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            throw ReviewNotSaved()
-        }
-    }
-
-    /** Writes the Bitcoin [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
-    override suspend fun recordBitcoin(entry: BitcoinReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
-        val session = holder.openSession() ?: throw ReviewNotSaved()
-        try {
-            writeRecord(session, entry.walletId, bitcoinReviewRecordOf(entry, System.currentTimeMillis()))
+            val now = System.currentTimeMillis()
+            val record = if (entry.request.header.app == bitcoinManifest.id) {
+                bitcoinReviewRecordOf(entry, now)
+            } else {
+                val (origin, dataHash) = appRequestFactsOf(entry.request)
+                val displayName = signerRegistry.byChain(entry.request.header.chain)?.manifest?.displayName.orEmpty()
+                appReviewRecordOf(entry, now, origin, dataHash, displayName)
+            }
+            writeRecord(session, entry.walletId, record)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

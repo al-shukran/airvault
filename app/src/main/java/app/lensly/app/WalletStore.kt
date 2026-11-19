@@ -11,7 +11,6 @@ import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcAccountSelection
 import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
 import app.lensly.core.btc.BtcNetwork
-import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.lensly.core.btc.BtcSigner
@@ -601,37 +600,6 @@ class WalletStore(private val session: VaultSession) {
                 }
             }
         }
-    }
-
-    /**
-     * Signs the inputs of [psbt] that Bitcoin account [account] of wallet [id] owns, and returns the signed PSBT as the frames of its
-     * `ur:crypto-psbt`. The seed is derived for the signing and zeroed after it, on every path. The caller checks the App Password
-     * before this runs.
-     *
-     * @throws BtcRefusedException when a rule refuses the request. Nothing is signed then.
-     * @throws IllegalArgumentException if [account] is not a Bitcoin account of the wallet.
-     */
-    fun bitcoinSign(
-        id: String,
-        account: BitcoinAccountRecord,
-        psbt: Psbt,
-        inputPolicy: InputVerificationPolicy,
-        sourcePolicy: SigningSourcePolicy,
-        unverifiedConfirmed: Boolean,
-    ): List<String> {
-        require(bitcoinAccounts(id).any { it.key == account.key }) { "Wallet $id holds no such Bitcoin account." }
-        val seed = seedOf(id)
-        val signed = try {
-            val key = BtcAccount.fromSeed(seed, account.network, account.scriptType, account.index)
-            val keys = WalletKeyAccess(seed)
-            BtcSigner(
-                key.network, key.scriptType, key.accountIndex, key.masterFingerprint, keys, inputPolicy, sourcePolicy,
-                SettingsStore(session).load().bitcoinFeeThresholds,
-            ).sign(psbt, unverifiedConfirmed)
-        } finally {
-            seed.fill(0)
-        }
-        return BtcPsbt.encodeUrParts(signed.psbt)
     }
 
     /**

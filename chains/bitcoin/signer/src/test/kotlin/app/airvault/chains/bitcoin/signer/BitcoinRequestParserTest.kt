@@ -165,6 +165,7 @@ class BitcoinRequestParserTest {
 
     @Test
     fun theRegistryRoutesCryptoPsbtToTheBitcoinApp() {
-        assertEquals(BitcoinSigner, ChainRegistry(listOf(BitcoinSigner)).byRequestType(BtcPsbt.UR_TYPE))
+        val signer = BitcoinSigner()
+        assertEquals(signer, ChainRegistry(listOf(signer)).byRequestType(BtcPsbt.UR_TYPE))
     }
 }

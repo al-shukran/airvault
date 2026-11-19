@@ -32,14 +32,14 @@ import kotlin.test.assertTrue
 class ConformanceKitTest {
     @Test
     fun everySignerPassesTheManifestChecks() {
-        for (app in listOf(EvmSigner, BitcoinSigner, SolanaSigner, AlgorandSigner)) {
+        for (app in listOf(EvmSigner, BitcoinSigner(), SolanaSigner, AlgorandSigner)) {
             assertEquals(emptyList(), checkManifest(app), "${app.manifest.id}")
         }
     }
 
     @Test
     fun everySignerPassesTheKeyScopeChecksThroughTheCoreEnforcer() {
-        for (app in listOf(EvmSigner, BitcoinSigner, SolanaSigner, AlgorandSigner)) {
+        for (app in listOf(EvmSigner, BitcoinSigner(), SolanaSigner, AlgorandSigner)) {
             val keys = ScopedKeyAccess(app.manifest.keys, DerivingKeys)
             assertEquals(emptyList(), checkKeyScopes(app, keys), "${app.manifest.id}")
         }

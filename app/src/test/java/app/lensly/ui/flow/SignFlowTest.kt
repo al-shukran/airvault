@@ -7,7 +7,6 @@ import app.airvault.core.signer.AppRequest
 import app.lensly.app.export.PairingExport
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
-import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -140,20 +139,11 @@ private class FakePorts(
         return pipeline.sign(ready, privateKey)
     }
 
-    override suspend fun recordBitcoin(entry: BitcoinReviewEntry): Unit = error("no Bitcoin request is expected here")
-
     override suspend fun record(entry: ReviewEntry) {
         beforeRecord(entry)
         if (recordFails) throw ReviewNotSaved()
         records += entry
     }
-
-    // The EVM tests never send a Bitcoin request; the Bitcoin flow is tested in SignFlowBitcoinTest.
-    override suspend fun bitcoinPrepare(walletId: String, psbt: ByteArray): BitcoinPrepared =
-        error("a Bitcoin request is not expected in the EVM tests")
-
-    override suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String> =
-        error("a Bitcoin request is not expected in the EVM tests")
 
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared =
         error("an Algorand request is not expected in the EVM tests")

@@ -261,8 +261,7 @@ class BtcSignerRefusalTest {
         val taproot = BtcAccount.fromSeed(seed, testnet4, ScriptType.TAPROOT)
         for (account in listOf(native, nested, taproot)) {
             val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
-            val redeem = if (account.scriptType == ScriptType.NESTED_SEGWIT) Script.pay2wpkh(account.publicKey(0, 0)) else null
-            val psbt = previousTransactionOnly(spend, redeem, outputs(account, 90_000L))
+            val psbt = BtcFixtures.previousTransactionOnly(spend, outputs(account, 90_000L))
             assertRefusal(BtcRefusal.SegwitWithoutWitness(0)) { BtcFixtures.signerOf(account, seed).review(psbt) }
             assertRefusal(BtcRefusal.SegwitWithoutWitness(0)) { BtcFixtures.signerOf(account, seed).sign(psbt) }
         }
@@ -280,21 +279,6 @@ class BtcSignerRefusalTest {
      * A PSBT whose only input gives the previous transaction of [spend] and nothing else, claimed by the key of [spend]. A nested output
      * takes [redeemScript], the P2WPKH script of its key. This is the non-witness form the refusal guards.
      */
-    private fun previousTransactionOnly(spend: BtcFixtures.Spend, redeemScript: List<ScriptElt>?, txOuts: List<TxOut>): Psbt {
-        val account = spend.account
-        val tx = Transaction(
-            version = 2,
-            txIn = listOf(TxIn(OutPoint(spend.funding.hash, 0L), ByteVector.empty, 0xFFFFFFFDL)),
-            txOut = txOuts,
-            lockTime = 0L,
-        )
-        val path = account.path.derive(spend.branch.toLong()).derive(spend.claimedIndex.toLong())
-        val derivation = mapOf(account.publicKey(spend.branch, spend.index) to KeyPathWithMaster(account.masterFingerprint, path))
-        return checkNotNull(
-            Psbt(tx).updateNonWitnessInput(spend.funding, 0, redeemScript = redeemScript, derivationPaths = derivation).right,
-        )
-    }
-
     private fun outputs(account: BtcAccount, paid: Long): List<TxOut> = listOf(
         TxOut(Satoshi(paid), ByteVector(account.scriptPubKey(0, 5))),
     )
