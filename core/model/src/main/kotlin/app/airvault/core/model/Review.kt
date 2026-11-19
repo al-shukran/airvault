@@ -117,7 +117,7 @@ private fun scaled(baseUnits: BigInteger, decimals: Int, symbol: String?): Strin
 /**
  * A warning the review shows. [level] is the app's choice; the core enforces what each level means (spec 3.2). [acknowledge] is the label of a
  * check the owner ticks before the review can be signed, for a warning the app cannot resolve, such as an instruction it does not read. Warnings
- * with the same label share one check, so it is shown and ticked once.
+ * with the same label share one check, so it is shown and ticked once. A DANGER with no label has no check to tick, so it stops the review.
  */
 data class Warning(
     val level: Danger,
@@ -126,6 +126,9 @@ data class Warning(
     val field: FieldPath? = null,
     val acknowledge: String? = null,
 )
+
+/** Whether this warning stops the review being signed (spec 3.2): a BLOCK, or a DANGER the owner has no check to tick for. */
+val Warning.stopsSigning: Boolean get() = level == Danger.BLOCK || (level == Danger.DANGER && acknowledge == null)
 
 /**
  * The fields a review accounts for (spec 3.2). [decoded] holds every field the parser read. Each one must be shown by a row, or be in
@@ -139,8 +142,12 @@ fun Review.unaccounted(): Set<FieldPath> {
     return coverage.decoded - shown - coverage.excluded.keys
 }
 
-/** The review with a BLOCK warning when a decoded field is unaccounted for, so the review cannot be signed (spec 3.2). */
+/**
+ * The review checked for what stops it being signed (spec 3.2). A warning that [stopsSigning] is a BLOCK, so the screen refuses it as it refuses
+ * any block. A decoded field no row shows adds a BLOCK warning of its own.
+ */
 fun Review.checked(): Review {
-    if (unaccounted().isEmpty()) return this
-    return copy(warnings = warnings + Warning(Danger.BLOCK, "coverage", "This request has fields the app did not show.", null))
+    val stopped = warnings.map { if (it.stopsSigning) it.copy(level = Danger.BLOCK) else it }
+    if (unaccounted().isEmpty()) return copy(warnings = stopped)
+    return copy(warnings = stopped + Warning(Danger.BLOCK, "coverage", "This request has fields the app did not show.", null))
 }
