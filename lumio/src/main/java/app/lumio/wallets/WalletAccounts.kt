@@ -127,7 +127,10 @@ object WalletAccounts {
             )
         }
 
-    /** The Ethereum accounts that [addressCount] shows, each with its native coin on the primary network of [mode]'s side. */
+    /**
+     * The Ethereum accounts that [addressCount] shows, each with its native coin on the primary network of [mode]'s side. A side whose primary network
+     * is not in this build has no Ethereum accounts: it would show an Ethereum label with no balance.
+     */
     private fun ethereumAccounts(
         wallet: PairedWallet,
         mode: NetworkMode,
@@ -136,11 +139,11 @@ object WalletAccounts {
         addressCount: Int,
     ): List<WalletAccount> {
         val chainId = primaryEvmChainId(mode)
-        val primary = chains.firstOrNull { it.chainId == chainId }
+        val primary = chains.firstOrNull { it.chainId == chainId } ?: return emptyList()
         return wallet.evmAccounts.take(addressCount).mapIndexed { index, account ->
             val address = account.address
             val read = cache.firstOrNull { it.walletId == wallet.id && it.chainId == chainId && it.address == address }
-            val balance = if (primary != null && read != null) {
+            val balance = if (read != null) {
                 HomeBalances.evm(listOf(primary), listOf(Holding(primary, BigInteger(read.wei), read.atMs))).singleOrNull()
             } else {
                 null
@@ -149,7 +152,7 @@ object WalletAccounts {
                 walletId = wallet.id,
                 id = AccountId.of(Networks.evm(chainId), address),
                 index = index,
-                networkName = primary?.name ?: familyLabel(Networks.EIP155),
+                networkName = primary.name,
                 balance = balance,
             )
         }

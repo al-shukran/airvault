@@ -142,7 +142,7 @@ enum class Capability {
 
 ### 2.4 Registration
 
-There is one list of installed chain apps per phone app. It is the only file that changes when a chain is added.
+There is one list of installed signer apps per phone app, and Lumio's build lists the wallet apps it is compiled with. Adding a chain changes only those files.
 
 ```kotlin
 // app/src/main/java/app/lensly/chains/InstalledSigners.kt
@@ -150,10 +150,7 @@ val installedSigners: List<SignerApp> = listOf(
     BitcoinSigner, EvmSigner, SolanaSigner, AlgorandSigner, LitecoinSigner,
 )
 
-// lumio/src/main/java/app/lumio/chains/InstalledWallets.kt
-val installedWallets: List<WalletApp> = listOf(
-    BitcoinWallet, EvmWallet, SolanaWallet, AlgorandWallet, LitecoinWallet,
-)
+// lumio/build.gradle.kts: one implementation(project(":chains:<chain>:wallet")) line per chain app
 ```
 
 At start-up the core builds a `ChainRegistry` from that list:
@@ -934,9 +931,9 @@ Why the envelope and not `crypto-psbt`: `crypto-psbt` is already owned by the `b
 
 **Step 6. Tests.** Run the conformance kit. Add derivation and address vectors, a golden review for a two-output send, and a negative test for a PSBT input on coin type 0 (must be refused).
 
-**Step 7. Register.** Add `LitecoinSigner` to `InstalledSigners.kt` and `LitecoinWallet` to `InstalledWallets.kt`.
+**Step 7. Register.** Add `LitecoinSigner` to `InstalledSigners.kt` and the `LitecoinWallet` dependency to `lumio/build.gradle.kts`.
 
-Core files touched: `settings.gradle.kts`, `InstalledSigners.kt`, `InstalledWallets.kt`. Nothing else. If a step needs a core change, the contract is missing something; raise it rather than adding a `when`.
+Core files touched: `settings.gradle.kts`, `InstalledSigners.kt`, `lumio/build.gradle.kts`. Nothing else. If a step needs a core change, the contract is missing something; raise it rather than adding a `when`.
 
 ### 10.2 Short example: Tron with TRC-20
 

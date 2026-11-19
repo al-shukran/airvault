@@ -11,6 +11,7 @@ import app.lensly.core.ur.AlgoSignatureEncoder
 import app.lensly.core.ur.UrScanner
 import app.lumio.data.MonotonicClock
 import app.lumio.data.provider.AlgorandSuggestedParams
+import app.lumio.data.provider.AsaHolding
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError
@@ -69,6 +70,13 @@ class AlgorandSendTest {
     private fun plan(amount: BigInteger = BigInteger.valueOf(1_000_000L), at: AlgorandFunds = funds): AlgorandSendPlan =
         AlgorandSend.plan(ALGORAND_TESTNET, at, fingerprint = 0x1234_5678L, accountIndex = 3, signer = signer, to = recipient, amount = amount)
 
+    /** An account of [balance] microAlgos that has opted in to [assets] assets, with no units of any of them. */
+    private fun withAssets(balance: Long, assets: Int): AlgorandFunds = AlgorandFunds(
+        balance = BigInteger.valueOf(balance),
+        params = params,
+        holdings = List(assets) { AsaHolding(assetId = (it + 1).toULong(), amount = BigInteger.ZERO, frozen = false) },
+    )
+
     private fun sign(message: ByteArray): ByteArray {
         val engine = Ed25519Signer()
         engine.init(true, privateKey)
@@ -106,8 +114,14 @@ class AlgorandSendTest {
 
     @Test
     fun theMostThatCanBeSentKeepsTheMinimumBalanceAndTheFee() {
-        assertEquals(BigInteger.valueOf(899_000L), AlgorandSend.maxMicro(BigInteger.valueOf(1_000_000L), BigInteger.valueOf(1_000L)))
-        assertEquals(BigInteger.ZERO, AlgorandSend.maxMicro(BigInteger.valueOf(50_000L), BigInteger.valueOf(1_000L)))
+        assertEquals(BigInteger.valueOf(899_000L), AlgorandSend.maxMicro(withAssets(1_000_000L, 0), BigInteger.valueOf(1_000L)))
+        assertEquals(BigInteger.ZERO, AlgorandSend.maxMicro(withAssets(50_000L, 0), BigInteger.valueOf(1_000L)))
+    }
+
+    @Test
+    fun theMostThatCanBeSentKeepsAnotherMinimumBalanceForEachOptedInAsset() {
+        // Three assets keep 0.4 ALGO in the account, so 0.599 ALGO is the most it can send with a fee of 0.001 ALGO.
+        assertEquals(BigInteger.valueOf(599_000L), AlgorandSend.maxMicro(withAssets(1_000_000L, 3), BigInteger.valueOf(1_000L)))
     }
 
     @Test
@@ -167,6 +181,13 @@ class AlgorandSendTest {
         // The account holds 2 ALGO and must keep 0.1 ALGO, so 1.899 ALGO is the most it can send with a fee of 0.001 ALGO.
         assertFailsWith<IllegalArgumentException> { plan(BigInteger.valueOf(1_900_000L)) }
         assertEquals(BigInteger.valueOf(1_899_000L), plan(BigInteger.valueOf(1_899_000L)).amount)
+    }
+
+    @Test
+    fun anAmountThatLeavesLessThanTheMinimumBalanceForTheOptedInAssetsIsRefused() {
+        // Three assets keep 0.4 ALGO, so an account with 0.2 ALGO more than the amount and fee is refused, and one with 0.4 ALGO more is not.
+        assertFailsWith<IllegalArgumentException> { plan(at = withAssets(1_000_000L + 1_000L + 200_000L, 3)) }
+        assertEquals(BigInteger.valueOf(1_000_000L), plan(at = withAssets(1_000_000L + 1_000L + 400_000L, 3)).amount)
     }
 
     @Test
