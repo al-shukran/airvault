@@ -6,6 +6,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -16,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Coverage
 import app.airvault.core.model.Danger
+import app.airvault.core.model.checkLabels
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.FieldPath
 import app.airvault.core.model.NetworkLabel
@@ -73,11 +78,14 @@ class ReviewScreenTest {
     private fun setScreen(review: Review, summaryIcon: (@Composable () -> Unit)? = null) {
         compose.setContent {
             LumenTheme {
+                var ticked by remember { mutableStateOf(emptySet<String>()) }
                 ReviewScreen(
                     review = review,
                     signer = SAMPLE_SIGNER,
                     addressNotes = emptyMap(),
                     addressChain = chain,
+                    ticked = ticked,
+                    onTick = { label, on -> ticked = if (on) ticked + label else ticked - label },
                     onApprove = {},
                     onReject = {},
                     summaryIcon = summaryIcon,

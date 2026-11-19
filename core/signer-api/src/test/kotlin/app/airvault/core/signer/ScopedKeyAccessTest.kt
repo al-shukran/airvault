@@ -57,6 +57,19 @@ class ScopedKeyAccessTest {
     }
 
     @Test
+    fun reportsEachRefusedCallToTheCallerBeforeItThrows() {
+        val reported = mutableListOf<KeyScopeViolation>()
+        val logged = ScopedKeyAccess(scopes, delegate) { reported += it }
+        val outside = path("m/44'/284'/0'/0/0")
+
+        val thrown = assertFailsWith<KeyScopeViolation> { logged.signEd25519(Curve.ED25519_BIP32, outside, ByteArray(0)) }
+
+        assertEquals(listOf(thrown), reported)
+        assertEquals(outside.toString(), thrown.path.toString())
+        assertEquals(0, delegate.calls)
+    }
+
+    @Test
     fun printsAPathInTheBip32Notation() {
         assertEquals("m/44'/283'/0'/0/0", path("m/44'/283'/0'/0/0").toString())
     }

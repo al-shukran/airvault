@@ -2,8 +2,14 @@ package app.lensly.ui.flow
 
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
+import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.algorand.bytesToSign
 import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.core.model.Curve
+import app.airvault.core.signer.Path
+import app.airvault.core.signer.ScopedKeyAccess
+import app.lensly.core.ur.PathStep
+import app.lensly.core.wallet.WalletKeyAccess
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AlgorandReviewEntry
@@ -138,11 +144,31 @@ class SignFlowAlgorandTest {
         assertEquals(0, ports.signCalls)
     }
 
+    /**
+     * A request whose signing asks for a key outside the Algorand scope signs nothing, and the refusal is recorded with the reason the owner
+     * saw. The scoped key access refuses the path before any key is derived, as the wallet's sign does.
+     */
+    @Test
+    fun aKeyOutsideTheAlgorandScopeSignsNothingAndIsRecordedWithTheReasonShown() = runBlocking {
+        val ports = AlgorandPorts(outOfScope = true)
+        val flow = SignFlow(ports, walletId = WALLET)
+        flow.onScanned(partOf(requestCbor(PAY_BASIC)))
+        flow.approve()
+
+        flow.confirm("the password".toCharArray())
+
+        val shown = assertIs<SignStep.Refused>(flow.state.value)
+        assertEquals(listOf(ReviewOutcome.REFUSED), ports.records.map { it.outcome })
+        assertEquals(shown.reason, ports.records.single().refusal)
+        assertEquals(1, ports.signCalls)
+    }
+
     /** The fake ports. The wallet holds the Algorand accounts of the 24-word phrase, and the App Password check is [password]. */
     private class AlgorandPorts(
         private val password: PasswordCheck = PasswordCheck.Accepted,
         private val parser: RequestParser = inProcessSandboxParser,
         private val wallets: List<WalletView> = emptyList(),
+        private val outOfScope: Boolean = false,
     ) : SignFlowPorts {
         val records = mutableListOf<AlgorandReviewEntry>()
         var prepareCalls = 0
@@ -192,6 +218,10 @@ class SignFlowAlgorandTest {
 
         override suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String> {
             signCalls++
+            if (outOfScope) {
+                ScopedKeyAccess(algorandManifest.keys, WalletKeyAccess(SEED))
+                    .signEd25519(Curve.ED25519_BIP32, OTHER_COIN_PATH, ByteArray(0))
+            }
             val key = LedgerEd25519.algorandAccount(SEED, ready.review.accountIndex)
             try {
                 val signature = Ed25519Signer.sign(key.kL, bytesToSign(ready.request.signData))
@@ -208,6 +238,18 @@ class SignFlowAlgorandTest {
 
     private companion object {
         const val WALLET = "algorand-wallet"
+
+        /** A path of Bitcoin's coin type, which no Algorand key scope covers. */
+        val OTHER_COIN_PATH = Path(
+            listOf(
+                PathStep(44, hardened = true),
+                PathStep(0, hardened = true),
+                PathStep(0, hardened = true),
+                PathStep(0, hardened = false),
+                PathStep(0, hardened = false),
+            ),
+        )
+
         const val FINGERPRINT = 0x12121212
         val REQUEST_ID = ByteArray(16) { 0x11 }
         val TX_TAG = "TX".toByteArray(Charsets.US_ASCII)
