@@ -29,8 +29,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.LenslySegmentedControl
 import app.lensly.ui.theme.LenslySpacing
-import app.lumio.network.NetworkMode
 import app.lensly.ui.theme.LocalLumenPalette
+import app.lumio.network.NetworkMode
 
 /** The test tag of the testnet strip. */
 const val TESTNET_BANNER_TAG = "testnet-banner"

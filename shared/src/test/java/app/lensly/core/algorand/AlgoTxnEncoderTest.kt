@@ -4,12 +4,12 @@ import app.airvault.chains.algorand.Payment
 import app.airvault.chains.algorand.signer.AlgoTxnDecoder
 import app.airvault.chains.algorand.signer.AlgoTxnException
 import app.lensly.core.wallet.toHex
-import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.Test
 
 /**
  * Tests for [AlgoTxnEncoder]. The payments below are the fields of the `pay_basic` and `pay_note_close` vectors, which

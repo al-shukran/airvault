@@ -1,6 +1,6 @@
 package app.lensly.core.evm
 
-import app.lensly.core.ur.DataType
+import app.airvault.chains.evm.signer.DataType
 import org.web3j.crypto.Sign
 
 /** Signs personal messages (EIP-191, personal_sign). Typed data (dataType 2) is refused for now. */

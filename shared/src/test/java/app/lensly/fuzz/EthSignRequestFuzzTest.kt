@@ -1,6 +1,6 @@
 package app.lensly.fuzz
 
-import app.lensly.core.ur.EthSignRequest
+import app.airvault.chains.evm.signer.EthSignRequest
 import com.code_intelligence.jazzer.junit.FuzzTest
 import org.junit.jupiter.params.provider.MethodSource
 

@@ -1,0 +1,36 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    alias(libs.plugins.kotlin.jvm)
+}
+
+// Android modules that depend on this code compile to Java 17, so the pure-JVM chain modules do too.
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
+}
+
+dependencies {
+    api(project(":core:signer-api"))
+    api(project(":chains:evm:common"))
+    api(project(":abi"))
+    // Keccak-256, EIP-55 checksums and the ABI-free helpers of the transaction and typed data codecs come from web3j's crypto module.
+    implementation(libs.web3j.crypto)
+    // The pins :shared holds for web3j's transitive libraries (Dependabot alerts 6-12, 15-23 and 37-39). They keep this module on the
+    // artifacts the verification metadata lists.
+    constraints {
+        implementation("com.fasterxml.jackson.core:jackson-databind:2.18.11")
+        implementation("com.fasterxml.jackson.core:jackson-core:2.18.11")
+        implementation("com.fasterxml.jackson.core:jackson-annotations:2.18.11")
+        implementation(libs.bouncycastle.bcprov.jdk18on)
+    }
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlin.test)
+}

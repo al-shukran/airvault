@@ -2,8 +2,8 @@ package app.airvault.chains.algorand.signer
 
 import app.airvault.chains.algorand.AlgorandNetwork
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFails
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import org.junit.Test
 

@@ -23,11 +23,12 @@ import app.airvault.core.model.ChainId
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.addressBookEntryFor
 import app.lensly.app.addressKeyOf
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LumenMono
 import app.lumio.ui.kit.LumioPrimaryButton
-import app.lensly.ui.components.LumioTextAction
+
 
 /** The test tag of the name field of the address-book sheet. */
 const val ADDRESS_NAME_TAG = "address-name"

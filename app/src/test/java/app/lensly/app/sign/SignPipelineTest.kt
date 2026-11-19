@@ -1,14 +1,21 @@
 package app.lensly.app.sign
 
-import app.lensly.core.evm.AccessListEntry
+import app.airvault.abi.AbiValue
+import app.airvault.abi.CallDecode
+import app.airvault.abi.DecodedParam
+import app.airvault.abi.WhitelistParam
+import app.airvault.chains.evm.signer.AccessListEntry
+import app.airvault.chains.evm.signer.ContractCall
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.InnerCall
+import app.airvault.chains.evm.signer.Multicall
+import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.evm.signer.TxType
+import app.airvault.chains.evm.signer.UnsignedTx
 import app.lensly.core.evm.EvmFixtures
-import app.lensly.core.evm.TxType
-import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.InProcessSandbox
-import app.lensly.core.parse.InnerCall
-import app.lensly.core.parse.Multicall
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ParserWire
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxTransport
@@ -16,10 +23,6 @@ import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.ScriptedSandbox
 import app.lensly.core.parse.inProcessSandboxParser
-import app.lensly.core.registry.AbiValue
-import app.lensly.core.registry.CallDecode
-import app.lensly.core.registry.ContractCall
-import app.lensly.core.registry.DecodedParam
 import app.lensly.core.registry.DenylistCondition
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
@@ -31,10 +34,7 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.WhitelistEntry
-import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.ur.Cbor
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
@@ -1675,10 +1675,10 @@ class SignPipelineTest {
         val cbor = requestCbor(eip1559Tx(chainId = ETHEREUM, to = ROUTER, data = batchData(listOf(approve))), chainId = ETHEREUM)
         val honest = ScriptedSandbox { method, payload -> InProcessSandbox.call(method, payload) }
         val tampering = ScriptedSandbox { method, payload ->
-            val parsed = assertIs<ScanReply.Complete>(ParserWire.decodeScanReply(InProcessSandbox.call(method, payload))).parsed
+            val parsed = assertNotNull(evmParsedOf(ParserWire.decodeScanReply(InProcessSandbox.call(method, payload))))
             val batch = assertNotNull(parsed.multicall)
             val lying = batch.copy(calls = listOf(batch.calls.single().copy(call = ContractCall.Approve(UNREGISTERED, BigInteger.TEN))))
-            ParserWire.encodeScanReply(ScanReply.Complete(parsed.copy(multicall = lying)))
+            ParserWire.encodeScanReply(evmReplyOf(parsed.copy(multicall = lying)))
         }
 
         assertIs<Prepared.Ready>(throughSandbox(cbor, honest))
@@ -1688,7 +1688,7 @@ class SignPipelineTest {
     /** The parse a compromised sandbox would send for [cbor], with [change] applied to what it decoded. */
     private fun parsedWith(cbor: ByteArray, change: (ParsedRequest) -> ParsedRequest): ParsedRequest {
         val parts = listOf(framesOf(UR(EthSignRequest.UR_TYPE, cbor), WHOLE_REQUEST).first())
-        return change(assertIs<ScanReply.Complete>(inProcessSandboxParser.scan(parts)).parsed)
+        return change(assertNotNull(evmParsedOf(inProcessSandboxParser.scan(parts))))
     }
 
     /** The parse a compromised sandbox would send for [cbor], with the transaction it decoded changed by [change]. */
@@ -1778,7 +1778,7 @@ class SignPipelineTest {
     private fun throughSandbox(cbor: ByteArray, sandbox: SandboxTransport): Prepared {
         val parts = listOf(framesOf(UR(EthSignRequest.UR_TYPE, cbor), WHOLE_REQUEST).first())
         return when (val scan = SandboxedParser(sandbox).scan(parts)) {
-            is ScanReply.Complete -> pipeline.prepare(scan.parsed, VIEW)
+            is ScanReply.App -> pipeline.prepare(assertNotNull(evmParsedOf(scan)), VIEW)
             is ScanReply.Refused -> Prepared.Refused(scan.reason)
             else -> error("A single frame is a whole request or a refusal")
         }

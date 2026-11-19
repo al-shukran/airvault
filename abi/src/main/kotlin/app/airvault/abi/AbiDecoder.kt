@@ -1,4 +1,4 @@
-package app.lensly.core.registry
+package app.airvault.abi
 
 import app.lensly.core.parse.DecodeBudget
 import app.lensly.core.parse.ParserLimits
@@ -221,7 +221,7 @@ object AbiDecoder {
  * The text of [bytes] when they are valid UTF-8 with no control or format character, so no spoofing mark can hide in a string the owner
  * reads. An empty string is text. Null when the bytes are not text Lensly shows.
  */
-internal fun utf8TextOf(bytes: ByteArray): String? = try {
+fun utf8TextOf(bytes: ByteArray): String? = try {
     StandardCharsets.UTF_8.newDecoder()
         .onMalformedInput(CodingErrorAction.REPORT)
         .onUnmappableCharacter(CodingErrorAction.REPORT)
@@ -233,7 +233,7 @@ internal fun utf8TextOf(bytes: ByteArray): String? = try {
 }
 
 /** The bytes [hex] spells, or null when it is not hex with a whole number of digits per byte. Either case is accepted. */
-internal fun hexBytesOrNull(hex: String): ByteArray? {
+fun hexBytesOrNull(hex: String): ByteArray? {
     if (hex.length % 2 != 0 || !hex.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) return null
     return ByteArray(hex.length / 2) { hex.substring(2 * it, 2 * it + 2).toInt(16).toByte() }
 }

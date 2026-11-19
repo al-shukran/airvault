@@ -1,9 +1,9 @@
 package app.lensly.core.btc
 
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.Test
 
 class BtcFeeThresholdsTest {
     private val limits = BtcFeeThresholds(highFeeRateSatPerVb = 200, feeSharePercent = 10)

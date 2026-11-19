@@ -1,4 +1,4 @@
-package app.lensly.core.evm
+package app.airvault.chains.evm.signer
 
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
@@ -62,7 +62,7 @@ class TypedData(
     )
 
     /** The EIP-712 encodeType of [type]: its own signature, then the struct types it uses, sorted by name. */
-    internal fun encodeType(type: String): String {
+    fun encodeType(type: String): String {
         val referenced = sortedSetOf<String>()
         collectStructs(type, referenced)
         referenced.remove(type)
@@ -72,7 +72,7 @@ class TypedData(
     }
 
     /** hashStruct of [value] as [type]: keccak256(typeHash ‖ encodeData). */
-    internal fun hashStruct(type: String, value: TypedValue.StructValue): ByteArray {
+    fun hashStruct(type: String, value: TypedValue.StructValue): ByteArray {
         val typeHash = Hash.sha3(encodeType(type).toByteArray(StandardCharsets.UTF_8))
         return Hash.sha3(typeHash + encodeData(type, value))
     }
@@ -216,7 +216,7 @@ class TypedData(
         private fun rightPad(bytes: ByteArray): ByteArray = bytes + ByteArray(32 - bytes.size)
 
         /** The base type of [type] without its array suffixes: "Person" for "Person[][2]". */
-        internal fun baseTypeOf(type: String): String = type.substringBefore('[')
+        fun baseTypeOf(type: String): String = type.substringBefore('[')
 
         /** True when [type] ends in an array suffix. */
         fun isArray(type: String): Boolean = type.endsWith("]")
@@ -225,7 +225,7 @@ class TypedData(
         fun elementOf(type: String): String = type.substring(0, type.lastIndexOf('['))
 
         /** The length of the outer array of [type], or null for a dynamic array or a type that is not an array. */
-        internal fun fixedLengthOf(type: String): Int? {
+        fun fixedLengthOf(type: String): Int? {
             if (!isArray(type)) return null
             val inside = type.substring(type.lastIndexOf('[') + 1, type.length - 1)
             return inside.toIntOrNull()

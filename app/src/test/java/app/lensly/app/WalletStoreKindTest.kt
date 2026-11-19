@@ -12,13 +12,13 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.web3j.utils.Numeric
-import kotlin.test.assertTrue
 
 /** Storage round trips for both wallet kinds. */
 class WalletStoreKindTest {

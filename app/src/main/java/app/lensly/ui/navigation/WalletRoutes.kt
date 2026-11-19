@@ -23,7 +23,6 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
@@ -36,21 +35,21 @@ import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletApp
 import app.lensly.app.WalletDraftViewModel
-import app.lensly.app.WalletListing
 import app.lensly.app.WalletKind
+import app.lensly.app.WalletListing
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
 import app.lensly.app.WalletStore
-import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.solana.SolanaAccount
 import app.lensly.app.WalletWriter
 import app.lensly.app.export.AccountExport
 import app.lensly.app.export.AccountExportView
 import app.lensly.app.sessionReads
 import app.lensly.app.sign.ReviewRecord
+import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.update.RegistryUpdate
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.BulkPolicy
@@ -68,16 +67,15 @@ import app.lensly.ui.home.BulkChain
 import app.lensly.ui.home.BulkGenerateScreen
 import app.lensly.ui.home.DEFAULT_BITCOIN
 import app.lensly.ui.home.EthereumAccountsScreen
-import app.lensly.ui.home.SolanaAccountsScreen
 import app.lensly.ui.home.HomeReadiness
-import app.lensly.ui.home.effectiveCatalogSequence
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
-import app.lensly.ui.home.SoonScreen
+import app.lensly.ui.home.SolanaAccountsScreen
 import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHistoryScreen
 import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.home.WalletsScreen
+import app.lensly.ui.home.effectiveCatalogSequence
 import app.lensly.ui.home.importedState
 import app.lensly.ui.home.refusalReason
 import app.lensly.ui.home.runBulk
@@ -97,6 +95,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
 
 /** The longest BIP39 word has eight letters, so a longer prefix cannot be a word. */
 private const val MAX_WORD_LETTERS = 8

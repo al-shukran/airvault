@@ -1,10 +1,10 @@
 package app.lensly.core.registry.update
 
+import app.airvault.abi.WhitelistParam
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.WhitelistEntry
-import app.lensly.core.registry.WhitelistParam
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

@@ -2,8 +2,8 @@ package app.lumio.evm
 
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.rpc.RpcUrl
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /** A chain the owner added. Its RPC address is in [EvmSettings.rpc]. */

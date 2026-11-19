@@ -212,10 +212,12 @@ case "$partition" in
     chain-api)
         # The chain-app contract, the parsers, the registry, the key-scope enforcer, the conformance kit (which runs on the
         # Algorand signer and checks the signer side for network libraries), the Algorand, Bitcoin, EVM and Solana manifests
-        # and codecs, and the Bitcoin parser. Solana runs its parser too. No --tests filter: each module's whole test set runs.
+        # and codecs, and the Bitcoin parser. Solana runs its parser too. The EVM signer's request codec and the ABI library are
+        # in it too. No --tests filter: each module's whole test set runs.
         ./gradlew :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test \
             :chains:solana:signer:test :chains:bitcoin:signer:test :chains:bitcoin:common:test :chains:evm:common:test \
-            :chains:solana:common:test :core:conformance:test :core:wallet-api:classes :chains:algorand:wallet:classes
+            :chains:evm:signer:test :chains:solana:common:test :abi:test :core:conformance:test :core:wallet-api:classes \
+            :chains:algorand:wallet:classes
         ;;
     manifest)
         "$ROOT/scripts/ci/check-manifest.sh"

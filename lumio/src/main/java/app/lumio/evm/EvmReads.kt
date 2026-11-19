@@ -2,8 +2,8 @@ package app.lumio.evm
 
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.MonotonicClock
-import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.PreferRpcStore
+import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks

@@ -28,12 +28,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
+import app.lensly.ui.components.HomeTopBar
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.components.PillButton
@@ -53,8 +54,8 @@ import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WALLET_GUTTER
-import app.lensly.ui.components.HomeTopBar
 import kotlinx.coroutines.delay
+
 
 /** The test tag of the Scan to sign button. */
 internal const val HOME_SCAN_TAG = "home-scan"

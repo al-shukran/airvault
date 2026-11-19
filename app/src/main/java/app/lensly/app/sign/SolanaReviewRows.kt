@@ -1,7 +1,6 @@
 package app.lensly.app.sign
 
 import app.airvault.chains.solana.signer.SolanaMessageAccount
-import app.airvault.core.model.printableText
 import app.lensly.app.addressesIn
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaInstruction
@@ -13,10 +12,6 @@ import app.lensly.ui.sign.ReviewFact
 import app.lensly.ui.sign.shortAddress
 import app.lensly.ui.sign.solanaClusterName
 import java.math.BigDecimal
-import java.nio.ByteBuffer
-import java.nio.charset.CharacterCodingException
-import java.nio.charset.CodingErrorAction
-import java.nio.charset.StandardCharsets
 
 /** The label of the signing account's row. */
 private const val SIGNER = "Signer"

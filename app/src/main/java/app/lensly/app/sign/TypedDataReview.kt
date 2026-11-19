@@ -1,11 +1,12 @@
 package app.lensly.app.sign
+
+import app.airvault.chains.evm.signer.ContractCall
+import app.airvault.chains.evm.signer.EIP712_DOMAIN
+import app.airvault.chains.evm.signer.TypedData
+import app.airvault.chains.evm.signer.TypedField
+import app.airvault.chains.evm.signer.TypedValue
 import app.airvault.core.model.isPrintable
-import app.lensly.core.evm.EIP712_DOMAIN
-import app.lensly.core.evm.TypedData
-import app.lensly.core.evm.TypedField
-import app.lensly.core.evm.TypedValue
 import app.lensly.core.registry.Amounts
-import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.toHex

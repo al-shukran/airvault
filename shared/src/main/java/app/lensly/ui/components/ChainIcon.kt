@@ -16,8 +16,8 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.lensly.shared.R
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.shared.R
 
 /**
  * Chain logos that are too dark to see on black, so they draw on a light backdrop. Each one averages under 0.15 relative

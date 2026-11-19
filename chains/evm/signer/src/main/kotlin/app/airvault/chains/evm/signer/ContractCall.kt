@@ -1,4 +1,4 @@
-package app.lensly.core.registry
+package app.airvault.chains.evm.signer
 
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger

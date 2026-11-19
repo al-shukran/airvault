@@ -5,17 +5,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.BuildConfig
 import app.lensly.app.AppSettings
-import app.lensly.app.HideDelay
 import app.lensly.app.DecoyVault
+import app.lensly.app.HideDelay
 import app.lensly.app.SettingsStore
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
@@ -30,18 +29,18 @@ import app.lensly.core.vault.DuressResult
 import app.lensly.core.vault.FailureDelay
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
+import app.lensly.ui.settings.BitcoinPolicyScreen
 import app.lensly.ui.settings.Catalog
+import app.lensly.ui.settings.ChangeCopy
 import app.lensly.ui.settings.ChangeOutcome
 import app.lensly.ui.settings.ChangePasswordFlow
-import app.lensly.ui.settings.changeAppPassword
-import app.lensly.ui.settings.ChangeCopy
 import app.lensly.ui.settings.FailureCapChoice
-import app.lensly.ui.settings.BitcoinPolicyScreen
 import app.lensly.ui.settings.FeeWarningScreen
 import app.lensly.ui.settings.HideDelayScreen
-import app.lensly.ui.settings.SettingsScreen
 import app.lensly.ui.settings.NoticeBlock
+import app.lensly.ui.settings.SettingsScreen
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
+import app.lensly.ui.settings.changeAppPassword
 import app.lensly.ui.settings.readThirdPartyNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -49,6 +48,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+
 
 /** The Settings screen and the App Password change, in the hidden graph. */
 internal fun NavGraphBuilder.settingsRoutes(navController: NavHostController, holder: VaultHolder) {

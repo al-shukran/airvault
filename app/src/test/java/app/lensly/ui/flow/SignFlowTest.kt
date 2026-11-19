@@ -1,6 +1,8 @@
 package app.lensly.ui.flow
 
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.evm.signer.UnsignedTx
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.export.PairingExport
 import app.lensly.app.sign.AlgorandReviewEntry
@@ -11,10 +13,10 @@ import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
-import app.lensly.core.evm.UnsignedTx
+import app.lensly.app.sign.evmParsedOf
+import app.lensly.app.sign.evmReplyOf
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.DecodeClock
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxedParser
@@ -248,9 +250,9 @@ private fun scan(flow: SignFlow, frames: Sequence<String>, limit: Int = 2000): I
 private class ValueChangingParser : RequestParser by inProcessSandboxParser {
     override fun scan(parts: List<String>): ScanReply {
         val reply = inProcessSandboxParser.scan(parts)
-        if (reply !is ScanReply.Complete) return reply
-        val tx = assertIs<UnsignedTx.Result.Ok>(reply.parsed.tx).tx
-        return ScanReply.Complete(reply.parsed.copy(tx = UnsignedTx.Result.Ok(tx.copy(value = tx.value + BigInteger.ONE))))
+        val parsed = evmParsedOf(reply) ?: return reply
+        val tx = assertIs<UnsignedTx.Result.Ok>(parsed.tx).tx
+        return evmReplyOf(parsed.copy(tx = UnsignedTx.Result.Ok(tx.copy(value = tx.value + BigInteger.ONE))))
     }
 }
 

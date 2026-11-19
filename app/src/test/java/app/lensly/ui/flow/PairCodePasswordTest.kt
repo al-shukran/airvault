@@ -11,9 +11,9 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.core.wallet.AccountXpub
 import app.lensly.ui.theme.LumenTheme
-import kotlinx.coroutines.CompletableDeferred
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

@@ -5,9 +5,9 @@ import app.lensly.app.HideDelay
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.settings.Catalog
-import app.lensly.ui.shippedRegistry
 import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.SettingsScreen
+import app.lensly.ui.shippedRegistry
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

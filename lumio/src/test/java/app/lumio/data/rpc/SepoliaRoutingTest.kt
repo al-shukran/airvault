@@ -9,7 +9,6 @@ import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import java.math.BigInteger
 import kotlin.random.Random
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
@@ -17,6 +16,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.junit.Test
 
 /**
  * A Sepolia balance read through the whole public pool, with no network. 1RPC's free plan refuses Sepolia with JSON-RPC error 35, and the

@@ -1,6 +1,7 @@
 package app.lensly.core.evm
 
-import app.lensly.core.ur.DataType
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.UnsignedTx
 
 /** Outcome of the test [sign] below. */
 sealed interface TxSignResult {

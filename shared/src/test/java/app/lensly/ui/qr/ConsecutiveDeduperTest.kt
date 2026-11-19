@@ -1,8 +1,8 @@
 package app.lensly.ui.qr
 
-import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.Test
 
 class ConsecutiveDeduperTest {
 

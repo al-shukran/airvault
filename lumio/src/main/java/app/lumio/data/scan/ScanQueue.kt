@@ -9,8 +9,8 @@ import java.security.GeneralSecurityException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /** One account to scan: the account [accountRef] of wallet [walletId] on [net], run at [priority]. */
