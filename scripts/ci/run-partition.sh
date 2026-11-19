@@ -13,6 +13,34 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+# Watchdog, kept in the PR on purpose. On 2026-11-19 a test (app) partition ran for 4 min 20 s after its configuration
+# with no Gradle output and was cut by the job cap, with nothing to say where it stopped. If this partition is still
+# running after 240 s, the job log gets the JVM thread dumps (every Gradle daemon, worker and wrapper JVM) and the open
+# sockets. The watchdog only dumps: the job's own timeout still ends a stalled run, and nothing is retried.
+WATCHDOG_SECONDS=240
+watchdog() {
+    sleep "$WATCHDOG_SECONDS"
+    kill -0 "$1" 2>/dev/null || exit 0
+    echo "::warning::run-partition: still running after ${WATCHDOG_SECONDS} s; dumping JVM stacks and open sockets"
+    echo "::group::jps -l"
+    jps -l 2>&1 || true
+    echo "::endgroup::"
+    jps -l 2>/dev/null | while read -r pid name; do
+        case "$name" in
+            *Jps*) continue ;;
+        esac
+        echo "::group::jstack $pid $name"
+        jstack "$pid" 2>&1 | head -c 300000 || true
+        echo "::endgroup::"
+    done
+    echo "::group::open sockets (ss -tnp)"
+    ss -tnp 2>&1 | head -n 200 || true
+    echo "::endgroup::"
+}
+watchdog "$$" &
+WATCHDOG_PID=$!
+trap 'kill "$WATCHDOG_PID" 2>/dev/null || true' EXIT
+
 usage() {
     cat >&2 <<'USAGE_END'
 usage: scripts/ci/run-partition.sh <partition>
@@ -186,7 +214,7 @@ case "$partition" in
             :chains:algorand:signer:classes :chains:algorand:wallet:classes
         ;;
     manifest)
-        exec "$ROOT/scripts/ci/check-manifest.sh"
+        "$ROOT/scripts/ci/check-manifest.sh"
         ;;
     ci)
         # CI's own files: a syntax check of every shell script, the partition coverage check, plus the test-network
@@ -199,7 +227,7 @@ case "$partition" in
         done < <(find "$ROOT/scripts" -type f -name '*.sh' | sort)
         echo "run-partition: bash -n passed for $scripts script(s)"
         "$ROOT/scripts/ci/check-partitions.sh"
-        exec "$ROOT/scripts/ci/check-test-network.sh"
+        "$ROOT/scripts/ci/check-test-network.sh"
         ;;
     *)
         echo "run-partition: unknown partition: $partition" >&2
