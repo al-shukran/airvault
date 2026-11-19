@@ -16,7 +16,7 @@ class ReviewCoverageTest {
         title = "Review",
         chain = chain,
         network = NetworkLabel("Algorand Testnet", testnet = true, detail = null),
-        summary = "Sends 1.000000 ALGO.",
+        summary = listOf(SummaryPart.Text("Sends 1.000000 ALGO.")),
         facts = facts,
         sections = listOf(ReviewSection("Transaction", rows)),
         warnings = emptyList(),
@@ -48,6 +48,22 @@ class ReviewCoverageTest {
     }
 
     @Test
+    fun aHeadingOrStepDoesNotAccountForADecodedField() {
+        // A heading and a step show no decoded field, so a field only they name stays unaccounted and blocks the review.
+        val heading = ReviewRow("Transaction", value = null, field = null)
+        val step = ReviewRow("Sends the amount", value = null, field = null)
+        val checked = review(listOf(heading, step), Coverage(setOf(amount), emptyMap())).checked()
+        assertEquals(setOf(amount), checked.unaccounted())
+        assertEquals(listOf(Danger.BLOCK), checked.warnings.map { it.level })
+    }
+
+    @Test
+    fun aDeeperRowAccountsForItsFieldLikeAnyOther() {
+        val nested = ReviewRow("Amount", DisplayValue.Amount(BigInteger.ONE, 6, "ALGO"), amount, depth = 2)
+        assertTrue(review(listOf(nested), Coverage(setOf(amount), emptyMap())).checked().warnings.isEmpty())
+    }
+
+    @Test
     fun valuesShowTheirText() {
         assertEquals("1.500000 ALGO", DisplayValue.Amount(BigInteger("1500000"), 6, "ALGO").text())
         assertEquals("0.000250 USDC", DisplayValue.Amount(BigInteger("250"), 6, "USDC").text())
@@ -56,6 +72,20 @@ class ReviewCoverageTest {
         assertEquals("42", DisplayValue.Number(BigInteger("42")).text())
         assertEquals("hi", DisplayValue.Text("hi").text())
         assertEquals("ABC", DisplayValue.Address(chain, "ABC").text())
+        assertEquals("approve me", DisplayValue.Message("approve me").text())
+        val absent: DisplayValue? = null
+        assertEquals("", absent.text())
+    }
+
+    @Test
+    fun aSummaryReadsAsItsPartsWithEachCounterpartyAsItsAddress() {
+        val parts = listOf(
+            SummaryPart.Text("Approve "),
+            SummaryPart.Counterparty("0xSPENDER"),
+            SummaryPart.Text(" to spend "),
+            SummaryPart.Mono("1.5 USDC"),
+        )
+        assertEquals("Approve 0xSPENDER to spend 1.5 USDC", parts.text())
     }
 
     @Test

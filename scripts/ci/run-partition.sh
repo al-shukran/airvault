@@ -75,7 +75,7 @@ partitions:
   registry-pack  :tools:registry-pack:test
   chain-api      :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test :chains:solana:signer:test
                  :chains:bitcoin:signer:test :chains:bitcoin:common:test :chains:evm:common:test :chains:solana:common:test
-                 :core:conformance:test :chains:algorand:wallet:test :chains:bitcoin:wallet:test, then compiles the API, Algorand, Solana, Bitcoin and EVM modules
+                 :core:conformance:test :chains:algorand:wallet:test :chains:bitcoin:wallet:test :chains:solana:wallet:test, then compiles the API, Algorand, Solana, Bitcoin and EVM modules
   manifest       scripts/ci/check-manifest.sh
   ci             bash -n on every script, scripts/ci/check-partitions.sh, then
                  scripts/ci/check-test-network.sh (no Gradle)
@@ -213,11 +213,11 @@ case "$partition" in
         # The chain-app contract, the parsers, the registry, the key-scope enforcer, the conformance kit (which runs on the
         # Algorand signer and checks the signer side for network libraries), the Algorand, Bitcoin, EVM and Solana manifests
         # and codecs, and the Bitcoin parser. Solana runs its parser too. The EVM signer's request codec and the ABI library are
-        # in it too, and the Algorand and Bitcoin wallets (their pairing accounts). No --tests filter: each module's whole test set runs.
+        # in it too, and the Algorand, Bitcoin and Solana wallets (their pairing accounts). No --tests filter: each module's whole test set runs.
         ./gradlew :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test \
             :chains:solana:signer:test :chains:bitcoin:signer:test :chains:bitcoin:common:test :chains:evm:common:test \
             :chains:evm:signer:test :chains:solana:common:test :abi:test :core:conformance:test :core:wallet-api:classes \
-            :chains:algorand:wallet:test :chains:bitcoin:wallet:test
+            :chains:algorand:wallet:test :chains:bitcoin:wallet:test :chains:solana:wallet:test
         ;;
     manifest)
         "$ROOT/scripts/ci/check-manifest.sh"

@@ -16,10 +16,10 @@ import app.lumio.data.rpc.PUBLIC_LIMITS
 import app.lumio.data.rpc.RpcUrl
 import kotlinx.coroutines.delay
 
-/** The Solana devnet cluster, as the chain name "devnet" of the Solana family. */
+/** The Solana devnet cluster, as the chain name "devnet" of the Solana namespace. */
 val SOLANA_DEVNET = NetworkId(Networks.SOL_DEVNET, testnet = true)
 
-/** The Solana mainnet-beta cluster, as the chain name "mainnet-beta" of the Solana family. */
+/** The Solana mainnet-beta cluster, as the chain name "mainnet-beta" of the Solana namespace. */
 val SOLANA_MAINNET = NetworkId(Networks.SOL_MAINNET, testnet = false)
 
 /**
