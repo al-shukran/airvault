@@ -6,7 +6,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
 import java.math.BigInteger
@@ -50,7 +51,7 @@ class EtherscanProviderTest {
 
     @Test
     fun withoutAKeyTheProviderServesNothingAndIsNeverCalled() {
-        assertFalse(provider.supports(ETH, Op.NATIVE_BALANCE, cfg(key = null)))
+        assertFalse(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), cfg(key = null)))
         assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(ETH, ethAddress), cfg(key = null)) }
         assertEquals(0, server.requestCount)
     }
@@ -83,7 +84,7 @@ class EtherscanProviderTest {
     fun aPaidOnlyChainIsNotServedEvenWithAKey() {
         val base = NetworkId(Networks.evm(8453), testnet = false)
 
-        assertFalse(provider.supports(base, Op.NATIVE_BALANCE, cfg()))
+        assertFalse(provider.supports(base, OpKey.on(base, "nativeBalance"), cfg()))
         assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(base, ethAddress)) }
         assertEquals(0, server.requestCount)
     }
@@ -156,15 +157,15 @@ class EtherscanProviderTest {
 
     @Test
     fun theSupportTableNeedsAKeyAndAFreeTierMainnetForTheNativeBalance() {
-        assertTrue(provider.supports(ETH, Op.NATIVE_BALANCE, cfg()))
-        assertFalse(provider.supports(ETH, Op.NATIVE_BALANCE, cfg(key = null)))
-        assertFalse(provider.supports(ETH, Op.NONCE, cfg()))
-        assertFalse(provider.supports(NetworkId(Networks.evm(1), testnet = true), Op.NATIVE_BALANCE, cfg()))
-        assertFalse(provider.supports(NetworkId(Networks.BTC_MAINNET, testnet = false), Op.NATIVE_BALANCE, cfg()))
+        assertTrue(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), cfg()))
+        assertFalse(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), cfg(key = null)))
+        assertFalse(provider.supports(ETH, Ops.EVM_NONCE, cfg()))
+        assertFalse(provider.supports(NetworkId(Networks.evm(1), testnet = true), OpKey.on(NetworkId(Networks.evm(1), testnet = true), "nativeBalance"), cfg()))
+        assertFalse(provider.supports(NetworkId(Networks.BTC_MAINNET, testnet = false), OpKey.on(NetworkId(Networks.BTC_MAINNET, testnet = false), "nativeBalance"), cfg()))
     }
 
     @Test
     fun aPlainHttpBaseToAnotherHostIsNotSupported() {
-        assertFalse(provider.supports(ETH, Op.NATIVE_BALANCE, ProviderConfig(baseUrl = "http://example.org/", apiKey = "KEY-123")))
+        assertFalse(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), ProviderConfig(baseUrl = "http://example.org/", apiKey = "KEY-123")))
     }
 }

@@ -13,7 +13,7 @@ class AddressTxHistoryTest {
     fun anEvmAddressAndAFullPageAreAccepted() {
         val request = AddressTxHistory(ETH, account, page = 1, offset = MAX_TX_PAGE)
 
-        assertEquals(Op.TX_HISTORY, request.op)
+        assertEquals(Ops.EVM_TX_HISTORY, request.op)
     }
 
     @Test

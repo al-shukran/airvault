@@ -61,9 +61,3 @@ object BtcWatchOnly {
     fun accounts(seed: ByteArray, network: BtcNetwork, accountIndex: Int = 0): List<BtcWatchOnlyAccount> =
         ScriptType.entries.map { BtcAccount.fromSeed(seed, network, it, accountIndex).watchOnly() }
 }
-
-/** The "i-n" sequence header that every frame of a multi-part UR carries after its type, as in ur:type/1-3/body. */
-private val SEQUENCE_HEADER = Regex("""^UR:[A-Z0-9-]+/\d+-(\d+)/""", RegexOption.IGNORE_CASE)
-
-/** The number of parts an animated UR has, read from the sequence header of one of its frames, or 1 for a single-part UR. */
-internal fun sequenceLength(frame: String): Int = SEQUENCE_HEADER.find(frame)?.groupValues?.get(1)?.toInt() ?: 1

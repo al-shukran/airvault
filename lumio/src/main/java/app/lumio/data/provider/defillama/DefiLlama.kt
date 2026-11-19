@@ -11,7 +11,8 @@ import app.lumio.data.price.chartCoinOf
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.NativePrice
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.PriceChart
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.Provider
@@ -55,11 +56,11 @@ class DefiLlamaProvider : Provider {
     override val kind: Kind = Kind.DATA
     override val traits: Set<Trait> = setOf(Trait.KEYLESS)
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean {
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean {
         val priced = when (op) {
-            Op.PRICE -> NativeCoins.coinOf(net) != null
-            Op.TOKEN_PRICE -> DefiLlamaChains.prefixOf(net) != null
-            Op.PRICE_CHART -> NativeCoins.coinOf(net) != null || DefiLlamaChains.prefixOf(net) != null
+            Ops.PRICE_NATIVE -> NativeCoins.coinOf(net) != null
+            Ops.PRICE_TOKEN -> DefiLlamaChains.prefixOf(net) != null
+            Ops.PRICE_CHART -> NativeCoins.coinOf(net) != null || DefiLlamaChains.prefixOf(net) != null
             else -> false
         }
         return priced && providerBase(cfg.baseUrl, BASE) != null

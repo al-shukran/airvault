@@ -6,7 +6,7 @@ import app.lumio.data.esplora.CustomEsploraProvider
 import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import kotlin.test.assertEquals
 import org.junit.Test
 
@@ -29,7 +29,7 @@ class OwnServerRouteTest {
     }
 
     private fun routed(configs: Map<String, ProviderConfig>, state: ProviderState): List<String> =
-        router.route(net, Op.ADDRESS_STATS, configs, state, nowMs = 0L, tried = emptySet(), excluded = emptySet()).map { it.id }
+        router.route(net, Ops.BTC_ADDRESS_STATS, configs, state, nowMs = 0L, tried = emptySet(), excluded = emptySet()).map { it.id }
 
     @Test
     fun anEnabledOwnServerIsTheOnlyCandidateOfItsNetwork() {

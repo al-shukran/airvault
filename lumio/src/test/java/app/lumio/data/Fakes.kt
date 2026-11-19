@@ -9,7 +9,8 @@ import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -44,7 +45,7 @@ class FakeProvider(
     override val kind: Kind = Kind.DATA,
     override val traits: Set<Trait> = setOf(Trait.KEYLESS),
     private val networks: Set<NetworkId> = setOf(ETH),
-    private val ops: Set<Op> = setOf(Op.TIP_HEIGHT, Op.NATIVE_BALANCE, Op.BROADCAST),
+    private val ops: Set<OpKey> = setOf(Ops.BTC_TIP_HEIGHT, Ops.EVM_NATIVE_BALANCE, Ops.EVM_BROADCAST),
     private val limits: Limits = Limits(rps = 1_000.0, burst = 1_000, maxConcurrent = 100),
     private val latencyMs: Long = 0L,
     private val now: () -> Long = { 0L },
@@ -56,7 +57,7 @@ class FakeProvider(
         private set
     private var inFlight = 0
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean =
         net in networks && op in ops && (Trait.KEY_REQUIRED !in traits || !cfg.apiKey.isNullOrBlank())
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = limits

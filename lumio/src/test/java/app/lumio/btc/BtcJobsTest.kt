@@ -10,7 +10,7 @@ import app.lumio.data.cache.CachePolicy
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.sched.Scheduler
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
@@ -29,7 +29,7 @@ class BtcJobsTest {
 
     private fun cache() = Cache(FakeKvDao(), CacheKeys(ByteArray(32) { 1 }, ByteArray(32) { 2 }), FakeClock(1_000L))
 
-    private fun provider() = FakeProvider("blockstream", networks = setOf(net), ops = setOf(Op.TX, Op.BLOCK))
+    private fun provider() = FakeProvider("blockstream", networks = setOf(net), ops = setOf(Ops.BTC_TX, Ops.BTC_BLOCK))
 
     private fun scheduler(provider: FakeProvider, cache: Cache, scope: CoroutineScope): Scheduler = Scheduler(
         providers = listOf(provider),

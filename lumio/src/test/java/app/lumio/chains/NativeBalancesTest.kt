@@ -9,7 +9,7 @@ import app.lensly.core.vault.WalletRecordNames
 import app.lumio.data.FakeProvider
 import app.lumio.data.MonotonicClock
 import app.lumio.data.net.NetworkId
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
@@ -48,8 +48,8 @@ class NativeBalancesTest {
     val tmp = TemporaryFolder()
 
     private val session by lazy { VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 5 + 1).toByte() }) }
-    private val algorand = FakeProvider(id = "algorand", networks = setOf(ALGORAND_TESTNET, ALGORAND_MAINNET), ops = setOf(Op.NATIVE_BALANCE))
-    private val solana = FakeProvider(id = "solana", networks = setOf(SOLANA_DEVNET, SOLANA_MAINNET), ops = setOf(Op.NATIVE_BALANCE))
+    private val algorand = FakeProvider(id = "algorand", networks = setOf(ALGORAND_TESTNET, ALGORAND_MAINNET), ops = setOf(Ops.ALGO_NATIVE_BALANCE))
+    private val solana = FakeProvider(id = "solana", networks = setOf(SOLANA_DEVNET, SOLANA_MAINNET), ops = setOf(Ops.SOL_NATIVE_BALANCE))
     private val scheduler = Scheduler(
         listOf(algorand, solana),
         { emptyMap() },
