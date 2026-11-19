@@ -86,7 +86,9 @@ lane_classes() {
 }
 
 # Runs one online Gradle call. Network errors are retried, because a dropped connection is not a defect. Any other failure
-# fails at once: retrying a verification or a missing artifact only hides it.
+# fails at once: retrying a verification only hides it. An unreachable repository shows as "Could not find ... Searched in the
+# following locations" (or "Could not parse POM") for artifacts that exist, with no HTTP status (run 44603626048: every
+# repository at once), so those count as network errors. A missing coordinate matches that text too and fails after three tries.
 online() {
     local attempt log
     for attempt in 1 2 3; do
@@ -95,7 +97,7 @@ online() {
             rm -f "$log"
             return 0
         fi
-        if ! grep -q -E 'Could not GET|Could not HEAD|Connect timed out|Read timed out|Connection reset|failed: timeout|Received status code|status code (429|50[0-9])' "$log"; then
+        if ! grep -q -E 'Could not GET|Could not HEAD|Connect timed out|Read timed out|Connection reset|failed: timeout|Received status code|status code (429|50[0-9])|Searched in the following locations|Could not parse POM' "$log"; then
             rm -f "$log"
             echo "run-partition: $1 failed without a network error, so it is not retried" >&2
             exit 1

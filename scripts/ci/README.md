@@ -11,7 +11,7 @@ fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENA
 
 | Lane | Runs | Job |
 |---|---|---|
-| `resolve` | `./gradlew resolveAll`, the only online step; retried on network errors only | `deps`, on a cache miss |
+| `resolve` | `./gradlew resolveAll`, the only online step; retried when a repository is unreachable | `deps`, on a cache miss |
 | `shard-1` … `shard-6` | the unit tests listed under the lane in `shards.txt`; pure JVM modules run whole | `shard` (matrix) |
 | `verify` | the Roborazzi pixel tests of `:app` and `:lumio`, with `verifyRoborazziDebug` | `roborazzi` |
 | `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` |

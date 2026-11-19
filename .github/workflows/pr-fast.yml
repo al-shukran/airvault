@@ -35,11 +35,12 @@ concurrency:
 
 jobs:
   # The one job that may use the network for dependencies. A cache hit on the key skips it. The key covers the files that decide
-  # what Gradle resolves, so a dependency change always makes a new key.
+  # what Gradle resolves, so a dependency change always makes a new key. A miss can take three attempts of resolveAll
+  # (scripts/ci/run-partition.sh online), so this job has 10 minutes where the other lanes have 5.
   deps:
     name: resolve dependencies
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
