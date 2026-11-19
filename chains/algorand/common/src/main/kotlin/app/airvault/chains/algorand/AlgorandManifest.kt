@@ -21,6 +21,12 @@ import app.airvault.core.model.UrTypeSpec
 /** Algorand's SLIP-44 coin type (spec 11.1). Both networks and every key path use it. */
 private const val ALGORAND_COIN_TYPE = 283
 
+/** Algorand mainnet: the first 32 characters of its genesis hash, in base64 (CAIP-2 algorand, spec 4). */
+val algorandMainnet = ChainId("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k")
+
+/** Algorand testnet: the first 32 characters of its genesis hash, in base64 (CAIP-2 algorand, spec 4). */
+val algorandTestnet = ChainId("algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe")
+
 /** The Algorand chain app's manifest (spec 2.1, 11.1), declared once and shared by its signer and wallet sides. */
 val algorandManifest: ChainManifest = ChainManifest(
     id = AppId("algorand"),
@@ -29,16 +35,8 @@ val algorandManifest: ChainManifest = ChainManifest(
     appVersion = "1.0.0",
     namespaces = setOf("algorand"),
     networks = listOf(
-        algorandNetwork(
-            chain = ChainId("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k"),
-            name = "Algorand",
-            testnet = false,
-        ),
-        algorandNetwork(
-            chain = ChainId("algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe"),
-            name = "Algorand Testnet",
-            testnet = true,
-        ),
+        algorandNetwork(chain = algorandMainnet, name = "Algorand", testnet = false),
+        algorandNetwork(chain = algorandTestnet, name = "Algorand Testnet", testnet = true),
     ),
     keys = listOf(
         KeyScope(

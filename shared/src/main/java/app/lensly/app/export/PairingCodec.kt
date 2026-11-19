@@ -2,7 +2,7 @@ package app.lensly.app.export
 
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.autoAccountName
-import app.lensly.app.evmAddressOf
+import app.airvault.chains.evm.evmAddressOf
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.parse.DecodeBudget
 import app.lensly.core.parse.ParserLimits

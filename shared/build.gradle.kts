@@ -98,6 +98,10 @@ dependencies {
     // The Algorand transaction types and the request codec live in chains/algorand/common; the decoder in .../signer.
     api(project(":chains:algorand:common"))
     api(project(":chains:algorand:signer"))
+    // The address rules of the Bitcoin, EVM and Solana chains. Their manifests and codecs are pure JVM, like the Algorand ones.
+    api(project(":chains:bitcoin:common"))
+    api(project(":chains:evm:common"))
+    api(project(":chains:solana:common"))
     // The Bitcoin PSBT codec, the bitcoin manifest and the crypto-psbt parser live in chains/bitcoin/signer.
     api(project(":chains:bitcoin:signer"))
 

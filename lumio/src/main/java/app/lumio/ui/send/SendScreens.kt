@@ -27,8 +27,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
+import app.lensly.app.EVM_FAMILY
 import app.lensly.app.InternalAccount
 import app.lensly.app.addressNotesOf
 import app.lensly.app.headline
@@ -165,7 +165,7 @@ fun SendReviewScreen(
     } else {
         EvmFormat.amount(send.valueWei, token.decimals, token.symbol)
     }
-    val recipient = addressNotesOf(send.to, AddressChain.EVM, accounts, addressBook)?.headline() ?: send.to
+    val recipient = addressNotesOf(send.to, EVM_FAMILY, accounts, addressBook)?.headline() ?: send.to
     SendStepScaffold(
         step = SEND_STEP_REVIEW,
         title = "Review Send",
@@ -183,8 +183,8 @@ fun SendReviewScreen(
         Spacer(Modifier.height(LenslySpacing.md))
         LumioIsland {
             Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
-                ReviewAddress("From", send.from, notes = addressNotesOf(send.from, AddressChain.EVM, accounts, addressBook))
-                ReviewAddress("To", send.to, notes = addressNotesOf(send.to, AddressChain.EVM, accounts, addressBook))
+                ReviewAddress("From", send.from, notes = addressNotesOf(send.from, EVM_FAMILY, accounts, addressBook))
+                ReviewAddress("To", send.to, notes = addressNotesOf(send.to, EVM_FAMILY, accounts, addressBook))
                 ReviewField("Amount", amount)
                 if (token != null) ReviewAddress("Token Contract", send.tx.to ?: token.contract)
             }

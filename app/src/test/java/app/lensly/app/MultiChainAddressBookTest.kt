@@ -1,9 +1,22 @@
 package app.lensly.app
 
+import app.airvault.chains.algorand.AlgoAddress
+import app.airvault.chains.algorand.AlgorandAddressCodec
+import app.airvault.chains.algorand.algorandAddressOf
+import app.airvault.chains.algorand.algorandMainnet
+import app.airvault.chains.bitcoin.BitcoinAddressCodec
+import app.airvault.chains.bitcoin.bitcoinMainnet
+import app.airvault.chains.bitcoin.bitcoinTestnet4
+import app.airvault.chains.evm.EvmAddressCodec
+import app.airvault.chains.evm.ethereumMainnet
+import app.airvault.chains.solana.SolanaAddressCodec
+import app.airvault.chains.solana.solanaAddressOf
+import app.airvault.chains.solana.solanaMainnet
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import fr.acinq.bitcoin.Base58
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -48,12 +61,15 @@ class MultiChainAddressBookTest {
     private fun entry(id: String, address: String, name: String) = AddressBookEntry(id = id, address = address, name = name, label = null)
 
     @Test
-    fun everyBitcoinScriptTypeOnMainnetAndTestnetIsValidOnTheBitcoinChain() {
-        listOf(p2pkhMain, p2shMain, p2wpkhMain, p2wshMain, p2trMain, p2pkhTest, p2shTest, p2wpkhTest, p2wshTest, p2trTest)
-            .forEach { address ->
-                assertEquals(address, canonicalAddressOf(address))
-                assertEquals(AddressChain.BITCOIN, chainOfAddress(address))
-            }
+    fun everyBitcoinScriptTypeOnMainnetAndTestnetIsValidOnItsOwnNetwork() {
+        listOf(p2pkhMain, p2shMain, p2wpkhMain, p2wshMain, p2trMain).forEach { address ->
+            assertEquals(address, canonicalAddressOf(address))
+            assertEquals(bitcoinMainnet, chainOfAddress(address))
+        }
+        listOf(p2pkhTest, p2shTest, p2wpkhTest, p2wshTest, p2trTest).forEach { address ->
+            assertEquals(address, canonicalAddressOf(address))
+            assertEquals(bitcoinTestnet4, chainOfAddress(address))
+        }
         assertEquals(BtcNetwork.MAINNET, btcNetworkOf(p2wpkhMain))
         assertEquals(BtcNetwork.MAINNET, btcNetworkOf(p2pkhMain))
         assertEquals(BtcNetwork.TESTNET4, btcNetworkOf(p2wpkhTest))
@@ -70,16 +86,16 @@ class MultiChainAddressBookTest {
     @Test
     fun aSolanaAddressIsKeptAsWrittenAndIsOnTheSolanaChain() {
         assertEquals(solana, canonicalAddressOf("  $solana "))
-        assertEquals(AddressChain.SOLANA, chainOfAddress(solana))
+        assertEquals(SOLANA_FAMILY, chainOfAddress(solana))
         assertEquals(solanaSystem, canonicalAddressOf(solanaSystem))
-        assertEquals(AddressChain.SOLANA, chainOfAddress(solanaSystem))
+        assertEquals(SOLANA_FAMILY, chainOfAddress(solanaSystem))
     }
 
     @Test
     fun aSolanaAddressIsA32ByteKeyAndNotALegacyBitcoinAddress() {
         // A legacy Bitcoin address has the shape of a Solana address: 34 base58 characters. It decodes to 25 bytes, not 32.
         assertNull(solanaAddressOf(p2pkhMain))
-        assertEquals(AddressChain.BITCOIN, chainOfAddress(p2pkhMain))
+        assertEquals(BITCOIN_FAMILY, chainOfAddress(p2pkhMain))
         // A zero is not a base58 character, so a 32-character value with one is not a Solana address.
         assertNull(solanaAddressOf("0" + "1".repeat(31)))
     }
@@ -87,7 +103,7 @@ class MultiChainAddressBookTest {
     @Test
     fun anAlgorandAddressIsKeptAsWrittenAndIsOnTheAlgorandChain() {
         assertEquals(algorand, canonicalAddressOf(algorand))
-        assertEquals(AddressChain.ALGORAND, chainOfAddress(algorand))
+        assertEquals(ALGORAND_FAMILY, chainOfAddress(algorand))
     }
 
     @Test
@@ -103,7 +119,7 @@ class MultiChainAddressBookTest {
     @Test
     fun anEvmAddressIsCanonicalInChecksumFormAndOnTheEvmChain() {
         assertEquals(evm, canonicalAddressOf(evm.lowercase()))
-        assertEquals(AddressChain.EVM, chainOfAddress(evm))
+        assertEquals(EVM_FAMILY, chainOfAddress(evm))
         assertNull(canonicalAddressOf("0x5aaeb6053F3E94C9b9A09f33669435E7Ef1BeAed"))
     }
 
@@ -111,9 +127,9 @@ class MultiChainAddressBookTest {
     fun aTextThatIsNoAddressOfAnyChainHasNoChain() {
         assertNull(chainOfAddress("not an address"))
         assertNull(chainOfAddress(""))
-        assertNull(canonicalAddressOn(p2pkhMain, AddressChain.EVM))
-        assertNull(canonicalAddressOn(evm, AddressChain.BITCOIN))
-        assertNull(canonicalAddressOn(solana, AddressChain.ALGORAND))
+        assertNull(canonicalAddressOn(p2pkhMain, EVM_FAMILY))
+        assertNull(canonicalAddressOn(evm, BITCOIN_FAMILY))
+        assertNull(canonicalAddressOn(solana, ALGORAND_FAMILY))
     }
 
     @Test
@@ -125,24 +141,24 @@ class MultiChainAddressBookTest {
             entry("a", algorand, "Payroll"),
         )
         // An EVM address matches in any letter case.
-        assertEquals("Alice", addressBookEntryFor(evm.lowercase(), AddressChain.EVM, book)?.name)
-        assertEquals("Alice", addressBookEntryFor(evm.uppercase().replace("0X", "0x"), AddressChain.EVM, book)?.name)
+        assertEquals("Alice", addressBookEntryFor(evm.lowercase(), EVM_FAMILY, book)?.name)
+        assertEquals("Alice", addressBookEntryFor(evm.uppercase().replace("0X", "0x"), EVM_FAMILY, book)?.name)
         // A Bitcoin, Solana or Algorand address matches exactly.
-        assertEquals("Bob", addressBookEntryFor(p2wpkhMain, AddressChain.BITCOIN, book)?.name)
-        assertNull(addressBookEntryFor(p2wpkhMain.uppercase(), AddressChain.BITCOIN, book))
-        assertEquals("Token", addressBookEntryFor(solana, AddressChain.SOLANA, book)?.name)
-        assertNull(addressBookEntryFor(solana.lowercase(), AddressChain.SOLANA, book))
-        assertEquals("Payroll", addressBookEntryFor(algorand, AddressChain.ALGORAND, book)?.name)
-        assertNull(addressBookEntryFor(algorand.lowercase(), AddressChain.ALGORAND, book))
+        assertEquals("Bob", addressBookEntryFor(p2wpkhMain, BITCOIN_FAMILY, book)?.name)
+        assertNull(addressBookEntryFor(p2wpkhMain.uppercase(), BITCOIN_FAMILY, book))
+        assertEquals("Token", addressBookEntryFor(solana, SOLANA_FAMILY, book)?.name)
+        assertNull(addressBookEntryFor(solana.lowercase(), SOLANA_FAMILY, book))
+        assertEquals("Payroll", addressBookEntryFor(algorand, ALGORAND_FAMILY, book)?.name)
+        assertNull(addressBookEntryFor(algorand.lowercase(), ALGORAND_FAMILY, book))
     }
 
     @Test
     fun anEntryIsFoundOnlyOnItsOwnChain() {
         val book = listOf(entry("s", solana, "Token"))
-        assertEquals("Token", addressBookEntryFor(solana, AddressChain.SOLANA, book)?.name)
-        assertNull(addressBookEntryFor(solana, AddressChain.EVM, book))
-        assertNull(addressBookEntryFor(solana, AddressChain.BITCOIN, book))
-        assertNull(addressBookEntryFor(solana, AddressChain.ALGORAND, book))
+        assertEquals("Token", addressBookEntryFor(solana, SOLANA_FAMILY, book)?.name)
+        assertNull(addressBookEntryFor(solana, EVM_FAMILY, book))
+        assertNull(addressBookEntryFor(solana, BITCOIN_FAMILY, book))
+        assertNull(addressBookEntryFor(solana, ALGORAND_FAMILY, book))
     }
 
     @Test
@@ -150,7 +166,7 @@ class MultiChainAddressBookTest {
         val book = listOf(entry("main", p2wpkhMain, "Main"))
         val saved = addressBookEntryOf("test", p2wpkhTest, "Testnet", "", book)
         assertEquals(p2wpkhTest, saved.address)
-        assertEquals(AddressChain.BITCOIN, saved.chain)
+        assertEquals(bitcoinTestnet4, saved.chain)
     }
 
     @Test
@@ -160,7 +176,7 @@ class MultiChainAddressBookTest {
         assertEquals(algorand, addressBookEntryOf("3", algorand, "Payroll", "", emptyList()).address)
         assertEquals(evm, addressBookEntryOf("4", evm.lowercase(), "Alice", "", emptyList()).address)
         assertEquals(
-            listOf(AddressChain.BITCOIN, AddressChain.SOLANA, AddressChain.ALGORAND, AddressChain.EVM),
+            listOf(BITCOIN_FAMILY, SOLANA_FAMILY, ALGORAND_FAMILY, EVM_FAMILY),
             listOf(p2wpkhMain, solana, algorand, evm).map { addressBookEntryOf("x", it, "Name", "", emptyList()).chain },
         )
     }
@@ -190,6 +206,24 @@ class MultiChainAddressBookTest {
         }
         assertTrue(isValidAddressNotes("x".repeat(ADDRESS_NOTES_MAX_LENGTH)))
     }
+
+    @Test
+    fun eachChainDerivesItsAddressFromAPublicKey() {
+        // The secp256k1 generator is the public key of private key 1, whose addresses are published: the BIP-173 native segwit address
+        // on mainnet and testnet4, and the Ethereum address.
+        val compressed = hex("0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798")
+        val uncompressed = hex(
+            "04" + "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798" + "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
+        )
+        assertEquals("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", BitcoinAddressCodec.fromPublicKey(bitcoinMainnet, compressed))
+        assertEquals(p2wpkhTest, BitcoinAddressCodec.fromPublicKey(bitcoinTestnet4, compressed))
+        assertEquals("0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf", EvmAddressCodec.fromPublicKey(ethereumMainnet, uncompressed))
+        // A Solana and an Algorand address are their public key written out, so each one reads back to itself.
+        assertEquals(solana, SolanaAddressCodec.fromPublicKey(solanaMainnet, Base58.decode(solana)))
+        assertEquals(algorand, AlgorandAddressCodec.fromPublicKey(algorandMainnet, AlgoAddress.decode(algorand)))
+    }
+
+    private fun hex(text: String): ByteArray = text.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 
     @Test
     fun everyChainAndTheNotesSurviveReopeningTheVault() {

@@ -24,8 +24,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import app.lensly.app.AddressChain
+import app.airvault.core.model.ChainId
 import app.lensly.app.AddressNotes
+import app.lensly.app.EVM_FAMILY
 import app.lensly.app.notesOf
 import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.evm.AccessListEntry
@@ -74,10 +75,10 @@ fun TxReviewScreen(
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
     /** Opens an address of the review in the Address Book, with its chain. Null leaves the address rows without a tap. */
-    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
+    onOpenAddress: ((String, ChainId) -> Unit)? = null,
 ) {
     val isMessage = review.function == SIGN_MESSAGE_FUNCTION
-    val open = addressTapOn(AddressChain.EVM, onOpenAddress)
+    val open = addressTapOn(EVM_FAMILY, onOpenAddress)
     // The To row names the recipient, or the contract of a whitelisted or decoded call. A message has none.
     val showTo = !isMessage && review.toAddress.isNotEmpty()
     val read = rememberReviewRead(review)
