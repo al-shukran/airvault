@@ -41,6 +41,7 @@ import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.algorandCounterparties
+import app.lensly.app.sign.appRequestFactsOf
 import app.lensly.app.sign.appReviewRecordOf
 import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.evmCounterparties
@@ -67,14 +68,12 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
-import app.lensly.core.wallet.toHex
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import app.airvault.chains.algorand.signer.toReview
 import com.sparrowwallet.hummingbird.UR
-import java.security.MessageDigest
 
 /** The refusal of a Bitcoin request that could not be reviewed for a reason other than its rules. Nothing is signed for it. */
 private const val BITCOIN_UNREADABLE = "This Bitcoin request could not be reviewed. Nothing was signed."
@@ -87,6 +86,26 @@ private const val SOLANA_UNREADABLE = "This Solana request could not be reviewed
 
 /** The refusal of an Algorand request to a Single Key wallet, which has no Algorand accounts. Nothing is signed for it. */
 private const val ALGORAND_NO_ACCOUNTS = "This wallet has no Algorand accounts."
+
+/** The refusal of an Ethereum request that could not be reviewed for a reason other than its rules. Nothing is signed for it. */
+private const val EVM_UNREADABLE = "This Ethereum request could not be reviewed. Nothing was signed."
+
+/** The refusal of an Algorand request that could not be reviewed for a reason other than its rules. Nothing is signed for it. */
+private const val ALGORAND_UNREADABLE = "This Algorand request could not be reviewed. Nothing was signed."
+
+/**
+ * Runs one check of a request on its way to a review. A RuntimeException the check throws becomes the refusal [refused] makes of
+ * [unreadable], so a check that fails unexpectedly refuses the request and never escapes the sign flow. A cancellation and a
+ * [WalletUnavailable] propagate, as the flow handles them. Every chain's prepare runs its check through here, so a new chain cannot
+ * leave its check unguarded.
+ */
+internal inline fun <T> guardedCheck(unreadable: String, refused: (String) -> T, check: () -> T): T = try {
+    check()
+} catch (e: CancellationException) {
+    throw e
+} catch (e: RuntimeException) {
+    refused(unreadable)
+}
 
 /**
  * The app's [SignFlowPorts]. Wallet reads go through the open session, and only [privateKey] reads a secret. The address check
@@ -121,8 +140,9 @@ internal class VaultSignPorts(
             if (position < 0) null else viewOf(session, listed[position], position)
         }
         val settings = readWallet { SettingsStore(it).load() }
-        val prepared = SignPipeline(RegistryHolder.get(context), parser, settings.proxyPolicy, settings.unknownCallPolicy)
-            .prepare(parsed, wallet)
+        val prepared = guardedCheck(EVM_UNREADABLE, { Prepared.Refused(it) }) {
+            SignPipeline(RegistryHolder.get(context), parser, settings.proxyPolicy, settings.unknownCallPolicy).prepare(parsed, wallet)
+        }
         if (prepared !is Prepared.Ready) return@withContext prepared
         prepared.copy(addressNotes = addressNotesFor(walletId, evmCounterparties(prepared.review), EVM_FAMILY))
     }
@@ -290,10 +310,8 @@ internal class VaultSignPorts(
         if (sourceFingerprint != masterFingerprint) return@withContext SolanaPrepared.Refused("This request is for a different wallet")
         val keys = readWallet { WalletStore(it).solanaKeys(walletId) }
         val unknownCalls = readWallet { SettingsStore(it).load().unknownCallPolicy }
-        val checked = try {
+        val checked = guardedCheck(SOLANA_UNREADABLE, { SolanaRequestCheck.Result.Refused(it) }) {
             checkSolana(request, keys, SolanaTokensHolder.get(context), unknownCalls)
-        } catch (e: RuntimeException) {
-            return@withContext SolanaPrepared.Refused(SOLANA_UNREADABLE)
         }
         when (checked) {
             is SolanaRequestCheck.Result.Ok -> {
@@ -367,7 +385,10 @@ internal class VaultSignPorts(
             ?: return@withContext AppPrepared.Refused("The request does not say which wallet it is for")
         if (sourceFingerprint != masterFingerprint) return@withContext AppPrepared.Refused("This request is for a different wallet")
         val keys = readWallet { WalletStore(it).algorandKeys(walletId) }
-        when (val checked = AlgorandRequestCheck.check(request, keys, AsaCatalogHolder.get(context))) {
+        val checked = guardedCheck(ALGORAND_UNREADABLE, { AlgorandRequestCheck.Result.Refused(it) }) {
+            AlgorandRequestCheck.check(request, keys, AsaCatalogHolder.get(context))
+        }
+        when (checked) {
             is AlgorandRequestCheck.Result.Ok -> {
                 val review = checked.review
                 val counterparties = algorandCounterparties(review)
@@ -409,7 +430,7 @@ internal class VaultSignPorts(
     override suspend fun recordApp(entry: AppReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
         val session = holder.openSession() ?: throw ReviewNotSaved()
         try {
-            val (origin, dataHash) = requestFactsOf(entry.request)
+            val (origin, dataHash) = appRequestFactsOf(entry.request)
             val displayName = signerRegistry.byChain(entry.request.header.chain)?.manifest?.displayName.orEmpty()
             writeRecord(session, entry.walletId, appReviewRecordOf(entry, System.currentTimeMillis(), origin, dataHash, displayName))
         } catch (e: CancellationException) {
@@ -418,17 +439,6 @@ internal class VaultSignPorts(
             throw ReviewNotSaved()
         }
     }
-
-    /** The origin a request names, and the SHA-256 of the data it asks to sign, as its chain app reads them (spec 8.6). */
-    private fun requestFactsOf(request: AppRequest): Pair<String?, String> = when (request.header.app) {
-        algorandManifest.id -> when (val decoded = AlgoSignRequest.decode(request.body)) {
-            is AlgoSignRequest.Result.Ok -> decoded.request.origin to sha256Hex(decoded.request.signData)
-            is AlgoSignRequest.Result.Rejected -> null to sha256Hex(request.body)
-        }
-        else -> null to sha256Hex(request.body)
-    }
-
-    private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
 
     /** Writes the Bitcoin [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
     override suspend fun recordBitcoin(entry: BitcoinReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {

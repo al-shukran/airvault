@@ -16,6 +16,7 @@ import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
@@ -26,6 +27,7 @@ import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -48,6 +50,8 @@ private const val ACK_ALL_NFTS = "I understand this grants control of all NFTs i
 private const val ACK_UNKNOWN = "I understand Lensly cannot say what this call does."
 private const val ACK_DENYLIST = "I understand this request matches a known-dangerous request."
 private const val ACK_WHITELIST = "I have read what this call is approved to do."
+private const val ACK_UPGRADE = "I accept that this proxy's code cannot be checked offline."
+private const val IMPLEMENTATION = "0x4444444444444444444444444444444444444444"
 
 private val MAX_UINT256: BigInteger = BigInteger.ONE.shiftLeft(256).subtract(BigInteger.ONE)
 private val PATH = listOf(
@@ -416,7 +420,166 @@ class EvmReviewTest {
 
         assertEquals("The request does not name a network", refusalOf(EvmRequestParser.parsedOf(request)).reason)
     }
+
+    @Test
+    fun aTransferFromAKnownTokenShowsItsDecimalsAndBothParties() {
+        val review = reviewOf(txParsed(USDC, ContractCall.TransferFrom(SENDER, SPENDER, BigInteger.valueOf(1_500_000)).encode()!!))
+
+        assertEquals("transferFrom", review.title)
+        assertEquals("Moves 1.5 USDC from $SENDER to $SPENDER.", review.summary.text())
+        assertEquals(
+            listOf("from" to SENDER, "to" to SPENDER, "value" to "1500000 (1.5 USDC)"),
+            review.sections.single { it.heading == "Arguments" }.rows.map { it.label to it.value.text() },
+        )
+        assertTrue(review.warnings.isEmpty())
+    }
+
+    @Test
+    fun aTransferFromAnUnregisteredContractIsReadAsATokenOrNftAndNamesItsCheck() {
+        val review = reviewOf(txParsed(NFT, ContractCall.TransferFrom(SENDER, SPENDER, BigInteger.valueOf(7)).encode()!!))
+
+        // The third argument may be an amount or a token id, so it is shown as a number and not as an amount.
+        assertEquals("transferFrom (token or NFT)", review.title)
+        assertEquals("Moves a token or NFT from $SENDER to $SPENDER.", review.summary.text())
+        assertEquals(
+            listOf("from" to SENDER, "to" to SPENDER, "amount or tokenId" to "7"),
+            review.sections.single { it.heading == "Arguments" }.rows.map { it.label to it.value.text() },
+        )
+        assertNotNull(review.warnings.single { it.code == "evm.registry" }.acknowledge)
+    }
+
+    @Test
+    fun theUnlimitedThresholdIsTwoToTheOneSixtyMinusOneForApprovalsAndAllowanceIncreases() {
+        val threshold = BigInteger.ONE.shiftLeft(160).subtract(BigInteger.ONE)
+        fun unlimitedWarned(call: ContractCall): Boolean =
+            reviewOf(txParsed(USDC, call.encode()!!)).warnings.any { it.code == "evm.unlimited-approval" }
+
+        assertTrue(unlimitedWarned(ContractCall.Approve(SPENDER, threshold)))
+        assertFalse(unlimitedWarned(ContractCall.Approve(SPENDER, threshold.subtract(BigInteger.ONE))))
+        assertTrue(unlimitedWarned(ContractCall.IncreaseAllowance(SPENDER, threshold)))
+        assertFalse(unlimitedWarned(ContractCall.IncreaseAllowance(SPENDER, threshold.subtract(BigInteger.ONE))))
+    }
+
+    @Test
+    fun aNestedBatchIsListedOneLevelDownAndItsUnlimitedApprovalIsWarned() {
+        val approveBytes = ContractCall.Approve(SPENDER, MAX_UINT256).encode()!!
+        val approve = InnerCall(
+            target = null,
+            allowFailure = null,
+            value = null,
+            calldata = approveBytes,
+            call = ContractCall.decode(approveBytes),
+            nested = null,
+        )
+        val nestedBytes = encodeMulticall(MulticallShape.BYTES_ARRAY, deadline = null, calls = listOf(approve))!!
+        // The outer call is a Multicall3 call to USDC whose calldata is a batch of its own, so the approval sits two levels down.
+        val outer = InnerCall(
+            target = USDC,
+            allowFailure = false,
+            value = null,
+            calldata = nestedBytes,
+            call = null,
+            nested = Multicall(deadline = null, calls = listOf(approve)),
+        )
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(outer))!!
+
+        val review = reviewOf(txParsed(MULTICALL3, batch))
+
+        assertEquals(SPENDER, review.sections.single { it.heading == "Calls" }.rows.single { it.label == "spender" }.value.text())
+        assertEquals(UNLIMITED_WARNING, review.warnings.single { it.code == "evm.unlimited-approval" }.message)
+    }
+
+    @Test
+    fun aMulticall3CallShowsItsAllowFailureFlag() {
+        val approveBytes = ContractCall.Approve(SPENDER, BigInteger.TEN).encode()!!
+        val call = InnerCall(
+            target = USDC,
+            allowFailure = true,
+            value = null,
+            calldata = approveBytes,
+            call = ContractCall.decode(approveBytes),
+            nested = null,
+        )
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!
+
+        val rows = reviewOf(txParsed(MULTICALL3, batch)).sections.single { it.heading == "Calls" }.rows
+
+        assertEquals("true", rows.single { it.label == "allowFailure (bool)" }.value.text())
+        assertEquals(SPENDER, rows.single { it.label == "spender" }.value.text())
+    }
+
+    @Test
+    fun aWhitelistedProxyUnderWarnAndConfirmIsReviewedUnderARedWarningAndItsCheck() {
+        val proxy = fooEntry().copy(upgradeable = true, proxy = ProxyBinding(implementationAddress = IMPLEMENTATION))
+        val registry = REGISTRY.withWhitelist(listOf(proxy))
+
+        val review = reviewOf(txParsed(NFT, fooCalldata()), builder(registry, proxyPolicy = ProxyPolicy.WARN_AND_CONFIRM))
+
+        val warning = review.warnings.single { it.code == "evm.proxy" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals(ACK_UPGRADE, warning.acknowledge)
+        assertEquals(IMPLEMENTATION, review.sections.single { it.heading == "Arguments" }.rows.single { it.label == "Implementation" }.value.text())
+        // The default policy refuses the same proxy, so the second confirmation is the only way to sign it.
+        refusalOf(txParsed(NFT, fooCalldata()), builder(registry))
+    }
+
+    @Test
+    fun aWhitelistedProxyInsideAMulticallIsWarnedUnderWarnAndConfirmAndRefusedUnderTheDefault() {
+        val proxy = fooEntry().copy(upgradeable = true, proxy = ProxyBinding(implementationAddress = IMPLEMENTATION))
+        val registry = REGISTRY.withWhitelist(listOf(proxy))
+        val call = InnerCall(target = NFT, allowFailure = false, value = null, calldata = fooCalldata(), call = null, nested = null)
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!
+
+        val review = reviewOf(txParsed(MULTICALL3, batch), builder(registry, proxyPolicy = ProxyPolicy.WARN_AND_CONFIRM))
+
+        val warning = review.warnings.single { it.code == "evm.proxy" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals(FieldPath("evm.data.call[0].function"), warning.field)
+        assertEquals(ACK_UPGRADE, warning.acknowledge)
+        assertEquals(IMPLEMENTATION, review.sections.single { it.heading == "Calls" }.rows.single { it.label == "Implementation" }.value.text())
+        refusalOf(txParsed(MULTICALL3, batch), builder(registry))
+    }
+
+    @Test
+    fun aPersonalMessageThatIsNotReadableTextShowsItsBytes() {
+        val rows = reviewOf(personalParsed(byteArrayOf(0xff.toByte(), 0xfe.toByte(), 0x00))).sections.single { it.heading == "Message" }.rows
+
+        assertEquals("0xfffe00", rows.single { it.label == "Message" }.value.text())
+        assertEquals("3 bytes", rows.single { it.label == "Size" }.value.text())
+    }
+
+    @Test
+    fun aPersonalMessageCountsCharactersAndBytesApart() {
+        val rows = reviewOf(personalParsed("café".toByteArray(Charsets.UTF_8))).sections.single { it.heading == "Message" }.rows
+
+        assertEquals("café", rows.single { it.label == "Message" }.value.text())
+        assertEquals("4 characters, 5 bytes", rows.single { it.label == "Size" }.value.text())
+    }
+
+    @Test
+    fun aLongPersonalMessageIsShownInFullWithItsLength() {
+        val text = "x".repeat(300)
+
+        val rows = reviewOf(personalParsed(text.toByteArray())).sections.single { it.heading == "Message" }.rows
+
+        assertEquals(text, rows.single { it.label == "Message" }.value.text())
+        assertEquals("300 characters, 300 bytes", rows.single { it.label == "Size" }.value.text())
+    }
 }
+
+/** The parsed request of a personal message of [signData] on Monad testnet, as a wallet sends it. */
+private fun personalParsed(signData: ByteArray): ParsedRequest = EvmRequestParser.parsedOf(
+    EthSignRequest(
+        requestId = null,
+        signData = signData,
+        dataType = DataType.PERSONAL_MESSAGE,
+        chainId = 10143,
+        derivationPath = PATH,
+        sourceFingerprint = null,
+        address = null,
+        origin = "dapp.example",
+    ),
+)
 
 /** A whitelisted `foo(address,uint256)` on [NFT]: a recipient and an amount, which the signed list approves. */
 private fun fooEntry(): WhitelistEntry {

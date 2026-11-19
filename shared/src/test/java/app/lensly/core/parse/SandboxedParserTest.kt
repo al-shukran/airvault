@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -303,8 +304,8 @@ class SandboxedParserTest {
     }
 
     @Test
-    fun anOriginLongerThanAShortTextCrossesTheWire() {
-        val origin = "https://example.com/" + "a".repeat(5_000)
+    fun anOriginOfTheCapCrossesTheWireAndOneByteMoreIsRefusedByTheWriter() {
+        val origin = "a".repeat(512)
         val request = EthSignRequest(null, "hello".toByteArray(), DataType.PERSONAL_MESSAGE, null, emptyList(), null, null, origin)
 
         val body = EvmRequestBody.encode(EvmRequestParser.parsedOf(request))
@@ -312,6 +313,9 @@ class SandboxedParserTest {
         val reply = ParserWire.encodeScanReply(ScanReply.App(AppRequest(header, body)))
 
         assertEquals(origin, EvmRequestBody.decode(assertIs<ScanReply.App>(ParserWire.decodeScanReply(reply)).request.body).request.origin)
+
+        val overCap = EthSignRequest(null, "hello".toByteArray(), DataType.PERSONAL_MESSAGE, null, emptyList(), null, null, origin + "a")
+        assertFailsWith<WireException> { EvmRequestBody.encode(EvmRequestParser.parsedOf(overCap)) }
     }
 
     @Test

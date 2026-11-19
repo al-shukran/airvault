@@ -236,24 +236,17 @@ internal fun AlgorandSendRoute(
     }
 
     /**
-     * The plan of the send of a held coin: a payment of ALGO, or a transfer of the asset. A transfer first reads whether the recipient has opted in to the
-     * asset, since the network refuses a transfer to one who has not.
+     * The plan of the send of a held coin: a payment of ALGO, or a transfer of the asset. The plan is made from the funds read now, not from
+     * the read the form took when it opened, so a form left open past the validity window does not plan a transaction the network refuses.
      */
     fun review() {
-        val read = loaded ?: return
+        if (loaded == null) return
         val asset = selected
         busy = true
         notice = null
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
-                runCatching {
-                    val key = AlgorandSend.recipientKey(recipient)
-                    val units = AlgorandAssets.units(amount, asset.decimals, asset.symbol)
-                    val recipientOptedIn = asset.assetId?.let { id ->
-                        AlgorandAssets.optedIn(id, optedInAssets(scheduler, network, AlgorandAccount.addressOf(key)))
-                    } ?: true
-                    AlgorandAssets.plan(asset, network, read, wallet.fingerprint, accountIndex, signer, key, units, recipientOptedIn)
-                }
+                runCatching { reviewPlan(scheduler, network, address, asset, recipient, amount, wallet.fingerprint, accountIndex, signer) }
             }
             busy = false
             outcome.fold(
@@ -467,6 +460,32 @@ internal suspend fun optedInAssets(scheduler: Scheduler, network: NetworkId, add
     scheduler.run(AsaHoldings(network, address), Priority.FOREGROUND)
 } catch (e: ProviderError.NotFound) {
     emptyList()
+}
+
+/**
+ * The plan of a send of [asset] to [recipient] for [amount], from the funds of [address] read now: the balance, the parameters of the next
+ * transaction and the recipient's opt-in. Nothing is taken from the form's read, so the validity window and the balance checks use the network
+ * as it is at review.
+ * @throws IllegalArgumentException when the recipient or the amount is not valid, or the balance cannot cover the send.
+ */
+internal suspend fun reviewPlan(
+    scheduler: Scheduler,
+    network: NetworkId,
+    address: String,
+    asset: AlgorandAsset,
+    recipient: String,
+    amount: String,
+    fingerprint: Long,
+    accountIndex: Int,
+    signer: ByteArray,
+): AlgorandSendPlan {
+    val key = AlgorandSend.recipientKey(recipient)
+    val units = AlgorandAssets.units(amount, asset.decimals, asset.symbol)
+    val funds = AlgorandSend.funds(scheduler, network, address)
+    val recipientOptedIn = asset.assetId?.let { id ->
+        AlgorandAssets.optedIn(id, optedInAssets(scheduler, network, AlgorandAccount.addressOf(key)))
+    } ?: true
+    return AlgorandAssets.plan(asset, network, funds, fingerprint, accountIndex, signer, key, units, recipientOptedIn)
 }
 
 /** The balance the Details show for [asset]: ALGO's balance, or the asset's held amount. Null until the network has been read, or when the asset is not held. */

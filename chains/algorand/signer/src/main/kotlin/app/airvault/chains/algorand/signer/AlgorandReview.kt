@@ -67,7 +67,8 @@ fun AlgorandRequestReview.toReview(): Review {
         chain = chain,
         network = NetworkLabel(name = network.displayName, testnet = network.testnet, detail = "Genesis ID ${network.genesisId}"),
         summary = listOf(SummaryPart.Text(sentence())),
-        facts = listOf(ReviewRow("Fee", algoAmount(txn.fee), Fields.fee)),
+        // The fee is a row of the Transaction section. The Review Record keeps the rows, so the fee is recorded once, there.
+        facts = emptyList(),
         sections = listOf(ReviewSection("Transaction", rows(chain))),
         warnings = warnings.map { warningOf(it) },
         coverage = Coverage(decoded = decodedFields(), excluded = excludedFields()),

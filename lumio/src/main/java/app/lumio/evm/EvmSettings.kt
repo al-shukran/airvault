@@ -32,7 +32,8 @@ data class EvmSettings(
 
         /**
          * The networks the EVM manifest marks enabled by default: Ethereum mainnet, then the testnets, Monad testnet and Sepolia. A new vault shows
-         * its balances on a mainnet and on testnets at once. Monad is in the registry of debug builds only, so a release build ignores it.
+         * its balances on a mainnet and on testnets at once. Sepolia is in the registry of debug builds only, so a release build lists no
+         * Sepolia chain and reads none. Monad testnet is in the release registry too.
          */
         val DEFAULT_ENABLED: Set<Long> = EvmWallet.networksEnabledByDefault().map { Networks.evmIdOf(it) }.toSet()
 

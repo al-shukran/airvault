@@ -21,8 +21,11 @@ interface RequestParser {
 sealed interface ParseOutcome {
     data class Parsed(val request: AppRequest) : ParseOutcome
 
-    /** [reason] says why, in plain words. */
-    data class Refused(val reason: String) : ParseOutcome
+    /**
+     * [reason] says why, in plain words. [request] is set when the parser read a request for a wallet and refuses it on a rule of its own.
+     * The sign flow then records the refusal under that wallet, as it records a refusal made after parsing. Nothing is signed for it.
+     */
+    data class Refused(val reason: String, val request: AppRequest? = null) : ParseOutcome
 }
 
 /** A parsed request: a [header] that the core reads, and a [body] that only the app reads. The app serialises its own body. */
