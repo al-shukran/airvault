@@ -11,7 +11,7 @@ import app.lumio.data.provider.Block
 import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.retryAfterMs
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
@@ -211,14 +211,14 @@ class EsploraProtocolTest {
         val evm = NetworkId(Networks.evm(1), testnet = false)
         val mainnet = NetworkId(Networks.BTC_MAINNET, testnet = false)
 
-        assertTrue(MempoolProvider().supports(testnet4, Op.ADDRESS_STATS, ProviderConfig()))
-        assertTrue(BlockstreamProvider().supports(testnet4, Op.TX, ProviderConfig()))
-        assertTrue(BlockstreamProvider().supports(mainnet, Op.BLOCK, ProviderConfig()))
-        assertTrue(!MempoolProvider().supports(evm, Op.TIP_HEIGHT, ProviderConfig()))
+        assertTrue(MempoolProvider().supports(testnet4, Ops.BTC_ADDRESS_STATS, ProviderConfig()))
+        assertTrue(BlockstreamProvider().supports(testnet4, Ops.BTC_TX, ProviderConfig()))
+        assertTrue(BlockstreamProvider().supports(mainnet, Ops.BTC_BLOCK, ProviderConfig()))
+        assertTrue(!MempoolProvider().supports(evm, Ops.BTC_TIP_HEIGHT, ProviderConfig()))
 
         val own = CustomEsploraProvider("testnet4")
-        assertTrue(!own.supports(testnet4, Op.ADDRESS_STATS, ProviderConfig()), "no URL, no server")
-        assertTrue(own.supports(testnet4, Op.ADDRESS_STATS, ProviderConfig(baseUrl = "https://node.example.org/api")))
-        assertTrue(!own.supports(mainnet, Op.ADDRESS_STATS, ProviderConfig(baseUrl = "https://node.example.org/api")))
+        assertTrue(!own.supports(testnet4, Ops.BTC_ADDRESS_STATS, ProviderConfig()), "no URL, no server")
+        assertTrue(own.supports(testnet4, Ops.BTC_ADDRESS_STATS, ProviderConfig(baseUrl = "https://node.example.org/api")))
+        assertTrue(!own.supports(mainnet, Ops.BTC_ADDRESS_STATS, ProviderConfig(baseUrl = "https://node.example.org/api")))
     }
 }

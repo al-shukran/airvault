@@ -6,7 +6,7 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.explorer.ExplorerTx
 import app.lumio.data.provider.explorer.explorerAnswer
@@ -126,9 +126,9 @@ class BlockscoutTxHistoryTest {
     @Test
     fun theHistoryIsServedOnlyByTheHostedMainnetInstance() {
         val c = ProviderConfig()
-        assertTrue(provider().supports(ETH, Op.TX_HISTORY, c))
-        assertFalse(provider().supports(NetworkId(Networks.evm(8453), testnet = false), Op.TX_HISTORY, c))
-        assertFalse(provider().supports(NetworkId(Networks.evm(1), testnet = true), Op.TX_HISTORY, c))
+        assertTrue(provider().supports(ETH, Ops.EVM_TX_HISTORY, c))
+        assertFalse(provider().supports(NetworkId(Networks.evm(8453), testnet = false), Ops.EVM_TX_HISTORY, c))
+        assertFalse(provider().supports(NetworkId(Networks.evm(1), testnet = true), Ops.EVM_TX_HISTORY, c))
         assertFailsWith<ProviderError.Unsupported> {
             runBlocking { provider().execute(AddressTxHistory(NetworkId(Networks.evm(8453), testnet = false), account, 1, 20), c, http) }
         }

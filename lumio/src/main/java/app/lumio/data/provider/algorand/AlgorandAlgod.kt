@@ -19,7 +19,8 @@ import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -66,7 +67,7 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
     override val kind: Kind = Kind.DATA
     override val traits: Set<Trait> = setOf(Trait.KEYLESS)
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean = op in OPS && baseOf(net) != null
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean = op in OPS && baseOf(net) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = PUBLIC_LIMITS
 
@@ -222,7 +223,7 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
          * transactions and broadcasts.
          */
         private val OPS = setOf(
-            Op.NATIVE_BALANCE, Op.TOKEN_BALANCES, Op.ASSET_INFO, Op.SUGGESTED_PARAMS, Op.PENDING_TX, Op.BROADCAST,
+            Ops.ALGO_NATIVE_BALANCE, Ops.ALGO_TOKEN_BALANCES, Ops.ALGO_ASSET_INFO, Ops.ALGO_SUGGESTED_PARAMS, Ops.ALGO_PENDING_TX, Ops.ALGO_BROADCAST,
         )
 
         private const val SHAPE = "The answer does not have the documented shape."

@@ -7,7 +7,8 @@ import app.lumio.data.price.NativeCoins
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.NativePrice
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
@@ -42,8 +43,8 @@ class CoinGeckoProvider : Provider {
     override val kind: Kind = Kind.DATA
     override val traits: Set<Trait> = setOf(Trait.KEY_REQUIRED)
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        op == Op.PRICE && NativeCoins.coinOf(net) != null && providerBase(cfg.baseUrl, BASE) != null
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean =
+        op == Ops.PRICE_NATIVE && NativeCoins.coinOf(net) != null && providerBase(cfg.baseUrl, BASE) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = if (keyOf(cfg) == null) KEYLESS_LIMITS else KEYED_LIMITS
 

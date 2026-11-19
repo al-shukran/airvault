@@ -8,7 +8,8 @@ import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.MAX_SOLANA_HISTORY
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RecentBlockhash
@@ -330,11 +331,11 @@ class SolanaProviderTest {
         val publicRpc = SolanaRpc()
 
         assertEquals("https://api.devnet.solana.com", publicRpc.endpoint(devnet, ProviderConfig()))
-        assertTrue(publicRpc.supports(devnet, Op.NATIVE_BALANCE, ProviderConfig()))
-        assertTrue(publicRpc.supports(devnet, Op.BROADCAST, ProviderConfig()))
-        assertFalse(publicRpc.supports(devnet, Op.NONCE, ProviderConfig()))
-        assertFalse(publicRpc.supports(NetworkId(Networks.evm(1), testnet = false), Op.NATIVE_BALANCE, ProviderConfig()))
-        assertFalse(publicRpc.supports(NetworkId(ChainId("solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z"), testnet = true), Op.NATIVE_BALANCE, ProviderConfig()))
+        assertTrue(publicRpc.supports(devnet, OpKey.on(devnet, "nativeBalance"), ProviderConfig()))
+        assertTrue(publicRpc.supports(devnet, OpKey.on(devnet, "broadcast"), ProviderConfig()))
+        assertFalse(publicRpc.supports(devnet, Ops.EVM_NONCE, ProviderConfig()))
+        assertFalse(publicRpc.supports(NetworkId(Networks.evm(1), testnet = false), OpKey.on(NetworkId(Networks.evm(1), testnet = false), "nativeBalance"), ProviderConfig()))
+        assertFalse(publicRpc.supports(NetworkId(ChainId("solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z"), testnet = true), OpKey.on(NetworkId(ChainId("solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z"), testnet = true), "nativeBalance"), ProviderConfig()))
         assertEquals(setOf(Trait.KEYLESS), publicRpc.traits)
     }
 
@@ -343,7 +344,7 @@ class SolanaProviderTest {
         val publicRpc = SolanaRpc()
 
         assertEquals("https://api.mainnet-beta.solana.com", publicRpc.endpoint(SOLANA_MAINNET, ProviderConfig()))
-        assertTrue(publicRpc.supports(SOLANA_MAINNET, Op.NATIVE_BALANCE, ProviderConfig()))
+        assertTrue(publicRpc.supports(SOLANA_MAINNET, OpKey.on(SOLANA_MAINNET, "nativeBalance"), ProviderConfig()))
         assertEquals(SOLANA_MAINNET, NetworkId(Networks.SOL_MAINNET, testnet = false))
     }
 

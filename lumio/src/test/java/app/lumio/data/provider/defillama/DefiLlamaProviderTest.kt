@@ -6,7 +6,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativePrice
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -125,9 +126,9 @@ class DefiLlamaProviderTest {
     fun theProviderIsKeylessPricesOnlyAndNeverPlainHttpToAnotherHost() {
         val provider = DefiLlamaProvider()
         assertTrue(Trait.KEYLESS in provider.traits)
-        assertTrue(provider.supports(ETH, Op.PRICE, ProviderConfig()))
-        assertFalse(provider.supports(ETH, Op.NATIVE_BALANCE, ProviderConfig()))
-        assertFalse(provider.supports(ETH, Op.PRICE, ProviderConfig(baseUrl = "http://example.org/")))
+        assertTrue(provider.supports(ETH, Ops.PRICE_NATIVE, ProviderConfig()))
+        assertFalse(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), ProviderConfig()))
+        assertFalse(provider.supports(ETH, Ops.PRICE_NATIVE, ProviderConfig(baseUrl = "http://example.org/")))
     }
 
     @Test
@@ -148,6 +149,6 @@ class DefiLlamaProviderTest {
         assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(NetworkId(Networks.evm(250), testnet = false), usdc)) }
         assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(NetworkId(Networks.evm(1), testnet = true), usdc)) }
         assertEquals(0, server.requestCount)
-        assertTrue(DefiLlamaProvider().supports(ETH, Op.TOKEN_PRICE, ProviderConfig()))
+        assertTrue(DefiLlamaProvider().supports(ETH, Ops.PRICE_TOKEN, ProviderConfig()))
     }
 }

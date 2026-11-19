@@ -30,30 +30,30 @@ private val TOKEN_CONTRACT = Regex("0x[0-9a-f]{40}")
  * A typed read or write. The type parameter is the result a provider returns. The router matches each request's [op] against the operations
  * a provider supports. The EVM requests map to JSON-RPC calls in `app.lumio.data.rpc.EvmCalls`.
  */
-sealed class Request<T>(val net: NetworkId, val op: Op)
+sealed class Request<T>(val net: NetworkId, val op: OpKey)
 
 /** The height of the chain tip. */
-class TipHeight(net: NetworkId) : Request<Long>(net, Op.TIP_HEIGHT)
+class TipHeight(net: NetworkId) : Request<Long>(net, Ops.BTC_TIP_HEIGHT)
 
 /** The native coin balance of [address] in the chain's base unit, at the latest block. */
-class NativeBalance(net: NetworkId, val address: String) : Request<BigInteger>(net, Op.NATIVE_BALANCE)
+class NativeBalance(net: NetworkId, val address: String) : Request<BigInteger>(net, OpKey.on(net, "nativeBalance"))
 
 /** The transaction count of [address]: the nonce of the next transaction when [pending] is true, else the count at the latest block. */
-class Nonce(net: NetworkId, val address: String, val pending: Boolean) : Request<Long>(net, Op.NONCE)
+class Nonce(net: NetworkId, val address: String, val pending: Boolean) : Request<Long>(net, Ops.EVM_NONCE)
 
 /**
  * The gas that a call of [to] with [valueWei] and [data] from [from] uses, as the endpoint estimates it. A native transfer has no data; an ERC-20
  * transfer calls the token contract with its transfer data and no value.
  */
 class EstimateGas(net: NetworkId, val from: String, val to: String, val valueWei: BigInteger, val data: String = "0x") :
-    Request<BigInteger>(net, Op.RPC_CALL) {
+    Request<BigInteger>(net, Ops.EVM_CALL) {
     init {
         require(HEX_DATA.matches(data)) { "The call data is not hex." }
     }
 }
 
 /** The base fee of the next block and the priority fee that the endpoint suggests. */
-class GasFees(net: NetworkId) : Request<GasQuote>(net, Op.FEE_ESTIMATES)
+class GasFees(net: NetworkId) : Request<GasQuote>(net, Ops.EVM_GAS_FEES)
 
 /** A fee quote, both in wei per gas: the next block's base fee and the suggested priority fee. */
 data class GasQuote(val baseFee: BigInteger, val priorityFee: BigInteger)
@@ -61,7 +61,7 @@ data class GasQuote(val baseFee: BigInteger, val priorityFee: BigInteger)
 /**
  * The USD price of the native coin of [net]. Only a network with a price coin is priced: see `app.lumio.data.price.NativeCoins`. A testnet has none.
  */
-class NativePrice(net: NetworkId) : Request<PriceQuote>(net, Op.PRICE)
+class NativePrice(net: NetworkId) : Request<PriceQuote>(net, Ops.PRICE_NATIVE)
 
 /**
  * A USD price for one coin: [usd] per coin, the change over the last 24 hours in percent ([change24hPct] is null when the source gives none), and
@@ -74,7 +74,7 @@ data class PriceQuote(val usd: Double, val change24hPct: Double?, val asOfMs: Lo
  * The USD price of the ERC-20 token at [contract] on [net], lowercase. Only a network with a price prefix is priced: see
  * `app.lumio.data.price.DefiLlamaChains`. The price is asked for with the token's contract, never with an owner's address.
  */
-class TokenPrice(net: NetworkId, val contract: String) : Request<PriceQuote>(net, Op.TOKEN_PRICE) {
+class TokenPrice(net: NetworkId, val contract: String) : Request<PriceQuote>(net, Ops.PRICE_TOKEN) {
     init {
         require(TOKEN_CONTRACT.matches(contract)) { "A token contract is 0x and 40 lowercase hex digits." }
     }
@@ -84,14 +84,14 @@ class TokenPrice(net: NetworkId, val contract: String) : Request<PriceQuote>(net
  * The USD price points of [asset] over [range], ending at [nowMs] (epoch milliseconds). The answer may hold no points when the source has no price in
  * the window. It is kept in memory by the price repository for the session, and never written to the cache.
  */
-class PriceChart(val asset: AssetId, val range: ChartRange, val nowMs: Long) : Request<PriceSeries>(asset.net, Op.PRICE_CHART)
+class PriceChart(val asset: AssetId, val range: ChartRange, val nowMs: Long) : Request<PriceSeries>(asset.net, Ops.PRICE_CHART)
 
 /**
  * A read-only contract call on an EVM network: [data] is the call's encoded input (a selector and its arguments) sent to [to], at the latest
  * block. The answer is the call's return data as hex text, `0x` when the address holds no code. Lumio uses it for token balances and token
  * metadata, and the arguments it sends are public: an owner's address, a token contract, and nothing that is secret.
  */
-class ContractCall(net: NetworkId, val to: String, val data: String) : Request<String>(net, Op.RPC_CALL) {
+class ContractCall(net: NetworkId, val to: String, val data: String) : Request<String>(net, Ops.EVM_CALL) {
     init {
         require(EVM_ADDRESS.matches(to)) { "Not an EVM address." }
         require(HEX_DATA.matches(data)) { "The call data is not hex." }
@@ -99,41 +99,41 @@ class ContractCall(net: NetworkId, val to: String, val data: String) : Request<S
 }
 
 /** Broadcasts the signed transaction [raw] and returns its hash as the endpoint reports it. */
-class Broadcast(net: NetworkId, val raw: ByteArray) : Request<String>(net, Op.BROADCAST)
+class Broadcast(net: NetworkId, val raw: ByteArray) : Request<String>(net, OpKey.on(net, "broadcast"))
 
 /** The confirmed and mempool history of a Bitcoin [address], as an Esplora server reports it. */
-class AddressStats(net: NetworkId, val address: String) : Request<EsploraAddressStats>(net, Op.ADDRESS_STATS) {
+class AddressStats(net: NetworkId, val address: String) : Request<EsploraAddressStats>(net, Ops.BTC_ADDRESS_STATS) {
     init {
         require(BTC_ADDRESS.matches(address)) { "Not a Bitcoin address." }
     }
 }
 
 /** The most recent transactions that involve a Bitcoin [address]. */
-class AddressTxs(net: NetworkId, val address: String) : Request<List<EsploraTx>>(net, Op.ADDRESS_TXS) {
+class AddressTxs(net: NetworkId, val address: String) : Request<List<EsploraTx>>(net, Ops.BTC_ADDRESS_TXS) {
     init {
         require(BTC_ADDRESS.matches(address)) { "Not a Bitcoin address." }
     }
 }
 
 /** The fee rate in sat/vB for each confirmation target, in blocks. */
-class FeeEstimates(net: NetworkId) : Request<Map<Int, Double>>(net, Op.FEE_ESTIMATES)
+class FeeEstimates(net: NetworkId) : Request<Map<Int, Double>>(net, Ops.BTC_FEE_ESTIMATES)
 
 /** The block with [hash]. A block never changes, so its answer is cached for good. */
-class Block(net: NetworkId, val hash: String) : Request<EsploraBlock>(net, Op.BLOCK) {
+class Block(net: NetworkId, val hash: String) : Request<EsploraBlock>(net, Ops.BTC_BLOCK) {
     init {
         require(BTC_HASH.matches(hash)) { "Not a block hash." }
     }
 }
 
 /** The status of the transaction [txid]. */
-class Tx(net: NetworkId, val txid: String) : Request<EsploraTxStatus>(net, Op.TX) {
+class Tx(net: NetworkId, val txid: String) : Request<EsploraTxStatus>(net, Ops.BTC_TX) {
     init {
         require(BTC_HASH.matches(txid)) { "Not a transaction id." }
     }
 }
 
 /** The raw transaction [txid] in hex, as an Esplora server serves it. A send reads the transactions it spends this way. */
-class RawTx(net: NetworkId, val txid: String) : Request<String>(net, Op.TX) {
+class RawTx(net: NetworkId, val txid: String) : Request<String>(net, Ops.BTC_TX) {
     init {
         require(BTC_HASH.matches(txid)) { "Not a transaction id." }
     }
@@ -146,7 +146,7 @@ internal val ALGORAND_TXID = Regex("[A-Z2-7]{52}")
  * The parameters that algod suggests for the next transaction on [net]: the genesis, the round it starts from, and the fees. The answer is
  * [AlgorandSuggestedParams].
  */
-class AlgorandParams(net: NetworkId) : Request<AlgorandSuggestedParams>(net, Op.SUGGESTED_PARAMS)
+class AlgorandParams(net: NetworkId) : Request<AlgorandSuggestedParams>(net, Ops.ALGO_SUGGESTED_PARAMS)
 
 /**
  * What algod suggests for a new transaction: [genesisId] and [genesisHash] name the network, [lastRound] is the first round the transaction is
@@ -161,7 +161,7 @@ data class AlgorandSuggestedParams(
 )
 
 /** The pending state of the transaction [txid] (see [ALGORAND_TXID]) in the node's pool. */
-class AlgorandPendingTx(net: NetworkId, val txid: String) : Request<AlgorandPendingInfo>(net, Op.PENDING_TX) {
+class AlgorandPendingTx(net: NetworkId, val txid: String) : Request<AlgorandPendingInfo>(net, Ops.ALGO_PENDING_TX) {
     init {
         require(ALGORAND_TXID.matches(txid)) { "Not an Algorand transaction id." }
     }

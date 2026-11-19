@@ -7,7 +7,7 @@ import app.lumio.data.cache.CacheUse
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -296,7 +296,7 @@ class Scheduler(
         return wakeAt
     }
 
-    private fun tryGrantLocked(net: NetworkId, op: Op, excluded: Set<String>, tried: Set<String>, now: Long): Attempt {
+    private fun tryGrantLocked(net: NetworkId, op: OpKey, excluded: Set<String>, tried: Set<String>, now: Long): Attempt {
         val current = configs()
         val candidates = router.route(net, op, current, state, now, tried, excluded)
         if (candidates.isEmpty()) {
@@ -328,7 +328,7 @@ class Scheduler(
     }
 
     /** The earliest time a cooling or open provider that could serve the request becomes available again, or null when none will by itself. */
-    private fun recoveryLocked(net: NetworkId, op: Op, current: Map<String, ProviderConfig>, excluded: Set<String>, now: Long): Long? {
+    private fun recoveryLocked(net: NetworkId, op: OpKey, current: Map<String, ProviderConfig>, excluded: Set<String>, now: Long): Long? {
         var earliest: Long? = null
         for (p in all) {
             if (p.id in excluded || !isEligible(p, net, op, current)) continue
@@ -381,7 +381,7 @@ class Scheduler(
         val priority: Priority,
         val seq: Long,
         val net: NetworkId,
-        val op: Op,
+        val op: OpKey,
         val excluded: Set<String>,
         val tried: Set<String>,
     ) {

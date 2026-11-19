@@ -3,7 +3,8 @@ package app.lumio.data.route
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Kind
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.Trait
 
@@ -23,7 +24,7 @@ interface ProviderState {
  * True when [p] may serve [op] on [net] at all under [configs]: it is enabled, it has a key if its traits require one, and it supports the request
  * with its config. Cooldowns and circuits are not checked here. See [ProviderState].
  */
-internal fun isEligible(p: Provider, net: NetworkId, op: Op, configs: Map<String, ProviderConfig>): Boolean {
+internal fun isEligible(p: Provider, net: NetworkId, op: OpKey, configs: Map<String, ProviderConfig>): Boolean {
     val cfg = configs[p.id] ?: ProviderConfig()
     return cfg.enabled && (Trait.KEY_REQUIRED !in p.traits || !cfg.apiKey.isNullOrBlank()) && p.supports(net, op, cfg)
 }
@@ -46,7 +47,7 @@ class Router(private val providers: List<Provider>) {
 
     fun route(
         net: NetworkId,
-        op: Op,
+        op: OpKey,
         configs: Map<String, ProviderConfig>,
         state: ProviderState,
         nowMs: Long,
@@ -57,7 +58,7 @@ class Router(private val providers: List<Provider>) {
         // so the owner's addresses never reach a third party. When it is cooling, the call waits for it rather than going elsewhere.
         val found = providers.filter { p -> p.id !in excluded && isEligible(p, net, op, configs) }
         val eligible = found.filter { Trait.OWN_SERVER in it.traits }.ifEmpty { found }.filter { p -> state.available(p.id, nowMs) }
-        val protectedOnly = op == Op.BROADCAST && net.isEvm && eligible.any { Trait.MEV_PROTECTED in it.traits }
+        val protectedOnly = op == Ops.EVM_BROADCAST && net.isEvm && eligible.any { Trait.MEV_PROTECTED in it.traits }
         val offered = if (protectedOnly) eligible.filter { Trait.MEV_PROTECTED in it.traits } else eligible
         val others = offered.filter { Trait.FALLBACK_ONLY !in it.traits }
         val candidates = others.ifEmpty { offered }
@@ -80,14 +81,14 @@ class Router(private val providers: List<Provider>) {
         return listOf(chosen) + ranked.filter { it !== chosen }
     }
 
-    private fun rankOf(p: Provider, op: Op, configs: Map<String, ProviderConfig>, tried: Set<String>, penalized: Set<String>): List<Int> =
+    private fun rankOf(p: Provider, op: OpKey, configs: Map<String, ProviderConfig>, tried: Set<String>, penalized: Set<String>): List<Int> =
         listOf(if (p.id in tried) 1 else 0, if (p.id in penalized) 1 else 0, kindRank(p, op), configs[p.id]?.priority ?: 0)
 
-    private fun kindRank(p: Provider, op: Op): Int =
-        if ((op == Op.NATIVE_BALANCE || op == Op.TOKEN_BALANCES) && p.kind == Kind.RPC) 1 else 0
+    private fun kindRank(p: Provider, op: OpKey): Int =
+        if (op in Ops.BALANCE_READS && p.kind == Kind.RPC) 1 else 0
 
     /** Smooth weighted round robin (the nginx scheme) over [tie]. Each call adds every weight to its provider's running total, and the largest total wins and gives back the sum of all weights. */
-    private fun pickByWeight(tie: List<Provider>, net: NetworkId, op: Op, configs: Map<String, ProviderConfig>): Provider {
+    private fun pickByWeight(tie: List<Provider>, net: NetworkId, op: OpKey, configs: Map<String, ProviderConfig>): Provider {
         val weights = tie.associateWith { (configs[it.id]?.weight ?: 1).toLong() }
         val total = weights.values.sum()
         var chosen = tie.first()
