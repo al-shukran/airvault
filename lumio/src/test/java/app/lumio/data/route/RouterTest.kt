@@ -6,7 +6,8 @@ import app.lumio.data.FakeProvider
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Kind
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.Trait
 import org.junit.Assert.assertEquals
@@ -27,7 +28,7 @@ class RouterTest {
     private fun route(
         providers: List<Provider>,
         net: NetworkId = ETH,
-        op: Op = Op.TIP_HEIGHT,
+        op: OpKey = Ops.BTC_TIP_HEIGHT,
         configs: Map<String, ProviderConfig> = emptyMap(),
         state: ProviderState = everyone,
         tried: Set<String> = emptySet(),
@@ -36,10 +37,10 @@ class RouterTest {
 
     @Test
     fun aProviderThatDoesNotServeTheNetworkOrTheOperationIsNeverOffered() {
-        val a = FakeProvider("a", networks = setOf(ETH), ops = setOf(Op.TIP_HEIGHT))
+        val a = FakeProvider("a", networks = setOf(ETH), ops = setOf(Ops.BTC_TIP_HEIGHT))
 
         assertEquals(emptyList<String>(), route(listOf(a), net = BTC))
-        assertEquals(emptyList<String>(), route(listOf(a), op = Op.NATIVE_BALANCE))
+        assertEquals(emptyList<String>(), route(listOf(a), op = Ops.EVM_NATIVE_BALANCE))
         assertEquals(listOf("a"), route(listOf(a)))
     }
 
@@ -77,52 +78,52 @@ class RouterTest {
 
     @Test
     fun aBroadcastOnEvmOffersOnlyMevProtectedProvidersWhileOneIsHealthy() {
-        val plain = FakeProvider("plain", ops = setOf(Op.BROADCAST), networks = setOf(ETH, BTC))
+        val plain = FakeProvider("plain", ops = setOf(Ops.EVM_BROADCAST, Ops.BTC_BROADCAST), networks = setOf(ETH, BTC))
         val protectedRpc = FakeProvider(
             "protected",
-            ops = setOf(Op.BROADCAST),
+            ops = setOf(Ops.EVM_BROADCAST, Ops.BTC_BROADCAST),
             networks = setOf(ETH, BTC),
             traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED),
         )
         val configs = mapOf("plain" to ProviderConfig(priority = 0), "protected" to ProviderConfig(priority = 1))
 
-        assertEquals(listOf("protected"), route(listOf(plain, protectedRpc), op = Op.BROADCAST, configs = configs))
-        assertEquals(listOf("plain", "protected"), route(listOf(plain, protectedRpc), net = BTC, op = Op.BROADCAST, configs = configs))
+        assertEquals(listOf("protected"), route(listOf(plain, protectedRpc), op = Ops.EVM_BROADCAST, configs = configs))
+        assertEquals(listOf("plain", "protected"), route(listOf(plain, protectedRpc), net = BTC, op = Ops.BTC_BROADCAST, configs = configs))
     }
 
     @Test
     fun aBroadcastOnEvmOffersOtherProvidersOnlyWhileNoMevProviderIsHealthy() {
-        val plain = FakeProvider("plain", ops = setOf(Op.BROADCAST))
-        val protectedRpc = FakeProvider("protected", ops = setOf(Op.BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
+        val plain = FakeProvider("plain", ops = setOf(Ops.EVM_BROADCAST))
+        val protectedRpc = FakeProvider("protected", ops = setOf(Ops.EVM_BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
 
-        assertEquals(listOf("plain"), route(listOf(plain, protectedRpc), op = Op.BROADCAST, state = coolingState("protected")))
+        assertEquals(listOf("plain"), route(listOf(plain, protectedRpc), op = Ops.EVM_BROADCAST, state = coolingState("protected")))
     }
 
     @Test
     fun aFallbackOnlyProviderIsOfferedOnlyWhenNoOtherProviderCanServe() {
-        val others = FakeProvider("others", ops = setOf(Op.NATIVE_BALANCE))
-        val fallback = FakeProvider("fallback", ops = setOf(Op.NATIVE_BALANCE), traits = setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY))
+        val others = FakeProvider("others", ops = setOf(Ops.EVM_NATIVE_BALANCE))
+        val fallback = FakeProvider("fallback", ops = setOf(Ops.EVM_NATIVE_BALANCE), traits = setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY))
 
-        assertEquals(listOf("others"), route(listOf(fallback, others), op = Op.NATIVE_BALANCE))
-        assertEquals(listOf("fallback"), route(listOf(fallback, others), op = Op.NATIVE_BALANCE, state = coolingState("others")))
+        assertEquals(listOf("others"), route(listOf(fallback, others), op = Ops.EVM_NATIVE_BALANCE))
+        assertEquals(listOf("fallback"), route(listOf(fallback, others), op = Ops.EVM_NATIVE_BALANCE, state = coolingState("others")))
     }
 
     @Test
     fun aFallbackOnlyProviderIsNotOfferedForABroadcastWhileAnMevProviderIsHealthy() {
-        val protectedRpc = FakeProvider("protected", ops = setOf(Op.BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
-        val fallback = FakeProvider("fallback", ops = setOf(Op.BROADCAST), traits = setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY))
+        val protectedRpc = FakeProvider("protected", ops = setOf(Ops.EVM_BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
+        val fallback = FakeProvider("fallback", ops = setOf(Ops.EVM_BROADCAST), traits = setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY))
 
-        assertEquals(listOf("protected"), route(listOf(fallback, protectedRpc), op = Op.BROADCAST))
-        assertEquals(listOf("fallback"), route(listOf(fallback, protectedRpc), op = Op.BROADCAST, state = coolingState("protected")))
+        assertEquals(listOf("protected"), route(listOf(fallback, protectedRpc), op = Ops.EVM_BROADCAST))
+        assertEquals(listOf("fallback"), route(listOf(fallback, protectedRpc), op = Ops.EVM_BROADCAST, state = coolingState("protected")))
     }
 
     @Test
     fun balanceReadsOfferDataProvidersBeforeRpcProviders() {
-        val rpc = FakeProvider("rpc", kind = Kind.RPC, ops = setOf(Op.NATIVE_BALANCE))
-        val data = FakeProvider("data", kind = Kind.DATA, ops = setOf(Op.NATIVE_BALANCE))
+        val rpc = FakeProvider("rpc", kind = Kind.RPC, ops = setOf(Ops.EVM_NATIVE_BALANCE))
+        val data = FakeProvider("data", kind = Kind.DATA, ops = setOf(Ops.EVM_NATIVE_BALANCE))
         val configs = mapOf("rpc" to ProviderConfig(priority = 0), "data" to ProviderConfig(priority = 1))
 
-        assertEquals(listOf("data", "rpc"), route(listOf(rpc, data), op = Op.NATIVE_BALANCE, configs = configs))
+        assertEquals(listOf("data", "rpc"), route(listOf(rpc, data), op = Ops.EVM_NATIVE_BALANCE, configs = configs))
     }
 
     @Test
@@ -130,7 +131,7 @@ class RouterTest {
         val router = Router(listOf(FakeProvider("a"), FakeProvider("b")))
         val configs = mapOf("a" to ProviderConfig(weight = 2), "b" to ProviderConfig(weight = 1))
 
-        val firsts = List(3) { router.route(ETH, Op.TIP_HEIGHT, configs, everyone, 0L, emptySet(), emptySet()).first().id }
+        val firsts = List(3) { router.route(ETH, Ops.BTC_TIP_HEIGHT, configs, everyone, 0L, emptySet(), emptySet()).first().id }
 
         assertEquals(listOf("a", "b", "a"), firsts)
     }

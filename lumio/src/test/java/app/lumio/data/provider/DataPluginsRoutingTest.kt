@@ -25,7 +25,7 @@ class DataPluginsRoutingTest {
 
     private fun offered(net: NetworkId = ETH, configs: Map<String, ProviderConfig> = emptyMap()): List<String> =
         Router(DataPlugins.evm() + RpcPlugins.pool())
-            .route(net, Op.NATIVE_BALANCE, configs, everyone, nowMs = 0L, tried = emptySet(), excluded = emptySet())
+            .route(net, OpKey.on(net, "nativeBalance"), configs, everyone, nowMs = 0L, tried = emptySet(), excluded = emptySet())
             .map { it.id }
 
     @Test
@@ -62,7 +62,7 @@ class DataPluginsRoutingTest {
         assertTrue(DataPlugins.evm(preferRpc = true).isEmpty())
 
         val order = Router(DataPlugins.evm(preferRpc = true) + RpcPlugins.pool())
-            .route(ETH, Op.NATIVE_BALANCE, emptyMap(), everyone, nowMs = 0L, tried = emptySet(), excluded = emptySet())
+            .route(ETH, OpKey.on(ETH, "nativeBalance"), emptyMap(), everyone, nowMs = 0L, tried = emptySet(), excluded = emptySet())
             .map { it.id }
 
         assertTrue(order.isNotEmpty())

@@ -7,7 +7,8 @@ import app.lumio.data.provider.AlgorandPendingInfo
 import app.lumio.data.provider.AlgorandPendingTx
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.ProviderError
@@ -185,11 +186,11 @@ class AlgorandAlgodSendTest {
     fun theSendOperationsAreServedOnAlgorandOnly() {
         val provider = provider()
 
-        assertTrue(provider.supports(ALGORAND_TESTNET, Op.SUGGESTED_PARAMS, cfg))
-        assertTrue(provider.supports(ALGORAND_TESTNET, Op.PENDING_TX, cfg))
-        assertTrue(provider.supports(ALGORAND_TESTNET, Op.BROADCAST, cfg))
-        assertFalse(provider.supports(ALGORAND_TESTNET, Op.TX, cfg))
-        assertFalse(provider.supports(ALGORAND_MAINNET, Op.BROADCAST, cfg), "the mainnet endpoint is not set here")
+        assertTrue(provider.supports(ALGORAND_TESTNET, Ops.ALGO_SUGGESTED_PARAMS, cfg))
+        assertTrue(provider.supports(ALGORAND_TESTNET, Ops.ALGO_PENDING_TX, cfg))
+        assertTrue(provider.supports(ALGORAND_TESTNET, OpKey.on(ALGORAND_TESTNET, "broadcast"), cfg))
+        assertFalse(provider.supports(ALGORAND_TESTNET, Ops.BTC_TX, cfg))
+        assertFalse(provider.supports(ALGORAND_MAINNET, OpKey.on(ALGORAND_MAINNET, "broadcast"), cfg), "the mainnet endpoint is not set here")
     }
 
     private companion object {
