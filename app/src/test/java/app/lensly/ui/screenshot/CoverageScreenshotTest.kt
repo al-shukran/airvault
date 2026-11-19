@@ -1,5 +1,6 @@
 package app.lensly.ui.screenshot
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.app.HideDelay
 import app.lensly.ui.flow.ShredStep
@@ -30,7 +31,14 @@ class CoverageScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun hideDelay() = compose.snapshot("hide_delay_screen") {
+    fun hideDelay() = compose.snapshot("hide_delay_screen") { HideDelaySnapshot() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun hideDelayNight() = compose.snapshot("hide_delay_screen_night") { HideDelaySnapshot() }
+
+    @Composable
+    private fun HideDelaySnapshot() {
         HideDelayScreen(
             shortest = HideDelay.DEFAULT_MIN_MS.toInt(),
             longest = HideDelay.DEFAULT_MAX_MS.toInt(),

@@ -2,29 +2,24 @@ package app.lensly.ui.settings
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.getBoundsInRoot
-import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToIndex
-import androidx.compose.ui.unit.height
+import androidx.compose.ui.test.performScrollTo
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.shippedRegistry
 import app.lensly.ui.theme.LumenTheme
-import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** The Networks list: every network of the catalog, the filters, and a card that opens its fee model and token count. */
+/** The Networks list: every network of the catalog, the filters, and a row that opens its fee model and token count. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 class NetworksScreenTest {
@@ -52,8 +47,7 @@ class NetworksScreenTest {
         show(registry.networks(), registry.tokens())
 
         compose.onNodeWithText(registry.networks().first().name).assertIsDisplayed()
-        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(registry.networks().chunked(2).lastIndex)
-        compose.onNodeWithText(registry.networks().last().name).assertExists()
+        compose.onNodeWithText(registry.networks().last().name).performScrollTo().assertExists()
     }
 
     @Test
@@ -84,29 +78,6 @@ class NetworksScreenTest {
         show(networks)
 
         compose.onAllNodesWithText("Testnet").assertCountEquals(2)
-    }
-
-    @Test
-    fun twoCardsInOneRowKeepTheSameHeightWithShortAndVeryLongNames() {
-        val short = NetworkEntry(chainId = 4242L, name = "Lens", nativeSymbol = "LNS", feeModel = FeeModel.L1, explorerName = null, testnet = false)
-        val long = NetworkEntry(
-            chainId = 4243L,
-            name = "The Very Long Named Experimental Rollup Chain",
-            nativeSymbol = "LNG",
-            feeModel = FeeModel.L2_ROLLUP,
-            explorerName = null,
-            testnet = false,
-        )
-        show(listOf(short, long))
-
-        val shortName = compose.onNodeWithText(short.name).getBoundsInRoot()
-        val longName = compose.onNodeWithText(long.name).getBoundsInRoot()
-        val shortCard = compose.onNodeWithTag("network-card-${short.chainId}").getBoundsInRoot()
-        val longCard = compose.onNodeWithTag("network-card-${long.chainId}").getBoundsInRoot()
-
-        assertEquals(shortName.height, longName.height, "both names keep room for two lines")
-        assertEquals(shortCard.height, longCard.height)
-        assertEquals(shortCard.top, longCard.top)
     }
 
     @Test

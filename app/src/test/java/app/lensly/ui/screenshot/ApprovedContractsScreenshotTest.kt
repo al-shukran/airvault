@@ -1,5 +1,6 @@
 package app.lensly.ui.screenshot
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
@@ -59,12 +60,26 @@ class ApprovedContractsScreenshotTest {
     )
 
     @Test
-    fun empty() = compose.snapshot("approved_contracts_empty") {
+    fun empty() = compose.snapshot("approved_contracts_empty") { EmptySnapshot() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun emptyNight() = compose.snapshot("approved_contracts_empty_night") { EmptySnapshot() }
+
+    @Test
+    fun populated() = compose.snapshot("approved_contracts_populated") { PopulatedSnapshot() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun populatedNight() = compose.snapshot("approved_contracts_populated_night") { PopulatedSnapshot() }
+
+    @Composable
+    private fun EmptySnapshot() {
         ApprovedContractsScreen(entries = emptyList(), networks = emptyList(), onUpdateCatalog = {}, onBack = {})
     }
 
-    @Test
-    fun populated() = compose.snapshot("approved_contracts_populated") {
+    @Composable
+    private fun PopulatedSnapshot() {
         ApprovedContractsScreen(entries = approvals, networks = listOf(ethereum), onUpdateCatalog = {}, onBack = {})
     }
 }
