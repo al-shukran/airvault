@@ -7,8 +7,13 @@ import app.airvault.chains.algorand.signer.AlgorandSigner
 import app.airvault.chains.algorand.signer.toReview
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.core.model.Approval
+import app.airvault.core.model.Coverage
 import app.airvault.core.model.Curve
+import app.airvault.core.model.Danger
+import app.airvault.core.model.FieldPath
+import app.airvault.core.model.Review
 import app.airvault.core.model.checkLabels
+import app.airvault.core.model.checked
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.Path
 import app.airvault.core.signer.ScopedKeyAccess
@@ -189,6 +194,98 @@ class SignFlowAlgorandTest {
     }
 
     /**
+     * A close-to payment carries one DANGER with one check. Approve does nothing until the owner ticks the check. Unticking it again, on
+     * the review after the password step, stops approve again.
+     */
+    @Test
+    fun anUntickedDangerCannotBeApprovedUntilItIsTicked() = runBlocking {
+        val ports = AlgorandPorts()
+        val flow = SignFlow(ports, walletId = WALLET)
+        flow.onScanned(partOf(requestCbor(PAY_CLOSE)))
+        val review = assertIs<SignStep.AppReview>(flow.state.value).ready.review
+        val label = review.checkLabels().single()
+        assertEquals(Danger.DANGER, review.warnings.single().level)
+
+        flow.approve()
+        assertIs<SignStep.AppReview>(flow.state.value)
+
+        flow.tick(label, on = true)
+        flow.approve()
+        assertIs<SignStep.AppConfirming>(flow.state.value)
+
+        flow.back()
+        flow.tick(label, on = false)
+        flow.approve()
+        assertIs<SignStep.AppReview>(flow.state.value)
+        assertEquals(0, ports.signCalls)
+    }
+
+    /**
+     * Back on the review ends the flow, and the ticks on it end with it. A tick made on one review does not outlive that review.
+     */
+    @Test
+    fun backOnTheReviewClearsItsTicksAndEndsTheFlow() = runBlocking {
+        val ports = AlgorandPorts()
+        val flow = SignFlow(ports, walletId = WALLET)
+        flow.onScanned(partOf(requestCbor(PAY_CLOSE)))
+        val label = assertIs<SignStep.AppReview>(flow.state.value).ready.review.checkLabels().single()
+        flow.tick(label, on = true)
+        assertEquals(setOf(label), flow.ticked.value)
+
+        flow.back()
+
+        assertEquals(SignStep.Closed, flow.state.value)
+        assertEquals(emptySet(), flow.ticked.value)
+        assertEquals(listOf(ReviewOutcome.CANCELLED), ports.records.map { it.outcome })
+        assertEquals(emptyList(), ports.records.single().acknowledged)
+        assertEquals(0, ports.signCalls)
+    }
+
+    /**
+     * On the password step the ticks are frozen. A tick or an untick changes nothing, and the signature records the ticks that were
+     * approved, not the ones shown after.
+     */
+    @Test
+    fun aTickOnThePasswordStepChangesNothingAndSignsTheApprovedTicks() = runBlocking {
+        val ports = AlgorandPorts()
+        val flow = SignFlow(ports, walletId = WALLET)
+        flow.onScanned(partOf(requestCbor(PAY_CLOSE)))
+        val label = assertIs<SignStep.AppReview>(flow.state.value).ready.review.checkLabels().single()
+        flow.tick(label, on = true)
+        flow.approve()
+        assertIs<SignStep.AppConfirming>(flow.state.value)
+
+        flow.tick(label, on = false)
+        flow.tick("Another check", on = true)
+
+        assertIs<SignStep.AppConfirming>(flow.state.value)
+        assertEquals(setOf(label), flow.ticked.value)
+        flow.confirm("the password".toCharArray())
+        assertEquals(listOf(ReviewOutcome.SIGNED), ports.records.map { it.outcome })
+        assertEquals(listOf(label), ports.records.single().acknowledged)
+        assertEquals(1, ports.signCalls)
+    }
+
+    /**
+     * A coverage BLOCK is a decoded field that no row shows. Approve refuses it at flow level, and ticking the close-to DANGER's check does
+     * not lift it.
+     */
+    @Test
+    fun aCoverageBlockRefusesApproveEvenWithItsCheckTicked() = runBlocking {
+        val ports = AlgorandPorts(unshownField = true)
+        val flow = SignFlow(ports, walletId = WALLET)
+        flow.onScanned(partOf(requestCbor(PAY_CLOSE)))
+        val review = assertIs<SignStep.AppReview>(flow.state.value).ready.review
+        assertEquals(listOf("coverage"), review.warnings.filter { it.level == Danger.BLOCK }.map { it.code })
+
+        flow.tick(review.checkLabels().single(), on = true)
+        flow.approve()
+
+        assertIs<SignStep.AppReview>(flow.state.value)
+        assertEquals(0, ports.signCalls)
+    }
+
+    /**
      * A request whose signing asks for a key outside the Algorand scope signs nothing, and the refusal is recorded with the reason the owner
      * saw. The scoped key access refuses the path before any key is derived, as the wallet's sign does.
      */
@@ -213,6 +310,7 @@ class SignFlowAlgorandTest {
         private val parser: RequestParser = inProcessSandboxParser,
         private val wallets: List<WalletView> = emptyList(),
         private val outOfScope: Boolean = false,
+        private val unshownField: Boolean = false,
     ) : SignFlowPorts {
         val records = mutableListOf<AppReviewEntry>()
         var prepareCalls = 0
@@ -262,7 +360,7 @@ class SignFlowAlgorandTest {
                 is AlgorandRequestCheck.Result.Ok -> AppPrepared.Ready(
                     walletId = walletId,
                     request = request,
-                    review = checked.review.toReview(),
+                    review = checked.review.toReview().let { if (unshownField) it.withUnshownField() else it },
                     accountIndex = checked.review.accountIndex,
                     signer = SAMPLE_SIGNER,
                     addressChain = ALGORAND_FAMILY,
@@ -272,6 +370,10 @@ class SignFlowAlgorandTest {
                 is AlgorandRequestCheck.Result.Refused -> AppPrepared.Refused(checked.reason)
             }
         }
+
+        /** The review with one decoded field that no row shows. The coverage check then adds a BLOCK, as it does for a field the app misses. */
+        private fun Review.withUnshownField(): Review =
+            copy(coverage = Coverage(coverage.decoded + FieldPath("algorand.unshown"), coverage.excluded)).checked()
 
         override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> {
             signCalls++
