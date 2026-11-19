@@ -62,7 +62,7 @@ class WalletsBoardTest {
         // The account has no balance in the caches, so no asset is priced and no price source is asked.
         val board = WalletsBoard(RuntimeEnvironment.getApplication() as LumioApp, vault) { emptyMap<AssetId, Price>() }
         board.showSide(mode, listVersion = 0)
-        val account = await { board.view?.accountsOf(wallet.id)?.singleOrNull { it.chain == AccountChain.ETHEREUM } }
+        val account = await { board.view?.accountsOf(wallet.id)?.singleOrNull { it.namespace == Networks.EIP155 } }
         val reads = board.readsOf(account, mode)
 
         val activity = await { reads.activity }

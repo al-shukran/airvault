@@ -1,5 +1,6 @@
 package app.lumio.wallets
 
+import app.airvault.core.model.AccountId
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
@@ -63,7 +64,7 @@ class WalletAccountsTest {
             nativeCache = emptyList(),
         )
 
-        assertEquals(listOf(AccountChain.BITCOIN, AccountChain.ETHEREUM, AccountChain.SOLANA, AccountChain.ALGORAND), accounts.map { it.chain })
+        assertEquals(listOf(Networks.BIP122, Networks.EIP155, Networks.SOLANA, Networks.ALGORAND), accounts.map { it.namespace })
         assertEquals(
             listOf(
                 testnetBitcoin.receiveAddress(0),
@@ -74,6 +75,13 @@ class WalletAccountsTest {
             accounts.map { it.address },
         )
         assertEquals(listOf(0, 0, 0, 0), accounts.map { it.index })
+        assertEquals(
+            listOf(
+                AccountId.of(Networks.SOL_DEVNET, SolanaAccount.addressOf(solanaKey)),
+                AccountId.of(Networks.ALGO_TESTNET, AlgorandAccount.addressOf(algorandKey)),
+            ),
+            accounts.takeLast(2).map { it.id },
+        )
         assertTrue(accounts.all { it.walletId == wallet.id })
     }
 
@@ -117,7 +125,7 @@ class WalletAccountsTest {
         )
 
         // The testnet Bitcoin account is not on the mainnet side, so it is not listed; the Ethereum account reads its mainnet balance.
-        assertEquals(listOf(AccountChain.ETHEREUM, AccountChain.SOLANA, AccountChain.ALGORAND), accounts.map { it.chain })
+        assertEquals(listOf(Networks.EIP155, Networks.SOLANA, Networks.ALGORAND), accounts.map { it.namespace })
         val ethereum = accounts.first()
         assertEquals("Ethereum", ethereum.networkName)
         assertEquals(0, BigDecimal("5").compareTo(ethereum.balance!!.balance))

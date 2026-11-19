@@ -1,12 +1,20 @@
 package app.lumio.wallets
 
-import app.lensly.core.algorand.AlgorandAccount
+import app.airvault.chains.algorand.wallet.AlgorandWallet
+import app.airvault.core.model.AccountId
+import app.airvault.core.model.AddressKind
+import app.airvault.core.model.Curve
+import app.airvault.core.signer.AccountExport
+import app.airvault.core.signer.PublicKey
+import app.airvault.core.signer.SignerRef
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.solana.SolanaAccount
 import app.lumio.btc.BtcRow
+import app.lumio.btc.networkId
 import app.lumio.chains.CachedNativeBalance
 import app.lumio.chains.NativeCoin
+import app.lumio.data.net.Networks
 import app.lumio.evm.CachedBalance
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
@@ -16,38 +24,27 @@ import app.lumio.home.NativeAsset
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import java.math.BigInteger
-import java.util.Locale
-
-/** The chains a wallet keeps accounts on, in the order the Wallet screen lists them. */
-enum class AccountChain(val label: String) {
-    BITCOIN("Bitcoin"),
-    ETHEREUM("Ethereum"),
-    SOLANA("Solana"),
-    ALGORAND("Algorand");
-
-    /** The name of the chain in a route, such as "ethereum". */
-    val route: String get() = name.lowercase(Locale.ROOT)
-
-    companion object {
-        /** The chain whose [route] is [route], or null when no chain has it. */
-        fun ofRoute(route: String): AccountChain? = entries.firstOrNull { it.route == route }
-    }
-}
 
 /**
- * One account of a paired wallet on one chain, on the side the owner chose. [index] is its place in the wallet's list for that chain, and it names
- * the account in the routes. [address] is the address the account receives at. [networkName] names the network that [balance] is read on, and
- * [balance] is that network's native coin, or null while no read of it is kept. [script] is the script type of a Bitcoin account.
+ * One account of a paired wallet on one chain family, on the side the owner chose. [id] is its CAIP-10 id: the network that [balance] is read on,
+ * and the account's address. [walletId] and [id] name the account in the routes, and [index] is its place in the wallet's list for its family.
+ * [networkName] names that network, and [balance] is its native coin, or null while no read of it is kept. [script] is the script type of a Bitcoin
+ * account.
  */
 data class WalletAccount(
     val walletId: String,
-    val chain: AccountChain,
+    val id: AccountId,
     val index: Int,
-    val address: String,
     val networkName: String,
     val balance: NativeAsset?,
     val script: String? = null,
-)
+) {
+    /** The address the account receives at: the address of [id]. */
+    val address: String get() = id.address
+
+    /** The CAIP-2 namespace of the account's chain: `bip122`, `eip155`, `solana` or `algorand`. It decides how each screen reads the account. */
+    val namespace: String get() = id.chainId.namespace
+}
 
 /**
  * The accounts of paired wallets, each with the balance of the network that the side shows for it. A side shows its own networks only: Bitcoin
@@ -55,12 +52,24 @@ data class WalletAccount(
  * the side's coin. Every read comes from the vault's caches, so the mapping reads no network.
  */
 object WalletAccounts {
+    /** The chain families a wallet keeps accounts on, by CAIP-2 namespace, in the order the Wallet screen lists them. */
+    val FAMILIES: List<String> = listOf(Networks.BIP122, Networks.EIP155, Networks.SOLANA, Networks.ALGORAND)
+
+    /** The name of a family as the screens show it: "Bitcoin", "Ethereum", "Solana" or "Algorand". */
+    fun familyLabel(namespace: String): String = when (namespace) {
+        Networks.BIP122 -> "Bitcoin"
+        Networks.EIP155 -> "Ethereum"
+        Networks.SOLANA -> "Solana"
+        Networks.ALGORAND -> "Algorand"
+        else -> error("Lumio shows no accounts on $namespace")
+    }
+
     /** The network whose native coin an Ethereum account shows on [mode]: Ethereum on mainnet, and Monad testnet on testnet. */
     fun primaryEvmChainId(mode: NetworkMode): Long =
         if (mode == NetworkMode.TESTNET) EvmCatalog.PRIMARY_TESTNET_ID else EvmCatalog.PRIMARY_MAINNET_ID
 
     /**
-     * The accounts of [wallet] on [mode]'s side, in chain order: Bitcoin, Ethereum, Solana, Algorand. [evmChains] are the Ethereum networks of the side
+     * The accounts of [wallet] on [mode]'s side, in family order: Bitcoin, Ethereum, Solana, Algorand. [evmChains] are the Ethereum networks of the side
      * that are on, [evmCache] and [nativeCache] the balances the vault holds, and [addressCount] how many Ethereum addresses the wallet shows. [bitcoin]
      * holds the Bitcoin rows of the vault, and [coins] the Algorand and Solana coins of the side.
      */
@@ -75,8 +84,23 @@ object WalletAccounts {
         nativeCache: List<CachedNativeBalance>,
     ): List<WalletAccount> = bitcoinAccounts(wallet, mode, bitcoin.filter { it.ref.walletId == wallet.id }) +
         ethereumAccounts(wallet, mode, evmChains, evmCache, addressCount) +
-        nativeAccounts(wallet, AccountChain.SOLANA, wallet.solana, coins, nativeCache) { SolanaAccount.addressOf(it) } +
-        nativeAccounts(wallet, AccountChain.ALGORAND, wallet.algorand, coins, nativeCache) { AlgorandAccount.addressOf(it) }
+        solanaAccounts(wallet, mode, coins, nativeCache) +
+        algorandAccounts(wallet, mode, coins, nativeCache)
+
+    /**
+     * The index of the account [id] in [wallet]: the place of the key whose address is the id's address. The network part of the id is not checked,
+     * so a route still finds its account on the other side. Null when the wallet holds no account at that address.
+     */
+    fun indexOf(wallet: PairedWallet, id: AccountId): Int? {
+        val index = when (id.chainId.namespace) {
+            Networks.BIP122 -> wallet.bitcoin.indexOfFirst { it.receiveAddress(0) == id.address }
+            Networks.EIP155 -> wallet.evmAccounts.indexOfFirst { it.address == id.address }
+            Networks.SOLANA -> wallet.solana.indexOfFirst { SolanaAccount.addressOf(it) == id.address }
+            Networks.ALGORAND -> wallet.algorand.indexOfFirst { AlgorandWallet.addresses.fromPublicKey(Networks.ALGO_MAINNET, it) == id.address }
+            else -> -1
+        }
+        return index.takeIf { it >= 0 }
+    }
 
     /** The name of a Bitcoin script type as the screens show it, such as "Native SegWit". */
     fun scriptLabel(type: ScriptType): String = when (type) {
@@ -96,9 +120,8 @@ object WalletAccounts {
             val account = row.ref.account
             WalletAccount(
                 walletId = wallet.id,
-                chain = AccountChain.BITCOIN,
+                id = AccountId.of(account.network.networkId().chain, account.receiveAddress(0)),
                 index = wallet.bitcoin.indexOfFirst { it.path.path == account.path.path },
-                address = account.receiveAddress(0),
                 networkName = if (account.network == BtcNetwork.TESTNET4) "Bitcoin Testnet4" else "Bitcoin",
                 balance = HomeBalances.bitcoin(listOf(row)).singleOrNull(),
                 script = scriptLabel(account.scriptType),
@@ -125,44 +148,64 @@ object WalletAccounts {
             }
             WalletAccount(
                 walletId = wallet.id,
-                chain = AccountChain.ETHEREUM,
+                id = AccountId.of(Networks.evm(chainId), address),
                 index = index,
-                address = address,
-                networkName = primary?.name ?: AccountChain.ETHEREUM.label,
+                networkName = primary?.name ?: familyLabel(Networks.EIP155),
                 balance = balance,
             )
         }
     }
 
-    /**
-     * The accounts of one Algorand or Solana family: each key is one account, and its balance is the family's coin on [mode]'s side. A side with no
-     * coin for the family shows the account with no balance.
-     */
-    private fun nativeAccounts(
+    /** The Solana accounts: each key is one account, and its balance is the Solana coin on [mode]'s side. */
+    private fun solanaAccounts(
         wallet: PairedWallet,
-        chain: AccountChain,
-        keys: List<ByteArray>,
+        mode: NetworkMode,
         coins: List<NativeCoin>,
         cache: List<CachedNativeBalance>,
-        addressOf: (ByteArray) -> String,
     ): List<WalletAccount> {
-        val isSolana = chain == AccountChain.SOLANA
-        val coin = coins.firstOrNull { if (isSolana) it.network.isSol else it.network.isAlgo }
-        return keys.mapIndexed { index, key ->
-            // The coin reads the one account of its family, so the wallet holding only this key gives this account's balance.
-            val alone = if (isSolana) {
-                wallet.copy(solana = listOf(key), algorand = emptyList())
-            } else {
-                wallet.copy(solana = emptyList(), algorand = listOf(key))
-            }
+        val chain = if (mode == NetworkMode.TESTNET) Networks.SOL_DEVNET else Networks.SOL_MAINNET
+        val coin = coins.firstOrNull { it.network.isSol }
+        return wallet.solana.mapIndexed { index, key ->
             WalletAccount(
                 walletId = wallet.id,
-                chain = chain,
+                id = AccountId.of(chain, SolanaAccount.addressOf(key)),
                 index = index,
-                address = addressOf(key),
-                networkName = coin?.name ?: chain.label,
-                balance = coin?.let { HomeBalances.nativeCoins(listOf(alone), cache, listOf(it)).singleOrNull() },
+                networkName = coin?.name ?: familyLabel(Networks.SOLANA),
+                balance = nativeBalance(wallet.copy(solana = listOf(key), algorand = emptyList()), coin, cache),
             )
         }
     }
+
+    /**
+     * The Algorand accounts: each key is one account that [AlgorandWallet.accountFrom] names on [mode]'s network, and its balance is the Algorand coin
+     * on that side. A side with no Algorand coin shows the account with no balance.
+     */
+    private fun algorandAccounts(
+        wallet: PairedWallet,
+        mode: NetworkMode,
+        coins: List<NativeCoin>,
+        cache: List<CachedNativeBalance>,
+    ): List<WalletAccount> {
+        val network = if (mode == NetworkMode.TESTNET) Networks.ALGO_TESTNET else Networks.ALGO_MAINNET
+        val coin = coins.firstOrNull { it.network.isAlgo }
+        return wallet.algorand.mapIndexed { index, key ->
+            val export = AccountExport(
+                chain = network,
+                signer = SignerRef(wallet.fingerprint.toInt(), AlgorandWallet.pathOf(index)),
+                publicKey = PublicKey(Curve.ED25519_BIP32, key),
+                kind = AddressKind.DEFAULT,
+            )
+            WalletAccount(
+                walletId = wallet.id,
+                id = AlgorandWallet.accountFrom(export).single().id,
+                index = index,
+                networkName = coin?.name ?: familyLabel(Networks.ALGORAND),
+                balance = nativeBalance(wallet.copy(solana = emptyList(), algorand = listOf(key)), coin, cache),
+            )
+        }
+    }
+
+    /** The native coin of [alone], the wallet that holds only this account's key, or null when the side has no [coin] for it. */
+    private fun nativeBalance(alone: PairedWallet, coin: NativeCoin?, cache: List<CachedNativeBalance>): NativeAsset? =
+        coin?.let { HomeBalances.nativeCoins(listOf(alone), cache, listOf(it)).singleOrNull() }
 }

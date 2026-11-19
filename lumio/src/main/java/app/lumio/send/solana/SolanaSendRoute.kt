@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
+import app.airvault.core.model.AccountId
 import app.lensly.app.VaultHolder
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTokenAccounts
@@ -37,6 +38,7 @@ import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.onVault
 import app.lumio.pair.PairedWallets
+import app.lumio.wallets.WalletAccounts
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
@@ -98,7 +100,7 @@ private const val SETUP_FAILED = "The setup did not go through. Start it again f
 
 /**
  * A Solana send from one paired account, which is fixed: the form, the review, the request that Lensly signs, the scan of its answer, and the status
- * of the transaction on the network. [walletId] and [accountIndex] name the account N of the wallet, and [mode] picks the devnet or mainnet-beta side.
+ * of the transaction on the network. [walletId] and [accountId] name the account of the wallet, and [mode] picks the devnet or mainnet-beta side.
  * The coin is SOL, or an SPL token of the account. Lumio holds no key. It builds the transfer from public reads, and it broadcasts only a signature that
  * Lensly made for that message, after the signature has been checked against the account's public key.
  */
@@ -107,7 +109,7 @@ internal fun SolanaSendRoute(
     navController: NavHostController,
     holder: VaultHolder,
     walletId: String,
-    accountIndex: Int,
+    accountId: AccountId,
     mode: NetworkMode,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
@@ -121,10 +123,12 @@ internal fun SolanaSendRoute(
     val scheduler = remember(session) { app.nativeSchedulerFor(session) }
     val network = if (mode == NetworkMode.TESTNET) SOLANA_DEVNET else SOLANA_MAINNET
     // The account N of the wallet, from the public key the pairing holds. Its private key stays with Lensly.
-    val account by produceState<SolanaSendAccount?>(initialValue = null, session, walletId, accountIndex) {
+    val account by produceState<SolanaSendAccount?>(initialValue = null, session, walletId, accountId) {
         value = onVault(null) {
             PairedWallets.list(session).firstOrNull { it.id == walletId }?.let { wallet ->
-                wallet.solana.getOrNull(accountIndex)?.let { key -> SolanaSendAccount(accountIndex, key, wallet.fingerprint.toInt()) }
+                WalletAccounts.indexOf(wallet, accountId)?.let { index ->
+                    SolanaSendAccount(index, wallet.solana[index], wallet.fingerprint.toInt())
+                }
             }
         }
     }
