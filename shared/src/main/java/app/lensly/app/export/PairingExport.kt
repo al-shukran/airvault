@@ -1,18 +1,36 @@
 package app.lensly.app.export
 
+import app.lensly.core.ur.CryptoHdKeyEncoder
 import app.lensly.core.wallet.AccountXpub
 
 /**
- * The pairing export that Rabby and MetaMask import: ur:crypto-multi-accounts with one Ledger Live key for each Ethereum account, the
- * Ethereum App's keys (see [EthereumNexusKeys]). Account N's key is m/44'/60'/N' with the children 0/0
- * that reach its address. It carries public material only, never the seed or any private key.
+ * The pairing export that Rabby and MetaMask import: one ur:crypto-hdkey, the BIP44 Ethereum account key m/44'/60'/0' of account 0. Rabby's QR
+ * sync accepts only crypto-hdkey and crypto-account, and it rejects crypto-multi-accounts, so that layout is not written here. Rabby derives its
+ * address i as m/44'/60'/0'/0/i. Lensly's account 0 is m/44'/60'/0'/0/0, which is the importer's first address. The code carries public material
+ * only, never the seed or any private key.
  */
 object PairingExport {
+    /** The depth of the account key m/44'/60'/0'. */
+    private const val ACCOUNT_KEY_DEPTH = 3
+
+    /** Larger than any code this export writes, so the code is one QR code and never an animated part. */
+    private const val ONE_CODE = 1024
+
     /**
-     * Pairing parts for the account keys [accountKeys] (m/44'/60'/N' for account N, in order) of a wallet whose master fingerprint is
-     * [masterFingerprint]: one QR code when the payload fits, otherwise the parts of an animated one. Each key is named [name], and the
-     * export names the app [version].
+     * The pairing code of the first of [accountKeys], which is the key m/44'/60'/0' of account 0, for a wallet whose master fingerprint is
+     * [masterFingerprint]. The key is named [name].
      */
-    fun urParts(accountKeys: List<AccountXpub>, masterFingerprint: Int, version: String, name: String): List<String> =
-        MultiAccountsExport.urParts(masterFingerprint, EthereumNexusKeys.ledgerLiveKeys(accountKeys, masterFingerprint, name), version)
+    fun urParts(accountKeys: List<AccountXpub>, masterFingerprint: Int, name: String): List<String> {
+        val accountKey = accountKeys.first()
+        val code = CryptoHdKeyEncoder.urParts(
+            pubkey33 = accountKey.publicKey,
+            chainCode32 = accountKey.chainCode,
+            masterFp = masterFingerprint,
+            parentFp = accountKey.parentFingerprint,
+            name = name,
+            maxFragment = ONE_CODE,
+            depth = ACCOUNT_KEY_DEPTH,
+        ).first()
+        return listOf(code)
+    }
 }

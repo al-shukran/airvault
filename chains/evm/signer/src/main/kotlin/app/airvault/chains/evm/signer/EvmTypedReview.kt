@@ -33,7 +33,15 @@ internal class TypedPart(
 )
 
 /** Reads [typed] for the review on [chain] (chain ID [chainId]), whose network is named [networkName]. */
-internal fun typedPart(typed: TypedData, registry: Registry, chainId: Long, chain: ChainId, networkName: String): TypedPart {
+internal fun typedPart(
+    typed: TypedData,
+    registry: Registry,
+    chainId: Long,
+    chain: ChainId,
+    networkName: String,
+    /** The name the domain's chain ID row gives it: the request's network, or the off-chain domain that names another chain. */
+    domainNetworkName: String = networkName,
+): TypedPart {
     val decoded = HashSet<FieldPath>()
     val domain = typed.types.getValue(EIP712_DOMAIN).map { member ->
         val field = FieldPath("eip712.domain.${member.name}")
@@ -42,7 +50,7 @@ internal fun typedPart(typed: TypedData, registry: Registry, chainId: Long, chai
         when (member.name) {
             "name" -> ReviewRow("Name", DisplayValue.Text(text), field)
             "version" -> ReviewRow("Version", DisplayValue.Text(text), field)
-            "chainId" -> ReviewRow("Chain ID", DisplayValue.Text("$text ($networkName)"), field)
+            "chainId" -> ReviewRow("Chain ID", DisplayValue.Text("$text ($domainNetworkName)"), field)
             "verifyingContract" -> ReviewRow("Verifying Contract", DisplayValue.Address(chain, text), field)
             "salt" -> ReviewRow("Salt", DisplayValue.Text(text), field)
             else -> ReviewRow(member.name, DisplayValue.Text(text), field)
@@ -114,13 +122,13 @@ private fun valueText(type: String, value: TypedValue): String = when (value) {
     is TypedValue.IntValue -> value.value.toString()
     is TypedValue.BytesValue -> if (type == "address") checksumOf(value.bytes) else "0x" + value.bytes.toHex()
     is TypedValue.FlagValue -> value.value.toString()
-    is TypedValue.TextValue -> when {
-        value.value.isEmpty() -> "(empty)"
-        value.value.all(::isPrintable) -> value.value
-        else -> "0x" + value.value.toByteArray(StandardCharsets.UTF_8).toHex() + " (not printable)"
-    }
+    is TypedValue.TextValue -> if (value.value.isEmpty()) "(empty)" else printableOrHex(value.value)
     is TypedValue.StructValue, is TypedValue.ArrayValue -> ""
 }
+
+/** [text] as a review shows it: the text itself when every character is printable, otherwise its UTF-8 bytes in hex. */
+internal fun printableOrHex(text: String): String =
+    if (text.all(::isPrintable)) text else "0x" + text.toByteArray(StandardCharsets.UTF_8).toHex() + " (not printable)"
 
 private fun checksumOf(bytes: ByteArray): String = Keys.toChecksumAddress("0x" + bytes.toHex())
 
