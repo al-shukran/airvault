@@ -26,9 +26,15 @@ private const val GENESIS_REFERENCE_CHARS = 32
 /** The decimal places of a microAlgo: one ALGO is 10^6 microAlgos. */
 private const val MICRO_ALGO_DECIMALS = 6
 
-/** The CAIP-2 chain ID of the network whose genesis hash is [genesisHash]: `algorand:` and the first 32 characters of the base64 hash. */
+/** The label the owner ticks before a close-to payment or transfer, which sends the rest of the balance away. Sentence case, beside its checkbox. */
+private const val ACK_CLOSE_TO = "I understand this sends the remaining balance to the close-to address."
+
+/**
+ * The CAIP-2 chain ID of the network whose genesis hash is [genesisHash]: `algorand:` and the first 32 characters of the URL-safe base64
+ * hash. The CAIP-2 reference alphabet has no `+` or `/`, which standard base64 uses.
+ */
 fun algorandChainId(genesisHash: ByteArray): ChainId =
-    ChainId("algorand:" + Base64.getEncoder().encodeToString(genesisHash).take(GENESIS_REFERENCE_CHARS))
+    ChainId("algorand:" + Base64.getUrlEncoder().withoutPadding().encodeToString(genesisHash).take(GENESIS_REFERENCE_CHARS))
 
 /** The decoded fields of an Algorand transaction, as the review names them. */
 private object Fields {
@@ -85,7 +91,7 @@ fun AlgorandRequestReview.warningText(warning: AlgorandWarning): String = when (
 }
 
 private fun AlgorandRequestReview.warningOf(warning: AlgorandWarning): Warning = when (warning) {
-    AlgorandWarning.CLOSE_TO -> Warning(Danger.DANGER, "algorand.close-to", warningText(warning), Fields.closeTo)
+    AlgorandWarning.CLOSE_TO -> Warning(Danger.DANGER, "algorand.close-to", warningText(warning), Fields.closeTo, acknowledge = ACK_CLOSE_TO)
     AlgorandWarning.UNKNOWN_ASSET -> Warning(Danger.CAUTION, "algorand.unknown-asset", warningText(warning), Fields.assetId)
     AlgorandWarning.GROUP -> Warning(Danger.CAUTION, "algorand.group", warningText(warning), Fields.group)
 }

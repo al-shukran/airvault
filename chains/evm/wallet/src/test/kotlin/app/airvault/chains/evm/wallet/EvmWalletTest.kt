@@ -77,6 +77,13 @@ class EvmWalletTest {
     }
 
     @Test
+    fun refusesAnEthereumNetworkTheManifestDoesNotName() {
+        assertFailsWith<IllegalArgumentException> { EvmWallet.accountFrom(export(ChainId("eip155:56"), 0, generator)) }
+        assertEquals(1, EvmWallet.accountFrom(export(mainnet, 0, generator)).size)
+        assertEquals(1, EvmWallet.accountFrom(export(monad, 0, generator)).size)
+    }
+
+    @Test
     fun theManifestPassesTheRegistryAndServesTheThreeNetworks() {
         val registry = ChainRegistry(listOf(EvmWallet))
 

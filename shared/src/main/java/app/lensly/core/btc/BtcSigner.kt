@@ -26,6 +26,9 @@ import app.airvault.chains.bitcoin.signer.warnings
 private const val BRANCH_LEVEL = 3
 private const val INDEX_LEVEL = 4
 
+/** The most satoshis any amount may be: the whole supply of 21 million BTC. Every sum of amounts stays within it, so none wraps. */
+private const val MAX_MONEY = 2_100_000_000_000_000L
+
 /**
  * Reviews a Bitcoin request against the owner's two policies and signs the inputs this Account owns.
  *
@@ -47,6 +50,11 @@ class BtcSigner(
             refuse(BtcRefusal.SourceExcluded)
         }
         val tx = psbt.global.tx
+        // Two inputs that spend one output would count its amount twice in the fee, so the request is refused.
+        val spentOutPoints = HashSet<OutPoint>()
+        tx.txIn.forEachIndexed { index, txIn ->
+            if (!spentOutPoints.add(txIn.outPoint)) refuse(BtcRefusal.DuplicateInput(index))
+        }
         val inputs = tx.txIn.mapIndexed { index, txIn ->
             val input = psbt.inputs[index]
             val spent = spentOutput(index, txIn.outPoint, input)
@@ -75,8 +83,8 @@ class BtcSigner(
             )
         }
         val allVerified = inputs.all { it.amountVerified }
-        val inputTotal = inputs.sumOf { it.amountSats }
-        val outputTotal = outputs.sumOf { it.amountSats }
+        val inputTotal = inputs.fold(0L) { total, input -> total.plusMoney(input.amountSats) }
+        val outputTotal = outputs.fold(0L) { total, output -> total.plusMoney(output.amountSats) }
         if (allVerified && outputTotal > inputTotal) refuse(BtcRefusal.OutputsExceedInputs)
         val feeSats = if (allVerified) inputTotal - outputTotal else null
         val estimatedVsize = BtcFeeRate.estimatedVsize(tx, account.scriptType)
@@ -200,6 +208,12 @@ class BtcSigner(
     }
 
     private fun refuse(reason: BtcRefusal): Nothing = throw BtcRefusedException(reason)
+
+    /** This sum plus [amount]. Refused unless both stay within 0..[MAX_MONEY], so the sum cannot wrap. */
+    private fun Long.plusMoney(amount: Long): Long {
+        if (amount !in 0..MAX_MONEY || this + amount > MAX_MONEY) refuse(BtcRefusal.AmountOutOfRange)
+        return this + amount
+    }
 }
 
 /** A signed request: the review the owner saw, and the PSBT with this Account's signatures added. */

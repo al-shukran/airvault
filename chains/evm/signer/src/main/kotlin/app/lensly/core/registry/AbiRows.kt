@@ -20,8 +20,9 @@ import org.web3j.crypto.Keys
  * field is a row, labelled `name.field` with the name the entry gives it, or `name.0`, `name.1` ... when the entry names none.
  *
  * An address is its EIP-55 checksum, a uint or int its exact decimal, a bool true or false, and a bytesN its full hex. A bytes value shows
- * its length and the first [PREVIEW_BYTES] bytes as hex, with an ellipsis when it is longer; the calldata section of the review holds every
- * byte. A string shows its text in quotes. [amountOf] may replace the value of a top-level uint marked tokenRef, and returns null to keep it.
+ * its length and the first [PREVIEW_BYTES] bytes as hex, with an ellipsis when it is longer. The review shows the call's full calldata in
+ * a Calldata row beside these arguments, so every byte is shown. A string shows its text in quotes. [amountOf] may replace the value of a
+ * top-level uint marked tokenRef, and returns null to keep it.
  */
 object AbiRows {
     private const val PREVIEW_BYTES = 32

@@ -3,6 +3,7 @@ package app.airvault.chains.solana.signer
 import app.airvault.chains.solana.SOLANA_DEVNET
 import app.airvault.chains.solana.SOLANA_MAINNET
 import app.airvault.chains.solana.SOLANA_TESTNET
+import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Coverage
 import app.airvault.core.model.Danger
@@ -21,6 +22,9 @@ import java.math.BigDecimal
 /** The label the owner ticks for an instruction Lensly does not read. Sentence case, beside its checkbox. */
 private const val UNDERSTAND = "I understand Lensly cannot say what this does."
 
+/** The label the owner ticks for a durable nonce whose authority is not this account. Sentence case, beside its checkbox. */
+private const val ACK_NONCE_AUTHORITY = "I understand the nonce authority is not this account."
+
 /** The longest address shown whole in a fact. A longer one is shortened to its first and last characters. */
 private const val SHORT_ADDRESS_LIMIT = 16
 
@@ -35,6 +39,7 @@ private object Fields {
     val text = FieldPath("solana.text")
     val feePayer = FieldPath("solana.feePayer")
     val otherSigner = FieldPath("solana.otherSigner")
+    val format = FieldPath("solana.format")
     val recentBlockhash = FieldPath("solana.recentBlockhash")
     val numRequiredSignatures = FieldPath("solana.numRequiredSignatures")
     val instructions = FieldPath("solana.instructions")
@@ -72,7 +77,7 @@ fun SolanaRequestReview.toReview(): Review {
     return Review(
         title = "Review",
         chain = chain,
-        network = NetworkLabel(name = "Solana", testnet = false, detail = null, row = clusterRow()),
+        network = NetworkLabel(name = "Solana", testnet = chain.isTestnet(), detail = null, row = clusterRow()),
         summary = listOf(SummaryPart.Text(sentence())),
         facts = facts(),
         sections = listOf(ReviewSection(if (message == null) "Message" else "Instructions", rows(chain))),
@@ -103,6 +108,9 @@ private fun clusterChain(cluster: SolCluster?): ChainId = when (cluster) {
     SolCluster.TESTNET -> SOLANA_TESTNET
     SolCluster.MAINNET_BETA, null -> SOLANA_MAINNET
 }
+
+/** Whether this chain is a test cluster, as the Solana manifest marks it. */
+private fun ChainId.isTestnet(): Boolean = solanaManifest.networks.single { it.chainId == this }.testnet
 
 /** The network row of the header: the cluster that Lumio states, marked as stated by Lumio, or "Not stated" when the request names none. */
 private fun SolanaRequestReview.clusterRow(): ReviewRow {
@@ -157,14 +165,18 @@ private fun SolanaRequestReview.facts(): List<ReviewRow> {
 /** How many instructions the message holds. A nonce setup is two of them and one decoded instruction, so this counts the message. */
 private fun SolanaRequestReview.messageInstructionCount(): Int = message?.instructions?.size ?: instructions.size
 
-/** The rows of the one section: the signer, then for a message its application domain and text, and for a transaction its fee payer, other
- * required signers, recent blockhash and each instruction with its accounts. */
+/** The rows of the one section: the signer, then for a message its other signers, application domain, format and text, and for a transaction its
+ * fee payer, other required signers, recent blockhash and each instruction with its accounts. */
 private fun SolanaRequestReview.rows(chain: ChainId): List<ReviewRow> = buildList {
     add(ReviewRow("Signer", DisplayValue.Address(chain, signerAddress), Fields.signer))
     val offchain = offchainMessage
     val tx = message
     if (offchain != null) {
+        offchainOtherSigners(offchain).forEach {
+            add(ReviewRow("Other Signer", DisplayValue.Address(chain, Base58.encode(it)), Fields.otherSigner))
+        }
         add(ReviewRow("Application Domain", DisplayValue.Address(chain, Base58.encode(offchain.applicationDomain)), Fields.applicationDomain))
+        add(ReviewRow("Format", DisplayValue.Text(formatText(offchain.format)), Fields.format))
         add(ReviewRow("Message", DisplayValue.Text(offchain.text), Fields.text))
     } else if (tx != null) {
         add(ReviewRow("Fee Payer", DisplayValue.Address(chain, tx.feePayer), Fields.feePayer))
@@ -312,20 +324,33 @@ private fun tokenNameText(token: SolanaToken?): String = when {
 private fun warningOf(warning: SolanaWarning): Warning = when (warning) {
     SolanaWarning.UNKNOWN_PROGRAM ->
         Warning(Danger.DANGER, "solana.unknown-program", solanaWarningText(warning), acknowledge = UNDERSTAND)
-    SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER -> Warning(Danger.DANGER, "solana.nonce-authority", solanaWarningText(warning))
+    SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER ->
+        Warning(Danger.DANGER, "solana.nonce-authority", solanaWarningText(warning), acknowledge = ACK_NONCE_AUTHORITY)
     SolanaWarning.DURABLE_NONCE -> Warning(Danger.INFO, "solana.durable-nonce", solanaWarningText(warning))
     SolanaWarning.LOOKUP_TABLE -> Warning(Danger.CAUTION, "solana.lookup-table", solanaWarningText(warning))
     SolanaWarning.UNKNOWN_TOKEN -> Warning(Danger.CAUTION, "solana.unknown-token", solanaWarningText(warning))
     SolanaWarning.DECIMALS_UNKNOWN -> Warning(Danger.CAUTION, "solana.decimals-unknown", solanaWarningText(warning))
 }
 
+/** The signers of an off-chain message other than the signing account, in the order the message gives them. */
+private fun SolanaRequestReview.offchainOtherSigners(offchain: SolanaOffchainMessage): List<ByteArray> =
+    offchain.signers.filterNot { it.contentEquals(signer) }
+
+/** The format of an off-chain message, as the review names it. */
+private fun formatText(format: SolanaOffchainMessage.Format): String = when (format) {
+    SolanaOffchainMessage.Format.RESTRICTED_ASCII -> "Restricted ASCII"
+    SolanaOffchainMessage.Format.LIMITED_UTF8 -> "Limited UTF-8"
+}
+
 /** The fields the parser read from this request. A row that shows a field accounts for it. */
 private fun SolanaRequestReview.decodedFields(): Set<FieldPath> = buildSet {
     add(Fields.signer)
     add(Fields.cluster)
-    if (offchainMessage != null) {
+    offchainMessage?.let { offchain ->
         add(Fields.applicationDomain)
+        add(Fields.format)
         add(Fields.text)
+        if (offchainOtherSigners(offchain).isNotEmpty()) add(Fields.otherSigner)
     }
     if (message != null) {
         add(Fields.feePayer)

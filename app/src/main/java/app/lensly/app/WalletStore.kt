@@ -1,13 +1,15 @@
 package app.lensly.app
 
+import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.algorand.bytesToSign
+import app.airvault.core.model.Curve
+import app.airvault.core.signer.ScopedKeyAccess
 import app.lensly.app.export.BrotliCompressor
 import app.lensly.app.export.BrotliEncoder
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
 import app.lensly.app.export.fitBytes
 import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.algorand.LedgerEd25519
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcAccountSelection
 import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
@@ -25,6 +27,7 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
+import app.lensly.core.wallet.WalletKeyAccess
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.BulkRun
 import app.lensly.core.wallet.Ed25519Signer
@@ -615,7 +618,7 @@ class WalletStore(private val session: VaultSession) {
         val seed = seedOf(id)
         val signed = try {
             val key = BtcAccount.fromSeed(seed, account.network, account.scriptType, account.index)
-            BtcSigner(key, inputPolicy, sourcePolicy).sign(psbt, unverifiedConfirmed)
+            BtcSigner(key, inputPolicy, sourcePolicy, SettingsStore(session).load().bitcoinFeeThresholds).sign(psbt, unverifiedConfirmed)
         } finally {
             seed.fill(0)
         }
@@ -660,13 +663,11 @@ class WalletStore(private val session: VaultSession) {
         require(review.signer.contentEquals(stored)) { REVIEW_OTHER_ACCOUNT }
         val seed = seedOf(id)
         try {
-            val key = LedgerEd25519.algorandAccount(seed, review.accountIndex)
-            try {
-                if (!key.publicKey.contentEquals(stored)) throw IllegalArgumentException(ALGORAND_KEY_MISMATCH)
-                return Ed25519Signer.sign(key.kL, bytesToSign(review.signData))
-            } finally {
-                key.wipe()
-            }
+            // The key comes through the app's key scope, so a path outside the Algorand manifest is refused before any key is derived.
+            val keys = ScopedKeyAccess(algorandManifest.keys, WalletKeyAccess(seed))
+            val path = WalletKeyAccess.algorandPath(review.accountIndex)
+            require(keys.publicKey(Curve.ED25519_BIP32, path).bytes.contentEquals(stored)) { ALGORAND_KEY_MISMATCH }
+            return keys.signEd25519(Curve.ED25519_BIP32, path, bytesToSign(review.signData))
         } finally {
             seed.fill(0)
         }
