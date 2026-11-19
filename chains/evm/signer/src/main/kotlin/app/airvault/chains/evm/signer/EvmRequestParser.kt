@@ -19,7 +19,9 @@ private val EVM_LIMITS = ParserLimits(
 )
 
 /** The chain a request names none for: Ethereum mainnet. A personal message carries no chain id. */
-private val DEFAULT_CHAIN = ChainId("eip155:1")
+internal const val DEFAULT_CHAIN_ID = 1L
+
+private val DEFAULT_CHAIN = ChainId("eip155:$DEFAULT_CHAIN_ID")
 
 /**
  * The parser of eth-sign-request (spec 3.2). It reads the request and parses its data: a transaction as RLP, typed data as EIP-712 and a

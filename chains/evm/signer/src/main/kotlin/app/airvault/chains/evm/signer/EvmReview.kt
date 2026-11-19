@@ -85,7 +85,9 @@ class EvmReviewBuilder(
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) throw Refusal(SIGN_DATA_TOO_LARGE)
         val origin = request.origin
         if (origin != null && !origin.all(::isPrintable)) throw Refusal(UNREADABLE_ORIGIN)
-        val chainId = request.chainId ?: throw Refusal(NO_NETWORK)
+        // A personal message names no chain, so it is read on the chain the parser gives it. Any other request must name its network.
+        val chainId = request.chainId
+            ?: if (request.dataType == DataType.PERSONAL_MESSAGE) DEFAULT_CHAIN_ID else throw Refusal(NO_NETWORK)
         EvmReviewResult.Ok(Build(parsed, sender, chainId).build().checked())
     } catch (refusal: Refusal) {
         EvmReviewResult.Refused(refusal.reason, refusal.call)
