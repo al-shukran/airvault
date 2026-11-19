@@ -51,7 +51,7 @@ object EvmRequestBody {
         }
         optional(request.sourceFingerprint) { int(it) }
         optional(request.address) { blob(it, ADDRESS_BYTES) }
-        optional(request.origin) { text(it, EthSignRequest.MAX_PAYLOAD_BYTES) }
+        optional(request.origin) { text(it, ParserLimits.MAX_ORIGIN_BYTES) }
     }
 
     private fun WireReader.requestOf(): EthSignRequest {
@@ -67,7 +67,7 @@ object EvmRequestBody {
         }
         val fingerprint = optional { int() }
         val address = optional { exact(ADDRESS_BYTES) }
-        val origin = optional { text(EthSignRequest.MAX_PAYLOAD_BYTES) }
+        val origin = optional { text(ParserLimits.MAX_ORIGIN_BYTES) }
         return EthSignRequest(requestId, signData, dataType, chainId, path, fingerprint, address, origin)
     }
 

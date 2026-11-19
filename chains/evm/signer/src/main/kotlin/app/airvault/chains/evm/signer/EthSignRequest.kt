@@ -56,8 +56,7 @@ class EthSignRequest(
         /** Largest signData accepted: 64 KiB. */
         const val MAX_SIGN_DATA_BYTES = ParserLimits.MAX_SIGN_DATA_BYTES
 
-        // The other fields are small, so the whole payload has a fixed headroom above the sign data. The Parser Sandbox's
-        // wire format bounds the origin by it, so an origin the decoder accepts always crosses the wire.
+        // The other fields are small, so the whole payload has a fixed headroom above the sign data.
         const val MAX_PAYLOAD_BYTES = MAX_SIGN_DATA_BYTES + 4096
 
         /** Decodes the CBOR payload of an eth-sign-request UR. */
@@ -104,6 +103,9 @@ class EthSignRequest(
             }
 
             val origin = fields[7L]?.let { textOf(it, "origin") }
+            if (origin != null && origin.toByteArray(Charsets.UTF_8).size > ParserLimits.MAX_ORIGIN_BYTES) {
+                malformed("origin exceeds ${ParserLimits.MAX_ORIGIN_BYTES} bytes")
+            }
 
             return EthSignRequest(requestId, signData, dataType, chainId, path, sourceFingerprint, address, origin)
         }
