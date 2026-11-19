@@ -104,6 +104,8 @@ dependencies {
     api(project(":chains:bitcoin:common"))
     api(project(":chains:evm:common"))
     api(project(":chains:solana:common"))
+    // The Solana manifest and the sol-sign-request codec with its parser live in chains/solana; the Solana message types too.
+    api(project(":chains:solana:signer"))
     // The Bitcoin PSBT codec, the bitcoin manifest and the crypto-psbt parser live in chains/bitcoin/signer.
     api(project(":chains:bitcoin:signer"))
 

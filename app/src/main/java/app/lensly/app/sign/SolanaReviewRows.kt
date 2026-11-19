@@ -1,9 +1,9 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.solana.signer.SolanaMessageAccount
 import app.lensly.app.addressesIn
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaInstruction
-import app.lensly.core.solana.SolanaMessageAccount
 import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.solana.SolanaToken
 import app.lensly.core.solana.SolanaWarning
@@ -12,10 +12,6 @@ import app.lensly.ui.sign.ReviewFact
 import app.lensly.ui.sign.shortAddress
 import app.lensly.ui.sign.solanaClusterName
 import java.math.BigDecimal
-import java.nio.ByteBuffer
-import java.nio.charset.CharacterCodingException
-import java.nio.charset.CodingErrorAction
-import java.nio.charset.StandardCharsets
 
 /** The label of the signing account's row. */
 private const val SIGNER = "Signer"
@@ -107,17 +103,6 @@ fun solanaAccountText(account: SolanaMessageAccount): String = when (account) {
         "lookup table ${account.tableAddress}, index ${account.tableIndex} (can't be checked offline)"
 }
 
-/** The message as text, when it is UTF-8 whose every character is [isPrintable]. Null for any other bytes. */
-internal fun printableText(bytes: ByteArray): String? = try {
-    val text = StandardCharsets.UTF_8.newDecoder()
-        .onMalformedInput(CodingErrorAction.REPORT)
-        .onUnmappableCharacter(CodingErrorAction.REPORT)
-        .decode(ByteBuffer.wrap(bytes))
-        .toString()
-    text.takeIf { it.isNotEmpty() && it.all(::isPrintable) }
-} catch (e: CharacterCodingException) {
-    null
-}
 
 /**
  * The rows one instruction shows. A known instruction names its program first, by its ID. A raw instruction already names its program

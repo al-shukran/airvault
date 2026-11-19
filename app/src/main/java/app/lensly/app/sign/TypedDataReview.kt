@@ -5,6 +5,7 @@ import app.airvault.chains.evm.signer.EIP712_DOMAIN
 import app.airvault.chains.evm.signer.TypedData
 import app.airvault.chains.evm.signer.TypedField
 import app.airvault.chains.evm.signer.TypedValue
+import app.airvault.core.model.isPrintable
 import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry

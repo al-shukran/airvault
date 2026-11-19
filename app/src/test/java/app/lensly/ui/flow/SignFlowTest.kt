@@ -3,6 +3,7 @@ package app.lensly.ui.flow
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.evm.signer.UnsignedTx
+import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.export.PairingExport
 import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
@@ -26,22 +27,12 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import com.sparrowwallet.hummingbird.UR
-import java.math.BigInteger
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import kotlin.test.assertContentEquals
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -52,6 +43,15 @@ import org.junit.Test
 import org.web3j.crypto.RawTransaction
 import org.web3j.crypto.TransactionEncoder
 import org.web3j.utils.Numeric
+import java.math.BigInteger
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 private const val MONAD_TESTNET = 10143L
 private const val ART_ADDRESS = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"

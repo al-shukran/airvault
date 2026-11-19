@@ -7,10 +7,6 @@ import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.ParseOutcome
 import app.airvault.core.signer.SignerApp
 import app.lensly.chains.signerRegistry
-import app.lensly.core.solana.SolanaMessage
-import app.lensly.core.solana.SolanaOffchainMessage
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
 import java.util.concurrent.Executors
@@ -29,12 +25,6 @@ sealed interface ScanReply {
 
     /** The new text belongs to the request, which is not complete yet. [progress] runs from 0 to 1. */
     data class Incomplete(val progress: Double) : ScanReply
-
-    /**
-     * The new text completes a `ur:sol-sign-request`. [payload] is its CBOR. The sandbox has parsed it, and has read its message when it
-     * is a transaction, so a request that does not parse never gets here.
-     */
-    data class Solana(val payload: ByteArray) : ScanReply
 
     /**
      * The new text completes a request that an installed chain app parses. [request] holds its header, which the core reads, and its
@@ -71,27 +61,7 @@ object InProcessParser : RequestParser {
     /** The reply for a complete [ur]: the request it carries, parsed, or the reason it is refused. */
     internal fun replyOf(ur: UR): ScanReply {
         signerRegistry.byRequestType(ur.type)?.let { return appReply(it, ur) }
-        if (ur.type == SolSignRequest.UR_TYPE) return solanaReply(ur)
         return ScanReply.Refused(UNSUPPORTED_CODE)
-    }
-
-    /**
-     * The reply for a complete `ur:sol-sign-request`: its CBOR, when the request parses and its sign data parses too. A transaction must
-     * parse as a transaction, and a message must parse as a Solana off-chain message. Otherwise the reason it is refused.
-     */
-    private fun solanaReply(ur: UR): ScanReply {
-        val request = when (val decoded = SolSignRequest.decode(ur.cborBytes)) {
-            is SolSignRequest.Result.Ok -> decoded.request
-            is SolSignRequest.Result.Rejected -> return ScanReply.Refused(decoded.reason)
-        }
-        if (request.signType == SolSignType.TRANSACTION) {
-            (SolanaMessage.decode(request.signData) as? SolanaMessage.Result.Rejected)?.let { return ScanReply.Refused(it.reason) }
-        }
-        if (request.signType == SolSignType.MESSAGE) {
-            val parsed = SolanaOffchainMessage.parse(request.signData)
-            if (parsed is SolanaOffchainMessage.Result.Rejected) return ScanReply.Refused(parsed.reason)
-        }
-        return ScanReply.Solana(ur.cborBytes)
     }
 
     /**

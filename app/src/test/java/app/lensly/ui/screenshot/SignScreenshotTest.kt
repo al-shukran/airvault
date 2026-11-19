@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import app.airvault.abi.AbiDecoder
 import app.airvault.abi.CallDecode
 import app.airvault.abi.WhitelistParam
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.app.sign.SolanaSplFixtures
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
@@ -36,8 +38,6 @@ import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.solana.SolanaTokenList
 import app.lensly.core.solana.SolanaWarning
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SAMPLE_SIGNER
@@ -47,7 +47,6 @@ import app.lensly.ui.sign.TxReviewScreen
 import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import fr.acinq.bitcoin.Base58
-import java.math.BigInteger
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,6 +54,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.web3j.utils.Numeric
+import java.math.BigInteger
 
 /**
  * Review and refusal states of the sign flow. The reviews use [snapshotSettled], because whether APPROVE is on depends on

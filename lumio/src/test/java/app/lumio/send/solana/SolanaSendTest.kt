@@ -1,14 +1,14 @@
 package app.lumio.send.solana
 
+import app.airvault.chains.solana.signer.SolCluster
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaMessage
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.solana.SolanaMessage
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaRequestCheck
 import app.lensly.core.solana.SolanaTransaction
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolCluster
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.wallet.Ed25519Signer
@@ -27,20 +27,6 @@ import app.lumio.data.sched.Scheduler
 import app.lumio.ui.send.solana.SETUP_SIGN_TEXT
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
-import java.math.BigInteger
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.util.Base64
-import kotlin.random.Random
-import kotlin.test.assertContentEquals
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
-import kotlin.test.assertSame
-import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -55,6 +41,20 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import java.math.BigInteger
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.Base64
+import kotlin.random.Random
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 /**
  * The Solana send against the shapes the endpoint gives. The keys come from the public BIP39 test phrase, and the signatures are the ones Lensly

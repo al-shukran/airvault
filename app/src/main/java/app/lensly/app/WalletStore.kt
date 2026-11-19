@@ -7,13 +7,13 @@ import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
 import app.lensly.app.export.fitBytes
 import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.algorand.AlgorandRequestReview
 import app.lensly.core.algorand.LedgerEd25519
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcAccountSelection
 import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.core.btc.BtcNetwork
 import app.airvault.chains.bitcoin.signer.BtcPsbt
+import app.airvault.chains.algorand.signer.AlgorandRequestReview
 import app.lensly.core.btc.BtcRefusal
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.btc.BtcSigner

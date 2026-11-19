@@ -2,7 +2,7 @@ package app.lensly.app.sign
 
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
-import app.lensly.core.algorand.AlgorandRequestCheck
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest

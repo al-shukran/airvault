@@ -12,7 +12,6 @@ import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.wallet.toHex
 
 /**
@@ -36,7 +35,6 @@ object ParserWire {
     private const val REFUSED = 0
     private const val NOT_PART = 1
     private const val INCOMPLETE = 2
-    private const val SOLANA_REQUEST = 5
     private const val APP_REQUEST = 6
     private const val CALL_OK = 1
 
@@ -45,12 +43,8 @@ object ParserWire {
     private const val VALUE_DYNAMIC = 1
     private const val VALUE_ITEMS = 2
 
-    /** The most a scanned Solana request may hold, as its CBOR. It is the codec's own limit for one sol-sign-request. */
-    private const val MAX_SOLANA_PAYLOAD_BYTES = SolSignRequest.MAX_PAYLOAD_BYTES
-
-    /** The most an app request body may hold. An app parses its request into a body that can be larger than the CBOR it came in, so the
-     * body is bounded by the reply that carries it. */
-    private const val MAX_APP_BODY_BYTES = MAX_REPLY_BYTES
+    /** The most a scanned app request may hold, as its CBOR: the core's limit for a request payload. */
+    private const val MAX_APP_PAYLOAD_BYTES = ParserLimits.MAX_APP_PAYLOAD_BYTES
 
     /** The most keys one app request may ask for. */
     private const val MAX_SIGNERS = 16
@@ -109,10 +103,6 @@ object ParserWire {
                 int(INCOMPLETE)
                 double(reply.progress)
             }
-            is ScanReply.Solana -> {
-                int(SOLANA_REQUEST)
-                blob(reply.payload, MAX_SOLANA_PAYLOAD_BYTES)
-            }
             is ScanReply.App -> {
                 int(APP_REQUEST)
                 appRequest(reply.request)
@@ -127,7 +117,6 @@ object ParserWire {
             REFUSED -> ScanReply.Refused(text())
             NOT_PART -> ScanReply.NotPart
             INCOMPLETE -> ScanReply.Incomplete(double().also { if (!(it in 0.0..1.0)) throw WireException("progress is outside 0 to 1") })
-            SOLANA_REQUEST -> ScanReply.Solana(blob(MAX_SOLANA_PAYLOAD_BYTES))
             APP_REQUEST -> ScanReply.App(appRequestOf())
             else -> throw WireException("unknown scan reply")
         }
@@ -198,7 +187,7 @@ object ParserWire {
             }
         }
         optional(header.requestId) { blob(it, REQUEST_ID_BYTES) }
-        blob(request.body, MAX_APP_BODY_BYTES)
+        blob(request.body, MAX_APP_PAYLOAD_BYTES)
     }
 
     /** Reads an app request. An id the types refuse is a wire error, so the app refuses the reply that carried it. */
@@ -224,7 +213,7 @@ object ParserWire {
             SignerRef(fingerprint, path)
         }
         val requestId = optional { exact(REQUEST_ID_BYTES) }
-        val body = blob(MAX_APP_BODY_BYTES)
+        val body = blob(MAX_APP_PAYLOAD_BYTES)
         return AppRequest(RequestHeader(app, chain, kind, signers, requestId), body)
     }
 

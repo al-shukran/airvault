@@ -1,0 +1,91 @@
+package app.airvault.chains.algorand.signer
+
+import app.airvault.chains.algorand.AlgoTxn
+import app.airvault.chains.algorand.AlgorandNetwork
+import app.airvault.chains.algorand.AssetTransfer
+import app.airvault.chains.algorand.Payment
+import app.airvault.core.model.Danger
+import app.airvault.core.model.Review
+import app.airvault.core.model.text
+import app.airvault.core.model.unaccounted
+import app.airvault.chains.algorand.AlgoAddress
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class AlgorandReviewTest {
+    private val sender = ByteArray(32) { 7 }
+    private val receiver = ByteArray(32) { 9 }
+    private val network = AlgorandNetwork.TESTNET
+
+    private fun payment(lease: ByteArray? = null, group: ByteArray? = null) = Payment(
+        sender = sender,
+        fee = 1_000UL,
+        firstValid = 100UL,
+        lastValid = 200UL,
+        genesisId = network.genesisId,
+        genesisHash = network.genesisHash,
+        note = ByteArray(0),
+        lease = lease,
+        group = group,
+        rekeyTo = null,
+        receiver = receiver,
+        amount = 1_500_000UL,
+        closeTo = null,
+    )
+
+    private fun optIn() = AssetTransfer(
+        sender = sender,
+        fee = 1_000UL,
+        firstValid = 100UL,
+        lastValid = 200UL,
+        genesisId = network.genesisId,
+        genesisHash = network.genesisHash,
+        note = ByteArray(0),
+        lease = null,
+        group = null,
+        rekeyTo = null,
+        assetId = 31_566_704UL,
+        amount = 0UL,
+        receiver = sender,
+        closeTo = null,
+        assetSender = null,
+    )
+
+    private fun reviewOf(txn: AlgoTxn): Review = AlgorandRequestReview(
+        accountIndex = 0,
+        signer = sender,
+        txn = txn,
+        network = network,
+        signData = ByteArray(0),
+        requestId = null,
+    ).toReview()
+
+    private fun Review.labels(): List<String> = sections.flatMap { it.rows }.map { it.label }
+
+    @Test
+    fun aPaymentShowsEveryFieldItDecodes() {
+        val review = reviewOf(payment())
+        assertTrue(review.unaccounted().isEmpty(), "every decoded field is shown or excluded")
+        assertTrue(review.warnings.none { it.level == Danger.BLOCK })
+        assertEquals(listOf("Sender", "Receiver", "Amount", "Fee", "Valid from Round", "Valid until Round"), review.labels())
+        assertEquals("Sends 1.500000 ALGO to ${AlgoAddress.encode(receiver)}.", review.summary)
+    }
+
+    @Test
+    fun leaseAndGroupAreShownAsHex() {
+        val review = reviewOf(payment(lease = ByteArray(32) { 1 }, group = ByteArray(32) { 2 }))
+        val rows = review.sections.flatMap { it.rows }.associate { it.label to it.value.text() }
+        assertEquals("0x" + "01".repeat(32), rows["Lease"])
+        assertEquals("0x" + "02".repeat(32), rows["Group ID"])
+        assertTrue(review.unaccounted().isEmpty())
+    }
+
+    @Test
+    fun anOptInIsTitledAsOneAndShowsNoReceiver() {
+        val review = reviewOf(optIn())
+        assertEquals("Opt In to Asset", review.title)
+        assertTrue(review.warnings.none { it.level == Danger.BLOCK })
+        assertTrue("Receiver" !in review.labels())
+    }
+}

@@ -19,6 +19,7 @@ import app.airvault.chains.evm.signer.UnsignedTx
 import app.airvault.chains.evm.signer.callCount
 import app.airvault.chains.evm.signer.deepestLevel
 import app.airvault.chains.evm.signer.encodesAs
+import app.airvault.core.model.isPrintable
 import app.lensly.app.autoAccountName
 import app.lensly.app.export.partsOf
 import app.lensly.core.evm.MessageSigner
@@ -887,18 +888,3 @@ class SignPipeline(
     }
 }
 
-/**
- * True for a character a reader can check by eye. Line breaks and tabs are fine. Controls, invisible format characters
- * such as a right-to-left override, private-use and unassigned characters are not, so the message shows its bytes.
- */
-internal fun isPrintable(char: Char): Boolean = when (char) {
-    '\n', '\r', '\t' -> true
-    else -> when (Character.getType(char)) {
-        Character.CONTROL.toInt(),
-        Character.FORMAT.toInt(),
-        Character.PRIVATE_USE.toInt(),
-        Character.UNASSIGNED.toInt(),
-        -> false
-        else -> true
-    }
-}

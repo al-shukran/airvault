@@ -3,23 +3,18 @@ package app.lensly.ui.flow
 import android.content.Context
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import app.lensly.core.vault.FakeClock
 import app.lensly.core.vault.KdfParams
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
-import java.io.File
-import java.security.GeneralSecurityException
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -27,6 +22,11 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.io.File
+import java.security.GeneralSecurityException
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 
 /**
  * The app's Review Record writer. A store that fails in a way the writer does not name still becomes [ReviewNotSaved], so no

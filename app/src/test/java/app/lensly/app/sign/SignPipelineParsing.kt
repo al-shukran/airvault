@@ -29,8 +29,6 @@ fun SignPipeline.prepare(urCbor: ByteArray, wallet: WalletView): Prepared =
 fun SignPipeline.prepare(ur: UR, wallet: WalletView): Prepared =
     when (val reply = inProcessSandboxParser.scan(listOf(framesOf(ur, ONE_FRAME).first()))) {
         is ScanReply.Refused -> Prepared.Refused(reply.reason)
-        // A Solana request is reviewed by the Solana check, not the EVM pipeline.
-        is ScanReply.Solana -> Prepared.Refused(UNSUPPORTED_CODE)
         is ScanReply.App -> evmParsedOf(reply)?.let { prepare(it, wallet) } ?: Prepared.Refused(UNSUPPORTED_CODE)
         ScanReply.NotPart, is ScanReply.Incomplete -> error("A single frame is a whole request or a refusal")
     }

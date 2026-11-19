@@ -3,7 +3,6 @@ package app.lensly.app.sign
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.core.signer.RequestHeader
 import app.lensly.core.btc.claimsAccount
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.wallet.toHex
 import fr.acinq.bitcoin.psbt.Psbt
 
@@ -25,7 +24,6 @@ sealed interface WalletMatch {
 sealed interface ScannedRequest {
     data class Ethereum(val request: EthSignRequest) : ScannedRequest
     data class Bitcoin(val psbt: Psbt) : ScannedRequest
-    data class Solana(val request: SolSignRequest) : ScannedRequest
 
     /** A request an installed chain app parsed. [header] names the keys it asks for. */
     data class App(val header: RequestHeader) : ScannedRequest
@@ -33,9 +31,9 @@ sealed interface ScannedRequest {
 
 /**
  * The wallets of [wallets] that a scanned [request] is for. An Ethereum request goes by [matchWallet]. A Bitcoin request is for a wallet
- * whose master fingerprint and Bitcoin Account path one of its inputs names. A Solana request, and an app request with one signer, is for
- * a Mnemonic wallet whose master fingerprint it names. A Single Key wallet has no master key, so it is never for a Bitcoin, Solana or app
- * request.
+ * whose master fingerprint and Bitcoin Account path one of its inputs names. An app request with one signer, such as Solana or Algorand,
+ * is for a Mnemonic wallet whose master fingerprint it names. A Single Key wallet has no master key, so it is never for a Bitcoin or
+ * app request.
  */
 fun routeScan(request: ScannedRequest, wallets: List<WalletView>): WalletMatch = when (request) {
     is ScannedRequest.Ethereum -> matchWallet(request.request, wallets)
@@ -45,7 +43,6 @@ fun routeScan(request: ScannedRequest, wallets: List<WalletView>): WalletMatch =
             wallet.bitcoinAccountPaths.any { claimsAccount(request.psbt, fingerprint, it) }
         },
     )
-    is ScannedRequest.Solana -> byFingerprint(request.request.sourceFingerprint, wallets)
     is ScannedRequest.App -> byFingerprint(request.header.signers.singleOrNull()?.fingerprint, wallets)
 }
 

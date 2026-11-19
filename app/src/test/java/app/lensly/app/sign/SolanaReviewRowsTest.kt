@@ -1,18 +1,19 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.solana.signer.SolCluster
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaRequestCheck
 import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.solana.SolanaWarning
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolCluster
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.sign.ReviewFact
 import app.lensly.ui.sign.solanaWarningTone
 import fr.acinq.bitcoin.Base58
+import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -23,7 +24,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.junit.Test
 
 /** The rows, the sentence and the Review Record of a Solana review, built from messages this file writes. */
 class SolanaReviewRowsTest {
