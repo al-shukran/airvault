@@ -251,22 +251,17 @@ class EvmReviewTest {
     }
 
     @Test
-    fun aWhitelistedCallShowsItsApprovedMeaningAndItsDecodedArguments() {
-        val signature = "foo(address,uint256)"
-        val entry = WhitelistEntry(
-            chainId = 1,
-            contract = NFT,
-            selector = WhitelistEntry.selectorOf(signature),
-            signature = signature,
-            meaning = "Moves the amount to the recipient.",
-            params = listOf(WhitelistParam("to", "address"), WhitelistParam("amount", "uint256")),
-            upgradeable = false,
-        )
-        val registry = REGISTRY.withWhitelist(listOf(entry))
-        val calldata = Numeric.hexStringToByteArray(entry.selector) + word(BigInteger(SPENDER.removePrefix("0x"), 16)) +
-            word(BigInteger.valueOf(42))
+    fun anUnverifiedOriginIsLabelledAsAClaimThatTheReviewDoesNotVouchFor() {
+        val review = reviewOf(txParsed(SPENDER, ByteArray(0)))
 
-        val review = reviewOf(txParsed(NFT, calldata), builder(registry))
+        val header = review.sections.first().rows
+        assertEquals("dapp.example", header.single { it.label == "Claimed by Request (Not Verified)" }.value.text())
+        assertTrue(header.none { it.label == "Origin" })
+    }
+
+    @Test
+    fun aWhitelistedCallShowsItsApprovedMeaningAndItsDecodedArguments() {
+        val review = reviewOf(txParsed(NFT, fooCalldata()), builder(REGISTRY.withWhitelist(listOf(fooEntry()))))
 
         assertEquals("foo", review.title)
         val arguments = review.sections.single { it.heading == "Arguments" }.rows
@@ -275,6 +270,66 @@ class EvmReviewTest {
         val approved = review.warnings.single { it.code == "evm.whitelisted-call" }
         assertEquals(Danger.CAUTION, approved.level)
         assertEquals(ACK_WHITELIST, approved.acknowledge)
+    }
+
+    @Test
+    fun anApprovedCallShowsItsSelectorAndEveryWordAfterItWithTheAmountInTheHeader() {
+        val calldata = fooCalldata()
+
+        val registry = REGISTRY.withWhitelist(listOf(fooEntry()))
+        val review = reviewOf(txParsed(NFT, calldata, value = BigInteger("1000000000000000")), builder(registry))
+
+        // The header already shows the amount the call sends, so the arguments do not repeat it.
+        assertEquals("0.001 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
+        val arguments = review.sections.single { it.heading == "Arguments" }.rows
+        assertTrue(arguments.none { it.label == "Value" })
+        assertEquals("0x" + calldata.copyOfRange(0, 4).toHex(), arguments.single { it.label == "Selector" }.value.text())
+        assertEquals("0x" + calldata.copyOfRange(4, 36).toHex(), arguments.single { it.label == "Word 1" }.value.text())
+        assertEquals("0x" + calldata.copyOfRange(36, 68).toHex(), arguments.single { it.label == "Word 2" }.value.text())
+    }
+
+    @Test
+    fun anApprovedCallInsideAMulticallShowsItsOwnValueOnceInItsFlags() {
+        val call = InnerCall(
+            target = NFT,
+            allowFailure = false,
+            value = BigInteger("1000000000000000"),
+            calldata = fooCalldata(),
+            call = null,
+            nested = null,
+        )
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3_VALUE, deadline = null, calls = listOf(call))!!
+
+        val review = reviewOf(
+            txParsed(MULTICALL3, batch, value = BigInteger("2000000000000000")),
+            builder(REGISTRY.withWhitelist(listOf(fooEntry()))),
+        )
+
+        // The batch's flags carry the call's value, and the header carries the transaction's amount. No row repeats the call's value.
+        assertEquals("0.002 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
+        val rows = review.sections.single { it.heading == "Calls" }.rows
+        assertEquals("0.001 ETH", rows.single { it.label == "value (uint256)" }.value.text())
+        assertTrue(rows.none { it.label == "Value" })
+    }
+
+    @Test
+    fun anApprovedCallThatSendsNoNativeValueShowsNoValueRow() {
+        val review = reviewOf(txParsed(NFT, fooCalldata()), builder(REGISTRY.withWhitelist(listOf(fooEntry()))))
+
+        assertTrue(review.sections.single { it.heading == "Arguments" }.rows.none { it.label == "Value" })
+    }
+
+    @Test
+    fun anApprovedCallInsideAMulticallShowsItsSelectorAndWords() {
+        val inner = fooCalldata()
+        val call = InnerCall(target = NFT, allowFailure = false, value = null, calldata = inner, call = null, nested = null)
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!
+
+        val review = reviewOf(txParsed(MULTICALL3, batch), builder(REGISTRY.withWhitelist(listOf(fooEntry()))))
+
+        val rows = review.sections.single { it.heading == "Calls" }.rows
+        assertEquals("0x" + inner.copyOfRange(0, 4).toHex(), rows.single { it.label == "Selector" }.value.text())
+        assertEquals("0x" + inner.copyOfRange(4, 36).toHex(), rows.single { it.label == "Word 1" }.value.text())
     }
 
     @Test
@@ -324,7 +379,62 @@ class EvmReviewTest {
         assertTrue(review.facts.isEmpty())
         assertEquals(Danger.CAUTION, review.warnings.single().level)
     }
+
+    @Test
+    fun aPersonalMessageThatNamesNoChainIsReadOnEthereumMainnet() {
+        val request = EthSignRequest(
+            requestId = null,
+            signData = "hello".toByteArray(),
+            dataType = DataType.PERSONAL_MESSAGE,
+            chainId = null,
+            derivationPath = PATH,
+            sourceFingerprint = null,
+            address = null,
+            origin = "dapp.example",
+        )
+
+        val review = reviewOf(EvmRequestParser.parsedOf(request))
+
+        assertEquals("Sign Message", review.title)
+        assertEquals(ChainId("eip155:1"), review.chain)
+        assertEquals(NetworkLabel("Ethereum", testnet = false, detail = "Chain ID 1"), review.network)
+        assertEquals("hello", review.sections.single { it.heading == "Message" }.rows.single { it.label == "Message" }.value.text())
+    }
+
+    @Test
+    fun aTransactionThatNamesNoChainIsStillRefused() {
+        val request = EthSignRequest(
+            requestId = null,
+            signData = "hello".toByteArray(),
+            dataType = DataType.TRANSACTION,
+            chainId = null,
+            derivationPath = PATH,
+            sourceFingerprint = null,
+            address = null,
+            origin = "dapp.example",
+        )
+
+        assertEquals("The request does not name a network", refusalOf(EvmRequestParser.parsedOf(request)).reason)
+    }
 }
+
+/** A whitelisted `foo(address,uint256)` on [NFT]: a recipient and an amount, which the signed list approves. */
+private fun fooEntry(): WhitelistEntry {
+    val signature = "foo(address,uint256)"
+    return WhitelistEntry(
+        chainId = 1,
+        contract = NFT,
+        selector = WhitelistEntry.selectorOf(signature),
+        signature = signature,
+        meaning = "Moves the amount to the recipient.",
+        params = listOf(WhitelistParam("to", "address"), WhitelistParam("amount", "uint256")),
+        upgradeable = false,
+    )
+}
+
+/** The calldata of `foo(SPENDER, 42)`: the selector, then one word per argument. */
+private fun fooCalldata(): ByteArray =
+    Numeric.hexStringToByteArray(fooEntry().selector) + word(BigInteger(SPENDER.removePrefix("0x"), 16)) + word(BigInteger.valueOf(42))
 
 /** A whitelisted `setData(bytes)` on [NFT]: one bytes argument, which the signed list approves. */
 private fun bytesEntry(): WhitelistEntry {

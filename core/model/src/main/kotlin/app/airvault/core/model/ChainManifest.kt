@@ -8,6 +8,9 @@ const val AIRVAULT_API_VERSION: Int = 1
  *
  * [sharesKeysWith] names apps whose key scopes may overlap this one's (spec 2.2, rule 5). It is empty unless an app
  * declares that link.
+ *
+ * [requiresPrimary] makes the registry refuse an app with no primary network on either side. Set it when the app's wallet reads an
+ * account's native coin on the primary network (`EvmWallet.primaryNetwork`), which fails without one.
  */
 data class ChainManifest(
     val id: AppId,
@@ -22,6 +25,7 @@ data class ChainManifest(
     val responseTypes: List<UrTypeSpec>,
     val fields: List<FieldSpec>,
     val sharesKeysWith: Set<AppId> = emptySet(),
+    val requiresPrimary: Boolean = false,
 )
 
 /**
