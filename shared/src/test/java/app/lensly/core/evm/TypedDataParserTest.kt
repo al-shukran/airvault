@@ -103,15 +103,17 @@ class TypedDataParserTest {
     }
 
     @Test
-    fun aDomainWithoutAChainIdIsRefused() {
-        assertEquals("The typed data names no chain ID in its domain", refusal(doc(domain = """{"name":"Lensly"}""")))
+    fun aDomainWithoutAChainIdIsAcceptedAndNamesNoChain() {
+        val parsed = assertIs<TypedDataParser.Result.Ok>(TypedDataParser.parse(doc(domain = """{"name":"Lensly"}""")))
+
+        assertEquals(null, parsed.data.domainChainId)
     }
 
     @Test
-    fun aDeclaredDomainWithoutAChainIdIsRefused() {
+    fun aDeclaredDomainWithoutAChainIdIsAccepted() {
         val types = """{"EIP712Domain":[{"name":"name","type":"string"}],"Mail":[{"name":"contents","type":"string"}]}"""
 
-        assertEquals("The typed data names no chain ID in its domain", refusal(doc(types = types, domain = """{"name":"x"}""")))
+        assertIs<TypedDataParser.Result.Ok>(TypedDataParser.parse(doc(types = types, domain = """{"name":"x"}""")))
     }
 
     @Test
@@ -161,8 +163,15 @@ class TypedDataParserTest {
     }
 
     @Test
-    fun aMessageMemberTheTypeDoesNotDeclareIsRefused() {
-        assertTrue(refusal(doc(message = """{"contents":"hi","extra":1}""")).contains("unknown member extra"))
+    fun aMessageScalarTheTypeDoesNotDeclareIsAcceptedAsUnsigned() {
+        val document = doc(message = """{"contents":"hi","extra":1}""")
+
+        assertEquals(mapOf("extra" to "1"), assertIs<TypedDataParser.Result.Ok>(TypedDataParser.parse(document)).unsigned)
+    }
+
+    @Test
+    fun aMessageObjectTheTypeDoesNotDeclareIsRefused() {
+        assertTrue(refusal(doc(message = """{"contents":"hi","extra":{"a":1}}""")).contains("unknown member extra"))
     }
 
     @Test

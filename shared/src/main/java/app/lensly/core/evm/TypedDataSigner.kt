@@ -2,7 +2,6 @@ package app.lensly.core.evm
 
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.TypedData
-import java.math.BigInteger
 
 /** Signs typed data (EIP-712) over its digest, never over the JSON text. */
 object TypedDataSigner {
@@ -16,15 +15,15 @@ object TypedDataSigner {
     }
 
     /**
-     * Signs the digest of [typed] with [privateKey]. The request must be typed data (dataType 2), and its [chainId] must be the chain
-     * the domain names, so a message is never signed for a chain other than the one the request named.
+     * Signs the digest of [typed] with [privateKey]. The request must be typed data (dataType 2). [reviewedDomainSeparator] is the domain
+     * separator of the domain the review showed, so [typed] must hash with exactly that domain, including its chain ID. Any other domain is refused.
      */
-    fun sign(dataType: DataType, typed: TypedData, chainId: Long, privateKey: ByteArray): Result {
+    fun sign(dataType: DataType, typed: TypedData, reviewedDomainSeparator: ByteArray, privateKey: ByteArray): Result {
         if (dataType != DataType.TYPED_DATA) {
             return Result.Refused("only typed data (dataType 2) is signed here, not dataType ${dataType.wire}")
         }
-        if (typed.domainChainId != BigInteger.valueOf(chainId)) {
-            return Result.Refused("The typed data is for another chain than the request names")
+        if (!typed.domainSeparator().contentEquals(reviewedDomainSeparator)) {
+            return Result.Refused("The typed data's domain is not the domain the review showed, so it is not signed")
         }
         val signature = Secp256k1.sign(typed.digest(), privateKey)
         return Result.Signed(signature.r + signature.s + byteArrayOf((27 + signature.recId).toByte()))

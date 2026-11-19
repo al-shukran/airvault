@@ -481,14 +481,13 @@ class SignPipelineTest {
     }
 
     @Test
-    fun typedDataForAnotherChainThanTheRequestIsRefused() {
+    fun typedDataForAnotherChainThanTheRequestIsSignableAndItsChainIsNamed() {
         val typed = ("{\"types\":{\"EIP712Domain\":[{\"name\":\"chainId\",\"type\":\"uint256\"}]," +
             "\"Note\":[{\"name\":\"text\",\"type\":\"string\"}]},\"primaryType\":\"Note\",\"domain\":{\"chainId\":1}," +
             "\"message\":{\"text\":\"hi\"}}").toByteArray(Charsets.UTF_8)
-        assertEquals(
-            "The typed data is for chain 1, but the request names chain $MONAD_TESTNET",
-            refusal(requestCbor(typed, dataType = 2)),
-        )
+        val signable = ready(requestCbor(typed, dataType = 2))
+
+        assertTrue((signable.review.facts + signable.review.sections.flatMap { it.rows }).any { it.label.startsWith("Signature for Chain 1 (") })
     }
 
     @Test

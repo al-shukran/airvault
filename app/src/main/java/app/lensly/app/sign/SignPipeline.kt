@@ -45,6 +45,8 @@ sealed interface Prepared {
         val tx: UnsignedTx? = null,
         /** The typed message the Parser Sandbox parsed, which is what gets signed. Null for a request that is not typed data. */
         val typed: TypedData? = null,
+        /** The domain separator of [typed] as the review showed it. Signing refuses a message whose domain is not this one. */
+        val typedDomainSeparator: ByteArray? = null,
         val addressNotes: Map<String, AddressNotes> = emptyMap(),
     ) : Prepared
 
@@ -112,6 +114,7 @@ class SignPipeline(
         }
 
         val label = wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)
+        val typed = (parsed.typed as? TypedDataParser.Result.Ok)?.data
         return when (val result = reviews.review(parsed, address)) {
             is EvmReviewResult.Ok -> Prepared.Ready(
                 review = result.review,
@@ -120,7 +123,8 @@ class SignPipeline(
                 accountIndex = index,
                 walletId = wallet.id,
                 tx = (parsed.tx as? UnsignedTx.Result.Ok)?.tx,
-                typed = (parsed.typed as? TypedDataParser.Result.Ok)?.data,
+                typed = typed,
+                typedDomainSeparator = typed?.domainSeparator(),
             )
             is EvmReviewResult.Refused -> Prepared.Refused(result.reason, result.call)
         }
@@ -145,8 +149,8 @@ class SignPipeline(
                     }
                 DataType.TYPED_DATA -> {
                     val typed = requireNotNull(ready.typed) { CANNOT_BE_READ }
-                    val chainId = requireNotNull(request.chainId) { "The request does not name a network" }
-                    when (val result = TypedDataSigner.sign(request.dataType, typed, chainId, privateKey)) {
+                    val reviewed = requireNotNull(ready.typedDomainSeparator) { CANNOT_BE_READ }
+                    when (val result = TypedDataSigner.sign(request.dataType, typed, reviewed, privateKey)) {
                         is TypedDataSigner.Result.Signed -> result.signature
                         is TypedDataSigner.Result.Refused -> throw IllegalArgumentException(result.reason)
                     }
