@@ -15,10 +15,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
+import app.airvault.core.model.ChainId
 import app.lensly.DebugBtcFixture
+import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
+import app.lensly.app.BITCOIN_FAMILY
+import app.lensly.app.EVM_FAMILY
+import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
 import app.lensly.app.sign.algorandCounterparties
@@ -65,7 +69,7 @@ internal fun SignWalletRoute(
     }
     // The Address Book is read again each time this screen is shown, so an entry saved on the form shows on the review it came from.
     val book = session?.let { rememberAddressBook(navController, it) }
-    val openAddress: (String, AddressChain) -> Unit = { address, chain -> navController.openAddressBookFor(book.orEmpty(), address, chain) }
+    val openAddress: (String, ChainId) -> Unit = { address, chain -> navController.openAddressBookFor(book.orEmpty(), address, chain) }
 
     val flow: SignFlowViewModel = viewModel(
         key = walletId ?: ANY_WALLET_KEY,
@@ -95,7 +99,7 @@ internal fun SignWalletRoute(
         is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, call = shown.call, onDone = flow::leave)
         is SignStep.Review -> TxReviewScreen(
             review = shown.ready.review.copy(
-                addressNotes = notesNow(shown.ready.review.addressNotes, shown.ready.review.counterparties, AddressChain.EVM, book),
+                addressNotes = notesNow(shown.ready.review.addressNotes, shown.ready.review.counterparties, EVM_FAMILY, book),
             ),
             onApprove = flow::approve,
             onReject = flow::leave,
@@ -110,7 +114,7 @@ internal fun SignWalletRoute(
             addressNotes = notesNow(
                 shown.ready.reviewed.addressNotes,
                 shown.ready.reviewed.review.outputs.mapNotNull { it.address },
-                AddressChain.BITCOIN,
+                BITCOIN_FAMILY,
                 book,
             ),
             confirmed = shown.confirmed,
@@ -123,7 +127,7 @@ internal fun SignWalletRoute(
         is SignStep.SolanaReview -> SolanaReviewScreen(
             review = shown.ready.review,
             signer = shown.ready.signer,
-            addressNotes = notesNow(shown.ready.addressNotes, solanaCounterparties(shown.ready.review), AddressChain.SOLANA, book),
+            addressNotes = notesNow(shown.ready.addressNotes, solanaCounterparties(shown.ready.review), SOLANA_FAMILY, book),
             onApprove = flow::approve,
             onReject = flow::leave,
             onOpenAddress = openAddress,
@@ -132,7 +136,7 @@ internal fun SignWalletRoute(
         is SignStep.AlgorandReview -> AlgorandReviewScreen(
             review = shown.ready.review,
             signer = shown.ready.signer,
-            addressNotes = notesNow(shown.ready.addressNotes, algorandCounterparties(shown.ready.review), AddressChain.ALGORAND, book),
+            addressNotes = notesNow(shown.ready.addressNotes, algorandCounterparties(shown.ready.review), ALGORAND_FAMILY, book),
             onApprove = flow::approve,
             onReject = flow::leave,
             onOpenAddress = openAddress,
@@ -155,7 +159,7 @@ internal fun SignWalletRoute(
 private fun notesNow(
     read: Map<String, AddressNotes>,
     addresses: List<String>,
-    chain: AddressChain,
+    chain: ChainId,
     book: List<AddressBookEntry>?,
 ): Map<String, AddressNotes> {
     if (book == null) return read

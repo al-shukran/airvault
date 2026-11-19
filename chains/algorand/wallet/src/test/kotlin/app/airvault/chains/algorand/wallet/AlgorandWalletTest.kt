@@ -1,5 +1,6 @@
 package app.airvault.chains.algorand.wallet
 
+import app.airvault.chains.algorand.AlgorandAddressCodec
 import app.airvault.core.model.AccountId
 import app.airvault.core.model.AddressError
 import app.airvault.core.model.AddressKind

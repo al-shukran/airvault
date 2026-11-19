@@ -24,7 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.AddressChain
+import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.addressNotesOf
 import app.lensly.app.headline
 import app.lensly.core.btc.BtcNetwork
@@ -134,7 +134,7 @@ fun BtcSendReviewScreen(
     addressBook: List<AddressBookEntry> = emptyList(),
 ) {
     var advanced by remember { mutableStateOf(false) }
-    val recipient = addressNotesOf(plan.recipient, AddressChain.BITCOIN, emptyMap(), addressBook)?.headline() ?: plan.recipient
+    val recipient = addressNotesOf(plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook)?.headline() ?: plan.recipient
     SendStepScaffold(
         step = SEND_STEP_REVIEW,
         title = "Review Send",
@@ -151,7 +151,7 @@ fun BtcSendReviewScreen(
         LumioIsland {
             Column(modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.xxs)) {
                 ReviewField("From", "${PairLabels.scriptType(plan.account.scriptType)}, ${plan.account.path.asString('\'')}")
-                ReviewAddress("To", plan.recipient, notes = addressNotesOf(plan.recipient, AddressChain.BITCOIN, emptyMap(), addressBook))
+                ReviewAddress("To", plan.recipient, notes = addressNotesOf(plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook))
                 ReviewField("Amount", btcText(plan.amountSats))
             }
         }

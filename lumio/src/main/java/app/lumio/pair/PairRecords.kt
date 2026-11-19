@@ -1,6 +1,6 @@
 package app.lumio.pair
 
-import app.lensly.app.evmAddressOf
+import app.airvault.chains.evm.evmAddressOf
 import app.lensly.app.export.PairingCodec
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount

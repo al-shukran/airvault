@@ -1,6 +1,7 @@
 package app.airvault.chains.algorand.wallet
 
 import app.airvault.chains.algorand.ALGORAND_COIN_TYPE
+import app.airvault.chains.algorand.AlgorandAddressCodec
 import app.airvault.chains.algorand.algorandManifest
 import app.airvault.core.model.AccountId
 import app.airvault.core.model.AddressCodec

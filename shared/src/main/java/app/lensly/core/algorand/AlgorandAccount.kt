@@ -1,5 +1,7 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.AlgoAddress
+
 /**
  * Algorand accounts as the Ledger Algorand app derives them: account N is the Ed25519 key of `m/44'/283'/N'/0/0` ([LedgerEd25519]), and
  * its address is [AlgoAddress.encode] of the 32-byte public key.

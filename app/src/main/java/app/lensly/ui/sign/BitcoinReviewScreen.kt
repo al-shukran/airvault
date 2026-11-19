@@ -8,8 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import app.lensly.app.AddressChain
+import app.airvault.core.model.ChainId
 import app.lensly.app.AddressNotes
+import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
 import app.lensly.core.btc.BtcNetwork
@@ -55,9 +56,9 @@ fun BitcoinReviewScreen(
     /** What the Address Book and the wallet's own accounts say of each output address, keyed by app.lensly.app.addressKeyOf. */
     addressNotes: Map<String, AddressNotes> = emptyMap(),
     /** Opens an output address in the Address Book, with its chain. Null leaves the address rows without a tap. */
-    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
+    onOpenAddress: ((String, ChainId) -> Unit)? = null,
 ) {
-    val open = addressTapOn(AddressChain.BITCOIN, onOpenAddress)
+    val open = addressTapOn(BITCOIN_FAMILY, onOpenAddress)
     // A different request starts unread and with its check unticked, so nothing carries over from the last one.
     key(review) {
         val read = rememberReviewRead(review)

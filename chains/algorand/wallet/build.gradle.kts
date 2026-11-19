@@ -19,9 +19,7 @@ kotlin {
 dependencies {
     api(project(":core:wallet-api"))
     implementation(project(":chains:algorand:common"))
-    // The address checksum is SHA-512/256, computed as Lensly's AlgoAddress does, with the BouncyCastle version :shared ships.
-    implementation(libs.bouncycastle.bcprov.jdk18on)
-
-    testImplementation(libs.junit)
+    
+testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
 }
