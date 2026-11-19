@@ -273,14 +273,15 @@ object BtcSend {
 
     /**
      * Where the fee rate of a send starts. It is the server's estimate for the target that is about 30 minutes (three blocks). Without that
-     * target, it is the next longer target within an hour, else the next shorter one. The rate is rounded up and never under 1 sat/vB. When
-     * the server gives no estimate within an hour, the rate is [FALLBACK_FEE_RATE_SAT_PER_VB], and [FeeSuggestion.fromEstimate] is false.
+     * target, it is the next longer target within an hour, else the next shorter one. The rate is rounded up and kept from 1 to 1000 sat/vB, the
+     * range the fee field accepts. When the server gives no estimate within an hour, the rate is [FALLBACK_FEE_RATE_SAT_PER_VB], and
+     * [FeeSuggestion.fromEstimate] is false.
      */
     fun feeSuggestion(estimates: Map<Int, Double>?): FeeSuggestion {
         val within = estimates.orEmpty().filterKeys { it in 1..LONGEST_SUGGESTED_TARGET_BLOCKS }
         val target = within.keys.filter { it >= SUGGESTED_TARGET_BLOCKS }.minOrNull() ?: within.keys.maxOrNull()
             ?: return FeeSuggestion(FALLBACK_FEE_RATE_SAT_PER_VB, fromEstimate = false)
-        return FeeSuggestion(ceil(within.getValue(target).coerceAtLeast(MIN_FEE_RATE)), fromEstimate = true)
+        return FeeSuggestion(ceil(within.getValue(target).coerceIn(MIN_FEE_RATE, MAX_FEE_RATE)), fromEstimate = true)
     }
 
     /** The text the fee field shows: a whole number of sat/vB. */
