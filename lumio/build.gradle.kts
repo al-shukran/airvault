@@ -102,6 +102,8 @@ dependencies {
 
     // Chain apps compiled into Lumio; see lumio/src/main/java/app/lumio/chains/InstalledWallets.kt.
     implementation(project(":chains:algorand:wallet"))
+    implementation(project(":chains:bitcoin:wallet"))
+    implementation(project(":chains:solana:wallet"))
     implementation(project(":chains:evm:wallet"))
 
     // The Esplora client reads JSON with the kotlinx.serialization library that :shared already ships in the APK.

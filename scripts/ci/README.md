@@ -22,7 +22,7 @@ Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows
 | `lumio-d` | `:lumio` `app.lumio.data.*` |
 | `app` | `:app` `app.lensly.app.*`, `app.lensly.SmokeTest` and `app.lensly.core.vault.BackupExclusionTest` |
 | `registry-pack` | `:tools:registry-pack:test` |
-| `chain-api` | `:core:model:test`, `:chains:algorand:common:test`, `:core:signer-api:test`, `:chains:algorand:signer:test`, `:core:conformance:test`, `:chains:algorand:wallet:test` and `:chains:evm:wallet:test` (whole modules), then compiles `:core:wallet-api` |
+| `chain-api` | `:core:model:test`, `:chains:algorand:common:test`, `:core:signer-api:test`, `:chains:algorand:signer:test`, `:core:conformance:test`, `:chains:algorand:wallet:test`, `:chains:bitcoin:wallet:test`, `:chains:evm:wallet:test` and `:chains:solana:wallet:test` (whole modules), then compiles `:core:wallet-api` |
 | `manifest` | `check-manifest.sh` |
 | `ci` | `bash -n` on every script, then `check-partitions.sh` and `check-test-network.sh` (no Gradle) |
 

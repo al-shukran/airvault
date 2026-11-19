@@ -11,6 +11,7 @@ import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
 import app.airvault.core.model.printableText
@@ -59,7 +60,7 @@ fun AlgorandRequestReview.toReview(): Review {
         title = if ((txn as? AssetTransfer)?.isOptIn == true) "Opt In to Asset" else "Review",
         chain = chain,
         network = NetworkLabel(name = network.displayName, testnet = network.testnet, detail = "Genesis ID ${network.genesisId}"),
-        summary = sentence(),
+        summary = listOf(SummaryPart.Text(sentence())),
         facts = listOf(ReviewRow("Fee", algoAmount(txn.fee), Fields.fee)),
         sections = listOf(ReviewSection("Transaction", rows(chain))),
         warnings = warnings.map { warningOf(it) },
