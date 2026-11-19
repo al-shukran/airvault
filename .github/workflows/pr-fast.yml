@@ -17,8 +17,15 @@ on:
 permissions:
   contents: read
 
+# The build cache has a scope per run. A pull request saves and restores `pr<number>` entries, which GitHub keeps out of master
+# and out of every other pull request, so no pull request can change what master restores. A push to master and a queue entry
+# use `master`, the entries that pull requests fall back to. Every lane saves its entry, even when it fails or is cancelled, so
+# the next run can restore what this run built.
+env:
+  BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || 'master' }}
+
 # A pull request supersedes its own earlier run. A master push or a queue entry always finishes: each commit that lands is
-# verified, and only a finished run saves the build cache that later runs restore.
+# verified.
 concurrency:
   group: pr-fast-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -92,32 +99,33 @@ jobs:
           key: deps-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
-      # The build cache and the configuration cache of this lane. Only master and the merge queue save them.
+      # The build cache and the configuration cache of this lane: this run's scope first, then master's.
       - name: Restore the Gradle build cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-shard-${{ matrix.shard }}-${{ github.sha }}
+          key: bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
-            bc-shard-${{ matrix.shard }}-
+            bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-
+            bc-shard-${{ matrix.shard }}-master-
 
       - name: Run shard-${{ matrix.shard }}
         run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
 
       - name: Stop the Gradle daemon before the cache is saved
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        if: always()
         run: ./gradlew --stop
 
-      - name: Save the Gradle build cache (master and the merge queue only)
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+      - name: Save the Gradle build cache
+        if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-shard-${{ matrix.shard }}-${{ github.sha }}
+          key: bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
       - name: Upload the JUnit results
         if: always()
@@ -163,25 +171,26 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-verify-${{ github.sha }}
+          key: bc-verify-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
-            bc-verify-
+            bc-verify-${{ env.BUILD_CACHE_SCOPE }}-
+            bc-verify-master-
 
       - name: Verify screenshots
         run: ./scripts/ci/run-partition.sh verify
 
       - name: Stop the Gradle daemon before the cache is saved
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        if: always()
         run: ./gradlew --stop
 
-      - name: Save the Gradle build cache (master and the merge queue only)
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+      - name: Save the Gradle build cache
+        if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-verify-${{ github.sha }}
+          key: bc-verify-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
       - name: Upload the JUnit results
         if: always()
@@ -227,25 +236,26 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-fuzz-${{ github.sha }}
+          key: bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
-            bc-fuzz-
+            bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-
+            bc-fuzz-master-
 
       - name: Replay the fuzz seeds
         run: ./scripts/ci/run-partition.sh fuzz
 
       - name: Stop the Gradle daemon before the cache is saved
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        if: always()
         run: ./gradlew --stop
 
-      - name: Save the Gradle build cache (master and the merge queue only)
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+      - name: Save the Gradle build cache
+        if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-fuzz-${{ github.sha }}
+          key: bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
   # Compiles the androidTest and benchmark sources, which no test lane runs, and assembles the Lumio debug APK.
   android:
@@ -282,25 +292,26 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-android-${{ github.sha }}
+          key: bc-android-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
-            bc-android-
+            bc-android-${{ env.BUILD_CACHE_SCOPE }}-
+            bc-android-master-
 
       - name: Compile androidTest, benchmark and the Lumio APK
         run: ./scripts/ci/run-partition.sh android
 
       - name: Stop the Gradle daemon before the cache is saved
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        if: always()
         run: ./gradlew --stop
 
-      - name: Save the Gradle build cache (master and the merge queue only)
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+      - name: Save the Gradle build cache
+        if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-android-${{ github.sha }}
+          key: bc-android-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
   lint:
     name: lint
@@ -336,25 +347,26 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-lint-${{ github.sha }}
+          key: bc-lint-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
-            bc-lint-
+            bc-lint-${{ env.BUILD_CACHE_SCOPE }}-
+            bc-lint-master-
 
       - name: Lint every module
         run: ./scripts/ci/run-partition.sh lint
 
       - name: Stop the Gradle daemon before the cache is saved
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        if: always()
         run: ./gradlew --stop
 
-      - name: Save the Gradle build cache (master and the merge queue only)
-        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+      - name: Save the Gradle build cache
+        if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-lint-${{ github.sha }}
+          key: bc-lint-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
   # Guideline 1.8 and R56. The merged manifests and the OkHttp check (scripts/ci/run-partition.sh manifest).
   manifest:

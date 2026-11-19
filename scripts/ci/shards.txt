@@ -22,7 +22,6 @@ shard-1 :app app.lensly.ui.settings.EntryGestureScreenTest
 shard-1 :app app.lensly.ui.sign.BitcoinReviewScreenTest
 shard-1 :app app.lensly.ui.sign.ReviewNetworkNameTest
 shard-1 :app app.lensly.ui.sign.TxFormatTest
-shard-1 :app app.lensly.ui.sign.TxReviewTest
 shard-1 :app app.lensly.ui.wallet.MnemonicQuizTest
 shard-1 :app app.lensly.ui.wallet.RecordingRandom
 shard-1 :chains:algorand:signer *
@@ -186,7 +185,6 @@ shard-3 :app app.lensly.ui.settings.HideDelayScreenTest
 shard-3 :app app.lensly.ui.settings.ProxyPolicyScreenTest
 shard-3 :app app.lensly.ui.sign.OwnAccountHeadlineTest
 shard-3 :app app.lensly.ui.sign.RefusalScreensTest
-shard-3 :app app.lensly.ui.sign.TxReviewScreenTest
 shard-3 :app app.lensly.ui.wallet.CeremonyModelTest
 shard-3 :app app.lensly.ui.wallet.EntryTilesTest
 shard-3 :app app.lensly.ui.wallet.HeldHide
@@ -344,6 +342,7 @@ shard-5 :app app.lensly.ui.settings.ApprovedContractsScreenTest
 shard-5 :app app.lensly.ui.settings.BitcoinPolicyCopyTest
 shard-5 :app app.lensly.ui.settings.FailureCapScreenTest
 shard-5 :app app.lensly.ui.sign.CounterpartyLookupTest
+shard-5 :app app.lensly.ui.sign.EvmReviewScreenTest
 shard-5 :app app.lensly.ui.sign.ReviewReadTest
 shard-5 :app app.lensly.ui.wallet.DiceEntryScreenTest
 shard-5 :app app.lensly.ui.wallet.EntropyProgressTest

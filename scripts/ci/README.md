@@ -44,8 +44,10 @@ listed but no longer exists.
 - `deps-v1-<os>-<hash>` restores `~/.gradle/caches/modules-2` and `~/.gradle/wrapper/dists`. The hash covers the version catalog,
   `verification-metadata.xml`, the wrapper properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`.
   The `deps` job saves it on a miss only.
-- `bc-<lane>-<sha>` (restored by the prefix `bc-<lane>-`) holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`.
-  Only a push to master and a merge-queue run save it, so a pull request reuses the last master entry.
+- `bc-<lane>-<scope>-<sha>` holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`. The scope is `pr<number>` in
+  a pull request and `master` on a push or a queue entry. A run restores its own scope first (`bc-<lane>-<scope>-`), then master's
+  (`bc-<lane>-master-`). Every lane saves its entry, even when it fails or is cancelled. GitHub keeps a pull request's entries out
+  of master and out of other pull requests, so a pull request cannot change what master restores.
 - `setup-gradle` runs with `cache-disabled: true`: its own cache cleanup purged plugin marker POMs, which made later runs fail with
   "plugin not found".
 
