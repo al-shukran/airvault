@@ -6,23 +6,29 @@ import app.airvault.core.signer.KeyAccess
 import app.airvault.core.signer.Path
 import app.airvault.core.signer.PublicKey
 import app.lensly.core.algorand.LedgerEd25519
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.ur.PathStep
 
 /**
  * The key access of one Mnemonic wallet (spec 3.2). Each call derives the key it needs from [seed] and zeroes it when the call returns. The
- * caller owns [seed] and zeroes it. Only the Algorand account key is held: the Ledger key at `m/44'/283'/account'/0/0` on ED25519_BIP32, which
- * [LedgerEd25519] derives. Other curves and paths are refused until their chains move to the one sign flow.
+ * caller owns [seed] and zeroes it. Only the Algorand account key and the Solana account key are held: the Ledger key at
+ * `m/44'/283'/account'/0/0` on ED25519_BIP32, which [LedgerEd25519] derives, and the SLIP-0010 key at `m/44'/501'/account'` on
+ * ED25519_SLIP10. Other curves and paths are refused until their chains move to the one sign flow.
  */
 class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
-    override fun publicKey(curve: Curve, path: Path): PublicKey =
-        withAccount(curve, path) { key -> PublicKey(curve, key.publicKey.copyOf()) }
+    override fun publicKey(curve: Curve, path: Path): PublicKey = when (curve) {
+        Curve.ED25519_SLIP10 -> PublicKey(curve, SolanaAccount.publicKey(seed, solanaAccountOf(path)))
+        else -> withAccount(curve, path) { key -> PublicKey(curve, key.publicKey.copyOf()) }
+    }
 
     override fun signEcdsaSecp256k1(path: Path, digest32: ByteArray): EcdsaSignature = unsupported()
 
     override fun signSchnorrBip340(path: Path, digest32: ByteArray, tweak: ByteArray?): ByteArray = unsupported()
 
-    override fun signEd25519(curve: Curve, path: Path, message: ByteArray): ByteArray =
-        withAccount(curve, path) { key -> Ed25519Signer.sign(key.kL, message) }
+    override fun signEd25519(curve: Curve, path: Path, message: ByteArray): ByteArray = when (curve) {
+        Curve.ED25519_SLIP10 -> signSolana(path, message)
+        else -> withAccount(curve, path) { key -> Ed25519Signer.sign(key.kL, message) }
+    }
 
     override fun <T> withPrivateKey(curve: Curve, path: Path, block: (ByteArray) -> T): T = unsupported()
 
@@ -34,6 +40,17 @@ class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
             key.wipe()
         }
     }
+
+    /** Signs [message] with the SLIP-0010 key of the Solana account at [path], and zeroes the key before it returns. */
+    private fun signSolana(path: Path, message: ByteArray): ByteArray =
+        SolanaAccount.node(seed, solanaAccountOf(path)).use { node ->
+            val key = node.privateKey()
+            try {
+                Ed25519Signer.sign(key, message)
+            } finally {
+                key.fill(0)
+            }
+        }
 
     private fun unsupported(): Nothing = throw UnsupportedOperationException("This wallet's key access holds the Algorand key only.")
 
@@ -51,6 +68,17 @@ class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
 
         private const val ALGORAND_COIN_TYPE = 283
     }
+}
+
+/** The account index of a Solana path on ED25519_SLIP10, m/44'/501'/account'. Any other path is refused. */
+private fun solanaAccountOf(path: Path): Int {
+    val steps = path.steps
+    val isSolana = steps.size == 3 &&
+        steps[0] == PathStep(44, hardened = true) &&
+        steps[1] == PathStep(501, hardened = true) &&
+        steps[2].hardened
+    require(isSolana) { "$path is not a Solana account path." }
+    return steps[2].index
 }
 
 /** The account index of an Algorand path on ED25519_BIP32. Any other curve or path is refused. */
