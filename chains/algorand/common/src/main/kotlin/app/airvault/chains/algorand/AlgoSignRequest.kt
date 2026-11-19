@@ -4,6 +4,7 @@ package app.airvault.chains.algorand
 // (keystone-sdk-rust registry_types.rs and the keystone-sdk-base ur-registry-* packages, checked 2026-11-17). Like Keystone's
 // 1101 and 1102, the number names the type in the registry and is not written into the payload, which is a plain CBOR map.
 
+import app.airvault.core.model.isPrintable
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.MalformedPayloadException
@@ -55,6 +56,9 @@ class AlgoSignRequest(
     companion object {
         const val UR_TYPE = "algo-sign-request"
 
+        /** The reason for an origin with a character Lensly cannot show. EVM and Solana refuse such an origin with the same words. */
+        const val UNREADABLE_ORIGIN = "The request names an origin with a character Lensly cannot show."
+
         /** Largest signData accepted: 64 KiB. */
         const val MAX_SIGN_DATA_BYTES = ParserLimits.MAX_SIGN_DATA_BYTES
 
@@ -104,6 +108,8 @@ class AlgoSignRequest(
             if (origin.toByteArray(Charsets.UTF_8).size > ParserLimits.MAX_ORIGIN_BYTES) {
                 malformed("origin exceeds ${ParserLimits.MAX_ORIGIN_BYTES} bytes")
             }
+            // The origin is the wallet's claim, and the review shows it as text. A claim the owner cannot read is refused here.
+            if (!origin.all(::isPrintable)) malformed(UNREADABLE_ORIGIN)
 
             val typeValue = uintOf(fields[6L] ?: malformed("signType is missing"), "signType")
             val signType = AlgoSignType.fromWire(typeValue) ?: malformed("unsupported signType $typeValue")

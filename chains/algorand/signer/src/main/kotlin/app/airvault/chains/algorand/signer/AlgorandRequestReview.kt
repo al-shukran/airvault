@@ -29,7 +29,8 @@ enum class AlgorandWarning {
  * [signer] is its 32-byte public key, which is also the key of the sender. [txn] is the payment or asset transfer decoded from [signData],
  * the canonical msgpack the owner reviewed. The signature covers "TX" followed by [signData]. [requestId] is the request's 16-byte ID, or
  * null, to echo in the signature. [asset] is the asset an asset transfer moves, when the catalog names it on [network]. It is null for a
- * payment and for an asset the catalog does not name.
+ * payment and for an asset the catalog does not name. [origin] is the origin the wallet names, which the review shows as the wallet's
+ * claim, or null when the request names none.
  */
 class AlgorandRequestReview internal constructor(
     val accountIndex: Int,
@@ -39,6 +40,7 @@ class AlgorandRequestReview internal constructor(
     val signData: ByteArray,
     val requestId: ByteArray?,
     val asset: Asa? = null,
+    val origin: String? = null,
 ) {
     /** The address of the signing account: the 58 base32 characters of [signer]. */
     val signerAddress: String get() = AlgoAddress.encode(signer)
@@ -119,7 +121,7 @@ object AlgorandRequestCheck {
      * its path is not m/44'/283'/N', when the wallet has no account N, when [signData] is not a payment or an asset transfer that Lensly
      * can read, when it rekeys the sender, when the sender is not account N's key, when it is a clawback, when its genesis ID is not the
      * testnet or the mainnet one, or when its genesis hash is not that network's. [assets] only names the asset of an asset transfer for the
-     * review: an asset it does not name is warned about, not refused.
+     * review: an asset it does not name is warned about, not refused. [origin] is the origin the request names, shown as a claim.
      */
     fun check(
         signData: ByteArray,
@@ -127,6 +129,7 @@ object AlgorandRequestCheck {
         requestId: ByteArray?,
         accountKeys: List<ByteArray>,
         assets: AsaCatalog = AsaCatalog.EMPTY,
+        origin: String? = null,
     ): Result {
         val index = accountIndexOf(derivationPath) ?: return Result.Refused(PATH_REFUSED)
         val signer = accountKeys.getOrNull(index) ?: return Result.Refused(UNKNOWN_ACCOUNT)
@@ -141,7 +144,7 @@ object AlgorandRequestCheck {
         val network = AlgorandNetwork.ofGenesisId(txn.genesisId) ?: return Result.Refused(UNKNOWN_NETWORK)
         if (!txn.genesisHash.contentEquals(network.genesisHash)) return Result.Refused(GENESIS_HASH_MISMATCH)
         val asset = (txn as? AssetTransfer)?.let { assets.lookup(network, it.assetId) }
-        return Result.Ok(AlgorandRequestReview(index, signer, txn, network, signData, requestId, asset))
+        return Result.Ok(AlgorandRequestReview(index, signer, txn, network, signData, requestId, asset, origin))
     }
 
     /**
@@ -150,7 +153,7 @@ object AlgorandRequestCheck {
      */
     fun check(request: AlgoSignRequest, accountKeys: List<ByteArray>, assets: AsaCatalog = AsaCatalog.EMPTY): Result {
         if (request.signType != AlgoSignType.TRANSACTION) return Result.Refused(NOT_A_TRANSACTION)
-        val checked = check(request.signData, request.derivationPath, request.requestId, accountKeys, assets)
+        val checked = check(request.signData, request.derivationPath, request.requestId, accountKeys, assets, request.origin)
         if (checked is Result.Ok && request.address.isNotEmpty() && request.address != checked.review.signerAddress) {
             return Result.Refused(DIFFERENT_ADDRESS)
         }

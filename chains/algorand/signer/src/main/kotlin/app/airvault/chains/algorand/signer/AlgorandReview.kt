@@ -29,6 +29,12 @@ private const val MICRO_ALGO_DECIMALS = 6
 /** The label the owner ticks before a close-to payment or transfer, which sends the rest of the balance away. Sentence case, beside its checkbox. */
 private const val ACK_CLOSE_TO = "I understand this sends the remaining balance to the close-to address."
 
+/** The note under the origin the wallet names: the origin is the wallet's word, so Lensly cannot check it. Same as the Solana review. */
+private const val ORIGIN_NOTE = "Named by the wallet. Lensly cannot verify it."
+
+/** The label of the origin a request names. The request sets it, so the review does not vouch for it. Same as the EVM and Solana reviews. */
+private const val CLAIMED_ORIGIN_LABEL = "Claimed by Request (Not Verified)"
+
 /**
  * The CAIP-2 chain ID of the network whose genesis hash is [genesisHash]: `algorand:` and the first 32 characters of the URL-safe base64
  * hash. The CAIP-2 reference alphabet has no `+` or `/`, which standard base64 uses.
@@ -54,6 +60,7 @@ private object Fields {
     val closeTo = FieldPath("algorand.closeTo")
     val rekeyTo = FieldPath("algorand.rekeyTo")
     val assetSender = FieldPath("algorand.assetSender")
+    val origin = FieldPath("algorand.origin")
 }
 
 /**
@@ -121,9 +128,13 @@ private fun assetSentence(txn: AssetTransfer, asset: Asa?): String {
     }
 }
 
-/** The rows of the Transaction section, in order: the sender, what the transaction moves, its fee, its rounds, lease, group, note and close-to. */
+/**
+ * The rows of the Transaction section, in order: the sender, the origin the wallet names, what the transaction moves, its fee, its rounds,
+ * lease, group, note and close-to.
+ */
 private fun AlgorandRequestReview.rows(chain: ChainId): List<ReviewRow> = buildList {
     add(ReviewRow("Sender", DisplayValue.Address(chain, signerAddress), Fields.sender))
+    origin?.let { add(ReviewRow(CLAIMED_ORIGIN_LABEL, DisplayValue.Text(it), Fields.origin, notes = listOf(ORIGIN_NOTE))) }
     when (val t = txn) {
         is Payment -> {
             add(ReviewRow("Receiver", addressOf(chain, t.receiver), Fields.receiver))
@@ -156,6 +167,7 @@ private fun AlgorandRequestReview.decodedFields(): Set<FieldPath> = buildSet {
     val t = txn
     add(Fields.type)
     add(Fields.sender)
+    origin?.let { add(Fields.origin) }
     add(Fields.genesisId)
     add(Fields.genesisHash)
     if (t.fee != 0UL) add(Fields.fee)

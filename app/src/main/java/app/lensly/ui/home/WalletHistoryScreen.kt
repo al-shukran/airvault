@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.airvault.core.model.ChainId
+import app.airvault.core.model.isPrintable
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.InternalAccount
@@ -50,6 +51,7 @@ import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.app.sign.recordChainOf
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.wallet.toHex
 import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.DetailTopBar
@@ -265,7 +267,7 @@ internal fun HistoryDetailSheet(
                 }
                 if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, accounts, open) }
                 if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, accounts, open) }
-                record.origin?.let { origin -> FactRow("Claimed by Request (Not Verified)") { FactText(origin) } }
+                record.origin?.let { origin -> FactRow("Claimed by Request (Not Verified)") { FactText(historyOrigin(origin)) } }
                 record.refusal?.let { reason -> FactRow("Refusal Reason") { FactText(reason) } }
                 FactRow("Data Hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
             }
@@ -364,6 +366,14 @@ private fun AddressBlock(
 private fun FactText(text: String) {
     Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
 }
+
+/**
+ * The origin a record names, as the history shows it. The origin is the wallet's claim, so it shows as text only when every character can
+ * be read, the same check the reviews make. Otherwise it shows its UTF-8 bytes in hex, the fallback the reviews give text they cannot
+ * show, so a right-to-left override in the claim cannot reorder the line.
+ */
+internal fun historyOrigin(origin: String): String =
+    if (origin.all(::isPrintable)) origin else origin.toByteArray(Charsets.UTF_8).toHex()
 
 /**
  * What a Bitcoin review showed: the account and its Script Type, each output with its address and amount, the fee and its rate, and every
