@@ -33,7 +33,7 @@ import fr.acinq.bitcoin.byteVector64
  */
 class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
     override fun publicKey(curve: Curve, path: Path): PublicKey = when (curve) {
-        Curve.SECP256K1 -> PublicKey(curve, withBtcKey(path) { key -> key.publicKey().value.toByteArray() })
+        Curve.SECP256K1 -> PublicKey(curve, publicBtcKey(path))
         Curve.ED25519_SLIP10 -> PublicKey(curve, SolanaAccount.publicKey(seed, solanaAccountOf(path)))
         else -> withAccount(curve, path) { key -> PublicKey(curve, key.publicKey.copyOf()) }
     }
@@ -83,6 +83,17 @@ class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
         }
     }
 
+    /**
+     * The public key at [path]. Only the account node is derived with a private key; the branch and index are derived from its public node,
+     * so no PrivateKey is made for a public key. The bytes are the same as withBtcKey's, since a non-hardened child of the public node is
+     * the public key of the private child.
+     */
+    private fun publicBtcKey(path: Path): ByteArray {
+        val steps = btcKeyPathOf(path).path
+        val account = rootFromSeed(seed).derivePrivateKey(KeyPath(steps.subList(0, ACCOUNT_LEVELS))).extendedPublicKey
+        return account.derivePublicKey(steps[BRANCH_LEVEL]).derivePublicKey(steps[INDEX_LEVEL]).publicKey.value.toByteArray()
+    }
+
     /** Runs [use] with the Bitcoin key at [path], derived from the seed. A path that is not a Bitcoin account key is refused first. */
     private fun <T> withBtcKey(path: Path, use: (PrivateKey) -> T): T {
         val key = rootFromSeed(seed).derivePrivateKey(btcKeyPathOf(path)).privateKey
@@ -121,6 +132,11 @@ private val BITCOIN_PURPOSES: Set<Int> = ScriptType.entries.map { it.purpose }.t
 
 /** The coin types of the Bitcoin account paths: the coin type of each [BtcNetwork]. */
 private val BITCOIN_COIN_TYPES: Set<Int> = BtcNetwork.entries.map { it.coinType }.toSet()
+
+/** The steps of a Bitcoin account key path that name the account node: purpose', coin type' and account'. */
+private const val ACCOUNT_LEVELS = 3
+private const val BRANCH_LEVEL = 3
+private const val INDEX_LEVEL = 4
 
 /**
  * The BIP32 path of the Bitcoin account key at [path], m/purpose'/coin'/account'/branch/index, with the purpose and the coin type of a

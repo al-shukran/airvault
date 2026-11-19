@@ -108,6 +108,16 @@ class PairingCodecTest {
     }
 
     @Test
+    fun aUrTypeThatDiffersOnlyInCaseIsRefusedAndTheExactTypeIsRead() {
+        val body = PairingCodec.encode(RealisticPairing.payload(), null)
+        assertEquals(
+            "This is not a pairing code from Lensly.",
+            refusalOf { PairingCodec.fromUr(UR(PairingCodec.UR_TYPE.uppercase(), body), null) },
+        )
+        assertSamePayload(RealisticPairing.payload(), PairingCodec.fromUr(UR(PairingCodec.UR_TYPE, body), null))
+    }
+
+    @Test
     fun anEncoderRefusesAnAccountThatNamesAnotherKey() {
         val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(key = account.key + 1) }
         refusalOf { PairingCodec.encode(payload, null) }
