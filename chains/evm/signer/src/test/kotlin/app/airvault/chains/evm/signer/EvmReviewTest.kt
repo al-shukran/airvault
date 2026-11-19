@@ -278,6 +278,31 @@ class EvmReviewTest {
     }
 
     @Test
+    fun anApprovedCallShowsEveryByteOfItsBytesArgument() {
+        val payload = ByteArray(40) { (it + 1).toByte() }
+        val calldata = bytesCall(bytesEntry().selector, payload)
+
+        val review = reviewOf(txParsed(NFT, calldata), builder(REGISTRY.withWhitelist(listOf(bytesEntry()))))
+
+        val arguments = review.sections.single { it.heading == "Arguments" }.rows
+        assertEquals("0x" + calldata.toHex(), arguments.single { it.label == "Calldata" }.value.text())
+        // The bytes argument keeps its preview beside the full calldata.
+        assertEquals("40 bytes: 0x" + payload.toHex().take(64) + "…", arguments.single { it.label == "data (bytes)" }.value.text())
+    }
+
+    @Test
+    fun anApprovedCallInsideAMulticallShowsEveryByteOfItsBytesArgument() {
+        val inner = bytesCall(bytesEntry().selector, ByteArray(40) { (it + 1).toByte() })
+        val call = InnerCall(target = NFT, allowFailure = false, value = null, calldata = inner, call = null, nested = null)
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!
+
+        val review = reviewOf(txParsed(MULTICALL3, batch), builder(REGISTRY.withWhitelist(listOf(bytesEntry()))))
+
+        val rows = review.sections.single { it.heading == "Calls" }.rows
+        assertEquals("0x" + inner.toHex(), rows.single { it.label == "Calldata" }.value.text())
+    }
+
+    @Test
     fun aPersonalMessageShowsItsTextWithACautionAndNoFee() {
         val request = EthSignRequest(
             requestId = null,
@@ -299,6 +324,27 @@ class EvmReviewTest {
         assertTrue(review.facts.isEmpty())
         assertEquals(Danger.CAUTION, review.warnings.single().level)
     }
+}
+
+/** A whitelisted `setData(bytes)` on [NFT]: one bytes argument, which the signed list approves. */
+private fun bytesEntry(): WhitelistEntry {
+    val signature = "setData(bytes)"
+    return WhitelistEntry(
+        chainId = 1,
+        contract = NFT,
+        selector = WhitelistEntry.selectorOf(signature),
+        signature = signature,
+        meaning = "Stores the data on the contract.",
+        params = listOf(WhitelistParam("data", "bytes")),
+        upgradeable = false,
+    )
+}
+
+/** The calldata of a call with one bytes argument: the selector, the offset, the length, then the payload padded to whole words. */
+private fun bytesCall(selector: String, payload: ByteArray): ByteArray {
+    val padding = ByteArray((32 - payload.size % 32) % 32)
+    return Numeric.hexStringToByteArray(selector) + word(BigInteger.valueOf(32)) + word(BigInteger.valueOf(payload.size.toLong())) +
+        payload + padding
 }
 
 /** A 32-byte ABI word holding [value]. */
