@@ -26,7 +26,7 @@ private const val SAT_DECIMALS = 8
 const val UNVERIFIED_AMOUNTS_CODE = "bitcoin.unverified-amounts"
 
 /** The tick the owner gives before a request with unverified amounts can be signed. Set only when the review asks for it. */
-private const val UNVERIFIED_CHECK = "I have checked the unverified input amounts"
+const val UNVERIFIED_CHECK = "I have checked the unverified input amounts"
 
 private const val UNKNOWN_FEE_NOTE = "Unknown until every input amount is verified or confirmed."
 private const val SIZE_NOTE = "Estimated from the unsigned request, so the signed size may differ by a few vbytes."

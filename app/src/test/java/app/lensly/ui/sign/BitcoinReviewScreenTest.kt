@@ -3,6 +3,10 @@ package app.lensly.ui.sign
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -47,18 +51,21 @@ class BitcoinReviewScreenTest {
     val compose = createComposeRule()
 
     /**
-     * Shows [review]. The screen holds the unverified-amounts tick, so a tick changes the gate. A [small] window is short enough that
+     * Shows [review]. The ticks are held here, as the sign flow holds them, so a tick changes the gate. A [small] window is short enough that
      * opened details run past its bottom, so the review must be scrolled to its end.
      */
     private fun show(review: BtcReview, small: Boolean = false) {
         compose.setContent {
             LumenTheme {
                 Box(modifier = if (small) Modifier.size(width = 360.dp, height = 640.dp) else Modifier.fillMaxSize()) {
+                    var ticked by remember { mutableStateOf(emptySet<String>()) }
                     ReviewScreen(
                         review = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT),
                         signer = SAMPLE_SIGNER,
                         addressNotes = emptyMap(),
                         addressChain = BITCOIN_FAMILY,
+                        ticked = ticked,
+                        onTick = { label, on -> ticked = if (on) ticked + label else ticked - label },
                         onApprove = {},
                         onReject = {},
                     )
