@@ -13,28 +13,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-# Runs ./gradlew and retries it when a plugin marker cannot be resolved. On 2026-11-19 four partitions failed in their first
-# 12 s with "Plugin [id: 'com.google.devtools.ksp' ...] was not found" while the same marker resolved from a clean Gradle home,
-# and nothing in the log showed a cause. The retry runs the same command after 30 s, at most twice. Each retry is a workflow
-# warning, so a run that needed one says so; a test failure is never retried.
-RUN_LOG="$(mktemp)"
-run_gradle() {
-    local attempt=1 status
-    while :; do
-        status=0
-        ./gradlew "$@" 2>&1 | tee "$RUN_LOG" || status=$?
-        if [ "$status" -eq 0 ] || [ "$attempt" -ge 3 ]; then
-            return "$status"
-        fi
-        if ! grep -q -e "was not found in any of the following sources" -e "could not resolve plugin artifact" "$RUN_LOG"; then
-            return "$status"
-        fi
-        attempt=$((attempt + 1))
-        echo "::warning::Gradle could not resolve a plugin marker; retry $((attempt - 1)) of 2 after 30 s"
-        sleep 30
-    done
-}
-
 usage() {
     cat >&2 <<'USAGE_END'
 usage: scripts/ci/run-partition.sh <partition>
@@ -84,7 +62,7 @@ partition="$1"
 case "$partition" in
     core-wallet)
         # Gradle ORs repeated --tests filters. algorand has no tests on master yet; solana and wallet keep the task non-empty.
-        run_gradle :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*' --tests 'app.lensly.core.solana.*' --tests 'app.lensly.core.algorand.*'
+        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*' --tests 'app.lensly.core.solana.*' --tests 'app.lensly.core.algorand.*'
         ;;
     core-ur-evm)
         # Gradle ORs repeated --tests filters. evm landed after the 2.2 table was written.
@@ -92,31 +70,31 @@ case "$partition" in
         # one, see the -PfuzzLane note in shared/build.gradle.kts). They cover UrScanner/UR, CBOR, the eth-sign
         # request and the unsigned (RLP) transaction decoder, so they belong to this partition.
         # app.lensly.app.export is the AirVault pairing, a UR and CBOR payload that Lumio scans, so it runs with the UR tests.
-        run_gradle :shared:testDebugUnitTest \
+        ./gradlew :shared:testDebugUnitTest \
             --tests 'app.lensly.core.ur.*' \
             --tests 'app.lensly.core.evm.*' \
             --tests 'app.lensly.app.export.*'
-        run_gradle :shared:testDebugUnitTest --tests 'app.lensly.fuzz.*' -PfuzzLane
+        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.fuzz.*' -PfuzzLane
         ;;
     core-parse)
         # Parsing untrusted payloads (DecodeBudget), and the QR Decode Sandbox that takes untrusted camera frames.
         # Paired with core-ur-evm in the workflow.
-        run_gradle :shared:testDebugUnitTest \
+        ./gradlew :shared:testDebugUnitTest \
             --tests 'app.lensly.core.parse.*' \
             --tests 'app.lensly.core.qr.*'
         ;;
     core-vault)
-        run_gradle :shared:testDebugUnitTest --tests 'app.lensly.core.vault.*'
+        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.vault.*'
         ;;
     core-registry)
         # The second filter is explicit so registry.update stays covered even if a Gradle
         # version ever stops letting '*' cross package separators.
-        run_gradle :shared:testDebugUnitTest \
+        ./gradlew :shared:testDebugUnitTest \
             --tests 'app.lensly.core.registry.*' \
             --tests 'app.lensly.core.registry.update.*'
         ;;
     core-btc)
-        run_gradle :shared:testDebugUnitTest --tests 'app.lensly.core.btc.*'
+        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.btc.*'
         ;;
     # The app.lensly.ui tests are split in three so each stays under the 3-minute cap (guideline 2.1).
     # Each test class must be in exactly one arm, under the Gradle call for its own module (:app or :shared).
@@ -127,7 +105,7 @@ case "$partition" in
     # verified nightly by verifyRoborazziDebug instead (guideline 2.7).
     ui-a)
         # screenshot is listed so the coverage guard sees it. -PprLane excludes its pixel tests anyway.
-        run_gradle :app:testDebugUnitTest -PprLane \
+        ./gradlew :app:testDebugUnitTest -PprLane \
             --tests 'app.lensly.ui.screenshot.*' \
             --tests 'app.lensly.ui.settings.*' \
             --tests 'app.lensly.ui.wallet.*' \
@@ -141,7 +119,7 @@ case "$partition" in
             --tests 'app.lensly.ui.settings.*'
         ;;
     ui-b)
-        run_gradle :app:testDebugUnitTest -PprLane \
+        ./gradlew :app:testDebugUnitTest -PprLane \
             --tests 'app.lensly.ui.flow.*' \
             --tests 'app.lensly.ui.profile.*' \
             --tests 'app.lensly.ui.components.*' \
@@ -151,14 +129,14 @@ case "$partition" in
             --tests 'app.lensly.ui.SecureWindowTest'
         ;;
     ui-c)
-        run_gradle :app:testDebugUnitTest -PprLane \
+        ./gradlew :app:testDebugUnitTest -PprLane \
             --tests 'app.lensly.ui.home.*' \
             --tests 'app.lensly.ui.sign.*'
         ;;
     app)
         # Wallet stores, settings, export and sign pipelines, plus the module smoke test. BackupExclusionTest
         # reads the app's own manifest and backup rules, so it runs here and not in :shared.
-        run_gradle :app:testDebugUnitTest \
+        ./gradlew :app:testDebugUnitTest \
             --tests 'app.lensly.app.*' \
             --tests 'app.lensly.SmokeTest' \
             --tests 'app.lensly.core.vault.BackupExclusionTest'
@@ -171,13 +149,13 @@ case "$partition" in
     # of the four test arms (lumio-a, lumio-b, lumio-c, lumio-d); scripts/ci/check-partitions.sh checks it.
     # Lumio's cover, gate and theme come from :shared, which the shared partitions test.
     lumio-a)
-        run_gradle :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
+        ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
         ;;
     lumio-apk)
-        run_gradle :lumio:assembleDebug
+        ./gradlew :lumio:assembleDebug
         ;;
     lumio-b)
-        run_gradle :lumio:testDebugUnitTest \
+        ./gradlew :lumio:testDebugUnitTest \
             --tests 'app.lumio.LumioBackdropTest' \
             --tests 'app.lumio.LumioBarIconsTest' \
             --tests 'app.lumio.EntryGestureSettingTest' \
@@ -193,17 +171,17 @@ case "$partition" in
             --tests 'app.lumio.wallets.*'
         ;;
     lumio-c)
-        run_gradle :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
+        ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
         ;;
     lumio-d)
-        run_gradle :lumio:testDebugUnitTest --tests 'app.lumio.data.*'
+        ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.data.*'
         ;;
     registry-pack)
-        run_gradle :tools:registry-pack:test
+        ./gradlew :tools:registry-pack:test
         ;;
     chain-api)
         # The chain-app contract, the registry and the Algorand manifest. No --tests filter: each module's whole test set runs.
-        run_gradle :core:model:test :chains:algorand:common:test \
+        ./gradlew :core:model:test :chains:algorand:common:test \
             :core:signer-api:classes :core:wallet-api:classes \
             :chains:algorand:signer:classes :chains:algorand:wallet:classes
         ;;
