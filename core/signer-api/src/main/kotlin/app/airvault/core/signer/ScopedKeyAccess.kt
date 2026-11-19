@@ -20,7 +20,12 @@ fun List<KeyScope>.allows(curve: Curve, path: Path): Boolean =
  * The core's run-time check (spec 2.2 rule 6). Each call names a curve and a path. A request that no scope allows
  * throws [KeyScopeViolation] before [delegate] sees it.
  */
-class ScopedKeyAccess(private val scopes: List<KeyScope>, private val delegate: KeyAccess) : KeyAccess {
+class ScopedKeyAccess(
+    private val scopes: List<KeyScope>,
+    private val delegate: KeyAccess,
+    /** Told of each refused call before it throws, so the caller can log it in the review record (spec 2.2 rule 6). */
+    private val onViolation: (KeyScopeViolation) -> Unit = {},
+) : KeyAccess {
     override fun publicKey(curve: Curve, path: Path): PublicKey {
         requireInScope(curve, path)
         return delegate.publicKey(curve, path)
@@ -47,6 +52,9 @@ class ScopedKeyAccess(private val scopes: List<KeyScope>, private val delegate: 
     }
 
     private fun requireInScope(curve: Curve, path: Path) {
-        if (!scopes.allows(curve, path)) throw KeyScopeViolation(curve, path)
+        if (scopes.allows(curve, path)) return
+        val violation = KeyScopeViolation(curve, path)
+        onViolation(violation)
+        throw violation
     }
 }

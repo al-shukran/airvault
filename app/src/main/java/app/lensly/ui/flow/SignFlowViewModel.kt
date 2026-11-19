@@ -16,9 +16,12 @@ class SignFlowViewModel(private val flow: SignFlow) : ViewModel() {
         viewModelScope.launch { flow.onScanned(text) }
     }
 
+    /** The checks ticked on the review on screen, as the flow holds them. */
+    val ticked: StateFlow<Set<String>> = flow.ticked
+
     fun approve() = flow.approve()
 
-    fun confirmUnverified(checked: Boolean) = flow.confirmUnverified(checked)
+    fun tick(label: String, on: Boolean) = flow.tick(label, on)
 
     /** The password is zeroed by the flow when it has been checked. */
     fun confirm(password: CharArray) {
