@@ -4,9 +4,9 @@ import app.airvault.core.model.AIRVAULT_API_VERSION
 import app.airvault.core.model.AppId
 import app.airvault.core.model.AssetId
 import app.airvault.core.model.AssetSpec
+import app.airvault.core.model.Capability
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.ChainManifest
-import app.airvault.core.model.Capability
 import app.airvault.core.model.Curve
 import app.airvault.core.model.Direction
 import app.airvault.core.model.KeyScope
@@ -17,15 +17,18 @@ import app.airvault.core.model.UrTypeSpec
 /** Ethereum's SLIP-44 coin type (spec 11.1). Every key path uses it. */
 private const val EVM_COIN_TYPE = 60
 
+/** Ethereum mainnet. One EVM address names the same account on every EVM network, so this stands for the family (spec 4). */
+val ethereumMainnet = ChainId("eip155:1")
+
 /** The EVM chain app's manifest (spec 2.1, 11.1), declared once and shared by its signer side. */
 val evmManifest: ChainManifest = ChainManifest(
     id = AppId("evm"),
-    displayName = "EVM",
+    displayName = "Ethereum and EVM networks",
     apiVersion = AIRVAULT_API_VERSION,
     appVersion = "1.0.0",
     namespaces = setOf("eip155"),
     networks = listOf(
-        evmNetwork(chain = ChainId("eip155:1"), name = "Ethereum", symbol = "ETH", testnet = false),
+        evmNetwork(chain = ethereumMainnet, name = "Ethereum", symbol = "ETH", testnet = false),
         evmNetwork(chain = ChainId("eip155:10143"), name = "Monad Testnet", symbol = "MON", testnet = true),
     ),
     keys = listOf(

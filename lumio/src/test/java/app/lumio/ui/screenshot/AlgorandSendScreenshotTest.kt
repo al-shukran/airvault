@@ -1,7 +1,7 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import app.lensly.core.algorand.AlgoAddress
+import app.airvault.chains.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgoSignedTxn
 import app.lumio.data.provider.AlgorandSuggestedParams
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET

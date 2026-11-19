@@ -1,5 +1,6 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.AlgoAddress
 import app.airvault.chains.algorand.bytesToSign
 import app.airvault.chains.algorand.signer.AlgoTxnDecoder
 import org.bouncycastle.crypto.digests.SHA512tDigest

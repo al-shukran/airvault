@@ -13,7 +13,7 @@ import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcAccountSelection
 import app.lensly.core.btc.BtcFeeThresholds
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.lensly.core.btc.BtcRefusal
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.btc.BtcSigner
@@ -565,7 +565,7 @@ class WalletStore(private val session: VaultSession) {
             val review = BtcSigner(account, inputPolicy, sourcePolicy, feeThresholds).review(psbt)
             val record = stored.first { it.key == Triple(account.scriptType, account.network, account.accountIndex) }
             val internal = internalAccountsOf(this, id) + ownBitcoinAccounts(id, stored, accounts)
-            val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, AddressChain.BITCOIN, internal, book)
+            val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, BITCOIN_FAMILY, internal, book)
             val owner = meta(id)
             val signer = SigningAccount(
                 name = record.profile.name ?: autoAccountName(owner?.autoNameBase.orEmpty(), record.index),

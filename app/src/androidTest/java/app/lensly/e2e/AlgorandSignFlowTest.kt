@@ -5,7 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.bytesToSign
 import app.lensly.app.export.partsOf
-import app.lensly.core.algorand.AlgoAddress
+import app.airvault.chains.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.ur.AlgoSignature
 import app.lensly.core.ur.Cbor

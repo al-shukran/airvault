@@ -1,7 +1,7 @@
 package app.lumio.send.algorand
 
 import app.airvault.chains.algorand.AssetTransfer
-import app.lensly.core.algorand.AlgoAddress
+import app.airvault.chains.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgoSignedTxn
 import app.lensly.core.algorand.AlgoTxnEncoder
 import app.lumio.data.net.NetworkId

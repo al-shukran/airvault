@@ -73,7 +73,7 @@ partitions:
   lumio-c        :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
   lumio-d        :lumio:testDebugUnitTest --tests 'app.lumio.data.*'
   registry-pack  :tools:registry-pack:test
-  chain-api      :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test :core:conformance:test, then compiles the API and Algorand modules
+  chain-api      :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test :chains:bitcoin:signer:test :chains:bitcoin:common:test :chains:evm:common:test :chains:solana:common:test :core:conformance:test, then compiles the API, Algorand and Bitcoin modules
   manifest       scripts/ci/check-manifest.sh
   ci             bash -n on every script, scripts/ci/check-partitions.sh, then
                  scripts/ci/check-test-network.sh (no Gradle)
@@ -209,10 +209,12 @@ case "$partition" in
         ;;
     chain-api)
         # The chain-app contract, the parsers, the registry, the key-scope enforcer, the conformance kit (which runs on the
-        # Algorand signer and checks the signer side for network libraries) and the Algorand manifest. No --tests filter:
-        # each module's whole test set runs. The EVM signer's request codec and the ABI library are in it too.
+        # Algorand signer and checks the signer side for network libraries), the Algorand, Bitcoin, EVM and Solana manifests
+        # and codecs, and the Bitcoin parser. No --tests filter: each module's whole test set runs. The EVM signer's request
+        # codec and the ABI library are in it too.
         ./gradlew :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test \
-            :chains:evm:signer:test :abi:test \
+            :chains:bitcoin:signer:test :chains:bitcoin:common:test :chains:evm:common:test :chains:evm:signer:test \
+            :chains:solana:common:test :abi:test \
             :core:conformance:test :core:wallet-api:classes :chains:algorand:wallet:classes
         ;;
     manifest)

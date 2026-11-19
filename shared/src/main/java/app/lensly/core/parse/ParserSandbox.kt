@@ -7,14 +7,12 @@ import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.ParseOutcome
 import app.airvault.core.signer.SignerApp
 import app.lensly.chains.signerRegistry
-import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.solana.SolanaMessage
 import app.lensly.core.solana.SolanaOffchainMessage
 import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
-import fr.acinq.bitcoin.psbt.Psbt
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
@@ -24,9 +22,6 @@ import kotlin.random.Random
 /** The refusal of a code that is a UR of a type other than eth-sign-request. */
 const val UNSUPPORTED_CODE = "Unsupported code"
 
-/** The refusal of a `ur:crypto-psbt` whose PSBT does not parse. */
-const val NOT_A_PSBT = "The Bitcoin request is not a valid PSBT."
-
 /** What the sandbox says about the scanned parts of a request. */
 sealed interface ScanReply {
     /** The new text is not part of the request. The scan keeps what it had. */
@@ -34,12 +29,6 @@ sealed interface ScanReply {
 
     /** The new text belongs to the request, which is not complete yet. [progress] runs from 0 to 1. */
     data class Incomplete(val progress: Double) : ScanReply
-
-    /**
-     * The new text completes a `ur:crypto-psbt`. [psbt] is the PSBT in its serialized form, which the sandbox has parsed, so a
-     * PSBT that does not parse never gets here.
-     */
-    data class Bitcoin(val psbt: ByteArray) : ScanReply
 
     /**
      * The new text completes a `ur:sol-sign-request`. [payload] is its CBOR. The sandbox has parsed it, and has read its message when it
@@ -82,16 +71,8 @@ object InProcessParser : RequestParser {
     /** The reply for a complete [ur]: the request it carries, parsed, or the reason it is refused. */
     internal fun replyOf(ur: UR): ScanReply {
         signerRegistry.byRequestType(ur.type)?.let { return appReply(it, ur) }
-        if (ur.type == BtcPsbt.UR_TYPE) return bitcoinReply(ur)
         if (ur.type == SolSignRequest.UR_TYPE) return solanaReply(ur)
         return ScanReply.Refused(UNSUPPORTED_CODE)
-    }
-
-    /** The reply for a complete `ur:crypto-psbt`: its PSBT, parsed here in the sandbox, or a refusal when it does not parse. */
-    private fun bitcoinReply(ur: UR): ScanReply = try {
-        ScanReply.Bitcoin(Psbt.write(BtcPsbt.fromUr(ur)).toByteArray())
-    } catch (e: IllegalArgumentException) {
-        ScanReply.Refused(NOT_A_PSBT)
     }
 
     /**

@@ -14,7 +14,7 @@ import app.lensly.app.sign.WalletView
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.lensly.core.btc.BtcRefusal
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.btc.BtcSigner

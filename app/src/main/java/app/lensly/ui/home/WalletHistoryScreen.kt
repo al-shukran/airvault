@@ -36,8 +36,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.airvault.core.model.ChainId
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.AddressChain
+import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.InternalAccount
 import app.lensly.app.VisualIdentity
 import app.lensly.app.addressNotesOf
@@ -99,7 +100,7 @@ fun WalletHistoryScreen(
     modifier: Modifier = Modifier,
     addressBook: List<AddressBookEntry> = emptyList(),
     accounts: Map<String, InternalAccount> = emptyMap(),
-    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
+    onOpenAddress: ((String, ChainId) -> Unit)? = null,
 ) {
     val haptics = rememberKeyHaptics()
     var open by remember { mutableStateOf<ReviewRecord?>(null) }
@@ -234,7 +235,7 @@ internal fun HistoryDetailSheet(
     addressBook: List<AddressBookEntry>,
     accounts: Map<String, InternalAccount> = emptyMap(),
     onDismiss: () -> Unit,
-    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
+    onOpenAddress: ((String, ChainId) -> Unit)? = null,
 ) {
     val chain = recordChainOf(record)
     val open = tapOf(chain, onOpenAddress, onDismiss)
@@ -306,8 +307,8 @@ private fun OutcomeHero(record: ReviewRecord) {
  * addresses are shown without a tap.
  */
 private fun tapOf(
-    chain: AddressChain?,
-    onOpenAddress: ((String, AddressChain) -> Unit)?,
+    chain: ChainId?,
+    onOpenAddress: ((String, ChainId) -> Unit)?,
     onDismiss: () -> Unit,
 ): ((String) -> Unit)? {
     if (chain == null || onOpenAddress == null) return null
@@ -318,14 +319,14 @@ private fun tapOf(
 }
 
 /** Whether [value] is an address on [chain], so it is shown as an address row. */
-private fun isAddressOn(value: String, chain: AddressChain?): Boolean = chain != null && canonicalAddressOn(value, chain) != null
+private fun isAddressOn(value: String, chain: ChainId?): Boolean = chain != null && canonicalAddressOn(value, chain) != null
 
 /** A fact whose value is an address on [chain] is an address row. Any other value is text. */
 @Composable
 private fun AddressFact(
     label: String,
     value: String,
-    chain: AddressChain?,
+    chain: ChainId?,
     book: List<AddressBookEntry>,
     accounts: Map<String, InternalAccount>,
     open: ((String) -> Unit)?,
@@ -346,7 +347,7 @@ private fun AddressFact(
 @Composable
 private fun AddressBlock(
     address: String,
-    chain: AddressChain,
+    chain: ChainId,
     book: List<AddressBookEntry>,
     accounts: Map<String, InternalAccount>,
     open: ((String) -> Unit)?,
@@ -354,7 +355,7 @@ private fun AddressBlock(
     ReviewAddress(
         address = address,
         notes = addressNotesOf(address, chain, accounts, book),
-        bitcoin = chain == AddressChain.BITCOIN,
+        bitcoin = chain.namespace == BITCOIN_FAMILY.namespace,
         onClick = open?.let { tap -> { tap(address) } },
     )
 }
@@ -381,7 +382,7 @@ private fun BitcoinFacts(
         FactRow("Output $index") {
             val address = output.address
             if (address != null) {
-                AddressBlock(address = address, chain = AddressChain.BITCOIN, book = book, accounts = accounts, open = open)
+                AddressBlock(address = address, chain = BITCOIN_FAMILY, book = book, accounts = accounts, open = open)
             } else {
                 MutedText("No address. The script is not paid to an address.")
             }
@@ -407,7 +408,7 @@ private fun BitcoinFacts(
 @Composable
 private fun LabelledRows(
     rows: List<Pair<String, String>>,
-    chain: AddressChain?,
+    chain: ChainId?,
     book: List<AddressBookEntry>,
     accounts: Map<String, InternalAccount>,
     open: ((String) -> Unit)?,

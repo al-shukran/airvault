@@ -16,42 +16,42 @@ class AddressNotesTest {
 
     @Test
     fun anInternalAccountOnlyGivesItsNames() {
-        assertEquals(AddressNotes(internal = ownAccount, entry = null), addressNotesOf(ownAddress, AddressChain.EVM, internal, emptyList()))
+        assertEquals(AddressNotes(internal = ownAccount, entry = null), addressNotesOf(ownAddress, EVM_FAMILY, internal, emptyList()))
     }
 
     @Test
     fun anAddressBookEntryOnlyGivesItsNames() {
-        assertEquals(AddressNotes(internal = null, entry = entry), addressNotesOf(otherAddress, AddressChain.EVM, internal, listOf(entry)))
+        assertEquals(AddressNotes(internal = null, entry = entry), addressNotesOf(otherAddress, EVM_FAMILY, internal, listOf(entry)))
     }
 
     @Test
     fun anAddressThatIsBothGivesBothParts() {
         val both = listOf(entry.copy(address = ownAddress))
-        assertEquals(AddressNotes(internal = ownAccount, entry = both.single()), addressNotesOf(ownAddress, AddressChain.EVM, internal, both))
+        assertEquals(AddressNotes(internal = ownAccount, entry = both.single()), addressNotesOf(ownAddress, EVM_FAMILY, internal, both))
     }
 
     @Test
     fun anUnknownAddressGivesNothing() {
-        assertNull(addressNotesOf(unknownAddress, AddressChain.EVM, internal, listOf(entry)))
+        assertNull(addressNotesOf(unknownAddress, EVM_FAMILY, internal, listOf(entry)))
     }
 
     @Test
     fun anEvmAddressMatchesInAnyLetterCase() {
-        assertEquals(AddressNotes(internal = null, entry = entry), addressNotesOf(otherAddress.lowercase(), AddressChain.EVM, internal, listOf(entry)))
-        assertEquals(ownAccount, addressNotesOf(ownAddress.uppercase().replace("0X", "0x"), AddressChain.EVM, internal, emptyList())?.internal)
+        assertEquals(AddressNotes(internal = null, entry = entry), addressNotesOf(otherAddress.lowercase(), EVM_FAMILY, internal, listOf(entry)))
+        assertEquals(ownAccount, addressNotesOf(ownAddress.uppercase().replace("0X", "0x"), EVM_FAMILY, internal, emptyList())?.internal)
     }
 
     @Test
     fun aBitcoinAddressMatchesExactly() {
         val bitcoin = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"
         val book = listOf(entry.copy(address = bitcoin))
-        assertEquals(AddressNotes(internal = null, entry = book.single()), addressNotesOf(bitcoin, AddressChain.BITCOIN, emptyMap(), book))
-        assertNull(addressNotesOf(bitcoin.lowercase(), AddressChain.BITCOIN, emptyMap(), book))
+        assertEquals(AddressNotes(internal = null, entry = book.single()), addressNotesOf(bitcoin, BITCOIN_FAMILY, emptyMap(), book))
+        assertNull(addressNotesOf(bitcoin.lowercase(), BITCOIN_FAMILY, emptyMap(), book))
     }
 
     @Test
     fun notesOfReadsAnAddressInAnyCaseFromAMapOfNotes() {
-        val notes = addressNotesOf(listOf(ownAddress, otherAddress), AddressChain.EVM, internal, listOf(entry))
+        val notes = addressNotesOf(listOf(ownAddress, otherAddress), EVM_FAMILY, internal, listOf(entry))
         assertEquals(2, notes.size)
         assertEquals(entry, notes.notesOf(otherAddress.lowercase())?.entry)
         assertNull(notes.notesOf(unknownAddress))

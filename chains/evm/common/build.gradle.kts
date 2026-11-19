@@ -18,6 +18,8 @@ kotlin {
 
 dependencies {
     api(project(":core:model"))
+    // The EIP-55 checksum is Keccak-256, from the same bouncycastle that :shared already ships.
+    implementation(libs.bouncycastle.bcprov.jdk18on)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

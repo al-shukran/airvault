@@ -6,9 +6,13 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import app.airvault.core.model.ChainId
+import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.AddressChain
+import app.lensly.app.BITCOIN_FAMILY
+import app.lensly.app.EVM_FAMILY
 import app.lensly.app.InternalAccount
+import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.addressKeyOf
 import app.lensly.app.sign.BitcoinRecordFacts
 import app.lensly.app.sign.BitcoinRecordOutput
@@ -84,7 +88,7 @@ class HistoryDetailSheetTest {
         record: ReviewRecord,
         book: List<AddressBookEntry> = emptyList(),
         accounts: Map<String, InternalAccount> = emptyMap(),
-        onOpen: (String, AddressChain) -> Unit = { _, _ -> },
+        onOpen: (String, ChainId) -> Unit = { _, _ -> },
     ) {
         compose.setContent {
             LumenTheme {
@@ -109,12 +113,12 @@ class HistoryDetailSheetTest {
 
     @Test
     fun aTapOnTheRecipientClosesTheSheetAndOpensItOnItsChain() {
-        val opened = mutableListOf<Pair<String, AddressChain>>()
+        val opened = mutableListOf<Pair<String, ChainId>>()
 
         setSheet(evmRecord(), onOpen = { address, chain -> opened += address to chain })
         compose.onNodeWithText(groupAddress(recipient)).performClick()
 
-        assertEquals(listOf(recipient to AddressChain.EVM), opened)
+        assertEquals(listOf(recipient to EVM_FAMILY), opened)
     }
 
     @Test
@@ -129,35 +133,35 @@ class HistoryDetailSheetTest {
             feeRateSatPerVb = 2.0,
             notices = emptyList(),
         )
-        val opened = mutableListOf<Pair<String, AddressChain>>()
+        val opened = mutableListOf<Pair<String, ChainId>>()
 
         setSheet(record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin Testnet4", bitcoin = facts), onOpen = { a, c -> opened += a to c })
         // The change output is an address row too, so it can be opened.
         compose.onNodeWithText(groupAddress(bitcoinChange)).performClick()
 
-        assertEquals(listOf(bitcoinChange to AddressChain.BITCOIN), opened)
+        assertEquals(listOf(bitcoinChange to BITCOIN_FAMILY), opened)
     }
 
     @Test
     fun aTapOnASolanaProgramOpensItOnSolana() {
-        val opened = mutableListOf<Pair<String, AddressChain>>()
+        val opened = mutableListOf<Pair<String, ChainId>>()
         val rec = record(networkName = "Solana", address = sender, params = listOf("Program" to solanaProgram))
 
         setSheet(rec, onOpen = { a, c -> opened += a to c })
         compose.onNodeWithText(groupAddress(solanaProgram)).performClick()
 
-        assertEquals(listOf(solanaProgram to AddressChain.SOLANA), opened)
+        assertEquals(listOf(solanaProgram to SOLANA_FAMILY), opened)
     }
 
     @Test
     fun aTapOnAnAlgorandCreatorOpensItOnAlgorand() {
-        val opened = mutableListOf<Pair<String, AddressChain>>()
+        val opened = mutableListOf<Pair<String, ChainId>>()
         val rec = record(networkName = "Algorand Testnet", address = algorandSender, params = listOf("Asset creator" to algorandCreator))
 
         setSheet(rec, onOpen = { a, c -> opened += a to c })
         compose.onNodeWithText(groupAddress(algorandCreator)).performClick()
 
-        assertEquals(listOf(algorandCreator to AddressChain.ALGORAND), opened)
+        assertEquals(listOf(algorandCreator to ALGORAND_FAMILY), opened)
     }
 
     @Test

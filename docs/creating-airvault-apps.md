@@ -274,7 +274,7 @@ data class RequestHeader(
 )
 ```
 
-The parser runs in `ParserSandboxService` (a separate process) as today. The sandbox wire (`ParserWire.kt`) becomes chain-blind: it carries `ParseOutcome` with the app body as bytes. The per-chain `ScanReply.Bitcoin/Solana/Algorand/Complete` branches go away.
+The parser runs in `ParserSandboxService` (a separate process) as today. The sandbox wire (`ParserWire.kt`) becomes chain-blind: it carries `ParseOutcome` with the app body as bytes. The per-chain `ScanReply` branches go away.
 
 `ParserLimits` (today in `shared/.../core/parse/ParserLimits.kt`) is set by the core. An app may lower its limits, never raise them.
 

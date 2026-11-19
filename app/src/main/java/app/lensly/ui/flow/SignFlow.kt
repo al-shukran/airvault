@@ -23,10 +23,11 @@ import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
 import app.lensly.core.algorand.AlgorandRequestReview
-import app.lensly.core.btc.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcPsbt
+import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
+import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.parse.CANNOT_BE_READ
-import app.lensly.core.parse.NOT_A_PSBT
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.WireException
@@ -259,7 +260,6 @@ class SignFlow(
                     progress = reply.progress.toFloat()
                     current.value = scanning(READING)
                 }
-                is ScanReply.Bitcoin -> if (accept(text)) publish(started, decideBitcoin(started, reply.psbt))
                 is ScanReply.Solana -> if (accept(text)) publish(started, decideSolana(started, reply.payload))
                 is ScanReply.App -> if (accept(text)) publish(started, decideApp(started, reply.request))
             }
@@ -581,9 +581,10 @@ class SignFlow(
         if (!waiting.busy) current.value = SignStep.AlgorandReview(waiting.ready)
     }
 
-    /** Reviews a complete request that an installed chain app parsed. Algorand and EVM are the apps with a review so far. */
+    /** Reviews a complete request that an installed chain app parsed. Algorand, Bitcoin and EVM are the apps with a review so far. */
     private suspend fun decideApp(started: Int, request: AppRequest): SignStep = when (request.header.app) {
         algorandManifest.id -> decideAlgorand(started, request.header, request.body)
+        bitcoinManifest.id -> decideBitcoin(started, request.body)
         evmManifest.id -> decideEvm(started, request.body)
         else -> SignStep.Refused(UNSUPPORTED_CODE)
     }

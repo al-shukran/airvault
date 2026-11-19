@@ -1,7 +1,10 @@
 package app.lensly.app.sign
 
 import app.airvault.chains.algorand.AlgorandNetwork
-import app.lensly.app.AddressChain
+import app.lensly.app.ALGORAND_FAMILY
+import app.lensly.app.BITCOIN_FAMILY
+import app.lensly.app.EVM_FAMILY
+import app.lensly.app.SOLANA_FAMILY
 import kotlin.test.assertEquals
 import org.junit.Test
 
@@ -68,11 +71,11 @@ class RecordAddressesTest {
         )
         val rec = record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin Testnet4", bitcoin = facts)
 
-        assertEquals(AddressChain.BITCOIN, recordChainOf(rec))
+        assertEquals(BITCOIN_FAMILY, recordChainOf(rec))
         assertEquals(
             listOf(
-                RecordAddress("Output 0", bitcoinPaid, AddressChain.BITCOIN, isOwnChange = false),
-                RecordAddress("Output 2", bitcoinChange, AddressChain.BITCOIN, isOwnChange = true),
+                RecordAddress("Output 0", bitcoinPaid, BITCOIN_FAMILY, isOwnChange = false),
+                RecordAddress("Output 2", bitcoinChange, BITCOIN_FAMILY, isOwnChange = true),
             ),
             recordAddressesOf(rec),
         )
@@ -90,13 +93,13 @@ class RecordAddressesTest {
             params = listOf("spender" to evmSpender, "value" to "25000000", "note" to "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"),
         )
 
-        assertEquals(AddressChain.EVM, recordChainOf(rec))
+        assertEquals(EVM_FAMILY, recordChainOf(rec))
         assertEquals(
             listOf(
-                RecordAddress("Account", evmSender, AddressChain.EVM),
-                RecordAddress("To", evmRecipient, AddressChain.EVM),
-                RecordAddress("Token Contract", evmContract, AddressChain.EVM),
-                RecordAddress("spender", evmSpender, AddressChain.EVM),
+                RecordAddress("Account", evmSender, EVM_FAMILY),
+                RecordAddress("To", evmRecipient, EVM_FAMILY),
+                RecordAddress("Token Contract", evmContract, EVM_FAMILY),
+                RecordAddress("spender", evmSpender, EVM_FAMILY),
             ),
             recordAddressesOf(rec),
         )
@@ -106,8 +109,8 @@ class RecordAddressesTest {
     fun anEvmMessageWithNoChainIsOnTheChainOfItsAddress() {
         val rec = record(kind = ReviewKind.MESSAGE, address = evmSender)
 
-        assertEquals(AddressChain.EVM, recordChainOf(rec))
-        assertEquals(listOf(RecordAddress("Account", evmSender, AddressChain.EVM)), recordAddressesOf(rec))
+        assertEquals(EVM_FAMILY, recordChainOf(rec))
+        assertEquals(listOf(RecordAddress("Account", evmSender, EVM_FAMILY)), recordAddressesOf(rec))
     }
 
     @Test
@@ -126,12 +129,12 @@ class RecordAddressesTest {
             ),
         )
 
-        assertEquals(AddressChain.SOLANA, recordChainOf(rec))
+        assertEquals(SOLANA_FAMILY, recordChainOf(rec))
         assertEquals(
             listOf(
-                RecordAddress("Account", solanaSigner, AddressChain.SOLANA),
-                RecordAddress("Program", solanaProgram, AddressChain.SOLANA),
-                RecordAddress("Mint", solanaMint, AddressChain.SOLANA),
+                RecordAddress("Account", solanaSigner, SOLANA_FAMILY),
+                RecordAddress("Program", solanaProgram, SOLANA_FAMILY),
+                RecordAddress("Mint", solanaMint, SOLANA_FAMILY),
             ),
             recordAddressesOf(rec),
         )
@@ -150,12 +153,12 @@ class RecordAddressesTest {
             ),
         )
 
-        assertEquals(AddressChain.ALGORAND, recordChainOf(rec))
+        assertEquals(ALGORAND_FAMILY, recordChainOf(rec))
         assertEquals(
             listOf(
-                RecordAddress("Account", algorandSender, AddressChain.ALGORAND),
-                RecordAddress("Receiver", algorandReceiver, AddressChain.ALGORAND),
-                RecordAddress("Asset creator", algorandReceiver, AddressChain.ALGORAND),
+                RecordAddress("Account", algorandSender, ALGORAND_FAMILY),
+                RecordAddress("Receiver", algorandReceiver, ALGORAND_FAMILY),
+                RecordAddress("Asset creator", algorandReceiver, ALGORAND_FAMILY),
             ),
             recordAddressesOf(rec),
         )
@@ -165,7 +168,7 @@ class RecordAddressesTest {
     fun aRefusedAlgorandRecordWithoutAReviewIsStillOnAlgorand() {
         val rec = record(networkName = "Algorand", address = null, params = emptyList())
 
-        assertEquals(AddressChain.ALGORAND, recordChainOf(rec))
+        assertEquals(ALGORAND_FAMILY, recordChainOf(rec))
         assertEquals(emptyList(), recordAddressesOf(rec))
     }
 

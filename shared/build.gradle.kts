@@ -100,6 +100,12 @@ dependencies {
     api(project(":chains:algorand:signer"))
     api(project(":chains:evm:signer"))
     api(project(":abi"))
+    // The address rules of the Bitcoin, EVM and Solana chains. Their manifests and codecs are pure JVM, like the Algorand ones.
+    api(project(":chains:bitcoin:common"))
+    api(project(":chains:evm:common"))
+    api(project(":chains:solana:common"))
+    // The Bitcoin PSBT codec, the bitcoin manifest and the crypto-psbt parser live in chains/bitcoin/signer.
+    api(project(":chains:bitcoin:signer"))
 
     // Compose, activity and coroutines types are part of this module's public API, so they reach :app as api.
     api(platform(libs.androidx.compose.bom))

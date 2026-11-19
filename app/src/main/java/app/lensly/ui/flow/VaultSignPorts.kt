@@ -2,12 +2,16 @@ package app.lensly.ui.flow
 
 import android.content.Context
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.core.model.ChainId
+import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookStore
-import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
+import app.lensly.app.EVM_FAMILY
 import app.lensly.app.RegistryHolder
 import app.lensly.app.ReviewHistory
+import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.SettingsStore
 import app.lensly.app.SigningAccount
 import app.lensly.app.SolanaTokensHolder
@@ -38,9 +42,8 @@ import app.lensly.app.sign.solanaCounterparties
 import app.lensly.app.sign.solanaReviewRecordOf
 import app.lensly.app.visualIdentity
 import app.lensly.core.algorand.AlgorandRequestCheck
-import app.lensly.core.btc.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.lensly.core.btc.BtcRefusedException
-import app.lensly.core.parse.NOT_A_PSBT
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.registry.UnknownCallPolicy
@@ -109,7 +112,7 @@ internal class VaultSignPorts(
             .prepare(parsed, wallet)
         if (prepared !is Prepared.Ready) return@withContext prepared
         val review = prepared.review
-        prepared.copy(review = review.copy(addressNotes = addressNotesFor(walletId, review.counterparties, AddressChain.EVM)))
+        prepared.copy(review = review.copy(addressNotes = addressNotesFor(walletId, review.counterparties, EVM_FAMILY)))
     }
 
     /** The account that signs a request, as its review names it: its name, its wallet's name and its address. */
@@ -123,7 +126,7 @@ internal class VaultSignPorts(
      * The notes of [addresses] that a review of wallet [walletId] shows: what the Address Book and the vault's accounts say of each, on every
      * chain. A damaged Address Book shows as none, so the review still opens. The read signs nothing.
      */
-    private fun addressNotesFor(walletId: String, addresses: Collection<String>, chain: AddressChain): Map<String, AddressNotes> {
+    private fun addressNotesFor(walletId: String, addresses: Collection<String>, chain: ChainId): Map<String, AddressNotes> {
         if (addresses.isEmpty()) return emptyMap()
         return try {
             readWallet { session ->
@@ -288,7 +291,7 @@ internal class VaultSignPorts(
                     request = request,
                     review = review,
                     signer = signerOf(wallet, review.accountIndex, review.signerAddress),
-                    addressNotes = addressNotesFor(walletId, solanaCounterparties(review), AddressChain.SOLANA),
+                    addressNotes = addressNotesFor(walletId, solanaCounterparties(review), SOLANA_FAMILY),
                 )
             }
             is SolanaRequestCheck.Result.Refused -> SolanaPrepared.Refused(checked.reason)
@@ -347,7 +350,7 @@ internal class VaultSignPorts(
                     request = request,
                     review = review,
                     signer = signerOf(wallet, review.accountIndex, review.signerAddress),
-                    addressNotes = addressNotesFor(walletId, algorandCounterparties(review), AddressChain.ALGORAND),
+                    addressNotes = addressNotesFor(walletId, algorandCounterparties(review), ALGORAND_FAMILY),
                 )
             }
             is AlgorandRequestCheck.Result.Refused -> AlgorandPrepared.Refused(checked.reason)
