@@ -2,6 +2,7 @@ package app.lensly.core.evm
 
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.TypedData
+import app.airvault.core.signer.EcdsaSignature
 
 /** Signs typed data (EIP-712) over its digest, never over the JSON text. */
 object TypedDataSigner {
@@ -25,7 +26,12 @@ object TypedDataSigner {
         if (!typed.domainSeparator().contentEquals(reviewedDomainSeparator)) {
             return Result.Refused("The typed data's domain is not the domain the review showed, so it is not signed")
         }
-        val signature = Secp256k1.sign(typed.digest(), privateKey)
-        return Result.Signed(signature.r + signature.s + byteArrayOf((27 + signature.recId).toByte()))
+        return Result.Signed(signatureOf(typed) { digest -> Secp256k1.sign(digest, privateKey) })
+    }
+
+    /** The signature of [typed] in the form [sign] gives it, with the EIP-712 digest signed by [signDigest]. */
+    fun signatureOf(typed: TypedData, signDigest: (ByteArray) -> EcdsaSignature): ByteArray {
+        val signature = signDigest(typed.digest())
+        return signature.r + signature.s + byteArrayOf((27 + signature.recoveryId).toByte())
     }
 }

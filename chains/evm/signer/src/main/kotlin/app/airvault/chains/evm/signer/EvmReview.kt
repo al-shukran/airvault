@@ -108,7 +108,7 @@ class EvmReviewBuilder(
         private val excluded = HashMap<FieldPath, String>()
 
         init {
-            header += ReviewRow("From", DisplayValue.Address(chain, sender), null)
+            header += ReviewRow(FROM_LABEL, DisplayValue.Address(chain, sender), null)
             request.origin?.let { origin -> header += ReviewRow(CLAIMED_ORIGIN_LABEL, DisplayValue.Text(origin), decode("evm.origin")) }
         }
 
@@ -910,6 +910,9 @@ private fun sizeText(bytes: ByteArray): String {
 /** The warning on an approval that lets the spender take every token. [symbol] is the token, or null when it is unknown. */
 internal fun unlimitedApprovalWarning(symbol: String?): String =
     "${ContractCall.UNLIMITED_APPROVAL_PREFIX} this contract can spend all your ${symbol ?: "tokens of this contract"}"
+
+/** The label of the row that names the account a request is signed for. The signer checks its key against this row. */
+internal const val FROM_LABEL = "From"
 
 /** The unit of an amount whose coin or token is not known. The amount is then shown as raw base units. */
 internal const val UNKNOWN_UNIT = "base units"
