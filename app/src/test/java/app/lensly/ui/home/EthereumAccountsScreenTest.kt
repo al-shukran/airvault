@@ -10,12 +10,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import app.lensly.app.AccountProfile
 import app.lensly.app.ProfileColour
@@ -91,13 +93,13 @@ class EthereumAccountsScreenTest {
 
     @Test
     fun addingAnAccountKeepsTheScrollPositionAndAppendsTheRow() {
-        // Twelve accounts, with the list scrolled into the middle, so the "Add Account" row is still on screen.
+        // Twelve accounts, with the list scrolled to its last rows. The list has no room for a thirteenth row until it scrolls down to it.
         val route = Route(accounts = 12)
         lateinit var listState: LazyListState
         compose.setContent {
             LumenTheme {
                 listState = rememberLazyListState()
-                LaunchedEffect(Unit) { listState.scrollToItem(4, 30) }
+                LaunchedEffect(Unit) { listState.scrollToItem(1, 30) }
                 Ethereum(route, listState)
             }
         }
@@ -107,17 +109,20 @@ class EthereumAccountsScreenTest {
 
         compose.onNodeWithText("Add Account").performClick()
         compose.waitForIdle()
-        // The new account is counted, and its row waits for its address. The rows already shown stay as they were.
-        compose.onAllNodesWithText("DERIVING ADDRESS").assertCountEquals(1)
-        compose.onAllNodesWithText(groupedAddress(addressAt(12))).assertCountEquals(0)
+        // The new account is counted, and the rows already shown stay where they were.
         assertEquals(13, route.count)
         assertEquals(before, compose.runOnIdle { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset })
+
+        // Its row waits for its address, and it is in view once the list scrolls down to it.
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(12)
+        compose.waitForIdle()
+        compose.onAllNodesWithText("DERIVING ADDRESS").assertCountEquals(1)
+        compose.onAllNodesWithText(groupedAddress(addressAt(12))).assertCountEquals(0)
 
         compose.runOnIdle { route.deriveNext() }
         compose.waitForIdle()
         compose.onAllNodesWithText(groupedAddress(addressAt(12))).assertCountEquals(1)
         compose.onAllNodesWithText("DERIVING ADDRESS").assertCountEquals(0)
-        assertEquals(before, compose.runOnIdle { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset })
     }
 
     @Test

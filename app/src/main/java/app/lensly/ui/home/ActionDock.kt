@@ -1,18 +1,20 @@
 package app.lensly.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -34,7 +35,6 @@ import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
-import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
 
 /** The test tag of the dock, so a test can measure where it sits. */
@@ -46,13 +46,14 @@ internal const val HOME_DOCK_ACTIVITY_TAG = "home-dock-activity"
 internal const val HOME_DOCK_WALLETS_TAG = "home-dock-wallets"
 internal const val HOME_DOCK_SETTINGS_TAG = "home-dock-settings"
 
-/** The height of the dock's bar. The content keeps clear of it, so the screen shares this constant. */
+/** The height of the dock's bar, above the navigation bar. The content keeps clear of it, so the screen shares this constant. */
 internal val DOCK_BAR_HEIGHT = 64.dp
 
 /**
- * The action dock at the foot of Home: a floating bar of four equal actions, each an icon over its label. [onPair] opens the pairing
- * wizard, [onActivity] opens the Review Records of every wallet, [onWallets] opens the list of every wallet, and [onSettings] opens
- * Settings. Scanning is the large button in the content, so the dock does not repeat it.
+ * The action dock at the foot of Home: a flat bar of four equal actions, each an icon over its label. It sits on the surface colour under a
+ * hairline, edge to edge, and keeps clear of the navigation bar. [onPair] opens the pairing wizard, [onActivity] opens the Review Records of
+ * every wallet, [onWallets] opens the list of every wallet, and [onSettings] opens Settings. Scanning is the large button in the content, so
+ * the dock does not repeat it.
  */
 @Composable
 internal fun ActionDock(
@@ -62,45 +63,49 @@ internal fun ActionDock(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .height(DOCK_BAR_HEIGHT)
             .testTag(HOME_DOCK_TAG)
-            .clip(LenslyPillShape)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, LenslyPillShape)
-            .padding(horizontal = LenslySpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
+            .background(MaterialTheme.colorScheme.surface)
+            .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
-        DockItem(
-            icon = LenslyIcons.QrCode,
-            label = "Pair",
-            tag = HOME_DOCK_PAIR_TAG,
-            onClick = onPair,
-            modifier = Modifier.weight(1f),
-        )
-        DockItem(
-            icon = LenslyIcons.History,
-            label = "Activity",
-            tag = HOME_DOCK_ACTIVITY_TAG,
-            onClick = onActivity,
-            modifier = Modifier.weight(1f),
-        )
-        DockItem(
-            icon = LenslyIcons.Wallets,
-            label = "Wallets",
-            tag = HOME_DOCK_WALLETS_TAG,
-            onClick = onWallets,
-            modifier = Modifier.weight(1f),
-        )
-        DockItem(
-            icon = SettingsGlyph,
-            label = "Settings",
-            tag = HOME_DOCK_SETTINGS_TAG,
-            onClick = onSettings,
-            modifier = Modifier.weight(1f),
-        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(DOCK_BAR_HEIGHT),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DockItem(
+                icon = LenslyIcons.QrCode,
+                label = "Pair",
+                tag = HOME_DOCK_PAIR_TAG,
+                onClick = onPair,
+                modifier = Modifier.weight(1f),
+            )
+            DockItem(
+                icon = LenslyIcons.History,
+                label = "Activity",
+                tag = HOME_DOCK_ACTIVITY_TAG,
+                onClick = onActivity,
+                modifier = Modifier.weight(1f),
+            )
+            DockItem(
+                icon = LenslyIcons.Wallets,
+                label = "Wallets",
+                tag = HOME_DOCK_WALLETS_TAG,
+                onClick = onWallets,
+                modifier = Modifier.weight(1f),
+            )
+            DockItem(
+                icon = SettingsGlyph,
+                label = "Settings",
+                tag = HOME_DOCK_SETTINGS_TAG,
+                onClick = onSettings,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 

@@ -26,6 +26,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.BulkCap
+import app.lensly.ui.home.AlgorandAccountsScreen
 import app.lensly.ui.home.BitcoinAccountsScreen
 import app.lensly.ui.home.BulkChain
 import app.lensly.ui.home.BulkGenerateScreen
@@ -34,6 +35,7 @@ import app.lensly.ui.home.HOME_SCROLL_TAG
 import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
+import app.lensly.ui.home.SolanaAccountsScreen
 import app.lensly.ui.home.SoonScreen
 import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHomeScreen
@@ -53,6 +55,9 @@ import org.robolectric.annotation.GraphicsMode
 /** Long enough for the Home sections to settle before the capture. */
 private const val SETTLE_MS = 1_000L
 
+/** The night theme of the same window: the system in its dark mode, for the screens the Lumen accounts shell and dock changed. */
+private const val NIGHT_QUALIFIERS = "w720dp-h1600dp-port-night-mdpi"
+
 /** The moment every Home golden is read against, so the relative times on the goldens never change. */
 private const val FIXED_NOW_MS = 1_800_000_000_000L
 private const val MINUTE_MS = 60_000L
@@ -68,8 +73,9 @@ private const val FLING_MS = 1_000L
  * by network and over seven days, with a backup needed for one wallet and for several, and with the logo collage still because the
  * animations are off), the Wallets list (five),
  * wallet detail with its Apps and with Single Key, the Ethereum App (deriving, accounts, adding an account), the Bitcoin App (accounts
- * by script type and network, Single Key), bulk generate (empty, ready, refused, running, failed),
- * catalog import (idle, checking, installed, refused), and the placeholder. Record with :app:recordRoborazziDebug.
+ * by script type and network, Single Key), the Solana and Algorand Apps (accounts), bulk generate (empty, ready, refused, running, failed),
+ * catalog import (idle, checking, installed, refused), and the placeholder. The Home, Ethereum, Bitcoin, Solana and Algorand accounts
+ * are also recorded in the night theme (`*_night`). Record with :app:recordRoborazziDebug.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -110,6 +116,13 @@ class HomeScreensScreenshotTest {
     @Test
     fun homeWithDebugNotice() = compose.snapshot("home_debug_notice", settleMs = SETTLE_MS) {
         home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles, debugNotice = "Software keystore")
+    }
+
+    /** Home in the night theme, so the flat dock is checked on the dark surface too. */
+    @Test
+    @Config(qualifiers = NIGHT_QUALIFIERS)
+    fun homeWithTwoWalletsNight() = compose.snapshot("home_two_wallets_night", settleMs = SETTLE_MS) {
+        home(wallets = sampleWallets().take(2), profiles = sampleHomeProfiles)
     }
 
     /** Home with no record yet: the chart shows its placeholder line, and the one wallet is backed up, so no panel shows. */
@@ -244,6 +257,40 @@ class HomeScreensScreenshotTest {
     @Test
     fun bitcoinAppSingleKey() = compose.snapshot("bitcoin_app_single_key") {
         bitcoinApp(wallet = sampleWallets()[2], accounts = emptyList())
+    }
+
+    @Test
+    fun solanaAppWithAccounts() = compose.snapshot("solana_app_accounts") {
+        solanaApp(wallet = sampleWallets()[0], addresses = sampleSolanaAddresses)
+    }
+
+    @Test
+    fun algorandAppWithAccounts() = compose.snapshot("algorand_app_accounts") {
+        algorandApp(wallet = sampleWallets()[0], addresses = sampleAlgorandAddresses)
+    }
+
+    @Test
+    @Config(qualifiers = NIGHT_QUALIFIERS)
+    fun ethereumAppWithAccountsNight() = compose.snapshot("ethereum_app_accounts_night") {
+        ethereumApp(wallet = sampleWallets()[0], addresses = sampleAddresses, profiles = sampleProfiles)
+    }
+
+    @Test
+    @Config(qualifiers = NIGHT_QUALIFIERS)
+    fun bitcoinAppWithAccountsNight() = compose.snapshot("bitcoin_app_accounts_night") {
+        bitcoinApp(wallet = sampleWallets()[0], accounts = sampleBitcoinAccounts)
+    }
+
+    @Test
+    @Config(qualifiers = NIGHT_QUALIFIERS)
+    fun solanaAppWithAccountsNight() = compose.snapshot("solana_app_accounts_night") {
+        solanaApp(wallet = sampleWallets()[0], addresses = sampleSolanaAddresses)
+    }
+
+    @Test
+    @Config(qualifiers = NIGHT_QUALIFIERS)
+    fun algorandAppWithAccountsNight() = compose.snapshot("algorand_app_accounts_night") {
+        algorandApp(wallet = sampleWallets()[0], addresses = sampleAlgorandAddresses)
     }
 
     @Test
@@ -484,6 +531,32 @@ class HomeScreensScreenshotTest {
     }
 
     @Composable
+    private fun solanaApp(wallet: WalletMeta, addresses: List<String>) {
+        SolanaAccountsScreen(
+            wallet = wallet,
+            addresses = addresses,
+            onBack = {},
+            onAddAccount = {},
+            onBulkGenerate = {},
+            onPair = {},
+            onScan = {},
+        )
+    }
+
+    @Composable
+    private fun algorandApp(wallet: WalletMeta, addresses: List<String>) {
+        AlgorandAccountsScreen(
+            wallet = wallet,
+            addresses = addresses,
+            onBack = {},
+            onAddAccount = {},
+            onBulkGenerate = {},
+            onPair = {},
+            onScan = {},
+        )
+    }
+
+    @Composable
     private fun bulk(
         digits: String,
         running: Boolean = false,
@@ -601,6 +674,19 @@ class HomeScreensScreenshotTest {
         BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0, "bc1qnat00000000000000000000000000000000"),
         BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.TAPROOT, 0, "bc1ptap0000000000000000000000000000000000000000000000000000"),
         BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, "tb1qnat00000000000000000000000000000000"),
+    )
+
+    /** Three Solana accounts, each a base58 public key of 44 characters, so the rows wrap the way a real address does. */
+    private val sampleSolanaAddresses = listOf(
+        "7vGkQ2mWxR9tLpBc4HnYd8JsFe5KaZu3TqVo6NiSyP1X",
+        "DLs3Hw8EyNr6TbQm2KfZc9VgXp4JuAo7RiMt5WeCk1Bn",
+        "9Fq2Tn6ZkLwY3rPd8XmHcVb5JsGa4EuRt7QoNi1KxWyS",
+    )
+
+    /** Two Algorand accounts, each a base32 address of 58 characters. */
+    private val sampleAlgorandAddresses = listOf(
+        "QZ3MXK7TPLVB2HYRW6NCDJ4FGSE5UAOIA2YT7BWM3XKQLZ4VHJ6RP5NCD2",
+        "EJ5HRNWQ2KD7ZTXC3PLG6VMYSB4FAU2OQ7WRKN5XTJ3MDLC6HZGVY4PAS2",
     )
 
     private val linea = NetworkEntry(59144L, "Linea", "ETH", 18, FeeModel.L2_ROLLUP, "Lineascan", false)
