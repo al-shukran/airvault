@@ -29,8 +29,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.airvault.core.model.ChainId
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.AddressChain
 import app.lensly.app.InternalAccount
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
@@ -84,7 +84,7 @@ fun ActivityScreen(
     /** The accounts of every wallet, read for the name of each address of this device that a record's sheet shows. */
     accounts: Map<String, InternalAccount> = emptyMap(),
     /** Opens the Address Book for an address a record's sheet shows, on its chain. Null shows the addresses without a tap. */
-    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
+    onOpenAddress: ((String, ChainId) -> Unit)? = null,
 ) {
     val haptics = rememberKeyHaptics()
     var filter by remember { mutableStateOf(ActivityFilter.ALL) }

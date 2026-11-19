@@ -8,7 +8,7 @@ import app.airvault.core.model.Danger
 import app.airvault.core.model.Review
 import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
-import app.lensly.core.algorand.AlgoAddress
+import app.airvault.chains.algorand.AlgoAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

@@ -1,5 +1,6 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.AlgoAddress
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger

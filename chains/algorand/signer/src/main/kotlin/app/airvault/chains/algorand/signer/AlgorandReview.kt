@@ -15,7 +15,7 @@ import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
 import app.airvault.core.model.printableText
 import app.airvault.core.model.text
-import app.lensly.core.algorand.AlgoAddress
+import app.airvault.chains.algorand.AlgoAddress
 import java.math.BigInteger
 import java.util.Base64
 

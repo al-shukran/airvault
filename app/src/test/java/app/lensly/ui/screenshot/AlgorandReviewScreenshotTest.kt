@@ -7,7 +7,7 @@ import app.airvault.chains.algorand.signer.AsaCatalog
 import app.lensly.core.ur.PathStep
 import app.lensly.ui.sign.ReviewScreen
 import app.airvault.chains.algorand.signer.toReview
-import app.lensly.app.AddressChain
+import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.SignRefusedScreen
 import java.io.File
@@ -33,22 +33,22 @@ class AlgorandReviewScreenshotTest {
 
     @Test
     fun reviewMainnetUsdcTransfer() = compose.snapshotSettled("algorand_review_usdc_transfer") {
-        ReviewScreen(review = review(MAINNET_USDC_TRANSFER).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = AddressChain.ALGORAND, onApprove = {}, onReject = {})
+        ReviewScreen(review = review(MAINNET_USDC_TRANSFER).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = ALGORAND_FAMILY, onApprove = {}, onReject = {})
     }
 
     @Test
     fun reviewMainnetUsdcOptIn() = compose.snapshotSettled("algorand_review_opt_in") {
-        ReviewScreen(review = review(MAINNET_USDC_OPT_IN).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = AddressChain.ALGORAND, onApprove = {}, onReject = {})
+        ReviewScreen(review = review(MAINNET_USDC_OPT_IN).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = ALGORAND_FAMILY, onApprove = {}, onReject = {})
     }
 
     @Test
     fun reviewTestnetUsdcOptOut() = compose.snapshotSettled("algorand_review_opt_out") {
-        ReviewScreen(review = review(TESTNET_USDC_OPT_OUT).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = AddressChain.ALGORAND, onApprove = {}, onReject = {})
+        ReviewScreen(review = review(TESTNET_USDC_OPT_OUT).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = ALGORAND_FAMILY, onApprove = {}, onReject = {})
     }
 
     @Test
     fun reviewUnknownAsset() = compose.snapshotSettled("algorand_review_unknown_asset") {
-        ReviewScreen(review = review(TESTNET_UNKNOWN_ASSET).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = AddressChain.ALGORAND, onApprove = {}, onReject = {})
+        ReviewScreen(review = review(TESTNET_UNKNOWN_ASSET).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = ALGORAND_FAMILY, onApprove = {}, onReject = {})
     }
 
     @Test

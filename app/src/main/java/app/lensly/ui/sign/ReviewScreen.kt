@@ -7,10 +7,10 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import app.airvault.core.model.Danger
+import app.airvault.core.model.ChainId
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.Review
 import app.airvault.core.model.text
-import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
@@ -29,12 +29,12 @@ fun ReviewScreen(
     review: Review,
     signer: SigningAccount,
     addressNotes: Map<String, AddressNotes>,
-    addressChain: AddressChain,
+    addressChain: ChainId,
     onApprove: () -> Unit,
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
     /** Opens an address of the review in the Address Book, with its chain. Null leaves the address rows without a tap. */
-    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
+    onOpenAddress: ((String, ChainId) -> Unit)? = null,
 ) {
     val open = addressTapOn(addressChain, onOpenAddress)
     // A different request starts unread, so nothing carries over from the last one.

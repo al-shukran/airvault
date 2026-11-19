@@ -1,4 +1,4 @@
-package app.lensly.core.algorand
+package app.airvault.chains.algorand
 
 import org.bouncycastle.crypto.digests.SHA512tDigest
 
@@ -50,7 +50,7 @@ object AlgoAddress {
         return out.copyOfRange(out.size - CHECKSUM_BYTES, out.size)
     }
 
-    /** RFC 4648 base32 of [bytes], without padding. The transaction IDs of [AlgoSignedTxn] use it too. */
+    /** RFC 4648 base32 of [bytes], without padding. The transaction IDs of the signed transactions use it too. */
     fun base32(bytes: ByteArray): String {
         val out = StringBuilder()
         var buffer = 0

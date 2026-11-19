@@ -1,6 +1,10 @@
 package app.lensly.app.sign
 
-import app.lensly.app.AddressChain
+import app.airvault.core.model.ChainId
+import app.lensly.app.ALGORAND_FAMILY
+import app.lensly.app.BITCOIN_FAMILY
+import app.lensly.app.EVM_FAMILY
+import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.canonicalAddressOn
 import app.lensly.app.chainOfAddress
 
@@ -8,17 +12,17 @@ import app.lensly.app.chainOfAddress
  * One address a Review Record shows: the label of the row it is in, the address as the record holds it, and the chain it is on.
  * [isOwnChange] marks a Bitcoin output that pays the owner's own change.
  */
-data class RecordAddress(val label: String, val address: String, val chain: AddressChain, val isOwnChange: Boolean = false)
+data class RecordAddress(val label: String, val address: String, val chain: ChainId, val isOwnChange: Boolean = false)
 
 /**
  * The chain the addresses of [record] are on, or null when the record names none and holds no address. A Bitcoin record is on Bitcoin. A
  * record with a chain id is on an EVM chain. A Solana and an Algorand record name their network, which is kept as its own name.
  */
-fun recordChainOf(record: ReviewRecord): AddressChain? = when {
-    record.kind == ReviewKind.BITCOIN_TRANSACTION -> AddressChain.BITCOIN
-    record.chainId != null -> AddressChain.EVM
-    record.networkName == SOLANA_NETWORK -> AddressChain.SOLANA
-    record.networkName in ALGORAND_NETWORK_NAMES -> AddressChain.ALGORAND
+fun recordChainOf(record: ReviewRecord): ChainId? = when {
+    record.kind == ReviewKind.BITCOIN_TRANSACTION -> BITCOIN_FAMILY
+    record.chainId != null -> EVM_FAMILY
+    record.networkName == SOLANA_NETWORK -> SOLANA_FAMILY
+    record.networkName in ALGORAND_NETWORK_NAMES -> ALGORAND_FAMILY
     else -> listOfNotNull(record.address, record.to, record.tokenContract).firstNotNullOfOrNull(::chainOfAddress)
 }
 

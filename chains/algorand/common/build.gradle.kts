@@ -20,6 +20,7 @@ dependencies {
     api(project(":core:model"))
     // The request codec and the transaction types use CBOR, the parser limits and the UR type.
     api(project(":core:signer-api"))
+    // The address codec computes the SHA-512/256 checksum of an address with bouncycastle, as :shared did before.
     implementation(libs.bouncycastle.bcprov.jdk18on)
 
     testImplementation(libs.junit)

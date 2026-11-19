@@ -5,7 +5,7 @@ import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.Payment
 import app.airvault.chains.algorand.bytesToSign
 import app.airvault.chains.algorand.signer.AlgoTxnDecoder
-import app.lensly.core.algorand.AlgoAddress
+import app.airvault.chains.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgoSignedTxn
 import app.lensly.core.ur.AlgoSignatureEncoder
 import app.lensly.core.ur.UrScanner

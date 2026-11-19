@@ -1,10 +1,10 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.AlgoAddress
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.airvault.chains.algorand.signer.AlgorandRequestReview
 import app.airvault.chains.algorand.signer.AlgorandWarning
 import app.airvault.chains.algorand.signer.AsaCatalog
-
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.AlgorandNetwork

@@ -10,8 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
-import app.lensly.app.AddressChain
+import app.airvault.core.model.ChainId
 import app.lensly.app.AddressNotes
+import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
 import app.lensly.app.sign.SOLANA_NETWORK
@@ -43,9 +44,9 @@ fun SolanaReviewScreen(
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
     /** Opens an address of the review in the Address Book, with its chain. Null leaves the address rows without a tap. */
-    onOpenAddress: ((String, AddressChain) -> Unit)? = null,
+    onOpenAddress: ((String, ChainId) -> Unit)? = null,
 ) {
-    val open = addressTapOn(AddressChain.SOLANA, onOpenAddress)
+    val open = addressTapOn(SOLANA_FAMILY, onOpenAddress)
     // A different request starts unread, so nothing carries over from the last one.
     key(review) {
         val read = rememberReviewRead(review)

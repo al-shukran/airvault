@@ -39,7 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import app.lensly.app.AddressChain
+import app.airvault.core.model.ChainId
 import app.lensly.app.AddressNotes
 import app.lensly.app.headline
 import app.lensly.app.isAddressValue
@@ -196,7 +196,7 @@ internal fun ReviewFactRow(label: String, value: String, mono: Boolean = true, m
  * The tap of an address row of a review on [chain]: a tap calls [onOpenAddress] with the address and the chain, so the Address Book opens
  * it. Null when the review has no tap, and its rows are then shown without one.
  */
-internal fun addressTapOn(chain: AddressChain, onOpenAddress: ((String, AddressChain) -> Unit)?): ((String) -> Unit)? =
+internal fun addressTapOn(chain: ChainId, onOpenAddress: ((String, ChainId) -> Unit)?): ((String) -> Unit)? =
     onOpenAddress?.let { tap -> { address -> tap(address, chain) } }
 
 /**
