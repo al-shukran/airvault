@@ -46,7 +46,7 @@ class BtcStore(private val cache: Cache) {
 
 /** The snapshot record: a version byte, the count, then each snapshot in full, in DataOutputStream style. */
 private object SnapshotCodec {
-    private const val VERSION = 2
+    private const val VERSION = 3
     private const val MAX_ENTRIES = 256
     private const val MAX_LIST = 100_000
 
@@ -78,6 +78,8 @@ private object SnapshotCodec {
                     writeOptionalLong(out, t.blockHeight)
                     writeOptionalLong(out, t.blockTimeSec)
                 }
+                out.writeInt(s.addresses.size)
+                for (address in s.addresses) out.writeUTF(address)
             }
         }
         return bytes.toByteArray()
@@ -106,6 +108,7 @@ private object SnapshotCodec {
             val txs = List(txCount) {
                 BtcTx(input.readUTF(), input.readLong(), readOptionalLong(input), readOptionalLong(input))
             }
+            val addresses = readAddresses(input)
             BtcSnapshot(
                 key = key,
                 identity = identity,
@@ -117,8 +120,15 @@ private object SnapshotCodec {
                 nextReceiveAddress = nextReceiveAddress,
                 utxos = utxos,
                 transactions = txs,
+                addresses = addresses,
             )
         }.associateBy { it.key }
+    }
+
+    private fun readAddresses(input: DataInputStream): List<String> {
+        val count = input.readInt()
+        require(count in 0..MAX_LIST) { "address count out of range" }
+        return List(count) { input.readUTF() }
     }
 
     private fun writeOptionalLong(out: DataOutputStream, value: Long?) {

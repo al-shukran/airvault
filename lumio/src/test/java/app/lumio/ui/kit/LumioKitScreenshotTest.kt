@@ -22,7 +22,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.ui.screenshot.LUMIO_DARK_QUALIFIERS
@@ -69,6 +72,29 @@ class LumioKitScreenshotTest {
     @Test
     fun textAction() = compose.lumioSnapshot("kit_text_action") {
         KitColumn { LumioTextAction(text = "Pair a Wallet", onClick = {}) }
+    }
+
+    /** A row and a button held down: the golden is the pressed frame, scaled and rippled. */
+    @Test
+    fun rowPressed() = compose.lumioSnapshot("kit_row_pressed", beforeCapture = { onNodeWithTag(PRESSED).performTouchInput { down(center) } }) {
+        KitColumn { LumioRow(title = "Savings", description = "2 chains · 3 accounts", modifier = Modifier.testTag(PRESSED), onClick = {}) }
+    }
+
+    @Test
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    fun rowPressedLight() = compose.lumioSnapshot("kit_row_pressed_light", beforeCapture = { onNodeWithTag(PRESSED).performTouchInput { down(center) } }) {
+        KitColumn { LumioRow(title = "Savings", description = "2 chains · 3 accounts", modifier = Modifier.testTag(PRESSED), onClick = {}) }
+    }
+
+    @Test
+    fun primaryPressed() = compose.lumioSnapshot("kit_primary_pressed", beforeCapture = { onNodeWithTag(PRESSED).performTouchInput { down(center) } }) {
+        KitColumn { LumioPrimaryButton(text = "Review", onClick = {}, modifier = Modifier.testTag(PRESSED)) }
+    }
+
+    @Test
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    fun primaryPressedLight() = compose.lumioSnapshot("kit_primary_pressed_light", beforeCapture = { onNodeWithTag(PRESSED).performTouchInput { down(center) } }) {
+        KitColumn { LumioPrimaryButton(text = "Review", onClick = {}, modifier = Modifier.testTag(PRESSED)) }
     }
 
     @Test
@@ -122,6 +148,18 @@ class LumioKitScreenshotTest {
         }
     }
 
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    @Test
+    fun ringAtZeroHalfAndFullLight() = compose.lumioSnapshot("kit_ring_light") {
+        KitColumn {
+            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.lg)) {
+                LumenRing(progress = 0f, size = 72.dp)
+                LumenRing(progress = 0.5f, size = 72.dp)
+                LumenRing(progress = 1f, size = 72.dp)
+            }
+        }
+    }
+
     @Test
     fun ringAtZeroHalfAndFull() = compose.lumioSnapshot("kit_ring") {
         KitColumn {
@@ -157,6 +195,11 @@ class LumioKitScreenshotTest {
             HorizontalDivider(modifier = Modifier.padding(start = LenslySpacing.md), color = MaterialTheme.colorScheme.outlineVariant)
             LumioRow(title = "Pair another wallet", onClick = {})
         }
+    }
+
+    private companion object {
+        /** The tag of the sample held down in the pressed goldens. */
+        const val PRESSED = "pressed"
     }
 
     /** A stand-in for a logo: a gold disc, so the frame of the icon shows what it holds. */

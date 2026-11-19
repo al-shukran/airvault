@@ -33,9 +33,11 @@ abstract class CoverActivity : ComponentActivity() {
 
         applySecureWindow()
 
+        // A bar's scrim is painted over the content under the bar, so a black scrim hid the vault's backdrop. The scrims are transparent.
+        // The dark style gives light icons, which the cover and the gate keep.
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
-            navigationBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
         )
 
         // A recreated activity (rotation) still has the launch intent, so only a fresh launch counts.
