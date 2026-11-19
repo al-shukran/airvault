@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import app.lensly.app.AccountProfile
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.SINGLE_KEY_NO_BITCOIN
@@ -137,7 +136,7 @@ class BitcoinAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText("Generate Accounts").performScrollTo().performClick()
+        compose.onNodeWithText("Generate Accounts").performClick()
         assertTrue(route.generated)
     }
 
