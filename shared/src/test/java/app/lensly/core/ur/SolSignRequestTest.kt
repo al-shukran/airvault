@@ -122,6 +122,16 @@ class SolSignRequestTest {
     }
 
     @Test
+    fun anOriginOfTheCapDecodesAndOneByteMoreIsRefused() {
+        assertEquals("a".repeat(512), okOf(SolSignRequest.decode(payload(origin = Cbor.Text("a".repeat(512))))).origin)
+        assertEquals("origin exceeds 512 bytes", rejectedReason(payload(origin = Cbor.Text("a".repeat(513)))))
+        // 256 two-byte characters are 512 bytes, which is at the cap. One more ASCII byte makes 513.
+        val atCap = "\u00e9".repeat(256)
+        assertEquals(atCap, okOf(SolSignRequest.decode(payload(origin = Cbor.Text(atCap)))).origin)
+        assertEquals("origin exceeds 512 bytes", rejectedReason(payload(origin = Cbor.Text(atCap + "a"))))
+    }
+
+    @Test
     fun aClusterIsOptionalAndTheThreeSolanaClustersDecode() {
         assertNull(okOf(SolSignRequest.decode(payload())).cluster)
 

@@ -101,6 +101,9 @@ class AlgoSignRequest(
 
             val address = textOf(fields[4L] ?: malformed("address is missing"), "address")
             val origin = textOf(fields[5L] ?: malformed("origin is missing"), "origin")
+            if (origin.toByteArray(Charsets.UTF_8).size > ParserLimits.MAX_ORIGIN_BYTES) {
+                malformed("origin exceeds ${ParserLimits.MAX_ORIGIN_BYTES} bytes")
+            }
 
             val typeValue = uintOf(fields[6L] ?: malformed("signType is missing"), "signType")
             val signType = AlgoSignType.fromWire(typeValue) ?: malformed("unsupported signType $typeValue")
