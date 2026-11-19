@@ -2,7 +2,7 @@ package app.lensly.core.wallet
 
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.solana.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestCheck
 import app.lensly.core.solana.SolanaVectors
 import app.lensly.core.ur.Cbor
 import org.junit.Test

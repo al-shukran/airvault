@@ -1,11 +1,5 @@
-package app.lensly.core.solana
+package app.airvault.chains.solana.signer
 
-import app.airvault.chains.solana.signer.SolCluster
-import app.airvault.chains.solana.signer.SolSignRequest
-import app.airvault.chains.solana.signer.SolSignType
-import app.airvault.chains.solana.signer.SolanaMessage
-import app.airvault.chains.solana.signer.SolanaMessageAccount
-import app.airvault.chains.solana.signer.SolanaOffchainMessage
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.PathStep
 import fr.acinq.bitcoin.Base58
@@ -55,7 +49,7 @@ class SolanaRequestReview internal constructor(
     val cluster: SolCluster?,
 ) {
     /** The address of the signing account, in base58. */
-    val signerAddress: String get() = SolanaAccount.addressOf(signer)
+    val signerAddress: String get() = Base58.encode(signer)
 
     /** The fee payer of a transaction, in base58. Null for a message. */
     val feePayer: String? get() = message?.feePayer
@@ -151,7 +145,7 @@ class SolanaRequestReview internal constructor(
  * The priority fee of [units] compute units at [microLamportsPerUnit] micro-lamports each, in lamports. The fee is rounded up to a whole
  * lamport and capped at the largest u64, as `get_prioritization_fee` in Agave's compute-budget crate does.
  */
-internal fun priorityFee(units: UInt, microLamportsPerUnit: ULong): ULong {
+fun priorityFee(units: UInt, microLamportsPerUnit: ULong): ULong {
     val micro = BigInteger(microLamportsPerUnit.toString()).multiply(BigInteger(units.toString()))
     val lamports = micro.add(MICRO_LAMPORTS_PER_LAMPORT.subtract(BigInteger.ONE)).divide(MICRO_LAMPORTS_PER_LAMPORT)
     return if (lamports.bitLength() > ULong.SIZE_BITS) ULong.MAX_VALUE else lamports.toLong().toULong()

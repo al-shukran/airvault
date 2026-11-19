@@ -28,6 +28,7 @@ import app.lensly.app.addressNotesOf
 import app.lensly.app.notesOf
 import app.lensly.app.sign.algorandCounterparties
 import app.airvault.chains.algorand.signer.toReview
+import app.airvault.chains.solana.signer.toReview
 import app.lensly.app.sign.solanaCounterparties
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.gate.PasswordBuffer
@@ -39,10 +40,8 @@ import app.lensly.ui.navigation.rememberAddressBook
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
 import app.lensly.ui.sign.ReviewScreen
-import app.lensly.ui.sign.SolanaReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReviewScreen
-import app.lensly.ui.sign.bitcoinAcknowledgement
 import app.lensly.ui.sign.bitcoinReviewOf
 import app.lensly.ui.sign.shownName
 
@@ -128,17 +127,21 @@ internal fun SignWalletRoute(
                 signer = reviewed.signer,
                 addressNotes = notes,
                 addressChain = BITCOIN_FAMILY,
-                acknowledge = bitcoinAcknowledgement(reviewed.review, shown.confirmed, flow::confirmUnverified),
-                onApprove = flow::approve,
+                onApprove = {
+                    // The review enables Approve only once the owner ticks the unverified amounts, so approve records that tick.
+                    flow.confirmUnverified(true)
+                    flow.approve()
+                },
                 onReject = flow::leave,
                 onOpenAddress = openAddress,
             )
         }
         is SignStep.BitcoinConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
-        is SignStep.SolanaReview -> SolanaReviewScreen(
-            review = shown.ready.review,
+        is SignStep.SolanaReview -> ReviewScreen(
+            review = remember(shown.ready.review) { shown.ready.review.toReview() },
             signer = shown.ready.signer,
             addressNotes = notesNow(shown.ready.addressNotes, solanaCounterparties(shown.ready.review), SOLANA_FAMILY, book),
+            addressChain = SOLANA_FAMILY,
             onApprove = flow::approve,
             onReject = flow::leave,
             onOpenAddress = openAddress,

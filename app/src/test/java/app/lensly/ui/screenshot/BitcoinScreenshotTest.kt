@@ -15,7 +15,6 @@ import app.lensly.ui.settings.BitcoinPolicyScreen
 import app.lensly.ui.settings.FeeWarningScreen
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SAMPLE_SIGNER
-import app.lensly.ui.sign.bitcoinAcknowledgement
 import app.lensly.ui.sign.bitcoinReviewOf
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
@@ -36,18 +35,18 @@ class BitcoinScreenshotTest {
 
     @Test
     fun bitcoinReviewOnTestnet() = compose.snapshot("bitcoin_review_testnet") {
-        BitcoinReviewAt(review = cleanReview(), confirmed = false, onConfirmedChange = {})
+        BitcoinReviewAt(review = cleanReview())
     }
 
     @Test
     fun bitcoinReviewWithWarnings() = compose.snapshot("bitcoin_review_warnings") {
-        BitcoinReviewAt(review = warnedReview(), confirmed = false, onConfirmedChange = {})
+        BitcoinReviewAt(review = warnedReview())
     }
 
     @Test
     fun bitcoinReviewBlockedWhileItsDetailsAreFolded() = compose.snapshot("bitcoin_review_blocked") {
         // The request fits on screen, yet Hold to sign is off and says to open the details, where its one warning is read.
-        BitcoinReviewAt(review = externalInputReview(), confirmed = false, onConfirmedChange = {})
+        BitcoinReviewAt(review = externalInputReview())
     }
 
     @Test
@@ -56,8 +55,6 @@ class BitcoinScreenshotTest {
             review = warnedReview().copy(
                 feeWarnings = listOf(BtcWarning.HighFeeRate(285.7, 200), BtcWarning.HighFeeShare(41.7, 10)),
             ),
-            confirmed = false,
-            onConfirmedChange = {},
         )
     }
 
@@ -75,15 +72,14 @@ class BitcoinScreenshotTest {
     @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
     fun bitcoinPolicyAtItsDefaultsNight() = compose.snapshot("bitcoin_policy_defaults_night") { BitcoinPolicyAtDefaults() }
 
-    /** The Bitcoin review as the sign flow shows it on testnet4 from a Native Segwit account, with its check held here. */
+    /** The Bitcoin review as the sign flow shows it on testnet4 from a Native Segwit account. */
     @Composable
-    private fun BitcoinReviewAt(review: BtcReview, confirmed: Boolean, onConfirmedChange: (Boolean) -> Unit) {
+    private fun BitcoinReviewAt(review: BtcReview) {
         ReviewScreen(
             review = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT),
             signer = SAMPLE_SIGNER,
             addressNotes = emptyMap(),
             addressChain = BITCOIN_FAMILY,
-            acknowledge = bitcoinAcknowledgement(review, confirmed, onConfirmedChange),
             onApprove = {},
             onReject = {},
         )

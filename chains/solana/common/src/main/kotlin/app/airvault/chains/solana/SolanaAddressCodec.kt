@@ -6,6 +6,7 @@ import app.airvault.core.model.AddressKind
 import app.airvault.core.model.AddressResult
 import app.airvault.core.model.ChainId
 import fr.acinq.bitcoin.Base58
+import java.security.MessageDigest
 
 private const val SOLANA_NAMESPACE = "solana"
 private val SOLANA_ADDRESS = Regex("[1-9A-HJ-NP-Za-km-z]{32,44}")
@@ -39,4 +40,16 @@ fun solanaAddressOf(text: String): String? {
     if (!SOLANA_ADDRESS.matches(text)) return null
     val key = runCatching { Base58.decode(text) }.getOrNull() ?: return null
     return if (key.size == SOLANA_KEY_BYTES) text else null
+}
+
+/**
+ * The 32-byte address that Solana's `Pubkey::create_with_seed` gives: the SHA-256 of [base], then [seed], then [owner]. [base] and [owner]
+ * are 32 bytes, and the caller checks that [seed] is at most 32 bytes. A nonce account made with a seed lives at this address.
+ */
+fun createWithSeed(base: ByteArray, seed: ByteArray, owner: ByteArray): ByteArray {
+    val digest = MessageDigest.getInstance("SHA-256")
+    digest.update(base)
+    digest.update(seed)
+    digest.update(owner)
+    return digest.digest()
 }

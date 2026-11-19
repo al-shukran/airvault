@@ -24,6 +24,9 @@ private const val SAT_DECIMALS = 8
 /** The code of the warning on unverified amounts. The owner ticks it before a request that needs confirmation can be signed. */
 const val UNVERIFIED_AMOUNTS_CODE = "bitcoin.unverified-amounts"
 
+/** The tick the owner gives before a request with unverified amounts can be signed. Set only when the review asks for it. */
+private const val UNVERIFIED_CHECK = "I have checked the unverified input amounts"
+
 private const val UNKNOWN_FEE_NOTE = "Unknown until every input amount is verified or confirmed."
 private const val SIZE_NOTE = "Estimated from the unsigned request, so the signed size may differ by a few vbytes."
 private const val NOT_ENFORCED_NOTE = "Not enforced, because every input is final."
@@ -58,7 +61,7 @@ fun BtcReview.toReview(
     summary = sentence(nameOf),
     facts = facts(),
     sections = listOf(inputsSection(), outputsSection(chain), transactionSection(scriptType)),
-    warnings = warnings().map { warningOf(it) },
+    warnings = warnings().map { warningOf(it, requiresConfirmation) },
     coverage = Coverage(decoded = decodedFields(), excluded = emptyMap()),
 ).checked()
 
@@ -166,8 +169,13 @@ private fun BtcReview.decodedFields(): Set<FieldPath> = buildSet {
     add(LOCK_TIME)
 }
 
-private fun warningOf(warning: BtcWarning): Warning = when (warning) {
-    is BtcWarning.UnverifiedAmounts -> Warning(Danger.DANGER, UNVERIFIED_AMOUNTS_CODE, warningText(warning))
+private fun warningOf(warning: BtcWarning, confirmation: Boolean): Warning = when (warning) {
+    is BtcWarning.UnverifiedAmounts -> Warning(
+        Danger.DANGER,
+        UNVERIFIED_AMOUNTS_CODE,
+        warningText(warning),
+        acknowledge = UNVERIFIED_CHECK.takeIf { confirmation },
+    )
     is BtcWarning.ExternalInputs -> Warning(Danger.CAUTION, "bitcoin.external-inputs", warningText(warning))
     is BtcWarning.UnknownChange -> Warning(Danger.CAUTION, "bitcoin.unknown-change", warningText(warning))
     is BtcWarning.LockTime -> Warning(Danger.CAUTION, "bitcoin.lock-time", warningText(warning))

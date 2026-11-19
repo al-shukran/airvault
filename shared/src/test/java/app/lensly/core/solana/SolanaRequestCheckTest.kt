@@ -2,12 +2,15 @@ package app.lensly.core.solana
 
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaInstruction
 import app.airvault.chains.solana.signer.SolanaMessage
 import app.airvault.chains.solana.signer.SolanaOffchainMessage
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaWarning
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.PathStep
-import org.junit.Test
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.assertContentEquals
@@ -17,6 +20,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.Test
 
 class SolanaRequestCheckTest {
 

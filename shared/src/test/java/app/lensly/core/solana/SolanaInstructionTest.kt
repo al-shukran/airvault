@@ -1,10 +1,12 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolanaInstruction
 import app.airvault.chains.solana.signer.SolanaMessage
 import app.airvault.chains.solana.signer.SolanaMessageAccount
-import org.junit.Test
+import app.airvault.chains.solana.signer.decodeInstructions
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import org.junit.Test
 
 class SolanaInstructionTest {
 

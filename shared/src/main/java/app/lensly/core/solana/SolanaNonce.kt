@@ -1,5 +1,6 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.createWithSeed
 import fr.acinq.bitcoin.Base58
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -37,7 +38,7 @@ object SolanaNonce {
     /** The address of the nonce account of [account], a 32-byte key: createWithSeed of the key, [SEED] and the System Program. */
     fun accountOf(account: ByteArray): ByteArray {
         require(account.size == KEY_BYTES) { "A Solana address is 32 bytes." }
-        return SolanaAccount.createWithSeed(account, SEED.toByteArray(Charsets.UTF_8), Base58.decode(SYSTEM_PROGRAM))
+        return createWithSeed(account, SEED.toByteArray(Charsets.UTF_8), Base58.decode(SYSTEM_PROGRAM))
     }
 
     /**

@@ -28,8 +28,11 @@ data class Review(
     val coverage: Coverage,
 )
 
-/** The network a review is for: its name, whether it is a testnet, and its raw detail under the name, such as the genesis ID. */
-data class NetworkLabel(val name: String, val testnet: Boolean, val detail: String?)
+/**
+ * The network a review is for: its name, whether it is a testnet, and its raw detail under the name, such as the genesis ID. [row] is a row the
+ * header shows under the name, such as the cluster a Solana request states.
+ */
+data class NetworkLabel(val name: String, val testnet: Boolean, val detail: String?, val row: ReviewRow? = null)
 
 /** A titled group of rows. */
 data class ReviewSection(val heading: String, val rows: List<ReviewRow>)
@@ -49,8 +52,11 @@ sealed interface DisplayValue {
 
     data class Number(val value: BigInteger) : DisplayValue
 
-    /** Text the app has checked, such as a note whose every character can be read. */
-    data class Text(val text: String) : DisplayValue
+    /**
+     * Text the app has checked, such as a note whose every character can be read. [mono] sets a fact in the monospace face, for a shortened
+     * address or a fee.
+     */
+    data class Text(val text: String, val mono: Boolean = false) : DisplayValue
 
     /** Bytes, shown as hex and never as guessed text. */
     class Bytes(val bytes: ByteArray) : DisplayValue
@@ -68,8 +74,17 @@ fun DisplayValue.text(): String = when (this) {
 private fun scaled(baseUnits: BigInteger, decimals: Int, symbol: String?): String =
     BigDecimal(baseUnits).movePointLeft(decimals).setScale(decimals).toPlainString() + (symbol?.let { " $it" } ?: "")
 
-/** A warning the review shows. [level] is the app's choice; the core enforces what each level means (spec 3.2). */
-data class Warning(val level: Danger, val code: String, val message: String, val field: FieldPath? = null)
+/**
+ * A warning the review shows. [level] is the app's choice; the core enforces what each level means (spec 3.2). [acknowledge] is the label of a
+ * tick the owner sets before the review can be signed, for a warning the app cannot resolve, such as an instruction it does not read.
+ */
+data class Warning(
+    val level: Danger,
+    val code: String,
+    val message: String,
+    val field: FieldPath? = null,
+    val acknowledge: String? = null,
+)
 
 /**
  * The fields a review accounts for (spec 3.2). [decoded] holds every field the parser read. Each one must be shown by a row, or be in
@@ -79,7 +94,7 @@ data class Coverage(val decoded: Set<FieldPath>, val excluded: Map<FieldPath, St
 
 /** The decoded fields that no row shows and no exclusion names. */
 fun Review.unaccounted(): Set<FieldPath> {
-    val shown = (facts + sections.flatMap { it.rows }).mapTo(HashSet()) { it.field }
+    val shown = (facts + sections.flatMap { it.rows } + listOfNotNull(network.row)).mapTo(HashSet()) { it.field }
     return coverage.decoded - shown - coverage.excluded.keys
 }
 

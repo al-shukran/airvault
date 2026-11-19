@@ -33,7 +33,7 @@ import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.WireException
-import app.lensly.core.solana.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaRequestReview
 import app.lensly.core.wallet.AccountAddresses
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlinx.coroutines.flow.MutableStateFlow
