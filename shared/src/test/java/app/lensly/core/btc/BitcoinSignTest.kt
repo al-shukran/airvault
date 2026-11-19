@@ -4,6 +4,7 @@ import app.airvault.chains.bitcoin.signer.BitcoinSigner
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.airvault.chains.bitcoin.signer.toReview
 import app.airvault.core.model.Approval
@@ -57,7 +58,7 @@ class BitcoinSignTest {
 
     @Test
     fun anApprovedRequestAnswersWithTheSignedPsbtThatTheSignerMakes() {
-        val response = BitcoinSigner.sign(request(listOf(nativeAccount)), approval(), WalletKeyAccess(seed))
+        val response = BitcoinSigner().sign(request(listOf(nativeAccount)), approval(), WalletKeyAccess(seed))
         val expected = BtcFixtures.signerOf(native, seed).sign(psbt).psbt
         assertEquals(BtcPsbt.UR_TYPE, response.urType)
         assertEquals(BtcPsbt.encodeUr(expected), UREncoder.encode(UR(response.urType, response.cbor)))
@@ -66,11 +67,11 @@ class BitcoinSignTest {
     @Test
     fun aRequestThatNamesNoAccountOrSeveralIsRefused() {
         val none = assertFailsWith<BtcRefusedException> {
-            BitcoinSigner.sign(request(emptyList()), approval(), WalletKeyAccess(seed))
+            BitcoinSigner().sign(request(emptyList()), approval(), WalletKeyAccess(seed))
         }
         assertEquals(BtcRefusal.NothingToSign, none.refusal)
         val several = assertFailsWith<BtcRefusedException> {
-            BitcoinSigner.sign(request(listOf(nativeAccount, otherAccount)), approval(), WalletKeyAccess(seed))
+            BitcoinSigner().sign(request(listOf(nativeAccount, otherAccount)), approval(), WalletKeyAccess(seed))
         }
         assertEquals(BtcRefusal.SeveralAccounts, several.refusal)
     }
@@ -78,7 +79,18 @@ class BitcoinSignTest {
     @Test
     fun anApprovalForAnotherChainIsRefused() {
         assertFailsWith<IllegalArgumentException> {
-            BitcoinSigner.sign(request(listOf(nativeAccount)), approval(mainnet), WalletKeyAccess(seed))
+            BitcoinSigner().sign(request(listOf(nativeAccount)), approval(mainnet), WalletKeyAccess(seed))
         }
+    }
+
+    /** The owner's source policy is the signer's own: a request without the Companion marker is refused under Companion only, and signed by default. */
+    @Test
+    fun theOwnersSourcePolicyDecidesWhetherTheSignerSigns() {
+        val request = request(listOf(nativeAccount))
+        val refused = assertFailsWith<BtcRefusedException> {
+            BitcoinSigner(sourcePolicy = SigningSourcePolicy.COMPANION_ONLY).sign(request, approval(), WalletKeyAccess(seed))
+        }
+        assertEquals(BtcRefusal.SourceExcluded, refused.refusal)
+        assertEquals(BtcPsbt.UR_TYPE, BitcoinSigner().sign(request, approval(), WalletKeyAccess(seed)).urType)
     }
 }

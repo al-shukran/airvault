@@ -408,31 +408,13 @@ class WalletStoreBitcoinTest {
         assertEquals(10_000L, reviewed.review.feeSats)
     }
 
-    @Test
-    fun aSignedRequestVerifiesAgainstItsPreviousOutputsAndIsReturnedAsFrames() {
-        val id = newWallet()
-        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
-        val account = walletAccount(BtcNetwork.TESTNET4, 0)
-        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
-        val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, paid = 30_000L, change = 60_000L))
-        val reviewed = store.bitcoinReview(id, psbt, STRICT, SigningSourcePolicy.ANY)
-
-        val frames = store.bitcoinSign(id, reviewed.account, psbt, STRICT, SigningSourcePolicy.ANY, unverifiedConfirmed = false)
-
-        val scanner = UrScanner()
-        frames.forEach { scanner.receive(it) }
-        val signed = BtcPsbt.fromUr(assertNotNull(scanner.result()))
-        val tx = BtcFixtures.finalize(signed, listOf(spend))
-        assertTrue(BtcFixtures.verifies(tx, BtcFixtures.prevouts(listOf(spend))), "the interpreter rejects the signed request")
-    }
-
     /**
      * The request the Lumio companion builds from an account of the pairing, for each Script Type at index 0 of a vault that stores only a
      * Native Segwit account there. Only the stored Script Type is an account of the wallet: its request is reviewed and signed, and a request
      * from any other Script Type is refused, since the pairing carries the stored accounts alone.
      */
     @Test
-    fun aRequestFromTheStoredScriptTypeIsReviewedAndSignedAndAnotherScriptTypeIsRefused() {
+    fun aRequestFromTheStoredScriptTypeIsReviewedAndAnotherScriptTypeIsRefused() {
         val id = store.create(name = "Lumio", deviceGenerated = false, words = lumioWords, passphrase = null, nowMs = 1L)
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
         val seed = Mnemonic.toSeed(lumioWords)
@@ -457,11 +439,6 @@ class WalletStoreBitcoinTest {
             assertEquals(type, reviewed.account.scriptType, type.name)
             assertEquals(10_000L, reviewed.review.feeSats, type.name)
 
-            val frames = store.bitcoinSign(id, reviewed.account, request, STRICT, SigningSourcePolicy.ANY, unverifiedConfirmed = false)
-            val scanner = UrScanner()
-            frames.forEach { scanner.receive(it) }
-            val tx = BtcPsbt.finalizeAndExtract(BtcPsbt.fromUr(assertNotNull(scanner.result())))
-            assertTrue(BtcFixtures.verifies(tx, listOf(coin.previous.txOut[0])), "${type.name}: the interpreter rejects the transaction")
         }
     }
 

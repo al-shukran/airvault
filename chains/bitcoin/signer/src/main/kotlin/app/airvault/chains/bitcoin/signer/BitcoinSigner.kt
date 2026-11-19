@@ -15,8 +15,17 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcSigner
 import app.lensly.core.btc.ScriptType
 
-/** The Lensly side of the Bitcoin chain app: its manifest, its request parser, its address codec and the signing of an approved request. */
-object BitcoinSigner : SignerApp {
+/**
+ * The Lensly side of the Bitcoin chain app: its manifest, its request parser, its address codec and the signing of an approved request.
+ *
+ * The owner's Bitcoin policies are the signer's own, so a signature is made under the policies its review was made under. An instance built
+ * with the core defaults is the one the installed list holds. The one sign flow signs with an instance built from the owner's settings.
+ */
+class BitcoinSigner(
+    private val inputPolicy: InputVerificationPolicy = InputVerificationPolicy.STRICT,
+    private val sourcePolicy: SigningSourcePolicy = SigningSourcePolicy.ANY,
+    private val feeThresholds: BtcFeeThresholds = BtcFeeThresholds.DEFAULT,
+) : SignerApp {
     override val manifest: ChainManifest = bitcoinManifest
 
     override val parser: RequestParser = BitcoinRequestParser
@@ -26,15 +35,15 @@ object BitcoinSigner : SignerApp {
     /**
      * Signs the approved PSBT of [request] with the keys of the one account its header names, and answers with the signed `crypto-psbt`.
      * The request is read again from its body, and the approval must be for the request's chain. The signer reviews the PSBT against that
-     * account, signs the inputs the account owns, and refuses the request as the review does. A request that names no account, or more than
-     * one, is refused. The default policies apply: strict input amounts, any signing source and the default fee thresholds.
+     * account, signs the inputs the account owns, and refuses the request as the review does, under this signer's policies. A request that
+     * names no account, or more than one, is refused.
      */
     override fun sign(request: AppRequest, approval: Approval, keys: KeyAccess): SignResponse {
         val psbt = BtcPsbt.parse(request.body)
         require(approval.review.chain == request.header.chain) { "The approval is for another chain." }
         val account = accountOf(request.header.signers)
         require(chainIdOf(account.network) == request.header.chain) { ACCOUNT_CHAIN_REFUSED }
-        val signer = BtcSigner(account.network, account.scriptType, account.accountIndex, account.fingerprint, keys)
+        val signer = BtcSigner(account.network, account.scriptType, account.accountIndex, account.fingerprint, keys, inputPolicy, sourcePolicy, feeThresholds)
         val signed = signer.sign(psbt, unverifiedAmountsConfirmed = UNVERIFIED_CHECK in approval.acknowledged)
         return SignResponse(BtcPsbt.UR_TYPE, BtcPsbt.cborOf(signed.psbt))
     }

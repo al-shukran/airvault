@@ -147,6 +147,30 @@ object BtcFixtures {
     )
 
     /**
+     * A PSBT whose one input gives only its previous transaction, as a wallet sends it when it gives no witness UTXO. The input claims the key of
+     * [spend], so the signer owns it. A nested input carries the P2WPKH script of that key as its redeem script. [txOuts] are the request's outputs.
+     */
+    fun previousTransactionOnly(spend: Spend, txOuts: List<TxOut>): Psbt {
+        val account = spend.account
+        val redeemScript = if (account.scriptType == ScriptType.NESTED_SEGWIT) {
+            Script.pay2wpkh(account.publicKey(spend.branch, spend.index))
+        } else {
+            null
+        }
+        val tx = Transaction(
+            version = 2,
+            txIn = listOf(TxIn(OutPoint(spend.funding.hash, 0L), ByteVector.empty, 0xFFFFFFFDL)),
+            txOut = txOuts,
+            lockTime = 0L,
+        )
+        val path = account.path.derive(spend.branch.toLong()).derive(spend.claimedIndex.toLong())
+        val derivation = mapOf(account.publicKey(spend.branch, spend.index) to KeyPathWithMaster(account.masterFingerprint, path))
+        return checkNotNull(
+            Psbt(tx).updateNonWitnessInput(spend.funding, 0, redeemScript = redeemScript, derivationPaths = derivation).right,
+        )
+    }
+
+    /**
      * The signer of [account], whose keys are the keys [seed] derives through the WalletKeyAccess the app signs with. [seed] is the seed
      * [account] was derived from.
      */

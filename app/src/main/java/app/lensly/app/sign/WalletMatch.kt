@@ -1,10 +1,12 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.core.model.AppId
 import app.airvault.core.signer.RequestHeader
-import app.lensly.core.btc.claimsAccount
+import app.airvault.core.signer.SignerRef
+import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
-import fr.acinq.bitcoin.psbt.Psbt
 
 /** Which wallets of a vault a request is for. */
 sealed interface WalletMatch {
@@ -23,27 +25,20 @@ sealed interface WalletMatch {
  */
 sealed interface ScannedRequest {
     data class Ethereum(val request: EthSignRequest) : ScannedRequest
-    data class Bitcoin(val psbt: Psbt) : ScannedRequest
 
-    /** A request an installed chain app parsed. [header] names the keys it asks for. */
+    /** A request an installed chain app parsed. [header] names the keys it asks for, one signer per key. */
     data class App(val header: RequestHeader) : ScannedRequest
 }
 
 /**
- * The wallets of [wallets] that a scanned [request] is for. An Ethereum request goes by [matchWallet]. A Bitcoin request is for a wallet
- * whose master fingerprint and Bitcoin Account path one of its inputs names. An app request with one signer, such as Solana or Algorand,
- * is for a Mnemonic wallet whose master fingerprint it names. A Single Key wallet has no master key, so it is never for a Bitcoin or
- * app request.
+ * The wallets of [wallets] that a scanned [request] is for. An Ethereum request goes by [matchWallet]. An app request is for each wallet that one
+ * of its signers names, as [namesWallet] says. A Single Key wallet has no master key, so it is never for an app request.
  */
 fun routeScan(request: ScannedRequest, wallets: List<WalletView>): WalletMatch = when (request) {
     is ScannedRequest.Ethereum -> matchWallet(request.request, wallets)
-    is ScannedRequest.Bitcoin -> matchesOf(
-        wallets.filter { wallet ->
-            val fingerprint = wallet.masterFingerprint?.toLong()?.and(UINT32_MASK) ?: return@filter false
-            wallet.bitcoinAccountPaths.any { claimsAccount(request.psbt, fingerprint, it) }
-        },
+    is ScannedRequest.App -> matchesOf(
+        wallets.filter { wallet -> request.header.signers.any { namesWallet(request.header.app, it, wallet) } },
     )
-    is ScannedRequest.App -> byFingerprint(request.header.signers.singleOrNull()?.fingerprint, wallets)
 }
 
 /**
@@ -53,16 +48,33 @@ fun routeScan(request: ScannedRequest, wallets: List<WalletView>): WalletMatch =
 fun matchWallet(request: EthSignRequest, wallets: List<WalletView>): WalletMatch =
     matchesOf(wallets.filter { isFor(request, it) })
 
-private fun byFingerprint(fingerprint: Int?, wallets: List<WalletView>): WalletMatch =
-    if (fingerprint == null) WalletMatch.None else matchesOf(wallets.filter { it.masterFingerprint == fingerprint })
+/**
+ * True when [signer], a key an app request asks for, is one of [wallet]'s keys: the wallet's master fingerprint is the signer's. A Bitcoin request
+ * names an account path too, so it is for a wallet only when the wallet stores that Bitcoin Account. A request from an account the wallet does not
+ * hold is for no wallet.
+ */
+private fun namesWallet(app: AppId, signer: SignerRef, wallet: WalletView): Boolean {
+    val fingerprint = wallet.masterFingerprint ?: return false
+    if (signer.fingerprint != fingerprint) return false
+    return app != bitcoinManifest.id || wallet.bitcoinAccountPaths.any { it.path == accountChildren(signer.path) }
+}
+
+/** The child numbers of the account path m/purpose'/coin'/account' that [path] starts with, as a KeyPath holds them: a hardened level sets bit 31. */
+private fun accountChildren(path: List<PathStep>): List<Long> = path.take(ACCOUNT_PATH_LEVELS).map { step ->
+    step.index.toLong() + if (step.hardened) HARDENED_BIT else 0L
+}
+
+/** The levels of an account path, m/purpose'/coin'/account'. */
+private const val ACCOUNT_PATH_LEVELS = 3
+
+/** The bit that marks a hardened child number. */
+private const val HARDENED_BIT = 0x8000_0000L
 
 private fun matchesOf(matches: List<WalletView>): WalletMatch = when (matches.size) {
     0 -> WalletMatch.None
     1 -> WalletMatch.One(matches.single().id)
     else -> WalletMatch.Several(matches.size)
 }
-
-private const val UINT32_MASK = 0xFFFFFFFFL
 
 private fun isFor(request: EthSignRequest, wallet: WalletView): Boolean {
     val fingerprint = wallet.masterFingerprint
