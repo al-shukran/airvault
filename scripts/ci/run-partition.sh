@@ -78,27 +78,42 @@ lane_classes() {
     done < "$SHARDS"
 }
 
-run_resolve() {
-    # Network errors are retried, because a dropped connection is not a defect. A dependency that cannot be resolved for another
-    # reason fails at once: retrying a verification or a missing artifact only hides it.
+# Runs one online Gradle call. Network errors are retried, because a dropped connection is not a defect. Any other failure
+# fails at once: retrying a verification or a missing artifact only hides it.
+online() {
     local attempt log
     for attempt in 1 2 3; do
         log="$(mktemp)"
-        if ./gradlew --no-configuration-cache resolveAll 2>&1 | tee "$log"; then
+        if "$@" 2>&1 | tee "$log"; then
             rm -f "$log"
             return 0
         fi
         if ! grep -q -E 'Could not GET|Could not HEAD|Connect timed out|Read timed out|Connection reset|failed: timeout|Received status code|status code (429|50[0-9])' "$log"; then
             rm -f "$log"
-            echo "run-partition: resolveAll failed without a network error, so it is not retried" >&2
+            echo "run-partition: $1 failed without a network error, so it is not retried" >&2
             exit 1
         fi
         rm -f "$log"
-        echo "::warning::run-partition: resolveAll hit a network error (attempt $attempt of 3); retrying in 30 s"
+        echo "::warning::run-partition: $1 hit a network error (attempt $attempt of 3); retrying in 30 s"
         sleep 30
     done
-    echo "run-partition: resolveAll failed after 3 attempts" >&2
+    echo "run-partition: $1 failed after 3 attempts" >&2
     exit 1
+}
+
+# A configuration-cache store resolves the plugins' detached configurations (AGP's aapt2, KSP's symbol processor), which no
+# project lists. The offline lanes store the same entries, so their stores need those artifacts cached. A dry run with the
+# configuration cache on stores the entry, online, for the tasks the lanes run.
+prime_tasks=(
+    :app:testDebugUnitTest :app:processReleaseMainManifest :app:verifyRoborazziDebug
+    :app:compileDebugAndroidTestKotlin :app:compileBenchmarkKotlin :app:compileBenchmarkAndroidTestKotlin
+    :lumio:testDebugUnitTest :lumio:verifyRoborazziDebug :lumio:compileDebugAndroidTestKotlin :lumio:compileBenchmarkKotlin
+    :lumio:assembleDebug :shared:testDebugUnitTest lintDebug
+)
+
+run_resolve() {
+    online ./gradlew --no-configuration-cache resolveAll
+    online ./gradlew --dry-run --configuration-cache "${prime_tasks[@]}"
 }
 
 run_shard() {
