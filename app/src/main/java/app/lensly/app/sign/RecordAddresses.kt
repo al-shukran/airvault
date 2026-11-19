@@ -1,5 +1,6 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.algorand.AlgorandNetwork
 import app.airvault.core.model.ChainId
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.BITCOIN_FAMILY
@@ -7,6 +8,10 @@ import app.lensly.app.EVM_FAMILY
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.canonicalAddressOn
 import app.lensly.app.chainOfAddress
+
+/** The name an Algorand record carries for a request refused before any review named its network, and every name an Algorand record can carry. */
+private const val ALGORAND_NETWORK = "Algorand"
+private val ALGORAND_NETWORK_NAMES: Set<String> = AlgorandNetwork.entries.map { it.displayName }.toSet() + ALGORAND_NETWORK
 
 /**
  * One address a Review Record shows: the label of the row it is in, the address as the record holds it, and the chain it is on.
