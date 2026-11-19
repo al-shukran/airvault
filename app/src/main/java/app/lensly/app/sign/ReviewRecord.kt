@@ -3,6 +3,8 @@ package app.lensly.app.sign
 import app.airvault.chains.bitcoin.signer.btcText
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.core.model.SummaryPart
+import app.airvault.core.model.text
 import app.lensly.app.BitcoinReviewed
 import app.lensly.core.registry.Registry
 import app.lensly.core.wallet.toHex
@@ -188,28 +190,35 @@ fun bitcoinReviewRecordOf(entry: BitcoinReviewEntry, atMs: Long): ReviewRecord {
 fun bitcoinDataHash(psbt: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(psbt).toHex()
 
 /**
- * The Review Record of [entry], written at [atMs]. A review gives the facts the owner saw. Without one, the chain and its network
- * name come from the request and [registry].
+ * The Review Record of [entry], written at [atMs]. A review gives the facts the owner saw: its title is the function, its header names the
+ * target, its summary states the amount, and its facts and argument rows are the fee and the params. Without a review, the chain and its
+ * network name come from the request and [registry].
  */
 fun reviewRecordOf(entry: ReviewEntry, atMs: Long, registry: Registry): ReviewRecord {
     val request = entry.request
-    val review = entry.ready?.review
-    val chainId = review?.chainId ?: request.chainId
+    val ready = entry.ready
+    val review = ready?.review
+    val chainId = request.chainId
+    // The first section is the header, the rows that name the request's target and function.
+    val header = review?.sections?.firstOrNull()?.rows.orEmpty()
+    val amount = review?.summary?.filterIsInstance<SummaryPart.Mono>()?.firstOrNull()?.text
+    val target = header.firstOrNull { it.label == "To" || it.label == "Contract" }
     return ReviewRecord(
         atMs = atMs,
         outcome = entry.outcome,
         kind = kindOf(request.dataType),
         chainId = chainId,
-        networkName = review?.networkName ?: chainId?.let { registry.network(it)?.name ?: unknownNetworkName(it) },
-        accountIndex = entry.ready?.accountIndex,
-        address = review?.fromAddress,
-        function = review?.function,
-        to = review?.toAddress?.takeIf { it.isNotEmpty() },
-        amount = review?.let { listOf(it.amount, it.symbol).filter { part -> part.isNotEmpty() }.joinToString(" ") }
-            ?.takeIf { it.isNotEmpty() },
-        tokenContract = review?.tokenContract,
-        fee = review?.let { it.fee + listOfNotNull(it.feeNote?.let { note -> "Note" to note }) }.orEmpty(),
-        params = review?.params.orEmpty(),
+        networkName = chainId?.let { registry.network(it)?.name ?: unknownNetworkName(it) },
+        accountIndex = ready?.accountIndex,
+        address = ready?.signer?.address,
+        function = review?.title,
+        to = target?.value?.text()?.takeIf { it.isNotEmpty() },
+        amount = amount,
+        // A token amount names the contract that moves it, which is the review's contract row.
+        tokenContract = target?.takeIf { it.label == "Contract" && amount != null }?.value?.text(),
+        fee = review?.facts.orEmpty().map { it.label to it.value.text() },
+        params = review?.sections.orEmpty().drop(1).flatMap { it.rows }.filter { it.value != null }
+            .map { it.label to it.value.text() },
         origin = request.origin,
         refusal = entry.refusal,
         dataHash = MessageDigest.getInstance("SHA-256").digest(request.signData).toHex(),

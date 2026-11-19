@@ -38,6 +38,7 @@ import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.algorandCounterparties
 import app.lensly.app.sign.algorandReviewRecordOf
 import app.lensly.app.sign.bitcoinReviewRecordOf
+import app.lensly.app.sign.evmCounterparties
 import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.sign.solanaCounterparties
 import app.lensly.app.sign.solanaReviewRecordOf
@@ -111,8 +112,7 @@ internal class VaultSignPorts(
         val prepared = SignPipeline(RegistryHolder.get(context), parser, settings.proxyPolicy, settings.unknownCallPolicy)
             .prepare(parsed, wallet)
         if (prepared !is Prepared.Ready) return@withContext prepared
-        val review = prepared.review
-        prepared.copy(review = review.copy(addressNotes = addressNotesFor(walletId, review.counterparties, EVM_FAMILY)))
+        prepared.copy(addressNotes = addressNotesFor(walletId, evmCounterparties(prepared.review), EVM_FAMILY))
     }
 
     /** The account that signs a request, as its review names it: its name, its wallet's name and its address. */
