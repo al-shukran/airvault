@@ -1,0 +1,308 @@
+package app.airvault.chains.evm.signer
+
+import app.airvault.abi.AbiDecoder
+import app.airvault.abi.WhitelistParam
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.Coverage
+import app.airvault.core.model.Danger
+import app.airvault.core.model.FieldPath
+import app.airvault.core.model.NetworkLabel
+import app.airvault.core.model.Review
+import app.airvault.core.model.checked
+import app.airvault.core.model.text
+import app.airvault.core.model.unaccounted
+import app.lensly.core.registry.DenylistCondition
+import app.lensly.core.registry.DenylistEntry
+import app.lensly.core.registry.DenylistSeverity
+import app.lensly.core.registry.FeeModel
+import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.ProxyPolicy
+import app.lensly.core.registry.Registry
+import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.UnknownCallPolicy
+import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.ur.PathStep
+import app.lensly.core.wallet.toHex
+import java.math.BigInteger
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import org.web3j.utils.Numeric
+
+private const val USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+private const val USDC_LOWER = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+private const val SPENDER = "0x1111111111111111111111111111111111111111"
+private const val NFT = "0x2222222222222222222222222222222222222222"
+private const val MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11"
+private const val SENDER = "0x3333333333333333333333333333333333333333"
+private const val APPROVE_SELECTOR = "0x095ea7b3"
+private const val UNLIMITED_WARNING = "Unlimited approval: this contract can spend all your USDC"
+private const val SET_APPROVAL_WARNING = "Grants control of ALL your NFTs in this collection"
+private const val UNKNOWN_WARNING =
+    "Unknown contract call. Lensly does not read this call, so it cannot say what it does. Check the contract and the calldata before you sign."
+private const val ACK_UNLIMITED = "I understand this approval is unlimited."
+private const val ACK_ALL_NFTS = "I understand this grants control of all NFTs in this collection."
+private const val ACK_UNKNOWN = "I understand Lensly cannot say what this call does."
+private const val ACK_DENYLIST = "I understand this request matches a known-dangerous request."
+private const val ACK_WHITELIST = "I have read what this call is approved to do."
+
+private val MAX_UINT256: BigInteger = BigInteger.ONE.shiftLeft(256).subtract(BigInteger.ONE)
+private val PATH = listOf(
+    PathStep(44, true),
+    PathStep(60, true),
+    PathStep(0, true),
+    PathStep(0, false),
+    PathStep(0, false),
+)
+
+/** Monad testnet (10143), as the debug catalog names it, and Ethereum with USDC. */
+private val REGISTRY = Registry(
+    networks = listOf(
+        NetworkEntry(10143, "Monad Testnet", "MON", 18, FeeModel.L1, "MonadVision", testnet = true),
+        NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false),
+    ),
+    tokens = listOf(TokenEntry(1, USDC_LOWER, "USDC", "USD Coin", 6)),
+)
+
+private fun builder(
+    registry: Registry = REGISTRY,
+    unknownCalls: UnknownCallPolicy = UnknownCallPolicy.REFUSE,
+    proxyPolicy: ProxyPolicy = ProxyPolicy.DEFAULT,
+) = EvmReviewBuilder(registry, { calldata, params -> AbiDecoder.decode(calldata, params) }, proxyPolicy, unknownCalls)
+
+/** The parsed request of a legacy transaction to [to] with [data], as a wallet sends it. */
+private fun txParsed(to: String, data: ByteArray, value: BigInteger = BigInteger.ZERO, chainId: Long = 1): ParsedRequest {
+    val tx = UnsignedTx(
+        type = TxType.LEGACY_EIP155,
+        chainId = BigInteger.valueOf(chainId),
+        nonce = BigInteger.valueOf(7),
+        to = to,
+        value = value,
+        data = "0x" + data.toHex(),
+        gasLimit = BigInteger.valueOf(60_000),
+        gasPrice = BigInteger.valueOf(2_000_000_000),
+        maxPriorityFeePerGas = null,
+        maxFeePerGas = null,
+    )
+    val request = EthSignRequest(
+        requestId = null,
+        signData = tx.encode()!!,
+        dataType = DataType.TRANSACTION,
+        chainId = chainId,
+        derivationPath = PATH,
+        sourceFingerprint = null,
+        address = null,
+        origin = "dapp.example",
+    )
+    return EvmRequestParser.parsedOf(request)
+}
+
+/** The review of [parsed], which must show every field it decodes: the coverage check holds for every review this file builds. */
+private fun reviewOf(parsed: ParsedRequest, builder: EvmReviewBuilder = builder()): Review {
+    val review = assertIs<EvmReviewResult.Ok>(builder.review(parsed, SENDER)).review
+    assertTrue(review.unaccounted().isEmpty(), "every decoded field is shown: ${review.unaccounted()}")
+    return review
+}
+
+private fun refusalOf(parsed: ParsedRequest, builder: EvmReviewBuilder = builder()): EvmReviewResult.Refused =
+    assertIs<EvmReviewResult.Refused>(builder.review(parsed, SENDER))
+
+class EvmReviewTest {
+    @Test
+    fun aNativeTransferOnMonadTestnetIsLabelledWithItsRegistryNetwork() {
+        val review = reviewOf(txParsed(SPENDER, ByteArray(0), value = BigInteger("10000000000000000"), chainId = 10143))
+
+        assertEquals(ChainId("eip155:10143"), review.chain)
+        assertEquals(NetworkLabel("Monad Testnet", testnet = true, detail = "Chain ID 10143"), review.network)
+        assertEquals("Sends 0.01 MON to $SPENDER.", review.summary.text())
+        assertTrue(review.warnings.isEmpty())
+    }
+
+    @Test
+    fun anUnlimitedApprovalIsDangerAndNamesItsCheck() {
+        val review = reviewOf(txParsed(USDC, ContractCall.Approve(SPENDER, MAX_UINT256).encode()!!))
+
+        val warning = review.warnings.single { it.code == "evm.unlimited-approval" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals(UNLIMITED_WARNING, warning.message)
+        assertEquals(FieldPath("evm.data.value"), warning.field)
+        assertEquals(ACK_UNLIMITED, warning.acknowledge)
+    }
+
+    @Test
+    fun aLimitedApprovalIsNotWarnedAgainst() {
+        val review = reviewOf(txParsed(USDC, ContractCall.Approve(SPENDER, BigInteger("1000000")).encode()!!))
+
+        assertTrue(review.warnings.isEmpty())
+    }
+
+    @Test
+    fun aSetApprovalForAllGrantIsDangerAndNamesItsCheck() {
+        val review = reviewOf(txParsed(NFT, ContractCall.SetApprovalForAll(SPENDER, true).encode()!!))
+
+        val grant = review.warnings.single { it.code == "evm.approval-for-all" }
+        assertEquals(Danger.DANGER, grant.level)
+        assertEquals(SET_APPROVAL_WARNING, grant.message)
+        assertEquals(ACK_ALL_NFTS, grant.acknowledge)
+        // The NFT contract is outside the token registry, so its check is named too.
+        assertTrue(review.warnings.any { it.code == "evm.registry" && it.acknowledge != null })
+    }
+
+    @Test
+    fun aBlockDenylistMatchRefusesTheRequestWithItsReason() {
+        val blocked = REGISTRY.withDenylist(
+            listOf(DenylistEntry(chainId = 1, contract = NFT, severity = DenylistSeverity.BLOCK, reason = "Blocked collection.")),
+        )
+
+        val refused = refusalOf(txParsed(NFT, ContractCall.SetApprovalForAll(SPENDER, true).encode()!!), builder(blocked))
+
+        assertEquals("Blocked collection.", refused.reason)
+    }
+
+    @Test
+    fun aWarnDenylistMatchIsDangerAndNeedsItsCheck() {
+        val warned = REGISTRY.withDenylist(
+            listOf(
+                DenylistEntry(
+                    chainId = 1,
+                    contract = USDC_LOWER,
+                    selector = APPROVE_SELECTOR,
+                    condition = DenylistCondition.UNLIMITED,
+                    severity = DenylistSeverity.WARN,
+                    reason = "A known drainer approval.",
+                ),
+            ),
+        )
+
+        val review = reviewOf(txParsed(USDC, ContractCall.Approve(SPENDER, MAX_UINT256).encode()!!), builder(warned))
+
+        val denylist = review.warnings.single { it.code == "evm.denylist" }
+        assertEquals(Danger.DANGER, denylist.level)
+        assertEquals("A known drainer approval.", denylist.message)
+        assertEquals(ACK_DENYLIST, denylist.acknowledge)
+    }
+
+    @Test
+    fun aDecodedFieldNoRowShowsBlocksTheReview() {
+        val unshown = Review(
+            title = "Native Transfer",
+            chain = ChainId("eip155:1"),
+            network = NetworkLabel("Ethereum", testnet = false, detail = "Chain ID 1"),
+            summary = emptyList(),
+            facts = emptyList(),
+            sections = emptyList(),
+            warnings = emptyList(),
+            coverage = Coverage(decoded = setOf(FieldPath("evm.value")), excluded = emptyMap()),
+        )
+
+        val checked = unshown.checked()
+
+        assertEquals(Danger.BLOCK, checked.warnings.single().level)
+        assertEquals("coverage", checked.warnings.single().code)
+    }
+
+    @Test
+    fun aMulticallListsItsCallsAndWarnsOfTheUnlimitedApprovalInsideIt() {
+        val approve = ContractCall.Approve(SPENDER, MAX_UINT256).encode()!!
+        val call = InnerCall(
+            target = USDC,
+            allowFailure = false,
+            value = null,
+            calldata = approve,
+            call = ContractCall.decode(approve),
+            nested = null,
+        )
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!
+
+        val review = reviewOf(txParsed(MULTICALL3, batch))
+
+        assertEquals("aggregate3", review.title)
+        assertNotNull(review.sections.singleOrNull { it.heading == "Calls" })
+        val unlimited = review.warnings.single { it.code == "evm.unlimited-approval" }
+        assertEquals(FieldPath("evm.data.call[0].value"), unlimited.field)
+        assertEquals(UNLIMITED_WARNING, unlimited.message)
+    }
+
+    @Test
+    fun anUnknownCallIsRefusedWithItsRawDataUnderTheRefusePolicy() {
+        val calldata = Numeric.hexStringToByteArray("0xdeadbeef") + ByteArray(32) { 1 }
+
+        val refused = refusalOf(txParsed(NFT, calldata))
+
+        assertEquals("Unknown Contract Call", refused.reason)
+        assertEquals("deadbeef", refused.call?.selector)
+        assertNull(refused.call?.proxy)
+    }
+
+    @Test
+    fun anUnknownCallIsDangerUnderTheWarnPolicyAndNamesItsCheck() {
+        val calldata = Numeric.hexStringToByteArray("0xdeadbeef") + ByteArray(32) { 1 }
+
+        val review = reviewOf(txParsed(NFT, calldata), builder(unknownCalls = UnknownCallPolicy.WARN))
+
+        val unknown = review.warnings.single { it.code == "evm.unknown-call" }
+        assertEquals(Danger.DANGER, unknown.level)
+        assertEquals(UNKNOWN_WARNING, unknown.message)
+        assertEquals(ACK_UNKNOWN, unknown.acknowledge)
+        assertEquals(listOf("Selector", "Calldata"), review.sections.single { it.heading == "Arguments" }.rows.map { it.label })
+    }
+
+    @Test
+    fun aWhitelistedCallShowsItsApprovedMeaningAndItsDecodedArguments() {
+        val signature = "foo(address,uint256)"
+        val entry = WhitelistEntry(
+            chainId = 1,
+            contract = NFT,
+            selector = WhitelistEntry.selectorOf(signature),
+            signature = signature,
+            meaning = "Moves the amount to the recipient.",
+            params = listOf(WhitelistParam("to", "address"), WhitelistParam("amount", "uint256")),
+            upgradeable = false,
+        )
+        val registry = REGISTRY.withWhitelist(listOf(entry))
+        val calldata = Numeric.hexStringToByteArray(entry.selector) + word(BigInteger(SPENDER.removePrefix("0x"), 16)) +
+            word(BigInteger.valueOf(42))
+
+        val review = reviewOf(txParsed(NFT, calldata), builder(registry))
+
+        assertEquals("foo", review.title)
+        val arguments = review.sections.single { it.heading == "Arguments" }.rows
+        assertEquals("Moves the amount to the recipient.", arguments.single { it.label == "Approved Meaning" }.value.text())
+        assertEquals("42", arguments.single { it.label == "amount (uint256)" }.value.text())
+        val approved = review.warnings.single { it.code == "evm.whitelisted-call" }
+        assertEquals(Danger.CAUTION, approved.level)
+        assertEquals(ACK_WHITELIST, approved.acknowledge)
+    }
+
+    @Test
+    fun aPersonalMessageShowsItsTextWithACautionAndNoFee() {
+        val request = EthSignRequest(
+            requestId = null,
+            signData = "hello".toByteArray(),
+            dataType = DataType.PERSONAL_MESSAGE,
+            chainId = 10143,
+            derivationPath = PATH,
+            sourceFingerprint = null,
+            address = null,
+            origin = "dapp.example",
+        )
+
+        val review = reviewOf(EvmRequestParser.parsedOf(request))
+
+        assertEquals("Sign Message", review.title)
+        val message = review.sections.single { it.heading == "Message" }.rows
+        assertEquals("hello", message.single { it.label == "Message" }.value.text())
+        assertEquals("5 characters, 5 bytes", message.single { it.label == "Size" }.value.text())
+        assertTrue(review.facts.isEmpty())
+        assertEquals(Danger.CAUTION, review.warnings.single().level)
+    }
+}
+
+/** A 32-byte ABI word holding [value]. */
+private fun word(value: BigInteger): ByteArray {
+    val bytes = value.toByteArray().takeLast(32).toByteArray()
+    return ByteArray(32 - bytes.size) + bytes
+}
