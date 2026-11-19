@@ -8,7 +8,7 @@ import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.core.algorand.AlgoTxnVectors
-import app.lensly.core.algorand.AlgorandRequestCheck.UNKNOWN_NETWORK
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.UNKNOWN_NETWORK
 import app.lensly.core.ur.framesOf
 import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertContentEquals

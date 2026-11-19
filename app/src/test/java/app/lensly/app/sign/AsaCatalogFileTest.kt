@@ -1,7 +1,7 @@
 package app.lensly.app.sign
 
 import app.airvault.chains.algorand.AlgorandNetwork
-import app.lensly.core.algorand.AsaCatalog
+import app.airvault.chains.algorand.signer.AsaCatalog
 import java.io.File
 import java.util.Base64
 import kotlin.test.assertEquals

@@ -1,5 +1,5 @@
 package app.lensly.app.sign
-
+import app.airvault.core.model.isPrintable
 import app.lensly.core.evm.EIP712_DOMAIN
 import app.lensly.core.evm.TypedData
 import app.lensly.core.evm.TypedField

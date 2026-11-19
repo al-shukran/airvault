@@ -1,9 +1,12 @@
 package app.lensly.app.sign
 
-import app.lensly.core.algorand.AlgorandRequestCheck
-import app.lensly.core.algorand.AlgorandRequestReview
-import app.lensly.core.algorand.AlgorandWarning
-import app.lensly.core.algorand.AsaCatalog
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck
+import app.airvault.chains.algorand.signer.AlgorandRequestReview
+import app.airvault.chains.algorand.signer.AlgorandWarning
+import app.airvault.chains.algorand.signer.AsaCatalog
+import app.airvault.chains.algorand.signer.toReview
+import app.airvault.chains.algorand.signer.warningText
+import app.airvault.core.model.text
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -369,3 +372,15 @@ class AlgorandReviewRowsTest {
                 "b9bd1467c72e3c660fc8c2bd2c6538a474797065a56178666572a478616964ce01e1ab70"
     }
 }
+
+private fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> =
+    review.toReview().sections.flatMap { it.rows }.map { it.label to it.value.text() }
+
+private fun algorandSentence(review: AlgorandRequestReview): String = review.toReview().summary
+
+private fun algorandFacts(review: AlgorandRequestReview): List<Pair<String, String>> =
+    review.toReview().facts.map { it.label to it.value.text() }
+
+private fun algorandTitle(review: AlgorandRequestReview): String = review.toReview().title
+
+private fun algorandWarningText(review: AlgorandRequestReview, warning: AlgorandWarning): String = review.warningText(warning)

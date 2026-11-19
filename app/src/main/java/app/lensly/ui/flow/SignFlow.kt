@@ -20,7 +20,7 @@ import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
-import app.lensly.core.algorand.AlgorandRequestReview
+import app.airvault.chains.algorand.signer.AlgorandRequestReview
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.airvault.chains.bitcoin.signer.bitcoinManifest

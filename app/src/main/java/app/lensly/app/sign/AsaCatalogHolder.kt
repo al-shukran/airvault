@@ -1,7 +1,7 @@
 package app.lensly.app.sign
 
 import android.content.Context
-import app.lensly.core.algorand.AsaCatalog
+import app.airvault.chains.algorand.signer.AsaCatalog
 
 /**
  * The bundled ASA catalog that Algorand reviews name their assets from: `app/src/main/assets/algorand/asa-catalog.json`, written by
