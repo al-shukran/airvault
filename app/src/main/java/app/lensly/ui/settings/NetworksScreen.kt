@@ -7,21 +7,17 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,9 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -42,8 +36,10 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.ListRow
 import app.lensly.ui.components.PillChip
-import app.lensly.ui.components.pressFeedback
+import app.lensly.ui.components.RowArrow
+import app.lensly.ui.components.settingsIslandItems
 import app.lensly.ui.theme.LenslySpacing
 
 /** The filters of the Networks screen: every network, the mainnets, or the testnets. */
@@ -60,15 +56,8 @@ internal enum class NetworkFilter(val label: String) {
     }
 }
 
-/** The logo on a network card. */
-private val NETWORK_ICON_SIZE = 56.dp
-
-/**
- * The smallest a closed network card may be: the height a card with a testnet chip and a two-line name takes. Every closed
- * card keeps it, so a one-line name and a name that wraps to two lines line up in the row. The name is never cut short, so a
- * longer name grows the card; an open card grows past it too.
- */
-private val NETWORK_CARD_MIN_HEIGHT = 220.dp
+/** The logo on a network row. */
+private val NETWORK_ICON_SIZE = 40.dp
 
 /** The first rows fade in one after another, [WAVE_STEP_MS] apart. Later rows fade in at once, so scrolling is not held up. */
 private const val WAVE_ROWS = 8
@@ -76,9 +65,9 @@ private const val WAVE_STEP_MS = 60
 private const val REVEAL_MS = 250
 
 /**
- * The networks Lensly can sign for, two to a row. A filter picks all of them, the mainnets or the testnets. A card shows the
- * network's logo, name, chain ID and native symbol, and a tap on it opens the fee model and the number of tokens the network
- * supports. The rows fade in as the screen first shows. [networks] and [tokens] are the catalog as read.
+ * The networks Lensly can sign for, one island of rows. A filter picks all of them, the mainnets or the testnets. A row shows the
+ * network's logo, name, chain ID, native symbol and a Testnet chip, and a tap on it opens the fee model and the number of tokens the
+ * network supports. The rows fade in as the screen first shows. [networks] and [tokens] are the catalog as read.
  */
 @Composable
 fun NetworksScreen(
@@ -90,14 +79,14 @@ fun NetworksScreen(
     var filter by remember { mutableStateOf(NetworkFilter.ALL) }
     var expanded by remember { mutableStateOf(emptySet<Long>()) }
     val tokenCounts = remember(tokens) { tokens.groupingBy { it.chainId }.eachCount() }
-    val rows = networks.filter(filter::keeps).chunked(2)
+    val shown = networks.filter(filter::keeps)
 
     LenslyScreen(title = "Networks", modifier = modifier, onBack = onBack, scrollable = false) {
         CatalogIntro(
             text = "Lensly can sign for these networks offline. Others are signed with a warning.",
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = LenslySpacing.md),
             horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
         ) {
             for (option in NetworkFilter.entries) {
@@ -108,24 +97,15 @@ fun NetworksScreen(
                 )
             }
         }
-        LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth().padding(top = LenslySpacing.md),
-            verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
-        ) {
-            itemsIndexed(rows, key = { _, row -> row.first().chainId }) { index, row ->
+        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth().padding(top = LenslySpacing.md)) {
+            settingsIslandItems(title = "Networks", rows = shown, key = { it.chainId }) { index, network ->
                 StaggeredReveal(index) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
-                        for (network in row) {
-                            NetworkCard(
-                                network = network,
-                                tokenCount = tokenCounts[network.chainId] ?: 0,
-                                expanded = network.chainId in expanded,
-                                onToggle = { expanded = expanded.toggled(network.chainId) },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                        if (row.size < 2) Spacer(Modifier.weight(1f))
-                    }
+                    NetworkRow(
+                        network = network,
+                        tokenCount = tokenCounts[network.chainId] ?: 0,
+                        expanded = network.chainId in expanded,
+                        onToggle = { expanded = expanded.toggled(network.chainId) },
+                    )
                 }
             }
         }
@@ -143,58 +123,46 @@ internal fun CatalogIntro(text: String) {
     )
 }
 
-/** One network as a card. A tap toggles the part that shows the fee model and the token count. */
+/** One network as a row. A tap toggles the part that shows the fee model and the token count. */
 @Composable
-private fun NetworkCard(
+private fun NetworkRow(
     network: NetworkEntry,
     tokenCount: Int,
     expanded: Boolean,
     onToggle: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    val interaction = remember { MutableInteractionSource() }
-    val shape = MaterialTheme.shapes.large
-    Column(
-        modifier = modifier
-            .pressFeedback(interaction, enabled = true)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onToggle)
-            .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
-            .testTag("network-card-${network.chainId}")
-            .heightIn(min = NETWORK_CARD_MIN_HEIGHT)
-            .padding(LenslySpacing.md),
-    ) {
-        ChainIcon(network = network, size = NETWORK_ICON_SIZE)
-        Spacer(Modifier.height(LenslySpacing.sm))
-        Text(
-            text = network.name,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            minLines = 2,
-        )
-        Spacer(Modifier.height(LenslySpacing.xxs))
-        Text(
-            text = "Chain ID ${network.chainId}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = network.nativeSymbol,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (network.testnet) {
-            Spacer(Modifier.height(LenslySpacing.xs))
-            PillChip(text = "Testnet")
+    Column(modifier = Modifier.fillMaxWidth().testTag("network-card-${network.chainId}")) {
+        ListRow(
+            onClick = onToggle,
+            modifier = Modifier.semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+        ) {
+            ChainIcon(network = network, size = NETWORK_ICON_SIZE)
+            Spacer(Modifier.width(LenslySpacing.sm))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = network.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "Chain ID ${network.chainId} · ${network.nativeSymbol}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (network.testnet) {
+                    Spacer(Modifier.height(LenslySpacing.xs))
+                    PillChip(text = "Testnet")
+                }
+            }
+            Spacer(Modifier.width(LenslySpacing.sm))
+            RowArrow()
         }
         AnimatedVisibility(
             visible = expanded,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically(),
         ) {
-            Column(modifier = Modifier.padding(top = LenslySpacing.sm)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = LenslySpacing.md)) {
                 Text(
                     text = "Fee Model",
                     style = MaterialTheme.typography.labelSmall,

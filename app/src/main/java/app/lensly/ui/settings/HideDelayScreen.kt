@@ -6,9 +6,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import app.lensly.app.HideDelay
+import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.NumberFieldSetting
-import app.lensly.ui.components.SettingsItem
+import app.lensly.ui.components.SettingsIsland
 
 /**
  * The hide delay of the dice and coin tiles, shortest and longest, in milliseconds, as two number fields. Each applies as it is typed,
@@ -32,7 +33,7 @@ fun HideDelayScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         // Each field is keyed on the other one's saved value, so a number typed earlier is dropped when the other delay moves the range.
-        SettingsItem {
+        SettingsIsland("Range") {
             key(longest) {
                 NumberFieldSetting(
                     title = "Shortest Delay",
@@ -42,8 +43,7 @@ fun HideDelayScreen(
                     onValid = onShortest,
                 )
             }
-        }
-        SettingsItem {
+            IslandDivider()
             key(shortest) {
                 NumberFieldSetting(
                     title = "Longest Delay",

@@ -1,6 +1,6 @@
 package app.lensly.ui.settings
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,10 +10,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,13 +31,28 @@ import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.TokenIcon
+import app.lensly.ui.components.settingsIslandItems
 import app.lensly.ui.home.groupedAddress
 import app.lensly.ui.theme.LenslySpacing
 
+/** One line of the Tokens island: a network's header, or one token under it. [key] names the line for the list. */
+private sealed interface TokenLine {
+    val key: String
+
+    data class Header(val chainId: Long, val network: NetworkEntry?, val count: Int) : TokenLine {
+        override val key: String = "chain-$chainId"
+    }
+
+    data class Token(val token: TokenEntry, val network: NetworkEntry?) : TokenLine {
+        override val key: String = "${token.chainId}-${token.contract}"
+    }
+}
+
 /**
- * The tokens Lensly can sign for, grouped under their network. A row of chain logos above the list picks one network, or all of
- * them. Each group opens with a sticky header: the network's logo, its name and its token count. Each token shows its logo,
- * symbol, name, decimals and full contract address. [networks] and [tokens] are the catalog as read.
+ * The tokens Lensly can sign for, in one island, grouped under their network. A row of chain logos above the island picks one network,
+ * or all of them. Each group opens with a header line: the network's logo, its name and its token count. Each token shows its logo,
+ * symbol, name, decimals and full contract address. The island is a lazy list, so only the tokens on screen are composed.
+ * [networks] and [tokens] are the catalog as read.
  */
 @Composable
 fun TokensScreen(
@@ -52,23 +65,29 @@ fun TokensScreen(
     val networkById = remember(networks) { networks.associateBy { it.chainId } }
     val groups = remember(tokens) { tokens.groupBy { it.chainId } }
     val chains = networks.filter { it.chainId in groups }
+    val lines = remember(groups, chainFilter, networkById) {
+        groups.entries
+            .filter { chainFilter == null || it.key == chainFilter }
+            .flatMap { (chainId, group) ->
+                val network = networkById[chainId]
+                listOf<TokenLine>(TokenLine.Header(chainId, network, group.size)) + group.map { TokenLine.Token(it, network) }
+            }
+    }
 
     LenslyScreen(title = "Tokens", modifier = modifier, onBack = onBack, scrollable = false) {
         CatalogIntro(
             text = "Lensly can sign for these tokens offline. Others are signed with a warning.",
         )
-        LazyRow(
-            modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md),
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = LenslySpacing.md),
             horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
         ) {
-            item(key = "all") {
-                FilterChip(
-                    selected = chainFilter == null,
-                    onClick = { chainFilter = null },
-                    label = { Text("All") },
-                )
-            }
-            items(chains, key = { it.chainId }) { network ->
+            FilterChip(
+                selected = chainFilter == null,
+                onClick = { chainFilter = null },
+                label = { Text("All") },
+            )
+            for (network in chains) {
                 FilterChip(
                     selected = chainFilter == network.chainId,
                     onClick = { chainFilter = network.chainId },
@@ -83,14 +102,10 @@ fun TokensScreen(
             }
         }
         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth().padding(top = LenslySpacing.md)) {
-            for ((chainId, group) in groups) {
-                if (chainFilter != null && chainFilter != chainId) continue
-                val network = networkById[chainId]
-                stickyHeader(key = "chain-$chainId") {
-                    GroupHeader(chainId = chainId, network = network, count = group.size)
-                }
-                items(group, key = { "${it.chainId}-${it.contract}" }) { token ->
-                    TokenRow(token = token, network = network, modifier = Modifier.animateItem())
+            settingsIslandItems(title = "Tokens", rows = lines, key = { it.key }) { _, line ->
+                when (line) {
+                    is TokenLine.Header -> GroupHeader(chainId = line.chainId, network = line.network, count = line.count)
+                    is TokenLine.Token -> TokenRow(token = line.token, network = line.network)
                 }
             }
         }
@@ -112,14 +127,11 @@ private val ROW_ICON_SIZE = 40.dp
  */
 private val ROW_MIN_HEIGHT = 172.dp
 
-/** The header of one network's group. It stays on top while the group's tokens scroll under it. */
+/** The header of one network's group, which sits in the island above that group's tokens. */
 @Composable
 private fun GroupHeader(chainId: Long, network: NetworkEntry?, count: Int) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(vertical = LenslySpacing.xs),
+        modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ChainIcon(network = network, size = HEADER_ICON_SIZE)
@@ -142,8 +154,8 @@ private fun GroupHeader(chainId: Long, network: NetworkEntry?, count: Int) {
 
 /** One token: its logo, symbol, name and decimals, then the full contract address in groups of four. */
 @Composable
-private fun TokenRow(token: TokenEntry, network: NetworkEntry?, modifier: Modifier) {
-    Column(modifier = modifier.fillMaxWidth().heightIn(min = ROW_MIN_HEIGHT).padding(vertical = LenslySpacing.md)) {
+private fun TokenRow(token: TokenEntry, network: NetworkEntry?) {
+    Column(modifier = Modifier.fillMaxWidth().heightIn(min = ROW_MIN_HEIGHT).padding(vertical = LenslySpacing.md)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TokenIcon(token = token, size = ROW_ICON_SIZE, chain = network)
             Spacer(Modifier.width(LenslySpacing.sm))
@@ -173,10 +185,6 @@ private fun TokenRow(token: TokenEntry, network: NetworkEntry?, modifier: Modifi
             icon = false,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = LenslySpacing.sm),
-        )
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
-            modifier = Modifier.padding(top = LenslySpacing.md),
         )
     }
 }

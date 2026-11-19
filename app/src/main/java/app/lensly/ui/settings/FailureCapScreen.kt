@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import app.lensly.core.vault.FailureDelay
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.SettingsIsland
 import app.lensly.ui.components.SliderSetting
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.PasswordStep
@@ -169,27 +170,30 @@ private fun ChooseContent(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        SliderSetting(
-            title = "Longest Wait",
-            options = FailureCapChoice.entries,
-            selected = shown,
-            label = { it.label },
-            onSelect = onSelect,
-            caption = { if (it.capMs == FailureDelay.DEFAULT_CAP_MS) "Default" else null },
-        )
-        if (shown != null) {
-            Spacer(Modifier.height(LenslySpacing.md))
-            WaitSteps(choice = shown)
+        SettingsIsland("Wait") {
+            SliderSetting(
+                title = "Longest Wait",
+                options = FailureCapChoice.entries,
+                selected = shown,
+                label = { it.label },
+                onSelect = onSelect,
+                caption = { if (it.capMs == FailureDelay.DEFAULT_CAP_MS) "Default" else null },
+            )
+            if (shown != null) {
+                Spacer(Modifier.height(LenslySpacing.md))
+                WaitSteps(choice = shown)
+            }
         }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        SliderSetting(
-            title = "Erase after",
-            options = ERASE_OPTIONS,
-            selected = shownErase,
-            label = { "$it tries" },
-            onSelect = onSelectErase,
-            caption = { if (it == FailureDelay.DEFAULT_WIPE_AFTER) "Default" else null },
-        )
+        SettingsIsland("Erase") {
+            SliderSetting(
+                title = "Erase After",
+                options = ERASE_OPTIONS,
+                selected = shownErase,
+                label = { "$it tries" },
+                onSelect = onSelectErase,
+                caption = { if (it == FailureDelay.DEFAULT_WIPE_AFTER) "Default" else null },
+            )
+        }
         Spacer(Modifier.height(LenslySpacing.xs))
         Text(
             text = "After this many wrong tries in a row, Lensly erases this vault. It warns you " +
