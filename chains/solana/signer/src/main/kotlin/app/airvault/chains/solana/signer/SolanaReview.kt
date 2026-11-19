@@ -12,6 +12,7 @@ import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
 import fr.acinq.bitcoin.Base58
@@ -72,7 +73,7 @@ fun SolanaRequestReview.toReview(): Review {
         title = "Review",
         chain = chain,
         network = NetworkLabel(name = "Solana", testnet = false, detail = null, row = clusterRow()),
-        summary = sentence(),
+        summary = listOf(SummaryPart.Text(sentence())),
         facts = facts(),
         sections = listOf(ReviewSection(if (message == null) "Message" else "Instructions", rows(chain))),
         warnings = warnings.map(::warningOf),

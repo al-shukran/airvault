@@ -4,6 +4,7 @@ import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
 import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
+import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
 import fr.acinq.bitcoin.KeyPath
 import kotlin.test.assertEquals
@@ -98,7 +99,7 @@ class BitcoinReviewTest {
         val review = reviewOf(request(feeSats = 10_000L).copy(inputs = listOf(BtcReviewInput(0, 40_000L, true, owned, 0xFFFFFFFDL))))
         assertEquals(emptyList(), review.warnings)
         assertEquals(emptySet(), review.unaccounted())
-        assertEquals("Send 0.0003 BTC to tb1qreceiver", review.summary)
+        assertEquals("Send 0.0003 BTC to tb1qreceiver", review.summary.text())
         assertEquals(listOf("Network Fee", "Fee Rate", "Total", "Change Back"), review.facts.map { it.label })
     }
 
@@ -116,8 +117,8 @@ class BitcoinReviewTest {
 
     @Test
     fun aSingleCounterpartyIsNamedByItsAddressBookNameWhenThereIsOne() {
-        assertEquals("Send 0.0003 BTC to Alice", reviewOf(request(feeSats = 10_000L)) { _ -> "Alice" }.summary)
-        assertEquals("Send 0.0003 BTC to tb1qreceiver", reviewOf(request(feeSats = 10_000L)).summary)
+        assertEquals("Send 0.0003 BTC to Alice", reviewOf(request(feeSats = 10_000L)) { _ -> "Alice" }.summary.text())
+        assertEquals("Send 0.0003 BTC to tb1qreceiver", reviewOf(request(feeSats = 10_000L)).summary.text())
     }
 
     @Test
@@ -125,7 +126,7 @@ class BitcoinReviewTest {
         val allChange = request(feeSats = 10_000L).copy(
             outputs = listOf(BtcReviewOutput(0, "tb1qchange", 60_000L, isOwnChange = true, changeIndex = 0)),
         )
-        assertEquals("Pay nothing outside this wallet", reviewOf(allChange).summary)
+        assertEquals("Pay nothing outside this wallet", reviewOf(allChange).summary.text())
     }
 
     @Test

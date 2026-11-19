@@ -11,7 +11,7 @@ package app.lensly.core.parse
 data class ParserLimits(
     /** The largest data to sign one request may carry, in bytes. */
     val maxSignDataBytes: Int = MAX_SIGN_DATA_BYTES,
-    /** The most bytes of one request's CBOR payload, as its UR carries it. It also bounds the body an app request crosses with. */
+    /** The most bytes of one request's CBOR payload, as its UR carries it. The body an app request crosses with has its own bound. */
     val maxPayloadBytes: Int = MAX_APP_PAYLOAD_BYTES,
 ) {
     /** These limits, each one lowered to [app]'s value where that is lower. An app cannot raise a limit this way. */
@@ -35,6 +35,12 @@ data class ParserLimits(
          * whole payload has the same fixed headroom as a sol-sign-request.
          */
         const val MAX_APP_PAYLOAD_BYTES = MAX_SIGN_DATA_BYTES + 4096
+
+        /**
+         * The most bytes of an app request's body, the bytes an app reads back from the wire. A body holds the data to sign and the
+         * parsed copy of it, so typed data of the largest size needs about twice the data limit.
+         */
+        const val MAX_APP_BODY_BYTES = 2 * MAX_SIGN_DATA_BYTES + 4096
 
         /** The deepest nesting of a CBOR payload. */
         const val MAX_CBOR_DEPTH = 8

@@ -238,6 +238,54 @@ internal fun ReviewField(
     }
 }
 
+/** A message the owner reads whole: its label above it, and its text in the monospace face on a raised block, so each character is checkable. */
+@Composable
+internal fun MessageBlock(label: String, text: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(LenslySpacing.xxs))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(LenslySpacing.sm),
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+/** A label with no value under it, such as the name of a struct that the rows below it belong to. */
+@Composable
+internal fun ReviewHeading(label: String, modifier: Modifier = Modifier) {
+    Text(
+        text = label,
+        modifier = modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** One numbered step: its number in the muted colour, then its sentence, which wraps when it must. */
+@Composable
+internal fun ReviewStep(number: Int, text: String, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth().padding(bottom = LenslySpacing.sm)) {
+        Text(text = "$number.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(LenslySpacing.sm))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
 /**
  * The one banner for every warning a review holds. Its colour is the highest severity among its rows, and its title counts them. A
  * row's check sits inside that row, under its text. With no warnings it shows a quiet green line instead.

@@ -55,6 +55,12 @@ object Networks {
     /** The EVM network with chain id [id]. */
     fun evm(id: Long): ChainId = ChainId("$EIP155:$id")
 
+    /** The chain id of an EVM network as a number: 10143 for `eip155:10143`. */
+    fun evmIdOf(chain: ChainId): Long {
+        require(chain.namespace == EIP155) { "$chain is not an EVM network" }
+        return chain.caip2.substringAfter(':').toLong()
+    }
+
     /** The chain name of [chain]: the names that providers and cache keys have always used. */
     fun nameOf(chain: ChainId): String = when (chain) {
         BTC_MAINNET -> "mainnet"

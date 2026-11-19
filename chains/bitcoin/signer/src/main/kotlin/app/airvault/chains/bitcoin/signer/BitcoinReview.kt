@@ -9,6 +9,7 @@ import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
 import app.airvault.core.model.text
@@ -58,7 +59,7 @@ fun BtcReview.toReview(
     title = "Review",
     chain = chain,
     network = network,
-    summary = sentence(nameOf),
+    summary = listOf(SummaryPart.Text(sentence(nameOf))),
     facts = facts(),
     sections = listOf(inputsSection(), outputsSection(chain), transactionSection(scriptType)),
     warnings = warnings().map { warningOf(it, requiresConfirmation) },
@@ -103,7 +104,7 @@ private fun BtcReview.inputsSection(): ReviewSection = ReviewSection(
     heading = "Inputs",
     rows = inputs.flatMap { input ->
         listOf(
-            ReviewRow("Input ${input.index}", amount(input.amountSats), inputField(input.index, "amount"), inputNotes(input)),
+            ReviewRow("Input ${input.index}", amount(input.amountSats), inputField(input.index, "amount"), notes = inputNotes(input)),
             ReviewRow("Sequence", DisplayValue.Text(sequenceText(input)), inputField(input.index, "sequence")),
         )
     },
@@ -119,12 +120,12 @@ private fun BtcReview.outputsSection(chain: ChainId): ReviewSection = ReviewSect
                     "Output ${output.index}",
                     amount(output.amountSats),
                     outputField(output.index, "amount"),
-                    if (address == null) listOf(NO_ADDRESS_NOTE) else emptyList(),
+                    notes = if (address == null) listOf(NO_ADDRESS_NOTE) else emptyList(),
                 ),
             )
             if (address != null) {
                 val change = if (output.isOwnChange) listOf("Your change, at change index ${output.changeIndex}") else emptyList()
-                add(ReviewRow("Address", DisplayValue.Address(chain, address), outputField(output.index, "address"), change))
+                add(ReviewRow("Address", DisplayValue.Address(chain, address), outputField(output.index, "address"), notes = change))
             }
         }
     },
@@ -138,14 +139,14 @@ private fun BtcReview.transactionSection(scriptType: String): ReviewSection = Re
             "Fee",
             DisplayValue.Text(feeSats?.let { "$it sat" } ?: "Unknown"),
             FEE,
-            if (feeSats == null) listOf(UNKNOWN_FEE_NOTE) else emptyList(),
+            notes = if (feeSats == null) listOf(UNKNOWN_FEE_NOTE) else emptyList(),
         ),
-        ReviewRow("Estimated Size", DisplayValue.Text("$estimatedVsize vB"), SIZE, listOf(SIZE_NOTE)),
+        ReviewRow("Estimated Size", DisplayValue.Text("$estimatedVsize vB"), SIZE, notes = listOf(SIZE_NOTE)),
         ReviewRow(
             "Locktime",
             DisplayValue.Text(lockTimeText(lockTime)),
             LOCK_TIME,
-            if (lockTime != 0L && !lockTimeEnforced) listOf(NOT_ENFORCED_NOTE) else emptyList(),
+            notes = if (lockTime != 0L && !lockTimeEnforced) listOf(NOT_ENFORCED_NOTE) else emptyList(),
         ),
     ),
 )

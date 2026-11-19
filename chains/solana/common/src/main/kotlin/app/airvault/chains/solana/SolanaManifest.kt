@@ -15,7 +15,7 @@ import app.airvault.core.model.PathTemplate
 import app.airvault.core.model.UrTypeSpec
 
 /** Solana's SLIP-44 coin type (spec 11.1). Every network and every key path use it. */
-private const val SOLANA_COIN_TYPE = 501
+const val SOLANA_COIN_TYPE = 501
 
 // The CAIP-2 references of the three clusters (the ChainAgnostic Solana namespace).
 val SOLANA_MAINNET: ChainId = ChainId("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp")

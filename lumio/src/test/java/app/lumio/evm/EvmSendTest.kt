@@ -2,6 +2,7 @@ package app.lumio.evm
 
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.wallet.EvmWallet
 import app.lensly.app.export.partsOf
 import app.lensly.core.evm.EvmFixtures
 import app.lensly.core.evm.TxSigner
@@ -267,7 +268,7 @@ class EvmSendTest {
     fun theDerivationPathIsTheAccountPathOfTheIndex() {
         assertEquals(
             listOf(PathStep(44, true), PathStep(60, true), PathStep(4, true), PathStep(0, false), PathStep(0, false)),
-            EvmSend.derivationPath(4),
+            EvmWallet.pathOf(4),
         )
     }
 

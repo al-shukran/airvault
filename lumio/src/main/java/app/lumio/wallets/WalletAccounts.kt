@@ -1,6 +1,7 @@
 package app.lumio.wallets
 
 import app.airvault.chains.algorand.wallet.AlgorandWallet
+import app.airvault.chains.solana.wallet.SolanaWallet
 import app.airvault.core.model.AccountId
 import app.airvault.core.model.AddressKind
 import app.airvault.core.model.Curve
@@ -9,7 +10,6 @@ import app.airvault.core.signer.PublicKey
 import app.airvault.core.signer.SignerRef
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.solana.SolanaAccount
 import app.lumio.btc.BtcRow
 import app.lumio.btc.networkId
 import app.lumio.chains.CachedNativeBalance
@@ -65,8 +65,7 @@ object WalletAccounts {
     }
 
     /** The network whose native coin an Ethereum account shows on [mode]: Ethereum on mainnet, and Monad testnet on testnet. */
-    fun primaryEvmChainId(mode: NetworkMode): Long =
-        if (mode == NetworkMode.TESTNET) EvmCatalog.PRIMARY_TESTNET_ID else EvmCatalog.PRIMARY_MAINNET_ID
+    fun primaryEvmChainId(mode: NetworkMode): Long = EvmCatalog.primaryChainId(testnet = mode == NetworkMode.TESTNET)
 
     /**
      * The accounts of [wallet] on [mode]'s side, in family order: Bitcoin, Ethereum, Solana, Algorand. [evmChains] are the Ethereum networks of the side
@@ -95,7 +94,7 @@ object WalletAccounts {
         val index = when (id.chainId.namespace) {
             Networks.BIP122 -> wallet.bitcoin.indexOfFirst { it.receiveAddress(0) == id.address }
             Networks.EIP155 -> wallet.evmAccounts.indexOfFirst { it.address == id.address }
-            Networks.SOLANA -> wallet.solana.indexOfFirst { SolanaAccount.addressOf(it) == id.address }
+            Networks.SOLANA -> wallet.solana.indexOfFirst { SolanaWallet.addresses.fromPublicKey(Networks.SOL_MAINNET, it) == id.address }
             Networks.ALGORAND -> wallet.algorand.indexOfFirst { AlgorandWallet.addresses.fromPublicKey(Networks.ALGO_MAINNET, it) == id.address }
             else -> -1
         }
@@ -156,19 +155,28 @@ object WalletAccounts {
         }
     }
 
-    /** The Solana accounts: each key is one account, and its balance is the Solana coin on [mode]'s side. */
+    /**
+     * The Solana accounts: each key is one account that [SolanaWallet.accountFrom] names on [mode]'s cluster, and its balance is the Solana coin on
+     * that side. A side with no Solana coin shows the account with no balance.
+     */
     private fun solanaAccounts(
         wallet: PairedWallet,
         mode: NetworkMode,
         coins: List<NativeCoin>,
         cache: List<CachedNativeBalance>,
     ): List<WalletAccount> {
-        val chain = if (mode == NetworkMode.TESTNET) Networks.SOL_DEVNET else Networks.SOL_MAINNET
+        val network = if (mode == NetworkMode.TESTNET) Networks.SOL_DEVNET else Networks.SOL_MAINNET
         val coin = coins.firstOrNull { it.network.isSol }
         return wallet.solana.mapIndexed { index, key ->
+            val export = AccountExport(
+                chain = network,
+                signer = SignerRef(wallet.fingerprint.toInt(), SolanaWallet.pathOf(index)),
+                publicKey = PublicKey(Curve.ED25519_SLIP10, key),
+                kind = AddressKind.DEFAULT,
+            )
             WalletAccount(
                 walletId = wallet.id,
-                id = AccountId.of(chain, SolanaAccount.addressOf(key)),
+                id = SolanaWallet.accountFrom(export).single().id,
                 index = index,
                 networkName = coin?.name ?: familyLabel(Networks.SOLANA),
                 balance = nativeBalance(wallet.copy(solana = listOf(key), algorand = emptyList()), coin, cache),

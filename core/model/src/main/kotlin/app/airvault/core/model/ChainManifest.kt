@@ -24,13 +24,20 @@ data class ChainManifest(
     val sharesKeysWith: Set<AppId> = emptySet(),
 )
 
-/** One concrete network of an app, with the display data that pickers and the address book show (spec 2.1). */
+/**
+ * One concrete network of an app, with the display data that pickers and the address book show (spec 2.1).
+ *
+ * [primary] marks the network that an account's native coin is read on, and that its side of the wallet lists first: one testnet network and
+ * one mainnet network at most. [enabledByDefault] marks a network that a new vault reads and shows at once.
+ */
 data class NetworkSpec(
     val chainId: ChainId,
     val name: String,
     val testnet: Boolean,
     val nativeAsset: AssetSpec,
     val slip44: Int,
+    val primary: Boolean = false,
+    val enabledByDefault: Boolean = false,
 )
 
 /**
