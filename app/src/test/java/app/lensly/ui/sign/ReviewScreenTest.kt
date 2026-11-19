@@ -11,6 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -107,6 +109,19 @@ class ReviewScreenTest {
         assertEquals("Send 1.5 USDC to Alice", summarySentence(named, notes, FontFamily.Monospace).text)
         val unnamed = named.dropLast(1) + SummaryPart.Counterparty(other)
         assertEquals("Send 1.5 USDC to ${shortAddress(other)}", summarySentence(unnamed, notes, FontFamily.Monospace).text)
+    }
+
+    @Test
+    fun approveIsEnabledOnAReviewWithNothingUnaccounted() {
+        setScreen(review())
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
+    }
+
+    @Test
+    fun approveStaysDisabledWhenADecodedFieldHasNoRow() {
+        val coverage = Coverage(decoded = setOf(FieldPath("algorand.note")), excluded = emptyMap())
+        setScreen(review().copy(coverage = coverage))
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
     }
 
     @Test

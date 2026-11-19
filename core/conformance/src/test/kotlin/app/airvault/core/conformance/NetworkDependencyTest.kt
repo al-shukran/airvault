@@ -56,11 +56,11 @@ class NetworkDependencyTest {
         val violations = networkSourceViolations(
             mapOf(
                 "A.kt" to "import okhttp3.OkHttpClient",
-                "B.kt" to "val c = java.net.http.HttpClient.newHttpClient()",
-                "C.kt" to "val u = java.net.URI(\"https://example.invalid\")",
+                "B.kt" to "val c = java.net.http.HttpClient.newHttpClient()", // CI_ALLOW_NETWORK_REFERENCE: scanner fixture text
+                "C.kt" to "val u = java.net.URI(\"https://example.invalid\")", // CI_ALLOW_NETWORK_REFERENCE: scanner fixture text
                 "D.kt" to "import io.ktor.client.HttpClient",
-                "E.kt" to "val c = java.net.HttpURLConnection::class",
-                "F.kt" to "val u = java.net.URL(\"https://example.invalid\")",
+                "E.kt" to "val c = java.net.HttpURLConnection::class", // CI_ALLOW_NETWORK_REFERENCE: scanner fixture text
+                "F.kt" to "val u = java.net.URL(\"https://example.invalid\")", // CI_ALLOW_NETWORK_REFERENCE: scanner fixture text
             ),
         )
 
