@@ -25,6 +25,9 @@ import com.github.takahirom.roborazzi.captureRoboImage
  */
 const val SCREENSHOT_QUALIFIERS = "w720dp-h1600dp-port-mdpi"
 
+/** The same window in the night theme, for a test that records a night golden with `@Config(qualifiers = ...)` on its method. */
+const val SCREENSHOT_NIGHT_QUALIFIERS = "w720dp-h1600dp-port-night-mdpi"
+
 /** Where the goldens are written. Relative to the app module, which is the test working directory. */
 const val SCREENSHOT_DIR = "src/test/screenshots"
 
