@@ -163,7 +163,7 @@ private fun approvalReview(origin: String? = LONG_ORIGIN) = Review(
             "Transaction",
             buildList {
                 add(ReviewRow("From", DisplayValue.Address(BASE_CHAIN, FROM), null))
-                origin?.let { add(ReviewRow("Origin", DisplayValue.Text(it), null)) }
+                origin?.let { add(ReviewRow("Claimed by Request (Not Verified)", DisplayValue.Text(it), null)) }
                 add(ReviewRow("Contract", DisplayValue.Address(BASE_CHAIN, BASE_USDC), null))
                 add(ReviewRow("Function", DisplayValue.Text("approve(address,uint256)"), null))
                 add(ReviewRow("Transaction Type", DisplayValue.Text("EIP-1559"), null))
@@ -429,7 +429,7 @@ class EvmReviewScreenTest {
 
         compose.onNodeWithText(LONG_ACCOUNT).assertExists()
         compose.onNodeWithText("Base").assertExists()
-        compose.onNodeWithText("Origin").assertExists()
+        compose.onNodeWithText("Claimed by Request (Not Verified)").assertExists()
         compose.onNodeWithText(LONG_ORIGIN).assertExists()
         compose.onNodeWithText(LONG_WALLET).assertExists()
         // The header and the From row both show the signing address, so it is found among the matches.

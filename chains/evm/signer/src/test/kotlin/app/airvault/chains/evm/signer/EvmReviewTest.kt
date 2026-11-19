@@ -255,7 +255,7 @@ class EvmReviewTest {
         val review = reviewOf(txParsed(SPENDER, ByteArray(0)))
 
         val header = review.sections.first().rows
-        assertEquals("dapp.example", header.single { it.label == "Claimed by request (not verified)" }.value.text())
+        assertEquals("dapp.example", header.single { it.label == "Claimed by Request (Not Verified)" }.value.text())
         assertTrue(header.none { it.label == "Origin" })
     }
 
@@ -289,7 +289,7 @@ class EvmReviewTest {
     }
 
     @Test
-    fun anApprovedCallInsideAMulticallShowsItsOwnValueWhenItDiffersFromTheTransactions() {
+    fun anApprovedCallInsideAMulticallShowsItsOwnValueOnceInItsFlags() {
         val call = InnerCall(
             target = NFT,
             allowFailure = false,
@@ -305,7 +305,11 @@ class EvmReviewTest {
             builder(REGISTRY.withWhitelist(listOf(fooEntry()))),
         )
 
-        assertEquals("0.001 ETH", review.sections.single { it.heading == "Calls" }.rows.single { it.label == "Value" }.value.text())
+        // The batch's flags carry the call's value, and the header carries the transaction's amount. No row repeats the call's value.
+        assertEquals("0.002 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
+        val rows = review.sections.single { it.heading == "Calls" }.rows
+        assertEquals("0.001 ETH", rows.single { it.label == "value (uint256)" }.value.text())
+        assertTrue(rows.none { it.label == "Value" })
     }
 
     @Test

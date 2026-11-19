@@ -231,7 +231,7 @@ class EvmReviewBuilder(
                 is Gap.Approved -> {
                     functionRow(gap.signature)
                     valueRow(tx.value, always = false)
-                    sections += ReviewSection("Arguments", rowsOf(approvedDetails(gap, calldata, ownValue = null), "evm.data", 0))
+                    sections += ReviewSection("Arguments", rowsOf(approvedDetails(gap, calldata), "evm.data", 0))
                     gap.steps?.lines?.takeIf { it.isNotEmpty() }?.let { lines ->
                         sections += ReviewSection("Steps", lines.map { ReviewRow(it, null, null) }, SectionStyle.Steps)
                     }
@@ -328,7 +328,7 @@ class EvmReviewBuilder(
                                 level,
                                 gap.function,
                                 target,
-                                flags + approvedDetails(gap, inner.calldata, inner.value?.takeIf { it != tx.value }),
+                                flags + approvedDetails(gap, inner.calldata),
                                 note = null,
                             )
                             gap.steps?.lines?.forEach { rows += ReviewRow(it, null, null, level) }
@@ -398,15 +398,14 @@ class EvmReviewBuilder(
         }
 
         /**
-         * The rows of one call's arguments: the approved meaning first, then the arguments, then the call's own native [ownValue] when it is
-         * not zero, the selector, the signed calldata in full, and each word after the selector. The header already shows the transaction's
-         * amount, so [ownValue] is null for a call that sends that amount and no second row repeats it. The arguments preview a bytes value,
-         * so the calldata row is what shows every byte of it. The proxy binding comes last.
+         * The rows of one call's arguments: the approved meaning first, then the arguments, then the selector, the signed calldata in full, and
+         * each word after the selector. The arguments preview a bytes value, so the calldata row is what shows every byte of it. The proxy
+         * binding comes last. The call's value is not repeated here: a top-level call shows the header's amount, and a batch call shows its
+         * own value in the flags its shape carries.
          */
-        private fun approvedDetails(gap: Gap.Approved, calldata: ByteArray, ownValue: BigInteger?): List<ParamRow> = buildList {
+        private fun approvedDetails(gap: Gap.Approved, calldata: ByteArray): List<ParamRow> = buildList {
             add(ParamRow("Approved Meaning", DisplayValue.Text(gap.meaning), null))
             addAll(gap.params)
-            if (ownValue != null && ownValue.signum() != 0) add(ParamRow("Value", DisplayValue.Text(nativeAmount(ownValue)), null))
             add(ParamRow("Selector", DisplayValue.Text("0x" + calldata.copyOfRange(0, SELECTOR_BYTES).toHex()), "selector"))
             add(calldataRow(calldata))
             wordsOf(calldata).forEachIndexed { index, word -> add(ParamRow("Word ${index + 1}", DisplayValue.Bytes(word), null)) }
@@ -912,7 +911,8 @@ private const val L2_FEE_NOTE = "L1 data fee is not computable offline; total ma
 private const val DEADLINE_LABEL = "deadline (uint256)"
 
 /** The label of the origin a request names. The request sets it, so the review does not vouch for it. */
-private const val CLAIMED_ORIGIN_LABEL = "Claimed by request (not verified)"
+private const val CLAIMED_ORIGIN_LABEL = "Claimed by Request (Not Verified)"
+
 private const val GWEI_DECIMALS = 9
 private const val ASSUMED_DECIMALS = 18
 private const val SELECTOR_BYTES = 4
