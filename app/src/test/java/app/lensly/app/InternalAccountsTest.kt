@@ -87,8 +87,8 @@ class InternalAccountsTest {
         val accounts = internalAccountsOf(store, signingWalletId = id)
         val expected = InternalAccount(null, "Savings 0", null)
 
-        assertEquals(expected, addressNotesOf(address.lowercase(), AddressChain.EVM, accounts, emptyList())?.internal)
-        assertEquals(expected, addressNotesOf(address.uppercase().replace("0X", "0x"), AddressChain.EVM, accounts, emptyList())?.internal)
+        assertEquals(expected, addressNotesOf(address.lowercase(), EVM_FAMILY, accounts, emptyList())?.internal)
+        assertEquals(expected, addressNotesOf(address.uppercase().replace("0X", "0x"), EVM_FAMILY, accounts, emptyList())?.internal)
     }
 
     @Test

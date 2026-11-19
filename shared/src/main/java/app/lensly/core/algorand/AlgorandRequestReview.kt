@@ -1,5 +1,6 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.AlgoAddress
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.AlgoTxn

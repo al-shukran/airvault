@@ -18,6 +18,8 @@ kotlin {
 
 dependencies {
     api(project(":core:model"))
+    // Solana addresses are base58, read and written with bitcoin-kmp's Base58 as the Solana code in :shared does.
+    implementation(libs.bitcoin.kmp)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

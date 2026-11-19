@@ -1,83 +1,83 @@
 package app.lensly.app
 
-import app.lensly.core.algorand.AlgoAddress
+import app.airvault.chains.algorand.AlgorandAddressCodec
+import app.airvault.chains.algorand.algorandMainnet
+import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.bitcoin.BitcoinAddressCodec
+import app.airvault.chains.bitcoin.bitcoinMainnet
+import app.airvault.chains.bitcoin.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinTestnet4
+import app.airvault.chains.evm.EvmAddressCodec
+import app.airvault.chains.evm.ethereumMainnet
+import app.airvault.chains.evm.evmManifest
+import app.airvault.chains.solana.SolanaAddressCodec
+import app.airvault.chains.solana.SOLANA_MAINNET
+import app.airvault.chains.solana.solanaManifest
+import app.airvault.core.model.AddressCodec
+import app.airvault.core.model.AddressResult
+import app.airvault.core.model.ChainApp
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.ChainManifest
+import app.airvault.core.model.ChainRegistry
 import app.lensly.core.btc.BtcNetwork
-import fr.acinq.bitcoin.Base58
-import fr.acinq.bitcoin.Bitcoin
-import fr.acinq.bitcoin.ScriptElt
-import org.web3j.crypto.Keys
 
-private val EVM_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
-private val SOLANA_ADDRESS = Regex("[1-9A-HJ-NP-Za-km-z]{32,44}")
-
-/** A Solana address is the base58 of a 32-byte public key. */
-private const val SOLANA_KEY_BYTES = 32
+/** The address rules of one chain, as the [ChainApp] that the registry indexes. */
+private class AddressRules(override val manifest: ChainManifest, override val addresses: AddressCodec) : ChainApp
 
 /**
- * The EVM address [text] in its checksum form, or null when it is not one. An address in one letter case is taken as it is. A mixed-case
- * address must carry the right checksum.
+ * The address rules of the four chains, in the order a lookup tries them: the order the enum this replaces listed them in, which decides
+ * an address that more than one chain could read. The Address Book, the reviews and the pairing check take every address through these
+ * rules. The phone apps' installed lists stay the lists of signing and wallet apps. This one holds the address rules alone.
  */
-fun evmAddressOf(text: String): String? {
-    if (!EVM_ADDRESS.matches(text)) return null
-    val checksum = Keys.toChecksumAddress(text)
-    val hex = text.substring(2)
-    val mixed = hex != hex.lowercase() && hex != hex.uppercase()
-    return if (mixed && checksum != text) null else checksum
-}
+private val addressRules: ChainRegistry<ChainApp> = ChainRegistry(
+    listOf(
+        AddressRules(evmManifest, EvmAddressCodec),
+        AddressRules(bitcoinManifest, BitcoinAddressCodec),
+        AddressRules(solanaManifest, SolanaAddressCodec),
+        AddressRules(algorandManifest, AlgorandAddressCodec),
+    ),
+)
 
 /**
- * The Bitcoin address [text] as bitcoin-kmp writes it, on Mainnet or Testnet4, or null when it is not a valid address of either. Every
- * script type that bitcoin-kmp reads is valid. A bech32 address comes back in lower case, so its upper-case form, as a QR code gives it,
- * is the same address.
+ * The chain a family's addresses are named on, for the places that mean the family and not one network. Lookups match on the family
+ * (see [addressBookEntryFor]), so the reference of the id names the family's main network and nothing more.
  */
-fun btcAddressOf(text: String): String? {
-    val (network, script) = btcScriptOf(text) ?: return null
-    return Bitcoin.addressFromPublicKeyScript(network.chain.chainHash, script).right
-}
+val EVM_FAMILY: ChainId = ethereumMainnet
+val BITCOIN_FAMILY: ChainId = bitcoinMainnet
+val SOLANA_FAMILY: ChainId = SOLANA_MAINNET
+val ALGORAND_FAMILY: ChainId = algorandMainnet
 
-/** The network of the Bitcoin address [text], or null when it is not a valid address of Mainnet or Testnet4. */
-fun btcNetworkOf(text: String): BtcNetwork? = btcScriptOf(text)?.first
-
-/** The network and the script of the Bitcoin address [text], or null when it is not a valid address of Mainnet or Testnet4. */
-private fun btcScriptOf(text: String): Pair<BtcNetwork, List<ScriptElt>>? {
-    if (text.isEmpty()) return null
-    // A bech32 address is the same address in either case, and no base58 address starts with BC1 or TB1, so only these are lowered.
-    val input = if (text.startsWith("BC1") || text.startsWith("TB1")) text.lowercase() else text
-    for (network in BtcNetwork.entries) {
-        val script = Bitcoin.addressToPublicKeyScript(network.chain.chainHash, input).right ?: continue
-        return network to script
-    }
-    return null
-}
-
-/** The Solana address [text], or null when it is not one: base58 that decodes to a 32-byte public key. */
-fun solanaAddressOf(text: String): String? {
-    if (!SOLANA_ADDRESS.matches(text)) return null
-    val key = runCatching { Base58.decode(text) }.getOrNull() ?: return null
-    return if (key.size == SOLANA_KEY_BYTES) text else null
-}
-
-/** The Algorand address [text], or null when it is not one: 58 upper-case base32 characters with a matching checksum. */
-fun algorandAddressOf(text: String): String? = text.takeIf { runCatching { AlgoAddress.decode(it) }.isSuccess }
-
-/** The canonical form of [text] when it is a valid address on [chain], or null. This is the form the Address Book keeps. */
-fun canonicalAddressOn(text: String, chain: AddressChain): String? = when (chain) {
-    AddressChain.EVM -> evmAddressOf(text)
-    AddressChain.BITCOIN -> btcAddressOf(text)
-    AddressChain.SOLANA -> solanaAddressOf(text)
-    AddressChain.ALGORAND -> algorandAddressOf(text)
+/** The canonical form of [text] when the rules of [chain] take it as an address on [chain], or null. */
+private fun normalisedOn(chain: ChainId, text: String): String? {
+    val rules = addressRules.byNamespace(chain.namespace).firstOrNull() ?: return null
+    return (rules.addresses.parse(chain, text) as? AddressResult.Valid)?.normalised
 }
 
 /**
- * The chain [text] is a valid address of, or null when it is none. The four chains share no valid address: an EVM address starts with
- * 0x, which none of the others can, and the lengths and checksums of the others tell them apart.
+ * The chain [text] is a valid address on, or null when no installed address rules take it. The networks are tried in the order
+ * [addressRules] lists them. The four chains share no valid address: an EVM address starts with 0x, which none of the others can, and
+ * the lengths and checksums of the others tell them apart.
  */
-fun chainOfAddress(text: String): AddressChain? = AddressChain.entries.firstOrNull { canonicalAddressOn(text, it) != null }
+fun chainOfAddress(text: String): ChainId? = addressRules.networks().firstOrNull { normalisedOn(it.chainId, text) != null }?.chainId
+
+/**
+ * The canonical form of [text] when it is a valid address of the family of [chain], or null. This is the form the Address Book keeps.
+ * Bitcoin's mainnet and testnet4 are one family, so a testnet4 address is valid on the Bitcoin family id.
+ */
+fun canonicalAddressOn(text: String, chain: ChainId): String? =
+    chainOfAddress(text)?.takeIf { it.namespace == chain.namespace }?.let { normalisedOn(it, text) }
 
 /**
  * The canonical form of [text], trimmed, or null when it is not a valid address of Ethereum, Bitcoin, Solana or Algorand. An EVM address
  * is in its checksum form, and a Bitcoin address as bitcoin-kmp writes it. Solana and Algorand addresses are kept exactly as written.
  */
 fun canonicalAddressOf(text: String): String? = text.trim().let { trimmed ->
-    chainOfAddress(trimmed)?.let { canonicalAddressOn(trimmed, it) }
+    chainOfAddress(trimmed)?.let { normalisedOn(it, trimmed) }
+}
+
+/** The Bitcoin network [text] is a valid address of, or null when it is not an address of Mainnet or Testnet4. */
+fun btcNetworkOf(text: String): BtcNetwork? = when (chainOfAddress(text)) {
+    bitcoinMainnet -> BtcNetwork.MAINNET
+    bitcoinTestnet4 -> BtcNetwork.TESTNET4
+    else -> null
 }

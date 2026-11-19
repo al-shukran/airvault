@@ -1,5 +1,7 @@
 package app.lensly.app
 
+import app.airvault.core.model.ChainId
+
 /**
  * The internal account of this device that an address is: its Display Name when it has one, its Auto-Name, and its label when it has
  * one. The Auto-Name is always there, so an account without a Display Name still has a name to show. [walletName] names the wallet the
@@ -19,7 +21,7 @@ data class AddressNotes(val internal: InternalAccount?, val entry: AddressBookEn
  */
 fun addressNotesOf(
     address: String,
-    chain: AddressChain,
+    chain: ChainId,
     internal: Map<String, InternalAccount>,
     book: List<AddressBookEntry>,
 ): AddressNotes? {
@@ -31,7 +33,7 @@ fun addressNotesOf(
 /** The notes of each of [addresses] on [chain] that either source knows, keyed by [addressKeyOf]. */
 fun addressNotesOf(
     addresses: Collection<String>,
-    chain: AddressChain,
+    chain: ChainId,
     internal: Map<String, InternalAccount>,
     book: List<AddressBookEntry>,
 ): Map<String, AddressNotes> = addresses.distinct()

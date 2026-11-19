@@ -1,5 +1,6 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.AlgoAddress
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

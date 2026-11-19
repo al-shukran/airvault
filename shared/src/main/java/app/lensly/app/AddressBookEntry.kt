@@ -1,7 +1,6 @@
 package app.lensly.app
 
-/** The chains an address can be on. [chainOfAddress] tells which one a valid address is on. */
-enum class AddressChain { EVM, BITCOIN, SOLANA, ALGORAND }
+import app.airvault.core.model.ChainId
 
 /**
  * One Address Book entry: a name, an optional label and optional notes for an address the owner saved. It is for display only. No
@@ -18,8 +17,8 @@ data class AddressBookEntry(
     /** The notes, or null when the owner wrote none. */
     val notes: String? = null,
 ) {
-    /** The chain [address] is on, or null when it is not a valid address. A lookup matches an entry only on its own chain. */
-    val chain: AddressChain?
+    /** The chain [address] is valid on, or null when it is not a valid address. A lookup matches an entry on the family of its chain. */
+    val chain: ChainId?
         get() = chainOfAddress(address)
 }
 
@@ -31,11 +30,12 @@ fun addressKeyOf(address: String): String = if (address.startsWith("0x")) addres
 
 /**
  * The entry of [book] that is [address] on [chain], or null when the book has none. The address is matched by [addressKeyOf], and the entry
- * must be on the same chain, so an address is looked up on the chain it was seen on.
+ * must be on the same chain family as [chain], so an address is looked up on the family it was seen on. An EVM address is the same account
+ * on every EVM network, so an entry matches on any of them.
  */
-fun addressBookEntryFor(address: String, chain: AddressChain, book: List<AddressBookEntry>): AddressBookEntry? {
+fun addressBookEntryFor(address: String, chain: ChainId, book: List<AddressBookEntry>): AddressBookEntry? {
     val key = addressKeyOf(address)
-    return book.firstOrNull { addressKeyOf(it.address) == key && it.chain == chain }
+    return book.firstOrNull { addressKeyOf(it.address) == key && it.chain?.namespace == chain.namespace }
 }
 
 private val EVM_ADDRESS_SHAPE = Regex("0x[0-9a-fA-F]{40}")
