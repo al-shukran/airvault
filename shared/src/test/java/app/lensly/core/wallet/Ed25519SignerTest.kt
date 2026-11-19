@@ -64,8 +64,7 @@ class Ed25519SignerTest {
 
     /**
      * Account 0 of each phrase signs a legacy transfer request, and the signature verifies with the account's public key. The first
-     * phrase is plan section 4 Mnemonic A, the 12 words. The second is the 24-word phrase the assignment names, which the plan lists as
-     * Mnemonic B.
+     * phrase is the 12-word "abandon ... about" phrase, and the second is the 24-word phrase that ends in "art".
      */
     @Test
     fun aLegacyTransferRequestForAccountZeroSignsAndVerifiesWithItsKey() {
@@ -91,11 +90,11 @@ class Ed25519SignerTest {
     }
 
     /**
-     * The sol-signature [SolanaSigner] answers with, over the wallet's own key access, carries the signature that WalletStore.solanaSign makes
-     * for the same request: the SLIP-0010 key of account 0 signs the sign data as it is. Checked for both phrases.
+     * The sol-signature [SolanaSigner] answers with, over the wallet's own key access, is the signature the SLIP-0010 key of account 0 makes
+     * over the sign data as it is. Checked for both phrases.
      */
     @Test
-    fun theSolanaSignerOverTheWalletKeysAnswersWithTheSignatureTheWalletStoreMakes() {
+    fun theSolanaSignerOverTheWalletKeysSignsWithTheSlip10KeyOfAccountZero() {
         for (phrase in listOf(MNEMONIC_A, MNEMONIC_24)) {
             val seed = MnemonicUtils.generateSeed(phrase, "")
             val payer = SolanaAccount.publicKey(seed, 0)

@@ -1,7 +1,6 @@
 package app.lensly.ui.sign
 
 import app.airvault.chains.algorand.AlgorandNetwork
-import app.lensly.app.sign.SOLANA_NETWORK
 import app.lensly.core.btc.BtcNetwork
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -33,10 +32,5 @@ class ReviewNetworkNameTest {
     @Test
     fun aGenesisIdOfAnotherNetworkIsNotNamed() {
         assertNull(AlgorandNetwork.ofGenesisId("betanet-v1.0"))
-    }
-
-    @Test
-    fun theSolanaRequestIsNamedSolana() {
-        assertEquals("Solana", SOLANA_NETWORK)
     }
 }
