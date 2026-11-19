@@ -74,6 +74,11 @@ class AlgoSignatureTest {
     }
 
     @Test
+    fun aKeyOutsideOneToThreeIsRefusedNotIgnored() {
+        assertTrue(rejectedReason(payload(4L to Cbor.Uint(0))).contains("unknown map key 4"))
+    }
+
+    @Test
     fun aPublicKeyThatIsPresentIsThirtyTwoBytes() {
         for (size in listOf(0, 31, 33)) {
             assertTrue(rejectedReason(payload(3L to Cbor.Bytes(ByteArray(size)))).contains("32 bytes"), "$size bytes")

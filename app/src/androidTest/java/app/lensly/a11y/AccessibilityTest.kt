@@ -17,14 +17,25 @@ import androidx.compose.ui.unit.dp
 import androidx.test.espresso.accessibility.AccessibilityChecks
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.Coverage
+import app.airvault.core.model.Danger
+import app.airvault.core.model.DisplayValue
+import app.airvault.core.model.NetworkLabel
+import app.airvault.core.model.Review
+import app.airvault.core.model.ReviewRow
+import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.SummaryPart
+import app.airvault.core.model.Warning
+import app.lensly.app.EVM_FAMILY
+import app.lensly.app.SigningAccount
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.ui.gate.UnlockScreen
 import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.settings.FailureCapChoice
-import app.lensly.ui.sign.TxReview
-import app.lensly.ui.sign.TxReviewScreen
+import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.theme.LumenTheme
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResult.AccessibilityCheckResultType
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityViewCheckResult
@@ -36,6 +47,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.math.BigInteger
 
 /**
  * The Accessibility Test Framework spike (guideline 1.9, checklist 12): does ATF report Compose nodes on this stack?
@@ -148,7 +160,14 @@ class AccessibilityTest {
     fun reviewScreenReportsOnlyItsContainer() {
         compose.setContent {
             LumenTheme {
-                TxReviewScreen(review = REVIEW, onApprove = {}, onReject = {})
+                ReviewScreen(
+                    review = REVIEW,
+                    signer = SIGNER,
+                    addressNotes = emptyMap(),
+                    addressChain = EVM_FAMILY,
+                    onApprove = {},
+                    onReject = {},
+                )
             }
         }
 
@@ -230,24 +249,45 @@ class AccessibilityTest {
     private companion object {
         const val TAG = "A11ySpike"
 
+        private const val FROM = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
+        private const val TO = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
+        private val SIGNER = SigningAccount(name = "MAIN ACCOUNT", walletName = "Main wallet", address = FROM)
+
         /** An unknown-chain transfer, so the review shows its warnings and the chain check as well as the facts. */
-        val REVIEW = TxReview(
-            networkName = "Monad Testnet",
-            chainId = 10143L,
-            fromAccountLabel = "MAIN ACCOUNT",
-            fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-            toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
-            amount = "0.0100",
-            symbol = "MON",
-            tokenContract = null,
-            function = "Native Transfer",
-            params = emptyList(),
-            fee = listOf("Gas Limit" to "21000", "Max Fee" to "52.5 gwei"),
-            feeNote = "Fee is paid in MON from the sender's balance.",
-            warnings = listOf("This address has never received a transaction on this network."),
-            nonce = 42L,
-            txType = "EIP-1559 (type 2)",
-            network = null,
+        val REVIEW = Review(
+            title = "Native Transfer",
+            chain = ChainId("eip155:10143"),
+            network = NetworkLabel(name = "Unknown network (chain id 10143)", testnet = false, detail = null),
+            summary = listOf(
+                SummaryPart.Text("Sends "),
+                SummaryPart.Mono("10000000000000000 base units"),
+                SummaryPart.Text(" to "),
+                SummaryPart.Counterparty(TO),
+                SummaryPart.Text("."),
+            ),
+            facts = listOf(
+                ReviewRow("Gas Limit", DisplayValue.Number(BigInteger.valueOf(21000)), null),
+                ReviewRow("Max Fee", DisplayValue.Text("630000000000000 base units"), null),
+            ),
+            sections = listOf(
+                ReviewSection(
+                    "Transaction",
+                    listOf(
+                        ReviewRow("From", DisplayValue.Address(ChainId("eip155:10143"), FROM), null),
+                        ReviewRow("To", DisplayValue.Address(ChainId("eip155:10143"), TO), null),
+                        ReviewRow("Nonce", DisplayValue.Number(BigInteger.valueOf(42)), null),
+                    ),
+                ),
+            ),
+            warnings = listOf(
+                Warning(
+                    Danger.CAUTION,
+                    "evm.registry",
+                    "This network is not in Lensly's registry, so Lensly cannot check its coin or decimals.",
+                    acknowledge = "I have checked the chain ID and the contract.",
+                ),
+            ),
+            coverage = Coverage(decoded = emptySet(), excluded = emptyMap()),
         )
     }
 }

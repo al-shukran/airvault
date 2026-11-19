@@ -1,5 +1,6 @@
 package app.airvault.chains.solana.signer
 
+import app.airvault.core.model.isPrintable
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.PathStep
 import fr.acinq.bitcoin.Base58
@@ -35,7 +36,8 @@ enum class SolanaWarning {
  * A Solana request as Lensly reviews it before it signs. [accountIndex] is N of the account `m/44'/501'/N'` that signs, and [signer] is
  * its 32-byte public key. A transaction holds its parsed [message] and its [instructions], in order. A message to sign holds its parsed
  * [offchainMessage]. [lookups] lists each lookup-table account that the instructions use, in the order they first appear. [tokens] names
- * the mints the review shows. [cluster] is the cluster the request states, or null when it states none. Every field holds public data only.
+ * the mints the review shows. [cluster] is the cluster the request states, or null when it states none. [origin] is the origin the wallet
+ * names: a claim the review shows as unverified. Every field holds public data only.
  */
 class SolanaRequestReview internal constructor(
     val signType: SolSignType,
@@ -47,6 +49,7 @@ class SolanaRequestReview internal constructor(
     val offchainMessage: SolanaOffchainMessage?,
     val tokens: SolanaTokenList,
     val cluster: SolCluster?,
+    val origin: String?,
 ) {
     /** The address of the signing account, in base58. */
     val signerAddress: String get() = Base58.encode(signer)
@@ -231,6 +234,9 @@ object SolanaRequestCheck {
     /** The reason for an off-chain message that does not name the requesting account as a signer. */
     const val SIGNER_NOT_NAMED = "This message does not name this account as a signer."
 
+    /** The reason for an origin with a character Lensly cannot show. The review shows the origin as the wallet's claim, so it must read. */
+    const val UNREADABLE_ORIGIN = "The request names an origin with a character Lensly cannot show."
+
     private const val PURPOSE = 44
     private const val SOLANA_COIN_TYPE = 501
 
@@ -249,7 +255,8 @@ object SolanaRequestCheck {
      * transaction that sets its compute limit or price more than once is refused, and so is one that sends SOL or tokens to an account
      * from an address lookup table. A transaction that calls a program Lensly does not read is refused when [unknownCalls] is REFUSE, and
      * reviewed under an error-level warning when it is WARN, which is the default. A message is refused unless it is a Solana off-chain
-     * message that names account N as a signer, and bytes that decode as a transaction are refused as a message whatever their format.
+     * message that names account N as a signer, and bytes that decode as a transaction are refused as a message whatever their format. A
+     * request whose origin holds a character Lensly cannot show is refused first.
      */
     fun check(
         request: SolSignRequest,
@@ -257,13 +264,15 @@ object SolanaRequestCheck {
         tokens: SolanaTokenList = SolanaTokenList.EMPTY,
         unknownCalls: UnknownCallPolicy = UnknownCallPolicy.WARN,
     ): Result {
+        if (request.origin?.all(::isPrintable) == false) return Result.Refused(UNREADABLE_ORIGIN)
         val index = accountIndexOf(request.derivationPath) ?: return Result.Refused(PATH_REFUSED)
         val signer = accountKeys.getOrNull(index) ?: return Result.Refused(UNKNOWN_ACCOUNT)
         val named = request.address
         if (named != null && !named.contentEquals(signer)) return Result.Refused(DIFFERENT_ADDRESS)
         return when (request.signType) {
-            SolSignType.TRANSACTION -> transaction(request.signData, index, signer, tokens, unknownCalls, request.cluster)
-            SolSignType.MESSAGE -> messageToSign(request.signData, index, signer, tokens, request.cluster)
+            SolSignType.TRANSACTION ->
+                transaction(request.signData, index, signer, tokens, unknownCalls, request.cluster, request.origin)
+            SolSignType.MESSAGE -> messageToSign(request.signData, index, signer, tokens, request.cluster, request.origin)
         }
     }
 
@@ -274,6 +283,7 @@ object SolanaRequestCheck {
         tokens: SolanaTokenList,
         unknownCalls: UnknownCallPolicy,
         cluster: SolCluster?,
+        origin: String?,
     ): Result {
         val message = when (val decoded = SolanaMessage.decode(bytes)) {
             is SolanaMessage.Result.Ok -> decoded.message
@@ -310,6 +320,7 @@ object SolanaRequestCheck {
                 offchainMessage = null,
                 tokens = tokens,
                 cluster = cluster,
+                origin = origin,
             ),
         )
     }
@@ -332,6 +343,7 @@ object SolanaRequestCheck {
         signer: ByteArray,
         tokens: SolanaTokenList,
         cluster: SolCluster?,
+        origin: String?,
     ): Result {
         if (SolanaMessage.decode(bytes) is SolanaMessage.Result.Ok) return Result.Refused(TRANSACTION_AS_MESSAGE)
         val offchain = when (val parsed = SolanaOffchainMessage.parse(bytes)) {
@@ -350,6 +362,7 @@ object SolanaRequestCheck {
                 offchainMessage = offchain,
                 tokens = tokens,
                 cluster = cluster,
+                origin = origin,
             ),
         )
     }
