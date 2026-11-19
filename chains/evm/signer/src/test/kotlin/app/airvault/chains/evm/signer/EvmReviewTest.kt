@@ -524,6 +524,23 @@ class EvmReviewTest {
     }
 
     @Test
+    fun aWhitelistedProxyInsideAMulticallIsWarnedUnderWarnAndConfirmAndRefusedUnderTheDefault() {
+        val proxy = fooEntry().copy(upgradeable = true, proxy = ProxyBinding(implementationAddress = IMPLEMENTATION))
+        val registry = REGISTRY.withWhitelist(listOf(proxy))
+        val call = InnerCall(target = NFT, allowFailure = false, value = null, calldata = fooCalldata(), call = null, nested = null)
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!
+
+        val review = reviewOf(txParsed(MULTICALL3, batch), builder(registry, proxyPolicy = ProxyPolicy.WARN_AND_CONFIRM))
+
+        val warning = review.warnings.single { it.code == "evm.proxy" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals(FieldPath("evm.data.call[0].function"), warning.field)
+        assertEquals(ACK_UPGRADE, warning.acknowledge)
+        assertEquals(IMPLEMENTATION, review.sections.single { it.heading == "Calls" }.rows.single { it.label == "Implementation" }.value.text())
+        refusalOf(txParsed(MULTICALL3, batch), builder(registry))
+    }
+
+    @Test
     fun aPersonalMessageThatIsNotReadableTextShowsItsBytes() {
         val rows = reviewOf(personalParsed(byteArrayOf(0xff.toByte(), 0xfe.toByte(), 0x00))).sections.single { it.heading == "Message" }.rows
 
