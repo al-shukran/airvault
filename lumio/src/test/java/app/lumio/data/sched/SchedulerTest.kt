@@ -8,7 +8,7 @@ import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
@@ -301,7 +301,7 @@ class SchedulerTest {
 
     @Test
     fun aProviderThatDoesNotServeTheNetworkOrTheOperationIsNeverSent() = runTest {
-        val a = FakeProvider("a", networks = setOf(ETH), ops = setOf(Op.TIP_HEIGHT))
+        val a = FakeProvider("a", networks = setOf(ETH), ops = setOf(Ops.BTC_TIP_HEIGHT))
         val s = scheduler(a)
 
         assertTrue(failureOf { s.run(TipHeight(BTC)) } is ProviderError.Unsupported)

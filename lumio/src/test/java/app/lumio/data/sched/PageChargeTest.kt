@@ -8,7 +8,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.AddressUtxos
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.Trait
@@ -29,7 +30,7 @@ class PageChargeTest {
         override val kind: Kind = Kind.DATA
         override val traits: Set<Trait> = setOf(Trait.KEYLESS)
 
-        override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean = op == Op.ADDRESS_UTXOS
+        override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean = op == Ops.BTC_UTXOS
 
         /** One token a second, and one held: the first request takes the held token, and every later one waits a second for its own. */
         override fun defaultLimits(cfg: ProviderConfig): Limits = Limits(rps = 1.0, burst = 1, maxConcurrent = 1)

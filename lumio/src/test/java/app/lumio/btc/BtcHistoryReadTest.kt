@@ -10,7 +10,8 @@ import app.lumio.data.provider.AddressStats
 import app.lumio.data.provider.AddressUtxos
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -44,8 +45,8 @@ private class TimedServer(
     val peak = AtomicInteger(0)
     private val inFlight = AtomicInteger(0)
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        net.isBtc && (op == Op.ADDRESS_STATS || op == Op.ADDRESS_UTXOS)
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean =
+        net.isBtc && (op == Ops.BTC_ADDRESS_STATS || op == Ops.BTC_UTXOS)
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = Limits(rps = 1_000.0, burst = 1_000, maxConcurrent = 8)
 

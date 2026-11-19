@@ -14,13 +14,6 @@ enum class Kind { DATA, RPC }
  */
 enum class Trait { KEYLESS, KEY_OPTIONAL, KEY_REQUIRED, MEV_PROTECTED, PRIVACY, ESPLORA_COMPAT, FALLBACK_ONLY, OWN_SERVER }
 
-/** The operations a request can name. A provider declares, per network, which of them it serves. */
-enum class Op {
-    ADDRESS_STATS, ADDRESS_TXS, ADDRESS_UTXOS, TIP_HEIGHT, FEE_ESTIMATES, BLOCK, TX,
-    NATIVE_BALANCE, NONCE, TOKEN_BALANCES, TX_HISTORY, BROADCAST, RPC_CALL, PRICE, TOKEN_PRICE, PRICE_CHART, BLOCKHASH,
-    SUGGESTED_PARAMS, PENDING_TX, ACCOUNT_INFO, RENT_EXEMPT, BLOCK_HEIGHT, ASSET_INFO,
-}
-
 /**
  * The one HTTP stack for providers: the OkHttp client that the app already ships. The scheduler gives each call its own [Http]. The call's first
  * request is paid by the token its admission took, and a provider that sends more requests in one call calls [charge] before each of the rest.
@@ -42,7 +35,7 @@ interface Provider {
     val traits: Set<Trait>
 
     /** Whether this provider can serve [op] on [net] with [cfg]. A key-required op answers false when there is no key. */
-    fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean
+    fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean
 
     /** The rate and concurrency this provider allows with [cfg], before any override in the config. */
     fun defaultLimits(cfg: ProviderConfig): Limits

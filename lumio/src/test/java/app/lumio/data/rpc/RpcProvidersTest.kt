@@ -5,7 +5,7 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Trait
 import app.lumio.data.route.ProviderState
 import app.lumio.data.route.Router
@@ -70,8 +70,8 @@ class RpcProvidersTest {
     fun ankrNeedsAKeyAsTheLastPathSegment() {
         assertNull(Ankr().endpoint(mainnet, ProviderConfig()))
         assertEquals("https://rpc.ankr.com/eth/$key", Ankr().endpoint(mainnet, ProviderConfig(apiKey = key)))
-        assertFalse(Ankr().supports(mainnet, Op.NATIVE_BALANCE, ProviderConfig()))
-        assertTrue(Ankr().supports(mainnet, Op.NATIVE_BALANCE, ProviderConfig(apiKey = key)))
+        assertFalse(Ankr().supports(mainnet, OpKey.on(mainnet, "nativeBalance"), ProviderConfig()))
+        assertTrue(Ankr().supports(mainnet, OpKey.on(mainnet, "nativeBalance"), ProviderConfig(apiKey = key)))
     }
 
     @Test
@@ -86,10 +86,10 @@ class RpcProvidersTest {
         val alchemy = Alchemy()
         assertEquals("https://eth-mainnet.g.alchemy.com/public", alchemy.endpoint(mainnet, ProviderConfig()))
         assertEquals("https://eth-mainnet.g.alchemy.com/v2/$key", alchemy.endpoint(mainnet, ProviderConfig(apiKey = key)))
-        assertTrue(alchemy.supports(mainnet, Op.NATIVE_BALANCE, ProviderConfig()))
-        assertFalse(alchemy.supports(mainnet, Op.BROADCAST, ProviderConfig()))
-        assertTrue(alchemy.supports(mainnet, Op.BROADCAST, ProviderConfig(apiKey = key)))
-        assertFalse(alchemy.supports(NetworkId(Networks.evm(137), testnet = false), Op.NATIVE_BALANCE, ProviderConfig(apiKey = key)))
+        assertTrue(alchemy.supports(mainnet, OpKey.on(mainnet, "nativeBalance"), ProviderConfig()))
+        assertFalse(alchemy.supports(mainnet, OpKey.on(mainnet, "broadcast"), ProviderConfig()))
+        assertTrue(alchemy.supports(mainnet, OpKey.on(mainnet, "broadcast"), ProviderConfig(apiKey = key)))
+        assertFalse(alchemy.supports(NetworkId(Networks.evm(137), testnet = false), OpKey.on(NetworkId(Networks.evm(137), testnet = false), "nativeBalance"), ProviderConfig(apiKey = key)))
         assertTrue(Trait.MEV_PROTECTED in alchemy.traits)
     }
 
@@ -122,7 +122,7 @@ class RpcProvidersTest {
         val router = Router(RpcPlugins.pool())
         val keyed = mapOf("ankr" to ProviderConfig(apiKey = key))
         fun offered(net: NetworkId, state: ProviderState): Set<String> =
-            router.route(net, Op.BROADCAST, keyed, state, nowMs = 0L, tried = emptySet(), excluded = emptySet()).map { it.id }.toSet()
+            router.route(net, OpKey.on(net, "broadcast"), keyed, state, nowMs = 0L, tried = emptySet(), excluded = emptySet()).map { it.id }.toSet()
 
         assertEquals(setOf("1rpc", "publicnode"), offered(mainnet, everyone))
         assertEquals(setOf("1rpc", "publicnode"), offered(base, everyone))
@@ -140,8 +140,8 @@ class RpcProvidersTest {
     fun noPoolProviderServesANonEvmNetwork() {
         val solana = NetworkId(Networks.SOL_MAINNET, testnet = false)
         RpcPlugins.pool().forEach { p ->
-            assertFalse(p.id, p.supports(solana, Op.NATIVE_BALANCE, ProviderConfig()))
-            assertFalse(p.id, p.supports(BTC, Op.NATIVE_BALANCE, ProviderConfig()))
+            assertFalse(p.id, p.supports(solana, OpKey.on(solana, "nativeBalance"), ProviderConfig()))
+            assertFalse(p.id, p.supports(BTC, OpKey.on(BTC, "nativeBalance"), ProviderConfig()))
         }
     }
 

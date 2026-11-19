@@ -11,7 +11,7 @@ import app.lumio.data.provider.AsaInfo
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.MAX_ANSWER_BYTES
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -162,15 +162,15 @@ class AlgorandAlgodTest {
         assertEquals("https://testnet-api.algonode.cloud", AlgorandAlgod.ENDPOINTS["testnet"])
         assertEquals("https://mainnet-api.algonode.cloud", AlgorandAlgod.ENDPOINTS["mainnet"])
         val provider = AlgorandAlgod()
-        assertTrue(provider.supports(ALGORAND_TESTNET, Op.NATIVE_BALANCE, cfg))
-        assertTrue(provider.supports(ALGORAND_MAINNET, Op.NATIVE_BALANCE, cfg))
+        assertTrue(provider.supports(ALGORAND_TESTNET, OpKey.on(ALGORAND_TESTNET, "nativeBalance"), cfg))
+        assertTrue(provider.supports(ALGORAND_MAINNET, OpKey.on(ALGORAND_MAINNET, "nativeBalance"), cfg))
     }
 
     @Test
     fun aPlainHttpEndpointIsNotUsed() {
         val provider = AlgorandAlgod(mapOf("testnet" to "http://example.com"))
 
-        assertFalse(provider.supports(ALGORAND_TESTNET, Op.NATIVE_BALANCE, cfg))
+        assertFalse(provider.supports(ALGORAND_TESTNET, OpKey.on(ALGORAND_TESTNET, "nativeBalance"), cfg))
     }
 
     @Test

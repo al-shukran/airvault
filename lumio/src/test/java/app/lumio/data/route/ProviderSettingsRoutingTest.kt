@@ -9,7 +9,7 @@ import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.config.withApiKey
 import app.lumio.data.config.withEnabled
 import app.lumio.data.config.withMoved
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Trait
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -35,7 +35,7 @@ class ProviderSettingsRoutingTest {
     /** The providers the router offers for a balance read, under the settings saved in [session]. */
     private fun offeredBy(vararg providers: FakeProvider): List<String> =
         Router(providers.toList())
-            .route(ETH, Op.NATIVE_BALANCE, ProviderConfigStore(session).load(), healthy, nowMs = 0L, tried = emptySet(), excluded = emptySet())
+            .route(ETH, OpKey.on(ETH, "nativeBalance"), ProviderConfigStore(session).load(), healthy, nowMs = 0L, tried = emptySet(), excluded = emptySet())
             .map { it.id }
 
     @Test

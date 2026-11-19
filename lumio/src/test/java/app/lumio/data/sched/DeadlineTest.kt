@@ -4,7 +4,7 @@ import app.lumio.data.Clock
 import app.lumio.data.ETH
 import app.lumio.data.FakeProvider
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
 import kotlin.random.Random
@@ -23,7 +23,7 @@ class DeadlineTest {
             FakeProvider(
                 "slow",
                 networks = setOf(ETH),
-                ops = setOf(Op.TIP_HEIGHT),
+                ops = setOf(Ops.BTC_TIP_HEIGHT),
                 latencyMs = latencyMs,
                 now = { testScheduler.currentTime },
             ),
