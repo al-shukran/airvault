@@ -1,5 +1,6 @@
 package app.lensly.ui.screenshot
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.ui.settings.NetworksScreen
 import app.lensly.ui.settings.TokensScreen
@@ -22,12 +23,26 @@ class CatalogScreenshotTest {
     private val registry = shippedRegistry()
 
     @Test
-    fun networks() = compose.snapshot("networks_all", settleMs = SETTLE_MS) {
+    fun networks() = compose.snapshot("networks_all", settleMs = SETTLE_MS) { NetworksSnapshot() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun networksNight() = compose.snapshot("networks_all_night", settleMs = SETTLE_MS) { NetworksSnapshot() }
+
+    @Test
+    fun tokens() = compose.snapshot("tokens_grouped", settleMs = SETTLE_MS) { TokensSnapshot() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun tokensNight() = compose.snapshot("tokens_grouped_night", settleMs = SETTLE_MS) { TokensSnapshot() }
+
+    @Composable
+    private fun NetworksSnapshot() {
         NetworksScreen(networks = registry.networks(), tokens = registry.tokens(), onBack = {})
     }
 
-    @Test
-    fun tokens() = compose.snapshot("tokens_grouped", settleMs = SETTLE_MS) {
+    @Composable
+    private fun TokensSnapshot() {
         TokensScreen(networks = registry.networks(), tokens = registry.tokens(), onBack = {})
     }
 

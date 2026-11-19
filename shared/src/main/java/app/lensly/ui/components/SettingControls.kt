@@ -38,7 +38,7 @@ private const val MAX_NUMBER_DIGITS = 9
 
 /**
  * One choice of a list: its [title], one line of [description] under it, and a radio on the right. The whole row is the choice. A tap
- * calls [onSelect], and the caller applies the choice. [selected] fills the radio.
+ * calls [onSelect], and the caller applies the choice. [selected] fills the radio. A row in an island passes [divided] false.
  */
 @Composable
 fun RadioRow(
@@ -48,10 +48,11 @@ fun RadioRow(
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    divided: Boolean = true,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val haptics = rememberKeyHaptics()
-    SettingsItem {
+    SettingsItem(divided) {
         Row(
             modifier = modifier
                 .fillMaxWidth()
