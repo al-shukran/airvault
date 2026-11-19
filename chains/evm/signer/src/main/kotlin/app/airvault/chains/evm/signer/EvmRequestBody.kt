@@ -40,7 +40,7 @@ object EvmRequestBody {
     fun decode(body: ByteArray): ParsedRequest = WireReader(body).run { readParsed().also { done() } }
 
     private fun WireWriter.request(request: EthSignRequest) {
-        optional(request.requestId) { blob(it, REQUEST_ID_BYTES) }
+        optional(request.requestId) { exact(it, REQUEST_ID_BYTES) }
         blob(request.signData, MAX_SIGN_DATA)
         int(request.dataType.wire)
         optional(request.chainId) { long(it) }

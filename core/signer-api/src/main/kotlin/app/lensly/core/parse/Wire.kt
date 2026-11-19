@@ -37,6 +37,12 @@ class WireWriter {
         data.write(value)
     }
 
+    /** A blob of exactly [size] bytes, which [WireReader.exact] reads back. */
+    fun exact(value: ByteArray, size: Int) {
+        if (value.size != size) throw WireException("expected $size bytes")
+        blob(value, size)
+    }
+
     fun text(value: String, max: Int = MAX_TEXT_BYTES) = blob(value.toByteArray(StandardCharsets.UTF_8), max)
 
     /** A non-negative integer as its big-endian magnitude, at most 32 bytes. */
