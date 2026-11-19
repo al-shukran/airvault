@@ -43,7 +43,6 @@ import app.lensly.app.WalletReviewRecord
 import app.lensly.app.WalletStore
 import app.lensly.app.WalletWriter
 import app.lensly.app.export.AccountExport
-import app.lensly.app.export.AccountExportView
 import app.lensly.app.sessionReads
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.core.algorand.AlgorandAccount
@@ -56,9 +55,10 @@ import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.LedgerPassphraseIssue
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.ledgerPassphraseIssue
-import app.lensly.ui.flow.AccountExportScreen
+import app.lensly.ui.flow.AccountExportGate
 import app.lensly.ui.flow.PairWalletRoute
 import app.lensly.ui.flow.SignWalletRoute
+import app.lensly.ui.flow.checkAppPassword
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.ActivityScreen
 import app.lensly.ui.home.AlgorandAccountsScreen
@@ -929,23 +929,29 @@ private fun ActivityRoute(navController: NavHostController, holder: VaultHolder)
 @Composable
 private fun ExportAccountsRoute(navController: NavHostController, holder: VaultHolder, walletId: String, indices: List<Int>) {
     val session = rememberOpenSession(navController, holder) ?: return
-    var shown by remember(walletId, indices) { mutableStateOf<List<AccountExportView>?>(null) }
+    // The wallet's public data is read first, to check the accounts. Their codes are read only once the App Password is right.
+    var wallet by remember(walletId, indices) { mutableStateOf<WalletMeta?>(null) }
     LaunchedEffect(walletId, indices) {
         whileUnlocked(navController, holder) {
-            val store = WalletStore(session)
-            val meta = withContext(Dispatchers.IO) { store.meta(walletId) }
+            val meta = withContext(Dispatchers.IO) { WalletStore(session).meta(walletId) }
             if (meta == null || indices.isEmpty() || indices.any { it !in 0 until meta.accountCount }) {
                 navController.popBackStack()
                 return@whileUnlocked
             }
-            shown = withContext(Dispatchers.IO) {
-                indices.map { index -> AccountExport.view(meta, index, store.accountAddress(walletId, index)) }
-            }
+            wallet = meta
         }
     }
-    val current = shown ?: return
-    AccountExportScreen(
-        accounts = current,
+    val meta = wallet ?: return
+    AccountExportGate(
+        count = indices.size,
+        checkPassword = { password -> checkAppPassword(holder, password) },
+        load = {
+            withContext(Dispatchers.IO) {
+                val store = WalletStore(session)
+                indices.map { index -> AccountExport.view(meta, index, store.accountAddress(walletId, index)) }
+            }
+        },
+        onUnavailable = { navController.openHidden(HiddenRoute.UNAVAILABLE) },
         onDone = { navController.popBackStack() },
         onBack = { navController.popBackStack() },
     )
