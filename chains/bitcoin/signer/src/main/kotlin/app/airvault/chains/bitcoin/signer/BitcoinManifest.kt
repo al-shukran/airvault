@@ -20,6 +20,9 @@ private val BITCOIN_PURPOSES = listOf(44, 49, 84, 86)
 private const val MAINNET_COIN_TYPE = 0
 internal const val TESTNET_COIN_TYPE = 1
 
+/** The levels of an account path m/purpose'/coin'/account'. A request names its accounts at this depth. */
+internal const val ACCOUNT_DEPTH = 3
+
 /**
  * The Bitcoin chain app's manifest (spec 2.1, 11.1). A PSBT is `crypto-psbt`, which the registry names for this app. The response is
  * the signed PSBT, also `crypto-psbt`, and the registry keeps each UR type to one entry, so the response declares none.

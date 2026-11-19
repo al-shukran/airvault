@@ -4,11 +4,14 @@ import app.airvault.chains.bitcoin.signer.BtcPsbt
 import fr.acinq.bitcoin.ByteVector
 import fr.acinq.bitcoin.OutPoint
 import fr.acinq.bitcoin.Satoshi
+import fr.acinq.bitcoin.Script
+import fr.acinq.bitcoin.ScriptElt
 import fr.acinq.bitcoin.SigHash
 import fr.acinq.bitcoin.Transaction
 import fr.acinq.bitcoin.TxIn
 import fr.acinq.bitcoin.TxOut
 import fr.acinq.bitcoin.psbt.Input
+import fr.acinq.bitcoin.psbt.KeyPathWithMaster
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -250,6 +253,46 @@ class BtcSignerRefusalTest {
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L))
         assertRefusal(BtcRefusal.SourceExcluded) { signer.review(psbt) }
         assertFalse(assertFailsWith<BtcRefusedException> { signer.review(psbt) }.refusal.reason.isBlank())
+    }
+
+    @Test
+    fun aNonWitnessInputThatSpendsASegwitOutputIsRefusedForEverySegwitScriptType() {
+        val nested = BtcAccount.fromSeed(seed, testnet4, ScriptType.NESTED_SEGWIT)
+        val taproot = BtcAccount.fromSeed(seed, testnet4, ScriptType.TAPROOT)
+        for (account in listOf(native, nested, taproot)) {
+            val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+            val redeem = if (account.scriptType == ScriptType.NESTED_SEGWIT) Script.pay2wpkh(account.publicKey(0, 0)) else null
+            val psbt = previousTransactionOnly(spend, redeem, outputs(account, 90_000L))
+            assertRefusal(BtcRefusal.SegwitWithoutWitness(0)) { BtcFixtures.signerOf(account, seed).review(psbt) }
+            assertRefusal(BtcRefusal.SegwitWithoutWitness(0)) { BtcFixtures.signerOf(account, seed).sign(psbt) }
+        }
+    }
+
+    @Test
+    fun aNonWitnessInputThatSpendsALegacyOutputIsStillSigned() {
+        val legacy = BtcAccount.fromSeed(seed, testnet4, ScriptType.LEGACY)
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(legacy, 0, 0, 100_000L), legacy, 0, 0)
+        val psbt = BtcFixtures.psbt(listOf(spend), outputs(legacy, 90_000L))
+        assertTrue(BtcFixtures.signerOf(legacy, seed).sign(psbt).psbt.inputs[0].partialSigs.isNotEmpty())
+    }
+
+    /**
+     * A PSBT whose only input gives the previous transaction of [spend] and nothing else, claimed by the key of [spend]. A nested output
+     * takes [redeemScript], the P2WPKH script of its key. This is the non-witness form the refusal guards.
+     */
+    private fun previousTransactionOnly(spend: BtcFixtures.Spend, redeemScript: List<ScriptElt>?, txOuts: List<TxOut>): Psbt {
+        val account = spend.account
+        val tx = Transaction(
+            version = 2,
+            txIn = listOf(TxIn(OutPoint(spend.funding.hash, 0L), ByteVector.empty, 0xFFFFFFFDL)),
+            txOut = txOuts,
+            lockTime = 0L,
+        )
+        val path = account.path.derive(spend.branch.toLong()).derive(spend.claimedIndex.toLong())
+        val derivation = mapOf(account.publicKey(spend.branch, spend.index) to KeyPathWithMaster(account.masterFingerprint, path))
+        return checkNotNull(
+            Psbt(tx).updateNonWitnessInput(spend.funding, 0, redeemScript = redeemScript, derivationPaths = derivation).right,
+        )
     }
 
     private fun outputs(account: BtcAccount, paid: Long): List<TxOut> = listOf(

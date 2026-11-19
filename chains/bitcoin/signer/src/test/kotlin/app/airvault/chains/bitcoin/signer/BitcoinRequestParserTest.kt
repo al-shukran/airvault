@@ -4,7 +4,9 @@ import app.airvault.core.model.ChainId
 import app.airvault.core.model.ChainRegistry
 import app.airvault.core.signer.ParseOutcome
 import app.airvault.core.signer.RequestKind
+import app.airvault.core.signer.SignerRef
 import app.lensly.core.parse.ParserLimits
+import app.lensly.core.ur.PathStep
 import com.sparrowwallet.hummingbird.registry.CryptoPSBT
 import fr.acinq.bitcoin.ByteVector
 import fr.acinq.bitcoin.ByteVector32
@@ -22,6 +24,9 @@ import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+
+/** The master fingerprint that the PSBTs of these tests claim. */
+private const val FINGERPRINT = 0xD0E1F2A3L
 
 class BitcoinRequestParserTest {
     private val bytes = Psbt.write(
@@ -99,6 +104,56 @@ class BitcoinRequestParserTest {
         val key = PublicKey(hexBytes("0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"))
         val derivation = mapOf(key to KeyPathWithMaster(0xD0E1F2A3L, path))
         return checkNotNull(Psbt(tx).updateWitnessInput(outPoint, output, derivationPaths = derivation).right)
+    }
+
+    @Test
+    fun theHeaderNamesEachAccountTheInputsClaimOnceInInputOrder() {
+        val psbt = psbtClaiming(listOf(keyPath(0, 1), keyPath(0, 2), keyPath(1, 0)))
+        val request = assertIs<ParseOutcome.Parsed>(parseOf(psbt)).request
+        assertEquals(listOf(accountRef(0), accountRef(1)), request.header.signers)
+    }
+
+    @Test
+    fun aPsbtWithNoDerivationNamesNoAccount() {
+        assertEquals(emptyList(), assertIs<ParseOutcome.Parsed>(parse()).request.header.signers)
+    }
+
+    @Test
+    fun sixteenAccountsParseAndSeventeenAreRefusedBecauseTheWireCarriesSixteen() {
+        val sixteen = psbtClaiming((0L until 16L).map { keyPath(it, 0L) })
+        assertEquals(16, assertIs<ParseOutcome.Parsed>(parseOf(sixteen)).request.header.signers.size)
+        val seventeen = psbtClaiming((0L until 17L).map { keyPath(it, 0L) })
+        assertEquals(ParseOutcome.Refused("The PSBT claims more than 16 Bitcoin accounts."), parseOf(seventeen))
+    }
+
+    /** The BIP84 key path m/84'/0'/[account]'/0/[index] on mainnet, under the fingerprint of [FINGERPRINT]. */
+    private fun keyPath(account: Long, index: Long): KeyPath =
+        KeyPath(listOf(0x8000_0000L + 84L, 0x8000_0000L, 0x8000_0000L + account, 0L, index))
+
+    /** The account reference the header names for account [account] of BIP84 on mainnet. */
+    private fun accountRef(account: Int): SignerRef = SignerRef(
+        FINGERPRINT.toInt(),
+        listOf(PathStep(84, hardened = true), PathStep(0, hardened = true), PathStep(account, hardened = true)),
+    )
+
+    /**
+     * A PSBT with one input per path in [paths]. Each input spends its own output, and its derivation names that path under the key of the
+     * generator point and [FINGERPRINT].
+     */
+    private fun psbtClaiming(paths: List<KeyPath>): Psbt {
+        val key = PublicKey(hexBytes("0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"))
+        val output = TxOut(Satoshi(1_000L), ByteVector.empty)
+        val outPoints = paths.indices.map { i -> OutPoint(TxHash(ByteVector32(ByteArray(32) { (i + 1).toByte() })), 0L) }
+        val tx = Transaction(
+            version = 2,
+            txIn = outPoints.map { TxIn(it, ByteVector.empty, 0xFFFFFFFDL) },
+            txOut = listOf(output),
+            lockTime = 0L,
+        )
+        return paths.foldIndexed(Psbt(tx)) { index, psbt, path ->
+            val derivation = mapOf(key to KeyPathWithMaster(FINGERPRINT, path))
+            checkNotNull(psbt.updateWitnessInput(outPoints[index], output, derivationPaths = derivation).right)
+        }
     }
 
     private fun parseOf(psbt: Psbt): ParseOutcome {
