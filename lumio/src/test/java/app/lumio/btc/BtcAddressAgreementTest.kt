@@ -7,7 +7,7 @@ import app.lensly.core.btc.ScriptType
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairRecords
 import app.lumio.pair.PairedWallet
-import app.lumio.wallets.AccountChain
+import app.lumio.data.net.Networks
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 import fr.acinq.bitcoin.DeterministicWallet
@@ -123,7 +123,7 @@ class BtcAddressAgreementTest {
             bitcoin = rows,
             coins = emptyList(),
             nativeCache = emptyList(),
-        ).filter { it.chain == AccountChain.BITCOIN }
+        ).filter { it.namespace == Networks.BIP122 }
 
     /** A scan that found receive addresses 0 to 4 in use: its identity is the first receive address, and its next unused one is index 5. */
     private fun scanSnapshot(ref: BtcAccountRef, account: BtcWatchOnlyAccount): BtcSnapshot = BtcSnapshot(

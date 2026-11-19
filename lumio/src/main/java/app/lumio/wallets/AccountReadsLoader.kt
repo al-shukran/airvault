@@ -7,6 +7,7 @@ import app.lumio.bitcoinAccountRef
 import app.lumio.chains.ChainHolding
 import app.lumio.chains.ChainHoldings
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import app.lumio.data.provider.solana.SOLANA_DEVNET
@@ -39,7 +40,7 @@ internal object AccountReadsLoader {
 
     /** The ERC-20 holdings of an Ethereum account on [mode]'s chains that hold something, from the vault's caches. Empty for the other chains. */
     fun tokensOf(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): List<TokenHolding> {
-        if (account.chain != AccountChain.ETHEREUM) return emptyList()
+        if (account.namespace != Networks.EIP155) return emptyList()
         return TokenPortfolio.holdingsAt(
             account.walletId,
             account.address,
@@ -55,12 +56,12 @@ internal object AccountReadsLoader {
      */
     suspend fun holdingsOf(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): List<ChainHolding> {
         val scheduler = app.nativeSchedulerFor(session)
-        return when (account.chain) {
-            AccountChain.SOLANA -> {
+        return when (account.namespace) {
+            Networks.SOLANA -> {
                 val network = if (mode == NetworkMode.TESTNET) SOLANA_DEVNET else SOLANA_MAINNET
                 ChainHoldings.solana(scheduler, network, account.address, ChainHoldings.solanaNames(app), account.networkName)
             }
-            AccountChain.ALGORAND -> {
+            Networks.ALGORAND -> {
                 val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
                 ChainHoldings.algorand(scheduler, network, account.address, account.networkName)
             }
@@ -70,7 +71,7 @@ internal object AccountReadsLoader {
 
     /** The reads that the activity of [account] makes on [mode]'s side: its address on each enabled network, or its Bitcoin account's scan. */
     fun planOf(app: LumioApp, session: VaultSession, mode: NetworkMode, account: WalletAccount): TxSyncPlan {
-        val bitcoin = if (account.chain == AccountChain.BITCOIN) bitcoinAccountRef(session, account.walletId, account.index, mode) else null
+        val bitcoin = if (account.namespace == Networks.BIP122) bitcoinAccountRef(session, account.walletId, account.index, mode) else null
         return AccountActivity.plan(account, chainsOf(app, session, mode), bitcoin)
     }
 
@@ -78,12 +79,12 @@ internal object AccountReadsLoader {
      * The addresses that the activity of [account] is read for: its Ethereum address, or the addresses that the last scan of its Bitcoin account found in
      * use. Empty for the other chains, and for a Bitcoin account that has no scan yet.
      */
-    suspend fun addressesOf(vault: LumioVault, session: VaultSession, mode: NetworkMode, account: WalletAccount): Set<String> = when (account.chain) {
-        AccountChain.ETHEREUM -> setOf(account.address)
-        AccountChain.BITCOIN -> bitcoinAccountRef(session, account.walletId, account.index, mode)
+    suspend fun addressesOf(vault: LumioVault, session: VaultSession, mode: NetworkMode, account: WalletAccount): Set<String> = when (account.namespace) {
+        Networks.EIP155 -> setOf(account.address)
+        Networks.BIP122 -> bitcoinAccountRef(session, account.walletId, account.index, mode)
             ?.let { vault.store.snapshot(it.key)?.addresses?.toSet() }
             .orEmpty()
-        AccountChain.SOLANA, AccountChain.ALGORAND -> emptySet()
+        else -> emptySet()
     }
 
     /** The newest [ACTIVITY_ROWS] rows of [addresses] on [networks] from the vault's store, each with its comment. It reads no network. */

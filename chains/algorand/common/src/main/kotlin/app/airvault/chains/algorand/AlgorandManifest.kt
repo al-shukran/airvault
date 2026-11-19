@@ -19,7 +19,7 @@ import app.airvault.core.model.PathTemplate
 import app.airvault.core.model.UrTypeSpec
 
 /** Algorand's SLIP-44 coin type (spec 11.1). Both networks and every key path use it. */
-private const val ALGORAND_COIN_TYPE = 283
+const val ALGORAND_COIN_TYPE = 283
 
 /** The Algorand chain app's manifest (spec 2.1, 11.1), declared once and shared by its signer and wallet sides. */
 val algorandManifest: ChainManifest = ChainManifest(

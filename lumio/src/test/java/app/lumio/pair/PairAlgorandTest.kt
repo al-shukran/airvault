@@ -1,5 +1,7 @@
 package app.lumio.pair
 
+import app.airvault.chains.algorand.wallet.AlgorandWallet
+import app.airvault.core.model.AccountId
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
@@ -9,8 +11,14 @@ import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import app.lumio.chains.NativeBalances
+import app.lumio.data.net.Networks
+import app.lumio.network.NetworkMode
+import app.lumio.wallets.WalletAccount
+import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
@@ -62,6 +70,52 @@ class PairAlgorandTest {
 
         assertEquals(emptyList<ByteArray>(), PairedWallets.list(session).single().algorand)
     }
+
+    @Test
+    fun aPairedAlgorandAccountIsNamedByItsCaip10IdOnEachSide() {
+        PairedWallets.save(session, roundTrip(payload(algorand = algorandKeys())), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
+        val addresses = wallet.algorand.map { AlgorandAccount.addressOf(it) }
+        assertEquals(EXPECTED_ADDRESS_0, addresses[0])
+
+        val mainnet = accountsOn(wallet, NetworkMode.MAINNET).filter { it.namespace == Networks.ALGORAND }
+        val testnet = accountsOn(wallet, NetworkMode.TESTNET).filter { it.namespace == Networks.ALGORAND }
+
+        assertEquals(addresses.map { AccountId.of(Networks.ALGO_MAINNET, it) }, mainnet.map { it.id })
+        assertEquals(addresses.map { AccountId.of(Networks.ALGO_TESTNET, it) }, testnet.map { it.id })
+        assertEquals(listOf(0, 1), mainnet.map { it.index })
+    }
+
+    @Test
+    fun anAlgorandIdIsFoundInTheWalletByItsAddressOnEitherSide() {
+        PairedWallets.save(session, roundTrip(payload(algorand = algorandKeys())), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
+
+        assertEquals(1, WalletAccounts.indexOf(wallet, AccountId.of(Networks.ALGO_TESTNET, AlgorandAccount.addressOf(wallet.algorand[1]))))
+        assertEquals(0, WalletAccounts.indexOf(wallet, AccountId.of(Networks.ALGO_MAINNET, EXPECTED_ADDRESS_0)))
+        assertNull(WalletAccounts.indexOf(wallet, AccountId.of(Networks.ALGO_MAINNET, "A".repeat(58))))
+    }
+
+    @Test
+    fun theWalletAppAddressesAKeyAsLenslyDoes() {
+        for (index in 0 until 2) {
+            val key = AlgorandAccount.publicKey(SEED, index)
+
+            assertEquals(AlgorandAccount.addressOf(key), AlgorandWallet.addresses.fromPublicKey(Networks.ALGO_MAINNET, key))
+        }
+    }
+
+    /** The accounts of [wallet] on [mode]'s side, with no Ethereum or Bitcoin account and no balance read: only the Algorand and Solana keys. */
+    private fun accountsOn(wallet: PairedWallet, mode: NetworkMode): List<WalletAccount> = WalletAccounts.of(
+        wallet,
+        mode,
+        evmChains = emptyList(),
+        evmCache = emptyList(),
+        addressCount = 0,
+        bitcoin = emptyList(),
+        coins = NativeBalances.coinsOf(mode),
+        nativeCache = emptyList(),
+    )
 
     /** The pairing as Lumio reads it: the code is encoded as Lensly writes it, uncompressed, and checked by [PairImport]. */
     private fun roundTrip(payload: PairingPayload): PairingPayload =

@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
+import app.airvault.core.model.AccountId
 import app.lensly.app.VaultHolder
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.ui.navigation.GateRoutes
@@ -37,6 +38,7 @@ import app.lumio.network.NetworkMode
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.wallets.WalletAccounts
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
@@ -100,7 +102,7 @@ internal fun AlgorandSendRoute(
     holder: VaultHolder,
     mode: NetworkMode,
     walletId: String,
-    accountIndex: Int,
+    account: AccountId,
     optInAssetId: ULong? = null,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
@@ -115,7 +117,8 @@ internal fun AlgorandSendRoute(
         value = onVault(null) { PairedWallets.list(session).firstOrNull { it.id == walletId } }
     }
     val wallet = paired ?: return
-    val signer = wallet.algorand.getOrNull(accountIndex) ?: return
+    val accountIndex = WalletAccounts.indexOf(wallet, account) ?: return
+    val signer = wallet.algorand[accountIndex]
     val address = AlgorandAccount.addressOf(signer)
     val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
     val scheduler = app.nativeSchedulerFor(session)

@@ -31,7 +31,6 @@ import app.lensly.ui.components.IslandDivider
 import app.lumio.ui.kit.WalletOrb
 import app.lumio.ui.network.label
 import app.lumio.ui.theme.LumioGutter
-import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 
@@ -96,10 +95,10 @@ fun WalletScreen(
                     )
                 }
             }
-            accountsByChain(accounts).forEach { (chain, group) ->
-                item(key = "chain-${chain.name}") {
+            accountsByChain(accounts).forEach { (family, group) ->
+                item(key = "chain-$family") {
                     ChainIsland(
-                        chain = chain,
+                        family = family,
                         group = group,
                         accounts = accounts,
                         mode = mode,
@@ -144,10 +143,10 @@ private fun WalletHero(
     }
 }
 
-/** The accounts of one [chain] as an island under the chain's name. A row's place in [accounts] sets its delay in the enter stagger. */
+/** The accounts of one chain [family] as an island under the family's name. A row's place in [accounts] sets its delay in the enter stagger. */
 @Composable
 private fun ChainIsland(
-    chain: AccountChain,
+    family: String,
     group: List<WalletAccount>,
     accounts: List<WalletAccount>,
     mode: NetworkMode,
@@ -160,7 +159,7 @@ private fun ChainIsland(
 ) {
     Column(modifier = Modifier.padding(bottom = LenslySpacing.md)) {
         Text(
-            text = chain.label,
+            text = WalletAccounts.familyLabel(family),
             modifier = Modifier.padding(bottom = LenslySpacing.xs),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface,

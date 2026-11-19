@@ -1,5 +1,6 @@
 package app.lumio.ui.wallets
 
+import app.airvault.core.model.AccountId
 import app.lumio.chains.ChainHolding
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.NetworkId
@@ -14,7 +15,6 @@ import app.lumio.home.NativeAsset
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenHolding
 import app.lumio.ui.home.AssetIconSpec
-import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -29,9 +29,8 @@ class AssetRowsTest {
     private val usdcHolding = TokenHolding(monad, Token(10143L, MIXED_CASE_USDC, "USDC", "USD Coin", 6), BigInteger.valueOf(1_250_500_000L), atMs = 0L)
     private val account = WalletAccount(
         walletId = "wallet-demo",
-        chain = AccountChain.ETHEREUM,
+        id = AccountId.of(Networks.evm(10143L), "0x" + "a1".repeat(20)),
         index = 0,
-        address = "0x" + "a1".repeat(20),
         networkName = "Monad testnet",
         balance = NativeAsset("EVM-10143", "MON", "Monad testnet", native, BigDecimal("12.5")),
     )
@@ -78,7 +77,8 @@ class AssetRowsTest {
     @Test
     fun anSplTokenIsKeyedByItsMintAndHasNoPrice() {
         val holding = ChainHolding("USDC", "Solana Devnet", BigInteger("1500000"), 6, SPL_MINT)
-        val row = AssetRows.of(account.copy(chain = AccountChain.SOLANA, balance = null), emptyList(), listOf(holding), prices, network = { null }, token = { _, _ -> null }).single()
+        val solana = account.copy(id = AccountId.of(Networks.SOL_MAINNET, "solanaaddress"), balance = null)
+        val row = AssetRows.of(solana, emptyList(), listOf(holding), prices, network = { null }, token = { _, _ -> null }).single()
 
         assertEquals(SPL_MINT, row.assetKey)
         assertEquals("1.5", row.amountText)

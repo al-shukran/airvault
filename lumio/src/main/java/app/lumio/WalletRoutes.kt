@@ -15,11 +15,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import app.airvault.core.model.AccountId
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartRange
 import app.lumio.data.price.PriceSeries
 import app.lumio.network.NetworkMode
@@ -44,7 +46,6 @@ import app.lumio.ui.wallets.WalletSheetHost
 import app.lumio.ui.wallets.WalletSheets
 import app.lumio.ui.wallets.WalletsScreen
 import app.lumio.ui.wallets.summaryLine
-import app.lumio.wallets.AccountChain
 import app.lumio.wallets.AccountReads
 import app.lumio.wallets.AccountReadsLoader
 import app.lumio.wallets.WalletAccount
@@ -165,7 +166,7 @@ private fun WalletSheetScreen(
         refreshing = board.refreshing,
         updatedAtMs = board.updatedAtMs,
         notice = board.notice,
-        onAccount = { account -> sheets.open(WalletSheet.Account(walletId, account.chain, account.index)) },
+        onAccount = { account -> sheets.open(WalletSheet.Account(walletId, account.id)) },
         onBack = { sheets.closeSheet(opened) },
     )
 }
@@ -187,10 +188,8 @@ private fun AccountSheetScreen(
     app: LumioApp,
 ) {
     val walletId = sheet.walletId
-    val chain = sheet.chain
-    val index = sheet.index
     val view = board.view
-    val account = view?.accountsOf(walletId)?.firstOrNull { it.chain == chain && it.index == index }
+    val account = view?.accountsOf(walletId)?.firstOrNull { it.id == sheet.id }
     if (view == null || account == null) {
         LaunchedEffect(Unit) { sheets.closeSheet(opened) }
         return
@@ -209,10 +208,10 @@ private fun AccountSheetScreen(
         notice = board.notice,
         onRefresh = { board.refresh() },
         onSend = { navController.navigate(sendRoute(account, mode)) },
-        onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
-        onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, chain, index, asset.assetKey)) },
-        onAddAsset = if (chain == AccountChain.ALGORAND) {
-            { navController.navigate(LumioRoute.algorandAddAsset(walletId, index)) }
+        onReceive = { navController.navigate(LumioRoute.receive(walletId, account.id)) },
+        onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, account.id, asset.assetKey)) },
+        onAddAsset = if (account.namespace == Networks.ALGORAND) {
+            { navController.navigate(LumioRoute.algorandAddAsset(walletId, account.id)) }
         } else {
             null
         },
@@ -231,8 +230,7 @@ internal fun AssetRoute(
     navController: NavHostController,
     holder: VaultHolder,
     walletId: String,
-    chain: AccountChain,
-    index: Int,
+    accountId: AccountId,
     assetKey: String,
     mode: NetworkMode,
     listVersion: Int,
@@ -250,7 +248,7 @@ internal fun AssetRoute(
         WalletLoadingScreen(onBack = { navController.popBackStack() })
         return
     }
-    val account = view.accountsOf(walletId).firstOrNull { it.chain == chain && it.index == index }
+    val account = view.accountsOf(walletId).firstOrNull { it.id == accountId }
     if (account == null) {
         LaunchedEffect(Unit) { navController.popBackStack() }
         return
@@ -282,7 +280,7 @@ internal fun AssetRoute(
         chart = chart,
         activity = activity.orEmpty().filter { AssetRows.assetKeyOf(it.tx) == assetKey },
         onSend = { navController.navigate(sendRoute(account, mode)) },
-        onReceive = { navController.navigate(LumioRoute.receive(walletId, chain, index)) },
+        onReceive = { navController.navigate(LumioRoute.receive(walletId, accountId)) },
         onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
         onBack = { navController.popBackStack() },
     )
@@ -317,11 +315,11 @@ private fun rememberAccountActivity(
     reads: AccountReads,
 ): List<TxFeedItem>? {
     val vault = app.lumioVault()
-    val plan by produceState<TxSyncPlan?>(null, session, mode, account.walletId, account.chain, account.index) {
+    val plan by produceState<TxSyncPlan?>(null, session, mode, account.walletId, account.id) {
         value = withContext(Dispatchers.IO) { AccountReadsLoader.planOf(app, session, mode, account) }
     }
     // A count of the reads that have landed. Each read adds the Bitcoin addresses it turns up to the reads, which the board keeps for the next visit.
-    val landed = remember(session, mode, account.walletId, account.chain, account.index) { MutableStateFlow(0) }
+    val landed = remember(session, mode, account.walletId, account.id) { MutableStateFlow(0) }
     val landedNow by landed.collectAsState()
     val owned by reads.addresses.collectAsState()
     LaunchedEffect(plan) {
@@ -331,10 +329,10 @@ private fun rememberAccountActivity(
             TxSync.run(app, open, current, onStored = { landed.update { it + 1 } }, onAddress = { address -> reads.addresses.update { it + address } })
         }
     }
-    val addresses = when (account.chain) {
-        AccountChain.ETHEREUM -> setOf(account.address)
-        AccountChain.BITCOIN -> owned
-        AccountChain.SOLANA, AccountChain.ALGORAND -> emptySet()
+    val addresses = when (account.namespace) {
+        Networks.EIP155 -> setOf(account.address)
+        Networks.BIP122 -> owned
+        else -> emptySet()
     }
     val items by produceState(reads.activity, plan, addresses, landedNow) {
         val current = plan ?: return@produceState
@@ -361,8 +359,7 @@ internal fun ReceiveRoute(
     navController: NavHostController,
     holder: VaultHolder,
     walletId: String,
-    chain: AccountChain,
-    index: Int,
+    accountId: AccountId,
     mode: NetworkMode,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
@@ -371,9 +368,9 @@ internal fun ReceiveRoute(
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
     if (session == null) return
-    val load by produceState<ReceiveLoad?>(initialValue = null, session, mode, walletId, chain, index) {
+    val load by produceState<ReceiveLoad?>(initialValue = null, session, mode, walletId, accountId) {
         val open = session
-        value = WalletsLoader.account(app, open, mode, walletId, chain, index)
+        value = WalletsLoader.account(app, open, mode, walletId, accountId)
             ?.let { (name, account) -> ReceiveLoad.Ready(name, account) }
             ?: ReceiveLoad.Missing
     }
@@ -388,29 +385,30 @@ internal fun ReceiveRoute(
             detail = receiveDetail(current.account),
             address = current.account.address,
             onlySend = "Only send ${current.account.networkName} assets here.",
-            title = "Receive ${current.account.balance?.symbol ?: current.account.chain.label}",
-            note = if (current.account.chain == AccountChain.SOLANA) "Tokens arrive at this same address." else null,
+            title = "Receive ${current.account.balance?.symbol ?: WalletAccounts.familyLabel(current.account.namespace)}",
+            note = if (current.account.namespace == Networks.SOLANA) "Tokens arrive at this same address." else null,
             onBack = { navController.popBackStack() },
         )
     }
 }
 
 /** The line under the name of a receive: what the address is, its chain and network, and for Ethereum the address number. */
-private fun receiveDetail(account: WalletAccount): String = when (account.chain) {
-    AccountChain.ETHEREUM -> "Ethereum and every EVM network, address ${account.index + 1}"
-    AccountChain.BITCOIN -> "${account.script.orEmpty()} on ${account.networkName}"
-    AccountChain.SOLANA, AccountChain.ALGORAND -> account.networkName
+private fun receiveDetail(account: WalletAccount): String = when (account.namespace) {
+    Networks.EIP155 -> "Ethereum and every EVM network, address ${account.index + 1}"
+    Networks.BIP122 -> "${account.script.orEmpty()} on ${account.networkName}"
+    else -> account.networkName
 }
 
 /**
  * The route of a Send from [account] on [mode]'s side. Every chain sends from its own account, with no picker: the send is bound to that account and
  * its network. An Ethereum send is on the side's primary network, the one the account shows.
  */
-internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when (account.chain) {
-    AccountChain.ETHEREUM -> LumioRoute.send(account.walletId, account.index, WalletAccounts.primaryEvmChainId(mode))
-    AccountChain.BITCOIN -> LumioRoute.btcSend(account.walletId, account.index)
-    AccountChain.SOLANA -> LumioRoute.solanaSend(account.walletId, account.index)
-    AccountChain.ALGORAND -> LumioRoute.algorandSend(account.walletId, account.index)
+internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when (account.namespace) {
+    Networks.EIP155 -> LumioRoute.send(account.walletId, account.id, WalletAccounts.primaryEvmChainId(mode))
+    Networks.BIP122 -> LumioRoute.btcSend(account.walletId, account.id)
+    Networks.SOLANA -> LumioRoute.solanaSend(account.walletId, account.id)
+    Networks.ALGORAND -> LumioRoute.algorandSend(account.walletId, account.id)
+    else -> error("Lumio sends from no account on ${account.namespace}")
 }
 
 /** One paired wallet as a row of the Wallets list: its name, the fingerprint its orb is drawn from, its summary line and its dollar total. */

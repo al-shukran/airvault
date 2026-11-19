@@ -45,9 +45,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import app.airvault.core.model.AccountId
 import app.lensly.ui.navigation.NavReducedMotion
 import app.lumio.network.NetworkMode
-import app.lumio.wallets.AccountChain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -80,8 +80,8 @@ internal sealed interface WalletSheet {
     /** A paired wallet and its accounts. */
     data class Wallet(val walletId: String) : WalletSheet
 
-    /** One account of a wallet, by its chain and its place among the accounts of that chain. */
-    data class Account(val walletId: String, val chain: AccountChain, val index: Int) : WalletSheet
+    /** One account of a wallet, by its CAIP-10 id. */
+    data class Account(val walletId: String, val id: AccountId) : WalletSheet
 }
 
 /**

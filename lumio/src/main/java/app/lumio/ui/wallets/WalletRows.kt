@@ -32,6 +32,7 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lensly.ui.theme.LumenMotion
 import app.lumio.data.Clock
+import app.lumio.data.net.Networks
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
 import app.lumio.network.NetworkMode
@@ -43,8 +44,8 @@ import app.lumio.ui.kit.LumenRing
 import app.lumio.ui.kit.LumioAssetIcon
 import app.lensly.ui.components.LumioRow
 import app.lumio.ui.kit.rememberLumioHaptics
-import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
+import app.lumio.wallets.WalletAccounts
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -70,14 +71,14 @@ private val STAGGER_SPAN_MS = LumenMotion.STAGGER.toLong() * (LumenMotion.STAGGE
 /** The line under a wallet's name: its chains and accounts, such as "4 chains · 7 accounts", or "No accounts" when it has none on the side. */
 internal fun summaryLine(accounts: List<WalletAccount>): String {
     if (accounts.isEmpty()) return "No accounts"
-    return "${plural(accounts.map { it.chain }.distinct().size, "chain")} · ${plural(accounts.size, "account")}"
+    return "${plural(accounts.map { it.namespace }.distinct().size, "chain")} · ${plural(accounts.size, "account")}"
 }
 
 private fun plural(count: Int, noun: String): String = if (count == 1) "1 $noun" else "$count ${noun}s"
 
-/** The accounts of each chain on the side, in chain order. A chain with no account has no island. */
-internal fun accountsByChain(accounts: List<WalletAccount>): List<Pair<AccountChain, List<WalletAccount>>> =
-    AccountChain.entries.mapNotNull { chain -> accounts.filter { it.chain == chain }.takeIf { it.isNotEmpty() }?.let { chain to it } }
+/** The accounts of each chain family on the side, in family order, by CAIP-2 namespace. A family with no account has no island. */
+internal fun accountsByChain(accounts: List<WalletAccount>): List<Pair<String, List<WalletAccount>>> =
+    WalletAccounts.FAMILIES.mapNotNull { family -> accounts.filter { it.namespace == family }.takeIf { it.isNotEmpty() }?.let { family to it } }
 
 /** The line under a total: "Refreshing…" while a read runs, else the age of the last complete read. A read that did not answer keeps the time before it. */
 internal fun freshnessLine(refreshing: Boolean, updatedAtMs: Long?, nowMs: Long): String = when {
@@ -116,10 +117,10 @@ internal fun tokenLine(tokens: Int): String? = when {
 }
 
 /** The icon of an account row: the Bitcoin mark, the Ethereum network's logo on [evmChainId], or the first letter of a Solana or Algorand coin. */
-internal fun accountIconSpec(account: WalletAccount, evmChainId: Long, network: (Long) -> NetworkEntry?): AssetIconSpec = when (account.chain) {
-    AccountChain.BITCOIN -> AssetIconSpec.Bitcoin
-    AccountChain.ETHEREUM -> AssetIconSpec.Chain(network(evmChainId))
-    AccountChain.SOLANA, AccountChain.ALGORAND -> AssetIconSpec.Letter(letterOf(account.balance?.symbol ?: account.chain.label))
+internal fun accountIconSpec(account: WalletAccount, evmChainId: Long, network: (Long) -> NetworkEntry?): AssetIconSpec = when (account.namespace) {
+    Networks.BIP122 -> AssetIconSpec.Bitcoin
+    Networks.EIP155 -> AssetIconSpec.Chain(network(evmChainId))
+    else -> AssetIconSpec.Letter(letterOf(account.balance?.symbol ?: WalletAccounts.familyLabel(account.namespace)))
 }
 
 /**

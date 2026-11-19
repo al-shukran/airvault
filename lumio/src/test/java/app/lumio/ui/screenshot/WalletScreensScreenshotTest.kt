@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import app.airvault.core.model.AccountId
 import app.lumio.btc.networkId
 import app.lumio.data.Clock
 import app.lumio.chains.ChainHolding
@@ -36,7 +37,6 @@ import app.lumio.ui.wallets.WalletSheetHost
 import app.lumio.ui.wallets.WalletSheets
 import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletsScreen
-import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
 import app.lensly.core.btc.BtcNetwork
 import java.math.BigDecimal
@@ -77,34 +77,30 @@ class WalletScreensScreenshotTest {
 
     private val bitcoin = WalletAccount(
         walletId = "wallet-demo",
-        chain = AccountChain.BITCOIN,
+        id = AccountId.of(Networks.BTC_TESTNET4, "tb1qk3z8f0d6c2m9a7v4w5x1y2z3q4r5s6t7u8v9w0"),
         index = 0,
-        address = "tb1qk3z8f0d6c2m9a7v4w5x1y2z3q4r5s6t7u8v9w0",
         networkName = "Bitcoin Testnet4",
         balance = NativeAsset("BTC-testnet4", "BTC", "Bitcoin Testnet4", BtcNetwork.TESTNET4.networkId(), BigDecimal("0.0012")),
         script = "Native SegWit",
     )
     private val ethereum = WalletAccount(
         walletId = "wallet-demo",
-        chain = AccountChain.ETHEREUM,
+        id = AccountId.of(Networks.evm(10143), "0x" + "a1b2c3d4".repeat(5)),
         index = 0,
-        address = "0x" + "a1b2c3d4".repeat(5),
         networkName = "Monad testnet",
         balance = NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Networks.evm(10143), testnet = true), BigDecimal("12.5")),
     )
     private val solana = WalletAccount(
         walletId = "wallet-demo",
-        chain = AccountChain.SOLANA,
+        id = AccountId.of(Networks.SOL_DEVNET, "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"),
         index = 0,
-        address = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
         networkName = "Solana Devnet",
         balance = NativeAsset("SOL-devnet", "SOL", "Solana Devnet", SOLANA_DEVNET, BigDecimal("0.4")),
     )
     private val algorand = WalletAccount(
         walletId = "wallet-demo",
-        chain = AccountChain.ALGORAND,
+        id = AccountId.of(Networks.ALGO_TESTNET, "ALGOADDRESSEXAMPLEFORSCREENSHOTONLY0000000000000000000000000"),
         index = 0,
-        address = "ALGOADDRESSEXAMPLEFORSCREENSHOTONLY0000000000000000000000000",
         networkName = "Algorand Testnet",
         balance = null,
     )
@@ -630,7 +626,7 @@ class WalletScreensScreenshotTest {
     /** The Account sheet rises over the dimmed Wallet sheet, which stays visible beneath it at its top edge. */
     @Test
     fun accountSheetOverWalletSheet() {
-        val sheets = openedSheets(WalletSheet.Wallet("wallet-demo"), WalletSheet.Account("wallet-demo", AccountChain.ETHEREUM, 0))
+        val sheets = openedSheets(WalletSheet.Wallet("wallet-demo"), WalletSheet.Account("wallet-demo", ethereum.id))
         compose.lumioSnapshot("account_sheet_over_wallet_sheet") { SheetOverHome(sheets) }
     }
 }

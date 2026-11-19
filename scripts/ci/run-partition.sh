@@ -73,7 +73,7 @@ partitions:
   lumio-c        :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
   lumio-d        :lumio:testDebugUnitTest --tests 'app.lumio.data.*'
   registry-pack  :tools:registry-pack:test
-  chain-api      :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test :core:conformance:test, then compiles the API and Algorand modules
+  chain-api      :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test :core:conformance:test :chains:algorand:wallet:test, then compiles core:wallet-api
   manifest       scripts/ci/check-manifest.sh
   ci             bash -n on every script, scripts/ci/check-partitions.sh, then
                  scripts/ci/check-test-network.sh (no Gradle)
@@ -209,10 +209,10 @@ case "$partition" in
         ;;
     chain-api)
         # The chain-app contract, the parsers, the registry, the key-scope enforcer, the conformance kit (which runs on the
-        # Algorand signer and checks the signer side for network libraries) and the Algorand manifest. No --tests filter:
-        # each module's whole test set runs.
+        # Algorand signer and checks the signer side for network libraries), the Algorand manifest and the Algorand wallet
+        # (its address codec and pairing accounts). No --tests filter: each module's whole test set runs.
         ./gradlew :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test \
-            :core:conformance:test :core:wallet-api:classes :chains:algorand:wallet:classes
+            :core:conformance:test :core:wallet-api:classes :chains:algorand:wallet:test
         ;;
     manifest)
         "$ROOT/scripts/ci/check-manifest.sh"
