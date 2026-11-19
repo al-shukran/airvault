@@ -2,8 +2,8 @@ package app.lumio.data.provider
 
 import app.lumio.data.BTC
 import app.lumio.data.ETH
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.blockchair.BlockchairProvider
 import app.lumio.data.provider.threexpl.ThreeXplProvider
 import app.lumio.data.route.ProviderState
@@ -37,8 +37,8 @@ class ProviderRoutingTest {
 
     @Test
     fun aNetworkNeitherPluginServesHasNoCandidate() {
-        assertTrue(ids(NetworkId(Family.EVM, "11155111", testnet = true), Op.NATIVE_BALANCE).isEmpty())
-        assertTrue(ids(NetworkId(Family.BTC, "testnet4", testnet = true), Op.ADDRESS_UTXOS).isEmpty())
+        assertTrue(ids(NetworkId(Networks.evm(11155111), testnet = true), Op.NATIVE_BALANCE).isEmpty())
+        assertTrue(ids(NetworkId(Networks.BTC_TESTNET4, testnet = true), Op.ADDRESS_UTXOS).isEmpty())
         assertTrue(ids(BTC, Op.ADDRESS_STATS).isEmpty())
     }
 }

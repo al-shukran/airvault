@@ -4,8 +4,8 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.home.NativeAsset
 import app.lumio.home.TokenAsset
 import app.lumio.tokens.TokenCatalog
@@ -52,8 +52,8 @@ class AssetIconSpecTest {
     @Test
     fun aNativeCoinShowsItsChainLogoAndBitcoinShowsTheBitcoinLogo() {
         val base = registry.network(8453L)
-        val nativeBase = NativeAsset("EVM-8453", "ETH", "Base", NetworkId(Family.EVM, "8453", testnet = false), BigDecimal.ONE)
-        val bitcoin = NativeAsset("BTC-mainnet", "BTC", "Bitcoin", NetworkId(Family.BTC, "mainnet", testnet = false), BigDecimal.ONE)
+        val nativeBase = NativeAsset("EVM-8453", "ETH", "Base", NetworkId(Networks.evm(8453), testnet = false), BigDecimal.ONE)
+        val bitcoin = NativeAsset("BTC-mainnet", "BTC", "Bitcoin", NetworkId(Networks.BTC_MAINNET, testnet = false), BigDecimal.ONE)
 
         assertEquals(AssetIconSpec.Chain(base), assetIconSpec(nativeBase, base, null))
         assertEquals(AssetIconSpec.Bitcoin, assetIconSpec(bitcoin, null, null))
@@ -82,7 +82,7 @@ class AssetIconSpecTest {
         val lettered = mutableSetOf<String>()
 
         for (token in defaults) {
-            val network = NetworkId(Family.EVM, token.chainId.toString(), testnet = false)
+            val network = NetworkId(Networks.evm(token.chainId), testnet = false)
             val entry = registry.token(token.chainId, token.contract)
             val spec = assetIconSpec(tokenAsset(token.symbol, token.contract, chain = token.chainId.toString()), registry.network(token.chainId), entry)
 
@@ -104,7 +104,7 @@ class AssetIconSpecTest {
         checkNotNull(registry.tokens().firstOrNull { it.chainId == chainId && it.symbol == symbol }) { "$symbol on $chainId is not in the registry" }
 
     private fun tokenAsset(symbol: String, contract: String, chain: String = "1"): TokenAsset {
-        val network = NetworkId(Family.EVM, chain, testnet = false)
+        val network = NetworkId(Networks.evm(chain.toLong()), testnet = false)
         return TokenAsset(
             id = TokenAsset.idOf(network, contract),
             symbol = symbol,

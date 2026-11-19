@@ -39,7 +39,7 @@ class PairSolanaTest {
 
         val listed = PairedWallets.list(session).single()
         assertEquals(EXPECTED_ADDRESSES, listed.solana.map { SolanaAccount.addressOf(it) })
-        assertEquals(setOf(PairFamily.EVM, PairFamily.SOLANA), listed.families)
+        assertEquals(setOf(PairChain.EVM, PairChain.SOLANA), listed.families)
     }
 
     @Test

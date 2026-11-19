@@ -4,8 +4,8 @@ import android.util.Log
 import app.lumio.BuildConfig
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.ALGORAND_TXID
 import app.lumio.data.provider.AlgorandParams
 import app.lumio.data.provider.AlgorandPendingInfo
@@ -46,10 +46,10 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Request as HttpRequest
 
 /** The Algorand testnet, the network Lumio reads by default. Its chain name is "testnet", as Algonode names it. */
-val ALGORAND_TESTNET = NetworkId(Family.ALGO, "testnet", testnet = true)
+val ALGORAND_TESTNET = NetworkId(Networks.ALGO_TESTNET, testnet = true)
 
 /** The Algorand mainnet, with the chain name "mainnet". */
-val ALGORAND_MAINNET = NetworkId(Family.ALGO, "mainnet", testnet = false)
+val ALGORAND_MAINNET = NetworkId(Networks.ALGO_MAINNET, testnet = false)
 
 /** An Algorand address: 58 characters of the base32 alphabet, so a request never carries a path separator into a URL. */
 private val ADDRESS = Regex("[A-Z2-7]{58}")
@@ -169,7 +169,7 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
     }
 
     /** The base address of [net], or null when this provider does not serve it. Only HTTPS is accepted, or plain HTTP to this machine. */
-    private fun baseOf(net: NetworkId): HttpUrl? = if (net.family == Family.ALGO) providerBase(endpoints[net.chain], "") else null
+    private fun baseOf(net: NetworkId): HttpUrl? = if (net.isAlgo) providerBase(endpoints[net.name], "") else null
 
     /** The URL of [net]'s base address with [segments] added as path segments. Each segment is validated by the request that names it. */
     private fun urlOf(net: NetworkId, vararg segments: String): HttpUrl =

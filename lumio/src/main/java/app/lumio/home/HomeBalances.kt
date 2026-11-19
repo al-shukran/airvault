@@ -6,8 +6,8 @@ import app.lumio.btc.networkId
 import app.lumio.chains.CachedNativeBalance
 import app.lumio.chains.NativeBalances
 import app.lumio.chains.NativeCoin
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.evm.EvmChain
 import app.lumio.evm.Holding
 import app.lumio.pair.PairedWallet
@@ -27,7 +27,7 @@ object HomeBalances {
         val reads = holdings.filter { it.chain.chainId == chain.chainId }
         if (reads.isEmpty()) return@mapNotNull null
         val wei = reads.fold(BigInteger.ZERO) { sum, holding -> sum + holding.wei }
-        val network = NetworkId(Family.EVM, chain.chainId.toString(), chain.testnet)
+        val network = NetworkId(Networks.evm(chain.chainId), chain.testnet)
         NativeAsset(
             id = NativeAsset.idOf(network),
             symbol = chain.symbol,

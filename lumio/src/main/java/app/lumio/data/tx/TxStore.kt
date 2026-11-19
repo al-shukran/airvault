@@ -5,7 +5,6 @@ import app.lumio.data.db.TxComment
 import app.lumio.data.db.TxDao
 import app.lumio.data.db.TxRow
 import app.lumio.data.db.TxTermRow
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import androidx.sqlite.db.SimpleSQLiteQuery
 import java.math.BigInteger
@@ -236,13 +235,13 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
         private val json = Json { ignoreUnknownKeys = true }
 
         /** The confirmations at which a transaction on [net] is final: 6 on Bitcoin, and 64 on an EVM network, as the design sets them. */
-        internal fun finalityOf(net: NetworkId): Long = if (net.family == Family.BTC) 6L else 64L
+        internal fun finalityOf(net: NetworkId): Long = if (net.isBtc) 6L else 64L
 
         /** The decimals of a network's native coin: 8 on Bitcoin, and 18 on every EVM chain that Lumio lists, the registry's and the custom ones. */
-        internal fun feeDecimals(net: NetworkId): Int = if (net.family == Family.BTC) 8 else 18
+        internal fun feeDecimals(net: NetworkId): Int = if (net.isBtc) 8 else 18
 
         /** The network's name in the table: its family and its chain. */
-        internal fun networkKey(net: NetworkId): String = "${net.family.name}:${net.chain}"
+        internal fun networkKey(net: NetworkId): String = "${net.idPrefix}:${net.name}"
 
         private fun marks(n: Int): String = List(n) { "?" }.joinToString(", ")
     }

@@ -1,13 +1,13 @@
 package app.lumio.data.price
 
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import org.junit.Test
 
 class NativeCoinsTest {
-    private fun evm(chain: String, testnet: Boolean = false) = NetworkId(Family.EVM, chain, testnet)
+    private fun evm(chain: String, testnet: Boolean = false) = NetworkId(Networks.evm(chain.toLong()), testnet)
 
     @Test
     fun everyEthereumLayerTwoPricesWithTheEthOfEthereum() {
@@ -27,7 +27,7 @@ class NativeCoinsTest {
 
     @Test
     fun bitcoinMainnetIsPricedAsBitcoin() {
-        assertEquals("bitcoin", NativeCoins.coinOf(NetworkId(Family.BTC, "mainnet", testnet = false)))
+        assertEquals("bitcoin", NativeCoins.coinOf(NetworkId(Networks.BTC_MAINNET, testnet = false)))
     }
 
     @Test
@@ -36,8 +36,8 @@ class NativeCoinsTest {
         assertNull(NativeCoins.coinOf(evm("143", testnet = true)))
         assertNull(NativeCoins.coinOf(evm("10143", testnet = true)))
         assertNull(NativeCoins.coinOf(evm("11155111", testnet = true)))
-        assertNull(NativeCoins.coinOf(NetworkId(Family.BTC, "testnet4", testnet = true)))
-        assertNull(NativeCoins.coinOf(NetworkId(Family.BTC, "mainnet", testnet = true)))
+        assertNull(NativeCoins.coinOf(NetworkId(Networks.BTC_TESTNET4, testnet = true)))
+        assertNull(NativeCoins.coinOf(NetworkId(Networks.BTC_MAINNET, testnet = true)))
     }
 
     @Test

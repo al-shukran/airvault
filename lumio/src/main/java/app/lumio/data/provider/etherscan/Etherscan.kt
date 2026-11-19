@@ -2,7 +2,6 @@ package app.lumio.data.provider.etherscan
 
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Http
@@ -50,7 +49,7 @@ class EtherscanProvider : Provider {
     override val traits: Set<Trait> = setOf(Trait.KEY_REQUIRED)
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        (op == Op.NATIVE_BALANCE || op == Op.TX_HISTORY) && net.family == Family.EVM && !net.testnet && net.chain in FREE_CHAINS &&
+        (op == Op.NATIVE_BALANCE || op == Op.TX_HISTORY) && net.isEvm && !net.testnet && net.name in FREE_CHAINS &&
             keyOf(cfg) != null && providerBase(cfg.baseUrl, BASE) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = LIMITS
@@ -81,7 +80,7 @@ class EtherscanProvider : Provider {
         val url = checkNotNull(providerBase(cfg.baseUrl, BASE)).newBuilder()
             .addPathSegment("v2")
             .addPathSegment("api")
-            .addQueryParameter("chainid", req.net.chain)
+            .addQueryParameter("chainid", req.net.name)
             .addQueryParameter("module", "account")
             .addQueryParameter("action", action)
             .addQueryParameter("address", req.address)
@@ -98,7 +97,7 @@ class EtherscanProvider : Provider {
         val url = checkNotNull(providerBase(cfg.baseUrl, BASE)).newBuilder()
             .addPathSegment("v2")
             .addPathSegment("api")
-            .addQueryParameter("chainid", req.net.chain)
+            .addQueryParameter("chainid", req.net.name)
             .addQueryParameter("module", "account")
             .addQueryParameter("action", "balance")
             .addQueryParameter("address", req.address)

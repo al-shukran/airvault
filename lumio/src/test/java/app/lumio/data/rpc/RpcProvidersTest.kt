@@ -2,8 +2,8 @@ package app.lumio.data.rpc
 
 import app.lumio.data.BTC
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Op
 import app.lumio.data.provider.Trait
@@ -25,8 +25,8 @@ import org.junit.Test
 /** Each provider's endpoint per chain, its key format and its traits, as the docs cited in its KDoc give them. */
 class RpcProvidersTest {
     private val server = MockWebServer()
-    private val mainnet = NetworkId(Family.EVM, "1", testnet = false)
-    private val base = NetworkId(Family.EVM, "8453", testnet = false)
+    private val mainnet = NetworkId(Networks.evm(1), testnet = false)
+    private val base = NetworkId(Networks.evm(8453), testnet = false)
     private val key = "fixkey123"
 
     @After
@@ -39,7 +39,7 @@ class RpcProvidersTest {
         assertEquals("https://public.1rpc.io/eth", OneRpc().endpoint(mainnet, ProviderConfig()))
         assertEquals("https://public.1rpc.io/base", OneRpc().endpoint(base, ProviderConfig()))
         assertEquals("https://1rpc.io/$key/eth", OneRpc().endpoint(mainnet, ProviderConfig(apiKey = key)))
-        assertNull(OneRpc().endpoint(NetworkId(Family.EVM, "999999", testnet = false), ProviderConfig()))
+        assertNull(OneRpc().endpoint(NetworkId(Networks.evm(999999), testnet = false), ProviderConfig()))
     }
 
     @Test
@@ -54,12 +54,12 @@ class RpcProvidersTest {
         assertEquals("https://ethereum.publicnode.com", PublicNode().endpoint(mainnet, ProviderConfig()))
         assertEquals("https://base.publicnode.com", PublicNode().endpoint(base, ProviderConfig()))
         assertEquals("https://ethereum.publicnode.com", PublicNode().endpoint(mainnet, ProviderConfig(apiKey = key)))
-        assertNull(PublicNode().endpoint(NetworkId(Family.EVM, "999999", testnet = false), ProviderConfig()))
+        assertNull(PublicNode().endpoint(NetworkId(Networks.evm(999999), testnet = false), ProviderConfig()))
     }
 
     @Test
     fun sepoliaIsServedByPublicNodeAndTenderlyButNotByOneRpcsFreePlan() {
-        val sepolia = NetworkId(Family.EVM, "11155111", testnet = true)
+        val sepolia = NetworkId(Networks.evm(11155111), testnet = true)
         assertEquals("https://ethereum-sepolia-rpc.publicnode.com", PublicNode().endpoint(sepolia, ProviderConfig()))
         assertEquals("https://sepolia.gateway.tenderly.co", Tenderly().endpoint(sepolia, ProviderConfig()))
         assertNull(OneRpc().endpoint(sepolia, ProviderConfig()))
@@ -78,7 +78,7 @@ class RpcProvidersTest {
     fun dRpcHasOneHostPerChainListedInItsDocs() {
         assertEquals("https://eth.drpc.org", DRpc().endpoint(mainnet, ProviderConfig()))
         assertEquals("https://base.drpc.org", DRpc().endpoint(base, ProviderConfig()))
-        assertNull(DRpc().endpoint(NetworkId(Family.EVM, "56", testnet = false), ProviderConfig()))
+        assertNull(DRpc().endpoint(NetworkId(Networks.evm(56), testnet = false), ProviderConfig()))
     }
 
     @Test
@@ -89,7 +89,7 @@ class RpcProvidersTest {
         assertTrue(alchemy.supports(mainnet, Op.NATIVE_BALANCE, ProviderConfig()))
         assertFalse(alchemy.supports(mainnet, Op.BROADCAST, ProviderConfig()))
         assertTrue(alchemy.supports(mainnet, Op.BROADCAST, ProviderConfig(apiKey = key)))
-        assertFalse(alchemy.supports(NetworkId(Family.EVM, "137", testnet = false), Op.NATIVE_BALANCE, ProviderConfig(apiKey = key)))
+        assertFalse(alchemy.supports(NetworkId(Networks.evm(137), testnet = false), Op.NATIVE_BALANCE, ProviderConfig(apiKey = key)))
         assertTrue(Trait.MEV_PROTECTED in alchemy.traits)
     }
 
@@ -138,7 +138,7 @@ class RpcProvidersTest {
 
     @Test
     fun noPoolProviderServesANonEvmNetwork() {
-        val solana = NetworkId(Family.SOL, "mainnet", testnet = false)
+        val solana = NetworkId(Networks.SOL_MAINNET, testnet = false)
         RpcPlugins.pool().forEach { p ->
             assertFalse(p.id, p.supports(solana, Op.NATIVE_BALANCE, ProviderConfig()))
             assertFalse(p.id, p.supports(BTC, Op.NATIVE_BALANCE, ProviderConfig()))

@@ -9,8 +9,8 @@ import app.lumio.btc.networkId
 import app.lumio.data.Clock
 import app.lumio.chains.ChainHolding
 import app.lumio.data.asset.AssetId
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
 import app.lumio.data.price.PricePoint
 import app.lumio.data.price.PriceSeries
@@ -90,7 +90,7 @@ class WalletScreensScreenshotTest {
         index = 0,
         address = "0x" + "a1b2c3d4".repeat(5),
         networkName = "Monad testnet",
-        balance = NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Family.EVM, "10143", testnet = true), BigDecimal("12.5")),
+        balance = NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Networks.evm(10143), testnet = true), BigDecimal("12.5")),
     )
     private val solana = WalletAccount(
         walletId = "wallet-demo",
@@ -109,7 +109,7 @@ class WalletScreensScreenshotTest {
         balance = null,
     )
     private val zeroEthereum = ethereum.copy(
-        balance = NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Family.EVM, "10143", testnet = true), BigDecimal.ZERO),
+        balance = NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Networks.evm(10143), testnet = true), BigDecimal.ZERO),
     )
 
     private val monad = EvmChain(10143L, "Monad testnet", "MON", 18, true, "https://testnet.monadexplorer.com")
@@ -121,8 +121,8 @@ class WalletScreensScreenshotTest {
 
     /** The prices the goldens show: the Monad coin at $2.50 and the USDC token at $1. */
     private val prices: Map<AssetId, Price> = mapOf(
-        AssetId.Native(NetworkId(Family.EVM, "10143", testnet = true)) to Price(usd = 2.5, change24hPct = null, asOfMs = 0L, stale = false),
-        AssetId.Erc20.of(NetworkId(Family.EVM, "10143", testnet = true), usdc.contract) to Price(usd = 1.0, change24hPct = 0.01, asOfMs = 0L, stale = false),
+        AssetId.Native(NetworkId(Networks.evm(10143), testnet = true)) to Price(usd = 2.5, change24hPct = null, asOfMs = 0L, stale = false),
+        AssetId.Erc20.of(NetworkId(Networks.evm(10143), testnet = true), usdc.contract) to Price(usd = 1.0, change24hPct = 0.01, asOfMs = 0L, stale = false),
     )
 
     /** The asset rows of [account] as the account screen lists them, priced by [prices] and with no registry logos. */
@@ -540,7 +540,7 @@ class WalletScreensScreenshotTest {
     ) = TxFeedItem(
         tx = LumioTx(
             id = "EVM:10143:tx$n",
-            network = NetworkId(Family.EVM, "10143", testnet = true),
+            network = NetworkId(Networks.evm(10143), testnet = true),
             account = "0x" + "ab".repeat(20),
             hash = "0x" + "%064x".format(n),
             timestampMs = timestampMs,

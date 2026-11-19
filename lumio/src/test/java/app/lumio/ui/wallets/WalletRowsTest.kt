@@ -1,8 +1,8 @@
 package app.lumio.ui.wallets
 
 import app.lensly.core.btc.BtcNetwork
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.home.NativeAsset
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.wallets.AccountChain
@@ -96,7 +96,7 @@ class WalletRowsTest {
 
     @Test
     fun accountIconsFollowTheChain() {
-        val monad = NetworkId(Family.EVM, "10143", testnet = true)
+        val monad = NetworkId(Networks.evm(10143), testnet = true)
         assertEquals(AssetIconSpec.Bitcoin, accountIconSpec(account(AccountChain.BITCOIN), evmChainId = 10143L) { null })
         assertEquals(AssetIconSpec.Chain(null), accountIconSpec(account(AccountChain.ETHEREUM), evmChainId = 10143L) { null })
         val solanaBalance = NativeAsset("SOL-devnet", "SOL", "Solana devnet", monad, BigDecimal("0.4"))

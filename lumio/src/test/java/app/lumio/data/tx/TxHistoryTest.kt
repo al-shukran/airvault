@@ -11,8 +11,8 @@ import app.lumio.data.ETH
 import app.lumio.data.FakeClock
 import app.lumio.data.FakeProvider
 import app.lumio.data.db.LumioDatabase
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Op
 import app.lumio.data.provider.ProviderError
@@ -59,7 +59,7 @@ class TxHistoryTest {
     private val hash1 = "0x" + "1a".repeat(32)
     private val hash2 = "0x" + "2b".repeat(32)
     private val native = TxAsset(null, "ETH", "Ether", 18)
-    private val btc = NetworkId(Family.BTC, "mainnet", testnet = false)
+    private val btc = NetworkId(Networks.BTC_MAINNET, testnet = false)
     private val btcAccount = "bc1qmyaccountaddress12345"
 
     @Before
@@ -87,7 +87,7 @@ class TxHistoryTest {
         scheduler = scheduler,
         store = store,
         spam = TxSpam(isKnownToken = { _, contract -> contract == listed }, isCustomToken = { _, _ -> false }),
-        nativeAsset = { if (it.family == Family.EVM) native else null },
+        nativeAsset = { if (it.isEvm) native else null },
         preferRpc = { preferRpc },
         clock = clock,
     )

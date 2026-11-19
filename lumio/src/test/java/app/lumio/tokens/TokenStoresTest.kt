@@ -4,8 +4,8 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.HdWallet
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.DefiLlamaChains
 import app.lumio.evm.EvmChain
 import app.lumio.evm.Portfolio
@@ -69,8 +69,8 @@ class CustomTokenStoreTest {
 
     @Test
     fun holdsMatchesTheChainAndTheContractWithoutCase() {
-        val mainnet = NetworkId(Family.EVM, "1", testnet = false)
-        val sepolia = NetworkId(Family.EVM, "11155111", testnet = true)
+        val mainnet = NetworkId(Networks.evm(1), testnet = false)
+        val sepolia = NetworkId(Networks.evm(11155111), testnet = true)
 
         assertTrue(CustomTokenStore.holds(listOf(usdc), mainnet, USDC.uppercase()))
         assertTrue(!CustomTokenStore.holds(listOf(usdc), sepolia, USDC))
@@ -145,7 +145,7 @@ class DefaultTokenListTest {
     fun everyContractIsLowercaseAndEveryChainHasAPriceSource() {
         assertTrue(tokens.all { Regex("0x[0-9a-f]{40}").matches(it.contract) })
         assertTrue(tokens.all { it.decimals in setOf(6, 8, 18) })
-        val unpriced = tokens.map { it.chainId }.toSet().filter { DefiLlamaChains.prefixOf(NetworkId(Family.EVM, it.toString(), testnet = false)) == null }
+        val unpriced = tokens.map { it.chainId }.toSet().filter { DefiLlamaChains.prefixOf(NetworkId(Networks.evm(it), testnet = false)) == null }
         assertEquals(emptyList<Long>(), unpriced)
     }
 

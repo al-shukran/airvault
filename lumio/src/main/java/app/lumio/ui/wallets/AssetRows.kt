@@ -5,7 +5,6 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lumio.chains.ChainHolding
 import app.lumio.data.asset.AssetId
-import app.lumio.data.net.Family
 import app.lumio.data.price.Price
 import app.lumio.data.tx.LumioTx
 import app.lumio.home.HomeFormat
@@ -93,10 +92,10 @@ internal object AssetRows {
         )
     }
 
-    private fun nativeIcon(balance: NativeAsset, network: (Long) -> NetworkEntry?): AssetIconSpec = when (balance.network.family) {
-        Family.BTC -> AssetIconSpec.Bitcoin
-        Family.EVM -> AssetIconSpec.Chain(balance.network.chain.toLongOrNull()?.let(network))
-        Family.SOL, Family.ALGO -> AssetIconSpec.Letter(letterOf(balance.symbol))
+    private fun nativeIcon(balance: NativeAsset, network: (Long) -> NetworkEntry?): AssetIconSpec = when {
+        balance.network.isBtc -> AssetIconSpec.Bitcoin
+        balance.network.isEvm -> AssetIconSpec.Chain(balance.network.name.toLongOrNull()?.let(network))
+        else -> AssetIconSpec.Letter(letterOf(balance.symbol))
     }
 
     private fun tokenRow(

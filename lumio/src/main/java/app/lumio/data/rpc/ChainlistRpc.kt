@@ -17,7 +17,7 @@ class ChainlistRpc(
     private val table: Map<String, List<String>> = ENDPOINTS,
     override val allowLocalHttp: Boolean = false,
 ) : EvmRpcProvider(ID, setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY), PUBLIC_LIMITS) {
-    override fun endpoints(net: NetworkId, cfg: ProviderConfig): List<String> = table[net.chain].orEmpty()
+    override fun endpoints(net: NetworkId, cfg: ProviderConfig): List<String> = table[net.name].orEmpty()
 
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = endpoints(net, cfg).firstOrNull()
 

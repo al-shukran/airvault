@@ -56,7 +56,7 @@ class PairedWalletsTest {
             ),
             listed.evmAccounts,
         )
-        assertEquals(setOf(PairFamily.EVM), listed.families)
+        assertEquals(setOf(PairChain.EVM), listed.families)
         assertEquals(PairFixtures.address(PairFixtures.seed, 0), listed.evmAddresses.first())
     }
 
@@ -139,7 +139,7 @@ class PairedWalletsTest {
         PairedWallets.save(session, payload(accounts = listOf(account(0, "A")), bitcoin = PairFixtures.allAccounts(PairFixtures.seed)), nowMs = 200L)
 
         val listed = PairedWallets.list(session).single()
-        assertEquals(setOf(PairFamily.EVM, PairFamily.BITCOIN), listed.families)
+        assertEquals(setOf(PairChain.EVM, PairChain.BITCOIN), listed.families)
         assertEquals(8, listed.bitcoin.size)
         assertEquals(PairFixtures.address(PairFixtures.seed, 0), listed.evmAddresses.first())
     }
@@ -156,7 +156,7 @@ class PairedWalletsTest {
 
         val listed = PairedWallets.list(session).single()
         assertTrue(listed.bitcoin.isEmpty())
-        assertEquals(setOf(PairFamily.EVM), listed.families)
+        assertEquals(setOf(PairChain.EVM), listed.families)
     }
 
     @Test

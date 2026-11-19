@@ -2,8 +2,8 @@ package app.lumio.data.provider.solana
 
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.Op
@@ -16,10 +16,10 @@ import app.lumio.data.rpc.RpcUrl
 import kotlinx.coroutines.delay
 
 /** The Solana devnet cluster, as the chain name "devnet" of the Solana family. */
-val SOLANA_DEVNET = NetworkId(Family.SOL, "devnet", testnet = true)
+val SOLANA_DEVNET = NetworkId(Networks.SOL_DEVNET, testnet = true)
 
 /** The Solana mainnet-beta cluster, as the chain name "mainnet-beta" of the Solana family. */
-val SOLANA_MAINNET = NetworkId(Family.SOL, "mainnet-beta", testnet = false)
+val SOLANA_MAINNET = NetworkId(Networks.SOL_MAINNET, testnet = false)
 
 /**
  * The operations a Solana RPC provider serves: balances, blockhashes, block heights, history, token balances, broadcasts, signature statuses,
@@ -48,7 +48,7 @@ abstract class SolanaRpcProvider(
     abstract fun endpoint(net: NetworkId, cfg: ProviderConfig): String?
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        net.family == Family.SOL && op in SOLANA_OPS && endpoint(net, cfg) != null
+        net.isSol && op in SOLANA_OPS && endpoint(net, cfg) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = PUBLIC_LIMITS
 
@@ -64,7 +64,7 @@ abstract class SolanaRpcProvider(
  * never sends one, and they use the public-pool rates.
  */
 class SolanaRpc : SolanaRpcProvider("solana", setOf(Trait.KEYLESS)) {
-    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = if (net.family == Family.SOL) ENDPOINTS[net.chain] else null
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = if (net.isSol) ENDPOINTS[net.name] else null
 
     companion object {
         /** The public endpoint of each Solana cluster, by chain name. */
@@ -90,7 +90,7 @@ class CustomSolanaRpc(
     pause: suspend (Long) -> Unit = { delay(it) },
 ) : SolanaRpcProvider(idFor(chain), setOf(Trait.OWN_SERVER), pause) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
-        if (net.family != Family.SOL || net.chain != chain) return null
+        if (!net.isSol || net.name != chain) return null
         val raw = cfg.baseUrl?.takeIf { it.isNotBlank() } ?: return null
         return try {
             RpcUrl.validate(raw, allowLocalHttp)

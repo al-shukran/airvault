@@ -46,7 +46,7 @@ fun EsploraTx.toLumioTx(account: String, net: NetworkId, tipHeight: Long, observ
     }
     val confirmed = blockHeight != null
     return LumioTx(
-        id = "${net.family.name}:${net.chain}:$txid",
+        id = "${net.idPrefix}:${net.name}:$txid",
         network = net,
         account = account,
         hash = txid,

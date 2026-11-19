@@ -2,7 +2,6 @@ package app.lumio.data.esplora
 
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
@@ -59,7 +58,7 @@ class MempoolProvider(private val bases: Map<String, String> = BASES) : EsploraP
     override val id: String = "mempool"
     override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.ESPLORA_COMPAT)
 
-    override fun baseUrl(net: NetworkId, cfg: ProviderConfig): String? = if (net.family == Family.BTC) bases[net.chain] else null
+    override fun baseUrl(net: NetworkId, cfg: ProviderConfig): String? = if (net.isBtc) bases[net.name] else null
 
     companion object {
         /** The public base URL of each Bitcoin chain. */
@@ -79,7 +78,7 @@ class BlockstreamProvider(private val bases: Map<String, String> = BASES) : Espl
     override val id: String = "blockstream"
     override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.ESPLORA_COMPAT)
 
-    override fun baseUrl(net: NetworkId, cfg: ProviderConfig): String? = if (net.family == Family.BTC) bases[net.chain] else null
+    override fun baseUrl(net: NetworkId, cfg: ProviderConfig): String? = if (net.isBtc) bases[net.name] else null
 
     companion object {
         /** The public base URL of each Bitcoin chain. */
@@ -100,7 +99,7 @@ class CustomEsploraProvider(private val chain: String) : EsploraProvider() {
     override val traits: Set<Trait> = setOf(Trait.ESPLORA_COMPAT, Trait.OWN_SERVER)
 
     override fun baseUrl(net: NetworkId, cfg: ProviderConfig): String? =
-        if (net.family == Family.BTC && net.chain == chain) cfg.baseUrl?.takeIf { it.isNotBlank() } else null
+        if (net.isBtc && net.name == chain) cfg.baseUrl?.takeIf { it.isNotBlank() } else null
 
     companion object {
         /** The prefix of every owner's server id. */

@@ -2,8 +2,8 @@ package app.lumio.data.provider.defillama
 
 import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.Op
@@ -116,8 +116,8 @@ class DefiLlamaProviderTest {
 
     @Test
     fun aTestnetOrAnUnpricedNetworkIsUnsupportedAndNeverCalled() {
-        assertFailsWith<ProviderError.Unsupported> { call(NativePrice(NetworkId(Family.EVM, "1", testnet = true))) }
-        assertFailsWith<ProviderError.Unsupported> { call(NativePrice(NetworkId(Family.EVM, "250", testnet = false))) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativePrice(NetworkId(Networks.evm(1), testnet = true))) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativePrice(NetworkId(Networks.evm(250), testnet = false))) }
         assertEquals(0, server.requestCount)
     }
 
@@ -145,8 +145,8 @@ class DefiLlamaProviderTest {
     @Test
     fun aTokenOnAChainWithoutAPrefixOrOnATestnetIsUnsupportedWithoutACall() {
         val usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
-        assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(NetworkId(Family.EVM, "250", testnet = false), usdc)) }
-        assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(NetworkId(Family.EVM, "1", testnet = true), usdc)) }
+        assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(NetworkId(Networks.evm(250), testnet = false), usdc)) }
+        assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(NetworkId(Networks.evm(1), testnet = true), usdc)) }
         assertEquals(0, server.requestCount)
         assertTrue(DefiLlamaProvider().supports(ETH, Op.TOKEN_PRICE, ProviderConfig()))
     }
