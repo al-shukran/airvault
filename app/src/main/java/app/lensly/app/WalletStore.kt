@@ -26,7 +26,6 @@ import app.lensly.core.wallet.AccountXpub
 import app.lensly.core.wallet.WalletKeyAccess
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.BulkRun
-import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.PrivateKey
@@ -636,30 +635,6 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * Signs [message] with the Solana account [index] of wallet [id], and returns the 64-byte Ed25519 signature. The seed and the key are
-     * zeroed before this returns. The derived key must be the public key the wallet stores for that account, or nothing is signed.
-     *
-     * @throws IllegalArgumentException when the wallet has no such Solana account, or its key is not the stored key.
-     */
-    fun solanaSign(id: String, index: Int, message: ByteArray): ByteArray {
-        val stored = solanaKeys(id).getOrNull(index) ?: throw IllegalArgumentException(NO_SOLANA_ACCOUNT)
-        val seed = seedOf(id)
-        try {
-            return SolanaAccount.node(seed, index).use { node ->
-                val key = node.privateKey()
-                try {
-                    if (!node.publicKey().contentEquals(stored)) throw IllegalArgumentException(SOLANA_KEY_MISMATCH)
-                    Ed25519Signer.sign(key, message)
-                } finally {
-                    key.fill(0)
-                }
-            }
-        } finally {
-            seed.fill(0)
-        }
-    }
-
-    /**
      * Runs [use] with the key access of wallet [id] (spec 3.2). Each call derives the key it asks for from the wallet's seed. The seed is derived
      * here and zeroed before this returns, on every path. A Single Key wallet has no seed, so it throws.
      */
@@ -1056,8 +1031,6 @@ class WalletStore(private val session: VaultSession) {
         const val NO_ROOM_FOR_BITCOIN =
             "The Bitcoin accounts of this wallet take too much room to save. Clear a name, label or group on one of them."
         const val NO_ROOM_FOR_SOLANA = "The Solana accounts of this wallet take too much room to save."
-        const val NO_SOLANA_ACCOUNT = "This wallet has no such Solana account."
-        const val SOLANA_KEY_MISMATCH = "Key does not match account"
         const val SINGLE_KEY_NO_SOLANA = "A Single Key wallet has no seed, so it cannot hold Solana accounts."
         const val NO_ROOM_FOR_ALGORAND = "The Algorand accounts of this wallet take too much room to save."
         const val SINGLE_KEY_NO_ALGORAND = "A Single Key wallet has no seed, so it cannot hold Algorand accounts."

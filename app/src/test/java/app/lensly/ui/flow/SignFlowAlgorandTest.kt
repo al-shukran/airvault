@@ -19,7 +19,6 @@ import app.airvault.core.signer.Path
 import app.airvault.core.signer.ScopedKeyAccess
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.WalletKeyAccess
-import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.export.partsOf
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.sign.AppPrepared
@@ -28,7 +27,6 @@ import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
-import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.core.algorand.AlgorandAccount
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
@@ -343,14 +341,6 @@ class SignFlowAlgorandTest {
 
         override suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String> =
             error("a Bitcoin request is not expected here")
-
-        override suspend fun solanaPrepare(walletId: String, request: SolSignRequest): SolanaPrepared =
-            error("a Solana request is not expected in the Algorand tests")
-
-        override suspend fun solanaSign(ready: SolanaPrepared.Ready): List<String> =
-            error("a Solana request is not expected in the Algorand tests")
-
-        override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = error("a Solana request is not expected in the Algorand tests")
 
         override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++
