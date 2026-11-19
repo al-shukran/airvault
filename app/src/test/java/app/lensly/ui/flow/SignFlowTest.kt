@@ -1,11 +1,13 @@
 package app.lensly.ui.flow
 
-import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.evm.signer.UnsignedTx
 import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.core.model.Approval
+import app.airvault.core.signer.AppRequest
 import app.lensly.app.export.PairingExport
-import app.lensly.app.sign.AlgorandReviewEntry
+import app.lensly.app.sign.AppPrepared
+import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
@@ -164,13 +166,13 @@ private class FakePorts(
 
     override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = error("a Solana request is not expected in the EVM tests")
 
-    override suspend fun algorandPrepare(walletId: String, request: AlgoSignRequest): AlgorandPrepared =
+    override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared =
         error("an Algorand request is not expected in the EVM tests")
 
-    override suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String> =
+    override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> =
         error("an Algorand request is not expected in the EVM tests")
 
-    override suspend fun recordAlgorand(entry: AlgorandReviewEntry): Unit = error("an Algorand request is not expected in the EVM tests")
+    override suspend fun recordApp(entry: AppReviewEntry): Unit = error("an Algorand request is not expected in the EVM tests")
 }
 
 /** A ur:eth-sign-request for a personal message on account 0, the way a wallet sends it. */

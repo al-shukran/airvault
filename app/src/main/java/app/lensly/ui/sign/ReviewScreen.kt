@@ -4,11 +4,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
@@ -21,7 +17,9 @@ import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.SectionStyle
 import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
+import app.airvault.core.model.checkLabels
 import app.airvault.core.model.text
+import app.airvault.core.model.unaccounted
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
@@ -54,13 +52,15 @@ fun ReviewScreen(
     networkIcon: (@Composable () -> Unit)? = null,
     /** The logo of the amount, shown before the summary sentence. Null shows the sentence alone. */
     summaryIcon: (@Composable () -> Unit)? = null,
+    /** The checks ticked on this review, by label. The sign flow holds them and enforces them on approve, so this screen only shows them. */
+    ticked: Set<String> = emptySet(),
+    /** The owner ticked, or unticked, a check: its label and its new tick. */
+    onTick: (String, Boolean) -> Unit = { _, _ -> },
 ) {
     val open = addressTapOn(addressChain, onOpenAddress)
-    // A different request starts unread and unticked, so nothing carries over from the last one.
+    // A different request starts unread, so nothing carries over from the last one.
     key(review) {
         val read = rememberReviewRead(review)
-        // The labels of the checks, ticked by label, so one tick covers every row that names the check.
-        var ticked by remember { mutableStateOf(emptySet<String>()) }
         val owed = review.checkLabels().count { it !in ticked }
         LenslyScreen(
             title = review.title,
@@ -69,7 +69,8 @@ fun ReviewScreen(
             bottomAction = {
                 ReviewActions(
                     hint = readHint(read) ?: tickHint(owed),
-                    approvable = read.read && owed == 0 && review.warnings.none { it.level == Danger.BLOCK },
+                    approvable = read.read && owed == 0 && review.warnings.none { it.level == Danger.BLOCK } &&
+                        review.unaccounted().isEmpty(),
                     onApprove = onApprove,
                     onReject = onReject,
                 )
@@ -93,11 +94,7 @@ fun ReviewScreen(
                     icon = summaryIcon,
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
-                RiskBanner(
-                    items = riskItems(review.warnings, ticked) { label, on ->
-                        ticked = if (on) ticked + label else ticked - label
-                    },
-                )
+                RiskBanner(items = riskItems(review.warnings, ticked, onTick))
                 Spacer(Modifier.height(LenslySpacing.md))
                 review.sections.forEach { section ->
                     ReviewSection(title = section.heading) {
@@ -138,9 +135,6 @@ private fun ReviewRowView(row: ReviewRow, step: Int?, notes: Map<String, Address
         }
     }
 }
-
-/** The labels of the checks a review asks for, each once, in the order its warnings name them. */
-internal fun Review.checkLabels(): List<String> = warnings.mapNotNull { it.acknowledge }.distinct()
 
 /** The line above the buttons while checks are still to tick: singular for one, plural for more. Null when none is owed. */
 internal fun tickHint(owed: Int): String? = when {

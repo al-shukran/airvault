@@ -10,6 +10,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.DisplayValue
+import app.airvault.core.model.Review
 import app.lensly.app.WalletStore
 import app.lensly.app.export.PairingExport
 import app.lensly.app.export.partsOf
@@ -66,15 +69,16 @@ class WalletSignFlowTest : SignFlowE2eBase() {
 
         val driver = driverFor(wallet, request.parts)
         driver.open()
-        val review = (driver.awaitReview { it is SignStep.Review } as SignStep.Review).ready.review
+        val ready = (driver.awaitReview { it is SignStep.Review } as SignStep.Review).ready
+        val review = ready.review
 
-        assertEquals(address, review.fromAddress)
-        assertEquals(UNKNOWN_CHAIN_ID, review.chainId)
-        assertEquals(ACCOUNT_LABEL, review.fromAccountLabel)
+        assertEquals(address, headerAddress(review, "From"))
+        assertEquals(ChainId("eip155:$UNKNOWN_CHAIN_ID"), review.chain)
+        assertEquals(ACCOUNT_LABEL, ready.signer.name)
 
         // The screen: an unknown chain warns in the banner and its chip names it, and APPROVE waits for the details to be read and the
         // explicit check to be ticked.
-        assertTrue(review.toAddress.equals(RECIPIENT, ignoreCase = true))
+        assertTrue(headerAddress(review, "To").equals(RECIPIENT, ignoreCase = true))
         compose.onNode(hasText("Not in Lensly's registry", substring = true)).assertExists()
         compose.onNode(hasText("Unknown network (chain id $UNKNOWN_CHAIN_ID)", substring = true)).assertExists()
         // An unknown chain has no decimals, so its amount is the raw wei, in base units: one cent is 10^16.
@@ -95,6 +99,12 @@ class WalletSignFlowTest : SignFlowE2eBase() {
 
     private fun checkHintShown(): Boolean =
         compose.onAllNodesWithText("Tick the checkbox above to sign").fetchSemanticsNodes().isNotEmpty()
+
+    /** The address that the header row [label] of [review] shows, such as "From" or "To". */
+    private fun headerAddress(review: Review, label: String): String {
+        val row = review.sections.first().rows.single { it.label == label }
+        return (row.value as DisplayValue.Address).address
+    }
 
     /**
      * The pairing export of the wallet is the `ur:crypto-multi-accounts` an online wallet imports, and its first account key must carry the

@@ -20,6 +20,8 @@ dependencies {
     api(project(":core:signer-api"))
     // The PSBT codec and the script checks come from ACINQ's bitcoin-kmp (Apache-2.0).
     api(libs.bitcoin.kmp)
+    // The address codec that the signer serves is the one in :chains:bitcoin:common.
+    implementation(project(":chains:bitcoin:common"))
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

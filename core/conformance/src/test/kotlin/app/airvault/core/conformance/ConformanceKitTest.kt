@@ -2,6 +2,9 @@ package app.airvault.core.conformance
 
 import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.algorand.signer.AlgorandSigner
+import app.airvault.chains.bitcoin.signer.BitcoinSigner
+import app.airvault.chains.evm.signer.EvmSigner
+import app.airvault.chains.solana.signer.SolanaSigner
 import app.airvault.core.model.AIRVAULT_API_VERSION
 import app.airvault.core.model.AddressCodec
 import app.airvault.core.model.ChainApp
@@ -27,8 +30,10 @@ import kotlin.test.assertTrue
 
 class ConformanceKitTest {
     @Test
-    fun algorandPassesTheManifestChecks() {
-        assertEquals(emptyList(), checkManifest(AlgorandSigner))
+    fun everySignerPassesTheManifestChecks() {
+        for (app in listOf(EvmSigner, BitcoinSigner, SolanaSigner, AlgorandSigner)) {
+            assertEquals(emptyList(), checkManifest(app), "${app.manifest.id}")
+        }
     }
 
     @Test

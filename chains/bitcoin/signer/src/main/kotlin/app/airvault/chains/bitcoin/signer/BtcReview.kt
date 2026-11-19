@@ -139,6 +139,17 @@ sealed class BtcRefusal {
         override val reason: String = "The outputs are worth more than the inputs."
     }
 
+    /** An amount is below zero or above all the Bitcoin there is, or the amounts of the request add up to more than that. */
+    data object AmountOutOfRange : BtcRefusal() {
+        override val reason: String = "An amount in this request is outside the range of Bitcoin amounts."
+    }
+
+    /** The input spends an output that an earlier input of the request already spends. */
+    data class DuplicateInput(val inputIndex: Int) : BtcRefusal() {
+        override val reason: String
+            get() = "Input $inputIndex spends an output that an earlier input already spends."
+    }
+
     /** No input of the request belongs to this Account. */
     data object NothingToSign : BtcRefusal() {
         override val reason: String = "No input of this request belongs to this Account."

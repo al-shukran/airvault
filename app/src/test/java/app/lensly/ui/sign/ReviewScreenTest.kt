@@ -6,7 +6,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -16,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Coverage
 import app.airvault.core.model.Danger
+import app.airvault.core.model.checkLabels
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.FieldPath
 import app.airvault.core.model.NetworkLabel
@@ -73,11 +80,14 @@ class ReviewScreenTest {
     private fun setScreen(review: Review, summaryIcon: (@Composable () -> Unit)? = null) {
         compose.setContent {
             LumenTheme {
+                var ticked by remember { mutableStateOf(emptySet<String>()) }
                 ReviewScreen(
                     review = review,
                     signer = SAMPLE_SIGNER,
                     addressNotes = emptyMap(),
                     addressChain = chain,
+                    ticked = ticked,
+                    onTick = { label, on -> ticked = if (on) ticked + label else ticked - label },
                     onApprove = {},
                     onReject = {},
                     summaryIcon = summaryIcon,
@@ -99,6 +109,19 @@ class ReviewScreenTest {
         assertEquals("Send 1.5 USDC to Alice", summarySentence(named, notes, FontFamily.Monospace).text)
         val unnamed = named.dropLast(1) + SummaryPart.Counterparty(other)
         assertEquals("Send 1.5 USDC to ${shortAddress(other)}", summarySentence(unnamed, notes, FontFamily.Monospace).text)
+    }
+
+    @Test
+    fun approveIsEnabledOnAReviewWithNothingUnaccounted() {
+        setScreen(review())
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
+    }
+
+    @Test
+    fun approveStaysDisabledWhenADecodedFieldHasNoRow() {
+        val coverage = Coverage(decoded = setOf(FieldPath("algorand.note")), excluded = emptyMap())
+        setScreen(review().copy(coverage = coverage))
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
     }
 
     @Test

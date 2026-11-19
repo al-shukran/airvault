@@ -139,6 +139,17 @@ class EsploraProtocolTest {
     }
 
     @Test
+    fun aRedirectIsNotFollowedSoARequestNeverMovesToAnotherPath(): Unit = runBlocking {
+        reply(302, "", "Location" to server.url("/elsewhere").toString())
+        reply(200, "850001\n")
+
+        assertFailsWith<ProviderError.Fatal> { EsploraProtocol.execute(TipHeight(testnet4), base(), http) }
+
+        assertEquals(1, server.requestCount)
+        assertEquals("/api/blocks/tip/height", server.takeRequest().path)
+    }
+
+    @Test
     fun aMalformedAnswerIsFatalNotTransient(): Unit = runBlocking {
         reply(200, "<html>not json</html>")
 
