@@ -86,9 +86,11 @@ class EvmReviewBuilder(
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) throw Refusal(SIGN_DATA_TOO_LARGE)
         val origin = request.origin
         if (origin != null && !origin.all(::isPrintable)) throw Refusal(UNREADABLE_ORIGIN)
-        // The chain is the one the request names, or the one the parser reads it on: a personal message, or typed data its domain names.
-        // Any other request must name its network.
-        val chainId = readChainId(parsed) ?: throw Refusal(NO_NETWORK)
+        // Typed data is reviewed on the chain its domain names, when it names one: its network, addresses and tokens are that chain's.
+        // Otherwise the chain is the one the request names, or the one the parser reads it on: a personal message. Any other request must
+        // name its network.
+        val domainChain = (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId?.toLong()
+        val chainId = domainChain ?: readChainId(parsed) ?: throw Refusal(NO_NETWORK)
         EvmReviewResult.Ok(Build(parsed, sender, chainId).build().checked())
     } catch (refusal: Refusal) {
         EvmReviewResult.Refused(refusal.reason, refusal.call)
@@ -166,13 +168,17 @@ class EvmReviewBuilder(
             sections += ReviewSection("Domain", part.domain)
             if (part.summary.isNotEmpty()) sections += ReviewSection("Summary", part.summary)
             sections += ReviewSection("Message", part.fields)
-            // The members the message adds beside its typed fields. The signature does not cover them. Their text is shown as the review shows
-            // any text, so a character that cannot be read is shown in hex.
+            // The members the message adds beside its typed fields. The signature does not cover them, so each name is labelled as unsigned.
             if (typed.unsigned.isNotEmpty()) {
                 sections += ReviewSection(
                     "Not Signed",
                     typed.unsigned.map { (name, text) ->
-                        ReviewRow(printableOrHex(name), DisplayValue.Text(printableOrHex(text)), null, notes = listOf(NOT_SIGNED_NOTE))
+                        ReviewRow(
+                            "Unsigned: ${unsignedShown(name, UNSIGNED_NAME_BYTES)}",
+                            DisplayValue.Text(unsignedShown(text, UNSIGNED_VALUE_BYTES)),
+                            null,
+                            notes = listOf(NOT_SIGNED_NOTE),
+                        )
                     },
                 )
             }
@@ -821,15 +827,29 @@ private fun registryWarning(message: String, field: FieldPath?): Warning =
 private fun denylistWarning(entry: DenylistEntry, field: FieldPath?): Warning =
     Warning(Danger.DANGER, CODE_DENYLIST, entry.reason, field, ACK_DENYLIST)
 
-/** The note under the header row of an off-chain signature: where the signature is sent instead of a chain. */
-private fun offChainNote(label: String): String = "This signature is sent to $label, not submitted to a chain."
+/**
+ * An unsigned name or text as the review shows it. A line break or a tab is an escape, so it cannot start a row, and the rest is shown as
+ * [printableOrHex] shows it. A text longer than [limit] bytes is cut between characters, and the bytes left out are counted.
+ */
+private fun unsignedShown(text: String, limit: Int): String {
+    val shown = printableOrHex(text).replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+    val bytes = shown.toByteArray(StandardCharsets.UTF_8)
+    if (bytes.size <= limit) return shown
+    var cut = limit
+    while ((bytes[cut].toInt() and 0xC0) == 0x80) cut-- // a continuation byte: the cut would split a character
+    return String(bytes, 0, cut, StandardCharsets.UTF_8) + "... ${bytes.size - cut} more bytes"
+}
 
-/** The CAUTION of an off-chain signature: it is for the product, not a chain, and it can act for the account there. */
+/** The note under the header row of an off-chain signature: what its domain matches, and what Lensly cannot tell. */
+private fun offChainNote(label: String): String =
+    "The domain matches $label's published message format. Lensly cannot tell what the requester does with the signature."
+
+/** The CAUTION of an off-chain signature: it is for the product, and it can act for the account there. */
 private fun offChainCautionText(label: String): String =
-    "This signature is for $label, not for a chain. It can authorize actions in your $label account. Check the message before you sign."
+    "This signature is for $label. It can authorize actions in your $label account. Check the message before you sign."
 
 /** The tick of an off-chain signature for [label]. */
-private fun offChainAck(label: String): String = "I understand this signature goes to $label, not to a chain."
+private fun offChainAck(label: String): String = "I understand this signature goes to $label, and Lensly cannot tell what it does."
 
 /** The DANGER of a message that lets a key act for the account or moves its funds, or null for any other primary type. */
 private fun actionWarning(primaryType: String): Warning? = when (primaryType.substringAfterLast(':')) {
@@ -986,6 +1006,10 @@ private const val ANY_CHAIN_NOTE = "The domain names no chain ID, so this signat
 
 /** The note under a member that a message adds beside its typed fields. The signature does not cover it. */
 private const val NOT_SIGNED_NOTE = "Not signed. The signature covers only the typed fields above."
+
+/** The most bytes of an unsigned member's name and of its text that the review shows. The rest is counted, not shown. */
+private const val UNSIGNED_NAME_BYTES = 128
+private const val UNSIGNED_VALUE_BYTES = 512
 
 /** The codes and ticks of a typed-data CAUTION or DANGER: its chain, its off-chain product and its action. */
 private const val CODE_TYPED_CHAIN = "evm.typed.chain"
