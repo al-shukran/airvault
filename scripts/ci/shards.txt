@@ -261,6 +261,7 @@ shard-4 :app app.lensly.app.WalletStoreBulkTest
 shard-4 :app app.lensly.app.WalletStoreSolanaTest
 shard-4 :app app.lensly.app.WipeGestureTest
 shard-4 :app app.lensly.SmokeTest
+shard-4 :app app.lensly.ui.flow.AccountExportPasswordTest
 shard-4 :app app.lensly.ui.flow.DelayedVault
 shard-4 :app app.lensly.ui.flow.Now
 shard-4 :app app.lensly.ui.flow.PairCodePasswordTest
