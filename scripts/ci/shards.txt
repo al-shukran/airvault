@@ -16,7 +16,9 @@ shard-1 :app app.lensly.app.WalletStoreKindTest
 shard-1 :app app.lensly.ui.flow.DuressPasswordCheckTest
 shard-1 :app app.lensly.ui.flow.EntryGestureChangePortsTest
 shard-1 :app app.lensly.ui.flow.FakeRevealPorts
+shard-1 :app app.lensly.ui.flow.GuardedCheckTest
 shard-1 :app app.lensly.ui.flow.RevealedSecretWipeTest
+shard-1 :app app.lensly.ui.flow.StoredKeyAccessTest
 shard-1 :app app.lensly.ui.profile.ProfileIconPickerTest
 shard-1 :app app.lensly.ui.settings.EntryGestureScreenTest
 shard-1 :app app.lensly.ui.sign.BitcoinReviewScreenTest
@@ -129,7 +131,9 @@ shard-2 :lumio app.lumio.ui.send.SendReviewAddressBookTest
 shard-2 :lumio app.lumio.ui.settings.SettingsEditsTest
 shard-2 :lumio app.lumio.ui.tokens.AddTokenScreenTest
 shard-2 :shared app.lensly.core.algorand.LedgerEd25519ScalarBaseTest
+shard-2 :shared app.lensly.core.btc.BitcoinSignTest
 shard-2 :shared app.lensly.core.btc.BtcReviewWarningsTest
+shard-2 :shared app.lensly.core.btc.BtcSignerPsbtIdentityTest
 shard-2 :shared app.lensly.core.evm.Eip155VectorTest
 shard-2 :shared app.lensly.core.evm.SignedTxTest
 shard-2 :shared app.lensly.core.parse.BitcoinScanWireTest
