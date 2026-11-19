@@ -1,4 +1,4 @@
-package app.lensly.core.btc
+package app.airvault.chains.bitcoin.signer
 
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.framesOf
@@ -62,7 +62,7 @@ object BtcPsbt {
     }
 
     /**
-     * The PSBT that a complete `ur:crypto-psbt` carries. The Parser Sandbox reads a scanned request this way.
+     * The PSBT that a complete `ur:crypto-psbt` carries. The Bitcoin parser reads a scanned request this way.
      *
      * @throws IllegalArgumentException when [ur] is not a crypto-psbt, or does not parse as a PSBT
      */
@@ -76,8 +76,8 @@ object BtcPsbt {
     }
 
     /**
-     * The PSBT in its serialized (BIP174) form. The Parser Sandbox parses a scanned PSBT before the app uses it, so this reads bytes
-     * the sandbox has already accepted.
+     * The PSBT in its serialized (BIP174) form. The Bitcoin parser checks a scanned PSBT before the app uses it, so this reads bytes
+     * the parser has already accepted.
      *
      * @throws IllegalArgumentException when [bytes] does not parse as a PSBT
      */
@@ -179,6 +179,12 @@ object BtcPsbt {
 
     /** The UR type of a PSBT, as a scanned UR names it. */
     const val UR_TYPE = "crypto-psbt"
+
+    /** The "i-n" sequence header that every frame of a multi-part UR carries after its type, as in ur:type/1-3/body. */
+    private val SEQUENCE_HEADER = Regex("""^UR:[A-Z0-9-]+/\d+-(\d+)/""", RegexOption.IGNORE_CASE)
+
+    /** The number of parts an animated UR has, read from the sequence header of one of its frames, or 1 for a single-part UR. */
+    private fun sequenceLength(frame: String): Int = SEQUENCE_HEADER.find(frame)?.groupValues?.get(1)?.toInt() ?: 1
 
     private fun ur(psbt: Psbt): UR = CryptoPSBT(Psbt.write(psbt).toByteArray()).toUR()
 }

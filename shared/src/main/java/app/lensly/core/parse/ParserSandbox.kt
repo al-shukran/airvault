@@ -4,7 +4,6 @@ import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.ParseOutcome
 import app.airvault.core.signer.SignerApp
 import app.lensly.chains.signerRegistry
-import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.evm.TypedDataParser
 import app.lensly.core.evm.UnsignedTx
 import app.lensly.core.registry.AbiDecoder
@@ -15,7 +14,6 @@ import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
-import fr.acinq.bitcoin.psbt.Psbt
 import org.web3j.utils.Numeric
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
@@ -29,9 +27,6 @@ const val CANNOT_BE_READ = "This code could not be read safely."
 /** The refusal of a code that is a UR of a type other than eth-sign-request. */
 const val UNSUPPORTED_CODE = "Unsupported code"
 
-/** The refusal of a `ur:crypto-psbt` whose PSBT does not parse. */
-const val NOT_A_PSBT = "The Bitcoin request is not a valid PSBT."
-
 /** What the sandbox says about the scanned parts of a request. */
 sealed interface ScanReply {
     /** The new text is not part of the request. The scan keeps what it had. */
@@ -42,12 +37,6 @@ sealed interface ScanReply {
 
     /** The new text completes the request. [parsed] holds the request and what its data decodes to. */
     data class Complete(val parsed: ParsedRequest) : ScanReply
-
-    /**
-     * The new text completes a `ur:crypto-psbt`. [psbt] is the PSBT in its serialized form, which the sandbox has parsed, so a
-     * PSBT that does not parse never gets here.
-     */
-    data class Bitcoin(val psbt: ByteArray) : ScanReply
 
     /**
      * The new text completes a request that an installed chain app parses. [request] holds its header, which the core reads, and its
@@ -98,19 +87,11 @@ object InProcessParser : RequestParser {
     /** The reply for a complete [ur]: the request it carries, parsed, or the reason it is refused. */
     internal fun replyOf(ur: UR): ScanReply {
         signerRegistry.byRequestType(ur.type)?.let { return appReply(it, ur) }
-        if (ur.type == BtcPsbt.UR_TYPE) return bitcoinReply(ur)
         if (ur.type != EthSignRequest.UR_TYPE) return ScanReply.Refused(UNSUPPORTED_CODE)
         return when (val decoded = EthSignRequest.decode(ur.cborBytes)) {
             is EthSignRequest.Result.Ok -> ScanReply.Complete(parsedOf(decoded.request))
             is EthSignRequest.Result.Rejected -> ScanReply.Refused(decoded.reason)
         }
-    }
-
-    /** The reply for a complete `ur:crypto-psbt`: its PSBT, parsed here in the sandbox, or a refusal when it does not parse. */
-    private fun bitcoinReply(ur: UR): ScanReply = try {
-        ScanReply.Bitcoin(Psbt.write(BtcPsbt.fromUr(ur)).toByteArray())
-    } catch (e: IllegalArgumentException) {
-        ScanReply.Refused(NOT_A_PSBT)
     }
 
     /**

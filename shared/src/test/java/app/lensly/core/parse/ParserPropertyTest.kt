@@ -2,9 +2,9 @@ package app.lensly.core.parse
 
 import app.airvault.chains.algorand.signer.AlgoTxnDecoder
 import app.airvault.chains.algorand.signer.AlgoTxnException
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.solana.signer.SolanaMessage
 import app.airvault.chains.solana.signer.SolanaOffchainMessage
-import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.evm.TypedDataParser
 import org.junit.Test
 import kotlin.random.Random

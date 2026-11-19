@@ -23,8 +23,6 @@ fun SignPipeline.prepare(ur: UR, wallet: WalletView): Prepared =
     when (val reply = inProcessSandboxParser.scan(listOf(framesOf(ur, ONE_FRAME).first()))) {
         is ScanReply.Complete -> prepare(reply.parsed, wallet)
         is ScanReply.Refused -> Prepared.Refused(reply.reason)
-        // A PSBT is a Bitcoin request, which the EVM pipeline does not sign.
-        is ScanReply.Bitcoin -> Prepared.Refused(UNSUPPORTED_CODE)
         is ScanReply.App -> Prepared.Refused(UNSUPPORTED_CODE)
         ScanReply.NotPart, is ScanReply.Incomplete -> error("A single frame is a whole request or a refusal")
     }

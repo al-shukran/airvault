@@ -5,7 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.flow.SignStep

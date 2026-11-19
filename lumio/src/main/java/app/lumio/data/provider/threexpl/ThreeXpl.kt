@@ -6,7 +6,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -47,8 +48,8 @@ class ThreeXplProvider : Provider {
     override val kind: Kind = Kind.DATA
     override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        op == Op.NATIVE_BALANCE && net.isEvm && net.name == "1" && !net.testnet && endpointOf(cfg) != null
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean =
+        op == Ops.EVM_NATIVE_BALANCE && net.isEvm && net.name == "1" && !net.testnet && endpointOf(cfg) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = if (keyOf(cfg) == null) SANDBOX_LIMITS else KEYED_LIMITS
 

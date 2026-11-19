@@ -8,7 +8,8 @@ import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressUtxos
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.Utxo
@@ -209,17 +210,17 @@ class BlockchairProviderTest {
     @Test
     fun theSupportTableHoldsOnlyTheDocumentedNetworksAndOps() {
         val c = cfg()
-        assertTrue(provider.supports(BTC, Op.ADDRESS_UTXOS, c))
-        assertTrue(provider.supports(ETH, Op.NATIVE_BALANCE, c))
-        assertFalse(provider.supports(BTC, Op.ADDRESS_STATS, c))
-        assertFalse(provider.supports(ETH, Op.ADDRESS_UTXOS, c))
-        assertFalse(provider.supports(NetworkId(Networks.BTC_TESTNET4, testnet = true), Op.ADDRESS_UTXOS, c))
-        assertFalse(provider.supports(NetworkId(Networks.evm(11155111), testnet = true), Op.NATIVE_BALANCE, c))
+        assertTrue(provider.supports(BTC, Ops.BTC_UTXOS, c))
+        assertTrue(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), c))
+        assertFalse(provider.supports(BTC, Ops.BTC_ADDRESS_STATS, c))
+        assertFalse(provider.supports(ETH, Ops.BTC_UTXOS, c))
+        assertFalse(provider.supports(NetworkId(Networks.BTC_TESTNET4, testnet = true), Ops.BTC_UTXOS, c))
+        assertFalse(provider.supports(NetworkId(Networks.evm(11155111), testnet = true), OpKey.on(NetworkId(Networks.evm(11155111), testnet = true), "nativeBalance"), c))
     }
 
     @Test
     fun aPlainHttpBaseToAnotherHostIsNotSupported() {
-        assertFalse(provider.supports(ETH, Op.NATIVE_BALANCE, ProviderConfig(baseUrl = "http://example.org/")))
+        assertFalse(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), ProviderConfig(baseUrl = "http://example.org/")))
     }
 
     @Test

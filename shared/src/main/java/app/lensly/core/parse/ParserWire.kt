@@ -56,7 +56,6 @@ object ParserWire {
     private const val NOT_PART = 1
     private const val INCOMPLETE = 2
     private const val COMPLETE = 3
-    private const val BITCOIN_PSBT = 4
     private const val APP_REQUEST = 6
     private const val CALL_OK = 1
 
@@ -64,9 +63,6 @@ object ParserWire {
     private const val VALUE_WORD = 0
     private const val VALUE_DYNAMIC = 1
     private const val VALUE_ITEMS = 2
-
-    /** The most a scanned PSBT may hold, as its serialized bytes. It is the same limit as the bytes of one signed request. */
-    private const val MAX_PSBT_BYTES = ParserLimits.MAX_SIGN_DATA_BYTES
 
     /** The most a scanned app request may hold, as its CBOR: the core's limit for a request payload. */
     private const val MAX_APP_PAYLOAD_BYTES = ParserLimits.MAX_APP_PAYLOAD_BYTES
@@ -151,10 +147,6 @@ object ParserWire {
                 int(COMPLETE)
                 parsed(reply.parsed)
             }
-            is ScanReply.Bitcoin -> {
-                int(BITCOIN_PSBT)
-                blob(reply.psbt, MAX_PSBT_BYTES)
-            }
             is ScanReply.App -> {
                 int(APP_REQUEST)
                 appRequest(reply.request)
@@ -170,7 +162,6 @@ object ParserWire {
             NOT_PART -> ScanReply.NotPart
             INCOMPLETE -> ScanReply.Incomplete(double().also { if (!(it in 0.0..1.0)) throw WireException("progress is outside 0 to 1") })
             COMPLETE -> ScanReply.Complete(parsedOf())
-            BITCOIN_PSBT -> ScanReply.Bitcoin(blob(MAX_PSBT_BYTES))
             APP_REQUEST -> ScanReply.App(appRequestOf())
             else -> throw WireException("unknown scan reply")
         }

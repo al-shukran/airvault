@@ -15,7 +15,7 @@ private val EVM_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
  *
  * The package is `app.lumio.data.provider`, because [Request] is sealed, and its subclasses must share its package.
  */
-class AddressTxHistory(net: NetworkId, val address: String, val page: Int, val offset: Int) : Request<List<ExplorerTx>>(net, Op.TX_HISTORY) {
+class AddressTxHistory(net: NetworkId, val address: String, val page: Int, val offset: Int) : Request<List<ExplorerTx>>(net, Ops.EVM_TX_HISTORY) {
     init {
         require(EVM_ADDRESS.matches(address)) { "Not an EVM address." }
         require(page >= 1) { "A page counts from 1." }
