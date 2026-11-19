@@ -75,6 +75,30 @@ private fun asterMessage(chainId: Int, msg: String) =
         """"domain":{"name":"AsterSignTransaction","version":"1","chainId":$chainId,"verifyingContract":"$ZERO"},""" +
         """"message":{"msg":"$msg"}}"""
 
+private const val AGENT_CHECKSUM = "0x5E9EE1089755C3435139848e47e6635505D5a13A"
+private const val USDC_MAINNET = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+
+/** An EIP-2612 Permit of USD Coin on the domain of chain 1, which a request for Arbitrum asks to sign. The token is not in the test registry. */
+private val PERMIT_ON_MAINNET = """{"types":{"EIP712Domain":[$DOMAIN_TYPES],"Permit":[{"name":"owner","type":"address"},""" +
+    """{"name":"spender","type":"address"},{"name":"value","type":"uint256"},{"name":"nonce","type":"uint256"},""" +
+    """{"name":"deadline","type":"uint256"}]},"primaryType":"Permit","domain":{"name":"USD Coin","version":"2","chainId":1,""" +
+    """"verifyingContract":"$USDC_MAINNET"},"message":{"owner":"$SENDER","spender":"$AGENT","value":"1000000","nonce":"0",""" +
+    """"deadline":"1800000000"}}"""
+
+/** Long text of a nested message, long enough that a short display would cut it. */
+private val MEMO = (1..60).joinToString(" ") { "memo$it" }
+private val NOTE = (1..40).joinToString(" ") { "note$it" }
+private val TERMS = (1..30).joinToString(" ") { "terms$it" }
+private val REFERENCE = "0x" + "ab".repeat(32)
+
+/** A message with a string, a list of two structs and a struct, one level deeper than its type names. */
+private val NESTED_BATCH = """{"types":{"Batch":[{"name":"memo","type":"string"},{"name":"legs","type":"Leg[]"},""" +
+    """{"name":"terms","type":"Terms"}],"Leg":[{"name":"asset","type":"address"},{"name":"note","type":"string"}],""" +
+    """"Terms":[{"name":"reference","type":"bytes32"},{"name":"text","type":"string"}],"EIP712Domain":[$DOMAIN_TYPES]},""" +
+    """"primaryType":"Batch","domain":{"name":"Lensly Batch","version":"1","chainId":$ARBITRUM,"verifyingContract":"$ZERO"},""" +
+    """"message":{"memo":"$MEMO","legs":[{"asset":"$SENDER","note":"$NOTE"},{"asset":"$AGENT","note":"short"}],""" +
+    """"terms":{"reference":"$REFERENCE","text":"$TERMS"}}}"""
+
 private val REGISTRY = Registry(
     networks = listOf(
         NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false),
@@ -221,10 +245,26 @@ class OffChainSignatureReviewTest {
         val unlabelled = reviewed(otherContract, ARBITRUM)
         assertTrue(rowsOf(unlabelled).any { it.label == "Signature for Chain 1337 (Unknown Network)" })
         assertNoStoppingWarning(unlabelled)
+    }
 
-        // An ordinary Permit on Ethereum, asked for on Arbitrum.
-        val permit = asterMessage(1, ASTER_APPROVE_MESSAGE).replace("AsterSignTransaction", "USD Coin")
-        assertTrue(rowsOf(reviewed(permit, ARBITRUM)).any { it.label == "Signature for Chain 1 (Ethereum)" })
+    @Test
+    fun aPermitOnAnotherChainThanTheRequestIsSignableAndShowsItsChainRowAndTheWholeMessage() {
+        val review = reviewed(PERMIT_ON_MAINNET, ARBITRUM)
+
+        assertEquals("Permit", review.title)
+        val chainRow = assertNotNull(rowsOf(review).singleOrNull { it.label == "Signature for Chain 1 (Ethereum)" })
+        assertEquals("The domain names chain ID 1, and the request names chain ID $ARBITRUM.", chainRow.value.text())
+        assertEquals(
+            mapOf(
+                "owner (address)" to SENDER,
+                "spender (address)" to AGENT_CHECKSUM,
+                "value (uint256)" to "1000000",
+                "nonce (uint256)" to "0",
+                "deadline (uint256)" to "1800000000",
+            ),
+            review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() },
+        )
+        assertNoStoppingWarning(review)
     }
 
     @Test
@@ -248,6 +288,28 @@ class OffChainSignatureReviewTest {
             assertTrue(rowsOf(review).any { it.label == "Signature for Any Chain" })
             assertNoStoppingWarning(review)
         }
+    }
+
+    @Test
+    fun aNestedMessageShowsEveryFieldWholeAndInItsOrder() {
+        val review = reviewed(NESTED_BATCH, ARBITRUM)
+
+        val rows = review.sections.single { it.heading == "Message" }.rows
+        val leaves = rows.mapNotNull { row -> row.value?.let { row.label to it.text() } }
+        assertEquals(
+            listOf(
+                "memo (string)" to MEMO,
+                "asset (address)" to SENDER,
+                "note (string)" to NOTE,
+                "asset (address)" to AGENT_CHECKSUM,
+                "note (string)" to "short",
+                "reference (bytes32)" to REFERENCE,
+                "text (string)" to TERMS,
+            ),
+            leaves,
+        )
+        assertShownWhole(review, NOTE)
+        assertNoStoppingWarning(review)
     }
 
     @Test

@@ -103,8 +103,8 @@ internal enum class PairStep { WALLET, APP, INSTRUCTIONS, CODE }
 /**
  * The online wallets that pair with Lensly, the first one recommended. Each one is paired with one code for the whole wallet, so an App
  * is never paired on its own. [LUMIO] is the AirVault companion app: it reads the AirVault pairing, which holds the keys and names of every
- * App of the wallet. [RABBY] and [METAMASK] read only the
- * Ethereum account keys, as a ur:crypto-multi-accounts too, because they hold no Bitcoin account.
+ * App of the wallet. [RABBY] and [METAMASK] read only the Ethereum account key, as one ur:crypto-hdkey, because they hold no Bitcoin
+ * account.
  */
 internal enum class PairFormat(
     @StringRes val labelRes: Int,
