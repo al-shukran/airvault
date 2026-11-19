@@ -88,6 +88,7 @@ shard-1 :shared app.lensly.ui.components.ShiftTest
 shard-1 :shared app.lensly.ui.qr.ConsecutiveDeduperTest
 shard-2 :app app.lensly.app.AddressNotesResolverTest
 shard-2 :app app.lensly.app.sign.AppReviewRecordTest
+shard-2 :app app.lensly.app.sign.BitcoinReviewRecordTest
 shard-2 :app app.lensly.app.sign.TypedDataPipelineTest
 shard-2 :app app.lensly.app.WalletDraftMixedHashTest
 shard-2 :app app.lensly.app.WalletDraftSaveTest
@@ -100,6 +101,7 @@ shard-2 :app app.lensly.ui.flow.PairPartsTest
 shard-2 :app app.lensly.ui.flow.VaultSignPortsTest
 shard-2 :app app.lensly.ui.home.EthereumAccountsScreenTest
 shard-2 :app app.lensly.ui.home.HistoryDetailSheetTest
+shard-2 :app app.lensly.ui.home.HistoryOriginTest
 shard-2 :app app.lensly.ui.home.HomeBackupTest
 shard-2 :app app.lensly.ui.home.RegistryImportStateTest
 shard-2 :app app.lensly.ui.profile.AccountProfileScreenTest
