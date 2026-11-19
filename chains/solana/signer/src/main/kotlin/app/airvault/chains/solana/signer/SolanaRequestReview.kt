@@ -267,6 +267,21 @@ object SolanaRequestCheck {
         if (request.origin?.all(::isPrintable) == false) return Result.Refused(UNREADABLE_ORIGIN)
         val index = accountIndexOf(request.derivationPath) ?: return Result.Refused(PATH_REFUSED)
         val signer = accountKeys.getOrNull(index) ?: return Result.Refused(UNKNOWN_ACCOUNT)
+        return checkSigner(request, index, signer, tokens, unknownCalls)
+    }
+
+    /**
+     * Checks [request] against account [index], whose public key is [signer]. [check] calls it with the key of the wallet's stored account. The
+     * signer also calls it at sign time with the key the key access derived, so a key that is not the account the request names signs nothing,
+     * under the same rules that the review applied.
+     */
+    fun checkSigner(
+        request: SolSignRequest,
+        index: Int,
+        signer: ByteArray,
+        tokens: SolanaTokenList = SolanaTokenList.EMPTY,
+        unknownCalls: UnknownCallPolicy = UnknownCallPolicy.WARN,
+    ): Result {
         val named = request.address
         if (named != null && !named.contentEquals(signer)) return Result.Refused(DIFFERENT_ADDRESS)
         return when (request.signType) {
