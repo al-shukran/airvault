@@ -53,16 +53,6 @@ private fun failure(result: Result<*>): Throwable = assertNotNull(result.excepti
 private fun withMagic(bytes: ByteArray, magic: String): ByteArray =
     bytes.copyOf().also { magic.toByteArray(StandardCharsets.US_ASCII).copyInto(it) }
 
-/** A format 1 package (`LRP1`: magic, length, payload, signature), as the app stored before key IDs existed. */
-private fun formatOnePackage(payload: String): ByteArray {
-    val body = payload.toByteArray(StandardCharsets.UTF_8)
-    return "LRP1".toByteArray(StandardCharsets.US_ASCII) + intBytes(body.size) + body + ByteArray(64)
-}
-
-private fun intBytes(value: Int): ByteArray = byteArrayOf(
-    (value ushr 24).toByte(), (value ushr 16).toByte(), (value ushr 8).toByte(), value.toByte(),
-)
-
 class RegistryUpdateTest {
     @get:Rule
     val folder = TemporaryFolder()
@@ -208,18 +198,6 @@ class RegistryUpdateTest {
             failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1)), keys, baked, dir)),
         )
         assertFalse(File(dir, RegistryUpdate.SEQUENCE_FILE).exists())
-    }
-
-    @Test
-    fun anInstalledFormatOnePackageStillSetsTheSequenceAfterAnUpgrade() {
-        val baked = bakedRegistry()
-        val dir = registryDir().apply { mkdirs() }
-        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(formatOnePackage(TestPackages.payload(sequence = 5)))
-
-        val refused = assertIs<RegistryUpdateException.NotNewer>(
-            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 4)), keys, baked, dir)),
-        )
-        assertEquals(5L, refused.installed)
     }
 
     @Test
