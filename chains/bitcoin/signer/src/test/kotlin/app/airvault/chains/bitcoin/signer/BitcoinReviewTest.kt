@@ -1,14 +1,17 @@
 package app.airvault.chains.bitcoin.signer
 
+import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
 import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
+import app.airvault.core.model.checkLabels
 import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
 import fr.acinq.bitcoin.KeyPath
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -113,6 +116,19 @@ class BitcoinReviewTest {
         assertEquals(Danger.DANGER, warning.level)
         assertEquals(UNVERIFIED_AMOUNTS_CODE, warning.code)
         assertEquals("1 input amount(s) come from a witness UTXO only. They are not verified, so the fee is unknown until they are confirmed.", warning.message)
+    }
+
+    @Test
+    fun anUnverifiedAmountUnderTheRelaxedPolicyIsACautionWithNoTickToOwe() {
+        val relaxed = request(feeSats = null).copy(
+            inputs = listOf(BtcReviewInput(0, 40_000L, amountVerified = false, ownerPath = owned, sequence = 0xFFFFFFFDL)),
+            requiresConfirmation = false,
+        )
+        val review = reviewOf(relaxed)
+        val warning = review.warnings.single()
+        assertEquals(Danger.CAUTION, warning.level)
+        assertEquals(emptyList(), review.checkLabels())
+        assertNotNull(Approval.of(review, emptySet()))
     }
 
     @Test
