@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.DebugBtcFixture
+import app.airvault.core.model.AccountId
 import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
 import app.lensly.app.export.partsOf
@@ -45,6 +46,7 @@ import app.lumio.send.SubmitState
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
+import app.lumio.wallets.WalletAccounts
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendFormScreen
@@ -66,6 +68,8 @@ import kotlinx.coroutines.withContext
  */
 private class SendContext(
     val wallet: PairedWallet,
+    /** The place of the sending account among the wallet's Ethereum accounts. */
+    val index: Int,
     val from: String,
     val settings: EvmSettings,
     val chains: List<EvmChain>,
@@ -118,7 +122,7 @@ internal fun SendRoute(
     navController: NavHostController,
     holder: VaultHolder,
     walletId: String,
-    index: Int,
+    account: AccountId,
     mode: NetworkMode,
     chainId: Long,
 ) {
@@ -129,8 +133,8 @@ internal fun SendRoute(
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
     val scope = rememberCoroutineScope()
-    val load by produceState<SendLoad?>(initialValue = null, session, walletId, index, mode) {
-        value = if (session == null) null else withContext(Dispatchers.IO) { loadSend(app, session, walletId, index, mode) }
+    val load by produceState<SendLoad?>(initialValue = null, session, walletId, account, mode) {
+        value = if (session == null) null else withContext(Dispatchers.IO) { loadSend(app, session, walletId, account, mode) }
     }
     if (load is SendLoad.Missing) {
         LaunchedEffect(Unit) { navController.popBackStack() }
@@ -168,7 +172,7 @@ internal fun SendRoute(
                 runCatching {
                     val to = SendInput.recipient(recipient)
                     val value = SendInput.amountWei(amount, selected.decimals, selected.symbol)
-                    EvmSend.prepare(app.evmReadsFor(checkNotNull(session)), selected.chain, ready.from, index, to, value, selected.token)
+                    EvmSend.prepare(app.evmReadsFor(checkNotNull(session)), selected.chain, ready.from, ready.index, to, value, selected.token)
                 }
             }
             busy = false
@@ -302,7 +306,7 @@ internal fun SendRoute(
 
     when (val current = step) {
         SendStep.Form -> SendFormScreen(
-            fromLabel = "Address ${index + 1}",
+            fromLabel = "Address ${ready.index + 1}",
             fromAddress = ready.from,
             chain = selectedChain,
             assets = assets,
@@ -383,16 +387,17 @@ internal fun SendRoute(
  * Reads the send's wallet, address and chains from the open vault, with the tokens each chain lists and the tokens the address holds in the
  * balance cache. The chains are the enabled ones on the side [mode] chooses, as on the wallet's portfolio. It runs off the main thread.
  */
-private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, index: Int, mode: NetworkMode): SendLoad = runCatching {
+private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, account: AccountId, mode: NetworkMode): SendLoad = runCatching {
     val wallets = PairedWallets.list(session)
     val wallet = wallets.firstOrNull { it.id == walletId } ?: return@runCatching SendLoad.Missing
+    val index = WalletAccounts.indexOf(wallet, account) ?: return@runCatching SendLoad.Missing
     val from = wallet.evmAccounts.getOrNull(index)?.address ?: return@runCatching SendLoad.Missing
     val settings = EvmSettingsStore.read(session)
     if (index !in 0 until settings.addressCount) return@runCatching SendLoad.Missing
     val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
     val tokensOf = app.tokensFor(session)
     val held = TokenPortfolio.holdingsAt(wallet.id, from, chains, tokensOf, TokenBalanceCache.read(session))
-    SendLoad.Ready(SendContext(wallet, from, settings, chains, held, ownAccountsOf(wallets)))
+    SendLoad.Ready(SendContext(wallet, index, from, settings, chains, held, ownAccountsOf(wallets)))
 }.getOrDefault(SendLoad.Missing)
 
 /** The words a failure shows: the owner's words for a refusal (an invalid input, a signature that is not this one, an endpoint's answer), else [fallback]. */

@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import app.airvault.core.model.AccountId
 import app.lensly.app.VaultHolder
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.ui.components.LenslyScreen
@@ -35,6 +36,7 @@ import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.kit.LumioTag
+import app.lumio.wallets.WalletAccounts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -120,7 +122,7 @@ internal fun AlgorandAddAssetScreen(
 }
 
 /**
- * The Add asset screen of the Algorand account [accountIndex] of [walletId]. The account's opted-in assets are read first, then a row opens the opt-in of
+ * The Add asset screen of the Algorand [account] of [walletId]. The account's opted-in assets are read first, then a row opens the opt-in of
  * its asset, which is signed through Lensly like a send.
  */
 @Composable
@@ -129,7 +131,7 @@ internal fun AlgorandAddAssetRoute(
     holder: VaultHolder,
     mode: NetworkMode,
     walletId: String,
-    accountIndex: Int,
+    account: AccountId,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
@@ -141,7 +143,7 @@ internal fun AlgorandAddAssetRoute(
         value = onVault(null) { PairedWallets.list(session).firstOrNull { it.id == walletId } }
     }
     val wallet = paired ?: return
-    val signer = wallet.algorand.getOrNull(accountIndex) ?: return
+    val signer = WalletAccounts.indexOf(wallet, account)?.let { wallet.algorand[it] } ?: return
     val address = AlgorandAccount.addressOf(signer)
     val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
     val scheduler = app.nativeSchedulerFor(session)
@@ -155,7 +157,7 @@ internal fun AlgorandAddAssetRoute(
         query = query,
         reading = holdings == null,
         onQuery = { query = it },
-        onPick = { row -> navController.navigate(LumioRoute.algorandOptIn(walletId, accountIndex, row.assetId)) },
+        onPick = { row -> navController.navigate(LumioRoute.algorandOptIn(walletId, account, row.assetId)) },
         onBack = { navController.popBackStack() },
     )
 }

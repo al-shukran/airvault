@@ -28,6 +28,7 @@ import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LumenMono
+import app.lumio.data.net.Networks
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
 import app.lumio.transactions.TxFeedItem
@@ -37,8 +38,8 @@ import app.lumio.ui.kit.LumioAssetIcon
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.transactions.ActivityRow
-import app.lumio.wallets.AccountChain
 import app.lumio.wallets.WalletAccount
+import app.lumio.wallets.WalletAccounts
 import java.time.ZoneId
 
 /** The hero's text while no read of the account's balance is kept. */
@@ -78,7 +79,7 @@ internal fun AccountScreen(
     // The balance starts after the 40 dp coin icon and its gap, so the network line under it starts at the same edge.
     val balanceStart = if (native != null) 40.dp + LenslySpacing.xs else 0.dp
     LenslyScreen(
-        title = account.chain.label,
+        title = WalletAccounts.familyLabel(account.namespace),
         modifier = modifier,
         onBack = onBack,
         bottomAction = {
@@ -161,8 +162,8 @@ internal fun AccountScreen(
         SectionTitle("Activity")
         LumioIsland {
             when {
-                account.chain == AccountChain.SOLANA || account.chain == AccountChain.ALGORAND ->
-                    EmptyLine("Activity is not read for ${account.chain.label} yet.")
+                account.namespace == Networks.SOLANA || account.namespace == Networks.ALGORAND ->
+                    EmptyLine("Activity is not read for ${WalletAccounts.familyLabel(account.namespace)} yet.")
                 activity.isEmpty() && loadingActivity -> LoadingRow()
                 activity.isEmpty() -> EmptyLine("No transactions yet.")
                 else -> activity.forEachIndexed { index, item ->

@@ -1,7 +1,7 @@
 package app.lumio.ui.wallets
 
+import app.airvault.core.model.AccountId
 import app.lumio.network.NetworkMode
-import app.lumio.wallets.AccountChain
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -15,7 +15,7 @@ import org.junit.Test
  */
 class WalletSheetsTest {
     private val wallet = WalletSheet.Wallet("wallet-demo")
-    private val account = WalletSheet.Account("wallet-demo", AccountChain.ETHEREUM, 0)
+    private val account = WalletSheet.Account("wallet-demo", AccountId("eip155:1:0xab"))
 
     private fun sheets() = WalletSheets(reducedMotion = { true }, scope = CoroutineScope(Dispatchers.Unconfined))
 

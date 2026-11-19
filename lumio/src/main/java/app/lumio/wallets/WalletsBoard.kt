@@ -10,6 +10,7 @@ import app.lumio.LumioVault
 import app.lumio.chains.ChainHolding
 import app.lumio.data.WallClock
 import app.lumio.data.asset.AssetId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
 import app.lumio.data.price.PriceSeries
 import app.lumio.data.scan.ScanEvent
@@ -44,13 +45,13 @@ private class Loaded(val view: WalletsView, val tokenCounts: Map<WalletAccount, 
  * for, and its activity. A part that is still null has not been read yet. The parts stay in the board for the visit and the next one, so an account that
  * opens again shows them at once.
  */
-internal class AccountReads(chain: AccountChain) {
+internal class AccountReads(namespace: String) {
     /** The ERC-20 balances of the Ethereum address. Empty for the other chains. Null until an Ethereum account's read lands. */
-    var tokens by mutableStateOf<List<TokenHolding>?>(if (chain == AccountChain.ETHEREUM) null else emptyList())
+    var tokens by mutableStateOf<List<TokenHolding>?>(if (namespace == Networks.EIP155) null else emptyList())
 
     /** The SPL tokens of a Solana account, or the assets of an Algorand account. Empty for the other chains. Null until that read lands. */
     var holdings by mutableStateOf<List<ChainHolding>?>(
-        if (chain == AccountChain.SOLANA || chain == AccountChain.ALGORAND) null else emptyList(),
+        if (namespace == Networks.SOLANA || namespace == Networks.ALGORAND) null else emptyList(),
     )
 
     /** The USD prices of the account's assets, merged over the reads. */
@@ -184,7 +185,7 @@ internal class WalletsBoard(
 
     /** What the account's screen reads beyond its balance, on [mode]'s side. Kept until the vault locks. */
     fun readsOf(account: WalletAccount, mode: NetworkMode): AccountReads =
-        accountReads.getOrPut("${mode.name}/${account.walletId}/${account.chain.name}/${account.index}") { AccountReads(account.chain) }
+        accountReads.getOrPut("${mode.name}/${account.walletId}/${account.id.caip10}") { AccountReads(account.namespace) }
 
     /** The price chart of [asset], once a read has landed. */
     fun chartOf(asset: AssetId): PriceSeries? = chartReads[asset]
@@ -264,7 +265,7 @@ internal class WalletsBoard(
     }
 
     private suspend fun tokenCountsOf(view: WalletsView, mode: NetworkMode): Map<WalletAccount, Int> = withContext(Dispatchers.IO) {
-        val accounts = view.wallets.flatMap { view.accountsOf(it.id) }.filter { it.chain == AccountChain.ETHEREUM }
+        val accounts = view.wallets.flatMap { view.accountsOf(it.id) }.filter { it.namespace == Networks.EIP155 }
         val settings = EvmSettingsStore.read(session)
         val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
         val cache = TokenBalanceCache.read(session)

@@ -19,4 +19,7 @@ kotlin {
 dependencies {
     api(project(":core:wallet-api"))
     implementation(project(":chains:algorand:common"))
+    
+testImplementation(libs.junit)
+    testImplementation(libs.kotlin.test)
 }
