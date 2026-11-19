@@ -17,7 +17,6 @@ import app.lensly.app.btcNetworkOf
 import app.lensly.app.chainOfAddress
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
@@ -91,47 +90,53 @@ fun AddressBookFormScreen(
                 Spacer(Modifier.height(LenslySpacing.md))
             }
             SettingsIsland("Entry") {
-                if (addressFixed) {
-                    ReadOnlyRow(label = "Address", value = address, mono = true)
-                } else {
+                FormCell {
+                    if (addressFixed) {
+                        ReadOnlyRow(label = "Address", value = address, mono = true)
+                    } else {
+                        ProfileFieldRow(
+                            label = "Address",
+                            value = address,
+                            placeholder = "Ethereum, Bitcoin, Solana or Algorand address",
+                            focused = focused == AddressBookField.ADDRESS,
+                            maxLength = ADDRESS_BOOK_ADDRESS_MAX_LENGTH,
+                            onFocus = { onFocus(AddressBookField.ADDRESS) },
+                        )
+                    }
+                }
+                FormCell {
+                    ReadOnlyRow(label = "Network", value = addressNetworkName(address) ?: "Set by the address", mono = false)
+                }
+                FormCell {
                     ProfileFieldRow(
-                        label = "Address",
-                        value = address,
-                        placeholder = "Ethereum, Bitcoin, Solana or Algorand address",
-                        focused = focused == AddressBookField.ADDRESS,
-                        maxLength = ADDRESS_BOOK_ADDRESS_MAX_LENGTH,
-                        onFocus = { onFocus(AddressBookField.ADDRESS) },
+                        label = "Address Name",
+                        value = name,
+                        placeholder = "Name this address",
+                        focused = focused == AddressBookField.NAME,
+                        maxLength = DISPLAY_NAME_MAX_LENGTH,
+                        onFocus = { onFocus(AddressBookField.NAME) },
                     )
                 }
-                IslandDivider()
-                ReadOnlyRow(label = "Network", value = addressNetworkName(address) ?: "Set by the address", mono = false)
-                IslandDivider()
-                ProfileFieldRow(
-                    label = "Address Name",
-                    value = name,
-                    placeholder = "Name this address",
-                    focused = focused == AddressBookField.NAME,
-                    maxLength = DISPLAY_NAME_MAX_LENGTH,
-                    onFocus = { onFocus(AddressBookField.NAME) },
-                )
-                IslandDivider()
-                ProfileFieldRow(
-                    label = "Address Label",
-                    value = label,
-                    placeholder = "No label",
-                    focused = focused == AddressBookField.LABEL,
-                    maxLength = PROFILE_TEXT_MAX_LENGTH,
-                    onFocus = { onFocus(AddressBookField.LABEL) },
-                )
-                IslandDivider()
-                ProfileFieldRow(
-                    label = "Address Notes",
-                    value = notes,
-                    placeholder = "No notes",
-                    focused = focused == AddressBookField.NOTES,
-                    maxLength = ADDRESS_NOTES_MAX_LENGTH,
-                    onFocus = { onFocus(AddressBookField.NOTES) },
-                )
+                FormCell {
+                    ProfileFieldRow(
+                        label = "Address Label",
+                        value = label,
+                        placeholder = "No label",
+                        focused = focused == AddressBookField.LABEL,
+                        maxLength = PROFILE_TEXT_MAX_LENGTH,
+                        onFocus = { onFocus(AddressBookField.LABEL) },
+                    )
+                }
+                FormCell {
+                    ProfileFieldRow(
+                        label = "Address Notes",
+                        value = notes,
+                        placeholder = "No notes",
+                        focused = focused == AddressBookField.NOTES,
+                        maxLength = ADDRESS_NOTES_MAX_LENGTH,
+                        onFocus = { onFocus(AddressBookField.NOTES) },
+                    )
+                }
             }
             if (onDelete != null) {
                 SettingsIsland("Delete") {
@@ -142,10 +147,21 @@ fun AddressBookFormScreen(
     }
 }
 
+/**
+ * One field of the form inside its island. A field draws its own outline, so it gets a vertical band of its own, and the island has no
+ * divider between two fields.
+ */
+@Composable
+private fun FormCell(content: @Composable () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
+        content()
+    }
+}
+
 /** A value the form shows and does not take: its label above it, in the same place a field has. */
 @Composable
 private fun ReadOnlyRow(label: String, value: String, mono: Boolean) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         WalletEyebrow(label)
         Spacer(Modifier.height(LenslySpacing.xs))
         Text(
