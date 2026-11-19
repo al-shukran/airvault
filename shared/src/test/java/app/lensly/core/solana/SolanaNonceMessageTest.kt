@@ -2,11 +2,14 @@ package app.lensly.core.solana
 
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaInstruction
 import app.airvault.chains.solana.signer.SolanaMessageAccount
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaWarning
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 import fr.acinq.bitcoin.Base58
-import org.junit.Test
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
@@ -15,6 +18,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import org.junit.Test
 
 /**
  * The nonce messages Lumio builds: the one-time setup, and a transfer that advances the nonce first. Each expected message is spelled out from its

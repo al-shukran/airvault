@@ -28,7 +28,7 @@ import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.UNSUPPORTED_CODE
-import app.lensly.core.solana.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaRequestReview
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.wallet.AccountAddresses
 import fr.acinq.bitcoin.psbt.Psbt

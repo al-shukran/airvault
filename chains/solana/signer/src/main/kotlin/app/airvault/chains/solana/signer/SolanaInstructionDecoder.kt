@@ -1,8 +1,6 @@
-package app.lensly.core.solana
+package app.airvault.chains.solana.signer
 
-import app.airvault.chains.solana.signer.SolanaMessage
-import app.airvault.chains.solana.signer.SolanaMessageAccount
-import app.lensly.core.wallet.toHex
+import app.airvault.chains.solana.createWithSeed
 import fr.acinq.bitcoin.Base58
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -152,7 +150,7 @@ private fun SolanaMessage.createAccount(create: SolanaMessage.CompiledInstructio
 
 /**
  * CreateAccountWithSeed for a nonce account. The seed is at most 32 bytes and UTF-8, and the new account must be the address that
- * [SolanaAccount.createWithSeed] gives for the base and the seed, with the System Program as owner. Accounts are [funder, new, base].
+ * [createWithSeed] gives for the base and the seed, with the System Program as owner. Accounts are [funder, new, base].
  */
 private fun SolanaMessage.createAccountWithSeed(create: SolanaMessage.CompiledInstruction): NonceCreation? {
     val data = create.data
@@ -168,7 +166,7 @@ private fun SolanaMessage.createAccountWithSeed(create: SolanaMessage.CompiledIn
     if (accounts.size != 3) return null
     val base = accounts[2] as? SolanaMessageAccount.Static ?: return null
     val created = accounts[1] as? SolanaMessageAccount.Static ?: return null
-    val derived = SolanaAccount.createWithSeed(Base58.decode(base.address), seedBytes, Base58.decode(SYSTEM_PROGRAM))
+    val derived = createWithSeed(Base58.decode(base.address), seedBytes, Base58.decode(SYSTEM_PROGRAM))
     if (Base58.encode(derived) != created.address) return null
     return NonceCreation(
         funder = accounts[0],
@@ -272,3 +270,5 @@ private fun u32(data: ByteArray, at: Int): UInt =
 
 private fun u64(data: ByteArray, at: Int): ULong =
     ByteBuffer.wrap(data, at, 8).order(ByteOrder.LITTLE_ENDIAN).long.toULong()
+
+private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it.toInt() and 0xff) }

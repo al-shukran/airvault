@@ -27,6 +27,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
 import app.lensly.app.sign.algorandCounterparties
 import app.airvault.chains.algorand.signer.toReview
+import app.airvault.chains.solana.signer.toReview
 import app.lensly.app.sign.solanaCounterparties
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.gate.PasswordBuffer
@@ -39,7 +40,6 @@ import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
 import app.lensly.ui.sign.BitcoinReviewScreen
 import app.lensly.ui.sign.ReviewScreen
-import app.lensly.ui.sign.SolanaReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReviewScreen
 
@@ -125,10 +125,11 @@ internal fun SignWalletRoute(
             onOpenAddress = openAddress,
         )
         is SignStep.BitcoinConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
-        is SignStep.SolanaReview -> SolanaReviewScreen(
-            review = shown.ready.review,
+        is SignStep.SolanaReview -> ReviewScreen(
+            review = remember(shown.ready.review) { shown.ready.review.toReview() },
             signer = shown.ready.signer,
             addressNotes = notesNow(shown.ready.addressNotes, solanaCounterparties(shown.ready.review), SOLANA_FAMILY, book),
+            addressChain = SOLANA_FAMILY,
             onApprove = flow::approve,
             onReject = flow::leave,
             onOpenAddress = openAddress,

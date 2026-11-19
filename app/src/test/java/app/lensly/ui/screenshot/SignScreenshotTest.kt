@@ -22,7 +22,6 @@ import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.app.sign.SolanaSplFixtures
 import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
-import app.lensly.app.sign.solanaWarningText
 import app.lensly.core.registry.AbiDecoder
 import app.lensly.core.registry.AbiRows
 import app.lensly.core.registry.CallDecode
@@ -33,16 +32,19 @@ import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistParam
-import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.solana.SolanaRequestReview
-import app.lensly.core.solana.SolanaTokenList
-import app.lensly.core.solana.SolanaWarning
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaTokenList
+import app.airvault.chains.solana.signer.SolanaWarning
+import app.airvault.chains.solana.signer.solanaWarningText
+import app.airvault.chains.solana.signer.toReview
+import app.lensly.app.SOLANA_FAMILY
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.SignRefusedScreen
-import app.lensly.ui.sign.SolanaReviewScreen
+import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.TxReviewScreen
 import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -338,7 +340,7 @@ class SignScreenshotTest {
 
     @Test
     fun reviewSolanaSplTransferChecked() = compose.snapshotScrolled("solana_spl_transfer_checked", label = "Priority Fee") {
-        SolanaReviewScreen(review = solanaReviewOf("spl-usdc-first-transfer", SOLANA_USDC_TOKENS), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), onApprove = {}, onReject = {})
+        ReviewScreen(review = solanaReviewOf("spl-usdc-first-transfer", SOLANA_USDC_TOKENS).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = SOLANA_FAMILY, onApprove = {}, onReject = {})
     }
 
     @Test
@@ -346,7 +348,7 @@ class SignScreenshotTest {
         "solana_spl_unknown_program",
         label = solanaWarningText(SolanaWarning.UNKNOWN_PROGRAM),
     ) {
-        SolanaReviewScreen(review = solanaReviewOf("spl-unknown-program-usdc", SOLANA_USDC_TOKENS), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), onApprove = {}, onReject = {})
+        ReviewScreen(review = solanaReviewOf("spl-unknown-program-usdc", SOLANA_USDC_TOKENS).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = SOLANA_FAMILY, onApprove = {}, onReject = {})
     }
 
     @Test
@@ -354,7 +356,7 @@ class SignScreenshotTest {
         "solana_plain_transfer",
         label = solanaWarningText(SolanaWarning.DECIMALS_UNKNOWN),
     ) {
-        SolanaReviewScreen(review = solanaReviewOf("spl-transfer-plain", SOLANA_USDC_TOKENS), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), onApprove = {}, onReject = {})
+        ReviewScreen(review = solanaReviewOf("spl-transfer-plain", SOLANA_USDC_TOKENS).toReview(), signer = SAMPLE_SIGNER, addressNotes = emptyMap(), addressChain = SOLANA_FAMILY, onApprove = {}, onReject = {})
     }
 
     @Test

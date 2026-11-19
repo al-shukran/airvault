@@ -3,15 +3,16 @@ package app.lensly.app.sign
 import app.airvault.chains.solana.signer.SolCluster
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaWarning
+import app.airvault.chains.solana.signer.solanaWarningText
+import app.airvault.chains.solana.signer.toReview
+import app.airvault.core.model.Danger
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.solana.SolanaRequestReview
-import app.lensly.core.solana.SolanaWarning
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
-import app.lensly.ui.components.BannerTone
 import app.lensly.ui.sign.ReviewFact
-import app.lensly.ui.sign.solanaWarningTone
 import fr.acinq.bitcoin.Base58
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -310,7 +311,7 @@ class SolanaReviewRowsTest {
             transaction(nonceTransfer(authority = 1)).warnings,
         )
         assertEquals(listOf(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), transaction(nonceSetup(authority = key(9))).warnings)
-        assertEquals(BannerTone.Error, solanaWarningTone(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER))
+        assertEquals(Danger.DANGER, transaction(nonceSetup(authority = key(9))).toReview().warnings.single().level)
         assertContains(solanaWarningText(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), "Nonce authority is not this account")
     }
 

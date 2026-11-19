@@ -15,8 +15,8 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.solana.SolanaInstruction
-import app.lensly.core.solana.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaInstruction
+import app.airvault.chains.solana.signer.SolanaRequestCheck
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.ur.UrScanner

@@ -1,7 +1,7 @@
 package app.lumio.send.solana
 
 import app.lensly.core.solana.SolanaTokenAccounts
-import app.lensly.core.solana.SolanaTokenList
+import app.airvault.chains.solana.signer.SolanaTokenList
 import app.lumio.chains.ChainHoldings
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.SplBalance

@@ -1,6 +1,5 @@
-package app.lensly.core.solana
+package app.airvault.chains.solana.signer
 
-import app.airvault.chains.solana.signer.SolanaMessageAccount
 
 /**
  * An instruction of a [SolanaMessage], decoded for review. The decoder in [decodeInstructions] reads only the known shapes. Anything
