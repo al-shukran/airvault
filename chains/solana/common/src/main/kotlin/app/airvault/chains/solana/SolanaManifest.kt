@@ -33,8 +33,8 @@ val solanaManifest: ChainManifest = ChainManifest(
     appVersion = "1.0.0",
     namespaces = setOf("solana"),
     networks = listOf(
-        solanaNetwork(chain = SOLANA_MAINNET, name = "Solana", testnet = false),
-        solanaNetwork(chain = SOLANA_DEVNET, name = "Solana Devnet", testnet = true),
+        solanaNetwork(chain = SOLANA_MAINNET, name = "Solana", testnet = false, primary = true),
+        solanaNetwork(chain = SOLANA_DEVNET, name = "Solana Devnet", testnet = true, primary = true),
         solanaNetwork(chain = SOLANA_TESTNET, name = "Solana Testnet", testnet = true),
     ),
     keys = listOf(
@@ -51,7 +51,7 @@ val solanaManifest: ChainManifest = ChainManifest(
     fields = emptyList(),
 )
 
-private fun solanaNetwork(chain: ChainId, name: String, testnet: Boolean) = NetworkSpec(
+private fun solanaNetwork(chain: ChainId, name: String, testnet: Boolean, primary: Boolean = false) = NetworkSpec(
     chainId = chain,
     name = name,
     testnet = testnet,
@@ -62,4 +62,5 @@ private fun solanaNetwork(chain: ChainId, name: String, testnet: Boolean) = Netw
         decimals = 9,
     ),
     slip44 = SOLANA_COIN_TYPE,
+    primary = primary,
 )
