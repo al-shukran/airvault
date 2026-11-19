@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +42,7 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -49,6 +51,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,7 +63,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private enum class KeyboardPage { Letters, Symbols }
+private enum class KeyboardPage { Letters, Symbols, MoreSymbols }
 
 private val KEY_GAP = 4.dp
 private val ROW_GAP = 8.dp
@@ -81,9 +84,18 @@ private const val NUMBER_ROW = "1234567890"
 private const val LETTERS_TOP = "qwertyuiop"
 private const val LETTERS_MIDDLE = "asdfghjkl"
 private const val LETTERS_BOTTOM = "zxcvbnm"
+
+// The symbol pages follow AOSP LatinIME's rows: 10 keys, then 9 inset by half a key, then 7 beside the switch key. The more-symbols
+// rows are AOSP's second page (its first row is verified; the currency keys are AOSP's four currency styles).
 private const val SYMBOLS_TOP = "@#$%&*()-+"
-private const val SYMBOLS_MIDDLE = "[]{}<>=~^|"
-private const val SYMBOLS_BOTTOM = "!?_'\"/\\:;"
+private const val SYMBOLS_MIDDLE = "_/\\<>=~^|"
+private const val SYMBOLS_BOTTOM = "!?'\":;["
+private const val MORE_SYMBOLS_TOP = "~`|•√π÷×¶∆"
+private const val MORE_SYMBOLS_MIDDLE = "€£$¥^°={}"
+private const val MORE_SYMBOLS_BOTTOM = "\\©®™℅[]"
+
+/** Test tag of the key preview. It carries no text, so the typed character stays out of accessibility. */
+internal const val KEY_PREVIEW_TAG = "keyboard-key-preview"
 
 private val PREVIEW_WIDTH = 44.dp
 private val PREVIEW_HEIGHT = 56.dp
@@ -99,11 +111,15 @@ private val PREVIEW_TEXT_SIZE = 32.sp
  * space, and done show no preview. A pressed key otherwise only darkens its own background.
  *
  * Keys are rounded rectangles that share the full width of the screen. Every row is weighted, so
- * the keys stretch to the available width at any phone size. The number row sits on top of both
- * pages, so the keyboard keeps one height when the page changes. The letter rows follow the usual
- * phone grid: the `asdf` row is inset by half a key on each side, and the bottom row of letters has
- * shift and backspace at 1.5 key widths. The bottom row is the down-arrow key that hides the keyboard, `123`,
- * `,`, SPACE, `.` and done.
+ * the keys stretch to the available width at any phone size. The number row sits on top of every
+ * page, so the keyboard keeps one height when the page changes. The second row of letters and of
+ * each symbol page is inset by half a key on each side, and the bottom row of letters has shift and
+ * backspace at 1.5 key widths. The bottom row is the down-arrow key that hides the keyboard, `123` (or
+ * `ABC`), `,`, SPACE, `.` and done.
+ *
+ * Holding a key that has alternates opens them above it (see [alternatesGesture]). There are three
+ * pages: letters, the symbols page (`=\<` switches to the more symbols), and the more-symbols page
+ * (`?123` switches back), as in AOSP LatinIME.
  *
  * Shift has three states (see [Shift]). A tap makes only the next letter uppercase, and the number row
  * shows the symbol for that key. Then shift turns itself off. Two taps within [DOUBLE_TAP_MS] lock caps until shift is tapped again. The
@@ -120,102 +136,177 @@ fun SecureKeyboard(
 ) {
     var page by rememberSaveable { mutableStateOf(KeyboardPage.Letters) }
     val shift = rememberSaveable(saver = ShiftSaver) { Shift() }
+    val picker = remember { AlternatesPicker() }
     val lettersPage = page == KeyboardPage.Letters
 
-    Column(
+    // The keyboard is a box so the open alternates can lie over the rows above a key. Every character key goes through
+    // ShiftedKey, so a letter's label and its tap read shift when they fire, and a Shift and a letter in one frame still agree.
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .keyboardSurface()
             .navigationBarsPadding()
-            .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(ROW_GAP),
+            .padding(vertical = 8.dp)
+            .onGloballyPositioned { picker.attach(it) },
     ) {
-        // Every character key goes through shift.type, and only a letter spends shift. A letter's
-        // label is cased at composition, but its tap reads shift when it fires, so a Shift and a
-        // letter tapped in the same frame still use the current case.
-        KeyRow {
-            for (digit in NUMBER_ROW) {
-                CharKey(shift.labelFor(digit), Modifier.weight(1f), enabled) { onKey(shift.type(digit)) }
-            }
-        }
-        if (lettersPage) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(ROW_GAP),
+        ) {
             KeyRow {
-                for (base in LETTERS_TOP) {
-                    CharKey(shift.labelFor(base), Modifier.weight(1f), enabled) {
-                        onKey(shift.type(base))
+                for (digit in NUMBER_ROW) ShiftedKey(digit, Modifier.weight(1f), enabled, shift, picker, onKey)
+            }
+            when (page) {
+                KeyboardPage.Letters -> {
+                    KeyRow {
+                        for (base in LETTERS_TOP) ShiftedKey(base, Modifier.weight(1f), enabled, shift, picker, onKey)
+                    }
+                    KeyRow(inset = true) {
+                        for (base in LETTERS_MIDDLE) ShiftedKey(base, Modifier.weight(1f), enabled, shift, picker, onKey)
+                    }
+                    KeyRow {
+                        ShiftKey(Modifier.weight(1.5f), shift.mode, enabled) { shift.tapShift() }
+                        for (base in LETTERS_BOTTOM) ShiftedKey(base, Modifier.weight(1f), enabled, shift, picker, onKey)
+                        BackspaceKey(Modifier.weight(1.5f), enabled, onBackspace)
                     }
                 }
+                KeyboardPage.Symbols -> SymbolRows(
+                    top = SYMBOLS_TOP,
+                    middle = SYMBOLS_MIDDLE,
+                    bottom = SYMBOLS_BOTTOM,
+                    switchLabel = "=\\<",
+                    switchDescription = "More symbols",
+                    enabled = enabled,
+                    shift = shift,
+                    picker = picker,
+                    onKey = onKey,
+                    onBackspace = onBackspace,
+                    onSwitch = { page = KeyboardPage.MoreSymbols },
+                )
+                KeyboardPage.MoreSymbols -> SymbolRows(
+                    top = MORE_SYMBOLS_TOP,
+                    middle = MORE_SYMBOLS_MIDDLE,
+                    bottom = MORE_SYMBOLS_BOTTOM,
+                    switchLabel = "?123",
+                    switchDescription = "Symbols",
+                    enabled = enabled,
+                    shift = shift,
+                    picker = picker,
+                    onKey = onKey,
+                    onBackspace = onBackspace,
+                    onSwitch = { page = KeyboardPage.Symbols },
+                )
             }
-            KeyRow(inset = true) {
-                for (base in LETTERS_MIDDLE) {
-                    CharKey(shift.labelFor(base), Modifier.weight(1f), enabled) {
-                        onKey(shift.type(base))
-                    }
-                }
-            }
-            KeyRow {
-                ShiftKey(Modifier.weight(1.5f), shift.mode, enabled) { shift.tapShift() }
-                for (base in LETTERS_BOTTOM) {
-                    CharKey(shift.labelFor(base), Modifier.weight(1f), enabled) {
-                        onKey(shift.type(base))
-                    }
-                }
-                BackspaceKey(Modifier.weight(1.5f), enabled, onBackspace)
-            }
-        } else {
-            KeyRow {
-                for (c in SYMBOLS_TOP) {
-                    CharKey(c, Modifier.weight(1f), enabled) { onKey(shift.type(c)) }
-                }
-            }
-            KeyRow {
-                for (c in SYMBOLS_MIDDLE) {
-                    CharKey(c, Modifier.weight(1f), enabled) { onKey(shift.type(c)) }
-                }
-            }
-            KeyRow {
-                for (c in SYMBOLS_BOTTOM) {
-                    CharKey(c, Modifier.weight(1f), enabled) { onKey(shift.type(c)) }
-                }
-                BackspaceKey(Modifier.weight(1.5f), enabled, onBackspace)
-            }
-        }
 
-        KeyRow {
-            DismissKey(Modifier.weight(1f), enabled)
-            Key(
-                description = if (lettersPage) "Symbols" else "Letters",
-                background = MaterialTheme.colorScheme.surfaceContainerHigh,
-                enabled = enabled,
-                onClick = {
+            KeyRow {
+                DismissKey(Modifier.weight(1f), enabled)
+                SwitchKey(
+                    label = if (lettersPage) "123" else "ABC",
+                    description = if (lettersPage) "Symbols" else "Letters",
+                    modifier = Modifier.weight(1.5f),
+                    enabled = enabled,
+                ) {
                     if (lettersPage) shift.reset()
                     page = if (lettersPage) KeyboardPage.Symbols else KeyboardPage.Letters
-                },
-                modifier = Modifier.weight(1.5f),
-            ) {
-                Text(
-                    text = if (lettersPage) "123" else "ABC",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                }
+                ShiftedKey(',', Modifier.weight(1f), enabled, shift, picker, onKey)
+                Key(
+                    description = "Space",
+                    background = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    enabled = enabled,
+                    onClick = { onKey(shift.type(' ')) },
+                    modifier = Modifier.weight(4.5f),
+                ) {
+                    Text(
+                        text = labelCase("Space"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                ShiftedKey('.', Modifier.weight(1f), enabled, shift, picker, onKey)
+                DoneKey(Modifier.weight(1.5f), enabled, onDone)
             }
-            CharKey(',', Modifier.weight(1f), enabled) { onKey(shift.type(',')) }
-            Key(
-                description = "Space",
-                background = MaterialTheme.colorScheme.surfaceContainerHigh,
-                enabled = enabled,
-                onClick = { onKey(shift.type(' ')) },
-                modifier = Modifier.weight(4.5f),
-            ) {
-                Text(
-                    text = labelCase("Space"),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            CharKey('.', Modifier.weight(1f), enabled) { onKey(shift.type('.')) }
-            DoneKey(Modifier.weight(1.5f), enabled, onDone)
         }
+        AlternatesStrip(picker)
+    }
+}
+
+/**
+ * The rows of a symbols page: [top] spans the width, [middle] is inset by half a key, and the bottom row holds the switch key
+ * ([onSwitch]), [bottom], and backspace.
+ */
+@Composable
+private fun SymbolRows(
+    top: String,
+    middle: String,
+    bottom: String,
+    switchLabel: String,
+    switchDescription: String,
+    enabled: Boolean,
+    shift: Shift,
+    picker: AlternatesPicker,
+    onKey: (Char) -> Unit,
+    onBackspace: () -> Unit,
+    onSwitch: () -> Unit,
+) {
+    KeyRow {
+        for (c in top) ShiftedKey(c, Modifier.weight(1f), enabled, shift, picker, onKey)
+    }
+    KeyRow(inset = true) {
+        for (c in middle) ShiftedKey(c, Modifier.weight(1f), enabled, shift, picker, onKey)
+    }
+    KeyRow {
+        SwitchKey(switchLabel, switchDescription, Modifier.weight(1.5f), enabled, onSwitch)
+        for (c in bottom) ShiftedKey(c, Modifier.weight(1f), enabled, shift, picker, onKey)
+        BackspaceKey(Modifier.weight(1.5f), enabled, onBackspace)
+    }
+}
+
+/**
+ * A key that types [base] as shift makes it: a letter takes shift's case, a digit shows its symbol while a one-shot shift is armed,
+ * and other keys are typed as they are. Its alternates, if any, take the same case.
+ */
+@Composable
+private fun ShiftedKey(
+    base: Char,
+    modifier: Modifier,
+    enabled: Boolean,
+    shift: Shift,
+    picker: AlternatesPicker,
+    onKey: (Char) -> Unit,
+) {
+    CharKey(
+        label = shift.labelFor(base),
+        modifier = modifier,
+        enabled = enabled,
+        onTap = { onKey(shift.type(base)) },
+        alternates = ALTERNATES[base]?.map(shift::labelFor)?.joinToString("").orEmpty(),
+        picker = picker,
+        onChoose = { onKey(shift.type(it)) },
+    )
+}
+
+/** A key that switches the page: the bottom row's `123` or `ABC`, and the switch on each symbols page. */
+@Composable
+private fun SwitchKey(
+    label: String,
+    description: String,
+    modifier: Modifier,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Key(
+        description = description,
+        background = MaterialTheme.colorScheme.surfaceContainerHigh,
+        enabled = enabled,
+        onClick = onClick,
+        modifier = modifier,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
@@ -248,7 +339,7 @@ fun SecureHexKeyboard(
     ) {
         KeyRow {
             for (c in HEX_DIGIT_ROW) {
-                CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+                CharKey(c, Modifier.weight(1f), enabled, onTap = { onKey(c) })
             }
         }
         // Seven keys sit centred under the ten above them, with a space of 1.5 keys on each side.
@@ -261,7 +352,7 @@ fun SecureHexKeyboard(
         ) {
             Spacer(Modifier.weight(1.5f))
             for (c in HEX_LETTER_ROW) {
-                CharKey(c, Modifier.weight(1f), enabled) { onKey(c) }
+                CharKey(c, Modifier.weight(1f), enabled, onTap = { onKey(c) })
             }
             Spacer(Modifier.weight(1.5f))
         }
@@ -305,6 +396,7 @@ private fun KeyRow(inset: Boolean = false, content: @Composable RowScope.() -> U
  * Base key: a rounded rectangle of [KEY_HEIGHT]. The caller sets the width through [modifier],
  * usually with a row weight. While pressed, the background darkens. A key with [preview] also
  * shows that text above itself while pressed. [stateText] is announced as the key's state. A [repeating] key fires on press, and again while it is held.
+ * A key with [alternates] (and its [picker]) opens them on a long press, and [onChoose] takes the alternate released on (see [alternatesGesture]).
  */
 @Composable
 private fun Key(
@@ -316,22 +408,36 @@ private fun Key(
     stateText: String? = null,
     preview: String? = null,
     repeating: Boolean = false,
+    alternates: String = "",
+    picker: AlternatesPicker? = null,
+    onChoose: (Char) -> Unit = {},
     content: @Composable BoxScope.() -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val haptics = rememberKeyHaptics()
+    val place = remember { KeyPlace() }
+    val cell = with(LocalDensity.current) { ALTERNATE_CELL.toPx() }
     val fill = if (pressed && enabled) lerp(background, Color.Black, PRESSED_DARKEN) else background
-    val activate = onClick
-    val press = if (repeating) {
-        Modifier.repeatWhileHeld(interactionSource, enabled, activate)
-    } else {
-        Modifier.clickable(
+    val withAlternates = picker != null && alternates.isNotEmpty()
+    val press = when {
+        repeating -> Modifier.repeatWhileHeld(interactionSource, enabled, onClick)
+        picker != null && alternates.isNotEmpty() -> Modifier.alternatesGesture(
+            interactionSource = interactionSource,
+            enabled = enabled,
+            place = place,
+            picker = picker,
+            alternates = alternates,
+            cell = cell,
+            onTap = onClick,
+            onChoose = onChoose,
+        )
+        else -> Modifier.clickable(
             interactionSource = interactionSource,
             indication = null,
             enabled = enabled,
             role = Role.Button,
-            onClick = activate,
+            onClick = onClick,
         )
     }
 
@@ -341,17 +447,21 @@ private fun Key(
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .clip(KEY_SHAPE)
             .background(fill, KEY_SHAPE)
+            .onGloballyPositioned { place.coordinates = it }
             .tapHaptic(haptics, enabled)
             .then(press)
             .semantics {
                 contentDescription = description
                 if (stateText != null) stateDescription = stateText
-                if (repeating) {
+                // A key whose press is a gesture still announces a click, and a disabled key announces none.
+                if (repeating || withAlternates) {
                     role = Role.Button
-                    onClick(label = description, action = {
-                        activate()
-                        true
-                    })
+                    if (enabled) {
+                        onClick(label = description, action = {
+                            onClick()
+                            true
+                        })
+                    }
                 }
             },
         contentAlignment = Alignment.Center,
@@ -397,15 +507,23 @@ private fun CharKey(
     label: Char,
     modifier: Modifier,
     enabled: Boolean,
-    onClick: () -> Unit,
+    onTap: () -> Unit,
+    alternates: String = "",
+    picker: AlternatesPicker? = null,
+    onChoose: (Char) -> Unit = {},
 ) {
+    // The preview gives way to the strip while alternates are open, so only the strip shows the choice.
+    val previewed by remember(picker) { derivedStateOf { picker?.open == null } }
     Key(
         description = label.toString(),
         background = MaterialTheme.colorScheme.surfaceContainerHigh,
         enabled = enabled,
-        onClick = onClick,
+        onClick = onTap,
         modifier = modifier,
-        preview = label.toString(),
+        preview = if (previewed) label.toString() else null,
+        alternates = alternates,
+        picker = picker,
+        onChoose = onChoose,
     ) {
         Text(
             text = label.toString(),
@@ -418,7 +536,7 @@ private fun CharKey(
 /**
  * The enlarged character above a pressed key. It is a popup window, so it is drawn over the key row and not clipped by the key. Its
  * secure policy is the default, which inherits FLAG_SECURE from the keyboard's window, so a screenshot or a screen share never
- * captures it on a phone. It has no semantics, since the key already announces itself.
+ * captures it on a phone. Its only semantics is a test tag, since the key already announces itself.
  */
 @Composable
 private fun KeyPreview(text: String) {
@@ -431,7 +549,7 @@ private fun KeyPreview(text: String) {
         Box(
             modifier = Modifier
                 .size(width = PREVIEW_WIDTH, height = PREVIEW_HEIGHT)
-                .clearAndSetSemantics {}
+                .clearAndSetSemantics { testTag = KEY_PREVIEW_TAG }
                 .background(MaterialTheme.colorScheme.onSurface, PREVIEW_SHAPE),
             contentAlignment = Alignment.Center,
         ) {
