@@ -13,6 +13,7 @@ import app.lensly.core.ur.framesOf
 import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -63,6 +64,13 @@ class AlgorandScanWireTest {
         val decoded = assertIs<ScanReply.Refused>(ParserWire.decodeScanReply(ParserWire.encodeScanReply(refused)))
         assertEquals("reason", decoded.reason)
         assertSameRequest(request, assertNotNull(decoded.request))
+    }
+
+    /** The app reads a request id of 16 bytes only, so a refusal whose id is another length is refused when it is written. */
+    @Test
+    fun aRefusalWhoseRequestIdIsNotSixteenBytesIsRefusedWhenItIsWritten() {
+        val request = AppRequest(headerOf(TESTNET, RequestKind.TRANSACTION).copy(requestId = ByteArray(5)), body = byteArrayOf(1))
+        assertFailsWith<WireException> { ParserWire.encodeScanReply(ScanReply.Refused("reason", request)) }
     }
 
     /** A transaction the decoder refuses is refused by the sandbox, and never reaches the app as a request. */
