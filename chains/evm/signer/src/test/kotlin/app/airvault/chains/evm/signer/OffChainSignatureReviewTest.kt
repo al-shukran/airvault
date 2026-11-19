@@ -1,8 +1,10 @@
 package app.airvault.chains.evm.signer
 
+import app.airvault.core.model.Danger
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
+import app.airvault.core.model.Warning
 import app.airvault.core.model.stopsSigning
 import app.airvault.core.model.text
 import app.lensly.core.registry.FeeModel
@@ -27,12 +29,24 @@ import kotlin.test.assertTrue
 private const val SENDER = "0x14791697260E4c9A71f18484C9f997B308e59325"
 private const val ZERO = "0x0000000000000000000000000000000000000000"
 private const val AGENT = "0x5e9ee1089755c3435139848e47e6635505d5a13a"
+private const val AGENT_CHECKSUM = "0x5E9EE1089755C3435139848e47e6635505D5a13A"
 private const val DUMMY_CONNECTION_ID = "0xf528daee6a0bd11407b483cfcd9a48c56884180b70ee86f124053e5fc1bf4d57"
 private const val PRODUCTION_CONNECTION_ID = "0x0fcbeda5ae3c4950a548021552a4fea2226858c4453571bf3f24ba017eac2908"
 private const val ARBITRUM = 42161L
 private const val BNB = 56L
 private const val HYPERLIQUID_L1_LABEL = "Off-Chain Signature for Hyperliquid"
 private const val ASTER_LABEL = "Off-Chain Signature for AsterDex"
+private const val HL_NOTE = "This signature is sent to Hyperliquid, not submitted to a chain."
+private const val ASTER_NOTE = "This signature is sent to AsterDex, not submitted to a chain."
+private const val HASHED_LABEL = "Order Details Are Hashed by Hyperliquid and Cannot Be Shown"
+private const val HASHED_NOTE = "The connection ID is a hash of the action. Lensly cannot read the action, so it cannot show what the action does."
+private const val HL_CAUTION = "This signature is for Hyperliquid, not for a chain. It can authorize actions in your Hyperliquid account. " +
+    "Check the message before you sign."
+private const val ASTER_CAUTION = "This signature is for AsterDex, not for a chain. It can authorize actions in your AsterDex account. " +
+    "Check the message before you sign."
+private const val ANY_CHAIN_NOTE = "The domain names no chain ID, so this signature is valid on any chain."
+private const val APPROVE_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
+private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 private const val ASTER_APPROVE_MESSAGE = "user=$SENDER&nonce=1748310859508867&agentName=example&agentAddress=$AGENT" +
     "&expired=1800000000000&signatureChainId=56&canSpotTrade=true&canPerpTrade=true&canWithdraw=false&ipWhitelist="
@@ -75,7 +89,6 @@ private fun asterMessage(chainId: Int, msg: String) =
         """"domain":{"name":"AsterSignTransaction","version":"1","chainId":$chainId,"verifyingContract":"$ZERO"},""" +
         """"message":{"msg":"$msg"}}"""
 
-private const val AGENT_CHECKSUM = "0x5E9EE1089755C3435139848e47e6635505D5a13A"
 private const val USDC_MAINNET = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
 /** An EIP-2612 Permit of USD Coin on the domain of chain 1, which a request for Arbitrum asks to sign. The token is not in the test registry. */
@@ -135,6 +148,25 @@ private fun refusedReason(json: String, chainId: Long?): String = assertIs<EvmRe
 
 private fun rowsOf(review: Review): List<ReviewRow> = review.facts + review.sections.flatMap { it.rows }
 
+/** The CAUTION warnings of [review] that a tick acknowledges. */
+private fun cautionsOf(review: Review): List<Warning> = review.warnings.filter { it.level == Danger.CAUTION && it.acknowledge != null }
+
+/** The DANGER warnings of [review] that a tick acknowledges. */
+private fun dangersOf(review: Review): List<Warning> = review.warnings.filter { it.level == Danger.DANGER && it.acknowledge != null }
+
+/**
+ * The CAUTION that a request on a chain outside Lensly's registry gets. The Hyperliquid chains are outside it, so the reviews of a request
+ * on one of them show it beside the CAUTIONs of the signature.
+ */
+private const val UNKNOWN_NETWORK_CAUTION = "This network is not in Lensly's registry, so Lensly cannot check its coin or decimals."
+
+/** The texts of the CAUTIONs that a tick acknowledges, without the registry's CAUTION for a chain outside the registry. */
+private fun cautionTexts(review: Review): List<String> = cautionsOf(review).map { it.message }.filterNot { it == UNKNOWN_NETWORK_CAUTION }
+
+/** The CAUTION of a signature valid on [chain], under a request that names [requested] (a chain ID, or no chain ID). */
+private fun chainCaution(chain: String, name: String, requested: String): String =
+    "The signature is valid on chain ID $chain ($name), and the request names $requested. Check that chain before you sign."
+
 /** Asserts that a row shows [expected] whole, and that no row abbreviates a value with an ellipsis. */
 private fun assertShownWhole(review: Review, expected: String) {
     val texts = rowsOf(review).map { it.value.text() }
@@ -146,8 +178,12 @@ private fun assertNoStoppingWarning(review: Review) {
     assertTrue(review.warnings.none { it.stopsSigning }, "the review has a warning that stops signing: ${review.warnings}")
 }
 
-private fun noteOf(review: Review, label: String): ReviewRow =
-    assertNotNull(rowsOf(review).singleOrNull { it.label == label }, "no note row named $label")
+/** The note row named [label], which must show [text]. */
+private fun noteOf(review: Review, label: String, text: String): ReviewRow {
+    val row = assertNotNull(rowsOf(review).singleOrNull { it.label == label }, "no note row named $label")
+    assertEquals(text, row.value.text(), "the note row $label shows other text")
+    return row
+}
 
 class OffChainSignatureReviewTest {
 
@@ -156,9 +192,15 @@ class OffChainSignatureReviewTest {
         val review = reviewed(l1Agent("a", DUMMY_CONNECTION_ID), ARBITRUM)
 
         assertEquals("Agent", review.title)
-        assertEquals(HYPERLIQUID_L1_LABEL, noteOf(review, HYPERLIQUID_L1_LABEL).label)
+        noteOf(review, HYPERLIQUID_L1_LABEL, HL_NOTE)
+        noteOf(review, HASHED_LABEL, HASHED_NOTE)
         assertShownWhole(review, DUMMY_CONNECTION_ID)
         assertTrue(rowsOf(review).any { it.value.text() == "1337 (Unknown Network)" })
+        // The chain and the product each get a CAUTION with its tick. Neither stops the signature.
+        assertEquals(
+            listOf(chainCaution("1337", "Unknown Network", "chain ID $ARBITRUM"), HL_CAUTION),
+            cautionTexts(review),
+        )
         assertNoStoppingWarning(review)
     }
 
@@ -173,7 +215,7 @@ class OffChainSignatureReviewTest {
         val review = reviewed(USD_SEND, ARBITRUM)
 
         assertEquals("HyperliquidTransaction:UsdSend", review.title)
-        noteOf(review, HYPERLIQUID_L1_LABEL)
+        noteOf(review, HYPERLIQUID_L1_LABEL, HL_NOTE)
         val message = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
         assertEquals(AGENT, message["destination (string)"])
         assertEquals("1", message["amount (string)"])
@@ -182,18 +224,27 @@ class OffChainSignatureReviewTest {
             listOf("type" to "usdSend", "signatureChainId" to "0x66eee"),
             review.sections.single { it.heading == "Not Signed" }.rows.map { it.label to it.value.text() },
         )
+        assertEquals(
+            listOf(chainCaution("421614", "Unknown Network", "chain ID $ARBITRUM"), HL_CAUTION),
+            cautionTexts(review),
+        )
+        assertTrue(dangersOf(review).isEmpty(), "a usdSend is not a DANGER")
         assertNoStoppingWarning(review)
     }
 
     @Test
-    fun hyperliquidWithdrawAndApproveAgentReviewWithTheirUnsignedMembersShown() {
+    fun hyperliquidWithdrawAndApproveAgentReviewWithTheirUnsignedMembersShownAndADangerTick() {
         val withdraw = userSigned(
             "HyperliquidTransaction:Withdraw",
             TRANSFER_FIELDS,
             """"type":"withdraw3","destination":"$AGENT","amount":"1","time":1687816341423,"signatureChainId":"0x66eee",""" +
                 """"hyperliquidChain":"Testnet"""",
         )
-        assertNoStoppingWarning(reviewed(withdraw, ARBITRUM))
+        val withdrawReview = reviewed(withdraw, ARBITRUM)
+        assertNoStoppingWarning(withdrawReview)
+        assertEquals(listOf(WITHDRAW_TEXT), dangersOf(withdrawReview).map { it.message })
+        assertEquals(listOf("I understand this withdraws funds from this account."), dangersOf(withdrawReview).map { it.acknowledge })
+
         val approve = userSigned(
             "HyperliquidTransaction:ApproveAgent",
             """{"name":"hyperliquidChain","type":"string"},{"name":"agentAddress","type":"address"},""" +
@@ -206,8 +257,11 @@ class OffChainSignatureReviewTest {
         assertEquals("HyperliquidTransaction:ApproveAgent", review.title)
         // An address field is shown in its checksum case, and each field's label names its type.
         val message = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
-        assertTrue(message.getValue("agentAddress (address)").equals(AGENT, ignoreCase = true))
+        assertEquals(AGENT_CHECKSUM, message["agentAddress (address)"])
         assertEquals("example", message["agentName (string)"])
+        assertEquals(listOf(APPROVE_TEXT), dangersOf(review).map { it.message })
+        assertEquals(listOf("I understand this lets another key act for this account."), dangersOf(review).map { it.acknowledge })
+        assertNoStoppingWarning(review)
     }
 
     @Test
@@ -215,8 +269,10 @@ class OffChainSignatureReviewTest {
         val review = reviewed(asterMessage(56, ASTER_APPROVE_MESSAGE), BNB)
 
         assertEquals("Message", review.title)
-        assertEquals(ASTER_LABEL, noteOf(review, ASTER_LABEL).label)
+        noteOf(review, ASTER_LABEL, ASTER_NOTE)
         assertShownWhole(review, ASTER_APPROVE_MESSAGE)
+        // The request names the domain's chain, so the only CAUTION is the product's.
+        assertEquals(listOf(ASTER_CAUTION), cautionTexts(review))
         assertNoStoppingWarning(review)
     }
 
@@ -225,7 +281,9 @@ class OffChainSignatureReviewTest {
         val review = reviewed(asterMessage(1666, ASTER_MASTER_MESSAGE), BNB)
 
         assertShownWhole(review, ASTER_MASTER_MESSAGE)
+        noteOf(review, ASTER_LABEL, ASTER_NOTE)
         assertTrue(rowsOf(review).any { it.value.text() == "1666 (Unknown Network)" })
+        assertEquals(listOf(chainCaution("1666", "Unknown Network", "chain ID $BNB"), ASTER_CAUTION), cautionTexts(review))
         assertNoStoppingWarning(review)
     }
 
@@ -244,6 +302,8 @@ class OffChainSignatureReviewTest {
         val otherContract = l1Agent("a", DUMMY_CONNECTION_ID).replace(ZERO, "0x1111111111111111111111111111111111111111")
         val unlabelled = reviewed(otherContract, ARBITRUM)
         assertTrue(rowsOf(unlabelled).any { it.label == "Signature for Chain 1337 (Unknown Network)" })
+        assertTrue(rowsOf(unlabelled).none { it.label == HYPERLIQUID_L1_LABEL })
+        assertEquals(listOf(chainCaution("1337", "Unknown Network", "chain ID $ARBITRUM")), cautionsOf(unlabelled).map { it.message })
         assertNoStoppingWarning(unlabelled)
     }
 
@@ -264,6 +324,8 @@ class OffChainSignatureReviewTest {
             ),
             review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() },
         )
+        // The chain CAUTION. The token is not in the test registry, so its own CAUTION is shown as well.
+        assertTrue(cautionsOf(review).any { it.message == chainCaution("1", "Ethereum", "chain ID $ARBITRUM") })
         assertNoStoppingWarning(review)
     }
 
@@ -272,9 +334,34 @@ class OffChainSignatureReviewTest {
         // Rabby names no chain in a typed-data request, so the domain's chain is the chain the review reads.
         val review = reviewed(l1Agent("a", DUMMY_CONNECTION_ID), null)
 
-        assertEquals(HYPERLIQUID_L1_LABEL, noteOf(review, HYPERLIQUID_L1_LABEL).label)
+        noteOf(review, HYPERLIQUID_L1_LABEL, HL_NOTE)
         assertTrue(rowsOf(review).any { it.label == "Signature for Chain 1337 (Unknown Network)" })
         assertShownWhole(review, DUMMY_CONNECTION_ID)
+        // The request names no chain, so the chain the domain names is absent from it: that is a CAUTION too.
+        assertEquals(
+            listOf(chainCaution("1337", "Unknown Network", "no chain ID"), HL_CAUTION),
+            cautionTexts(review),
+        )
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun aLabelOnTheRequestsOwnChainIsOnlyCautionWithATick() {
+        val review = reviewed(l1Agent("a", DUMMY_CONNECTION_ID), 1337L)
+
+        noteOf(review, HYPERLIQUID_L1_LABEL, HL_NOTE)
+        assertEquals(listOf(HL_CAUTION), cautionTexts(review))
+        assertEquals(listOf("I understand this signature goes to Hyperliquid, not to a chain."), cautionsOf(review).filter { it.message == HL_CAUTION }.map { it.acknowledge })
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun aPrimaryTypeOutsideTheProductsListIsNotLabelled() {
+        // The same domain as the L1 action, with the primary type renamed. The product signs only Agent on this domain.
+        val review = reviewed(l1Agent("a", DUMMY_CONNECTION_ID).replace("Agent", "Other"), 1337L)
+
+        assertTrue(rowsOf(review).none { it.label == HYPERLIQUID_L1_LABEL || it.label == HASHED_LABEL })
+        assertTrue(cautionTexts(review).isEmpty(), "an unlabelled signature on the request's chain has no CAUTION")
         assertNoStoppingWarning(review)
     }
 
@@ -286,8 +373,51 @@ class OffChainSignatureReviewTest {
         for (chain in listOf(ARBITRUM, null)) {
             val review = reviewed(json, chain)
             assertTrue(rowsOf(review).any { it.label == "Signature for Any Chain" })
+            assertEquals(listOf(ANY_CHAIN_NOTE), cautionTexts(review))
             assertNoStoppingWarning(review)
         }
+    }
+
+    @Test
+    fun aWithdrawPrimaryTypeIsDangerWithATickEvenOnAnUnlabelledDomain() {
+        val json = """{"types":{"Withdraw":[{"name":"amount","type":"uint256"}],"EIP712Domain":[$DOMAIN_TYPES]},"primaryType":"Withdraw",""" +
+            """"domain":{"name":"Lensly","version":"1","chainId":$ARBITRUM,"verifyingContract":"$ZERO"},"message":{"amount":"1"}}"""
+
+        val review = reviewed(json, ARBITRUM)
+
+        assertEquals(listOf(WITHDRAW_TEXT), dangersOf(review).map { it.message })
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun aDeclaredSaltIsShownButTheLabelNeedsExactlyTheFourSdkMembers() {
+        val salt = "0x" + "11".repeat(32)
+        val json = """{"types":{"Agent":[{"name":"source","type":"string"},{"name":"connectionId","type":"bytes32"}],""" +
+            """"EIP712Domain":[$DOMAIN_TYPES,{"name":"salt","type":"bytes32"}]},"primaryType":"Agent",""" +
+            """"domain":{"chainId":1337,"name":"Exchange","verifyingContract":"$ZERO","version":"1","salt":"$salt"},""" +
+            """"message":{"source":"a","connectionId":"$DUMMY_CONNECTION_ID"}}"""
+
+        val review = reviewed(json, 1337L)
+
+        assertTrue(rowsOf(review).any { it.label == "Salt" && it.value.text() == salt }, "the declared salt is shown")
+        assertTrue(rowsOf(review).none { it.label == HYPERLIQUID_L1_LABEL || it.label == HASHED_LABEL }, "a domain with a salt has no label")
+        assertTrue(cautionTexts(review).isEmpty())
+    }
+
+    @Test
+    fun aDomainWithAnotherVersionIsNotLabelled() {
+        val review = reviewed(l1Agent("a", DUMMY_CONNECTION_ID).replace("\"version\":\"1\"", "\"version\":\"2\""), 1337L)
+
+        assertTrue(rowsOf(review).none { it.label == HYPERLIQUID_L1_LABEL || it.label == HASHED_LABEL })
+        assertTrue(cautionTexts(review).isEmpty())
+    }
+
+    @Test
+    fun aSaltTheDomainTypeDoesNotDeclareIsRefused() {
+        val json = l1Agent("a", DUMMY_CONNECTION_ID)
+            .replace("\"domain\":{\"chainId\":1337,", "\"domain\":{\"chainId\":1337,\"salt\":\"0x${"11".repeat(32)}\",")
+
+        assertEquals("domain has an unknown member salt", refusedReason(json, 1337L))
     }
 
     @Test
@@ -317,6 +447,7 @@ class OffChainSignatureReviewTest {
             leaves,
         )
         assertShownWhole(review, NOTE)
+        assertTrue(cautionTexts(review).isEmpty(), "the domain names the request's chain, so there is nothing to caution")
         assertNoStoppingWarning(review)
     }
 
@@ -334,5 +465,26 @@ class OffChainSignatureReviewTest {
         // A nested object the message adds is still refused.
         val nested = USD_SEND.replace("\"hyperliquidChain\":\"Testnet\"", "\"hyperliquidChain\":\"Testnet\",\"memo\":{\"a\":\"b\"}")
         assertEquals("message has an unknown member memo", refusedReason(nested, ARBITRUM))
+    }
+
+    @Test
+    fun aNotSignedValueOrNameWithABidiOverrideIsShownInHexNotAsText() {
+        // U+202E, the right-to-left override, reorders the text on screen. Its UTF-8 bytes are e2 80 ae.
+        val json = USD_SEND.replace(
+            "\"hyperliquidChain\":\"Testnet\"",
+            "\"hyperliquidChain\":\"Testnet\",\"memo\":\"‮evil\",\"‮key\":\"x\"",
+        )
+
+        val notSigned = reviewed(json, ARBITRUM).sections.single { it.heading == "Not Signed" }.rows.map { it.label to it.value.text() }
+
+        assertEquals(
+            listOf(
+                "type" to "usdSend",
+                "signatureChainId" to "0x66eee",
+                "memo" to "0xe280ae6576696c (not printable)",
+                "0xe280ae6b6579 (not printable)" to "x",
+            ),
+            notSigned,
+        )
     }
 }

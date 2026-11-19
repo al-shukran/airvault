@@ -21,28 +21,20 @@ import org.web3j.crypto.Keys
 object TypedDataParser {
     /** The outcome of [parse]: the typed data, or the reason it is refused. */
     sealed interface Result {
-        class Ok(val data: TypedData) : Result
+        /** [unsigned] holds the members the message adds beside its typed fields, as text. The signature does not cover them. */
+        class Ok(val data: TypedData, val unsigned: Map<String, String> = emptyMap()) : Result
 
         class Rejected(val reason: String) : Result
     }
 
     /** Reads [document] as UTF-8 JSON in the EIP-712 format. */
     fun parse(document: ByteArray): Result = try {
-        Result.Ok(Document(decodeUtf8(document)).build())
+        val reader = Document(decodeUtf8(document))
+        Result.Ok(reader.build(), reader.unsigned)
     } catch (e: IllegalArgumentException) {
         Result.Rejected(e.message ?: CANNOT_BE_READ)
     } catch (e: RuntimeException) {
         Result.Rejected(CANNOT_BE_READ)
-    }
-
-    /**
-     * The members that [document] adds beside the typed fields of its message, as text. The signature does not cover them. A document that
-     * adds none, or that is refused, has none.
-     */
-    fun unsignedMembers(document: ByteArray): Map<String, String> = try {
-        Document(decodeUtf8(document)).apply { build() }.unsigned
-    } catch (e: RuntimeException) {
-        emptyMap()
     }
 }
 

@@ -54,10 +54,15 @@ private fun asterMessage(chainId: Int, msg: String): String =
         """"domain":{"name":"AsterSignTransaction","version":"1","chainId":$chainId,"verifyingContract":"$ZERO"},""" +
         """"message":{"msg":"$msg"}}"""
 
-/** The signature of [json] by [key], as r || s || v in hex. */
+/** The typed data of [json]. */
+private fun typedOf(json: String): TypedData = (TypedDataParser.parse(json.toByteArray(Charsets.UTF_8)) as TypedDataParser.Result.Ok).data
+
+/** The signature of [json] by [key], as r || s || v in hex. The reviewed domain is the one [json] names, as a review of it would show. */
 private fun signedHex(json: String, key: ByteArray = SDK_KEY): String {
-    val typed = (TypedDataParser.parse(json.toByteArray(Charsets.UTF_8)) as TypedDataParser.Result.Ok).data
-    return Numeric.toHexString(assertIs<TypedDataSigner.Result.Signed>(TypedDataSigner.sign(DataType.TYPED_DATA, typed, key)).signature)
+    val typed = typedOf(json)
+    return Numeric.toHexString(
+        assertIs<TypedDataSigner.Result.Signed>(TypedDataSigner.sign(DataType.TYPED_DATA, typed, typed.domainSeparator(), key)).signature,
+    )
 }
 
 class TypedDataSignerTest {
@@ -67,7 +72,7 @@ class TypedDataSignerTest {
 
     @Test
     fun aSignatureOverTheDigestRecoversToTheKeysAddressWithVOf27Or28() {
-        val signed = assertIs<TypedDataSigner.Result.Signed>(TypedDataSigner.sign(DataType.TYPED_DATA, data, KEY))
+        val signed = assertIs<TypedDataSigner.Result.Signed>(TypedDataSigner.sign(DataType.TYPED_DATA, data, data.domainSeparator(), KEY))
         val signature = signed.signature
 
         assertEquals(65, signature.size)
@@ -163,9 +168,28 @@ class TypedDataSignerTest {
     @Test
     fun onlyTypedDataIsSignedAsTypedData() {
         val refused = assertIs<TypedDataSigner.Result.Refused>(
-            TypedDataSigner.sign(DataType.PERSONAL_MESSAGE, data, KEY),
+            TypedDataSigner.sign(DataType.PERSONAL_MESSAGE, data, data.domainSeparator(), KEY),
         )
 
         assertTrue(refused.reason.contains("dataType 3"))
+    }
+
+    @Test
+    fun aMessageOnAnotherDomainThanTheReviewedOneIsRefused() {
+        // The review showed the Exchange domain of chain 1337. The usdSend on the domain of chain 421614 is not signed under that domain.
+        val reviewed = typedOf(l1Dummy("a")).domainSeparator()
+        val other = typedOf(userSigned("HyperliquidTransaction:UsdSend", "usdSend"))
+
+        val refused = assertIs<TypedDataSigner.Result.Refused>(TypedDataSigner.sign(DataType.TYPED_DATA, other, reviewed, SDK_KEY))
+
+        assertTrue(refused.reason.contains("domain"))
+    }
+
+    @Test
+    fun aMessageThatDiffersFromTheReviewedDomainOnlyInItsChainIdIsRefused() {
+        val reviewed = typedOf(asterMessage(1, ASTER_APPROVE_MESSAGE)).domainSeparator()
+        val onChain56 = typedOf(asterMessage(56, ASTER_APPROVE_MESSAGE))
+
+        assertIs<TypedDataSigner.Result.Refused>(TypedDataSigner.sign(DataType.TYPED_DATA, onChain56, reviewed, SDK_KEY))
     }
 }

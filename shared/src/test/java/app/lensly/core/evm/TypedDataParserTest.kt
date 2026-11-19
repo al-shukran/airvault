@@ -166,8 +166,7 @@ class TypedDataParserTest {
     fun aMessageScalarTheTypeDoesNotDeclareIsAcceptedAsUnsigned() {
         val document = doc(message = """{"contents":"hi","extra":1}""")
 
-        assertIs<TypedDataParser.Result.Ok>(TypedDataParser.parse(document))
-        assertEquals(mapOf("extra" to "1"), TypedDataParser.unsignedMembers(document))
+        assertEquals(mapOf("extra" to "1"), assertIs<TypedDataParser.Result.Ok>(TypedDataParser.parse(document)).unsigned)
     }
 
     @Test
