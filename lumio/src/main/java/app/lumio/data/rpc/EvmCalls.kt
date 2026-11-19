@@ -75,13 +75,19 @@ internal object EvmCalls {
 
     /**
      * The next block's base fee, from the newest entry of eth_feeHistory, and the suggested priority fee. A fee cap of twice the base fee stays
-     * valid through several full blocks, as the base fee rises by at most 12.5% a block.
+     * valid through several full blocks, as the base fee rises by at most 12.5% a block. A fee that does not fit in 63 bits is a malformed answer:
+     * no network reports one, and a fee cap built from it could not be read.
      */
     private fun gasFees(call: (String, JsonArray) -> JsonElement): GasQuote {
         val history = call("eth_feeHistory", JsonArray(listOf(JsonPrimitive("0x1"), JsonPrimitive(LATEST), JsonArray(emptyList()))))
         val base = ((history as? JsonObject)?.get("baseFeePerGas") as? JsonArray)?.lastOrNull()
             ?: throw ProviderError.Fatal("The endpoint gave no base fee.")
-        return GasQuote(baseFee = quantity(base), priorityFee = quantity(call("eth_maxPriorityFeePerGas", NO_PARAMS)))
+        val baseFee = quantity(base)
+        val priorityFee = quantity(call("eth_maxPriorityFeePerGas", NO_PARAMS))
+        if (baseFee.bitLength() > MAX_LONG_BITS || priorityFee.bitLength() > MAX_LONG_BITS) {
+            throw ProviderError.Fatal("The endpoint reports a fee that is too large.")
+        }
+        return GasQuote(baseFee = baseFee, priorityFee = priorityFee)
     }
 
     private fun address(text: String): String {
