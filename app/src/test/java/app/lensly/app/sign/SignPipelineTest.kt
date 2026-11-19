@@ -631,6 +631,20 @@ class SignPipelineTest {
     }
 
     @Test
+    fun aSingleKeyTransactionIsSignedByItsKeyAndRecoversItsAddress() {
+        val signData = eip1559Tx()
+        val ready = assertIs<Prepared.Ready>(
+            pipeline.prepare(requestCbor(signData, fingerprint = null, address = IMPORTED_BYTES), IMPORTED_VIEW),
+        )
+
+        val response = signResponse(ready, key = IMPORTED_PRIVATE.copyOf())
+
+        val v = response.signature[64].toInt()
+        assertTrue(v == 0 || v == 1, "v must be a recovery id, was $v")
+        assertEquals(EvmFixtures.normalize(IMPORTED_ADDRESS), recovered(Hash.sha3(signData), response.signature, v))
+    }
+
+    @Test
     fun aSingleKeyRequestMustNameItsAddress() {
         val reason = assertIs<Prepared.Refused>(
             pipeline.prepare(requestCbor(eip1559Tx(), fingerprint = null), IMPORTED_VIEW),
@@ -670,6 +684,42 @@ class SignPipelineTest {
 
         assertEquals("Blocked for this test.", reason)
     }
+
+    /**
+     * The shipped WARN entries reach the review through the pipeline: an unlimited approval and an operator grant are warned, and their
+     * safe twins, a limited approval and a revoke, are not. The reasons are read from the shipped denylist, so the test follows the data.
+     */
+    @Test
+    fun theShippedDenylistWarnsOnUnlimitedApprovalAndOperatorGrantButNotOnTheirSafeTwins() {
+        fun approveTx(amount: BigInteger): ByteArray = eip1559Tx(
+            chainId = ETHEREUM,
+            to = USDC_ETHEREUM,
+            value = BigInteger.ZERO,
+            data = erc20Call(SELECTOR_APPROVE, RECIPIENT, amount),
+        )
+        fun operatorTx(approved: BigInteger): ByteArray = eip1559Tx(
+            chainId = ETHEREUM,
+            to = UNREGISTERED,
+            value = BigInteger.ZERO,
+            data = erc20Call(SELECTOR_SET_APPROVAL_FOR_ALL, RECIPIENT, approved),
+        )
+
+        fun denylistWarnings(signData: ByteArray): List<String> =
+            denylisted(requestCbor(signData, chainId = ETHEREUM)).review.warnings.filter { it.code == "evm.denylist" }.map { it.message }
+
+        val unlimited = approveTx(ContractCall.MAX_UINT256)
+        val limited = approveTx(BigInteger.TEN)
+        val grant = operatorTx(BigInteger.ONE)
+        val revoke = operatorTx(BigInteger.ZERO)
+
+        assertEquals(listOf(shippedReason("0x$SELECTOR_APPROVE", DenylistCondition.UNLIMITED)), denylistWarnings(unlimited))
+        assertEquals(emptyList(), denylistWarnings(limited))
+        assertEquals(listOf(shippedReason("0x$SELECTOR_SET_APPROVAL_FOR_ALL", DenylistCondition.APPROVED)), denylistWarnings(grant))
+        assertEquals(emptyList(), denylistWarnings(revoke))
+    }
+
+    private fun shippedReason(selector: String, condition: DenylistCondition): String =
+        shippedRegistry().denylistEntries().single { it.selector == selector && it.condition == condition }.reason
 
     private fun denylisted(cbor: ByteArray): Prepared.Ready =
         assertIs<Prepared.Ready>(SignPipeline(DENYLISTED, inProcessSandboxParser).prepare(cbor, VIEW))

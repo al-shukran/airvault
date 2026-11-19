@@ -1,5 +1,7 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.algorandManifest
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.recordFacts
 import app.airvault.core.model.Review as CoreReview
@@ -7,6 +9,8 @@ import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestKind
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
+import app.lensly.core.wallet.toHex
+import java.security.MessageDigest
 
 /**
  * The review of a request of an installed chain app, as the one sign flow holds it: the review the owner reads, the account that signs, and
@@ -73,6 +77,21 @@ fun appReviewRecordOf(entry: AppReviewEntry, atMs: Long, origin: String?, dataHa
         acknowledged = entry.acknowledged,
     )
 }
+
+/**
+ * The origin a request names, and the SHA-256 of the data it asks to sign, as its chain app reads them (spec 8.6). For Algorand that data is the
+ * transaction the review decoded. The signature also covers the "TX" tag that go-algorand puts before those bytes. The record does not hash the
+ * tag, so its hash is of the transaction the owner was shown.
+ */
+internal fun appRequestFactsOf(request: AppRequest): Pair<String?, String> = when (request.header.app) {
+    algorandManifest.id -> when (val decoded = AlgoSignRequest.decode(request.body)) {
+        is AlgoSignRequest.Result.Ok -> decoded.request.origin to sha256Hex(decoded.request.signData)
+        is AlgoSignRequest.Result.Rejected -> null to sha256Hex(request.body)
+    }
+    else -> null to sha256Hex(request.body)
+}
+
+private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
 
 private fun kindOf(kind: RequestKind): ReviewKind = when (kind) {
     RequestKind.TRANSACTION -> ReviewKind.TRANSACTION
