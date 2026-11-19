@@ -11,8 +11,8 @@ import app.lumio.btc.BtcSnapshot
 import app.lumio.btc.networkId
 import app.lumio.chains.CachedNativeBalance
 import app.lumio.chains.NativeCoin
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.evm.CachedBalance
@@ -96,7 +96,7 @@ class WalletAccountsTest {
         assertEquals(testnetBitcoin.network.networkId(), bitcoin.balance!!.network)
         assertEquals("Monad testnet", ethereum.networkName)
         assertEquals(0, BigDecimal("3").compareTo(ethereum.balance!!.balance))
-        assertEquals(NetworkId(Family.EVM, "10143", testnet = true), ethereum.balance!!.network)
+        assertEquals(NetworkId(Networks.evm(10143), testnet = true), ethereum.balance!!.network)
         assertEquals(0, BigDecimal("2.5").compareTo(solana.balance!!.balance))
         assertEquals("Solana Devnet", solana.networkName)
         assertEquals(0, BigDecimal("1").compareTo(algorand.balance!!.balance))

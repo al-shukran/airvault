@@ -5,8 +5,8 @@ import androidx.compose.ui.test.onNodeWithText
 import app.lensly.app.InternalAccount
 import app.lensly.app.addressKeyOf
 import app.lensly.ui.theme.LumenTheme
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
@@ -33,7 +33,7 @@ class TransactionDetailOwnAccountTest {
 
     private fun tx(counterparty: String?) = LumioTx(
         id = "EVM:1:$hash",
-        network = NetworkId(Family.EVM, "1", testnet = false),
+        network = NetworkId(Networks.evm(1), testnet = false),
         account = me,
         hash = hash,
         timestampMs = 1_700_000_000_000L,

@@ -1,6 +1,5 @@
 package app.lumio.data.price
 
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 
 /**
@@ -12,7 +11,7 @@ import app.lumio.data.net.NetworkId
  */
 object DefiLlamaChains {
     /** The DefiLlama prefix of [net], or null when [net] is not an EVM mainnet with a prefix. A testnet has none. */
-    fun prefixOf(net: NetworkId): String? = if (net.family == Family.EVM && !net.testnet) PREFIXES[net.chain] else null
+    fun prefixOf(net: NetworkId): String? = if (net.isEvm && !net.testnet) PREFIXES[net.name] else null
 
     private val PREFIXES: Map<String, String> = mapOf(
         "1" to "ethereum",

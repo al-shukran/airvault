@@ -2,8 +2,8 @@ package app.lumio.data.provider.blockscout
 
 import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Op
@@ -94,8 +94,8 @@ class BlockscoutProviderTest {
 
     @Test
     fun unhostedChainsAndTestnetsAreUnsupportedAndNeverCalled() {
-        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Family.EVM, "8453", testnet = false), ethAddress)) }
-        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Family.EVM, "1", testnet = true), ethAddress)) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Networks.evm(8453), testnet = false), ethAddress)) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(NetworkId(Networks.evm(1), testnet = true), ethAddress)) }
         assertEquals(0, server.requestCount)
     }
 
@@ -103,7 +103,7 @@ class BlockscoutProviderTest {
     fun theProductionInstanceServesEthereumMainnetNativeBalanceOnly() {
         val c = ProviderConfig()
         assertTrue(BlockscoutProvider().supports(ETH, Op.NATIVE_BALANCE, c))
-        assertFalse(BlockscoutProvider().supports(NetworkId(Family.EVM, "8453", testnet = false), Op.NATIVE_BALANCE, c))
+        assertFalse(BlockscoutProvider().supports(NetworkId(Networks.evm(8453), testnet = false), Op.NATIVE_BALANCE, c))
         assertFalse(BlockscoutProvider().supports(ETH, Op.NONCE, c))
     }
 

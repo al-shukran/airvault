@@ -2,8 +2,8 @@ package app.lumio.data.provider.routescan
 
 import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.ProviderError
@@ -101,7 +101,7 @@ class RoutescanTxHistoryTest {
 
     @Test
     fun aChainThatTheKeylessApiDoesNotServeIsUnsupportedAndNeverCalled() {
-        assertFailsWith<ProviderError.Unsupported> { history(net = NetworkId(Family.EVM, "8453", testnet = false)) }
+        assertFailsWith<ProviderError.Unsupported> { history(net = NetworkId(Networks.evm(8453), testnet = false)) }
         assertEquals(0, server.requestCount)
     }
 

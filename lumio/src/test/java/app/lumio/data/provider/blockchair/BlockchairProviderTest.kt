@@ -3,8 +3,8 @@ package app.lumio.data.provider.blockchair
 import app.lumio.data.BTC
 import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressUtxos
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
@@ -197,8 +197,8 @@ class BlockchairProviderTest {
 
     @Test
     fun aNetworkOrOperationThatTheProviderDoesNotServeIsNeverCalled() {
-        val testnet4 = NetworkId(Family.BTC, "testnet4", testnet = true)
-        val sepolia = NetworkId(Family.EVM, "11155111", testnet = true)
+        val testnet4 = NetworkId(Networks.BTC_TESTNET4, testnet = true)
+        val sepolia = NetworkId(Networks.evm(11155111), testnet = true)
 
         assertFailsWith<ProviderError.Unsupported> { call(AddressUtxos(testnet4, btcAddress)) }
         assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(sepolia, ethAddress)) }
@@ -213,8 +213,8 @@ class BlockchairProviderTest {
         assertTrue(provider.supports(ETH, Op.NATIVE_BALANCE, c))
         assertFalse(provider.supports(BTC, Op.ADDRESS_STATS, c))
         assertFalse(provider.supports(ETH, Op.ADDRESS_UTXOS, c))
-        assertFalse(provider.supports(NetworkId(Family.BTC, "testnet4", testnet = true), Op.ADDRESS_UTXOS, c))
-        assertFalse(provider.supports(NetworkId(Family.EVM, "11155111", testnet = true), Op.NATIVE_BALANCE, c))
+        assertFalse(provider.supports(NetworkId(Networks.BTC_TESTNET4, testnet = true), Op.ADDRESS_UTXOS, c))
+        assertFalse(provider.supports(NetworkId(Networks.evm(11155111), testnet = true), Op.NATIVE_BALANCE, c))
     }
 
     @Test

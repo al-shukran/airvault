@@ -2,7 +2,6 @@ package app.lumio.data.rpc
 
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
@@ -29,7 +28,7 @@ private val TENDERLY_LIMITS = Limits(rps = 2.0, burst = 4, maxConcurrent = 2)
 /**
  * An EVM JSON-RPC provider. [endpoint] gives the address that serves a network under a config. Null means the provider has none for it, and then
  * [supports] is false, so the router never offers that network to the provider. The request mapping, the shared client and the owner's failure
- * words are the same for every provider. A Solana provider adds its own [endpoint] and request mapping for `Family.SOL`, and nothing here changes.
+ * words are the same for every provider. A Solana provider adds its own [endpoint] and request mapping for the Solana networks, and nothing here changes.
  */
 abstract class EvmRpcProvider(
     override val id: String,
@@ -51,7 +50,7 @@ abstract class EvmRpcProvider(
     open fun serves(op: Op, cfg: ProviderConfig): Boolean = true
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        net.family == Family.EVM && op in EVM_OPS && serves(op, cfg) && endpoints(net, cfg).isNotEmpty()
+        net.isEvm && op in EVM_OPS && serves(op, cfg) && endpoints(net, cfg).isNotEmpty()
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = limits
 
@@ -85,7 +84,7 @@ abstract class EvmRpcProvider(
  */
 class OneRpc : EvmRpcProvider("1rpc", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.PRIVACY, Trait.MEV_PROTECTED), PUBLIC_LIMITS) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
-        val slug = SLUGS[net.chain] ?: return null
+        val slug = SLUGS[net.name] ?: return null
         val key = cfg.apiKey ?: return "https://public.1rpc.io/$slug"
         return if (KEY.matches(key)) "https://1rpc.io/$key/$slug" else null
     }
@@ -110,7 +109,7 @@ class OneRpc : EvmRpcProvider("1rpc", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, T
  * MEV trait for that service (MEV-Blocker). The trait covers the provider as a whole, so it is not checked chain by chain. It states no rate limit.
  */
 class PublicNode : EvmRpcProvider("publicnode", setOf(Trait.KEYLESS, Trait.PRIVACY, Trait.MEV_PROTECTED), PUBLIC_LIMITS) {
-    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.chain]?.let { "https://$it.publicnode.com" }
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.name]?.let { "https://$it.publicnode.com" }
 
     private companion object {
         /** The hosts that https://publicnode.com/ lists for these chains, keyed by chain ID. */
@@ -129,7 +128,7 @@ class PublicNode : EvmRpcProvider("publicnode", setOf(Trait.KEYLESS, Trait.PRIVA
  */
 class Ankr : EvmRpcProvider("ankr", setOf(Trait.KEY_REQUIRED), PUBLIC_LIMITS) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
-        val slug = SLUGS[net.chain] ?: return null
+        val slug = SLUGS[net.name] ?: return null
         val key = cfg.apiKey ?: return null
         return if (KEY.matches(key)) "https://rpc.ankr.com/$slug/$key" else null
     }
@@ -147,7 +146,7 @@ class Ankr : EvmRpcProvider("ankr", setOf(Trait.KEY_REQUIRED), PUBLIC_LIMITS) {
  * it is not mapped.
  */
 class DRpc : EvmRpcProvider("drpc", setOf(Trait.KEYLESS), PUBLIC_LIMITS) {
-    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.chain]?.let { "https://$it.drpc.org" }
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.name]?.let { "https://$it.drpc.org" }
 
     private companion object {
         /** The chain pages that https://drpc.org/llms.txt indexes, and the slug each endpoint uses. */
@@ -168,7 +167,7 @@ class DRpc : EvmRpcProvider("drpc", setOf(Trait.KEYLESS), PUBLIC_LIMITS) {
  */
 class Alchemy : EvmRpcProvider("alchemy", setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.MEV_PROTECTED), KEYLESS_ALCHEMY) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
-        val slug = SLUGS[net.chain] ?: return null
+        val slug = SLUGS[net.name] ?: return null
         val key = cfg.apiKey ?: return "https://$slug.g.alchemy.com/public"
         return if (KEY.matches(key)) "https://$slug.g.alchemy.com/v2/$key" else null
     }
@@ -191,7 +190,7 @@ class Alchemy : EvmRpcProvider("alchemy", setOf(Trait.KEYLESS, Trait.KEY_OPTIONA
  * provider is FALLBACK_ONLY: the router offers it only when no other provider can serve the request.
  */
 class Tenderly : EvmRpcProvider("tenderly", setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY), TENDERLY_LIMITS) {
-    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.chain]?.let { "https://$it.gateway.tenderly.co" }
+    override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? = SLUGS[net.name]?.let { "https://$it.gateway.tenderly.co" }
 
     private companion object {
         val SLUGS = mapOf("1" to "mainnet", "11155111" to "sepolia")
@@ -205,7 +204,7 @@ class Tenderly : EvmRpcProvider("tenderly", setOf(Trait.KEYLESS, Trait.FALLBACK_
  */
 class CustomRpc(override val allowLocalHttp: Boolean) : EvmRpcProvider(ID, emptySet(), PUBLIC_LIMITS) {
     override fun endpoint(net: NetworkId, cfg: ProviderConfig): String? {
-        val raw = cfg.chainUrls[net.chain] ?: return null
+        val raw = cfg.chainUrls[net.name] ?: return null
         return try {
             RpcUrl.validate(raw, allowLocalHttp)
         } catch (e: IllegalArgumentException) {

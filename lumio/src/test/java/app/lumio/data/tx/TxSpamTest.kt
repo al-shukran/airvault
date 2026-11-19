@@ -1,8 +1,8 @@
 package app.lumio.data.tx
 
 import app.lumio.data.ETH
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import java.math.BigInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -18,7 +18,7 @@ class TxSpamTest {
     private val friend = "0x1234" + "a".repeat(32) + "9f9f"
     private val lookalike = "0x1234" + "b".repeat(32) + "9f9f"
     private val stranger = "0x5678" + "c".repeat(32) + "0a0a"
-    private val testnet = NetworkId(Family.EVM, "11155111", testnet = true)
+    private val testnet = NetworkId(Networks.evm(11155111), testnet = true)
     private val spam = TxSpam(isKnownToken = { _, contract -> contract == listedToken }, isCustomToken = { _, _ -> false })
 
     private fun token(

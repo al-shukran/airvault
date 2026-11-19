@@ -2,8 +2,8 @@ package app.lumio.data.scan
 
 import app.lumio.data.containsBytes
 import app.lumio.data.db.LumioDatabase
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.sched.Priority
 import java.io.File
 import kotlinx.coroutines.CoroutineStart
@@ -32,7 +32,7 @@ class ScanQueueTest {
     private val key = ByteArray(32) { 9 }
 
     private fun job(walletId: String, priority: Priority) =
-        ScanJob(walletId, NetworkId(Family.BTC, "mainnet", testnet = false), "account-0", priority)
+        ScanJob(walletId, NetworkId(Networks.BTC_MAINNET, testnet = false), "account-0", priority)
 
     private fun queueOn(database: LumioDatabase, rowsKey: ByteArray = key): ScanQueue = ScanQueue { ScanRows(database.scanJobs(), rowsKey) }
 

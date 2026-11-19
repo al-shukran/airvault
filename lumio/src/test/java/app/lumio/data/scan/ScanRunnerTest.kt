@@ -2,8 +2,8 @@ package app.lumio.data.scan
 
 import app.lumio.data.FakeScanJobDao
 import app.lumio.data.db.ScanJobDao
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.sched.Priority
 import kotlin.test.assertEquals
@@ -19,8 +19,8 @@ import org.junit.Test
 /** The scan queue and its runner: the order of events, the network filter, failures, resume after a restart, and a locked vault. */
 class ScanRunnerTest {
     private val key = ByteArray(32) { 5 }
-    private val mainnet = NetworkId(Family.BTC, "mainnet", testnet = false)
-    private val testnet4 = NetworkId(Family.BTC, "testnet4", testnet = true)
+    private val mainnet = NetworkId(Networks.BTC_MAINNET, testnet = false)
+    private val testnet4 = NetworkId(Networks.BTC_TESTNET4, testnet = true)
 
     private fun queueOver(dao: ScanJobDao, rowsKey: ByteArray = key): ScanQueue = ScanQueue { ScanRows(dao, rowsKey) }
 

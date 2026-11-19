@@ -2,8 +2,8 @@ package app.lumio.data.provider.blockscout
 
 import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Op
@@ -127,10 +127,10 @@ class BlockscoutTxHistoryTest {
     fun theHistoryIsServedOnlyByTheHostedMainnetInstance() {
         val c = ProviderConfig()
         assertTrue(provider().supports(ETH, Op.TX_HISTORY, c))
-        assertFalse(provider().supports(NetworkId(Family.EVM, "8453", testnet = false), Op.TX_HISTORY, c))
-        assertFalse(provider().supports(NetworkId(Family.EVM, "1", testnet = true), Op.TX_HISTORY, c))
+        assertFalse(provider().supports(NetworkId(Networks.evm(8453), testnet = false), Op.TX_HISTORY, c))
+        assertFalse(provider().supports(NetworkId(Networks.evm(1), testnet = true), Op.TX_HISTORY, c))
         assertFailsWith<ProviderError.Unsupported> {
-            runBlocking { provider().execute(AddressTxHistory(NetworkId(Family.EVM, "8453", testnet = false), account, 1, 20), c, http) }
+            runBlocking { provider().execute(AddressTxHistory(NetworkId(Networks.evm(8453), testnet = false), account, 1, 20), c, http) }
         }
         assertEquals(0, server.requestCount)
     }

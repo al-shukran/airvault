@@ -2,7 +2,6 @@ package app.lumio.data.provider.routescan
 
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Http
@@ -50,7 +49,7 @@ class RoutescanProvider : Provider {
     override val traits: Set<Trait> = setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
 
     override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
-        (op == Op.NATIVE_BALANCE || op == Op.TX_HISTORY) && net.family == Family.EVM && !net.testnet && net.chain in CHAINS &&
+        (op == Op.NATIVE_BALANCE || op == Op.TX_HISTORY) && net.isEvm && !net.testnet && net.name in CHAINS &&
             providerBase(cfg.baseUrl, BASE) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = if (keyOf(cfg) == null) KEYLESS_LIMITS else KEYED_LIMITS
@@ -67,7 +66,7 @@ class RoutescanProvider : Provider {
 
     private suspend fun balance(req: NativeBalance, cfg: ProviderConfig, http: Http): BigInteger {
         if (!EVM_ADDRESS.matches(req.address)) throw ProviderError.NotFound()
-        val url = apiUrl(cfg, req.net.chain)
+        val url = apiUrl(cfg, req.net.name)
             .addQueryParameter("module", "account")
             .addQueryParameter("action", "balance")
             .addQueryParameter("address", req.address)
@@ -94,7 +93,7 @@ class RoutescanProvider : Provider {
     }
 
     private fun historyRequest(req: AddressTxHistory, cfg: ProviderConfig, action: String): HttpRequest {
-        val url = apiUrl(cfg, req.net.chain)
+        val url = apiUrl(cfg, req.net.name)
             .addQueryParameter("module", "account")
             .addQueryParameter("action", action)
             .addQueryParameter("address", req.address)

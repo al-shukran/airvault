@@ -26,7 +26,6 @@ import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.CustomEsploraProvider
 import app.lumio.data.esplora.EsploraProtocol
 import app.lumio.data.esplora.MempoolProvider
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
 import app.lumio.data.price.PriceRepository
 import app.lumio.data.tx.TxAsset
@@ -194,7 +193,7 @@ class LumioApp : Application(), CoverApplication {
      * as they judge any coin. Any other token is unknown: the owner added it, or someone else sent it.
      */
     fun isKnownToken(network: NetworkId, contract: String): Boolean {
-        val chainId = network.chain.toLongOrNull() ?: return false
+        val chainId = network.name.toLongOrNull() ?: return false
         return registry.token(chainId, contract) != null ||
             defaultTokens.any { it.chainId == chainId && it.contract.equals(contract, ignoreCase = true) }
     }
@@ -215,7 +214,7 @@ class LumioApp : Application(), CoverApplication {
                 isCustomToken = { network, contract -> CustomTokenStore.holds(owned, network, contract) },
             ),
             nativeAsset = { net ->
-                chains.firstOrNull { net.family == Family.EVM && it.chainId.toString() == net.chain }
+                chains.firstOrNull { net.isEvm && it.chainId.toString() == net.name }
                     ?.let { TxAsset(contract = null, symbol = it.symbol, name = it.name, decimals = it.decimals) }
             },
             preferRpc = { PreferRpcStore.read(session) },

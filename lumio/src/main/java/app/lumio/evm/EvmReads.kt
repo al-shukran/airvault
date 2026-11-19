@@ -5,8 +5,8 @@ import app.lumio.data.MonotonicClock
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.config.ProviderConfigStore
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.ContractCall
 import app.lumio.data.provider.DataPlugins
@@ -111,6 +111,6 @@ class EvmReads(
             )
         }
 
-        private fun net(chain: EvmChain) = NetworkId(Family.EVM, chain.chainId.toString(), chain.testnet)
+        private fun net(chain: EvmChain) = NetworkId(Networks.evm(chain.chainId), chain.testnet)
     }
 }

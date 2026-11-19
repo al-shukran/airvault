@@ -16,7 +16,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
-import app.lumio.data.net.Family
 import app.lumio.home.HomeLoader
 import app.lumio.network.NetworkMode
 import app.lumio.pair.FirstSync
@@ -236,7 +235,7 @@ internal fun firstSyncSteps(app: LumioApp, session: VaultSession, mode: NetworkM
     if (native.isNotEmpty()) {
         add(
             SyncStep(native) {
-                HomeLoader.refreshNative(app, session, mode).map { if (it.network.family == Family.SOL) SyncRow.SOLANA else SyncRow.ALGORAND }.toSet()
+                HomeLoader.refreshNative(app, session, mode).map { if (it.network.isSol) SyncRow.SOLANA else SyncRow.ALGORAND }.toSet()
             },
         )
     }

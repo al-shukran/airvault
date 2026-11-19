@@ -38,7 +38,7 @@ class PairAlgorandTest {
         val listed = PairedWallets.list(session).single()
         assertEquals(2, listed.algorand.size)
         assertEquals(EXPECTED_ADDRESS_0, AlgorandAccount.addressOf(listed.algorand[0]))
-        assertEquals(setOf(PairFamily.EVM, PairFamily.ALGORAND), listed.families)
+        assertEquals(setOf(PairChain.EVM, PairChain.ALGORAND), listed.families)
     }
 
     @Test

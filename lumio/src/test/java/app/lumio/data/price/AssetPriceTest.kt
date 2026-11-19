@@ -2,8 +2,8 @@ package app.lumio.data.price
 
 import app.lumio.data.ETH
 import app.lumio.data.asset.AssetId
-import app.lumio.data.net.Family
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.TokenPrice
 import kotlin.test.assertEquals
@@ -16,7 +16,7 @@ import org.junit.Test
 /** Which price request and cache key each asset gets, and which assets have no price source at all. */
 class AssetPriceTest {
     private val usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
-    private val base = NetworkId(Family.EVM, "8453", testnet = false)
+    private val base = NetworkId(Networks.evm(8453), testnet = false)
 
     @Test
     fun aNativeCoinKeepsItsCoinGeckoKeyAndItsNativePriceRequest() {
@@ -40,8 +40,8 @@ class AssetPriceTest {
 
     @Test
     fun anAssetWithNoPriceSourceHasNoRequestAndNoKey() {
-        val testnet = NetworkId(Family.EVM, "1", testnet = true)
-        val unpriced = NetworkId(Family.EVM, "250", testnet = false)
+        val testnet = NetworkId(Networks.evm(1), testnet = true)
+        val unpriced = NetworkId(Networks.evm(250), testnet = false)
 
         assertNull(priceRequestOf(AssetId.Native(testnet)))
         assertNull(priceKeyOf(AssetId.Native(testnet)))

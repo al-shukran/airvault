@@ -21,7 +21,7 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
-import app.lumio.pair.PairFamily
+import app.lumio.pair.PairChain
 import app.lumio.pair.PairImport
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTag
@@ -86,7 +86,7 @@ fun PairReviewScreen(
 @Composable
 private fun EthereumReview(addresses: List<String>, accounts: List<PairingAccount>) {
     Spacer(Modifier.height(LenslySpacing.md))
-    LumioTag(text = PairLabels.family(PairFamily.EVM))
+    LumioTag(text = PairLabels.chainName(PairChain.EVM))
     ReviewField("Network", "All EVM Networks")
     ReviewField("Accounts", "${accounts.size}")
     accounts.sortedBy { it.key }.forEach { account -> EthereumAccountReview(address = addresses[account.key], account = account) }
@@ -117,7 +117,7 @@ private fun EthereumAccountReview(address: String, account: PairingAccount) {
 @Composable
 private fun SolanaReview(keys: List<ByteArray>) {
     Spacer(Modifier.height(LenslySpacing.md))
-    LumioTag(text = PairLabels.family(PairFamily.SOLANA))
+    LumioTag(text = PairLabels.chainName(PairChain.SOLANA))
     ReviewField("Network", "Devnet")
     ReviewField("Accounts", "${keys.size}")
     keys.forEachIndexed { index, key ->
@@ -132,7 +132,7 @@ private fun SolanaReview(keys: List<ByteArray>) {
 @Composable
 private fun AlgorandReview(keys: List<ByteArray>) {
     Spacer(Modifier.height(LenslySpacing.md))
-    LumioTag(text = PairLabels.family(PairFamily.ALGORAND))
+    LumioTag(text = PairLabels.chainName(PairChain.ALGORAND))
     ReviewField("Accounts", "${keys.size}")
     keys.forEachIndexed { index, key ->
         Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
@@ -146,7 +146,7 @@ private fun AlgorandReview(keys: List<ByteArray>) {
 @Composable
 private fun BitcoinReview(accounts: List<BtcWatchOnlyAccount>, names: Map<Int, PairingAccount>) {
     Spacer(Modifier.height(LenslySpacing.md))
-    LumioTag(text = PairLabels.family(PairFamily.BITCOIN))
+    LumioTag(text = PairLabels.chainName(PairChain.BITCOIN))
     ReviewField("Accounts", "${accounts.size}")
     accounts.forEachIndexed { key, account -> BitcoinAccountReview(account, names[key]) }
 }

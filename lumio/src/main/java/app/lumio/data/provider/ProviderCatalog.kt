@@ -62,7 +62,7 @@ object ProviderCatalog {
      * The Solana providers: the public endpoints (mainnet-beta and devnet), then the owner's own devnet RPC. They serve the Solana family only, so no EVM read reaches them,
      * and the settings screens do not list them yet.
      */
-    fun solanaProviders(allowLocalHttp: Boolean): List<Provider> = listOf(SolanaRpc(), CustomSolanaRpc(SOLANA_DEVNET.chain, allowLocalHttp))
+    fun solanaProviders(allowLocalHttp: Boolean): List<Provider> = listOf(SolanaRpc(), CustomSolanaRpc(SOLANA_DEVNET.name, allowLocalHttp))
 
     /**
      * The Algorand providers: the public Algonode endpoints, testnet and mainnet. They serve the Algorand family only, and the settings screens do not
