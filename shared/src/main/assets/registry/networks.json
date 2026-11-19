@@ -53,6 +53,7 @@
     {"chainId": 534352, "name": "Scroll", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L2_ROLLUP", "explorerName": "Scrollscan", "testnet": false, "icon": "chain_scroll"},
     {"chainId": 747474, "name": "katana", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L2_ROLLUP", "explorerName": "katanascan", "testnet": false, "icon": "chain_katana"},
     {"chainId": 7777777, "name": "Zora", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L2_ROLLUP", "explorerName": "Zora Network Explorer", "testnet": false, "icon": "chain_zora"},
+    {"chainId": 10143, "name": "Monad Testnet", "nativeSymbol": "MON", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "MonadVision", "testnet": true, "icon": "chain_monad"},
     {"chainId": 1313161554, "name": "Aurora Mainnet", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "Aurora Explorer", "testnet": false, "icon": "chain_aurora"},
     {"chainId": 1666600000, "name": "Harmony Mainnet Shard 0", "nativeSymbol": "ONE", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "Harmony Block Explorer", "testnet": false, "icon": "chain_harmony"}
   ]

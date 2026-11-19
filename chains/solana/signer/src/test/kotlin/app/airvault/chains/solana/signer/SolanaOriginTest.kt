@@ -37,9 +37,11 @@ class SolanaOriginTest {
     fun anOriginIsShownAsTheWalletsUnverifiedClaim() {
         val review = assertIs<SolanaRequestCheck.Result.Ok>(checked("solflare")).review.toReview()
 
-        val row = review.sections.flatMap { it.rows }.single { it.label == "Origin" }
+        val rows = review.sections.flatMap { it.rows }
+        val row = rows.single { it.label == "Claimed by Request (Not Verified)" }
         assertEquals("solflare", row.value.text())
         assertEquals(listOf("Named by the wallet. Lensly cannot verify it."), row.notes)
+        assertTrue(rows.none { it.label == "Origin" })
         assertTrue(review.unaccounted().isEmpty(), "the origin is decoded and shown, so no field is unaccounted")
         assertTrue(review.warnings.none { it.level == Danger.BLOCK })
     }
