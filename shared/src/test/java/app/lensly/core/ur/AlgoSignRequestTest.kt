@@ -122,6 +122,11 @@ class AlgoSignRequestTest {
     }
 
     @Test
+    fun aKeyLenslyDoesNotReadIsRefusedNotIgnored() {
+        assertTrue(rejectedReason(payload(7L to Cbor.Uint(0))).contains("unknown map key 7"))
+    }
+
+    @Test
     fun theDerivationPathIsTheLedgerAlgorandShape() {
         assertIs<AlgoSignRequest.Result.Ok>(AlgoSignRequest.decode(payload(3L to keypath(ledgerComponents(account = 7)))))
 
