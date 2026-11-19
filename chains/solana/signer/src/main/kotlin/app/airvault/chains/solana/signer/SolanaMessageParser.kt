@@ -1,10 +1,10 @@
-package app.lensly.core.solana
+package app.airvault.chains.solana.signer
 
 /**
  * Parses [bytes] as a legacy message or a v0 message, and checks every length and index against the message and its lookups.
  * Throws [MalformedSolanaMessageException] for anything that is not a well-formed message.
  */
-internal fun parseSolanaMessage(bytes: ByteArray): SolanaMessage {
+fun parseSolanaMessage(bytes: ByteArray): SolanaMessage {
     if (bytes.size > SolanaMessage.MAX_BYTES) {
         malformedSolanaMessage("the message is ${bytes.size} bytes; the limit is ${SolanaMessage.MAX_BYTES}")
     }

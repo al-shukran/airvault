@@ -2,6 +2,8 @@ package app.lensly.ui.flow
 
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader
 import app.lensly.app.AddressNotes
@@ -27,7 +29,6 @@ import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.ur.EthSignRequest
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.wallet.AccountAddresses
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -257,7 +258,6 @@ class SignFlow(
                 }
                 is ScanReply.Complete -> if (accept(text)) publish(started, decide(started, reply.parsed))
                 is ScanReply.Bitcoin -> if (accept(text)) publish(started, decideBitcoin(started, reply.psbt))
-                is ScanReply.Solana -> if (accept(text)) publish(started, decideSolana(started, reply.payload))
                 is ScanReply.App -> if (accept(text)) publish(started, decideApp(started, reply.request))
             }
         }
@@ -489,12 +489,12 @@ class SignFlow(
     }
 
     /** Reviews a complete Solana request against the wallet it is for. A refusal is recorded under that wallet. */
-    private suspend fun decideSolana(started: Int, payload: ByteArray): SignStep {
+    private suspend fun decideSolana(started: Int, header: RequestHeader, payload: ByteArray): SignStep {
         val request = when (val decoded = SolSignRequest.decode(payload)) {
             is SolSignRequest.Result.Ok -> decoded.request
             is SolSignRequest.Result.Rejected -> return SignStep.Refused(decoded.reason)
         }
-        return routed(ScannedRequest.Solana(request)) { target ->
+        return routed(ScannedRequest.App(header)) { target ->
             if (request.requestId == null) {
                 solanaRefusal(started, target, request, NO_REQUEST_ID, ready = null)
             } else {
@@ -578,9 +578,10 @@ class SignFlow(
         if (!waiting.busy) current.value = SignStep.AlgorandReview(waiting.ready)
     }
 
-    /** Reviews a complete request that an installed chain app parsed. Algorand is the only app with a review so far. */
+    /** Reviews a complete request that an installed chain app parsed. Algorand and Solana are the apps with a review so far. */
     private suspend fun decideApp(started: Int, request: AppRequest): SignStep = when (request.header.app) {
         algorandManifest.id -> decideAlgorand(started, request.header, request.body)
+        solanaManifest.id -> decideSolana(started, request.header, request.body)
         else -> SignStep.Refused(UNSUPPORTED_CODE)
     }
 

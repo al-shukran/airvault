@@ -7,25 +7,21 @@ import app.lensly.chains.signerRegistry
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.evm.TypedDataParser
 import app.lensly.core.evm.UnsignedTx
-import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.AbiDecoder
 import app.lensly.core.registry.CallDecode
+import app.lensly.core.registry.ContractCall
 import app.lensly.core.registry.WhitelistParam
-import app.lensly.core.solana.SolanaMessage
-import app.lensly.core.solana.SolanaOffchainMessage
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.psbt.Psbt
+import org.web3j.utils.Numeric
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
-import org.web3j.utils.Numeric
 
 /** The refusal of a request that the Parser Sandbox could not parse in time, or that did not answer, or answered wrongly. */
 const val CANNOT_BE_READ = "This code could not be read safely."
@@ -52,12 +48,6 @@ sealed interface ScanReply {
      * PSBT that does not parse never gets here.
      */
     data class Bitcoin(val psbt: ByteArray) : ScanReply
-
-    /**
-     * The new text completes a `ur:sol-sign-request`. [payload] is its CBOR. The sandbox has parsed it, and has read its message when it
-     * is a transaction, so a request that does not parse never gets here.
-     */
-    data class Solana(val payload: ByteArray) : ScanReply
 
     /**
      * The new text completes a request that an installed chain app parses. [request] holds its header, which the core reads, and its
@@ -109,7 +99,6 @@ object InProcessParser : RequestParser {
     internal fun replyOf(ur: UR): ScanReply {
         signerRegistry.byRequestType(ur.type)?.let { return appReply(it, ur) }
         if (ur.type == BtcPsbt.UR_TYPE) return bitcoinReply(ur)
-        if (ur.type == SolSignRequest.UR_TYPE) return solanaReply(ur)
         if (ur.type != EthSignRequest.UR_TYPE) return ScanReply.Refused(UNSUPPORTED_CODE)
         return when (val decoded = EthSignRequest.decode(ur.cborBytes)) {
             is EthSignRequest.Result.Ok -> ScanReply.Complete(parsedOf(decoded.request))
@@ -122,25 +111,6 @@ object InProcessParser : RequestParser {
         ScanReply.Bitcoin(Psbt.write(BtcPsbt.fromUr(ur)).toByteArray())
     } catch (e: IllegalArgumentException) {
         ScanReply.Refused(NOT_A_PSBT)
-    }
-
-    /**
-     * The reply for a complete `ur:sol-sign-request`: its CBOR, when the request parses and its sign data parses too. A transaction must
-     * parse as a transaction, and a message must parse as a Solana off-chain message. Otherwise the reason it is refused.
-     */
-    private fun solanaReply(ur: UR): ScanReply {
-        val request = when (val decoded = SolSignRequest.decode(ur.cborBytes)) {
-            is SolSignRequest.Result.Ok -> decoded.request
-            is SolSignRequest.Result.Rejected -> return ScanReply.Refused(decoded.reason)
-        }
-        if (request.signType == SolSignType.TRANSACTION) {
-            (SolanaMessage.decode(request.signData) as? SolanaMessage.Result.Rejected)?.let { return ScanReply.Refused(it.reason) }
-        }
-        if (request.signType == SolSignType.MESSAGE) {
-            val parsed = SolanaOffchainMessage.parse(request.signData)
-            if (parsed is SolanaOffchainMessage.Result.Rejected) return ScanReply.Refused(parsed.reason)
-        }
-        return ScanReply.Solana(ur.cborBytes)
     }
 
     /**

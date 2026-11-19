@@ -2,6 +2,7 @@ package app.lensly.ui.flow
 
 import android.content.Context
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.AddressBookStore
 import app.lensly.app.AddressChain
 import app.lensly.app.AddressNotes
@@ -47,7 +48,6 @@ import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.solana.SolanaRequestCheck
 import app.lensly.core.solana.SolanaTokenList
 import app.lensly.core.ur.AlgoSignatureEncoder
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException

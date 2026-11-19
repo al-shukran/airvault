@@ -98,6 +98,9 @@ dependencies {
     // The Algorand transaction types and the request codec live in chains/algorand/common; the decoder in .../signer.
     api(project(":chains:algorand:common"))
     api(project(":chains:algorand:signer"))
+    // The Solana manifest and the sol-sign-request codec with its parser live in chains/solana; the Solana message types too.
+    api(project(":chains:solana:common"))
+    api(project(":chains:solana:signer"))
 
     // Compose, activity and coroutines types are part of this module's public API, so they reach :app as api.
     api(platform(libs.androidx.compose.bom))

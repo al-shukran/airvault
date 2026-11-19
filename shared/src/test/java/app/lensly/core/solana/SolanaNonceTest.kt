@@ -1,10 +1,12 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaMessageAccount
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import app.lensly.core.wallet.toHex
 import fr.acinq.bitcoin.Base58
+import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -13,7 +15,6 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import org.junit.Test
 
 /**
  * The durable-nonce shapes: AdvanceNonceAccount as the first instruction, and the one-time setup of CreateAccount or

@@ -1,5 +1,7 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolanaOffchainMessage
+import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -7,7 +9,6 @@ import kotlin.random.Random
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import org.junit.Test
 
 /** The off-chain message parser: the layout, the two formats Lensly signs, and the bytes it refuses. */
 class SolanaOffchainMessageTest {
