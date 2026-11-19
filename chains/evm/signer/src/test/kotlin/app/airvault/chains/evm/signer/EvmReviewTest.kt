@@ -273,17 +273,39 @@ class EvmReviewTest {
     }
 
     @Test
-    fun anApprovedCallShowsItsNativeValueSelectorAndEveryWordAfterIt() {
+    fun anApprovedCallShowsItsSelectorAndEveryWordAfterItWithTheAmountInTheHeader() {
         val calldata = fooCalldata()
 
         val registry = REGISTRY.withWhitelist(listOf(fooEntry()))
         val review = reviewOf(txParsed(NFT, calldata, value = BigInteger("1000000000000000")), builder(registry))
 
+        // The header already shows the amount the call sends, so the arguments do not repeat it.
+        assertEquals("0.001 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
         val arguments = review.sections.single { it.heading == "Arguments" }.rows
-        assertEquals("0.001 ETH", arguments.single { it.label == "Value" }.value.text())
+        assertTrue(arguments.none { it.label == "Value" })
         assertEquals("0x" + calldata.copyOfRange(0, 4).toHex(), arguments.single { it.label == "Selector" }.value.text())
         assertEquals("0x" + calldata.copyOfRange(4, 36).toHex(), arguments.single { it.label == "Word 1" }.value.text())
         assertEquals("0x" + calldata.copyOfRange(36, 68).toHex(), arguments.single { it.label == "Word 2" }.value.text())
+    }
+
+    @Test
+    fun anApprovedCallInsideAMulticallShowsItsOwnValueWhenItDiffersFromTheTransactions() {
+        val call = InnerCall(
+            target = NFT,
+            allowFailure = false,
+            value = BigInteger("1000000000000000"),
+            calldata = fooCalldata(),
+            call = null,
+            nested = null,
+        )
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3_VALUE, deadline = null, calls = listOf(call))!!
+
+        val review = reviewOf(
+            txParsed(MULTICALL3, batch, value = BigInteger("2000000000000000")),
+            builder(REGISTRY.withWhitelist(listOf(fooEntry()))),
+        )
+
+        assertEquals("0.001 ETH", review.sections.single { it.heading == "Calls" }.rows.single { it.label == "Value" }.value.text())
     }
 
     @Test

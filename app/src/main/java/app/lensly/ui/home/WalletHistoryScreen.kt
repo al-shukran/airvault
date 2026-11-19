@@ -265,7 +265,7 @@ internal fun HistoryDetailSheet(
                 }
                 if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, accounts, open) }
                 if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, accounts, open) }
-                record.origin?.let { origin -> FactRow("Origin") { FactText(origin) } }
+                record.origin?.let { origin -> FactRow("Claimed by request (not verified)") { FactText(origin) } }
                 record.refusal?.let { reason -> FactRow("Refusal Reason") { FactText(reason) } }
                 FactRow("Data Hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
             }
