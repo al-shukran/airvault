@@ -2,6 +2,7 @@ package app.airvault.chains.evm.signer
 
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
+import app.lensly.core.registry.offChainDomainOf
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -12,22 +13,24 @@ import org.web3j.crypto.Keys
 /**
  * Reads an EIP-712 typed data document, the JSON of eth_signTypedData, strictly. It accepts the four members of the format and
  * nothing else, and it reads each value as the type its declaration names: an integer in range, an address with a valid checksum
- * when it is mixed case, bytes of the declared length. A document outside that is refused with the reason. A domain must name a
- * chain ID, so every accepted message names the chain it is for.
+ * when it is mixed case, bytes of the declared length. A document outside that is refused with the reason. A domain may name no
+ * chain ID; the review then says that the signature is valid on any chain.
  *
  * The parser runs in the Parser Sandbox. It never throws: every failure comes back as [Result.Rejected].
  */
 object TypedDataParser {
     /** The outcome of [parse]: the typed data, or the reason it is refused. */
     sealed interface Result {
-        class Ok(val data: TypedData) : Result
+        /** [unsigned] holds the members the message adds beside its typed fields, as text. The signature does not cover them. */
+        class Ok(val data: TypedData, val unsigned: Map<String, String> = emptyMap()) : Result
 
         class Rejected(val reason: String) : Result
     }
 
     /** Reads [document] as UTF-8 JSON in the EIP-712 format. */
     fun parse(document: ByteArray): Result = try {
-        Result.Ok(Document(decodeUtf8(document)).build())
+        val reader = Document(decodeUtf8(document))
+        Result.Ok(reader.build(), reader.unsigned)
     } catch (e: IllegalArgumentException) {
         Result.Rejected(e.message ?: CANNOT_BE_READ)
     } catch (e: RuntimeException) {
@@ -257,6 +260,10 @@ private class JsonReader(private val text: String) {
 private class Document(text: String) {
     private val root: Json.Obj = JsonReader(text).document() as? Json.Obj ?: fail("the document is not a JSON object")
 
+    /** The members the message adds beside its typed fields, as text. Set by [build]. */
+    var unsigned: Map<String, String> = emptyMap()
+        private set
+
     fun build(): TypedData {
         onlyMembers(root.members, ROOT_MEMBERS, "the document")
         val declared = typesOf(required(root.members, "types", "the document"))
@@ -268,7 +275,13 @@ private class Document(text: String) {
         require(primaryType in types) { "primaryType ${primaryType.take(MAX_NAME_SHOWN)} is not one of the types" }
         val domain = structOf(EIP712_DOMAIN, domainJson, types, "domain")
         checkDomainChainId(types, domain)
-        val message = structOf(primaryType, objectOf(required(root.members, "message", "the document"), "message"), types, "message")
+        // A colon in a type name, as Hyperliquid names its actions, is read only in a domain that has a product label.
+        require(offChainDomainOf(domain) != null || types.keys.none { ':' in it }) {
+            "a type name with a colon is read only in a labelled off-chain domain"
+        }
+        val messageJson = objectOf(required(root.members, "message", "the document"), "message")
+        val message = structOf(primaryType, messageJson, types, "message", unsignedScalars = true)
+        unsigned = unsignedIn(messageJson, types.getValue(primaryType))
         return TypedData(types, primaryType, domain, message)
     }
 
@@ -310,10 +323,12 @@ private class Document(text: String) {
 
     private fun checkDomainChainId(types: Map<String, List<TypedField>>, domain: TypedValue.StructValue) {
         val members = types.getValue(EIP712_DOMAIN)
-        val chainId = members.firstOrNull { it.name == "chainId" } ?: fail("The typed data names no chain ID in its domain")
-        require(chainId.type == "uint256") { "The domain chain ID must be a uint256" }
-        val value = (domain.fields.getValue("chainId") as TypedValue.IntValue).value
-        require(value.signum() > 0 && value.bitLength() < 63) { "The domain chain ID is outside the range Lensly reads" }
+        // A domain may name no chain. Its signature is then valid on any chain, and the review says so.
+        members.firstOrNull { it.name == "chainId" }?.let { chainId ->
+            require(chainId.type == "uint256") { "The domain chain ID must be a uint256" }
+            val value = (domain.fields.getValue("chainId") as TypedValue.IntValue).value
+            require(value.signum() > 0 && value.bitLength() < 63) { "The domain chain ID is outside the range Lensly reads" }
+        }
         members.firstOrNull { it.name == "verifyingContract" }?.let {
             require(it.type == "address") { "The domain verifying contract must be an address" }
         }
@@ -324,9 +339,21 @@ private class Document(text: String) {
         json: Json.Obj,
         types: Map<String, List<TypedField>>,
         path: String,
+        unsignedScalars: Boolean = false,
     ): TypedValue.StructValue {
         val declared = types.getValue(type)
-        onlyMembers(json.members, declared.map { it.name }.toSet(), path)
+        val names = declared.map { it.name }.toSet()
+        if (unsignedScalars) {
+            // The top-level message may add members its type does not declare, when each is text, a number or a boolean. The signature does not
+            // cover them, and the review shows them as not signed. Any other extra member is refused.
+            for ((name, value) in json.members) {
+                require(name in names || value is Json.Str || value is Json.Num || value is Json.Bool) {
+                    "$path has an unknown member ${name.take(MAX_NAME_SHOWN)}"
+                }
+            }
+        } else {
+            onlyMembers(json.members, names, path)
+        }
         val fields = LinkedHashMap<String, TypedValue>()
         for (field in declared) {
             val memberPath = "$path.${field.name}"
@@ -364,6 +391,20 @@ private class Document(text: String) {
         for (name in members.keys) {
             require(name in allowed) { "$path has an unknown member ${name.take(MAX_NAME_SHOWN)}" }
         }
+    }
+
+    /** The members of [json] that [declared] does not name, as text, in the order the document gives them. [structOf] lets only scalars through. */
+    private fun unsignedIn(json: Json.Obj, declared: List<TypedField>): Map<String, String> {
+        val names = declared.map { it.name }.toSet()
+        return json.members.filterKeys { it !in names }
+            .mapValues { (name, value) -> unsignedTextOf(value, "message.$name") }
+    }
+
+    private fun unsignedTextOf(json: Json, path: String): String = when (json) {
+        is Json.Str -> json.value
+        is Json.Num -> json.text
+        is Json.Bool -> json.value.toString()
+        else -> fail("$path must be text, a number, or true or false")
     }
 
     private fun required(members: Map<String, Json>, name: String, path: String): Json =

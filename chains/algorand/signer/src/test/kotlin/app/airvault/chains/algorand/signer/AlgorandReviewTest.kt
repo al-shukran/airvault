@@ -55,13 +55,14 @@ class AlgorandReviewTest {
         assetSender = null,
     )
 
-    private fun reviewOf(txn: AlgoTxn): Review = AlgorandRequestReview(
+    private fun reviewOf(txn: AlgoTxn, origin: String? = null): Review = AlgorandRequestReview(
         accountIndex = 0,
         signer = sender,
         txn = txn,
         network = network,
         signData = ByteArray(0),
         requestId = null,
+        origin = origin,
     ).toReview()
 
     private fun Review.labels(): List<String> = sections.flatMap { it.rows }.map { it.label }
@@ -98,6 +99,21 @@ class AlgorandReviewTest {
         val warning = reviewOf(payment(closeTo = ByteArray(32) { 5 })).warnings.single { it.code == "algorand.close-to" }
         assertEquals(Danger.DANGER, warning.level)
         assertNotNull(warning.acknowledge)
+    }
+
+    /** The origin the wallet names is its claim: it shows under its label with the note that Lensly cannot verify it, and the review covers it. */
+    @Test
+    fun anOriginIsShownAsAClaimThatLenslyCannotVerify() {
+        val review = reviewOf(payment(), origin = "Lumio")
+        val row = review.sections.flatMap { it.rows }.single { it.label == "Claimed by Request (Not Verified)" }
+        assertEquals("Lumio", row.value.text())
+        assertEquals(listOf("Named by the wallet. Lensly cannot verify it."), row.notes)
+        assertTrue(review.unaccounted().isEmpty(), "the origin row accounts for the origin field")
+    }
+
+    @Test
+    fun aRequestWithNoOriginHasNoOriginRow() {
+        assertTrue("Claimed by Request (Not Verified)" !in reviewOf(payment()).labels())
     }
 
     /** The chain ID is the first 32 characters of the URL-safe base64 genesis hash: `+` and `/` in standard base64 become `-` and `_`. */

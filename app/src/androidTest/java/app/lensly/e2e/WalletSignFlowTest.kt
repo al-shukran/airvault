@@ -104,17 +104,16 @@ class WalletSignFlowTest : SignFlowE2eBase() {
         (review.sections.first().rows.single { it.label == label }.value as DisplayValue.Address).address
 
     /**
-     * The pairing export of the wallet is the `ur:crypto-multi-accounts` an online wallet imports, and its first account key must carry the
-     * account public key and chain code the wallet was made with.
+     * The pairing export of the wallet is the one `ur:crypto-hdkey` an online wallet imports, and its key must carry the account public key
+     * and chain code the wallet was made with.
      */
     private fun checkPairingExport(xpub: AccountXpub, fingerprint: Int) {
-        val exportParts = PairingExport.urParts(listOf(xpub), fingerprint, "0.1.0", E2E_WALLET_NAME)
+        val exportParts = PairingExport.urParts(listOf(xpub), fingerprint, E2E_WALLET_NAME)
         val exportScanner = UrScanner()
         exportParts.forEach { part -> assertTrue("the pairing part must scan back: $part", exportScanner.receive(part)) }
         val exportUr = requireNotNull(exportScanner.result()) { "the pairing export must form one UR" }
-        assertEquals("crypto-multi-accounts", exportUr.type)
-        val exportKey = ((fieldsOf(exportUr)[2L] as Cbor.Arr).items.first() as Cbor.Tagged).value as Cbor.Dict
-        val exportFields = exportKey.entries.associate { (key, value) -> (key as Cbor.Uint).value to value }
+        assertEquals("crypto-hdkey", exportUr.type)
+        val exportFields = fieldsOf(exportUr)
         assertArrayEquals(xpub.publicKey, (exportFields[3L] as Cbor.Bytes).value)
         assertArrayEquals(xpub.chainCode, (exportFields[4L] as Cbor.Bytes).value)
     }

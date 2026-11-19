@@ -1,0 +1,87 @@
+package app.lensly.core.registry
+
+import app.airvault.chains.evm.signer.TypedValue
+import app.lensly.core.wallet.toHex
+import java.math.BigInteger
+
+private const val ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+/** The four members the SDKs of these domains declare. A domain that declares another member, such as a salt, is not labelled. */
+private val SDK_DOMAIN_MEMBERS = setOf("name", "version", "chainId", "verifyingContract")
+
+/**
+ * The primary types that Hyperliquid's user-signed actions sign on the domain of chain 421614. hyperliquid-python-sdk, hyperliquid/utils/signing.py:
+ * each action helper calls sign_user_signed_action, and that sets signatureChainId to 0x66eee.
+ */
+private val HYPERLIQUID_USER_SIGNED = setOf(
+    "HyperliquidTransaction:ApproveAgent",
+    "HyperliquidTransaction:ApproveBuilderFee",
+    "HyperliquidTransaction:ConvertToMultiSigUser",
+    "HyperliquidTransaction:SendAsset",
+    "HyperliquidTransaction:SendMultiSig",
+    "HyperliquidTransaction:SpotSend",
+    "HyperliquidTransaction:TokenDelegate",
+    "HyperliquidTransaction:UsdClassTransfer",
+    "HyperliquidTransaction:UsdSend",
+    "HyperliquidTransaction:UserDexAbstraction",
+    "HyperliquidTransaction:UserSetAbstraction",
+    "HyperliquidTransaction:Withdraw",
+)
+
+/**
+ * An off-chain signing domain that has a friendly product label. A typed-data message gets the label when its domain declares exactly the four
+ * SDK members, equals this domain's name, version, chain ID and verifying contract, and its primary type is one of [primaryTypes]. The review then
+ * titles the signature with [title]. The label adds to the review. It never decides whether a message can be signed.
+ */
+data class OffChainDomain(
+    val name: String,
+    val version: String,
+    val chainId: Long,
+    /** Lowercase 0x-prefixed 20-byte address. */
+    val verifyingContract: String,
+    /** The product the signature is for. */
+    val label: String,
+    /** The primary types the product signs on this domain. */
+    val primaryTypes: Set<String>,
+    /** True when the message carries a hash of the action and not the action, so the review cannot show what the action does. */
+    val hashesAction: Boolean = false,
+) {
+    /** The title the review gives the signature. */
+    val title: String get() = "Off-Chain Signature for $label"
+}
+
+/**
+ * The off-chain domains that get a product label. Each entry is the exact domain of a published message format, and its source is named beside it.
+ */
+val OFF_CHAIN_DOMAINS: List<OffChainDomain> = listOf(
+    // Hyperliquid L1 action, the phantom agent of source "a" or "b", primary type Agent. hyperliquid-python-sdk,
+    // hyperliquid/utils/signing.py, l1_payload.
+    OffChainDomain("Exchange", "1", 1337, ZERO_ADDRESS, "Hyperliquid", setOf("Agent"), hashesAction = true),
+    // Hyperliquid user-signed actions. signing.py, user_signed_payload; sign_user_signed_action sets signatureChainId to 0x66eee (421614).
+    OffChainDomain("HyperliquidSignTransaction", "1", 421614, ZERO_ADDRESS, "Hyperliquid", HYPERLIQUID_USER_SIGNED),
+    // AsterDex agent approval, registerAndApproveAgent, for an EVM user. github.com/asterdex/api-docs, V3 futures doc,
+    // "Register and Approve Agent"; its primaryType is Message.
+    OffChainDomain("AsterSignTransaction", "1", 56, ZERO_ADDRESS, "AsterDex", setOf("Message")),
+    // AsterDex master-account signature, such as sub-account creation. The same doc, "Supported Signing Algorithms" (chainId=1666).
+    OffChainDomain("AsterSignTransaction", "1", 1666, ZERO_ADDRESS, "AsterDex", setOf("Message")),
+)
+
+/**
+ * The labelled off-chain domain that [domain] is, or null. The domain must declare exactly the four SDK members, and each must equal the entry's.
+ * A domain that declares another member is not labelled.
+ */
+fun offChainDomainOf(domain: TypedValue.StructValue): OffChainDomain? {
+    if (domain.fields.keys != SDK_DOMAIN_MEMBERS) return null
+    val name = (domain.fields["name"] as? TypedValue.TextValue)?.value ?: return null
+    val version = (domain.fields["version"] as? TypedValue.TextValue)?.value ?: return null
+    val chainId = (domain.fields["chainId"] as? TypedValue.IntValue)?.value ?: return null
+    val contract = (domain.fields["verifyingContract"] as? TypedValue.BytesValue)?.let { "0x" + it.bytes.toHex() } ?: return null
+    return OFF_CHAIN_DOMAINS.firstOrNull { entry ->
+        entry.name == name && entry.version == version && BigInteger.valueOf(entry.chainId) == chainId &&
+            entry.verifyingContract == contract
+    }
+}
+
+/** The label of a message with [primaryType] on [domain]: the domain must be labelled, and its product must sign that primary type on it. */
+fun offChainLabelOf(domain: TypedValue.StructValue, primaryType: String): OffChainDomain? =
+    offChainDomainOf(domain)?.takeIf { primaryType in it.primaryTypes }

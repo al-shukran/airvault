@@ -191,6 +191,15 @@ class AlgoSignRequestTest {
     }
 
     @Test
+    fun anOriginWithACharacterTheOwnerCannotReadIsRefused() {
+        // U+202E is a right-to-left override, which would reorder the line the origin is shown on. A control character is refused too.
+        assertEquals(AlgoSignRequest.UNREADABLE_ORIGIN, rejectedReason(payload(5L to Cbor.Text("app.example‮"))))
+        assertEquals(AlgoSignRequest.UNREADABLE_ORIGIN, rejectedReason(payload(5L to Cbor.Text("app\u0007"))))
+        // A line break is readable, so it is kept, as it is in a Solana message.
+        assertEquals("line\nbreak", okOf(AlgoSignRequest.decode(payload(5L to Cbor.Text("line\nbreak")))).origin)
+    }
+
+    @Test
     fun aPayloadPastTheLimitIsRefusedBeforeItIsParsed() {
         val tooBig = ByteArray(AlgoSignRequest.MAX_PAYLOAD_BYTES + 1)
         assertTrue(rejectedReason(tooBig).contains("exceeds"))
