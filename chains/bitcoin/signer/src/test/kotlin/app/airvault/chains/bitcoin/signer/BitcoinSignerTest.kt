@@ -7,6 +7,7 @@ import kotlin.test.assertTrue
 import org.junit.Test
 
 class BitcoinSignerTest {
+    private val signer = BitcoinSigner()
     private val mainnet = bitcoinManifest.networks.first { !it.testnet }.chainId
     private val testnet4 = bitcoinManifest.networks.first { it.testnet }.chainId
 
@@ -18,14 +19,14 @@ class BitcoinSignerTest {
     fun theAddressCodecGivesTheNativeSegwitAddressOfAKey() {
         assertEquals(
             "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
-            BitcoinSigner.addresses.fromPublicKey(mainnet, publicKey, AddressKind.DEFAULT),
+            signer.addresses.fromPublicKey(mainnet, publicKey, AddressKind.DEFAULT),
         )
     }
 
     @Test
     fun aTestnet4AddressIsParsedOnItsOwnNetwork() {
-        val address = BitcoinSigner.addresses.fromPublicKey(testnet4, publicKey, AddressKind.DEFAULT)
+        val address = signer.addresses.fromPublicKey(testnet4, publicKey, AddressKind.DEFAULT)
         assertTrue(address.startsWith("tb1q"))
-        assertEquals(AddressResult.Valid(address, AddressKind.DEFAULT), BitcoinSigner.addresses.parse(testnet4, address))
+        assertEquals(AddressResult.Valid(address, AddressKind.DEFAULT), signer.addresses.parse(testnet4, address))
     }
 }

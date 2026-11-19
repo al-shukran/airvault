@@ -15,7 +15,6 @@ import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
-import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -208,14 +207,6 @@ class SignFlowSolanaTest {
             error("an EVM request is not expected in the Solana tests")
 
         override suspend fun record(entry: ReviewEntry): Unit = error("an EVM request is not expected in the Solana tests")
-
-        override suspend fun recordBitcoin(entry: BitcoinReviewEntry): Unit = error("a Bitcoin request is not expected here")
-
-        override suspend fun bitcoinPrepare(walletId: String, psbt: ByteArray): BitcoinPrepared =
-            error("a Bitcoin request is not expected here")
-
-        override suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String> =
-            error("a Bitcoin request is not expected here")
 
         override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++

@@ -1,6 +1,19 @@
 package app.lensly.core.btc
 
+import app.airvault.chains.bitcoin.signer.BitcoinSigner
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.signer.toReview
+import app.airvault.core.model.Approval
+import app.airvault.core.model.NetworkLabel
+import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.RequestHeader
+import app.airvault.core.signer.RequestKind
+import app.airvault.core.signer.SignerRef
+import app.lensly.core.ur.PathStep
+import app.lensly.core.wallet.WalletKeyAccess
+import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.SigHash
 import fr.acinq.bitcoin.psbt.Psbt
 import fr.acinq.bitcoin.utils.Either
@@ -70,6 +83,41 @@ class BtcSignerPsbtIdentityTest {
             Psbt.write(signed).toByteArray(),
         )
         assertTrue(signed.inputs[1].partialSigs.isEmpty(), "the foreign input must stay unsigned")
+    }
+
+    /**
+     * The one sign flow answers with the bytes Psbt.sign writes. [BitcoinSigner] signs the request the parser names, under the approval of the review,
+     * and its response is the PSBT that the oracle signs, for every Script Type.
+     */
+    @Test
+    fun theOneSignFlowAnswersWithTheBytesPsbtSignWrites() {
+        for (type in ScriptType.entries) {
+            val account = BtcAccount.fromSeed(seed, testnet4, type)
+            val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+            val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, paid = 30_000L, change = 60_000L))
+            val review = BtcFixtures.signerOf(account, seed).review(psbt).toReview(
+                chain = bitcoinManifest.networks.single { it.testnet }.chainId,
+                network = NetworkLabel(name = "Bitcoin Testnet4", testnet = true, detail = null),
+                scriptType = type.name,
+            )
+            val signer = SignerRef(
+                account.masterFingerprint.toInt(),
+                listOf(PathStep(type.purpose, hardened = true), PathStep(1, hardened = true), PathStep(0, hardened = true)),
+            )
+            val request = AppRequest(
+                RequestHeader(bitcoinManifest.id, review.chain, RequestKind.TRANSACTION, listOf(signer), requestId = null),
+                Psbt.write(psbt).toByteArray(),
+            )
+
+            val response = BitcoinSigner().sign(request, checkNotNull(Approval.of(review, emptySet())), WalletKeyAccess(seed))
+            val signed = BtcPsbt.fromUr(UR(response.urType, response.cbor))
+
+            assertContentEquals(
+                Psbt.write(oracle(psbt, listOf(0 to spend))).toByteArray(),
+                Psbt.write(signed).toByteArray(),
+                type.name,
+            )
+        }
     }
 
     /**
