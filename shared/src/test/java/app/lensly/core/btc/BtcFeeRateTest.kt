@@ -27,7 +27,7 @@ class BtcFeeRateTest {
             val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
             val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 30_000L, 60_000L))
             val estimate = BtcFeeRate.estimatedVsize(psbt.global.tx, type)
-            val tx = BtcFixtures.finalize(BtcSigner(account).sign(psbt).psbt, listOf(spend))
+            val tx = BtcFixtures.finalize(BtcFixtures.signerOf(account, seed).sign(psbt).psbt, listOf(spend))
             val actual = (Transaction.weight(tx).toLong() + 3L) / 4L
             assertTrue(abs(estimate - actual) <= 2L, "${type.name}: estimated $estimate vbytes, signed $actual")
         }

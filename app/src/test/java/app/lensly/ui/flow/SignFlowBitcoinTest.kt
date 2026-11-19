@@ -21,7 +21,6 @@ import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
-import app.lensly.core.btc.BtcSigner
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.parse.ScanReply
@@ -53,7 +52,8 @@ private fun bitcoinRequest(withPreviousTransaction: Boolean = true): Psbt {
 /** The review the app's wallet store would hand the flow for [psbt], under the given input policy. */
 private fun readyOf(psbt: Psbt, policy: InputVerificationPolicy = InputVerificationPolicy.STRICT): BitcoinPrepared.Ready {
     val record = BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, BTC_ACCOUNT.receiveAddress(0))
-    return BitcoinPrepared.Ready(BTC_WALLET_ID, psbt, BitcoinReviewed(record, BtcSigner(BTC_ACCOUNT, policy).review(psbt), SAMPLE_SIGNER))
+    val review = BtcFixtures.signerOf(BTC_ACCOUNT, BTC_SEED, policy).review(psbt)
+    return BitcoinPrepared.Ready(BTC_WALLET_ID, psbt, BitcoinReviewed(record, review, SAMPLE_SIGNER))
 }
 
 /** Feeds the frames of one scanned code to [flow], stopping once the flow has left the scanning step. */

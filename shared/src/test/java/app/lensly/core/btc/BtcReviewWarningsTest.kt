@@ -23,7 +23,7 @@ class BtcReviewWarningsTest {
     fun aCleanReviewHasNoWarnings() {
         // A 1,000 sat fee on 60,000 sat sent is under the default share limit, and its rate is under the default rate limit.
         val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
-        val review = BtcSigner(account).review(BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L)))
+        val review = BtcFixtures.signerOf(account, seed).review(BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L)))
         assertEquals(emptyList(), review.warnings())
     }
 
@@ -34,7 +34,7 @@ class BtcReviewWarningsTest {
             BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0),
             BtcFixtures.Spend(BtcFixtures.funding(foreign, 0, 0, 50_000L, salt = 2), foreign, 0, 0),
         )
-        val review = BtcSigner(account).review(BtcFixtures.psbt(spends, BtcFixtures.paying(account, 120_000L, 20_000L)))
+        val review = BtcFixtures.signerOf(account, seed).review(BtcFixtures.psbt(spends, BtcFixtures.paying(account, 120_000L, 20_000L)))
         assertEquals(listOf(BtcWarning.ExternalInputs(1)), review.warnings())
     }
 
@@ -46,7 +46,7 @@ class BtcReviewWarningsTest {
             BtcFixtures.paying(account, 30_000L, 60_000L),
             withPreviousTransaction = false,
         )
-        val review = BtcSigner(account, InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING).review(psbt)
+        val review = BtcFixtures.signerOf(account, seed, InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING).review(psbt)
         assertTrue(review.requiresConfirmation)
         assertNull(review.feeSats)
         assertEquals(listOf(BtcWarning.UnverifiedAmounts(1)), review.warnings())
@@ -97,7 +97,7 @@ class BtcReviewWarningsTest {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
         // A 1,000 sat fee keeps the fee warnings quiet, so the lock is the only warning.
         val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L), lockTime = 850_000L)
-        val review = BtcSigner(account).review(psbt)
+        val review = BtcFixtures.signerOf(account, seed).review(psbt)
         assertEquals(850_000L, review.lockTime)
         // The default sequence signals replace-by-fee, and that is what the review shows for the input.
         assertTrue(review.inputs.single().replaceableByFee)
@@ -114,7 +114,7 @@ class BtcReviewWarningsTest {
             sequence = FINAL_SEQUENCE,
             lockTime = 850_000L,
         )
-        val review = BtcSigner(account).review(psbt)
+        val review = BtcFixtures.signerOf(account, seed).review(psbt)
         assertEquals(850_000L, review.lockTime)
         assertFalse(review.inputs.single().replaceableByFee)
         assertFalse(review.lockTimeEnforced)
@@ -130,7 +130,7 @@ class BtcReviewWarningsTest {
             sequence = 0xFFFFFFFEL,
             lockTime = 850_000L,
         )
-        val review = BtcSigner(account).review(psbt)
+        val review = BtcFixtures.signerOf(account, seed).review(psbt)
         assertFalse(review.inputs.single().replaceableByFee)
         assertTrue(review.lockTimeEnforced)
     }
@@ -139,7 +139,7 @@ class BtcReviewWarningsTest {
     fun aFeeAboveTheOwnersRateLimitIsAHighFeeRateWarning() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 30_000L, 60_000L))
-        val review = BtcSigner(account, feeThresholds = BtcFeeThresholds(highFeeRateSatPerVb = 1, feeSharePercent = 100))
+        val review = BtcFixtures.signerOf(account, seed, feeThresholds = BtcFeeThresholds(highFeeRateSatPerVb = 1, feeSharePercent = 100))
             .review(psbt)
         assertEquals(1, review.warnings().filterIsInstance<BtcWarning.HighFeeRate>().size)
         assertTrue(review.warnings().none { it is BtcWarning.HighFeeShare })
@@ -149,8 +149,9 @@ class BtcReviewWarningsTest {
     fun aFeeOfAnUnverifiedRequestHasNoFeeWarning() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 30_000L, 60_000L), withPreviousTransaction = false)
-        val review = BtcSigner(
+        val review = BtcFixtures.signerOf(
             account,
+            seed,
             InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING,
             feeThresholds = BtcFeeThresholds(highFeeRateSatPerVb = 1, feeSharePercent = 1),
         ).review(psbt)
