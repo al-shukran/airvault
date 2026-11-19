@@ -19,6 +19,7 @@ import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.airvault.core.model.checkLabels
 import app.airvault.core.model.text
+import app.airvault.core.model.unaccounted
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
@@ -68,7 +69,8 @@ fun ReviewScreen(
             bottomAction = {
                 ReviewActions(
                     hint = readHint(read) ?: tickHint(owed),
-                    approvable = read.read && owed == 0 && review.warnings.none { it.level == Danger.BLOCK },
+                    approvable = read.read && owed == 0 && review.warnings.none { it.level == Danger.BLOCK } &&
+                        review.unaccounted().isEmpty(),
                     onApprove = onApprove,
                     onReject = onReject,
                 )
