@@ -4,9 +4,9 @@ import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.TxType
 import app.airvault.chains.evm.signer.UnsignedTx
+import app.airvault.chains.evm.wallet.EvmWallet
 import app.lensly.core.evm.TxSigner
 import app.lensly.core.ur.EthSignature
-import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 import app.lumio.DebugEvmFunds
 import app.lumio.data.sched.Priority
@@ -112,15 +112,6 @@ object EvmSend {
     private val TOKEN_TRANSFER = BigInteger.valueOf(TOKEN_TRANSFER_GAS)
     private val TWO = BigInteger.valueOf(2)
 
-    /** The account path m/44'/60'/[index]'/0/0 that a sign request names. */
-    fun derivationPath(index: Int): List<PathStep> = listOf(
-        PathStep(44, true),
-        PathStep(60, true),
-        PathStep(index, true),
-        PathStep(0, false),
-        PathStep(0, false),
-    )
-
     /**
      * Reads what a send of [valueWei] from [from] needs on [chain], and builds it: the balances, the pending nonce, the priority fee, a fee cap of
      * twice the next base fee plus the priority fee, and the gas. A [token] send moves that token's [valueWei] in its base units, and its balance
@@ -165,7 +156,7 @@ object EvmSend {
         signData = send.payload,
         dataType = DataType.TYPED_TRANSACTION,
         chainId = send.chain.chainId,
-        derivationPath = derivationPath(send.index),
+        derivationPath = EvmWallet.pathOf(send.index),
         sourceFingerprint = fingerprint.toInt(),
         address = Numeric.hexStringToByteArray(send.from),
         origin = ORIGIN,
