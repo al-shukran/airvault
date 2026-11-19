@@ -2,8 +2,16 @@ package app.lensly.ui.flow
 
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolanaInstruction
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaSigner
+import app.airvault.chains.solana.signer.toReview
+import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.Approval
 import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.ScopedKeyAccess
+import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
@@ -11,19 +19,20 @@ import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
-import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
+import app.lensly.app.sign.solanaCounterparties
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.solana.SolanaAccount
-import app.airvault.chains.solana.signer.SolanaInstruction
-import app.airvault.chains.solana.signer.SolanaRequestCheck
-import app.lensly.core.ur.Cbor
-import app.lensly.core.ur.SolSignatureEncoder
-import app.lensly.core.ur.UrScanner
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.Ed25519Signer
+import app.lensly.core.wallet.WalletKeyAccess
+import app.lensly.ui.flow.SolanaRequestFixtures.SYSTEM_ADDRESS
+import app.lensly.ui.flow.SolanaRequestFixtures.legacyTransfer
+import app.lensly.ui.flow.SolanaRequestFixtures.partOf
+import app.lensly.ui.flow.SolanaRequestFixtures.signatureOf
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
@@ -35,12 +44,12 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * The Solana sign flow: a scanned sol-sign-request is reviewed, approved, checked with the App Password, and answered with a
- * sol-signature. The ports are a fake. The scan goes through the real Parser Sandbox parser.
+ * The Solana sign flow: a scanned sol-sign-request is reviewed, approved, checked with the App Password, and answered with a sol-signature. The
+ * ports are a fake, and the signature is made by the real [SolanaSigner] over the wallet's key access. The scan goes through the real Parser
+ * Sandbox parser. The app's own checks (the requestId, the wallet's fingerprint and the stored key) are tested in VaultSignPortsTest.
  */
 class SignFlowSolanaTest {
 
@@ -51,8 +60,8 @@ class SignFlowSolanaTest {
 
         flow.onScanned(partOf(requestCbor(transfer())))
 
-        val review = assertIs<SignStep.SolanaReview>(flow.state.value)
-        assertEquals(0, review.ready.review.accountIndex)
+        val review = assertIs<SignStep.AppReview>(flow.state.value)
+        assertEquals(0, review.ready.accountIndex)
         flow.approve()
         flow.confirm("the password".toCharArray())
 
@@ -70,8 +79,8 @@ class SignFlowSolanaTest {
 
         flow.onScanned(partOf(requestCbor(message)))
 
-        val review = assertIs<SignStep.SolanaReview>(flow.state.value)
-        assertTrue(review.ready.review.instructions.any { it is SolanaInstruction.TokenTransferChecked })
+        assertIs<SignStep.AppReview>(flow.state.value)
+        assertTrue(ports.reviewed.single().instructions.any { it is SolanaInstruction.TokenTransferChecked })
         flow.approve()
         flow.confirm("the password".toCharArray())
 
@@ -87,7 +96,7 @@ class SignFlowSolanaTest {
 
         flow.onScanned(partOf(requestCbor(transfer())))
 
-        assertEquals(WALLET, assertIs<SignStep.SolanaReview>(flow.state.value).ready.walletId)
+        assertEquals(WALLET, assertIs<SignStep.AppReview>(flow.state.value).ready.walletId)
     }
 
     @Test
@@ -118,18 +127,6 @@ class SignFlowSolanaTest {
     }
 
     @Test
-    fun aRequestWithoutARequestIdIsRefused() = runBlocking {
-        val ports = SolanaPorts()
-        val flow = SignFlow(ports, walletId = WALLET)
-
-        flow.onScanned(partOf(requestCbor(transfer(), requestId = null)))
-
-        assertIs<SignStep.Refused>(flow.state.value)
-        assertEquals(listOf(ReviewOutcome.REFUSED), ports.records.map { it.outcome })
-        assertEquals(0, ports.signCalls)
-    }
-
-    @Test
     fun aWrongPasswordSignsNothingAndStaysOnTheHoldToSign() = runBlocking {
         val ports = SolanaPorts(password = PasswordCheck.Rejected)
         val flow = SignFlow(ports, walletId = WALLET)
@@ -138,9 +135,24 @@ class SignFlowSolanaTest {
         flow.approve()
         flow.confirm("wrong".toCharArray())
 
-        assertEquals(false, assertIs<SignStep.SolanaConfirming>(flow.state.value).busy)
+        assertEquals(false, assertIs<SignStep.AppConfirming>(flow.state.value).busy)
         assertEquals(0, ports.signCalls)
         assertTrue(ports.records.isEmpty())
+    }
+
+    /** A signer that refuses signs nothing, and the refusal is shown and recorded with the reason it gives. */
+    @Test
+    fun aSigningRefusalSignsNothingAndIsRecordedWithItsReason() = runBlocking {
+        val ports = SolanaPorts(signRefusal = KEY_REFUSAL)
+        val flow = SignFlow(ports, walletId = WALLET)
+        flow.onScanned(partOf(requestCbor(transfer())))
+
+        flow.approve()
+        flow.confirm("the password".toCharArray())
+
+        assertEquals(SignStep.Refused(KEY_REFUSAL), flow.state.value)
+        assertEquals(listOf(ReviewOutcome.REFUSED), ports.records.map { it.outcome })
+        assertEquals(KEY_REFUSAL, ports.records.single().refusal)
     }
 
     @Test
@@ -172,8 +184,11 @@ class SignFlowSolanaTest {
         private val password: PasswordCheck = PasswordCheck.Accepted,
         private val parser: RequestParser = inProcessSandboxParser,
         private val wallets: List<WalletView> = emptyList(),
+        /** The reason the signer refuses with, or null when it signs. */
+        private val signRefusal: String? = null,
     ) : SignFlowPorts {
-        val records = mutableListOf<SolanaReviewEntry>()
+        val records = mutableListOf<AppReviewEntry>()
+        val reviewed = mutableListOf<SolanaRequestReview>()
         var prepareCalls = 0
         var signCalls = 0
 
@@ -202,54 +217,61 @@ class SignFlowSolanaTest {
         override suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String> =
             error("a Bitcoin request is not expected here")
 
-        override suspend fun solanaPrepare(walletId: String, request: SolSignRequest): SolanaPrepared {
+        override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++
-            if (request.sourceFingerprint != FINGERPRINT) return SolanaPrepared.Refused("This request is for a different wallet")
-            return when (val checked = SolanaRequestCheck.check(request, keys)) {
-                is SolanaRequestCheck.Result.Ok -> SolanaPrepared.Ready(walletId, request, checked.review, SAMPLE_SIGNER, emptyMap())
-                is SolanaRequestCheck.Result.Refused -> SolanaPrepared.Refused(checked.reason)
+            val sol = when (val decoded = SolSignRequest.decode(request.body)) {
+                is SolSignRequest.Result.Ok -> decoded.request
+                is SolSignRequest.Result.Rejected -> return AppPrepared.Refused(decoded.reason)
+            }
+            if (sol.sourceFingerprint != FINGERPRINT) return AppPrepared.Refused("This request is for a different wallet")
+            return when (val checked = SolanaRequestCheck.check(sol, keys)) {
+                is SolanaRequestCheck.Result.Ok -> {
+                    reviewed += checked.review
+                    AppPrepared.Ready(
+                        walletId = walletId,
+                        request = request,
+                        review = checked.review.toReview(),
+                        accountIndex = checked.review.accountIndex,
+                        signer = SAMPLE_SIGNER,
+                        addressChain = SOLANA_FAMILY,
+                        counterparties = solanaCounterparties(checked.review),
+                        addressNotes = emptyMap(),
+                    )
+                }
+                is SolanaRequestCheck.Result.Refused -> AppPrepared.Refused(checked.reason)
             }
         }
 
-        override suspend fun solanaSign(ready: SolanaPrepared.Ready): List<String> {
+        override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> {
             signCalls++
-            val key = SolanaAccount.node(SEED, ready.review.accountIndex).use { it.privateKey() }
-            try {
-                val signature = Ed25519Signer.sign(key, ready.request.signData)
-                return partsOf(SolSignatureEncoder.encode(assertNotNull(ready.request.requestId), signature))
-            } finally {
-                key.fill(0)
-            }
+            signRefusal?.let { throw IllegalArgumentException(it) }
+            val response = SolanaSigner.sign(ready.request, approval, ScopedKeyAccess(solanaManifest.keys, WalletKeyAccess(SEED)))
+            return partsOf(framesOf(UR(response.urType, response.cbor), DEFAULT_MAX_FRAGMENT))
         }
 
-        override suspend fun recordSolana(entry: SolanaReviewEntry) {
+        override suspend fun recordApp(entry: AppReviewEntry) {
             records += entry
         }
-
-        override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared =
-            error("an Algorand request is not expected in the Solana tests")
-
-        override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> =
-            error("an Algorand request is not expected in the Solana tests")
-
-        override suspend fun recordApp(entry: AppReviewEntry): Unit =
-            error("an Algorand request is not expected in the Solana tests")
     }
 
     private companion object {
         const val WALLET = "solana-wallet"
         const val FINGERPRINT = 0x12121212
-        const val SYSTEM_ADDRESS = "11111111111111111111111111111111"
         const val TABLE = "CUDp5gcuAm64fAXUdWviywAdmrnTbrMbFPmP5u7tUL8q"
         const val TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         const val USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-        val REQUEST_ID = ByteArray(16) { 0x11 }
         const val MNEMONIC_A = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        const val KEY_REFUSAL = "Key does not match account"
         val SEED: ByteArray = MnemonicUtils.generateSeed(MNEMONIC_A, "")
         val SOLANA_KEYS: List<ByteArray> = (0..1).map { SolanaAccount.publicKey(SEED, it) }
+        val ACCOUNT_0 = listOf(44L to true, 501L to true, 0L to true)
 
-        /** A legacy transfer of 1000 lamports from account 0 of the wallet to a stranger, so account 0 is its one signer. */
-        fun transfer(): ByteArray = legacyTransfer(listOf(SOLANA_KEYS[0], ByteArray(32) { 9 }, Base58.decode(SYSTEM_ADDRESS)))
+        /** A sol-sign-request for [signData] from this wallet, on the account at [path]. */
+        fun requestCbor(signData: ByteArray, path: List<Pair<Long, Boolean>> = ACCOUNT_0): ByteArray =
+            SolanaRequestFixtures.requestCbor(signData, FINGERPRINT, path)
+
+        /** A legacy transfer from account 0 of the wallet, so account 0 is its one signer. */
+        fun transfer(): ByteArray = legacyTransfer(SOLANA_KEYS[0])
 
         /** A v0 message that moves 1000 lamports from [payer] to account 2, which is loaded from [TABLE] at index 0. */
         fun v0FromLookupTable(payer: ByteArray): ByteArray {
@@ -272,18 +294,6 @@ class SignFlowSolanaTest {
             out.write(1)
             out.write(0)
             out.write(0)
-            return out.toByteArray()
-        }
-
-        fun legacyTransfer(keys: List<ByteArray>): ByteArray {
-            val data = java.nio.ByteBuffer.allocate(12).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(2).putLong(1_000L).array()
-            val out = java.io.ByteArrayOutputStream()
-            out.write(byteArrayOf(1, 0, 1))
-            out.write(keys.size)
-            keys.forEach { out.write(it) }
-            out.write(ByteArray(32) { 7 })
-            out.write(byteArrayOf(1, 2, 2, 0, 1, 12))
-            out.write(data)
             return out.toByteArray()
         }
 
@@ -312,42 +322,6 @@ class SignFlowSolanaTest {
             out.write(data.size)
             out.write(data)
             return out.toByteArray()
-        }
-
-        /** A sol-sign-request for [signData] on account 0 of the wallet, as a wallet sends it. Pass null for [requestId] to leave it out. */
-        fun requestCbor(
-            signData: ByteArray,
-            path: List<Pair<Long, Boolean>> = listOf(44L to true, 501L to true, 0L to true),
-            requestId: ByteArray? = REQUEST_ID,
-        ): ByteArray {
-            val components = path.flatMap { (index, hardened) -> listOf(Cbor.Uint(index), Cbor.Bool(hardened)) }
-            val keypath = Cbor.Tagged(
-                304,
-                Cbor.Dict(listOf(Cbor.Uint(1L) to Cbor.Arr(components), Cbor.Uint(2L) to Cbor.Uint(FINGERPRINT.toLong()))),
-            )
-            val fields = listOfNotNull(
-                requestId?.let { Cbor.Uint(1L) to Cbor.Tagged(37, Cbor.Bytes(it)) },
-                Cbor.Uint(2L) to Cbor.Bytes(signData),
-                Cbor.Uint(3L) to keypath,
-                Cbor.Uint(5L) to Cbor.Text("solflare"),
-                Cbor.Uint(6L) to Cbor.Uint(1L),
-            )
-            return Cbor.encode(Cbor.Dict(fields))
-        }
-
-        /** The one frame of a request that fits in one QR code. */
-        fun partOf(cbor: ByteArray): String = framesOf(UR("sol-sign-request", cbor), maxFragment = 4096).first()
-
-        /** The 64-byte signature inside a single `ur:sol-signature` frame. */
-        fun signatureOf(parts: List<String>): ByteArray {
-            val scanner = UrScanner()
-            assertTrue(scanner.receive(parts.single()))
-            val ur = assertNotNull(scanner.result())
-            assertEquals("sol-signature", ur.type)
-            val fields = (Cbor.decode(ur.cborBytes) as Cbor.Dict).entries.associate { (key, value) ->
-                (key as Cbor.Uint).value to value
-            }
-            return (fields.getValue(2L) as Cbor.Bytes).value
         }
     }
 }

@@ -6,9 +6,14 @@ import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.toReview
+import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainId
+import app.airvault.core.model.Curve
 import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.KeyAccess
+import app.airvault.core.signer.Path
 import app.airvault.core.signer.ScopedKeyAccess
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookStore
@@ -38,7 +43,6 @@ import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.app.sign.SignPipeline
-import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.algorandCounterparties
 import app.lensly.app.sign.appRequestFactsOf
@@ -47,7 +51,6 @@ import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.evmCounterparties
 import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.sign.solanaCounterparties
-import app.lensly.app.sign.solanaReviewRecordOf
 import app.lensly.app.visualIdentity
 import app.lensly.chains.signerRegistry
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
@@ -61,7 +64,6 @@ import app.airvault.chains.solana.signer.SolanaRequestCheck
 import app.airvault.chains.solana.signer.SolanaTokenList
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.framesOf
-import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
@@ -83,6 +85,12 @@ private const val SOLANA_NO_ACCOUNTS = "This wallet has no Solana accounts."
 
 /** The refusal of a Solana request that could not be reviewed for a reason other than its rules. Nothing is signed for it. */
 private const val SOLANA_UNREADABLE = "This Solana request could not be reviewed. Nothing was signed."
+
+/** The refusal of a Solana request with no requestId, which its response must echo. Nothing is signed for it. */
+private const val SOLANA_NO_REQUEST_ID = "Request has no ID"
+
+/** The refusal of a Solana key that is not the public key the wallet stores for the reviewed account. Nothing is signed for it. */
+private const val SOLANA_KEY_MISMATCH = "Key does not match account"
 
 /** The refusal of an Algorand request to a Single Key wallet, which has no Algorand accounts. Nothing is signed for it. */
 private const val ALGORAND_NO_ACCOUNTS = "This wallet has no Algorand accounts."
@@ -295,74 +303,12 @@ internal class VaultSignPorts(
     }
 
     /**
-     * Reviews the Solana [request] against wallet [walletId]. The request must name the wallet's master fingerprint, and the review uses
-     * the Solana public keys the wallet stores, so the seed is not read here. A request the rules refuse is [SolanaPrepared.Refused].
-     */
-    override suspend fun solanaPrepare(walletId: String, request: SolSignRequest): SolanaPrepared = withContext(Dispatchers.IO) {
-        val wallet = readWallet { session ->
-            val listed = WalletStore(session).list()
-            val position = listed.indexOfFirst { it.id == walletId }
-            if (position < 0) null else viewOf(session, listed[position], position)
-        }
-        val masterFingerprint = wallet.masterFingerprint ?: return@withContext SolanaPrepared.Refused(SOLANA_NO_ACCOUNTS)
-        val sourceFingerprint = request.sourceFingerprint
-            ?: return@withContext SolanaPrepared.Refused("The request does not say which wallet it is for")
-        if (sourceFingerprint != masterFingerprint) return@withContext SolanaPrepared.Refused("This request is for a different wallet")
-        val keys = readWallet { WalletStore(it).solanaKeys(walletId) }
-        val unknownCalls = readWallet { SettingsStore(it).load().unknownCallPolicy }
-        val checked = guardedCheck(SOLANA_UNREADABLE, { SolanaRequestCheck.Result.Refused(it) }) {
-            checkSolana(request, keys, SolanaTokensHolder.get(context), unknownCalls)
-        }
-        when (checked) {
-            is SolanaRequestCheck.Result.Ok -> {
-                val review = checked.review
-                SolanaPrepared.Ready(
-                    walletId = walletId,
-                    request = request,
-                    review = review,
-                    signer = signerOf(wallet, review.accountIndex, review.signerAddress),
-                    addressNotes = addressNotesFor(walletId, solanaCounterparties(review), SOLANA_FAMILY),
-                )
-            }
-            is SolanaRequestCheck.Result.Refused -> SolanaPrepared.Refused(checked.reason)
-        }
-    }
-
-    /**
-     * Signs the reviewed Solana request with the account it was reviewed under, and returns its `ur:sol-signature` frames. The seed and
-     * the key are zeroed inside [WalletStore].
-     */
-    override suspend fun solanaSign(ready: SolanaPrepared.Ready): List<String> = withContext(Dispatchers.Default) {
-        val session = holder.openSession() ?: throw WalletUnavailable()
-        val requestId = checkNotNull(ready.request.requestId) { "The request has no requestId to echo" }
-        try {
-            val signature = WalletStore(session).solanaSign(ready.walletId, ready.review.accountIndex, ready.request.signData)
-            partsOf(SolSignatureEncoder.encode(requestId, signature))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: IllegalStateException) {
-            throw WalletUnavailable()
-        }
-    }
-
-    /** Writes the Solana [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
-    override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
-        val session = holder.openSession() ?: throw ReviewNotSaved()
-        try {
-            writeRecord(session, entry.walletId, solanaReviewRecordOf(entry, System.currentTimeMillis()))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            throw ReviewNotSaved()
-        }
-    }
-
-    /**
-     * Reviews the request [request] of an installed chain app against wallet [walletId]. Only the Algorand app has a review on the one sign flow
-     * so far, and any other app is refused.
+     * Reviews the request [request] of an installed chain app against wallet [walletId]. The Algorand and Solana apps have a review on the one
+     * sign flow so far, and any other app is refused.
      */
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared = when (request.header.app) {
         algorandManifest.id -> algorandPrepare(walletId, request)
+        solanaManifest.id -> solanaPrepare(walletId, request)
         else -> AppPrepared.Refused(UNSUPPORTED_CODE)
     }
 
@@ -408,6 +354,50 @@ internal class VaultSignPorts(
     }
 
     /**
+     * Reviews the Solana [appRequest] against wallet [walletId]. The request must name a requestId, which its response echoes, and the wallet's
+     * master fingerprint. The review uses the Solana public keys the wallet stores, so the seed is not read here. A request the rules refuse is
+     * [AppPrepared.Refused].
+     */
+    private suspend fun solanaPrepare(walletId: String, appRequest: AppRequest): AppPrepared = withContext(Dispatchers.IO) {
+        val request = when (val decoded = SolSignRequest.decode(appRequest.body)) {
+            is SolSignRequest.Result.Ok -> decoded.request
+            is SolSignRequest.Result.Rejected -> return@withContext AppPrepared.Refused(decoded.reason)
+        }
+        if (request.requestId == null) return@withContext AppPrepared.Refused(SOLANA_NO_REQUEST_ID)
+        val wallet = readWallet { session ->
+            val listed = WalletStore(session).list()
+            val position = listed.indexOfFirst { it.id == walletId }
+            if (position < 0) null else viewOf(session, listed[position], position)
+        }
+        val masterFingerprint = wallet.masterFingerprint ?: return@withContext AppPrepared.Refused(SOLANA_NO_ACCOUNTS)
+        val sourceFingerprint = request.sourceFingerprint
+            ?: return@withContext AppPrepared.Refused("The request does not say which wallet it is for")
+        if (sourceFingerprint != masterFingerprint) return@withContext AppPrepared.Refused("This request is for a different wallet")
+        val keys = readWallet { WalletStore(it).solanaKeys(walletId) }
+        val unknownCalls = readWallet { SettingsStore(it).load().unknownCallPolicy }
+        val checked = guardedCheck(SOLANA_UNREADABLE, { SolanaRequestCheck.Result.Refused(it) }) {
+            checkSolana(request, keys, SolanaTokensHolder.get(context), unknownCalls)
+        }
+        when (checked) {
+            is SolanaRequestCheck.Result.Ok -> {
+                val review = checked.review
+                val counterparties = solanaCounterparties(review)
+                AppPrepared.Ready(
+                    walletId = walletId,
+                    request = appRequest,
+                    review = review.toReview(),
+                    accountIndex = review.accountIndex,
+                    signer = signerOf(wallet, review.accountIndex, review.signerAddress),
+                    addressChain = SOLANA_FAMILY,
+                    counterparties = counterparties,
+                    addressNotes = addressNotesFor(walletId, counterparties, SOLANA_FAMILY),
+                )
+            }
+            is SolanaRequestCheck.Result.Refused -> AppPrepared.Refused(checked.reason)
+        }
+    }
+
+    /**
      * Signs the approved request through its app's `SignerApp.sign`, with the wallet's key access scoped to the app's key scopes, so a path outside
      * them throws [KeyScopeViolation] before any key is derived. The seed is zeroed inside [WalletStore.withKeys].
      */
@@ -416,7 +406,7 @@ internal class VaultSignPorts(
         try {
             val signer = signerRegistry.byChain(ready.request.header.chain) ?: throw IllegalArgumentException(UNSUPPORTED_CODE)
             val response = WalletStore(session).withKeys(ready.walletId) { keys ->
-                signer.sign(ready.request, approval, ScopedKeyAccess(signer.manifest.keys, keys))
+                signer.sign(ready.request, approval, reviewedKeys(session, ready, ScopedKeyAccess(signer.manifest.keys, keys)))
             }
             partsOf(framesOf(UR(response.urType, response.cbor), DEFAULT_MAX_FRAGMENT))
         } catch (e: CancellationException) {
@@ -424,6 +414,17 @@ internal class VaultSignPorts(
         } catch (e: IllegalStateException) {
             throw WalletUnavailable()
         }
+    }
+
+    /**
+     * The key access that signs [ready], over [keys]. A Solana key must be the public key the wallet stores for the reviewed account, or nothing
+     * is signed. The approval holds no signer bytes, so the Solana signer cannot make that check, and the app makes it here, before any signature.
+     */
+    private fun reviewedKeys(session: VaultSession, ready: AppPrepared.Ready, keys: KeyAccess): KeyAccess {
+        if (ready.request.header.app != solanaManifest.id) return keys
+        val stored = WalletStore(session).solanaKeys(ready.walletId).getOrNull(ready.accountIndex)
+            ?: throw IllegalArgumentException(SolanaRequestCheck.UNKNOWN_ACCOUNT)
+        return StoredKeyAccess(keys, stored)
     }
 
     /** Writes the Algorand [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
@@ -524,5 +525,16 @@ internal class VaultSignPorts(
             throw WalletUnavailable()
         }
         return value ?: throw WalletUnavailable()
+    }
+}
+
+/**
+ * The key access a Solana request signs through. Every call is the one [keys] answers, and a signature is made only with the key the wallet
+ * stores for the reviewed account: a key that is not [stored] signs nothing.
+ */
+internal class StoredKeyAccess(private val keys: KeyAccess, private val stored: ByteArray) : KeyAccess by keys {
+    override fun signEd25519(curve: Curve, path: Path, message: ByteArray): ByteArray {
+        if (!keys.publicKey(curve, path).bytes.contentEquals(stored)) throw IllegalArgumentException(SOLANA_KEY_MISMATCH)
+        return keys.signEd25519(curve, path, message)
     }
 }
