@@ -97,7 +97,13 @@ class EvmSignerTest {
     fun aPathOutsideTheEvmKeyScopeThrowsKeyScopeViolationBeforeAnyKeySigns() {
         val keys = FakeKeys(KEY)
         val scoped = ScopedKeyAccess(scopes = evmManifest.keys, delegate = keys)
-        val outside = listOf(PathStep(44, hardened = true), PathStep(60, hardened = true), PathStep(0, hardened = true), PathStep(1, hardened = false), PathStep(0, hardened = false))
+        val outside = listOf(
+            PathStep(44, hardened = true),
+            PathStep(60, hardened = true),
+            PathStep(0, hardened = true),
+            PathStep(1, hardened = false),
+            PathStep(0, hardened = false),
+        )
 
         assertFailsWith<KeyScopeViolation> {
             EvmSigner.sign(requestOf(legacyPayload(), MONAD, path = outside), approvalOf(MONAD, senderOf(KEY)), scoped)
