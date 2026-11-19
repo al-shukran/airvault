@@ -18,7 +18,7 @@ import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
-import app.lensly.core.algorand.AlgorandRequestReview
+import app.airvault.chains.algorand.signer.AlgorandRequestReview
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.parse.NOT_A_PSBT

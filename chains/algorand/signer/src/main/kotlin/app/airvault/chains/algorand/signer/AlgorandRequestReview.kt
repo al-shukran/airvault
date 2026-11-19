@@ -1,4 +1,4 @@
-package app.lensly.core.algorand
+package app.airvault.chains.algorand.signer
 
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
@@ -6,8 +6,7 @@ import app.airvault.chains.algorand.AlgoTxn
 import app.airvault.chains.algorand.AlgorandNetwork
 import app.airvault.chains.algorand.AssetTransfer
 import app.airvault.chains.algorand.Payment
-import app.airvault.chains.algorand.signer.AlgoTxnDecoder
-import app.airvault.chains.algorand.signer.AlgoTxnException
+import app.lensly.core.algorand.AlgoAddress
 import app.lensly.core.ur.PathStep
 
 /** A warning the review shows beside an Algorand request. The owner reads each one before the request can be signed. */

@@ -51,7 +51,7 @@ object AlgoAddress {
     }
 
     /** RFC 4648 base32 of [bytes], without padding. The transaction IDs of [AlgoSignedTxn] use it too. */
-    internal fun base32(bytes: ByteArray): String {
+    fun base32(bytes: ByteArray): String {
         val out = StringBuilder()
         var buffer = 0
         var bits = 0

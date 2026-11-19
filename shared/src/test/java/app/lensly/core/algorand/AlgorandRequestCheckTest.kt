@@ -1,20 +1,25 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck
+import app.airvault.chains.algorand.signer.AlgorandRequestReview
+import app.airvault.chains.algorand.signer.AlgorandWarning
+import app.airvault.chains.algorand.signer.AsaCatalog
+
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.AlgorandNetwork
 import app.airvault.chains.algorand.AssetTransfer
 import app.airvault.chains.algorand.Payment
 import app.airvault.chains.algorand.bytesToSign
-import app.lensly.core.algorand.AlgorandRequestCheck.CLAWBACK_REFUSED
-import app.lensly.core.algorand.AlgorandRequestCheck.DIFFERENT_ADDRESS
-import app.lensly.core.algorand.AlgorandRequestCheck.GENESIS_HASH_MISMATCH
-import app.lensly.core.algorand.AlgorandRequestCheck.NOT_A_TRANSACTION
-import app.lensly.core.algorand.AlgorandRequestCheck.NOT_THIS_SENDER
-import app.lensly.core.algorand.AlgorandRequestCheck.PATH_REFUSED
-import app.lensly.core.algorand.AlgorandRequestCheck.REKEY_REFUSED
-import app.lensly.core.algorand.AlgorandRequestCheck.UNKNOWN_ACCOUNT
-import app.lensly.core.algorand.AlgorandRequestCheck.UNKNOWN_NETWORK
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.CLAWBACK_REFUSED
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.DIFFERENT_ADDRESS
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.GENESIS_HASH_MISMATCH
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.NOT_A_TRANSACTION
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.NOT_THIS_SENDER
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.PATH_REFUSED
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.REKEY_REFUSED
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.UNKNOWN_ACCOUNT
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck.UNKNOWN_NETWORK
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals

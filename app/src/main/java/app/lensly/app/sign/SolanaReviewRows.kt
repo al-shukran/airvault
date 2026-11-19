@@ -1,5 +1,5 @@
 package app.lensly.app.sign
-
+import app.airvault.core.model.printableText
 import app.lensly.app.addressesIn
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaInstruction
@@ -107,17 +107,6 @@ fun solanaAccountText(account: SolanaMessageAccount): String = when (account) {
         "lookup table ${account.tableAddress}, index ${account.tableIndex} (can't be checked offline)"
 }
 
-/** The message as text, when it is UTF-8 whose every character is [isPrintable]. Null for any other bytes. */
-internal fun printableText(bytes: ByteArray): String? = try {
-    val text = StandardCharsets.UTF_8.newDecoder()
-        .onMalformedInput(CodingErrorAction.REPORT)
-        .onUnmappableCharacter(CodingErrorAction.REPORT)
-        .decode(ByteBuffer.wrap(bytes))
-        .toString()
-    text.takeIf { it.isNotEmpty() && it.all(::isPrintable) }
-} catch (e: CharacterCodingException) {
-    null
-}
 
 /**
  * The rows one instruction shows. A known instruction names its program first, by its ID. A raw instruction already names its program

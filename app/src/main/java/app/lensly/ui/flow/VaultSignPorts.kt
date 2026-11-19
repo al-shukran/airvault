@@ -36,7 +36,7 @@ import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.sign.solanaCounterparties
 import app.lensly.app.sign.solanaReviewRecordOf
 import app.lensly.app.visualIdentity
-import app.lensly.core.algorand.AlgorandRequestCheck
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.lensly.core.btc.BtcPsbt
 import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.parse.NOT_A_PSBT
