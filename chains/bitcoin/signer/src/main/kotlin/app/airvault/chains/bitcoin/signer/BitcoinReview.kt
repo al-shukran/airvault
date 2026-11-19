@@ -180,6 +180,7 @@ private fun warningOf(warning: BtcWarning, confirmation: Boolean): Warning = whe
     is BtcWarning.ExternalInputs -> Warning(Danger.CAUTION, "bitcoin.external-inputs", warningText(warning))
     is BtcWarning.UnknownChange -> Warning(Danger.CAUTION, "bitcoin.unknown-change", warningText(warning))
     is BtcWarning.LockTime -> Warning(Danger.CAUTION, "bitcoin.lock-time", warningText(warning))
+    is BtcWarning.DustOutputs -> Warning(Danger.CAUTION, "bitcoin.dust", warningText(warning))
     is BtcWarning.HighFeeRate -> Warning(Danger.CAUTION, "bitcoin.high-fee-rate", warningText(warning))
     is BtcWarning.HighFeeShare -> Warning(Danger.CAUTION, "bitcoin.high-fee-share", warningText(warning))
 }
@@ -198,6 +199,8 @@ fun warningText(warning: BtcWarning): String = when (warning) {
     is BtcWarning.HighFeeShare ->
         "The fee is ${String.format(Locale.ROOT, "%.1f", warning.percent)}% of the amount sent to others, above your limit " +
             "of ${warning.thresholdPercent}%."
+    is BtcWarning.DustOutputs ->
+        "${warning.count} output(s) pay less than $DUST_LIMIT_SATS sats, the dust limit. The network may not relay them."
     is BtcWarning.LockTime -> "The transaction cannot confirm before ${lockTimePoint(warning.lockTime)}."
 }
 

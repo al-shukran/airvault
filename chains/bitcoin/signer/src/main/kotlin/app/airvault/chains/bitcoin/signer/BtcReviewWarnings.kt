@@ -1,5 +1,8 @@
 package app.airvault.chains.bitcoin.signer
 
+/** The dust limit in satoshis: an output of an address below it costs more to spend than it holds, and nodes do not relay it. */
+internal const val DUST_LIMIT_SATS = 546L
+
 /**
  * A condition of a Bitcoin request that the owner reads on the review before signing. A warning is shown in the review, and it
  * does not stop signing by itself. The review stops signing until the owner confirms the unverified amounts, which is what
@@ -14,6 +17,9 @@ sealed class BtcWarning {
 
     /** Outputs that name a key of this wallet but do not pay this Account's change path. The owner should check where they go. */
     data class UnknownChange(val count: Int) : BtcWarning()
+
+    /** Outputs that pay an address less than [DUST_LIMIT_SATS]. Nodes do not relay them, so the payment may never arrive. */
+    data class DustOutputs(val count: Int) : BtcWarning()
 
     /** The fee rate, in satoshis per vbyte, is above the owner's limit of [thresholdSatPerVb]. */
     data class HighFeeRate(val satPerVb: Double, val thresholdSatPerVb: Int) : BtcWarning()
@@ -36,6 +42,9 @@ fun BtcReview.warnings(): List<BtcWarning> = buildList {
     if (unverified > 0) add(BtcWarning.UnverifiedAmounts(unverified))
     val unknownChange = outputs.count { it.claimsOwnKey && !it.isOwnChange }
     if (unknownChange > 0) add(BtcWarning.UnknownChange(unknownChange))
+    // An output with no address, such as OP_RETURN, is not a payment, so only the outputs with an address are checked.
+    val dust = outputs.count { it.address != null && it.amountSats < DUST_LIMIT_SATS }
+    if (dust > 0) add(BtcWarning.DustOutputs(dust))
     if (lockTimeEnforced) add(BtcWarning.LockTime(lockTime))
     addAll(feeWarnings)
 }
