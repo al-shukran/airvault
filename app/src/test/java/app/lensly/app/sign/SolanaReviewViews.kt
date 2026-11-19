@@ -10,7 +10,7 @@ internal fun solanaRows(review: SolanaRequestReview): List<Pair<String, String>>
     review.toReview().sections.flatMap { it.rows }.map { it.label to it.value.text() }
 
 /** The sentence at the top of a Solana review. */
-internal fun solanaSentence(review: SolanaRequestReview): String = review.toReview().summary
+internal fun solanaSentence(review: SolanaRequestReview): String = review.toReview().summary.text()
 
 /** The facts under the sentence of a Solana review, by label. */
 internal fun solanaFacts(review: SolanaRequestReview): List<Pair<String, String>> =
