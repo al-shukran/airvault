@@ -18,11 +18,17 @@ import app.lensly.ui.settings.ChangePasswordScreen
 import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
 import app.lumio.btc.BtcAccountRef
+import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
+import app.lumio.data.price.PricePoint
+import app.lumio.data.price.PriceSeries
+import app.lumio.data.tx.LumioTx
+import app.lumio.data.tx.TxAsset
+import app.lumio.data.tx.TxDirection
+import app.lumio.data.tx.TxStatus
 import app.lumio.evm.EvmChain
-import app.lumio.data.config.DisplaySettings
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.SendAsset
 import app.lumio.home.TokenAsset
@@ -30,17 +36,17 @@ import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
 import app.lumio.pair.PairedWallet
+import app.lumio.tokens.Token
 import app.lumio.ui.btc.BtcSendFormScreen
 import app.lumio.ui.pair.PairReviewScreen
-import app.lumio.tokens.Token
 import app.lumio.ui.send.SendFormScreen
-import app.lumio.ui.settings.BitcoinServersSettings
 import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
+import app.lumio.ui.settings.BitcoinServersSettings
 import app.lumio.ui.settings.CommentBackupRows
-import app.lumio.ui.settings.DisplaySettingsPage
 import app.lumio.ui.settings.DataProvidersScreen
+import app.lumio.ui.settings.DisplaySettingsPage
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.NetworksSettingsPage
@@ -54,19 +60,13 @@ import app.lumio.ui.settings.WalletsSettingsPage
 import app.lumio.ui.settings.settingsRows
 import java.io.File
 import java.math.BigInteger
+import kotlin.math.sin
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import app.lumio.data.price.PricePoint
-import app.lumio.data.price.PriceSeries
-import app.lumio.data.tx.LumioTx
-import app.lumio.data.tx.TxAsset
-import app.lumio.data.tx.TxDirection
-import app.lumio.data.tx.TxStatus
-import kotlin.math.sin
 
 /**
  * The goldens of Lumio's screens, one per screen, in the Lensly dark theme at the owner's phone size. They are recorded with

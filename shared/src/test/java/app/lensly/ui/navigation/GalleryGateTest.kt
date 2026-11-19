@@ -11,12 +11,12 @@ import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.camera.PhotoStore
 import java.io.File
-import kotlinx.coroutines.runBlocking
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test

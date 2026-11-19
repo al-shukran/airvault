@@ -1,10 +1,10 @@
 package app.lumio.evm
 
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.TxType
+import app.airvault.chains.evm.signer.UnsignedTx
 import app.lensly.core.evm.TxSigner
-import app.lensly.core.evm.TxType
-import app.lensly.core.evm.UnsignedTx
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.EthSignature
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex

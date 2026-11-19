@@ -28,9 +28,6 @@ import app.lumio.data.esplora.EsploraProtocol
 import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.net.NetworkId
 import app.lumio.data.price.PriceRepository
-import app.lumio.data.tx.TxAsset
-import app.lumio.data.tx.TxHistory
-import app.lumio.data.tx.TxSpam
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderCatalog
@@ -41,6 +38,9 @@ import app.lumio.data.scan.QueuedJob
 import app.lumio.data.scan.ScanQueue
 import app.lumio.data.scan.ScanRunner
 import app.lumio.data.sched.Scheduler
+import app.lumio.data.tx.TxAsset
+import app.lumio.data.tx.TxHistory
+import app.lumio.data.tx.TxSpam
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmReads

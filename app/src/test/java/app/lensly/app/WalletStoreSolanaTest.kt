@@ -2,11 +2,11 @@ package app.lensly.app
 
 import app.lensly.app.export.SolanaPairingKeys
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
+import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals

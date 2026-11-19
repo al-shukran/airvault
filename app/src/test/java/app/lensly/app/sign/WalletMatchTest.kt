@@ -1,10 +1,10 @@
 package app.lensly.app.sign
 
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
 import app.lensly.core.ur.PathStep
-import org.junit.Test
 import kotlin.test.assertEquals
+import org.junit.Test
 
 private const val FINGERPRINT = 0x1a2b3c4d
 

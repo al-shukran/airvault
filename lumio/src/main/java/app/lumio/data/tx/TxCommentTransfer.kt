@@ -2,8 +2,8 @@ package app.lumio.data.tx
 
 import app.lensly.core.vault.Aead
 import java.security.GeneralSecurityException
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /** A comment export that cannot be read: it is damaged, it belongs to another vault, or an entry is not one the format allows. */

@@ -1,10 +1,10 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
 import app.lensly.app.BitcoinReviewed
 import app.lensly.core.btc.warnings
 import app.lensly.core.registry.Registry
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.bitcoinNetworkName
 import app.lensly.ui.sign.btcText

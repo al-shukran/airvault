@@ -1,9 +1,9 @@
 package app.lensly.ui.settings
 
+import app.airvault.abi.WhitelistParam
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.WhitelistEntry
-import app.lensly.core.registry.WhitelistParam
 import kotlin.test.assertEquals
 import org.junit.Test
 

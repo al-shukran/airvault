@@ -8,8 +8,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -42,6 +42,7 @@ import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SolanaReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReviewScreen
+
 
 /** The view model key of a scan that is not for one wallet, so it never shares a flow with a wallet's scan. */
 private const val ANY_WALLET_KEY = "sign-any-wallet"

@@ -1,7 +1,7 @@
 package app.lensly.core.algorand
 
-import app.airvault.chains.algorand.Payment
 import app.airvault.chains.algorand.AssetTransfer
+import app.airvault.chains.algorand.Payment
 import app.airvault.chains.algorand.signer.AlgoTxnDecoder
 
 /**

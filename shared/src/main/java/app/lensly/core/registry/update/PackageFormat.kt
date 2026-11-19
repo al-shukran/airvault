@@ -1,7 +1,8 @@
 package app.lensly.core.registry.update
 
-import app.lensly.core.registry.AbiTypes
-import app.lensly.core.registry.AtomicType
+import app.airvault.abi.AbiTypes
+import app.airvault.abi.AtomicType
+import app.airvault.abi.WhitelistParam
 import app.lensly.core.registry.DenylistCondition
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
@@ -11,7 +12,6 @@ import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WalletEntry
 import app.lensly.core.registry.WhitelistEntry
-import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.registry.isDisplayText
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException

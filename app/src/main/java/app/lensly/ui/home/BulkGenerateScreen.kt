@@ -9,8 +9,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.app.SINGLE_KEY_NO_BITCOIN
-import app.lensly.app.autoAccountName
 import app.lensly.app.WalletStore
+import app.lensly.app.autoAccountName
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.BulkCap

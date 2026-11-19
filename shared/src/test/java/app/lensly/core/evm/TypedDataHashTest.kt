@@ -1,8 +1,13 @@
 package app.lensly.core.evm
 
+import app.airvault.chains.evm.signer.EIP712_DOMAIN
+import app.airvault.chains.evm.signer.TypedData
+import app.airvault.chains.evm.signer.TypedDataParser
+import app.airvault.chains.evm.signer.TypedField
+import app.airvault.chains.evm.signer.TypedValue
 import java.math.BigInteger
-import org.junit.Test
 import kotlin.test.assertEquals
+import org.junit.Test
 import org.web3j.utils.Numeric
 
 /** The Mail example of the EIP-712 standard, exactly as eth_signTypedData receives it. */

@@ -1,10 +1,10 @@
 package app.lensly.ui.components
 
-import app.lensly.shared.R
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
+import app.lensly.shared.R
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

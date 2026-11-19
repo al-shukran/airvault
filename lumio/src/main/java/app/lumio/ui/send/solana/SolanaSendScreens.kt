@@ -20,6 +20,8 @@ import app.lensly.ui.components.AddressField
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.data.net.NetworkId
@@ -30,10 +32,8 @@ import app.lumio.send.solana.SolanaOutcome
 import app.lumio.send.solana.SolanaSendAsset
 import app.lumio.send.solana.SolanaSendInput
 import app.lumio.send.solana.SolanaSendPlan
-import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.LumioTag
-import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.send.AmountField
 import app.lumio.ui.send.ReviewAddress
 import app.lumio.ui.send.ReviewField

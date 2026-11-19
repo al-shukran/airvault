@@ -1,7 +1,7 @@
 package app.lumio.evm
 
-import org.junit.Test
 import kotlin.test.assertEquals
+import org.junit.Test
 
 /** The Testnet side lists Monad testnet first, and every other chain keeps its place. */
 class EvmCatalogOrderTest {
