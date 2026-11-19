@@ -561,7 +561,17 @@ class WalletStore(private val session: VaultSession) {
         try {
             val accounts = stored.map { BtcAccount.fromSeed(seed, it.network, it.scriptType, it.index) }
             val account = BtcAccountSelection.select(accounts, psbt)
-            val review = BtcSigner(account, inputPolicy, sourcePolicy, feeThresholds).review(psbt)
+            val keys = WalletKeyAccess(seed)
+            val review = BtcSigner(
+                account.network,
+                account.scriptType,
+                account.accountIndex,
+                account.masterFingerprint,
+                keys,
+                inputPolicy,
+                sourcePolicy,
+                feeThresholds,
+            ).review(psbt)
             val record = stored.first { it.key == Triple(account.scriptType, account.network, account.accountIndex) }
             val internal = internalAccountsOf(this, id) + ownBitcoinAccounts(id, stored, accounts)
             val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, BITCOIN_FAMILY, internal, book)
@@ -614,7 +624,11 @@ class WalletStore(private val session: VaultSession) {
         val seed = seedOf(id)
         val signed = try {
             val key = BtcAccount.fromSeed(seed, account.network, account.scriptType, account.index)
-            BtcSigner(key, inputPolicy, sourcePolicy, SettingsStore(session).load().bitcoinFeeThresholds).sign(psbt, unverifiedConfirmed)
+            val keys = WalletKeyAccess(seed)
+            BtcSigner(
+                key.network, key.scriptType, key.accountIndex, key.masterFingerprint, keys, inputPolicy, sourcePolicy,
+                SettingsStore(session).load().bitcoinFeeThresholds,
+            ).sign(psbt, unverifiedConfirmed)
         } finally {
             seed.fill(0)
         }

@@ -24,7 +24,7 @@ class BtcSignerTest {
             val account = BtcAccount.fromSeed(seed, testnet4, type)
             val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
             val psbt = BtcFixtures.psbt(listOf(spend), paying(account, paid = 30_000L, change = 60_000L))
-            val signer = BtcSigner(account)
+            val signer = BtcFixtures.signerOf(account, seed)
 
             val review = signer.review(psbt)
             assertEquals(1, review.inputs.size)
@@ -62,14 +62,14 @@ class BtcSignerTest {
         )
         // Inputs total 110,000 sats and outputs total 105,000 sats.
         val psbt = BtcFixtures.psbt(spends, paying(account, paid = 90_000L, change = 15_000L))
-        val review = BtcSigner(account).review(psbt)
+        val review = BtcFixtures.signerOf(account, seed).review(psbt)
         assertEquals(5_000L, review.feeSats)
         assertEquals(
             listOf(account.path.derive(0L).derive(0L), account.path.derive(1L).derive(2L)),
             review.inputs.map { it.ownerPath },
         )
 
-        val tx = BtcFixtures.finalize(BtcSigner(account).sign(psbt).psbt, spends)
+        val tx = BtcFixtures.finalize(BtcFixtures.signerOf(account, seed).sign(psbt).psbt, spends)
         assertTrue(BtcFixtures.verifies(tx, BtcFixtures.prevouts(spends)))
     }
 
@@ -83,7 +83,7 @@ class BtcSignerTest {
         )
         // Inputs total 110,000 sats and outputs total 105,000 sats.
         val psbt = BtcFixtures.psbt(spends, paying(account, paid = 80_000L, change = 25_000L))
-        val signed = BtcSigner(account).sign(psbt)
+        val signed = BtcFixtures.signerOf(account, seed).sign(psbt)
 
         assertNull(signed.review.inputs[1].ownerPath)
         assertTrue(signed.review.inputs[1].amountVerified)
@@ -101,7 +101,7 @@ class BtcSignerTest {
             TxOut(Satoshi(2_000L), ByteVector(account.scriptPubKey(1, BtcAccount.GAP_LIMIT))),
             TxOut(Satoshi(3_000L), ByteVector(account.scriptPubKey(1, 25))),
         )
-        val review = BtcSigner(account).review(BtcFixtures.psbt(listOf(spend), outputs))
+        val review = BtcFixtures.signerOf(account, seed).review(BtcFixtures.psbt(listOf(spend), outputs))
         assertTrue(review.outputs[0].isOwnChange)
         assertEquals(BtcAccount.GAP_LIMIT - 1, review.outputs[0].changeIndex)
         assertFalse(review.outputs[1].isOwnChange)
@@ -114,7 +114,7 @@ class BtcSignerTest {
         val account = BtcAccount.fromSeed(seed, testnet4, ScriptType.TAPROOT)
         val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
         val psbt = BtcPsbt.withCompanionMarker(BtcFixtures.psbt(listOf(spend), paying(account, paid = 30_000L, change = 60_000L)))
-        val signed = BtcSigner(account).sign(psbt).psbt
+        val signed = BtcFixtures.signerOf(account, seed).sign(psbt).psbt
         assertTrue(BtcPsbt.hasCompanionMarker(signed))
 
         val bytes = Psbt.write(signed).toByteArray()
