@@ -112,6 +112,15 @@ class HistoryDetailSheetTest {
     }
 
     @Test
+    fun aRequestsOriginIsLabelledAsAClaimThatIsNotVerified() {
+        setSheet(evmRecord().copy(origin = "https://app.example"))
+
+        compose.onNodeWithText("Claimed by Request (Not Verified)").assertExists()
+        compose.onNodeWithText("https://app.example").assertExists()
+        compose.onAllNodesWithText("Origin").assertCountEquals(0)
+    }
+
+    @Test
     fun aTapOnTheRecipientClosesTheSheetAndOpensItOnItsChain() {
         val opened = mutableListOf<Pair<String, ChainId>>()
 
