@@ -19,6 +19,7 @@ private const val SHORT_HEAD = 6
 private const val SHORT_TAIL = 4
 
 private val UNTIL: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'").withZone(ZoneOffset.UTC)
+private val MAX_INSTANT_SECONDS: BigInteger = BigInteger.valueOf(Instant.MAX.epochSecond)
 
 /** [address] for a sentence: the first six and last four characters of its EIP-55 checksum. The full value is under Details. */
 internal fun shortAddress(address: String): String {
@@ -26,8 +27,13 @@ internal fun shortAddress(address: String): String {
     return checksum.take(SHORT_HEAD) + "…" + checksum.takeLast(SHORT_TAIL)
 }
 
-/** [seconds] since the epoch, as a UTC date and time such as 2026-11-29 00:27 UTC. */
-internal fun untilText(seconds: BigInteger): String = UNTIL.format(Instant.ofEpochSecond(seconds.toLong()))
+/**
+ * [seconds] since the epoch, as a UTC date and time such as 2026-11-29 00:27 UTC, or the raw number when it is outside the dates a clock holds.
+ * It is not truncated to a Long first, which would show a different date.
+ */
+internal fun untilText(seconds: BigInteger): String =
+    if (seconds.signum() < 0 || seconds > MAX_INSTANT_SECONDS) "$seconds (not a date)"
+    else UNTIL.format(Instant.ofEpochSecond(seconds.toLong()))
 
 /** [decimal] with a comma between each group of three digits of its whole part, such as 1,234,567.5. */
 internal fun groupDigits(decimal: String): String {
