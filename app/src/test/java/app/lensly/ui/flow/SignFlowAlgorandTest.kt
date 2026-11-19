@@ -8,6 +8,7 @@ import app.airvault.chains.algorand.signer.toReview
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.core.model.Approval
 import app.airvault.core.model.Curve
+import app.airvault.core.model.checkLabels
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.Path
 import app.airvault.core.signer.ScopedKeyAccess
@@ -151,6 +152,43 @@ class SignFlowAlgorandTest {
     }
 
     /**
+     * A close-to payment has a check the owner ticks. Ticked and approved, then left at the hold-to-sign, the review is recorded as cancelled
+     * with no ticked check: nothing was signed, so no tick is stored.
+     */
+    @Test
+    fun aCancelledReviewStoresNoTickedChecks() = runBlocking {
+        val ports = AlgorandPorts()
+        val flow = SignFlow(ports, walletId = WALLET)
+        flow.onScanned(partOf(requestCbor(PAY_CLOSE)))
+        val label = assertIs<SignStep.AppReview>(flow.state.value).ready.review.checkLabels().single()
+        flow.tick(label, on = true)
+        flow.approve()
+        assertIs<SignStep.AppConfirming>(flow.state.value)
+
+        flow.leave()
+
+        assertEquals(listOf(ReviewOutcome.CANCELLED), ports.records.map { it.outcome })
+        assertEquals(emptyList(), ports.records.single().acknowledged)
+        assertEquals(0, ports.signCalls)
+    }
+
+    /** The same tick, signed: the record names the check the owner ticked before the signature. */
+    @Test
+    fun aSignedReviewStoresTheCheckItsOwnerTicked() = runBlocking {
+        val ports = AlgorandPorts()
+        val flow = SignFlow(ports, walletId = WALLET)
+        flow.onScanned(partOf(requestCbor(PAY_CLOSE)))
+        val label = assertIs<SignStep.AppReview>(flow.state.value).ready.review.checkLabels().single()
+        flow.tick(label, on = true)
+        flow.approve()
+
+        flow.confirm("the password".toCharArray())
+
+        assertEquals(listOf(ReviewOutcome.SIGNED), ports.records.map { it.outcome })
+        assertEquals(listOf(label), ports.records.single().acknowledged)
+    }
+
+    /**
      * A request whose signing asks for a key outside the Algorand scope signs nothing, and the refusal is recorded with the reason the owner
      * saw. The scoped key access refuses the path before any key is derived, as the wallet's sign does.
      */
@@ -276,6 +314,14 @@ class SignFlowAlgorandTest {
                 "18a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f70e5093a22a26c76ce02faf468a3726376c420c11dff7e914904" +
                 "1e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd" +
                 "1467c72e3c660fc8c2bd2c6538a474797065a3706179"
+
+        /** The `pay_note_close` vector of the SDK: a payment from account 0 that closes the account to another address, on testnet-v1.0. */
+        const val PAY_CLOSE =
+            "8ba3616d74ce77359400a5636c6f7365c4208d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d219a165d006da3" +
+                "666565cd03e8a26676ce02faf080a367656eac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d4f1081" +
+                "cb0f71f059a7ac20dec62f7f70e5093a22a26c76ce02faf468a46e6f7465c40e72656e7420666f72204d61726368a3726376c4" +
+                "20c11dff7e9149041e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da3736e64c4207491ae7345271b581e36e46a" +
+                "ba59dd0179b9bd1467c72e3c660fc8c2bd2c6538a474797065a3706179"
 
         /** The signed bytes: the transaction exactly as the wallet sent it, which the signature covers after "TX". */
         val SIGN_DATA: ByteArray = hex(PAY_BASIC)

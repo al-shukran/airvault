@@ -171,15 +171,5 @@ class WalletStoreAlgorandTest {
     private companion object {
         /** The address of Mnemonic A account 0, as LedgerEd25519Test and AlgoAddressTest assert it for the same public key. */
         const val ACCOUNT_0_ADDRESS = "OSI2442FE4NVQHRW4RVLUWO5AF43TPIUM7DS4PDGB7EMFPJMMU4KNIN3GQ"
-
-        /** The public key of account 0, which is the sender key of [PAY_BASIC]. */
-        const val ACCOUNT_0_PUB = "7491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538"
-
-        /** The SDK payment `pay_basic` from account 0 to account 1, the transaction the review checks and the signature covers. */
-        const val PAY_BASIC =
-            "89a3616d74ce0016e360a3666565cd03e8a26676ce02faf080a367656eac746573746e65742d76312e30a26768c4204863b5" +
-                "18a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f70e5093a22a26c76ce02faf468a3726376c420c11dff7e914904" +
-                "1e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd" +
-                "1467c72e3c660fc8c2bd2c6538a474797065a3706179"
     }
 }
