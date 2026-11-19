@@ -4,7 +4,7 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Trait
 import java.math.BigInteger
@@ -39,8 +39,8 @@ class ChainlistRpcTest {
     fun everyWantedChainResolvesAtLeastOneRpcForBalancesAndBroadcasts() {
         for (chain in wanted) {
             val net = NetworkId(Networks.evm(chain.toLong()), testnet = chain == "10143")
-            assertTrue("chain $chain has no balance RPC", RpcPlugins.pool().any { it.supports(net, Op.NATIVE_BALANCE, ProviderConfig()) })
-            assertTrue("chain $chain has no broadcast RPC", RpcPlugins.pool().any { it.supports(net, Op.BROADCAST, ProviderConfig()) })
+            assertTrue("chain $chain has no balance RPC", RpcPlugins.pool().any { it.supports(net, OpKey.on(net, "nativeBalance"), ProviderConfig()) })
+            assertTrue("chain $chain has no broadcast RPC", RpcPlugins.pool().any { it.supports(net, OpKey.on(net, "broadcast"), ProviderConfig()) })
         }
     }
 
@@ -58,8 +58,8 @@ class ChainlistRpcTest {
     fun monadTestnetIsServedKeylessWithItsOwnAddress() {
         val net = NetworkId(Networks.evm(10143), testnet = true)
         assertEquals(listOf("https://testnet-rpc.monad.xyz"), ChainlistRpc().endpoints(net, ProviderConfig()))
-        assertTrue(ChainlistRpc().supports(net, Op.NATIVE_BALANCE, ProviderConfig()))
-        assertTrue(ChainlistRpc().supports(net, Op.BROADCAST, ProviderConfig()))
+        assertTrue(ChainlistRpc().supports(net, OpKey.on(net, "nativeBalance"), ProviderConfig()))
+        assertTrue(ChainlistRpc().supports(net, OpKey.on(net, "broadcast"), ProviderConfig()))
     }
 
     @Test

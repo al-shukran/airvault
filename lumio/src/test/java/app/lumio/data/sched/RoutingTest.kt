@@ -6,7 +6,7 @@ import app.lumio.data.FakeProvider
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Trait
@@ -32,8 +32,8 @@ class RoutingTest {
 
     @Test
     fun aBroadcastGoesOnlyToTheMevProtectedProviderWhileItIsHealthy() = runTest {
-        val plain = FakeProvider("plain", ops = setOf(Op.BROADCAST))
-        val protectedRpc = FakeProvider("protected", ops = setOf(Op.BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
+        val plain = FakeProvider("plain", ops = setOf(Ops.EVM_BROADCAST))
+        val protectedRpc = FakeProvider("protected", ops = setOf(Ops.EVM_BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
 
         scheduler(plain, protectedRpc).run(Broadcast(ETH, byteArrayOf(2)))
 
@@ -43,8 +43,8 @@ class RoutingTest {
 
     @Test
     fun aBroadcastGoesToAnotherProviderOnlyWhileTheMevProviderIsCoolingDown() = runTest {
-        val plain = FakeProvider("plain", ops = setOf(Op.BROADCAST))
-        val protectedRpc = FakeProvider("protected", ops = setOf(Op.BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
+        val plain = FakeProvider("plain", ops = setOf(Ops.EVM_BROADCAST))
+        val protectedRpc = FakeProvider("protected", ops = setOf(Ops.EVM_BROADCAST), traits = setOf(Trait.KEYLESS, Trait.MEV_PROTECTED))
         protectedRpc.outcomes.add(ProviderError.RateLimited(retryAfterMs = 60_000L))
 
         assertEquals("0xtx", scheduler(plain, protectedRpc).run(Broadcast(ETH, byteArrayOf(2))))
@@ -55,8 +55,8 @@ class RoutingTest {
 
     @Test
     fun aFallbackOnlyProviderAnswersOnlyWhenTheOthersAreCoolingDown() = runTest {
-        val others = FakeProvider("others", ops = setOf(Op.NATIVE_BALANCE))
-        val tenderly = FakeProvider("tenderly", ops = setOf(Op.NATIVE_BALANCE), traits = setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY))
+        val others = FakeProvider("others", ops = setOf(Ops.EVM_NATIVE_BALANCE))
+        val tenderly = FakeProvider("tenderly", ops = setOf(Ops.EVM_NATIVE_BALANCE), traits = setOf(Trait.KEYLESS, Trait.FALLBACK_ONLY))
         val s = scheduler(others, tenderly)
         val address = "0x" + "11".repeat(20)
 

@@ -7,7 +7,7 @@ import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.provider.AddressTxHistory
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Trait
 import kotlin.random.Random
@@ -29,7 +29,7 @@ class TxHistoryRoutingTest {
     private val limits = Limits(rps = 1_000.0, burst = 1_000, maxConcurrent = 100)
 
     private fun TestScope.provider(id: String): FakeProvider =
-        FakeProvider(id, traits = setOf(Trait.KEYLESS), ops = setOf(Op.TX_HISTORY), limits = limits, now = { testScheduler.currentTime })
+        FakeProvider(id, traits = setOf(Trait.KEYLESS), ops = setOf(Ops.EVM_TX_HISTORY), limits = limits, now = { testScheduler.currentTime })
 
     /** The routescan provider ranks first (priority 0), and blockscout is the fallback (priority 1). */
     private fun TestScope.scheduler(first: FakeProvider, second: FakeProvider): Scheduler = Scheduler(

@@ -6,7 +6,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
 import java.math.BigInteger
@@ -102,14 +103,14 @@ class BlockscoutProviderTest {
     @Test
     fun theProductionInstanceServesEthereumMainnetNativeBalanceOnly() {
         val c = ProviderConfig()
-        assertTrue(BlockscoutProvider().supports(ETH, Op.NATIVE_BALANCE, c))
-        assertFalse(BlockscoutProvider().supports(NetworkId(Networks.evm(8453), testnet = false), Op.NATIVE_BALANCE, c))
-        assertFalse(BlockscoutProvider().supports(ETH, Op.NONCE, c))
+        assertTrue(BlockscoutProvider().supports(ETH, OpKey.on(ETH, "nativeBalance"), c))
+        assertFalse(BlockscoutProvider().supports(NetworkId(Networks.evm(8453), testnet = false), OpKey.on(NetworkId(Networks.evm(8453), testnet = false), "nativeBalance"), c))
+        assertFalse(BlockscoutProvider().supports(ETH, Ops.EVM_NONCE, c))
     }
 
     @Test
     fun aPlainHttpInstanceToAnotherHostIsNotSupported() {
-        assertFalse(BlockscoutProvider(bases = mapOf("1" to "http://example.org/")).supports(ETH, Op.NATIVE_BALANCE, ProviderConfig()))
+        assertFalse(BlockscoutProvider(bases = mapOf("1" to "http://example.org/")).supports(ETH, OpKey.on(ETH, "nativeBalance"), ProviderConfig()))
     }
 
     @Test

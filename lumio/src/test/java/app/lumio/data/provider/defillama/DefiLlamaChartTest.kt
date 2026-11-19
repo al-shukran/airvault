@@ -9,7 +9,7 @@ import app.lumio.data.price.ChartRange
 import app.lumio.data.price.PricePoint
 import app.lumio.data.price.PriceSeries
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.PriceChart
 import app.lumio.data.provider.ProviderError
 import java.util.concurrent.TimeUnit
@@ -131,7 +131,7 @@ class DefiLlamaChartTest {
     @Test
     fun theProviderSupportsTheChartOnlyWhereItPricesTheNetwork() {
         val provider = DefiLlamaProvider()
-        assertTrue(provider.supports(ETH, Op.PRICE_CHART, cfg()))
-        assertFalse(provider.supports(NetworkId(Networks.evm(250), testnet = false), Op.PRICE_CHART, cfg()))
+        assertTrue(provider.supports(ETH, Ops.PRICE_CHART, cfg()))
+        assertFalse(provider.supports(NetworkId(Networks.evm(250), testnet = false), Ops.PRICE_CHART, cfg()))
     }
 }

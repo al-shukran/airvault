@@ -1,7 +1,8 @@
 package app.lensly.core.btc
 
+import app.airvault.chains.bitcoin.signer.BtcPsbt
+import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.lensly.core.parse.InProcessParser
-import app.lensly.core.parse.NOT_A_PSBT
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UREncoder
@@ -40,7 +41,7 @@ class BtcPsbtUrTest {
     fun theSandboxReturnsTheSerializedPsbtOfAScannedPsbtUr() {
         val psbt = largePsbt()
         val reply = InProcessParser.scan(BtcPsbt.encodeUrParts(psbt))
-        assertContentEquals(Psbt.write(psbt).toByteArray(), assertIs<ScanReply.Bitcoin>(reply).psbt)
+        assertContentEquals(Psbt.write(psbt).toByteArray(), assertIs<ScanReply.App>(reply).request.body)
     }
 
     @Test

@@ -12,7 +12,7 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderCatalog
@@ -160,7 +160,7 @@ class PriceRepositoryTest {
 
     @Test
     fun whenNoSourceAnswersTheLastPriceKeptIsReturnedAsStale() = runBlocking {
-        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Op.PRICE))
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Ops.PRICE_NATIVE))
         source.outcomes.add(PriceQuote(usd = 1831.25, change24hPct = 0.5, asOfMs = 1_000L))
         source.outcomes.add(ProviderError.Fatal("The provider is down."))
         val repository = repository(listOf(source))
@@ -173,7 +173,7 @@ class PriceRepositoryTest {
 
     @Test
     fun withNoKeptPriceAndNoAnswerTheNetworkHasNoPrice() = runBlocking {
-        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Op.PRICE))
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Ops.PRICE_NATIVE))
         source.outcomes.add(ProviderError.Fatal("The provider is down."))
 
         assertNull(repository(listOf(source)).prices(listOf(ETH))[ETH])
@@ -203,7 +203,7 @@ class PriceRepositoryTest {
 
     @Test
     fun withTheVaultLockedAFailedSourceGivesNoStalePrice() = runBlocking {
-        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Op.PRICE))
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Ops.PRICE_NATIVE))
         source.outcomes.add(PriceQuote(usd = 1831.25, change24hPct = 0.5, asOfMs = 1_000L))
         source.outcomes.add(ProviderError.Fatal("The provider is down."))
         val repository = repository(listOf(source), kept = null)
@@ -253,7 +253,7 @@ class PriceRepositoryTest {
     @Test
     fun aTokenIsPricedOnceAndKeptApartFromTheNativeCoinOfItsChain() = runBlocking {
         val usdc = AssetId.Erc20.of(ETH, "0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48")
-        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Op.TOKEN_PRICE))
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Ops.PRICE_TOKEN))
         source.outcomes.add(PriceQuote(usd = 0.9998, change24hPct = -0.01, asOfMs = 1_000L))
         val repository = repository(listOf(source))
 

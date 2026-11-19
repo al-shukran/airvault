@@ -16,7 +16,7 @@ import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -58,7 +58,7 @@ private class DownProvider : Provider {
     override val kind = Kind.DATA
     override val traits: Set<Trait> = setOf(Trait.KEYLESS)
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean = true
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean = true
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = FAST_LIMITS
 
