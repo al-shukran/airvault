@@ -1,19 +1,17 @@
 package app.lensly.app
 
-import app.airvault.chains.algorand.bytesToSign
+import app.airvault.core.signer.KeyAccess
 import app.lensly.app.export.BrotliCompressor
 import app.lensly.app.export.BrotliEncoder
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
 import app.lensly.app.export.fitBytes
 import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.algorand.LedgerEd25519
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcAccountSelection
 import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
 import app.lensly.core.btc.BtcNetwork
 import app.airvault.chains.bitcoin.signer.BtcPsbt
-import app.airvault.chains.algorand.signer.AlgorandRequestReview
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.lensly.core.btc.BtcSigner
@@ -25,6 +23,7 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
+import app.lensly.core.wallet.WalletKeyAccess
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.BulkRun
 import app.lensly.core.wallet.Ed25519Signer
@@ -615,7 +614,7 @@ class WalletStore(private val session: VaultSession) {
         val seed = seedOf(id)
         val signed = try {
             val key = BtcAccount.fromSeed(seed, account.network, account.scriptType, account.index)
-            BtcSigner(key, inputPolicy, sourcePolicy).sign(psbt, unverifiedConfirmed)
+            BtcSigner(key, inputPolicy, sourcePolicy, SettingsStore(session).load().bitcoinFeeThresholds).sign(psbt, unverifiedConfirmed)
         } finally {
             seed.fill(0)
         }
@@ -647,26 +646,13 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * Signs the reviewed Algorand [review] with the account it was reviewed under, and returns the 64-byte Ed25519 signature of "TX"
-     * followed by the reviewed bytes. The seed and the key are zeroed before this returns. The derived key must be the public key the
-     * wallet stores for that account, and the review must name that key, or nothing is signed. BouncyCastle keeps its own copy of the
-     * key, as [Ed25519Signer] notes.
-     *
-     * @throws IllegalArgumentException when the wallet has no such Algorand account, the review names another key, or the derived key
-     * is not the stored key.
+     * Runs [use] with the key access of wallet [id] (spec 3.2). Each call derives the key it asks for from the wallet's seed. The seed is derived
+     * here and zeroed before this returns, on every path. A Single Key wallet has no seed, so it throws.
      */
-    fun algorandSign(id: String, review: AlgorandRequestReview): ByteArray {
-        val stored = algorandKeys(id).getOrNull(review.accountIndex) ?: throw IllegalArgumentException(NO_ALGORAND_ACCOUNT)
-        require(review.signer.contentEquals(stored)) { REVIEW_OTHER_ACCOUNT }
+    fun <T> withKeys(id: String, use: (KeyAccess) -> T): T {
         val seed = seedOf(id)
         try {
-            val key = LedgerEd25519.algorandAccount(seed, review.accountIndex)
-            try {
-                if (!key.publicKey.contentEquals(stored)) throw IllegalArgumentException(ALGORAND_KEY_MISMATCH)
-                return Ed25519Signer.sign(key.kL, bytesToSign(review.signData))
-            } finally {
-                key.wipe()
-            }
+            return use(WalletKeyAccess(seed))
         } finally {
             seed.fill(0)
         }
@@ -1061,9 +1047,6 @@ class WalletStore(private val session: VaultSession) {
         const val SINGLE_KEY_NO_SOLANA = "A Single Key wallet has no seed, so it cannot hold Solana accounts."
         const val NO_ROOM_FOR_ALGORAND = "The Algorand accounts of this wallet take too much room to save."
         const val SINGLE_KEY_NO_ALGORAND = "A Single Key wallet has no seed, so it cannot hold Algorand accounts."
-        const val NO_ALGORAND_ACCOUNT = "This wallet has no such Algorand account."
-        const val ALGORAND_KEY_MISMATCH = "Key does not match account"
-        const val REVIEW_OTHER_ACCOUNT = "This review is for an account other than the one it is signed with."
     }
 }
 

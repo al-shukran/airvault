@@ -89,9 +89,12 @@ class SolanaRequestReview internal constructor(
     val baseFeeLamports: ULong
         get() = (message?.header?.numRequiredSignatures ?: 0).toULong() * LAMPORTS_PER_SIGNATURE
 
-    /** The most the transaction can cost in fees: the base fee and the priority fee. It is exact unless [priorityFeeIsBound] is set. */
+    /**
+     * The most the transaction can cost in fees: the base fee and the priority fee, capped at the largest u64 when their sum would wrap. It is
+     * exact unless [priorityFeeIsBound] is set.
+     */
     val maxFeeLamports: ULong
-        get() = baseFeeLamports + priorityFeeLamports
+        get() = (baseFeeLamports + priorityFeeLamports).let { if (it < baseFeeLamports) ULong.MAX_VALUE else it }
 
     /** The recent blockhash of a transaction, in base58. For a durable nonce it is the nonce's stored value. Null for a message. */
     val recentBlockhash: String?

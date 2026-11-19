@@ -2,10 +2,14 @@ package app.lensly.ui.flow
 
 import android.content.Context
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainId
+import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.ScopedKeyAccess
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookStore
 import app.lensly.app.AddressNotes
@@ -26,7 +30,8 @@ import app.lensly.app.autoAccountName
 import app.lensly.app.export.partsOf
 import app.lensly.app.internalAccountsOf
 import app.lensly.app.requestParser
-import app.lensly.app.sign.AlgorandReviewEntry
+import app.lensly.app.sign.AppPrepared
+import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.AsaCatalogHolder
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
@@ -36,22 +41,25 @@ import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.algorandCounterparties
-import app.lensly.app.sign.algorandReviewRecordOf
+import app.lensly.app.sign.appReviewRecordOf
 import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.evmCounterparties
 import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.sign.solanaCounterparties
 import app.lensly.app.sign.solanaReviewRecordOf
 import app.lensly.app.visualIdentity
+import app.lensly.chains.signerRegistry
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.lensly.core.parse.RequestParser
+import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.registry.UnknownCallPolicy
 import app.airvault.chains.solana.signer.SolanaRequestCheck
 import app.airvault.chains.solana.signer.SolanaTokenList
-import app.lensly.core.ur.AlgoSignatureEncoder
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
+import app.lensly.core.ur.framesOf
 import app.lensly.core.ur.SolSignatureEncoder
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
@@ -59,10 +67,14 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.core.wallet.toHex
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import app.airvault.chains.algorand.signer.toReview
+import com.sparrowwallet.hummingbird.UR
+import java.security.MessageDigest
 
 /** The refusal of a Bitcoin request that could not be reviewed for a reason other than its rules. Nothing is signed for it. */
 private const val BITCOIN_UNREADABLE = "This Bitcoin request could not be reviewed. Nothing was signed."
@@ -328,44 +340,64 @@ internal class VaultSignPorts(
     }
 
     /**
-     * Reviews the Algorand [request] against wallet [walletId]. The request must name the wallet's master fingerprint, and the review uses
-     * the Algorand public keys the wallet stores, so the seed is not read here. A request the rules refuse is [AlgorandPrepared.Refused].
+     * Reviews the request [request] of an installed chain app against wallet [walletId]. Only the Algorand app has a review on the one sign flow
+     * so far, and any other app is refused.
      */
-    override suspend fun algorandPrepare(walletId: String, request: AlgoSignRequest): AlgorandPrepared = withContext(Dispatchers.IO) {
+    override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared = when (request.header.app) {
+        algorandManifest.id -> algorandPrepare(walletId, request)
+        else -> AppPrepared.Refused(UNSUPPORTED_CODE)
+    }
+
+    /**
+     * Reviews the Algorand [appRequest] against wallet [walletId]. The request must name the wallet's master fingerprint, and the review uses
+     * the Algorand public keys the wallet stores, so the seed is not read here. A request the rules refuse is [AppPrepared.Refused].
+     */
+    private suspend fun algorandPrepare(walletId: String, appRequest: AppRequest): AppPrepared = withContext(Dispatchers.IO) {
+        val request = when (val decoded = AlgoSignRequest.decode(appRequest.body)) {
+            is AlgoSignRequest.Result.Ok -> decoded.request
+            is AlgoSignRequest.Result.Rejected -> return@withContext AppPrepared.Refused(decoded.reason)
+        }
         val wallet = readWallet { session ->
             val listed = WalletStore(session).list()
             val position = listed.indexOfFirst { it.id == walletId }
             if (position < 0) null else viewOf(session, listed[position], position)
         }
-        val masterFingerprint = wallet.masterFingerprint ?: return@withContext AlgorandPrepared.Refused(ALGORAND_NO_ACCOUNTS)
+        val masterFingerprint = wallet.masterFingerprint ?: return@withContext AppPrepared.Refused(ALGORAND_NO_ACCOUNTS)
         val sourceFingerprint = request.sourceFingerprint
-            ?: return@withContext AlgorandPrepared.Refused("The request does not say which wallet it is for")
-        if (sourceFingerprint != masterFingerprint) return@withContext AlgorandPrepared.Refused("This request is for a different wallet")
+            ?: return@withContext AppPrepared.Refused("The request does not say which wallet it is for")
+        if (sourceFingerprint != masterFingerprint) return@withContext AppPrepared.Refused("This request is for a different wallet")
         val keys = readWallet { WalletStore(it).algorandKeys(walletId) }
         when (val checked = AlgorandRequestCheck.check(request, keys, AsaCatalogHolder.get(context))) {
             is AlgorandRequestCheck.Result.Ok -> {
                 val review = checked.review
-                AlgorandPrepared.Ready(
+                val counterparties = algorandCounterparties(review)
+                AppPrepared.Ready(
                     walletId = walletId,
-                    request = request,
-                    review = review,
+                    request = appRequest,
+                    review = review.toReview(),
+                    accountIndex = review.accountIndex,
                     signer = signerOf(wallet, review.accountIndex, review.signerAddress),
-                    addressNotes = addressNotesFor(walletId, algorandCounterparties(review), ALGORAND_FAMILY),
+                    addressChain = ALGORAND_FAMILY,
+                    counterparties = counterparties,
+                    addressNotes = addressNotesFor(walletId, counterparties, ALGORAND_FAMILY),
                 )
             }
-            is AlgorandRequestCheck.Result.Refused -> AlgorandPrepared.Refused(checked.reason)
+            is AlgorandRequestCheck.Result.Refused -> AppPrepared.Refused(checked.reason)
         }
     }
 
     /**
-     * Signs the reviewed Algorand request with the account it was reviewed under, and returns its `ur:algo-signature` frames, which carry the
-     * account's public key. The seed and the key are zeroed inside [WalletStore].
+     * Signs the approved request through its app's `SignerApp.sign`, with the wallet's key access scoped to the app's key scopes, so a path outside
+     * them throws [KeyScopeViolation] before any key is derived. The seed is zeroed inside [WalletStore.withKeys].
      */
-    override suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String> = withContext(Dispatchers.Default) {
+    override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> = withContext(Dispatchers.Default) {
         val session = holder.openSession() ?: throw WalletUnavailable()
         try {
-            val signature = WalletStore(session).algorandSign(ready.walletId, ready.review)
-            partsOf(AlgoSignatureEncoder.encode(ready.request.requestId, signature, publicKey = ready.review.signer))
+            val signer = signerRegistry.byChain(ready.request.header.chain) ?: throw IllegalArgumentException(UNSUPPORTED_CODE)
+            val response = WalletStore(session).withKeys(ready.walletId) { keys ->
+                signer.sign(ready.request, approval, ScopedKeyAccess(signer.manifest.keys, keys))
+            }
+            partsOf(framesOf(UR(response.urType, response.cbor), DEFAULT_MAX_FRAGMENT))
         } catch (e: CancellationException) {
             throw e
         } catch (e: IllegalStateException) {
@@ -374,16 +406,29 @@ internal class VaultSignPorts(
     }
 
     /** Writes the Algorand [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
-    override suspend fun recordAlgorand(entry: AlgorandReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
+    override suspend fun recordApp(entry: AppReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
         val session = holder.openSession() ?: throw ReviewNotSaved()
         try {
-            writeRecord(session, entry.walletId, algorandReviewRecordOf(entry, System.currentTimeMillis()))
+            val (origin, dataHash) = requestFactsOf(entry.request)
+            val displayName = signerRegistry.byChain(entry.request.header.chain)?.manifest?.displayName.orEmpty()
+            writeRecord(session, entry.walletId, appReviewRecordOf(entry, System.currentTimeMillis(), origin, dataHash, displayName))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             throw ReviewNotSaved()
         }
     }
+
+    /** The origin a request names, and the SHA-256 of the data it asks to sign, as its chain app reads them (spec 8.6). */
+    private fun requestFactsOf(request: AppRequest): Pair<String?, String> = when (request.header.app) {
+        algorandManifest.id -> when (val decoded = AlgoSignRequest.decode(request.body)) {
+            is AlgoSignRequest.Result.Ok -> decoded.request.origin to sha256Hex(decoded.request.signData)
+            is AlgoSignRequest.Result.Rejected -> null to sha256Hex(request.body)
+        }
+        else -> null to sha256Hex(request.body)
+    }
+
+    private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
 
     /** Writes the Bitcoin [entry] as a Review Record of its wallet, through the open session. NonCancellable, as [record] is. */
     override suspend fun recordBitcoin(entry: BitcoinReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {

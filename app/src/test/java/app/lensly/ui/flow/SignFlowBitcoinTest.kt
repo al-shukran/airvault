@@ -1,11 +1,13 @@
 package app.lensly.ui.flow
 
-import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.core.model.Approval
+import app.airvault.core.signer.AppRequest
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
-import app.lensly.app.sign.AlgorandReviewEntry
+import app.lensly.app.sign.AppPrepared
+import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
@@ -18,6 +20,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
+import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
 import app.lensly.core.btc.BtcSigner
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
@@ -71,8 +74,8 @@ class SignFlowBitcoinTest {
 
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
-        val review = assertIs<SignStep.BitcoinReview>(flow.state.value)
-        assertEquals(false, review.confirmed)
+        assertIs<SignStep.BitcoinReview>(flow.state.value)
+        assertEquals(emptySet(), flow.ticked.value)
         assertContentEquals(Psbt.write(psbt).toByteArray(), ports.preparedBytes.single())
     }
 
@@ -212,9 +215,14 @@ class SignFlowBitcoinTest {
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
         flow.approve()
-        assertEquals(false, assertIs<SignStep.BitcoinReview>(flow.state.value).confirmed)
+        assertIs<SignStep.BitcoinReview>(flow.state.value)
 
-        flow.confirmUnverified(true)
+        flow.tick(UNVERIFIED_CHECK, on = true)
+        flow.tick(UNVERIFIED_CHECK, on = false)
+        flow.approve()
+        assertIs<SignStep.BitcoinReview>(flow.state.value)
+
+        flow.tick(UNVERIFIED_CHECK, on = true)
         flow.approve()
         assertEquals(true, assertIs<SignStep.BitcoinConfirming>(flow.state.value).confirmed)
     }
@@ -310,12 +318,12 @@ private class BitcoinPorts(
 
     override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = error("a Solana request is not expected in the Bitcoin tests")
 
-    override suspend fun algorandPrepare(walletId: String, request: AlgoSignRequest): AlgorandPrepared =
+    override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared =
         error("an Algorand request is not expected in the Bitcoin tests")
 
-    override suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String> =
+    override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> =
         error("an Algorand request is not expected in the Bitcoin tests")
 
-    override suspend fun recordAlgorand(entry: AlgorandReviewEntry): Unit =
+    override suspend fun recordApp(entry: AppReviewEntry): Unit =
         error("an Algorand request is not expected in the Bitcoin tests")
 }

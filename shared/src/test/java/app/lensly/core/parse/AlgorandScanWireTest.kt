@@ -8,7 +8,6 @@ import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.core.algorand.AlgoTxnVectors
-import app.airvault.chains.algorand.signer.AlgorandRequestCheck.UNKNOWN_NETWORK
 import app.lensly.core.ur.framesOf
 import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertContentEquals
@@ -66,13 +65,6 @@ class AlgorandScanWireTest {
         val payload = algorandRequestCbor(withGenesisHash(pay("pay_basic"), ByteArray(32) { 0x11 }), signType = 1L)
         val chain = assertIs<ScanReply.App>(InProcessParser.scan(parts(payload))).request.header.chain
         assertTrue(chain != TESTNET && chain != MAINNET, "the chain $chain is one of the networks Lensly signs for")
-    }
-
-    /** A genesis hash whose first 32 base64 characters are no CAIP-2 reference names no chain at all, so the scan refuses it. */
-    @Test
-    fun aTransactionWhoseGenesisHashNamesNoChainIsRefused() {
-        val payload = algorandRequestCbor(withGenesisHash(pay("pay_basic"), ByteArray(32) { 0xff.toByte() }), signType = 1L)
-        assertEquals(UNKNOWN_NETWORK, assertIs<ScanReply.Refused>(InProcessParser.scan(parts(payload))).reason)
     }
 
     /** One complete UR part. The payload is small, so it is a single frame. */

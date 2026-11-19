@@ -72,6 +72,27 @@ class BtcReviewWarningsTest {
     }
 
     @Test
+    fun aSubDustOutputIsADustWarningAndAnOpReturnIsNot() {
+        val review = BtcReview(
+            inputPolicy = InputVerificationPolicy.STRICT,
+            inputs = listOf(
+                BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = KeyPath(listOf(0L)), sequence = 0xFFFFFFFDL),
+            ),
+            outputs = listOf(
+                BtcReviewOutput(0, "tb1q-example", 545L, isOwnChange = false, changeIndex = null),
+                // The output at the dust limit is a payment the network relays, and an OP_RETURN has no address to pay.
+                BtcReviewOutput(1, "tb1q-example", 546L, isOwnChange = false, changeIndex = null),
+                BtcReviewOutput(2, null, 0L, isOwnChange = false, changeIndex = null),
+            ),
+            feeSats = 99_455L,
+            requiresConfirmation = false,
+            estimatedVsize = 100L,
+            lockTime = 0L,
+        )
+        assertEquals(listOf(BtcWarning.DustOutputs(1)), review.warnings())
+    }
+
+    @Test
     fun aLockTimeThatAnInputEnforcesIsALockTimeWarning() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
         // A 1,000 sat fee keeps the fee warnings quiet, so the lock is the only warning.
