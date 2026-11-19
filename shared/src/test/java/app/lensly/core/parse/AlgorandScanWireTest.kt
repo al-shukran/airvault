@@ -2,6 +2,7 @@ package app.lensly.core.parse
 
 import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.algorand.signer.AlgoTxnDecoder
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.airvault.core.model.ChainId
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader
@@ -13,6 +14,7 @@ import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.junit.Test
 
@@ -41,12 +43,26 @@ class AlgorandScanWireTest {
         assertEquals(MAINNET, assertIs<ScanReply.App>(InProcessParser.scan(parts(payload))).request.header.chain)
     }
 
-    /** A message carries no genesis hash, and the request carries no network, so a message names the Algorand mainnet. */
+    /** Lensly signs transactions only: a message is refused by the sandbox, and the refusal crosses the wire with the request it names. */
     @Test
-    fun aMessageToSignNamesTheAlgorandMainnet() {
+    fun aMessageToSignIsRefusedWithItsRequestAcrossTheWire() {
         val payload = algorandRequestCbor(signData = byteArrayOf(0x7f, 1, 2), signType = 2L)
-        val request = assertIs<ScanReply.App>(InProcessParser.scan(parts(payload))).request
-        assertSameRequest(AppRequest(headerOf(MAINNET, RequestKind.MESSAGE), payload), request)
+        val call = ParserWire.encodeScanRequest(session = 1L, base = 0, parts = parts(payload))
+        val reply = assertIs<ScanReply.Refused>(ParserWire.decodeScanReply(SandboxAnswers().answer(ParserWire.SCAN, call)))
+        assertEquals(AlgorandRequestCheck.NOT_A_TRANSACTION, reply.reason)
+        assertSameRequest(AppRequest(headerOf(MAINNET, RequestKind.MESSAGE), payload), assertNotNull(reply.request))
+    }
+
+    /** A refusal without a request keeps the plain refusal's bytes, and a refusal with one comes back with the same request. */
+    @Test
+    fun aRefusalWithoutARequestAndOneWithARequestBothCrossTheWire() {
+        val plain = ScanReply.Refused("reason")
+        assertEquals(plain, ParserWire.decodeScanReply(ParserWire.encodeScanReply(plain)))
+        val request = AppRequest(headerOf(TESTNET, RequestKind.TRANSACTION), body = byteArrayOf(0xa1.toByte(), 1, 2, 3))
+        val refused = ScanReply.Refused("reason", request)
+        val decoded = assertIs<ScanReply.Refused>(ParserWire.decodeScanReply(ParserWire.encodeScanReply(refused)))
+        assertEquals("reason", decoded.reason)
+        assertSameRequest(request, assertNotNull(decoded.request))
     }
 
     /** A transaction the decoder refuses is refused by the sandbox, and never reaches the app as a request. */

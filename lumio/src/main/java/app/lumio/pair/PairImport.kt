@@ -1,8 +1,11 @@
 package app.lumio.pair
 
+import app.airvault.chains.algorand.wallet.AlgorandWallet
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.canonicalAddressOf
 import app.airvault.chains.evm.evmAddressOf
+import app.airvault.chains.evm.wallet.EvmWallet
+import app.airvault.chains.solana.wallet.SolanaWallet
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingKey
@@ -10,6 +13,7 @@ import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.btc.ScriptType
+import app.lensly.core.ur.PathStep
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
@@ -80,11 +84,13 @@ object PairImport {
             throw PairingRefusal(e.message ?: NOT_A_PAIRING)
         }
         val ethereum = payload.apps.firstOrNull { it.app == ETHEREUM }?.takeIf { it.accounts.isNotEmpty() } ?: throw PairingRefusal(NO_ETHEREUM)
-        checkAccounts(ethereum, "Ethereum", MAX_ETHEREUM_ACCOUNTS, EVM_ADDRESS_BYTES, NOT_ACCOUNT_KEY, ::ethereumPathOf)
+        checkAccounts(ethereum, "Ethereum", MAX_ETHEREUM_ACCOUNTS, EVM_ADDRESS_BYTES, NOT_ACCOUNT_KEY) { EvmWallet.pathOf(it).asPairingPath() }
         payload.apps.firstOrNull { it.app == BITCOIN }?.let { checkBitcoin(payload.fingerprint, it) }
-        payload.apps.firstOrNull { it.app == SOLANA }?.let { checkAccounts(it, "Solana", MAX_SOLANA_ACCOUNTS, ED25519_KEY_BYTES, NOT_SOLANA_KEY, ::solanaPathOf) }
-        payload.apps.firstOrNull { it.app == ALGORAND }?.let {
-            checkAccounts(it, "Algorand", MAX_ALGORAND_ACCOUNTS, ED25519_KEY_BYTES, NOT_ALGORAND_KEY, ::algorandPathOf)
+        payload.apps.firstOrNull { it.app == SOLANA }?.let { app ->
+            checkAccounts(app, "Solana", MAX_SOLANA_ACCOUNTS, ED25519_KEY_BYTES, NOT_SOLANA_KEY) { SolanaWallet.pathOf(it).asPairingPath() }
+        }
+        payload.apps.firstOrNull { it.app == ALGORAND }?.let { app ->
+            checkAccounts(app, "Algorand", MAX_ALGORAND_ACCOUNTS, ED25519_KEY_BYTES, NOT_ALGORAND_KEY) { AlgorandWallet.pathOf(it).asPairingPath() }
         }
         return payload.copy(addressBook = addressBookOf(payload.addressBook))
     }
@@ -180,17 +186,9 @@ object PairImport {
         }
     }
 
-    /** The path of the key of account [account]: m/[purpose]'/[coin]'/[account]', followed by [suffix]. */
-    private fun accountPath(purpose: Long, coin: Long, account: Int, vararg suffix: Long): List<Long> =
-        listOf(DeterministicWallet.hardened(purpose), DeterministicWallet.hardened(coin), DeterministicWallet.hardened(account.toLong())) +
-            suffix.toList()
-
-    /** The path of the address key of Ethereum account [account]: m/44'/60'/[account]'/0/0. */
-    private fun ethereumPathOf(account: Int): List<Long> = accountPath(44, 60, account, 0, 0)
-
-    /** The path of the Solana key of account [account]: m/44'/501'/[account]'. */
-    private fun solanaPathOf(account: Int): List<Long> = accountPath(44, 501, account)
-
-    /** The path of the Algorand key of account [account]: m/44'/283'/[account]'/0/0. */
-    private fun algorandPathOf(account: Int): List<Long> = accountPath(44, 283, account, 0, 0)
+    /** A wallet's path as the pairing carries it: each step's index, with the hardened bit set on a hardened step. */
+    private fun List<PathStep>.asPairingPath(): List<Long> = map { step ->
+        val index = step.index.toLong()
+        if (step.hardened) DeterministicWallet.hardened(index) else index
+    }
 }

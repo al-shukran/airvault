@@ -117,6 +117,9 @@ class SolSignRequest(
             }
 
             val origin = fields[5L]?.let { textOf(it, "origin") }
+            if (origin != null && origin.toByteArray(Charsets.UTF_8).size > ParserLimits.MAX_ORIGIN_BYTES) {
+                malformed("origin exceeds ${ParserLimits.MAX_ORIGIN_BYTES} bytes")
+            }
 
             val typeValue = uintOf(fields[6L] ?: malformed("signType is missing"), "signType")
             val signType = SolSignType.fromWire(typeValue) ?: malformed("unsupported signType $typeValue")
