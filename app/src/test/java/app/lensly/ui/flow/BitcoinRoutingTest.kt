@@ -10,7 +10,7 @@ import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcCoin
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.lensly.core.btc.BtcUnsignedPsbt
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.vault.FakeClock

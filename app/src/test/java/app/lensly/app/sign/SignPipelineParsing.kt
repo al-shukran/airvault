@@ -23,8 +23,6 @@ fun SignPipeline.prepare(ur: UR, wallet: WalletView): Prepared =
     when (val reply = inProcessSandboxParser.scan(listOf(framesOf(ur, ONE_FRAME).first()))) {
         is ScanReply.Complete -> prepare(reply.parsed, wallet)
         is ScanReply.Refused -> Prepared.Refused(reply.reason)
-        // A PSBT is a Bitcoin request, which the EVM pipeline does not sign.
-        is ScanReply.Bitcoin -> Prepared.Refused(UNSUPPORTED_CODE)
         // A Solana request is reviewed by the Solana check, not the EVM pipeline.
         is ScanReply.Solana -> Prepared.Refused(UNSUPPORTED_CODE)
         is ScanReply.App -> Prepared.Refused(UNSUPPORTED_CODE)

@@ -98,6 +98,8 @@ dependencies {
     // The Algorand transaction types and the request codec live in chains/algorand/common; the decoder in .../signer.
     api(project(":chains:algorand:common"))
     api(project(":chains:algorand:signer"))
+    // The Bitcoin PSBT codec, the bitcoin manifest and the crypto-psbt parser live in chains/bitcoin/signer.
+    api(project(":chains:bitcoin:signer"))
 
     // Compose, activity and coroutines types are part of this module's public API, so they reach :app as api.
     api(platform(libs.androidx.compose.bom))

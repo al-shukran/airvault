@@ -3,7 +3,7 @@ package app.lumio.btc
 import app.lensly.core.btc.BtcCoin
 import app.lensly.core.btc.BtcFeeRate
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.lensly.core.btc.BtcUnsignedPsbt
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lumio.data.cache.CachePolicy

@@ -1,5 +1,6 @@
 package app.lensly.core.btc
 
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import fr.acinq.bitcoin.ByteVector
 import fr.acinq.bitcoin.OutPoint
 import fr.acinq.bitcoin.Script
