@@ -42,6 +42,12 @@ data class ParserLimits(
          */
         const val MAX_APP_BODY_BYTES = 2 * MAX_SIGN_DATA_BYTES + 4096
 
+        /**
+         * The most UTF-8 bytes of the origin a request names: the wallet's word for the app that asked. The review shows it, and the
+         * decoders of EVM, Algorand and Solana refuse a longer one.
+         */
+        const val MAX_ORIGIN_BYTES = 512
+
         /** The deepest nesting of a CBOR payload. */
         const val MAX_CBOR_DEPTH = 8
 
