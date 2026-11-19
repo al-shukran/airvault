@@ -13,19 +13,33 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.airvault.abi.AbiDecoder
 import app.airvault.abi.CallDecode
 import app.airvault.abi.WhitelistParam
+import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
-import app.lensly.app.sign.SolanaSplFixtures
-import app.airvault.chains.evm.signer.UndecodedCall
-import app.lensly.app.sign.WhitelistedCall
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaTokenList
+import app.airvault.chains.solana.signer.SolanaWarning
 import app.airvault.chains.solana.signer.solanaWarningText
+import app.airvault.chains.solana.signer.toReview
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.Danger
+import app.airvault.core.model.DisplayValue
+import app.airvault.core.model.NetworkLabel
+import app.airvault.core.model.Review
+import app.airvault.core.model.ReviewRow
+import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.SectionStyle
+import app.airvault.core.model.SummaryPart
+import app.airvault.core.model.Warning
+import app.lensly.app.SOLANA_FAMILY
+import app.lensly.app.sign.SolanaSplFixtures
 import app.lensly.core.registry.AbiRows
 import app.lensly.core.registry.CallSteps
 import app.lensly.core.registry.FeeModel
@@ -33,19 +47,10 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
-import app.airvault.chains.solana.signer.SolanaRequestCheck
-import app.airvault.chains.solana.signer.SolanaRequestReview
-import app.airvault.chains.solana.signer.SolanaTokenList
-import app.airvault.chains.solana.signer.SolanaWarning
 import app.lensly.core.ur.PathStep
-import app.lensly.core.wallet.toHex
-import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.ReviewScreen
-import app.lensly.app.SOLANA_FAMILY
-import app.airvault.chains.solana.signer.toReview
-import app.lensly.ui.sign.TxReviewScreen
 import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import fr.acinq.bitcoin.Base58
@@ -66,6 +71,7 @@ private const val SWAP_CONTRACT = "0x5555555555555555555555555555555555555555"
 private const val IMPLEMENTATION = "0x7777777777777777777777777777777777777777"
 private const val SWAP_SIGNATURE = "swapExactTokensForTokens(uint256,uint256,address)"
 private const val SWAP_RECIPIENT = "0xf278cf59f82edcf871d630f28ecc8056f25c1cdb"
+private const val SWAP_MEANING = "Swap an exact amount of one token for another, along the route in the call."
 
 /** The arguments of [SWAP_SIGNATURE], as the whitelist entry declares them. */
 private val SWAP_PARAMS = listOf(
@@ -85,64 +91,61 @@ private val SWAP_CALLDATA = Numeric.hexStringToByteArray(
 /** What the decoder reads from [SWAP_CALLDATA], so the review lists the values the bytes hold and not typed-in ones. */
 private val SWAP_DECODED = (AbiDecoder.decode(SWAP_CALLDATA, SWAP_PARAMS) as CallDecode.Ok).params
 
-/** The review rows of [SWAP_DECODED], as the sign flow shows them. */
-private val SWAP_ROWS = SWAP_DECODED.flatMap { AbiRows.of(it) }
+/** The Arguments rows of [SWAP_DECODED], as the sign flow shows them. */
+private val SWAP_ROWS = SWAP_DECODED.flatMap { AbiRows.of(it) }.map { (label, value) -> ReviewRow(label, DisplayValue.Text(value), null) }
 
 /** A call Lensly cannot decode that the whitelist approves, on the sample network. [proxy] is set for a proxy under Warn and confirm. */
-private fun whitelistedSample(proxy: ProxyBinding? = null) = sampleNativeReview.copy(
-    function = "swapExactTokensForTokens",
-    toAddress = SWAP_CONTRACT,
-    amount = "",
-    symbol = "",
-    params = SWAP_ROWS,
-    warnings = emptyList(),
-    whitelisted = WhitelistedCall(
-        signature = SWAP_SIGNATURE,
-        meaning = "Swap an exact amount of one token for another, along the route in the call.",
-        call = UndecodedCall(
-            target = SWAP_CONTRACT,
-            networkName = "Monad Testnet",
-            chainId = 10143L,
-            value = "0 MON",
-            selector = "6e17e9f6",
-            words = SWAP_CALLDATA.drop(4).toByteArray().toHex().chunked(64),
-            proxy = proxy,
+private fun whitelistedSample(proxy: ProxyBinding? = null): Review = sampleNativeReview.copy(
+    title = "swapExactTokensForTokens",
+    summary = listOf(
+        SummaryPart.Text("Calls swapExactTokensForTokens on "),
+        SummaryPart.Counterparty(SWAP_CONTRACT),
+        SummaryPart.Text(", which the signed list approves."),
+    ),
+    sections = listOf(
+        transactionSection(to = "Contract", target = SWAP_CONTRACT, function = SWAP_SIGNATURE),
+        ReviewSection(
+            "Arguments",
+            buildList {
+                add(ReviewRow("Approved Meaning", DisplayValue.Text(SWAP_MEANING), null))
+                addAll(SWAP_ROWS)
+                if (proxy != null) add(ReviewRow("Implementation", DisplayValue.Address(MONAD_CHAIN, IMPLEMENTATION), null))
+            },
         ),
     ),
+    warnings = buildList {
+        add(approvedCallWarning(SWAP_MEANING))
+        if (proxy != null) add(upgradeWarning())
+    },
 )
 
 /** A multicall with its calls listed level by level: an approval, and a whitelisted swap one level down under its warning. */
-private fun nestedSample() = sampleNativeReview.copy(
-    function = "multicall",
-    signature = "multicall(uint256,bytes[])",
-    toAddress = SWAP_CONTRACT,
-    amount = "",
-    symbol = "",
-    params = listOf("deadline (uint256)" to "1700000000"),
-    warnings = emptyList(),
-    nested = listOf(
-        NestedCall(depth = 1, target = null, function = "approve", params = listOf("spender" to SWAP_RECIPIENT, "value" to "10")),
-        NestedCall(depth = 1, target = null, function = "aggregate3", params = listOf("allowFailure (bool)" to "false")),
-        NestedCall(
-            depth = 2,
+private fun nestedSample(): Review = sampleNativeReview.copy(
+    title = "multicall",
+    summary = listOf(SummaryPart.Text("Runs 3 calls in one transaction.")),
+    sections = listOf(
+        transactionSection(
+            to = "Contract",
             target = SWAP_CONTRACT,
-            function = "swapExactTokensForTokens",
-            params = SWAP_ROWS,
-            whitelisted = WhitelistedCall(
-                signature = SWAP_SIGNATURE,
-                meaning = "Swap an exact amount of one token for another, along the route in the call.",
-                call = UndecodedCall(
-                    target = SWAP_CONTRACT,
-                    networkName = "Monad Testnet",
-                    chainId = 10143L,
-                    value = "0 MON",
-                    selector = "6e17e9f6",
-                    words = SWAP_CALLDATA.drop(4).toByteArray().toHex().chunked(64),
-                    proxy = null,
-                ),
-            ),
+            function = "multicall(uint256,bytes[])",
+            extra = listOf(ReviewRow("deadline (uint256)", DisplayValue.Number(BigInteger.valueOf(1_700_000_000L)), null)),
+        ),
+        ReviewSection(
+            "Calls",
+            buildList {
+                add(ReviewRow("Call 1", DisplayValue.Text("approve"), null))
+                add(ReviewRow("spender", DisplayValue.Text(SWAP_RECIPIENT), null, depth = 1))
+                add(ReviewRow("value", DisplayValue.Text("10"), null, depth = 1))
+                add(ReviewRow("Call 2", DisplayValue.Text("aggregate3"), null))
+                add(ReviewRow("allowFailure (bool)", DisplayValue.Text("false"), null, depth = 1))
+                add(ReviewRow("Call 1", DisplayValue.Text("swapExactTokensForTokens"), null, depth = 1))
+                add(ReviewRow("Contract", DisplayValue.Address(MONAD_CHAIN, SWAP_CONTRACT), null, depth = 2))
+                add(ReviewRow("Approved Meaning", DisplayValue.Text(SWAP_MEANING), null, depth = 2))
+                addAll(SWAP_ROWS.map { it.copy(depth = 2) })
+            },
         ),
     ),
+    warnings = listOf(approvedCallWarning(SWAP_MEANING)),
 )
 
 /**
@@ -178,6 +181,9 @@ private const val UR_V1_2 = "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD"
 
 /** The account that sent the batch, which its steps name as "you". */
 private const val UR_SIGNER = "0x0bf93ea5a1fa4ce3dd22c7ffd314462d3869777f"
+
+/** What the batch does, as the whitelist entry states it. */
+private const val UR_MEANING = "Uniswap Universal Router: run a batch of swap and transfer commands in one call."
 
 /** The Ethereum network and the tokens the batch's steps name, as the registry holds them. */
 private val UR_NETWORK = NetworkEntry(
@@ -219,53 +225,95 @@ private val UR_STEPS = CallSteps.describe(
 )
 
 /** A Universal Router batch the owner signs: its steps, the approval warning they raise, and the arguments behind Details. */
-private fun urBatchSample() = sampleNativeReview.copy(
-    networkName = "Ethereum",
-    chainId = 1L,
-    network = UR_NETWORK,
-    function = "execute",
-    signature = "execute(bytes,bytes[],uint256)",
-    toAddress = UR_V1_2,
-    amount = "",
-    symbol = "",
-    params = UR_DECODED.flatMap { AbiRows.of(it) },
-    warnings = UR_STEPS?.warnings.orEmpty(),
-    whitelisted = WhitelistedCall(
-        signature = "execute(bytes,bytes[],uint256)",
-        meaning = "Uniswap Universal Router: run a batch of swap and transfer commands in one call.",
-        call = UndecodedCall(
-            target = UR_V1_2,
-            networkName = "Ethereum",
-            chainId = 1L,
-            value = "0 ETH",
-            selector = "3593564c",
-            words = UR_BATCH_CALLDATA.removePrefix("0x").drop(8).chunked(64),
-            proxy = null,
+private fun urBatchSample(): Review {
+    val chain = ChainId("eip155:1")
+    return Review(
+        title = "execute",
+        chain = chain,
+        network = NetworkLabel(name = "Ethereum", testnet = false, detail = "Chain ID 1"),
+        summary = listOf(
+            SummaryPart.Text("Calls execute on "),
+            SummaryPart.Counterparty(UR_V1_2),
+            SummaryPart.Text(", which the signed list approves."),
         ),
-        steps = UR_STEPS,
+        facts = sampleNativeReview.facts,
+        sections = listOf(
+            transactionSection(to = "Contract", target = UR_V1_2, function = "execute(bytes,bytes[],uint256)", chain = chain, signer = UR_SIGNER),
+            ReviewSection(
+                "Arguments",
+                listOf(ReviewRow("Approved Meaning", DisplayValue.Text(UR_MEANING), null)) +
+                    UR_DECODED.flatMap { AbiRows.of(it) }.map { (label, value) -> ReviewRow(label, DisplayValue.Text(value), null) },
+            ),
+            ReviewSection("Steps", UR_STEPS?.lines.orEmpty().map { ReviewRow(it, null, null) }, SectionStyle.Steps),
+        ),
+        warnings = buildList {
+            add(approvedCallWarning(UR_MEANING))
+            UR_STEPS?.warnings?.forEach { add(Warning(Danger.CAUTION, "evm.steps", it)) }
+        },
+        coverage = sampleNativeReview.coverage,
+    )
+}
+
+/** A native transfer whose one warning has a check to tick, and few facts, so the review fits on screen with its hold off. */
+private val shortWarningSample = sampleNativeReview.copy(
+    facts = listOf(ReviewRow("Max Fee", DisplayValue.Text("52.5 gwei"), null)),
+    warnings = listOf(
+        Warning(
+            Danger.CAUTION,
+            "evm.registry",
+            "This network is not in Lensly's registry, so Lensly cannot check its coin or decimals.",
+            acknowledge = "I have checked the chain ID and the contract.",
+        ),
     ),
 )
 
-/** A native transfer with one warning and no check. Short enough to fit on screen, so only the details stand between it and signing. */
-private val shortWarningSample = sampleNativeReview.copy(fee = listOf("Max Fee" to "52.5 gwei"), feeNote = null)
+/** The Monad Testnet chain of the native sample, which the whitelisted and nested samples share. */
+private val MONAD_CHAIN = sampleNativeReview.chain
 
-private const val REVIEW_TAG = "lensly-scrolled-review"
-private const val REVIEW_DENSITY = 1.75f
+/**
+ * The Transaction section of a sample call: the signer, the [to] row, the function, the type and the nonce. [extra] rows sit before the type.
+ */
+private fun transactionSection(
+    to: String,
+    target: String,
+    function: String,
+    chain: ChainId = MONAD_CHAIN,
+    signer: String = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+    extra: List<ReviewRow> = emptyList(),
+): ReviewSection = ReviewSection(
+    "Transaction",
+    buildList {
+        add(ReviewRow("From", DisplayValue.Address(chain, signer), null))
+        add(ReviewRow(to, DisplayValue.Address(chain, target), null))
+        add(ReviewRow("Function", DisplayValue.Text(function), null))
+        addAll(extra)
+        add(ReviewRow("Transaction Type", DisplayValue.Text("EIP-1559"), null))
+        add(ReviewRow("Nonce", DisplayValue.Number(BigInteger.valueOf(42)), null))
+    },
+)
 
-/** Frames to run before a settled capture, the same count [snapshotSettled] runs. */
-private const val REVIEW_FRAMES = 6
+/** The warning on a call the whitelist approves, with the check the owner ticks for it. */
+private fun approvedCallWarning(meaning: String): Warning = Warning(
+    Danger.CAUTION,
+    "evm.whitelisted-call",
+    "Lensly cannot read this call. The signed list approves it: $meaning",
+    acknowledge = "I have read what this call is approved to do.",
+)
+
+/** The warning on a whitelisted proxy under Warn and confirm, with the check the owner ticks for it. */
+private fun upgradeWarning(): Warning = Warning(
+    Danger.DANGER,
+    "evm.proxy",
+    "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is still the version the signed list approves.",
+    acknowledge = "I accept that this proxy's code cannot be checked offline.",
+)
 
 /**
  * [snapshotSettled] for a review that scrolls first: the same 720 x 1600 px window at 280 dpi, then a few frames so
  * measured sizes settle, then the review scrolls to the node whose text is [label]. The review is a plain vertical
  * scroll, which Compose's performScrollToNode does not support, so this scrolls the node itself into view.
  */
-private fun ComposeContentTestRule.snapshotScrolled(
-    name: String,
-    label: String,
-    toggle: String? = null,
-    content: @Composable () -> Unit,
-) {
+private fun ComposeContentTestRule.snapshotScrolled(name: String, label: String, content: @Composable () -> Unit) {
     mainClock.autoAdvance = false
     setContent {
         CompositionLocalProvider(LocalDensity provides Density(REVIEW_DENSITY)) {
@@ -290,11 +338,6 @@ private fun ComposeContentTestRule.snapshotScrolled(
     }
     // performScrollTo applies the scroll through the frame clock, so the clock must advance while it runs.
     mainClock.autoAdvance = true
-    // A folded section named by [toggle] is scrolled to and clicked open before the scroll to [label], so its contents are laid out.
-    toggle?.let {
-        onNodeWithText(it).performScrollTo().performClick()
-        waitForIdle()
-    }
     onNodeWithText(label).performScrollTo()
     waitForIdle()
     mainClock.autoAdvance = false
@@ -305,6 +348,12 @@ private fun ComposeContentTestRule.snapshotScrolled(
     waitForIdle()
     onNodeWithTag(REVIEW_TAG).captureRoboImage(filePath = "$SCREENSHOT_DIR/$name.png")
 }
+
+private const val REVIEW_TAG = "lensly-scrolled-review"
+private const val REVIEW_DENSITY = 1.75f
+
+/** Frames to run before a settled capture, the same count [snapshotSettled] runs. */
+private const val REVIEW_FRAMES = 6
 
 /** The token list that names USDC as the bundled list does, so the Solana reviews name the token as the app shows it. */
 private val SOLANA_USDC_TOKENS = SolanaTokenList.parse(
@@ -335,7 +384,7 @@ class SignScreenshotTest {
 
     @Test
     fun reviewNativeTransfer() = compose.snapshotSettled("tx_review_native") {
-        TxReviewScreen(review = sampleNativeReview, onApprove = {}, onReject = {})
+        EvmReviewScreen(review = sampleNativeReview)
     }
 
     @Test
@@ -361,32 +410,18 @@ class SignScreenshotTest {
 
     @Test
     fun reviewWhitelistedCall() = compose.snapshotSettled("tx_review_whitelisted") {
-        TxReviewScreen(review = whitelistedSample(), onApprove = {}, onReject = {})
+        EvmReviewScreen(review = whitelistedSample())
     }
 
     @Test
     fun reviewWhitelistedProxyUnderWarnAndConfirm() = compose.snapshotSettled("tx_review_whitelisted_proxy") {
-        TxReviewScreen(
-            review = whitelistedSample(ProxyBinding(implementationAddress = IMPLEMENTATION)),
-            onApprove = {},
-            onReject = {},
-        )
+        EvmReviewScreen(review = whitelistedSample(ProxyBinding(implementationAddress = IMPLEMENTATION)))
     }
 
     @Test
-    fun reviewWhitelistedParams() = compose.snapshotScrolled("tx_review_whitelisted_params", "to (address)", toggle = "Parameters") {
-        // The Parameters section is opened first, and its last argument is scrolled to, which leaves every argument in view above it.
-        TxReviewScreen(review = whitelistedSample(), onApprove = {}, onReject = {})
-    }
-
-    @Test
-    fun reviewWhitelistedRawCalldata() = compose.snapshotScrolled(
-        "tx_review_whitelisted_raw",
-        "Word 1",
-        toggle = "Raw Data",
-    ) {
-        // The raw data section is opened first. Its first word is then scrolled to, which leaves the value and the selector in view above it.
-        TxReviewScreen(review = whitelistedSample(), onApprove = {}, onReject = {})
+    fun reviewWhitelistedParams() = compose.snapshotScrolled("tx_review_whitelisted_params", "to (address)") {
+        // The arguments are scrolled to their last row, which leaves every argument in view above it.
+        EvmReviewScreen(review = whitelistedSample())
     }
 
     @Test
@@ -410,32 +445,32 @@ class SignScreenshotTest {
     @Test
     fun reviewUniversalRouterBatchShowsItsSteps() = compose.snapshotScrolled(
         "tx_review_ur_steps",
-        // Scrolling to the last step brings all three steps into view above it, and the arguments sit folded behind Details below.
+        // Scrolling to the last step brings all three steps into view above it, and the arguments sit above them in the review.
         "Unwrap all WETH the router holds → ETH for you (at least 4.491011881166149117 WETH)",
     ) {
-        TxReviewScreen(review = urBatchSample(), onApprove = {}, onReject = {})
+        EvmReviewScreen(review = urBatchSample())
     }
 
     @Test
-    fun reviewNestedCalls() = compose.snapshotScrolled("tx_review_nested", "swapExactTokensForTokens", toggle = "Calls") {
-        // The calls are opened, and the review is scrolled to the whitelisted call under them, so the calls above it sit in view, indented by level.
-        TxReviewScreen(review = nestedSample(), onApprove = {}, onReject = {})
+    fun reviewNestedCalls() = compose.snapshotScrolled("tx_review_nested", "Approved Meaning") {
+        // The review is scrolled to the whitelisted call inside the batch, so the calls above it sit in view, indented by level.
+        EvmReviewScreen(review = nestedSample())
     }
 
     @Test
     fun reviewOutsideRegistry() = compose.snapshotSettled("tx_review_outside_registry") {
-        TxReviewScreen(review = sampleUnknownChainReview, onApprove = {}, onReject = {})
+        EvmReviewScreen(review = sampleUnknownChainReview)
     }
 
     @Test
     fun reviewPersonalMessage() = compose.snapshotSettled("tx_review_message") {
-        TxReviewScreen(review = sampleMessageReview, onApprove = {}, onReject = {})
+        EvmReviewScreen(review = sampleMessageReview)
     }
 
     @Test
-    fun reviewWithAWarningIsBlockedWhileItsDetailsAreFolded() = compose.snapshotSettled("tx_review_blocked") {
-        // The review fits on screen, yet Hold to sign is off and says to open the details: the warning is read there.
-        TxReviewScreen(review = shortWarningSample, onApprove = {}, onReject = {})
+    fun reviewWithACheckOwedIsBlockedUntilItIsTicked() = compose.snapshotSettled("tx_review_blocked") {
+        // The review fits on screen, yet Hold to sign is off until the check under its warning is ticked.
+        EvmReviewScreen(review = shortWarningSample)
     }
 
     @Test

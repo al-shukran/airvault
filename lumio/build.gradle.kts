@@ -100,7 +100,7 @@ tasks.withType<Test>().configureEach {
 dependencies {
     implementation(project(":shared"))
 
-    // Chain apps compiled into Lumio; see lumio/src/main/java/app/lumio/chains/InstalledWallets.kt.
+    // Chain apps compiled into Lumio: each chain's wallet module is one dependency here.
     implementation(project(":chains:algorand:wallet"))
     implementation(project(":chains:bitcoin:wallet"))
     implementation(project(":chains:solana:wallet"))

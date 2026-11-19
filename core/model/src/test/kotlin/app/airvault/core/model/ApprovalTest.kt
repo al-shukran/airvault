@@ -42,6 +42,14 @@ class ApprovalTest {
     }
 
     @Test
+    fun aDangerWithNoCheckCannotBeApprovedEvenWhenEveryOtherCheckIsTicked() {
+        val unnamed = Warning(Danger.DANGER, "evm.unnamed", "This cannot be acknowledged.")
+
+        assertNull(Approval.of(review(unnamed), emptySet()))
+        assertNull(Approval.of(review(unnamed, unlimited), setOf(UNLIMITED_CHECK)))
+    }
+
+    @Test
     fun aCautionThatNamesACheckIsHeldToItTooAsTheReviewScreenHasAlwaysHeldIt() {
         assertNull(Approval.of(review(unknown), emptySet()))
     }

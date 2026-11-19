@@ -134,6 +134,24 @@ class WalletAccountsTest {
         assertNull(accounts[2].balance)
     }
 
+    @Test
+    fun aTestnetSideWhoseEthereumNetworkIsNotInTheBuildShowsNoEthereumAccount() {
+        // The release catalog has no testnet EVM network: the side keeps its other chains and shows no Ethereum label with no balance.
+        val accounts = WalletAccounts.of(
+            wallet,
+            NetworkMode.TESTNET,
+            evmChains = listOf(mainnetEthereum),
+            evmCache = listOf(evmRead(1L, "5000000000000000000")),
+            addressCount = 1,
+            bitcoin = listOf(BtcRow(BtcAccountRef(wallet.id, testnetBitcoin), null)),
+            coins = emptyList(),
+            nativeCache = emptyList(),
+        )
+
+        assertEquals(listOf(Networks.BIP122, Networks.SOLANA, Networks.ALGORAND), accounts.map { it.namespace })
+        assertTrue(accounts.none { it.networkName == "Ethereum" })
+    }
+
     private fun evmRead(chainId: Long, wei: String) = CachedBalance(
         walletId = wallet.id,
         chainId = chainId,

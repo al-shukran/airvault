@@ -38,7 +38,7 @@
             </intent-filter>
         </activity>
 
-        <!-- QR and signing harness for on-device checks. Not exported, so adb cannot start it; start it from the app's own process. Pass the string extra "screen": show1, show12, scan, review, review-token or refused. -->
+        <!-- QR and signing harness for on-device checks. Not exported, so adb cannot start it; start it from the app's own process. Pass the string extra "screen": show1, show12, scan, review-typed or refused. -->
         <activity
             android:name=".ui.qr.QrPreviewActivity"
             android:exported="false"

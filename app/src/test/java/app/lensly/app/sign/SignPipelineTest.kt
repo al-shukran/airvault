@@ -1,6 +1,8 @@
 package app.lensly.app.sign
 
 import app.airvault.core.model.DisplayValue
+import app.airvault.core.model.Review
+import app.airvault.core.model.text
 import app.airvault.abi.AbiValue
 import app.airvault.abi.CallDecode
 import app.airvault.abi.DecodedParam
@@ -42,10 +44,6 @@ import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.shippedRegistry
-import app.lensly.ui.sign.ReviewCheck
-import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
-import app.lensly.ui.sign.evmSentence
-import app.lensly.ui.theme.SpaceMonoFamily
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
@@ -882,7 +880,114 @@ class SignPipelineTest {
         assertEquals(Prepared.Refused(CANNOT_BE_READ), throughSandbox(cbor, tampering))
     }
 
-    /** The parse a compromised sandbox would send for [cbor], with [change] applied to what it decoded. */
+    @Test
+    fun eip1559FeeRowsShowGasLimitGasPricesAndMaxFee() {
+        val review = ready(requestCbor(eip1559Tx())).review
+
+        assertEquals(
+            listOf(
+                "Gas Limit" to "21000",
+                "Max Fee per Gas" to "30 gwei",
+                "Max Priority Fee" to "1.5 gwei",
+                "Max Fee" to "0.00063 MON",
+            ),
+            review.facts.map { it.label to it.value.text() },
+        )
+    }
+
+    @Test
+    fun legacyTransferShowsGasPriceAndLegacyType() {
+        val review = ready(requestCbor(legacyTx(), dataType = 1)).review
+
+        assertEquals("Legacy", review.transactionRow("Transaction Type"))
+        assertEquals(
+            listOf("Gas Limit" to "60000", "Gas Price" to "20 gwei", "Max Fee" to "0.0012 MON"),
+            review.facts.map { it.label to it.value.text() },
+        )
+    }
+
+    @Test
+    fun layer2NetworkAddsTheL1FeeNote() {
+        val review = ready(requestCbor(eip1559Tx(chainId = BASE), chainId = BASE)).review
+
+        assertEquals("Sends 0.01 ETH to $RECIPIENT.", review.summary.text())
+        assertEquals(L2_NOTE, review.fact("Fee Note"))
+    }
+
+    @Test
+    fun erc20UsdcTransferUsesTokenDecimals() {
+        val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.valueOf(1_500_000))
+        val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
+        val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
+
+        assertEquals("transfer", review.title)
+        assertEquals("Sends 1.5 USDC to $RECIPIENT.", review.summary.text())
+        assertEquals(
+            listOf("to" to RECIPIENT, "value" to "1500000 (1.5 USDC)"),
+            review.sections.single { it.heading == "Arguments" }.rows.map { it.label to it.value.text() },
+        )
+    }
+
+    /**
+     * A chain outside the registry: its amount is in base units, read with 18 decimals as an assumption, and its fee is too. The registry
+     * warning carries the check the owner ticks.
+     */
+    @Test
+    fun unknownChainNativeTransferIsReviewedWithAWarning() {
+        val tx = eip1559Tx(chainId = UNKNOWN_CHAIN, value = BigInteger.TEN.pow(18))
+        val review = ready(requestCbor(tx, chainId = UNKNOWN_CHAIN)).review
+
+        assertEquals("Unknown network (chain id $UNKNOWN_CHAIN)", review.network.name)
+        assertFalse(review.network.testnet)
+        assertNull(review.network.detail)
+        assertEquals("1000000000000000000 base units", review.transactionRow("Amount"))
+        assertEquals("≈ 1.0 if 18 decimals (assumption, not verified)", review.transactionRow("Amount Note"))
+        assertEquals(
+            "≈ 0.00063 if 18 decimals (assumption, not verified). The fee model is unknown, so the total may be higher.",
+            review.fact("Fee Note"),
+        )
+        val registry = review.warnings.single { it.code == "evm.registry" }
+        assertEquals("This network is not in Lensly's registry, so Lensly cannot check its coin or decimals.", registry.message)
+        assertNotNull(registry.acknowledge)
+    }
+
+    @Test
+    fun setApprovalForAllGrantIsWarnedAndRevokeIsNot() {
+        val grant = eip1559Tx(
+            chainId = ETHEREUM,
+            to = UNREGISTERED,
+            value = BigInteger.ZERO,
+            data = erc20Call(SELECTOR_SET_APPROVAL_FOR_ALL, RECIPIENT, BigInteger.ONE),
+        )
+        val revoke = eip1559Tx(
+            chainId = ETHEREUM,
+            to = UNREGISTERED,
+            value = BigInteger.ZERO,
+            data = erc20Call(SELECTOR_SET_APPROVAL_FOR_ALL, RECIPIENT, BigInteger.ZERO),
+        )
+
+        val granted = ready(requestCbor(grant, chainId = ETHEREUM)).review
+        assertEquals("Grants $RECIPIENT control of all tokens of $UNREGISTERED.", granted.summary.text())
+        assertEquals(
+            "Grants control of ALL your NFTs in this collection",
+            granted.warnings.single { it.code == "evm.approval-for-all" }.message,
+        )
+        assertEquals(
+            listOf("operator" to RECIPIENT, "approved" to "true"),
+            granted.sections.single { it.heading == "Arguments" }.rows.map { it.label to it.value.text() },
+        )
+
+        val revoked = ready(requestCbor(revoke, chainId = ETHEREUM)).review
+        assertEquals("Removes $RECIPIENT as operator of $UNREGISTERED.", revoked.summary.text())
+        assertTrue(revoked.warnings.none { it.code == "evm.approval-for-all" })
+    }
+
+    /** The text of the row [label] in the Transaction section of [this] review. */
+    private fun Review.transactionRow(label: String): String = sections.first().rows.single { it.label == label }.value.text()
+
+    /** The text of the fact [label] under the summary of [this] review. */
+    private fun Review.fact(label: String): String = facts.single { it.label == label }.value.text()
+
     @Test
     fun theReviewNamesTheAccountThatSignsAndTheTransactionThatIsSigned() {
         val ready = ready(requestCbor(eip1559Tx()))

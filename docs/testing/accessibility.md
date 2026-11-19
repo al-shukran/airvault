@@ -25,7 +25,7 @@ Three probes, five tests:
    ATF reported two errors: `TouchTargetSizeCheck` ("size is 8dp x 8dp, consider making this touch target 32dp") and
    `SpeakableTextPresentCheck`. The framework is armed and the test can fail.
 2. **Three real Compose screens**: the unlock gate (`UnlockScreen`, password field plus the in-app keyboard), the wallet
-   list (`WalletHomeScreen`), and the sign review (`TxReviewScreen` for an unknown chain, so the warnings and the chain
+   list (`WalletHomeScreen`), and the sign review (`ReviewScreen` for an unknown chain, so the warnings and the chain
    check render). Each produced **one** error: `SpeakableTextPresentCheck` against the host `AndroidComposeView`
    ("This item may not have a label readable by screen readers"). Every other check came back `NOT_RUN` against each
    view in the tree, with reasons such as "not an editable TextView", "not an ImageView", "not found to be important for

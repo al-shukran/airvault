@@ -123,6 +123,8 @@ class AlgoSignRequest(
             val fields = HashMap<Long, Cbor>()
             for ((key, value) in dict.entries) {
                 val number = uintOf(key, "map key")
+                // A key Lensly does not read is refused, not ignored: the owner must not sign a request with a field the review does not show.
+                if (number !in 1L..6L) malformed("unknown map key $number")
                 if (fields.put(number, value) != null) malformed("duplicate map key $number")
             }
             return fields

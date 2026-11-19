@@ -10,6 +10,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.DisplayValue
+import app.airvault.core.model.Review
 import app.lensly.app.WalletStore
 import app.lensly.app.export.PairingExport
 import app.lensly.app.export.partsOf
@@ -20,7 +23,6 @@ import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.AccountXpub
 import app.lensly.ui.flow.SignStep
 import app.lensly.ui.sign.HOLD_TO_SIGN_TAG
-import app.lensly.ui.sign.UNKNOWN_UNIT
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import org.junit.Assert.assertArrayEquals
@@ -66,19 +68,20 @@ class WalletSignFlowTest : SignFlowE2eBase() {
 
         val driver = driverFor(wallet, request.parts)
         driver.open()
-        val review = (driver.awaitReview { it is SignStep.Review } as SignStep.Review).ready.review
+        val ready = (driver.awaitReview { it is SignStep.Review } as SignStep.Review).ready
+        val review = ready.review
 
-        assertEquals(address, review.fromAddress)
-        assertEquals(UNKNOWN_CHAIN_ID, review.chainId)
-        assertEquals(ACCOUNT_LABEL, review.fromAccountLabel)
+        assertEquals(ChainId("eip155:$UNKNOWN_CHAIN_ID"), review.chain)
+        assertEquals(ACCOUNT_LABEL, ready.signer.name)
+        assertEquals(address, rowAddress(review, "From"))
 
         // The screen: an unknown chain warns in the banner and its chip names it, and APPROVE waits for the details to be read and the
         // explicit check to be ticked.
-        assertTrue(review.toAddress.equals(RECIPIENT, ignoreCase = true))
-        compose.onNode(hasText("Not in Lensly's registry", substring = true)).assertExists()
+        assertTrue(rowAddress(review, "To").equals(RECIPIENT, ignoreCase = true))
+        compose.onNode(hasText("not in Lensly's registry", substring = true)).assertExists()
         compose.onNode(hasText("Unknown network (chain id $UNKNOWN_CHAIN_ID)", substring = true)).assertExists()
         // An unknown chain has no decimals, so its amount is the raw wei, in base units: one cent is 10^16.
-        compose.onNode(hasText("Send $ONE_CENT_WEI $UNKNOWN_UNIT", substring = true)).assertExists()
+        compose.onNode(hasText("Sends $ONE_CENT_WEI base units", substring = true)).assertExists()
         // The header and the account row both name the account now, so the label is looked for among them.
         compose.onAllNodesWithText(ACCOUNT_LABEL).onFirst().assertExists()
 
@@ -86,7 +89,7 @@ class WalletSignFlowTest : SignFlowE2eBase() {
         assertTrue("the review shows its check hint", checkHintShown())
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
         // The check is a row of the risk banner, above the end of the review, so it is scrolled into view before it is ticked.
-        compose.onNodeWithText("I checked the chain ID and contract").performScrollTo().performClick()
+        compose.onNodeWithText("I have checked the chain ID and the contract.").performScrollTo().performClick()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
 
         val parts = driver.approveAndSign { it is SignStep.Confirming }
@@ -95,6 +98,10 @@ class WalletSignFlowTest : SignFlowE2eBase() {
 
     private fun checkHintShown(): Boolean =
         compose.onAllNodesWithText("Tick the checkbox above to sign").fetchSemanticsNodes().isNotEmpty()
+
+    /** The address the row [label] of the review's first section shows, such as From or To. */
+    private fun rowAddress(review: Review, label: String): String =
+        (review.sections.first().rows.single { it.label == label }.value as DisplayValue.Address).address
 
     /**
      * The pairing export of the wallet is the `ur:crypto-multi-accounts` an online wallet imports, and its first account key must carry the
