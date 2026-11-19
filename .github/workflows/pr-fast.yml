@@ -1,383 +1,140 @@
 name: pr-fast
 
-# Guideline docs/testing/guideline.md 2.1-2.4. One job per changed partition, plus the
-# security checks from 1.8 and 3. `pr-ok` is the single required check.
+# One gate for pull requests, the merge queue and master. Every event runs the same lanes (scripts/ci/README.md), so a change
+# verified on its pull request is the change master builds after it lands. `pr-ok` is the single required check.
+#
+# Gradle runs offline in every job except `deps`. `deps` fills the Gradle module cache once per dependency key, with
+# `./gradlew resolveAll`, and the other jobs restore that exact key. A missing artifact then fails by name, not by a network
+# fetch, so a red run is never a dependency flake.
 on:
   pull_request:
     branches: [master, phase-1-5]
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [master]
+  workflow_dispatch: # temporary, for the measurement run on this branch; removed with the 5-minute caps
 
 permissions:
   contents: read
 
+# A pull request supersedes its own earlier run. A master push or a queue entry always finishes: each commit that lands is
+# verified, and only a finished run saves the build cache that later runs restore.
 concurrency:
-  group: pr-fast-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: pr-fast-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  changes:
+  # The one job that may use the network for dependencies. A cache hit on the key skips it. The key covers the files that decide
+  # what Gradle resolves, so a dependency change always makes a new key.
+  deps:
+    name: resolve dependencies
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      pull-requests: read # dorny/paths-filter lists PR files through the API
-    outputs:
-      partitions: ${{ steps.filter.outputs.changes }}
-      dependencies: ${{ steps.deps.outputs.dependencies }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # One filter per row of the 2.2 partition map. Build paths are the 2.2 exception:
-      # a build change can affect any package, so it runs every unit partition.
-      # core-parse, app and registry-pack are partitions run-partition.sh supports beyond 2.2; those packages
-      # already hold tests, so leaving them out would run nothing.
-      - id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
-          filters: |
-            core-wallet:
-              - 'shared/src/main/java/app/lensly/core/wallet/**'
-              - 'shared/src/test/java/app/lensly/core/wallet/**'
-              - 'shared/src/main/java/app/lensly/core/solana/**'
-              - 'shared/src/test/java/app/lensly/core/solana/**'
-              - 'shared/src/main/java/app/lensly/core/algorand/**'
-              - 'shared/src/test/java/app/lensly/core/algorand/**'
-              - 'chains/algorand/**'
-              - 'chains/bitcoin/**'
-              - 'chains/solana/**'
-              - 'shared/src/test/resources/vectors/bip39/**'
-              - 'shared/src/test/resources/vectors/bip32/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-ur-evm:
-              - 'shared/src/main/java/app/lensly/core/ur/**'
-              - 'shared/src/main/java/app/lensly/core/evm/**'
-              - 'shared/src/test/java/app/lensly/core/ur/**'
-              - 'chains/algorand/**'
-              - 'chains/bitcoin/**'
-              - 'chains/solana/**'
-              - 'core/signer-api/**'
-              - 'shared/src/test/java/app/lensly/core/evm/**'
-              - 'shared/src/main/java/app/lensly/app/export/**'
-              - 'shared/src/test/java/app/lensly/app/export/**'
-              - 'shared/src/test/java/app/lensly/fuzz/**'
-              - 'shared/src/test/resources/fuzz-seeds/**'
-              - 'shared/src/test/resources/keystone/**'
-              - 'shared/src/test/resources/vectors/eip155/**'
-              - 'shared/src/test/resources/vectors/eip1559/**'
-              - 'shared/src/test/resources/vectors/eip712/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-parse:
-              - 'shared/src/main/java/app/lensly/core/parse/**'
-              - 'shared/src/main/aidl/app/lensly/core/parse/**'
-              - 'shared/src/test/java/app/lensly/core/parse/**'
-              - 'shared/src/main/java/app/lensly/chains/**'
-              - 'core/signer-api/**'
-              - 'shared/src/main/java/app/lensly/core/qr/**'
-              - 'shared/src/main/aidl/app/lensly/core/qr/**'
-              - 'shared/src/test/java/app/lensly/core/qr/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-vault:
-              - 'shared/src/main/java/app/lensly/core/vault/**'
-              - 'shared/src/test/java/app/lensly/core/vault/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-registry:
-              - 'shared/src/main/java/app/lensly/core/registry/**'
-              - 'shared/src/test/java/app/lensly/core/registry/**'
-              - 'shared/src/main/assets/registry/**'
-              - 'shared/src/debug/assets/registry/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            core-btc:
-              - 'shared/src/main/java/app/lensly/core/btc/**'
-              - 'shared/src/test/java/app/lensly/core/btc/**'
-              - 'shared/src/test/resources/vectors/bitcoin/**'
-              - 'shared/src/testFixtures/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            # The ui tests run as three partitions (ui-a, ui-b, ui-c) with the same paths, so each change runs all three.
-            ui-a:
-              - 'app/src/main/java/app/lensly/ui/**'
-              - 'app/src/test/java/app/lensly/ui/**'
-              - 'shared/src/main/java/app/lensly/ui/**'
-              - 'shared/src/test/java/app/lensly/ui/**'
-              - 'shared/src/testFixtures/**'
-              - 'app/src/test/screenshots/**'
-              - 'app/src/main/res/values/strings.xml'
-              - 'shared/src/main/res/**'
-              - 'shared/src/main/java/app/lensly/app/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            ui-b:
-              - 'app/src/main/java/app/lensly/ui/**'
-              - 'app/src/test/java/app/lensly/ui/**'
-              - 'shared/src/main/java/app/lensly/ui/**'
-              - 'shared/src/test/java/app/lensly/ui/**'
-              - 'shared/src/testFixtures/**'
-              - 'app/src/test/screenshots/**'
-              - 'app/src/main/res/values/strings.xml'
-              - 'shared/src/main/res/**'
-              - 'shared/src/main/java/app/lensly/app/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            ui-c:
-              - 'app/src/main/java/app/lensly/ui/**'
-              - 'app/src/test/java/app/lensly/ui/**'
-              - 'shared/src/main/java/app/lensly/ui/**'
-              - 'shared/src/test/java/app/lensly/ui/**'
-              - 'shared/src/testFixtures/**'
-              - 'app/src/test/screenshots/**'
-              - 'app/src/main/res/values/strings.xml'
-              - 'shared/src/main/res/**'
-              - 'shared/src/main/java/app/lensly/app/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            manifest:
-              - 'app/src/**/AndroidManifest.xml'
-              - 'shared/src/**/AndroidManifest.xml'
-              - 'gradle/libs.versions.toml'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'lumio/src/**/AndroidManifest.xml'
-              - 'lumio/build.gradle.kts'
-              - 'scripts/ci/check-manifest.sh'
-            app:
-              - 'app/src/main/java/app/lensly/app/**'
-              - 'app/src/main/java/app/lensly/chains/**'
-              - 'shared/src/main/java/app/lensly/app/**'
-              - 'app/src/test/java/app/lensly/app/**'
-              - 'app/src/test/java/app/lensly/SmokeTest.kt'
-              - 'app/src/test/java/app/lensly/core/vault/BackupExclusionTest.kt'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            registry-pack:
-              - 'tools/registry-pack/**'
-              - 'shared/src/debug/assets/registry/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            # The chain-app contract and the Algorand modules. Their tests run as one partition (scripts/ci/run-partition.sh).
-            chain-api:
-              - 'core/**'
-              - 'chains/**'
-              - 'abi/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            # Lumio is a second app on the shared cover, gate and theme in :shared, so any change to :shared can break its build.
-            # The lumio tests and the debug APK run as five partitions (lumio-a, lumio-apk, lumio-b, lumio-c, lumio-d)
-            # with the same paths, so each change runs all five.
-            lumio-a:
-              - 'lumio/**'
-              - 'shared/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            lumio-apk:
-              - 'lumio/**'
-              - 'shared/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            lumio-b:
-              - 'lumio/**'
-              - 'shared/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            lumio-c:
-              - 'lumio/**'
-              - 'shared/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            lumio-d:
-              - 'lumio/**'
-              - 'shared/**'
-              - 'build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
-            # CI's own files cannot run Gradle: the partition syntax-checks every script, runs the partition
-            # coverage check and the test-network guard. Without this row a workflow/script edit ran no test at all.
-            # The test trees are listed too, so a new test class is checked for a partition on its own PR.
-            ci:
-              - 'scripts/ci/**'
-              - '.github/workflows/**'
-              - 'app/src/test/**'
-              - 'shared/src/test/**'
-              - 'lumio/src/test/**'
-              - '.gitleaks.toml'
+          distribution: temurin
+          java-version: '21.0.13+9'
 
-      # Guideline 1.8: dependency review runs on PRs touching dependency files. Kept in its
-      # own step so the filter name never reaches the partition matrix. The graph it diffs
-      # against is submitted by dependency-graph.yml on pushes to the long-lived branches.
-      - id: deps
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      # cache-disabled: setup-gradle's own cache entries were the poisoned ones (its cleanup purged plugin marker POMs). The
+      # dependency and build caches below replace them.
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
-          filters: |
-            dependencies:
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'lumio/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'chains/evm/**'
-              - 'abi/**'
-              - 'tools/*/build.gradle.kts'
-              - 'core/**/build.gradle.kts'
-              - 'chains/**/build.gradle.kts'
-              - 'gradle/libs.versions.toml'
-              - 'gradle/wrapper/**'
-              - 'gradle.properties'
-              - 'settings.gradle.kts'
+          cache-disabled: true
 
-  test:
-    needs: changes
-    if: needs.changes.result == 'success' && needs.changes.outputs.partitions != '[]'
+      - name: Restore the Gradle dependency cache
+        id: deps
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: deps-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+
+      - name: Resolve every configuration (online, on a cache miss only)
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: ./scripts/ci/run-partition.sh resolve
+
+  # The unit tests of :app, :lumio, :shared and the pure JVM modules, in six balanced lanes (scripts/ci/shards.txt).
+  shard:
+    name: shard ${{ matrix.shard }}
+    needs: deps
     runs-on: ubuntu-24.04
-    timeout-minutes: 5 # guideline 2.1 amendment (2026-11-12)
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        partition: ${{ fromJSON(needs.changes.outputs.partitions) }}
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0
 
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '21.0.13+9'
 
-      # The cache this restores is warmed on master and phase-1-5 by cache-warm.yml. That workflow's
-      # job is also named `test`: setup-gradle matches entries by job id, so the names must stay equal.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
 
-      # run-partition.sh maps the name to its 2.2 selector; `manifest` runs check-manifest.sh and
-      # `ci` runs only shell checks.
-      - name: Run ${{ matrix.partition }}
-        run: ./scripts/ci/run-partition.sh "${{ matrix.partition }}"
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: deps-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
 
-      # Lensly (:app) is offline in release too. check-manifest.sh reads only the debug merge, so the release merge is read here, in
-      # the manifest partition. Lumio (the companion) may request INTERNET, so only :app is checked.
-      - name: Refuse INTERNET in the release manifest of :app
-        if: matrix.partition == 'manifest'
-        run: |
-          ./gradlew :app:processReleaseMainManifest
-          merged="$(find app/build/intermediates -path '*merged_manifest*/release/*' -name AndroidManifest.xml | head -n 1)"
-          if [ -z "$merged" ]; then
-            echo "error: merged release manifest of :app not found under app/build/intermediates" >&2
-            exit 1
-          fi
-          if grep -q '"android.permission.INTERNET"' "$merged"; then
-            echo "error: android.permission.INTERNET is in the merged release manifest of :app; Lensly is offline by design" >&2
-            exit 1
-          fi
-          echo "ok: the merged release manifest of :app has no android.permission.INTERNET"
+      # The build cache and the configuration cache of this lane. Only master and the merge queue save them.
+      - name: Restore the Gradle build cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-shard-${{ matrix.shard }}-${{ github.sha }}
+          restore-keys: |
+            bc-shard-${{ matrix.shard }}-
 
-      # R56: web3j brings OkHttp, the HTTP client, and shared excludes it from web3j. :app never calls it. This fails if a dependency
-      # change puts OkHttp back on the release runtime classpath of :app.
-      - name: Refuse OkHttp on the release runtime classpath of :app
-        if: matrix.partition == 'manifest'
-        run: |
-          deps="$(./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q)"
-          if printf '%s\n' "$deps" | grep -q 'com\.squareup\.okhttp3'; then
-            echo "error: OkHttp is on the release runtime classpath of :app; Lensly is offline by design (see shared/build.gradle.kts)" >&2
-            exit 1
-          fi
-          echo "ok: no OkHttp on the release runtime classpath of :app"
+      - name: Run shard-${{ matrix.shard }}
+        run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
 
-  # Lumio's lint runs in its own job, not in the test job: lintDebug on top of the lumio partition took the test job past its 5-minute cap (PR 181
-  # ran 5m17s). The lumio-a filter is the same as the lumio-b partition's, and pr-ok counts a skip as a pass.
-  # The cap is 8 minutes: a cold lint job ran 4m52s (Gradle: 4m34s), and one run was cancelled at the old 5-minute cap
-  # (315 s). A warm run took 2m33s. cache-warm.yml's `lint` job writes the cache this job restores, so cold runs get rare.
-  lint:
-    needs: changes
-    if: needs.changes.result == 'success' && contains(fromJSON(needs.changes.outputs.partitions), 'lumio-a')
+      - name: Stop the Gradle daemon before the cache is saved
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        run: ./gradlew --stop
+
+      - name: Save the Gradle build cache (master and the merge queue only)
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-shard-${{ matrix.shard }}-${{ github.sha }}
+
+      - name: Upload the JUnit results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-shard-${{ matrix.shard }}
+          path: '**/build/test-results/**/*.xml'
+          retention-days: 3
+          if-no-files-found: ignore
+
+  # Roborazzi pixel tests of :app and :lumio, verified against the committed PNGs (guideline 2.7).
+  roborazzi:
+    name: verify screenshots
+    needs: deps
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -389,13 +146,266 @@ jobs:
           java-version: '21.0.13+9'
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
 
-      - name: Lint lumio
-        run: ./gradlew :lumio:lintDebug
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: deps-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Restore the Gradle build cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-verify-${{ github.sha }}
+          restore-keys: |
+            bc-verify-
+
+      - name: Verify screenshots
+        run: ./scripts/ci/run-partition.sh verify
+
+      - name: Stop the Gradle daemon before the cache is saved
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        run: ./gradlew --stop
+
+      - name: Save the Gradle build cache (master and the merge queue only)
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-verify-${{ github.sha }}
+
+      - name: Upload the JUnit results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-verify
+          path: '**/build/test-results/**/*.xml'
+          retention-days: 3
+          if-no-files-found: ignore
+
+  # The Jazzer seed replays (app.lensly.fuzz.*). They run in their own JVM, so they are not in a shard.
+  fuzz:
+    name: fuzz replay
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: deps-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Restore the Gradle build cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-fuzz-${{ github.sha }}
+          restore-keys: |
+            bc-fuzz-
+
+      - name: Replay the fuzz seeds
+        run: ./scripts/ci/run-partition.sh fuzz
+
+      - name: Stop the Gradle daemon before the cache is saved
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        run: ./gradlew --stop
+
+      - name: Save the Gradle build cache (master and the merge queue only)
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-fuzz-${{ github.sha }}
+
+  # Compiles the androidTest and benchmark sources, which no test lane runs, and assembles the Lumio debug APK.
+  android:
+    name: compile androidTest and benchmark
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: deps-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Restore the Gradle build cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-android-${{ github.sha }}
+          restore-keys: |
+            bc-android-
+
+      - name: Compile androidTest, benchmark and the Lumio APK
+        run: ./scripts/ci/run-partition.sh android
+
+      - name: Stop the Gradle daemon before the cache is saved
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        run: ./gradlew --stop
+
+      - name: Save the Gradle build cache (master and the merge queue only)
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-android-${{ github.sha }}
+
+  lint:
+    name: lint
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: deps-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Restore the Gradle build cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-lint-${{ github.sha }}
+          restore-keys: |
+            bc-lint-
+
+      - name: Lint every module
+        run: ./scripts/ci/run-partition.sh lint
+
+      - name: Stop the Gradle daemon before the cache is saved
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        run: ./gradlew --stop
+
+      - name: Save the Gradle build cache (master and the merge queue only)
+        if: always() && (github.event_name == 'push' || github.event_name == 'merge_group')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            .gradle/configuration-cache
+          key: bc-lint-${{ github.sha }}
+
+  # Guideline 1.8 and R56. The merged manifests and the OkHttp check (scripts/ci/run-partition.sh manifest).
+  manifest:
+    name: manifest guards
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: deps-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Check the merged manifests
+        run: ./scripts/ci/run-partition.sh manifest
+
+  # No Gradle: every script's syntax, the test-class coverage of the lanes, and the test-network guard (guideline 3).
+  ci:
+    name: ci scripts and test coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check CI scripts, test coverage and the network guard
+        run: ./scripts/ci/run-partition.sh ci
 
   secrets:
+    name: secrets
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    timeout-minutes: 30
     permissions:
       contents: read
       pull-requests: read
@@ -405,17 +415,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # gitleaks CLI v8.30.0 instead of gitleaks-action: the action v3 requires a license key for
-      # organization repositories (GITLEAKS_LICENSE), and this repository has none. The tarball is
-      # checked against the SHA-256 published with the release before it runs.
-      # The range is the PR's commit range, so only changed content is checked.
+      # gitleaks CLI v8.30.0 instead of gitleaks-action: the action v3 requires a license key for organization repositories
+      # (GITLEAKS_LICENSE), and this repository has none. The tarball is checked against the SHA-256 published with the release.
+      # The range is the commit range of the event (the pull request, the queue entry or the push), so only changed content is checked.
       # .gitleaks.toml keeps the default rules and allowlists shared/src/test/resources/vectors.
-      - name: Scan PR commits for secrets
+      - name: Scan the commits of the event for secrets
         env:
           GITLEAKS_VERSION: 8.30.0
           GITLEAKS_SHA256: 79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'merge_group' && github.event.merge_group.head_sha || github.sha }}
         run: |
           set -euo pipefail
           archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
@@ -423,25 +432,24 @@ jobs:
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive"
           echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-parse HEAD~1)"
+          fi
           "$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact \
             --log-opts="${BASE_SHA}..${HEAD_SHA}" --exit-code 1 .
 
   dependency_review:
     # Snapshot comes from dependency-graph.yml, which submits on pushes to master and phase-1-5.
     #
-    # The repository's Dependency graph is off, and only an admin can turn it on
-    # (Settings -> Code security). While it is off the action cannot diff anything and fails with
-    # "Dependency review is not supported on this repository" on every dependency PR. To enable:
-    # turn on Dependency graph, then set the repository variable DEPENDENCY_GRAPH_ENABLED=true.
-    # Until both are done the job skips, which raises no annotation and counts as a pass in pr-ok.
+    # The repository's Dependency graph is off, and only an admin can turn it on (Settings -> Code security). While it is off
+    # the action cannot diff anything and fails with "Dependency review is not supported on this repository". To enable: turn on
+    # Dependency graph, then set the repository variable DEPENDENCY_GRAPH_ENABLED=true. Until both are done the job skips, which
+    # counts as a pass in pr-ok. The action reads pull requests only, so the merge queue and master skip it too.
     #
-    # No continue-on-error on purpose. The `if` is the whole fix: a skipped job never runs the
-    # action, so the unsupported-repository error cannot appear. continue-on-error would instead
-    # report a genuine high-severity finding as success once the graph is on, which disarms 1.8.
-    needs: changes
-    if: needs.changes.outputs.dependencies == 'true' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
+    # No continue-on-error on purpose: a genuine high-severity finding must fail the check once the graph is on.
+    if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -453,50 +461,44 @@ jobs:
         with:
           fail-on-severity: high
 
-  test_network:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 3
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      # Guideline 3: test code must not reference java.net., HttpURLConnection, or URL(.
-      - run: ./scripts/ci/check-test-network.sh
-
   pr-ok: # the single required check
     if: always()
-    needs: [changes, test, lint, secrets, dependency_review, test_network]
+    needs: [deps, shard, roborazzi, fuzz, android, lint, manifest, ci, secrets, dependency_review]
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      DEPS: ${{ needs.deps.result }}
+      SHARD: ${{ needs.shard.result }}
+      ROBORAZZI: ${{ needs.roborazzi.result }}
+      FUZZ: ${{ needs.fuzz.result }}
+      ANDROID: ${{ needs.android.result }}
+      LINT: ${{ needs.lint.result }}
+      MANIFEST: ${{ needs.manifest.result }}
+      CI: ${{ needs.ci.result }}
+      SECRETS: ${{ needs.secrets.result }}
+      DEPENDENCY_REVIEW: ${{ needs.dependency_review.result }}
+      DEPENDENCY_GRAPH_ENABLED: ${{ vars.DEPENDENCY_GRAPH_ENABLED }}
     steps:
       - name: Aggregate results
-        env:
-          CHANGES: ${{ needs.changes.result }}
-          TEST: ${{ needs.test.result }}
-          LINT: ${{ needs.lint.result }}
-          SECRETS: ${{ needs.secrets.result }}
-          DEPENDENCY_REVIEW: ${{ needs.dependency_review.result }}
-          TEST_NETWORK: ${{ needs.test_network.result }}
         run: |
-          printf 'changes=%s test=%s lint=%s secrets=%s dependency_review=%s test_network=%s\n' \
-            "$CHANGES" "$TEST" "$LINT" "$SECRETS" "$DEPENDENCY_REVIEW" "$TEST_NETWORK"
-          # test and lint are skipped when no partition changed, and dependency review is skipped when
-          # no dependency file changed or DEPENDENCY_GRAPH_ENABLED is not 'true'; both count as
-          # a pass. Once the variable is set, a failing dependency review fails this check.
-          case "$TEST" in
-            success | skipped) ;;
-            *) echo "test partition failed or was cancelled"; exit 1 ;;
-          esac
-          case "$LINT" in
-            success | skipped) ;;
-            *) echo "lumio lint failed or was cancelled"; exit 1 ;;
-          esac
-          case "$DEPENDENCY_REVIEW" in
-            success | skipped) ;;
-            *) echo "dependency review failed"; exit 1 ;;
-          esac
-          for result in "$CHANGES" "$SECRETS" "$TEST_NETWORK"; do
-            [ "$result" = success ] || { echo "a required job did not succeed"; exit 1; }
+          failed=0
+          for pair in "deps=$DEPS" "shard=$SHARD" "roborazzi=$ROBORAZZI" "fuzz=$FUZZ" "android=$ANDROID" \
+                      "lint=$LINT" "manifest=$MANIFEST" "ci=$CI" "secrets=$SECRETS"; do
+            name="${pair%%=*}"
+            result="${pair#*=}"
+            if [ "$result" != success ]; then
+              echo "$name: $result"
+              failed=1
+            fi
           done
+          # Dependency review is skipped until DEPENDENCY_GRAPH_ENABLED is set, and it is skipped on the queue and on master.
+          case "$DEPENDENCY_REVIEW" in
+            success) ;;
+            skipped) [ "$DEPENDENCY_GRAPH_ENABLED" != true ] || [ "$GITHUB_EVENT_NAME" != pull_request ] || { echo "dependency_review: skipped"; failed=1; } ;;
+            *) echo "dependency_review: $DEPENDENCY_REVIEW"; failed=1 ;;
+          esac
+          if [ "$failed" -ne 0 ]; then
+            echo "pr-ok: a required lane did not succeed"
+            exit 1
+          fi
+          echo "pr-ok: every lane succeeded"

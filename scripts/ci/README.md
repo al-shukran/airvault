@@ -1,80 +1,102 @@
 # CI scripts
 
-Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows call them; you can run the same commands locally.
+Thin wrappers over the Gradle commands in `docs/testing/guideline.md`. Workflows call them; you can run the same commands locally,
+after one `./gradlew resolveAll` (online) fills the Gradle module cache.
 
-## PR partitions — `run-partition.sh <partition>`
+## Gate lanes — `run-partition.sh <lane>`
 
-| Partition | Selector |
-|---|---|
-| `core-wallet` | `:shared` `app.lensly.core.wallet.*`, `app.lensly.core.solana.*` and `app.lensly.core.algorand.*` |
-| `core-ur-evm` | `:shared` `app.lensly.core.ur.*` and `app.lensly.core.evm.*`, plus `app.lensly.fuzz.*` |
-| `core-parse` | `:shared` `app.lensly.core.parse.*` and `app.lensly.core.qr.*` |
-| `core-vault` | `:shared` `app.lensly.core.vault.*` |
-| `core-registry` | `:shared` `app.lensly.core.registry.*` and `app.lensly.core.registry.update.*` |
-| `core-btc` | `:shared` `app.lensly.core.btc.*` |
-| `ui-a` | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme,navigation,settings}.*`; the pixel tests are excluded (see below) |
-| `ui-b` | `:app` `app.lensly.ui.{flow,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
-| `ui-c` | `:app` `app.lensly.ui.{home,sign}.*` |
-| `lumio-a` | `:lumio` `app.lumio.ui.*` |
-| `lumio-apk` | `:lumio` `assembleDebug` (no tests) |
-| `lumio-b` | `:lumio` `app.lumio.{chains,evm,home,network,pair,send,tokens,wallets}.*` and `app.lumio.LumioBackdropTest`, `app.lumio.EntryGestureSettingTest`, `app.lumio.CoverLockTest` and `app.lumio.SendRouteTest` |
-| `lumio-c` | `:lumio` `app.lumio.btc.*` |
-| `lumio-d` | `:lumio` `app.lumio.data.*` |
-| `app` | `:app` `app.lensly.app.*`, `app.lensly.SmokeTest` and `app.lensly.core.vault.BackupExclusionTest` |
-| `registry-pack` | `:tools:registry-pack:test` |
-| `chain-api` | `:core:model:test`, `:chains:algorand:common:test`, `:core:signer-api:test`, `:chains:algorand:signer:test`, `:core:conformance:test`, `:chains:algorand:wallet:test`, `:chains:bitcoin:wallet:test`, `:chains:evm:wallet:test` and `:chains:solana:wallet:test` (whole modules), then compiles `:core:wallet-api` |
-| `manifest` | `check-manifest.sh` |
-| `ci` | `bash -n` on every script, then `check-partitions.sh` and `check-test-network.sh` (no Gradle) |
+`.github/workflows/pr-fast.yml` runs the same lanes for pull requests, the merge queue and master, so what a pull request
+verifies is what master builds after it lands. `pr-ok` is the single required check: every lane must succeed, and a skipped lane
+fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENABLED=true`.
 
-`core-parse`, `app` and `registry-pack` are not in the guideline 2.2 table: tests already live in those packages, so leaving them out would run nothing for changes there.
+| Lane | Runs | Job |
+|---|---|---|
+| `resolve` | `./gradlew resolveAll`, the only online step; retried on network errors only | `deps`, on a cache miss |
+| `shard-1` … `shard-6` | the unit tests listed under the lane in `shards.txt`; pure JVM modules run whole | `shard` (matrix) |
+| `verify` | the Roborazzi pixel tests of `:app` and `:lumio`, with `verifyRoborazziDebug` | `roborazzi` |
+| `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` |
+| `android` | androidTest and benchmark compile of `:app` and `:lumio`, and the Lumio debug APK | `android` |
+| `lint` | `lintDebug` of every module | `lint` |
+| `manifest` | merged manifests (no INTERNET in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` |
+| `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh` (no Gradle) | `ci` |
 
-`core-ur-evm` also replays the Jazzer fuzz targets (`app.lensly.fuzz.*`): they cover UR/CBOR, the eth-sign request and the unsigned (RLP) transaction decoder. The PR lane runs them as ordinary JUnit tests, so committed seeds are replayed on every change to that partition. They run as a second Gradle invocation with `-PfuzzLane`, in their own JVM: once a fuzz target has run, Jazzer's agent breaks Robolectric's sandbox class loader, so the shared unit-test JVM skips the fuzz package (see the note in `shared/build.gradle.kts`).
+`secrets` (gitleaks) and `dependency_review` run beside them and need no Gradle.
 
-`ci` covers CI's own files (`scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml`) and the test source sets. It needs no Gradle: it syntax-checks every script under `scripts/`, runs the partition coverage check and the test-network guard, so a workflow or script edit no longer merges without a check.
+Every Gradle call runs with `--offline`, except `resolve`. A missing artifact then fails by name. The fix is in the build's
+`resolveAll` wiring (`build.gradle.kts`), not a rerun of the job.
 
-Each partition is one Gradle call per module, `./gradlew :shared:testDebugUnitTest --tests ...` (or `:app:testDebugUnitTest`, for the Lensly-only packages); repeated `--tests` filters are ORed. The `ui-a`, `ui-b` and `ui-c` partitions run both modules in one call. Gradle's `*` matches across dots, so `registry.*` already reaches `registry.update`; the explicit second filter is belt-and-braces. Unknown names print usage and exit 2.
+## Test classes — `shards.txt`
 
-The `ui-a`, `ui-b` and `ui-c` partitions split the `app.lensly.ui` tests so each stays under the 3-minute cap (guideline 2.1). The `lumio-a`, `lumio-apk`, `lumio-b`, `lumio-c` and `lumio-d` partitions split the `app.lumio` tests and the debug APK the same way, so each `lumio` job stays under its 5-minute cap. `lumio-c` holds `btc`, whose `BtcScanTest` alone takes about 50 s; `lumio-d` holds `data`, the largest package.
+One line per test class: `<lane> <gradle module> <fully qualified class>`. A pure JVM module is one line, with the class `*`.
+Every test class is in exactly one lane. `check-partitions.sh` (the `ci` lane) fails when a class has no lane, has two, or is
+listed but no longer exists.
 
-`check-partitions.sh` (run by the `ci` partition) reads each test class under `app/src/test/java`, `shared/src/test/java` and `lumio/src/test/java`, and fails unless the class matches a `--tests` selector in exactly one arm of `run-partition.sh`, in the Gradle call for its own module. The match is per class and per module: a package with a class in `:app` and another in `:shared` (`app.lensly.ui.navigation`) needs a selector in each call. `tools/registry-pack` is not checked, since its partition runs the whole module.
+- A new test class goes into one `shard-N` lane. A Roborazzi pixel test goes into `verify`, and a Jazzer target into `fuzz`.
+- Keep the six shards balanced. Each test lane uploads its JUnit XML as `junit-shard-N` (kept 3 days). Sum the `time` attribute of
+  each class, and move classes between lanes until the shard totals are close.
+- `verify` passes its `--tests` filter to the test task before `verifyRoborazziDebug`. The verify task depends on the whole
+  `testDebugUnitTest` of its module, so without the filter every unit test would run twice. Roborazzi switches verify mode on from
+  the requested tasks, so the filtered test task runs the pixel tests in verify mode.
+- Ui tests with the `prLane` property are no longer a separate partition: the pixel tests live in `verify`, and the rest in the shards.
 
-Ui partitions pass `-PprLane`, which makes `app/build.gradle.kts` exclude `app.lensly.ui.screenshot.*`. The Roborazzi pixel tests would push the partitions past the cap, so they are night-only: the nightly workflow runs `./gradlew ... verifyRoborazziDebug` against the committed goldens (guideline 2.7). Adding `-PprLane` to a local run reproduces the PR lane; leave it off to run everything.
+## Dependencies and the build cache
 
-```bash
-scripts/ci/run-partition.sh core-wallet
-./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*'   # same thing
-```
+- `deps-v1-<os>-<hash>` restores `~/.gradle/caches/modules-2` and `~/.gradle/wrapper/dists`. The hash covers the version catalog,
+  `verification-metadata.xml`, the wrapper properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`.
+  The `deps` job saves it on a miss only.
+- `bc-<lane>-<sha>` (restored by the prefix `bc-<lane>-`) holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`.
+  Only a push to master and a merge-queue run save it, so a pull request reuses the last master entry.
+- `setup-gradle` runs with `cache-disabled: true`: its own cache cleanup purged plugin marker POMs, which made later runs fail with
+  "plugin not found".
 
 ## Manifest guard — `check-manifest.sh`
 
-Fails if the merged debug manifest declares `INTERNET` or `ACCESS_NETWORK_STATE`, or if `android:allowBackup` is not `"false"`. It always runs `:app:processDebugMainManifest` first, then reads the intermediate at `app/build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml`. The task always runs because reusing whatever is in `app/build` can check a manifest built from older inputs and pass a change it never saw.
+Builds the merged debug manifests of `:app` and `:lumio` (offline), then checks them. `:app` (Lensly) must declare no
+`INTERNET` and no `ACCESS_NETWORK_STATE`. `:lumio` may request only the permissions on its allow-list. `android:allowBackup`
+must be `"false"` in both. The `manifest` lane also checks the release manifest of `:app` for `INTERNET`, and the release runtime
+classpath for OkHttp.
 
 ## Extended kinds — `run-extended.sh <kind>`
 
-`instrumented`, `e2e`, `screenshot-testing`, `perf`, `security`, `fuzz`. Layers that have not landed yet print "not configured yet" and exit 0 locally; set `CI=true` to make that case fail.
+`instrumented`, `e2e`, `screenshot-testing`, `perf`, `security`, `fuzz`. Layers that have not landed yet print "not configured yet"
+and exit 0 locally; set `CI=true` to make that case fail.
 
-Where each kind runs (`comment-run.yml`): `screenshot-testing`, `security` and `fuzz` on `ubuntu-latest`; `instrumented` and `e2e` on an emulator; `perf` on the self-hosted reference device (`[self-hosted, android-ref]`), because the 10% benchmark gate only judges that phone.
+Where each kind runs (`comment-run.yml`): `screenshot-testing`, `security` and `fuzz` on `ubuntu-latest`; `instrumented` and `e2e`
+on an emulator; `perf` on the self-hosted reference device (`[self-hosted, android-ref]`), because the 10% benchmark gate only
+judges that phone.
 
 ```bash
 scripts/ci/run-extended.sh security   # lintDebug + dependencyCheckAnalyze, then check-manifest.sh
 CI=true scripts/ci/run-extended.sh e2e
 ```
 
-`security` is the on-demand trigger for guideline 2.7's "Lint (security) and OWASP" row: `:app:lintDebug` and `:app:dependencyCheckAnalyze` in one Gradle call with `--continue`, then `check-manifest.sh`. Each step reports its own result and the run still exits non-zero if any of them failed, so one pass lists every broken gate. Expect 10 to 15 minutes, mostly the OWASP scan. `NVD_API_KEY` is optional: without it the NVD API is rate-limited, so the scan is slower but still runs.
+`security` is the on-demand trigger for guideline 2.7's "Lint (security) and OWASP" row: `:app:lintDebug` and
+`:app:dependencyCheckAnalyze` in one Gradle call with `--continue`, then `check-manifest.sh`. Expect 10 to 15 minutes, mostly the
+OWASP scan. `NVD_API_KEY` is optional: without it the NVD API is rate-limited, so the scan is slower but still runs.
 
-`fuzz` is real fuzzing, not a replay: it calls `fuzz-nightly.sh --seconds 60`, so each of the four targets fuzzes for 60 seconds. `perf` runs the microbenchmarks on the reference device and applies the gate when `BENCHMARK_RESULT` names the result file.
+`fuzz` is real fuzzing, not a replay: it calls `fuzz-nightly.sh --seconds 60`, so each of the four targets fuzzes for 60 seconds.
+`perf` runs the microbenchmarks on the reference device and applies the gate when `BENCHMARK_RESULT` names the result file.
 
 ## CodeQL — `/run-codeql`
 
-`/run-codeql` as the whole text of a pull request comment runs a full CodeQL analysis of the pull request head with all four languages (`actions`, `javascript-typescript`, `python`, `java-kotlin`), and reports as the check `codeql / on demand`. Expect 6 to 8 minutes; `java-kotlin` is the long leg because it compiles `:app` and `:tools:registry-pack` first.
+`/run-codeql` as the whole text of a pull request comment runs a full CodeQL analysis of the pull request head with all four
+languages (`actions`, `javascript-typescript`, `python`, `java-kotlin`), and reports as the check `codeql / on demand`. Expect 6 to
+8 minutes; `java-kotlin` is the long leg because it compiles `:app` and `:tools:registry-pack` first.
 
-It is a separate workflow (`codeql-command.yml` → `codeql.yml`), not a command in `comment-run.yml`: the comment must be exactly `/run-codeql`, and the gate denies anyone without repository write access. The command only works once the workflow exists on the default branch, because GitHub reads `issue_comment` workflows from the default branch and not from the pull request the comment is on. It is not a required check and does not block a merge, and it never runs on `pull_request`.
+It is a separate workflow (`codeql-command.yml` → `codeql.yml`), not a command in `comment-run.yml`: the comment must be exactly
+`/run-codeql`, and the gate denies anyone without repository write access. The command only works once the workflow exists on the
+default branch, because GitHub reads `issue_comment` workflows from the default branch and not from the pull request the comment
+is on. It is not a required check and does not block a merge, and it never runs on `pull_request`.
 
-`codeql.yml` also runs the same four languages on a daily schedule (04:23 UTC) and writes the result into one open issue labelled `codeql`, rather than into the pull request path. No local wrapper exists for it: the CodeQL CLI is not installed locally, so `run-extended.sh` has no `codeql` kind.
+`codeql.yml` also runs the same four languages on a daily schedule (04:23 UTC) and writes the result into one open issue labelled
+`codeql`, rather than into the pull request path. No local wrapper exists for it: the CodeQL CLI is not installed locally, so
+`run-extended.sh` has no `codeql` kind.
 
 ## Nightly fuzz — `fuzz-nightly.sh`
 
-Fuzzes each Jazzer target for 15 minutes, one Gradle invocation per target (`JAZZER_FUZZ=1`, which Jazzer's JUnit integration reads). `--list` prints the targets. Pass one target to fuzz only that one; the nightly workflow runs one matrix leg per target. `--seconds N` caps each target at N seconds.
+Fuzzes each Jazzer target for 15 minutes, one Gradle invocation per target (`JAZZER_FUZZ=1`, which Jazzer's JUnit integration
+reads). `--list` prints the targets. Pass one target to fuzz only that one; the nightly workflow runs one matrix leg per target.
+`--seconds N` caps each target at N seconds.
 
 ```bash
 scripts/ci/fuzz-nightly.sh          # all four targets, about an hour
@@ -83,42 +105,51 @@ scripts/ci/fuzz-nightly.sh --seconds 60                   # /run-fuzz: four minu
 scripts/ci/fuzz-nightly.sh --list
 ```
 
-Duration comes from each `@FuzzTest` annotation: `maxDuration = "15m"`, which Jazzer passes to libFuzzer as `-max_total_time=900`. `--seconds` passes `-PfuzzMaxSeconds=N`; `shared/build.gradle.kts` turns that into the `jazzer.internal.arg.0` JUnit configuration parameter, and Jazzer appends it after the annotation value, so the shorter cap wins.
+Duration comes from each `@FuzzTest` annotation: `maxDuration = "15m"`, which Jazzer passes to libFuzzer as `-max_total_time=900`.
+`--seconds` passes `-PfuzzMaxSeconds=N`; `shared/build.gradle.kts` turns that into the `jazzer.internal.arg.0` JUnit configuration
+parameter, and Jazzer appends it after the annotation value, so the shorter cap wins.
 
-**PR lane.** The same targets run with no environment variable, as ordinary JUnit tests: Jazzer replays the committed seeds. `@FuzzTest` is a JUnit 5 `@ParameterizedTest`, so the unit-test JVM runs both engines — Jupiter for the fuzz targets, Vintage for every existing JUnit 4 test. Pass `-PfuzzLane` so the run includes `app.lensly.fuzz.*`: without it the shared JVM skips that package, because Jazzer and Robolectric cannot share a JVM.
+**PR lane.** The `fuzz` lane runs the same targets as ordinary JUnit tests with `-PfuzzLane`: Jazzer replays the committed seeds.
+The fuzz package needs its own JVM, because Jazzer and Robolectric cannot share one (see the note in `shared/build.gradle.kts`).
 
-**Seeds.** `shared/src/test/resources/fuzz-seeds/<target>/` holds valid and malformed inputs, named in that directory's `index.txt`; the tests read them through `@MethodSource`. A crash a nightly run finds lands in `shared/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/`, which the regression run replays as soon as the file is committed.
-
-`instrumented` skips `app.lensly.benchmark`: those classes need `AndroidBenchmarkRunner`, which only the `benchmark` build type gets. `perf` runs `:app:connectedBenchmarkAndroidTest` on the reference device; set `BENCHMARK_RESULT=<benchmarkData.json>` to make it compare that run against the baseline.
+**Seeds.** `shared/src/test/resources/fuzz-seeds/<target>/` holds valid and malformed inputs, named in that directory's `index.txt`;
+the tests read them through `@MethodSource`. A crash a nightly run finds lands in
+`shared/src/test/resources/app/lensly/fuzz/<Class>Inputs/<method>/`, which the regression run replays as soon as the file is committed.
 
 ## Nightly and comment runs — one report each
 
-`nightly.yml` runs `full`, `fuzz`, `instrumented`, `e2e` and `benchmark` as separate jobs. A single `report` job (`needs` them all, `if: failure()`) opens or updates the `nightly-failure` issue once, listing which jobs failed; parallel jobs cannot open four issues. In `comment-run.yml`, a read-only `gate` job authorizes the comment before any PR code is checked out, the run jobs have `contents: read`, and one `report` job posts the result comment.
+`nightly.yml` runs `full` (R8 and OWASP), `fuzz`, `instrumented`, `e2e` and `benchmark` as separate jobs. A single `report` job
+(`needs` them all, `if: failure()`) opens or updates the `nightly-failure` issue once, listing which jobs failed; parallel jobs
+cannot open four issues. In `comment-run.yml`, a read-only `gate` job authorizes the comment before any PR code is checked out, the
+run jobs have `contents: read`, and one `report` job posts the result comment.
+
+`instrumented` skips `app.lensly.benchmark`: those classes need `AndroidBenchmarkRunner`, which only the `benchmark` build type gets.
+`perf` runs `:app:connectedBenchmarkAndroidTest` on the reference device; set `BENCHMARK_RESULT=<benchmarkData.json>` to make it
+compare that run against the baseline.
 
 ## Macrobenchmarks — `:benchmark`
 
-Cold start of `app.lensly.MainActivity` through `StartupTimingMetric` (guideline 1.7). Macrobenchmarks launch the
-installed application and measure it from the outside, so they live in their own `com.android.test` module that targets
-`:app`'s `benchmark` variant. Nothing in `:app` depends on it, so the PR lanes (`:app:testDebugUnitTest`,
-`:app:assembleDebug`, `:app:verifyRoborazziDebug`) never configure or build it.
+Cold start of `app.lensly.MainActivity` through `StartupTimingMetric` (guideline 1.7). Macrobenchmarks launch the installed
+application and measure it from the outside, so they live in their own `com.android.test` module that targets `:app`'s `benchmark`
+variant. Nothing in `:app` depends on it, so the PR lanes never configure or build it.
 
 ```bash
 ./gradlew :benchmark:connectedBenchmarkAndroidTest   # needs a device or emulator
 ./gradlew :benchmark:assembleBenchmark               # compiles the test APK, no device needed
 ```
 
-Five iterations, `CompilationMode.None`, so every run measures the same bytecode. Changing the compilation mode,
-iterations or startup mode invalidates a recorded baseline. Results are written under
-`benchmark/build/outputs/androidTest-results/benchmark/<run>/benchmarkData.json`; the same
-`benchmark-gate.sh` applies, with no baseline numbers invented for it:
-
-```bash
-scripts/ci/benchmark-gate.sh benchmark/build/outputs/androidTest-results/benchmark/<run>/benchmarkData.json
-```
+Five iterations, `CompilationMode.None`, so every run measures the same bytecode. Changing the compilation mode, iterations or
+startup mode invalidates a recorded baseline. Results are written under
+`benchmark/build/outputs/androidTest-results/benchmark/<run>/benchmarkData.json`; the same `benchmark-gate.sh` applies, with no
+baseline numbers invented for it.
 
 Emulator numbers are trend data only. Only a physical reference device records a baseline, and it needs the application's
 `benchmark` variant installed, which `connectedBenchmarkAndroidTest` does for you.
 
 ## Benchmark gate — `benchmark-gate.sh [--record] [--reference-device] <result.json>`
 
-Compares an AndroidX Benchmark result against `app/src/androidTest/benchmark-baselines/baselines.json` and fails above `BENCHMARK_MAX_REGRESSION_PCT` (default 10) or when a result has no baseline entry. The gate only judges the reference device: without `--reference-device` (or `BENCHMARK_REFERENCE_DEVICE=1`) it reports that it made no verdict and exits 0, because an emulator run is trend data. On the reference device a missing baseline fails closed. `--record` writes the baseline and refuses `CI=true`. No baseline numbers are committed yet; see the README in the baseline directory for how to record them on the reference device.
+Compares an AndroidX Benchmark result against `app/src/androidTest/benchmark-baselines/baselines.json` and fails above
+`BENCHMARK_MAX_REGRESSION_PCT` (default 10) or when a result has no baseline entry. The gate only judges the reference device:
+without `--reference-device` (or `BENCHMARK_REFERENCE_DEVICE=1`) it reports that it made no verdict and exits 0, because an emulator
+run is trend data. On the reference device a missing baseline fails closed. `--record` writes the baseline and refuses `CI=true`.
+No baseline numbers are committed yet; see the README in the baseline directory for how to record them on the reference device.

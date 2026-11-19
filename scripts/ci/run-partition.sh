@@ -1,22 +1,15 @@
 #!/usr/bin/env bash
-# Run one PR-lane partition (docs/testing/guideline.md 2.2).
-# Each partition is a single Gradle invocation with one filtered task per module, so the build cache
-# absorbs unchanged compile work and the log names exactly one selector. The one exception is
-# core-ur-evm: its fuzz replay runs as a second invocation, because Jazzer and Robolectric cannot
-# share a JVM (see the -PfuzzLane note in shared/build.gradle.kts).
-#
-# Tests live in three modules. :shared (shared/src/test) holds the code Lensly and Lumio share. :app
-# (app/src/test) holds the Lensly-only code, and :lumio (lumio/src/test) the companion's. A --tests filter that matches nothing in its module fails
-# the task, so every selector runs in the module that owns its package.
+# Runs one CI lane (scripts/ci/README.md). Every Gradle call runs --offline except `resolve`, the one online step.
+# The test lanes come from scripts/ci/shards.txt, where each test class is in exactly one lane.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+SHARDS="$ROOT/scripts/ci/shards.txt"
 
-# Watchdog, kept in the PR on purpose. On 2026-11-19 a test (app) partition ran for 4 min 20 s after its configuration
-# with no Gradle output and was cut by the job cap, with nothing to say where it stopped. If this partition is still
-# running after 240 s, the job log gets the JVM thread dumps (every Gradle daemon, worker and wrapper JVM) and the open
-# sockets. The watchdog only dumps: the job's own timeout still ends a stalled run, and nothing is retried.
+# Watchdog, kept on purpose. If this lane is still running after 240 s, the job log gets the JVM thread dumps (every Gradle
+# daemon, worker and wrapper JVM) and the open sockets. The watchdog only dumps: the job's own timeout still ends a stalled
+# run, and nothing is retried.
 WATCHDOG_SECONDS=240
 watchdog() {
     sleep "$WATCHDOG_SECONDS"
@@ -43,42 +36,17 @@ trap 'kill "$WATCHDOG_PID" 2>/dev/null || true' EXIT
 
 usage() {
     cat >&2 <<'USAGE_END'
-usage: scripts/ci/run-partition.sh <partition>
+usage: scripts/ci/run-partition.sh <lane>
 
-partitions:
-  core-wallet    :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*' --tests 'app.lensly.core.solana.*' --tests 'app.lensly.core.algorand.*'
-  core-ur-evm    :shared:testDebugUnitTest --tests 'app.lensly.core.ur.*' --tests 'app.lensly.core.evm.*'
-                 (then a second invocation, -PfuzzLane: app.lensly.fuzz.* covers UR/CBOR, eth-sign and RLP)
-  core-parse     :shared:testDebugUnitTest --tests 'app.lensly.core.parse.*'
-  core-vault     :shared:testDebugUnitTest --tests 'app.lensly.core.vault.*'
-  core-registry  :shared:testDebugUnitTest --tests 'app.lensly.core.registry.*' --tests 'app.lensly.core.registry.update.*'
-  core-btc       :shared:testDebugUnitTest --tests 'app.lensly.core.btc.*'
-  ui-a           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.settings.*' --tests 'app.lensly.ui.wallet.*'
-                 --tests 'app.lensly.ui.navigation.*' --tests 'app.lensly.ui.a11y.*' --tests 'app.lensly.ui.screenshot.*'
-                 :shared:testDebugUnitTest -PprLane --tests 'app.lensly.ui.camera.*' --tests 'app.lensly.ui.qr.*'
-                 --tests 'app.lensly.ui.theme.*' --tests 'app.lensly.ui.navigation.*' --tests 'app.lensly.ui.settings.*'
-  ui-b           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.flow.*' --tests 'app.lensly.ui.profile.*'
-                 --tests 'app.lensly.ui.components.*'
-                 :shared:testDebugUnitTest -PprLane --tests 'app.lensly.ui.components.*' --tests 'app.lensly.ui.gate.*'
-                 --tests 'app.lensly.ui.SecureWindowTest'
-  ui-c           :app:testDebugUnitTest -PprLane --tests 'app.lensly.ui.home.*' --tests 'app.lensly.ui.sign.*'
-  app            :app:testDebugUnitTest --tests 'app.lensly.app.*' --tests 'app.lensly.SmokeTest'
-                 --tests 'app.lensly.core.vault.BackupExclusionTest'
-  lumio-a        :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
-  lumio-apk      :lumio:assembleDebug
-  lumio-b        :lumio:testDebugUnitTest --tests 'app.lumio.LumioBackdropTest' --tests 'app.lumio.EntryGestureSettingTest'
-                 --tests 'app.lumio.CoverLockTest' --tests 'app.lumio.SendRouteTest' --tests 'app.lumio.chains.*'
-                 --tests 'app.lumio.evm.*' --tests 'app.lumio.home.*' --tests 'app.lumio.network.*' --tests 'app.lumio.pair.*'
-                 --tests 'app.lumio.send.*' --tests 'app.lumio.tokens.*' --tests 'app.lumio.wallets.*'
-  lumio-c        :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
-  lumio-d        :lumio:testDebugUnitTest --tests 'app.lumio.data.*'
-  registry-pack  :tools:registry-pack:test
-  chain-api      :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test :chains:solana:signer:test
-                 :chains:bitcoin:signer:test :chains:bitcoin:common:test :chains:evm:common:test :chains:solana:common:test
-                 :core:conformance:test :chains:algorand:wallet:test :chains:bitcoin:wallet:test :chains:evm:wallet:test :chains:solana:wallet:test, then compiles the API, Algorand, Solana, Bitcoin and EVM modules
-  manifest       scripts/ci/check-manifest.sh
-  ci             bash -n on every script, scripts/ci/check-partitions.sh, then
-                 scripts/ci/check-test-network.sh (no Gradle)
+lanes:
+  resolve      the one online step: ./gradlew resolveAll, retried only on network errors
+  shard-1..6   the unit tests listed under that lane in scripts/ci/shards.txt; pure JVM modules run whole
+  verify       the Roborazzi pixel tests of :app and :lumio, with verifyRoborazziDebug
+  fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
+  android      androidTest and benchmark compile of :app and :lumio, and the Lumio debug APK
+  lint         lintDebug of every module
+  manifest     merged manifests: no INTERNET in :app, Lumio's allow-list, OkHttp off the release classpath of :app
+  ci           bash -n on every script, check-partitions.sh and check-test-network.sh (no Gradle)
 USAGE_END
 }
 
@@ -86,157 +54,158 @@ if [ "$#" -ne 1 ]; then
     usage
     exit 2
 fi
+lane="$1"
 
-partition="$1"
+# Prints the modules that a lane lists, in file order, once each.
+lane_modules() {
+    local l m c
+    while read -r l m c; do
+        case "$l" in
+            '' | \#*) continue ;;
+        esac
+        if [ "$l" = "$1" ]; then printf '%s\n' "$m"; fi
+    done < "$SHARDS" | awk '!seen[$0]++'
+}
 
-case "$partition" in
-    core-wallet)
-        # Gradle ORs repeated --tests filters. algorand has no tests on master yet; solana and wallet keep the task non-empty.
-        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.wallet.*' --tests 'app.lensly.core.solana.*' --tests 'app.lensly.core.algorand.*'
-        ;;
-    core-ur-evm)
-        # Gradle ORs repeated --tests filters. evm landed after the 2.2 table was written.
-        # The fuzz targets replay their committed seeds in their own JVM (Jazzer and Robolectric cannot share
-        # one, see the -PfuzzLane note in shared/build.gradle.kts). They cover UrScanner/UR, CBOR, the eth-sign
-        # request and the unsigned (RLP) transaction decoder, so they belong to this partition.
-        # app.lensly.app.export is the AirVault pairing, a UR and CBOR payload that Lumio scans, so it runs with the UR tests.
-        ./gradlew :shared:testDebugUnitTest \
-            --tests 'app.lensly.core.ur.*' \
-            --tests 'app.lensly.core.evm.*' \
-            --tests 'app.lensly.app.export.*'
-        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.fuzz.*' -PfuzzLane
-        ;;
-    core-parse)
-        # Parsing untrusted payloads (DecodeBudget), and the QR Decode Sandbox that takes untrusted camera frames.
-        # Paired with core-ur-evm in the workflow.
-        ./gradlew :shared:testDebugUnitTest \
-            --tests 'app.lensly.core.parse.*' \
-            --tests 'app.lensly.core.qr.*'
-        ;;
-    core-vault)
-        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.vault.*'
-        ;;
-    core-registry)
-        # The second filter is explicit so registry.update stays covered even if a Gradle
-        # version ever stops letting '*' cross package separators.
-        ./gradlew :shared:testDebugUnitTest \
-            --tests 'app.lensly.core.registry.*' \
-            --tests 'app.lensly.core.registry.update.*'
-        ;;
-    core-btc)
-        ./gradlew :shared:testDebugUnitTest --tests 'app.lensly.core.btc.*'
-        ;;
-    # The app.lensly.ui tests are split in three so each stays under the 3-minute cap (guideline 2.1).
-    # Each test class must be in exactly one arm, under the Gradle call for its own module (:app or :shared).
-    # scripts/ci/check-partitions.sh (run by the ci partition) fails when a class is in none, or in two.
-    # ui-a, ui-b and ui-c hold the Lensly screens (:app) and the code both apps reuse (:shared). ui-c holds
-    # the home and sign screens, split out of ui-b.
-    # -PprLane drops app.lensly.ui.screenshot.* (Roborazzi pixel tests) from every ui arm. They are
-    # verified nightly by verifyRoborazziDebug instead (guideline 2.7).
-    ui-a)
-        # screenshot is listed so the coverage guard sees it. -PprLane excludes its pixel tests anyway.
-        ./gradlew :app:testDebugUnitTest -PprLane \
-            --tests 'app.lensly.ui.screenshot.*' \
-            --tests 'app.lensly.ui.settings.*' \
-            --tests 'app.lensly.ui.wallet.*' \
-            --tests 'app.lensly.ui.navigation.*' \
-            --tests 'app.lensly.ui.a11y.*' \
-            :shared:testDebugUnitTest -PprLane \
-            --tests 'app.lensly.ui.camera.*' \
-            --tests 'app.lensly.ui.qr.*' \
-            --tests 'app.lensly.ui.theme.*' \
-            --tests 'app.lensly.ui.navigation.*' \
-            --tests 'app.lensly.ui.settings.*'
-        ;;
-    ui-b)
-        ./gradlew :app:testDebugUnitTest -PprLane \
-            --tests 'app.lensly.ui.flow.*' \
-            --tests 'app.lensly.ui.profile.*' \
-            --tests 'app.lensly.ui.components.*' \
-            :shared:testDebugUnitTest -PprLane \
-            --tests 'app.lensly.ui.components.*' \
-            --tests 'app.lensly.ui.gate.*' \
-            --tests 'app.lensly.ui.SecureWindowTest'
-        ;;
-    ui-c)
-        ./gradlew :app:testDebugUnitTest -PprLane \
-            --tests 'app.lensly.ui.home.*' \
-            --tests 'app.lensly.ui.sign.*'
-        ;;
-    app)
-        # Wallet stores, settings, export and sign pipelines, plus the module smoke test. BackupExclusionTest
-        # reads the app's own manifest and backup rules, so it runs here and not in :shared.
-        ./gradlew :app:testDebugUnitTest \
-            --tests 'app.lensly.app.*' \
-            --tests 'app.lensly.SmokeTest' \
-            --tests 'app.lensly.core.vault.BackupExclusionTest'
-        ;;
-    # The app.lumio tests and the debug APK are split into five partitions so each lumio test job stays under its
-    # 5-minute cap (guideline 2.1). lumio-a holds the ui packages, which include the Roborazzi pixel tests.
-    # lumio-apk assembles the debug APK alone: dexing takes about 85 s on a cold cache, and no test partition
-    # dexes. lumio-c holds btc, whose BtcScanTest alone takes about 50 s. lumio-d holds data, the largest package,
-    # and lumio-b holds the rest. A new lumio package, or a test class directly in app.lumio, must be added to ONE
-    # of the four test arms (lumio-a, lumio-b, lumio-c, lumio-d); scripts/ci/check-partitions.sh checks it.
-    # Lumio's cover, gate and theme come from :shared, which the shared partitions test.
-    lumio-a)
-        ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.ui.*'
-        ;;
-    lumio-apk)
-        ./gradlew :lumio:assembleDebug
-        ;;
-    lumio-b)
-        ./gradlew :lumio:testDebugUnitTest \
-            --tests 'app.lumio.LumioBackdropTest' \
-            --tests 'app.lumio.LumioBarIconsTest' \
-            --tests 'app.lumio.EntryGestureSettingTest' \
-            --tests 'app.lumio.CoverLockTest' \
-            --tests 'app.lumio.SendRouteTest' \
-            --tests 'app.lumio.chains.*' \
-            --tests 'app.lumio.evm.*' \
-            --tests 'app.lumio.home.*' \
-            --tests 'app.lumio.network.*' \
-            --tests 'app.lumio.pair.*' \
-            --tests 'app.lumio.send.*' \
-            --tests 'app.lumio.tokens.*' \
-            --tests 'app.lumio.wallets.*'
-        ;;
-    lumio-c)
-        ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.btc.*'
-        ;;
-    lumio-d)
-        ./gradlew :lumio:testDebugUnitTest --tests 'app.lumio.data.*'
-        ;;
-    registry-pack)
-        ./gradlew :tools:registry-pack:test
-        ;;
-    chain-api)
-        # The chain-app contract, the parsers, the registry, the key-scope enforcer, the conformance kit (which runs on the
-        # Algorand signer and checks the signer side for network libraries), the Algorand, Bitcoin, EVM and Solana manifests
-        # and codecs, and the Bitcoin parser. Solana runs its parser too. The EVM signer's request codec and the ABI library are
-        # in it too, and the Algorand, Bitcoin, EVM and Solana wallets (their pairing accounts). No --tests filter: each module's whole test set runs.
-        ./gradlew :core:model:test :chains:algorand:common:test :core:signer-api:test :chains:algorand:signer:test \
-            :chains:solana:signer:test :chains:bitcoin:signer:test :chains:bitcoin:common:test :chains:evm:common:test \
-            :chains:evm:signer:test :chains:solana:common:test :abi:test :core:conformance:test :core:wallet-api:classes \
-            :chains:algorand:wallet:test :chains:bitcoin:wallet:test :chains:evm:wallet:test :chains:solana:wallet:test
-        ;;
-    manifest)
-        "$ROOT/scripts/ci/check-manifest.sh"
-        ;;
-    ci)
-        # CI's own files: a syntax check of every shell script, the partition coverage check, plus the test-network
-        # guard. No Gradle, so this stays well inside the 3-minute PR budget. The ci filter in pr-fast.yml also
-        # runs it on every change to a test source set, so a new test class is checked on its PR.
-        scripts=0
-        while IFS= read -r script; do
-            bash -n "$script"
-            scripts=$((scripts + 1))
-        done < <(find "$ROOT/scripts" -type f -name '*.sh' | sort)
-        echo "run-partition: bash -n passed for $scripts script(s)"
-        "$ROOT/scripts/ci/check-partitions.sh"
-        "$ROOT/scripts/ci/check-test-network.sh"
-        ;;
+# Prints the classes that a lane lists for one module.
+lane_classes() {
+    local l m c
+    while read -r l m c; do
+        case "$l" in
+            '' | \#*) continue ;;
+        esac
+        if [ "$l" = "$1" ] && [ "$m" = "$2" ]; then printf '%s\n' "$c"; fi
+    done < "$SHARDS"
+}
+
+run_resolve() {
+    # Network errors are retried, because a dropped connection is not a defect. A dependency that cannot be resolved for another
+    # reason fails at once: retrying a verification or a missing artifact only hides it.
+    local attempt log
+    for attempt in 1 2 3; do
+        log="$(mktemp)"
+        if ./gradlew --no-configuration-cache resolveAll 2>&1 | tee "$log"; then
+            rm -f "$log"
+            return 0
+        fi
+        if ! grep -q -E 'Could not GET|Could not HEAD|Connect timed out|Read timed out|Connection reset|failed: timeout|Received status code|status code (429|50[0-9])' "$log"; then
+            rm -f "$log"
+            echo "run-partition: resolveAll failed without a network error, so it is not retried" >&2
+            exit 1
+        fi
+        rm -f "$log"
+        echo "::warning::run-partition: resolveAll hit a network error (attempt $attempt of 3); retrying in 30 s"
+        sleep 30
+    done
+    echo "run-partition: resolveAll failed after 3 attempts" >&2
+    exit 1
+}
+
+run_shard() {
+    local -a tasks=()
+    local m c
+    while IFS= read -r m; do
+        case "$m" in
+            :app | :lumio | :shared)
+                local -a tests=()
+                while IFS= read -r c; do
+                    tests+=(--tests "$c")
+                done < <(lane_classes "$1" "$m")
+                tasks+=("$m:testDebugUnitTest" "${tests[@]}")
+                ;;
+            *)
+                tasks+=("$m:test")
+                ;;
+        esac
+    done < <(lane_modules "$1")
+    if [ "${#tasks[@]}" -eq 0 ]; then
+        echo "run-partition: lane $1 lists no tests in $SHARDS" >&2
+        exit 1
+    fi
+    ./gradlew --offline "${tasks[@]}"
+}
+
+run_verify() {
+    local -a app=() lumio=() c
+    while IFS= read -r c; do
+        app+=(--tests "$c")
+    done < <(lane_classes verify :app)
+    while IFS= read -r c; do
+        lumio+=(--tests "$c")
+    done < <(lane_classes verify :lumio)
+    # The filtered test task runs the pixel tests in verify mode (Roborazzi switches it on when the verify task is requested), so
+    # each pixel test runs once. Without the filter, verifyRoborazziDebug would run every unit test of the module again.
+    ./gradlew --offline :app:testDebugUnitTest "${app[@]}" :app:verifyRoborazziDebug \
+        :lumio:testDebugUnitTest "${lumio[@]}" :lumio:verifyRoborazziDebug
+}
+
+run_fuzz() {
+    local -a tests=()
+    local c
+    while IFS= read -r c; do
+        tests+=(--tests "$c")
+    done < <(lane_classes fuzz :shared)
+    # The fuzz targets read -PfuzzLane and run in their own JVM: Jazzer and Robolectric cannot share one.
+    ./gradlew --offline :shared:testDebugUnitTest "${tests[@]}" -PfuzzLane
+}
+
+run_android() {
+    ./gradlew --offline :app:compileDebugAndroidTestKotlin :app:compileBenchmarkKotlin :app:compileBenchmarkAndroidTestKotlin \
+        :lumio:compileDebugAndroidTestKotlin :lumio:compileBenchmarkKotlin :lumio:assembleDebug
+}
+
+run_lint() {
+    ./gradlew --offline lintDebug
+}
+
+run_manifest() {
+    # The merged debug manifests of :app and :lumio (check-manifest.sh runs its own Gradle task, offline).
+    scripts/ci/check-manifest.sh
+    # Lensly (:app) is offline in release too. check-manifest.sh reads only the debug merge, so the release merge is read here.
+    ./gradlew --offline :app:processReleaseMainManifest
+    local merged
+    merged="$(find app/build/intermediates -path '*merged_manifest*/release/*' -name AndroidManifest.xml | head -n 1)"
+    if [ -z "$merged" ]; then
+        echo "error: merged release manifest of :app not found under app/build/intermediates" >&2
+        exit 1
+    fi
+    if grep -q '"android.permission.INTERNET"' "$merged"; then
+        echo "error: android.permission.INTERNET is in the merged release manifest of :app; Lensly is offline by design" >&2
+        exit 1
+    fi
+    echo "ok: the merged release manifest of :app has no android.permission.INTERNET"
+    # R56: web3j brings OkHttp, the HTTP client, and shared excludes it from web3j. :app never calls it.
+    local deps
+    deps="$(./gradlew --offline :app:dependencies --configuration releaseRuntimeClasspath -q)"
+    if printf '%s\n' "$deps" | grep -q 'com\.squareup\.okhttp3'; then
+        echo "error: OkHttp is on the release runtime classpath of :app; Lensly is offline by design (see shared/build.gradle.kts)" >&2
+        exit 1
+    fi
+    echo "ok: no OkHttp on the release runtime classpath of :app"
+}
+
+run_ci() {
+    local scripts=0 script
+    while IFS= read -r script; do
+        bash -n "$script"
+        scripts=$((scripts + 1))
+    done < <(find "$ROOT/scripts" -type f -name '*.sh' | sort)
+    echo "run-partition: bash -n passed for $scripts script(s)"
+    "$ROOT/scripts/ci/check-partitions.sh"
+    "$ROOT/scripts/ci/check-test-network.sh"
+}
+
+case "$lane" in
+    resolve) run_resolve ;;
+    shard-[1-6]) run_shard "$lane" ;;
+    verify) run_verify ;;
+    fuzz) run_fuzz ;;
+    android) run_android ;;
+    lint) run_lint ;;
+    manifest) run_manifest ;;
+    ci) run_ci ;;
     *)
-        echo "run-partition: unknown partition: $partition" >&2
+        echo "run-partition: unknown lane: $lane" >&2
         usage
         exit 2
         ;;

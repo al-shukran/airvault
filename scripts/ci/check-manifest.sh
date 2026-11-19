@@ -57,7 +57,7 @@ check_allow_backup() {
 # Always run the tasks. Reusing whatever intermediate happens to be in a build directory can check a manifest built from older
 # inputs and pass a change it never saw.
 echo "check-manifest: building the merged debug manifests"
-./gradlew :app:processDebugMainManifest :lumio:processDebugMainManifest
+./gradlew --offline :app:processDebugMainManifest :lumio:processDebugMainManifest
 
 MERGED="$(merged_manifest app)"
 LUMIO_MERGED="$(merged_manifest lumio)"
