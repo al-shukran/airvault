@@ -106,7 +106,7 @@ class EvmReviewBuilder(
 
         init {
             header += ReviewRow("From", DisplayValue.Address(chain, sender), null)
-            request.origin?.let { origin -> header += ReviewRow("Origin", DisplayValue.Text(origin), decode("evm.origin")) }
+            request.origin?.let { origin -> header += ReviewRow(CLAIMED_ORIGIN_LABEL, DisplayValue.Text(origin), decode("evm.origin")) }
         }
 
         fun build(): Review = when (request.dataType) {
@@ -398,13 +398,17 @@ class EvmReviewBuilder(
         }
 
         /**
-         * The rows of one call's arguments: the approved meaning first, then the arguments, then the signed calldata in full, and the proxy
-         * binding last. The arguments preview a bytes value, so the calldata row is what shows every byte of it.
+         * The rows of one call's arguments: the approved meaning first, then the arguments, then the selector, the signed calldata in full, and
+         * each word after the selector. The arguments preview a bytes value, so the calldata row is what shows every byte of it. The proxy
+         * binding comes last. The call's value is not repeated here: a top-level call shows the header's amount, and a batch call shows its
+         * own value in the flags its shape carries.
          */
         private fun approvedDetails(gap: Gap.Approved, calldata: ByteArray): List<ParamRow> = buildList {
             add(ParamRow("Approved Meaning", DisplayValue.Text(gap.meaning), null))
             addAll(gap.params)
+            add(ParamRow("Selector", DisplayValue.Text("0x" + calldata.copyOfRange(0, SELECTOR_BYTES).toHex()), "selector"))
             add(calldataRow(calldata))
+            wordsOf(calldata).forEachIndexed { index, word -> add(ParamRow("Word ${index + 1}", DisplayValue.Bytes(word), null)) }
             gap.proxy?.implementationAddress?.let { add(ParamRow("Implementation", DisplayValue.Address(chain, it), null)) }
             gap.proxy?.implementationCodeHash?.let { add(ParamRow("Implementation Code Hash", DisplayValue.Text(it), null)) }
         }
@@ -674,9 +678,7 @@ class EvmReviewBuilder(
                 chainId = chainId,
                 value = nativeAmount(value),
                 selector = calldata.copyOfRange(0, minOf(SELECTOR_BYTES, calldata.size)).toHex(),
-                words = (SELECTOR_BYTES until calldata.size step WORD_BYTES).map { start ->
-                    calldata.copyOfRange(start, minOf(start + WORD_BYTES, calldata.size)).toHex()
-                },
+                words = wordsOf(calldata).map { it.toHex() },
                 proxy = proxy,
             )
 
@@ -748,6 +750,12 @@ private fun unknownParams(calldata: ByteArray, selector: String): List<ParamRow>
 
 /** The signed calldata in full, as its own row. A call whose arguments are shown carries this row, so no byte is only a preview. */
 private fun calldataRow(calldata: ByteArray): ParamRow = ParamRow("Calldata", DisplayValue.Bytes(calldata), "calldata")
+
+/** The calldata after its selector, in 32-byte words. The last word is shorter when the calldata does not end on a word boundary. */
+private fun wordsOf(calldata: ByteArray): List<ByteArray> =
+    (SELECTOR_BYTES until calldata.size step WORD_BYTES).map { start ->
+        calldata.copyOfRange(start, minOf(start + WORD_BYTES, calldata.size))
+    }
 
 private fun noteRows(note: String?): List<ReviewRow> = note?.let { listOf(ReviewRow("Amount Note", DisplayValue.Text(it), null)) }.orEmpty()
 
@@ -901,6 +909,10 @@ private const val PERSONAL_MESSAGE_TYPE = "Personal Message"
 private const val TYPED_DATA_TYPE = "Typed data (EIP-712)"
 private const val L2_FEE_NOTE = "L1 data fee is not computable offline; total may be higher"
 private const val DEADLINE_LABEL = "deadline (uint256)"
+
+/** The label of the origin a request names. The request sets it, so the review does not vouch for it. */
+private const val CLAIMED_ORIGIN_LABEL = "Claimed by Request (Not Verified)"
+
 private const val GWEI_DECIMALS = 9
 private const val ASSUMED_DECIMALS = 18
 private const val SELECTOR_BYTES = 4
