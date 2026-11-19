@@ -32,8 +32,11 @@ sealed interface ScanReply {
      */
     data class App(val request: AppRequest) : ScanReply
 
-    /** The request cannot be read. [reason] says why, in plain words. */
-    data class Refused(val reason: String) : ScanReply
+    /**
+     * The request cannot be read. [reason] says why, in plain words. [request] is set when an app read the request and refused it on a rule
+     * of its own, so the sign flow records the refusal under the wallet the request is for.
+     */
+    data class Refused(val reason: String, val request: AppRequest? = null) : ScanReply
 }
 
 /**
@@ -71,7 +74,7 @@ object InProcessParser : RequestParser {
     private fun appReply(app: SignerApp, ur: UR): ScanReply = try {
         when (val outcome = app.parser.parse(ur.type, ur.cborBytes, ParserLimits())) {
             is ParseOutcome.Parsed -> ScanReply.App(outcome.request)
-            is ParseOutcome.Refused -> ScanReply.Refused(outcome.reason)
+            is ParseOutcome.Refused -> ScanReply.Refused(outcome.reason, outcome.request)
         }
     } catch (e: Exception) {
         ScanReply.Refused(CANNOT_BE_READ)

@@ -251,7 +251,14 @@ class SignFlow(
             val reply = ports.scan(parts.toList() + text)
             if (started != epoch) return
             when (reply) {
-                is ScanReply.Refused -> current.value = SignStep.Refused(reply.reason)
+                is ScanReply.Refused -> {
+                    val request = reply.request
+                    if (request == null) {
+                        current.value = SignStep.Refused(reply.reason)
+                    } else if (accept(text)) {
+                        publish(started, refusedApp(started, request, reply.reason))
+                    }
+                }
                 ScanReply.NotPart -> current.value = scanning(NOT_PART)
                 is ScanReply.Incomplete -> if (accept(text)) {
                     progress = reply.progress.toFloat()
@@ -612,6 +619,13 @@ class SignFlow(
                 appRefusal(started, target, request, WALLET_UNREADABLE, ready = null)
             }
         }
+
+    /**
+     * The step for a request that an app refused while it parsed it, on a rule of its own. The refusal is recorded under the wallet the request
+     * is for, as a refusal after parsing is. Nothing is signed for it.
+     */
+    private suspend fun refusedApp(started: Int, request: AppRequest, reason: String): SignStep =
+        routed(ScannedRequest.App(request.header)) { target -> appRefusal(started, target, request, reason, ready = null) }
 
     /** Checks the App Password for an approved request of a chain app, then signs it. The caller zeroes [password]. */
     private suspend fun confirmApp(waiting: SignStep.AppConfirming, password: CharArray) {

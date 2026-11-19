@@ -51,6 +51,25 @@ class ChainRegistryTest {
     }
 
     @Test
+    fun rejectsUppercaseUrTypes() {
+        assertRejected(
+            "malformed",
+            baseline().copy(requestTypes = listOf(UrTypeSpec("Test-sign-request", Direction.REQUEST, 1..1))),
+        )
+    }
+
+    @Test
+    fun rejectsAnAppThatRequiresAPrimaryNetworkOnEitherSide() {
+        val testnet = network("testns:1").copy(primary = true)
+        val mainnet = network("testns:2").copy(testnet = false, primary = true)
+        assertRejected("no primary testnet", baseline().copy(requiresPrimary = true, networks = listOf(mainnet)))
+        assertRejected("no primary mainnet", baseline().copy(requiresPrimary = true, networks = listOf(testnet)))
+        ChainRegistry(listOf(FakeApp(baseline().copy(requiresPrimary = true, networks = listOf(testnet, mainnet)))))
+        // An app that does not require one may have none, as Bitcoin and Algorand do.
+        ChainRegistry(listOf(FakeApp(baseline())))
+    }
+
+    @Test
     fun rejectsAnUnsupportedApiVersionAndAnUndeclaredNamespace() {
         assertRejected("apiVersion", baseline().copy(apiVersion = 2))
         assertRejected("namespace", baseline().copy(namespaces = setOf("other")))

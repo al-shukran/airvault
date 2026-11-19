@@ -36,6 +36,7 @@ object ParserWire {
     private const val NOT_PART = 1
     private const val INCOMPLETE = 2
     private const val APP_REQUEST = 6
+    private const val REFUSED_REQUEST = 7
     private const val CALL_OK = 1
 
     /** The tags of one decoded value on the wire: a static word, the bytes of a bytes or string, and the items of an array or tuple. */
@@ -95,8 +96,15 @@ object ParserWire {
         int(VERSION)
         when (reply) {
             is ScanReply.Refused -> {
-                int(REFUSED)
-                text(reply.reason)
+                val request = reply.request
+                if (request == null) {
+                    int(REFUSED)
+                    text(reply.reason)
+                } else {
+                    int(REFUSED_REQUEST)
+                    text(reply.reason)
+                    appRequest(request)
+                }
             }
             ScanReply.NotPart -> int(NOT_PART)
             is ScanReply.Incomplete -> {
@@ -115,6 +123,7 @@ object ParserWire {
         version()
         val reply = when (int()) {
             REFUSED -> ScanReply.Refused(text())
+            REFUSED_REQUEST -> ScanReply.Refused(text(), appRequestOf())
             NOT_PART -> ScanReply.NotPart
             INCOMPLETE -> ScanReply.Incomplete(double().also { if (!(it in 0.0..1.0)) throw WireException("progress is outside 0 to 1") })
             APP_REQUEST -> ScanReply.App(appRequestOf())
