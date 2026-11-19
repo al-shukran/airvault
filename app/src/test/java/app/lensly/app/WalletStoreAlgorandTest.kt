@@ -1,12 +1,10 @@
 package app.lensly.app
 
-import app.airvault.chains.algorand.bytesToSign
+import app.airvault.core.model.Curve
 import app.lensly.app.export.AlgorandPairingKeys
 import app.lensly.core.algorand.AlgorandAccount
-import app.airvault.chains.algorand.signer.AlgorandRequestCheck
-import app.airvault.chains.algorand.signer.AlgorandRequestReview
 import app.lensly.core.wallet.Ed25519Signer
-import app.lensly.core.ur.PathStep
+import app.lensly.core.wallet.WalletKeyAccess
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
@@ -15,7 +13,6 @@ import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.junit.After
 import org.junit.Before
@@ -157,31 +154,17 @@ class WalletStoreAlgorandTest {
     }
 
     @Test
-    fun aReviewedPaymentIsSignedWithTheStoredKeyOfItsAccount() {
+    fun theKeyAccessOfAWalletSignsWithTheStoredKeyOfTheAccountItIsAskedFor() {
         val id = newWallet()
-        store.addAlgorandAccounts(id, 1, cap)
-        val review = reviewOf(PAY_BASIC, store.algorandKeys(id))
+        store.addAlgorandAccounts(id, 2, cap)
+        val message = "TX".toByteArray(Charsets.US_ASCII) + ByteArray(8) { it.toByte() }
 
-        val signature = store.algorandSign(id, review)
+        val signature = store.withKeys(id) { keys ->
+            keys.signEd25519(Curve.ED25519_BIP32, WalletKeyAccess.algorandPath(1), message)
+        }
 
-        assertTrue(Ed25519Signer.verify(store.algorandKeys(id).single(), bytesToSign(review.signData), signature))
+        assertTrue(Ed25519Signer.verify(store.algorandKeys(id)[1], message, signature))
     }
-
-    @Test
-    fun aReviewOfAnAccountTheWalletDoesNotHoldIsNotSigned() {
-        val id = newWallet()
-        val review = reviewOf(PAY_BASIC, listOf(hexBytes(ACCOUNT_0_PUB)))
-
-        assertFailsWith<IllegalArgumentException> { store.algorandSign(id, review) }
-    }
-
-    /** The review of the SDK payment [hex] for account 0 of a wallet whose Algorand keys are [keys]. */
-    private fun reviewOf(hex: String, keys: List<ByteArray>): AlgorandRequestReview {
-        val path = listOf(PathStep(44, true), PathStep(283, true), PathStep(0, true), PathStep(0, false), PathStep(0, false))
-        return assertIs<AlgorandRequestCheck.Result.Ok>(AlgorandRequestCheck.check(hexBytes(hex), path, null, keys)).review
-    }
-
-    private fun hexBytes(hex: String): ByteArray = ByteArray(hex.length / 2) { hex.substring(2 * it, 2 * it + 2).toInt(16).toByte() }
 
     private fun hardened(index: Long): Long = 0x80000000L + index
 
