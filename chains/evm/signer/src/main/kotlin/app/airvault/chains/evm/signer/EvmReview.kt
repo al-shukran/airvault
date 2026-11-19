@@ -79,8 +79,11 @@ class EvmReviewBuilder(
     private val proxyPolicy: ProxyPolicy = ProxyPolicy.DEFAULT,
     private val unknownCalls: UnknownCallPolicy = UnknownCallPolicy.REFUSE,
 ) {
-    /** The review of [parsed] for the account at [sender], or the refusal that says why it cannot be shown. */
-    fun review(parsed: ParsedRequest, sender: String): EvmReviewResult = try {
+    /**
+     * The review of [parsed] for the account at [sender], or the refusal that says why it cannot be shown. [derivationPath] is the path
+     * of the key that signs, which the header shows under the sender when given.
+     */
+    fun review(parsed: ParsedRequest, sender: String, derivationPath: String? = null): EvmReviewResult = try {
         val request = parsed.request
         // The size and origin checks come first, in the order the sign pipeline runs them, so a request is refused for the same reason.
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) throw Refusal(SIGN_DATA_TOO_LARGE)
@@ -89,13 +92,18 @@ class EvmReviewBuilder(
         // The chain is the one the request names, or the one the parser reads it on: a personal message, or typed data its domain names.
         // Any other request must name its network.
         val chainId = readChainId(parsed) ?: throw Refusal(NO_NETWORK)
-        EvmReviewResult.Ok(Build(parsed, sender, chainId).build().checked())
+        EvmReviewResult.Ok(Build(parsed, sender, derivationPath, chainId).build().checked())
     } catch (refusal: Refusal) {
         EvmReviewResult.Refused(refusal.reason, refusal.call)
     }
 
     /** One review as it is built. Its rows, warnings and coverage collect here until [build] returns the review. */
-    private inner class Build(private val parsed: ParsedRequest, private val sender: String, private val chainId: Long) {
+    private inner class Build(
+        private val parsed: ParsedRequest,
+        private val sender: String,
+        private val derivationPath: String?,
+        private val chainId: Long,
+    ) {
         private val request = parsed.request
         private val network: NetworkEntry? = registry.network(chainId)
         private val networkName = network?.name ?: "Unknown network (chain id $chainId)"
@@ -109,6 +117,7 @@ class EvmReviewBuilder(
 
         init {
             header += ReviewRow("From", DisplayValue.Address(chain, sender), null)
+            derivationPath?.let { header += ReviewRow("Derivation Path", DisplayValue.Text(it), null) }
             request.origin?.let { origin -> header += ReviewRow(CLAIMED_ORIGIN_LABEL, DisplayValue.Text(origin), decode("evm.origin")) }
         }
 

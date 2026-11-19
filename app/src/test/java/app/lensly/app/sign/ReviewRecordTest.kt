@@ -137,7 +137,7 @@ class ReviewRecordTest {
         review = review,
         signer = SigningAccount(name = "Test 0", walletName = "Test", address = ACCOUNT),
         request = request(),
-        accountIndex = 0,
+        key = EvmKey(0, 0),
         walletId = "wallet",
     )
 

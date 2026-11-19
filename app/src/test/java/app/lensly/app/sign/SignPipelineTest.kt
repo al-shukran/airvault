@@ -41,6 +41,7 @@ import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
+import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.shippedRegistry
@@ -168,16 +169,17 @@ private val UNWRAP_ENTRY = WhitelistEntry(
     upgradeable = false,
 )
 
+/** A Mnemonic wallet of [accountCount] accounts, whose addresses are those of WALLET. */
+private fun mnemonicView(accountCount: Int): WalletView = WalletView(
+    id = WALLET_ID,
+    masterFingerprint = WALLET.masterFingerprint,
+    accountCount = accountCount,
+    autoNameBase = "Seed Wallet",
+    addressAt = { account, index -> WALLET.address(account, index) },
+)
+
 /** Two accounts, so index 1 is valid and index 2 is not. */
-private val VIEW by lazy {
-    WalletView(
-        id = WALLET_ID,
-        masterFingerprint = WALLET.masterFingerprint,
-        accountCount = 2,
-        autoNameBase = "Seed Wallet",
-        addressAt = { WALLET.address(it) },
-    )
-}
+private val VIEW by lazy { mnemonicView(2) }
 
 /** The well-known test key of the Single Key tests. It has never held funds, and no other fixture uses it. */
 private val IMPORTED_PRIVATE: ByteArray =
@@ -507,7 +509,7 @@ class SignPipelineTest {
         assertEquals(unknownAccount, refusal(requestCbor(data, index = 2)))
         assertEquals(
             unknownAccount,
-            refusal(requestCbor(data, path = listOf(44L to true, 60L to true, 0L to true, 0L to false, 1L to false))),
+            refusal(requestCbor(data, path = listOf(44L to true, 60L to true, 0L to true, 0L to false, 2L to false))),
         )
         assertEquals(
             unknownAccount,
@@ -520,16 +522,39 @@ class SignPipelineTest {
     }
 
     @Test
-    fun aRequestForAccountOneIsSignedWithAccountOnesKeyAndTheOldPathIsRefused() {
+    fun aRequestForAccountOneIsSignedWithAccountOnesKey() {
         val ready = ready(requestCbor(eip1559Tx(), index = 1))
         assertEquals(1, ready.accountIndex)
 
         // The key of m/44'/60'/1'/0/0 signs the request. signResponse checks that the answer is a signature.
         signResponse(ready, WALLET.privateKey(1))
+    }
 
-        // The old form, with the account number as the last step, is not an account path now.
-        val oldForm = listOf(44L to true, 60L to true, 0L to true, 0L to false, 1L to false)
-        assertEquals("Unknown account", refusal(requestCbor(eip1559Tx(), path = oldForm)))
+    @Test
+    fun aRabbyPersonalMessageForAnAddressKeyIsSignedWithThatKeyAndNamesItsPath() {
+        // Rabby derives address 3 as m/44'/60'/0'/0/3. Account 3 of the wallet signs with that key, and the review names the path.
+        val address = AccountAddresses.addressAt(WALLET.accountXpub(0), 3)
+        val message = "Sign in to Lensly".toByteArray(Charsets.UTF_8)
+        val ready = ready(requestCbor(message, dataType = 3, path = bip44PathPairs(3)), mnemonicView(5))
+
+        assertEquals(3, ready.accountIndex)
+        assertEquals(address, ready.signer.address)
+        assertEquals("m/44'/60'/0'/0/3", headerRow(ready.review, "Derivation Path"))
+        val response = signResponse(ready, WALLET.privateKey(0, 3))
+
+        val v = response.signature[64].toInt()
+        assertTrue(v == 27 || v == 28, "personal message v must be 27 or 28, was $v")
+        assertEquals(
+            EvmFixtures.normalize(address),
+            recovered(Sign.getEthereumMessageHash(message), response.signature, v - 27),
+        )
+    }
+
+    @Test
+    fun aRabbyAddressKeyIsSignableOnlyUpToTheLastAccount() {
+        assertEquals("Unknown account", refusal(requestCbor(eip1559Tx(), path = bip44PathPairs(2))))
+        assertEquals("Unknown account", refusal(requestCbor(eip1559Tx(), path = bip44PathPairs(5)), mnemonicView(5)))
+        assertEquals(4, ready(requestCbor(eip1559Tx(), path = bip44PathPairs(4)), mnemonicView(5)).accountIndex)
     }
 
     @Test
@@ -1045,7 +1070,7 @@ class SignPipelineTest {
         assertTrue(tx.encode()?.contentEquals(ready.request.signData) == true)
         val header = assertNotNull(ready.review.sections.firstOrNull()).rows
         val from = assertIs<DisplayValue.Address>(header.single { it.label == "From" }.value)
-        assertEquals(VIEW.addressAt(ready.accountIndex), from.address)
+        assertEquals(VIEW.addressAt(ready.key.account, ready.key.index), from.address)
         assertEquals(ready.signer.address, from.address)
         val to = assertIs<DisplayValue.Address>(header.single { it.label == "To" }.value)
         assertTrue(to.address.equals(tx.to, ignoreCase = true))
@@ -1186,15 +1211,19 @@ class SignPipelineTest {
         return uintWord(BigInteger.valueOf(elements.size.toLong())) + offsets + elements.joinToString("")
     }
 
-    private fun prepared(cbor: ByteArray): Prepared = pipeline.prepare(cbor, VIEW)
+    private fun prepared(cbor: ByteArray, view: WalletView = VIEW): Prepared = pipeline.prepare(cbor, view)
 
     /** The request of [cbor] prepared under [policy], which is how the owner's Unknown contract calls setting reaches the pipeline. */
     private fun underPolicy(policy: UnknownCallPolicy, cbor: ByteArray): Prepared =
         SignPipeline(REGISTRY, inProcessSandboxParser, unknownCalls = policy).prepare(cbor, VIEW)
 
-    private fun ready(cbor: ByteArray): Prepared.Ready = assertIs<Prepared.Ready>(prepared(cbor))
+    private fun ready(cbor: ByteArray, view: WalletView = VIEW): Prepared.Ready = assertIs<Prepared.Ready>(prepared(cbor, view))
 
-    private fun refusal(cbor: ByteArray): String = assertIs<Prepared.Refused>(prepared(cbor)).reason
+    private fun refusal(cbor: ByteArray, view: WalletView = VIEW): String = assertIs<Prepared.Refused>(prepared(cbor, view)).reason
+
+    /** The value of the row [label] in the header of [review], which names the sender and the key that signs. */
+    private fun headerRow(review: Review, label: String): String =
+        (review.sections.first().rows.single { it.label == label }.value as DisplayValue.Text).text
 
     /** The fields of the ur:eth-signature that answers a signed request. */
     private class Response(val requestId: ByteArray, val signature: ByteArray)
@@ -1203,7 +1232,7 @@ class SignPipelineTest {
      * Signs [ready] with [key], which defaults to the account key from the wallet, then reads back the single eth-signature
      * frame.
      */
-    private fun signResponse(ready: Prepared.Ready, key: ByteArray = WALLET.privateKey(ready.accountIndex)): Response {
+    private fun signResponse(ready: Prepared.Ready, key: ByteArray = WALLET.privateKey(ready.key.account, ready.key.index)): Response {
         val frames = pipeline.sign(ready, key)
         assertTrue(key.all { it == 0.toByte() }, "the private key must be zeroed after signing")
 
@@ -1261,6 +1290,10 @@ class SignPipelineTest {
 
     private fun accountPathPairs(index: Long): List<Pair<Long, Boolean>> =
         listOf(44L to true, 60L to true, index to true, 0L to false, 0L to false)
+
+    /** The BIP44 address key m/44'/60'/0'/0/[index], which Rabby derives from the account 0 key. */
+    private fun bip44PathPairs(index: Long): List<Pair<Long, Boolean>> =
+        listOf(44L to true, 60L to true, 0L to true, 0L to false, index to false)
 
     private fun accountPath(index: Int): List<PathStep> =
         listOf(PathStep(44, true), PathStep(60, true), PathStep(index, true), PathStep(0, false), PathStep(0, false))

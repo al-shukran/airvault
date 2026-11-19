@@ -11,6 +11,7 @@ import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.KeyScopeViolation
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
+import app.lensly.app.sign.EvmKey
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -82,8 +83,8 @@ interface SignFlowPorts {
     /** Checks [parsed] against wallet [walletId] and the registry. Throws [WalletUnavailable] when the wallet cannot be read. */
     suspend fun prepare(walletId: String, parsed: ParsedRequest): Prepared
 
-    /** The 32-byte private key of account [accountIndex] of wallet [walletId]. The caller zeroes it. Throws [WalletUnavailable]. */
-    suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray
+    /** The 32-byte private key of [key] of wallet [walletId]. The caller zeroes it. Throws [WalletUnavailable]. */
+    suspend fun privateKey(walletId: String, key: EvmKey): ByteArray
 
     /** Checks the App Password. The caller keeps ownership of [password] and zeroes it afterwards. */
     suspend fun checkPassword(password: CharArray): PasswordCheck
@@ -447,7 +448,7 @@ class SignFlow(
     private suspend fun signApproved(ready: Prepared.Ready, started: Int): SignStep {
         if (started != epoch) return SignStep.Closed
         val key = try {
-            ports.privateKey(ready.walletId, ready.accountIndex)
+            ports.privateKey(ready.walletId, ready.key)
         } catch (e: WalletUnavailable) {
             return refusal(started, ready.walletId, ready.request, WALLET_UNREADABLE, ready)
         }

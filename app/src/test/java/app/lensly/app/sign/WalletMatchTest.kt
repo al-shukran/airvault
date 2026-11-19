@@ -20,7 +20,7 @@ private fun mnemonic(id: String, fingerprint: Int) = WalletView(
     masterFingerprint = fingerprint,
     accountCount = 1,
     autoNameBase = id,
-    addressAt = { "0x0000000000000000000000000000000000000000" },
+    addressAt = { _, _ -> "0x0000000000000000000000000000000000000000" },
 )
 
 /** A request as a wallet sends it. Pass null for a field the wallet leaves out. */

@@ -7,6 +7,7 @@ import app.airvault.core.signer.AppRequest
 import app.lensly.app.export.PairingExport
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
+import app.lensly.app.sign.EvmKey
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -87,7 +88,7 @@ private val VIEW by lazy {
         masterFingerprint = WALLET.masterFingerprint,
         accountCount = 2,
         autoNameBase = "Seed Wallet",
-        addressAt = { AccountAddresses.addressAt(XPUB, it) },
+        addressAt = { account, index -> AccountAddresses.addressAt(WALLET.accountXpub(account), index) },
     )
 }
 
@@ -98,7 +99,7 @@ private val VIEW by lazy {
 private class FakePorts(
     private val wallets: List<WalletView> = listOf(VIEW),
     private val passwordCheck: suspend (CharArray) -> PasswordCheck = { PasswordCheck.Accepted },
-    private val keyFor: (Int) -> ByteArray = { WALLET.privateKey(it) },
+    private val keyFor: (EvmKey) -> ByteArray = { WALLET.privateKey(it.account, it.index) },
     private val unreadable: Boolean = false,
     private val recordFails: Boolean = false,
     private val prepareGate: CompletableDeferred<Unit>? = null,
@@ -124,11 +125,11 @@ private class FakePorts(
         return pipeline.prepare(parsed, view)
     }
 
-    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray {
+    override suspend fun privateKey(walletId: String, key: EvmKey): ByteArray {
         keyRequests++
         keyWalletIds += walletId
         if (unreadable) throw WalletUnavailable()
-        return keyFor(accountIndex).also { keysHandedOut += it }
+        return keyFor(key).also { keysHandedOut += it }
     }
 
     override suspend fun checkPassword(password: CharArray): PasswordCheck = passwordCheck(password)
@@ -553,7 +554,7 @@ class SignFlowTest {
             masterFingerprint = WALLET.masterFingerprint xor 1,
             accountCount = 1,
             autoNameBase = "Other",
-            addressAt = { AccountAddresses.addressAt(XPUB, it) },
+            addressAt = { account, index -> AccountAddresses.addressAt(WALLET.accountXpub(account), index) },
         )
         val flow = SignFlow(FakePorts(wallets = listOf(other)), walletId = null)
 
@@ -578,7 +579,7 @@ class SignFlowTest {
             masterFingerprint = WALLET.masterFingerprint,
             accountCount = 2,
             autoNameBase = "Copy",
-            addressAt = { AccountAddresses.addressAt(XPUB, it) },
+            addressAt = { account, index -> AccountAddresses.addressAt(WALLET.accountXpub(account), index) },
         )
         val ports = FakePorts(wallets = listOf(VIEW, copy))
         val flow = SignFlow(ports, walletId = null)

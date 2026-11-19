@@ -13,6 +13,7 @@ import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
+import app.lensly.app.sign.EvmKey
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -118,7 +119,7 @@ class SignFlowBitcoinTest {
             masterFingerprint = BTC_ACCOUNT.masterFingerprint.toInt(),
             accountCount = 1,
             autoNameBase = "Bitcoin",
-            addressAt = { BTC_ACCOUNT.receiveAddress(0) },
+            addressAt = { _, _ -> BTC_ACCOUNT.receiveAddress(0) },
             bitcoinAccountPaths = listOf(BTC_ACCOUNT.path),
         )
         val flow = SignFlow(BitcoinPorts(prepared = { readyOf(it) }, wallets = listOf(view)), walletId = null)
@@ -306,7 +307,7 @@ private class BitcoinPorts(
 
     override suspend fun prepare(walletId: String, parsed: ParsedRequest): Prepared = error("an EVM request is not expected")
 
-    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = error("an EVM key is not expected")
+    override suspend fun privateKey(walletId: String, key: EvmKey): ByteArray = error("an EVM key is not expected")
 
     override suspend fun checkPassword(password: CharArray): PasswordCheck =
         if (passwordAccepted) PasswordCheck.Accepted else PasswordCheck.Rejected

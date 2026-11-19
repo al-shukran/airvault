@@ -54,18 +54,22 @@ class HdWallet(seed: ByteArray) {
         return AccountXpub(compressedPublicKey(node), node.chainCode, fingerprint(coinNode))
     }
 
-    /** EIP-55 checksummed address of account [account], m/44'/60'/[account]'/0/0. */
-    fun address(account: Int): String = addressOf(addressNode(account))
+    /** EIP-55 checksummed address of m/44'/60'/[account]'/0/[index]. Index 0 is the account's own address. */
+    fun address(account: Int, index: Int = 0): String = addressOf(addressNode(account, index))
 
-    /** 32-byte private key of account [account], m/44'/60'/[account]'/0/0. The caller must zero the returned array. */
-    fun privateKey(account: Int): ByteArray = Numeric.toBytesPadded(addressNode(account).privateKey, PRIVATE_KEY_BYTES)
+    /** 32-byte private key of m/44'/60'/[account]'/0/[index]. The caller must zero the returned array. */
+    fun privateKey(account: Int, index: Int = 0): ByteArray =
+        Numeric.toBytesPadded(addressNode(account, index).privateKey, PRIVATE_KEY_BYTES)
 
     private fun accountNode(account: Int): Bip32ECKeyPair {
         require(account >= 0) { "account must be a non-hardened account number (0 until 2^31)" }
         return Bip32ECKeyPair.deriveKeyPair(coinNode, intArrayOf(hardened(account)))
     }
 
-    private fun addressNode(account: Int): Bip32ECKeyPair = Bip32ECKeyPair.deriveKeyPair(accountNode(account), intArrayOf(0, 0))
+    private fun addressNode(account: Int, index: Int): Bip32ECKeyPair {
+        require(index >= 0) { "index must be a non-hardened child number (0 until 2^31)" }
+        return Bip32ECKeyPair.deriveKeyPair(accountNode(account), intArrayOf(0, index))
+    }
 
     private companion object {
         const val MIN_SEED_BYTES = 16

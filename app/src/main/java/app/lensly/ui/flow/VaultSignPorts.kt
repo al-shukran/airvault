@@ -46,6 +46,7 @@ import app.lensly.app.requestParser
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.AsaCatalogHolder
+import app.lensly.app.sign.EvmKey
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewRecord
@@ -190,19 +191,19 @@ internal class VaultSignPorts(
         }
     }
 
-    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
+    override suspend fun privateKey(walletId: String, key: EvmKey): ByteArray = withContext(Dispatchers.IO) {
         when (val secret = readWallet { WalletStore(it).secret(walletId) }) {
             is WalletSecret.Mnemonic -> {
                 val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
                 try {
-                    HdWallet(seed).privateKey(accountIndex)
+                    HdWallet(seed).privateKey(key.account, key.index)
                 } finally {
                     seed.fill(0)
                 }
             }
             is WalletSecret.SingleKey -> {
                 // The one account of a Single Key is the key itself. The caller zeroes the array it gets back.
-                if (accountIndex != 0) {
+                if (key != EvmKey.SINGLE_KEY) {
                     secret.privateKey.fill(0)
                     throw IllegalArgumentException("A Single Key wallet has one account.")
                 }
@@ -510,7 +511,7 @@ internal class VaultSignPorts(
                             autoNameBase = meta.autoNameBase,
                             accountNames = accountNames,
                             accountLabels = accountLabels,
-                            addressAt = { index -> AccountAddresses.addressAt(keys[index], 0) },
+                            addressAt = { account, index -> AccountAddresses.addressAt(keys[account], index) },
                             name = meta.name,
                             identity = identity,
                             accountIdentity = accountIdentity,

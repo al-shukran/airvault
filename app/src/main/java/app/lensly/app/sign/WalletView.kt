@@ -23,7 +23,8 @@ class WalletView(
     val accountNames: Map<Int, String> = emptyMap(),
     /** The label of each account that has one, by account index. */
     val accountLabels: Map<Int, String> = emptyMap(),
-    val addressAt: (Int) -> String,
+    /** The address of m/44'/60'/[account]'/0/[index]. A Single Key has one address, whatever the arguments. */
+    val addressAt: (account: Int, index: Int) -> String,
     /** The wallet's name as the owner sees it. The review header shows it. */
     val name: String = autoNameBase,
     /** The wallet's Visual Identity, shown beside its name. */
@@ -54,7 +55,7 @@ class WalletView(
             autoNameBase = autoNameBase,
             accountNames = if (accountName == null) emptyMap() else mapOf(0 to accountName),
             accountLabels = if (accountLabel == null) emptyMap() else mapOf(0 to accountLabel),
-            addressAt = { address },
+            addressAt = { _, _ -> address },
             name = name,
             identity = identity,
             accountIdentity = { accountIdentity },

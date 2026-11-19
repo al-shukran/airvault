@@ -32,6 +32,23 @@ class AccountAddressesTest {
     }
 
     @Test
+    fun thePrivateKeyOfAnAddressKeyIsTheAddressDerivedFromTheAccountKey() {
+        // The BIP44 address keys m/44'/60'/0'/0/N, which Rabby derives. Private derivation and public derivation agree on each.
+        for (index in 0..4) {
+            val key = WALLET.privateKey(0, index)
+            try {
+                assertEquals(
+                    AccountAddresses.addressAt(WALLET.accountXpub(0), index),
+                    AccountAddresses.addressOfPrivateKey(key),
+                    "index $index",
+                )
+            } finally {
+                key.fill(0)
+            }
+        }
+    }
+
+    @Test
     fun theAddressOfAPrivateKeyIsTheAddressOfItsAccount() {
         for (account in 0..2) {
             val key = WALLET.privateKey(account)
