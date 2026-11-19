@@ -2,11 +2,13 @@ package app.lensly.ui.settings
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
@@ -42,12 +44,25 @@ class NetworksScreenTest {
     }
 
     @Test
+    fun theNetworksAreALazyListThatComposesOnlyWhatShows() {
+        val registry = shippedRegistry()
+        show(registry.networks(), registry.tokens())
+        val last = registry.networks().last().name
+
+        compose.onNode(hasScrollToIndexAction()).assertExists()
+        compose.onNodeWithText(last).assertDoesNotExist()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(last))
+        compose.onNodeWithText(last).assertExists()
+    }
+
+    @Test
     fun listsEveryNetworkOfTheRegistry() {
         val registry = shippedRegistry()
         show(registry.networks(), registry.tokens())
 
         compose.onNodeWithText(registry.networks().first().name).assertIsDisplayed()
-        compose.onNodeWithText(registry.networks().last().name).performScrollTo().assertExists()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(registry.networks().last().name))
+        compose.onNodeWithText(registry.networks().last().name).assertExists()
     }
 
     @Test

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -34,12 +35,11 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.components.ChainIcon
-import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.ListRow
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.RowArrow
-import app.lensly.ui.components.SettingsIsland
+import app.lensly.ui.components.settingsIslandItems
 import app.lensly.ui.theme.LenslySpacing
 
 /** The filters of the Networks screen: every network, the mainnets, or the testnets. */
@@ -81,7 +81,7 @@ fun NetworksScreen(
     val tokenCounts = remember(tokens) { tokens.groupingBy { it.chainId }.eachCount() }
     val shown = networks.filter(filter::keeps)
 
-    LenslyScreen(title = "Networks", modifier = modifier, onBack = onBack) {
+    LenslyScreen(title = "Networks", modifier = modifier, onBack = onBack, scrollable = false) {
         CatalogIntro(
             text = "Lensly can sign for these networks offline. Others are signed with a warning.",
         )
@@ -97,9 +97,8 @@ fun NetworksScreen(
                 )
             }
         }
-        SettingsIsland("Networks") {
-            shown.forEachIndexed { index, network ->
-                if (index > 0) IslandDivider()
+        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth().padding(top = LenslySpacing.md)) {
+            settingsIslandItems(title = "Networks", rows = shown, key = { it.chainId }) { index, network ->
                 StaggeredReveal(index) {
                     NetworkRow(
                         network = network,

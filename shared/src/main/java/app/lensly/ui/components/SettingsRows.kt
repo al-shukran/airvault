@@ -1,7 +1,12 @@
 package app.lensly.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.ZeroCornerSize
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
@@ -210,6 +215,64 @@ fun ListRow(
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )
+}
+
+/** Where a row sits in its island: the first and last rows round the island's outer corners, and a divider sits under all but the last. */
+enum class IslandPosition { SINGLE, FIRST, MIDDLE, LAST }
+
+/**
+ * One island of a lazy list, drawn as [SettingsIsland] draws it: a label item, then one item per row, so the list composes only the rows
+ * that show. [key] names a row for the list. [row] gets the row's index in [rows] and the row, so a row can time its own reveal.
+ */
+fun <T> LazyListScope.settingsIslandItems(
+    title: String,
+    rows: List<T>,
+    key: (T) -> Any,
+    row: @Composable (index: Int, row: T) -> Unit,
+) {
+    if (rows.isEmpty()) return
+    item(key = "island-title-$title") {
+        Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.lg)) {
+            WalletEyebrow(title)
+            Spacer(Modifier.height(LenslySpacing.xs))
+        }
+    }
+    itemsIndexed(rows, key = { _, item -> key(item) }) { index, item ->
+        val position = when {
+            rows.size == 1 -> IslandPosition.SINGLE
+            index == 0 -> IslandPosition.FIRST
+            index == rows.lastIndex -> IslandPosition.LAST
+            else -> IslandPosition.MIDDLE
+        }
+        IslandRow(position) { row(index, item) }
+    }
+}
+
+/** One row of a lazy island: its surface, rounded at the island's outer corners, with a divider under it unless it is the last. */
+@Composable
+private fun IslandRow(position: IslandPosition, content: @Composable () -> Unit) {
+    val large = MaterialTheme.shapes.large
+    val shape = when (position) {
+        IslandPosition.SINGLE -> large
+        IslandPosition.FIRST -> large.copy(bottomStart = ZeroCornerSize, bottomEnd = ZeroCornerSize)
+        IslandPosition.MIDDLE -> large.copy(
+            topStart = ZeroCornerSize,
+            topEnd = ZeroCornerSize,
+            bottomStart = ZeroCornerSize,
+            bottomEnd = ZeroCornerSize,
+        )
+        IslandPosition.LAST -> large.copy(topStart = ZeroCornerSize, topEnd = ZeroCornerSize)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = LenslySpacing.md),
+    ) {
+        content()
+        if (position == IslandPosition.FIRST || position == IslandPosition.MIDDLE) IslandDivider()
+    }
 }
 
 /** The arrow that marks a row that opens another screen. */
