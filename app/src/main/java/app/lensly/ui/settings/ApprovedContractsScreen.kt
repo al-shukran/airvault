@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,10 +32,12 @@ import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.SecureKeyboard
+import app.lensly.ui.components.SettingsIsland
 import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
 import app.lensly.ui.sign.ProxyFacts
@@ -107,13 +108,14 @@ fun ApprovedContractsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                shown.groupBy { it.chainId }.forEach { (chainId, group) ->
-                    Spacer(Modifier.height(LenslySpacing.lg))
-                    NetworkHeader(network = networks.firstOrNull { it.chainId == chainId }, chainId = chainId)
-                    Spacer(Modifier.height(LenslySpacing.sm))
-                    group.forEach { entry ->
-                        ApprovalCard(entry)
-                        Spacer(Modifier.height(LenslySpacing.sm))
+                SettingsIsland("Approved Calls") {
+                    shown.groupBy { it.chainId }.entries.forEachIndexed { groupIndex, (chainId, group) ->
+                        if (groupIndex > 0) IslandDivider()
+                        NetworkHeader(network = networks.firstOrNull { it.chainId == chainId }, chainId = chainId)
+                        group.forEach { entry ->
+                            IslandDivider()
+                            ApprovalCard(entry)
+                        }
                     }
                 }
                 Spacer(Modifier.height(LenslySpacing.lg))
@@ -165,6 +167,7 @@ private fun SearchField(query: String, focused: Boolean, onFocus: () -> Unit) {
 @Composable
 private fun NetworkHeader(network: NetworkEntry?, chainId: Long) {
     Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
     ) {
@@ -178,20 +181,12 @@ private fun NetworkHeader(network: NetworkEntry?, chainId: Long) {
     }
 }
 
-/** One approved call as a card: its function and selector, its contract in full, and its approved meaning. */
+/** One approved call as a row of its island: its function and selector, its contract in full, and its approved meaning. */
 @Composable
 private fun ApprovalCard(entry: WhitelistEntry) {
-    val shape = MaterialTheme.shapes.medium
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-            .padding(horizontal = LenslySpacing.md),
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.sm),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
         ) {

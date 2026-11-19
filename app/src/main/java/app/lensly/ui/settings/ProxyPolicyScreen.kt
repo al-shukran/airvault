@@ -1,24 +1,19 @@
 package app.lensly.ui.settings
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.ui.components.DotHeadline
+import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.RadioRow
+import app.lensly.ui.components.SettingsIsland
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.PasswordStep
 import app.lensly.ui.wallet.StepHeader
@@ -132,37 +127,18 @@ private fun ChooseContent(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(LenslySpacing.lg))
-        ProxyPolicy.entries.forEach { policy ->
-            PolicyOption(policy = policy, selected = policy == shown, onClick = { onSelect(policy) })
-            Spacer(Modifier.height(LenslySpacing.xs))
+        SettingsIsland("Policy") {
+            ProxyPolicy.entries.forEachIndexed { index, policy ->
+                if (index > 0) IslandDivider()
+                RadioRow(
+                    title = policy.title,
+                    description = policy.explanation,
+                    selected = policy == shown,
+                    onSelect = { onSelect(policy) },
+                    divided = false,
+                )
+            }
         }
-    }
-}
-
-/** One policy as a choice: its name and what it does. The chosen one is outlined in light grey, and the row reads as a radio. */
-@Composable
-private fun PolicyOption(policy: ProxyPolicy, selected: Boolean, onClick: () -> Unit) {
-    val shape = MaterialTheme.shapes.medium
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant, shape)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-            .padding(LenslySpacing.md),
-    ) {
-        Text(
-            text = policy.title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(LenslySpacing.xxs))
-        Text(
-            text = policy.explanation,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
