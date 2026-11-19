@@ -19,8 +19,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import app.airvault.core.model.ChainId
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.AddressChain
+import app.lensly.app.addressBookEntryFor
 import app.lensly.app.addressKeyOf
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslySpacing
@@ -75,18 +76,17 @@ fun AddressBookSheet(
 internal fun addressBookWith(
     book: List<AddressBookEntry>,
     address: String,
-    chain: AddressChain,
+    chain: ChainId,
     name: String,
     newId: String,
 ): List<AddressBookEntry> {
-    val key = addressKeyOf(address)
-    val existing = book.firstOrNull { addressKeyOf(it.address) == key && it.chain == chain }
+    val existing = addressBookEntryFor(address, chain, book)
     val entry = AddressBookEntry(id = existing?.id ?: newId, address = address, name = name, label = existing?.label, notes = existing?.notes)
     return if (existing == null) book + entry else book.map { if (it.id == existing.id) entry else it }
 }
 
 /** The Address Book of a wallet without the entry of [address] on [chain]. */
-internal fun addressBookWithout(book: List<AddressBookEntry>, address: String, chain: AddressChain): List<AddressBookEntry> {
+internal fun addressBookWithout(book: List<AddressBookEntry>, address: String, chain: ChainId): List<AddressBookEntry> {
     val key = addressKeyOf(address)
-    return book.filterNot { addressKeyOf(it.address) == key && it.chain == chain }
+    return book.filterNot { addressKeyOf(it.address) == key && it.chain?.namespace == chain.namespace }
 }

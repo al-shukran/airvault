@@ -2,7 +2,7 @@ package app.lumio.pair
 
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.canonicalAddressOf
-import app.lensly.app.evmAddressOf
+import app.airvault.chains.evm.evmAddressOf
 import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingKey
