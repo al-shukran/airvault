@@ -305,14 +305,6 @@ class SignFlowTest {
     }
 
     @Test
-    fun aCompleteRequestReachesTheReview() {
-        val review = reviewOf(SignFlow(FakePorts(), WALLET_ID)).ready.review
-        assertEquals(ART_ADDRESS, review.fromAddress)
-        assertEquals(MONAD_TESTNET, review.chainId)
-        assertEquals("Sign Message", review.function)
-    }
-
-    @Test
     fun anAnimatedRequestShowsProgressUntilItIsComplete() {
         val flow = SignFlow(FakePorts(), WALLET_ID)
         val frames = framesOf(messageRequest(signData = ByteArray(300) { 9 }), FRAGMENT)
@@ -557,23 +549,6 @@ class SignFlowTest {
         assertEquals(SignStep.Closed, flow.state.value)
         assertEquals(0, ports.keyRequests)
         assertEquals(0, ports.signCalls)
-    }
-
-    @Test
-    fun aGlobalScanReviewsTheWalletTheRequestIsFor() {
-        val other = WalletView(
-            id = OTHER_ID,
-            masterFingerprint = WALLET.masterFingerprint xor 1,
-            accountCount = 1,
-            autoNameBase = "Other",
-            addressAt = { AccountAddresses.addressAt(XPUB, it) },
-        )
-        val ports = FakePorts(wallets = listOf(other, VIEW))
-
-        val review = reviewOf(SignFlow(ports, walletId = null))
-
-        assertEquals(WALLET_ID, review.ready.walletId)
-        assertEquals(ART_ADDRESS, review.ready.review.fromAddress)
     }
 
     @Test

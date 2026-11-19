@@ -1,6 +1,6 @@
 package app.lensly.ui.sign
 
-import app.lensly.app.sign.UndecodedCall
+import app.airvault.chains.evm.signer.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.DenylistCondition
 import app.lensly.core.registry.DenylistEntry

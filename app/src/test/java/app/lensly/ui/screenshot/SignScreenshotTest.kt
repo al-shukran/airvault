@@ -23,7 +23,7 @@ import app.airvault.abi.WhitelistParam
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.app.sign.SolanaSplFixtures
-import app.lensly.app.sign.UndecodedCall
+import app.airvault.chains.evm.signer.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
 import app.airvault.chains.solana.signer.solanaWarningText
 import app.lensly.core.registry.AbiRows
