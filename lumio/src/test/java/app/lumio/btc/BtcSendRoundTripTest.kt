@@ -5,7 +5,6 @@ import app.lensly.core.btc.BtcCoin
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.airvault.chains.bitcoin.signer.BtcPsbt
-import app.lensly.core.btc.BtcSigner
 import app.lensly.core.btc.ScriptType
 import app.lumio.pair.PairFixtures
 import com.sparrowwallet.hummingbird.UR
@@ -44,7 +43,7 @@ class BtcSendRoundTripTest {
             val plan = planOf(account, coin)
             assertTrue(BtcPsbt.hasCompanionMarker(plan.psbt), type.name)
 
-            val answer = URDecoder.decode(BtcSigner(account).sign(plan.psbt).ur)
+            val answer = URDecoder.decode(BtcFixtures.signerOf(account, PairFixtures.seed).sign(plan.psbt).ur)
             val tx = BtcSend.signed(plan, answer)
             val prevouts = listOf(coin.previous.txOut[0])
             assertTrue(BtcFixtures.verifies(tx, prevouts), "${type.name}: the interpreter rejects the signed transaction")
@@ -53,7 +52,7 @@ class BtcSendRoundTripTest {
             assertEquals(plan.inputSats - plan.tx.txOut.sumOf { it.amount.sat }, plan.feeSats, type.name)
 
             // Lensly's own review reads the request as the plan made it: verified amounts, the same fee, and the change it expects.
-            val review = BtcSigner(account).review(plan.psbt)
+            val review = BtcFixtures.signerOf(account, PairFixtures.seed).review(plan.psbt)
             assertTrue(review.allInputsVerified, type.name)
             assertEquals(plan.feeSats, review.feeSats, type.name)
             assertEquals(plan.changeIndex, review.outputs.single { it.isOwnChange }.changeIndex, type.name)
@@ -70,7 +69,7 @@ class BtcSendRoundTripTest {
         val (account, coin) = funded(ScriptType.NATIVE_SEGWIT)
         val plan = planOf(account, coin, amount = 30_000L)
         val other = planOf(account, coin, amount = 31_000L)
-        val answer = URDecoder.decode(BtcSigner(account).sign(other.psbt).ur)
+        val answer = URDecoder.decode(BtcFixtures.signerOf(account, PairFixtures.seed).sign(other.psbt).ur)
         val refusal = assertFailsWith<IllegalArgumentException> { BtcSend.signed(plan, answer) }
         assertEquals("This signature is for a different transaction.", refusal.message)
     }

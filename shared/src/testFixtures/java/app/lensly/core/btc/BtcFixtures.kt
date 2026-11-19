@@ -1,5 +1,9 @@
 package app.lensly.core.btc
 
+import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
+import app.lensly.core.wallet.WalletKeyAccess
 import fr.acinq.bitcoin.ByteVector
 import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.bitcoin.OP_PUSHDATA
@@ -140,6 +144,27 @@ object BtcFixtures {
     fun paying(account: BtcAccount, paid: Long, change: Long): List<TxOut> = listOf(
         TxOut(Satoshi(paid), ByteVector(account.scriptPubKey(0, 5))),
         TxOut(Satoshi(change), ByteVector(account.scriptPubKey(1, 0))),
+    )
+
+    /**
+     * The signer of [account], whose keys are the keys [seed] derives through the WalletKeyAccess the app signs with. [seed] is the seed
+     * [account] was derived from.
+     */
+    fun signerOf(
+        account: BtcAccount,
+        seed: ByteArray,
+        inputPolicy: InputVerificationPolicy = InputVerificationPolicy.STRICT,
+        sourcePolicy: SigningSourcePolicy = SigningSourcePolicy.ANY,
+        feeThresholds: BtcFeeThresholds = BtcFeeThresholds.DEFAULT,
+    ): BtcSigner = BtcSigner(
+        account.network,
+        account.scriptType,
+        account.accountIndex,
+        account.masterFingerprint,
+        WalletKeyAccess(seed),
+        inputPolicy,
+        sourcePolicy,
+        feeThresholds,
     )
 
     /** True when bitcoin-kmp's script interpreter accepts every input of [tx] against [prevouts]. */

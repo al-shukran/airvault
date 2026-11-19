@@ -32,8 +32,8 @@ class BtcSignerRefusalTest {
             val account = BtcAccount.fromSeed(seed, testnet4, type)
             val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
             val psbt = BtcFixtures.psbt(listOf(spend), outputs(account, 90_000L), withPreviousTransaction = false)
-            assertRefusal(BtcRefusal.MissingPreviousTransaction(0)) { BtcSigner(account).review(psbt) }
-            assertRefusal(BtcRefusal.MissingPreviousTransaction(0)) { BtcSigner(account).sign(psbt) }
+            assertRefusal(BtcRefusal.MissingPreviousTransaction(0)) { BtcFixtures.signerOf(account, seed).review(psbt) }
+            assertRefusal(BtcRefusal.MissingPreviousTransaction(0)) { BtcFixtures.signerOf(account, seed).sign(psbt) }
         }
     }
 
@@ -42,7 +42,7 @@ class BtcSignerRefusalTest {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0)
         val other = BtcFixtures.funding(native, 0, 0, 100_000L, salt = 9)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L)).copy(inputs = listOf(legacyInput(other)))
-        assertRefusal(BtcRefusal.PreviousTransactionMismatch(0)) { BtcSigner(native).review(psbt) }
+        assertRefusal(BtcRefusal.PreviousTransactionMismatch(0)) { BtcFixtures.signerOf(native, seed).review(psbt) }
     }
 
     @Test
@@ -67,7 +67,7 @@ class BtcSignerRefusalTest {
             unknown = emptyList(),
         )
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L)).copy(inputs = listOf(lying))
-        assertRefusal(BtcRefusal.PreviousTransactionMismatch(0)) { BtcSigner(native).review(psbt) }
+        assertRefusal(BtcRefusal.PreviousTransactionMismatch(0)) { BtcFixtures.signerOf(native, seed).review(psbt) }
     }
 
     @Test
@@ -77,13 +77,13 @@ class BtcSignerRefusalTest {
         for (source in listOf(legacy, taproot)) {
             val spend = BtcFixtures.Spend(BtcFixtures.funding(source, 0, 0, 100_000L), source, 0, 0)
             val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L))
-            assertRefusal(BtcRefusal.ScriptTypeNotUsed(0)) { BtcSigner(native).review(psbt) }
+            assertRefusal(BtcRefusal.ScriptTypeNotUsed(0)) { BtcFixtures.signerOf(native, seed).review(psbt) }
         }
     }
 
     @Test
     fun companionOnlyRefusesARequestWithoutTheMarkerAndAcceptsOneWithIt() {
-        val signer = BtcSigner(native, sourcePolicy = SigningSourcePolicy.COMPANION_ONLY)
+        val signer = BtcFixtures.signerOf(native, seed, sourcePolicy = SigningSourcePolicy.COMPANION_ONLY)
         val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L))
         assertRefusal(BtcRefusal.SourceExcluded) { signer.review(psbt) }
@@ -98,23 +98,23 @@ class BtcSignerRefusalTest {
     fun anyOnlineSideIsAcceptedUnderTheDefaultSourcePolicy() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L))
-        assertEquals(10_000L, BtcSigner(native).review(psbt).feeSats)
+        assertEquals(10_000L, BtcFixtures.signerOf(native, seed).review(psbt).feeSats)
     }
 
     @Test
     fun sighashOtherThanAllIsRefusedForAnOwnedInput() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0)
         val none = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L), sighash = SigHash.SIGHASH_NONE)
-        assertRefusal(BtcRefusal.SighashNotAll(0)) { BtcSigner(native).sign(none) }
+        assertRefusal(BtcRefusal.SighashNotAll(0)) { BtcFixtures.signerOf(native, seed).sign(none) }
         val all = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L), sighash = SigHash.SIGHASH_ALL)
-        assertTrue(BtcSigner(native).sign(all).psbt.inputs[0].partialSigs.isNotEmpty())
+        assertTrue(BtcFixtures.signerOf(native, seed).sign(all).psbt.inputs[0].partialSigs.isNotEmpty())
     }
 
     @Test
     fun aDerivationThatDoesNotProduceTheSpentScriptIsRefused() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0, claimedIndex = 1)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L))
-        assertRefusal(BtcRefusal.InconsistentOwnership(0)) { BtcSigner(native).review(psbt) }
+        assertRefusal(BtcRefusal.InconsistentOwnership(0)) { BtcFixtures.signerOf(native, seed).review(psbt) }
     }
 
     @Test
@@ -122,14 +122,14 @@ class BtcSignerRefusalTest {
         val second = BtcAccount.fromSeed(seed, testnet4, ScriptType.NATIVE_SEGWIT, accountIndex = 1)
         val spend = BtcFixtures.Spend(BtcFixtures.funding(second, 0, 0, 100_000L), second, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L))
-        assertRefusal(BtcRefusal.InputOutsideAccount(0)) { BtcSigner(native).review(psbt) }
+        assertRefusal(BtcRefusal.InputOutsideAccount(0)) { BtcFixtures.signerOf(native, seed).review(psbt) }
     }
 
     @Test
     fun outputsWorthMoreThanTheVerifiedInputsAreRefused() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 200_000L))
-        assertRefusal(BtcRefusal.OutputsExceedInputs) { BtcSigner(native).review(psbt) }
+        assertRefusal(BtcRefusal.OutputsExceedInputs) { BtcFixtures.signerOf(native, seed).review(psbt) }
     }
 
     @Test
@@ -137,14 +137,14 @@ class BtcSignerRefusalTest {
         val funding = BtcFixtures.funding(native, 0, 0, 100_000L)
         val input = TxIn(OutPoint(funding.hash, 0L), ByteVector.empty, 0xFFFFFFFDL)
         val tx = Transaction(version = 2, txIn = listOf(input, input), txOut = outputs(native, 90_000L), lockTime = 0L)
-        assertRefusal(BtcRefusal.DuplicateInput(1)) { BtcSigner(native).review(Psbt(tx)) }
+        assertRefusal(BtcRefusal.DuplicateInput(1)) { BtcFixtures.signerOf(native, seed).review(Psbt(tx)) }
     }
 
     @Test
     fun anAmountBeyondTheSupplyIsRefused() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, 100_000L), native, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 1L shl 62))
-        assertRefusal(BtcRefusal.AmountOutOfRange) { BtcSigner(native).review(psbt) }
+        assertRefusal(BtcRefusal.AmountOutOfRange) { BtcFixtures.signerOf(native, seed).review(psbt) }
     }
 
     @Test
@@ -153,14 +153,14 @@ class BtcSignerRefusalTest {
         // Each output is within the supply, and their sum is not.
         val half = 1_500_000_000_000_000L
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, half) + outputs(native, half))
-        assertRefusal(BtcRefusal.AmountOutOfRange) { BtcSigner(native).review(psbt) }
+        assertRefusal(BtcRefusal.AmountOutOfRange) { BtcFixtures.signerOf(native, seed).review(psbt) }
     }
 
     @Test
     fun anInputBeyondTheSupplyIsRefused() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(native, 0, 0, Long.MAX_VALUE), native, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L))
-        assertRefusal(BtcRefusal.AmountOutOfRange) { BtcSigner(native).review(psbt) }
+        assertRefusal(BtcRefusal.AmountOutOfRange) { BtcFixtures.signerOf(native, seed).review(psbt) }
     }
 
     @Test
@@ -168,12 +168,12 @@ class BtcSignerRefusalTest {
         val foreign = BtcAccount.fromSeed(ByteArray(16) { 9 }, testnet4, ScriptType.NATIVE_SEGWIT)
         val spend = BtcFixtures.Spend(BtcFixtures.funding(foreign, 0, 0, 100_000L), foreign, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L))
-        assertRefusal(BtcRefusal.NothingToSign) { BtcSigner(native).sign(psbt) }
+        assertRefusal(BtcRefusal.NothingToSign) { BtcFixtures.signerOf(native, seed).sign(psbt) }
     }
 
     @Test
     fun warningPolicyNeedsConfirmationBeforeSigningUnverifiedSegwitAmounts() {
-        val signer = BtcSigner(native, inputPolicy = InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING)
+        val signer = BtcFixtures.signerOf(native, seed, inputPolicy = InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING)
         val funding = BtcFixtures.funding(native, 0, 0, 100_000L)
         val spend = BtcFixtures.Spend(funding, native, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L), withPreviousTransaction = false)
@@ -192,7 +192,7 @@ class BtcSignerRefusalTest {
 
     @Test
     fun relaxedPolicyAcceptsWitnessOnlySegwitWithoutConfirmation() {
-        val signer = BtcSigner(native, inputPolicy = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED)
+        val signer = BtcFixtures.signerOf(native, seed, inputPolicy = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED)
         val funding = BtcFixtures.funding(native, 0, 0, 100_000L)
         val spend = BtcFixtures.Spend(funding, native, 0, 0)
         val psbt = BtcFixtures.psbt(listOf(spend), outputs(native, 90_000L), withPreviousTransaction = false)
@@ -233,15 +233,16 @@ class BtcSignerRefusalTest {
             ),
         )
         for (policy in listOf(InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING, InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED)) {
-            assertRefusal(BtcRefusal.MissingPreviousTransaction(0)) { BtcSigner(legacy, inputPolicy = policy).review(witnessOnly) }
+            assertRefusal(BtcRefusal.MissingPreviousTransaction(0)) { BtcFixtures.signerOf(legacy, seed, inputPolicy = policy).review(witnessOnly) }
         }
     }
 
     @Test
     fun theTwoPoliciesAreIndependentOfEachOther() {
         // A companion-only signer under the relaxed input policy still refuses a request without the marker.
-        val signer = BtcSigner(
+        val signer = BtcFixtures.signerOf(
             native,
+            seed,
             inputPolicy = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED,
             sourcePolicy = SigningSourcePolicy.COMPANION_ONLY,
         )
