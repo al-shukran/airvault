@@ -1,8 +1,8 @@
 package app.lumio.data.config
 
 import app.lensly.core.vault.VaultSession
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**

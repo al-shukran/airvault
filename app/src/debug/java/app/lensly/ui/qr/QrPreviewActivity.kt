@@ -21,6 +21,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.EvmRequestParser
+import app.lensly.app.HideDelay
 import app.lensly.app.RegistryHolder
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.SignPipeline
@@ -28,31 +32,29 @@ import app.lensly.app.sign.WalletView
 import app.lensly.core.parse.InProcessParser
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
-import app.lensly.core.registry.TokenEntry
-import app.lensly.app.HideDelay
 import app.lensly.core.registry.ProxyPolicy
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
+import app.lensly.core.registry.TokenEntry
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.applySecureWindow
-import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.settings.Catalog
 import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.SettingsScreen
+import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TxReviewScreen
-import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
 import app.lensly.ui.sign.UNKNOWN_UNIT
 import app.lensly.ui.sign.assumedAmountNote
 import app.lensly.ui.sign.unknownFeeNote
+import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.theme.LumenTheme
 import java.math.BigInteger
+
 
 /**
  * Debug-only harness that hosts the QR and signing screens with fake data, so they can be checked
@@ -301,7 +303,7 @@ private fun samplePermitPrepared(context: Context, chainId: Long): Prepared {
         address = null,
         origin = "sample.example",
     )
-    return SignPipeline(RegistryHolder.get(context), InProcessParser).prepare(InProcessParser.parsedOf(request), view)
+    return SignPipeline(RegistryHolder.get(context), InProcessParser).prepare(EvmRequestParser.parsedOf(request), view)
 }
 
 private const val SAMPLE_SINGLE_PART =

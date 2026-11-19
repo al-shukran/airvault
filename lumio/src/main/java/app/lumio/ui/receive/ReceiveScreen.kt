@@ -20,12 +20,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LumenMono
 import app.lumio.ui.kit.LumioPrimaryButton
-import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.rememberCopyAction
 
 /** The test tag of the address on the receive page. */

@@ -15,8 +15,8 @@ import app.lensly.app.export.PairingCodec
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
-import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.ListRow
 import app.lensly.ui.components.RowArrow

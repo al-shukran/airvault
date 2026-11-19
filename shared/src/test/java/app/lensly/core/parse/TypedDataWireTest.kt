@@ -1,13 +1,15 @@
 package app.lensly.core.parse
 
-import app.lensly.core.evm.TypedDataParser
-import app.lensly.core.evm.TypedValue
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
-import org.junit.Test
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.EvmRequestBody
+import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.evm.signer.TypedDataParser
+import app.airvault.chains.evm.signer.TypedValue
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import org.junit.Test
 
 private val REQUEST_ID = ByteArray(16) { (it + 1).toByte() }
 
@@ -36,8 +38,8 @@ class TypedDataWireTest {
         val original = TypedDataParser.parse(signData)
         val parsed = ParsedRequest(requestOf(signData), tx = null, call = null, typed = original)
 
-        val decoded = assertIs<ScanReply.Complete>(ParserWire.decodeScanReply(ParserWire.encodeScanReply(ScanReply.Complete(parsed))))
-        val typed = assertIs<TypedDataParser.Result.Ok>(decoded.parsed.typed).data
+        val decoded = EvmRequestBody.decode(EvmRequestBody.encode(parsed))
+        val typed = assertIs<TypedDataParser.Result.Ok>(decoded.typed).data
 
         assertEquals(assertIs<TypedDataParser.Result.Ok>(original).data.digest().toList(), typed.digest().toList())
         assertEquals("Mail", typed.primaryType)
@@ -57,11 +59,11 @@ class TypedDataWireTest {
         val signData = """{"types":{},"message":{}}""".toByteArray(Charsets.UTF_8)
         val parsed = ParsedRequest(requestOf(signData), tx = null, call = null, typed = TypedDataParser.parse(signData))
 
-        val decoded = assertIs<ScanReply.Complete>(ParserWire.decodeScanReply(ParserWire.encodeScanReply(ScanReply.Complete(parsed))))
+        val decoded = EvmRequestBody.decode(EvmRequestBody.encode(parsed))
 
         assertEquals(
             "the document is missing primaryType",
-            assertIs<TypedDataParser.Result.Rejected>(decoded.parsed.typed).reason,
+            assertIs<TypedDataParser.Result.Rejected>(decoded.typed).reason,
         )
     }
 
@@ -74,8 +76,8 @@ class TypedDataWireTest {
             call = null,
             typed = TypedDataParser.parse(signData),
         )
-        val reply = ParserWire.encodeScanReply(ScanReply.Complete(parsed))
+        val reply = EvmRequestBody.encode(parsed)
 
-        assertFailsWith<WireException> { ParserWire.decodeScanReply(reply) }
+        assertFailsWith<WireException> { EvmRequestBody.decode(reply) }
     }
 }

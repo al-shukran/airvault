@@ -1,6 +1,12 @@
-package app.lensly.core.ur
+package app.airvault.chains.evm.signer
 
 import app.lensly.core.parse.ParserLimits
+import app.lensly.core.ur.Cbor
+import app.lensly.core.ur.MalformedPayloadException
+import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.UUID_TAG
+import app.lensly.core.ur.keyPathOf
+import app.lensly.core.ur.malformed
 import com.sparrowwallet.hummingbird.UR
 
 /** What the wallet wants signed, as key 3 of an eth-sign-request. */

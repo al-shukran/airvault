@@ -1,6 +1,7 @@
-package app.lensly.core.parse
+package app.airvault.chains.evm.signer
 
-import app.lensly.core.registry.ContractCall
+import app.lensly.core.parse.DecodeBudget
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.wallet.toHex
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
@@ -76,7 +77,7 @@ private class MalformedBatch : RuntimeException()
  * The calls of [calldata] when it is a multicall whose batch the Parser Sandbox reads. Null for other calldata, and for a batch that
  * is malformed or larger than [ParserLimits.MAX_NESTED_NODES] calls. Such a call is undecodable, so the whitelist decides it.
  */
-internal fun multicallOf(calldata: ByteArray): Multicall? {
+fun multicallOf(calldata: ByteArray): Multicall? {
     val shape = MulticallShape.of(calldata) ?: return null
     val budget = DecodeBudget("multicall", ParserLimits.MAX_NESTED_NODES)
     return try {
@@ -107,7 +108,7 @@ fun Multicall.deepestLevel(level: Int = 1): Int =
  * The calldata that [calls] encode to as [shape], with [deadline] when the shape has one. It is null when a call does not fit the
  * shape: a field the shape lacks, a field it has but the call does not, an address that is not 20 bytes, or a value that is not a uint256.
  */
-internal fun encodeMulticall(shape: MulticallShape, deadline: BigInteger?, calls: List<InnerCall>): ByteArray? {
+fun encodeMulticall(shape: MulticallShape, deadline: BigInteger?, calls: List<InnerCall>): ByteArray? {
     if (shape.hasDeadline != (deadline != null)) return null
     val elements = calls.map { elementOf(shape, it) ?: return null }
     val head = ByteArrayOutputStream()

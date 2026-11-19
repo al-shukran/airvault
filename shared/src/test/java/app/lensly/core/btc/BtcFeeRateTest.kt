@@ -2,9 +2,9 @@ package app.lensly.core.btc
 
 import fr.acinq.bitcoin.Transaction
 import kotlin.math.abs
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.Test
 
 class BtcFeeRateTest {
     private val seed = BitcoinVectors.seed()

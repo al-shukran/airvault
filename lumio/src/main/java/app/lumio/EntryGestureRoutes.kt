@@ -7,7 +7,6 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import app.lumio.ui.kit.lumioComposable
 import androidx.navigation.navArgument
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
@@ -16,6 +15,7 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.settings.EntryGestureChangeScreen
 import app.lensly.ui.settings.EntryGestureScreen
+import app.lumio.ui.kit.lumioComposable
 
 /**
  * The Hidden Entry Gesture in Lumio's Settings: the choice of a gesture, and the change to the one chosen. Both screens are Lensly's,

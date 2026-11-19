@@ -1,7 +1,7 @@
 package app.lensly.ui.flow
 
-import app.lensly.app.VaultHolder
 import app.lensly.app.DecoyVault
+import app.lensly.app.VaultHolder
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.DuressResult
 import app.lensly.core.vault.FakeClock
@@ -11,8 +11,8 @@ import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import java.io.File
-import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test

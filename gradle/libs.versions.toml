@@ -46,6 +46,7 @@ androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "l
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 web3j-core = { group = "org.web3j", name = "core", version.ref = "web3j" }
+web3j-crypto = { group = "org.web3j", name = "crypto", version.ref = "web3j" }
 bouncycastle-bcprov-jdk18on = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 sparrowwallet-hummingbird = { group = "com.sparrowwallet", name = "hummingbird", version.ref = "hummingbird" }
 bitcoin-kmp = { group = "fr.acinq.bitcoin", name = "bitcoin-kmp", version.ref = "bitcoinKmp" }

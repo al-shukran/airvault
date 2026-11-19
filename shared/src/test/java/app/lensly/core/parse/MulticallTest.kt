@@ -1,6 +1,13 @@
 package app.lensly.core.parse
 
-import app.lensly.core.registry.ContractCall
+import app.airvault.chains.evm.signer.ContractCall
+import app.airvault.chains.evm.signer.InnerCall
+import app.airvault.chains.evm.signer.MulticallShape
+import app.airvault.chains.evm.signer.callCount
+import app.airvault.chains.evm.signer.deepestLevel
+import app.airvault.chains.evm.signer.encodeMulticall
+import app.airvault.chains.evm.signer.encodesAs
+import app.airvault.chains.evm.signer.multicallOf
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger

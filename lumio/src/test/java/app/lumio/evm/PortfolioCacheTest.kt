@@ -5,7 +5,6 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallet
-import app.lensly.core.wallet.HdWallet
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse

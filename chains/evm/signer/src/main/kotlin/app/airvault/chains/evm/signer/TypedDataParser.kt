@@ -1,4 +1,4 @@
-package app.lensly.core.evm
+package app.airvault.chains.evm.signer
 
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits

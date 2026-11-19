@@ -12,8 +12,8 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.home.groupedAddress
-import app.lensly.ui.shippedRegistry
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
+import app.lensly.ui.shippedRegistry
 import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

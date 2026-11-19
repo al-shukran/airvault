@@ -7,6 +7,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
@@ -41,6 +41,7 @@ import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.RowArrow
 import app.lensly.ui.components.settingsIslandItems
 import app.lensly.ui.theme.LenslySpacing
+
 
 /** The filters of the Networks screen: every network, the mainnets, or the testnets. */
 internal enum class NetworkFilter(val label: String) {

@@ -16,9 +16,9 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.camera.EntryGesture
 import java.io.File
-import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test

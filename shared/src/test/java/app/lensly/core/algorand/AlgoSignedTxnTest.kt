@@ -2,14 +2,14 @@ package app.lensly.core.algorand
 
 import app.airvault.chains.algorand.bytesToSign
 import app.airvault.chains.algorand.signer.AlgoTxnException
-import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
-import org.bouncycastle.crypto.signers.Ed25519Signer
-import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
+import org.bouncycastle.crypto.signers.Ed25519Signer
+import org.junit.Test
 
 /**
  * Tests for [AlgoSignedTxn]. The transaction IDs were computed outside this code: base32 of the SHA-512/256 hash of

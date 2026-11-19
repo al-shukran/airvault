@@ -35,8 +35,8 @@ import app.lumio.pair.PairAddressBooks
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.ownAccountsOf
 import app.lumio.transactions.TxDetail
-import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.transactions.txDetailOf
+import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.ui.transactions.AddressBookSheet
 import app.lumio.ui.transactions.TransactionDetailScreen
 import app.lumio.ui.transactions.addressBookWith
@@ -46,6 +46,7 @@ import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
 
 /** The detail of one transaction, with its comment that the owner edits here. A transaction the store does not hold leaves the screen. */
 @Composable

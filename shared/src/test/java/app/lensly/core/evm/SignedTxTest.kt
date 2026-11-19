@@ -1,5 +1,7 @@
 package app.lensly.core.evm
 
+import app.airvault.chains.evm.signer.TxType
+import app.airvault.chains.evm.signer.UnsignedTx
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger

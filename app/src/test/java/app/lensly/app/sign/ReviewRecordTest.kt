@@ -1,10 +1,10 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
 import app.lensly.ui.sign.SIGN_MESSAGE_FUNCTION
 import app.lensly.ui.sign.TxReview
 import java.security.MessageDigest

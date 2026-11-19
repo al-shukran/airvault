@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
@@ -34,8 +33,8 @@ import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.camera.EntryGesturePad
 import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic

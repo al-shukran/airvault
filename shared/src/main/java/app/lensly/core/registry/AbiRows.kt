@@ -1,5 +1,16 @@
 package app.lensly.core.registry
 
+import app.airvault.abi.AbiType
+import app.airvault.abi.AbiTypes
+import app.airvault.abi.AbiValue
+import app.airvault.abi.ArrayType
+import app.airvault.abi.AtomicType
+import app.airvault.abi.DecodedParam
+import app.airvault.abi.DynamicBytes
+import app.airvault.abi.TupleType
+import app.airvault.abi.WhitelistParam
+import app.airvault.abi.hexBytesOrNull
+import app.airvault.abi.utf8TextOf
 import java.math.BigInteger
 import org.web3j.crypto.Keys
 
@@ -23,8 +34,9 @@ object AbiRows {
         val rows = ArrayList<Pair<String, String>>()
         node(decoded.param.name, type, decoded.param, decoded.value, rows)
         val atomic = type as? AtomicType
-        if (decoded.param.tokenRef && atomic != null && decoded.value is AbiValue.Word) {
-            amountOf(BigInteger(decoded.value.hex, 16))?.let { rows[0] = rows[0].first to it }
+        val word = decoded.value as? AbiValue.Word
+        if (decoded.param.tokenRef && atomic != null && word != null) {
+            amountOf(BigInteger(word.hex, 16))?.let { rows[0] = rows[0].first to it }
         }
         return rows
     }
