@@ -17,7 +17,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
 import app.airvault.core.model.ChainId
 import app.lensly.DebugBtcFixture
-import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
 import app.lensly.app.BITCOIN_FAMILY
@@ -26,9 +25,7 @@ import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
 import app.lensly.app.notesOf
-import app.lensly.app.sign.algorandCounterparties
 import app.lensly.app.sign.evmCounterparties
-import app.airvault.chains.algorand.signer.toReview
 import app.airvault.chains.solana.signer.toReview
 import app.lensly.app.sign.solanaCounterparties
 import app.lensly.ui.camera.FrameSource
@@ -151,18 +148,18 @@ internal fun SignWalletRoute(
             onOpenAddress = openAddress,
         )
         is SignStep.SolanaConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
-        is SignStep.AlgorandReview -> ReviewScreen(
-            review = remember(shown.ready.review) { shown.ready.review.toReview() },
+        is SignStep.AppReview -> ReviewScreen(
+            review = shown.ready.review,
             signer = shown.ready.signer,
-            addressNotes = notesNow(shown.ready.addressNotes, algorandCounterparties(shown.ready.review), ALGORAND_FAMILY, book),
-            addressChain = ALGORAND_FAMILY,
+            addressNotes = notesNow(shown.ready.addressNotes, shown.ready.counterparties, shown.ready.addressChain, book),
+            addressChain = shown.ready.addressChain,
             ticked = ticked,
             onTick = flow::tick,
             onApprove = flow::approve,
             onReject = flow::leave,
             onOpenAddress = openAddress,
         )
-        is SignStep.AlgorandConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
+        is SignStep.AppConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.Signature -> ShowQrScreen(
             title = "Signature",
             subtitle = "Scan this with your online wallet",

@@ -154,7 +154,7 @@ internal fun AlgorandSendRoute(
     }
     val maxUnits: BigInteger? = when {
         loaded == null -> null
-        isAlgo -> feeEstimate?.let { AlgorandSend.maxMicro(loaded.balance, it) }
+        isAlgo -> feeEstimate?.let { AlgorandSend.maxMicro(loaded, it) }
         else -> selected.held
     }
     val amountError = amountError(amount, selected, maxUnits)
@@ -166,9 +166,9 @@ internal fun AlgorandSendRoute(
         funds = null
         runCatching {
             withContext(Dispatchers.IO) {
-                val holdings = optedInAssets(scheduler, network, address)
-                val infos = AlgorandAssets.infoIds(holdings).associateWith { ChainHoldings.info(scheduler, network, it) }
-                AlgorandSend.funds(scheduler, network, address) to AlgorandAssets.choices(holdings, infos)
+                val read = AlgorandSend.funds(scheduler, network, address)
+                val infos = AlgorandAssets.infoIds(read.holdings).associateWith { ChainHoldings.info(scheduler, network, it) }
+                read to AlgorandAssets.choices(read.holdings, infos)
             }
         }
             .onSuccess { (read, choices) ->
@@ -389,6 +389,7 @@ internal fun AlgorandSendRoute(
             selected = selected,
             onSelect = { selectedKey = it.key },
             balanceText = balanceText(loaded, selected),
+            keepText = loaded?.let { AlgorandSend.algoText(it.minimum) },
             recipient = recipient,
             onRecipient = { recipient = it },
             onScan = {

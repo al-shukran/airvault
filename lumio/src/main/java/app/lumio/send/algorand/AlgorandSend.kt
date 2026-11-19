@@ -15,6 +15,7 @@ import app.lumio.data.provider.AlgorandParams
 import app.lumio.data.provider.AlgorandPendingInfo
 import app.lumio.data.provider.AlgorandPendingTx
 import app.lumio.data.provider.AlgorandSuggestedParams
+import app.lumio.data.provider.AsaHolding
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
@@ -24,8 +25,14 @@ import com.sparrowwallet.hummingbird.UR
 import java.math.BigDecimal
 import java.math.BigInteger
 
-/** What the network says before a send: the balance of the sending account, and the parameters of the next transaction. */
-class AlgorandFunds(val balance: BigInteger, val params: AlgorandSuggestedParams)
+/**
+ * What the network says before a send: the balance of the sending account, the parameters of the next transaction, and the assets the account has
+ * opted in to. Each opted-in asset raises the minimum balance that a send must leave in the account.
+ */
+class AlgorandFunds(val balance: BigInteger, val params: AlgorandSuggestedParams, val holdings: List<AsaHolding> = emptyList()) {
+    /** The minimum balance: 0.1 ALGO for the account, and 0.1 ALGO more for each asset it has opted in to. */
+    val minimum: BigInteger get() = BigInteger.valueOf(AlgorandSend.MIN_BALANCE * (1 + holdings.size))
+}
 
 /**
  * What Lumio asks Lensly to sign on an Algorand account: an ALGO payment ([AlgorandPaymentPlan]), or an asset transfer or opt-in ([AsaSendPlan]). The
@@ -64,7 +71,7 @@ class AlgorandPaymentPlan(
  * the account's public key over "TX" and the transaction bytes.
  */
 object AlgorandSend {
-    /** The minimum balance of an account that holds no asset: 0.1 ALGO, in microAlgos. A send must leave it in the account. */
+    /** The ALGO an account keeps for itself: 0.1 ALGO, in microAlgos. Each opted-in asset keeps the same again (see [AlgorandFunds.minimum]). */
     const val MIN_BALANCE = 100_000L
 
     /** The signer's origin, which the sign request names: the app that asks. */
@@ -84,7 +91,7 @@ object AlgorandSend {
     private const val WRONG_ACCOUNT = "This signature is from another account."
     private const val WRONG_SIGNATURE = "This signature does not match this transaction. Scan the signature again."
     private const val WRONG_TXID = "The network reported a different transaction id. Check the explorer before you send again."
-    private const val NOT_ENOUGH = "The account cannot pay this amount, the fee and the 0.1 ALGO that must stay in it. Lower the amount."
+    private const val NOT_ENOUGH = "The account cannot pay this amount, the fee and the minimum balance that must stay in it. Lower the amount."
 
     /** The reason [text] is not an Algorand address, or null when it is one. A valid address has 58 characters and a checksum that matches. */
     fun recipientError(text: String): String? = runCatching { recipientKey(text) }.exceptionOrNull()?.let { "Enter a valid Algorand address." }
@@ -104,9 +111,9 @@ object AlgorandSend {
     /** The ALGO text of [micro] as the amount field takes it: the digits, with no trailing zeros. */
     fun algoText(micro: BigInteger): String = BigDecimal(micro).movePointLeft(DECIMALS).stripTrailingZeros().toPlainString()
 
-    /** The most that can be sent from [balance] with [fee]: the balance less the fee and the minimum balance. Zero when nothing can. */
-    fun maxMicro(balance: BigInteger, fee: BigInteger): BigInteger =
-        (balance - BigInteger.valueOf(MIN_BALANCE) - fee).max(BigInteger.ZERO)
+    /** The most that can be sent from [funds] with [fee]: the balance less the fee and the minimum balance. Zero when nothing can. */
+    fun maxMicro(funds: AlgorandFunds, fee: BigInteger): BigInteger =
+        (funds.balance - funds.minimum - fee).max(BigInteger.ZERO)
 
     /** The derivation path of account [index]: m/44'/283'/N'/0/0, the Ledger Algorand path that Lensly signs with. */
     fun derivationPath(index: Int): List<PathStep> = listOf(
@@ -117,11 +124,11 @@ object AlgorandSend {
         PathStep(0, false),
     )
 
-    /** The network's balance of [address] and the parameters of the next transaction, read through [scheduler]. */
+    /** The network's balance of [address], the parameters of the next transaction and the assets it has opted in to, read through [scheduler]. */
     suspend fun funds(scheduler: Scheduler, network: NetworkId, address: String): AlgorandFunds {
         val balance = scheduler.run(NativeBalance(network, address), Priority.FOREGROUND)
         val params = scheduler.run(AlgorandParams(network), Priority.FOREGROUND)
-        return AlgorandFunds(balance, params)
+        return AlgorandFunds(balance, params, optedInAssets(scheduler, network, address))
     }
 
     /**
@@ -148,7 +155,7 @@ object AlgorandSend {
         val fee = feeOf(template(funds.params, signer, to, amount, fee = 0UL), funds.params)
         val txn = template(funds.params, signer, to, amount, fee = fee)
         val total = amount + fee.toBigInteger()
-        require(total <= funds.balance - BigInteger.valueOf(MIN_BALANCE)) { NOT_ENOUGH }
+        require(total <= funds.balance - funds.minimum) { NOT_ENOUGH }
         return AlgorandPaymentPlan(
             network = network,
             signer = signer,

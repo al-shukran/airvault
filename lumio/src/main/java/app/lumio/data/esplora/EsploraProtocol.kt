@@ -19,6 +19,7 @@ import app.lumio.data.provider.TipHeight
 import app.lumio.data.provider.Tx
 import app.lumio.data.provider.Utxo
 import app.lumio.data.provider.fetchText
+import app.lumio.data.provider.noRedirects
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request as HttpRequest
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -84,7 +85,7 @@ object EsploraProtocol {
     private suspend fun send(http: Http, request: HttpRequest, notFoundIsAnswer: Boolean): String {
         val started = System.nanoTime()
         return try {
-            fetchText(http.client, request, banMs = null, notFoundIsAnswer = notFoundIsAnswer).also { logLine(request, "ok", started) }
+            fetchText(http.noRedirects(), request, banMs = null, notFoundIsAnswer = notFoundIsAnswer).also { logLine(request, "ok", started) }
         } catch (e: Throwable) {
             logLine(request, "error=${e.javaClass.simpleName}", started)
             throw e
