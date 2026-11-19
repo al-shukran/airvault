@@ -95,7 +95,7 @@ private const val MORE_SYMBOLS_MIDDLE = "€£$¥^°={}"
 private const val MORE_SYMBOLS_BOTTOM = "\\©®™℅[]"
 
 /** Test tag of the key preview. It carries no text, so the typed character stays out of accessibility. */
-internal const val KEY_PREVIEW_TAG = "keyboard-key-preview"
+internal const val KEY_PREVIEW_TAG = "keyboard-preview"
 
 private val PREVIEW_WIDTH = 44.dp
 private val PREVIEW_HEIGHT = 56.dp

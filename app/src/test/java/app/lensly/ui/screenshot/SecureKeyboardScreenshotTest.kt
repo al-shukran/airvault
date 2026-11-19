@@ -57,7 +57,10 @@ class SecureKeyboardScreenshotTest {
     @Test
     fun symbols() = compose.snapshot(
         "secure_keyboard_symbols",
-        beforeCapture = { onNodeWithContentDescription("Symbols").performClick() },
+        beforeCapture = {
+            onNodeWithContentDescription("Symbols").performClick()
+            mainClock.advanceTimeBy(16)
+        },
     ) {
         AtFoot { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
     }
@@ -67,7 +70,9 @@ class SecureKeyboardScreenshotTest {
         "secure_keyboard_more_symbols",
         beforeCapture = {
             onNodeWithContentDescription("Symbols").performClick()
+            mainClock.advanceTimeBy(16)
             onNodeWithContentDescription("More symbols").performClick()
+            mainClock.advanceTimeBy(16)
         },
     ) {
         AtFoot { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
