@@ -63,6 +63,10 @@ class SecureKeyboardTest {
         while (compose.mainClock.currentTime < target) compose.mainClock.advanceTimeBy(5)
     }
 
+    private fun advanceTo(ms: Long) {
+        while (compose.mainClock.currentTime < ms) compose.mainClock.advanceTimeBy(5)
+    }
+
     @Test
     fun theDownArrowKeyHidesTheKeyboard() {
         var dismissed = 0
