@@ -153,7 +153,7 @@ class WalletScreensScreenshotTest {
                 WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = 1234.56),
                 WalletRow("wallet-second", "Savings", fingerprint = 0x5e6f7a8b, summary = "1 chain · 2 accounts", usd = 980.0),
             ),
-            allocation = readyAllocation("monad" to 1500.0, "usdc" to 700.0, "dust" to 14.56),
+            allocation = readyAllocation("EVM-10143" to 1500.0, "usdc" to 700.0, "dust" to 14.56),
             showTotal = true,
             refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
