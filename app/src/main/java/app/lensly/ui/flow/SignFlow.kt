@@ -1,6 +1,9 @@
 package app.lensly.ui.flow
 
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.algorandManifest
+import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.RequestHeader
 import app.lensly.app.AddressNotes
 import app.lensly.app.BitcoinReviewed
 import app.lensly.app.SigningAccount
@@ -21,6 +24,7 @@ import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.parse.NOT_A_PSBT
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.ur.SolSignRequest
@@ -254,7 +258,7 @@ class SignFlow(
                 is ScanReply.Complete -> if (accept(text)) publish(started, decide(started, reply.parsed))
                 is ScanReply.Bitcoin -> if (accept(text)) publish(started, decideBitcoin(started, reply.psbt))
                 is ScanReply.Solana -> if (accept(text)) publish(started, decideSolana(started, reply.payload))
-                is ScanReply.Algorand -> if (accept(text)) publish(started, decideAlgorand(started, reply.payload))
+                is ScanReply.App -> if (accept(text)) publish(started, decideApp(started, reply.request))
             }
         }
     }
@@ -574,13 +578,19 @@ class SignFlow(
         if (!waiting.busy) current.value = SignStep.AlgorandReview(waiting.ready)
     }
 
+    /** Reviews a complete request that an installed chain app parsed. Algorand is the only app with a review so far. */
+    private suspend fun decideApp(started: Int, request: AppRequest): SignStep = when (request.header.app) {
+        algorandManifest.id -> decideAlgorand(started, request.header, request.body)
+        else -> SignStep.Refused(UNSUPPORTED_CODE)
+    }
+
     /** Reviews a complete Algorand request against the wallet it is for. A refusal is recorded under that wallet. */
-    private suspend fun decideAlgorand(started: Int, payload: ByteArray): SignStep {
+    private suspend fun decideAlgorand(started: Int, header: RequestHeader, payload: ByteArray): SignStep {
         val request = when (val decoded = AlgoSignRequest.decode(payload)) {
             is AlgoSignRequest.Result.Ok -> decoded.request
             is AlgoSignRequest.Result.Rejected -> return SignStep.Refused(decoded.reason)
         }
-        return routed(ScannedRequest.Algorand(request)) { target ->
+        return routed(ScannedRequest.App(header)) { target ->
             try {
                 when (val prepared = ports.algorandPrepare(target, request)) {
                     is AlgorandPrepared.Ready -> SignStep.AlgorandReview(prepared)

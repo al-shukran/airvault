@@ -1,7 +1,9 @@
 package app.lensly.app.sign
 
-import app.airvault.chains.algorand.AlgoSignRequest
-import app.airvault.chains.algorand.AlgoSignType
+import app.airvault.chains.algorand.algorandManifest
+import app.airvault.core.signer.RequestHeader
+import app.airvault.core.signer.RequestKind
+import app.airvault.core.signer.SignerRef
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
@@ -61,15 +63,13 @@ private fun solana(fingerprint: Int?) = ScannedRequest.Solana(
     ),
 )
 
-private fun algorand(fingerprint: Int?) = ScannedRequest.Algorand(
-    AlgoSignRequest(
+private fun algorand(fingerprint: Int?) = ScannedRequest.App(
+    RequestHeader(
+        app = algorandManifest.id,
+        chain = algorandManifest.networks.first { !it.testnet }.chainId,
+        kind = RequestKind.TRANSACTION,
+        signers = listOf(SignerRef(fingerprint, ACCOUNT_PATH)),
         requestId = ByteArray(16) { 1 },
-        signData = byteArrayOf(1),
-        derivationPath = ACCOUNT_PATH,
-        sourceFingerprint = fingerprint,
-        address = "",
-        origin = "",
-        signType = AlgoSignType.TRANSACTION,
     ),
 )
 
