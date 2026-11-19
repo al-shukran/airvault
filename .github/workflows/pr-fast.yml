@@ -26,6 +26,18 @@ env:
   # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
   # no lane can read an entry another lane saved. The repository secret must exist for this to take effect (see the PR body).
   GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+  # The Gradle user-home directories the deps cache holds. The configuration cache names the generated ones (version-catalog
+  # accessors, transformed and instrumented jars, compiled build scripts) as inputs, so a restore must bring them back too.
+  # The directory names carry the Gradle version that gradle-wrapper.properties pins (9.7.0).
+  DEPS_CACHE_PATHS: |
+    ~/.gradle/caches/modules-2
+    ~/.gradle/wrapper/dists
+    ~/.gradle/caches/9.7.0/dependencies-accessors
+    ~/.gradle/caches/9.7.0/generated-gradle-jars
+    ~/.gradle/caches/9.7.0/kotlin-dsl
+    ~/.gradle/caches/9.7.0/scripts
+    ~/.gradle/caches/9.7.0/transforms
+    ~/.gradle/caches/jars-9
 
 # A pull request supersedes its own earlier run. A master push or a queue entry always finishes: each commit that lands is
 # verified.
@@ -57,18 +69,13 @@ jobs:
         with:
           cache-disabled: true
 
-      # dependencies-accessors holds the version-catalog classes Gradle generates. The configuration cache records them as inputs,
-      # so a restore without them reads every entry as "has been removed" and each lane configures from scratch. The version in
-      # the path is the one gradle-wrapper.properties pins.
+      # The paths are DEPS_CACHE_PATHS (top of this file). Every job saves and restores that one list.
       - name: Restore the Gradle dependency cache
         id: deps
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-            ~/.gradle/caches/9.7.0/dependencies-accessors
-          key: deps-v2-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
 
       - name: Resolve every configuration (online, on a cache miss only)
         if: steps.deps.outputs.cache-hit != 'true'
@@ -101,11 +108,8 @@ jobs:
       - name: Restore the Gradle dependency cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-            ~/.gradle/caches/9.7.0/dependencies-accessors
-          key: deps-v2-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
       # The build cache and the configuration cache of this lane: this run's scope first, then master's.
@@ -168,11 +172,8 @@ jobs:
       - name: Restore the Gradle dependency cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-            ~/.gradle/caches/9.7.0/dependencies-accessors
-          key: deps-v2-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
       - name: Restore the Gradle build cache
@@ -234,11 +235,8 @@ jobs:
       - name: Restore the Gradle dependency cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-            ~/.gradle/caches/9.7.0/dependencies-accessors
-          key: deps-v2-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
       - name: Restore the Gradle build cache
@@ -291,11 +289,8 @@ jobs:
       - name: Restore the Gradle dependency cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-            ~/.gradle/caches/9.7.0/dependencies-accessors
-          key: deps-v2-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
       - name: Restore the Gradle build cache
@@ -347,11 +342,8 @@ jobs:
       - name: Restore the Gradle dependency cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-            ~/.gradle/caches/9.7.0/dependencies-accessors
-          key: deps-v2-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
       - name: Restore the Gradle build cache
@@ -404,11 +396,8 @@ jobs:
       - name: Restore the Gradle dependency cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-            ~/.gradle/caches/9.7.0/dependencies-accessors
-          key: deps-v2-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
       - name: Check the merged manifests
