@@ -126,9 +126,6 @@ object RegistryUpdate {
         if (!file.isFile) return recorded ?: 0
         val bytes = file.readBytes()
         val installed = runCatching { PackageFormat.read(bytes, trustedKeys).sequence }.getOrNull()
-            // A package installed before the record existed is format 1, which is no longer verified. It was verified when
-            // it was stored, and this directory is private to the app, so its sequence still counts.
-            ?: PackageFormat.format1Sequence(bytes)
         if (installed == null && recorded == null) throw RegistryUpdateException.SequenceUnknown()
         return maxOf(installed ?: 0, recorded ?: 0)
     }

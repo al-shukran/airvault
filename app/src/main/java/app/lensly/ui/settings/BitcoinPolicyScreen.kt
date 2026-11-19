@@ -2,8 +2,8 @@ package app.lensly.ui.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import app.lensly.core.btc.InputVerificationPolicy
-import app.lensly.core.btc.SigningSourcePolicy
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.RadioRow

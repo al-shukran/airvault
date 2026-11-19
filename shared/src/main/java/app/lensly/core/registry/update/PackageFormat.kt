@@ -62,7 +62,6 @@ internal object PackageFormat {
     private const val LENGTH_OFFSET = 4
     private const val KEY_ID_OFFSET = 8
     private const val HEADER_BYTES = KEY_ID_OFFSET + TrustedKey.ID_BYTES
-    private const val FORMAT1_HEADER_BYTES = 8
     private const val SIGNATURE_BYTES = 64
     private const val MAX_TEXT = 64
     private const val MAX_MEANING = 240
@@ -72,16 +71,6 @@ internal object PackageFormat {
 
     /** The verified content of [bytes]: structure, signing key, signature, format, compatibility and entry rules, in that order. */
     fun read(bytes: ByteArray, trustedKeys: List<TrustedKey>): RegistryPackage = decode(open(bytes, trustedKeys))
-
-    /**
-     * The sequence a format 1 package states, without any verification, or null when [bytes] are not one. Only for a file
-     * this app stored itself before format 2: it keeps the rollback check from starting over at 0 after the upgrade.
-     */
-    fun format1Sequence(bytes: ByteArray): Long? {
-        if (otherMagicVersion(bytes) != 1L || bytes.size <= FORMAT1_HEADER_BYTES + SIGNATURE_BYTES) return null
-        val payload = String(bytes, FORMAT1_HEADER_BYTES, bytes.size - FORMAT1_HEADER_BYTES - SIGNATURE_BYTES, StandardCharsets.UTF_8)
-        return runCatching { json.parseToJsonElement(payload).jsonObject["sequence"]?.jsonPrimitive?.longOrNull }.getOrNull()
-    }
 
     /** The version named by a registry magic other than this app's (`LRP1`, `LRP3`, ...), or null for any other file. */
     private fun otherMagicVersion(bytes: ByteArray): Long? {

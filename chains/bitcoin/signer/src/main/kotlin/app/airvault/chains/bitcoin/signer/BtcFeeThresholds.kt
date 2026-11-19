@@ -1,4 +1,4 @@
-package app.lensly.core.btc
+package app.airvault.chains.bitcoin.signer
 
 /**
  * The owner's fee limits for a Bitcoin review. A review shows a WARN notice when its fee rate is above [highFeeRateSatPerVb], and

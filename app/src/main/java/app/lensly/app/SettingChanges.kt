@@ -1,6 +1,6 @@
 package app.lensly.app
 
-import app.lensly.core.btc.BtcFeeThresholds
+import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
 
 /*
  * The changes the Settings screens save as the owner makes them. Each returns the settings with one value changed and every other
