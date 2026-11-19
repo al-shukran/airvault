@@ -117,6 +117,8 @@ data class ReviewRecord(
     val dataHash: String,
     /** What a Bitcoin review showed of the PSBT. Null for every other record. */
     val bitcoin: BitcoinRecordFacts? = null,
+    /** The checks the owner ticked before the signature, by label. Empty for every record that was not signed. */
+    val acknowledged: List<String> = emptyList(),
 )
 
 /**

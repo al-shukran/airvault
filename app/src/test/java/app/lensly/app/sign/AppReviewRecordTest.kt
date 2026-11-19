@@ -1,8 +1,13 @@
 package app.lensly.app.sign
 
-import app.airvault.chains.algorand.AlgoSignRequest
-import app.airvault.chains.algorand.AlgoSignType
+import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
+import app.airvault.chains.algorand.signer.toReview
+import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.RequestHeader
+import app.airvault.core.signer.RequestKind
+import app.airvault.core.signer.SignerRef
+import app.lensly.app.SigningAccount
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
@@ -11,16 +16,30 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import org.junit.Test
 
-/** The Review Record of an Algorand request: what the review showed, the account that signs, and the hash of the signed bytes. */
-class AlgorandReviewRecordTest {
+/** The Review Record of an Algorand request, built from the review the owner saw: the account that signs, its rows, its network and the checks ticked. */
+class AppReviewRecordTest {
 
     @Test
-    fun aSignedPaymentRecordsItsAccountRowsNetworkAndHash() {
-        val request = request(PAY_BASIC)
-        val checked = AlgorandRequestCheck.check(PAY_BASIC, PATH, REQUEST_ID, listOf(SENDER_KEY))
-        val reviewed = assertIs<AlgorandRequestCheck.Result.Ok>(checked).review
+    fun aSignedPaymentRecordsItsAccountRowsNetworkChecksAndHash() {
+        val review = assertIs<AlgorandRequestCheck.Result.Ok>(AlgorandRequestCheck.check(PAY_BASIC, PATH, REQUEST_ID, listOf(SENDER_KEY))).review
+        val reviewed = AppPrepared.Ready(
+            walletId = WALLET,
+            request = appRequest(),
+            review = review.toReview(),
+            accountIndex = review.accountIndex,
+            signer = SigningAccount(name = "Test 0", walletName = "Test", address = SENDER_ADDRESS),
+            addressChain = algorandManifest.networks.first { !it.testnet }.chainId,
+            counterparties = emptyList(),
+            addressNotes = emptyMap(),
+        )
 
-        val record = algorandReviewRecordOf(AlgorandReviewEntry(WALLET, ReviewOutcome.SIGNED, request, reviewed, refusal = null), atMs = 1L)
+        val record = appReviewRecordOf(
+            AppReviewEntry(WALLET, ReviewOutcome.SIGNED, appRequest(), reviewed, acknowledged = listOf("Check A"), refusal = null),
+            atMs = 1L,
+            origin = "lumio",
+            dataHash = sha256Hex(PAY_BASIC),
+            displayName = "Algorand",
+        )
 
         assertEquals(ReviewOutcome.SIGNED, record.outcome)
         assertEquals(ReviewKind.TRANSACTION, record.kind)
@@ -40,16 +59,18 @@ class AlgorandReviewRecordTest {
             ),
             record.params,
         )
-        assertEquals(MessageDigest.getInstance("SHA-256").digest(request.signData).toHex(), record.dataHash)
+        assertEquals(listOf("Check A"), record.acknowledged)
+        assertEquals(sha256Hex(PAY_BASIC), record.dataHash)
     }
 
     @Test
     fun aRefusalBeforeAReviewRecordsTheReasonWithoutAnAccount() {
-        val request = request(PAY_BASIC)
-
-        val record = algorandReviewRecordOf(
-            AlgorandReviewEntry(WALLET, ReviewOutcome.REFUSED, request, reviewed = null, refusal = AlgorandRequestCheck.UNKNOWN_ACCOUNT),
+        val record = appReviewRecordOf(
+            AppReviewEntry(WALLET, ReviewOutcome.REFUSED, appRequest(), reviewed = null, acknowledged = emptyList(), refusal = AlgorandRequestCheck.UNKNOWN_ACCOUNT),
             atMs = 1L,
+            origin = "lumio",
+            dataHash = sha256Hex(PAY_BASIC),
+            displayName = "Algorand",
         )
 
         assertEquals(ReviewOutcome.REFUSED, record.outcome)
@@ -62,25 +83,30 @@ class AlgorandReviewRecordTest {
 
     @Test
     fun aMessageRecordsAsAMessage() {
-        val request = AlgoSignRequest(REQUEST_ID, PAY_BASIC, PATH, null, address = "", origin = "lumio", signType = AlgoSignType.MESSAGE)
+        val message = AppRequest(header(RequestKind.MESSAGE), PAY_BASIC)
 
-        val record = algorandReviewRecordOf(
-            AlgorandReviewEntry(WALLET, ReviewOutcome.REFUSED, request, reviewed = null, refusal = AlgorandRequestCheck.NOT_A_TRANSACTION),
+        val record = appReviewRecordOf(
+            AppReviewEntry(WALLET, ReviewOutcome.REFUSED, message, reviewed = null, acknowledged = emptyList(), refusal = AlgorandRequestCheck.NOT_A_TRANSACTION),
             atMs = 1L,
+            origin = "lumio",
+            dataHash = sha256Hex(PAY_BASIC),
+            displayName = "Algorand",
         )
 
         assertEquals(ReviewKind.MESSAGE, record.kind)
     }
 
-    private fun request(signData: ByteArray): AlgoSignRequest = AlgoSignRequest(
+    private fun header(kind: RequestKind): RequestHeader = RequestHeader(
+        app = algorandManifest.id,
+        chain = algorandManifest.networks.first { it.testnet }.chainId,
+        kind = kind,
+        signers = listOf(SignerRef(null, PATH)),
         requestId = REQUEST_ID,
-        signData = signData,
-        derivationPath = PATH,
-        sourceFingerprint = null,
-        address = "",
-        origin = "lumio",
-        signType = AlgoSignType.TRANSACTION,
     )
+
+    private fun appRequest(): AppRequest = AppRequest(header(RequestKind.TRANSACTION), PAY_BASIC)
+
+    private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
 
     private companion object {
         const val WALLET = "algorand-wallet"

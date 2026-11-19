@@ -65,14 +65,15 @@ class ReviewHistory(private val session: VaultSession) {
 /**
  * The binary layout of a Review Record, written the way [WalletRecords] writes its records: a version byte, then each field in
  * order. Text is a length and its UTF-8 bytes, so a long message fits, which DataOutputStream.writeUTF refuses past 64 KiB. Each
- * optional field is a flag, then its value when the flag is set. The Bitcoin facts come last, after the data hash.
+ * optional field is a flag, then its value when the flag is set. The Bitcoin facts come after the data hash, then the checks ticked.
  */
 internal object ReviewRecordCodec {
-    private const val VERSION = 2
+    private const val VERSION = 3
     private const val MAX_TEXT_BYTES = 1 shl 20
     private const val MAX_ROWS = 256
     private const val MAX_OUTPUTS = 4096
     private const val MAX_NOTICES = 256
+    private const val MAX_CHECKS = 256
 
     fun encode(record: ReviewRecord): ByteArray = WalletRecords.writeBytes { out ->
         out.writeByte(VERSION)
@@ -93,6 +94,7 @@ internal object ReviewRecordCodec {
         out.writeOptional(record.refusal) { writeText(it) }
         out.writeText(record.dataHash)
         out.writeOptional(record.bitcoin) { writeBitcoin(it) }
+        out.writeTexts(record.acknowledged)
     }
 
     fun decode(bytes: ByteArray): ReviewRecord = WalletRecords.readBytes(bytes) { input ->
@@ -115,6 +117,7 @@ internal object ReviewRecordCodec {
         val refusal = input.readOptional { readText() }
         val dataHash = input.readText()
         val bitcoin = input.readOptional { readBitcoin() }
+        val acknowledged = input.readTexts()
         ReviewRecord(
             atMs = atMs,
             outcome = outcome,
@@ -133,6 +136,7 @@ internal object ReviewRecordCodec {
             refusal = refusal,
             dataHash = dataHash,
             bitcoin = bitcoin,
+            acknowledged = acknowledged,
         )
     }
 
@@ -202,5 +206,16 @@ internal object ReviewRecordCodec {
         val count = readInt()
         require(count in 0..MAX_ROWS) { "Too many rows." }
         return List(count) { readText() to readText() }
+    }
+
+    private fun DataOutputStream.writeTexts(texts: List<String>) {
+        writeInt(texts.size)
+        texts.forEach { writeText(it) }
+    }
+
+    private fun DataInputStream.readTexts(): List<String> {
+        val count = readInt()
+        require(count in 0..MAX_CHECKS) { "Too many checks." }
+        return List(count) { readText() }
     }
 }
