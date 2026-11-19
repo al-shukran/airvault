@@ -8,6 +8,8 @@ import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.algorand.bytesToSign
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.airvault.chains.algorand.signer.toReview
+import app.airvault.core.model.Danger
+import app.airvault.core.model.Warning
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
@@ -70,6 +72,31 @@ class AppReviewRecordTest {
         )
         assertEquals(listOf("Check A"), record.acknowledged)
         assertEquals(sha256Hex(PAY_BASIC), record.dataHash)
+    }
+
+    @Test
+    fun aRecordKeepsTheWarningsTheReviewShowed() {
+        val review = assertIs<AlgorandRequestCheck.Result.Ok>(AlgorandRequestCheck.check(PAY_BASIC, PATH, REQUEST_ID, listOf(SENDER_KEY))).review
+        val reviewed = AppPrepared.Ready(
+            walletId = WALLET,
+            request = appRequest(),
+            review = review.toReview().copy(warnings = listOf(Warning(Danger.CAUTION, "test.note", "Unknown asset", acknowledge = "Check A"))),
+            accountIndex = review.accountIndex,
+            signer = SigningAccount(name = "Test 0", walletName = "Test", address = SENDER_ADDRESS),
+            addressChain = algorandManifest.networks.first { !it.testnet }.chainId,
+            counterparties = emptyList(),
+            addressNotes = emptyMap(),
+        )
+
+        val record = appReviewRecordOf(
+            AppReviewEntry(WALLET, ReviewOutcome.SIGNED, appRequest(), reviewed, acknowledged = listOf("Check A"), refusal = null),
+            atMs = 1L,
+            origin = "lumio",
+            dataHash = sha256Hex(PAY_BASIC),
+            displayName = "Algorand",
+        )
+
+        assertEquals(listOf(Danger.CAUTION to "Unknown asset"), record.warnings)
     }
 
     @Test

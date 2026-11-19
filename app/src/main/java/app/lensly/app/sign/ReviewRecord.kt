@@ -3,7 +3,9 @@ package app.lensly.app.sign
 import app.airvault.chains.bitcoin.signer.btcText
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.core.model.Danger
 import app.airvault.core.model.SummaryPart
+import app.airvault.core.model.checkLabels
 import app.airvault.core.model.text
 import app.lensly.app.BitcoinReviewed
 import app.lensly.core.registry.Registry
@@ -120,6 +122,11 @@ data class ReviewRecord(
     val bitcoin: BitcoinRecordFacts? = null,
     /** The checks the owner ticked before the signature, by label. Empty for every record that was not signed. */
     val acknowledged: List<String> = emptyList(),
+    /**
+     * The warnings the review showed, by level and message, whether or not the request was signed. A Bitcoin record keeps its notices
+     * instead.
+     */
+    val warnings: List<Pair<Danger, String>> = emptyList(),
 )
 
 /**
@@ -186,6 +193,7 @@ fun bitcoinReviewRecordOf(entry: BitcoinReviewEntry, atMs: Long): ReviewRecord {
                 notices = notices,
             )
         },
+        acknowledged = if (entry.outcome == ReviewOutcome.SIGNED) reviewModel?.checkLabels().orEmpty() else emptyList(),
     )
 }
 
@@ -195,7 +203,8 @@ fun bitcoinDataHash(psbt: ByteArray): String = MessageDigest.getInstance("SHA-25
 /**
  * The Review Record of [entry], written at [atMs]. A review gives the facts the owner saw: its title is the function, its header names the
  * target, its summary states the amount, and its facts and argument rows are the fee and the params. Without a review, the chain and its
- * network name come from the request and [registry].
+ * network name come from the request and [registry]. A signed record keeps the checks the review names, which the owner had to tick to
+ * sign, and every warning the review showed.
  */
 fun reviewRecordOf(entry: ReviewEntry, atMs: Long, registry: Registry): ReviewRecord {
     val request = entry.request
@@ -225,6 +234,8 @@ fun reviewRecordOf(entry: ReviewEntry, atMs: Long, registry: Registry): ReviewRe
         origin = request.origin,
         refusal = entry.refusal,
         dataHash = MessageDigest.getInstance("SHA-256").digest(request.signData).toHex(),
+        acknowledged = if (entry.outcome == ReviewOutcome.SIGNED) review?.checkLabels().orEmpty() else emptyList(),
+        warnings = review?.warnings.orEmpty().map { it.level to it.message },
     )
 }
 
